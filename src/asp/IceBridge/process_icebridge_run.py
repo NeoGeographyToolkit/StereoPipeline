@@ -294,7 +294,7 @@ def getImageCameraPairs(imageFolder, cameraFolder, startFrame, stopFrame):
 
     if len(imageFiles) < 2:
         logger.error('Not enough input pairs exist to continue, quitting!')
-        return -1
+        return []
 
     # Get full paths
     imageFiles  = [os.path.join(imageFolder, f) for f in imageFiles ]
@@ -306,7 +306,7 @@ def getImageCameraPairs(imageFolder, cameraFolder, startFrame, stopFrame):
                      ' image files.\n' +
                      'and ' + str(len(cameraFiles)) + ' camera files.\n'+
                      'Error: Number of image files and number of camera files must match!')
-        return -1
+        return []
         
     imageCameraPairs = zip(imageFiles, cameraFiles)
     return imageCameraPairs

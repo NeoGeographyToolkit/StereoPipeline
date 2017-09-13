@@ -182,9 +182,9 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, dayVal,
                 list2.append(filename)
 
             prevStamp = currStamp # for next iteration
-            
+
         if isBigGap:
-           if dayVal == 0: 
+           if dayVal == 0:
                fileList = list2[:] # current day
            else:
                fileList = list1[:] # spillover from prev day
@@ -343,7 +343,19 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
         jpegFolder = icebridge_common.getJpegFolder(os.path.dirname(outputFolder))
         jpegIndexPath = icebridge_common.csvIndexFile(jpegFolder)
         (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath)
-        
+
+    orthoStamp = {}
+    if options.type == 'fireball':
+        # This is a bugfix. Ensure that the fireball DEM has not just
+        # the same frame number, but also same timestamp as the ortho.
+        orthoFolder = icebridge_common.getOrthoFolder(os.path.dirname(outputFolder))
+        orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
+        (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath)
+        for frame in sorted(orthoFrameDict.keys()):
+            filename = orthoFrameDict[frame]
+            [imageDateString, imageTimeString] = icebridge_common.parseTimeStamps(filename)
+            orthoStamp[frame] = imageTimeString
+            
     for dayVal in dayVals:
 
         if len(dayVals) > 1:
@@ -443,6 +455,22 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
         # Append to the main index
         for frame in sorted(localFrameDict.keys()):
 
+            if options.type == 'fireball':
+                # This is a bugfix. Ensure that the fireball DEM has not just
+                # the same frame number, but also same timestamp as the ortho.
+                # Otherwise we may accidentally getting one from next day.
+                [imageDateString, imageTimeString] = \
+                                  icebridge_common.parseTimeStamps(localFrameDict[frame])
+                if frame not in orthoStamp:
+                    logger.info("Missing ortho for fireball: " + localFrameDict[frame])
+                    continue
+                if abs(int(imageTimeString) - int(orthoStamp[frame])) > 1000:
+                    # Apparently a tolerance is needed. Use 10 seconds, so the number 1000.
+                    logger.info("Will not use fireball DEM whose timestamp differs from ortho.")
+                    logger.info("Fireball is: " + localFrameDict[frame])
+                    logger.info("Ortho is:    " + orthoFrameDict[frame])
+                    continue
+                
             # Fetch from next day, unless already have a value. And don't fetch
             # frames not in the jpeg index.
             if len(dayVals) > 1 and options.type != 'jpeg':

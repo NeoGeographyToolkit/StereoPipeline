@@ -729,7 +729,7 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
     minMinSec = 60
     maxMinSec = 0
     for lidarPath in lidarFiles:
-        
+
         vals = parseTimeStamps(lidarPath)
         if len(vals) < 2: continue # ignore bad files
 

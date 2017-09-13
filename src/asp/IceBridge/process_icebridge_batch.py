@@ -302,10 +302,12 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
             isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
             projString = icebridge_common.getEpsgCode(isSouth, asString=True)
             PROJ_STR_WGS84 = 'EPSG:4326'
-            centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
+            centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY,
+                                                               projString, PROJ_STR_WGS84)
         except Exception, e:
             if logger:
-                logger.exception('Caught exception getting DEM center coordinates:\n' + e)
+                logger.exception('Caught exception getting DEM center coordinates:\n' + str(e))
+                logger.info("Not fatal, will continue.") # for clarity in the log use this line
             else:
                 print 'Caught exception getting DEM center coordinates:'
             success = False
@@ -838,7 +840,13 @@ def doWork(options, args, logger):
             diffPath = prefix + "-diff.tif"
             cmd = ('geodiff --absolute %s %s -o %s' % (allDemPath, fireball, prefix))
             logger.info(cmd)
-            asp_system_utils.executeCommand(cmd, diffPath, suppressOutput, redo)
+            try:
+                asp_system_utils.executeCommand(cmd, diffPath, suppressOutput, redo)
+            except Exception, e:
+                # This is necessary, sometimes the fireball DEM is wrong
+                logger.info('Caught exception doing diff to fireball: ' + str(e))
+                logger.info("Not fatal, will continue.") # for clarity in the log, use this line
+                continue
             
             results = icebridge_common.readGeodiffOutput(diffPath)
             fireballDiffPaths.append(diffPath)
