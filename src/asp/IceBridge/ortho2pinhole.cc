@@ -155,20 +155,29 @@ public:
     AdjustedCameraModel adj_cam(m_camera_model, translation, rotation);
     
     // Compute the error scores
+    const double NO_VIEW_ERROR = 999;
     const size_t result_size = m_gcc_coords.size() * 2;
     result_type result;
     result.set_size(result_size);
-    //double mean_error = 0;
+    double mean_error = 0;
+    int missedPixelCount = 0;
     for (size_t i=0; i<m_gcc_coords.size(); ++i) {
-      Vector2 pixel = adj_cam.point_to_pixel(m_gcc_coords[i]);
-      //std::cout << pixel << " vs " << m_pixel_coords[i] << std::endl;
-      result[2*i  ] = pixel[0];
-      result[2*i+1] = pixel[1];
-      //mean_error += (fabs(pixel[0] - m_pixel_coords[i][0]) + fabs(pixel[1] - m_pixel_coords[i][1]))/2.0;
+      try{
+        Vector2 pixel = adj_cam.point_to_pixel(m_gcc_coords[i]);
+        //std::cout << pixel << " vs " << m_pixel_coords[i] << std::endl;
+        result[2*i  ] = pixel[0];
+        result[2*i+1] = pixel[1];
+        mean_error += (fabs(pixel[0] - m_pixel_coords[i][0]) + fabs(pixel[1] - m_pixel_coords[i][1]))/2.0;
+      } catch(vw::camera::PointToPixelErr) {
+        result[2*i  ] = NO_VIEW_ERROR;
+        result[2*i+1] = NO_VIEW_ERROR;
+        ++missedPixelCount;
+      }
     }
     
     //std::cout << "Iter " << m_iter_count << " -> mean error = " << mean_error/m_gcc_coords.size() << std::endl;
-    //++m_iter_count;
+    //std::cout << "Missed pixel count = " << missedPixelCount << std::endl;
+    ++m_iter_count;
     
     return result;
   }
@@ -230,7 +239,7 @@ int solve_for_cam_adjust(boost::shared_ptr<PinholeModel> camera_model,
 }
     
 
-void ortho2pinhole(Options const& opt){
+void ortho2pinhole(Options & opt){
 
   // Input image handles
   boost::shared_ptr<DiskImageResource>
@@ -302,7 +311,13 @@ void ortho2pinhole(Options const& opt){
     vw_out() << "Estimated elevation change of " << elevation_change << std::endl;
     if (elevation_change > ELEVATION_CHANGE_THRESHOLD)
       elevation_change_present = true;
-    
+
+    // If the user did not specify an orthoimage height, use the min
+    //  elevation as an estimate.
+    if (opt.orthoimage_height == 0.0) {
+      opt.orthoimage_height = min_height;
+      vw_out() << "Estimated orthoimage height to be " << opt.orthoimage_height << std::endl;
+    }
     
   } // End DEM provided case
 
@@ -385,6 +400,16 @@ void ortho2pinhole(Options const& opt){
   std::vector<Vector3> raw_flat_xyz2, ortho_dem_xyz, ortho_dem_llh;
   std::vector<Vector2> raw_pixels, raw_pixels2;
   
+  // Estimate the relative camera height from the terrain
+  // - Make sure the camera always has some room to intersect rays!
+  const double MIN_CAM_HEIGHT = 50;
+  double relative_cam_height = cam_height - opt.orthoimage_height;
+  if (relative_cam_height < MIN_CAM_HEIGHT) {
+    vw_out() << "WARNING: Estimated camera height is less than the estimated ortho height!\n"
+             << "Forcing the relative camera height to be " << MIN_CAM_HEIGHT << std::endl;
+    relative_cam_height = MIN_CAM_HEIGHT;
+  }
+  
   for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
     try {
       // Get ray from the raw image pixel
@@ -393,8 +418,8 @@ void ortho2pinhole(Options const& opt){
       Vector3 dir = pcam->pixel_to_vector(raw_pix);
       
       // We assume the ground is flat. Intersect rays going from camera
-      // with the plane z = cam_height.
-      Vector3 point_in = ctr + (cam_height/dir[2])*dir;
+      // with the plane z = cam_height - orthoimage_height.
+      Vector3 point_in = ctr + (relative_cam_height/dir[2])*dir;
       
       // Get lonlat location for this IP IP.
       Vector2 ortho_pix(ortho_ip[ip_iter].x, ortho_ip[ip_iter].y);
@@ -477,14 +502,18 @@ void ortho2pinhole(Options const& opt){
   }
 
   // Call function to compute a 3D affine transform between the two point sets
+  // - This is always between the nadir facing camera over flat terrain and the
+  //   ortho at the estimated constant elevation.
+  // - The ortho elevation needs to be flat so that the "plane" of the camera points
+  //   does not tilt away from the correct position trying to align to 3D terrain.
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
   asp::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
 
   vw_out() << "Determined camera extrinsics from orthoimage: " << std::endl;
-  vw_out() << "rotation: " << rotation << std::endl;
-  vw_out() << "translation: " << translation << std::endl;
+  //vw_out() << "rotation: " << rotation << std::endl;
+  //vw_out() << "translation: " << translation << std::endl;
   vw_out() << "scale: " << scale << std::endl;
 
   // Estimate the error of this transform.
@@ -506,6 +535,8 @@ void ortho2pinhole(Options const& opt){
   vw_out() << "Cam center 2 located at " << llh_cam << std::endl;
 
   if (use_dem_points) {
+    num_pts = ortho_dem_xyz.size(); // Update this value
+  
     // Refine our initial estimate of the camera position using an LM solver with the camera model.
     double norm_error;
     int status = solve_for_cam_adjust(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()),
@@ -519,8 +550,8 @@ void ortho2pinhole(Options const& opt){
       vw_out() << "LM solver error: " << norm_error << std::endl;
 
       vw_out() << "Optimized camera extrinsics from orthoimage: " << std::endl;
-      vw_out() << "rotation: " << rotation << std::endl;
-      vw_out() << "translation: " << translation << std::endl;
+      //vw_out() << "rotation: " << rotation << std::endl;
+      //vw_out() << "translation: " << translation << std::endl;
 
       // TODO: Make a function for this?
       // Apply the transform to the camera.     
@@ -538,8 +569,7 @@ void ortho2pinhole(Options const& opt){
       
       // Check error
       if (opt.show_error) {
-        const size_t num_points = raw_pixels2.size();
-        for (size_t i=0; i<num_points; ++i) {
+        for (int i=0; i<num_pts; ++i) {
           Vector2 pixel = pcam->point_to_pixel(ortho_dem_xyz[i]);
           double diff = norm_2(pixel - raw_pixels2[i]);
           std::cout << "Error " << i << " = " << diff << std::endl;
@@ -561,9 +591,16 @@ void ortho2pinhole(Options const& opt){
     int pts_count = 0;
     for (int pt_iter = 0; pt_iter < num_pts; pt_iter++) { // Loop through IPs
 
-      Vector3 llh = ortho_flat_llh[pt_iter];
-      Vector2 pix = raw_pixels[pt_iter];
-      Vector2 lonlat = subvector(llh, 0, 2);
+      Vector3 llh;
+      Vector2 pix, lonlat;
+      if (use_dem_points) {
+        llh = ortho_dem_llh[pt_iter];
+        pix = raw_pixels2[pt_iter];
+      }else {
+        llh = ortho_flat_llh[pt_iter];
+        pix = raw_pixels[pt_iter];
+      }
+      lonlat = subvector(llh, 0, 2);
       double height = llh[2];
 
       // The ground control point ID
