@@ -285,7 +285,7 @@ void ortho2pinhole(Options & opt){
                                          ConstantEdgeExtension >, 
                       BilinearInterpolation> interp_dem = 
         interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
-    double max_height = -9999, min_height = 9999999;
+    double max_height = -9999, min_height = 9999999, mean_height=0.0, num_heights = 0;;
     for (int r=0; r<rsrc_ortho->rows(); r+=HEIGHT_SKIP) {
       for (int c=0; c<rsrc_ortho->cols(); c+=HEIGHT_SKIP) {
         // Ortho pixel to DEM pixel
@@ -298,12 +298,15 @@ void ortho2pinhole(Options & opt){
           if (is_valid(dem_val)) {
             // Accumulate the valid height range
             double height = dem_val.child();
+            mean_height += height;
+            num_heights += 1.0;
             if (height < min_height) min_height = height;
             if (height > max_height) max_height = height;
           }
         } // End boundary check
       } // End col loop
     } // End row loop
+    mean_height = mean_height / num_heights;
     
     // Set a flag if we detect there is a significant amount of elevation change in the image
     const double ELEVATION_CHANGE_THRESHOLD = 40; // Meters
@@ -312,10 +315,10 @@ void ortho2pinhole(Options & opt){
     if (elevation_change > ELEVATION_CHANGE_THRESHOLD)
       elevation_change_present = true;
 
-    // If the user did not specify an orthoimage height, use the min
-    //  elevation as an estimate.
+    // If the user did not specify an orthoimage height, use the statistics we computed
+    //  to get an estimate.
     if (opt.orthoimage_height == 0.0) {
-      opt.orthoimage_height = min_height;
+      opt.orthoimage_height = mean_height;
       vw_out() << "Estimated orthoimage height to be " << opt.orthoimage_height << std::endl;
     }
     
@@ -402,13 +405,17 @@ void ortho2pinhole(Options & opt){
   
   // Estimate the relative camera height from the terrain
   // - Make sure the camera always has some room to intersect rays!
-  const double MIN_CAM_HEIGHT = 50;
+  bool use_extra_caution = false;
+  const double MIN_CAM_HEIGHT = 100;
   double relative_cam_height = cam_height - opt.orthoimage_height;
   if (relative_cam_height < MIN_CAM_HEIGHT) {
-    vw_out() << "WARNING: Estimated camera height is less than the estimated ortho height!\n"
+    vw_out() << "WARNING: Estimated camera height is too close to the estimated ortho height!\n"
              << "Forcing the relative camera height to be " << MIN_CAM_HEIGHT << std::endl;
     relative_cam_height = MIN_CAM_HEIGHT;
+    use_extra_caution   = true;
   }
+  else
+    vw_out() << "Relative cam height = " << relative_cam_height << std::endl;
   
   for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
     try {
@@ -532,53 +539,121 @@ void ortho2pinhole(Options & opt){
   pcam->apply_transform(rotation, translation, scale);
 
   Vector3 llh_cam = ortho_georef.datum().cartesian_to_geodetic(pcam->camera_center(Vector2()));
-  vw_out() << "Cam center 2 located at " << llh_cam << std::endl;
+  vw_out() << "Non-DEM camera center located at " << llh_cam << std::endl;
 
   if (use_dem_points) {
-    num_pts = ortho_dem_xyz.size(); // Update this value
-  
-    // Refine our initial estimate of the camera position using an LM solver with the camera model.
-    double norm_error;
-    int status = solve_for_cam_adjust(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()),
-                                      raw_pixels2, ortho_dem_xyz,
-                                      translation, rotation, norm_error);
+    num_pts = ortho_dem_xyz.size(); // Update this value to reflect the DEM points count
 
-    vw_out() << "LM solver status: " << status << std::endl;
-    if (status < 1)
-      vw_out() << "LM solver failed, using the initial camera estimate.\n";
-    else {
-      vw_out() << "LM solver error: " << norm_error << std::endl;
+    // Try multiple solver attempts with varying camera heights
+    const double MAX_LM_SOLVER_ERROR = 2000;
+    const double TARGET_ERROR = 1000; // Error can be quite low but incorrect results tend to be very large
+    const double HEIGHT_STEP = 50;
+    const int    NUM_SEARCH_STEPS = 6;
+    
+    // Set up the search elevation offsets
+    std::vector<double> height_offsets;
+    height_offsets.push_back(0);
+    for (int i=1; i<=NUM_SEARCH_STEPS; ++i) {
+      height_offsets.push_back(   i*HEIGHT_STEP);
+      height_offsets.push_back(-1*i*HEIGHT_STEP);
+    }
+    // If the initial search height is too far from the initial height guess,
+    //  also perform a search around the initial height guess.
+    const double SHIFT_CHECK_THRESH = 300;
+    double height_diff = cam_height - llh_cam[2]; // Diff from nominal height
+    if (fabs(height_diff) > SHIFT_CHECK_THRESH) {
+      height_offsets.push_back(height_diff);
+      for (int i=1; i<=NUM_SEARCH_STEPS; ++i) {
+        height_offsets.push_back(height_diff +    i*HEIGHT_STEP);
+        height_offsets.push_back(height_diff + -1*i*HEIGHT_STEP);
+      }
+    }
+    
 
-      vw_out() << "Optimized camera extrinsics from orthoimage: " << std::endl;
-      //vw_out() << "rotation: " << rotation << std::endl;
-      //vw_out() << "translation: " << translation << std::endl;
+    const size_t max_attempts = height_offsets.size();
+   
+    double norm_error = MAX_LM_SOLVER_ERROR + 1.0;
+    size_t attempt_count = 0;
+    
+    vw::Matrix3x3 best_rotation;
+    vw::Vector3   best_translation, best_gcc;
+    double        best_error = 999999999;
+    
+    // Record starting position
+    Vector3 initial_center_gcc = pcam->camera_center(Vector2(0,0));
+    Vector3 initial_center_llh = dem_georef.datum().cartesian_to_geodetic(initial_center_gcc);
+    
+    while (attempt_count < max_attempts) {
+    
+      // Set the camera position
+      double new_height = initial_center_llh[2] + height_offsets[attempt_count];
+      Vector3 new_llh = initial_center_llh;
+      new_llh[2] = new_height;
+      Vector3 new_gcc = dem_georef.datum().geodetic_to_cartesian(new_llh);
+      pcam->set_camera_center(new_gcc);    
+    
+      vw_out() << "Running LM solver attempt " << attempt_count << " with starting elevation: " << new_height << std::endl;
+    
+      // Refine our initial estimate of the camera position using an LM solver with the camera model.
+      int status = solve_for_cam_adjust(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()),
+                                        raw_pixels2, ortho_dem_xyz,
+                                        translation, rotation, norm_error);
 
-      // TODO: Make a function for this?
-      // Apply the transform to the camera.     
-      Quat rot_q(rotation);
-      AdjustedCameraModel adj_cam(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()),
-				  translation, rot_q);
-      Quat    pose   = adj_cam.camera_pose(Vector2());
-      Vector3 center = adj_cam.camera_center(Vector2());
-      pcam->set_camera_pose(pose);
-      pcam->set_camera_center(center);
+      attempt_count += 1;
+
+      vw_out() << "LM solver status: " << status << std::endl;
+      if (status < 1) {
+        vw_out() << "LM solver failed!\n";
+        continue; // Move on to the next attempt
+      }
+
+      // Success case
+      vw_out() << "Success: LM solver error = " << norm_error << std::endl;
       
-      
-      llh_cam = ortho_georef.datum().cartesian_to_geodetic(center);
-      vw_out() << "Cam center 3 located at " << llh_cam << std::endl;
-      
-      // Check error
-      if (opt.show_error) {
-        for (int i=0; i<num_pts; ++i) {
-          Vector2 pixel = pcam->point_to_pixel(ortho_dem_xyz[i]);
-          double diff = norm_2(pixel - raw_pixels2[i]);
-          std::cout << "Error " << i << " = " << diff << std::endl;
-        }
+      // Keep track of our best solution
+      if (norm_error < best_error) {
+          best_rotation    = rotation;
+          best_translation = translation;
+          best_error       = norm_error;
+          best_gcc         = new_gcc;
       }
       
-      
+      // If the error was very good, stop trying new solutions.
+      if ((norm_error < TARGET_ERROR) && !use_extra_caution)
+        break;      
+
+    } // End solver attempt loop
+    
+    vw_out() << "Best LM solver error  = " << best_error << std::endl;
+
+    if (best_error > TARGET_ERROR)
+      vw_out() << "WARNING: High error camera solution!\n";
+
+    // TODO: Make a function for this?
+    // Apply the transform to the camera.     
+    Quat rot_q(best_rotation);
+    pcam->set_camera_center(best_gcc); // Make sure the adjustment applies to the right center location
+    AdjustedCameraModel adj_cam(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()),
+                                best_translation, rot_q);
+    Quat    pose   = adj_cam.camera_pose(Vector2());
+    Vector3 center = adj_cam.camera_center(Vector2());
+    pcam->set_camera_pose(pose);
+    pcam->set_camera_center(center);
+    
+    
+    llh_cam = ortho_georef.datum().cartesian_to_geodetic(center);
+    vw_out() << "DEM enhanced camera center located at " << llh_cam << std::endl;
+    
+    // Check error
+    if (opt.show_error) {
+      for (int i=0; i<num_pts; ++i) {
+        Vector2 pixel = pcam->point_to_pixel(ortho_dem_xyz[i]);
+        double diff = norm_2(pixel - raw_pixels2[i]);
+        std::cout << "Error " << i << " = " << diff << std::endl;
+      }
     }
-  } // End of LM optimization attempt
+    
+  } // End of second pass DEM handling case
 
   vw_out() << "Writing: " << opt.output_cam << std::endl;
   pcam->write(opt.output_cam);
