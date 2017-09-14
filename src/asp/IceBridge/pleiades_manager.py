@@ -160,19 +160,24 @@ def runFetch(run, options):
 
     # Check if already done
     allIsFetched = False
-    try:
-        allIsFetched = run.allSourceDataFetched()
-    except Exception, e:
-        logger.warning('Caught error checking fetch status.\n'
+    if options.skipChecks:
+        allIsFetched = True
+    else:
+        try:
+            allIsFetched = run.allSourceDataFetched()
+        except Exception, e:
+            logger.warning('Caught error checking fetch status.\n'
                        + str(e))
 
     # Fetch the archive from lfe, only in the case the directory is not present
     archive_functions.retrieveRunData(run, options.unpackDir)
 
+    pythonPath = asp_system_utils.which('python')
+    
     if not options.noRefetchIndex:
         # Go ahead and refetch the indices since it helps to have these up-to-date.
         logger.info("Refetching the indices.")
-        cmd = ('python ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
         logger.info(cmd)
         os.system(cmd)
 
@@ -183,7 +188,7 @@ def runFetch(run, options):
     # Fetch whatever is missing directly from NSIDC, and force to have the indices
     # regenerated in this case. Hopefully just a few files are missing.
     logger.info("Fetch from NSIDC.")
-    cmd = ('python ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-fetch --skip-validate' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+    cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-fetch --skip-validate' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
     logger.info(cmd)
     os.system(cmd)
     
@@ -229,6 +234,7 @@ def runConversion(run, options):
         
     outputFolder = run.getFolder()
     
+    pythonPath = asp_system_utils.which('python')
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
     args       = (' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
                   % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
@@ -253,7 +259,7 @@ def runConversion(run, options):
 
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
         logger.info('Submitting conversion job: ' + scriptPath + ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, 'python', scriptPath + " " + thisArgs, logPrefix)
+        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, pythonPath, scriptPath + " " + thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
@@ -295,9 +301,10 @@ def generateBatchList(run, options, listPath):
 
     # No actual processing is being done here so it can run on the PFE
     # - This is very fast so we can re-run it every time. (Maybe not...)
+    pythonPath = asp_system_utils.which('python')
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
-    cmd       = ('python %s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --log-batches' 
-                  % (scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, run.getFolder(), options.bundleLength))
+    cmd       = ('%s %s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --log-batches --start-frame %d --stop-frame %d' 
+                  % (pythonPath, scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, run.getFolder(), options.bundleLength, options.startFrame, options.stopFrame))
 
     # For full runs we must cleanup, as otherwise we'll run out of space
     if not partialRun(options):
@@ -354,13 +361,21 @@ def submitBatchJobs(run, options, batchListPath):
     textOutput, err = p.communicate()
     numBatches      = int(textOutput.split()[0])
 
+    logger.info("Reading batch list: " + batchListPath)
+    
     # Retrieve parallel processing parameters
     (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'dem')
     numBatchJobs = numBatches / tasksPerJob
+    if numBatchJobs < 1:
+        numBatchJobs = 1
+
+    logger.info( ("Num batches: %d, tasks per job: %d, number of jobs: %d" %
+                  (numBatches, tasksPerJob, numBatchJobs) ) )
 
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
     # Call the tool which just executes commands from a file
+    pythonPath = asp_system_utils.which('python')
     scriptPath = icebridge_common.fullPath('multi_process_command_runner.py')
 
     outputFolder = run.getFolder()
@@ -379,7 +394,7 @@ def submitBatchJobs(run, options, batchListPath):
 
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
-        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, GROUP_ID, options.nodeType, scriptPath, args, logPrefix)
+        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, GROUP_ID, options.nodeType, pythonPath, scriptPath + ' ' + args, logPrefix)
         
         currentBatch += tasksPerJob
 
@@ -408,9 +423,15 @@ def runBlending(run, options):
     # Split the blends across multiple nodes using frame ranges
     numFrames    = maxFrame - minFrame + 1
     numBlendJobs = numFrames / tasksPerJob
+    if numBlendJobs < 1:
+        numBlendJobs = 1
+        
+    logger.info( ("Num frames: %d, tasks per job: %d, number of blend jobs: %d" %
+                  (numFrames, tasksPerJob, numBlendJobs) ) )
     
     outputFolder = run.getFolder()
     
+    pythonPath = asp_system_utils.which('python')
     scriptPath = icebridge_common.fullPath('blend_dems.py')
     args       = ('--site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d ' 
                   % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, options.bundleLength))
@@ -431,7 +452,7 @@ def runBlending(run, options):
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
         logger.info('Submitting blend job: ' + scriptPath +  ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS, GROUP_ID, options.nodeType, scriptPath, thisArgs, logPrefix)
+        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS, GROUP_ID, options.nodeType, pythonPath, scriptPath + ' ' + thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
@@ -578,6 +599,9 @@ def main(argsIn):
                             dest="noRefetchIndex", default=False, 
                             help="Normally we want the indices refetched, but for quick tests this is slow.")
 
+        parser.add_argument("--skip-checks", action="store_true", 
+                            dest="skipChecks", default=False, 
+                            help="Skip checking if files exist. This can be very slow for many files.")
 
         parser.add_argument("--skip-completed-batches", action="store_true", 
                             dest="failedBatchesOnly", default=False, 

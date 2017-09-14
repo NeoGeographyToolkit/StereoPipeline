@@ -91,6 +91,7 @@ def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args,
       # This grief is necessary. mfe runs python2.6 but its nodes run python 2.7.
       os.environ['PYTHONPATH'] = '/u/oalexan1/.local/lib/python2.7/site-packages'
 
+    print("PYTHONPATH=" + os.environ['PYTHONPATH'])
     command = ('qsub -r n -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- %s %s' % 
                (queueName, jobName, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, scriptPath, args))
     print command
