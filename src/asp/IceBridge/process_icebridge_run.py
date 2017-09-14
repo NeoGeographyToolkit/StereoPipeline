@@ -478,6 +478,7 @@ def main(argsIn):
     # - Wipe the output file while we are at it.
     batchLogPath = ''
     batchNum = 0
+
     if options.logBatches:
         options.numProcesses = 1
         options.numProcessesPerBatch = 1

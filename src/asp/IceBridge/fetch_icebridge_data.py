@@ -462,13 +462,13 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
                 [imageDateString, imageTimeString] = \
                                   icebridge_common.parseTimeStamps(localFrameDict[frame])
                 if frame not in orthoStamp:
-                    logger.info("Missing ortho for fireball: " + localFrameDict[frame])
+                    #logger.info("Missing ortho for fireball: " + localFrameDict[frame])
                     continue
                 if abs(int(imageTimeString) - int(orthoStamp[frame])) > 1000:
                     # Apparently a tolerance is needed. Use 10 seconds, so the number 1000.
-                    logger.info("Will not use fireball DEM whose timestamp differs from ortho.")
-                    logger.info("Fireball is: " + localFrameDict[frame])
-                    logger.info("Ortho is:    " + orthoFrameDict[frame])
+                    #logger.info("Will not use fireball DEM whose timestamp differs from ortho.")
+                    #logger.info("Fireball is: " + localFrameDict[frame])
+                    #logger.info("Ortho is:    " + orthoFrameDict[frame])
                     continue
                 
             # Fetch from next day, unless already have a value. And don't fetch

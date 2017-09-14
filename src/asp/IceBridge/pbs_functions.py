@@ -1,5 +1,5 @@
 
-import os, subprocess
+import os, subprocess, platform
 
 '''Contains functions for working with the PBS job system on the Pleiades supercomputer'''
 
@@ -86,9 +86,17 @@ def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args,
     # TODO: Does this need to be wrapped in a shell script?
     # The "-m eb" option sends the user an email when the process begins and when it ends.
     # The -r n ensures the job does not restart if it runs out of memory.
+    if platform.node() == 'mfe1':
+      origPath = os.environ['PYTHONPATH']
+      # This grief is necessary. mfe runs python2.6 but its nodes run python 2.7.
+      os.environ['PYTHONPATH'] = '/u/oalexan1/.local/lib/python2.7/site-packages'
+
     command = ('qsub -r n -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- %s %s' % 
                (queueName, jobName, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, scriptPath, args))
     print command
     os.system(command)
     
+    if platform.node() == 'mfe1':
+      # Undo, go back to mfe environment
+      os.environ['PYTHONPATH'] = origPath
     

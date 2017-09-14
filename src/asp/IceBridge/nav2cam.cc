@@ -20,7 +20,9 @@
 ///
 
 // Start with an IceBridge nav file, from https://nsidc.org/data/IPAPP1B/versions/1,
-// for example, sbet_20111012.out. Convert it to text using the Perl reader
+// for example, sbet_20111012.out. See the User Guide there for more info.
+
+// Convert the nav file to text using the Perl reader
 // from http://nsidc.org/data/docs/daac/icebridge/ipapp1b/index.html
 // The obtained text file, with a name like sbet_20111012.txt, will have
 // the format:

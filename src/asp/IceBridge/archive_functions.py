@@ -45,13 +45,18 @@ os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
-
 REMOTE_INPUT_FOLDER     = 'lfe:/u/oalexan1/projects/data/icebridge'
-REMOTE_CAMERA_FOLDER    = 'lfe:/u/smcmich1/icebridge/camera'
-REMOTE_OUTPUT_FOLDER    = 'lfe:/u/smcmich1/icebridge/output'
-REMOTE_SUMMARY_FOLDER   = 'lfe:/u/smcmich1/icebridge/summaries'
-L2_SUMMARY_FOLDER       = 'lunokhod2:/home/smcmich1/data/icebridge_summaries'
 
+if icebridge_common.getUser() == 'smcmich1':
+    REMOTE_CAMERA_FOLDER    = 'lfe:/u/smcmich1/icebridge/camera'
+    REMOTE_OUTPUT_FOLDER    = 'lfe:/u/smcmich1/icebridge/output'
+    REMOTE_SUMMARY_FOLDER   = 'lfe:/u/smcmich1/icebridge/summaries'
+    L2_SUMMARY_FOLDER       = 'lunokhod2:/home/smcmich1/data/icebridge_summaries'
+elif icebridge_common.getUser() == 'oalexan1':
+    REMOTE_CAMERA_FOLDER    = 'lfe:/u/oalexan1/projects/data/icebridge/camera'
+    REMOTE_OUTPUT_FOLDER    = 'lfe:/u/oalexan1/projects/data/icebridge/output'
+    REMOTE_SUMMARY_FOLDER   = 'lfe:/u/oalexan1/projects/data/icebridge/summaries'
+    L2_SUMMARY_FOLDER       = 'lunokhod1:/u/oalexan1/projects/data/icebridge/summaries'
 
 def retrieveRunData(run, unpackFolder):
     '''Retrieve the data for the specified run from Lfe.'''
@@ -66,7 +71,7 @@ def retrieveRunData(run, unpackFolder):
 
     unpackedDir = os.path.join(unpackFolder, os.path.splitext(fileName)[0])
     if os.path.exists(unpackedDir) and os.path.isdir(unpackedDir):
-        logger.info("Directory exists, won't fetch: " + unpackedDir)
+        logger.info("Directory exists, won't fetch from lfe: " + unpackedDir)
         return
 
     lfePath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)

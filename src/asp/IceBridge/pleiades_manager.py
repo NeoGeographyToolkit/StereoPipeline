@@ -21,7 +21,7 @@
 #   superceded by another script.
 
 import os, sys, argparse, datetime, time, subprocess, logging, multiprocessing
-import re, shutil, time, getpass
+import re, shutil, time
 
 import os.path as P
 
@@ -53,8 +53,6 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 # Constants used in this file
 
-STEREO_ALGORITHM = 2 # 1 = SGM, 2 = MGM
-
 ORTHO_PBS_QUEUE = 'normal'
 BATCH_PBS_QUEUE = 'normal'
 BLEND_PBS_QUEUE = 'normal'
@@ -83,23 +81,21 @@ def getParallelParams(nodeType, task):
     if task == 'ortho':
         if nodeType == 'ivy': return (10, 2, 400)
         if nodeType == 'bro': return (14, 4, 500)
+        if nodeType == 'wes': return (10, 4, 400)
     
-    if task == 'batch':
+    if task == 'dem':
         if nodeType == 'ivy': return (4, 8, 80)
         if nodeType == 'bro': return (6, 8, 100)
+        if nodeType == 'wes': return (3, 8, 75)
     
     if task == 'blend':
         if nodeType == 'ivy': return (10, 2, 1000)
         if nodeType == 'bro': return (14, 4, 1400) # 200 seems to finish in 10 minutes
+        if nodeType == 'wes': return (10, 3, 1000) 
     
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
 
-
 #=========================================================================
-
-def getUser():
-    '''Return the current user name.'''
-    return getpass.getuser()
 
 def getEmailAddress(userName):
     '''Return the email address to use for a user'''
@@ -112,6 +108,13 @@ def getEmailAddress(userName):
 def sendEmail(address, subject, body):
     '''Send a simple email from the command line'''
     os.system('mail -s '+subject+' '+address+' <<< '+body)
+
+def partialRun(options):
+    '''For a partial run we will not archive or cleanup, as many such
+    runs could be running at the same time (which is not recommended,
+    as it can cause problems in conversions and ortho2pinhole generation.'''
+    return (options.startFrame != icebridge_common.getSmallestFrame()) or \
+           (options.stopFrame  != icebridge_common.getLargestFrame())
 
 #---------------------------------------------------------------------
 
@@ -152,21 +155,35 @@ def runFetch(run, options):
     '''Fetch all the data for a run if it is not already available'''
 
     logger = logging.getLogger(__name__)
+    
+    logger.info("Checking all data is present.")
 
     # Check if already done
+    allIsFetched = False
     try:
-        if run.allSourceDataFetched():
-            logger.info('Fetch is already complete.')
-            return
+        allIsFetched = run.allSourceDataFetched()
     except Exception, e:
-        logger.warning('Caught error checking fetch status, re-running fetch.\n'
+        logger.warning('Caught error checking fetch status.\n'
                        + str(e))
 
-    # Call the fetch command
+    # Fetch the archive from lfe, only in the case the directory is not present
     archive_functions.retrieveRunData(run, options.unpackDir)
+
+    if not options.noRefetchIndex:
+        # Go ahead and refetch the indices since it helps to have these up-to-date.
+        logger.info("Refetching the indices.")
+        cmd = ('python ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+        logger.info(cmd)
+        os.system(cmd)
+
+    if allIsFetched:
+        logger.info('Fetch is complete.')
+        return
     
-    # Go ahead and refetch the indices since it helps to have these up-to-date.
-    cmd = ('python ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+    # Fetch whatever is missing directly from NSIDC, and force to have the indices
+    # regenerated in this case. Hopefully just a few files are missing.
+    logger.info("Fetch from NSIDC.")
+    cmd = ('python ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-fetch --skip-validate' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
     logger.info(cmd)
     os.system(cmd)
     
@@ -180,7 +197,7 @@ def runConversion(run, options):
        This will also run through the fetch step to make sure we have everything we need.'''
     
     logger = logging.getLogger(__name__)
-    
+
     # Check if already done
     try:
         if run.conversionIsFinished():
@@ -190,11 +207,14 @@ def runConversion(run, options):
         logger.warning('Caught error checking conversion status, re-running conversion.\n' + str(e))
         
     logger.info('Converting data for run ' + str(run))
-            
     
     # Get the frame range for the data.
     (minFrame, maxFrame) = run.getFrameRange()
-    
+    if minFrame < options.startFrame:
+        minFrame = options.startFrame
+    if maxFrame > options.stopFrame:
+        maxFrame = options.stopFrame
+        
     logger.info('Detected frame range: ' + str((minFrame, maxFrame)))
 
     # Retrieve parallel processing parameters
@@ -204,7 +224,9 @@ def runConversion(run, options):
     # - The first job submitted will be the only one that converts the lidar data
     numFrames    = maxFrame - minFrame + 1
     numOrthoJobs = numFrames / tasksPerJob
-    
+    if numOrthoJobs < 1:
+        numOrthoJobs = 1
+        
     outputFolder = run.getFolder()
     
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
@@ -230,8 +252,8 @@ def runConversion(run, options):
             thisArgs += ' --no-lidar-convert'
 
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
-        logger.info('Submitting conversion job with args: '+thisArgs)
-        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, scriptPath, thisArgs, logPrefix)
+        logger.info('Submitting conversion job: ' + scriptPath + ' ' + thisArgs)
+        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, 'python', scriptPath + " " + thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
@@ -240,19 +262,25 @@ def runConversion(run, options):
 
     # Check the results
     # - If we didn't get everything keep going and process as much as we can.
-    if not run.conversionIsFinished(verbose=True):
+    success = False
+    try:
+        success = run.conversionIsFinished(verbose=True)
+    except Exception, e:
+        logger.warning('Caught error checking conversion status.\n' + str(e))
+
+    if not success:
         #raise Exception('Failed to convert run ' + str(run))
         logger.warning('Could not fully convert run ' + str(run))
         
     run.setFlag('conversion_complete')
 
-    # Pack up camera folder and store it for later
-    try:
-        archive_functions.packAndSendCameraFolder(run)
-    except Exception,e:
-        print 'Caught exception sending camera folder'
-        logger.exception(e)
-
+    # Pack up camera folder and store it for later. Do this only for full runs
+    if not partialRun(options):
+        try:
+            archive_functions.packAndSendCameraFolder(run)
+        except Exception,e:
+            print 'Caught exception sending camera folder'
+            logger.exception(e)
 
 def generateBatchList(run, options, listPath):
     '''Generate a list of all the processing batches required for a run'''
@@ -263,14 +291,17 @@ def generateBatchList(run, options, listPath):
     refDemPath = os.path.join(options.refDemFolder, refDemName)
 
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'batch')
+    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'dem')
 
     # No actual processing is being done here so it can run on the PFE
     # - This is very fast so we can re-run it every time. (Maybe not...)
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
-    cmd       = ('python %s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --cleanup --log-batches' 
+    cmd       = ('python %s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --log-batches' 
                   % (scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, run.getFolder(), options.bundleLength))
 
+    # For full runs we must cleanup, as otherwise we'll run out of space
+    if not partialRun(options):
+        cmd += ' --cleanup'
 
 # TODO: Find out what takes so long here!
 # - Also fix the logging!
@@ -322,10 +353,9 @@ def submitBatchJobs(run, options, batchListPath):
     p = subprocess.Popen(['wc', '-l', batchListPath], stdout=subprocess.PIPE)
     textOutput, err = p.communicate()
     numBatches      = int(textOutput.split()[0])
-    
-    
+
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'batch')
+    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'dem')
     numBatchJobs = numBatches / tasksPerJob
 
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
@@ -348,7 +378,7 @@ def submitBatchJobs(run, options, batchListPath):
         args = ('%s %d %d %d' % (batchListPath, numProcesses, startBatch, stopBatch))
 
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
-        logger.info('Submitting batch job with args: '+args)
+        logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
         pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, GROUP_ID, options.nodeType, scriptPath, args, logPrefix)
         
         currentBatch += tasksPerJob
@@ -365,6 +395,10 @@ def runBlending(run, options):
     
     # Get the frame range for the data.
     (minFrame, maxFrame) = run.getFrameRange()
+    if minFrame < options.startFrame:
+        minFrame = options.startFrame
+    if maxFrame > options.stopFrame:
+        maxFrame = options.stopFrame
     
     logger.info('Detected frame range: ' + str((minFrame, maxFrame)))
 
@@ -377,7 +411,7 @@ def runBlending(run, options):
     
     outputFolder = run.getFolder()
     
-    scriptPath = asp_system_utils.which('blend_dems.py')
+    scriptPath = icebridge_common.fullPath('blend_dems.py')
     args       = ('--site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d ' 
                   % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, options.bundleLength))
     
@@ -396,24 +430,22 @@ def runBlending(run, options):
             stopFrame = maxFrame+1 # Make sure nothing is lost at the end
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
-        logger.info('Submitting blend job with args: '+thisArgs)
+        logger.info('Submitting blend job: ' + scriptPath +  ' ' + thisArgs)
         pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS, GROUP_ID, options.nodeType, scriptPath, thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
     # Wait for conversions to finish
     waitForRunCompletion(baseName)
-        
-
 
 # TODO: Move this
 def waitForRunCompletion(text):
     '''Sleep until all of the submitted jobs containing the provided text have completed'''
 
-    print 'Waiting for jobs with text: ' + text
-
+    print("Wait for completion with: " + text)
+    
     jobsRunning = []
-    user = getUser()
+    user = icebridge_common.getUser()
     stillWorking = True
     while stillWorking:
         time.sleep(SLEEP_TIME)
@@ -488,7 +520,8 @@ def checkRequiredTools():
                'merge_orbitviz.py',
                'process_icebridge_run.py',
                'process_icebridge_batch.py',
-               'lvis2kml.py']
+               'lvis2kml.py',
+               'blend_dems.py']
     tools  = ['ortho2pinhole',
               'camera_footprint']
     
@@ -519,6 +552,15 @@ def main(argsIn):
                             
         parser.add_argument("--node-type",  dest="nodeType", default='ivy',
                             help="Node type to use (wes[mfe], san, ivy, has, bro)")
+
+        # If a partial run is desired, the results will not be archived
+        parser.add_argument('--start-frame', dest='startFrame', type=int,
+                            default=icebridge_common.getSmallestFrame(),
+                            help="Frame to start with.  Leave this and stop-frame blank to " + \
+                            "process all frames.")
+        parser.add_argument('--stop-frame', dest='stopFrame', type=int,
+                            default=icebridge_common.getLargestFrame(),
+                            help='Frame to stop on.')
         
         parser.add_argument("--camera-calibration-folder",  dest="inputCalFolder", default=None,
                           help="The folder containing camera calibration.")
@@ -531,6 +573,11 @@ def main(argsIn):
         parser.add_argument("--recompute-batch-file", action="store_true", 
                             dest="recomputeBatches", default=False, 
                             help="Recompute an existing batch file.")
+
+        parser.add_argument("--no-refetch-index", action="store_true", 
+                            dest="noRefetchIndex", default=False, 
+                            help="Normally we want the indices refetched, but for quick tests this is slow.")
+
 
         parser.add_argument("--skip-completed-batches", action="store_true", 
                             dest="failedBatchesOnly", default=False, 
@@ -555,7 +602,7 @@ def main(argsIn):
     #ALL_RUN_LIST       = os.path.join(options.baseDir, 'full_run_list.txt')
     #SKIP_RUN_LIST      = os.path.join(options.baseDir, 'run_skip_list.txt')
     #COMPLETED_RUN_LIST = os.path.join(options.baseDir, 'completed_run_list.txt')
-    
+
     options.logFolder = os.path.join(options.baseDir, 'manager_logs')
     os.system('mkdir -p ' + options.logFolder)
 
@@ -572,7 +619,7 @@ def main(argsIn):
 
     checkRequiredTools() # Make sure all the needed tools can be found before we start
 
-    emailAddress = getEmailAddress(getUser())
+    emailAddress = getEmailAddress(icebridge_common.getUser())
 
     # TODO: Uncomment when processing more than one run!
     # Get the list of runs to process
@@ -583,7 +630,7 @@ def main(argsIn):
     #runList  = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
     runList = [run_helper.RunHelper(options.site, options.yyyymmdd, options.unpackDir)]
-   
+
     # TODO: Loop is unused, this tool will be replaced by a different one
     # Loop through the incomplete runs
     for run in runList:
@@ -647,7 +694,10 @@ def main(argsIn):
             genCmd = ['--yyyymmdd', run.yyyymmdd, '--site', run.site, 
                       '--output-folder', summaryFolder, '--parent-folder', run.parentFolder]
             generate_flight_summary.main(genCmd)
-            archive_functions.packAndSendSummaryFolder(run, summaryFolder) # Sends data to Lunokhod2 location
+            
+            # send data to lunokhod and lfe
+            if not partialRun(options):
+                archive_functions.packAndSendSummaryFolder(run, summaryFolder)
         else:
             resultText = 'Summary skipped'
             errorCount  = 0 # Flag values to let the next condition pass
@@ -661,8 +711,9 @@ def main(argsIn):
 
             # TODO: Uncomment this once our outputs are good.
             # Pack up all the files to lou, then delete the local copies.          
-            archive_functions.packAndSendCompletedRun(run)
-            #cleanupRun(run) # <-- Should this always be manual??
+            if not partialRun(options):
+                archive_functions.packAndSendCompletedRun(run)
+                #cleanupRun(run) # <-- Should this always be manual??
             
             # TODO: Don't wait on the pack/send operation to finish!
             

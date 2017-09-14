@@ -19,7 +19,7 @@
 # Icebridge utility functions
 
 import os, sys, datetime, time, subprocess, logging, re, hashlib, string
-import psutil, errno
+import psutil, errno, getpass
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -32,6 +32,10 @@ sys.path.insert(0, libexecpath)
 
 import asp_system_utils, asp_alg_utils, asp_geo_utils, asp_image_utils
 asp_system_utils.verify_python_version_is_supported()
+
+def getUser():
+    '''Return the current user name.'''
+    return getpass.getuser()
 
 def fullPath(script):
     '''The full path to a script on the icebridge folder.'''
@@ -121,7 +125,7 @@ def csvIndexFile(folder):
     '''Return the clean csv version of the html index file for this folder (if appropriate) '''
     return htmlIndexFile(folder) + ".csv"
     
-def readIndexFile(parsedIndexPath):
+def readIndexFile(parsedIndexPath, prependFolder = False):
     '''Read an index file having frame number, filename, and url it came from.'''
     frameDict  = {}
     urlDict    = {}
@@ -134,6 +138,10 @@ def readIndexFile(parsedIndexPath):
             
             frameNumber = int(parts[0])
             frameDict[frameNumber] = parts[1].strip()
+
+            if prependFolder:
+                frameDict[frameNumber] = os.path.join(os.path.dirname(parsedIndexPath),
+                                                      frameDict[frameNumber])
             urlDict[frameNumber] = parts[2].strip()
 
     return (frameDict, urlDict)

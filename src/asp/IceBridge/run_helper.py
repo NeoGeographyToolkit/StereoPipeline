@@ -139,7 +139,6 @@ class RunHelper():
             files = [os.path.join(lidarFolder, x) for x in files]
         files.sort()
         return files
-        
 
     def getBatchFolderList(self):
         '''Return a list of all the batch folders'''
@@ -178,11 +177,12 @@ class RunHelper():
 
         # Old file collections use a different naming scheme    
         altIndexName = 'image_index.html.csv'
-    
+
         # Verify these input folders
         subFolders = [self.getJpegFolder(), self.getLidarFolder(), self.getOrthoFolder()]
-        for folder in subFolders:
         
+        for folder in subFolders:
+            
             # Make sure all the files specified in the parsed index file are present
             indexFile = icebridge_common.csvIndexFile(folder)
             if not os.path.exists(indexFile):
@@ -192,13 +192,22 @@ class RunHelper():
                     indexFile = altPath
             
             (fileDict, urlDict) = icebridge_common.readIndexFile(indexFile)
+            logger.info("Checking all files listed in: " + indexFile)
+            num = len(fileDict.keys())
+            count = 0
             for f in fileDict.itervalues():
+
+                # Add the progress, as this operation can be terribly slow
+                # when the filesystem is not doing too well, especially on mfe.
+                count = count + 1
+                if (count - 1) % 1000 == 0:
+                    logger.info('Progress: ' + str(count) + '/' + str(num))
+                    
                 path = os.path.join(folder, f)
                 if not os.path.exists(path):
-                    if verbose:
-                        logger.error('Missing file ' + camFile)
+                    logger.error('Missing file ' + path)
                     return False
-
+                
         return True # Success!
 
 
@@ -218,16 +227,30 @@ class RunHelper():
                 if verbose:
                     logger.error('Missing file ' + camFile)
                 return False
+
+        # Do a simple check of the converted lidar files
+
+        prependFolder = True
+        lidarFolder   = self.getLidarFolder()
+        convLidarFile = icebridge_common.getConvertedLidarIndexFile(lidarFolder)
+        (lidarDict, dummyUrlDict) = icebridge_common.readIndexFile(convLidarFile,
+                                                                   prependFolder)
+
+        pairedLidarFolder = icebridge_common.getPairedLidarFolder(lidarFolder)
+        pairedLidarFile   = icebridge_common.getPairedIndexFile(pairedLidarFolder)
+        (pairedLidarDict, dummyUrlDict) = icebridge_common.readIndexFile(pairedLidarFile,
+                                                                         prependFolder)
+
+        numLidar = len(lidarDict.values())
+        numPairedLidar = len(pairedLidarDict.values())
         
-        # Do a simple check of the lidar files
-        lidarFiles       = self.getLidarList(paired=False, prependFolder=True)
-        pairedLidarFiles = self.getLidarList(paired=True,  prependFolder=True)
-        if len(lidarFiles) != (len(pairedLidarFiles)+1):
+        if numLidar != (numPairedLidar+1):
             logger.error('Not enough paired lidar files found')
             return False
+        
         # Make sure the lidar files are not empty
         success = True
-        for f in (lidarFiles + pairedLidarFiles):
+        for f in lidarDict.values() + pairedLidarDict.values():
             if not asp_file_utils.fileIsNonZero(f):
                 logger.error('lidar file ' + f + ' is empty!')
                 os.system('rm -f ' + f) # Remove bad files
