@@ -33,6 +33,17 @@ sys.path.insert(0, libexecpath)
 import asp_system_utils, asp_alg_utils, asp_geo_utils, asp_image_utils
 asp_system_utils.verify_python_version_is_supported()
 
+def switchWorkDir():
+    '''A work directory must be set before running a qsub job, and here
+    we switch to it.'''
+    workDir = "" 
+    if 'OIB_WORK_DIR' in os.environ:
+        workDir = os.environ['OIB_WORK_DIR']
+        if os.path.isdir(workDir):
+            os.chdir(workDir)
+        else:
+            raise Exception("Work directory does not exist: " + workDir)
+    
 def getUser():
     '''Return the current user name.'''
     return getpass.getuser()

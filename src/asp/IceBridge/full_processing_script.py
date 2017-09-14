@@ -279,6 +279,8 @@ def main(argsIn):
     except argparse.ArgumentError, msg:
         parser.error(msg)
 
+    icebridge_common.switchWorkDir()
+    
     if options.numOrthoProcesses < 0:
         options.numOrthoProcesses = options.numProcesses
         
@@ -314,7 +316,8 @@ def main(argsIn):
     (out, err, status) = asp_system_utils.executeCommand(['uname', '-a'],
                                                          suppressOutput = True)
     logger.info("Running on machine: " + out)
-    
+    logger.info("Work dir is " + os.getcwd())
+
     # Perform some input checks and initializations
     if not (options.noOrthoConvert and (options.stopAfterConvert or options.stopAfterFetch) ):
         # These are not needed unless cameras are initialized 

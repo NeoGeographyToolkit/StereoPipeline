@@ -1,4 +1,3 @@
-
 import os, subprocess, platform
 
 '''Contains functions for working with the PBS job system on the Pleiades supercomputer'''
@@ -69,7 +68,8 @@ def getNumCores(nodeType):
 
 
 def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args, logPrefix):
-    '''Submits a job to the PBS system'''
+    '''Submits a job to the PBS system.
+    Any such job must invoke icebridge_common.switchWorkDir().'''
     
     if len(queueName) > MAX_PBS_NAME_LENGTH:
         raise Exception('Job name "'+queueName+'" exceeds the maximum length of ' + str(MAX_PBS_NAME_LENGTH))
@@ -82,22 +82,24 @@ def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args,
     outputPath = logPrefix + '_output.log'
     
     workDir = os.getcwd()
+
+    # For debugging
+    #queueName = 'devel'
+    #hourString = '00:01:00'
     
     # TODO: Does this need to be wrapped in a shell script?
     # The "-m eb" option sends the user an email when the process begins and when it ends.
     # The -r n ensures the job does not restart if it runs out of memory.
-    if platform.node() == 'mfe1':
-      origPath = os.environ['PYTHONPATH']
-      # This grief is necessary. mfe runs python2.6 but its nodes run python 2.7.
-      os.environ['PYTHONPATH'] = '/u/oalexan1/.local/lib/python2.7/site-packages'
 
-    print("PYTHONPATH=" + os.environ['PYTHONPATH'])
-    command = ('qsub -r n -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- %s %s' % 
-               (queueName, jobName, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, scriptPath, args))
+    # Debug the environment
+    #for v in os.environ.keys():
+    #  print("env is " + v + '=' + os.environ[v])
+
+    # We empty PYTHONSTARTUP and LD_LIBRARY_PATH so that python can function
+    # properly on the nodes. 
+    command = ('qsub -r n -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- /usr/bin/env OIB_WORK_DIR=%s PYTHONPATH=/u/oalexan1/.local/lib/python2.7/site-packages PYTHONSTARTUP="" LD_LIBRARY_PATH="" %s %s' % 
+               (queueName, jobName, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, workDir, scriptPath, args))
     print command
     os.system(command)
     
-    if platform.node() == 'mfe1':
-      # Undo, go back to mfe environment
-      os.environ['PYTHONPATH'] = origPath
     

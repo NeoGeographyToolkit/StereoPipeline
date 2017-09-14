@@ -107,8 +107,11 @@ def getEmailAddress(userName):
 
 def sendEmail(address, subject, body):
     '''Send a simple email from the command line'''
-    os.system('mail -s '+subject+' '+address+' <<< '+body)
-
+    try:
+        os.system('mail -s '+subject+' '+address+' <<< '+body)
+    except Exception, e:
+        print("Could not send mail.")
+        
 def partialRun(options):
     '''For a partial run we will not archive or cleanup, as many such
     runs could be running at the same time (which is not recommended,
@@ -234,7 +237,6 @@ def runConversion(run, options):
         
     outputFolder = run.getFolder()
     
-    pythonPath = asp_system_utils.which('python')
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
     args       = (' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
                   % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
@@ -259,7 +261,9 @@ def runConversion(run, options):
 
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
         logger.info('Submitting conversion job: ' + scriptPath + ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, pythonPath, scriptPath + " " + thisArgs, logPrefix)
+        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID,
+                                options.nodeType, '/usr/bin/python2.7',
+                                scriptPath + " " + thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
@@ -375,7 +379,6 @@ def submitBatchJobs(run, options, batchListPath):
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
     # Call the tool which just executes commands from a file
-    pythonPath = asp_system_utils.which('python')
     scriptPath = icebridge_common.fullPath('multi_process_command_runner.py')
 
     outputFolder = run.getFolder()
@@ -394,7 +397,9 @@ def submitBatchJobs(run, options, batchListPath):
 
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
-        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, GROUP_ID, options.nodeType, pythonPath, scriptPath + ' ' + args, logPrefix)
+        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, GROUP_ID,
+                                options.nodeType, '/usr/bin/python2.7',
+                                scriptPath + ' ' + args, logPrefix)
         
         currentBatch += tasksPerJob
 
@@ -431,7 +436,6 @@ def runBlending(run, options):
     
     outputFolder = run.getFolder()
     
-    pythonPath = asp_system_utils.which('python')
     scriptPath = icebridge_common.fullPath('blend_dems.py')
     args       = ('--site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d ' 
                   % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, options.bundleLength))
@@ -452,7 +456,9 @@ def runBlending(run, options):
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
         logger.info('Submitting blend job: ' + scriptPath +  ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS, GROUP_ID, options.nodeType, pythonPath, scriptPath + ' ' + thisArgs, logPrefix)
+        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS, GROUP_ID,
+                                options.nodeType, '/usr/bin/python2.7',
+                                scriptPath + ' ' + thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
@@ -741,11 +747,11 @@ def main(argsIn):
             
             # TODO: Don't wait on the pack/send operation to finish!
             
-            sendEmail(emailAddress, '"IB run passed - '+str(run)+'"', resultText)
+            sendEmail(emailAddress, '"OIB run passed - '+str(run)+'"', resultText)
         else:
-            sendEmail(emailAddress, '"IB run failed - '+str(run)+'"', resultText)
+            sendEmail(emailAddress, '"OIB run failed - '+str(run)+'"', resultText)
         
-        raise Exception('DEBUG - END LOOP')
+        #raise Exception('DEBUG - END LOOP')
         
     # End loop through runs
     logger.info('==== pleiades_manager script has finished! ====')

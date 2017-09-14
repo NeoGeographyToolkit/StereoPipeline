@@ -52,6 +52,8 @@ def runCommand(command):
 
 def main(argsIn):
 
+    icebridge_common.switchWorkDir()
+    
     # Parse the input commands
     commandFilePath = argsIn[0]
     numProcesses    = int(argsIn[1])
@@ -101,9 +103,6 @@ def main(argsIn):
     print 'Cleaning up the processing pool...'
     icebridge_common.stopTaskPool(pool)
     print 'Finished cleaning up the processing pool'
-
-    
-
 
 # Run main function if called from shell
 if __name__ == "__main__":

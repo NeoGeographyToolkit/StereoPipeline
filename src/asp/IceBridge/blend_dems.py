@@ -251,6 +251,8 @@ def main(argsIn):
     except argparse.ArgumentError, msg:
         parser.error(msg)
         
+    icebridge_common.switchWorkDir()
+    
     if len(options.yyyymmdd) != 8 and len(options.yyyymmdd) != 9:
         # Make an exception for 20100422a
         raise Exception("The --yyyymmdd field must have length 8 or 9.")
