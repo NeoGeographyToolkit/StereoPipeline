@@ -25,7 +25,6 @@
 #include <vw/Core.h>
 #include <vw/Math.h>
 #include <vw/FileIO/KML.h>
-//#include <vw/FileIO/FileUtils.h>
 #include <vw/Camera.h>
 #include <vw/Cartography.h>
 #include <vw/InterestPoint/InterestData.h>
@@ -285,7 +284,8 @@ int main(int argc, char* argv[]) {
                                                  camera_files, matched_cameras);
     }
 
-    if ( image_files.empty() ) vw_throw( ArgumentErr() << "No image files detected.\n" );
+    if ( image_files.empty() )
+      vw_throw( ArgumentErr() << "No image files detected.\n" );
     
     std::string first_image = image_files[0];
     std::string first_camera = first_image;

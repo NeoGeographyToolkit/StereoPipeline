@@ -29,7 +29,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-import asp_system_utils, asp_alg_utils, asp_geo_utils
+import asp_system_utils, asp_alg_utils, asp_geo_utils, icebridge_common
 asp_system_utils.verify_python_version_is_supported()
 
 # Prepend to system PATH
@@ -70,20 +70,6 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
             if fileType == 'image':
                 f.write(x[12:17] +', '+ x[1:] + '\n')
 
-# TODO: Move this function!
-def fetchFile(url, outputPath):
-    '''Retrieve one file using curl'''
-
-    # Set up the command
-    cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
-    curlOpts    = ' -n -L '
-    cmd = 'curl ' + cookiePaths + curlOpts + url + ' > ' + outputPath
-
-    # Download the file
-    print cmd
-    p = subprocess.Popen(cmd, shell=True)
-    os.waitpid(p.pid, 0)
-
 def main(argsIn):
 
     # Command line parsing
@@ -117,7 +103,7 @@ def main(argsIn):
     # Get the top level index
     TOP_URL = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/'
     print 'Fetching top level index from: ' + TOP_URL
-    fetchFile(TOP_URL, topIndexPath)
+    icebridge_common.fetchFile(TOP_URL, topIndexPath)
     
     with open(topIndexPath, 'r') as f:
         topText = f.read()
@@ -132,7 +118,7 @@ def main(argsIn):
     for mission in missionList:
         missionUrl = TOP_URL + mission
         print 'Checking mission at: ' + missionUrl
-        fetchFile(missionUrl, tempIndexPath)
+        icebridge_common.fetchFile(missionUrl, tempIndexPath)
 
         site = mission[5:7]
 

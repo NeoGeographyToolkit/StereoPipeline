@@ -26,7 +26,7 @@ libexec_SCRIPTS =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
 if MAKE_APP_ICEBRIDGE
-  bin_PROGRAMS     += correct_icebridge_l3_dem nav2cam
+  bin_PROGRAMS     += correct_icebridge_l3_dem nav2cam orbitviz_pinhole
   libexec_PROGRAMS += qi2txt
   bin_SCRIPTS      += icebridge_kmz_to_csv.py lvis2kml.py extract_icebridge_ATM_points.py \
 			process_icebridge_run.py fetch_icebridge_data.py icebridge_common.py
@@ -38,6 +38,9 @@ if MAKE_APP_ICEBRIDGE
 
   nav2cam_SOURCES = nav2cam.cc
   nav2cam_LDADD = $(APP_ICEBRIDGE_LIBS)
+  
+  orbitviz_pinhole_SOURCES = orbitviz_pinhole.cc
+  orbitviz_pinhole_LDADD = $(APP_ICEBRIDGE_LIBS)
 endif
 
 if MAKE_APP_ORTHO2PINHOLE

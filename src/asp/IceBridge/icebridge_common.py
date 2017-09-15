@@ -803,6 +803,19 @@ def fileNonEmpty(path):
     '''Make sure file exists and is non-empty.'''
     return os.path.exists(path) and (os.path.getsize(path) > 0)
 
+def fetchFile(url, outputPath):
+    '''Retrieve one file using curl'''
+
+    # Set up the command
+    cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
+    curlOpts    = ' -n -L '
+    cmd = 'curl ' + cookiePaths + curlOpts + url + ' > ' + outputPath
+
+    # Download the file
+    print cmd
+    p = subprocess.Popen(cmd, shell=True)
+    os.waitpid(p.pid, 0)
+
 # It is faster to invoke one curl command for multiple files.
 # Do not fetch files that already exist. Note that we expect
 # that each file looks like outputFolder/name.<ext>,
