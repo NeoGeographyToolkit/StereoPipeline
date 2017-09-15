@@ -286,6 +286,8 @@ def generateFlightSummary(run, options):
     # End loop through expected DEMs
     
     print 'Finished generating flight summary in folder: ' + options.outputFolder
+    print("Wrote: " + batchInfoPath)
+    print("Wrote: " + failedBatchPath)
 
 # The parent folder is where the runs AN_... and GR_..., etc., are
 # stored. Usually it is the current directory.
