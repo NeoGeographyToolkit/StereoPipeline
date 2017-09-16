@@ -188,7 +188,6 @@ def generateFlightSummary(run, options):
             if not os.path.exists(outputPath): # Don't recreate these files
                 lvis2kml.main(args)
        
-
     # Collect per-batch information
     batchInfoPath   = os.path.join(options.outputFolder, 'batchInfoSummary.csv')
     failedBatchPath = os.path.join(options.outputFolder, 'failedBatchList.csv')
@@ -197,7 +196,7 @@ def generateFlightSummary(run, options):
     with open(batchInfoPath, 'w') as batchInfoLog, open(failedBatchPath, 'w') as failureLog:
         # Write the header for the batch log file
         batchInfoLog.write('# startFrame, stopFrame, centerLon, centerLat, meanAlt, ' +
-                           ' meanLidarDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff, meanBlendDiff\n')
+                           ' meanLidarDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff, meanBlendDiff meanBlendDiffInFireballFootprint\n')
         failureLog.write('# startFrame, stopFrame, errorCode, errorText\n')
         
         demList = run.getOutputDemList()
@@ -224,6 +223,14 @@ def generateFlightSummary(run, options):
             except:
                 blendDiffResults = {'Mean':-999}
             
+            # Read in blend results which are not part of the consolidated stats file
+            # for the blend done in the fireball footprint
+            fireballBlendDiffPath = os.path.join(demFolder, 'out-blend-DEM-fb-footprint-diff.csv')
+            try:
+                fireballBlendDiffResults = icebridge_common.readGeodiffOutput(fireballBlendDiffPath)
+            except:
+                fireballBlendDiffResults = {'Mean':-999}
+
             # All of the other results should be in a consolidated stats file
             consolidatedStatsPath = os.path.join(demFolder, 'out-consolidated_stats.txt')
 
@@ -247,8 +254,9 @@ def generateFlightSummary(run, options):
                 statsText = f.read()
 
             # Write info to summary file
-            batchInfoLog.write('%d, %d, %s, %f\n' % 
-                               (frames[0], frames[1], statsText, blendDiffResults['Mean']))
+            batchInfoLog.write('%d, %d, %s, %f, %f\n' % 
+                               (frames[0], frames[1], statsText,
+                                blendDiffResults['Mean'], fireballBlendDiffResults['Mean']))
 
             # Keep a list of batches that did not generate an output DEM
             parts = statsText.split(',')

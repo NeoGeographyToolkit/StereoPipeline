@@ -136,30 +136,34 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
     
     return (not badFiles)
             
-def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, isNorth,
+def correctFireballDems(fireballFolder, corrFireballFolder, startFrame, stopFrame, isNorth,
                         skipValidate, logger):
     '''Fix the header problem in Fireball DEMs'''
 
     logger.info('Correcting Fireball DEMs ...')
 
+    # Read the existing DEMs
+    fireballIndexPath = icebridge_common.csvIndexFile(fireballFolder)
+    if not os.path.exists(fireballIndexPath):
+        raise Exception("Error: Missing fireball index file: " + fireballIndexPath + ".")
+        
+    (fireballFrameDict, fireballUrlDict) = \
+                        icebridge_common.readIndexFile(fireballIndexPath, prependFolder = True)
+    
     # Loop through all the input images
-    os.system('mkdir -p ' + correctedDemFolder)
-    demFiles = os.listdir(demFolder)
+    os.system('mkdir -p ' + corrFireballFolder)
     badFiles = False
-    for demFile in demFiles:
-
-        # Skip other files
-        inputPath = os.path.join(demFolder, demFile)
-        if not icebridge_common.isDEM(inputPath):
-            continue
+    for frame in sorted(fireballFrameDict.keys()):
 
         # Skip if outside the frame range
-        frame = icebridge_common.getFrameNumberFromFilename(demFile)
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
 
-        # Make sure the timestamp and frame number are in the output file name
-        outputPath = os.path.join(correctedDemFolder, os.path.basename(inputPath))
+        inputPath = fireballFrameDict[frame]
+        if not icebridge_common.isDEM(inputPath):
+            continue
+
+        outputPath = os.path.join(corrFireballFolder, os.path.basename(inputPath))
 
         # Skip existing valid files
         if skipValidate:
@@ -185,7 +189,6 @@ def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, is
 
     return not badFiles
             
-
 def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmdd, site):
     '''Return the camera model file to be used with a given input frame.'''
 

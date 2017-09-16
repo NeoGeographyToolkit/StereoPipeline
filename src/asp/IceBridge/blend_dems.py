@@ -90,7 +90,8 @@ def frame2dem(frame, processFolder, bundleLength):
 
     return demFile, batchFolder
 
-def runBlend(frame, processFolder, lidarFile, bundleLength, threadText, redo, suppressOutput):
+def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
+             threadText, redo, suppressOutput):
 
     # This will run as multiple processes. Hence have to catch all exceptions:
     try:
@@ -107,9 +108,27 @@ def runBlend(frame, processFolder, lidarFile, bundleLength, threadText, redo, su
         finalBlend        = finalOutputPrefix + '.tif'
         finalDiff         = finalOutputPrefix + "-diff.csv"
 
-        if os.path.exists(finalBlend) and os.path.exists(finalDiff) and not redo:
-            print("Files exist: " + finalBlend + " " + finalDiff + ".")
-            return
+        fireballOutputPrefix = os.path.join(batchFolder, 'out-blend-fb-footprint')
+        fireballBlendOutput  = fireballOutputPrefix + '-tile-0.tif'
+        finalFireballOutput  = fireballOutputPrefix + '-DEM.tif'
+        fireballDiffPath     = fireballOutputPrefix + "-diff.csv"
+
+        if not redo:
+            set1Exists = False
+            if (os.path.exists(finalBlend) and os.path.exists(finalDiff)):
+                print("Files exist: " + finalBlend + " " + finalDiff + ".")
+                set1Exists = True
+                
+            set2Exists = True
+            if fireballDEM != "":
+                if (os.path.exists(finalFireballOutput) and os.path.exists(fireballDiffPath)):
+                    print("Files exist: " + finalFireballOutput + " " + fireballDiffPath + ".")
+                    set2Exists = True
+                else:
+                    set2Exists = False
+
+            if set1Exists and set2Exists:
+                return
 
         # We will blend the dems with frame offsets within frameOffsets[0:index]
         filesToWipe = []
@@ -191,7 +210,60 @@ def runBlend(frame, processFolder, lidarFile, bundleLength, threadText, redo, su
         asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
         os.remove(hillOutput) # Remove this file to keep down the file count
 
+        # Do another blend, to this DEM's footprint, but not using it
+        if fireballDEM != "":
+            
+            # Find all the DEMs
+            dems = []
+            for val in range(0, len(frameOffsets)):
+                offset = frameOffsets[val]
+                currDemFile, currBatchFolder = \
+                             frame2dem(frame + offset, processFolder, bundleLength)
+                if currDemFile == "":
+                    continue
+                dems.append(currDemFile)
+                
+            demString = " ".join(dems)
+            cmd = ('dem_mosaic --this-dem-as-reference %s %s %s -o %s' 
+                   % (fireballDEM, demString, threadText, fireballOutputPrefix))
+            
+            #filesToWipe.append(fireballBlendOutput)
 
+            print(cmd)
+            asp_system_utils.executeCommand(cmd, fireballBlendOutput, suppressOutput, redo)
+
+            #filesToWipe.append(fireballDiffPath)
+
+            cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % 
+                   (lidarCsvFormatString, fireballBlendOutput, lidarFile, fireballOutputPrefix))
+            print(cmd)
+            asp_system_utils.executeCommand(cmd, fireballDiffPath, suppressOutput, redo)
+
+            # Read in and examine the results
+            results = icebridge_common.readGeodiffOutput(fireballDiffPath)
+            print("Mean error to lidar in fireball footprint is " + str(results['Mean']))
+            
+            cmd = "mv " + fireballBlendOutput   + " " + finalFireballOutput
+            print(cmd)
+            asp_system_utils.executeCommand(cmd, finalFireballOutput, suppressOutput, redo)
+
+            # Generate a thumbnail of the final DEM
+            hillOutput = fireballOutputPrefix+'_HILLSHADE.tif'
+            cmd = 'hillshade ' + finalFireballOutput +' -o ' + hillOutput
+            print(cmd)
+            asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
+
+            # Generate a low resolution compressed thumbnail of the hillshade for debugging
+            thumbOutput = fireballOutputPrefix + '_HILLSHADE_browse.tif'
+            cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
+            asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
+            os.remove(hillOutput) # Remove this file to keep down the file count
+            
+            logFiles = glob.glob(fireballOutputPrefix + "*" + "-log-" + "*")
+            filesToWipe += logFiles
+
+        # Done with dealing with the fireball footprint
+        
         # Clean up extra files
         for fileName in filesToWipe:
             if os.path.exists(fileName):
@@ -241,6 +313,11 @@ def main(argsIn):
                           help="Specify a subfolder name where the processing outputs will go. "+\
                             "The default is no additional folder.")
 
+        parser.add_argument("--blend-to-fireball-footprint", action="store_true",
+                            dest="blendToFireball", default=False,
+                            help="Create additional blended DEMs having the same " + \
+                            "footprint as Fireball DEMs.")
+
         # Performance options  
         parser.add_argument('--num-processes', dest='numProcesses', default=1,
                           type=int, help='The number of simultaneous processes to run.')
@@ -280,9 +357,17 @@ def main(argsIn):
     orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
     if not os.path.exists(orthoIndexPath):
         raise Exception("Error: Missing ortho index file: " + orthoIndexPath + ".")
-    
     (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath)
     
+    if options.blendToFireball:
+        fireballFolder = icebridge_common.getFireballFolder(options.outputFolder)
+        corrFireballFolder = icebridge_common.getCorrFireballFolder(options.outputFolder)
+        fireballIndexPath = icebridge_common.csvIndexFile(fireballFolder)
+        if not os.path.exists(fireballIndexPath):
+            raise Exception("Error: Missing fireball index file: " + fireballIndexPath + ".")
+        (fireballFrameDict, fireballUrlDict) = \
+                            icebridge_common.readIndexFile(fireballIndexPath, prependFolder = True)
+        
     lidarFolder = os.path.join(options.outputFolder, 'lidar')
     
     threadText = ''
@@ -304,7 +389,16 @@ def main(argsIn):
         orthoFile = orthoFrameDict[frame]
         lidarFile = icebridge_common.findMatchingLidarFile(orthoFile, lidarFolder)
 
-        args = (frame, processFolder, lidarFile, options.bundleLength, threadText,
+        fireballDEM = ""
+        if options.blendToFireball:
+            if frame in fireballFrameDict:
+                fireballDEM = fireballFrameDict[frame]
+                # Get the corrected one
+                fireballDEM = os.path.join(corrFireballFolder, os.path.basename(fireballDEM))
+            else:
+                logger.info("No fireball DEM for frame: " + str(frame))
+            
+        args = (frame, processFolder, lidarFile, fireballDEM, options.bundleLength, threadText,
                 redo, suppressOutput)
 
         # Run things sequentially if only one process, to make it easy to debug

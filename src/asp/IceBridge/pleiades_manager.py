@@ -437,7 +437,7 @@ def runBlending(run, options):
     outputFolder = run.getFolder()
     
     scriptPath = icebridge_common.fullPath('blend_dems.py')
-    args       = ('--site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d ' 
+    args       = ('--site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --blend-to-fireball-footprint ' 
                   % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, options.bundleLength))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
