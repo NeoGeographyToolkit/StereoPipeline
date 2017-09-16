@@ -54,12 +54,14 @@ void write_match_image(std::string const& out_file_name,
   float sub_scale  = sqrt(1500.0 * 1500.0 / float(image1.impl().cols() * image1.impl().rows()));
 	sub_scale += sqrt(1500.0 * 1500.0 / float(image2.impl().cols() * image2.impl().rows()));
 	sub_scale /= 2;
-  if ( sub_scale > 1 )
+  //if ( sub_scale > 1 )
     sub_scale = 1;
 
   vw::mosaic::ImageComposite<vw::PixelRGB<vw::uint8> > composite;
-  composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image1), sub_scale)), 0, 0 );
-  composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image2), sub_scale)), vw::int32(image1.impl().cols() * sub_scale), 0 );
+  //composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image1), sub_scale)), 0, 0 );
+  //composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image2), sub_scale)), vw::int32(image1.impl().cols() * sub_scale), 0 );
+  composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(image1), 0, 0 );
+  composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(image2), vw::int32(image1.impl().cols() * sub_scale), 0 );
   composite.set_draft_mode( true );
   composite.prepare();
 
@@ -81,7 +83,7 @@ void write_match_image(std::string const& out_file_name,
       int i = (int)(0.5 + start.x() + r*(end.x()-start.x()));
       int j = (int)(0.5 + start.y() + r*(end.y()-start.y()));
       if (i >=0 && j >=0 && i < comp.cols() && j < comp.rows())
-	comp(i,j) = vw::PixelRGB<vw::uint8>(255, 0, 0);
+        comp(i,j) = vw::PixelRGB<vw::uint8>(255, 0, 0);
     }
   }
 
@@ -106,11 +108,12 @@ void write_point_image(std::string const& out_file_name,
   // values are choosen just allow a reasonable rendering time.
   float sub_scale  = sqrt(1500.0 * 1500.0 / float(image.impl().cols() * image.impl().rows()));
 	sub_scale /= 2;
-  if ( sub_scale > 1 )
+  //if ( sub_scale > 1 )
     sub_scale = 1;
 
   vw::ImageView<vw::PixelRGB<vw::uint8> > canvas =
-	vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image), sub_scale));
+	//vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image), sub_scale));
+	vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(image);
 
   vw::vw_out() << "\t    Draw points "<<  std::endl;
 
@@ -120,10 +123,19 @@ void write_point_image(std::string const& out_file_name,
     pt *= sub_scale;
 
     // Draw a little square
-    // TODO: - Error checking!
-    for (size_t i=pt[0]-1; i<=pt[0]+1; ++i )
-      for (size_t j=pt[1]-1; j<=pt[1]+1; ++j )
-	canvas(i,j) = vw::PixelRGB<vw::uint8>(255, 0, 0);
+    const int RADIUS = 8;
+    std::vector<vw::Vector2i> pts;
+    for (size_t i=0; i<RADIUS; ++i) {
+      pts.push_back(vw::Vector2i(pt[0] - i, pt[1] - i));
+      pts.push_back(vw::Vector2i(pt[0] - i, pt[1] + i));
+      pts.push_back(vw::Vector2i(pt[0] + i, pt[1] - i));
+      pts.push_back(vw::Vector2i(pt[0] + i, pt[1] + i));
+    }
+    for (size_t i=0; i<pts.size(); ++i) {
+      if (pts[i][0] >=0 && pts[i][1] >=0 && pts[i][0] < canvas.cols() && pts[i][1] < canvas.rows())
+        canvas(pts[i][0],pts[i][1]) = vw::PixelRGB<vw::uint8>(255, 0, 0);
+    }
+
   }
 
   vw::vw_out() << "\t    Write to disk "  <<std::endl;
@@ -342,11 +354,11 @@ namespace asp {
 
     using namespace vw;
     size_t prior_ip = ip_list.size();
-
+    
     typedef ImageView<typename ImageT::pixel_type> CropImageT;
     const int width = 2*radius+1;
-    CropImageT subsection(width,width);
-
+    CropImageT subsection(width,width);   
+    
     // Get shrunk bounding box
     BBox2i bound = bounding_box( image.impl() );
     bound.contract(radius); 
@@ -424,6 +436,9 @@ namespace asp {
       
       vw::ip::IntegralAutoGainDetector detector( points_per_tile, num_scales );
       
+      // This detector can't handle a mask so if there is nodata just
+      //  set those pixels to zero.
+      
       vw_out() << "\t    Processing left image" << std::endl;
       if ( boost::math::isnan(nodata1) )
         ip1 = detect_interest_points( image1.impl(), detector, points_per_tile );
@@ -444,6 +459,8 @@ namespace asp {
 
       // The opencv detector only works if the inputs are normalized, so do it here if it was not done before.
       // - If the images are already normalized most of the data will be in the 0-1 range.
+      // - This normalize option will normalize PER-TILE which has different results than
+      //   the whole-image normalization that ASP normally uses.
       bool opencv_normalize = stereo_settings().skip_image_normalization;
       if (opencv_normalize)
         vw_out() << "Normalizing OpenCV images...\n";
@@ -452,16 +469,18 @@ namespace asp {
       bool build_opencv_descriptors = true;
       vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, points_per_tile);
 
+      // These detectors do accept a mask so use one if applicable.
+
       vw_out() << "\t    Processing left image" << std::endl;
       if ( boost::math::isnan(nodata1) )
         ip1 = detect_interest_points( image1.impl(), detector, points_per_tile );
       else
-        ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector, points_per_tile );
+        ip1 = detect_interest_points( create_mask_less_or_equal(image1.impl(),nodata1), detector, points_per_tile );
       vw_out() << "\t    Processing right image" << std::endl;
       if ( boost::math::isnan(nodata2) )
         ip2 = detect_interest_points( image2.impl(), detector, points_per_tile );
       else
-        ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector, points_per_tile );
+        ip2 = detect_interest_points( create_mask_less_or_equal(image2.impl(),nodata2), detector, points_per_tile );
     } // End OpenCV case
 
     sw.stop();

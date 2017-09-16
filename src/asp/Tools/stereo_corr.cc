@@ -292,9 +292,6 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
                                       vector<ip::InterestPoint>      & ip_left,
                                       vector<ip::InterestPoint>      & ip_right) {
 
-  std::cout << "Checking file: " << match_file << std::endl;
-  std::cout << stereo_settings().alignment_method << std::endl;
-
   // This function does nothing if we are not using epipolar alignment,
   //  or if the IP were found using one of the aligned images.
   const std::string sub_match_file     = opt.out_prefix + "-L_sub__R_sub.match";
@@ -302,6 +299,8 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
   if ( (stereo_settings().alignment_method != "epipolar") ||
        (match_file == sub_match_file) || (match_file == aligned_match_file) )
     return false;
+
+  vw_out() << "Applying epipolar adjustment to input IP match file...\n";
 
   // Load the epipolar aligned camera models
   boost::shared_ptr<camera::CameraModel> left_aligned_model, right_aligned_model;
@@ -325,7 +324,7 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
     Vector2 ip_in_left (ip_left [i].x, ip_left [i].y);
     Vector2 ip_in_right(ip_right[i].x, ip_right[i].y);
 
-    Vector2 ip_out_left = trans_left.forward(ip_in_left);
+    Vector2 ip_out_left  = trans_left.forward(ip_in_left);
     Vector2 ip_out_right = trans_right.forward(ip_in_right);
 
     ip_left [i].x = ip_out_left [0]; // Store transformed points
@@ -582,8 +581,8 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   vw_out() << "\t    * IP computed at scale: " << ip_scale << "\n";
   float i_scale = 1.0/ip_scale;
 
-  ///// Adjust the IP if they came from input images and these images are epipolar aligned
-  //adjust_ip_for_epipolar_transform(opt, match_filename, in_ip1, in_ip2);
+  // Adjust the IP if they came from input images and these images are epipolar aligned
+  adjust_ip_for_epipolar_transform(opt, match_filename, in_ip1, in_ip2);
 
   // Filter out IPs which fall outside the specified elevation range
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
@@ -604,9 +603,11 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 							   stereo_settings().lon_lat_limit,
 							   matched_ip1, matched_ip2);
 
-  const size_t MIN_NUM_POINTS = 6;
-  if (num_left < MIN_NUM_POINTS)
-    vw_throw(ArgumentErr() << "Too few IPs left after elevation filtering: " << num_left);
+  // Quit if we don't have the requested number of IP.
+  if (num_left < stereo_settings().min_num_ip)
+    vw_throw(ArgumentErr() << "Number of IPs left after filtering is " << num_left
+                           << " which is less than the required amount of " 
+                           << stereo_settings().min_num_ip << ", aborting stereo_corr.\n");
 
   // Find search window based on interest point matches
 

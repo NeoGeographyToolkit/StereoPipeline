@@ -230,6 +230,10 @@ WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon
   search range is grown by this factor for the purpose of computing the
   low-resolution disparity.
 
+\item[min-num-ip \textnormal{\small{(\emph{integer})}} (default = 20)] \hfill \\
+Automatic search range estimation will quit if at least this many interest points are
+not detected.
+
 \item[cost-mode \textnormal{\small{(= 0,1,2,3,4)}}] (default = 2) \hfill \\
 
   This defines the cost function used during integer

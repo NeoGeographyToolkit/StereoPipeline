@@ -151,6 +151,8 @@ namespace asp {
                      "Preprocessing filter mode. [0 None, 1 Gaussian, 2 LoG, 3 Sign of LoG]")
       ("corr-seed-mode",         po::value(&global.seed_mode)->default_value(1),
                      "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
+      ("min-num-ip",             po::value(&global.min_num_ip)->default_value(30),
+                     "The minimum number of interest points which must be found to estimate the search range.")
       ("corr-sub-seed-percent",  po::value(&global.seed_percent_pad)->default_value(0.25),
                      "Percent fudge factor for disparity seed's search range.")
       ("cost-mode",              po::value(&global.cost_mode)->default_value(2),

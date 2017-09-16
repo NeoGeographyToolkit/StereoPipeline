@@ -122,6 +122,8 @@ namespace asp {
                                       // 3 = Use low-res disparity produced by sparse_disp
                                       //     (in development)
 
+    int   min_num_ip;                 ///< Minimum number of IP's needed for search range estimation.
+
     float seed_percent_pad;           ///< Pad amound towards the IP found
     vw::uint16 cost_mode;             // 0 = absolute difference
                                       // 1 = squared difference
