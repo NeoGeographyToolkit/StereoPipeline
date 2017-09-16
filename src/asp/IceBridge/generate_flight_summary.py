@@ -58,7 +58,7 @@ def getLastLog(logPrefix):
     logFiles = os.listdir(folder)
     logFiles = [os.path.join(folder, x) for x in logFiles]
     logFiles = [x for x in logFiles if logPrefix in x]
-    
+
     # No matches found!
     if not logFiles:
         return None
@@ -119,17 +119,19 @@ def getFailureCause(batchFolder):
     errorLogText[FAIL_STEREO_POINT2DEM] = 'point2dem call on stereo pair failed!'
     errorLogText[FAIL_PC_ALIGN] = 'Unable to find a good value for max-displacement in pc_align.'
 
+    foundError = UNKNOWN
+
     logPrefix = os.path.join(batchFolder, 'icebridge_batch_log_')
     latestLog = getLastLog(logPrefix)
     if not latestLog:
-        raise Exception('DEBUG')
+        print("Cannot find log matching: " + logPrefix)
+        return (foundError, errorSummaries[foundError])
     
     # Search for errors in chronological order
     logText = ''
     with open(latestLog, 'r') as log:
         logText = log.read()
     
-    foundError = UNKNOWN
     for code in errorLogText.iterkeys():
         if code in (UNKNOWN, SUCCESS): #Skip these codes
             continue
@@ -155,16 +157,28 @@ def generateFlightSummary(run, options):
     
     packedErrorLog = os.path.join(runFolder, 'packedErrors.log')
     if os.path.exists(packedErrorLog):
-        shutil.copy(packedErrorLog, options.outputFolder)
-
+        try:
+            shutil.copy(packedErrorLog, options.outputFolder)
+        except Exception, e:
+            # In case it complains about copying a file onto itself
+            print("Warning: " + str(e))
+            
     if not options.skipKml:
         # Copy the input camera kml file
         camerasInKmlPath = os.path.join(procFolder, 'cameras_in.kml')
-        shutil.copy(camerasInKmlPath, options.outputFolder)
+        try:
+            shutil.copy(camerasInKmlPath, options.outputFolder)
+        except Exception, e:
+            # In case it complains about copying a file onto itself
+            print("Warning: " + str(e))
 
         # Copy the input camera kml file
         navCamerasKmlPath = os.path.join(navCameraFolder, 'nav_cameras.kml')
-        shutil.copy(navCamerasKmlPath, options.outputFolder)
+        try:
+            shutil.copy(navCamerasKmlPath, options.outputFolder)
+        except Exception, e:
+            # In case it complains about copying a file onto itself
+            print("Warning: " + str(e))
         
         # Create a merged version of all the bundle adjusted camera files
         # - The tool currently includes cameras more than once if they appear
@@ -230,7 +244,8 @@ def generateFlightSummary(run, options):
             
             # Read in blend results which are not part of the consolidated stats file
             # for the blend done in the fireball footprint
-            fireballBlendDiffPath = os.path.join(demFolder, 'out-blend-DEM-fb-footprint-diff.csv')
+            fireballBlendDiffPath = os.path.join(demFolder, 'out-blend-fb-footprint-diff.csv')
+
             try:
                 fireballBlendDiffResults = icebridge_common.readGeodiffOutput(fireballBlendDiffPath)
             except:
