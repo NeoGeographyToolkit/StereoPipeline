@@ -163,11 +163,14 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
 
     # Try many attempts until one works
     # - Blurring can help with artifacts.
-    # - Many IP can also help, but risks getting false matches and is slow.
+    # - Many IP can also help, but risks getting false matches and is slower.
     ipMethod  = [1,   0,   2,   1,    0,  2,   1,    0,    2   ]
     ipPerTile = [500, 500, 500, 500, 500, 500, 2000, 2000, 2000]
     useBlur   = [0,   0,   0,   1,    1,  1,   0,    0,    0   ]
    
+    if len(ipMethod) != len(ipPerTile) or len(ipMethod) != len(useBlur):
+        raise Exception("Book-keeping error in robust bundle adjustment.")
+        
     # Fill inputPairs with output camera names
     for pair in inputPairs:
         pair[1] = bundlePrefix +'-'+ os.path.basename(pair[1])
