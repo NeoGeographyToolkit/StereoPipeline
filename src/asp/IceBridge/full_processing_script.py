@@ -318,6 +318,9 @@ def main(argsIn):
     logger.info("Running on machine: " + out)
     logger.info("Work dir is " + os.getcwd())
 
+    os.system("ulimit -c 0") # disable core dumps
+    os.system("umask 022")   # enforce files be readable by others
+    
     # Perform some input checks and initializations
     if not (options.noOrthoConvert and (options.stopAfterConvert or options.stopAfterFetch) ):
         # These are not needed unless cameras are initialized 

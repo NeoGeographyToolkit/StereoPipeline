@@ -67,7 +67,8 @@ def getNumCores(nodeType):
     raise Exception('Unrecognized node type: ' + nodeType)
 
 
-def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args, logPrefix):
+def submitJob(jobName, queueName, maxHours, minutesInDevelQueue,
+              groupId, nodeType, scriptPath, args, logPrefix):
     '''Submits a job to the PBS system.
     Any such job must invoke icebridge_common.switchWorkDir().'''
     
@@ -84,8 +85,9 @@ def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args,
     workDir = os.getcwd()
 
     # For debugging
-    #queueName = 'devel'
-    #hourString = '00:01:00'
+    if minutesInDevelQueue > 0:
+      queueName = 'devel'
+      hourString = '00:' + str(minutesInDevelQueue).zfill(2) + ':00'
     
     # TODO: Does this need to be wrapped in a shell script?
     # The "-m eb" option sends the user an email when the process begins and when it ends.

@@ -330,6 +330,9 @@ def main(argsIn):
         
     icebridge_common.switchWorkDir()
     
+    os.system("ulimit -c 0") # disable core dumps
+    os.system("umask 022")   # enforce files be readable by others
+    
     if len(options.yyyymmdd) != 8 and len(options.yyyymmdd) != 9:
         # Make an exception for 20100422a
         raise Exception("The --yyyymmdd field must have length 8 or 9.")

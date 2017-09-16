@@ -261,7 +261,9 @@ def runConversion(run, options):
 
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
         logger.info('Submitting conversion job: ' + scriptPath + ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID,
+        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS,
+                                options.minutesInDevelQueue,
+                                GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
                                 scriptPath + " " + thisArgs, logPrefix)
         
@@ -397,7 +399,9 @@ def submitBatchJobs(run, options, batchListPath):
 
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
-        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, GROUP_ID,
+        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS,
+                                options.minutesInDevelQueue,
+                                GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
                                 scriptPath + ' ' + args, logPrefix)
         
@@ -456,7 +460,9 @@ def runBlending(run, options):
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
         logger.info('Submitting blend job: ' + scriptPath +  ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS, GROUP_ID,
+        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS,
+                                options.minutesInDevelQueue,
+                                GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
                                 scriptPath + ' ' + thisArgs, logPrefix)
         
@@ -580,6 +586,11 @@ def main(argsIn):
         parser.add_argument("--node-type",  dest="nodeType", default='ivy',
                             help="Node type to use (wes[mfe], san, ivy, has, bro)")
 
+        # Debug option
+        parser.add_argument('--minutes-in-devel-queue', dest='minutesInDevelQueue', type=int,
+                            default=0,
+                            help="If positive, submit to the devel queue for this many minutes.")
+
         # If a partial run is desired, the results will not be archived
         parser.add_argument('--start-frame', dest='startFrame', type=int,
                             default=icebridge_common.getSmallestFrame(),
@@ -651,6 +662,10 @@ def main(argsIn):
 
     emailAddress = getEmailAddress(icebridge_common.getUser())
 
+    logger.info("Disabling core dumps.") # these just take a lot of room
+    os.system("ulimit -c 0")
+    os.system("umask 022") # enforce files be readable by others
+    
     # TODO: Uncomment when processing more than one run!
     # Get the list of runs to process
     #logger.info('Reading run lists...')

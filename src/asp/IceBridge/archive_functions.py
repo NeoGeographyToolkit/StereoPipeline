@@ -76,7 +76,7 @@ def retrieveRunData(run, unpackFolder):
 
     lfePath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)
 
-    cmd = 'shiftc --wait --verify --extract-tar ' + lfePath + ' ' + unpackFolder
+    cmd = 'shiftc --wait -d --verify --extract-tar ' + lfePath + ' ' + unpackFolder
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
@@ -99,7 +99,7 @@ def fetchCameraFolder(run):
     fileName     = run.getCameraTarName()
     lfePath      = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
 
-    cmd = 'shiftc --wait --extract-tar ' + lfePath + ' ' + cameraFolder
+    cmd = 'shiftc --wait -d --extract-tar ' + lfePath + ' ' + cameraFolder
     logger.info(cmd)
     status = os.system(cmd)
     print status
@@ -128,7 +128,7 @@ def packAndSendCameraFolder(run):
     os.system(cmd)
 
     # Do the new file
-    cmd = 'shiftc --wait --create-tar ' + cameraFolder + ' ' + lfePath
+    cmd = 'shiftc --wait -d --create-tar ' + cameraFolder + ' ' + lfePath
     logger.info(cmd)
     status = os.system(cmd)
     print status
@@ -165,7 +165,7 @@ def packAndSendSummaryFolder(run, folder):
     os.system(cmd)
 
     # Send the file to lfe using shiftc
-    cmd = 'shiftc --wait  ' + fileName + ' ' + lfePath
+    cmd = 'shiftc --wait -d ' + fileName + ' ' + lfePath
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
