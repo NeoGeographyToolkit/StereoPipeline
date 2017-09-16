@@ -196,7 +196,7 @@ def main(argsIn):
         parser.add_argument('--stereo-arguments', dest='stereoArgs',
                             # set --min-xcorr-level 0 to do the left-to-right 
                             # and right-to-left consistency check at the lowest level.
-                            default='--stereo-algorithm 2 --min-xcorr-level 1',
+                            default='--stereo-algorithm 2 --min-xcorr-level 0',
                             help='Extra arguments to pass to stereo.')
 
         parser.add_argument('--start-frame', dest='startFrame', type=int,

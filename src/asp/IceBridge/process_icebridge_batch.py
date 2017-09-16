@@ -405,14 +405,14 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # Testing: Is there any performance hit from using --corr-seed-mode 0 ??
     #          This skips D_sub creation and saves processing time.
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
-    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10' %
+    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 --ip-per-tile 2000 ' %
                  (argString, thisPairPrefix, threadText, extraArgs))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
     if '--stereo-algorithm 0' not in options.stereoArgs:
         correlationArgString = (' --xcorr-threshold 2 --corr-kernel 7 7 ' 
                                 + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 2 '
-                                + searchLimitString + ' --corr-memory-limit-mb 12000 '
+                                + searchLimitString + ' --corr-memory-limit-mb 10000 '
                                 + options.stereoArgs
                                )
         #+ ' --corr-blob-filter 100')
