@@ -167,8 +167,10 @@ def runFetch(run, options):
         allIsFetched = True
     else:
         try:
+            # Note that the check below is incomplete, it does not check for Fireball
             allIsFetched = run.allSourceDataFetched()
         except Exception, e:
+            allIsFetched = False
             logger.warning('Caught error checking fetch status.\n'
                        + str(e))
 
@@ -177,24 +179,14 @@ def runFetch(run, options):
 
     pythonPath = asp_system_utils.which('python')
     
-    if not options.noRefetchIndex:
-        # Go ahead and refetch the indices since it helps to have these up-to-date.
-        logger.info("Refetching the indices.")
-        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
-        logger.info(cmd)
-        os.system(cmd)
-
-    if allIsFetched:
-        logger.info('Fetch is complete.')
-        return
-    
     # Fetch whatever is missing directly from NSIDC, and force to have the indices
     # regenerated in this case. Hopefully just a few files are missing.
     # - This is likely to have to fetch the large nav data file(s)
-    logger.info("Fetch from NSIDC.")
-    cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-fetch --skip-validate' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
-    logger.info(cmd)
-    os.system(cmd)
+    if not options.noRefetch:
+        logger.info("Fetch from NSIDC.")
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-fetch --skip-validate' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+        logger.info(cmd)
+        os.system(cmd)
     
     # Don't need to check results, they should be cleaned out in conversion call.
 
@@ -627,9 +619,9 @@ def main(argsIn):
                             dest="recomputeBatches", default=False, 
                             help="Recompute an existing batch file.")
 
-        parser.add_argument("--no-refetch-index", action="store_true", 
-                            dest="noRefetchIndex", default=False, 
-                            help="Normally we want the indices refetched, but for quick tests this is slow.")
+        parser.add_argument("--no-refetch", action="store_true", 
+                            dest="noRefetch", default=False, 
+                            help="Do not attempt to refetch from NSIDC.")
 
         parser.add_argument("--skip-checks", action="store_true", 
                             dest="skipChecks", default=False, 

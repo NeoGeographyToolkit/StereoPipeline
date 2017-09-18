@@ -471,13 +471,12 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     
     # Call and check status
     triOutput = thisPairPrefix + '-PC.tif'
-    suppressOutput = (logger != None)
     (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo, noThrow=True)
 
     if status != 0:
         # If stereo failed, try it out one more time provided with the .match file that
         #  was created by bundle_adjust.
-        logger.info('First stereo attempt failed, will copy .match file from bundle_adjust and retry.')
+        icebridge_common.logger_print(logger, 'First stereo attempt failed, will copy .match file from bundle_adjust and retry.')
         
         # Clear any existing .match file then link in the new one.
         os.system('rm -f ' + thisPairPrefix + '*.match')
@@ -490,7 +489,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
                                                              redo, noThrow=True)
         if status != 0:
             # If we fail again give up.
-            logger.info(out + '\n' + err)
+            icebridge_common.logger_print(logger, out + '\n' + err)
             raise Exception('Stereo call failed!')
 
     # point2dem on the result of ASP
@@ -501,7 +500,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     p2dOutput = demFiles[i]
     (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo, noThrow=True)
     if status != 0:
-        logger.info(out + '\n' + err)
+        icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
 
     # COLORMAP
@@ -513,6 +512,10 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
 def clean_batch(batchFolder, alignPrefix, stereoPrefixes, interDiffPaths, fireballDiffPaths, smallFiles=False):
     '''Clean up all non-output files to conserve space.
        Setting smallFiles will remove additional low size files.'''
+
+    # Test all this!
+    
+    # To do: Add here the fireball DEM footprint
     
     # Delete all of the stereo folders
     for s in stereoPrefixes:
@@ -523,21 +526,24 @@ def clean_batch(batchFolder, alignPrefix, stereoPrefixes, interDiffPaths, fireba
             os.system('rm -rf ' + s + '*.tif')
     
     if smallFiles:
-        # Delete bundle_adjust folder
+        # Delete bundle_adjust folder. Note that will also wipe the cameras.
         os.system('rm -rf ' + os.path.join(batchFolder, 'bundle'))
         
+
         # Clean out the pc_align folder
-        alignFiles = ['-beg_errors.csv', '-end_errors.csv', '-inverse_transform.txt',
-                      '-iterationInfo.csv', '-transform.txt']
+        # test this!!!
+        alignFiles = ['-beg_errors.csv', '-end_errors.csv', '-iterationInfo.csv',
+                      '-trans_reference.tif', 'iterationInfo.csv']
         for currFile in alignFiles:
             os.system('rm -f ' + alignPrefix + currFile)
         
-        
-    
     # Delete the diff images
     for f in (interDiffPaths + fireballDiffPaths):
         os.system('rm -f ' + f)
 
+    # Delete dangling link.
+    # Not sure about this. If out-DEM.tif is missing, it will restart.
+    #os.system('rm -rf ' + os.path.join(batchFolder, 'out-DEM.tif'))
 
 def main(argsIn):
     '''Handle arguments then call doWork function'''
@@ -686,8 +692,11 @@ def doWork(options, args, logger):
     demSymlinkPath        = outputPrefix + '-align-DEM.tif'
     if ( os.path.exists(consolidatedStatsPath) and 
          os.path.exists(demSymlinkPath) and not redo ):
-        logger.info('Final output file already exists, quitting script early.')
-        logger.info('Finished script process_icebridge_batch!') # Include the same normal completion message
+        logger.info('Final output files already exists: ' + demSymlinkPath +
+                    ' and ' + consolidatedStatsPath + '. Quitting script early.')
+        
+        # Include the same normal completion message
+        logger.info('Finished script process_icebridge_batch!') 
         return
 
 
