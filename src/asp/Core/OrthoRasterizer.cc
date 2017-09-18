@@ -493,6 +493,14 @@ namespace asp{
       std::sort(vy.begin(), vy.end());
       if (len > 0){
         // Get the median
+        // TODO: This is not robust. For lro nac, vertical resolution
+        // and horizontal resolution differ by a factor of 4, e.g.,
+        // 0.5 m and 2 m. The median can be one of the two, which is
+        // wrong.  This code should be an average of the values in the
+        // [25%, 75%] range.
+        // TODO: Integrate with the logic for mapproject.
+	// TODO: The fault spacing should be 4x times this.
+	// https://github.com/NeoGeographyToolkit/StereoPipeline/issues/173
         m_default_spacing_x = vx[(int)(0.5*len)];
         m_default_spacing_y = vy[(int)(0.5*len)];
       }
