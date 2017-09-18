@@ -70,21 +70,29 @@ os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 def frame2dem(frame, processFolder, bundleLength):
     
     # We count here on the convention for writing batch folders
-    batchFolderGlob = os.path.join(processFolder, 'batch_' + str(frame) + \
-                                   '_*' + '_' + str(bundleLength))
+    batchFolderGlob = os.path.join(processFolder,
+                                   'batch_' + str(frame) + '_*_' + str(bundleLength))
     
-    batchFolder = glob.glob(batchFolderGlob)
+    batchFolders = glob.glob(batchFolderGlob)
 
-    if len(batchFolder) == 0:
+    if len(batchFolders) == 0:
         #print("Error: No directories matching: " + batchFolderGlob + ". Will skip this frame.")
         return "", ""
         
-    if len(batchFolder) > 1:
-        print("Error: Found more than one directory matching: " + batchFolderGlob + ".")
-        return "", ""
-    
-    batchFolder = batchFolder[0] # extract from list
-    demFile = os.path.join(batchFolder, 'out-align-DEM.tif')
+    if len(batchFolders) > 1:
+        # This I believe is an artifact of running the entire flight twice,
+        # with different value for --start-frame each time.
+        # For now, just take whatever is there, at some point this needs to be sorted out.
+        print("Warning: Found more than one directory matching glob:" + batchFolderGlob)
+        #return "", ""
+
+    demFile = ""
+    batchFolder = ""
+    for batchFolder in batchFolders:
+        demFile = os.path.join(batchFolder, 'out-align-DEM.tif')
+        if os.path.exists(demFile):
+            break
+        
     if not os.path.exists(demFile):
         return "", ""
 
@@ -248,16 +256,16 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             asp_system_utils.executeCommand(cmd, finalFireballOutput, suppressOutput, redo)
 
             # Generate a thumbnail of the final DEM
-            hillOutput = fireballOutputPrefix+'_HILLSHADE.tif'
-            cmd = 'hillshade ' + finalFireballOutput +' -o ' + hillOutput
-            print(cmd)
-            asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
+            #hillOutput = fireballOutputPrefix+'_HILLSHADE.tif'
+            #cmd = 'hillshade ' + finalFireballOutput +' -o ' + hillOutput
+            #print(cmd)
+            #asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
 
-            # Generate a low resolution compressed thumbnail of the hillshade for debugging
-            thumbOutput = fireballOutputPrefix + '_HILLSHADE_browse.tif'
-            cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
-            asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
-            os.remove(hillOutput) # Remove this file to keep down the file count
+            ## Generate a low resolution compressed thumbnail of the hillshade for debugging
+            #thumbOutput = fireballOutputPrefix + '_HILLSHADE_browse.tif'
+            #cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
+            #asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
+            #os.remove(hillOutput) # Remove this file to keep down the file count
             
             logFiles = glob.glob(fireballOutputPrefix + "*" + "-log-" + "*")
             filesToWipe += logFiles
