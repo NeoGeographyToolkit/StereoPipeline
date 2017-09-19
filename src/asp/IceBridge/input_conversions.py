@@ -410,14 +410,14 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
 
 
 def getCameraModelsFromNav(imageFolder, orthoFolder, 
-                           options.inputCalFolder, navFolder, navCameraFolder):
+                           inputCalFolder, navFolder, navCameraFolder):
     '''Given the folder containing navigation files, generate an
        estimated camera model for each file.'''
    
     # Note: Currently these output files DO NOT contain accurate intrinsic parameters!
     
     # All the work is done by the separate file.
-    cmd = [imageFolder, orthoFolder, options.inputCalFolder, navFolder, navCameraFolder]
+    cmd = [imageFolder, orthoFolder, inputCalFolder, navFolder, navCameraFolder]
     if (camera_models_from_nav.main(cmd) < 0):
         raise Exception('Error generating camera models from nav!')
 

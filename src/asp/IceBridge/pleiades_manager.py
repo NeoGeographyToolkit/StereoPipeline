@@ -199,6 +199,8 @@ def runFetch(run, options):
     # Don't need to check results, they should be cleaned out in conversion call.
 
     run.setFlag('fetch_complete')
+    
+    raise Exception('DEBUG')
             
 
 def runConversion(run, options):
@@ -227,7 +229,7 @@ def runConversion(run, options):
     os.system(cmd)    
     logger.info("Finished generating estimated camera files from nav.")
 
-
+    raise Exception('DEBUG')
     
     # Get the frame range for the data.
     (minFrame, maxFrame) = run.getFrameRange()

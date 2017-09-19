@@ -294,15 +294,15 @@ class RunHelper():
 
     def setFlag(self, flag):
         '''Set a file based flag to be checked later'''
-        os.system('touch '+ self._internalLoc('flag'))
+        os.system('touch '+ self._internalLoc(flag))
         
     def checkFlag(self, flag):
         '''Check if a file based flag has been set'''
-        return os.path.exists(self._internalLoc('flag'))
+        return os.path.exists(self._internalLoc(flag))
         
     def clearFlag(self, flag):
         '''Clear a file based flag'''
-        return os.system('rm -rf ' + self._internalLoc('flag'))
+        return os.system('rm -rf ' + self._internalLoc(flag))
 
 
     def deleteLocalData(self):

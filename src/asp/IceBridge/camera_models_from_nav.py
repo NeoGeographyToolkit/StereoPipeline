@@ -72,7 +72,7 @@ def main(argsIn):
 
     # Find the nav file
     # - There should only be one or two nav files per flight.
-    fileList = os.listdir(navFolder):
+    fileList = os.listdir(navFolder)
     fileList = [x for x in fileList if '.out' in x]
     if len(fileList) > 1:
         logger.error('TODO: Support double nav files!')
@@ -84,7 +84,7 @@ def main(argsIn):
     # - nav2cam does not support per-frame intrinsic data, so just feed
     #   it any random camera file and let ortho2pinhole insert the 
     #   correct instrinsic data.
-    fileList = os.listdir(calFolder):
+    fileList = os.listdir(calFolder)
     fileList = [x for x in fileList if '.tsai' in x]
     if not fileList:
         logger.error('Unable to find any camera files in ' + calFolder)

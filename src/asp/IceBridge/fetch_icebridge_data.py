@@ -258,7 +258,7 @@ def getFolderUrl(yyyymmdd, year, month, day,
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IPAPP1B_GPSInsCorrected_v01'
         yearFolder = makeYearFolder(year, site)
         folderUrl  = os.path.join(base, yearFolder)
-        return foldurUrl
+        return folderUrl
 
     if fileType == 'jpeg':
 
@@ -544,7 +544,7 @@ def fetchNavData(options, outputFolder):
     # The storage convention for these is very easy!
     # - A few dates have two files instead of one.
     folderUrl = getFolderUrl(options.yyyymmdd, options.year, options.month,
-                             options.day, dayInc=False,
+                             options.day, False,
                              options.site, options.type)
     filename  = 'sbet_' + options.yyyymmdd + '.out'
     filenameA = 'sbet_' + options.yyyymmdd + 'a.out'
@@ -564,7 +564,7 @@ def fetchNavData(options, outputFolder):
         # TODO: How to handle refetch?
         if os.path.exists(outputPath):
             continue
-        if not fetchFile(url, outputPath):
+        if not icebridge_common.fetchFile(url, outputPath):
             numFailed = numFailed + 1
 
     return numFailed
