@@ -34,7 +34,8 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
-import icebridge_common, fetch_icebridge_data, process_icebridge_run, extract_icebridge_ATM_points
+import icebridge_common, fetch_icebridge_data, process_icebridge_run
+import extract_icebridge_ATM_points, camera_models_from_nav
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 
 asp_system_utils.verify_python_version_is_supported()
@@ -241,8 +242,8 @@ def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmd
 
     return os.path.join(inputCalFolder, camera)
 
-def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
-                           refDemPath, numThreads):
+def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPath, 
+                           outputCamFile, refDemPath, numThreads):
     '''Generate a camera model from a single ortho file'''
 
     # Make multiple calls with different options until we get one that works well
@@ -266,9 +267,11 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
 
         # Call ortho2pinhole command
         ortho2pinhole = asp_system_utils.which("ortho2pinhole")
-        cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %d --minimum-ip %d') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ipMethod, MIN_IP))
+        cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %d --minimum-ip %d ') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ipMethod, MIN_IP))
         if localNorm:
             cmd += ' --skip-image-normalization'
+        if estimatedCameraPath:
+            cmd += ' --camera-estimate ' + estimatedCameraPath
 
         # Use a print statement as the logger fails from multiple processes
         print(cmd)
@@ -309,7 +312,8 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
     sys.stdout.flush()
 
 def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
-                             cameraLookupPath, yyyymmdd, site,
+                             cameraLookupPath, navCameraFolder,
+                             yyyymmdd, site,
                              refDemPath, cameraFolder, 
                              startFrame, stopFrame,
                              numProcesses, numThreads, logger):
@@ -318,8 +322,9 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     
     logger.info('Generating camera models from ortho images...')
     
-    imageFiles = icebridge_common.getTifs(imageFolder)
-    orthoFiles = icebridge_common.getTifs(orthoFolder)
+    imageFiles    = icebridge_common.getTifs(imageFolder)
+    orthoFiles    = icebridge_common.getTifs(orthoFolder)
+    estimateFiles = icebridge_common.getTifs(navCameraFolder)
     
     # Make a dictionary of ortho files by frame
     orthoFrames = {}
@@ -328,6 +333,15 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
         orthoFrames[frame] = f
+
+    # Make a dictionary of estimated camera files by frame
+    estimatedFrames = {}
+    for f in estimateFiles:
+        frame = icebridge_common.getFrameNumberFromFilename(f)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
+        estimatedFrames[frame] = f
+
 
     imageFiles.sort()
 
@@ -351,6 +365,13 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
         orthoFile = orthoFrames[frame]
+        try:
+            estimatedCameraFile = estimatedFrames[frame]
+        except:
+            logger.warning('Missing nav estimated camera for frame ' + str(frame))
+            estimatedCameraFile = None
+        
+        # Get estimated camera from nav
         
         # Check output file
         inputPath     = os.path.join(imageFolder, imageFile)
@@ -366,28 +387,10 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         inputCamFile = getCalibrationFileForFrame(cameraLookupPath, inputCalFolder,
                                                   frame, yyyymmdd, site)
 
-        # Experimental. Using the lidar file instead of the datum works better in the open water.
-        #lidarFile = icebridge_common.findMatchingLidarFile(imageFile, lidarFolder)
-        #isSouth = icebridge_common.checkSite(site)
-        #lidarDemFile = lidarFile[:-4] + '-DEM.tif'
-        #if os.path.exists(lidarDemFile):
-        #    refDemPath = lidarDemFile
-        #else:
-        #    projString = icebridge_common.getProjection(isSouth)
-        #    lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
-        #    cmd = "point2dem --tr 1 --search-radius-factor 4 --t_srs " + projString + ' --csv-format ' + lidarCsvFormatString + ' --datum wgs84 ' + lidarFile
-        #    suppressOutput = False
-        #    redo = False
-        #    logger.info(cmd)
-        #    asp_system_utils.executeCommand(cmd, lidarDemFile, suppressOutput, redo)
-        #    
-        #    if os.path.exists(lidarDemFile):
-        #        refDemPath = lidarDemFile 
-        #logger.info("Using dem path: " + refDemPath)
-        
         # Add ortho2pinhole command to the task pool
         taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
                                             (inputPath, orthoPath, inputCamFile,
+                                             estimatedCameraFile,
                                              outputCamFile, refDemPath, numThreads)))
 
     # Wait for all the tasks to complete
@@ -404,6 +407,20 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         if not os.path.exists(f):
             return False
     return True
+
+
+def getCameraModelsFromNav(imageFolder, orthoFolder, 
+                           options.inputCalFolder, navFolder, navCameraFolder):
+    '''Given the folder containing navigation files, generate an
+       estimated camera model for each file.'''
+   
+    # Note: Currently these output files DO NOT contain accurate intrinsic parameters!
+    
+    # All the work is done by the separate file.
+    cmd = [imageFolder, orthoFolder, options.inputCalFolder, navFolder, navCameraFolder]
+    if (camera_models_from_nav.main(cmd) < 0):
+        raise Exception('Error generating camera models from nav!')
+
 
 def convertLidarDataToCsv(lidarFolder, skipValidate, logger):
     '''Make sure all lidar data is available in a readable text format.

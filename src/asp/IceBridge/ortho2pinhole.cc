@@ -399,14 +399,18 @@ void load_camera_and_find_ip(Options const& opt,
 
 
 /// Generate the estimated camera using a 3D affine transform or load in from a file.
-void get_estimated_camera(Options const& opt,
-                          vw::camera::PinholeModel *pcam,
-                          std::vector<Vector3> const& raw_flat_xyz,
-                          std::vector<Vector3> const& ortho_flat_xyz) {
+/// - pcam is the input camera model.
+void get_estimated_camera_position(Options const& opt,
+                                   vw::camera::PinholeModel *pcam,
+                                   std::vector<Vector3> const& raw_flat_xyz,
+                                   std::vector<Vector3> const& ortho_flat_xyz) {
 
-  // If an estimated camera file was provided just load it.
+  // If an estimated camera file was provided just load it (but keep the input instrinsics).
   if (opt.camera_estimate != "") {
-    pcam->read(opt.camera_estimate);
+    PinholeModel est_cam(opt.camera_estimate);
+    pcam->set_camera_center(est_cam.camera_center());
+    pcam->set_camera_pose(est_cam.camera_pose());
+    
     vw_out() << "Loaded estimated camera position from " << opt.camera_estimate << std::endl;
     return;
   }
@@ -723,7 +727,7 @@ void ortho2pinhole(Options & opt){
   // Get our best estimate of the camera position
   // - This will be from an affine transform between points or
   //   just be loaded from an input file.  
-  get_estimated_camera(opt, pcam, raw_flat_xyz, ortho_flat_xyz);
+  get_estimated_camera_position(opt, pcam, raw_flat_xyz, ortho_flat_xyz);
 
   Vector3 gcc_cam_est = pcam->camera_center();
   Vector3 llh_cam_est = ortho_georef.datum().cartesian_to_geodetic(gcc_cam_est);
@@ -743,15 +747,21 @@ void ortho2pinhole(Options & opt){
     const double MAX_REFINE_ERROR = 4000;
     const double MAX_CAMERA_MOVEMENT = 50;
     if (opt.camera_estimate != "") {
+      bool revert_camera = false;
       if (refine_error > MAX_REFINE_ERROR) {
         vw_out() << "Refinement error is too high, reverting to input camera estimate.\n";
-        pcam->read(opt.camera_estimate);
+        revert_camera = true;
       }
       else
         if (norm_2(pcam->camera_center() - gcc_cam_est) > MAX_CAMERA_MOVEMENT) {
           vw_out() << "Camera solution is too far from the input estimate, reverting to estimate.\n";
-          pcam->read(opt.camera_estimate);
+          revert_camera = true;
         }
+      if (revert_camera) { // Use estimated camera with input camera intrinsics
+        PinholeModel est_cam(opt.camera_estimate);
+        pcam->set_camera_center(est_cam.camera_center());
+        pcam->set_camera_pose(est_cam.camera_pose());
+      }
     }
     
   } // End of second pass DEM handling case
@@ -808,7 +818,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("camera-estimate",   po::value(&opt.camera_estimate)->default_value(""),
-     "An estimated camera model.")
+     "An estimated camera model used for location and pose estimate only.")
     ("camera-height",   po::value(&opt.camera_height)->default_value(-1.0),
      "The approximate height above the datum, in meters, at which the camera should be. If not specified, it will be read from the orthoimage metadata.")
     ("orthoimage-height",   po::value(&opt.orthoimage_height)->default_value(0.0),

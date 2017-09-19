@@ -17,6 +17,7 @@
      help constrain this search range.
    * Added hybrid SGM/MGM stereo option.
    * Improvements to SGM search range estimation.
+   * Added --min-num-ip option.
    
  - bundle_adjust
    * The tool is a lot more sensitive now to --camera-weight,

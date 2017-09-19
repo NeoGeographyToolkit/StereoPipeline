@@ -118,6 +118,12 @@ def getProcessedFolder(outputFolder):
 def getPairedLidarFolder(lidarFolder):
     return  os.path.join(lidarFolder, 'paired')
 
+def getNavFolder(outputFolder):
+    return  os.path.join(outputFolder, 'nav')
+
+def getNavCameraFolder(outputFolder):
+    return  os.path.join(outputFolder, 'nav_camera')
+
 def getConvertedLidarIndexFile(lidarFolder):
     return os.path.join(lidarFolder, 'converted_lidar_index.csv')
 
@@ -804,7 +810,7 @@ def fileNonEmpty(path):
     return os.path.exists(path) and (os.path.getsize(path) > 0)
 
 def fetchFile(url, outputPath):
-    '''Retrieve one file using curl'''
+    '''Retrieve one file using curl.  Return True on success.'''
 
     # Set up the command
     cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
@@ -815,6 +821,8 @@ def fetchFile(url, outputPath):
     print cmd
     p = subprocess.Popen(cmd, shell=True)
     os.waitpid(p.pid, 0)
+    
+    return os.path.exists(outputPath)
 
 # It is faster to invoke one curl command for multiple files.
 # Do not fetch files that already exist. Note that we expect

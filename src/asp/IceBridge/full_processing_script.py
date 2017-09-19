@@ -52,7 +52,7 @@ os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
 
 def fetchAllRunData(options, startFrame, stopFrame, 
-                    jpegFolder, orthoFolder, fireballFolder, lidarFolder):
+                    jpegFolder, orthoFolder, fireballFolder, lidarFolder, navFolder):
     '''Download all data needed to process a run'''
     
     logger = logging.getLogger(__name__)
@@ -80,8 +80,7 @@ def fetchAllRunData(options, startFrame, stopFrame,
     orthoCommand     = baseCommand + ' ' + orthoFolder
     fireballCommand  = baseCommand + ' ' + fireballFolder
     lidarCommand     = baseCommand + ' ' + lidarFolder
-
-    # TODO: Handle runs without DEM or ORTHO data.
+    navCommand       = baseCommand + ' ' + navFolder
     
     # Try to do all the downloads one after another
     # - On a failure the error message should already be printed.
@@ -92,6 +91,9 @@ def fetchAllRunData(options, startFrame, stopFrame,
         return -1
     if fetch_icebridge_data.main(fireballCommand.split()) < 0:
         print 'Fireball DEM data is optional, continuing run.'
+    if not options.noNavFetch:
+        if fetch_icebridge_data.main(navCommand.split()) < 0:
+            print 'Nav data is optional, continuing run.'
     # Skip the lidar fetch if the user requested no lidar files
     if (options.maxNumLidarToFetch is None) or (options.maxNumLidarToFetch > 0):
         if fetch_icebridge_data.main(lidarCommand.split()) < 0:
@@ -263,6 +265,9 @@ def main(argsIn):
         parser.add_argument("--stop-after-index-fetch", action="store_true",
                           dest="stopAfterIndexFetch", default=False,
                           help="Stop after fetching the indices.")
+
+        parser.add_argument("--no-nav", action="store_true", dest="noNavFetch",
+                            default=False, help="Don't fetch or convert the nav data.")
                        
         parser.add_argument("--no-lidar-convert", action="store_true", dest="noLidarConvert",
                           default=False,
@@ -334,6 +339,7 @@ def main(argsIn):
         if not os.path.exists(refDemPath):
             raise Exception("Missing reference DEM: " + refDemPath)
 
+    # TODO: CLEAN UP!!!
     # Set up the output folders
     cameraFolder       = icebridge_common.getCameraFolder(options.outputFolder)
     imageFolder        = icebridge_common.getImageFolder(options.outputFolder)
@@ -343,6 +349,8 @@ def main(argsIn):
     corrFireballFolder = icebridge_common.getCorrFireballFolder(options.outputFolder)
     lidarFolder        = icebridge_common.getLidarFolder(options.outputFolder)
     processedFolder    = icebridge_common.getProcessedFolder(options.outputFolder)
+    navFolder          = icebridge_common.getNavFolder(options.outputFolder)
+    navCameraFolder    = icebridge_common.getCameraFolder(options.outputFolder)
     
     # Handle subfolder option.  This is useful for comparing results with different parameters!
     if options.processingSubfolder:
@@ -354,7 +362,7 @@ def main(argsIn):
     else:
         # Call data fetch routine and check the result
         fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
-                                      jpegFolder, orthoFolder, fireballFolder, lidarFolder)
+                                      jpegFolder, orthoFolder, fireballFolder, lidarFolder, navFolder)
         if fetchResult < 0:
             logger.error("Fetching failed, quitting the program!") 
             return -1
@@ -390,7 +398,7 @@ def main(argsIn):
             if not isGood:
                 if options.reFetch and (not options.noFetch):
                     # During conversion we may realize some data is bad. 
-                    logger.error("Cconversions failed. Trying to re-fetch problematic files.")
+                    logger.error("Conversions failed. Trying to re-fetch problematic files.")
                     fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
                                                   jpegFolder, orthoFolder, fireballFolder,
                                                   lidarFolder)
@@ -408,11 +416,17 @@ def main(argsIn):
                     logger.error("Jpeg conversions failed, quitting the program!")
                     return -1
 
+        if not options.noNavFetch:
+            # Single process call to parse the nav files.
+            inputConversions.getCameraModelsFromNav(imageFolder, orthoFolder, 
+                                        options.inputCalFolder, navFolder, navCameraFolder)
+
         if not options.noOrthoConvert:
             # Multi-process call to convert ortho images
             input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder,
                                                        options.inputCalFolder, 
                                                        options.cameraLookupFile,
+                                                       navCameraFolder,
                                                        options.yyyymmdd, options.site, 
                                                        refDemPath, cameraFolder, 
                                                        options.startFrame, options.stopFrame,

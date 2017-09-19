@@ -146,9 +146,10 @@ def generateFlightSummary(run, options):
     
     # Copy logs to the output folder
     print 'Copying log files...'
-    badImageFolder = os.path.join(options.outputFolder, 'badImages')
-    runFolder      = run.getFolder()
-    procFolder     = run.getProcessFolder()
+    badImageFolder  = os.path.join(options.outputFolder, 'badImages')
+    runFolder       = run.getFolder()
+    procFolder      = run.getProcessFolder()
+    navCameraFolder = run.getNavCameraFolder()
     os.system('mkdir -p ' + options.outputFolder)
     os.system('mkdir -p ' + badImageFolder)
     
@@ -160,6 +161,10 @@ def generateFlightSummary(run, options):
         # Copy the input camera kml file
         camerasInKmlPath = os.path.join(procFolder, 'cameras_in.kml')
         shutil.copy(camerasInKmlPath, options.outputFolder)
+
+        # Copy the input camera kml file
+        navCamerasKmlPath = os.path.join(navCameraFolder, 'nav_cameras.kml')
+        shutil.copy(navCamerasKmlPath, options.outputFolder)
         
         # Create a merged version of all the bundle adjusted camera files
         # - The tool currently includes cameras more than once if they appear

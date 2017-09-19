@@ -75,9 +75,9 @@ def makeDateFolder(year, month, day, ext, fileType):
         return datePart
 
 def hasGoodLat(latitude, isSouth):
+    '''Return true if latitude and isSouth parameters match.'''
     if (isSouth and latitude < 0) or ( (not isSouth) and latitude > 0 ):
         return True
-
     return False
 
 def fetchAndParseIndexFileAux(isSouth, separateByLat, dayVal,
@@ -232,9 +232,12 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, dayVal,
 
 # These exist both in AN and GR, all mixed up, and have to separate by lat
 def isInSeparateByLatTable(yyyymmdd):
+    ''''''
     return yyyymmdd in ['20150924', '20151005', '20151020', '20151022'];
     
 def twoFlightsInOneDay(site, yyyymmdd):
+    '''Return true if there are two flights in one day.'''
+    
     # For this day, there are GR_20100422a and GR_20100422b
     if site == 'GR' and yyyymmdd == '20100422':
         return True
@@ -249,6 +252,13 @@ def getFolderUrl(yyyymmdd, year, month, day,
     ext = ''
     if len(yyyymmdd) == 9:
         ext = yyyymmdd[8]
+
+    if fileType == 'nav':
+        # This is the simplest, usually one file per flight.
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IPAPP1B_GPSInsCorrected_v01'
+        yearFolder = makeYearFolder(year, site)
+        folderUrl  = os.path.join(base, yearFolder)
+        return foldurUrl
 
     if fileType == 'jpeg':
 
@@ -288,8 +298,9 @@ def getFolderUrl(yyyymmdd, year, month, day,
     
     return folderUrl
 
-# Create a list of all files that must be fetched unless done already.
+
 def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
+    '''Create a list of all files that must be fetched unless done already.'''
 
     # For AN 20091112, etc, some of the ortho images are stored at the
     # beginning of the next day's flight. Need to sort this out, and
@@ -523,8 +534,44 @@ def lidarFilesInRange(lidarDict, lidarFolder, startFrame, stopFrame):
         lidarsToFetch.add(lidarList[index])
 
     return lidarsToFetch
+
+
+def fetchNavData(options, outputFolder):
+    '''Fetch all the nav data for a flight.'''
+
+    numFailed = 0
+
+    # The storage convention for these is very easy!
+    # - A few dates have two files instead of one.
+    folderUrl = getFolderUrl(options.yyyymmdd, options.year, options.month,
+                             options.day, dayInc=False,
+                             options.site, options.type)
+    filename  = 'sbet_' + options.yyyymmdd + '.out'
+    filenameA = 'sbet_' + options.yyyymmdd + 'a.out'
+    filenameB = 'sbet_' + options.yyyymmdd + 'b.out'
     
+    # Check which urls are accurate for this file
+    url = folderUrl + filename
+    if checkIfUrlExists(url):
+        fileList = [filename]
+    else:
+        fileList = [filenameA, filenameB]
+
+    # Download the files    
+    for f in fileList:
+        url        = os.path.join(folderUrl, f)
+        outputPath = os.path.join(outputFolder, f)
+        # TODO: How to handle refetch?
+        if os.path.exists(outputPath):
+            continue
+        if not fetchFile(url, outputPath):
+            numFailed = numFailed + 1
+
+    return numFailed
+
 def doFetch(options, outputFolder):
+    '''The main fetch function.
+       Returns the number of failures.'''
     
     # Verify that required files exist
     home = os.path.expanduser("~")
@@ -543,6 +590,10 @@ def doFetch(options, outputFolder):
     os.system('mkdir -p ' + outputFolder)  
 
     isSouth = (options.site == 'AN')
+    
+    if options.type == 'nav': # Nav fetching is much less complicated
+        return fetchNavData(options, outputFolder)
+    
     parsedIndexPath = fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder)
     if not icebridge_common.fileNonEmpty(parsedIndexPath):
         # Some dirs are weird, both images, fireball dems, and ortho.
@@ -822,7 +873,7 @@ def main(argsIn):
             logger.error('Error, site must be AN or GR for images.\n' + usage)
             return -1
 
-        KNOWN_TYPES = ['jpeg', 'ortho', 'fireball'] + LIDAR_TYPES
+        KNOWN_TYPES = ['jpeg', 'ortho', 'fireball', 'nav'] + LIDAR_TYPES
         if not (options.type.lower() in KNOWN_TYPES):
             logger.error('Error, type must be image, ortho, fireball, or a lidar type.\n' + usage)
             return -1

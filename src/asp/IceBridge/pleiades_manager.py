@@ -190,6 +190,7 @@ def runFetch(run, options):
     
     # Fetch whatever is missing directly from NSIDC, and force to have the indices
     # regenerated in this case. Hopefully just a few files are missing.
+    # - This is likely to have to fetch the large nav data file(s)
     logger.info("Fetch from NSIDC.")
     cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-fetch --skip-validate' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
     logger.info(cmd)
@@ -215,6 +216,18 @@ def runConversion(run, options):
         logger.warning('Caught error checking conversion status, re-running conversion.\n' + str(e))
         
     logger.info('Converting data for run ' + str(run))
+
+    # Run just the nav data --> estimated camera conversion on the PFE machine.
+    # - This is single threaded and may take a while but is primarily IO driven.
+    # - We can't start the slower ortho2pinhole processes until this is finished.
+    # - If all of the camera files already exist this call will finish up very quickly.
+    logger.info("Generating estimated camera files from the navigation files.")
+    cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+    logger.info(cmd)
+    os.system(cmd)    
+    logger.info("Finished generating estimated camera files from nav.")
+
+
     
     # Get the frame range for the data.
     (minFrame, maxFrame) = run.getFrameRange()
@@ -222,7 +235,7 @@ def runConversion(run, options):
         minFrame = options.startFrame
     if maxFrame > options.stopFrame:
         maxFrame = options.stopFrame
-        
+
     logger.info('Detected frame range: ' + str((minFrame, maxFrame)))
 
     # Retrieve parallel processing parameters
@@ -238,7 +251,7 @@ def runConversion(run, options):
     outputFolder = run.getFolder()
     
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
-    args       = (' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
+    args       = (' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate --no-nav' 
                   % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.

@@ -47,7 +47,7 @@ def main(argsIn):
 
     # Command line parsing
     try:
-        usage  = "usage: camera_models_from_nav.py <image_folder> <ortho_folder> <camera_path> <nav_path> <output_folder>"
+        usage  = "usage: camera_models_from_nav.py <image_folder> <ortho_folder> <cal_folder> <nav_folder> <output_folder>"
         parser = optparse.OptionParser(usage=usage)
 
         # This call handles all the parallel_mapproject specific options.
@@ -59,8 +59,8 @@ def main(argsIn):
             return -1
         imageFolder  = os.path.abspath(args[0])
         orthoFolder  = os.path.abspath(args[1]) # TODO: Replace with options
-        cameraPath   = os.path.abspath(args[2])
-        navPath      = os.path.abspath(args[3])
+        calFolder    = os.path.abspath(args[2])
+        navFolder    = os.path.abspath(args[3])
         outputFolder = os.path.abspath(args[4])
 
     except optparse.OptionError, msg:
@@ -69,6 +69,27 @@ def main(argsIn):
     if not os.path.exists(orthoFolder):
         logger.error('Ortho folder ' + orthoFolder + ' does not exist!')
         return -1
+
+    # Find the nav file
+    # - There should only be one or two nav files per flight.
+    fileList = os.listdir(navFolder):
+    fileList = [x for x in fileList if '.out' in x]
+    if len(fileList) > 1:
+        logger.error('TODO: Support double nav files!')
+        return -1
+    navPath = fileList[0]
+
+
+    # Find a camera file to use.
+    # - nav2cam does not support per-frame intrinsic data, so just feed
+    #   it any random camera file and let ortho2pinhole insert the 
+    #   correct instrinsic data.
+    fileList = os.listdir(calFolder):
+    fileList = [x for x in fileList if '.tsai' in x]
+    if not fileList:
+        logger.error('Unable to find any camera files in ' + calFolder)
+        return -1
+    cameraPath = fileList[0]
 
     # Get the ortho list
     orthoFiles = icebridge_common.getTifs(orthoFolder)
@@ -113,11 +134,25 @@ def main(argsIn):
                 camera = image.replace('.tif', '.tsai')
                 outputFile.write(ortho +', ' + camera + '\n')
 
+    # Check if we already have all of the output camera files.
+    haveAllFiles = True
+    with open(orthoListFile, 'r') as inputFile:
+        for line in inputFile:
+            parts   = line.split(',')
+            camPath = os.path.join(outputFolder, parts[1])
+            if not os.path.exists(camPath):
+                haveAllFiles = False
+                break
+
+    if haveAllFiles:
+        logger.info('Already have all camera models from nav, quitting early!')
+        return
+
     # Convert the nav file from binary to text    
     parsedNavPath = navPath.replace('.out', '.txt')
     cmd = 'sbet2txt.pl -q ' + navPath + ' > ' + parsedNavPath
     logger.info(cmd)
-    asp_system_utils.executeCommand(cmd, parsedNavPath, suppressOutput=True, redo=False)    
+    asp_system_utils.executeCommand(cmd, parsedNavPath, suppressOutput=True, redo=False)
 
     # Call the C++ tool to generate a camera model for each ortho file
     cmd = ('nav2cam --input-cam %s --nav-file %s --cam-list %s --output-folder %s' 
@@ -125,7 +160,14 @@ def main(argsIn):
     logger.info(cmd)
     os.system(cmd)
     
-    # TODO: Count the output files
+    # Generate a kml file for the nav camera files
+    kmlPath  = os.path.join(outputFolder, 'nav_cameras.kml')
+    camFiles = os.listdir(outputFolder)
+    camFiles = [x for x in camFiles if '.tsai' in x]
+    camString = ' '.join(camFiles)
+    logger.info('Generating nav camera kml file: ' + kmlPath)
+    cmd = 'orbitviz_pinhole -o ' + kmlPath + ' ' + camString
+    asp_system_utils.executeCommand(cmd, kmlPath, suppressOutput=True, redo=False)
     
     logger.info('Finished generating camera models from nav!')
     

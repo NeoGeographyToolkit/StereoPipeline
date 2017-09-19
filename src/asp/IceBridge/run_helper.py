@@ -45,6 +45,7 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 
 class RunHelper():
+    '''Class for managing a folder for processing one run (flight)'''
 
     def __init__(self, site, yyyymmdd, parentFolder=''):
         '''Constructor.
@@ -99,6 +100,8 @@ class RunHelper():
         return self._internalLoc('lidar')
     def getLidarPairFolder(self):
         return icebridge_common.getPairedLidarFolder(self.getLidarFolder())
+    def getNavCameraFolder(self):
+        return self._internalLoc('nav_camera')
     def getCameraFolder(self):
         return self._internalLoc('camera')
     def getOrthoFolder(self):
@@ -207,7 +210,14 @@ class RunHelper():
                 if not os.path.exists(path):
                     logger.error('Missing file ' + path)
                     return False
-                
+        
+        # Simple nav file check
+        navFiles = os.listdir(self.getNavFolder())
+        navFiles = [x for x in navFiles if '.out' in navFiles]
+        if (len(navFiles) == 0) or (len(navFiles) > 2):
+            logger.error('Wrong number of nav files detected!')
+            return False
+        
         return True # Success!
 
 
