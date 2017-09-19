@@ -390,7 +390,19 @@ def main(argsIn):
     taskHandles  = []
     if options.numProcesses > 1:    
         pool = multiprocessing.Pool(options.numProcesses)
-        
+
+    # Bound the frames
+    sortedFrames = sorted(orthoFrameDict.keys())
+    if len(sortedFrames) > 0:
+        if options.startFrame < sortedFrames[0]:
+            options.startFrame = sortedFrames[0]
+        if options.stopFrame > sortedFrames[-1] + 1:
+            options.stopFrame = sortedFrames[-1] + 1
+    else:
+        # No ortho files, that means nothing to do
+        options.startFrame = 0
+        options.stopFrame  = 0 
+
     for frame in range(options.startFrame, options.stopFrame):
 
         if not frame in orthoFrameDict:
