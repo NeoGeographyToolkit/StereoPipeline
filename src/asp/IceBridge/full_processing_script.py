@@ -419,8 +419,8 @@ def main(argsIn):
 
         if not options.noNavFetch:
             # Single process call to parse the nav files.
-            inputConversions.getCameraModelsFromNav(imageFolder, orthoFolder, 
-                                        options.inputCalFolder, navFolder, navCameraFolder)
+            input_conversions.getCameraModelsFromNav(imageFolder, orthoFolder, 
+                                    options.inputCalFolder, navFolder, navCameraFolder)
 
         if not options.noOrthoConvert:
             # Multi-process call to convert ortho images

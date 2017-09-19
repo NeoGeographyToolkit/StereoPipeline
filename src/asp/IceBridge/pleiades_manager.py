@@ -216,6 +216,7 @@ def runConversion(run, options):
     # - We can't start the slower ortho2pinhole processes until this is finished.
     # - If all of the camera files already exist this call will finish up very quickly.
     logger.info("Generating estimated camera files from the navigation files.")
+    pythonPath = asp_system_utils.which('python')
     cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
     logger.info(cmd)
     os.system(cmd)    
@@ -700,6 +701,11 @@ def main(argsIn):
         if not options.skipConvert:                   
             # Run conversion and archive results if not already done        
             runConversion(run, options)
+        
+        
+        if options.skipProcess and options.skipBlend and options.skipReport:
+            logger.info('Quitting early.')
+            return 0
         
         if os.path.exists(fullBatchListPath) and not options.recomputeBatches:
             logger.info('Re-using existing batch list file.')
