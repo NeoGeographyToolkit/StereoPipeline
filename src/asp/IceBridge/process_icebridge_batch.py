@@ -299,7 +299,7 @@ def consolidateGeodiffResults(inputFiles, outputPath=None):
         f.write('# Min difference:       '+str(mergedResult['Min'   ])+'\n')
         f.write('# Mean difference:      '+str(mergedResult['Mean'  ])+'\n')
         f.write('# StdDev of difference: '+str(mergedResult['StdDev'])+'\n')
-    
+
     # Delete all the input diff files to reduce file bloat if we wrote the output file
     if os.path.exists(outputPath): 
         for f in inputFiles:
@@ -366,8 +366,7 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
                  (centerLon, centerLat, meanAlt, 
                   lidarDiffResults['Mean'], interDiffResults    ['Mean'],
                   fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
-
-
+        
 def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText, 
                   suppressOutput, redo, logger):
         '''Generate a DEM from a lidar file in the given region (plus a buffer)'''
@@ -509,14 +508,13 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
 
-def clean_batch(batchFolder, alignPrefix, stereoPrefixes, interDiffPaths, fireballDiffPaths, smallFiles=False):
+def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
+               interDiffPaths, fireballDiffPaths):
     '''Clean up all non-output files to conserve space.
        Setting smallFiles will remove additional low size files.'''
 
-    # Test all this!
-    
-    # To do: Add here the fireball DEM footprint
-    
+    smallFiles = True
+
     # Delete all of the stereo folders
     for s in stereoPrefixes:
         if smallFiles:
@@ -529,22 +527,46 @@ def clean_batch(batchFolder, alignPrefix, stereoPrefixes, interDiffPaths, fireba
         # Delete bundle_adjust folder. Note that will also wipe the cameras.
         os.system('rm -rf ' + os.path.join(batchFolder, 'bundle'))
         
-
         # Clean out the pc_align folder
-        # test this!!!
         alignFiles = ['-beg_errors.csv', '-end_errors.csv', '-iterationInfo.csv',
-                      '-trans_reference.tif', 'iterationInfo.csv']
+                      '-trans_reference.tif', 'iterationInfo.csv'] 
+
+        # TODO: Wipe the transform files at some point as well
+        
         for currFile in alignFiles:
             os.system('rm -f ' + alignPrefix + currFile)
-        
+
+        logFiles = glob.glob(alignPrefix + '*-log-*')
+        for logFile in logFiles:
+            os.system('rm -f ' + logFile)
+            
     # Delete the diff images
     for f in (interDiffPaths + fireballDiffPaths):
         os.system('rm -f ' + f)
 
     # Delete dangling link.
-    # Not sure about this. If out-DEM.tif is missing, it will restart.
-    #os.system('rm -rf ' + os.path.join(batchFolder, 'out-DEM.tif'))
+    os.system('rm -f ' + os.path.join(batchFolder, 'out-DEM.tif'))
 
+    # Delete lidar_crop files
+    lidar_crop_glob = os.path.join(batchFolder, '*cropped_lidar*')
+    for filename in glob.glob(lidar_crop_glob):
+        os.system('rm -f ' + filename)
+
+    # Repeating the logic from generate_flight_summary.py.
+    consolidatedStatsPath = os.path.join(batchFolder, 'out-consolidated_stats.txt')
+    if os.path.exists(consolidatedStatsPath):
+        # Then we don't need the individual files
+        lidarDiffPath     = os.path.join(batchFolder, 'out-diff.csv')
+        interDiffPath     = os.path.join(batchFolder, 'out_inter_diff_summary.csv')
+        fireDiffPath      = os.path.join(batchFolder, 'out_fireball_diff_summary.csv')
+        fireLidarDiffPath = os.path.join(batchFolder, 'out_fireLidar_diff_summary.csv')
+        for filename in [lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPath]:
+            os.system('rm -f ' + filename)
+
+    # Wipe any aux.xml
+    for filename in glob.glob(os.path.join(batchFolder, '*aux.xml')):
+        os.system('rm -f ' + filename)
+    
 def main(argsIn):
     '''Handle arguments then call doWork function'''
 
@@ -694,12 +716,11 @@ def doWork(options, args, logger):
          os.path.exists(demSymlinkPath) and not redo ):
         logger.info('Final output files already exists: ' + demSymlinkPath +
                     ' and ' + consolidatedStatsPath + '. Quitting script early.')
-        
+
         # Include the same normal completion message
         logger.info('Finished script process_icebridge_batch!') 
         return
-
-
+    
     # Check that the output GSD is not set too much lower than the native resolution
     heightLimitString = ''
     if options.referenceDem:
@@ -742,7 +763,8 @@ def doWork(options, args, logger):
             # Compute a good height limit from the reference DEM
             # - Can try generating lonlat bounds in the future, but maybe better
             #   to keep these in projected coordinate space.
-            heightLimitString = estimateHeightRange(totalBounds, projString, lidarFile,
+            heightLimitString = estimateHeightRange(totalBounds,
+                                                    projString, lidarFile,
                                                     options, threadText, 
                                                     suppressOutput, redo, logger)
             #raise Exception('DEBUG')
@@ -987,8 +1009,8 @@ def doWork(options, args, logger):
     if options.cleanup and os.path.exists(demSymlinkPath):
         # Delete large files that we don't need going forwards.
         alignPrefix = os.path.join(options.outputFolder, 'align/out')
-        clean_batch(options.outputFolder, alignPrefix, prefixes, interDiffPaths, fireballDiffPaths,
-                    smallFiles=True)
+        cleanBatch(options.outputFolder,
+                   alignPrefix, prefixes, interDiffPaths, fireballDiffPaths)
 
     logger.info('Finished script process_icebridge_batch!')
 
