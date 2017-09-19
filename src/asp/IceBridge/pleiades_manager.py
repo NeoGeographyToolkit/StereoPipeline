@@ -619,9 +619,19 @@ def main(argsIn):
                             dest="recomputeBatches", default=False, 
                             help="Recompute an existing batch file.")
 
+<<<<<<< HEAD
         parser.add_argument("--no-refetch", action="store_true", 
                             dest="noRefetch", default=False, 
                             help="Do not attempt to refetch from NSIDC.")
+||||||| merged common ancestors
+        parser.add_argument("--no-refetch-index", action="store_true", 
+                            dest="noRefetchIndex", default=False, 
+                            help="Normally we want the indices refetched, but for quick tests this is slow.")
+=======
+        parser.add_argument("--no-refetch", action="store_true", 
+                            dest="noRefetch", default=False, 
+                            help="Do not attempt to refetch the index or any missing files from NSIDC.")
+>>>>>>> pleiades_manager: fetch from NDSIDC after untar and before processing
 
         parser.add_argument("--skip-checks", action="store_true", 
                             dest="skipChecks", default=False, 
