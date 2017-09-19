@@ -32,7 +32,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-import asp_system_utils, icebridge_common
+import asp_system_utils, asp_file_utils, icebridge_common
 asp_system_utils.verify_python_version_is_supported()
 
 # Prepend to system PATH
@@ -77,7 +77,7 @@ def main(argsIn):
     if len(fileList) > 1:
         logger.error('TODO: Support double nav files!')
         return -1
-    navPath = fileList[0]
+    navPath = os.path.join(navFolder, fileList[0])
 
 
     # Find a camera file to use.
@@ -85,11 +85,11 @@ def main(argsIn):
     #   it any random camera file and let ortho2pinhole insert the 
     #   correct instrinsic data.
     fileList = os.listdir(calFolder)
-    fileList = [x for x in fileList if '.tsai' in x]
+    fileList = [x for x in fileList if (('.tsai' in x) and ('~' not in x))]
     if not fileList:
         logger.error('Unable to find any camera files in ' + calFolder)
         return -1
-    cameraPath = fileList[0]
+    cameraPath = os.path.join(calFolder, fileList[0])
 
     # Get the ortho list
     orthoFiles = icebridge_common.getTifs(orthoFolder)
@@ -116,11 +116,12 @@ def main(argsIn):
             raise Exception('Image missing ortho file: ' +image)
         infoDict[frame][1] = image
 
+
     os.system('mkdir -p ' + outputFolder)
     orthoListFile = os.path.join(outputFolder, 'ortho_file_list.csv')
 
     # Open the output file for writing
-    if not os.path.exists(orthoListFile):
+    if not asp_file_utils.fileIsNonZero(orthoListFile):
         with open(orthoListFile, 'w') as outputFile:
 
             # Loop through frames in order
@@ -139,39 +140,39 @@ def main(argsIn):
     with open(orthoListFile, 'r') as inputFile:
         for line in inputFile:
             parts   = line.split(',')
-            camPath = os.path.join(outputFolder, parts[1])
-            if not os.path.exists(camPath):
+            camPath = os.path.join(outputFolder, parts[1].strip())
+            if not asp_file_utils.fileIsNonZero(camPath):
+                logger.info('Missing file -> ' + camPath)
                 haveAllFiles = False
                 break
-
-    if haveAllFiles:
-        logger.info('Already have all camera models from nav, quitting early!')
-        return
 
     # Convert the nav file from binary to text    
     parsedNavPath = navPath.replace('.out', '.txt')
     cmd = 'sbet2txt.pl -q ' + navPath + ' > ' + parsedNavPath
     logger.info(cmd)
-    asp_system_utils.executeCommand(cmd, parsedNavPath, suppressOutput=True, redo=False)
+    if not asp_file_utils.fileIsNonZero(parsedNavPath):
+        os.system(cmd)
 
     # Call the C++ tool to generate a camera model for each ortho file
-    cmd = ('nav2cam --input-cam %s --nav-file %s --cam-list %s --output-folder %s' 
-           % (cameraPath, parsedNavPath, orthoListFile, outputFolder))
-    logger.info(cmd)
-    os.system(cmd)
+    if not haveAllFiles:
+        cmd = ('nav2cam --input-cam %s --nav-file %s --cam-list %s --output-folder %s' 
+               % (cameraPath, parsedNavPath, orthoListFile, outputFolder))
+        logger.info(cmd)
+        os.system(cmd)
     
     # Generate a kml file for the nav camera files
     kmlPath  = os.path.join(outputFolder, 'nav_cameras.kml')
     camFiles = os.listdir(outputFolder)
-    camFiles = [x for x in camFiles if '.tsai' in x]
+    camFiles = [os.path.join(outputFolder, x) for x in camFiles 
+                if (('.tsai' in x) and ('~' not in x))]
     camString = ' '.join(camFiles)
     logger.info('Generating nav camera kml file: ' + kmlPath)
-    cmd = 'orbitviz_pinhole -o ' + kmlPath + ' ' + camString
+    cmd = 'orbitviz_pinhole --hide-labels -o ' + kmlPath + ' ' + camString
     asp_system_utils.executeCommand(cmd, kmlPath, suppressOutput=True, redo=False)
     
     logger.info('Finished generating camera models from nav!')
     
-
+    return 0
 
 
 if __name__ == "__main__":

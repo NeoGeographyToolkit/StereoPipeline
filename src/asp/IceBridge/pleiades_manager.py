@@ -221,8 +221,6 @@ def runConversion(run, options):
     logger.info(cmd)
     os.system(cmd)    
     logger.info("Finished generating estimated camera files from nav.")
-
-    raise Exception('DEBUG')
     
     # Get the frame range for the data.
     (minFrame, maxFrame) = run.getFrameRange()

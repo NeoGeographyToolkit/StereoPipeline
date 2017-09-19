@@ -351,7 +351,7 @@ def main(argsIn):
     lidarFolder        = icebridge_common.getLidarFolder(options.outputFolder)
     processedFolder    = icebridge_common.getProcessedFolder(options.outputFolder)
     navFolder          = icebridge_common.getNavFolder(options.outputFolder)
-    navCameraFolder    = icebridge_common.getCameraFolder(options.outputFolder)
+    navCameraFolder    = icebridge_common.getNavCameraFolder(options.outputFolder)
     
     # Handle subfolder option.  This is useful for comparing results with different parameters!
     if options.processingSubfolder:
