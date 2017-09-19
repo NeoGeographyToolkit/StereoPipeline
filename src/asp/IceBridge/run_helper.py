@@ -100,6 +100,8 @@ class RunHelper():
         return self._internalLoc('lidar')
     def getLidarPairFolder(self):
         return icebridge_common.getPairedLidarFolder(self.getLidarFolder())
+    def getNavFolder(self):
+        return self._internalLoc('nav')
     def getNavCameraFolder(self):
         return self._internalLoc('nav_camera')
     def getCameraFolder(self):

@@ -93,7 +93,8 @@ def fetchAllRunData(options, startFrame, stopFrame,
         print 'Fireball DEM data is optional, continuing run.'
     if not options.noNavFetch:
         if fetch_icebridge_data.main(navCommand.split()) < 0:
-            print 'Nav data is optional, continuing run.'
+            #print 'Nav data is optional, continuing run.'
+            return -1
     # Skip the lidar fetch if the user requested no lidar files
     if (options.maxNumLidarToFetch is None) or (options.maxNumLidarToFetch > 0):
         if fetch_icebridge_data.main(lidarCommand.split()) < 0:
