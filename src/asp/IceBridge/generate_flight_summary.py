@@ -212,106 +212,112 @@ def generateFlightSummary(run, options):
     failedBatchPath = os.path.join(options.outputFolder, 'failedBatchList.csv')
     print("Writing statistics to: " + batchInfoPath)
     print("Writing failures to: " + failedBatchPath)
-    with open(batchInfoPath, 'w') as batchInfoLog, open(failedBatchPath, 'w') as failureLog:
-        # Write the header for the batch log file
-        batchInfoLog.write('# startFrame, stopFrame, centerLon, centerLat, meanAlt, ' +
-                           ' meanLidarDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff, meanBlendDiff meanBlendDiffInFireballFootprint\n')
-        failureLog.write('# startFrame, stopFrame, errorCode, errorText\n')
-        
-        demList = run.getOutputDemList()
-        for (dem, frames) in demList:
+    batchInfoLog = open(batchInfoPath, 'w')
+    failureLog   = open(failedBatchPath, 'w')
 
-            demFolder = os.path.dirname(dem)
+    # Write the header for the batch log file
+    batchInfoLog.write('# startFrame, stopFrame, centerLon, centerLat, meanAlt, ' +
+                       'meanLidarDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff, ' +
+                       'meanBlendDiff, meanBlendDiffInFireballFootprint\n')
+    failureLog.write('# startFrame, stopFrame, errorCode, errorText\n')
 
-            # Handle frame range option
-            if (frames[0] < options.startFrame):
-                continue
-            if (frames[1] > options.stopFrame):
-                break
+    demList = run.getOutputDemList()
+    for (dem, frames) in demList:
 
-            # Progress indication
-            if frames[0] % 100 == 0:
-                print("Frame: " + str(frames[0]))
-                batchInfoLog.flush() # for instant gratification
-                failureLog.flush()
-                
-            # Read in blend results which are not part of the consolidated stats file
-            blendDiffPath = os.path.join(demFolder, 'out-blend-DEM-diff.csv')
-            try:
-                blendDiffResults = icebridge_common.readGeodiffOutput(blendDiffPath)
-            except:
-                blendDiffResults = {'Mean':-999}
-            
-            # Read in blend results which are not part of the consolidated stats file
-            # for the blend done in the fireball footprint
-            fireballBlendDiffPath = os.path.join(demFolder, 'out-blend-fb-footprint-diff.csv')
+        demFolder = os.path.dirname(dem)
 
-            try:
-                fireballBlendDiffResults = icebridge_common.readGeodiffOutput(fireballBlendDiffPath)
-            except:
-                fireballBlendDiffResults = {'Mean':-999}
+        # Handle frame range option
+        if (frames[0] < options.startFrame):
+            continue
+        if (frames[1] > options.stopFrame):
+            break
 
-            # All of the other results should be in a consolidated stats file
-            consolidatedStatsPath = os.path.join(demFolder, 'out-consolidated_stats.txt')
+        # Progress indication
+        if frames[0] % 100 == 0:
+            print("Frame: " + str(frames[0]))
+            batchInfoLog.flush() # for instant gratification
+            failureLog.flush()
 
-            if not os.path.exists(consolidatedStatsPath):
-                # Stats file not present, recreate it.
+        # Read in blend results which are not part of the consolidated stats file
+        blendDiffPath = os.path.join(demFolder, 'out-blend-DEM-diff.csv')
+        try:
+            blendDiffResults = icebridge_common.readGeodiffOutput(blendDiffPath)
+        except:
+            blendDiffResults = {'Mean':-999}
 
-                print 'Recreating missing stats file: ' + consolidatedStatsPath
+        # Read in blend results which are not part of the consolidated stats file
+        # for the blend done in the fireball footprint
+        fireballBlendDiffPath = os.path.join(demFolder, 'out-blend-fb-footprint-diff.csv')
 
-                # Get paths to the files of interest
-                lidarDiffPath     = os.path.join(demFolder, 'out-diff.csv')
-                interDiffPath     = os.path.join(demFolder, 'out_inter_diff_summary.csv')
-                fireDiffPath      = os.path.join(demFolder, 'out_fireball_diff_summary.csv')
-                fireLidarDiffPath = os.path.join(demFolder, 'out_fireLidar_diff_summary.csv')
-                process_icebridge_batch.consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath,
-                                                         fireLidarDiffPath, dem,
-                                                         consolidatedStatsPath,
-                                                         None, options.skipGeo)
-            # Now the consolidated file should always be present
+        try:
+            fireballBlendDiffResults = icebridge_common.readGeodiffOutput(fireballBlendDiffPath)
+        except:
+            fireballBlendDiffResults = {'Mean':-999}
 
-            with open(consolidatedStatsPath, 'r') as f:
-                statsText = f.read()
+        # All of the other results should be in a consolidated stats file
+        consolidatedStatsPath = os.path.join(demFolder, 'out-consolidated_stats.txt')
 
-            # Write info to summary file
-            batchInfoLog.write('%d, %d, %s, %f, %f\n' % 
-                               (frames[0], frames[1], statsText,
-                                blendDiffResults['Mean'], fireballBlendDiffResults['Mean']))
+        if not os.path.exists(consolidatedStatsPath):
+            # Stats file not present, recreate it.
 
-            # Keep a list of batches that did not generate an output DEM
-            parts = statsText.split(',')
-            if (float(parts[0]) == 0) and (float(parts[1]) == 0) and (float(parts[2]) == -999):
-            
-                if os.path.exists(dem): # Handle the case where the statistics are bad for some reason
-                    errorCode = 0
-                    errorText = 'Success but statistics are bad'
-                else: # A real failure, figure out the cause
-                    batchFolder = os.path.dirname(dem)
-                    (errorCode, errorText) = getFailureCause(batchFolder)
-                    #print str((errorCode, errorText))
-                #if errorCode < 0: # Debug code for unknown errors
-                    #print str((errorCode, errorText))
-                    #print statsText
-                    #print batchFolder
-                    #raise Exception('DEBUG')
-                failureLog.write('%d, %d, %d, %s\n' %  (frames[0], frames[1], errorCode, errorText))
-                
-            
-            # Make a link to the thumbnail file in our summary folder
-            hillshadePath = os.path.join(demFolder, 'out-blend-DEM_HILLSHADE_browse.tif')
-            if os.path.exists(hillshadePath):
-                thumbName = ('dem_%05d_%05d_browse.tif' % (frames[0], frames[1]))
-                thumbPath = os.path.join(options.outputFolder, thumbName)
-                icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)
-            else:
-                # If the DEM thumbnail does not exist, look for the input frame thumbnail.
-                inPath    = os.path.join(demFolder, 'first_image_browse.tif')
-                thumbName = ('input_%05d_browse.tif' % (frames[0]))
-                thumbPath = os.path.join(badImageFolder, thumbName)
-                if os.path.exists(inPath):
-                    icebridge_common.makeSymLink(inPath, thumbPath, verbose=False)                
-                
-    # End loop through expected DEMs
+            print 'Recreating missing stats file: ' + consolidatedStatsPath
+
+            # Get paths to the files of interest
+            # This logic must be sync-ed up with cleanBatch().
+            lidarDiffPath     = os.path.join(demFolder, 'out-diff.csv')
+            interDiffPath     = os.path.join(demFolder, 'out_inter_diff_summary.csv')
+            fireDiffPath      = os.path.join(demFolder, 'out_fireball_diff_summary.csv')
+            fireLidarDiffPath = os.path.join(demFolder, 'out_fireLidar_diff_summary.csv')
+            process_icebridge_batch.consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath,
+                                                     fireLidarDiffPath, dem,
+                                                     consolidatedStatsPath,
+                                                     None, options.skipGeo)
+        # Now the consolidated file should always be present
+
+        with open(consolidatedStatsPath, 'r') as f:
+            statsText = f.read()
+
+        # Write info to summary file
+        batchInfoLog.write('%d, %d, %s, %f, %f\n' % 
+                           (frames[0], frames[1], statsText,
+                            blendDiffResults['Mean'], fireballBlendDiffResults['Mean']))
+
+        # Keep a list of batches that did not generate an output DEM
+        parts = statsText.split(',')
+        if (float(parts[0]) == 0) and (float(parts[1]) == 0) and (float(parts[2]) == -999):
+
+            if os.path.exists(dem): # Handle the case where the statistics are bad for some reason
+                errorCode = 0
+                errorText = 'Success but statistics are bad'
+            else: # A real failure, figure out the cause
+                batchFolder = os.path.dirname(dem)
+                (errorCode, errorText) = getFailureCause(batchFolder)
+                #print str((errorCode, errorText))
+            #if errorCode < 0: # Debug code for unknown errors
+                #print str((errorCode, errorText))
+                #print statsText
+                #print batchFolder
+                #raise Exception('DEBUG')
+            failureLog.write('%d, %d, %d, %s\n' %  (frames[0], frames[1], errorCode, errorText))
+
+
+        # Make a link to the thumbnail file in our summary folder
+        hillshadePath = os.path.join(demFolder, 'out-blend-DEM_HILLSHADE_browse.tif')
+        if os.path.exists(hillshadePath):
+            thumbName = ('dem_%05d_%05d_browse.tif' % (frames[0], frames[1]))
+            thumbPath = os.path.join(options.outputFolder, thumbName)
+            icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)
+        else:
+            # If the DEM thumbnail does not exist, look for the input frame thumbnail.
+            inPath    = os.path.join(demFolder, 'first_image_browse.tif')
+            thumbName = ('input_%05d_browse.tif' % (frames[0]))
+            thumbPath = os.path.join(badImageFolder, thumbName)
+            if os.path.exists(inPath):
+                icebridge_common.makeSymLink(inPath, thumbPath, verbose=False)                
+
+    # End loop through expected DEMs and writing log files
+    batchInfoLog.close()
+    failureLog.close()
     
     print 'Finished generating flight summary in folder: ' + options.outputFolder
     print("Wrote: " + batchInfoPath)
