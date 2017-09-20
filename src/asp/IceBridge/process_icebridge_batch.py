@@ -50,7 +50,7 @@ def robust_pc_align(options, outputPrefix, lidarFile, demPath,
                     suppressOutput, redo, logger):
     '''Try pc_align with increasing max displacements until we it completes
        with enough lidar points used in the comparison'''
-    
+
     STARTING_DISPLACEMENT  = 20
     MAX_DISPLACEMENT       = 20
     DISPLACEMENT_INCREMENT = 20
@@ -127,7 +127,32 @@ def robust_pc_align(options, outputPrefix, lidarFile, demPath,
     asp_system_utils.executeCommand(cmd, lidarDiffPath, suppressOutput, redo)
     
     results = icebridge_common.readGeodiffOutput(lidarDiffPath)
-    
+
+    # Apply the same transform to the footprint DEM
+    alignOptions = ( ('--max-displacement -1 --csv-format %s ' +   \
+                      '--save-inv-transformed-reference-points') % \
+                     (lidarCsvFormatString))
+    alignPrefixFoot = alignPrefix + '-footprint'
+    footDemPath = demPath.replace("DEM.tif", "footprint-DEM.tif")
+    cmd = ('pc_align --num-iterations 0 --initial-transform %s-transform.txt %s %s %s -o %s %s' %
+           (alignPrefix, alignOptions, footDemPath, lidarFile, alignPrefixFoot, threadText))
+    alignedFootPC = alignPrefixFoot + '-trans_reference.tif'
+    try:
+        logger.info(cmd) # to make it go to the log, not just on screen
+        asp_system_utils.executeCommand(cmd, alignedFootPC, suppressOutput, redo) 
+    except: 
+        pass
+
+    try:
+        # POINT2DEM on the aligned PC file
+        cmd = ('point2dem --tr %lf --t_srs %s %s %s' 
+               % (options.demResolution, projString, alignedFootPC, threadText))
+        alignedFootDEM = alignPrefixFoot + '-trans_reference-DEM.tif'
+        logger.info(cmd) # to make it go to the log, not just on screen
+        asp_system_utils.executeCommand(cmd, alignedFootDEM, suppressOutput, redo)
+    except: 
+        pass
+
     return alignedDem, lidarDiffPath, results['Mean']
 
 
@@ -448,7 +473,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # Testing: Is there any performance hit from using --corr-seed-mode 0 ??
     #          This skips D_sub creation and saves processing time.
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
-    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 --min-num-ip 20' %
+    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 --min-num-ip 20 ' %
                  (argString, thisPairPrefix, threadText, extraArgs))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
@@ -502,6 +527,19 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
 
+    # The DEM with larger footprint, not filtered out as agressively. We use
+    # the valid pixels in this DEM's footprint as a template where to blend.
+    p2dFoot = thisPairPrefix + '-footprint'
+    cmd = ( ('point2dem --max-output-size 10000 10000 --tr %lf --t_srs %s %s %s --errorimage ' + \
+           ' --remove-outliers-params 75 12 -o %s ') \
+           % (options.demResolution, projString, triOutput, threadText, p2dFoot))
+    p2dFoot = p2dFoot + '-DEM.tif'
+    (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dFoot, suppressOutput, redo, noThrow=True)
+    if status != 0:
+        icebridge_common.logger_print(logger, out + '\n' + err)
+        raise Exception('point2dem call on stereo pair failed!')
+
+
     # COLORMAP
     #colorOutput = thisPairPrefix+'-DEM_CMAP.tif'
     #cmd = ('colormap %s -o %s' % (p2dOutput, colorOutput))
@@ -539,7 +577,14 @@ def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
         logFiles = glob.glob(alignPrefix + '*-log-*')
         for logFile in logFiles:
             os.system('rm -f ' + logFile)
-            
+
+        # Wipe all footprint files except the final result
+        
+        footprintFiles = glob.glob(alignPrefix + '*footprint*')
+        for footprintFile in footprintFiles:
+            if not footprintFile.endswith('out-footprint-trans_reference-DEM.tif'):
+                os.system('rm -f ' + footprintFile)
+
     # Delete the diff images
     for f in (interDiffPaths + fireballDiffPaths):
         os.system('rm -f ' + f)
@@ -716,7 +761,7 @@ def doWork(options, args, logger):
          os.path.exists(demSymlinkPath) and not redo ):
         logger.info('Final output files already exists: ' + demSymlinkPath +
                     ' and ' + consolidatedStatsPath + '. Quitting script early.')
-
+    
         # Include the same normal completion message
         logger.info('Finished script process_icebridge_batch!') 
         return
@@ -882,6 +927,11 @@ def doWork(options, args, logger):
     if numDems == 1:
         # If there are only two files just skip this step
         icebridge_common.makeSymLink(demFiles[0], allDemPath)
+
+        # For the footprint. We implemented this only for batch size of 2.
+        demFoot = demFiles[0].replace("DEM.tif", "footprint-DEM.tif")
+        allDemFoot = allDemPath.replace("DEM.tif", "footprint-DEM.tif")
+        icebridge_common.makeSymLink(demFoot, allDemFoot)
     else:
         demString = ' '.join(demFiles)
         # Only the default blend method produces good results but the DEMs must not be too 

@@ -167,14 +167,21 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
 
             demString = " ".join(dems)
             outputPrefix = os.path.join(batchFolder, 'out-blend-' + str(index))
-            cmd = ('dem_mosaic --first-dem-as-reference %s %s -o %s' 
-                   % (demString, threadText, outputPrefix))
-            
+
+            # See if we have a pre-existing DEM to use as footprint
+            footprintDEM = os.path.join(batchFolder, 'align/out-footprint-trans_reference-DEM.tif')
             blendOutput = outputPrefix + '-tile-0.tif'
-            filesToWipe.append(blendOutput)
-            
-            print(cmd) # to make it go to the log, not just on screen
+            if os.path.exists(footprintDEM):
+                cmd = ('dem_mosaic --this-dem-as-reference %s %s %s -o %s' 
+                       % (footprintDEM, demString, threadText, outputPrefix))
+                filesToWipe.append(footprintDEM)
+            else:
+                cmd = ('dem_mosaic --first-dem-as-reference %s %s -o %s' 
+                       % (demString, threadText, outputPrefix))
+                
+            print(cmd)
             asp_system_utils.executeCommand(cmd, blendOutput, suppressOutput, redo)
+            filesToWipe.append(blendOutput)
             
             diffPath = outputPrefix + "-diff.csv"
             filesToWipe.append(diffPath)
