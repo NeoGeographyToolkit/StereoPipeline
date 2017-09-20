@@ -373,16 +373,18 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         orthoFile = orthoFrames[frame]
         try:
             estimatedCameraFile = estimatedFrames[frame]
+            estimatedCameraPath = os.path.join(navCameraFolder, estimatedCameraFile)
         except:
             logger.warning('Missing nav estimated camera for frame ' + str(frame))
             estimatedCameraFile = None
+            estimatedCameraPath = None
         
         # Get estimated camera from nav
         
         # Check output file
         inputPath = os.path.join(imageFolder, imageFile)
         orthoPath = os.path.join(orthoFolder, orthoFile)
-        estimatedCameraPath = os.path.join(navCameraFolder, estimatedCameraFile)
+        
         outputCamFile = os.path.join(cameraFolder,
                                      icebridge_common.getCameraFileName(imageFile))
         outputFiles.append(outputCamFile)
