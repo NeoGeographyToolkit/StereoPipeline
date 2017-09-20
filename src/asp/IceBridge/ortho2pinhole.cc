@@ -308,7 +308,7 @@ void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const
                                        ConstantEdgeExtension >, 
                     BilinearInterpolation> interp_dem = 
       interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
-  double max_height = -9999, min_height = 9999999, mean_height=0.0, num_heights = 0;;
+  double max_height = -9999, min_height = 9999999, mean_height=0.0, num_heights = 0;
   for (int r=0; r<rsrc_ortho->rows(); r+=HEIGHT_SKIP) {
     for (int c=0; c<rsrc_ortho->cols(); c+=HEIGHT_SKIP) {
       // Ortho pixel to DEM pixel
@@ -329,6 +329,12 @@ void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const
       } // End boundary check
     } // End col loop
   } // End row loop
+  
+  if (num_heights < 1.0) {
+    vw_out() << "No intersection found with the reference DEM!\n";
+    return; // No information can be gained in this case.
+  }
+  
   mean_height = mean_height / num_heights;
   
   // Set a flag if we detect there is a significant amount of elevation change in the image
@@ -401,21 +407,12 @@ void load_camera_and_find_ip(Options const& opt,
 /// Generate the estimated camera using a 3D affine transform or load in from a file.
 /// - pcam is the input camera model.
 void get_estimated_camera_position(Options const& opt,
+                                   bool have_dem_points,
                                    vw::camera::PinholeModel *pcam,
                                    std::vector<Vector3> const& raw_flat_xyz,
                                    std::vector<Vector3> const& ortho_flat_xyz) {
 
-  // If an estimated camera file was provided just load it (but keep the input instrinsics).
-  if (opt.camera_estimate != "") {
-    PinholeModel est_cam(opt.camera_estimate);
-    pcam->set_camera_center(est_cam.camera_center());
-    pcam->set_camera_pose(est_cam.camera_pose());
-    
-    vw_out() << "Loaded estimated camera position from " << opt.camera_estimate << std::endl;
-    return;
-  }
-  
-  // Otherwise use a simple solution to get an initial estimate.
+  // Use a simple solution to get an initial estimate.
 
   // Pack the in/out point pairs into two matrices.
   int num_pts = raw_flat_xyz.size();
@@ -440,12 +437,27 @@ void get_estimated_camera_position(Options const& opt,
   asp::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
 
   vw_out() << "Determined camera extrinsics from orthoimage: " << std::endl;
-  //vw_out() << "rotation: " << rotation << std::endl;
-  //vw_out() << "translation: " << translation << std::endl;
   vw_out() << "scale: " << scale << std::endl;
 
   // Apply the transform to the camera.
   pcam->apply_transform(rotation, translation, scale);
+
+  if (opt.camera_estimate != "") {
+    // Load the estimated camera
+    PinholeModel est_cam(opt.camera_estimate);
+    
+    // If our solution moved too far from the estimated camera, use
+    // the estimated position/pose instead.
+    const double MAX_CENTER_MOVEMENT = 10;
+    double dist = norm_2(pcam->camera_center() - est_cam.camera_center());
+    if (dist > MAX_CENTER_MOVEMENT) {
+      pcam->set_camera_center(est_cam.camera_center());
+      pcam->set_camera_pose(est_cam.camera_pose());
+      vw_out() << "Flat affine estimate is " << dist 
+               << " meters from the input camera estimate, using input estimate instead\n";
+    }
+  } // End have camera estimate case
+
 
 } // End load_estimated_camera
 
@@ -707,6 +719,13 @@ void ortho2pinhole(Options & opt){
       vw_out() << "Removing: " << match_filename << std::endl;
       boost::filesystem::remove(match_filename);
     }
+    
+    // If we have the estimated model use that, better than nothing.
+    if (opt.camera_estimate != "") {
+      PinholeModel est_cam(opt.camera_estimate);
+      pcam->set_camera_center(est_cam.camera_center());
+      pcam->set_camera_pose(est_cam.camera_pose());
+    }
     vw_throw(ArgumentErr() << "Error: Only found " << num_ip_found << " interest points, quitting.\n");
   }
 
@@ -727,7 +746,7 @@ void ortho2pinhole(Options & opt){
   // Get our best estimate of the camera position
   // - This will be from an affine transform between points or
   //   just be loaded from an input file.  
-  get_estimated_camera_position(opt, pcam, raw_flat_xyz, ortho_flat_xyz);
+  get_estimated_camera_position(opt, use_dem_points, pcam, raw_flat_xyz, ortho_flat_xyz);
 
   Vector3 gcc_cam_est = pcam->camera_center();
   Vector3 llh_cam_est = ortho_georef.datum().cartesian_to_geodetic(gcc_cam_est);

@@ -286,7 +286,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
             continue
                 
         # Check the number of IP used
-        m = re.findall(r"Init model with (\d+) points", textOutput)
+        m = re.findall(r"Using (\d+) points to create the camera model.", textOutput)
         if len(m) != 1: # An unknown error occurred, move on.
             continue
         numPoints = int(m[0])
@@ -324,15 +324,21 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     
     imageFiles    = icebridge_common.getTifs(imageFolder)
     orthoFiles    = icebridge_common.getTifs(orthoFolder)
-    estimateFiles = icebridge_common.getTifs(navCameraFolder)
-    
+    estimateFiles = icebridge_common.getByExtension(navCameraFolder, '.tsai')
+       
     # Make a dictionary of ortho files by frame
+    # - The orthoFiles list contains _gray.tif as well as the original
+    #   images.  Prefer the gray versions because it saves a bit of time
+    #   in the ortho2pinhole process.
     orthoFrames = {}
     for f in orthoFiles:
         frame = icebridge_common.getFrameNumberFromFilename(f)
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
-        orthoFrames[frame] = f
+        # Record this file if it is the first of this frame or
+        #  if it is the gray version of this frame.
+        if (frame not in orthoFrames) or ('_gray.tif' in f):
+            orthoFrames[frame] = f
 
     # Make a dictionary of estimated camera files by frame
     estimatedFrames = {}
@@ -374,8 +380,9 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         # Get estimated camera from nav
         
         # Check output file
-        inputPath     = os.path.join(imageFolder, imageFile)
-        orthoPath     = os.path.join(orthoFolder, orthoFile)
+        inputPath = os.path.join(imageFolder, imageFile)
+        orthoPath = os.path.join(orthoFolder, orthoFile)
+        estimatedCameraPath = os.path.join(navCameraFolder, estimatedCameraFile)
         outputCamFile = os.path.join(cameraFolder,
                                      icebridge_common.getCameraFileName(imageFile))
         outputFiles.append(outputCamFile)
@@ -390,7 +397,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         # Add ortho2pinhole command to the task pool
         taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
                                             (inputPath, orthoPath, inputCamFile,
-                                             estimatedCameraFile,
+                                             estimatedCameraPath,
                                              outputCamFile, refDemPath, numThreads)))
 
     # Wait for all the tasks to complete

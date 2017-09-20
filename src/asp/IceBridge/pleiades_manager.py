@@ -272,7 +272,7 @@ def runConversion(run, options):
                                 GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
                                 scriptPath + " " + thisArgs, logPrefix)
-        
+
         currentFrame += tasksPerJob
 
     # Wait for conversions to finish
