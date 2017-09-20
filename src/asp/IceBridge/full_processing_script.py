@@ -421,7 +421,9 @@ def main(argsIn):
             # Single process call to parse the nav files.
             input_conversions.getCameraModelsFromNav(imageFolder, orthoFolder, 
                                     options.inputCalFolder, navFolder, navCameraFolder)
-
+        else:
+            navCameraFolder = ""
+            
         if not options.noOrthoConvert:
             # Multi-process call to convert ortho images
             input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder,

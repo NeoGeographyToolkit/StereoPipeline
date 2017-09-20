@@ -285,7 +285,7 @@ def run_and_parse_output(cmd, args, sep, verbose, **kw ):
     return data
 
 def run_with_return_code(cmd, verbose=False):
-    
+    # TODO: Wipe this and use instead executeCommand.
     if verbose:
         print asp_string_utils.argListToString(cmd) 
 

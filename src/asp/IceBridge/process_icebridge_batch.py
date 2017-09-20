@@ -44,10 +44,35 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 
+# TODO: For the footprint DEM, implement some functions like:
+# getFootprintPrefix() to avoid replicate the '-footprint-' string all
+# over the place.
+
+def getAlignPrefix(outputFolder):
+    return  os.path.join(outputFolder, 'align/out')
+
+def getBundlePrefix(outputFolder, alignedBundle = False):
+    if not alignedBundle:
+        return  os.path.join(outputFolder, 'bundle/out')
+
+    # Bundle adjusted files with the pc_aligne transform applied to them
+    return  os.path.join(outputFolder, 'aligned_bundle/out')
+
+def formImageCameraString(inputPairs):
+    imagesAndCams = ""
+    images = ""
+    cameras = ""
+    for (image, camera) in inputPairs: 
+        images  += image;  images  += " "
+        cameras += camera; cameras += " "
+    imagesAndCams = images + cameras
+    return imagesAndCams
+    
+
 # TODO: Move this function!
-def robust_pc_align(options, outputPrefix, lidarFile, demPath, 
-                    projString, lidarCsvFormatString, threadText,
-                    suppressOutput, redo, logger):
+def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM, 
+                  projString, lidarCsvFormatString, threadText,
+                  suppressOutput, redo, logger):
     '''Try pc_align with increasing max displacements until we it completes
        with enough lidar points used in the comparison'''
 
@@ -62,7 +87,8 @@ def robust_pc_align(options, outputPrefix, lidarFile, demPath,
     # Determine the number of points we want
     currentMaxDisplacement = STARTING_DISPLACEMENT
     
-    alignPrefix   = os.path.join(options.outputFolder, 'align/out')
+    alignPrefix   = getAlignPrefix(options.outputFolder)
+    
     pcAlignFolder = os.path.dirname(alignPrefix)
     endErrorPath  = alignPrefix + '-end_errors.csv'
 
@@ -71,8 +97,10 @@ def robust_pc_align(options, outputPrefix, lidarFile, demPath,
     lidarDiffPath  = outputPrefix + "-diff.csv"
 
     # Check if the file is already there
-    if os.path.exists(alignedDem) and os.path.exists(lidarDiffPath) and not redo:
+    if ( os.path.exists(alignedDem) or os.path.exists(finalAlignedDEM) ) \
+           and os.path.exists(lidarDiffPath) and not redo:
         results = icebridge_common.readGeodiffOutput(lidarDiffPath)
+        logger.info("Outputs of pc_align already exist.")
         return alignedDem, lidarDiffPath, results['Mean']
     
     while(True):
@@ -114,7 +142,6 @@ def robust_pc_align(options, outputPrefix, lidarFile, demPath,
     if not os.path.exists(alignedPC):
         raise Exception('pc_align call failed!')
 
-
     # POINT2DEM on the aligned PC file
     cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
            % (options.demResolution, projString, alignedPC, threadText))
@@ -128,31 +155,49 @@ def robust_pc_align(options, outputPrefix, lidarFile, demPath,
     
     results = icebridge_common.readGeodiffOutput(lidarDiffPath)
 
-    # Apply the same transform to the footprint DEM
-    alignOptions = ( ('--max-displacement -1 --csv-format %s ' +   \
-                      '--save-inv-transformed-reference-points') % \
-                     (lidarCsvFormatString))
-    alignPrefixFoot = alignPrefix + '-footprint'
-    footDemPath = demPath.replace("DEM.tif", "footprint-DEM.tif")
-    cmd = ('pc_align --num-iterations 0 --initial-transform %s-transform.txt %s %s %s -o %s %s' %
-           (alignPrefix, alignOptions, footDemPath, lidarFile, alignPrefixFoot, threadText))
-    alignedFootPC = alignPrefixFoot + '-trans_reference.tif'
-    try:
-        logger.info(cmd) # to make it go to the log, not just on screen
-        asp_system_utils.executeCommand(cmd, alignedFootPC, suppressOutput, redo) 
-    except: 
-        pass
+    # Apply the same transform to the footprint DEM. This one is used in blending later.
+    finalFootprintDEM = os.path.join(options.outputFolder, 'out-trans-footprint-DEM.tif')
+    if os.path.exists(finalFootprintDEM):
+        logger.info("File exists: " + finalFootprintDEM)
+    else:
+        alignOptions = ( ('--max-displacement -1 --csv-format %s ' +   \
+                          '--save-inv-transformed-reference-points') % \
+                            (lidarCsvFormatString))
+        alignPrefixFoot = alignPrefix + '-footprint'
+        footDemPath = demPath.replace("DEM.tif", "footprint-DEM.tif")
+        cmd = ('pc_align --num-iterations 0 --initial-transform %s-transform.txt %s %s %s -o %s %s' %
+               (alignPrefix, alignOptions, footDemPath, lidarFile, alignPrefixFoot, threadText))
+        alignedFootPC = alignPrefixFoot + '-trans_reference.tif'
+        try:
+            logger.info(cmd) # to make it go to the log, not just on screen
+            asp_system_utils.executeCommand(cmd, alignedFootPC, suppressOutput, redo)
+            if os.path.exists(footDemPath):
+                os.remove(footDemPath) # No longer needed
+        except: 
+            pass
 
-    try:
-        # POINT2DEM on the aligned PC file
-        cmd = ('point2dem --tr %lf --t_srs %s %s %s' 
-               % (options.demResolution, projString, alignedFootPC, threadText))
-        alignedFootDEM = alignPrefixFoot + '-trans_reference-DEM.tif'
-        logger.info(cmd) # to make it go to the log, not just on screen
-        asp_system_utils.executeCommand(cmd, alignedFootDEM, suppressOutput, redo)
-    except: 
-        pass
+        try:
+            # POINT2DEM on the aligned PC file
+            cmd = ('point2dem --tr %lf --t_srs %s %s %s' 
+                   % (options.demResolution, projString, alignedFootPC, threadText))
+            alignedFootDEM = alignPrefixFoot + '-trans_reference-DEM.tif'
+            logger.info(cmd) # to make it go to the log, not just on screen
+            asp_system_utils.executeCommand(cmd, alignedFootDEM, suppressOutput, redo)
+        except: 
+            pass
 
+        # Move it out of the align directory
+        if os.path.exists(alignedFootDEM):
+            if os.path.exists(finalFootprintDEM):
+                os.remove(finalFootprintDEM)
+            logger.info("Renaming " + alignedFootDEM + " to " + finalFootprintDEM)
+            os.rename(alignedFootDEM, finalFootprintDEM)
+
+        # Wipe all auxilliary footprint files
+        for filename in glob.glob(alignPrefix + '-footprint-*'):
+            logger.info("Removing: " + filename)
+            os.remove(filename)
+        
     return alignedDem, lidarDiffPath, results['Mean']
 
 
@@ -166,7 +211,7 @@ def blurImage(inputPath, outputPath, suppressOutput, redo):
     asp_system_utils.executeCommand(cmd, outputPath, suppressOutput, redo)
 
 
-def robustBundleAdjust(options, inputPairs, imageCameraString, 
+def robustBundleAdjust(options, inputPairs, imageCameraString,
                        suppressOutput, redo,
                        threadText, heightLimitString, logger):
     '''Perform bundle adjustment with multiple retries in case things fail.
@@ -181,7 +226,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     ROBUST_THRESHOLD = 2.0
     OVERLAP_EXPONENT = 0
     MIN_IP_MATCHES   = 22
-    bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
+    bundlePrefix   = getBundlePrefix(options.outputFolder)
     baOverlapLimit = options.stereoImageInterval + 3
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
@@ -259,6 +304,58 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     # - Also return if we used blurred input images or not
     return inputPairs
 
+def applyTransformToCameras(options, inputPairs, suppressOutput, redo,
+                            threadText, heightLimitString, logger):
+    '''Create cameras with the pc_align transform applied to them,
+    # so that we can later generate ortho images.'''
+
+    imagesAndCams = formImageCameraString(inputPairs)
+
+    alignPrefix         = getAlignPrefix(options.outputFolder)
+    bundlePrefix        = getBundlePrefix(options.outputFolder)
+    alignedBundlePrefix = getBundlePrefix(options.outputFolder, alignedBundle = True)
+
+    outputCamera = inputPairs[0][1].replace(bundlePrefix, alignedBundlePrefix)
+
+    if os.path.exists(outputCamera):
+        logger.info("Transformed cameras already exist.")
+        return
+    
+    initialTransform = alignPrefix + '-inverse-transform.txt'
+    if not os.path.exists(initialTransform):
+        raise Exception("Cannot locate pc_align transform: " + initialTransform)
+
+    # We will run bundle adjustment with 0 iterations. Hence use whatever match files
+    # we had before
+    matchFiles = glob.glob(bundlePrefix + '*.match')
+    for matchFile in matchFiles:
+        newMatchFile = matchFile.replace(bundlePrefix, alignedBundlePrefix)
+        icebridge_common.makeSymLink(matchFile, newMatchFile)
+        print("--sym link ", matchFile, newMatchFile)
+
+    cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
+            '-t nadirpinhole --skip-rough-homography '+
+            '--local-pinhole --min-matches 0  --max-iterations 0 ' + 
+            ' --initial-transform %s')
+           % (imagesAndCams, alignedBundlePrefix, threadText, heightLimitString,
+              initialTransform))
+
+    # Run the BA command and log errors
+    logger.info("Applying pc_align transform to cameras.")
+    logger.info(cmd) # to make it go to the log, not just on screen
+    (out, err, status) = asp_system_utils.executeCommand(cmd, outputCamera, True, redo,
+                                                         noThrow=True)
+    logger.info(out + '\n' + err)
+
+    # Since input cameras start with out- and output prefix starts with out-, the output
+    # cameras will start with out-out-. Fix this.
+    for camera in glob.glob(alignedBundlePrefix + '*.tsai'):
+        cameraOut = camera.replace(alignedBundlePrefix + '-out', alignedBundlePrefix)
+        if camera != cameraOut and os.path.exists(camera) and (not os.path.exists(cameraOut)):
+            cmd = 'mv ' + camera + ' ' + cameraOut
+            logger.info(cmd)
+            os.system(cmd)
+
 
 def getMatchFiles(options, origInputPairs, index):
     '''Get the path of the match file generated by bundle_adjust for
@@ -266,7 +363,7 @@ def getMatchFiles(options, origInputPairs, index):
        could be copied to the stereo folder in order to be used.'''
 
     # TODO: These definitions are repeated elsewhere
-    bundlePrefix     = os.path.join(options.outputFolder, 'bundle/out')
+    bundlePrefix     = getBundlePrefix(options.outputFolder)
     thisOutputFolder = os.path.join(options.outputFolder, 'stereo_pair_'+str(index))
     thisPairPrefix   = os.path.join(thisOutputFolder,     'out')
     
@@ -373,11 +470,13 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
             centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY,
                                                                projString, PROJ_STR_WGS84)
         except Exception, e:
-            if logger:
-                logger.exception('Caught exception getting DEM center coordinates:\n' + str(e))
-                logger.info("Not fatal, will continue.") # for clarity in the log use this line
-            else:
-                print 'Caught exception getting DEM center coordinates:'
+            pass
+            # Print nothing, comes out too verbose
+            #if logger:
+            #    #logger.exception('Caught exception getting DEM center coordinates:\n' + str(e))
+            #    #logger.info("Not fatal, will continue.") # for clarity in the log use this line
+            #else:
+            #    #print 'Could not compute DEM center coordinates.'
             success = False
 
     if not success:
@@ -563,14 +662,12 @@ def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
     
     if smallFiles:
         # Delete bundle_adjust folder. Note that will also wipe the cameras.
-        os.system('rm -rf ' + os.path.join(batchFolder, 'bundle'))
+        os.system('rm -rf ' + os.path.dirname(getBundlePrefix(batchFolder)))
         
         # Clean out the pc_align folder
         alignFiles = ['-beg_errors.csv', '-end_errors.csv', '-iterationInfo.csv',
-                      '-trans_reference.tif', 'iterationInfo.csv'] 
+                      '-trans_reference.tif', '-transform.txt', '-inverse-transform.txt'] 
 
-        # TODO: Wipe the transform files at some point as well
-        
         for currFile in alignFiles:
             os.system('rm -f ' + alignPrefix + currFile)
 
@@ -579,7 +676,6 @@ def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
             os.system('rm -f ' + logFile)
 
         # Wipe all footprint files except the final result
-        
         footprintFiles = glob.glob(alignPrefix + '*footprint*')
         for footprintFile in footprintFiles:
             if not footprintFile.endswith('out-footprint-trans_reference-DEM.tif'):
@@ -597,6 +693,15 @@ def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
     for filename in glob.glob(lidar_crop_glob):
         os.system('rm -f ' + filename)
 
+    # Wipe the pc_aligned bundle directory except for the final results
+    alignedBundlePrefix = getBundlePrefix(batchFolder, alignedBundle = True)
+    for filename in glob.glob(alignedBundlePrefix + '*'):
+        if not filename.endswith('.tsai'):
+            os.system('rm -f ' + filename)
+
+    # Wipe the entire align directory, we moved out of it everything by now
+    os.system('rm -rf ' + os.path.dirname(alignPrefix))
+    
     # Repeating the logic from generate_flight_summary.py.
     consolidatedStatsPath = os.path.join(batchFolder, 'out-consolidated_stats.txt')
     if os.path.exists(consolidatedStatsPath):
@@ -756,10 +861,11 @@ def doWork(options, args, logger):
     # Check the last output products from this script.  If they exist,
     #  quit now so we don't regenerate intermediate products.
     consolidatedStatsPath = outputPrefix + '-consolidated_stats.txt'
-    demSymlinkPath        = outputPrefix + '-align-DEM.tif'
+    finalAlignedDEM        = outputPrefix + '-align-DEM.tif'
+
     if ( os.path.exists(consolidatedStatsPath) and 
-         os.path.exists(demSymlinkPath) and not redo ):
-        logger.info('Final output files already exists: ' + demSymlinkPath +
+         os.path.exists(finalAlignedDEM) and not redo ):
+        logger.info('Final output files already exists: ' + finalAlignedDEM +
                     ' and ' + consolidatedStatsPath + '. Quitting script early.')
     
         # Include the same normal completion message
@@ -816,7 +922,7 @@ def doWork(options, args, logger):
        
     # BUNDLE_ADJUST
     origInputPairs = inputPairs
-    inputPairs = robustBundleAdjust(options, inputPairs, imageCameraString, 
+    inputPairs = robustBundleAdjust(options, inputPairs, imageCameraString,
                                     suppressOutput, redo,
                                     threadText, heightLimitString, logger)
 
@@ -930,8 +1036,9 @@ def doWork(options, args, logger):
 
         # For the footprint. We implemented this only for batch size of 2.
         demFoot = demFiles[0].replace("DEM.tif", "footprint-DEM.tif")
-        allDemFoot = allDemPath.replace("DEM.tif", "footprint-DEM.tif")
-        icebridge_common.makeSymLink(demFoot, allDemFoot)
+        if os.path.exists(demFoot):
+            allDemFoot = allDemPath.replace("DEM.tif", "footprint-DEM.tif")
+            icebridge_common.makeSymLink(demFoot, allDemFoot)
     else:
         demString = ' '.join(demFiles)
         # Only the default blend method produces good results but the DEMs must not be too 
@@ -1024,16 +1131,24 @@ def doWork(options, args, logger):
 
         # - Use function to call with increasing max distance limits
         alignedDem, lidarDiffPath, meanErr = \
-                    robust_pc_align(options, outputPrefix,
-                                    lidarFile, allDemPath,
-                                    projString, lidarCsvFormatString, 
-                                    threadText, 
-                                    suppressOutput, redo, logger)
+                    robustPcAlign(options, outputPrefix,
+                                  lidarFile, allDemPath, finalAlignedDEM,
+                                  projString, lidarCsvFormatString, 
+                                  threadText, 
+                                  suppressOutput, redo, logger)
         
-        # Create a symlink to the DEM in the main directory
-        icebridge_common.makeSymLink(alignedDem, demSymlinkPath)
-        allDemPath = demSymlinkPath
+        # Move the aligned DEM to the main directory, to have one file less
+        if os.path.exists(alignedDem):
+            logger.info("Moving " + alignedDem + " to " + finalAlignedDEM)
+            if os.path.exists(finalAlignedDEM):
+                os.remove(finalAlignedDEM)
+            os.rename(alignedDem, finalAlignedDEM)
+        allDemPath = finalAlignedDEM
 
+        # Create pc-aligned bundle-adjusted cameras
+        applyTransformToCameras(options, inputPairs, suppressOutput, redo,
+                                threadText, heightLimitString, logger)
+                                
     # Consolidate statistics into a one line summary file
     consolidateStats(lidarDiffPath, interDiffSummaryPath, 
                      fireballDiffSummaryPath, fireLidarDiffSummaryPath,  
@@ -1056,9 +1171,9 @@ def doWork(options, args, logger):
     #cmd = ('colormap  %s -o %s' % (allDemPath, colorOutput))
     #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
-    if options.cleanup and os.path.exists(demSymlinkPath):
+    if options.cleanup and os.path.exists(finalAlignedDEM):
         # Delete large files that we don't need going forwards.
-        alignPrefix = os.path.join(options.outputFolder, 'align/out')
+        alignPrefix   = getAlignPrefix(options.outputFolder)
         cleanBatch(options.outputFolder,
                    alignPrefix, prefixes, interDiffPaths, fireballDiffPaths)
 

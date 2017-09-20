@@ -270,7 +270,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
         cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %d --minimum-ip %d ') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ipMethod, MIN_IP))
         if localNorm:
             cmd += ' --skip-image-normalization'
-        if estimatedCameraPath:
+        if estimatedCameraPath is not None:
             cmd += ' --camera-estimate ' + estimatedCameraPath
 
         # Use a print statement as the logger fails from multiple processes
@@ -324,7 +324,10 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     
     imageFiles    = icebridge_common.getTifs(imageFolder)
     orthoFiles    = icebridge_common.getTifs(orthoFolder)
-    estimateFiles = icebridge_common.getByExtension(navCameraFolder, '.tsai')
+    if navCameraFolder != "":
+        estimateFiles = icebridge_common.getByExtension(navCameraFolder, '.tsai')
+    else:
+        estimateFiles = []
        
     # Make a dictionary of ortho files by frame
     # - The orthoFiles list contains _gray.tif as well as the original
@@ -347,7 +350,6 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
         estimatedFrames[frame] = f
-
 
     imageFiles.sort()
 

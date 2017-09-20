@@ -169,12 +169,12 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             outputPrefix = os.path.join(batchFolder, 'out-blend-' + str(index))
 
             # See if we have a pre-existing DEM to use as footprint
-            footprintDEM = os.path.join(batchFolder, 'align/out-footprint-trans_reference-DEM.tif')
+            footprintDEM = os.path.join(batchFolder, 'out-trans-footprint-DEM.tif')
             blendOutput = outputPrefix + '-tile-0.tif'
             if os.path.exists(footprintDEM):
                 cmd = ('dem_mosaic --this-dem-as-reference %s %s %s -o %s' 
                        % (footprintDEM, demString, threadText, outputPrefix))
-                filesToWipe.append(footprintDEM)
+                filesToWipe.append(footprintDEM) # no longer needed
             else:
                 cmd = ('dem_mosaic --first-dem-as-reference %s %s -o %s' 
                        % (demString, threadText, outputPrefix))

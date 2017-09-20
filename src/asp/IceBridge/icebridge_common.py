@@ -62,6 +62,7 @@ def makeSymLink(oldFile, newFile, verbose=True):
 
     oldPath = os.path.abspath(oldFile)
     try:
+        asp_system_utils.mkdir_p(os.path.dirname(newFile))
         if verbose:
             print("ln -s " + oldPath + " " + newFile)
         os.symlink(oldPath, newFile)
@@ -495,6 +496,8 @@ def getTifs(folder, prependFolder=False):
     return files
 
 def getJpegs(folder):
+    # TODO: This function should not be used as it is not robust.
+    # Rather, look up the index, and read only files listed there.
     '''Get jpeg files in given directory. This returns the files
     without sorting or the folder name prepended to them.'''
 
@@ -509,6 +512,8 @@ def getJpegs(folder):
     return files
 
 def getByExtension(folder, ext):
+    # TODO: This function should not be used as it is not robust.
+    # Rather, look up the index, and read only files listed there.
     '''Get files with given extension. This returns the files without
     sorting or the folder name prepended to them.'''
     files = []
@@ -522,9 +527,10 @@ def getByExtension(folder, ext):
     return files
 
 def getDems(folder):
+    # TODO: This function should not be used as it is not robust.
+    # Rather, look up the index, and read only files listed there.
     '''Get DEM files. This returns the files without sorting or the
     folder name prepended to them.'''
-
     files = []
     for f in os.listdir(folder):
 
@@ -535,6 +541,8 @@ def getDems(folder):
     return files
 
 def getLidar(folder):
+    # TODO: This function should not be used as it is not robust.
+    # Rather, look up the index, and read only files listed there.
     '''Get LIDAR files. This returns the files without sorting or the
     folder name prepended to them.'''
 
