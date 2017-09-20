@@ -112,13 +112,6 @@ def sendEmail(address, subject, body):
     except Exception, e:
         print("Could not send mail.")
         
-def partialRun(options):
-    '''For a partial run we will not archive or cleanup, as many such
-    runs could be running at the same time (which is not recommended,
-    as it can cause problems in conversions and ortho2pinhole generation.'''
-    return (options.startFrame != icebridge_common.getSmallestFrame()) or \
-           (options.stopFrame  != icebridge_common.getLargestFrame())
-
 #---------------------------------------------------------------------
 
 def readRunList(path, options):
@@ -185,15 +178,14 @@ def runFetch(run, options):
     if not options.noRefetch:
         logger.info("Fetch from NSIDC.")
         cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-fetch --skip-validate' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+        if options.noNavFetch:
+            cmd += ' --no-nav'
+            
         logger.info(cmd)
         os.system(cmd)
     
     # Don't need to check results, they should be cleaned out in conversion call.
-
     run.setFlag('fetch_complete')
-    
-    raise Exception('DEBUG')
-            
 
 def runConversion(run, options):
     '''Run the conversion tasks for this run on the supercomputer nodes.
@@ -218,6 +210,9 @@ def runConversion(run, options):
     logger.info("Generating estimated camera files from the navigation files.")
     pythonPath = asp_system_utils.which('python')
     cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+    if options.noNavFetch:
+        cmd += ' --no-nav'
+    
     logger.info(cmd)
     os.system(cmd)    
     logger.info("Finished generating estimated camera files from nav.")
@@ -246,6 +241,8 @@ def runConversion(run, options):
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
     args       = (' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate --no-nav' 
                   % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
+    if options.noNavFetch:
+        args += ' --no-nav'
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
@@ -293,7 +290,7 @@ def runConversion(run, options):
     run.setFlag('conversion_complete')
 
     # Pack up camera folder and store it for later. Do this only for full runs
-    if not partialRun(options):
+    if not options.skipArchiveCameras:
         try:
             archive_functions.packAndSendCameraFolder(run)
         except Exception,e:
@@ -304,6 +301,7 @@ def generateBatchList(run, options, listPath):
     '''Generate a list of all the processing batches required for a run'''
 
     logger = logging.getLogger(__name__)
+    logger.info("Generate batch list.")
     
     refDemName = icebridge_common.getReferenceDemName(run.site)
     refDemPath = os.path.join(options.refDemFolder, refDemName)
@@ -319,8 +317,11 @@ def generateBatchList(run, options, listPath):
                   % (pythonPath, scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, run.getFolder(), options.bundleLength, options.startFrame, options.stopFrame))
 
     # For full runs we must cleanup, as otherwise we'll run out of space
-    if not partialRun(options):
+    if not options.skipCleanup:
         cmd += ' --cleanup'
+
+    if options.noNavFetch:
+        cmd += ' --no-nav'
 
 # TODO: Find out what takes so long here!
 # - Also fix the logging!
@@ -639,6 +640,25 @@ def main(argsIn):
                             help="Skip blending.")
         parser.add_argument("--skip-report", action="store_true", dest="skipReport", default=False, 
                             help="Skip summary report step.")
+        parser.add_argument("--skip-archive-cameras", action="store_true",
+                            dest="skipArchiveCameras", default=False,
+                            help="Skip archiving the cameras.")
+        parser.add_argument("--skip-archive-summary", action="store_true",
+                            dest="skipArchiveSummary", default=False,
+                            help="Skip archiving the summary.")
+        parser.add_argument("--skip-archive-run", action="store_true",
+                            dest="skipArchiveRun", default=False,
+                            help="Skip archiving the DEMs.")
+        parser.add_argument("--skip-cleanup", action="store_true",
+                            dest="skipCleanup", default=False, 
+                            help="Don't cleanup extra files from a run.")
+        parser.add_argument("--no-nav", action="store_true", dest="noNavFetch",
+                            default=False, help="Don't fetch or convert the nav data.")
+        
+        parser.add_argument("--wipe", action="store_true", dest="wipe", default=False,
+                            help="Wipe the processed folder.")
+        parser.add_argument("--wipe-all", action="store_true", dest="wipeAll", default=False,
+                            help="Wipe completely the directory, including the inputs.")
                           
         options = parser.parse_args(argsIn)
 
@@ -670,7 +690,13 @@ def main(argsIn):
     logger.info("Disabling core dumps.") # these just take a lot of room
     os.system("ulimit -c 0")
     os.system("umask 022") # enforce files be readable by others
-    
+
+    # See how many hours we used so far. I think this counter gets updated once a day.
+    (out, err, status) = asp_system_utils.executeCommand("acct_ytd", outputPath = None, 
+                                                         suppressOutput = True, redo = True,
+                                                         noThrow = True)
+    logger.info("Hours used so far:\n" + out + '\n' + err)
+  
     # TODO: Uncomment when processing more than one run!
     # Get the list of runs to process
     #logger.info('Reading run lists...')
@@ -700,8 +726,8 @@ def main(argsIn):
             # Run conversion and archive results if not already done        
             runConversion(run, options)
         
-        
-        if options.skipProcess and options.skipBlend and options.skipReport:
+        if options.skipProcess and options.skipBlend and options.skipReport and \
+               (not options.recomputeBatches):
             logger.info('Quitting early.')
             return 0
         
@@ -748,10 +774,16 @@ def main(argsIn):
             summaryFolder = os.path.join(options.summaryFolder, run.name())
             genCmd = ['--yyyymmdd', run.yyyymmdd, '--site', run.site, 
                       '--output-folder', summaryFolder, '--parent-folder', run.parentFolder]
+
+            if options.startFrame != icebridge_common.getSmallestFrame() and \
+               options.stopFrame != icebridge_common.getLargestFrame():
+                genCmd += ['--start-frame', str(options.startFrame),
+                           '--stop-frame', str(options.stopFrame)]
+            logger.info("Running generate_flight_summary.py " + " ".join(genCmd))
             generate_flight_summary.main(genCmd)
             
             # send data to lunokhod and lfe
-            if not partialRun(options):
+            if not options.skipArchiveSummary:
                 archive_functions.packAndSendSummaryFolder(run, summaryFolder)
         else:
             resultText = 'Summary skipped'
@@ -766,7 +798,7 @@ def main(argsIn):
 
             # TODO: Uncomment this once our outputs are good.
             # Pack up all the files to lou, then delete the local copies.          
-            if not partialRun(options):
+            if not options.skipArchiveRun:
                 archive_functions.packAndSendCompletedRun(run)
                 #cleanupRun(run) # <-- Should this always be manual??
             

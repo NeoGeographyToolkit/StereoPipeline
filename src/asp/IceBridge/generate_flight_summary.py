@@ -188,11 +188,23 @@ def generateFlightSummary(run, options):
         p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=False)
         textOutput, err = p.communicate()
         camKmlFiles = textOutput.replace('\n', ' ')
-        
+
+        # Write the list of files to process to disk. Otherwise, if we just
+        # pass the full list on the command line, it may be too big
+        # and the call will fail.
+        kmlList = os.path.join(options.outputFolder, 'kml_list.txt')
+        print("Writing: " + kmlList)
+        with open(kmlList, 'w') as f:
+            for filename in camKmlFiles.split():
+                filename = filename.strip()
+                if filename == "":
+                    continue
+                f.write(filename + "\n")
+                
         outputKml = os.path.join(options.outputFolder, 'cameras_out.kml')
         scriptPath = icebridge_common.fullPath('merge_orbitviz.py')
-        cmd = 'python ' + scriptPath + ' ' + outputKml + ' ' + camKmlFiles
-        print cmd
+        cmd = 'python ' + scriptPath + ' ' + outputKml + ' -list ' + kmlList
+        print(cmd)
         os.system(cmd)
         
         # Generate lidar kml files

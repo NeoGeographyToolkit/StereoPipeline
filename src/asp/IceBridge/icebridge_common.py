@@ -43,7 +43,7 @@ def switchWorkDir():
             os.chdir(workDir)
         else:
             raise Exception("Work directory does not exist: " + workDir)
-    
+
 def getUser():
     '''Return the current user name.'''
     return getpass.getuser()
@@ -143,6 +143,45 @@ def csvIndexFile(folder):
     '''Return the clean csv version of the html index file for this folder (if appropriate) '''
     return htmlIndexFile(folder) + ".csv"
     
+def projectionBoundsFile(folder):
+    return os.path.join(folder, 'projection_bounds.csv')
+
+def readProjectionBounds(indexFile):
+    '''Read projection bunds for each ortho image.'''
+    bounds = {}
+
+    # Nothing to 
+    if not os.path.exists(indexFile):
+        return bounds
+    
+    with open(indexFile, 'r') as f:
+        for line in f:
+            parts = line.strip().split(',')
+
+            for v in range(len(parts)):
+                parts[v] = parts[v].strip()
+                if parts[v] != "":
+                    parts[v] = float(parts[v].strip())
+            
+            if len(parts) != 6:
+                # Maybe when we wrote it last time we got interrupted.
+                # Note that the last value is just an empty space.
+                continue
+                
+            frame = int(parts[0])
+            bounds[frame] = (parts[1], parts[2], parts[3], parts[4])
+    return bounds
+
+def writeProjectionBounds(indexFile, bounds):
+    '''Write projection bounds for all images.'''
+    with open(indexFile, 'w') as f:
+        for frame in sorted(bounds.keys()):
+            a,b,c,d = bounds[frame]
+            vals = [frame, a, b, c, d]
+            for val in vals:
+                f.write(str(val) + ', ')
+            f.write('\n')
+        
 def readIndexFile(parsedIndexPath, prependFolder = False):
     '''Read an index file having frame number, filename, and url it came from.'''
     frameDict  = {}

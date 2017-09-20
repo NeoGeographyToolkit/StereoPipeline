@@ -56,8 +56,15 @@ def main(args):
         return -1
 
     outputPath = os.path.abspath(args[0])
-    inputPaths = [os.path.abspath(x) for x in args[1:]]
-
+    if args[1] == '-list':
+        # Read from list, this is beneficial if the files are too many
+        inputPaths = []
+        with open(args[2], 'r') as inputFile:
+            for line in inputFile:
+                line = line.strip()
+                inputPaths.append(line)
+    else:
+        inputPaths = [os.path.abspath(x) for x in args[1:]]
 
     # Open the output file
     with open(outputPath, 'w') as outputFile:

@@ -100,27 +100,24 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame):
        balance between coverage and baseline width.
        Also detect all frames where this is a large break after the current frame.'''
 
-    # Do nothing if this option was not provided
-    if not orthoFolder:
-        return None
-   
     logger.info('Computing optimal image stereo interval...')
 
     # With very few cameras this is the only possible way to process them
     if len(availableFrames) < 3:
         return (1, []) # No skip, no breaks
 
+    orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
+    if not os.path.exists(orthoIndexPath):
+        raise Exception("Error: Missing ortho index file: " + orthoIndexPath + ".")
+    (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath,
+                                                                    prependFolder = True)
+
     breaks = []
-   
-    # Generate a list of valid, full path ortho files
-    fileList = icebridge_common.getTifs(orthoFolder)
     orthoFiles = []
-    for orthoFile in fileList:     
-        # Skip duplicate grayscale files
-        ext = os.path.splitext(orthoFile)[1]
-        if '.tif_gray.tif' in orthoFile:
-            continue
-        orthoPath = os.path.join(orthoFolder, orthoFile)
+    # Form a list of ortho files
+    for frame in sorted(orthoFrameDict.keys()):
+
+        orthoPath = orthoFrameDict[frame]
 
         # Only process frames within the range
         frame = icebridge_common.getFrameNumberFromFilename(orthoPath)
@@ -134,17 +131,44 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame):
     orthoFiles.sort()
     numOrthos = len(orthoFiles)
 
+    # First load whatever boxes are there
+    projectionIndexFile = icebridge_common.projectionBoundsFile(os.path.dirname(orthoFolder))
+    logger.info("Reading: " + projectionIndexFile)
+    boundsDict = icebridge_common.readProjectionBounds(projectionIndexFile)
+    
     # Get the bounding box and frame number of each ortho image
     logger.info('Loading bounding boxes...')
     bboxes = []
     frames = []
-    for i in range(0, numOrthos):    
-        imageGeoInfo = asp_geo_utils.getImageGeoInfo(orthoFiles[i], getStats=False)
-        thisBox      = imageGeoInfo['projection_bounds']
+    computedBounds = False # will be true if some computation got done
+    count = 0
+    for i in range(0, numOrthos):
+
+        # This can be slow, so add a progress dialong
+        count = count + 1
+        if (count - 1) % 100 == 0:
+            logger.info('Progress: ' + str(count) + '/' + str(numOrthos))
+
         thisFrame    = icebridge_common.getFrameNumberFromFilename(orthoFiles[i])
+        if thisFrame in boundsDict:
+            thisBox = boundsDict[thisFrame]
+        else:
+            imageGeoInfo   = asp_geo_utils.getImageGeoInfo(orthoFiles[i], getStats=False)
+            thisBox        = imageGeoInfo['projection_bounds']
+            boundsDict[thisFrame] = thisBox
+            computedBounds = True
+            
         bboxes.append(thisBox)
         frames.append(thisFrame)
 
+    # Save the bounds. There is always the danger that two processes will
+    # do that at the same time, but this is rare, as hopefully we get here
+    # only once from the manager. It is not a big loss if this file
+    # gets messed up.
+    if computedBounds:
+        logger.info("Writing: " + projectionIndexFile)
+        icebridge_common.writeProjectionBounds(projectionIndexFile, boundsDict)
+        
     # Since we are only comparing the image bounding boxes, not their exact corners,
     #  these ratios are only estimates.
     MAX_RATIO = 0.8 # Increase skip until we get below this...
