@@ -144,6 +144,9 @@ def main(argsIn):
         parser.add_option("--site",  dest="site", default=None,
                           help="Name of the location of the images (AN, GR, or AL)")
 
+        parser.add_option("--camera-calibration-folder",  dest="inputCalFolder", default=None,
+                          help="The folder containing camera calibration.")
+
         # Python treats numbers starting with 0 as being in octal rather than decimal.
         # Ridiculous. So read them as strings and convert to int. 
         parser.add_option('--start-frame', dest='startFrameStr', default=None,
@@ -223,7 +226,9 @@ def main(argsIn):
         cmd += ' --ignore-missing-lidar'
     if options.noLidarConvert:
         cmd += ' --no-lidar-convert'
-                   
+    if options.inputCalFolder is not None:
+        cmd += ' --camera-calibration-folder ' + options.inputCalFolder
+        
     logger.info("full_processing_script.py " + cmd)
     
     if full_processing_script.main(cmd.split()) < 0:

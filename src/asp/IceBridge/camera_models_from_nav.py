@@ -49,10 +49,7 @@ def main(argsIn):
     try:
         usage  = "usage: camera_models_from_nav.py <image_folder> <ortho_folder> <cal_folder> <nav_folder> <output_folder>"
         parser = optparse.OptionParser(usage=usage)
-
-        # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)
-
         if len(args) < 4:
             print 'Error: Missing arguments.'
             print usage
@@ -62,7 +59,7 @@ def main(argsIn):
         calFolder    = os.path.abspath(args[2])
         navFolder    = os.path.abspath(args[3])
         outputFolder = os.path.abspath(args[4])
-
+        
     except optparse.OptionError, msg:
         raise Exception(msg)
 
@@ -166,10 +163,15 @@ def main(argsIn):
     camFiles = [os.path.join(outputFolder, x) for x in camFiles 
                 if (('.tsai' in x) and ('~' not in x))]
     camString = ' '.join(camFiles)
-    logger.info('Generating nav camera kml file: ' + kmlPath)
-    cmd = 'orbitviz_pinhole --hide-labels -o ' + kmlPath + ' ' + camString
-    asp_system_utils.executeCommand(cmd, kmlPath, suppressOutput=True, redo=False)
-    
+    try:
+        logger.info('Generating nav camera kml file: ' + kmlPath)
+        orbitviz_pinhole = asp_system_utils.which('orbitviz_pinhole')
+        cmd = orbitviz_pinhole + ' --hide-labels -o ' + kmlPath + ' ' + camString
+        logger.info(cmd)
+        asp_system_utils.executeCommand(cmd, kmlPath, suppressOutput=True, redo=False)
+    except Exception, e:
+        logger.info("Warning: " + str(e))
+        
     logger.info('Finished generating camera models from nav!')
     
     return 0

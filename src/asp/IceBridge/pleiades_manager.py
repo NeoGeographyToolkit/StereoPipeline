@@ -294,13 +294,6 @@ def runConversion(run, options):
         
     run.setFlag('conversion_complete')
 
-    # Pack up camera folder and store it for later.
-    if not options.skipArchiveCameras:
-        try:
-            archive_functions.packAndSendCameraFolder(run)
-        except Exception,e:
-            print 'Caught exception sending camera folder'
-            logger.exception(e)
 
 def generateBatchList(run, options, listPath):
     '''Generate a list of all the processing batches required for a run'''
@@ -608,6 +601,7 @@ def main(argsIn):
                             default=icebridge_common.getSmallestFrame(),
                             help="Frame to start with.  Leave this and stop-frame blank to " + \
                             "process all frames.")
+        
         parser.add_argument('--stop-frame', dest='stopFrame', type=int,
                             default=icebridge_common.getLargestFrame(),
                             help='Frame to stop on.')
@@ -637,29 +631,44 @@ def main(argsIn):
 
         parser.add_argument("--skip-fetch", action="store_true", dest="skipFetch", default=False, 
                             help="Don't fetch.")
-        parser.add_argument("--skip-convert", action="store_true", dest="skipConvert", default=False, 
+        parser.add_argument("--skip-convert", action="store_true", dest="skipConvert",
+                            default=False, 
                             help="Don't convert.")
-        parser.add_argument("--skip-process", action="store_true", dest="skipProcess", default=False, 
-                            help="Don't process the batches.")
-        parser.add_argument("--skip-blend", action="store_true", dest="skipBlend", default=False, 
-                            help="Skip blending.")
-        parser.add_argument("--skip-report", action="store_true", dest="skipReport", default=False, 
-                            help="Skip summary report step.")
+
         parser.add_argument("--skip-archive-cameras", action="store_true",
                             dest="skipArchiveCameras", default=False,
                             help="Skip archiving the cameras.")
+
+        parser.add_argument("--skip-batch-gen", action="store_true",
+                            dest="skipBatchGen", default=False,
+                            help="Skip generating batches.")
+        
+        parser.add_argument("--skip-process", action="store_true",
+                            dest="skipProcess", default=False, 
+                            help="Don't process the batches.")
+        
+        parser.add_argument("--skip-blend", action="store_true", dest="skipBlend", default=False, 
+                            help="Skip blending.")
+
+        parser.add_argument("--skip-report", action="store_true", dest="skipReport", default=False, 
+                            help="Skip summary report step.")
+
         parser.add_argument("--skip-archive-aligned-cameras", action="store_true",
                             dest="skipArchiveAlignedCameras", default=False,
                             help="Skip archiving the aligned cameras.")
+
         parser.add_argument("--skip-archive-summary", action="store_true",
                             dest="skipArchiveSummary", default=False,
                             help="Skip archiving the summary.")
+
         parser.add_argument("--skip-archive-run", action="store_true",
                             dest="skipArchiveRun", default=False,
                             help="Skip archiving the DEMs.")
+
         parser.add_argument("--skip-cleanup", action="store_true",
                             dest="skipCleanup", default=False, 
                             help="Don't cleanup extra files from a run.")
+
         parser.add_argument("--skip-email", action="store_true", 
                             dest="skipEmail", default=False, 
                             help="Don't send email.")
@@ -669,6 +678,7 @@ def main(argsIn):
         
         parser.add_argument("--wipe", action="store_true", dest="wipe", default=False,
                             help="Wipe the processed folder.")
+
         parser.add_argument("--wipe-all", action="store_true", dest="wipeAll", default=False,
                             help="Wipe completely the directory, including the inputs.")
                           
@@ -733,25 +743,34 @@ def main(argsIn):
             runFetch(run, options)       
 
         if not options.skipConvert:                   
-            # Run conversion and archive results if not already done        
+            # Run initial camera generation
             runConversion(run, options)
+
+        # Pack up camera folder and store it for later.
+        if not options.skipArchiveCameras:
+            try:
+                archive_functions.packAndSendCameraFolder(run)
+            except Exception, e:
+                print 'Caught exception sending camera folder'
+                logger.exception(e)
 
         # I see no reason to exit early
         #if options.skipProcess and options.skipBlend and options.skipReport and \
         #       (not options.recomputeBatches) and options.skipArchiveCameras:
         #    logger.info('Quitting early.')
         #    return 0
-        
-        if os.path.exists(fullBatchListPath) and not options.recomputeBatches:
-            logger.info('Re-using existing batch list file.')
-        else:
-            # Run command to generate the list of batch jobs for this run
-            logger.info('Fetching batch list for run ' + str(run))
-            generateBatchList(run, options, fullBatchListPath)
-    
-        if options.failedBatchesOnly:
-            logger.info('Assembling batch file with only failed batches...')
-            batchListPath = filterBatchJobFile(run, batchListPath)
+
+        if not options.skipBatchGen:
+            if os.path.exists(fullBatchListPath) and not options.recomputeBatches:
+                logger.info('Re-using existing batch list file.')
+            else:
+                # Run command to generate the list of batch jobs for this run
+                logger.info('Fetching batch list for run ' + str(run))
+                generateBatchList(run, options, fullBatchListPath)
+
+            if options.failedBatchesOnly:
+                logger.info('Assembling batch file with only failed batches...')
+                batchListPath = filterBatchJobFile(run, batchListPath)
 
         if not options.skipProcess:
         
@@ -776,7 +795,7 @@ def main(argsIn):
         if not options.skipArchiveAlignedCameras:
             try:
                 archive_functions.packAndSendAlignedCameras(run)
-            except Exception,e:
+            except Exception, e:
                 print 'Caught exception sending aligned cameras'
                 logger.exception(e)
 

@@ -73,7 +73,7 @@ class RunHelper():
 
     def getCameraTarName(self):
         '''Return the file name used to tar up the generated camera files'''
-        return 'CAMERA_' + self.name() + '.tar.gz'
+        return 'CAMERA_' + self.name() + '.tar'
 
     def getSummaryTarName(self):
         '''Return the file name used to tar up the generated camera files'''

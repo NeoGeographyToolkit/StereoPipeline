@@ -138,7 +138,7 @@ def packAndSendCameraFolder(run):
     os.system(cmd)
 
     # Do the new file
-    cmd = 'shiftc --wait -d --create-tar ' + cameraFolder + ' ' + lfePath
+    cmd = 'shiftc  --exclude=\'^.*?(-log-|\.gcp).*?$\' --wait -d --create-tar ' + cameraFolder + ' ' + lfePath
     logger.info(cmd)
     status = os.system(cmd)
     print status

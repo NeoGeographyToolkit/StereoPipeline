@@ -95,7 +95,7 @@ def processBatch(imageCameraPairs, lidarFolder, referenceDem, outputFolder, extr
         logger.error('Batch processing failed!\n' + str(e) +
                      traceback.print_exc())
 
-def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame):
+def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, runAllFrames):
     '''Find a good image stereo spacing interval that gives us a good
        balance between coverage and baseline width.
        Also detect all frames where this is a large break after the current frame.'''
@@ -103,7 +103,7 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame):
     logger.info('Computing optimal image stereo interval...')
 
     # With very few cameras this is the only possible way to process them
-    if len(availableFrames) < 3:
+    if len(availableFrames) < 3 and not runAllFrames:
         return (1, []) # No skip, no breaks
 
     orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
@@ -121,10 +121,11 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame):
 
         # Only process frames within the range
         frame = icebridge_common.getFrameNumberFromFilename(orthoPath)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
-            continue
-        if frame not in availableFrames: # Skip frames we did not compute a camera for
-            continue
+        if not runAllFrames:
+            if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+                continue
+            if frame not in availableFrames: # Skip frames we did not compute a camera for
+                continue
         
         orthoFiles.append(orthoPath)
         
@@ -481,8 +482,11 @@ def main(argsIn):
     if options.cleanup:
         extraOptions += ' --cleanup '
 
+    # We ran this before, as part of fetching, so hopefully all the data is cached
+    runAllFrames = False
     (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder, availableFrames,
-                                                   options.startFrame, options.stopFrame)
+                                                   options.startFrame, options.stopFrame,
+                                                   runAllFrames)
     if options.imageStereoInterval: 
         logger.info('Using manually specified image stereo interval: ' +
                     str(options.imageStereoInterval))

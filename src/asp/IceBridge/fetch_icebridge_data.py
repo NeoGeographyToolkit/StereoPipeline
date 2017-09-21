@@ -744,17 +744,20 @@ def doFetch(options, outputFolder):
                     logger.info("Failed to parse latitude, will wipe: " + outputPath)
                     if os.path.exists(outputPath): os.remove(outputPath)
                     failedFiles.append(outputPath)
-                    
-                isGood = hasGoodLat(latitude, isSouth)
-                if not isGood:
-                    logger.info("Wiping XML file " + outputPath + " with bad latitude " + \
-                                str(latitude))
-                    os.remove(outputPath)
-                    imageFile = icebridge_common.xmlToImage(outputPath)
-                    if os.path.exists(imageFile):
-                        logger.info("Wiping TIF file " + imageFile + " with bad latitude " + \
-                                    str(latitude))
-                        os.remove(imageFile)
+
+                # On a second thought, don't wipe files with wrong latitude, as
+                # next time we run fetch we will have to fetch them again.
+                # Hopefully they will be ignored.
+                #isGood = hasGoodLat(latitude, isSouth)
+                #if not isGood:
+                #    logger.info("Wiping XML file " + outputPath + " with bad latitude " + \
+                #                str(latitude))
+                #    os.remove(outputPath)
+                #    imageFile = icebridge_common.xmlToImage(outputPath)
+                #    if os.path.exists(imageFile):
+                #        logger.info("Wiping TIF file " + imageFile + " with bad latitude " + \
+                #                    str(latitude))
+                #        os.remove(imageFile)
                     
         # Verify the chcksum    
         if hasXml and len(outputPath) >= 4 and outputPath[-4:] != '.xml' \

@@ -352,7 +352,7 @@ def main(argsIn):
     processedFolder    = icebridge_common.getProcessedFolder(options.outputFolder)
     navFolder          = icebridge_common.getNavFolder(options.outputFolder)
     navCameraFolder    = icebridge_common.getNavCameraFolder(options.outputFolder)
-    
+
     # Handle subfolder option.  This is useful for comparing results with different parameters!
     if options.processingSubfolder:
         processedFolder = os.path.join(processedFolder, options.processingSubfolder)
@@ -367,7 +367,20 @@ def main(argsIn):
         if fetchResult < 0:
             logger.error("Fetching failed, quitting the program!") 
             return -1
-           
+
+        # This step is slow, so run it here as part of fetching and save its result
+        # We certainly don't want it to throw any exception at this stage.
+        try:
+            runAllFrames = True
+            availableFrames = []
+            (autoStereoInterval, breaks) = \
+                                 process_icebridge_run.getImageSpacing(orthoFolder, availableFrames,
+                                                                       options.startFrame,
+                                                                       options.stopFrame,
+                                                                       runAllFrames)
+        except Exception, e:
+            pass
+        
     if options.stopAfterFetch or options.dryRun:
         logger.info('Fetching complete, finished!')
         return 0
