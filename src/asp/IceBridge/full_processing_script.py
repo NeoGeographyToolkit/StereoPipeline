@@ -371,13 +371,13 @@ def main(argsIn):
         # This step is slow, so run it here as part of fetching and save its result
         # We certainly don't want it to throw any exception at this stage.
         try:
-            runAllFrames = True
+            forceAllFramesInRange = True
             availableFrames = []
             (autoStereoInterval, breaks) = \
                                  process_icebridge_run.getImageSpacing(orthoFolder, availableFrames,
                                                                        options.startFrame,
                                                                        options.stopFrame,
-                                                                       runAllFrames)
+                                                                       forceAllFramesInRange)
         except Exception, e:
             pass
         

@@ -149,6 +149,22 @@ def getRunsToProcess(allRuns, skipRuns, doneRuns):
         runList.append(run)
     return runList
 
+def jobListFile(run, tag, options):
+    '''The name of the file containing the currently running jobs.'''
+    return os.path.join(run.getFolder(),
+                        'pbs_jobs_' + tag + '_' + str(options.startFrame) + '_' + \
+                        str(options.stopFrame) + '.txt')
+                        
+
+def readSubmittedJobs(jobFile):
+
+    jobList = []
+    with open(jobFile, "r") as f:
+        for line in f:
+            line = line.strip()
+            jobList.append(line)
+    return jobList
+    
 #---------------------------------------------------------------------
 
 
@@ -182,9 +198,16 @@ def runFetch(run, options):
     # - This is likely to have to fetch the large nav data file(s)
     if not options.noRefetch:
         logger.info("Fetch from NSIDC.")
-        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-fetch --skip-validate' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s  --stop-after-fetch --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
+        
         if options.noNavFetch:
             cmd += ' --no-nav'
+            
+        if options.skipValidate:
+            cmd += ' --skip-validate'
+
+        if not options.noRefetchIndex:
+            cmd += ' --refetch-index'
             
         logger.info(cmd)
         os.system(cmd)
@@ -214,7 +237,7 @@ def runConversion(run, options):
     # - If all of the camera files already exist this call will finish up very quickly.
     logger.info("Generating estimated camera files from the navigation files.")
     pythonPath = asp_system_utils.which('python')
-    cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+    cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions  --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
     if options.noNavFetch:
         cmd += ' --no-nav'
     
@@ -244,7 +267,7 @@ def runConversion(run, options):
     outputFolder = run.getFolder()
     
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
-    args       = (' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate --no-nav' 
+    args       = (' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s' 
                   % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
     if options.noNavFetch:
         args += ' --no-nav'
@@ -257,28 +280,32 @@ def runConversion(run, options):
     
     # Submit all the jobs
     currentFrame = minFrame
-    for i in range(0, numOrthoJobs):
-        jobName    = ('%06d_%s' % (currentFrame, baseName) )
-        startFrame = currentFrame
-        stopFrame  = currentFrame+tasksPerJob-1
-        if (i == numOrthoJobs - 1):
-            stopFrame = maxFrame # Make sure nothing is lost at the end
-        thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
-        if i != 0: # Only the first job will convert lidar files
-            thisArgs += ' --no-lidar-convert'
+    jobFile = jobListFile(run, 'ortho2pinhole', options)
+    with open(jobFile, "w") as jobHandle:
+        for i in range(0, numOrthoJobs):
+            jobName    = ('%06d_%s' % (currentFrame, baseName) )
+            startFrame = currentFrame
+            stopFrame  = currentFrame+tasksPerJob-1
+            if (i == numOrthoJobs - 1):
+                stopFrame = maxFrame # Make sure nothing is lost at the end
+            thisArgs = (args + ' --start-frame ' + str(startFrame) + \
+                        ' --stop-frame ' + str(stopFrame) )
+            if i != 0: # Only the first job will convert lidar files
+                thisArgs += ' --no-lidar-convert'
 
-        logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
-        logger.info('Submitting conversion job: ' + scriptPath + ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS,
-                                options.minutesInDevelQueue,
-                                GROUP_ID,
-                                options.nodeType, '/usr/bin/python2.7',
-                                scriptPath + " " + thisArgs, logPrefix)
-
-        currentFrame += tasksPerJob
+            logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
+            logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
+            pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS,
+                                    options.minutesInDevelQueue,
+                                    GROUP_ID,
+                                    options.nodeType, '/usr/bin/python2.7',
+                                    scriptPath + " " + thisArgs, logPrefix)
+            jobHandle.write(jobName + '\n')
+            currentFrame += tasksPerJob
 
     # Wait for conversions to finish
-    waitForRunCompletion(baseName)
+    jobList = readSubmittedJobs(jobFile)
+    waitForRunCompletion(baseName, jobList)
 
     # Check the results
     # - If we didn't get everything keep going and process as much as we can.
@@ -348,13 +375,16 @@ def filterBatchJobFile(run, batchListPath):
     #batchOutputName = 'out-blend-DEM.tif'
     batchOutputName = 'out-align-DEM.tif'
     
-    with open(batchListPath, 'r') as fIn, open(newBatchPath, 'w') as fOut:
-        for line in fIn:
-            outputFolder = getOutputFolderFromBatchCommand(line)
-            targetPath   = os.path.join(outputFolder, batchOutputName)
-            if not os.path.exists(targetPath):
-                fOut.write(line)
-            
+    fIn = open(batchListPath, 'r')
+    fOut = open(newBatchPath, 'w')
+    for line in fIn:
+        outputFolder = getOutputFolderFromBatchCommand(line)
+        targetPath   = os.path.join(outputFolder, batchOutputName)
+        if not os.path.exists(targetPath):
+            fOut.write(line)
+    fIn.close()
+    fOut.close()
+
     return newBatchPath
     
 def submitBatchJobs(run, options, batchListPath):
@@ -391,29 +421,31 @@ def submitBatchJobs(run, options, batchListPath):
     outputFolder = run.getFolder()
     pbsLogFolder = run.getPbsLogFolder()
 
+    jobFile = jobListFile(run, 'dem', options)
     currentBatch = 0
-    for i in range(0, numBatchJobs):
-        jobName    = ('%06d_%s' % (currentBatch, baseName) )
-        startBatch = currentBatch
-        stopBatch  = currentBatch+tasksPerJob
-        if (i == numBatchJobs-1):
-            stopBatch = numBatches-1 # Make sure nothing is lost at the end
+    with open(jobFile, "w") as jobHandle:
+        for i in range(0, numBatchJobs):
+            jobName    = ('%06d_%s' % (currentBatch, baseName) )
+            startBatch = currentBatch
+            stopBatch  = currentBatch+tasksPerJob
+            if (i == numBatchJobs-1):
+                stopBatch = numBatches-1 # Make sure nothing is lost at the end
 
-        # Specify the range of lines in the file we want this node to execute
-        args = ('%s %d %d %d' % (batchListPath, numProcesses, startBatch, stopBatch))
+            # Specify the range of lines in the file we want this node to execute
+            args = ('%s %d %d %d' % (batchListPath, numProcesses, startBatch, stopBatch))
 
-        logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
-        logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
-        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS,
-                                options.minutesInDevelQueue,
-                                GROUP_ID,
-                                options.nodeType, '/usr/bin/python2.7',
-                                scriptPath + ' ' + args, logPrefix)
-        
-        currentBatch += tasksPerJob
+            logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
+            logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
+            pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS,
+                                    options.minutesInDevelQueue,
+                                    GROUP_ID,
+                                    options.nodeType, '/usr/bin/python2.7',
+                                    scriptPath + ' ' + args, logPrefix)
+            jobHandle.write(jobName + '\n')
+            currentBatch += tasksPerJob
 
     # Waiting on these jobs happens outside this function
-    return baseName
+    return (baseName, jobFile)
 
 def runBlending(run, options):
     '''Blend together a series of batch DEMs'''
@@ -456,43 +488,50 @@ def runBlending(run, options):
     
     # Submit all the jobs
     currentFrame = minFrame
-    for i in range(0, numBlendJobs):
-        jobName    = ('%06d_%s' % (currentFrame, baseName) )
-        startFrame = currentFrame
-        stopFrame  = currentFrame+tasksPerJob # Last frame passed to the tool is not processed
-        if (i == numBlendJobs - 1):
-            stopFrame = maxFrame+1 # Make sure nothing is lost at the end
-        thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
-        logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
-        logger.info('Submitting blend job: ' + scriptPath +  ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS,
-                                options.minutesInDevelQueue,
-                                GROUP_ID,
-                                options.nodeType, '/usr/bin/python2.7',
-                                scriptPath + ' ' + thisArgs, logPrefix)
-        
-        currentFrame += tasksPerJob
+    jobFile = jobListFile(run, 'dem', options)
+    with open(jobFile, "w") as jobHandle:
+        for i in range(0, numBlendJobs):
+            jobName    = ('%06d_%s' % (currentFrame, baseName) )
+            startFrame = currentFrame
+            stopFrame  = currentFrame+tasksPerJob # Last frame passed to the tool is not processed
+            if (i == numBlendJobs - 1):
+                stopFrame = maxFrame+1 # Make sure nothing is lost at the end
+            thisArgs = (args + ' --start-frame ' + str(startFrame) + \
+                        ' --stop-frame ' + str(stopFrame) )
+            logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
+            logger.info('Submitting blend job: ' + scriptPath +  ' ' + thisArgs)
+            pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS,
+                                    options.minutesInDevelQueue,
+                                    GROUP_ID,
+                                    options.nodeType, '/usr/bin/python2.7',
+                                    scriptPath + ' ' + thisArgs, logPrefix)
+            jobHandle.write(jobName + '\n')
+            currentFrame += tasksPerJob
 
     # Wait for conversions to finish
-    waitForRunCompletion(baseName)
+    jobList = readSubmittedJobs(jobFile)
+    waitForRunCompletion(baseName, jobList)
 
 # TODO: Move this
-def waitForRunCompletion(text):
-    '''Sleep until all of the submitted jobs containing the provided text have completed'''
+def waitForRunCompletion(jobPrefix, jobList):
+    '''Sleep until all of the submitted jobs containing the provided job prefix have completed'''
 
-    print("Wait for completion with: " + text)
+    print("Wait for completion with: " + jobPrefix)
     
     jobsRunning = []
     user = icebridge_common.getUser()
     stillWorking = True
     while stillWorking:
+
         time.sleep(SLEEP_TIME)
         stillWorking = False
 
         # Look through the list for jobs with the run's date in the name        
-        jobList = pbs_functions.getActiveJobs(user)
-        for (job, status) in jobList:
-            if text in job: # Matching job found so we keep waiting
+        allJobs = pbs_functions.getActiveJobs(user)
+        
+        for (job, status) in allJobs:
+            if job in jobList:
+                # Matching job found so we keep waiting
                 stillWorking = True
                 # Print a message if this is the first time we saw the job as running
                 if (status == 'R') and (job not in jobsRunning):
@@ -621,6 +660,11 @@ def main(argsIn):
         parser.add_argument("--no-refetch", action="store_true", 
                             dest="noRefetch", default=False, 
                             help="Do not attempt to refetch from NSIDC.")
+        
+        parser.add_argument("--no-refetch-index", action="store_true", 
+                            dest="noRefetchIndex", default=False, 
+                            help="Do not refetch the index from NSIDC.")
+
         parser.add_argument("--skip-checks", action="store_true", 
                             dest="skipChecks", default=False, 
                             help="Skip checking if files exist. This can be very slow for many files.")
@@ -676,6 +720,9 @@ def main(argsIn):
         parser.add_argument("--no-nav", action="store_true", dest="noNavFetch",
                             default=False, help="Don't fetch or convert the nav data.")
         
+        parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
+                            default=False, help="Don't validate the input data.")
+
         parser.add_argument("--wipe", action="store_true", dest="wipe", default=False,
                             help="Wipe the processed folder.")
 
@@ -776,11 +823,13 @@ def main(argsIn):
         
             # Divide up batches into jobs and submit them to machines.
             logger.info('Submitting jobs for run ' + str(run))
-            baseName = submitBatchJobs(run, options, batchListPath)
+            (baseName, jobFile) = submitBatchJobs(run, options, batchListPath)
         
             # Wait for all the jobs to finish
             logger.info('Waiting for job completion of run ' + str(run))
-            waitForRunCompletion(baseName)
+            
+            jobList = readSubmittedJobs(jobFile)
+            waitForRunCompletion(baseName, jobList)
             logger.info('All jobs finished for run '+str(run))
         
         if not options.skipBlend:

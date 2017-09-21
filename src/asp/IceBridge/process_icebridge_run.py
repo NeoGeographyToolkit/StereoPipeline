@@ -95,7 +95,7 @@ def processBatch(imageCameraPairs, lidarFolder, referenceDem, outputFolder, extr
         logger.error('Batch processing failed!\n' + str(e) +
                      traceback.print_exc())
 
-def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, runAllFrames):
+def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAllFramesInRange):
     '''Find a good image stereo spacing interval that gives us a good
        balance between coverage and baseline width.
        Also detect all frames where this is a large break after the current frame.'''
@@ -103,7 +103,7 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, runAllF
     logger.info('Computing optimal image stereo interval...')
 
     # With very few cameras this is the only possible way to process them
-    if len(availableFrames) < 3 and not runAllFrames:
+    if len(availableFrames) < 3 and not forceAllFramesInRange:
         return (1, []) # No skip, no breaks
 
     orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
@@ -121,9 +121,9 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, runAllF
 
         # Only process frames within the range
         frame = icebridge_common.getFrameNumberFromFilename(orthoPath)
-        if not runAllFrames:
-            if not ( (frame >= startFrame) and (frame <= stopFrame) ):
-                continue
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
+        if not forceAllFramesInRange:
             if frame not in availableFrames: # Skip frames we did not compute a camera for
                 continue
         
@@ -141,7 +141,7 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, runAllF
     logger.info('Loading bounding boxes...')
     bboxes = []
     frames = []
-    computedBounds = False # will be true if some computation got done
+    updatedBounds = False # will be true if some computation got done
     count = 0
     for i in range(0, numOrthos):
 
@@ -157,16 +157,24 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, runAllF
             imageGeoInfo   = asp_geo_utils.getImageGeoInfo(orthoFiles[i], getStats=False)
             thisBox        = imageGeoInfo['projection_bounds']
             boundsDict[thisFrame] = thisBox
-            computedBounds = True
+            updatedBounds = True
             
         bboxes.append(thisBox)
         frames.append(thisFrame)
+
+    # Read this file again, in case some other process modified it in the meantime.
+    # This won't happen in production mode, but can during testing with subsequences.
+    boundsDictRecent = icebridge_common.readProjectionBounds(projectionIndexFile)
+    for frame in sorted(boundsDictRecent.keys()):
+        if not frame in boundsDict.keys():
+            boundsDict[frame] = boundsDictRecent[frame]
+            updatedBounds = True
 
     # Save the bounds. There is always the danger that two processes will
     # do that at the same time, but this is rare, as hopefully we get here
     # only once from the manager. It is not a big loss if this file
     # gets messed up.
-    if computedBounds:
+    if updatedBounds:
         logger.info("Writing: " + projectionIndexFile)
         icebridge_common.writeProjectionBounds(projectionIndexFile, boundsDict)
         
@@ -483,10 +491,10 @@ def main(argsIn):
         extraOptions += ' --cleanup '
 
     # We ran this before, as part of fetching, so hopefully all the data is cached
-    runAllFrames = False
+    forceAllFramesInRange = False
     (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder, availableFrames,
                                                    options.startFrame, options.stopFrame,
-                                                   runAllFrames)
+                                                   forceAllFramesInRange)
     if options.imageStereoInterval: 
         logger.info('Using manually specified image stereo interval: ' +
                     str(options.imageStereoInterval))

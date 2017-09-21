@@ -36,6 +36,7 @@ sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
 import icebridge_common, archive_functions
+import asp_system_utils
 
 #asp_system_utils.verify_python_version_is_supported()
 
@@ -63,10 +64,10 @@ if icebridge_common.getUser() == 'smcmich1':
     L2_SUMMARY_FOLDER       = 'lunokhod2:/home/smcmich1/data/icebridge_summaries'
 elif icebridge_common.getUser() == 'oalexan1':
     REMOTE_CAMERA_FOLDER    = 'lfe:/u/oalexan1/projects/data/icebridge/camera'
-    REMOTE_ALIGN_CAM_FOLDER = 'lfe:/u/oalexan1/icebridge/aligned_cameras'
+    REMOTE_ALIGN_CAM_FOLDER = 'lfe:/u/oalexan1/projects/data/icebridge/aligned_cameras'
     REMOTE_OUTPUT_FOLDER    = 'lfe:/u/oalexan1/projects/data/icebridge/output'
     REMOTE_SUMMARY_FOLDER   = 'lfe:/u/oalexan1/projects/data/icebridge/summaries'
-    L2_SUMMARY_FOLDER       = 'lunokhod1:/u/oalexan1/projects/data/icebridge/summaries'
+    L2_SUMMARY_FOLDER       = 'lunokhod1:/home/oalexan1/projects/data/icebridge/summaries'
 
 def retrieveRunData(run, unpackFolder):
     '''Retrieve the data for the specified run from Lfe.'''
@@ -191,8 +192,20 @@ def packAndSendSummaryFolder(run, folder):
     # - Some fiddling to make the packed folders convenient
     cmd = 'tar -chf '+ fileName +' -C '+ folder +'/.. ' + os.path.basename(folder)
     logger.info(cmd)
-    os.system(cmd)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, outputPath = None, 
+                                                         suppressOutput = True, redo = True,
+                                                         noThrow = True)
 
+    # This tends to print a very verbose message
+    ans = out + '\n' + err
+    vals = ans.split('\n')
+    if len(vals) < 10:
+        print(ans)
+    else:
+        vals = vals[0:10]
+        print("\n".join(vals))
+        print("Above output truncated.")
+    
     # Send a copy of the file to Lunokhod2 for convenience
     cmd = 'scp ' + fileName +' '+ l2Path
     logger.info(cmd)

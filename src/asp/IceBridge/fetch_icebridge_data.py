@@ -726,13 +726,18 @@ def doFetch(options, outputFolder):
             continue
 
         if icebridge_common.hasImageExtension(outputPath):
-            if not icebridge_common.isValidImage(outputPath):
-                logger.info('Found an invalid image. Will wipe it: ' + outputPath)
-                if os.path.exists(outputPath): os.remove(outputPath)
-                failedFiles.append(outputPath)
-                continue
-            else:
-                logger.info('Valid image: ' + outputPath)
+
+            if False:
+                # This check is just so slow. Turn it off for now.
+                # This will impact only the validation of jpegs,
+                # as the other files can be validated via the checksum.
+                if not icebridge_common.isValidImage(outputPath):
+                    logger.info('Found an invalid image. Will wipe it: ' + outputPath)
+                    if os.path.exists(outputPath): os.remove(outputPath)
+                    failedFiles.append(outputPath)
+                    continue
+                else:
+                    logger.info('Valid image: ' + outputPath)
 
         # Sanity check: XML files must have the right latitude.
         if icebridge_common.fileExtension(outputPath) == '.xml':
