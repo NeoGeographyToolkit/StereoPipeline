@@ -387,7 +387,9 @@ def getMatchFiles(options, origInputPairs, index):
         if os.path.exists(blurMatchPath):
             inputMatchPath = blurMatchPath
         else:
-            raise Exception('Unable to find bundle_adjust match file ' + str(index))
+            # Match files may not exist if the bundle adjust dir got cleaned up
+            return ("", "")
+            #raise Exception('Unable to find bundle_adjust match file ' + str(index))
 
     return (inputMatchPath, outputMatchPath)
 
@@ -603,6 +605,10 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         
         # Clear any existing .match file then link in the new one.
         os.system('rm -f ' + thisPairPrefix + '*.match')
+        if matchFilePair[0] == "":
+            # This can happen if the bundle adjust directory got cleaned up. Nothing we can do.
+            raise Exception("No usable match files. Stereo call failed.")
+        
         icebridge_common.makeSymLink(matchFilePair[0], matchFilePair[1])
         if not os.path.exists(matchFilePair[1]):
             raise Exception('Failed to create .match file symlink: ' + matchFilePair[1])

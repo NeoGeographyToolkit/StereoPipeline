@@ -47,13 +47,23 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 REMOTE_INPUT_FOLDER     = 'lfe:/u/oalexan1/projects/data/icebridge'
 
+def stripHost(val):
+    # Replace lfe:/path with /path
+    m = re.match("^.*?:\s*(.*?)$", val)
+    if m:
+        return m.group(1)
+    else:
+        return val
+    
 if icebridge_common.getUser() == 'smcmich1':
     REMOTE_CAMERA_FOLDER    = 'lfe:/u/smcmich1/icebridge/camera'
+    REMOTE_ALIGN_CAM_FOLDER = 'lfe:/u/smcmich1/icebridge/aligned_cameras'
     REMOTE_OUTPUT_FOLDER    = 'lfe:/u/smcmich1/icebridge/output'
     REMOTE_SUMMARY_FOLDER   = 'lfe:/u/smcmich1/icebridge/summaries'
     L2_SUMMARY_FOLDER       = 'lunokhod2:/home/smcmich1/data/icebridge_summaries'
 elif icebridge_common.getUser() == 'oalexan1':
     REMOTE_CAMERA_FOLDER    = 'lfe:/u/oalexan1/projects/data/icebridge/camera'
+    REMOTE_ALIGN_CAM_FOLDER = 'lfe:/u/oalexan1/icebridge/aligned_cameras'
     REMOTE_OUTPUT_FOLDER    = 'lfe:/u/oalexan1/projects/data/icebridge/output'
     REMOTE_SUMMARY_FOLDER   = 'lfe:/u/oalexan1/projects/data/icebridge/summaries'
     L2_SUMMARY_FOLDER       = 'lunokhod1:/u/oalexan1/projects/data/icebridge/summaries'
@@ -123,7 +133,7 @@ def packAndSendCameraFolder(run):
     lfePath      = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
 
     # First remove any existing tar file
-    cmd      = "ssh lfe 'rm -f "+lfePath+"'"
+    cmd      = "ssh lfe 'rm -f " + stripHost(lfePath) + "'"
     logger.info(cmd)
     os.system(cmd)
 
@@ -136,6 +146,30 @@ def packAndSendCameraFolder(run):
         raise Exception('Failed to pack/send cameras for run ' + str(run))
     logger.info('Finished sending cameras to lfe.')
 
+def packAndSendAlignedCameras(run):
+    '''Archive the pc_align-ed cameras for later use'''
+    
+    logger = logging.getLogger(__name__)
+    logger.info('Archiving aligned cameras for run ' + str(run))
+
+    runFolder = str(run)
+    
+    lfePath = os.path.join(REMOTE_ALIGN_CAM_FOLDER, runFolder + '.tar')
+    
+    # First remove any existing tar file
+    cmd      = "ssh lfe 'rm -f " + stripHost(lfePath) + "'"
+    logger.info(cmd)
+    os.system(cmd)
+
+    # Create a new archive
+    cmd = 'shiftc -d -r --wait --include=\'^.*?aligned_bundle.*?$\' --create-tar ' + runFolder + \
+    ' ' + lfePath
+    logger.info(cmd)
+    status = os.system(cmd)
+    if status != 0:
+        logger.info('Failed to pack/send aligned cameras for run ' + str(run))
+    logger.info('Finished sending aligned cameras to lfe.')
+
 def packAndSendSummaryFolder(run, folder):
     '''Archive the summary folder in case we want to look at it later'''
     
@@ -146,10 +180,10 @@ def packAndSendSummaryFolder(run, folder):
     fileName = run.getSummaryTarName()
     lfePath  = os.path.join(REMOTE_SUMMARY_FOLDER, fileName)
     l2Path   = os.path.join(L2_SUMMARY_FOLDER,     fileName)
-    cmd      = "ssh lfe 'rm -f "+lfePath+"'"
+    cmd      = "ssh lfe 'rm -f " + stripHost(lfePath) + "'"
     logger.info(cmd)
     os.system(cmd)
-    cmd      = "ssh lunokhod2 'rm -f "+l2Path+"'"
+    cmd      = "ssh lunokhod2 'rm -f "+ stripHost(l2Path) +"'"
     logger.info(cmd)
     os.system(cmd)
 

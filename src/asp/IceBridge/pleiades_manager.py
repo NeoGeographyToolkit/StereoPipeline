@@ -107,8 +107,13 @@ def getEmailAddress(userName):
 
 def sendEmail(address, subject, body):
     '''Send a simple email from the command line'''
+    # Remove any quotes, as that confuses the command line.
+    subject = subject.replace("\"", "")
+    body    = body.replace("\"", "")
     try:
-        os.system('mail -s '+subject+' '+address+' <<< '+body)
+        cmd = 'mail -s "' + subject + '" ' + address + ' <<< "' + body + '"'
+        print(cmd)
+        os.system(cmd)
     except Exception, e:
         print("Could not send mail.")
         
@@ -289,7 +294,7 @@ def runConversion(run, options):
         
     run.setFlag('conversion_complete')
 
-    # Pack up camera folder and store it for later. Do this only for full runs
+    # Pack up camera folder and store it for later.
     if not options.skipArchiveCameras:
         try:
             archive_functions.packAndSendCameraFolder(run)
@@ -301,7 +306,7 @@ def generateBatchList(run, options, listPath):
     '''Generate a list of all the processing batches required for a run'''
 
     logger = logging.getLogger(__name__)
-    logger.info("Generate batch list.")
+    logger.info("Generate batch list: " + listPath)
     
     refDemName = icebridge_common.getReferenceDemName(run.site)
     refDemPath = os.path.join(options.refDemFolder, refDemName)
@@ -643,6 +648,9 @@ def main(argsIn):
         parser.add_argument("--skip-archive-cameras", action="store_true",
                             dest="skipArchiveCameras", default=False,
                             help="Skip archiving the cameras.")
+        parser.add_argument("--skip-archive-aligned-cameras", action="store_true",
+                            dest="skipArchiveAlignedCameras", default=False,
+                            help="Skip archiving the aligned cameras.")
         parser.add_argument("--skip-archive-summary", action="store_true",
                             dest="skipArchiveSummary", default=False,
                             help="Skip archiving the summary.")
@@ -652,6 +660,10 @@ def main(argsIn):
         parser.add_argument("--skip-cleanup", action="store_true",
                             dest="skipCleanup", default=False, 
                             help="Don't cleanup extra files from a run.")
+        parser.add_argument("--skip-email", action="store_true", 
+                            dest="skipEmail", default=False, 
+                            help="Don't send email.")
+
         parser.add_argument("--no-nav", action="store_true", dest="noNavFetch",
                             default=False, help="Don't fetch or convert the nav data.")
         
@@ -684,8 +696,6 @@ def main(argsIn):
     logger   = icebridge_common.setUpLogger(options.logFolder, logLevel, 'pleiades_manager_log')
 
     checkRequiredTools() # Make sure all the needed tools can be found before we start
-
-    emailAddress = getEmailAddress(icebridge_common.getUser())
 
     logger.info("Disabling core dumps.") # these just take a lot of room
     os.system("ulimit -c 0")
@@ -725,11 +735,12 @@ def main(argsIn):
         if not options.skipConvert:                   
             # Run conversion and archive results if not already done        
             runConversion(run, options)
-        
-        if options.skipProcess and options.skipBlend and options.skipReport and \
-               (not options.recomputeBatches):
-            logger.info('Quitting early.')
-            return 0
+
+        # I see no reason to exit early
+        #if options.skipProcess and options.skipBlend and options.skipReport and \
+        #       (not options.recomputeBatches) and options.skipArchiveCameras:
+        #    logger.info('Quitting early.')
+        #    return 0
         
         if os.path.exists(fullBatchListPath) and not options.recomputeBatches:
             logger.info('Re-using existing batch list file.')
@@ -760,6 +771,14 @@ def main(argsIn):
         ## Log the run as completed
         ## - If the run was not processed correctly it will have to be looked at manually
         #addToRunList(COMPLETED_RUN_LIST, run)
+
+        # Pack up the aligned cameras and store them for later
+        if not options.skipArchiveAlignedCameras:
+            try:
+                archive_functions.packAndSendAlignedCameras(run)
+            except Exception,e:
+                print 'Caught exception sending aligned cameras'
+                logger.exception(e)
 
         if not options.skipReport:
             # Generate a simple report of the results
@@ -793,6 +812,7 @@ def main(argsIn):
 
         # Don't pack or clean up the run if it did not generate all the output files.
         # - TODO: Will never produce 100% of outputs
+        success = False
         if (numProduced == numOutputs) and (errorCount == 0):
             print 'TODO: Automatically send the completed files to lou and clean up the run!'
 
@@ -803,10 +823,15 @@ def main(argsIn):
                 #cleanupRun(run) # <-- Should this always be manual??
             
             # TODO: Don't wait on the pack/send operation to finish!
-            
-            sendEmail(emailAddress, '"OIB run passed - '+str(run)+'"', resultText)
-        else:
-            sendEmail(emailAddress, '"OIB run failed - '+str(run)+'"', resultText)
+            success = True
+
+        if not options.skipEmail:
+            emailAddress = getEmailAddress(icebridge_common.getUser())
+            logger.info("Sending email to: " + emailAddress)
+            if success:
+                sendEmail(emailAddress, 'OIB run passed - ' + str(run), resultText)
+            else:
+                sendEmail(emailAddress, '"OIB run failed - ' + str(run), resultText)
         
         #raise Exception('DEBUG - END LOOP')
         
