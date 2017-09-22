@@ -264,14 +264,14 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
         argString = imageCameraString
         if useBlur[attempt]: # Make sure blurred images are created
             for pair in blurPairs:
-                blurImage(pair[0], pair[1], True, False)
+                blurImage(pair[0], pair[1], False, False)
             argString = blurredImageCameraString                     
 
         cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
                 '--camera-weight %0.16g -t nadirpinhole --skip-rough-homography '+
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
-                '--overlap-exponent %0.16g --epipolar-threshold 50')
+                '--overlap-exponent %0.16g --epipolar-threshold 100')
                % (argString, bundlePrefix, threadText, heightLimitString, 
                   CAMERA_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
                   ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT))
@@ -297,6 +297,8 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
         # Try again. Carefully wipe only relevant files
         logger.info("Trying bundle adjustment again.")
         for f in glob.glob(bundlePrefix + '*'):
+            if 'blurred.tif' in f: # Don't wipe these files
+                continue
             logger.info("Wipe: " + f)
             os.remove(f)
 
@@ -574,6 +576,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # Testing: Is there any performance hit from using --corr-seed-mode 0 ??
     #          This skips D_sub creation and saves processing time.
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
+    # - Note that the base level memory usage ignoring the SGM buffers is about 2 GB so this memory
+    #   usage is in addition to that.
     stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 --min-num-ip 20 ' %
                  (argString, thisPairPrefix, threadText, extraArgs))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
@@ -581,7 +585,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     if '--stereo-algorithm 0' not in options.stereoArgs:
         correlationArgString = (' --xcorr-threshold 2 --corr-kernel 7 7 ' 
                                 + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 2 '
-                                + searchLimitString + ' --corr-memory-limit-mb 10000 '
+                                + searchLimitString + ' --corr-memory-limit-mb 8000 '
                                 + options.stereoArgs
                                )
         #+ ' --corr-blob-filter 100')

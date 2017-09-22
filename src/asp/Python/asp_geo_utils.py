@@ -465,7 +465,7 @@ def convertCoords(x, y, projStringIn, projStringOut):
     cmd = [asp_system_utils.which('gdaltransform'), '-s_srs', projStringIn, '-t_srs', projStringOut]
     #print(" ".join(cmd))
     p = subprocess32.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
-    textOutput, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.1 )
+    textOutput, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.5 )
     parts = textOutput.split()
 
     return ( float(parts[0]), float(parts[1]) )
