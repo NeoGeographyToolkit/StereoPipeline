@@ -174,7 +174,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             if os.path.exists(footprintDEM):
                 cmd = ('dem_mosaic --this-dem-as-reference %s %s %s -o %s' 
                        % (footprintDEM, demString, threadText, outputPrefix))
-                filesToWipe.append(footprintDEM) # no longer needed
+                #filesToWipe.append(footprintDEM) # no longer needed
             else:
                 cmd = ('dem_mosaic --first-dem-as-reference %s %s -o %s' 
                        % (demString, threadText, outputPrefix))

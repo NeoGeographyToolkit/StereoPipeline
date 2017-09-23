@@ -75,6 +75,11 @@ class RunHelper():
         '''Return the file name used to tar up the generated camera files'''
         return 'CAMERA_' + self.name() + '.tar'
 
+    def getAlignedCameraTarName(self):
+        '''Return the file name used to tar up the generated bundle-adjustd
+        and aligned camera files'''
+        return 'ALIGNED_CAMERA_' + self.name() + '.tar'
+
     def getSummaryTarName(self):
         '''Return the file name used to tar up the generated camera files'''
         return 'SUMMARY_' + self.name() + '.tar'

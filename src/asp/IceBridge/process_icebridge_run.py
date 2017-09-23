@@ -147,7 +147,7 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
 
         # This can be slow, so add a progress dialong
         count = count + 1
-        if (count - 1) % 100 == 0:
+        if (count - 1) % 1000 == 0:
             logger.info('Progress: ' + str(count) + '/' + str(numOrthos))
 
         thisFrame    = icebridge_common.getFrameNumberFromFilename(orthoFiles[i])
@@ -421,6 +421,9 @@ def main(argsIn):
 
     except optparse.OptionError, msg:
         raise Usage(msg)
+
+    os.system("ulimit -c 0") # disable core dumps
+    os.system("umask 022")   # enforce files be readable by others
     
     # Check the inputs
     for f in [imageFolder, cameraFolder, lidarFolder]:

@@ -87,7 +87,7 @@ def retrieveRunData(run, unpackFolder):
 
     lfePath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)
 
-    cmd = 'shiftc --wait -d --verify --extract-tar ' + lfePath + ' ' + unpackFolder
+    cmd = 'shiftc --wait -d -r --verify --extract-tar ' + lfePath + ' ' + unpackFolder
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
@@ -95,8 +95,6 @@ def retrieveRunData(run, unpackFolder):
 
     # Retrieve a preprocessed set of camera files if we have it
     fetchCameraFolder(run)
-
-
 
 def fetchCameraFolder(run):
     '''Fetch a camera folder from the archive if it exists.
@@ -110,7 +108,7 @@ def fetchCameraFolder(run):
     fileName     = run.getCameraTarName()
     lfePath      = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
 
-    cmd = 'shiftc --wait -d --extract-tar ' + lfePath + ' ' + cameraFolder
+    cmd = 'shiftc --wait -d -r --extract-tar ' + lfePath + ' .'  
     logger.info(cmd)
     status = os.system(cmd)
     print status
@@ -139,7 +137,11 @@ def packAndSendCameraFolder(run):
     os.system(cmd)
 
     # Do the new file
-    cmd = 'shiftc  --exclude=\'^.*?(-log-|\.gcp).*?$\' --wait -d --create-tar ' + cameraFolder + ' ' + lfePath
+    runFolder = str(run)
+    cmd = 'shiftc --wait -d -r --include=\'^.*?' + \
+          os.path.basename(cameraFolder) + '.*?\.tsai$\' --create-tar ' + runFolder + \
+          ' ' + lfePath
+    
     logger.info(cmd)
     status = os.system(cmd)
     print status
@@ -147,6 +149,9 @@ def packAndSendCameraFolder(run):
         raise Exception('Failed to pack/send cameras for run ' + str(run))
     logger.info('Finished sending cameras to lfe.')
 
+    # Test if this is reversible
+    #fetchCameraFolder(run)
+    
 def packAndSendAlignedCameras(run):
     '''Archive the pc_align-ed cameras for later use'''
     
@@ -155,7 +160,8 @@ def packAndSendAlignedCameras(run):
 
     runFolder = str(run)
     
-    lfePath = os.path.join(REMOTE_ALIGN_CAM_FOLDER, runFolder + '.tar')
+    fileName = run.getAlignedCameraTarName()
+    lfePath  = os.path.join(REMOTE_ALIGN_CAM_FOLDER, fileName)
     
     # First remove any existing tar file
     cmd      = "ssh lfe 'rm -f " + stripHost(lfePath) + "'"
@@ -163,7 +169,7 @@ def packAndSendAlignedCameras(run):
     os.system(cmd)
 
     # Create a new archive
-    cmd = 'shiftc -d -r --wait --include=\'^.*?aligned_bundle.*?$\' --create-tar ' + runFolder + \
+    cmd = 'shiftc --wait -d -r --include=\'^.*?aligned_bundle.*?$\' --create-tar ' + runFolder + \
     ' ' + lfePath
     logger.info(cmd)
     status = os.system(cmd)
@@ -212,7 +218,7 @@ def packAndSendSummaryFolder(run, folder):
     os.system(cmd)
 
     # Send the file to lfe using shiftc
-    cmd = 'shiftc --wait -d ' + fileName + ' ' + lfePath
+    cmd = 'shiftc --wait -d -r ' + fileName + ' ' + lfePath
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
@@ -228,7 +234,7 @@ def packAndSendCompletedRun(run):
     logger = logging.getLogger(__name__)
     logger.info('Getting ready to pack up run ' + str(run))
     
-    runFolder = run.getFolder()
+    runFolder = str(run)
     
     # TODO: What do we want to deliver?
     # - The aligned DEM file from each batch folder
@@ -252,22 +258,33 @@ def packAndSendCompletedRun(run):
         (startFrame, stopFrame) = icebridge_common.getFrameRangeFromBatchFolder(batch)
         prefix = ('F_%05d_%05d' % (startFrame, stopFrame))
         prefix = os.path.join(assemblyFolder, prefix)
-        os.symlink(finalDemFile, prefix+'_DEM.tif')
+        target = prefix + '_DEM.tif'
+        try:
+            if os.path.exists(target):
+                os.system("rm -f " + target) # to wipe whatever was there
+            os.symlink(finalDemFile, target)
+        except Exception, e:
+            logger.info(str(e) + " when doing: ln -s " + finalDemFile + " " + target)
     
     # Tar up the assembled files and send them at the same time using the shiftc command
     # - No need to use a compression algorithm here
     fileName = run.getOutputTarName()
     lfePath  = os.path.join(REMOTE_OUTPUT_FOLDER, fileName)
 
-    # TODO: Keep track of this transfer!
-
     logger.info('Sending run to lfe...')
-    cmd = 'shiftc --dereference --create-tar ' + assemblyFolder + ' ' + lfePath
+
+    cmd      = "ssh lfe 'rm -f " + stripHost(lfePath) + "'"
     logger.info(cmd)
-    #status = os.system(cmd)
-    #if status != 0:
-    #    raise Exception('Failed to pack/send results for run ' + str(run))
-    #logger.info('Finished sending run to lfe.')
+    os.system(cmd)
+
+    cmd = 'shiftc --wait -d -r --dereference --create-tar ' + \
+          os.path.join(runFolder, os.path.basename(assemblyFolder)) + ' ' + lfePath
+
+    logger.info(cmd)
+    status = os.system(cmd)
+    if status != 0:
+        raise Exception('Failed to pack/send results for run ' + str(run))
+    logger.info('Finished sending run to lfe.')
     
     
     

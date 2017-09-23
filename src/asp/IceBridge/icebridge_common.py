@@ -349,22 +349,13 @@ def getCameraGsdAndBoundsRetry(imagePath, cameraPath, logger, referenceDem, proj
     return results
 
 def getFrameRangeFromBatchFolder(folder):
-    '''Returns (startFrame, endFrame) for a batch folder'''
-
+    '''Returns (startFrame, endFrame) for a batch folder.'''
+    '''This is also used to parse a command in a batch file.'''
     # Extract just the desired folder name    
-    m = re.search('batch_[0-9]+_[0-9]+', folder)
+    m = re.match('^.*?batch_([0-9]+)_([0-9]+)', folder)
     if not m:
         raise Exception('Failed to find batch frames in folder:' + folder)
-    text = m.group(0)
-    
-    # Parse the two frame numbers
-    batchLen   = len('batch')
-    start      = text.find('batch_')
-    next       = text.find('_', start+batchLen+1)
-    startFrame = int(text[batchLen+1:next])
-    endFrame   = int(text[next+1:])
-    
-    return (startFrame, endFrame)
+    return (int(m.group(1)), int(m.group(2)))
 
 def xmlFile(filename):
     '''Return the matching xml file path for the input file.'''
@@ -871,6 +862,26 @@ def fetchFile(url, outputPath):
     
     return os.path.exists(outputPath)
 
+def partitionArray(arr, wid):
+    '''Partition one array into sub-arrays, each of length at most wid.''' 
+    out = []
+    cur = []
+    start = 0
+    while (start < len(arr)):
+        
+        if len(cur) < wid:
+            cur.append(arr[start])
+        else:
+            out.append(cur[:])
+            cur = [arr[start]]
+        start += 1
+
+    # Append the leftover elements
+    if len(cur) > 0:
+        out.append(cur[:])
+        
+    return out
+    
 # It is faster to invoke one curl command for multiple files.
 # Do not fetch files that already exist. Note that we expect
 # that each file looks like outputFolder/name.<ext>,

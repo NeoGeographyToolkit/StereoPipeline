@@ -832,6 +832,9 @@ def doWork(options, args, logger):
     numArgs    = len(args)
     numCameras = (numArgs) / 2
 
+    os.system("ulimit -c 0") # disable core dumps
+    os.system("umask 022")   # enforce files be readable by others
+
     # Verify all input files exist
     for i in range(0,numArgs):
         if not os.path.exists(args[i]):
