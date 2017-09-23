@@ -714,7 +714,8 @@ def main(argsIn):
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                             default=False, help="Don't validate the input data.")
 
-        parser.add_argument("--wipe", action="store_true", dest="wipe", default=False,
+        parser.add_argument("--wipe-processed", action="store_true", dest="wipeProcessed",
+                            default=False,
                             help="Wipe the processed folder.")
 
         parser.add_argument("--wipe-all", action="store_true", dest="wipeAll", default=False,
@@ -893,6 +894,17 @@ def main(argsIn):
             else:
                 sendEmail(emailAddress, '"OIB run failed - ' + str(run), resultText)
         
+
+        if options.wipeProcessed:
+            processedFolder = run.getProcessFolder()
+            logger.info("Will delete: " + processedFolder)
+            os.system("rm -rf " + processedFolder)
+            
+        if options.wipeAll:
+            outFolder = run.getFolder()
+            logger.info("Will delete: " + outFolder)
+            os.system("rm -rf " + outFolder)
+            
         #raise Exception('DEBUG - END LOOP')
         
     # End loop through runs
