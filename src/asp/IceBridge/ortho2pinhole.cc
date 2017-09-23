@@ -450,11 +450,13 @@ void get_estimated_camera_position(Options const& opt,
     // the estimated position/pose instead.
     const double MAX_CENTER_MOVEMENT = 10;
     double dist = norm_2(pcam->camera_center() - est_cam.camera_center());
+    vw_out() << "Flat affine estimate is " << dist 
+             << " meters from the input camera estimate.\n";
     if (dist > MAX_CENTER_MOVEMENT) {
       pcam->set_camera_center(est_cam.camera_center());
       pcam->set_camera_pose(est_cam.camera_pose());
-      vw_out() << "Flat affine estimate is " << dist 
-               << " meters from the input camera estimate, using input estimate instead\n";
+      vw_out() << "Flat affine estimate difference limit is " << MAX_CENTER_MOVEMENT 
+               << ", using input estimate instead\n";
     }
   } // End have camera estimate case
 
@@ -764,18 +766,21 @@ void ortho2pinhole(Options & opt){
     // If an estimate was provided and the DEM optimization moved us too far away from that estimate,
     //  revert back to the input estimate.  Also revert if the error was too high.
     const double MAX_REFINE_ERROR = 4000;
-    const double MAX_CAMERA_MOVEMENT = 50;
+    const double MAX_CAMERA_MOVEMENT = 15;
     if (opt.camera_estimate != "") {
       bool revert_camera = false;
       if (refine_error > MAX_REFINE_ERROR) {
         vw_out() << "Refinement error is too high, reverting to input camera estimate.\n";
         revert_camera = true;
       }
-      else
-        if (norm_2(pcam->camera_center() - gcc_cam_est) > MAX_CAMERA_MOVEMENT) {
+      else {
+        double dist = norm_2(pcam->camera_center() - gcc_cam_est);
+        vw_out() << "Camera distance from estimate is " << dist << std::endl;
+        if (dist > MAX_CAMERA_MOVEMENT) {
           vw_out() << "Camera solution is too far from the input estimate, reverting to estimate.\n";
           revert_camera = true;
         }
+      }
       if (revert_camera) { // Use estimated camera with input camera intrinsics
         PinholeModel est_cam(opt.camera_estimate);
         pcam->set_camera_center(est_cam.camera_center());

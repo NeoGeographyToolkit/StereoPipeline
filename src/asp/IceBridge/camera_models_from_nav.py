@@ -118,19 +118,18 @@ def main(argsIn):
     orthoListFile = os.path.join(outputFolder, 'ortho_file_list.csv')
 
     # Open the output file for writing
-    if not asp_file_utils.fileIsNonZero(orthoListFile):
-        with open(orthoListFile, 'w') as outputFile:
+    with open(orthoListFile, 'w') as outputFile:
 
-            # Loop through frames in order
-            for key in sorted(infoDict):
-            
-                # Write the ortho name and the output camera name to the file
-                (ortho, image) = infoDict[key]
-                if not image:
-                    #raise Exception('Ortho missing image file: ' +ortho)
-                    continue
-                camera = image.replace('.tif', '.tsai')
-                outputFile.write(ortho +', ' + camera + '\n')
+        # Loop through frames in order
+        for key in sorted(infoDict):
+        
+            # Write the ortho name and the output camera name to the file
+            (ortho, image) = infoDict[key]
+            if not image:
+                #raise Exception('Ortho missing image file: ' +ortho)
+                continue
+            camera = image.replace('.tif', '.tsai')
+            outputFile.write(ortho +', ' + camera + '\n')
 
     # Check if we already have all of the output camera files.
     haveAllFiles = True
@@ -167,7 +166,7 @@ def main(argsIn):
         logger.info('Generating nav camera kml file: ' + kmlPath)
         orbitviz_pinhole = asp_system_utils.which('orbitviz_pinhole')
         cmd = orbitviz_pinhole + ' --hide-labels -o ' + kmlPath + ' ' + camString
-        logger.info(cmd)
+        #logger.info(cmd)
         asp_system_utils.executeCommand(cmd, kmlPath, suppressOutput=True, redo=False)
     except Exception, e:
         logger.info("Warning: " + str(e))

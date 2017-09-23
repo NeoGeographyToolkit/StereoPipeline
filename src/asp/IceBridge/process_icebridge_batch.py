@@ -19,7 +19,7 @@
 # Run bundle adjustment, stereo, generate DEMs, merge dems, perform alignment, etc,
 # for a series of icebridge images
 
-import os, sys, optparse, datetime, logging, multiprocessing, glob
+import os, sys, optparse, datetime, logging, multiprocessing, glob, re
 
 # The path to the ASP python files
 basepath      = os.path.dirname(os.path.realpath(__file__))  # won't change, unlike syspath
@@ -76,11 +76,11 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
     '''Try pc_align with increasing max displacements until we it completes
        with enough lidar points used in the comparison'''
 
-    STARTING_DISPLACEMENT  = 20
-    MAX_DISPLACEMENT       = 20
+    STARTING_DISPLACEMENT  = 30
+    MAX_DISPLACEMENT       = 30
     DISPLACEMENT_INCREMENT = 20
     ERR_HEADER_SIZE        = 3
-    MIN_LIDAR_POINTS       = 300  
+    MIN_LIDAR_POINTS       = 300 #15000  1500 is closer to a good value, so increase if we will iterate.
 
     lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
 
@@ -108,7 +108,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
         # Call pc_align
         # TODO: Remove options.maxDisplacement
         alignOptions = ( ('--max-displacement %f --csv-format %s ' +   \
-                          '--save-inv-transformed-reference-points') % \
+                          '--save-inv-transformed-reference-points ') % \
                          (currentMaxDisplacement, lidarCsvFormatString))
         cmd = ('pc_align %s %s %s -o %s %s' %
                (alignOptions, demPath, lidarFile, alignPrefix, threadText))
@@ -135,7 +135,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
                             str(numLidarPointsUsed))
         else: # Try again with a higher max limit
             logger.info('Trying pc_align again, only got ' + str(numLidarPointsUsed)
-                        + ' lola point matches with value ' + str(currentMaxDisplacement))
+                        + ' lidar point matches with value ' + str(currentMaxDisplacement))
             currentMaxDisplacement = currentMaxDisplacement + DISPLACEMENT_INCREMENT            
 
     # Final success check
@@ -221,11 +221,11 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     # - An overlap number less than 2 is prone to very bad bundle adjust results so
     #   don't use less than that.  If there is really only enough overlap for one we
     #   will have to examine the results very carefully!
-    MIN_BA_OVERLAP   = 2
-    CAMERA_WEIGHT    = 2.0
-    ROBUST_THRESHOLD = 2.0
-    OVERLAP_EXPONENT = 0
-    MIN_IP_MATCHES   = 22
+    MIN_BA_OVERLAP     = 2
+    TRANSLATION_WEIGHT = 4.0
+    ROBUST_THRESHOLD   = 2.0
+    OVERLAP_EXPONENT   = 0
+    MIN_IP_MATCHES     = 22
     bundlePrefix   = getBundlePrefix(options.outputFolder)
     baOverlapLimit = options.stereoImageInterval + 3
     if baOverlapLimit < MIN_BA_OVERLAP:
@@ -258,8 +258,18 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
         blurPairs.append((imagePath, blurredPath))
         i = i + 1
 
+    outputCamera = inputPairs[0][1]
+
     # Loop through all our parameter settings, quit as soon as one works.
+    bestNumIpPreElevation = 0
+    bestCmd = ''
+    success = False
     for attempt in range(len(ipPerTile)):
+        
+        # If we already got a lot of points which were thrown out due to elevation,
+        #  skip the steps where we retry with more IP.
+        if (ipPerTile[attempt] > 1000) and (bestNumIpPreElevation > 300):
+            continue
         
         argString = imageCameraString
         if useBlur[attempt]: # Make sure blurred images are created
@@ -268,12 +278,12 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
             argString = blurredImageCameraString                     
 
         cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
-                '--camera-weight %0.16g -t nadirpinhole --skip-rough-homography '+
+                '--translation-weight %0.16g -t nadirpinhole --skip-rough-homography '+
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
                 '--overlap-exponent %0.16g --epipolar-threshold 100')
                % (argString, bundlePrefix, threadText, heightLimitString, 
-                  CAMERA_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
+                  TRANSLATION_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
                   ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT))
         
         if options.solve_intr:
@@ -281,19 +291,26 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     
         # Run the BA command and log errors
         logger.info(cmd) # to make it go to the log, not just on screen
-        outputCamera = inputPairs[0][1]
         (out, err, status) = asp_system_utils.executeCommand(cmd, outputCamera, True, redo,
                                                              noThrow=True)
         logger.info(out + '\n' + err)
         
         if status == 0:
             logger.info("Bundle adjustment succeded on attempt " + str(attempt))
+            success = True
             break
-        
-        if attempt + 1 == len(ipPerTile):
-            # Even the last attempt failed
-            raise Exception('Bundle adjustment failed!\n')
 
+        # Keep track of the best number of IP before elevation filtering.
+        # - Dont use high IP counts without filtering.
+        if ipPerTile[attempt] < 2000:
+            m = re.findall(r"Reduced matches to (\d+)", out)
+            if len(m) == 1: # If this text is available...
+                numIpPreElevation = int(m[0])
+                if numIpPreElevation > bestNumIpPreElevation:
+                    bestNumIpPreElevation = numIpPreElevation
+                    bestCmd = cmd
+
+    
         # Try again. Carefully wipe only relevant files
         logger.info("Trying bundle adjustment again.")
         for f in glob.glob(bundlePrefix + '*'):
@@ -301,6 +318,22 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
                 continue
             logger.info("Wipe: " + f)
             os.remove(f)
+             
+    # End bundle adjust attempts
+
+    # Retry the best attempt without the elevation string
+    # - This increases the risk of bad IP's being used but it is better than failing.
+    if (not success) and (bestNumIpPreElevation > 0):
+        logger.info("Retrying bundle_adjust without elevation restriction")
+        cmd = bestCmd.replace(heightLimitString, '')
+        (out, err, status) = asp_system_utils.executeCommand(cmd, outputCamera, True, redo,
+                                                             noThrow=True)    
+        if status == 0:
+            logger.info("Bundle adjustment succeded with elevation check removed")
+            success = True
+
+    if not success:
+        raise Exception('Bundle adjustment failed!\n')
 
     # Return image/camera pairs with the camera files replaced with the bundle_adjust output files.
     # - Also return if we used blurred input images or not
