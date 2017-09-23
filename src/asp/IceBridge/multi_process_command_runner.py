@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-import os, sys, multiprocessing
+import os, sys, argparse, multiprocessing
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -52,48 +52,66 @@ def runCommand(command):
 
 def main(argsIn):
 
+    try:
+        usage = '''usage: multi_process_command_runner.py ...'''
+                      
+        parser = argparse.ArgumentParser(usage=usage)
+
+        # Data selection optios
+        parser.add_argument('--start-frame', dest='startFrame', type=int,
+                            default=icebridge_common.getSmallestFrame(),
+                            help="Frame to start with.  Leave this and stop-frame blank to " + \
+                            "process all frames.")
+        
+        parser.add_argument('--stop-frame', dest='stopFrame', type=int,
+                            default=icebridge_common.getLargestFrame(),
+                            help='Frame to stop on. This last one will not be processed.')
+
+        parser.add_argument('--num-processes', dest='numProcesses', type=int,
+                            default=-1,
+                            help='How many processes to start at the same time.')
+
+        parser.add_argument("--command-file-path",  dest="commandFilePath", default=None,
+                          help="The file from where to read the commands to process.")
+        
+        options = parser.parse_args(argsIn)
+        
+    except argparse.ArgumentError, msg:
+        parser.error(msg)
+
+    os.system("ulimit -c 0") # disable core dumps
+    os.system("umask 022")   # enforce files be readable by others
+    
     icebridge_common.switchWorkDir()
     
-    # Parse the input commands
-    commandFilePath = argsIn[0]
-    numProcesses    = int(argsIn[1])
-    startLine = 0
-    stopLine  = None
-    if argsIn > 2:
-        startLine = int(argsIn[2]) # Start from this line
-    if argsIn > 3:
-        stopLine  = int(argsIn[3]) # Stop before you reach this line
-    
-    if not os.path.exists(commandFilePath):
-        print 'Error: File ' + commandFilePath + ' does not exist!'
+    if not os.path.exists(options.commandFilePath):
+        print 'Error: File ' + options.commandFilePath + ' does not exist!'
         return -1
 
     # TODO: Write to a log?
 
-    print 'Starting processing pool with ' + str(numProcesses) +' processes.'
-    pool = multiprocessing.Pool(numProcesses)
+    print 'Starting processing pool with ' + str(options.numProcesses) +' processes.'
+    pool = multiprocessing.Pool(options.numProcesses)
     taskHandles = []
 
     # Open the file and loop through all the lines
     # - Count the lines as we go so we only process the desired lines
-    print 'Opening command file ' + commandFilePath
+    print 'Opening command file ' + options.commandFilePath
     text = ''
-    with open(commandFilePath, 'r') as f:
+    with open(options.commandFilePath, 'r') as f:
         text = f.read()
     
-    index = 0
     for line in text.split('\n'):
-    
-        # Check line indices
-        if index < startLine:
-            index += 1
+        
+        if line == "":
             continue
-        if stopLine and (index >= stopLine):
-            break
-                      
-        # Add the command to the task pool
-        taskHandles.append(pool.apply_async(runCommand, (line,)))
-        index += 1
+
+        (begFrame, endFrame) = icebridge_common.getFrameRangeFromBatchFolder(line)
+        
+        # Check line indices
+        if begFrame >= options.startFrame and begFrame < options.stopFrame:
+            # Add the command to the task pool
+            taskHandles.append(pool.apply_async(runCommand, (line,)))
 
     # Wait for all the tasks to complete
     print 'Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.'

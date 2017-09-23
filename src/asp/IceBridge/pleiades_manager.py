@@ -82,16 +82,19 @@ def getParallelParams(nodeType, task):
         if nodeType == 'ivy': return (10, 2, 400)
         if nodeType == 'bro': return (14, 4, 500)
         if nodeType == 'wes': return (10, 4, 400)
+        if nodeType == 'san': return (10, 4, 400)
     
     if task == 'dem':
         if nodeType == 'ivy': return (4, 8, 80)
         if nodeType == 'bro': return (6, 8, 100)
         if nodeType == 'wes': return (3, 8, 75)
+        if nodeType == 'san': return (3, 8, 75)
     
     if task == 'blend':
         if nodeType == 'ivy': return (10, 2, 1000)
         if nodeType == 'bro': return (14, 4, 1400) # 200 seems to finish in 10 minutes
         if nodeType == 'wes': return (10, 3, 1000) 
+        if nodeType == 'san': return (10, 3, 1000) 
     
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
 
@@ -149,22 +152,6 @@ def getRunsToProcess(allRuns, skipRuns, doneRuns):
         runList.append(run)
     return runList
 
-def jobListFile(run, tag, options):
-    '''The name of the file containing the currently running jobs.'''
-    return os.path.join(run.getFolder(),
-                        'pbs_jobs_' + tag + '_' + str(options.startFrame) + '_' + \
-                        str(options.stopFrame) + '.txt')
-                        
-
-def readSubmittedJobs(jobFile):
-
-    jobList = []
-    with open(jobFile, "r") as f:
-        for line in f:
-            line = line.strip()
-            jobList.append(line)
-    return jobList
-    
 #---------------------------------------------------------------------
 
 
@@ -280,31 +267,29 @@ def runConversion(run, options):
     
     # Submit all the jobs
     currentFrame = minFrame
-    jobFile = jobListFile(run, 'ortho2pinhole', options)
-    with open(jobFile, "w") as jobHandle:
-        for i in range(0, numOrthoJobs):
-            jobName    = ('%06d_%s' % (currentFrame, baseName) )
-            startFrame = currentFrame
-            stopFrame  = currentFrame+tasksPerJob-1
-            if (i == numOrthoJobs - 1):
-                stopFrame = maxFrame # Make sure nothing is lost at the end
-            thisArgs = (args + ' --start-frame ' + str(startFrame) + \
-                        ' --stop-frame ' + str(stopFrame) )
-            if i != 0: # Only the first job will convert lidar files
-                thisArgs += ' --no-lidar-convert'
+    jobList = []
+    for i in range(0, numOrthoJobs):
+        jobName    = ('%06d_%s' % (currentFrame, baseName) )
+        startFrame = currentFrame
+        stopFrame  = currentFrame+tasksPerJob-1
+        if (i == numOrthoJobs - 1):
+            stopFrame = maxFrame # Make sure nothing is lost at the end
+        thisArgs = (args + ' --start-frame ' + str(startFrame) + \
+                    ' --stop-frame ' + str(stopFrame) )
+        if i != 0: # Only the first job will convert lidar files
+            thisArgs += ' --no-lidar-convert'
 
-            logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
-            logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
-            pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS,
-                                    options.minutesInDevelQueue,
-                                    GROUP_ID,
-                                    options.nodeType, '/usr/bin/python2.7',
-                                    scriptPath + " " + thisArgs, logPrefix)
-            jobHandle.write(jobName + '\n')
-            currentFrame += tasksPerJob
+        logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
+        logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
+        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS,
+                                options.minutesInDevelQueue,
+                                GROUP_ID,
+                                options.nodeType, '/usr/bin/python2.7',
+                                scriptPath + " " + thisArgs, logPrefix)
+        jobList.append(jobName)
+        currentFrame += tasksPerJob
 
     # Wait for conversions to finish
-    jobList = readSubmittedJobs(jobFile)
     waitForRunCompletion(baseName, jobList)
 
     # Check the results
@@ -397,19 +382,29 @@ def submitBatchJobs(run, options, batchListPath):
         logger.error('Failed to generate batch list file: ' + batchListPath)
         raise Exception('Failed to generate batch list file: ' + batchListPath)
 
-    # Number of batches = number of lines in the file
-    p = subprocess.Popen(['wc', '-l', batchListPath], stdout=subprocess.PIPE)
-    textOutput, err = p.communicate()
-    numBatches      = int(textOutput.split()[0])
-
-    logger.info("Reading batch list: " + batchListPath)
-    
     # Retrieve parallel processing parameters
     (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'dem')
-    numBatchJobs = numBatches / tasksPerJob
-    if numBatchJobs < 1:
-        numBatchJobs = 1
 
+    # Read the batch list
+    logger.info("Reading batch list: " + batchListPath)
+    batchLines = []
+    with open(batchListPath, 'r') as f:
+        text = f.read()
+        batchLines = text.split('\n')
+
+    # Find all lines in the batch list in range
+    framesInRange = []
+    for line in batchLines:
+        if line == "":
+            continue
+        (begFrame, endFrame) = icebridge_common.getFrameRangeFromBatchFolder(line)
+        if begFrame >= options.startFrame and begFrame < options.stopFrame:
+            framesInRange.append(begFrame)
+
+    frameGroups  = icebridge_common.partitionArray(framesInRange, tasksPerJob)
+    numBatches   = len(framesInRange)
+    numBatchJobs = len(frameGroups)
+    
     logger.info( ("Num batches: %d, tasks per job: %d, number of jobs: %d" %
                   (numBatches, tasksPerJob, numBatchJobs) ) )
 
@@ -421,31 +416,30 @@ def submitBatchJobs(run, options, batchListPath):
     outputFolder = run.getFolder()
     pbsLogFolder = run.getPbsLogFolder()
 
-    jobFile = jobListFile(run, 'dem', options)
-    currentBatch = 0
-    with open(jobFile, "w") as jobHandle:
-        for i in range(0, numBatchJobs):
-            jobName    = ('%06d_%s' % (currentBatch, baseName) )
-            startBatch = currentBatch
-            stopBatch  = currentBatch+tasksPerJob
-            if (i == numBatchJobs-1):
-                stopBatch = numBatches-1 # Make sure nothing is lost at the end
+    jobList = []
+    for group in frameGroups:
+        if len(group) == 0:
+            continue
+        firstFrame = group[0]
+        lastFrame  = group[-1] + 1 # go one beyond
+        jobName    = ('%06d_%s' % (firstFrame, baseName) )
 
-            # Specify the range of lines in the file we want this node to execute
-            args = ('%s %d %d %d' % (batchListPath, numProcesses, startBatch, stopBatch))
+        # Specify the range of lines in the file we want this node to execute
+        args = ('--command-file-path %s --start-frame %d --stop-frame %d --num-processes %d' % \
+                (batchListPath, firstFrame, lastFrame, numProcesses))
 
-            logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
-            logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
-            pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS,
-                                    options.minutesInDevelQueue,
-                                    GROUP_ID,
-                                    options.nodeType, '/usr/bin/python2.7',
-                                    scriptPath + ' ' + args, logPrefix)
-            jobHandle.write(jobName + '\n')
-            currentBatch += tasksPerJob
+        logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
+        logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
+
+        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS,
+                                options.minutesInDevelQueue,
+                                GROUP_ID,
+                                options.nodeType, '/usr/bin/python2.7',
+                                scriptPath + ' ' + args, logPrefix)
+        jobList.append(jobName)
 
     # Waiting on these jobs happens outside this function
-    return (baseName, jobFile)
+    return (baseName, jobList)
 
 def runBlending(run, options):
     '''Blend together a series of batch DEMs'''
@@ -487,29 +481,27 @@ def runBlending(run, options):
     pbsLogFolder = run.getPbsLogFolder()
     
     # Submit all the jobs
+    jobList = []
     currentFrame = minFrame
-    jobFile = jobListFile(run, 'dem', options)
-    with open(jobFile, "w") as jobHandle:
-        for i in range(0, numBlendJobs):
-            jobName    = ('%06d_%s' % (currentFrame, baseName) )
-            startFrame = currentFrame
-            stopFrame  = currentFrame+tasksPerJob # Last frame passed to the tool is not processed
-            if (i == numBlendJobs - 1):
-                stopFrame = maxFrame+1 # Make sure nothing is lost at the end
-            thisArgs = (args + ' --start-frame ' + str(startFrame) + \
-                        ' --stop-frame ' + str(stopFrame) )
-            logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
-            logger.info('Submitting blend job: ' + scriptPath +  ' ' + thisArgs)
-            pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS,
-                                    options.minutesInDevelQueue,
-                                    GROUP_ID,
-                                    options.nodeType, '/usr/bin/python2.7',
-                                    scriptPath + ' ' + thisArgs, logPrefix)
-            jobHandle.write(jobName + '\n')
-            currentFrame += tasksPerJob
+    for i in range(0, numBlendJobs):
+        jobName    = ('%06d_%s' % (currentFrame, baseName) )
+        startFrame = currentFrame
+        stopFrame  = currentFrame+tasksPerJob # Last frame passed to the tool is not processed
+        if (i == numBlendJobs - 1):
+            stopFrame = maxFrame+1 # Make sure nothing is lost at the end
+        thisArgs = (args + ' --start-frame ' + str(startFrame) + \
+                    ' --stop-frame ' + str(stopFrame) )
+        logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
+        logger.info('Submitting blend job: ' + scriptPath +  ' ' + thisArgs)
+        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS,
+                                options.minutesInDevelQueue,
+                                GROUP_ID,
+                                options.nodeType, '/usr/bin/python2.7',
+                                scriptPath + ' ' + thisArgs, logPrefix)
+        jobList.append(jobName)
+        currentFrame += tasksPerJob
 
     # Wait for conversions to finish
-    jobList = readSubmittedJobs(jobFile)
     waitForRunCompletion(baseName, jobList)
 
 # TODO: Move this
@@ -635,7 +627,6 @@ def main(argsIn):
                             default=0,
                             help="If positive, submit to the devel queue for this many minutes.")
 
-        # If a partial run is desired, the results will not be archived
         parser.add_argument('--start-frame', dest='startFrame', type=int,
                             default=icebridge_common.getSmallestFrame(),
                             help="Frame to start with.  Leave this and stop-frame blank to " + \
@@ -823,12 +814,11 @@ def main(argsIn):
         
             # Divide up batches into jobs and submit them to machines.
             logger.info('Submitting jobs for run ' + str(run))
-            (baseName, jobFile) = submitBatchJobs(run, options, batchListPath)
-        
+            (baseName, jobList) = submitBatchJobs(run, options, batchListPath)
+
             # Wait for all the jobs to finish
             logger.info('Waiting for job completion of run ' + str(run))
             
-            jobList = readSubmittedJobs(jobFile)
             waitForRunCompletion(baseName, jobList)
             logger.info('All jobs finished for run '+str(run))
         
@@ -868,15 +858,17 @@ def main(argsIn):
                            '--stop-frame', str(options.stopFrame)]
             logger.info("Running generate_flight_summary.py " + " ".join(genCmd))
             generate_flight_summary.main(genCmd)
-            
-            # send data to lunokhod and lfe
-            if not options.skipArchiveSummary:
-                archive_functions.packAndSendSummaryFolder(run, summaryFolder)
         else:
             resultText = 'Summary skipped'
             errorCount  = 0 # Flag values to let the next condition pass
             numOutputs  = 1
             numProduced = 1
+            
+        # send data to lunokhod and lfe
+        if not options.skipArchiveSummary:
+            summaryFolder = os.path.join(options.summaryFolder, run.name())
+            archive_functions.packAndSendSummaryFolder(run, summaryFolder)
+            
 
         # Don't pack or clean up the run if it did not generate all the output files.
         # - TODO: Will never produce 100% of outputs
