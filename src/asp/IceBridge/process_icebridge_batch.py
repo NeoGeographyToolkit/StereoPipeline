@@ -292,7 +292,6 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     
         # Run the BA command and log errors
         logger.info(cmd) # to make it go to the log, not just on screen
-        outputCamera = inputPairs[0][1]
         icebridge_common.logger_print(logger, cmd)
         (out, err, status) = asp_system_utils.executeCommand(cmd, outputCamera, True, redo,
                                                              noThrow=True)
