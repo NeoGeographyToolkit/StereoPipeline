@@ -114,6 +114,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
                (alignOptions, demPath, lidarFile, alignPrefix, threadText))
         try:
             # Redo must be true here
+            icebridge_common.logger_print(logger, cmd)
             asp_system_utils.executeCommand(cmd, alignedPC, suppressOutput, True) 
         except: 
             pass
@@ -145,12 +146,12 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
     # POINT2DEM on the aligned PC file
     cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
            % (options.demResolution, projString, alignedPC, threadText))
+    icebridge_common.logger_print(logger, cmd)
     asp_system_utils.executeCommand(cmd, alignedDem, suppressOutput, redo)
     
     cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
            (lidarCsvFormatString, alignedDem, lidarFile, outputPrefix))
     logger.info(cmd) # to make it go to the log, not just on screen
-
     asp_system_utils.executeCommand(cmd, lidarDiffPath, suppressOutput, redo)
     
     results = icebridge_common.readGeodiffOutput(lidarDiffPath)
@@ -291,6 +292,8 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     
         # Run the BA command and log errors
         logger.info(cmd) # to make it go to the log, not just on screen
+        outputCamera = inputPairs[0][1]
+        icebridge_common.logger_print(logger, cmd)
         (out, err, status) = asp_system_utils.executeCommand(cmd, outputCamera, True, redo,
                                                              noThrow=True)
         logger.info(out + '\n' + err)
@@ -550,6 +553,7 @@ def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText,
                   LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
                   lidarCsvFormatString, lidarDemPrefix))
         lidarDemOutput = lidarDemPrefix+'-DEM.tif'
+        icebridge_common.logger_print(logger, cmd)
         (out, err, status) = asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo, noThrow=True)
         if status != 0:
             logger.info(out + '\n' + err)
@@ -633,6 +637,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     
     # Call and check status
     triOutput = thisPairPrefix + '-PC.tif'
+    icebridge_common.logger_print(logger, stereoCmd)
     (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo, noThrow=True)
 
     if status != 0:
@@ -651,6 +656,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
             raise Exception('Failed to create .match file symlink: ' + matchFilePair[1])
             
         # With the .match file copied we can retry with the same parameters.
+        icebridge_common.logger_print(logger, stereoCmd)
         (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, 
                                                              redo, noThrow=True)
         if status != 0:
@@ -664,6 +670,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     cmd = ('point2dem --max-output-size 10000 10000 --tr %lf --t_srs %s %s %s --errorimage' 
            % (options.demResolution, projString, triOutput, threadText))
     p2dOutput = demFiles[i]
+    icebridge_common.logger_print(logger, cmd)
     (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo, noThrow=True)
     if status != 0:
         icebridge_common.logger_print(logger, out + '\n' + err)
@@ -676,6 +683,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
            ' --remove-outliers-params 75 12 -o %s ') \
            % (options.demResolution, projString, triOutput, threadText, p2dFoot))
     p2dFoot = p2dFoot + '-DEM.tif'
+    icebridge_common.logger_print(logger, cmd)
     (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dFoot, suppressOutput, redo, noThrow=True)
     if status != 0:
         icebridge_common.logger_print(logger, out + '\n' + err)

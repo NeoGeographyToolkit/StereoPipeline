@@ -243,7 +243,17 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
     
     return (interval, breaks)
 
-def getRunMeanGsd(imageCameraPairs, referenceDem, isSouth, frameSkip=1):
+def list_median(lst):
+    sortedLst = sorted(lst)
+    lstLen = len(lst)
+    index = (lstLen - 1) // 2
+    
+    if (lstLen % 2):
+        return sortedLst[index]
+    else:
+        return (sortedLst[index] + sortedLst[index + 1])/2.0
+    
+def getRunMedianGsd(imageCameraPairs, referenceDem, isSouth, frameSkip=1):
     '''Compute the mean GSD of the images across the run'''
 
     logger.info('Computing mean input image GSD...')
@@ -252,22 +262,25 @@ def getRunMeanGsd(imageCameraPairs, referenceDem, isSouth, frameSkip=1):
 
     # Iterate through the input pairs
     numPairs  = len(imageCameraPairs)
-    meanGsd   = 0.0
-    numChecks = 0.0
+    #medianGsd   = 0.0
+    #numChecks = 0.0
+    gsdVals = []
     for i in range(0, numPairs, frameSkip):
         pair = imageCameraPairs[i]
         
         # Average in the GSD for each file we can process
         gsd, bounds = icebridge_common.getCameraGsdAndBoundsRetry(pair[0], pair[1], logger, referenceDem, projString)
         # TODO Move on to the next file on failure
-         
-        meanGsd   += gsd
-        numChecks += 1.0
 
-    meanGsd = meanGsd / numChecks
-        
-    logger.info('Computed input image mean GSD: ' + str(meanGsd))
-    return meanGsd
+        gsdVals.append(gsd)
+        #medianGsd   += gsd
+        #numChecks += 1.0
+
+    #medianGsd = medianGsd / numChecks
+    medianGsd = list_median(gsdVals)
+    
+    logger.info('Computed input image mean GSD: ' + str(medianGsd))
+    return medianGsd
         
 
 class NoDaemonProcess(multiprocessing.Process):
@@ -454,14 +467,15 @@ def main(argsIn):
 
     # Set the output resolution as the computed mean GSD
     # - Currently we process ten frames total but this should be increased for production!
+    # TODO: This should be cashed, and recomputed only when the batch file changes!
     GSD_RESOLUTION_MULTIPLIER = 4.0
-    NUM_GSD_FRAMES = 10
+    NUM_GSD_FRAMES = 20
     logger.info('Computing GSD with ' + str(NUM_GSD_FRAMES) + ' frames.')
     gsdFrameSkip = len(imageCameraPairs) / NUM_GSD_FRAMES
     if gsdFrameSkip < 1:
         gsdFrameSkip = 1
-    meanGsd = getRunMeanGsd(imageCameraPairs, options.referenceDem, options.isSouth, gsdFrameSkip)
-    outputResolution = meanGsd * GSD_RESOLUTION_MULTIPLIER
+    medianGsd = getRunMedianGsd(imageCameraPairs, options.referenceDem, options.isSouth, gsdFrameSkip)
+    outputResolution = medianGsd * GSD_RESOLUTION_MULTIPLIER
     logger.info('OUTPUT_RESOLUTION: ' + str(outputResolution))
     #return 0
 
