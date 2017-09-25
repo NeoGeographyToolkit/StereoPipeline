@@ -1007,7 +1007,7 @@ int update_outliers(ControlNetwork                  & cnet,
 void record_points_to_kml(const std::string &kml_path, const cartography::Datum& datum,
                           const double *points, const size_t num_points,
 			  std::set<int>  const& outlier_xyz,
-                          const size_t skip=100, const std::string name="points",
+                          size_t skip=100, const std::string name="points",
                           const std::string icon="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png") {
 
   if (datum.name() == UNSPECIFIED_DATUM) {
@@ -1213,10 +1213,17 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
                       num_point_params, cam_residual_counts, num_gcp_residuals, crn,
                       points, num_points, outlier_xyz, problem);
 
-  const size_t KML_POINT_SKIP = 30;
+  // Figure out a good KML point skip aount
+  const size_t MIN_KML_POINTS = 20;  
+  size_t kmlPointSkip = 30;
+  if (num_points / kmlPointSkip < MIN_KML_POINTS)
+    kmlPointSkip = num_points / MIN_KML_POINTS;
+  if (kmlPointSkip < 1)
+    kmlPointSkip = 1;
+    
   std::string point_kml_path = opt.out_prefix + "-initial_points.kml";
   record_points_to_kml(point_kml_path, opt.datum, points, num_points, outlier_xyz,
-		       KML_POINT_SKIP, "initial_points",
+		       kmlPointSkip, "initial_points",
                       "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png");
 
   // Solve the problem
@@ -1273,7 +1280,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
 
   point_kml_path = opt.out_prefix + "-final_points.kml";
   record_points_to_kml(point_kml_path, opt.datum, points, num_points, outlier_xyz,
-		       KML_POINT_SKIP, "final_points",
+		       kmlPointSkip, "final_points",
                        "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
 
   // Print stats for optimized gcp

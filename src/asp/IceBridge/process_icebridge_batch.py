@@ -235,9 +235,10 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     # Try many attempts until one works
     # - Blurring can help with artifacts.
     # - Many IP can also help, but risks getting false matches and is slower.
-    ipMethod  = [1,   0,   2,   1,    0,  2,   1,    0,    2   ]
-    ipPerTile = [500, 500, 500, 500, 500, 500, 2000, 2000, 2000]
-    useBlur   = [0,   0,   0,   1,    1,  1,   0,    0,    0   ]
+    ipMethod  = [1,   0,   2,     1,   0,   2,     1,    0,      1,    0,    2   ]
+    ipPerTile = [500, 500, 500,   500, 500, 500,   500,  500,    2000, 2000, 2000]
+    useBlur   = [0,   0,   0,     1,   1,   1,     0,    0,      0,    0,    0   ]
+    epipolarT = [100, 100, 100,   100, 100, 100,   2000, 2000,   100,  100,  100 ]
    
     if len(ipMethod) != len(ipPerTile) or len(ipMethod) != len(useBlur):
         raise Exception("Book-keeping error in robust bundle adjustment.")
@@ -282,10 +283,10 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
                 '--translation-weight %0.16g -t nadirpinhole --skip-rough-homography '+
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
-                '--overlap-exponent %0.16g --epipolar-threshold 100')
+                '--overlap-exponent %0.16g --epipolar-threshold %d')
                % (argString, bundlePrefix, threadText, heightLimitString, 
                   TRANSLATION_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
-                  ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT))
+                  ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT, epipolarT[attempt]))
         
         if options.solve_intr:
             cmd += ' --solve-intrinsics'
@@ -304,7 +305,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
 
         # Keep track of the best number of IP before elevation filtering.
         # - Dont use high IP counts without filtering.
-        if ipPerTile[attempt] < 2000:
+        if (ipPerTile[attempt] < 2000) or (bestNumIpPreElevation < MIN_IP_MATCHES):
             m = re.findall(r"Reduced matches to (\d+)", out)
             if len(m) == 1: # If this text is available...
                 numIpPreElevation = int(m[0])
@@ -564,7 +565,21 @@ def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText,
         #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
         
         return lidarDemOutput
-            
+
+def cropGdalImage(projBounds, inputPath, outputPath, logger):
+    '''Crop out a section of an image'''
+
+    PROJ_BUFFER_METERS = 100
+    minX = projBounds[0] - PROJ_BUFFER_METERS # Expand the bounds a bit
+    minY = projBounds[1] - PROJ_BUFFER_METERS
+    maxX = projBounds[2] + PROJ_BUFFER_METERS
+    maxY = projBounds[3] + PROJ_BUFFER_METERS
+
+    cmd = ('gdal_translate %s %s -projwin %f %f %f %f' 
+           % (inputPath, outputPath, minX, maxY, maxX, minY))
+    logger.info(cmd)
+    asp_system_utils.executeCommand(cmd, outputPath, True, False)
+
 def estimateHeightRange(projBounds, projString, lidarFile, options, threadText, 
                         suppressOutput, redo, logger):
     '''Estimate the valid height range in a region based on input height info.'''
@@ -582,12 +597,30 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
     # Get the min and max height of the lidar file
     try:
         lidarMin, lidarMax, lidarMean, lidarStd = asp_image_utils.getImageStats(lidarDemPath)[0]
+        logger.info('Found lidar height min = %f, max = %f' % (lidarMin, lidarMax))
     except:
         raise Exception('Failed to generate lidar DEM to estimate height range!')
 
-    # TODO: Use the standard deviation here?
-    minHeight = lidarMin - HEIGHT_BUFFER
-    maxHeight = lidarMax + HEIGHT_BUFFER
+    minHeight = lidarMin
+    maxHeight = lidarMax
+
+    # Get the min/max height in the reference DEM region
+    try:
+        demCropPath = os.path.join(options.outputFolder, 'cropped_ref_dem.tif')
+        cropGdalImage(projBounds, options.referenceDem, demCropPath, logger)
+        refDemMin, refDemMax, refDemMean, refDemStd = asp_image_utils.getImageStats(demCropPath)[0]
+        logger.info('Found ref DEM height min = %f, max = %f' % (refDemMin, refDemMax))
+        
+        if refDemMin < minHeight:
+            minHeight = refDemMin
+        if refDemMax > maxHeight:
+            maxHeight = refDemMax
+            
+    except:
+        logger.warning('Error generating reference DEM height estimate for ')
+
+    minHeight = minHeight - HEIGHT_BUFFER
+    maxHeight = maxHeight + HEIGHT_BUFFER
     
     # Generate the height string
     s = '--elevation-limit ' + str(minHeight) +' '+ str(maxHeight)
@@ -742,6 +775,10 @@ def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
     lidar_crop_glob = os.path.join(batchFolder, '*cropped_lidar*')
     for filename in glob.glob(lidar_crop_glob):
         os.system('rm -f ' + filename)
+
+    # Delete the cropped DEM path
+    demCropPath = os.path.join(options.outputFolder, 'cropped_ref_dem.tif')
+    os.system('rm -f ' + demCropPath)
 
     # Wipe the pc_aligned bundle directory except for the final results
     alignedBundlePrefix = getBundlePrefix(batchFolder, alignedBundle = True)
