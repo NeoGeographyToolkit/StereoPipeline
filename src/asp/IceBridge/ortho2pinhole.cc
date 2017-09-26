@@ -72,7 +72,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string raw_image, ortho_image, input_cam, output_cam, reference_dem, camera_estimate;
   double camera_height, orthoimage_height, ip_inlier_factor;
   int    ip_per_tile, ip_detect_method, min_ip;
-  bool   individually_normalize, keep_match_file, write_gcp_file, skip_image_normalization, show_error;
+  bool   individually_normalize, keep_match_file, write_gcp_file, skip_image_normalization, 
+         show_error, short_circuit;
 
   // Make sure all values are initialized, even though they will be
   // over-written later.
@@ -859,6 +860,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Individually normalize the input images instead of using common values.")
     ("skip-image-normalization", po::bool_switch(&opt.skip_image_normalization)->default_value(false)->implicit_value(true),
      "Skip the step of normalizing the values of input images.")
+    ("short-circuit",   po::bool_switch(&opt.short_circuit)->default_value(false)->implicit_value(true),
+     "No processing, just copy input intrinisc parameters to camera-estimate and write out.")
     ("show-error",   po::bool_switch(&opt.show_error)->default_value(false)->implicit_value(true),
      "Print point error.")
     ("keep-match-file",   po::bool_switch(&opt.keep_match_file)->default_value(false)->implicit_value(true),
@@ -915,6 +918,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     }    
   }
 
+  if (!opt.short_circuit && opt.camera_estimate == "")
+    vw_throw( ArgumentErr() << "Estimated camera file is required with the short-circuit option.\n");
 
   // Create the output directory
   vw::create_out_dir(opt.output_cam);
@@ -931,10 +936,30 @@ int main(int argc, char* argv[]) {
   Options opt;
   //try {
   handle_arguments( argc, argv, opt );
+   
+  if (opt.short_circuit) {
+    vw_out() << "Creating camera without using ortho image.\n";
+  
+    // Load input camera files
+    vw_out() << "Loading: " << opt.input_cam << std::endl;
+    PinholeModel input_cam(opt.input_cam);
+    vw_out() << "Loading: " << opt.camera_estimate << std::endl;
+    PinholeModel est_cam(opt.camera_estimate);
+    
+    // Copy camera position and pose from estimate camera to input camera
+    input_cam.set_camera_center(est_cam.camera_center());
+    input_cam.set_camera_pose  (est_cam.camera_pose  ());
+    
+    // Write to output camera
+    vw_out() << "Writing: " << opt.output_cam << std::endl;
+    input_cam.write(opt.output_cam);
+    return 0;
+  }
   
   opt.raw_image   = handle_rgb_input(opt.raw_image,   opt);
   opt.ortho_image = handle_rgb_input(opt.ortho_image, opt);
   
   ortho2pinhole(opt);
+  return 0;
   //} ASP_STANDARD_CATCHES;
 }

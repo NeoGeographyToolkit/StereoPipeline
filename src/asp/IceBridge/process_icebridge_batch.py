@@ -605,6 +605,8 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
     maxHeight = lidarMax
 
     # Get the min/max height in the reference DEM region
+    # - The lidar field is narrower than the image so sometimes it can miss terrain features
+    #   that show up in the lower resolution DEM.
     try:
         demCropPath = os.path.join(options.outputFolder, 'cropped_ref_dem.tif')
         cropGdalImage(projBounds, options.referenceDem, demCropPath, logger)

@@ -222,15 +222,14 @@ def runConversion(run, options):
     # - This is single threaded and may take a while but is primarily IO driven.
     # - We can't start the slower ortho2pinhole processes until this is finished.
     # - If all of the camera files already exist this call will finish up very quickly.
-    logger.info("Generating estimated camera files from the navigation files.")
-    pythonPath = asp_system_utils.which('python')
-    cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions  --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
-    if options.noNavFetch:
-        cmd += ' --no-nav'
+    if not options.noNavFetch:
+        logger.info("Generating estimated camera files from the navigation files.")
+        pythonPath = asp_system_utils.which('python')
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions  --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
     
-    logger.info(cmd)
-    os.system(cmd)    
-    logger.info("Finished generating estimated camera files from nav.")
+        logger.info(cmd)
+        os.system(cmd)    
+        logger.info("Finished generating estimated camera files from nav.")
     
     # Get the frame range for the data.
     (minFrame, maxFrame) = run.getFrameRange()
@@ -244,6 +243,10 @@ def runConversion(run, options):
     # Retrieve parallel processing parameters
     (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'ortho')
     
+    if options.simpleCameras:
+        numThreads   = 1 # No need for multiple threads for the simple code
+        numProcesses = 6 # Keep low to avoid admin wrath
+    
     # Split the conversions across multiple nodes using frame ranges
     # - The first job submitted will be the only one that converts the lidar data
     numFrames    = maxFrame - minFrame + 1
@@ -254,43 +257,54 @@ def runConversion(run, options):
     outputFolder = run.getFolder()
     
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
-    args       = (' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s' 
+    args       = (' --skip-fetch --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s' 
                   % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
     if options.noNavFetch:
         args += ' --no-nav'
     
-    baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
-
-    # Get the location to store the logs    
-    pbsLogFolder = run.getPbsLogFolder()
-    os.system('mkdir -p ' + pbsLogFolder)
     
-    # Submit all the jobs
-    currentFrame = minFrame
-    jobList = []
-    for i in range(0, numOrthoJobs):
-        jobName    = ('%06d_%s' % (currentFrame, baseName) )
-        startFrame = currentFrame
-        stopFrame  = currentFrame+tasksPerJob-1
-        if (i == numOrthoJobs - 1):
-            stopFrame = maxFrame # Make sure nothing is lost at the end
-        thisArgs = (args + ' --start-frame ' + str(startFrame) + \
-                    ' --stop-frame ' + str(stopFrame) )
-        if i != 0: # Only the first job will convert lidar files
-            thisArgs += ' --no-lidar-convert'
+    if options.simpleCameras: # Use the fast ortho2pinhole call locally.
+    
+        logger.info('Running simple ortho2pinhole step locally.')
+        args += ' --simple-cameras --start-frame ' + str(minFrame) + ' --stop-frame ' + str(maxFrame)
+        fullCmd = scriptPath +' '+ args
+        logger.info(fullCmd)
+        os.system(fullCmd)
+    
+    else: # Use the longer running ortho2pinhole spread across the processing nodes.
+                
+        baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
-        logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
-        logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS,
-                                options.minutesInDevelQueue,
-                                GROUP_ID,
-                                options.nodeType, '/usr/bin/python2.7',
-                                scriptPath + " " + thisArgs, logPrefix)
-        jobList.append(jobName)
-        currentFrame += tasksPerJob
+        # Get the location to store the logs    
+        pbsLogFolder = run.getPbsLogFolder()
+        os.system('mkdir -p ' + pbsLogFolder)
+        
+        # Submit all the jobs
+        currentFrame = minFrame
+        jobList = []
+        for i in range(0, numOrthoJobs):
+            jobName    = ('%06d_%s' % (currentFrame, baseName) )
+            startFrame = currentFrame
+            stopFrame  = currentFrame+tasksPerJob-1
+            if (i == numOrthoJobs - 1):
+                stopFrame = maxFrame # Make sure nothing is lost at the end
+            thisArgs = (args + ' --start-frame ' + str(startFrame) + \
+                        ' --stop-frame ' + str(stopFrame) )
+            if i != 0: # Only the first job will convert lidar files
+                thisArgs += ' --no-lidar-convert'
 
-    # Wait for conversions to finish
-    waitForRunCompletion(baseName, jobList)
+            logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
+            logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
+            pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS,
+                                    options.minutesInDevelQueue,
+                                    GROUP_ID,
+                                    options.nodeType, '/usr/bin/python2.7',
+                                    scriptPath + " " + thisArgs, logPrefix)
+            jobList.append(jobName)
+            currentFrame += tasksPerJob
+
+        # Wait for conversions to finish
+        waitForRunCompletion(baseName, jobList)
 
     # Check the results
     # - If we didn't get everything keep going and process as much as we can.
@@ -320,11 +334,11 @@ def generateBatchList(run, options, listPath):
     (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'dem')
 
     # No actual processing is being done here so it can run on the PFE
-    # - This is very fast so we can re-run it every time. (Maybe not...)
+    # - No start/stop frames here, always generate the full list so it is stable.
     pythonPath = asp_system_utils.which('python')
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
-    cmd       = ('%s %s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --log-batches --start-frame %d --stop-frame %d' 
-                  % (pythonPath, scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, run.getFolder(), options.bundleLength, options.startFrame, options.stopFrame))
+    cmd       = ('%s %s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --log-batches ' 
+                  % (pythonPath, scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, run.getFolder(), options.bundleLength))
 
     # For full runs we must cleanup, as otherwise we'll run out of space
     if not options.skipCleanup:
@@ -710,6 +724,9 @@ def main(argsIn):
 
         parser.add_argument("--no-nav", action="store_true", dest="noNavFetch",
                             default=False, help="Don't fetch or convert the nav data.")
+
+        parser.add_argument("--simple-cameras", action="store_true", dest="simpleCameras",
+                            default=False, help="Don't use ortho images to refine camera models.")
         
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                             default=False, help="Don't validate the input data.")

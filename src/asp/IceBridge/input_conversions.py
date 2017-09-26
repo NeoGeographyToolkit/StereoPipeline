@@ -243,7 +243,7 @@ def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmd
     return os.path.join(inputCalFolder, camera)
 
 def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPath, 
-                           outputCamFile, refDemPath, numThreads):
+                           outputCamFile, refDemPath, simpleCamera, numThreads):
     '''Generate a camera model from a single ortho file'''
 
     # Make multiple calls with different options until we get one that works well
@@ -272,6 +272,8 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
             cmd += ' --skip-image-normalization'
         if estimatedCameraPath is not None:
             cmd += ' --camera-estimate ' + estimatedCameraPath
+        if simpleCamera:
+            cmd += ' --short-circuit'
 
         # Use a print statement as the logger fails from multiple processes
         print(cmd)
@@ -284,7 +286,10 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
         
         if not os.path.exists(outputCamFile): # Keep trying if no output file produced
             continue
-                
+
+        if simpleCamera:
+            break # Never need more than one attempt with simpleCamera!
+
         # Check the number of IP used
         m = re.findall(r"Using (\d+) points to create the camera model.", textOutput)
         if len(m) != 1: # An unknown error occurred, move on.
@@ -299,7 +304,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
             if os.path.exists(matchPath):
                 shutil.move(matchPath, tempMatchPath)
 
-    if numPoints < DESIRED_IP: # If we never got the desired # of points
+    if (not simpleCamera) and (numPoints < DESIRED_IP): # If we never got the desired # of points
         shutil.move(tempFilePath, outputCamFile) # Use the camera file with the most points found
         if os.path.exists(tempMatchPath):
             shutil.move(tempMatchPath, matchPath)
@@ -314,7 +319,8 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
 def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
                              cameraLookupPath, navCameraFolder,
                              yyyymmdd, site,
-                             refDemPath, cameraFolder, 
+                             refDemPath, cameraFolder,
+                             simpleCameras,
                              startFrame, stopFrame,
                              numProcesses, numThreads, logger):
     '''Generate camera models from the ortho files.
@@ -401,8 +407,8 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         # Add ortho2pinhole command to the task pool
         taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
                                             (inputPath, orthoPath, inputCamFile,
-                                             estimatedCameraPath,
-                                             outputCamFile, refDemPath, numThreads)))
+                                             estimatedCameraPath, outputCamFile,
+                                             refDemPath, simpleCameras, numThreads)))
 
     # Wait for all the tasks to complete
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')

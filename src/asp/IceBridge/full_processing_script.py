@@ -220,6 +220,9 @@ def main(argsIn):
         parser.add_argument("--processing-subfolder",  dest="processingSubfolder", default=None,
                           help="Specify a subfolder name where the processing outputs will go. " + \
                           "fault is no additional folder")
+                          
+        parser.add_argument("--simple-cameras", action="store_true", dest="simpleCameras", default=False,
+                          help="Don't use orthoimages to refine the camera models.")
 
         # Performance options  
         parser.add_argument('--num-processes', dest='numProcesses', default=1,
@@ -444,6 +447,7 @@ def main(argsIn):
                                                        navCameraFolder,
                                                        options.yyyymmdd, options.site, 
                                                        refDemPath, cameraFolder, 
+                                                       options.simpleCameras,
                                                        options.startFrame, options.stopFrame,
                                                        options.numOrthoProcesses, options.numThreads,
                                                        logger)

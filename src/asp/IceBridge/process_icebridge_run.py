@@ -106,23 +106,25 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
     if len(availableFrames) < 3 and not forceAllFramesInRange:
         return (1, []) # No skip, no breaks
 
+    # Retrieve a list of the ortho files
     orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
     if not os.path.exists(orthoIndexPath):
         raise Exception("Error: Missing ortho index file: " + orthoIndexPath + ".")
     (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath,
                                                                     prependFolder = True)
 
-    breaks = []
+    # From the dictionary create a sorted list of ortho files in the frame range
+    breaks     = []
     orthoFiles = []
-    # Form a list of ortho files
     for frame in sorted(orthoFrameDict.keys()):
 
-        orthoPath = orthoFrameDict[frame]
-
         # Only process frames within the range
-        frame = icebridge_common.getFrameNumberFromFilename(orthoPath)
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
+
+        orthoPath = orthoFrameDict[frame]
+        frame     = icebridge_common.getFrameNumberFromFilename(orthoPath)
+        
         if not forceAllFramesInRange:
             if frame not in availableFrames: # Skip frames we did not compute a camera for
                 continue
@@ -163,7 +165,7 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
         frames.append(thisFrame)
 
     # Read this file again, in case some other process modified it in the meantime.
-    # This won't happen in production mode, but can during testing with subsequences.
+    # This won't happen in production mode, but can during testing with partial sequences.
     boundsDictRecent = icebridge_common.readProjectionBounds(projectionIndexFile)
     for frame in sorted(boundsDictRecent.keys()):
         if not frame in boundsDict.keys():
