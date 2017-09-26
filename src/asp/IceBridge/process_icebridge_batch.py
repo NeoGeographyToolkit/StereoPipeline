@@ -222,11 +222,12 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     # - An overlap number less than 2 is prone to very bad bundle adjust results so
     #   don't use less than that.  If there is really only enough overlap for one we
     #   will have to examine the results very carefully!
-    MIN_BA_OVERLAP     = 2
-    TRANSLATION_WEIGHT = 4.0
-    ROBUST_THRESHOLD   = 2.0
-    OVERLAP_EXPONENT   = 0
-    MIN_IP_MATCHES     = 22
+    MIN_BA_OVERLAP       = 2
+    TRANSLATION_WEIGHT   = 4.0
+    ROBUST_THRESHOLD     = 2.0
+    OVERLAP_EXPONENT     = 0
+    MIN_IP_MATCHES       = 22
+    SIDE_IP_CROP_PERCENT = 20 # Remove IP in 20% of the sides of the images
     bundlePrefix   = getBundlePrefix(options.outputFolder)
     baOverlapLimit = options.stereoImageInterval + 3
     if baOverlapLimit < MIN_BA_OVERLAP:
@@ -283,10 +284,10 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
                 '--translation-weight %0.16g -t nadirpinhole --skip-rough-homography '+
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
-                '--overlap-exponent %0.16g --epipolar-threshold %d')
+                '--overlap-exponent %0.16g --epipolar-threshold %d --ip-side-filter-percent %d')
                % (argString, bundlePrefix, threadText, heightLimitString, 
                   TRANSLATION_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
-                  ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT, epipolarT[attempt]))
+                  ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT, epipolarT[attempt], SIDE_IP_CROP_PERCENT))
         
         if options.solve_intr:
             cmd += ' --solve-intrinsics'

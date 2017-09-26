@@ -69,11 +69,139 @@ int g_ba_num_errors = 0;
 Mutex g_ba_mutex;
 
 
+
+//==================================================================================
+// IP filtering functions -> Move them somewhere else once they are settled
+
+/// Filter IP points by how reasonably the disparity can change along rows
+size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
+                       std::vector<ip::InterestPoint> const& ip2_in,
+                       std::vector<ip::InterestPoint>      & ip1_out,
+                       std::vector<ip::InterestPoint>      & ip2_out,
+                       int inlier_threshold = 1) {
+
+  std::vector<size_t> indices;
+  try {
+  
+    std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(ip1_in),
+                         ransac_ip2 = iplist_to_vectorlist(ip2_in);
+  
+    typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
+    const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
+    const int    NUM_ITERATIONS         = 100;
+    RansacT ransac( math::HomographyFittingFunctor(),
+                    math::InterestPointErrorMetric(), NUM_ITERATIONS,
+                    inlier_threshold,
+                    MIN_NUM_OUTPUT_INLIERS, true
+                  );
+    Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
+    vw_out() << "\t--> Homography: " << H << "\n";
+    indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
+  } catch (const math::RANSACErr& e ) {
+    vw_out() << "RANSAC Failed: " << e.what() << "\n";
+    return false;
+  }
+
+  // Assemble the remaining interest points
+  const size_t num_left = indices.size();
+  std::vector<ip::InterestPoint> final_ip1, final_ip2;
+  ip1_out.resize(num_left);
+  ip2_out.resize(num_left);
+  for (size_t i=0; i<num_left; ++i) {
+    size_t index = indices[i];
+    ip1_out[i] = ip1_in[index];
+    ip2_out[i] = ip2_in[index];
+  }
+
+  return num_left;
+}
+
+// IP pair sorting functions
+typedef std::pair<ip::InterestPoint, ip::InterestPoint> IpPair;
+
+bool comp_ip_col(IpPair const& a, IpPair const& b) {
+  if (a.first.x == b.first.x)
+    return a.first.y < b.first.y;
+  return a.first.x < b.first.x;
+}
+bool comp_ip_row(IpPair const& a, IpPair const& b) {
+  if (a.first.y == b.first.y)
+    return a.first.x < b.first.x;
+  return a.first.y < b.first.y;
+}
+
+/// Filter IP points by how reasonably the disparity can change along rows
+size_t filter_ip_sides(std::vector<ip::InterestPoint> const& ip1_in,
+                       std::vector<ip::InterestPoint> const& ip2_in,
+                       std::vector<ip::InterestPoint>      & ip1_out,
+                       std::vector<ip::InterestPoint>      & ip2_out,
+                       int image_width1, int image_width2,
+                       int side_percentage = 20) {
+
+  const size_t num_pairs_in = ip1_in.size();
+  /*
+  // Create list of IP pairs sorted by column 1 (low to high)
+  std::vector<IpPair> ip_pairs_in(num_pairs_in);
+  for (size_t i=0; i<num_pairs_in; ++i) {
+    ip_pairs_in[i].first  = ip1_in[i];
+    ip_pairs_in[i].second = ip2_in[i];
+  }
+  std::sort(ip_pairs_in.begin(), ip_pairs_in.end(), comp_ip_col);
+
+  // Get disparities for each pair
+  std::vector<double> dx(num_pairs_in);
+  for (size_t i=0; i<num_pairs_in; ++i) {
+    dx[i] = ip_pairs_in[i].second.x - ip_pairs_in[i].first.x;
+    std::cout << dx[i] << std::endl;
+  }
+  */
+  
+  // TODO: Automatically calculate what counts as the "side"
+  // Filter out IP too close to the sides
+  
+  double crop_percent = static_cast<double>(side_percentage) / 100.0;
+  vw_out() << "Removing IP within " << crop_percent << " percent of the outer left/right sides of the images.\n";
+  int crop_size1 = image_width1 * crop_percent;
+  int crop_size2 = image_width1 * crop_percent;
+  
+  ip1_out.clear();
+  ip2_out.clear();
+  double kept_mean = 0, reject_mean = 0;
+  for (size_t i=0; i<num_pairs_in; ++i) {
+    bool   keep = ((ip1_in[i].x >= crop_size1) && ((image_width2 - ip2_in[i].x) > crop_size2));
+    double disp = ip2_in[i].x - ip1_in[i].x;
+    if (keep) {
+      ip1_out.push_back(ip1_in[i]);
+      ip2_out.push_back(ip2_in[i]);
+      kept_mean += disp;
+    }
+    else {
+      reject_mean += disp;
+    }
+  }
+  size_t num_left     = ip1_out.size();
+  size_t num_rejected = num_pairs_in - num_left;
+  
+  if (num_left > 0) {
+    kept_mean /= static_cast<double>(num_left);
+    vw_out() << "Mean disparity of points kept by side disparity = " << kept_mean << std::endl;
+  }
+  if (num_rejected > 0) {
+    reject_mean /= static_cast<double>(num_rejected);
+    vw_out() << "Mean disparity of points rejected by side disparity = " << reject_mean << std::endl;
+  }
+  
+  return num_left;
+}
+
+//==================================================================================
+
+
 struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string,
     cost_function, ba_type, mapprojected_data, gcp_data;
-  int    ip_per_tile;
+  int    ip_per_tile, ip_extra_filter_threshold;
   double min_triangulation_angle, lambda, camera_weight, rotation_weight, 
          translation_weight, overlap_exponent, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
@@ -2310,6 +2438,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "A higher factor will result in more interest points, but perhaps also more outliers.")
     ("ip-uniqueness-threshold",          po::value(&opt.ip_uniqueness_thresh)->default_value(0.7),
      "A higher threshold will result in more interest points, but perhaps less unique ones.")
+    ("ip-side-filter-percent",        po::value(&opt.ip_extra_filter_threshold)->default_value(-1),
+     "Remove matched IPs this close to the image left/right sides.")
     ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
      "Limit on expected elevation range: Specify as two values: min max.")
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
@@ -2557,6 +2687,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
 }
 
+
 // ================================================================================
 
 int main(int argc, char* argv[]) {
@@ -2665,7 +2796,7 @@ int main(int argc, char* argv[]) {
         // - The points are written to a file on disk.
         std::string camera1_path = opt.camera_files[i];
         std::string camera2_path = opt.camera_files[j];        
-        std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
+        std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);       
         match_files[ std::pair<int, int>(i, j) ] = match_filename;
         if (fs::exists(match_filename)) {
           vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
@@ -2704,6 +2835,29 @@ int main(int argc, char* argv[]) {
                                nodata1, nodata2, match_filename,
                                opt.camera_models[i].get(),
                                opt.camera_models[j].get());
+         
+          // Experimental code to filter the IPs by removing any found in the
+          //  far left and right sides of the input images.
+          // - TODO: Once this code is reliable move it to the IP finding code
+          if (opt.ip_extra_filter_threshold > 0) {
+
+            // Load the IPs we just wrote, apply filtering, and overwrite the file on disk.
+            std::vector<ip::InterestPoint> in_ip1, in_ip2, matched_ip1, matched_ip2;
+            vw_out() << "\t    * Loading match file: " << match_filename << "\n";
+            ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
+            vw_out() << "Read in " << in_ip1.size() << " points.\n";
+            
+            filter_ip_sides(in_ip1, in_ip2, matched_ip1, matched_ip2,
+                            image1_view.cols(), image2_view.cols(),
+                            opt.ip_extra_filter_threshold);
+                            
+            vw_out() << "Wrote out " << matched_ip1.size() << " points.\n";
+
+            vw_out() << "\t    * Writing match file: " << match_filename << "\n";
+            ip::write_binary_match_file(match_filename, matched_ip1, matched_ip2);
+          } // End experimental IP filtering
+        
+                               
           ++num_pairs_matched;
         } catch ( const std::exception& e ){
           vw_out() << "Could not find interest points between images "

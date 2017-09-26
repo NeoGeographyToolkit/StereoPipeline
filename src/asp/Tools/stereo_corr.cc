@@ -557,100 +557,21 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
 
 
-/// Use existing interest points to compute a search range
-/// - This function could use improvement!
-/// - Should it be used in all cases?
-BBox2i approximate_search_range(ASPGlobalOptions & opt, 
-                                double ip_scale, std::string const& match_filename) {
+BBox2i get_search_range_from_ip_hists(std::vector<double> const& hist_x,
+                                      std::vector<double> const& hist_y,
+                                      std::vector<double> const& centers_x,
+                                      std::vector<double> const& centers_y,
+                                      double edge_discard_percentile = 0.05) {
 
-  vw_out() << "\t--> Using interest points to determine search window.\n";
-  vector<ip::InterestPoint> in_ip1, in_ip2, matched_ip1, matched_ip2;
+  const double min_percentile = edge_discard_percentile;
+  const double max_percentile = 1.0 - edge_discard_percentile;
 
-  // The interest points must have been created outside this function
-  if (!fs::exists(match_filename))
-    vw_throw( ArgumentErr() << "Missing IP file: " << match_filename);
-
-  vw_out() << "\t    * Loading match file: " << match_filename << "\n";
-  ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
-
-  // TODO: Consolidate IP adjustment
-
-  // Handle alignment matrices if they are present
-  // - Scale is reset to 1.0 if alignment matrices are present.
-  ip_scale = adjust_ip_for_align_matrix(opt.out_prefix, in_ip1, in_ip2, ip_scale);
-  vw_out() << "\t    * IP computed at scale: " << ip_scale << "\n";
-  float i_scale = 1.0/ip_scale;
-
-  // Adjust the IP if they came from input images and these images are epipolar aligned
-  adjust_ip_for_epipolar_transform(opt, match_filename, in_ip1, in_ip2);
-
-  // Filter out IPs which fall outside the specified elevation range
-  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
-  opt.session->camera_models(left_camera_model, right_camera_model);
-  cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
-
-  // We already corrected for align matrix, so transforms should be identity here.
-  vw::TransformRef left_tx  = vw::TransformRef(vw::TranslateTransform(0,0));
-  vw::TransformRef right_tx = vw::TransformRef(vw::TranslateTransform(0,0));
-
-  // Filter out IPs which fall outside the specified elevation and lonlat range
-  // TODO: Don't do this with cropped input images!!!!!
-  size_t num_left = asp::filter_ip_by_lonlat_and_elevation(left_camera_model.get(),
-							   right_camera_model.get(),
-							   datum, in_ip1, in_ip2,
-							   left_tx, right_tx, ip_scale,
-							   stereo_settings().elevation_limit,
-							   stereo_settings().lon_lat_limit,
-							   matched_ip1, matched_ip2);
-
-  // Quit if we don't have the requested number of IP.
-  if (num_left < stereo_settings().min_num_ip)
-    vw_throw(ArgumentErr() << "Number of IPs left after filtering is " << num_left
-                           << " which is less than the required amount of " 
-                           << stereo_settings().min_num_ip << ", aborting stereo_corr.\n");
-
-  // Find search window based on interest point matches
-
-  // Record the disparities for each point pair
-  size_t num_ip = matched_ip1.size();
-  std::vector<double> dx, dy;
-  double min_dx, min_dy, max_dx, max_dy;
-  min_dx = min_dy = std::numeric_limits<double>::max();
-  max_dx = max_dy = std::numeric_limits<double>::min();
-  for (size_t i = 0; i < num_ip; i++) {
-    double diffX = i_scale * (matched_ip2[i].x - matched_ip1[i].x);
-    double diffY = i_scale * (matched_ip2[i].y - matched_ip1[i].y);      
-    dx.push_back(diffX);
-    dy.push_back(diffY);
-    
-    if (diffX < min_dx) min_dx = diffX;  // Could be smarter about how this is done.
-    if (diffY < min_dy) min_dy = diffY;
-    if (diffX > max_dx) max_dx = diffX;
-    if (diffY > max_dy) max_dy = diffY;
-  }
-  num_ip = dx.size();
-  
-  // Compute histograms
-  const int NUM_BINS = 2000; // Accuracy is important with scaled pixels
-  std::vector<double> hist_x, centers_x, hist_y, centers_y;
-  histogram(dx, NUM_BINS, min_dx, max_dx, hist_x, centers_x);
-  histogram(dy, NUM_BINS, min_dy, max_dy, hist_y, centers_y);
-  
-  //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
-  
-  //for (int i=0; i<NUM_BINS; ++i) {
-  //  printf("%d => X: %lf: %lf,   Y:  %lf: %lf\n", i, centers_x[i], hist_x[i], centers_y[i], hist_y[i]);
-  //}
-  
-  // Compute search ranges
-  const double  MAX_PERCENTILE = 0.95;
-  const double  MIN_PERCENTILE = 0.05;
   const Vector2 FORCED_EXPANSION = Vector2(10,2); // Must expand range by at least this much
   double search_scale = 2.0;
-  size_t min_bin_x = get_histogram_percentile(hist_x, MIN_PERCENTILE);
-  size_t min_bin_y = get_histogram_percentile(hist_y, MIN_PERCENTILE);
-  size_t max_bin_x = get_histogram_percentile(hist_x, MAX_PERCENTILE);
-  size_t max_bin_y = get_histogram_percentile(hist_y, MAX_PERCENTILE);
+  size_t min_bin_x = get_histogram_percentile(hist_x, min_percentile);
+  size_t min_bin_y = get_histogram_percentile(hist_y, min_percentile);
+  size_t max_bin_x = get_histogram_percentile(hist_x, max_percentile);
+  size_t max_bin_y = get_histogram_percentile(hist_y, max_percentile);
   //std::cout << "min_bin_x = " << min_bin_x << std::endl;
   //std::cout << "min_bin_y = " << min_bin_y << std::endl;
   //std::cout << "max_bin_x = " << max_bin_x << std::endl;
@@ -698,8 +619,128 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 */
   
   //vw_out(InfoMessage,"asp") << "i_scale is : "       << i_scale << endl;
-  BBox2i search_range(search_minI, search_maxI);
-  std::cout << "Scaled search range = " << search_range << std::endl;
+  
+  return BBox2i(search_minI, search_maxI);
+}
+  
+
+
+/// Use existing interest points to compute a search range
+/// - This function could use improvement!
+/// - Should it be used in all cases?
+BBox2i approximate_search_range(ASPGlobalOptions & opt, 
+                                double ip_scale, std::string const& match_filename) {
+
+  vw_out() << "\t--> Using interest points to determine search window.\n";
+  vector<ip::InterestPoint> in_ip1, in_ip2, matched_ip1, matched_ip2;
+
+  // The interest points must have been created outside this function
+  if (!fs::exists(match_filename))
+    vw_throw( ArgumentErr() << "Missing IP file: " << match_filename);
+
+  vw_out() << "\t    * Loading match file: " << match_filename << "\n";
+  ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
+
+  // TODO: Consolidate IP adjustment
+
+  // Handle alignment matrices if they are present
+  // - Scale is reset to 1.0 if alignment matrices are present.
+  ip_scale = adjust_ip_for_align_matrix(opt.out_prefix, in_ip1, in_ip2, ip_scale);
+  vw_out() << "\t    * IP computed at scale: " << ip_scale << "\n";
+  float i_scale = 1.0/ip_scale;
+
+  // Adjust the IP if they came from input images and these images are epipolar aligned
+  adjust_ip_for_epipolar_transform(opt, match_filename, in_ip1, in_ip2);
+
+  // Filter out IPs which fall outside the specified elevation range
+  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+  opt.session->camera_models(left_camera_model, right_camera_model);
+  cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
+
+  // We already corrected for align matrix, so transforms should be identity here.
+  vw::TransformRef left_tx  = vw::TransformRef(vw::TranslateTransform(0,0));
+  vw::TransformRef right_tx = vw::TransformRef(vw::TranslateTransform(0,0));
+
+  // Filter out IPs which fall outside the specified elevation and lonlat range
+  // TODO: Don't do this with cropped input images!!!!!
+  size_t num_left = asp::filter_ip_by_lonlat_and_elevation(left_camera_model.get(),
+							   right_camera_model.get(),
+							   datum, in_ip1, in_ip2,
+							   left_tx, right_tx, ip_scale,
+							   stereo_settings().elevation_limit,
+							   stereo_settings().lon_lat_limit,
+							   matched_ip1, matched_ip2);
+
+  // Quit if we don't have the requested number of IP.
+  if (static_cast<int>(num_left) < stereo_settings().min_num_ip)
+    vw_throw(ArgumentErr() << "Number of IPs left after filtering is " << num_left
+                           << " which is less than the required amount of " 
+                           << stereo_settings().min_num_ip << ", aborting stereo_corr.\n");
+
+  // Find search window based on interest point matches
+
+  // Record the disparities for each point pair
+  size_t num_ip = matched_ip1.size();
+  std::vector<double> dx, dy;
+  double min_dx, min_dy, max_dx, max_dy;
+  min_dx = min_dy = std::numeric_limits<double>::max();
+  max_dx = max_dy = std::numeric_limits<double>::min();
+  for (size_t i = 0; i < num_ip; i++) {
+    double diffX = i_scale * (matched_ip2[i].x - matched_ip1[i].x);
+    double diffY = i_scale * (matched_ip2[i].y - matched_ip1[i].y);      
+    dx.push_back(diffX);
+    dy.push_back(diffY);
+    
+    if (diffX < min_dx) min_dx = diffX;  // Could be smarter about how this is done.
+    if (diffY < min_dy) min_dy = diffY;
+    if (diffX > max_dx) max_dx = diffX;
+    if (diffY > max_dy) max_dy = diffY;
+  }
+  num_ip = dx.size();
+  
+  // Compute histograms
+  const int NUM_BINS = 2000; // Accuracy is important with scaled pixels
+  std::vector<double> hist_x, hist_y, centers_x, centers_y;
+  histogram(dx, NUM_BINS, min_dx, max_dx, hist_x, centers_x);
+  histogram(dy, NUM_BINS, min_dy, max_dy, hist_y, centers_y);
+   
+  //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
+  
+  //for (int i=0; i<NUM_BINS; ++i) {
+  //  printf("%d => X: %lf: %lf,   Y:  %lf: %lf\n", i, centers_x[i], hist_x[i], centers_y[i], hist_y[i]);
+  //}
+
+  const int    MAX_SEARCH_WIDTH      = 4000; // TODO: Get this number from somewhere!!!
+  const double PERCENTILE_CUTOFF     = 0.05;
+  const double PERCENTILE_CUTOFF_INC = 0.05;
+  const double MAX_PERCENTILE_CUTOFF = 0.201;
+
+  double current_percentile_cutoff = PERCENTILE_CUTOFF;
+  int search_width = MAX_SEARCH_WIDTH + 1;
+  BBox2i search_range;
+  while (true) {
+    vw_out() << "Filtering IP with percentile cutoff " << current_percentile_cutoff << std::endl;
+    search_range = get_search_range_from_ip_hists(hist_x, hist_y, centers_x, centers_y,
+                                                  current_percentile_cutoff);
+    std::cout << "Scaled search range = " << search_range << std::endl;
+    search_width = search_range.width();
+    
+    // Increase the percentile cutoff in case we need to filter out more IP
+    current_percentile_cutoff += PERCENTILE_CUTOFF_INC;
+    if (current_percentile_cutoff > MAX_PERCENTILE_CUTOFF) {
+      if (search_width < MAX_SEARCH_WIDTH)
+        vw_out() << "Exceeded maximum filter cutoff of " << MAX_PERCENTILE_CUTOFF
+                 << ", keeping current search range\n";
+      break; // No more filtering is possible, exit the loop.
+    }
+      
+    if (search_width < MAX_SEARCH_WIDTH)
+      break; // Happy with search range, exit the loop.
+    else
+      vw_out() << "Search width of " << search_width << " is greater than desired limit of "
+               << MAX_SEARCH_WIDTH << ", retrying with more aggressive IP filter\n";
+  } // End search range determination loop
+
   
   // Prevent any dimension from being length zero,
   //  otherwise future parts to ASP will fail.
