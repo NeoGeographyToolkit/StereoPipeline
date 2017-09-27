@@ -219,7 +219,7 @@ def runConversion(run, options):
 
     # Check if already done
     try:
-        if run.conversionIsFinished():
+        if run.conversionIsFinished(options.startFrame, options.stopFrame):
             logger.info('Conversion is already complete.')
             return
     except Exception, e:
@@ -309,7 +309,7 @@ def runConversion(run, options):
     # - If we didn't get everything keep going and process as much as we can.
     success = False
     try:
-        success = run.conversionIsFinished(verbose=True)
+        success = run.conversionIsFinished(options.startFrame, options.stopFrame, verbose = True)
     except Exception, e:
         logger.warning('Caught error checking conversion status.\n' + str(e))
 

@@ -232,7 +232,7 @@ class RunHelper():
         return True # Success!
 
 
-    def conversionIsFinished(self, verbose=False):
+    def conversionIsFinished(self, startFrame, stopFrame, verbose=False):
         '''Return true if this run is present and conversion has finished running on it'''
         
         logger = logging.getLogger(__name__)
@@ -244,6 +244,13 @@ class RunHelper():
         for imageFile in imageList:
             camFile = os.path.join(cameraFolder,
                                    icebridge_common.getCameraFileName(imageFile))
+
+            # Check only within range
+            # TODO: Actually we need the cameras to go a bit beyond
+            frame = icebridge_common.getFrameNumberFromFilename(camFile)
+            if frame < startFrame or frame >= stopFrame:
+                continue
+            
             if not os.path.exists(camFile):
                 if verbose:
                     logger.error('Missing file ' + camFile)
