@@ -92,6 +92,9 @@ def hasImageExtension(filename):
         return True
     return False
 
+def getRunStatsFile():
+    return 'runStats.txt'
+
 def getCameraFolder(outputFolder):
     return os.path.join(outputFolder, 'camera')
 
@@ -1183,6 +1186,29 @@ def getReferenceDemName(site):
         return 'akdem300m.tif'
         # Proj string: '+proj=aea +lat_1=55 +lat_2=65 +lat_0=50 +lon_0=-154 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs '
 
+def readStats(inputPath):
+    '''Read some info about a run. Do a little parsing.'''
+
+    if os.path.exists(inputPath):
+        with open(inputPath, 'r') as f:
+            for line in f:
+                if line == "":
+                    continue
+                line = line.strip()
+                vals = line.split(",")
+                if len(vals) != 3:
+                    continue
+                
+                # Convert time to a float value representing minutes.
+                # Pre-pad with zeros for missing fields.
+                time_arr = ["0", "0", "0"] + vals[2].split(":")
+                minutes = float(time_arr[-1])/60.0 + float(time_arr[-2]) + 60.0*float(time_arr[-3])
+                minutes = round(10*minutes)/10
+                vals[2] = " " + str(minutes)
+                line = ",".join(vals)
+                return line
+            
+    return "-1, -1, -1"
 
 def readGeodiffOutput(inputPath):
     '''Read in the header from a geodiff output csv file.

@@ -232,7 +232,8 @@ def generateFlightSummary(run, options):
     # Write the header for the batch log file
     batchInfoLog.write('# startFrame, stopFrame, centerLon, centerLat, meanAlt, ' +
                        'meanLidarDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff, ' +
-                       'meanBlendDiff, meanBlendDiffInFireballFootprint\n')
+                       'meanBlendDiff, meanBlendDiffInFireballFootprint, ' + \
+                       'corrSearchWid, corrMem(GB), corrElapsedTime(minutes)\n')
     failureLog.write('# startFrame, stopFrame, errorCode, errorText\n')
 
     demList = run.getOutputDemList()
@@ -268,6 +269,9 @@ def generateFlightSummary(run, options):
         except:
             fireballBlendDiffResults = {'Mean':-999}
 
+        runStatsFile = os.path.join(demFolder, icebridge_common.getRunStatsFile())
+        statsLine = icebridge_common.readStats(runStatsFile)
+        
         # All of the other results should be in a consolidated stats file
         consolidatedStatsPath = os.path.join(demFolder, 'out-consolidated_stats.txt')
 
@@ -292,9 +296,9 @@ def generateFlightSummary(run, options):
             statsText = f.read()
 
         # Write info to summary file
-        batchInfoLog.write('%d, %d, %s, %f, %f\n' % 
+        batchInfoLog.write('%d, %d, %s, %f, %f, %s\n' % 
                            (frames[0], frames[1], statsText,
-                            blendDiffResults['Mean'], fireballBlendDiffResults['Mean']))
+                            blendDiffResults['Mean'], fireballBlendDiffResults['Mean'], statsLine))
 
         # Keep a list of batches that did not generate an output DEM
         parts = statsText.split(',')

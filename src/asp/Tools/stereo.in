@@ -73,6 +73,11 @@ if __name__ == '__main__':
     p.add_option('-v', '--version',        dest='version',     default=False, action='store_true',
                  help='Display the version of software.')
 
+    # This must not be used in production. Will not work on the mac. A temporary undocumented
+    # thing.
+    p.add_option('--check-mem-usage',   dest='mem_usage',     default=False, action='store_true',
+                 help='Check stereo_corr run time and memory usage.')
+
     # Debug options
     p.add_option('--dry-run',              dest='dryrun',      default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)

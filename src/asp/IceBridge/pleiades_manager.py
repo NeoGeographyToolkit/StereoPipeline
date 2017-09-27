@@ -552,7 +552,7 @@ def waitForRunCompletion(jobPrefix, jobList):
                     jobsRunning.append(job)
                     print 'Job launched: ' + job
 
-def checkResultsForType(run, options, batchListPath, batchOutputName):
+def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
 
     numNominal  = 0
     numProduced = 0
@@ -620,12 +620,14 @@ def checkResults(run, options, batchListPath):
     # Produced DEMs
     (numNominalDems, numProducedDems) = checkResultsForType(run, options,
                                                             batchListPath,
-                                                            icebridge_common.blendFileName())
+                                                            icebridge_common.blendFileName(),
+                                                            logger)
     
     # Produced orthos
     (numNominalOrthos, numProducedOrthos) = checkResultsForType(run, options,
                                                                 batchListPath,
-                                                                icebridge_common.orthoFileName())
+                                                                icebridge_common.orthoFileName(),
+                                                                logger)
 
     
     return (numNominalDems, numProducedDems, numNominalOrthos, numProducedOrthos, errorCount)
@@ -956,25 +958,21 @@ def main(argsIn):
         # - TODO: Will never produce 100% of outputs. So wiping better be done anyway.
         success = False
         if (numProducedDems == numNominalDems) and \
-           (numProducedOrthos == numNominalOrthos) and \
-           (errorCount == 0):
-            print 'TODO: Automatically send the completed files to lou!'
-            if not options.skipArchiveRun:
-                archive_functions.packAndSendCompletedRun(run)
+               (numProducedOrthos == numNominalOrthos) and \
+               (errorCount == 0):
+            success =  True
 
-            # Pack up the generated ortho images and store them for later
-            if not options.skipArchiveOrthos:
-                try:
-                    archive_functions.packAndSendOrthos(run)
-                except Exception, e:
-                    print 'Caught exception sending ortho images.'
-                    logger.exception(e)
-
-            # Note: Wiping happens later.
-            # Note: We count only the produced DEMs and orthos within the frame range.
+        # Archive the DEMs
+        if not options.skipArchiveRun:
+            archive_functions.packAndSendCompletedRun(run)
             
-            # TODO: Don't wait on the pack/send operation to finish!
-            success = True
+        # Pack up the generated ortho images and store them for later
+        if not options.skipArchiveOrthos:
+            try:
+                archive_functions.packAndSendOrthos(run)
+            except Exception, e:
+                print 'Caught exception sending ortho images.'
+                logger.exception(e)
 
         if not options.skipEmail:
             emailAddress = getEmailAddress(icebridge_common.getUser())

@@ -127,7 +127,7 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
         mosaicPrefix = os.path.join(batchFolder, 'out-temp-mosaic')
         mosaicOutput = mosaicPrefix + '-tile-0.tif'
         filesToWipe = []
-        cmd = ('dem_mosaic %s %s -o %s' 
+        cmd = ('dem_mosaic --hole-fill-length 100 %s %s -o %s' 
                % (demList, threadText, mosaicPrefix))
         filesToWipe.append(mosaicOutput) # no longer needed
 

@@ -267,7 +267,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
 
         # Call ortho2pinhole command
         ortho2pinhole = asp_system_utils.which("ortho2pinhole")
-        cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %d --minimum-ip %d ') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ipMethod, MIN_IP))
+        cmd = (('%s %s %s %s %s --reference-dem %s --crop-reference-dem --threads %d --ip-detect-method %d --minimum-ip %d ') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ipMethod, MIN_IP))
         if localNorm:
             cmd += ' --skip-image-normalization'
         if estimatedCameraPath is not None:

@@ -32,6 +32,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Cartography/GeoTransform.h>
 #include <boost/core/null_deleter.hpp>
 
 
@@ -73,7 +74,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double camera_height, orthoimage_height, ip_inlier_factor;
   int    ip_per_tile, ip_detect_method, min_ip;
   bool   individually_normalize, keep_match_file, write_gcp_file, skip_image_normalization, 
-         show_error, short_circuit;
+    show_error, short_circuit, crop_reference_dem;
 
   // Make sure all values are initialized, even though they will be
   // over-written later.
@@ -299,8 +300,51 @@ void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const
     DiskImageResourceGDAL rsrc(opt.reference_dem);
     if (rsrc.has_nodata_read()) dem_nodata = rsrc.nodata_read();
   }
+
+
+  bool crop_is_success = false;
+  if (opt.crop_reference_dem){
+    
+    // Crop the DEM to a small area and read fully into memory
+    
+    DiskImageView<float> tmp_ortho(rsrc_ortho);
+    BBox2 ortho_bbox = bounding_box(tmp_ortho);
+
+    DiskImageView<float> tmp_dem(opt.reference_dem);
+    BBox2 dem_bbox = bounding_box(tmp_dem);
+    
+    // The GeoTransform will hide the messy details of conversions
+    vw::cartography::GeoTransform geotrans(dem_georef, ortho_georef, dem_bbox, ortho_bbox);
+    
+    // Get the ortho bbox in the DEM pixel domain
+    BBox2 crop_box = geotrans.reverse_bbox(ortho_bbox);
+    if (crop_box.empty()) {
+      // This should not happen, but go figure, as the DEM could be very coarse
+      ortho_bbox.expand(10000);
+      crop_box = geotrans.reverse_bbox(ortho_bbox);
+    }
+    
+    if (!crop_box.empty() && crop_box.width() < 5000 && crop_box.height() < 5000) {
+      // It may be empty for a very coarse DEM maybe
+      
+      crop_box.expand(200); // TODO: Need to think more here
+      crop_box.crop(dem_bbox);
+      
+      if (!crop_box.empty()) {
+        ImageView<float> cropped_dem = crop(DiskImageView<float>(opt.reference_dem), crop_box);
+        dem = create_mask(cropped_dem, dem_nodata);
+        dem_georef = crop(dem_georef, crop_box);
+        crop_is_success = true;
+      }
+    }
+
+    vw_out() << "DEM bounding box: " << bounding_box(dem) << std::endl;
+  }
   
-  dem = create_mask(DiskImageView<float>(opt.reference_dem), dem_nodata);
+  // Default behavior  
+  if (!crop_is_success)
+    dem = create_mask(DiskImageView<float>(opt.reference_dem), dem_nodata);
+
   
   // Get an estimate of the elevation range in the input image
   const int HEIGHT_SKIP = 500; // The DEM is very low resolution
@@ -590,7 +634,6 @@ void ortho2pinhole(Options & opt){
                            << opt.ortho_image << ".\n");
   }
 
-
   // Set up the DEM if it was provided.
   ImageViewRef< PixelMask<float> > dem;
   vw::cartography::GeoReference dem_georef;
@@ -869,7 +912,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("write-gcp-file",   po::bool_switch(&opt.write_gcp_file)->default_value(false)->implicit_value(true),
      "Write a bundle_adjust compatible gcp file.")
     ("reference-dem",             po::value(&opt.reference_dem)->default_value(""),
-     "If provided, extract from this DEM the heights above the ground rather than assuming the value in --orthoimage-height.");
+     "If provided, extract from this DEM the heights above the ground rather than assuming the value in --orthoimage-height.")
+    ("crop-reference-dem", po::bool_switch(&opt.crop_reference_dem)->default_value(false)->implicit_value(true),
+     "Crop the reference DEM to a generous area to make it faster to load.");
 
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   
@@ -918,7 +963,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     }    
   }
 
-  if (!opt.short_circuit && opt.camera_estimate == "")
+  if (opt.short_circuit && opt.camera_estimate == "")
     vw_throw( ArgumentErr() << "Estimated camera file is required with the short-circuit option.\n");
 
   // Create the output directory

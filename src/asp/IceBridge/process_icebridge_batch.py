@@ -360,7 +360,6 @@ def applyTransformToCameras(options, inputPairs, suppressOutput, redo,
     for matchFile in matchFiles:
         newMatchFile = matchFile.replace(bundlePrefix, alignedBundlePrefix)
         icebridge_common.makeSymLink(matchFile, newMatchFile)
-        print("--sym link ", matchFile, newMatchFile)
 
     cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
             '-t nadirpinhole --skip-rough-homography '+
@@ -659,12 +658,13 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
          
     stereoCmd += correlationArgString
     stereoCmd += filterArgString
-    
+    stereoCmd += ' --check-mem-usage'
+
     # Call and check status
     triOutput = thisPairPrefix + '-PC.tif'
     icebridge_common.logger_print(logger, stereoCmd)
     (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo, noThrow=True)
-
+    
     if status != 0:
         # If stereo failed, try it out one more time provided with the .match file that
         #  was created by bundle_adjust.
@@ -689,6 +689,31 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
             icebridge_common.logger_print(logger, out + '\n' + err)
             raise Exception('Stereo call failed!')
 
+    # Parse the output. Look at the very last lines having the given patterns.
+    corrSearchWid = -1
+    memUsage = -1
+    elapsed = "-1"
+    out = out + "\n" + err
+    for line in out.split('\n'):
+        m = re.match("^.*?Search\s+Range:.*?Origin:.*?width:\s*(\d+)", line, re.IGNORECASE)
+        if m:
+            corrSearchWid = float(m.group(1))
+        m = re.match("^.*?elapsed=(.*?)\s+mem=(\d.*?)\s+.*?time_stereo_corr", line, re.IGNORECASE)
+        if m:
+            elapsed = m.group(1)
+            memUsage = float(m.group(2))
+            memUsage = float(round(memUsage/100000.0))/10.0 # convert to GB
+            
+    icebridge_common.logger_print(logger, ( "Corr search width: %d mem usage: %f GB elapsed: %s" % \
+                   (corrSearchWid, memUsage, elapsed) ) )
+
+    if i == 0:
+        filePath = os.path.join(os.path.dirname(os.path.dirname(thisPairPrefix)),
+                                icebridge_common.getRunStatsFile())
+        icebridge_common.logger_print(logger, "Writing: " + filePath)
+        with open(filePath, 'w') as f:
+            f.write( ("%d, %f, %s\n") % (corrSearchWid, memUsage, elapsed) )
+        
     # point2dem on the result of ASP
     # - The size limit is to prevent bad point clouds from creating giant DEM files which
     #   cause the processing node to crash.
