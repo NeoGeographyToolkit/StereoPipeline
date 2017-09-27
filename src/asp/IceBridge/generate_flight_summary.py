@@ -208,11 +208,13 @@ def generateFlightSummary(run, options):
         os.system(cmd)
         
         # Generate lidar kml files
+        print("Generating lidar kml files")
         LIDAR_POINT_SKIP = 1527
         lidarFiles = run.getLidarList(prependFolder=True)
         lidarOutputFolder = os.path.join(options.outputFolder, 'lidar')
         os.system('mkdir -p ' + lidarOutputFolder)
         for f in lidarFiles:
+            print("Processing " + f) # This can be very slow, hence print what is going on
             inputPath = os.path.splitext(f)[0] + '.csv'
             outputPath = os.path.join(lidarOutputFolder, os.path.basename(f)+'.kml')
             args = [inputPath, outputPath, '--skip', str(LIDAR_POINT_SKIP), '--color', 'red']

@@ -70,7 +70,7 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
 
         alignCamFile, batchFolder = \
                       icebridge_common.frameToFile(frame,
-                                                   icebridge_common.alignedBundlePrefix() + 
+                                                   icebridge_common.alignedBundleStr() + 
                                                    '*' + str(frame) + '.tsai',
                                                    processFolder, bundleLength)
 

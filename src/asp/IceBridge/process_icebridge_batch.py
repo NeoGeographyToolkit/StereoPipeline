@@ -48,16 +48,6 @@ os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 # getFootprintPrefix() to avoid replicate the '-footprint-' string all
 # over the place.
 
-def getAlignPrefix(outputFolder):
-    return  os.path.join(outputFolder, 'align/out')
-
-def getBundlePrefix(outputFolder, alignedBundle = False):
-    if not alignedBundle:
-        return  os.path.join(outputFolder, 'bundle/out')
-
-    # Bundle adjusted files with the pc_aligne transform applied to them
-    return  os.path.join(outputFolder, 'aligned_bundle/out')
-
 def formImageCameraString(inputPairs):
     imagesAndCams = ""
     images = ""
@@ -87,7 +77,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
     # Determine the number of points we want
     currentMaxDisplacement = STARTING_DISPLACEMENT
     
-    alignPrefix   = getAlignPrefix(options.outputFolder)
+    alignPrefix   = icebridge_common.getAlignPrefix(options.outputFolder)
     
     pcAlignFolder = os.path.dirname(alignPrefix)
     endErrorPath  = alignPrefix + '-end_errors.csv'
@@ -228,7 +218,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     OVERLAP_EXPONENT     = 0
     MIN_IP_MATCHES       = 22
     SIDE_IP_CROP_PERCENT = 20 # Remove IP in 20% of the sides of the images
-    bundlePrefix   = getBundlePrefix(options.outputFolder)
+    bundlePrefix   = icebridge_common.getBundlePrefix(options.outputFolder)
     baOverlapLimit = options.stereoImageInterval + 3
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
@@ -350,9 +340,9 @@ def applyTransformToCameras(options, inputPairs, suppressOutput, redo,
 
     imagesAndCams = formImageCameraString(inputPairs)
 
-    alignPrefix         = getAlignPrefix(options.outputFolder)
-    bundlePrefix        = getBundlePrefix(options.outputFolder)
-    alignedBundlePrefix = getBundlePrefix(options.outputFolder, alignedBundle = True)
+    alignPrefix         = icebridge_common.getAlignPrefix(options.outputFolder)
+    bundlePrefix        = icebridge_common.getBundlePrefix(options.outputFolder)
+    alignedBundlePrefix = icebridge_common.getAlignedBundlePrefix(options.outputFolder)
 
     outputCamera = inputPairs[0][1].replace(bundlePrefix, alignedBundlePrefix)
 
@@ -402,7 +392,7 @@ def getMatchFiles(options, origInputPairs, index):
        could be copied to the stereo folder in order to be used.'''
 
     # TODO: These definitions are repeated elsewhere
-    bundlePrefix     = getBundlePrefix(options.outputFolder)
+    bundlePrefix     = icebridge_common.getBundlePrefix(options.outputFolder)
     thisOutputFolder = os.path.join(options.outputFolder, 'stereo_pair_'+str(index))
     thisPairPrefix   = os.path.join(thisOutputFolder,     'out')
     
@@ -748,7 +738,7 @@ def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
     
     if smallFiles:
         # Delete bundle_adjust folder. Note that will also wipe the cameras.
-        os.system('rm -rf ' + os.path.dirname(getBundlePrefix(batchFolder)))
+        os.system('rm -rf ' + os.path.dirname(icebridge_common.getBundlePrefix(batchFolder)))
         
         # Clean out the pc_align folder
         alignFiles = ['-beg_errors.csv', '-end_errors.csv', '-iterationInfo.csv',
@@ -784,7 +774,7 @@ def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
     os.system('rm -f ' + demCropPath)
 
     # Wipe the pc_aligned bundle directory except for the final results
-    alignedBundlePrefix = getBundlePrefix(batchFolder, alignedBundle = True)
+    alignedBundlePrefix = icebridge_common.getAlignedBundlePrefix(batchFolder)
     for filename in glob.glob(alignedBundlePrefix + '*'):
         if not filename.endswith('.tsai'):
             os.system('rm -f ' + filename)
@@ -1266,7 +1256,7 @@ def doWork(options, args, logger):
 
     if options.cleanup and os.path.exists(finalAlignedDEM):
         # Delete large files that we don't need going forwards.
-        alignPrefix   = getAlignPrefix(options.outputFolder)
+        alignPrefix = icebridge_common.getAlignPrefix(options.outputFolder)
         cleanBatch(options.outputFolder,
                    alignPrefix, prefixes, interDiffPaths, fireballDiffPaths)
 

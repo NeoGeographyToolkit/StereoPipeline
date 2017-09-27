@@ -67,36 +67,7 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath      + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
-def frame2dem(frame, processFolder, bundleLength):
-    
-    # We count here on the convention for writing batch folders
-    batchFolderGlob = os.path.join(processFolder,
-                                   'batch_' + str(frame) + '_*_' + str(bundleLength))
-    
-    batchFolders = glob.glob(batchFolderGlob)
-
-    if len(batchFolders) == 0:
-        #print("Error: No directories matching: " + batchFolderGlob + ". Will skip this frame.")
-        return "", ""
-        
-    if len(batchFolders) > 1:
-        # This I believe is an artifact of running the entire flight twice,
-        # with different value for --start-frame each time.
-        # For now, just take whatever is there, at some point this needs to be sorted out.
-        print("Warning: Found more than one directory matching glob:" + batchFolderGlob)
-        #return "", ""
-
-    demFile = ""
-    batchFolder = ""
-    for batchFolder in batchFolders:
-        demFile = os.path.join(batchFolder, 'out-align-DEM.tif')
-        if os.path.exists(demFile):
-            break
-        
-    if not os.path.exists(demFile):
-        return "", ""
-
-    return demFile, batchFolder
+ALIGN_SUFFIX = 'out-align-DEM.tif'
 
 def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
              threadText, redo, suppressOutput):
@@ -104,7 +75,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
     # This will run as multiple processes. Hence have to catch all exceptions:
     try:
         
-        demFile, batchFolder = frame2dem(frame, processFolder, bundleLength)
+        demFile, batchFolder = icebridge_common.frameToFile(frame, ALIGN_SUFFIX,
+                                                            processFolder, bundleLength)
         lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
 
         if demFile == "":
@@ -156,7 +128,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             for val in range(0, index+1):
                 offset = frameOffsets[val]
                 currDemFile, currBatchFolder = \
-                             frame2dem(frame + offset, processFolder, bundleLength)
+                             icebridge_common.frameToFile(frame + offset, ALIGN_SUFFIX,
+                                                          processFolder, bundleLength)
                 if currDemFile == "":
                     continue
                 dems.append(currDemFile)
@@ -233,7 +206,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             for val in range(0, len(frameOffsets)):
                 offset = frameOffsets[val]
                 currDemFile, currBatchFolder = \
-                             frame2dem(frame + offset, processFolder, bundleLength)
+                             icebridge_common.frameToFile(frame + offset, ALIGN_SUFFIX,
+                                                          processFolder, bundleLength)
                 if currDemFile == "":
                     continue
                 dems.append(currDemFile)
@@ -386,7 +360,7 @@ def main(argsIn):
         (fireballFrameDict, fireballUrlDict) = \
                             icebridge_common.readIndexFile(fireballIndexPath, prependFolder = True)
         
-    lidarFolder = os.path.join(options.outputFolder, 'lidar')
+    lidarFolder = icebridge_common.getLidarFolder(options.outputFolder)
     
     threadText = ''
     if options.numThreads:

@@ -298,67 +298,6 @@ class NoDaemonProcess(multiprocessing.Process):
 class NonDaemonPool(multiprocessing.pool.Pool):
     Process = NoDaemonProcess
 
-def getImageCameraPairs(imageFolder, cameraFolder, startFrame, stopFrame):
-    '''Return a list of paired image/camera files.'''
-
-    # Get a list of all the input files
-    allImageFiles  = icebridge_common.getTifs(imageFolder)
-    allCameraFiles = icebridge_common.getByExtension(cameraFolder, '.tsai')
-    allImageFiles.sort() # Put in order so the frames line up
-    allCameraFiles.sort()
-
-    # Keep only the images and cameras within the given range
-    imageFiles  = []
-    imageFrames = []
-    for image in allImageFiles:
-        frame = icebridge_common.getFrameNumberFromFilename(image)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
-            continue
-        imageFiles.append(image)
-        imageFrames.append(frame)
-        
-    cameraFiles  = []
-    cameraFrames = []
-    for camera in allCameraFiles:
-        frame = icebridge_common.getFrameNumberFromFilename(camera)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
-            continue
-        cameraFiles.append(camera)
-        cameraFrames.append(frame)
-
-    # Remove files without a matching pair
-    goodImages  = []
-    goodCameras = []
-    for frame in imageFrames:
-        goodImages.append(frame in cameraFrames)
-    for frame in cameraFrames:
-        goodCameras.append(frame in imageFrames)
-    
-    imageFiles  = [p[0] for p in zip(imageFiles,  goodImages ) if p[1]]
-    cameraFiles = [p[0] for p in zip(cameraFiles, goodCameras) if p[1]]
-    
-    logger.info('Of %d input images in range, using %d with camera files.' 
-                % (len(goodImages), len(imageFiles)))
-
-    if len(imageFiles) < 2:
-        logger.error('Not enough input pairs exist to continue, quitting!')
-        return []
-
-    # Get full paths
-    imageFiles  = [os.path.join(imageFolder, f) for f in imageFiles ]
-    cameraFiles = [os.path.join(cameraFolder,f) for f in cameraFiles]
-
-    numFiles = len(imageFiles)
-    if (len(cameraFiles) != numFiles):
-        logger.error('process_icebridge_run.py: counted ' + str(len(imageFiles)) + \
-                     ' image files.\n' +
-                     'and ' + str(len(cameraFiles)) + ' camera files.\n'+
-                     'Error: Number of image files and number of camera files must match!')
-        return []
-        
-    imageCameraPairs = zip(imageFiles, cameraFiles)
-    return imageCameraPairs
-
 
 def main(argsIn):
 
@@ -454,8 +393,9 @@ def main(argsIn):
     logger.info('\nStarting processing...')
     
     # Get a list of all the input files
-    imageCameraPairs = getImageCameraPairs(imageFolder, cameraFolder, 
-                                           options.startFrame, options.stopFrame)
+    imageCameraPairs = icebridge_common.getImageCameraPairs(imageFolder, cameraFolder, 
+                                                            options.startFrame, options.stopFrame,
+                                                            logger)
     numFiles = len(imageCameraPairs)
     
     # Check that the files are properly aligned

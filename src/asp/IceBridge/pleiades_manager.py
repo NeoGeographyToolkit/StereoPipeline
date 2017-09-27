@@ -53,12 +53,14 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 # Constants used in this file
 
-ORTHO_PBS_QUEUE = 'normal'
-BATCH_PBS_QUEUE = 'normal'
-BLEND_PBS_QUEUE = 'normal'
-MAX_ORTHO_HOURS = 3 # Limit is 8 but these seem to complete fast.
-MAX_BATCH_HOURS = 8 # devel limit is 2, long limit is 120, normal is 8
-MAX_BLEND_HOURS = 2 # These jobs go pretty fast
+CAMGEN_PBS_QUEUE   = 'normal'
+BATCH_PBS_QUEUE    = 'normal'
+BLEND_PBS_QUEUE    = 'normal'
+ORTHOGEN_PBS_QUEUE = 'normal'
+MAX_CAMGEN_HOURS   = 3 # Limit is 8 but these seem to complete fast.
+MAX_BATCH_HOURS    = 8 # devel limit is 2, long limit is 120, normal is 8
+MAX_BLEND_HOURS    = 2 # These jobs go pretty fast
+MAX_ORTHOGEN_HOURS = 2 # These jobs go pretty fast
 
 GROUP_ID = 's1827'
 
@@ -78,7 +80,7 @@ def getParallelParams(nodeType, task):
 
     # Define additional combinations and edit as needed.
 
-    if task == 'ortho':
+    if task == 'camgen':
         if nodeType == 'ivy': return (10, 2, 400)
         if nodeType == 'bro': return (14, 4, 500)
         if nodeType == 'wes': return (10, 4, 400)
@@ -96,6 +98,13 @@ def getParallelParams(nodeType, task):
         if nodeType == 'wes': return (10, 3, 1000) 
         if nodeType == 'san': return (10, 3, 1000) 
     
+    if task == 'orthogen':
+        # TODO: Need to think more here
+        if nodeType == 'ivy': return (10, 2, 400)
+        if nodeType == 'bro': return (14, 4, 500)
+        if nodeType == 'wes': return (10, 4, 400)
+        if nodeType == 'san': return (10, 4, 400)
+
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
 
 #=========================================================================
@@ -231,17 +240,8 @@ def runConversion(run, options):
         os.system(cmd)    
         logger.info("Finished generating estimated camera files from nav.")
     
-    # Get the frame range for the data.
-    (minFrame, maxFrame) = run.getFrameRange()
-    if minFrame < options.startFrame:
-        minFrame = options.startFrame
-    if maxFrame > options.stopFrame:
-        maxFrame = options.stopFrame
-
-    logger.info('Detected frame range: ' + str((minFrame, maxFrame)))
-
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'ortho')
+    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'camgen')
     
     if options.simpleCameras:
         numThreads   = 1 # No need for multiple threads for the simple code
@@ -249,10 +249,10 @@ def runConversion(run, options):
     
     # Split the conversions across multiple nodes using frame ranges
     # - The first job submitted will be the only one that converts the lidar data
-    numFrames    = maxFrame - minFrame + 1
-    numOrthoJobs = numFrames / tasksPerJob
-    if numOrthoJobs < 1:
-        numOrthoJobs = 1
+    numFrames    = options.stopFrame - options.startFrame + 1
+    numCamgenJobs = numFrames / tasksPerJob
+    if numCamgenJobs < 1:
+        numCamgenJobs = 1
         
     outputFolder = run.getFolder()
     
@@ -262,6 +262,9 @@ def runConversion(run, options):
     if options.noNavFetch:
         args += ' --no-nav'
     
+    # Get the location to store the logs    
+    pbsLogFolder = run.getPbsLogFolder()
+    os.system('mkdir -p ' + pbsLogFolder)
     
     if options.simpleCameras: # Use the fast ortho2pinhole call locally.
     
@@ -274,20 +277,16 @@ def runConversion(run, options):
     else: # Use the longer running ortho2pinhole spread across the processing nodes.
                 
         baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
-
-        # Get the location to store the logs    
-        pbsLogFolder = run.getPbsLogFolder()
-        os.system('mkdir -p ' + pbsLogFolder)
         
         # Submit all the jobs
-        currentFrame = minFrame
+        currentFrame = options.startFrame
         jobList = []
-        for i in range(0, numOrthoJobs):
+        for i in range(0, numCamgenJobs):
             jobName    = ('%06d_%s' % (currentFrame, baseName) )
             startFrame = currentFrame
             stopFrame  = currentFrame+tasksPerJob-1
-            if (i == numOrthoJobs - 1):
-                stopFrame = maxFrame # Make sure nothing is lost at the end
+            if (i == numCamgenJobs - 1):
+                stopFrame = options.stopFrame # Make sure nothing is lost at the end
             thisArgs = (args + ' --start-frame ' + str(startFrame) + \
                         ' --stop-frame ' + str(stopFrame) )
             if i != 0: # Only the first job will convert lidar files
@@ -295,7 +294,7 @@ def runConversion(run, options):
 
             logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
             logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
-            pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS,
+            pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, MAX_CAMGEN_HOURS,
                                     options.minutesInDevelQueue,
                                     GROUP_ID,
                                     options.nodeType, '/usr/bin/python2.7',
@@ -356,6 +355,8 @@ def generateBatchList(run, options, listPath):
 
 def getOutputFolderFromBatchCommand(batchCommand):
     '''Extract the output folder from a line in the batch file'''
+    # TODO: Integrate with the more robust logic in icebridge_common.getFrameRangeFromBatchFolder()
+    # which can parse a batch command.
     parts        = batchCommand.split()
     outputFolder = parts[10] # This needs to be kept up to date with the file format!
     return outputFolder
@@ -455,39 +456,46 @@ def submitBatchJobs(run, options, batchListPath):
     # Waiting on these jobs happens outside this function
     return (baseName, jobList)
 
-def runBlending(run, options):
-    '''Blend together a series of batch DEMs'''
+def runJobs(run, mode, options):
+    '''Run a blend or an ortho gen job.'''
+    
+    # TODO: Also merge with the logic for creating a camera file.
     
     logger = logging.getLogger(__name__)
         
-    logger.info('Blending DEMs for run ' + str(run))
+    logger.info('Running task ' + mode + ' for run ' + str(run))
     
-    # Get the frame range for the data.
-    (minFrame, maxFrame) = run.getFrameRange()
-    if minFrame < options.startFrame:
-        minFrame = options.startFrame
-    if maxFrame > options.stopFrame:
-        maxFrame = options.stopFrame
-    
-    logger.info('Detected frame range: ' + str((minFrame, maxFrame)))
-
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'blend')
+    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, mode)
     
-    # Split the blends across multiple nodes using frame ranges
-    numFrames    = maxFrame - minFrame + 1
-    numBlendJobs = numFrames / tasksPerJob
-    if numBlendJobs < 1:
-        numBlendJobs = 1
+    # Split the jobs across multiple nodes using frame ranges
+    numFrames    = options.stopFrame - options.startFrame + 1
+    numJobs = numFrames / tasksPerJob
+    if numJobs < 1:
+        numJobs = 1
         
-    logger.info( ("Num frames: %d, tasks per job: %d, number of blend jobs: %d" %
-                  (numFrames, tasksPerJob, numBlendJobs) ) )
+    logger.info( ("Num frames: %d, tasks per job: %d, number of %s jobs: %d" %
+                  (numFrames, tasksPerJob, mode, numJobs) ) )
     
     outputFolder = run.getFolder()
-    
-    scriptPath = icebridge_common.fullPath('blend_dems.py')
-    args       = ('--site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --blend-to-fireball-footprint ' 
-                  % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, options.bundleLength))
+
+    scriptPath = ""
+    extraArgs = ""
+    if mode == 'orthogen':
+        scriptPath = icebridge_common.fullPath('gen_ortho.py')
+        queueName  = ORTHOGEN_PBS_QUEUE
+        maxHours   = MAX_ORTHOGEN_HOURS
+    elif mode == 'blend':
+        queueName  = BLEND_PBS_QUEUE
+        maxHours   = MAX_BLEND_HOURS
+        scriptPath = icebridge_common.fullPath('blend_dems.py')
+        extraArgs  = '  --blend-to-fireball-footprint'
+    else:
+        raise Exception("Unknown mode: " + mode)
+    args = (('--site %s --yyyymmdd %s --num-threads %d --num-processes %d ' + \
+            '--output-folder %s --bundle-length %d %s ') 
+            % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder,
+               options.bundleLength, extraArgs))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
@@ -496,18 +504,18 @@ def runBlending(run, options):
     
     # Submit all the jobs
     jobList = []
-    currentFrame = minFrame
-    for i in range(0, numBlendJobs):
+    currentFrame = options.startFrame
+    for i in range(0, numJobs):
         jobName    = ('%06d_%s' % (currentFrame, baseName) )
         startFrame = currentFrame
         stopFrame  = currentFrame+tasksPerJob # Last frame passed to the tool is not processed
-        if (i == numBlendJobs - 1):
-            stopFrame = maxFrame+1 # Make sure nothing is lost at the end
+        if (i == numJobs - 1):
+            stopFrame = options.stopFrame # Make sure nothing is lost at the end
         thisArgs = (args + ' --start-frame ' + str(startFrame) + \
                     ' --stop-frame ' + str(stopFrame) )
-        logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
-        logger.info('Submitting blend job: ' + scriptPath +  ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS,
+        logPrefix = os.path.join(pbsLogFolder, mode + '_' + jobName)
+        logger.info('Submitting job: ' + scriptPath +  ' ' + thisArgs)
+        pbs_functions.submitJob(jobName, queueName, maxHours,
                                 options.minutesInDevelQueue,
                                 GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
@@ -544,8 +552,42 @@ def waitForRunCompletion(jobPrefix, jobList):
                     jobsRunning.append(job)
                     print 'Job launched: ' + job
 
-def checkResults(run, batchListPath):
-    '''Return (numOutputs, numProduced, errorCount) to help validate our results'''
+def checkResultsForType(run, options, batchListPath, batchOutputName):
+
+    numNominal  = 0
+    numProduced = 0
+
+    (minFrame, maxFrame) = run.getFrameRange()
+
+    with open(batchListPath, 'r') as f:
+        for line in f:
+            
+            outputFolder = getOutputFolderFromBatchCommand(line)
+            (begFrame, endFrame) = icebridge_common.getFrameRangeFromBatchFolder(outputFolder)
+
+            if begFrame < options.startFrame:
+                continue
+            if begFrame >= options.stopFrame:
+                continue
+            
+            if begFrame >= maxFrame:
+                # This is necessary. For the last valid frame, there is never a DEM.
+                continue
+            
+            targetPath   = os.path.join(outputFolder, batchOutputName)
+            numNominal += 1
+            if os.path.exists(targetPath):
+                numProduced += 1
+            else:
+                logger.info('Did not find: ' + targetPath)
+                if not os.path.exists(outputFolder):
+                    logger.error('Check output folder position in batch log file!')
+
+    return (numNominal, numProduced)
+    
+def checkResults(run, options, batchListPath):
+    '''Return (numNominalDems, numProducedDems, numNominalOrthos, numProducedOrthos, errorCount)
+    to help validate our results'''
     
     logger = logging.getLogger(__name__)
     
@@ -574,27 +616,20 @@ def checkResults(run, batchListPath):
                         errorLog.write(line)
                         errorCount += 1
     logger.info('Counted ' + str(errorCount) + ' errors in log files!')
-    
-    # Make sure each batch produced the aligned DEM file
-    batchOutputName = 'out-blend-DEM.tif'
-    #batchOutputName = 'out-align-DEM.tif'
-    
-    numOutputs  = 0
-    numProduced = 0
-    with open(batchListPath, 'r') as f:
-        for line in f:
-            outputFolder = getOutputFolderFromBatchCommand(line)
-            targetPath   = os.path.join(outputFolder, batchOutputName)
-            numOutputs += 1
-            if os.path.exists(targetPath):
-                numProduced += 1
-            else:
-                logger.info('Did not find: ' + targetPath)
-                if not os.path.exists(outputFolder):
-                    logger.error('Check output folder position in batch log file!')
-            
-    return (numOutputs, numProduced, errorCount)
 
+    # Produced DEMs
+    (numNominalDems, numProducedDems) = checkResultsForType(run, options,
+                                                            batchListPath,
+                                                            icebridge_common.blendFileName())
+    
+    # Produced orthos
+    (numNominalOrthos, numProducedOrthos) = checkResultsForType(run, options,
+                                                                batchListPath,
+                                                                icebridge_common.orthoFileName())
+
+    
+    return (numNominalDems, numProducedDems, numNominalOrthos, numProducedOrthos, errorCount)
+        
 def checkRequiredTools():
     '''Verify that we have all the tools we will be calling during the script.'''
 
@@ -603,10 +638,9 @@ def checkRequiredTools():
                'merge_orbitviz.py',
                'process_icebridge_run.py',
                'process_icebridge_batch.py',
-               'lvis2kml.py',
-               'blend_dems.py']
-    tools  = ['ortho2pinhole',
-              'camera_footprint']
+               'lvis2kml.py', 'blend_dems.py', 'gen_ortho.py']
+    tools  = ['ortho2pinhole', 'camera_footprint', 'bundle_adjust',
+              'stereo', 'point2dem', 'mapproject']
     
     for tool in tools:
         asp_system_utils.checkIfToolExists(tool)
@@ -699,12 +733,19 @@ def main(argsIn):
         parser.add_argument("--skip-blend", action="store_true", dest="skipBlend", default=False, 
                             help="Skip blending.")
 
+        parser.add_argument("--skip-ortho-gen", action="store_true", dest="skipOrthoGen",
+                            default=False, help="Skip ortho image generation.")
+
         parser.add_argument("--skip-report", action="store_true", dest="skipReport", default=False, 
                             help="Skip summary report step.")
 
         parser.add_argument("--skip-archive-aligned-cameras", action="store_true",
                             dest="skipArchiveAlignedCameras", default=False,
                             help="Skip archiving the aligned cameras.")
+
+        parser.add_argument("--skip-archive-orthos", action="store_true",
+                            dest="skipArchiveOrthos", default=False,
+                            help="Skip archiving the generated ortho images.")
 
         parser.add_argument("--skip-archive-summary", action="store_true",
                             dest="skipArchiveSummary", default=False,
@@ -781,11 +822,22 @@ def main(argsIn):
     #doneRuns = readRunList(COMPLETED_RUN_LIST, options)
     #runList  = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
-    runList = [run_helper.RunHelper(options.site, options.yyyymmdd, options.unpackDir)]
+    run = run_helper.RunHelper(options.site, options.yyyymmdd, options.unpackDir)
 
-    # TODO: Loop is unused, this tool will be replaced by a different one
-    # Loop through the incomplete runs
-    for run in runList:
+    if True:
+
+        # WARNNING: Below we tweak options.startFrame and options.stopFrame.
+        # If a loop over runs is implemeneted, things will break!
+
+        # Narrow the frame range. Note that if we really are at the last
+        # existing frame, we increment 1, to make sure we never miss anything.
+        (minFrame, maxFrame) = run.getFrameRange()
+        if options.startFrame < minFrame:
+            options.startFrame = minFrame
+        if options.stopFrame >= maxFrame:
+            options.stopFrame = maxFrame + 1 # see above
+            
+        logger.info('Detected frame range: ' + str((options.startFrame, options.stopFrame)))
 
         # TODO: Put this in a try/except block so it keeps going on error
 
@@ -841,8 +893,11 @@ def main(argsIn):
             logger.info('All jobs finished for run '+str(run))
         
         if not options.skipBlend:
-            runBlending(run, options)
+            runJobs(run, 'blend', options)
         
+        if not options.skipOrthoGen:
+            runJobs(run, 'orthogen', options)
+
         # TODO: Uncomment when processing multiple runs.
         ## Log the run as completed
         ## - If the run was not processed correctly it will have to be looked at manually
@@ -858,9 +913,16 @@ def main(argsIn):
 
         if not options.skipReport:
             # Generate a simple report of the results
-            (numOutputs, numProduced, errorCount) = checkResults(run, fullBatchListPath)
-            resultText = ('"Created %d out of %d output targets with %d errors."' % 
-                          (numProduced, numOutputs, errorCount))
+            (numNominalDems, numProducedDems,
+             numNominalOrthos, numProducedOrthos,
+             errorCount) = checkResults(run, options, fullBatchListPath)
+            resultText = ""
+            resultText += ('Created %d out of %d output DEMs. ' % 
+                          (numProducedDems, numNominalDems))
+            resultText += ('Created %d out of %d output ortho images. ' % 
+                          (numProducedOrthos, numNominalOrthos))
+            resultText += ('Detected %d errors. ' % 
+                          (errorCount))
             logger.info(resultText)
 
             # Generate a summary folder and send a copy to Lou
@@ -877,10 +939,12 @@ def main(argsIn):
             logger.info("Running generate_flight_summary.py " + " ".join(genCmd))
             generate_flight_summary.main(genCmd)
         else:
-            resultText = 'Summary skipped'
-            errorCount  = 0 # Flag values to let the next condition pass
-            numOutputs  = 1
-            numProduced = 1
+            resultText        = 'Summary skipped'
+            errorCount        = 0 # Flag values to let the next condition pass
+            numNominalDems    = 1
+            numProducedDems   = 1
+            numNominalOrthos  = 1
+            numProducedOrthos = 1
             
         # send data to lunokhod and lfe
         if not options.skipArchiveSummary:
@@ -889,16 +953,25 @@ def main(argsIn):
             
 
         # Don't pack or clean up the run if it did not generate all the output files.
-        # - TODO: Will never produce 100% of outputs
+        # - TODO: Will never produce 100% of outputs. So wiping better be done anyway.
         success = False
-        if (numProduced == numOutputs) and (errorCount == 0):
-            print 'TODO: Automatically send the completed files to lou and clean up the run!'
-
-            # TODO: Uncomment this once our outputs are good.
-            # Pack up all the files to lou, then delete the local copies.          
+        if (numProducedDems == numNominalDems) and \
+           (numProducedOrthos == numNominalOrthos) and \
+           (errorCount == 0):
+            print 'TODO: Automatically send the completed files to lou!'
             if not options.skipArchiveRun:
                 archive_functions.packAndSendCompletedRun(run)
-                #cleanupRun(run) # <-- Should this always be manual??
+
+            # Pack up the generated ortho images and store them for later
+            if not options.skipArchiveOrthos:
+                try:
+                    archive_functions.packAndSendOrthos(run)
+                except Exception, e:
+                    print 'Caught exception sending ortho images.'
+                    logger.exception(e)
+
+            # Note: Wiping happens later.
+            # Note: We count only the produced DEMs and orthos within the frame range.
             
             # TODO: Don't wait on the pack/send operation to finish!
             success = True

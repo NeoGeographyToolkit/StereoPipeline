@@ -80,6 +80,10 @@ class RunHelper():
         and aligned camera files'''
         return 'ALIGNED_CAMERA_' + self.name() + '.tar'
 
+    def getOrthoTarName(self):
+        '''Return the file name used to tar up the generated ortho images.'''
+        return 'ORTHO_' + self.name() + '.tar'
+
     def getSummaryTarName(self):
         '''Return the file name used to tar up the generated camera files'''
         return 'SUMMARY_' + self.name() + '.tar'
@@ -172,7 +176,7 @@ class RunHelper():
         batchList = self.getBatchFolderList()
 
         #demName = 'out-align-DEM.tif'
-        demName = 'out-blend-DEM.tif'
+        demName = icebridge_common.blendFileName()
         output = []
         for batch in batchList:
             frames = icebridge_common.getFrameRangeFromBatchFolder(batch)

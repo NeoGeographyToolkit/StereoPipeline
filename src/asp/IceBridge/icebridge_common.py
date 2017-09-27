@@ -19,7 +19,7 @@
 # Icebridge utility functions
 
 import os, sys, datetime, time, subprocess, logging, re, hashlib, string
-import psutil, errno, getpass
+import psutil, errno, getpass, glob
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -347,6 +347,95 @@ def getCameraGsdAndBoundsRetry(imagePath, cameraPath, logger, referenceDem, proj
         results = getCameraGsdAndBounds(imagePath, cameraPath, logger, None, projString)
      
     return results
+
+def getImageCameraPairs(imageFolder, cameraFolder, startFrame, stopFrame, logger):
+    '''Return a list of paired image/camera files.'''
+
+    # TODO: This is not robust. Need to create an index of all images rather than
+    # reading whatever is in that directory.
+    
+    # Get a list of all the input files
+    allImageFiles  = getTifs(imageFolder)
+    allCameraFiles = getByExtension(cameraFolder, '.tsai')
+    allImageFiles.sort() # Put in order so the frames line up
+    allCameraFiles.sort()
+
+    # Keep only the images and cameras within the given range
+    imageFiles  = []
+    imageFrames = []
+    for image in allImageFiles:
+        frame = getFrameNumberFromFilename(image)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
+        imageFiles.append(image)
+        imageFrames.append(frame)
+        
+    cameraFiles  = []
+    cameraFrames = []
+    for camera in allCameraFiles:
+        frame = getFrameNumberFromFilename(camera)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
+        cameraFiles.append(camera)
+        cameraFrames.append(frame)
+
+    # Remove files without a matching pair
+    goodImages  = []
+    goodCameras = []
+    for frame in imageFrames:
+        goodImages.append(frame in cameraFrames)
+    for frame in cameraFrames:
+        goodCameras.append(frame in imageFrames)
+    
+    imageFiles  = [p[0] for p in zip(imageFiles,  goodImages ) if p[1]]
+    cameraFiles = [p[0] for p in zip(cameraFiles, goodCameras) if p[1]]
+    
+    logger.info('Of %d input images in range, using %d with camera files.' 
+                % (len(goodImages), len(imageFiles)))
+
+    if len(imageFiles) < 2:
+        logger.error('Not enough input pairs exist to continue, quitting!')
+        return []
+
+    # Get full paths
+    imageFiles  = [os.path.join(imageFolder, f) for f in imageFiles ]
+    cameraFiles = [os.path.join(cameraFolder,f) for f in cameraFiles]
+
+    numFiles = len(imageFiles)
+    if (len(cameraFiles) != numFiles):
+        logger.error('process_icebridge_run.py: counted ' + str(len(imageFiles)) + \
+                     ' image files.\n' +
+                     'and ' + str(len(cameraFiles)) + ' camera files.\n'+
+                     'Error: Number of image files and number of camera files must match!')
+        return []
+        
+    imageCameraPairs = zip(imageFiles, cameraFiles)
+    return imageCameraPairs
+
+def frameToFile(frame, suffix, processFolder, bundleLength):
+    '''For a given frame, find the corresponding file in the batch
+    folder with given suffix.'''
+    
+    # We count here on the convention for writing batch folders
+    batchFolderGlob = os.path.join(processFolder,
+                                   'batch_' + str(frame) + '_*_' + str(bundleLength) + \
+                                   '/*' + suffix)
+    
+    matches = glob.glob(batchFolderGlob)
+
+    if len(matches) == 0:
+        #print("Error: No matches for: " + batchFolderGlob + ". Will skip this frame.")
+        return "", ""
+        
+    if len(matches) > 1:
+        # This I believe is an artifact of running the entire flight twice,
+        # with different value for --start-frame each time.
+        # For now, just take whatever is there, at some point this needs to be sorted out.
+        print("Warning: Found more than one answer matching glob:" + batchFolderGlob)
+        print("Values are: " + " ".join(matches))
+        #return "", ""
+
+    return matches[0], os.path.dirname(matches[0])
 
 def getFrameRangeFromBatchFolder(folder):
     '''Returns (startFrame, endFrame) for a batch folder.'''
@@ -734,6 +823,30 @@ def lidarFiles(lidarFolder):
         lidarExt = '.TXT'
 
     return (lidarFiles, lidarExt, isLVIS)
+
+def blendFileName():
+    '''The name of a generated ortho file name.'''
+    return 'out-blend-DEM.tif'
+
+def orthoFileName():
+    '''The name of a generated ortho file name.'''
+    return 'out-ortho.tif'
+
+def getAlignPrefix(outputFolder):
+    return  os.path.join(outputFolder, 'align/out')
+
+def getBundlePrefix(outputFolder):
+    '''The name of the prefix for the bundle-adjusted cameras.'''
+    return  os.path.join(outputFolder, 'bundle/out')
+
+def alignedBundleStr():
+    '''The name of the prefix (sans folder) for the generated
+    bundle-adjusted and pc_aligned camera files.'''
+    return 'aligned_bundle/out'
+
+def getAlignedBundlePrefix(outputFolder):
+    '''The name of the prefix for the bundle-adjusted cameras.'''
+    return  os.path.join(outputFolder, alignedBundleStr())
 
 def lidar_pair_prefix():
     return 'LIDAR_PAIR_'
