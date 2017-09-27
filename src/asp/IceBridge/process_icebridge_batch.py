@@ -770,7 +770,7 @@ def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
         os.system('rm -f ' + filename)
 
     # Delete the cropped DEM path
-    demCropPath = os.path.join(options.outputFolder, 'cropped_ref_dem.tif')
+    demCropPath = os.path.join(batchFolder, 'cropped_ref_dem.tif')
     os.system('rm -f ' + demCropPath)
 
     # Wipe the pc_aligned bundle directory except for the final results
