@@ -1205,6 +1205,10 @@ def readStats(inputPath):
                 minutes = float(time_arr[-1])/60.0 + float(time_arr[-2]) + 60.0*float(time_arr[-3])
                 minutes = round(10*minutes)/10
                 vals[2] = " " + str(minutes)
+
+                # Rm too many zeros
+                vals[1] = " " + str( round(float(vals[1])*10)/10.0 )
+                
                 line = ",".join(vals)
                 return line
             

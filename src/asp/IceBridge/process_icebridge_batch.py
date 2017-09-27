@@ -689,6 +689,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
             icebridge_common.logger_print(logger, out + '\n' + err)
             raise Exception('Stereo call failed!')
 
+    # TODO: Make this into a function.
     # Parse the output. Look at the very last lines having the given patterns.
     corrSearchWid = -1
     memUsage = -1
