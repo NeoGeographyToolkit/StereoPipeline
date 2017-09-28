@@ -216,7 +216,7 @@ def runConversion(run, options):
        This will also run through the fetch step to make sure we have everything we need.'''
     
     logger = logging.getLogger(__name__)
-
+    
     # Check if already done
     try:
         if run.conversionIsFinished(options.startFrame, options.stopFrame):
@@ -267,9 +267,9 @@ def runConversion(run, options):
     os.system('mkdir -p ' + pbsLogFolder)
     
     if options.simpleCameras: # Use the fast ortho2pinhole call locally.
-    
+            
         logger.info('Running simple ortho2pinhole step locally.')
-        args += ' --simple-cameras --start-frame ' + str(minFrame) + ' --stop-frame ' + str(maxFrame)
+        args += ' --simple-cameras --start-frame ' + str(options.startFrame) + ' --stop-frame ' + str(options.stopFrame)
         fullCmd = scriptPath +' '+ args
         logger.info(fullCmd)
         os.system(fullCmd)
@@ -287,6 +287,7 @@ def runConversion(run, options):
             stopFrame  = currentFrame+tasksPerJob-1
             if (i == numCamgenJobs - 1):
                 stopFrame = options.stopFrame # Make sure nothing is lost at the end
+                
             thisArgs = (args + ' --start-frame ' + str(startFrame) + \
                         ' --stop-frame ' + str(stopFrame) )
             if i != 0: # Only the first job will convert lidar files
@@ -848,6 +849,7 @@ def main(argsIn):
 
         # Narrow the frame range. Note that if we really are at the last
         # existing frame, we increment 1, to make sure we never miss anything.
+        
         (minFrame, maxFrame) = run.getFrameRange()
         if options.startFrame < minFrame:
             options.startFrame = minFrame

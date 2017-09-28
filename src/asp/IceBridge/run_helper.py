@@ -290,26 +290,19 @@ class RunHelper():
     def getFrameRange(self):
         '''Return the min and max frame currently stored for the run'''
 
-        # Loop through all the files in the jpeg folder to get the frame range
-        jpegFolder = self.getJpegFolder()
-        if not os.path.exists(jpegFolder):
-            raise Exception('Cannot get frame range from run, data not available: ' + str(run))
+        jpegFolder = icebridge_common.getJpegFolder(self.getFolder())
+        jpegIndexPath = icebridge_common.csvIndexFile(jpegFolder)
+        if not os.path.exists(jpegIndexPath):
+            raise Exception("Error: Missing jpeg index file: " + jpegIndexPath + ".")
+        (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath)
 
-        minFrame = 9999999
-        maxFrame = 0
-        jpegFiles = self.getJpegList(prependFolder=True)
-        for jpegPath in jpegFiles:
-                        
-            # Update frame range
-            frame = icebridge_common.getFrameNumberFromFilename(jpegPath)
-            if frame < minFrame:
-                minFrame = frame
-            if frame > maxFrame:
-                maxFrame = frame
+        frames = sorted(jpegFrameDict.keys())
 
-        return (minFrame, maxFrame)
+        if len(frames) == 0:
+            raise Exception("Empty folder: " + jpegFolder)
 
-
+        return (frames[0], frames[-1])
+    
     def setFlag(self, flag):
         '''Set a file based flag to be checked later'''
         os.system('touch '+ self._internalLoc(flag))
