@@ -327,7 +327,8 @@ def packAndSendCompletedRun(run):
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
-        raise Exception('Failed to pack/send results for run ' + str(run))
+        raise Exception('Failed to pack/send results for run ' + str(run) + \
+                        '. Maybe not all sym links are valid.')
     logger.info('Finished sending run to lfe.')
     
     

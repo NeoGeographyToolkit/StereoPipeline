@@ -57,16 +57,29 @@ CAMGEN_PBS_QUEUE   = 'normal'
 BATCH_PBS_QUEUE    = 'normal'
 BLEND_PBS_QUEUE    = 'normal'
 ORTHOGEN_PBS_QUEUE = 'normal'
-MAX_CAMGEN_HOURS   = 3 # Limit is 8 but these seem to complete fast.
+MAX_CAMGEN_HOURS   = 6 # Limit is 8 but these seem to complete fast.
 MAX_BATCH_HOURS    = 8 # devel limit is 2, long limit is 120, normal is 8
-MAX_BLEND_HOURS    = 2 # These jobs go pretty fast
-MAX_ORTHOGEN_HOURS = 2 # These jobs go pretty fast
+MAX_BLEND_HOURS    = 4 # These jobs go pretty fast
+MAX_ORTHOGEN_HOURS = 4 # These jobs go pretty fast
 
 GROUP_ID = 's1827'
 
 # Wait this long between checking for job completion
 SLEEP_TIME = 60
 
+g_start_time = -1
+g_stop_time  = -1
+
+def start_time():
+    global g_start_time, g_stop_time
+    g_start_time = time.time()
+    
+def stop_time(job, logger):
+    global g_start_time, g_stop_time
+    g_stop_time = time.time()
+    wall_s = float(g_stop_time - g_start_time)/3600.0
+    logger.info( ("Elapsed time for %s is %g hours." % (job, wall_s) ) )
+    
 #=========================================================================
 
 # 'wes' = Westmere = 12 cores/24 processors, 48 GB mem, SBU 1.0, Launch from mfe1 only!
@@ -178,7 +191,7 @@ def runFetch(run, options):
     else:
         try:
             # Note that the check below is incomplete, it does not check for Fireball
-            allIsFetched = run.allSourceDataFetched()
+            allIsFetched = run.allSourceDataFetched(options.noNavFetch)
         except Exception, e:
             allIsFetched = False
             logger.warning('Caught error checking fetch status.\n'
@@ -805,8 +818,19 @@ def main(argsIn):
     options.summaryFolder = os.path.join(options.baseDir, 'summaries')
     os.system('mkdir -p ' + options.summaryFolder)
     
+    # TODO: Uncomment when processing more than one run!
+    # Get the list of runs to process
+    #logger.info('Reading run lists...')
+    #allRuns  = readRunList(ALL_RUN_LIST, options)
+    #skipRuns = readRunList(SKIP_RUN_LIST, options)
+    #doneRuns = readRunList(COMPLETED_RUN_LIST, options)
+    #runList  = getRunsToProcess(allRuns, skipRuns, doneRuns)
+
+    run = run_helper.RunHelper(options.site, options.yyyymmdd, options.unpackDir)
+    
     logLevel = logging.INFO
-    logger   = icebridge_common.setUpLogger(options.logFolder, logLevel, 'pleiades_manager_log')
+    logger   = icebridge_common.setUpLogger(options.logFolder, logLevel,
+                                            'pleiades_manager_log_' + str(run))
 
     checkRequiredTools() # Make sure all the needed tools can be found before we start
 
@@ -820,21 +844,15 @@ def main(argsIn):
                                                          noThrow = True)
     logger.info("Hours used so far:\n" + out + '\n' + err)
   
-    # TODO: Uncomment when processing more than one run!
-    # Get the list of runs to process
-    #logger.info('Reading run lists...')
-    #allRuns  = readRunList(ALL_RUN_LIST, options)
-    #skipRuns = readRunList(SKIP_RUN_LIST, options)
-    #doneRuns = readRunList(COMPLETED_RUN_LIST, options)
-    #runList  = getRunsToProcess(allRuns, skipRuns, doneRuns)
-
-    run = run_helper.RunHelper(options.site, options.yyyymmdd, options.unpackDir)
-
+    # Get the location to store the logs    
+    pbsLogFolder = run.getPbsLogFolder()
+    logger.info("Storing logs in: " + pbsLogFolder)
+    os.system('mkdir -p ' + pbsLogFolder)
+    
     if True:
 
         # WARNNING: Below we tweak options.startFrame and options.stopFrame.
         # If a loop over runs is implemeneted, things will break!
-
 
         # TODO: Put this in a try/except block so it keeps going on error
 
@@ -845,8 +863,11 @@ def main(argsIn):
 
         if not options.skipFetch:
             # Obtain the data for a run if it is not already done
+            start_time()
             runFetch(run, options)       
+            stop_time("fetch", logger)
 
+        
         # Narrow the frame range. Note that if we really are at the last
         # existing frame, we increment 1, to make sure we never miss anything.
         
@@ -859,16 +880,10 @@ def main(argsIn):
 
         if not options.skipConvert:                   
             # Run initial camera generation
+            start_time()
             runConversion(run, options)
-
-        # Pack up camera folder and store it for later.
-        if not options.skipArchiveCameras:
-            try:
-                archive_functions.packAndSendCameraFolder(run)
-            except Exception, e:
-                print 'Caught exception sending camera folder'
-                logger.exception(e)
-
+            stop_time("convert", logger)
+            
         # I see no reason to exit early
         #if options.skipProcess and options.skipBlend and options.skipReport and \
         #       (not options.recomputeBatches) and options.skipArchiveCameras:
@@ -876,6 +891,7 @@ def main(argsIn):
         #    return 0
 
         if not options.skipBatchGen:
+            start_time()
             if os.path.exists(fullBatchListPath) and not options.recomputeBatches:
                 logger.info('Re-using existing batch list file.')
             else:
@@ -886,9 +902,10 @@ def main(argsIn):
             if options.failedBatchesOnly:
                 logger.info('Assembling batch file with only failed batches...')
                 batchListPath = filterBatchJobFile(run, batchListPath)
+            stop_time("batch gen", logger)
 
         if not options.skipProcess:
-        
+            start_time()
             # Divide up batches into jobs and submit them to machines.
             logger.info('Submitting jobs for run ' + str(run))
             (baseName, jobList) = submitBatchJobs(run, options, batchListPath)
@@ -898,27 +915,45 @@ def main(argsIn):
             
             waitForRunCompletion(baseName, jobList)
             logger.info('All jobs finished for run '+str(run))
+            stop_time("dem creation", logger)
         
         if not options.skipBlend:
+            start_time()
             runJobs(run, 'blend', options)
+            stop_time("blend", logger)
         
         if not options.skipOrthoGen:
+            start_time()
             runJobs(run, 'orthogen', options)
+            stop_time("orthogen", logger)
 
         # TODO: Uncomment when processing multiple runs.
         ## Log the run as completed
         ## - If the run was not processed correctly it will have to be looked at manually
         #addToRunList(COMPLETED_RUN_LIST, run)
 
+        # Pack up camera folder and store it for later.
+        if not options.skipArchiveCameras:
+            start_time()
+            try:
+                archive_functions.packAndSendCameraFolder(run)
+            except Exception, e:
+                print 'Caught exception sending camera folder'
+                logger.exception(e)
+            stop_time("archive cameras", logger)
+
         # Pack up the aligned cameras and store them for later
         if not options.skipArchiveAlignedCameras:
+            start_time()
             try:
                 archive_functions.packAndSendAlignedCameras(run)
             except Exception, e:
                 print 'Caught exception sending aligned cameras'
                 logger.exception(e)
+            stop_time("archive aligned cameras", logger)
 
         if not options.skipReport:
+            start_time()
             # Generate a simple report of the results
             (numNominalDems, numProducedDems,
              numNominalOrthos, numProducedOrthos,
@@ -945,6 +980,8 @@ def main(argsIn):
                            '--stop-frame', str(options.stopFrame)]
             logger.info("Running generate_flight_summary.py " + " ".join(genCmd))
             generate_flight_summary.main(genCmd)
+            stop_time("report", logger)
+            
         else:
             resultText        = 'Summary skipped'
             errorCount        = 0 # Flag values to let the next condition pass
@@ -955,10 +992,11 @@ def main(argsIn):
             
         # send data to lunokhod and lfe
         if not options.skipArchiveSummary:
+            start_time()
             summaryFolder = os.path.join(options.summaryFolder, run.name())
             archive_functions.packAndSendSummaryFolder(run, summaryFolder)
+            stop_time("archive summary", logger)
             
-
         # Don't pack or clean up the run if it did not generate all the output files.
         # - TODO: Will never produce 100% of outputs. So wiping better be done anyway.
         success = False
@@ -969,15 +1007,19 @@ def main(argsIn):
 
         # Archive the DEMs
         if not options.skipArchiveRun:
+            start_time()
             archive_functions.packAndSendCompletedRun(run)
+            stop_time("archive dems", logger)
             
         # Pack up the generated ortho images and store them for later
         if not options.skipArchiveOrthos:
+            start_time()
             try:
                 archive_functions.packAndSendOrthos(run)
             except Exception, e:
                 print 'Caught exception sending ortho images.'
                 logger.exception(e)
+            stop_time("archive orthos", logger)
 
         if not options.skipEmail:
             emailAddress = getEmailAddress(icebridge_common.getUser())

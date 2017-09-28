@@ -78,10 +78,6 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
             print("Could not find aligned camera for frame: " + str(frame))
             return
 
-
-        print("--align cam file ", alignCamFile)
-        print("--image ", imageFile)
-
         # To ensure we mapproject the image fully, mosaic the several DEMs
         # around it. Keep the closest 5. Try to grab more first to account
         # for skipped frames.
@@ -107,14 +103,11 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
             dems.append(demFile)
             
         demList = " ".join(dems)
-        print("--dems are ", demList)
 
         # Call this one more time, to get the current batch folder
         currDemFile, batchFolder = icebridge_common.frameToFile(frame,
                                                                 icebridge_common.blendFileName(),
                                                                 processFolder, bundleLength)
-
-        print("--curr batch folder ", batchFolder)
 
         # The names for the final results
         finalOrtho = os.path.join(batchFolder, icebridge_common.orthoFileName())

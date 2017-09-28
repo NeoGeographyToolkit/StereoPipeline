@@ -184,7 +184,7 @@ class RunHelper():
             output.append((path, frames))
         return output
 
-    def allSourceDataFetched(self, verbose=False):
+    def allSourceDataFetched(self, noNav, verbose=False):
         '''Return true if all the required source data has been downloaded'''
     
         logger = logging.getLogger(__name__)
@@ -221,13 +221,14 @@ class RunHelper():
                 if not os.path.exists(path):
                     logger.error('Missing file ' + path)
                     return False
-        
-        # Simple nav file check
-        navFiles = os.listdir(self.getNavFolder())
-        navFiles = [x for x in navFiles if '.out' in navFiles]
-        if (len(navFiles) == 0) or (len(navFiles) > 2):
-            logger.error('Wrong number of nav files detected!')
-            return False
+
+        if not noNav:
+            # Simple nav file check
+            navFiles = os.listdir(self.getNavFolder())
+            navFiles = [x for x in navFiles if '.out' in navFiles]
+            if (len(navFiles) == 0) or (len(navFiles) > 2):
+                logger.error('Wrong number of nav files detected!')
+                return False
         
         return True # Success!
 
