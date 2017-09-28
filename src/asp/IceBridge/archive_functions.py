@@ -73,7 +73,7 @@ elif icebridge_common.getUser() == 'oalexan1':
     LUNOKHOD                = 'lunokhod1'
     L_SUMMARY_FOLDER        = LUNOKHOD + ':/home/oalexan1/projects/data/icebridge/summaries'
 
-def retrieveRunData(run, unpackFolder):
+def retrieveRunData(run, unpackFolder, useTar):
     '''Retrieve the data for the specified run from Lfe.'''
 
     logger = logging.getLogger(__name__)
@@ -91,7 +91,13 @@ def retrieveRunData(run, unpackFolder):
 
     lfePath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)
 
-    cmd = 'shiftc --wait -d -r --verify --extract-tar ' + lfePath + ' ' + unpackFolder
+    if useTar:
+        # I have had bad luck with shift to fetch
+        cmd = 'ssh lfe "cd ' + os.path.dirname(stripHost(lfePath)) + "; tar xfv " + \
+              os.path.basename(lfePath) + " -C " + os.path.realpath(unpackFolder) + '"'
+    else:
+        cmd = 'shiftc --wait -d -r --verify --extract-tar ' + lfePath + ' ' + unpackFolder
+            
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:

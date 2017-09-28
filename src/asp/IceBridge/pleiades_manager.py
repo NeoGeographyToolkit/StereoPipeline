@@ -185,7 +185,7 @@ def runFetch(run, options):
                        + str(e))
 
     # Fetch the archive from lfe, only in the case the directory is not present
-    archive_functions.retrieveRunData(run, options.unpackDir)
+    archive_functions.retrieveRunData(run, options.unpackDir, options.useTar)
 
     pythonPath = asp_system_utils.which('python')
     
@@ -714,6 +714,9 @@ def main(argsIn):
                             dest="failedBatchesOnly", default=False, 
                             help="Don't reprocess completed batches.")
 
+        parser.add_argument("--use-tar", action="store_true", dest="useTar", default=False, 
+                            help="Fetch from lfe using tar instead of shift.")
+
         parser.add_argument("--skip-fetch", action="store_true", dest="skipFetch", default=False, 
                             help="Don't fetch.")
         parser.add_argument("--skip-convert", action="store_true", dest="skipConvert",
@@ -831,15 +834,6 @@ def main(argsIn):
         # WARNNING: Below we tweak options.startFrame and options.stopFrame.
         # If a loop over runs is implemeneted, things will break!
 
-        # Narrow the frame range. Note that if we really are at the last
-        # existing frame, we increment 1, to make sure we never miss anything.
-        (minFrame, maxFrame) = run.getFrameRange()
-        if options.startFrame < minFrame:
-            options.startFrame = minFrame
-        if options.stopFrame >= maxFrame:
-            options.stopFrame = maxFrame + 1 # see above
-            
-        logger.info('Detected frame range: ' + str((options.startFrame, options.stopFrame)))
 
         # TODO: Put this in a try/except block so it keeps going on error
 
@@ -851,6 +845,15 @@ def main(argsIn):
         if not options.skipFetch:
             # Obtain the data for a run if it is not already done
             runFetch(run, options)       
+
+        # Narrow the frame range. Note that if we really are at the last
+        # existing frame, we increment 1, to make sure we never miss anything.
+        (minFrame, maxFrame) = run.getFrameRange()
+        if options.startFrame < minFrame:
+            options.startFrame = minFrame
+        if options.stopFrame >= maxFrame:
+            options.stopFrame = maxFrame + 1 # see above
+        logger.info('Detected frame range: ' + str((options.startFrame, options.stopFrame)))
 
         if not options.skipConvert:                   
             # Run initial camera generation
