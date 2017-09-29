@@ -1021,6 +1021,8 @@ int update_outliers(ControlNetwork                  & cnet,
                     std::vector<size_t> const& cam_residual_counts,
                     size_t num_gcp_residuals, 
                     ceres::Problem &problem) {
+  
+  vw_out() << "Removing pixel outliers in preparation for another solver attempt...";
 
   // Compute the reprojection error. Hence we should not add the contribution
   // of the loss function.
@@ -1030,21 +1032,20 @@ int update_outliers(ControlNetwork                  & cnet,
                     opt, num_cameras, num_camera_params, num_point_params,  cam_residual_counts,  
                     num_gcp_residuals,  crn, problem,
                     residuals // output
-                    );
+                   );
 
   // Compute the mean residual at each xyz, and how many times that residual is seen
   std::vector<double> mean_residuals;
   std::vector<int>  num_point_observations;
   compute_mean_residuals_at_xyz(crn,  residuals,  num_points, outlier_xyz,  num_cameras,
-				// outputs
-				mean_residuals, num_point_observations);
+                                // outputs
+                                mean_residuals, num_point_observations);
 
 
   // The number of mean residuals is the same as the number of points,
   // of which some are outliers. Hence need to collect only the
   // non-outliers so far to be able to remove new outliers.  Need to
-  // follow the same logic as when residuals were formed. And also
-  // ignore GCP.
+  // follow the same logic as when residuals were formed. And also ignore GCP.
   std::vector<double> actual_residuals;
   std::set<int> was_added;
   for ( size_t icam = 0; icam < num_cameras; icam++ ) {
@@ -1069,7 +1070,7 @@ int update_outliers(ControlNetwork                  & cnet,
     }
   } // End double loop through all the observations
 
-  double pct = 1.0 - opt.remove_outliers_params[0]/100.0;
+  double pct            = 1.0 - opt.remove_outliers_params[0]/100.0;
   double outlier_factor = opt.remove_outliers_params[1];
   double max_pix1 =  opt.remove_outliers_params[2];
   double max_pix2 =  opt.remove_outliers_params[3];
@@ -1080,6 +1081,7 @@ int update_outliers(ControlNetwork                  & cnet,
   // If this is too aggressive, the user can tame it. It is
   // unreasonable to throw out pixel residuals as small as 1 or 2
   // pixels.  We will not use the b, because the residuals start at 0.
+  // - "max_pix" sets the minimum error that can be thrown out.
   e = std::min(std::max(e, max_pix1), max_pix2);
 
   vw_out() << "Removing as outliers points with mean reprojection error > " << e << ".\n";
@@ -1124,8 +1126,10 @@ int update_outliers(ControlNetwork                  & cnet,
     }
   } // End double loop through all the observations
 
-  int num_new_outliers = new_outliers.size() - outlier_xyz.size();
-  vw_out() << "Added " << num_new_outliers << " outliers.\n";
+  int num_new_outliers     = new_outliers.size() - outlier_xyz.size();
+  int num_remaining_points = num_points - new_outliers.size();
+  vw_out() << "Removed " << num_new_outliers << " outliers, now have "
+           << num_remaining_points << " points remaining\n";
 
   // TODO: Write how many outliers were removed because of the lonlat check and elevation check
   
@@ -1214,7 +1218,8 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     for ( int icam = 0; icam < num_cameras; icam++ ) {
       for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
         int ipt = (**fiter).m_point_id;
-	if (outlier_xyz.find(ipt) != outlier_xyz.end()) continue; // skip outliers
+        if (outlier_xyz.find(ipt) != outlier_xyz.end())
+          continue; // skip outliers
         double * point  = points  + ipt  * num_point_params;
         count_map[point]++;
       }
@@ -1229,7 +1234,8 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
 
       // The index of the 3D point
       int ipt = (**fiter).m_point_id;
-      if (outlier_xyz.find(ipt) != outlier_xyz.end()) continue; // skip outliers
+      if (outlier_xyz.find(ipt) != outlier_xyz.end())
+        continue; // skip outliers
 
       VW_ASSERT(int(icam) < num_cameras,
                 ArgumentErr() << "Out of bounds in the number of cameras");
@@ -1276,7 +1282,8 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   for (int ipt = 0; ipt < num_points; ipt++){
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint) continue;
 
-    if (outlier_xyz.find(ipt) != outlier_xyz.end()) continue; // skip outliers
+    if (outlier_xyz.find(ipt) != outlier_xyz.end())
+      continue; // skip outliers
     
     num_gcp++;
     
@@ -1436,7 +1443,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     }
   }
 
-  int num_new_outliers  = 0;
+  int num_new_outliers = 0;
   if (!last_pass) 
     num_new_outliers =
       update_outliers(cnet, crn, points, num_points,
@@ -1448,8 +1455,9 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   // Create a match file with clean points.
   // TODO: Make this a function.
   // TODO: Create this for every pair of images.
-  if (opt.num_ba_passes > 1 && num_cameras == 2 && (num_new_outliers == 0 || last_pass) ) {
+  if (opt.num_ba_passes > 1 && num_cameras == 2 && (num_new_outliers > 0)) {
 
+    vw_out() << "Building clean IP list...\n";
     std::vector<vw::ip::InterestPoint> left_ip, right_ip;
     std::vector<int> left_pt, right_pt; // these are used for bookkeeping
 
@@ -1458,10 +1466,12 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
         
         // The index of the 3D point
         int ipt = (**fiter).m_point_id;
-        if (outlier_xyz.find(ipt) != outlier_xyz.end()) continue; // skip outliers
+        if (outlier_xyz.find(ipt) != outlier_xyz.end())
+          continue; // skip outliers
         
         // Skip gcp
-        if (cnet[ipt].type() == ControlPoint::GroundControlPoint) continue;
+        if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+          continue;
         
         VW_ASSERT(int(icam) < num_cameras,
                   ArgumentErr() << "Out of bounds in the number of cameras");
@@ -1494,7 +1504,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     std::string match_file = opt.out_prefix  + "-clean.match";
     vw_out() << "Writing: " << match_file << std::endl;
     ip::write_binary_match_file(match_file, left_ip, right_ip);
-  }
+  } // End outlier update case
       
   return num_new_outliers;
 }
@@ -1590,6 +1600,10 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
       vw_out() << "No new outliers removed. No more passes are needed.\n";
       break;
     }
+    
+    int num_points_remaining = num_points - outlier_xyz.size();
+    if (num_points_remaining < opt.min_matches)
+      vw_throw(ArgumentErr() << "Error: Too few points remain after filtering!.\n");
   }
 
   // Copy the latest version of the optimized intrinsic variables back
