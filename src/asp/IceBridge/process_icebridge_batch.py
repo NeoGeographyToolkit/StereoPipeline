@@ -67,10 +67,10 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
        with enough lidar points used in the comparison'''
 
     STARTING_DISPLACEMENT  = 30
-    MAX_DISPLACEMENT       = 30
+    MAX_DISPLACEMENT       = 120
     DISPLACEMENT_INCREMENT = 20
     ERR_HEADER_SIZE        = 3
-    MIN_LIDAR_POINTS       = 300 #15000  1500 is closer to a good value, so increase if we will iterate.
+    MIN_LIDAR_POINTS       = 1000 #15000  15000 is closer to a good value, so increase if we will iterate.
 
     lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
 
@@ -271,7 +271,8 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
             argString = blurredImageCameraString                     
 
         cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
-                '--translation-weight %0.16g -t nadirpinhole --skip-rough-homography '+
+                #'--num-passes 2 --remove-outliers-params "75.0 3.0 4.0" ' +
+                '--translation-weight %0.16g -t nadirpinhole --skip-rough-homography ' +
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
                 '--overlap-exponent %0.16g --epipolar-threshold %d --ip-side-filter-percent %d')
@@ -620,7 +621,7 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
     
 
 def createDem(i, options, inputPairs, prefixes, demFiles, projString,
-              extraArgs, threadText, matchFilePair,
+              heightLimitString, threadText, matchFilePair,
               suppressOutput, redo, logger=None):
     '''Create a DEM from a pair of images'''
 
@@ -640,7 +641,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # - Note that the base level memory usage ignoring the SGM buffers is about 2 GB so this memory
     #   usage is in addition to that.
     stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 --min-num-ip 20 ' %
-                 (argString, thisPairPrefix, threadText, extraArgs))
+                 (argString, thisPairPrefix, threadText, heightLimitString))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
     if '--stereo-algorithm 0' not in options.stereoArgs:
@@ -666,8 +667,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo, noThrow=True)
     
     if status != 0:
-        # If stereo failed, try it out one more time provided with the .match file that
-        #  was created by bundle_adjust.
+        # If stereo failed, try it again with the .match file that was created by bundle_adjust.
         icebridge_common.logger_print(logger, 'First stereo attempt failed, will copy .match file from bundle_adjust and retry.')
         
         # Clear any existing .match file then link in the new one.
@@ -681,6 +681,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
             raise Exception('Failed to create .match file symlink: ' + matchFilePair[1])
             
         # With the .match file copied we can retry with the same parameters.
+        # - Exception is the height limit string, which we can remove if using existing IP.
+        stereoCmd = stereoCmd.replace(heightLimitString, ' ')
         icebridge_common.logger_print(logger, stereoCmd)
         (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, 
                                                              redo, noThrow=True)
@@ -1072,7 +1074,6 @@ def doWork(options, args, logger):
     # We can either process the batch serially, or in parallel For
     # many batches the former is preferred, with the batches
     # themselves being in parallel.
-    extraArgs = heightLimitString
     if options.numProcessesPerBatch > 1:
         logger.info('Starting processing pool for given batch with ' +
                     str(options.numProcessesPerBatch) + ' processes.')
@@ -1081,7 +1082,7 @@ def doWork(options, args, logger):
         for i in range(0, numRuns):
             taskHandles.append(pool.apply_async(createDem, 
                                                 (i, options, inputPairs, prefixes, demFiles,
-                                                 projString, extraArgs, threadText, baMatchFiles[i],
+                                                 projString, heightLimitString, threadText, baMatchFiles[i],
                                                  suppressOutput, redo)))
         # Wait for all the tasks to complete
         icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, interactive = False, 
@@ -1092,7 +1093,7 @@ def doWork(options, args, logger):
 
     else:
         for i in range(0, numRuns):
-            createDem(i, options, inputPairs, prefixes, demFiles, projString, extraArgs,
+            createDem(i, options, inputPairs, prefixes, demFiles, projString, heightLimitString,
                       threadText, baMatchFiles[i], suppressOutput, redo, logger)
 
     # If we had to create at least one DEM, need to redo all the post-DEM creation steps
