@@ -352,13 +352,7 @@ def main(argsIn):
     (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath)
     
     if options.blendToFireball:
-        fireballFolder = icebridge_common.getFireballFolder(options.outputFolder)
-        corrFireballFolder = icebridge_common.getCorrFireballFolder(options.outputFolder)
-        fireballIndexPath = icebridge_common.csvIndexFile(fireballFolder)
-        if not os.path.exists(fireballIndexPath):
-            raise Exception("Error: Missing fireball index file: " + fireballIndexPath + ".")
-        (fireballFrameDict, fireballUrlDict) = \
-                            icebridge_common.readIndexFile(fireballIndexPath, prependFolder = True)
+        fireballFrameDict = icebridge_common.getCorrectedFireballDems(options.outputFolder)
         
     lidarFolder = icebridge_common.getLidarFolder(options.outputFolder)
     
@@ -397,8 +391,6 @@ def main(argsIn):
         if options.blendToFireball:
             if frame in fireballFrameDict:
                 fireballDEM = fireballFrameDict[frame]
-                # Get the corrected one
-                fireballDEM = os.path.join(corrFireballFolder, os.path.basename(fireballDEM))
             else:
                 logger.info("No fireball DEM for frame: " + str(frame))
             

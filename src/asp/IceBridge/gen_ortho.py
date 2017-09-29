@@ -111,37 +111,45 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
 
         # The names for the final results
         finalOrtho = os.path.join(batchFolder, icebridge_common.orthoFileName())
+        finalOrthoPreview = os.path.join(batchFolder, icebridge_common.orthoPreviewFileName())
         
         if (not redo) and os.path.exists(finalOrtho):
             print("File exists: " + finalOrtho + ".")
-            return
+        else:
+            # See if we have a pre-existing DEM to use as footprint
+            mosaicPrefix = os.path.join(batchFolder, 'out-temp-mosaic')
+            mosaicOutput = mosaicPrefix + '-tile-0.tif'
+            filesToWipe = []
+            cmd = ('dem_mosaic --hole-fill-length 100 %s %s -o %s' 
+                   % (demList, threadText, mosaicPrefix))
+            filesToWipe.append(mosaicOutput) # no longer needed
 
-        # See if we have a pre-existing DEM to use as footprint
-        mosaicPrefix = os.path.join(batchFolder, 'out-temp-mosaic')
-        mosaicOutput = mosaicPrefix + '-tile-0.tif'
-        filesToWipe = []
-        cmd = ('dem_mosaic --hole-fill-length 100 %s %s -o %s' 
-               % (demList, threadText, mosaicPrefix))
-        filesToWipe.append(mosaicOutput) # no longer needed
+            print(cmd)
+            asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)
 
-        print(cmd)
-        asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)
+            filesToWipe += glob.glob(mosaicPrefix + '*' + '-log-' + '*')
 
-        filesToWipe += glob.glob(mosaicPrefix + '*' + '-log-' + '*')
+            # Run mapproject. The grid size is auto-determined.
+            cmd = ('mapproject --no-geoheader-info %s %s %s %s %s' 
+                   % (mosaicOutput, imageFile, alignCamFile, finalOrtho, threadText))
 
-        # Run mapproject. The grid size is auto-determined.
-        cmd = ('mapproject %s %s %s %s %s' 
-               % (mosaicOutput, imageFile, alignCamFile, finalOrtho, threadText))
-                
-        print(cmd)
-        asp_system_utils.executeCommand(cmd, finalOrtho, suppressOutput, redo)
-        
-        # Clean up extra files
-        for fileName in filesToWipe:
-            if os.path.exists(fileName):
-                print("Removing: " + fileName)
-                os.remove(fileName)
-                
+            print(cmd)
+            asp_system_utils.executeCommand(cmd, finalOrtho, suppressOutput, redo)
+
+            # Clean up extra files
+            for fileName in filesToWipe:
+                if os.path.exists(fileName):
+                    print("Removing: " + fileName)
+                    os.remove(fileName)
+
+        if (not redo) and os.path.exists(finalOrthoPreview):
+            print("File exists: " + finalOrthoPreview + ".")
+        else:
+            cmd = 'gdal_translate -scale -outsize 25% 25% -of jpeg ' + finalOrtho + \
+                  ' ' + finalOrthoPreview 
+            print(cmd)
+            asp_system_utils.executeCommand(cmd, finalOrthoPreview, suppressOutput, redo)
+            
     except Exception as e:
         print('Ortho creation failed!\n' + str(e) + ". " + str(traceback.print_exc()))
 

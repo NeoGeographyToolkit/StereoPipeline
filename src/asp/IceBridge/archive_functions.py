@@ -147,10 +147,11 @@ def packAndSendCameraFolder(run):
     logger.info(cmd)
     os.system(cmd)
 
-    # Do the new file
+    # Do the new file. Save the projection bounds, we will need that for later
+    # as that file is very time conssuming to create. 
     runFolder = str(run)
-    cmd = 'shiftc --wait -d -r --include=\'^.*?' + \
-          os.path.basename(cameraFolder) + '.*?\.tsai$\' --create-tar ' + runFolder + \
+    cmd = 'shiftc --wait -d -r --include=\'^.*?(projection_bounds.csv|' + \
+          os.path.basename(cameraFolder) + '.*?\.tsai)$\' --create-tar ' + runFolder + \
           ' ' + lfePath
     
     logger.info(cmd)

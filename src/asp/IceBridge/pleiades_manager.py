@@ -656,7 +656,51 @@ def checkRequiredTools():
     for script in scripts:
         if not os.path.exists(icebridge_common.fullPath(script)):
             raise Exception("Could not find: " + script)
+
+def checkOutputs(options, run, logger):
+
+    logger.info("Checking the outputs.")
+    
+    # Load index of fireball DEMs for comparison
+    fireballDems = {}
+    try:
+        allFireballDems = icebridge_common.getCorrectedFireballDems(run.getFolder())
+        for frame in allFireballDems.keys():
+            if frame < options.startFrame or frame >= options.stopFrame:
+                continue
+            fireballDems[frame] = allFireballDems[frame]
+    except Exception, e:
+        # No fireball
+        logger.info(str(e))
         
+    alignedDems = run.existingFilesDict(icebridge_common.alignFileName(),
+                                        options.startFrame, options.stopFrame)
+    
+    blendedDems = run.existingFilesDict(icebridge_common.blendFileName(),
+                                        options.startFrame, options.stopFrame)
+    
+    orthos = run.existingFilesDict(icebridge_common.orthoFileName(),
+                                   options.startFrame, options.stopFrame)
+        
+    logger.info("Number of aligned DEMs: " + str(len(alignedDems.keys())))
+    logger.info("Number of blended DEMs: " + str(len(blendedDems.keys())))
+    logger.info("Number of ortho images: " + str(len(orthos.keys())))
+    if len(fireballDems.keys()) > 0:
+        logger.info("Number of fireball DEMs: " + str(len(fireballDems.keys())))
+        
+    for frame in sorted(alignedDems.keys()):
+        if frame not in blendedDems.keys():
+            logger.info("Found aligned DEM but no blended DEM for frame: " + str(frame))
+            
+    for frame in sorted(blendedDems.keys()):
+        if frame not in orthos.keys():
+            logger.info("Found blended DEM but no ortho for frame: " + str(frame))
+
+    if len(fireballDems.keys()) > 0:
+        for frame in sorted(fireballDems.keys()):
+            if not frame in blendedDems.keys():
+                logger.info("Found fireball DEM but no blended DEM for frame: " + str(frame))
+                
 def main(argsIn):
 
     try:
@@ -782,6 +826,9 @@ def main(argsIn):
         
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                             default=False, help="Don't validate the input data.")
+
+        parser.add_argument("--check-outputs", action="store_true", dest="skipCheckOutputs",
+                            default=False, help="Don't check how many outputs got created.")
 
         parser.add_argument("--wipe-processed", action="store_true", dest="wipeProcessed",
                             default=False,
@@ -1020,8 +1067,10 @@ def main(argsIn):
                 sendEmail(emailAddress, 'OIB run passed - ' + str(run), resultText)
             else:
                 sendEmail(emailAddress, '"OIB run failed - ' + str(run), resultText)
-        
 
+        if not options.skipCheckOutputs:
+            checkOutputs(options, run, logger)
+            
         if options.wipeProcessed:
             processedFolder = run.getProcessFolder()
             logger.info("Will delete: " + processedFolder)

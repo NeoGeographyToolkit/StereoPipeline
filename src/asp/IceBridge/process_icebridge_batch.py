@@ -927,11 +927,12 @@ def main(argsIn):
 def doWork(options, args, logger):
     '''Do all of the processing.'''
 
-    numArgs    = len(args)
-    numCameras = (numArgs) / 2
-
     os.system("ulimit -c 0") # disable core dumps
     os.system("umask 022")   # enforce files be readable by others
+
+    numArgs    = len(args)
+    numCameras = (numArgs) / 2
+    numRuns = numCameras - options.stereoImageInterval
 
     # Verify all input files exist
     for i in range(0,numArgs):
@@ -1050,12 +1051,19 @@ def doWork(options, args, logger):
     # STEREO
     
     # Call stereo seperately on each pair of cameras and create a DEM
-    numRuns = numCameras - options.stereoImageInterval
 
     # Check if we have all of the stereo output files
-    prefixes     = []
-    demFiles     = []
-    baMatchFiles = []
+    prefixes              = []
+    demFiles              = []
+    baMatchFiles          = []
+    fireLidarDiffCsvPaths = []                      
+
+    # Load index of fireball DEMs for comparison
+    if options.fireballFolder:
+        fireballFrameDict = icebridge_common.getCorrectedFireballDems\
+                            (os.path.dirname(options.fireballFolder))
+        matchingFireballDems = []
+        
     atLeastOneDemMissing = False
     for i in range(0, numRuns):
         thisOutputFolder = os.path.join(options.outputFolder, 'stereo_pair_'+str(i))
@@ -1071,6 +1079,22 @@ def doWork(options, args, logger):
         (inputMatch, outputMatch) = getMatchFiles(options, origInputPairs, i)
         baMatchFiles.append( (inputMatch, outputMatch))
 
+        # Diff with fireball early, in case our run fails
+        currCam = inputPairs[i][1]
+        frame = icebridge_common.getFrameNumberFromFilename(currCam)
+        if frame not in fireballFrameDict.keys():
+            continue
+        fireball = fireballFrameDict[frame]
+        matchingFireballDems.append(fireball)
+        if lidarFile:                           
+            prefix  = outputPrefix + '_fireball_lidar_' + str(i)
+            csvPath = prefix + "-diff.csv"
+            cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % 
+                   (lidarCsvFormatString, fireball, lidarFile, prefix))
+            logger.info(cmd) # to make it go to the log, not just on screen
+            asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
+            fireLidarDiffCsvPaths.append(csvPath)
+        
     # We can either process the batch serially, or in parallel For
     # many batches the former is preferred, with the batches
     # themselves being in parallel.
@@ -1108,8 +1132,6 @@ def doWork(options, args, logger):
 
     # Check the elevation disparities between the DEMs.  High discrepancy
     # usually means there was an alignment error.
-    INTER_DEM_DIFF_CUTOFF = 1.0 # Meters
-    FIREBALL_DIFF_CUTOFF  = 1.0 # Meters
     interDiffSummaryPath  = outputPrefix + '_inter_diff_summary.csv'
     interDiffPaths        = []
     
@@ -1125,12 +1147,10 @@ def doWork(options, args, logger):
             # Read in and examine the results
             results = icebridge_common.readGeodiffOutput(diffPath)
             interDiffPaths.append(diffPath)
-            if abs(results['Mean']) > INTER_DEM_DIFF_CUTOFF:
-                logger.warning('Difference between dem ' + demFiles[0] + ' and dem ' + demFiles[i]
-                               + ' is large: ' + str(results['Mean']))
         except:
             pass # Files with no overlap will fail here
-            #logger.warning('Difference between dem ' + demFiles[0] + ' and dem ' + demFiles[i] + ' failed!')
+            #logger.warning('Difference between dem ' + demFiles[0] + \
+            # ' and dem ' + demFiles[i] + ' failed!')
 
     # Can do interdiff only if there is more than one DEM
     if numDems > 1:
@@ -1180,16 +1200,9 @@ def doWork(options, args, logger):
         lidarDemOutput = lidarCsvToDem(lidarFile, projBounds, projString, options.outputFolder, 
                                        threadText, suppressOutput, redo, logger)
 
-    # Compare to Fireball DEMs if available
+    # More comparisons with Fireball DEMs if available
     fireballDiffPaths     = []
-    fireLidarDiffCsvPaths = []                      
     if options.fireballFolder:
-        # Get the fireball DEM for each input image
-        # - Note that each fireball DEM has input from 3+ images so this is an approximation.
-        images, cameras      = zip(*inputPairs)
-        fireballDems         = icebridge_common.getTifs(options.fireballFolder, prependFolder=True)
-        matchingFireballDems = icebridge_common.getMatchingFrames(images, fireballDems)
-
         fireballDiffSummaryPath  =  outputPrefix + '_fireball_diff_summary.csv'
         fireLidarDiffSummaryPath =  outputPrefix + '_fireLidar_diff_summary.csv'
     
@@ -1216,19 +1229,7 @@ def doWork(options, args, logger):
             
             results = icebridge_common.readGeodiffOutput(diffPath)
             fireballDiffPaths.append(diffPath)
-            if abs(results['Mean']) > FIREBALL_DIFF_CUTOFF:
-                logger.warning('Difference between dem ' + demFiles[i]
-                               + ' and fireball is large: ' + str(results['Mean']))
     
-            # If the lidar file is also available, compare Fireball to lidar.
-            if lidarFile:                           
-                prefix  = outputPrefix + '_fireball_lidar_' + str(i)
-                csvPath = prefix + "-diff.csv"
-                cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % 
-                       (lidarCsvFormatString, fireball, lidarFile, prefix))
-                logger.info(cmd) # to make it go to the log, not just on screen
-                asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
-                fireLidarDiffCsvPaths.append(csvPath)
     
             #except:
             #    logger.warning('Difference between dem ' + demFiles[0] + ' and fireball failed!')

@@ -145,7 +145,7 @@ def htmlIndexFile(folder):
 def csvIndexFile(folder):
     '''Return the clean csv version of the html index file for this folder (if appropriate) '''
     return htmlIndexFile(folder) + ".csv"
-    
+
 def projectionBoundsFile(folder):
     return os.path.join(folder, 'projection_bounds.csv')
 
@@ -337,6 +337,23 @@ def getCameraGsdAndBounds(imagePath, cameraPath, logger, referenceDem=None, proj
 
     return (gsd, bounds)
 
+def getCorrectedFireballDems(outputFolder):
+    '''Get a dictionary of the corrected fireball DEMs, with path prepended to them.'''
+    fireballFolder     = getFireballFolder(outputFolder)
+    corrFireballFolder = getCorrFireballFolder(outputFolder)
+    fireballIndexPath  = csvIndexFile(fireballFolder)
+    if not os.path.exists(fireballIndexPath):
+        raise Exception("Error: Missing fireball index file: " + fireballIndexPath + ".")
+    (fireballFrameDict, fireballUrlDict) = \
+                        readIndexFile(fireballIndexPath, prependFolder = True)
+    
+    for frame in fireballFrameDict.keys():
+        # Get the corrected one
+        fireballFrameDict[frame] = os.path.join(corrFireballFolder,
+                                                os.path.basename(fireballFrameDict[frame]))
+
+    return fireballFrameDict
+    
 def getCameraGsdAndBoundsRetry(imagePath, cameraPath, logger, referenceDem, projString=""):
     '''As getCameraGsd, but retry with the datum if the DEM fails.'''
 
@@ -827,13 +844,21 @@ def lidarFiles(lidarFolder):
 
     return (lidarFiles, lidarExt, isLVIS)
 
+def alignFileName():
+    '''The name of a generated aligned DEM.'''
+    return 'out-align-DEM.tif'
+
 def blendFileName():
-    '''The name of a generated ortho file name.'''
+    '''The name of a generated blended DEM.'''
     return 'out-blend-DEM.tif'
 
 def orthoFileName():
-    '''The name of a generated ortho file name.'''
+    '''The name of a generated ortho file.'''
     return 'out-ortho.tif'
+
+def orthoPreviewFileName():
+    '''The name of a generated ortho preview file.'''
+    return 'out-ortho-PREVIEW.jpg'
 
 def getAlignPrefix(outputFolder):
     return  os.path.join(outputFolder, 'align/out')

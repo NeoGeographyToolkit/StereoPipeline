@@ -119,7 +119,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   // Input
   std::string dem_file, image_file, camera_file, output_file, stereo_session,
     bundle_adjust_prefix;
-  bool isQuery;
+  bool isQuery, noGeoHeaderInfo;
 
   // Settings
   std::string target_srs_string;
@@ -152,7 +152,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("t_pixelwin",       po::value(&opt.target_pixelwin),
      "Limit the map-projected image to this region, with the corners given in pixels (xmin ymin xmax ymax). Max is exclusive.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
-     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
+     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
+    ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
+     "Suppress writing some auxialliary information in geoheaders.");
 
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -233,12 +235,14 @@ void write_parallel_cond( std::string              const& filename,
 
   // Save some keywords that we will check later when using the mapprojected file
   std::map<std::string, std::string> keywords;
-  keywords["CAMERA_MODEL_TYPE" ]    = session_type;
-  std::string prefix = asp::stereo_settings().bundle_adjust_prefix;;
-  if (prefix == "") prefix = "NONE"; // to save the field, need to make it non-empty
-  keywords["BUNDLE_ADJUST_PREFIX" ] = prefix;
-  keywords["DEM_FILE" ]             = opt.dem_file;
-
+  if (! opt.noGeoHeaderInfo) {
+    keywords["CAMERA_MODEL_TYPE" ]    = session_type;
+    std::string prefix = asp::stereo_settings().bundle_adjust_prefix;;
+    if (prefix == "") prefix = "NONE"; // to save the field, need to make it non-empty
+    keywords["BUNDLE_ADJUST_PREFIX" ] = prefix;
+    keywords["DEM_FILE" ]             = opt.dem_file;
+  }
+  
   bool has_georef = true;
 
   // ISIS is not thread safe so we must switch out base on what the session is.

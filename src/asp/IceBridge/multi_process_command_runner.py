@@ -79,10 +79,10 @@ def main(argsIn):
     except argparse.ArgumentError, msg:
         parser.error(msg)
 
+    icebridge_common.switchWorkDir()
+    
     os.system("ulimit -c 0") # disable core dumps
     os.system("umask 022")   # enforce files be readable by others
-    
-    icebridge_common.switchWorkDir()
     
     if not os.path.exists(options.commandFilePath):
         print 'Error: File ' + options.commandFilePath + ' does not exist!'

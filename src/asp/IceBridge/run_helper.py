@@ -169,21 +169,38 @@ class RunHelper():
         batchFolders  = [x for x in batchFolders if os.path.isdir(x)]
         return batchFolders
 
-    # TODO: Update to blended data
-    def getOutputDemList(self):
+    # Get a list of all output files of given type. They may not exist. 
+    def getOutputFileList(self, fileType):
         '''Return a list containing all the output DEM files in the run and the associated frames'''
         
         batchList = self.getBatchFolderList()
-
-        #demName = 'out-align-DEM.tif'
-        demName = icebridge_common.blendFileName()
         output = []
         for batch in batchList:
             frames = icebridge_common.getFrameRangeFromBatchFolder(batch)
-            path   = os.path.join(batch, demName)
+            path   = os.path.join(batch, fileType)
             output.append((path, frames))
         return output
 
+    def existingFilesDict(self, fileType, startFrame, stopFrame):
+        '''See which output files of given type exist.'''
+
+        fileList = self.getOutputFileList(fileType)
+        fileDict = {}
+        
+        for (filename, frames) in fileList:
+            
+            # Handle frame range option
+            if (frames[0] < startFrame):
+                continue
+            if (frames[1] > stopFrame):
+                break
+
+            if not os.path.exists(filename):
+                continue
+            fileDict[frames[0]] = filename
+
+        return fileDict
+        
     def allSourceDataFetched(self, noNav, verbose=False):
         '''Return true if all the required source data has been downloaded'''
     

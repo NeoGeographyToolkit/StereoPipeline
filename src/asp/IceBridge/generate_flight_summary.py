@@ -214,11 +214,11 @@ def generateFlightSummary(run, options):
         lidarOutputFolder = os.path.join(options.outputFolder, 'lidar')
         os.system('mkdir -p ' + lidarOutputFolder)
         for f in lidarFiles:
-            print("Processing " + f) # This can be very slow, hence print what is going on
             inputPath = os.path.splitext(f)[0] + '.csv'
             outputPath = os.path.join(lidarOutputFolder, os.path.basename(f)+'.kml')
             args = [inputPath, outputPath, '--skip', str(LIDAR_POINT_SKIP), '--color', 'red']
             if not os.path.exists(outputPath): # Don't recreate these files
+                print("Generating: " + outputPath) # This can be very slow, so print what is going on
                 lvis2kml.main(args)
        
     # Collect per-batch information
@@ -236,7 +236,7 @@ def generateFlightSummary(run, options):
                        'corrSearchWid, corrMem(GB), corrElapsedTime(minutes)\n')
     failureLog.write('# startFrame, stopFrame, errorCode, errorText\n')
 
-    demList = run.getOutputDemList()
+    demList = run.getOutputFileList(icebridge_common.blendFileName())
     for (dem, frames) in demList:
 
         demFolder = os.path.dirname(dem)
@@ -319,7 +319,7 @@ def generateFlightSummary(run, options):
             failureLog.write('%d, %d, %d, %s\n' %  (frames[0], frames[1], errorCode, errorText))
 
 
-        # Make a link to the thumbnail file in our summary folder
+        # Make a link to the DEM thumbnail file in our summary folder
         hillshadePath = os.path.join(demFolder, 'out-blend-DEM_HILLSHADE_browse.tif')
         if os.path.exists(hillshadePath):
             thumbName = ('dem_%05d_%05d_browse.tif' % (frames[0], frames[1]))
@@ -332,6 +332,13 @@ def generateFlightSummary(run, options):
             thumbPath = os.path.join(badImageFolder, thumbName)
             if os.path.exists(inPath):
                 icebridge_common.makeSymLink(inPath, thumbPath, verbose=False)                
+
+        # Make a link to the ortho thumbnail file in our summary folder
+        orthoPath = os.path.join(demFolder,  icebridge_common.orthoPreviewFileName())
+        if os.path.exists(orthoPath):
+            thumbName = ('ortho_%05d_%05d_browse.tif' % (frames[0], frames[1]))
+            thumbPath = os.path.join(options.outputFolder, thumbName)
+            icebridge_common.makeSymLink(orthoPath, thumbPath, verbose=False)
 
     # End loop through expected DEMs and writing log files
     batchInfoLog.close()
