@@ -186,7 +186,7 @@ def runFetch(run, options):
 
     # Check if already done
     allIsFetched = False
-    if options.skipChecks:
+    if options.skipCheckInputs:
         allIsFetched = True
     else:
         try:
@@ -591,11 +591,9 @@ def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
 
     return (numNominal, numProduced)
     
-def checkResults(run, options, batchListPath):
-    '''Return (numNominalDems, numProducedDems, numNominalOrthos, numProducedOrthos, errorCount)
-    to help validate our results'''
+def checkResults(run, options, logger, batchListPath):
     
-    logger = logging.getLogger(__name__)
+    logger.info("Checking the results.")
     
     # TODO: Check more carefully!
     runFolder = run.getFolder()
@@ -635,9 +633,79 @@ def checkResults(run, options, batchListPath):
                                                                 icebridge_common.orthoFileName(),
                                                                 logger)
 
+    resultText = ""
+    resultText += ('Created %d out of %d output DEMs. ' % 
+                   (numProducedDems, numNominalDems))
+    resultText += ('Created %d out of %d output ortho images. ' % 
+                   (numProducedOrthos, numNominalOrthos))
+    resultText += ('Detected %d errors. ' % 
+                   (errorCount))
+
+    # Load index of fireball DEMs for comparison
+    fireballDems = {}
+    try:
+        allFireballDems = icebridge_common.getCorrectedFireballDems(run.getFolder())
+        for frame in allFireballDems.keys():
+            if frame < options.startFrame or frame >= options.stopFrame:
+                continue
+            fireballDems[frame] = allFireballDems[frame]
+    except Exception, e:
+        # No fireball
+        logger.info(str(e))
+
+    numFireballDems = len(fireballDems.keys())
     
-    return (numNominalDems, numProducedDems, numNominalOrthos, numProducedOrthos, errorCount)
+    alignedDems = run.existingFilesDict(icebridge_common.alignFileName(),
+                                        options.startFrame, options.stopFrame)
+    numAlignedDems = len(alignedDems.keys())
+    
+    blendedDems = run.existingFilesDict(icebridge_common.blendFileName(),
+                                        options.startFrame, options.stopFrame)
+    numBlendedDems = len(blendedDems.keys())
+    
+    orthos = run.existingFilesDict(icebridge_common.orthoFileName(),
+                                   options.startFrame, options.stopFrame)
+    numOrthos = len(orthos.keys())
+
+    numMissingBlended = 0
+    for frame in sorted(alignedDems.keys()):
+        if frame not in blendedDems.keys():
+            logger.info("Found aligned DEM but no blended DEM for frame: " + str(frame))
+            numMissingBlended += 1
+
+    numMissingOrthos = 0
+    for frame in sorted(blendedDems.keys()):
+        if frame not in orthos.keys():
+            logger.info("Found blended DEM but no ortho for frame: " + str(frame))
+            numMissingOrthos += 1
+
+    numMissingAligned = 0
+    for frame in sorted(fireballDems.keys()):
+        if not frame in blendedDems.keys():
+            logger.info("Found fireball DEM but no blended DEM for frame: " + str(frame))
+            numMissingAligned += 1
+
+    vals = ["Number of aligned DEMs: " + str(numAlignedDems),
+            "Number of blended DEMs: " + str(numBlendedDems),
+            "Number of ortho images: " + str(numOrthos),
+            "Number of fireball DEMs: " + str(numFireballDems),
+            "Aligned DEMs without blended DEMs: " + str(numMissingBlended),
+            "Blended DEMs without ortho images: " + str(numMissingOrthos),
+            "Fireball DEMs with no corresponding blended DEM: " + str(numMissingAligned)
+            ]
+    
+    resultText += "\n" + "\n".join(vals)
+
+    logger.info(resultText)
+    
+    runWasSuccess = False
+    if (numProducedDems == numNominalDems) and \
+           (numProducedOrthos == numNominalOrthos) and \
+           (errorCount == 0):
+        runWasSuccess =  True
         
+    return (runWasSuccess, resultText)
+
 def checkRequiredTools():
     '''Verify that we have all the tools we will be calling during the script.'''
 
@@ -657,50 +725,6 @@ def checkRequiredTools():
         if not os.path.exists(icebridge_common.fullPath(script)):
             raise Exception("Could not find: " + script)
 
-def checkOutputs(options, run, logger):
-
-    logger.info("Checking the outputs.")
-    
-    # Load index of fireball DEMs for comparison
-    fireballDems = {}
-    try:
-        allFireballDems = icebridge_common.getCorrectedFireballDems(run.getFolder())
-        for frame in allFireballDems.keys():
-            if frame < options.startFrame or frame >= options.stopFrame:
-                continue
-            fireballDems[frame] = allFireballDems[frame]
-    except Exception, e:
-        # No fireball
-        logger.info(str(e))
-        
-    alignedDems = run.existingFilesDict(icebridge_common.alignFileName(),
-                                        options.startFrame, options.stopFrame)
-    
-    blendedDems = run.existingFilesDict(icebridge_common.blendFileName(),
-                                        options.startFrame, options.stopFrame)
-    
-    orthos = run.existingFilesDict(icebridge_common.orthoFileName(),
-                                   options.startFrame, options.stopFrame)
-        
-    logger.info("Number of aligned DEMs: " + str(len(alignedDems.keys())))
-    logger.info("Number of blended DEMs: " + str(len(blendedDems.keys())))
-    logger.info("Number of ortho images: " + str(len(orthos.keys())))
-    if len(fireballDems.keys()) > 0:
-        logger.info("Number of fireball DEMs: " + str(len(fireballDems.keys())))
-        
-    for frame in sorted(alignedDems.keys()):
-        if frame not in blendedDems.keys():
-            logger.info("Found aligned DEM but no blended DEM for frame: " + str(frame))
-            
-    for frame in sorted(blendedDems.keys()):
-        if frame not in orthos.keys():
-            logger.info("Found blended DEM but no ortho for frame: " + str(frame))
-
-    if len(fireballDems.keys()) > 0:
-        for frame in sorted(fireballDems.keys()):
-            if not frame in blendedDems.keys():
-                logger.info("Found fireball DEM but no blended DEM for frame: " + str(frame))
-                
 def main(argsIn):
 
     try:
@@ -756,8 +780,8 @@ def main(argsIn):
                             dest="noRefetchIndex", default=False, 
                             help="Do not refetch the index from NSIDC.")
 
-        parser.add_argument("--skip-checks", action="store_true", 
-                            dest="skipChecks", default=False, 
+        parser.add_argument("--skip-check-inputs", action="store_true", 
+                            dest="skipCheckInputs", default=False, 
                             help="Skip checking if files exist. This can be very slow for many files.")
 
         parser.add_argument("--skip-completed-batches", action="store_true", 
@@ -791,8 +815,16 @@ def main(argsIn):
         parser.add_argument("--skip-ortho-gen", action="store_true", dest="skipOrthoGen",
                             default=False, help="Skip ortho image generation.")
 
-        parser.add_argument("--skip-report", action="store_true", dest="skipReport", default=False, 
-                            help="Skip summary report step.")
+        parser.add_argument("--skip-check-outputs", action="store_true", dest="skipCheckOutputs",
+                            default=False, 
+                            help="Skip checking the outputs.")
+
+        parser.add_argument("--skip-report", action="store_true", dest="skipReport",
+                            default=False, 
+                            help="Skip invoking the flight summary tool.")
+
+        parser.add_argument("--skip-kml", action="store_true", dest="skipKml", default=False, 
+                            help="Skip kml gen when doing a flight summary report.")
 
         parser.add_argument("--skip-archive-aligned-cameras", action="store_true",
                             dest="skipArchiveAlignedCameras", default=False,
@@ -826,9 +858,6 @@ def main(argsIn):
         
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                             default=False, help="Don't validate the input data.")
-
-        parser.add_argument("--check-outputs", action="store_true", dest="skipCheckOutputs",
-                            default=False, help="Don't check how many outputs got created.")
 
         parser.add_argument("--wipe-processed", action="store_true", dest="wipeProcessed",
                             default=False,
@@ -905,7 +934,6 @@ def main(argsIn):
             start_time()
             runFetch(run, options)       
             stop_time("fetch", logger)
-
         
         # Narrow the frame range. Note that if we really are at the last
         # existing frame, we increment 1, to make sure we never miss anything.
@@ -991,21 +1019,17 @@ def main(argsIn):
                 logger.exception(e)
             stop_time("archive aligned cameras", logger)
 
-        if not options.skipReport:
+        runWasSuccess = True
+        resultText = 'Summary skipped'
+        
+        if not options.skipCheckOutputs:
             start_time()
             # Generate a simple report of the results
-            (numNominalDems, numProducedDems,
-             numNominalOrthos, numProducedOrthos,
-             errorCount) = checkResults(run, options, fullBatchListPath)
-            resultText = ""
-            resultText += ('Created %d out of %d output DEMs. ' % 
-                          (numProducedDems, numNominalDems))
-            resultText += ('Created %d out of %d output ortho images. ' % 
-                          (numProducedOrthos, numNominalOrthos))
-            resultText += ('Detected %d errors. ' % 
-                          (errorCount))
-            logger.info(resultText)
-
+            (runWasSuccess, resultText) = checkResults(run, options, logger, fullBatchListPath)
+            stop_time("check outputs", logger)
+            
+        if not options.skipReport:
+            start_time()
             # Generate a summary folder and send a copy to Lou
             # - Currently the summary folders need to be deleted manually, but they should not
             #   take up much space due to the large amount of compression used.
@@ -1017,17 +1041,12 @@ def main(argsIn):
                options.stopFrame != icebridge_common.getLargestFrame():
                 genCmd += ['--start-frame', str(options.startFrame),
                            '--stop-frame', str(options.stopFrame)]
+            if options.skipKml:
+                genCmd += ['--skip-kml']
+                
             logger.info("Running generate_flight_summary.py " + " ".join(genCmd))
             generate_flight_summary.main(genCmd)
             stop_time("report", logger)
-            
-        else:
-            resultText        = 'Summary skipped'
-            errorCount        = 0 # Flag values to let the next condition pass
-            numNominalDems    = 1
-            numProducedDems   = 1
-            numNominalOrthos  = 1
-            numProducedOrthos = 1
             
         # send data to lunokhod and lfe
         if not options.skipArchiveSummary:
@@ -1038,11 +1057,6 @@ def main(argsIn):
             
         # Don't pack or clean up the run if it did not generate all the output files.
         # - TODO: Will never produce 100% of outputs. So wiping better be done anyway.
-        success = False
-        if (numProducedDems == numNominalDems) and \
-               (numProducedOrthos == numNominalOrthos) and \
-               (errorCount == 0):
-            success =  True
 
         # Archive the DEMs
         if not options.skipArchiveRun:
@@ -1063,14 +1077,11 @@ def main(argsIn):
         if not options.skipEmail:
             emailAddress = getEmailAddress(icebridge_common.getUser())
             logger.info("Sending email to: " + emailAddress)
-            if success:
+            if runWasSuccess:
                 sendEmail(emailAddress, 'OIB run passed - ' + str(run), resultText)
             else:
                 sendEmail(emailAddress, '"OIB run failed - ' + str(run), resultText)
 
-        if not options.skipCheckOutputs:
-            checkOutputs(options, run, logger)
-            
         if options.wipeProcessed:
             processedFolder = run.getProcessFolder()
             logger.info("Will delete: " + processedFolder)
