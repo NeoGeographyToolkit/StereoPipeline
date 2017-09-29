@@ -283,14 +283,14 @@ def runConversion(run, options):
     os.system('mkdir -p ' + pbsLogFolder)
 
     # Submit all the jobs
-    currentFrame = minFrame
+    currentFrame = options.startFrame
     jobList = []
-    for i in range(0, numOrthoJobs):
+    for i in range(0, numCamgenJobs):
         jobName    = ('%06d_%s' % (currentFrame, baseName) )
         startFrame = currentFrame
         stopFrame  = currentFrame+tasksPerJob-1
-        if (i == numOrthoJobs - 1):
-            stopFrame = maxFrame # Make sure nothing is lost at the end
+        if (i == numCamgenJobs - 1):
+            stopFrame = options.stopFrame # Make sure nothing is lost at the end
 
         thisArgs = (args + ' --start-frame ' + str(startFrame)
                          + ' --stop-frame  ' + str(stopFrame ) )
