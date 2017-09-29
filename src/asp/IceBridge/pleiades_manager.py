@@ -259,10 +259,6 @@ def runConversion(run, options):
     # Retrieve parallel processing parameters
     (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'camgen')
     
-    if options.simpleCameras:
-        numThreads   = 1 # No need for multiple threads for the simple code
-        numProcesses = 6 # Keep low to avoid admin wrath
-    
     # Split the conversions across multiple nodes using frame ranges
     # - The first job submitted will be the only one that converts the lidar data
     numFrames    = options.stopFrame - options.startFrame + 1
@@ -277,50 +273,43 @@ def runConversion(run, options):
                   % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
     if options.noNavFetch:
         args += ' --no-nav'
-    
+    if options.simpleCameras:       # This option greatly decreases the conversion run time
+        args += ' --simple-cameras' # - Camera conversion could be local but image conversion still takes time.
+
+    baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
+
     # Get the location to store the logs    
     pbsLogFolder = run.getPbsLogFolder()
     os.system('mkdir -p ' + pbsLogFolder)
-    
-    if options.simpleCameras: # Use the fast ortho2pinhole call locally.
-            
-        logger.info('Running simple ortho2pinhole step locally.')
-        args += ' --simple-cameras --start-frame ' + str(options.startFrame) + ' --stop-frame ' + str(options.stopFrame)
-        fullCmd = scriptPath +' '+ args
-        logger.info(fullCmd)
-        os.system(fullCmd)
-    
-    else: # Use the longer running ortho2pinhole spread across the processing nodes.
-                
-        baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
-        
-        # Submit all the jobs
-        currentFrame = options.startFrame
-        jobList = []
-        for i in range(0, numCamgenJobs):
-            jobName    = ('%06d_%s' % (currentFrame, baseName) )
-            startFrame = currentFrame
-            stopFrame  = currentFrame+tasksPerJob-1
-            if (i == numCamgenJobs - 1):
-                stopFrame = options.stopFrame # Make sure nothing is lost at the end
-                
-            thisArgs = (args + ' --start-frame ' + str(startFrame) + \
-                        ' --stop-frame ' + str(stopFrame) )
-            if i != 0: # Only the first job will convert lidar files
-                thisArgs += ' --no-lidar-convert'
 
-            logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
-            logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
-            pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, MAX_CAMGEN_HOURS,
-                                    options.minutesInDevelQueue,
-                                    GROUP_ID,
-                                    options.nodeType, '/usr/bin/python2.7',
-                                    scriptPath + " " + thisArgs, logPrefix)
-            jobList.append(jobName)
-            currentFrame += tasksPerJob
+    # Submit all the jobs
+    currentFrame = minFrame
+    jobList = []
+    for i in range(0, numOrthoJobs):
+        jobName    = ('%06d_%s' % (currentFrame, baseName) )
+        startFrame = currentFrame
+        stopFrame  = currentFrame+tasksPerJob-1
+        if (i == numOrthoJobs - 1):
+            stopFrame = maxFrame # Make sure nothing is lost at the end
 
-        # Wait for conversions to finish
-        waitForRunCompletion(baseName, jobList)
+        thisArgs = (args + ' --start-frame ' + str(startFrame)
+                         + ' --stop-frame  ' + str(stopFrame ) )
+        if i != 0: # Only the first job will convert lidar files
+            thisArgs += ' --no-lidar-convert'
+
+        logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
+        logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
+        pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, MAX_CAMGEN_HOURS,
+                                options.minutesInDevelQueue,
+                                GROUP_ID,
+                                options.nodeType, '/usr/bin/python2.7',
+                                scriptPath + " " + thisArgs, logPrefix)
+        jobList.append(jobName)
+        currentFrame += tasksPerJob
+
+    # Wait for conversions to finish
+    waitForRunCompletion(baseName, jobList)
+
 
     # Check the results
     # - If we didn't get everything keep going and process as much as we can.
@@ -1052,6 +1041,3 @@ def main(argsIn):
 # Run main function if file used from shell
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
-
-
-
