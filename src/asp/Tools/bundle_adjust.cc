@@ -918,10 +918,10 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   // Write a report on residual errors
   std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp,
     residual_file_raw_cams;
-  vw_out() << "Writing: " << residual_file << std::endl;
-  vw_out() << "Writing: " << residual_file_raw_pixels << std::endl;
-  vw_out() << "Writing: " << residual_file_raw_gcp << std::endl;
-  vw_out() << "Writing: " << residual_file_raw_cams << std::endl;
+  vw_out() << "Writing: " << residual_path << std::endl;
+  vw_out() << "Writing: " << residual_raw_pixels_path << std::endl;
+  vw_out() << "Writing: " << residual_raw_gcp_path << std::endl;
+  vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
   
   residual_file.open(residual_path.c_str());
   residual_file_raw_pixels.open(residual_raw_pixels_path.c_str());
