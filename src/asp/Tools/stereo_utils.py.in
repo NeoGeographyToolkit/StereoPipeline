@@ -102,9 +102,12 @@ def stereo_run(prog, args, opt, **kw):
     call.extend(args)
 
     # This must not be used in production. /usr/bin/time on the Mac does not work well.
-    if prog == 'stereo_corr' and opt.mem_usage:
+    # This is a debug option, at some point it may go away.
+    if 'linux' in sys.platform and prog == 'stereo_corr' and \
+           hasattr(opt, 'mem_usage') and opt.mem_usage:
         call = ['/usr/bin/time',  '-f', '"elapsed=%E mem=%M (kb) time_stereo_corr"'] + call
         print(" ".join(call))
+        
     if opt.dryrun or opt.verbose: print(" ".join(call))
     if opt.dryrun: return
     try:
