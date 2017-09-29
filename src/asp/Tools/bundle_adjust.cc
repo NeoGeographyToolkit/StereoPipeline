@@ -211,7 +211,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double semi_major, semi_minor, position_filter_dist;
   int num_ba_passes;
   std::string remove_outliers_params_str;
-  Vector3 remove_outliers_params;
+  vw::Vector<double, 4> remove_outliers_params;
 
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
@@ -830,6 +830,8 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
   
   // Open the output file and write the header
   std::string output_path = output_prefix + "_point_log.csv";
+  vw_out() << "Writing: " << output_path << std::endl;
+  
   std::ofstream file;
   file.open(output_path.c_str());
   file << "lon, lat, alt, mean_residual, num_observations\n";
@@ -916,6 +918,11 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   // Write a report on residual errors
   std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp,
     residual_file_raw_cams;
+  vw_out() << "Writing: " << residual_file << std::endl;
+  vw_out() << "Writing: " << residual_file_raw_pixels << std::endl;
+  vw_out() << "Writing: " << residual_file_raw_gcp << std::endl;
+  vw_out() << "Writing: " << residual_file_raw_cams << std::endl;
+  
   residual_file.open(residual_path.c_str());
   residual_file_raw_pixels.open(residual_raw_pixels_path.c_str());
   residual_file_raw_cams.open(residual_raw_cams_path.c_str());
@@ -1064,7 +1071,8 @@ int update_outliers(ControlNetwork                  & cnet,
 
   double pct = 1.0 - opt.remove_outliers_params[0]/100.0;
   double outlier_factor = opt.remove_outliers_params[1];
-  double max_pix =  opt.remove_outliers_params[2];
+  double max_pix1 =  opt.remove_outliers_params[2];
+  double max_pix2 =  opt.remove_outliers_params[3];
 
   double b, e; 
   vw::math::find_outlier_brackets(actual_residuals, pct, outlier_factor, b, e);
@@ -1072,7 +1080,7 @@ int update_outliers(ControlNetwork                  & cnet,
   // If this is too aggressive, the user can tame it. It is
   // unreasonable to throw out pixel residuals as small as 1 or 2
   // pixels.  We will not use the b, because the residuals start at 0.
-  e = std::max(e, max_pix);
+  e = std::min(std::max(e, max_pix1), max_pix2);
 
   vw_out() << "Removing as outliers points with mean reprojection error > " << e << ".\n";
   
@@ -2471,8 +2479,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("num-passes",             po::value(&opt.num_ba_passes)->default_value(1),
      "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params, and re-optimization will take place. Match files and residual files with the outliers removed will be written to disk.")
-    ("remove-outliers-params",        po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0", "'pct factor max_err'"),
-	    "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than 'pct'-th percentile times 'factor' and also larger than 'max_err' will be removed as outliers. Specify as a list in quotes.")
+    ("remove-outliers-params",        po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
+	    "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Specify as a list in quotes.")
     
     ("min-triangulation-angle",             po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
@@ -2570,7 +2578,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole cameras.\n");
 
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
-  opt.remove_outliers_params = vw::str_to_vec<vw::Vector3>(opt.remove_outliers_params_str);
+  opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4> >(opt.remove_outliers_params_str);
   
   // Copy the IP settings to the global stereo_settings() object
   asp::stereo_settings().ip_matching_method      = opt.ip_detect_method;

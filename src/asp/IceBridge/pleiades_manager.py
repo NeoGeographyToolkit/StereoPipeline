@@ -249,6 +249,9 @@ def runConversion(run, options):
         pythonPath = asp_system_utils.which('python')
         cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions  --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
     
+        if options.skipValidate:
+            cmd += ' --skip-validate'
+            
         logger.info(cmd)
         os.system(cmd)    
         logger.info("Finished generating estimated camera files from nav.")
