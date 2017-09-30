@@ -913,11 +913,6 @@ def main(argsIn):
                                                          noThrow = True)
     logger.info("Hours used so far:\n" + out + '\n' + err)
   
-    # Get the location to store the logs    
-    pbsLogFolder = run.getPbsLogFolder()
-    logger.info("Storing logs in: " + pbsLogFolder)
-    os.system('mkdir -p ' + pbsLogFolder)
-    
     if True:
 
         # WARNNING: Below we tweak options.startFrame and options.stopFrame.
@@ -935,7 +930,13 @@ def main(argsIn):
             start_time()
             runFetch(run, options)       
             stop_time("fetch", logger)
-        
+
+        # This must happen after fetch, otherwise fetch gets confused.
+        # Get the location to store the logs    
+        pbsLogFolder = run.getPbsLogFolder()
+        logger.info("Storing logs in: " + pbsLogFolder)
+        os.system('mkdir -p ' + pbsLogFolder)
+    
         # Narrow the frame range. Note that if we really are at the last
         # existing frame, we increment 1, to make sure we never miss anything.
         
