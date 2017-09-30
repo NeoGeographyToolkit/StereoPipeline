@@ -67,15 +67,13 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath      + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
-ALIGN_SUFFIX = 'out-align-DEM.tif'
-
 def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
              threadText, redo, suppressOutput):
 
     # This will run as multiple processes. Hence have to catch all exceptions:
     try:
         
-        demFile, batchFolder = icebridge_common.frameToFile(frame, ALIGN_SUFFIX,
+        demFile, batchFolder = icebridge_common.frameToFile(frame, icebridge_common.alignFileName(),
                                                             processFolder, bundleLength)
         lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
 
@@ -128,7 +126,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             for val in range(0, index+1):
                 offset = frameOffsets[val]
                 currDemFile, currBatchFolder = \
-                             icebridge_common.frameToFile(frame + offset, ALIGN_SUFFIX,
+                             icebridge_common.frameToFile(frame + offset,
+                                                          icebridge_common.alignFileName(),
                                                           processFolder, bundleLength)
                 if currDemFile == "":
                     continue
@@ -153,7 +152,11 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
                        % (demString, threadText, outputPrefix))
                 
             print(cmd)
-            asp_system_utils.executeCommand(cmd, blendOutput, suppressOutput, redo)
+
+            # Sometimes there is junk left from a previous interrupted run. So if we
+            # got so far, recreate all files.
+            localRedo = True
+            asp_system_utils.executeCommand(cmd, blendOutput, suppressOutput, localRedo)
             filesToWipe.append(blendOutput)
             
             diffPath = outputPrefix + "-diff.csv"
@@ -206,7 +209,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             for val in range(0, len(frameOffsets)):
                 offset = frameOffsets[val]
                 currDemFile, currBatchFolder = \
-                             icebridge_common.frameToFile(frame + offset, ALIGN_SUFFIX,
+                             icebridge_common.frameToFile(frame + offset,
+                                                          icebridge_common.alignFileName(),
                                                           processFolder, bundleLength)
                 if currDemFile == "":
                     continue
@@ -219,7 +223,11 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             #filesToWipe.append(fireballBlendOutput)
 
             print(cmd)
-            asp_system_utils.executeCommand(cmd, fireballBlendOutput, suppressOutput, redo)
+
+            # Sometimes there is junk left from a previous interrupted run. So if we
+            # got so far, recreate all files.
+            localRedo = True
+            asp_system_utils.executeCommand(cmd, fireballBlendOutput, suppressOutput, localRedo)
 
             #filesToWipe.append(fireballDiffPath)
 

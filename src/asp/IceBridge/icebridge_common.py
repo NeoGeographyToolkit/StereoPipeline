@@ -440,7 +440,7 @@ def frameToFile(frame, suffix, processFolder, bundleLength):
     batchFolderGlob = os.path.join(processFolder,
                                    'batch_' + str(frame) + '_*_' + str(bundleLength) + \
                                    '/*' + suffix)
-    
+
     matches = glob.glob(batchFolderGlob)
 
     if len(matches) == 0:

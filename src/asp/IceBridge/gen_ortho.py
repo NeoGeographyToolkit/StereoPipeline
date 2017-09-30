@@ -125,7 +125,8 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
             filesToWipe.append(mosaicOutput) # no longer needed
 
             print(cmd)
-            asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)
+            localRedo = True # The file below should not exist unless there was a crash
+            asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, localRedo)
 
             filesToWipe += glob.glob(mosaicPrefix + '*' + '-log-' + '*')
 

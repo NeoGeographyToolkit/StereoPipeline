@@ -137,7 +137,7 @@ def sendEmail(address, subject, body):
     body    = body.replace("\"", "")
     try:
         cmd = 'mail -s "' + subject + '" ' + address + ' <<< "' + body + '"'
-        print(cmd)
+        #print(cmd) # too verbose to print
         os.system(cmd)
     except Exception, e:
         print("Could not send mail.")
@@ -594,8 +594,9 @@ def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
 def checkResults(run, options, logger, batchListPath):
     
     logger.info("Checking the results.")
+
+    # TODO: Some existing functionlity below can be integrated better.
     
-    # TODO: Check more carefully!
     runFolder = run.getFolder()
     
     packedErrorLog = os.path.join(runFolder, 'packedErrors.log')
@@ -1093,9 +1094,7 @@ def main(argsIn):
             os.system("rm -rf " + outFolder)
             
         #raise Exception('DEBUG - END LOOP')
-        
-    # End loop through runs
-    logger.info('==== pleiades_manager script has finished! ====')
+        logger.info('==== pleiades_manager script has finished for run: ' + str(run) + ' ====')
 
 
 # Run main function if file used from shell
