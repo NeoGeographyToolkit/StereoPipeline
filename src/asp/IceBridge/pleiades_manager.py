@@ -57,10 +57,6 @@ CAMGEN_PBS_QUEUE   = 'normal'
 BATCH_PBS_QUEUE    = 'normal'
 BLEND_PBS_QUEUE    = 'normal'
 ORTHOGEN_PBS_QUEUE = 'normal'
-MAX_CAMGEN_HOURS   = 6 # Limit is 8 but these seem to complete fast.
-MAX_BATCH_HOURS    = 8 # devel limit is 2, long limit is 120, normal is 8
-MAX_BLEND_HOURS    = 4 # These jobs go pretty fast
-MAX_ORTHOGEN_HOURS = 4 # These jobs go pretty fast
 
 GROUP_ID = 's1827'
 
@@ -86,34 +82,34 @@ def stop_time(job, logger):
 # 'bro' = Broadwell    = 28 cores, 128 GB mem, SBU 4.04
 
 def getParallelParams(nodeType, task):
-    '''Return (numProcesses, numThreads, tasksPerJob) for running a certain task on a certain node type'''
+    '''Return (numProcesses, numThreads, tasksPerJob, maxHours) for running a certain task on a certain node type'''
 
     # Define additional combinations and edit as needed.
 
     if task == 'camgen':
-        if nodeType == 'ivy': return (10, 2, 400)
-        if nodeType == 'bro': return (14, 4, 500)
-        if nodeType == 'wes': return (10, 4, 400)
-        if nodeType == 'san': return (10, 4, 400)
+        if nodeType == 'ivy': return (10, 2, 400, 3)
+        if nodeType == 'bro': return (14, 4, 500, 3)
+        if nodeType == 'wes': return (10, 4, 400, 6)
+        if nodeType == 'san': return (10, 4, 400, 3)
     
     if task == 'dem':
-        if nodeType == 'ivy': return (4, 8, 80)
-        if nodeType == 'bro': return (6, 8, 100)
-        if nodeType == 'wes': return (3, 8, 75)
-        if nodeType == 'san': return (3, 8, 75)
+        if nodeType == 'ivy': return (4, 8, 80,  8)
+        if nodeType == 'bro': return (6, 8, 100, 8)
+        if nodeType == 'wes': return (3, 8, 75,  8)
+        if nodeType == 'san': return (3, 8, 75,  8)
     
     if task == 'blend':
-        if nodeType == 'ivy': return (10, 2, 1000)
-        if nodeType == 'bro': return (14, 4, 1400) # 200 seems to finish in 10 minutes
-        if nodeType == 'wes': return (10, 3, 1000) 
-        if nodeType == 'san': return (10, 3, 1000) 
+        if nodeType == 'ivy': return (10, 2, 1000, 4)
+        if nodeType == 'bro': return (14, 4, 1400, 4) # 200 seems to finish in 10 minutes
+        if nodeType == 'wes': return (10, 3, 1000, 4) 
+        if nodeType == 'san': return (10, 3, 1000, 4) 
     
     if task == 'orthogen':
         # TODO: Need to think more here
-        if nodeType == 'ivy': return (10, 2, 400)
-        if nodeType == 'bro': return (14, 4, 500)
-        if nodeType == 'wes': return (10, 4, 400)
-        if nodeType == 'san': return (10, 4, 400)
+        if nodeType == 'ivy': return (10, 2, 400, 4)
+        if nodeType == 'bro': return (14, 4, 500, 4)
+        if nodeType == 'wes': return (10, 4, 400, 4)
+        if nodeType == 'san': return (10, 4, 400, 4)
 
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
 
@@ -254,7 +250,7 @@ def runConversion(run, options):
         logger.info("Finished generating estimated camera files from nav.")
     
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'camgen')
+    (numProcesses, numThreads, tasksPerJob, maxHours) = getParallelParams(options.nodeType, 'camgen')
     
     # Split the conversions across multiple nodes using frame ranges
     # - The first job submitted will be the only one that converts the lidar data
@@ -296,7 +292,7 @@ def runConversion(run, options):
 
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
         logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, MAX_CAMGEN_HOURS,
+        pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, maxHours,
                                 options.minutesInDevelQueue,
                                 GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
@@ -332,7 +328,7 @@ def generateBatchList(run, options, listPath):
     refDemPath = os.path.join(options.refDemFolder, refDemName)
 
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'dem')
+    (numProcesses, numThreads, tasksPerJob, maxHours) = getParallelParams(options.nodeType, 'dem')
 
     # No actual processing is being done here so it can run on the PFE
     # - No start/stop frames here, always generate the full list so it is stable.
@@ -400,7 +396,7 @@ def submitBatchJobs(run, options, batchListPath):
         raise Exception('Failed to generate batch list file: ' + batchListPath)
 
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'dem')
+    (numProcesses, numThreads, tasksPerJob, maxHours) = getParallelParams(options.nodeType, 'dem')
 
     # Read the batch list
     logger.info("Reading batch list: " + batchListPath)
@@ -451,7 +447,7 @@ def submitBatchJobs(run, options, batchListPath):
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
 
-        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS,
+        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, maxHours,
                                 options.minutesInDevelQueue,
                                 GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
@@ -471,7 +467,7 @@ def runJobs(run, mode, options):
     logger.info('Running task ' + mode + ' for run ' + str(run))
     
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, mode)
+    (numProcesses, numThreads, tasksPerJob, maxHours) = getParallelParams(options.nodeType, mode)
     
     # Split the jobs across multiple nodes using frame ranges
     numFrames    = options.stopFrame - options.startFrame + 1
@@ -490,12 +486,10 @@ def runJobs(run, mode, options):
     if mode == 'orthogen':
         scriptPath = icebridge_common.fullPath('gen_ortho.py')
         queueName  = ORTHOGEN_PBS_QUEUE
-        maxHours   = MAX_ORTHOGEN_HOURS
         jobTag     = 'O'
     elif mode == 'blend':
         scriptPath = icebridge_common.fullPath('blend_dems.py')
         queueName  = BLEND_PBS_QUEUE
-        maxHours   = MAX_BLEND_HOURS
         jobTag     = 'B'
         extraArgs  = '  --blend-to-fireball-footprint'
     else:

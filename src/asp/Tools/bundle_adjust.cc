@@ -205,7 +205,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double min_triangulation_angle, lambda, camera_weight, rotation_weight, 
          translation_weight, overlap_exponent, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
-  bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics;
+  bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics,
+         disable_tri_filtering;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, intrinsics_to_float_str;
   double semi_major, semi_minor, position_filter_dist;
@@ -2462,6 +2463,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "A higher threshold will result in more interest points, but perhaps less unique ones.")
     ("ip-side-filter-percent",        po::value(&opt.ip_extra_filter_threshold)->default_value(-1),
      "Remove matched IPs this close to the image left/right sides.")
+    ("disable-tri-ip-filter",    po::bool_switch(&opt.disable_tri_filtering)->default_value(false)->implicit_value(true),
+     "Skip tri_ip filtering.")
     ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
      "Limit on expected elevation range: Specify as two values: min max.")
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
@@ -2606,6 +2609,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::stereo_settings().lon_lat_limit           = opt.lon_lat_limit;
   asp::stereo_settings().individually_normalize  = opt.individually_normalize;
   asp::stereo_settings().min_triangulation_angle = opt.min_triangulation_angle;
+  asp::stereo_settings().disable_tri_filtering = opt.disable_tri_filtering;
 
   // Ensure good order
   if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {

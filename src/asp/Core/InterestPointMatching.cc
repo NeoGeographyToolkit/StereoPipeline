@@ -586,6 +586,7 @@ namespace asp {
     const double escalar4 = 1.0 / (2 * error_clusters.back().second[0] );
     size_t error_idx = 0;
     size_t prior_valid_size = valid_indices.size();
+    size_t outlier_count = 0;
     for ( std::list<size_t>::iterator i = valid_indices.begin(); i != valid_indices.end(); i++ ) {
       double err_diff_front = error_samples[error_idx]-error_clusters.front().first[0];
       double err_diff_back  = error_samples[error_idx]-error_clusters.back().first[0];
@@ -597,12 +598,14 @@ namespace asp {
         //vw_out() << "Removing error_samples["<< error_idx <<"] = " << error_samples[error_idx] << std::endl;
         i = valid_indices.erase(i);
         i--; // For loop is going to increment this back up
+        ++outlier_count;
       }
       error_idx++;
     }
     VW_ASSERT( prior_valid_size == error_idx,
 	       vw::MathErr() << "tri_ip_filtering: Programmer error. Indices don't seem to be aligned." );
 
+    vw_out() << "\t      Removed " << outlier_count << " points in triangulation filtering.\n";
     return (!valid_indices.empty());
   }
 
@@ -615,6 +618,7 @@ namespace asp {
     // stddev away from the measurements of it's local neighbors. We
     // kill off worse offender one at a time until everyone is compliant.
     bool deleted_something;
+    size_t num_deleted = 0;
     do {
       deleted_something = false;
       Matrix<float> locations1( valid_indices.size(), 2 );
@@ -684,12 +688,14 @@ namespace asp {
         std::advance( it, worse_index.second );
         valid_indices.erase( it );
         deleted_something = true;
+        ++num_deleted;
       }
       // If we ended up deleting everything, just quit here and return 0.
       if (valid_indices.empty())
         return 0;
     } while( deleted_something );
 
+    vw_out() << "\t      Removed " << num_deleted << " points in stddev filtering.\n";
     return valid_indices.size();
   }
 

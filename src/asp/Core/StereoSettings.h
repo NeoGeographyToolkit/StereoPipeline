@@ -99,6 +99,7 @@ namespace asp {
     double epipolar_threshold;              /// Max distance from epipolar line to search for IP matches.
     double ip_inlier_factor;                /// General scaling factor for IP finding, a larger value allows more IPs to match.
     double ip_uniqueness_thresh;            /// Min percentage distance between closest and second closest IP descriptors.
+    bool   disable_tri_filtering;           ///< Turn of tri-ip filtering.
     int num_scales;                         /// How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. 
     double nodata_value;                    ///< Pixels with values less than or equal to this number are treated as no-data.
                                             //  This overrides the nodata values from input images.
