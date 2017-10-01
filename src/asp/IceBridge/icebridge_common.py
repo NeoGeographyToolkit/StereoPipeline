@@ -457,6 +457,14 @@ def frameToFile(frame, suffix, processFolder, bundleLength):
 
     return matches[0], os.path.dirname(matches[0])
 
+def getBatchFolderFromBatchLine(line):
+    '''Returns something like /path/to/AN_20111012/processed/batch_125_126_2.'''
+    # Extract just the desired folder name    
+    m = re.match('^.*?\s([^\s]*?batch_\d+_\d+_\d+)', line)
+    if m:
+        return m.group(1)
+    return ""
+
 def getFrameRangeFromBatchFolder(folder):
     '''Returns (startFrame, endFrame) for a batch folder.'''
     '''This is also used to parse a command in a batch file.'''

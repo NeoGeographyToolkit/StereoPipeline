@@ -74,6 +74,9 @@ def main(argsIn):
         parser.add_argument("--command-file-path",  dest="commandFilePath", default=None,
                           help="The file from where to read the commands to process.")
         
+        parser.add_argument("--force-redo-these-frames",  dest="redoFrameList", default="",
+                          help="For each frame in this file (stored one per line) within the current frame range, delete the batch folder and redo the batch.")
+
         options = parser.parse_args(argsIn)
         
     except argparse.ArgumentError, msg:
@@ -94,6 +97,16 @@ def main(argsIn):
     pool = multiprocessing.Pool(options.numProcesses)
     taskHandles = []
 
+    framesToDo = set()
+    if options.redoFrameList != "" and os.path.exists(options.redoFrameList):
+        with open(options.redoFrameList, 'r') as f:
+            text = f.read()
+        for line in text.split('\n'):
+            line = line.strip()
+            if line == "":
+                continue
+            framesToDo.add(int(line))
+
     # Open the file and loop through all the lines
     # - Count the lines as we go so we only process the desired lines
     print 'Opening command file ' + options.commandFilePath
@@ -110,6 +123,24 @@ def main(argsIn):
         
         # Check line indices
         if begFrame >= options.startFrame and begFrame < options.stopFrame:
+
+            if options.redoFrameList != "":
+                if begFrame in framesToDo:
+                    folderName = icebridge_common.getBatchFolderFromBatchLine(line)
+                    if os.path.exists(folderName):
+                        print("will wipe " + folderName)
+                        cmd = "rm -rf " + folderName
+                        print(cmd)
+                        try:
+                            os.system(cmd)
+                        except Exception, e:
+                            pass
+                    else:
+                        print("Could not find " + folderName)
+                else:
+                    print("Will skip frame: " + str(begFrame))
+                    continue
+                
             # Add the command to the task pool
             taskHandles.append(pool.apply_async(runCommand, (line,)))
 

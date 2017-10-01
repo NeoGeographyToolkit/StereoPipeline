@@ -304,7 +304,9 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
                 numIpPreElevation = int(m[0])
                 if numIpPreElevation > bestNumIpPreElevation:
                     bestNumIpPreElevation = numIpPreElevation
+                    print("--5best ip pre elevation: ", bestNumIpPreElevation)
                     bestCmd = cmd
+                    print("--best cmd is ", bestCmd)
 
     
         # Try again. Carefully wipe only relevant files
@@ -317,6 +319,9 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
              
     # End bundle adjust attempts
 
+    print("--best ip pre elevation: ", bestNumIpPreElevation)
+    print("--success is ", success)
+    
     # Retry the best attempt without the elevation string
     # - This increases the risk of bad IP's being used but it is better than failing.
     if (not success) and (bestNumIpPreElevation > 0):
@@ -363,11 +368,11 @@ def applyTransformToCameras(options, inputPairs, suppressOutput, redo,
         newMatchFile = matchFile.replace(bundlePrefix, alignedBundlePrefix)
         icebridge_common.makeSymLink(matchFile, newMatchFile)
 
-    cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
+    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 ' +
             '-t nadirpinhole --skip-rough-homography '+
-            '--local-pinhole --min-matches 0  --max-iterations 0 ' + 
+            '--local-pinhole --min-matches 0  --max-iterations 0 --ip-per-tile 1000 ' + 
             ' --initial-transform %s')
-           % (imagesAndCams, alignedBundlePrefix, threadText, heightLimitString,
+           % (imagesAndCams, alignedBundlePrefix, threadText,
               initialTransform))
 
     # Run the BA command and log errors
@@ -1212,9 +1217,9 @@ def doWork(options, args, logger):
         #   the errors will be high and won't mean much.
         for i in range(0,numDems):
             dem = demFiles[i]
-            fireball = matchingFireballDems[i]
-            if not fireball: # Skip missing fireball file
+            if len(matchingFireballDems) <= i: # Skip missing fireball file
                 continue
+            fireball = matchingFireballDems[i]
             #try:
             prefix  = outputPrefix + '_fireball_' + str(i)
             diffPath = prefix + "-diff.tif"

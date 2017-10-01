@@ -449,6 +449,9 @@ def submitBatchJobs(run, options, batchListPath):
         args = ('--command-file-path %s --start-frame %d --stop-frame %d --num-processes %d' % \
                 (batchListPath, firstFrame, lastFrame, numProcesses))
 
+        if options.redoFrameList != "":
+            args += ' --force-redo-these-frames ' + options.redoFrameList
+        
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
 
@@ -788,6 +791,9 @@ def main(argsIn):
         parser.add_argument("--skip-completed-batches", action="store_true", 
                             dest="failedBatchesOnly", default=False, 
                             help="Don't reprocess completed batches.")
+
+        parser.add_argument("--force-redo-these-frames",  dest="redoFrameList", default="",
+                          help="For each frame in this file (stored one per line) within the current frame range, delete the batch folder and redo the batch (only applies to batch processing).")
 
         parser.add_argument("--use-tar", action="store_true", dest="useTar", default=False, 
                             help="Fetch from lfe using tar instead of shift.")
