@@ -304,10 +304,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
                 numIpPreElevation = int(m[0])
                 if numIpPreElevation > bestNumIpPreElevation:
                     bestNumIpPreElevation = numIpPreElevation
-                    print("--5best ip pre elevation: ", bestNumIpPreElevation)
                     bestCmd = cmd
-                    print("--best cmd is ", bestCmd)
-
     
         # Try again. Carefully wipe only relevant files
         logger.info("Trying bundle adjustment again.")
@@ -319,9 +316,6 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
              
     # End bundle adjust attempts
 
-    print("--best ip pre elevation: ", bestNumIpPreElevation)
-    print("--success is ", success)
-    
     # Retry the best attempt without the elevation string
     # - This increases the risk of bad IP's being used but it is better than failing.
     if (not success) and (bestNumIpPreElevation > 0):
