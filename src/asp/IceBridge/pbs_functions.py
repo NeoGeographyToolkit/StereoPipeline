@@ -128,7 +128,7 @@ def submitJob(jobName, queueName, maxHours, minutesInDevelQueue,
     if minutesInDevelQueue > 0:
       queueName = 'devel'
       hourString = '00:' + str(minutesInDevelQueue).zfill(2) + ':00'
-      numAttempts = 1 # For some reason qsub errors out in the devel queue
+      #numAttempts = 1 # For some reason qsub errors out in the devel queue
       
     # TODO: Does this need to be wrapped in a shell script?
     # The "-m eb" option sends the user an email when the process begins and when it ends.
