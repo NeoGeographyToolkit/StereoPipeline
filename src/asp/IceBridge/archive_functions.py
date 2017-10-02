@@ -19,7 +19,7 @@
 # Contains functions to store/retrieve data from outside a run folder
 
 import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
-import re, shutil, time, getpass
+import re, shutil, time, getpass, glob
 
 import os.path as P
 
@@ -291,7 +291,15 @@ def packAndSendCompletedRun(run):
     assemblyFolder = run.getAssemblyFolder()
     batchFolders   = run.getBatchFolderList()
     os.system('mkdir -p ' + assemblyFolder)
-    
+
+    # Bugfix: Wipe any dead symlinks, as maybe this is not the first time the assembly is made
+    pattern = os.path.join(assemblyFolder, '*')
+    currFiles = glob.glob(pattern)
+    for filename in currFiles:
+        if not os.path.exists(os.path.realpath(filename)):
+            logger.info("Will wipe dead link: " + filename)
+            os.system("rm -f " + filename)
+            
     # For each batch folder, start adding links to files that we want in the tarball
     for batch in batchFolders:
         # Skip folders where we did not produce final output
@@ -319,12 +327,18 @@ def packAndSendCompletedRun(run):
     logger.info('Sending run to lfe...')
 
     cmd      = "ssh lfe 'rm -f " + stripHost(lfePath) + "' 2>/dev/null"
+
     logger.info(cmd)
     os.system(cmd)
 
     cmd = 'shiftc --wait -d -r --dereference --create-tar ' + \
           os.path.join(runFolder, os.path.basename(assemblyFolder)) + ' ' + lfePath
 
+    # Command to transfer the files as they are in the batch dirs without symlink
+    #cmd = 'shiftc --wait -d -r --include=\'^.*?' + icebridge_common.blendFileName() + \
+    #      '$\' --create-tar ' + runFolder + \
+    #      ' ' + lfePath
+    
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
