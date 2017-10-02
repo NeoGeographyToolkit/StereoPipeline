@@ -167,6 +167,10 @@ def main(argsIn):
                           default=False,
                           help="Skip lidar files in the conversion step.")
 
+        parser.add_option("--no-nav", action="store_true", dest="noNav",
+                          default=False,
+                          help="Skip dealing with raw nav data.")
+
         parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
                           default=False,
                           help="Force refetch of the index file.")
@@ -226,6 +230,8 @@ def main(argsIn):
         cmd += ' --ignore-missing-lidar'
     if options.noLidarConvert:
         cmd += ' --no-lidar-convert'
+    if options.noNav:
+        cmd += ' --no-nav'
     if options.inputCalFolder is not None:
         cmd += ' --camera-calibration-folder ' + options.inputCalFolder
         

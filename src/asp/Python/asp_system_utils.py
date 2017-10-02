@@ -309,9 +309,13 @@ def executeCommand(cmd,
                    outputPath=None,      # If given, throw if the file is not created.  Don't run if it already exists.
                    suppressOutput=False, # If true, don't print anything!
                    redo=False,           # If true, run even if outputPath already exists.
-                   noThrow=False):       # If true, don't throw if output is missing
+                   noThrow=False,        # If true, don't throw if output is missing
+                   numAttempts = 1,         # How many attempts to use
+                   sleepTime = 60        # How much to sleep between attempts
+                   ):
     '''Executes a command with multiple options'''
 
+    
     # Initialize outputs
     out    = ""
     status = 0
@@ -324,37 +328,55 @@ def executeCommand(cmd,
     if not asp_string_utils.isNotString(cmd):
         cmd = asp_string_utils.stringToArgList(cmd)
 
-    # Run the command if conditions are met
-    if redo or (outputPath is None) or (not os.path.exists(outputPath)):
+    for attempt in range(numAttempts):
+        
+        # Run the command if conditions are met
+        if redo or (outputPath is None) or (not os.path.exists(outputPath)):
 
-        if not suppressOutput:
-            print asp_string_utils.argListToString(cmd)
+            if not suppressOutput:
+                print asp_string_utils.argListToString(cmd)
 
-        try:
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = p.communicate()
-            status = p.returncode
-        except OSError as e:
-            out = ""
-            err = ('Error: %s: %s' % (asp_string_utils.argListToString(cmd), e))
-            status = 1
-            if not noThrow:
-                raise Exception(err)
-            
-        if out is None: out = ""
-        if err is None: err = ""
+            try:
+                p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                out, err = p.communicate()
+                status = p.returncode
+            except OSError as e:
+                out = ""
+                err = ('Error: %s: %s' % (asp_string_utils.argListToString(cmd), e))
+                status = 1
+                if not noThrow:
+                    raise Exception(err)
 
-        if not suppressOutput:
-            print out + '\n' + err
-            
-    else: # Output file already exists, don't re-run
-        out    = ""
-        err    = ""
-        status = 0
+            if out is None: out = ""
+            if err is None: err = ""
 
-    # Optionally check that the output file was created
-    if outputPath and (not os.path.exists(outputPath)) and (not noThrow):
-        raise asp_cmd_utils.CmdRunException('Failed to create output file: ' + outputPath)
+            if not suppressOutput:
+                print out + '\n' + err
+
+            if status == 0:
+                break
+
+            if numAttempts <= 1:
+                break
+
+            if attempt < numAttempts - 1:
+                print("attempt: " + str(attempt))
+                print("ran: " + asp_string_utils.argListToString(cmd) )
+                print("out = " + out)
+                print("err = " + err)
+                print("status = " + str(status))
+                print("Will sleep for " + str(sleepTime) + " seconds")
+
+                time.sleep(sleepTime)
+        
+        else: # Output file already exists, don't re-run
+            out    = ""
+            err    = ""
+            status = 0
+
+        # Optionally check that the output file was created
+        if outputPath and (not os.path.exists(outputPath)) and (not noThrow):
+            raise asp_cmd_utils.CmdRunException('Failed to create output file: ' + outputPath)
 
     return (out, err, status)
     

@@ -21,7 +21,7 @@
 #   superceded by another script.
 
 import os, sys, argparse, datetime, time, subprocess, logging, multiprocessing
-import re, shutil, time
+import re, shutil
 
 import os.path as P
 
@@ -63,9 +63,6 @@ MAX_BLEND_HOURS    = 4 # These jobs go pretty fast
 MAX_ORTHOGEN_HOURS = 4 # These jobs go pretty fast
 
 GROUP_ID = 's1827'
-
-# Wait this long between checking for job completion
-SLEEP_TIME = 60
 
 g_start_time = -1
 g_stop_time  = -1
@@ -286,7 +283,7 @@ def runConversion(run, options):
     currentFrame = options.startFrame
     jobList = []
     for i in range(0, numCamgenJobs):
-        jobName    = ('%06d_%s' % (currentFrame, baseName) )
+        jobName    = ('%s%06d%s' % ('C', currentFrame, baseName) ) # C for camera
         startFrame = currentFrame
         stopFrame  = currentFrame+tasksPerJob-1
         if (i == numCamgenJobs - 1):
@@ -308,8 +305,7 @@ def runConversion(run, options):
         currentFrame += tasksPerJob
 
     # Wait for conversions to finish
-    waitForRunCompletion(baseName, jobList)
-
+    pbs_functions.waitForRunCompletion(baseName, jobList)
 
     # Check the results
     # - If we didn't get everything keep going and process as much as we can.
@@ -443,7 +439,7 @@ def submitBatchJobs(run, options, batchListPath):
             continue
         firstFrame = group[0]
         lastFrame  = group[-1] + 1 # go one beyond
-        jobName    = ('%06d_%s' % (firstFrame, baseName) )
+        jobName    = ('%s%06d%s' % ('D', firstFrame, baseName) ) # D for DEM
 
         # Specify the range of lines in the file we want this node to execute
         args = ('--command-file-path %s --start-frame %d --stop-frame %d --num-processes %d' % \
@@ -490,14 +486,17 @@ def runJobs(run, mode, options):
 
     scriptPath = ""
     extraArgs = ""
+    jobTag = ""
     if mode == 'orthogen':
         scriptPath = icebridge_common.fullPath('gen_ortho.py')
         queueName  = ORTHOGEN_PBS_QUEUE
         maxHours   = MAX_ORTHOGEN_HOURS
+        jobTag     = 'O'
     elif mode == 'blend':
+        scriptPath = icebridge_common.fullPath('blend_dems.py')
         queueName  = BLEND_PBS_QUEUE
         maxHours   = MAX_BLEND_HOURS
-        scriptPath = icebridge_common.fullPath('blend_dems.py')
+        jobTag     = 'B'
         extraArgs  = '  --blend-to-fireball-footprint'
     else:
         raise Exception("Unknown mode: " + mode)
@@ -515,7 +514,7 @@ def runJobs(run, mode, options):
     jobList = []
     currentFrame = options.startFrame
     for i in range(0, numJobs):
-        jobName    = ('%06d_%s' % (currentFrame, baseName) )
+        jobName    = ('%s%06d%s' % (jobTag, currentFrame, baseName) ) # 'B'lend or 'O'rtho
         startFrame = currentFrame
         stopFrame  = currentFrame+tasksPerJob # Last frame passed to the tool is not processed
         if (i == numJobs - 1):
@@ -533,33 +532,7 @@ def runJobs(run, mode, options):
         currentFrame += tasksPerJob
 
     # Wait for conversions to finish
-    waitForRunCompletion(baseName, jobList)
-
-# TODO: Move this
-def waitForRunCompletion(jobPrefix, jobList):
-    '''Sleep until all of the submitted jobs containing the provided job prefix have completed'''
-
-    print("Wait for completion with: " + jobPrefix)
-    
-    jobsRunning = []
-    user = icebridge_common.getUser()
-    stillWorking = True
-    while stillWorking:
-
-        time.sleep(SLEEP_TIME)
-        stillWorking = False
-
-        # Look through the list for jobs with the run's date in the name        
-        allJobs = pbs_functions.getActiveJobs(user)
-        
-        for (job, status) in allJobs:
-            if job in jobList:
-                # Matching job found so we keep waiting
-                stillWorking = True
-                # Print a message if this is the first time we saw the job as running
-                if (status == 'R') and (job not in jobsRunning):
-                    jobsRunning.append(job)
-                    print 'Job launched: ' + job
+    pbs_functions.waitForRunCompletion(baseName, jobList)
 
 def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
 
@@ -988,7 +961,7 @@ def main(argsIn):
             # Wait for all the jobs to finish
             logger.info('Waiting for job completion of run ' + str(run))
             
-            waitForRunCompletion(baseName, jobList)
+            pbs_functions.waitForRunCompletion(baseName, jobList)
             logger.info('All jobs finished for run '+str(run))
             stop_time("dem creation", logger)
         
