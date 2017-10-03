@@ -77,7 +77,7 @@ def stop_time(job, logger):
 
 # 'wes' = Westmere = 12 cores/24 processors, 48 GB mem, SBU 1.0, Launch from mfe1 only!
 # 'san' = Sandy bridge = 16 cores,  32 GB mem, SBU 1.82
-# 'ivy' = Ivy bridge    = 20 cores,  64 GB mem, SBU 2.52
+# 'ivy' = Ivy bridge   = 20 cores,  64 GB mem, SBU 2.52
 # 'has' = Haswell      = 24 cores, 128 GB mem, SBU 3.34
 # 'bro' = Broadwell    = 28 cores, 128 GB mem, SBU 4.04
 
@@ -87,29 +87,29 @@ def getParallelParams(nodeType, task):
     # Define additional combinations and edit as needed.
 
     if task == 'camgen':
-        if nodeType == 'ivy': return (10, 2, 400, 3)
+        if nodeType == 'san': return (8,  3, 300, 3)
+        if nodeType == 'ivy': return (10, 3, 400, 3)
         if nodeType == 'bro': return (14, 4, 500, 3)
         if nodeType == 'wes': return (10, 4, 400, 6)
-        if nodeType == 'san': return (10, 4, 400, 3)
     
     if task == 'dem':
+        if nodeType == 'san': return (2, 8, 70,  8)
         if nodeType == 'ivy': return (4, 8, 80,  8)
         if nodeType == 'bro': return (6, 8, 100, 8)
         if nodeType == 'wes': return (3, 8, 75,  8)
-        if nodeType == 'san': return (3, 8, 75,  8)
     
     if task == 'blend':
-        if nodeType == 'ivy': return (10, 2, 1000, 4)
+        if nodeType == 'san': return (8,  3,  800, 4)
+        if nodeType == 'ivy': return (10, 3, 1000, 4)
         if nodeType == 'bro': return (14, 4, 1400, 4) # 200 seems to finish in 10 minutes
         if nodeType == 'wes': return (10, 3, 1000, 4) 
-        if nodeType == 'san': return (10, 3, 1000, 4) 
     
     if task == 'orthogen':
         # TODO: Need to think more here
+        if nodeType == 'san': return (8,  2, 350, 4)
         if nodeType == 'ivy': return (10, 2, 400, 4)
         if nodeType == 'bro': return (14, 4, 500, 4)
         if nodeType == 'wes': return (10, 4, 400, 4)
-        if nodeType == 'san': return (10, 4, 400, 4)
 
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
 

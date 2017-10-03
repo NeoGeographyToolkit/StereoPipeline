@@ -530,41 +530,54 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
                  (centerLon, centerLat, meanAlt, 
                   lidarDiffResults['Mean'], interDiffResults    ['Mean'],
                   fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
-        
+
+
+def readConsolidatedStatsFile(consolidatedStatsPath):
+    '''Read the contents of the stats file'''
+
+    if not os.path.exists(consolidatedStatsPath):
+        raise Exception('Consolidated stats file missing: ' + consolidatedStatsPath)
+    with open(consolidatedStatsPath, 'r') as f:
+        statsText = f.read()
+    parts = split(statsText)
+    return [float(x) for x in parts]
+    
+
+
 def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText, 
                   suppressOutput, redo, logger):
-        '''Generate a DEM from a lidar file in the given region (plus a buffer)'''
+    '''Generate a DEM from a lidar file in the given region (plus a buffer)'''
 
-        LIDAR_DEM_RESOLUTION     = 5 # TODO: Vary this
-        LIDAR_PROJ_BUFFER_METERS = 100
+    LIDAR_DEM_RESOLUTION     = 5 # TODO: Vary this
+    LIDAR_PROJ_BUFFER_METERS = 100
 
-        lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
+    lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
 
-        # Buffer out the input bounds
-        minX = projBounds[0] - LIDAR_PROJ_BUFFER_METERS # Expand the bounds a bit
-        minY = projBounds[1] - LIDAR_PROJ_BUFFER_METERS
-        maxX = projBounds[2] + LIDAR_PROJ_BUFFER_METERS
-        maxY = projBounds[3] + LIDAR_PROJ_BUFFER_METERS
+    # Buffer out the input bounds
+    minX = projBounds[0] - LIDAR_PROJ_BUFFER_METERS # Expand the bounds a bit
+    minY = projBounds[1] - LIDAR_PROJ_BUFFER_METERS
+    maxX = projBounds[2] + LIDAR_PROJ_BUFFER_METERS
+    maxY = projBounds[3] + LIDAR_PROJ_BUFFER_METERS
 
-        # Generate a DEM from the lidar point cloud in this region        
-        lidarDemPrefix = os.path.join(outputFolder, 'cropped_lidar')
-        cmd = ('point2dem --max-output-size 10000 10000 --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
-               % (minX, minY, maxX, maxY,
-                  LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
-                  lidarCsvFormatString, lidarDemPrefix))
-        lidarDemOutput = lidarDemPrefix+'-DEM.tif'
-        icebridge_common.logger_print(logger, cmd)
-        (out, err, status) = asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo, noThrow=True)
-        if status != 0:
-            logger.info(out + '\n' + err)
-            raise Exception('Did not generate any lidar DEM!')
+    # Generate a DEM from the lidar point cloud in this region        
+    lidarDemPrefix = os.path.join(outputFolder, 'cropped_lidar')
+    cmd = ('point2dem --max-output-size 10000 10000 --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
+           % (minX, minY, maxX, maxY,
+              LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
+              lidarCsvFormatString, lidarDemPrefix))
+    lidarDemOutput = lidarDemPrefix+'-DEM.tif'
+    icebridge_common.logger_print(logger, cmd)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo, noThrow=True)
+    if status != 0:
+        logger.info(out + '\n' + err)
+        raise Exception('Did not generate any lidar DEM!')
 
 
-        #colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
-        #cmd = ('colormap  %s -o %s' % ( lidarDemOutput, colorOutput))
-        #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
-        
-        return lidarDemOutput
+    #colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
+    #cmd = ('colormap  %s -o %s' % ( lidarDemOutput, colorOutput))
+    #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+    
+    return lidarDemOutput
 
 def cropGdalImage(projBounds, inputPath, outputPath, logger):
     '''Crop out a section of an image'''
@@ -983,6 +996,13 @@ def doWork(options, args, logger):
     #  quit now so we don't regenerate intermediate products.
     consolidatedStatsPath = outputPrefix + '-consolidated_stats.txt'
     finalAlignedDEM        = outputPrefix + '-align-DEM.tif'
+
+    try: # If the consolidated stats file exists but is incomplete, remove it so that we go ahead with processing.
+        stats = readConsolidatedStatsFile(consolidatedStatsPath)
+        if (stats[0] == 0) or (stats[1] == 0) or (stats[2] == -999):
+            os.remove(consolidatedStatsPath)
+    except:
+        pass
 
     if ( os.path.exists(consolidatedStatsPath) and 
          os.path.exists(finalAlignedDEM) and not redo ):
