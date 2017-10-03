@@ -490,7 +490,8 @@ void get_estimated_camera_position(Options const& opt,
   if (opt.camera_estimate != "") {
     // Load the estimated camera
     PinholeModel est_cam(opt.camera_estimate);
-    
+    std::cout << "est_cam = \n" << est_cam << std::endl;
+      
     // If our solution moved too far from the estimated camera, use
     // the estimated position/pose instead.
     const double MAX_CENTER_MOVEMENT = 10;
@@ -499,7 +500,7 @@ void get_estimated_camera_position(Options const& opt,
              << " meters from the input camera estimate.\n";
     if (dist > MAX_CENTER_MOVEMENT) {
       pcam->set_camera_center(est_cam.camera_center());
-      pcam->set_camera_pose(est_cam.camera_pose());
+      pcam->set_camera_pose(est_cam.get_rotation_matrix());
       vw_out() << "Flat affine estimate difference limit is " << MAX_CENTER_MOVEMENT 
                << ", using input estimate instead\n";
     }
@@ -600,7 +601,7 @@ double refine_camera_with_dem_pts(Options const& opt,
                               best_translation, rot_q);
   Quat    pose   = adj_cam.camera_pose(Vector2());
   Vector3 center = adj_cam.camera_center(Vector2());
-  pcam->set_camera_pose(pose);
+  pcam->set_camera_pose(pose); // TODO: There may be a problem here!
   pcam->set_camera_center(center);
   
   if (opt.show_error) { // Print error in pixels for each IP
@@ -685,8 +686,8 @@ void ortho2pinhole(Options & opt){
   // in the second we pull the heights from a DEM. If there are enough
   // of the latter kind of points, we use those.
   // - The "2" variables go with the "ortho_dem" variables.
-  std::vector<Vector3> raw_flat_xyz, ortho_flat_xyz, ortho_flat_llh;
-  std::vector<Vector3> raw_flat_xyz2, ortho_dem_xyz, ortho_dem_llh;
+  std::vector<Vector3> raw_flat_xyz,  ortho_flat_xyz, ortho_flat_llh;
+  std::vector<Vector3> raw_flat_xyz2, ortho_dem_xyz,  ortho_dem_llh;
   std::vector<Vector2> raw_pixels, raw_pixels2;
   
   // Estimate the relative camera height from the terrain
@@ -770,7 +771,7 @@ void ortho2pinhole(Options & opt){
     if (opt.camera_estimate != "") {
       PinholeModel est_cam(opt.camera_estimate);
       pcam->set_camera_center(est_cam.camera_center());
-      pcam->set_camera_pose(est_cam.camera_pose());
+      pcam->set_camera_pose(est_cam.get_rotation_matrix());
     }
     vw_throw(ArgumentErr() << "Error: Only found " << num_ip_found << " interest points, quitting.\n");
   }
@@ -828,7 +829,7 @@ void ortho2pinhole(Options & opt){
       if (revert_camera) { // Use estimated camera with input camera intrinsics
         PinholeModel est_cam(opt.camera_estimate);
         pcam->set_camera_center(est_cam.camera_center());
-        pcam->set_camera_pose(est_cam.camera_pose());
+        pcam->set_camera_pose(est_cam.get_rotation_matrix());
       }
     }
     
