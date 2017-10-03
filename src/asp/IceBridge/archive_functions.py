@@ -150,7 +150,7 @@ def packAndSendCameraFolder(run):
     # Do the new file. Save the projection bounds, we will need that for later
     # as that file is very time conssuming to create. 
     runFolder = str(run)
-    cmd = 'shiftc --wait -d -r --include=\'^.*?(projection_bounds.csv|' + \
+    cmd = 'shiftc --wait -d -r --include=\'^.*?(' + os.path.basename(icebridge_common.projectionBoundsFile(runFolder)) + '|' + os.path.basename(icebridge_common.validFilesList(runFolder)) + '|' + \
           os.path.basename(cameraFolder) + '.*?\.tsai)$\' --create-tar ' + runFolder + \
           ' ' + lfePath
     

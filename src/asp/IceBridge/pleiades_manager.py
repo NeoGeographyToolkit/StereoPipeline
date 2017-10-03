@@ -191,7 +191,8 @@ def runFetch(run, options):
                        + str(e))
 
     # Fetch the archive from lfe, only in the case the directory is not present
-    archive_functions.retrieveRunData(run, options.unpackDir, options.useTar)
+    if not options.skipTapeFetch:
+        archive_functions.retrieveRunData(run, options.unpackDir, options.useTar)
 
     pythonPath = asp_system_utils.which('python')
     
@@ -200,8 +201,8 @@ def runFetch(run, options):
     # - This is likely to have to fetch the large nav data file(s)
     if not options.noRefetch:
         logger.info("Fetch from NSIDC.")
-        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s  --stop-after-fetch --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
-        
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --stop-after-fetch --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
+
         if options.noNavFetch:
             cmd += ' --no-nav'
             
@@ -767,6 +768,10 @@ def main(argsIn):
 
         parser.add_argument("--skip-fetch", action="store_true", dest="skipFetch", default=False, 
                             help="Don't fetch.")
+
+        parser.add_argument("--skip-tape-fetch", action="store_true", dest="skipTapeFetch", default=False, 
+                            help="Don't fetch from tape, go directly to NSIDC. With this, one must not skip the convert step, as then subsequent steps will fail.")
+        
         parser.add_argument("--skip-convert", action="store_true", dest="skipConvert",
                             default=False, 
                             help="Don't convert.")
@@ -895,9 +900,6 @@ def main(argsIn):
 
         # TODO: Prefetch the next run while waiting on this run!
 
-        fullBatchListPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
-        batchListPath = fullBatchListPath
-
         if not options.skipFetch:
             # Obtain the data for a run if it is not already done
             start_time()
@@ -931,6 +933,9 @@ def main(argsIn):
         #       (not options.recomputeBatches) and options.skipArchiveCameras:
         #    logger.info('Quitting early.')
         #    return 0
+
+        fullBatchListPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
+        batchListPath = fullBatchListPath
 
         if not options.skipBatchGen:
             start_time()

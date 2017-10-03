@@ -184,7 +184,33 @@ def writeProjectionBounds(indexFile, bounds):
             for val in vals:
                 f.write(str(val) + ', ')
             f.write('\n')
-        
+
+def validFilesList(folder):
+    '''File containing the list of fetched files that were validated.'''
+    return os.path.join(folder, 'valid_files.csv')
+
+def updateValidFilesListFromDisk(filesList, filesSet):
+    '''Update the current set of valid files with any new info from disk.'''
+
+    # Nothing to 
+    if not os.path.exists(filesList):
+        return filesSet
+
+    print("Reading: " + filesList)
+    with open(filesList, 'r') as f:
+        for line in f:
+            line = line.strip()
+            filesSet.add(line)
+            
+    return filesSet
+
+def writeValidFilesList(filesList, filesSet):
+    '''Write the list of valid files to disk.'''
+    print("Writing: " + filesList)
+    with open(filesList, 'w') as f:
+        for filename in sorted(filesSet):
+            f.write(filename + '\n')
+
 def readIndexFile(parsedIndexPath, prependFolder = False):
     '''Read an index file having frame number, filename, and url it came from.'''
     frameDict  = {}

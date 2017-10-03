@@ -706,6 +706,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         # - Exception is the height limit string, which we can remove if using existing IP.
         stereoCmd = stereoCmd.replace(heightLimitString, ' ')
         icebridge_common.logger_print(logger, stereoCmd)
+        os.system('rm -f ' + triOutput) # In case the output cloud exists but is bad
         (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, 
                                                              redo, noThrow=True)
         if status != 0:
@@ -715,6 +716,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
 
     # TODO: Make this into a function.
     # Parse the output. Look at the very last lines having the given patterns.
+    successParsintStats = False
     corrSearchWid = -1
     memUsage = -1
     elapsed = "-1"
@@ -725,6 +727,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
             corrSearchWid = float(m.group(1))
         m = re.match("^.*?elapsed=(.*?)\s+mem=(\d.*?)\s+.*?time_stereo_corr", line, re.IGNORECASE)
         if m:
+            successParsintStats = True
             elapsed = m.group(1)
             memUsage = float(m.group(2))
             memUsage = float(round(memUsage/100000.0))/10.0 # convert to GB
@@ -732,7 +735,9 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     icebridge_common.logger_print(logger, ( "Corr search width: %d mem usage: %f GB elapsed: %s" % \
                    (corrSearchWid, memUsage, elapsed) ) )
 
-    if i == 0:
+    if i == 0 and successParsintStats:
+        # If we could not parse the data, write nothing. Maybe this time
+        # we are rerunning things, and did not actually do any work.
         filePath = os.path.join(os.path.dirname(os.path.dirname(thisPairPrefix)),
                                 icebridge_common.getRunStatsFile())
         icebridge_common.logger_print(logger, "Writing: " + filePath)

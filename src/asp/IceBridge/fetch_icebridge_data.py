@@ -710,9 +710,16 @@ def doFetch(options, outputFolder):
         allFilesToFetch = allFilesToFetch[0:options.maxNumLidarToFetch]
         allUrlsToFetch  = allUrlsToFetch [0:options.maxNumLidarToFetch]
                 
-    icebridge_common.fetchFilesInBatches(baseCurlCmd, MAX_IN_ONE_CALL, options.dryRun, outputFolder,
+    icebridge_common.fetchFilesInBatches(baseCurlCmd, MAX_IN_ONE_CALL, options.dryRun,
+                                         outputFolder,
                                          allFilesToFetch, allUrlsToFetch, logger)
 
+    # Fetch from disk the set of already validated files, if any
+    validFilesList = icebridge_common.validFilesList(os.path.dirname(outputFolder))
+    validFilesSet = set()
+    validFilesSet = icebridge_common.updateValidFilesListFromDisk(validFilesList, validFilesSet)
+    numInitialValidFiles = len(validFilesSet)
+    
     # Verify that all files were fetched and are in good shape
     failedFiles = []
     for outputPath in allFilesToFetch:
@@ -726,74 +733,99 @@ def doFetch(options, outputFolder):
             continue
 
         if icebridge_common.hasImageExtension(outputPath):
-
             if False:
                 # This check is just so slow. Turn it off for now.
                 # This will impact only the validation of jpegs,
                 # as the other files can be validated via the checksum.
-                if not icebridge_common.isValidImage(outputPath):
-                    logger.info('Found an invalid image. Will wipe it: ' + outputPath)
-                    if os.path.exists(outputPath): os.remove(outputPath)
-                    failedFiles.append(outputPath)
-                    continue
+                if outputPath in validFilesSet and os.path.exists(outputPath):
+                    logger.info('Previously validated: ' + outputPath)
                 else:
-                    logger.info('Valid image: ' + outputPath)
+                    if not icebridge_common.isValidImage(outputPath):
+                        logger.info('Found an invalid image. Will wipe it: ' + outputPath)
+                        if os.path.exists(outputPath): os.remove(outputPath)
+                        failedFiles.append(outputPath)
+                        continue
+                    else:
+                        logger.info('Valid image: ' + outputPath)
+                        validFilesSet.add(outputPath) # mark it as validated
 
         # Sanity check: XML files must have the right latitude.
         if icebridge_common.fileExtension(outputPath) == '.xml':
-            if os.path.exists(outputPath):
-                try:
-                    latitude = icebridge_common.parseLatitude(outputPath)
-                except:
-                    # Corrupted file
-                    logger.info("Failed to parse latitude, will wipe: " + outputPath)
-                    if os.path.exists(outputPath): os.remove(outputPath)
-                    failedFiles.append(outputPath)
+            if outputPath in validFilesSet and os.path.exists(outputPath):
+                logger.info('Previously validated: ' + outputPath)
+            else:
+                if os.path.exists(outputPath):
+                    try:
+                        latitude = icebridge_common.parseLatitude(outputPath)
+                        logger.info('Valid file: ' + outputPath)
+                        validFilesSet.add(outputPath) # mark it as validated
+                    except:
+                        # Corrupted file
+                        logger.info("Failed to parse latitude, will wipe: " + outputPath)
+                        if os.path.exists(outputPath): os.remove(outputPath)
+                        failedFiles.append(outputPath)
 
-                # On a second thought, don't wipe files with wrong latitude, as
-                # next time we run fetch we will have to fetch them again.
-                # Hopefully they will be ignored.
-                #isGood = hasGoodLat(latitude, isSouth)
-                #if not isGood:
-                #    logger.info("Wiping XML file " + outputPath + " with bad latitude " + \
-                #                str(latitude))
-                #    os.remove(outputPath)
-                #    imageFile = icebridge_common.xmlToImage(outputPath)
-                #    if os.path.exists(imageFile):
-                #        logger.info("Wiping TIF file " + imageFile + " with bad latitude " + \
-                #                    str(latitude))
-                #        os.remove(imageFile)
+                    # On a second thought, don't wipe files with wrong latitude, as
+                    # next time we run fetch we will have to fetch them again.
+                    # Hopefully they will be ignored.
+                    #isGood = hasGoodLat(latitude, isSouth)
+                    #if not isGood:
+                    #    logger.info("Wiping XML file " + outputPath + " with bad latitude " + \
+                    #                str(latitude))
+                    #    os.remove(outputPath)
+                    #    imageFile = icebridge_common.xmlToImage(outputPath)
+                    #    if os.path.exists(imageFile):
+                    #        logger.info("Wiping TIF file " + imageFile + " with bad latitude " + \
+                    #                    str(latitude))
+                    #        os.remove(imageFile)
                     
         # Verify the chcksum    
         if hasXml and len(outputPath) >= 4 and outputPath[-4:] != '.xml' \
                and outputPath[-4:] != '.tfw':
-            isGood = icebridge_common.hasValidChkSum(outputPath, logger)
-            if not isGood:
-                xmlFile = icebridge_common.xmlFile(outputPath)
-                logger.info('Found invalid data. Will wipe it: ' + outputPath + ' ' + xmlFile)
-                if os.path.exists(outputPath): os.remove(outputPath)
-                if os.path.exists(xmlFile):    os.remove(xmlFile)
-                failedFiles.append(outputPath)
-                failedFiles.append(xmlFile)
-                continue
+            if outputPath in validFilesSet and os.path.exists(outputPath):
+                logger.info('Previously validated: ' + outputPath)
             else:
-                logger.info('Valid file: ' + outputPath)
-
+                isGood = icebridge_common.hasValidChkSum(outputPath, logger)
+                if not isGood:
+                    xmlFile = icebridge_common.xmlFile(outputPath)
+                    logger.info('Found invalid data. Will wipe it: ' + outputPath + ' ' + xmlFile)
+                    if os.path.exists(outputPath): os.remove(outputPath)
+                    if os.path.exists(xmlFile):    os.remove(xmlFile)
+                    failedFiles.append(outputPath)
+                    failedFiles.append(xmlFile)
+                    continue
+                else:
+                    logger.info('Valid file: ' + outputPath)
+                    validFilesSet.add(outputPath)
 
         if hasTfw and icebridge_common.fileExtension(outputPath) == '.tfw':
-            isGood = icebridge_common.isValidTfw(outputPath, logger)
-            if not isGood:
-                xmlFile = icebridge_common.xmlFile(outputPath)
-                logger.info('Found invalid tfw. Will wipe: ' + outputPath + ' ' + xmlFile)
-                if os.path.exists(outputPath): os.remove(outputPath)
-                if os.path.exists(xmlFile):    os.remove(xmlFile)
-                failedFiles.append(outputPath)
-                failedFiles.append(xmlFile)
-                continue
+            if outputPath in validFilesSet and os.path.exists(outputPath):
+                logger.info('Previously validated: ' + outputPath)
             else:
-                logger.info('Valid tfw file: ' + outputPath)
+                isGood = icebridge_common.isValidTfw(outputPath, logger)
+                if not isGood:
+                    xmlFile = icebridge_common.xmlFile(outputPath)
+                    logger.info('Found invalid tfw. Will wipe: ' + outputPath + ' ' + xmlFile)
+                    if os.path.exists(outputPath): os.remove(outputPath)
+                    if os.path.exists(xmlFile):    os.remove(xmlFile)
+                    failedFiles.append(outputPath)
+                    failedFiles.append(xmlFile)
+                    continue
+                else:
+                    logger.info('Valid tfw file: ' + outputPath)
+                    validFilesSet.add(outputPath)
                 
-            
+
+    # Write to disk the list of validated files, but only if new
+    # validations happened.  First re-read that list, in case a
+    # different process modified it in the meantime, such as if two
+    # managers are running at the same time.
+    numFinalValidFiles = len(validFilesSet)
+    if numInitialValidFiles != numFinalValidFiles:
+        validFilesSet = \
+                      icebridge_common.updateValidFilesListFromDisk(validFilesList, validFilesSet)
+        icebridge_common.writeValidFilesList(validFilesList, validFilesSet)
+
     numFailed = len(failedFiles)
     if numFailed > 0:
         logger.info("Number of files that could not be processed: " + str(numFailed))
