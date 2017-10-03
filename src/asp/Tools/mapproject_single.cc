@@ -35,6 +35,81 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+template<class IntType>
+IntType round_and_clamp(double val){
+
+  // Round. Be careful to work with doubles before clamping, to not overflow.
+  val = round(val);
+
+  // Clamp. Note that this won't work right unless IntType is an int type.
+  if (val < double(std::numeric_limits<IntType>::min()) )
+    val = double(std::numeric_limits<IntType>::min());
+  if (val > double(std::numeric_limits<IntType>::max()) )
+    val = double(std::numeric_limits<IntType>::max());
+
+  return static_cast<IntType>(val);
+}
+
+// Pick the first channel of an image. Round its values, then clamp to the bounds
+// for the given output type and cast to this output type.
+template <class ImageT, class OutputPixelT>
+class RoundAndClamp: public ImageViewBase< RoundAndClamp<ImageT, OutputPixelT> >{
+  ImageT m_img;
+
+public:
+  RoundAndClamp( ImageT const& img): m_img(img){}
+
+  typedef typename ImageT::pixel_type InputPixelT;
+  typedef OutputPixelT pixel_type;
+  typedef OutputPixelT result_type;
+  typedef ProceduralPixelAccessor<RoundAndClamp> pixel_accessor;
+
+  inline int32 cols() const { return m_img.cols(); }
+  inline int32 rows() const { return m_img.rows(); }
+  inline int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+
+  inline result_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+    vw_throw(NoImplErr() << "RoundAndClamp::operator()(...) is not implemented");
+    return result_type();
+  }
+
+  typedef CropView<ImageView<result_type> > prerasterize_type;
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+
+    ImageView<result_type> tile(bbox.width(), bbox.height());
+    for (int col = bbox.min().x(); col < bbox.max().x(); col++){
+      for (int row = bbox.min().y(); row < bbox.max().y(); row++){
+
+        // I could not figure out in reasonable time how to select a channel
+        // from a pixel which can be single or compound. Hence use the
+        // functionality for selecting a channel from an image.
+        ImageView<InputPixelT> A(1, 1);
+        A(0, 0) = m_img(col, row);
+
+        // First cast to double, as the values of A could be out of range
+        // for the OutputPixelT data type.
+        ImageView<double> B = select_channel(A, 0);
+
+        // Now round, clamp, and cast. 
+        tile(col - bbox.min().x(), row - bbox.min().y() ) = round_and_clamp<OutputPixelT>(B(0, 0));
+      }
+    }
+    
+    return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
+                             cols(), rows() );
+  }
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, BBox2i bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
+template <class ImageT, class OutputPixelT>
+RoundAndClamp<ImageT, OutputPixelT> round_and_clamp(ImageT const& img){
+  return RoundAndClamp<ImageT, OutputPixelT>(img);
+}
 
 /// Variant of Map2CamTrans that accepts a constant elevation instead of a DEM.
 /// - TODO: Move to vision workbench!
@@ -122,7 +197,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   bool isQuery, noGeoHeaderInfo;
 
   // Settings
-  std::string target_srs_string;
+  std::string target_srs_string, output_data_string;
   double nodata_value, tr, mpp, ppd, datum_offset;
   BBox2 target_projwin, target_pixelwin;
 };
@@ -154,7 +229,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
-     "Suppress writing some auxialliary information in geoheaders.");
+     "Suppress writing some auxialliary information in geoheaders.")
+    ("output-data-type",  po::value(&opt.output_data_string)->default_value("float32"), "Output data type, when the input is single channel. Supported types: float32 and uint8. This option will be ignored for multi-channel images, when the output type is set to be the same as the input type.");
+    
 
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -212,6 +289,29 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
 }
 
+// If the output type is uint8, round and clamp to this type, both the
+// pixels and the nodata-value. Else write as it is. 
+template <class ImageT>
+void write_parallel_type( std::string              const& filename,
+                          ImageT                   const& image,
+                          GeoReference             const& georef,
+                          bool has_nodata, double nodata_val,
+                          Options                  const& opt,
+                          TerminalProgressCallback const& tpc ) {
+
+  if (opt.output_data_string == "float32") {
+    write_parallel_cond(filename, image, georef, has_nodata, nodata_val, opt, tpc);
+  }else if (opt.output_data_string == "uint8") {
+
+    write_parallel_cond(filename,
+                        round_and_clamp<ImageT, uint8>(image),
+                        georef, has_nodata,
+                        round_and_clamp<uint8>(nodata_val),
+                        opt, tpc);
+  }else{
+    vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_data_string << ".\n" );
+  }
+}
 
 template <class ImageT>
 void write_parallel_cond( std::string              const& filename,
@@ -437,7 +537,7 @@ void project_image_nodata(Options & opt,
     bool            has_img_nodata = true;
     ImageMaskPixelT nodata_mask    = ImageMaskPixelT(); // invalid value for a PixelMask
 
-    write_parallel_cond
+    write_parallel_type
       ( // Write to the output file
        opt.output_file,
        crop( // Apply crop (only happens if --t_pixelwin was specified)
@@ -478,7 +578,7 @@ void project_image_alpha(Options & opt,
     const bool        has_img_nodata    = false;
     const ImagePixelT transparent_pixel = ImagePixelT();
 
-    write_parallel_cond
+    write_parallel_type
       ( // Write to the output file
        opt.output_file,
        crop( // Apply crop (only happens if --t_pixelwin was specified)
@@ -757,37 +857,42 @@ int main( int argc, char* argv[] ) {
     // Redirect to the correctly typed function to perform the actual map projection.
     // - Must correspond to the type of the input image.
     if (image_fmt.pixel_format == VW_PIXEL_RGB) {
-        // We can't just use float for everything or the output will be cast
-        //  into the -1 to 1 range which is probably not desired.
-        // - Always use an alpha channel with RGB images.
-        switch(image_fmt.channel_type) {
-        case VW_CHANNEL_UINT8:
-          project_image_alpha_pick_transform<PixelRGBA<uint8> >(opt, dem_georef, target_georef,
+
+      // We can't just use float for everything or the output will be cast
+      //  into the -1 to 1 range which is probably not desired.
+      // - Always use an alpha channel with RGB images.
+      switch(image_fmt.channel_type) {
+      case VW_CHANNEL_UINT8:
+        project_image_alpha_pick_transform<PixelRGBA<uint8> >(opt, dem_georef, target_georef,
+                                                              croppedGeoRef, image_size, 
+                                                              Vector2i(virtual_image_width,
+                                                                       virtual_image_height),
+                                                              croppedImageBB, camera_model);
+        break;
+      case VW_CHANNEL_INT16:
+        project_image_alpha_pick_transform<PixelRGBA<int16> >(opt, dem_georef, target_georef,
+                                                              croppedGeoRef, image_size, 
+                                                              Vector2i(virtual_image_width,
+                                                                       virtual_image_height),
+                                                              croppedImageBB, camera_model);
+        break;
+      case VW_CHANNEL_UINT16:
+        project_image_alpha_pick_transform<PixelRGBA<uint16> >(opt, dem_georef, target_georef,
+                                                               croppedGeoRef, image_size, 
+                                                               Vector2i(virtual_image_width,
+                                                                        virtual_image_height),
+                                                               croppedImageBB, camera_model);
+        break;
+      default:
+        project_image_alpha_pick_transform<PixelRGBA<float32> >(opt, dem_georef, target_georef,
                                                                 croppedGeoRef, image_size, 
-                        Vector2i(virtual_image_width, virtual_image_height),
-                        croppedImageBB, camera_model);
-          break;
-        case VW_CHANNEL_INT16:
-          project_image_alpha_pick_transform<PixelRGBA<int16> >(opt, dem_georef, target_georef,
-                                                                croppedGeoRef, image_size, 
-                        Vector2i(virtual_image_width, virtual_image_height),
-                        croppedImageBB, camera_model);
-          break;
-        case VW_CHANNEL_UINT16:
-          project_image_alpha_pick_transform<PixelRGBA<uint16> >(opt, dem_georef, target_georef,
-                                                                 croppedGeoRef, image_size, 
-                        Vector2i(virtual_image_width, virtual_image_height),
-                        croppedImageBB, camera_model);
-          break;
-        default:
-          project_image_alpha_pick_transform<PixelRGBA<float32> >(opt, dem_georef, target_georef,
-                                                                  croppedGeoRef, image_size, 
-                        Vector2i(virtual_image_width, virtual_image_height),
-                        croppedImageBB, camera_model);
-          break;
-        };
-    }
-    else {
+                                                                Vector2i(virtual_image_width,
+                                                                         virtual_image_height),
+                                                                croppedImageBB, camera_model);
+        break;
+      };
+      
+    } else {
       // If the input image is not RGB, only single channel images are supported.
       if (num_input_channels != 1 || image_fmt.planes != 1)
         vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );

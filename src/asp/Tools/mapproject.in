@@ -449,12 +449,13 @@ def main(argsIn):
     sep = "="
     verbose = False
     gdal_settings = asp_system_utils.run_and_parse_output( "gdalinfo", args, sep, verbose)
-    meta = ["  <Metadata>\n"]
-    for v in ['CAMERA_MODEL_TYPE', 'BUNDLE_ADJUST_PREFIX', 'DEM_FILE']:
-        if v in gdal_settings:
-            line = "    <MDI key=\"" + v + "\">" + gdal_settings[v][0] + "</MDI>\n"
-            meta.append(line)
-    meta.append("  </Metadata>\n")
+    if not options.noGeoHeaderInfo:
+        meta = ["  <Metadata>\n"]
+        for v in ['CAMERA_MODEL_TYPE', 'BUNDLE_ADJUST_PREFIX', 'DEM_FILE']:
+            if v in gdal_settings:
+                line = "    <MDI key=\"" + v + "\">" + gdal_settings[v][0] + "</MDI>\n"
+                meta.append(line)
+        meta.append("  </Metadata>\n")
 
     # Append the metadata after the first line in the vrt.
     f = open(vrtPath, "r")

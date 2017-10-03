@@ -341,7 +341,7 @@ def main(argsIn):
     os.system('mkdir -p ' + options.outputFolder)
     logLevel = logging.INFO # Make this an option??
     logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
-                                            'icebridge_processing_log')
+                                            'icebridge_blend_log')
 
     (out, err, status) = asp_system_utils.executeCommand(['uname', '-a'],
                                                          suppressOutput = True)

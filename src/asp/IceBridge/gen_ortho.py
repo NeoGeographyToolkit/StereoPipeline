@@ -65,6 +65,10 @@ os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 def runOrtho(frame, processFolder, imageFile, bundleLength,
              threadText, redo, suppressOutput):
 
+    os.system("ulimit -c 0") # disable core dumps
+    os.system("rm -f core.*") # these keep on popping up
+    os.system("umask 022")   # enforce files be readable by others
+
     # This will run as multiple processes. Hence have to catch all exceptions:
     try:
 
@@ -131,7 +135,7 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
             filesToWipe += glob.glob(mosaicPrefix + '*' + '-log-' + '*')
 
             # Run mapproject. The grid size is auto-determined.
-            cmd = ('mapproject --no-geoheader-info %s %s %s %s %s' 
+            cmd = ('mapproject --no-geoheader-info --output-data-type uint8 %s %s %s %s %s' 
                    % (mosaicOutput, imageFile, alignCamFile, finalOrtho, threadText))
 
             print(cmd)
@@ -153,6 +157,8 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
             
     except Exception as e:
         print('Ortho creation failed!\n' + str(e) + ". " + str(traceback.print_exc()))
+
+    os.system("rm -f core.*") # these keep on popping up
 
     # To ensure we print promptly what we did so far
     sys.stdout.flush()
@@ -207,10 +213,6 @@ def main(argsIn):
         
     icebridge_common.switchWorkDir()
     
-    os.system("ulimit -c 0") # disable core dumps
-    os.system("rm -f core.*") # these keep on popping up
-    os.system("umask 022")   # enforce files be readable by others
-    
     if len(options.yyyymmdd) != 8 and len(options.yyyymmdd) != 9:
         # Make an exception for 20100422a
         raise Exception("The --yyyymmdd field must have length 8 or 9.")
@@ -221,7 +223,7 @@ def main(argsIn):
     os.system('mkdir -p ' + options.outputFolder)
     logLevel = logging.INFO # Make this an option??
     logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
-                                            'icebridge_processing_log')
+                                            'icebridge_ortho_log')
 
     (out, err, status) = asp_system_utils.executeCommand(['uname', '-a'],
                                                          suppressOutput = True)
