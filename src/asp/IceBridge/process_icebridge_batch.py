@@ -229,7 +229,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     ipMethod  = [1,   0,   2,     1,   0,   2,     1,    0,      1,    0,    2   ]
     ipPerTile = [500, 500, 500,   500, 500, 500,   500,  500,    2000, 2000, 2000]
     useBlur   = [0,   0,   0,     1,   1,   1,     0,    0,      0,    0,    0   ]
-    epipolarT = [100, 100, 100,   100, 100, 100,   2000, 2000,   100,  100,  100 ]
+    epipolarT = [200, 200, 200,   300, 300, 300,   2000, 2000,   300,  300,  300 ]
    
     if len(ipMethod) != len(ipPerTile) or len(ipMethod) != len(useBlur) or \
            len(ipMethod) != len(epipolarT):
@@ -284,8 +284,8 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
             cmd += ' --solve-intrinsics'
         # Disabling triangulation error filtering up front and then applying it post bundle adjust
         #  works well but it is currently only supported in bundle_adjust for two cameras at once!
-        #if len(inputPairs) == 2: # TODO: Test this option
-        #    cmd += ' --disable-tri-ip-filter --num-passes 3 --remove-outliers-params "75.0 3.0 2.0 3.0" '
+        if len(inputPairs) == 2:
+            cmd += ' --disable-tri-ip-filter --num-passes 3 --remove-outliers-params "75.0 3.0 2.0 3.0" '
     
         # Run the BA command and log errors
         logger.info(cmd) # to make it go to the log, not just on screen
@@ -669,7 +669,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     if '--stereo-algorithm 0' not in options.stereoArgs:
         correlationArgString = (' --xcorr-threshold 2 --corr-kernel 7 7 ' 
                                 + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 2 '
-                                + searchLimitString + ' --corr-memory-limit-mb 8000 '
+                                + searchLimitString + ' --corr-memory-limit-mb 6000 '
                                 + options.stereoArgs
                                )
         #+ ' --corr-blob-filter 100')
@@ -958,9 +958,9 @@ def doWork(options, args, logger):
     os.system("rm -f core.*") # these keep on popping up
     os.system("umask 022")    # enforce files be readable by others
 
-    numArgs    = len(args)
-    numCameras = (numArgs) / 2
-    numRuns = numCameras - options.stereoImageInterval
+    numArgs       = len(args)
+    numCameras    = (numArgs) / 2
+    numStereoRuns = numCameras - options.stereoImageInterval
 
     # Verify all input files exist
     for i in range(0,numArgs):
@@ -1100,7 +1100,7 @@ def doWork(options, args, logger):
         matchingFireballDems = []
         
     atLeastOneDemMissing = False
-    for i in range(0, numRuns):
+    for i in range(0, numStereoRuns):
         thisOutputFolder = os.path.join(options.outputFolder, 'stereo_pair_'+str(i))
         thisPairPrefix   = os.path.join(thisOutputFolder,     'out')
         prefixes.append(thisPairPrefix)
@@ -1116,7 +1116,7 @@ def doWork(options, args, logger):
 
         # Diff with fireball early, in case our run fails
         currCam = inputPairs[i][1]
-        frame = icebridge_common.getFrameNumberFromFilename(currCam)
+        frame   = icebridge_common.getFrameNumberFromFilename(currCam)
         if frame not in fireballFrameDict.keys():
             matchingFireballDems.append(None) # Store flag object
             continue
@@ -1139,7 +1139,7 @@ def doWork(options, args, logger):
                     str(options.numProcessesPerBatch) + ' processes.')
         pool = multiprocessing.Pool(options.numProcessesPerBatch)
         taskHandles = []
-        for i in range(0, numRuns):
+        for i in range(0, numStereoRuns):
             taskHandles.append(pool.apply_async(createDem, 
                                                 (i, options, inputPairs, prefixes, demFiles,
                                                  projString, heightLimitString, threadText, baMatchFiles[i],
@@ -1152,7 +1152,7 @@ def doWork(options, args, logger):
         icebridge_common.stopTaskPool(pool)
 
     else:
-        for i in range(0, numRuns):
+        for i in range(0, numStereoRuns):
             createDem(i, options, inputPairs, prefixes, demFiles, projString, heightLimitString,
                       threadText, baMatchFiles[i], suppressOutput, redo, logger)
 
@@ -1246,10 +1246,8 @@ def doWork(options, args, logger):
         #   the errors will be high and won't mean much.
         for i in range(0,numDems):
             dem = demFiles[i]
-            if len(matchingFireballDems) <= i: # Skip missing fireball file
-                continue
             fireball = matchingFireballDems[i]
-            if fireball is None:
+            if not fireball: # Skip missing fireball file (will be 'None')
                 continue
             #try:
             prefix  = outputPrefix + '_fireball_' + str(i)
