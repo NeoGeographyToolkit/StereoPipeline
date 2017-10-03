@@ -259,9 +259,10 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
     matchPath     = outputCamFile + '.match' # Used to hold the match file if it exists
     tempMatchPath = matchPath + '_temp'
 
-    os.system("ulimit -c 0") # disable core dumps
-    os.system("umask 022")   # enforce files be readable by others
-
+    os.system("ulimit -c 0")  # disable core dumps
+    os.system("rm -f core.*") # these keep on popping up
+    os.system("umask 022")    # enforce files be readable by others
+        
     for i in range(0,numAttempts):
 
         # Get parameters for this attempt
@@ -286,7 +287,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
         textOutput, err = p.communicate()
         p.wait()
         print(textOutput)
-        
+
         if not os.path.exists(outputCamFile): # Keep trying if no output file produced
             continue
 

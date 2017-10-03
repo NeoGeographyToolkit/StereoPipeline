@@ -208,6 +208,7 @@ def main(argsIn):
     icebridge_common.switchWorkDir()
     
     os.system("ulimit -c 0") # disable core dumps
+    os.system("rm -f core.*") # these keep on popping up
     os.system("umask 022")   # enforce files be readable by others
     
     if len(options.yyyymmdd) != 8 and len(options.yyyymmdd) != 9:

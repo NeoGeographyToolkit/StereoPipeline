@@ -954,8 +954,9 @@ def main(argsIn):
 def doWork(options, args, logger):
     '''Do all of the processing.'''
 
-    os.system("ulimit -c 0") # disable core dumps
-    os.system("umask 022")   # enforce files be readable by others
+    os.system("ulimit -c 0")  # disable core dumps
+    os.system("rm -f core.*") # these keep on popping up
+    os.system("umask 022")    # enforce files be readable by others
 
     numArgs    = len(args)
     numCameras = (numArgs) / 2
@@ -1164,7 +1165,6 @@ def doWork(options, args, logger):
     
     numDems = len(demFiles)
 
-
     # Check the elevation disparities between the DEMs.  High discrepancy
     # usually means there was an alignment error.
     interDiffSummaryPath  = outputPrefix + '_inter_diff_summary.csv'
@@ -1249,6 +1249,8 @@ def doWork(options, args, logger):
             if len(matchingFireballDems) <= i: # Skip missing fireball file
                 continue
             fireball = matchingFireballDems[i]
+            if fireball is None:
+                continue
             #try:
             prefix  = outputPrefix + '_fireball_' + str(i)
             diffPath = prefix + "-diff.tif"
