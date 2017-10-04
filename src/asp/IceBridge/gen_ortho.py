@@ -134,13 +134,33 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
 
             filesToWipe += glob.glob(mosaicPrefix + '*' + '-log-' + '*')
 
-            # Run mapproject. The grid size is auto-determined.
-            cmd = ('mapproject --no-geoheader-info --output-data-type uint8 %s %s %s %s %s' 
-                   % (mosaicOutput, imageFile, alignCamFile, finalOrtho, threadText))
+            # First mapproject to create a tif image with 4 channels.
+            # Then pull 3 channels and compress them as jpeg, while keeping the
+            # image a geotiff.
 
+            tempOrtho = os.path.join(batchFolder, icebridge_common.orthoFileName() + "_tmp.tif")
+
+            # There is no need for this file to exist unless it is stray junk
+            if os.path.exists(tempOrtho):
+                os.remove(tempOrtho)
+                
+            # Run mapproject. The grid size is auto-determined.
+            cmd = ('mapproject --no-geoheader-info %s %s %s %s %s' 
+                   % (mosaicOutput, imageFile, alignCamFile, tempOrtho, threadText))
+            print(cmd)
+            asp_system_utils.executeCommand(cmd, tempOrtho, suppressOutput, redo)
+            filesToWipe.append(tempOrtho)
+
+            # This makes the images smaller than Rose's by a factor of about 4,
+            # even though both types are jpeg compressed. Rose's images filtered
+            # through this command also get compressed by a factor of 4.
+            # I conclude that the jpeg compression used by Rose was not as
+            # aggressive as the one used in gdal_translate, but there is no
+            # apparent knob to control that. 
+            cmd = "gdal_translate -b 1 -b 2 -b 3 -co compress=jpeg " + tempOrtho + " " + finalOrtho
             print(cmd)
             asp_system_utils.executeCommand(cmd, finalOrtho, suppressOutput, redo)
-
+            
             # Clean up extra files
             for fileName in filesToWipe:
                 if os.path.exists(fileName):
@@ -236,17 +256,13 @@ def main(argsIn):
         processFolder = os.path.join(processFolder, options.processingSubfolder)
         logger.info('Reading from processing subfolder: ' + options.processingSubfolder)
 
-    # TODO: WE don't strictly need these ortho images. We only use them
-    # to bound the frames, which can be done in a different way.
-    orthoFolder = icebridge_common.getOrthoFolder(options.outputFolder)
-    orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
-    if not os.path.exists(orthoIndexPath):
-        raise Exception("Error: Missing ortho index file: " + orthoIndexPath + ".")
-    (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath)
+    jpegFolder = icebridge_common.getJpegFolder(options.outputFolder)
+    jpegIndexPath = icebridge_common.csvIndexFile(jpegFolder)
+    if not os.path.exists(jpegIndexPath):
+        raise Exception("Error: Missing jpeg index file: " + jpegIndexPath + ".")
+    (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath,
+                                                                  prependFolder = True)
     
-    cameraFolder = icebridge_common.getCameraFolder(options.outputFolder)
-    imageFolder  = icebridge_common.getImageFolder(options.outputFolder)
-
     threadText = ''
     if options.numThreads:
         threadText = '--threads ' + str(options.numThreads)
@@ -258,38 +274,25 @@ def main(argsIn):
         pool = multiprocessing.Pool(options.numProcesses)
 
     # Bound the frames
-    sortedFrames = sorted(orthoFrameDict.keys())
+    sortedFrames = sorted(jpegFrameDict.keys())
     if len(sortedFrames) > 0:
         if options.startFrame < sortedFrames[0]:
             options.startFrame = sortedFrames[0]
         if options.stopFrame > sortedFrames[-1] + 1:
             options.stopFrame = sortedFrames[-1] + 1
     else:
-        # No ortho files, that means nothing to do
+        # No jpeg files, that means nothing to do
         options.startFrame = 0
         options.stopFrame  = 0 
 
-    # Get a list of all the input files. Ideally we will read an index
-    imageCameraPairs = icebridge_common.getImageCameraPairs(imageFolder, cameraFolder, 
-                                                            options.startFrame, options.stopFrame,
-                                                            logger)
-
     for frame in range(options.startFrame, options.stopFrame):
 
-        if not frame in orthoFrameDict:
-            logger.info("Error: Missing ortho file for frame: " + str(frame) + ".")
+        if not frame in jpegFrameDict:
+            logger.info("Error: Missing jpeg file for frame: " + str(frame) + ".")
             continue
 
         # Find the right image
-        currImage = ""
-        for pair in imageCameraPairs:
-            currFrame = icebridge_common.getFrameNumberFromFilename(pair[1])
-            if currFrame == frame:
-                currImage  = pair[0]
-                break
-
-        if currImage == "":
-            logger.info("Error: Could not find image for frame: " + str(frame))
+        currImage = jpegFrameDict[frame]
 
         args = (frame, processFolder, currImage, options.bundleLength, threadText,
                 redo, suppressOutput)
