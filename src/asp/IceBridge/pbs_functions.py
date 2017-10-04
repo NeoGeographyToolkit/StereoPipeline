@@ -34,17 +34,6 @@ MAX_PBS_NAME_LENGTH = 15
 # Wait this long between checking for job completion
 SLEEP_TIME = 60
 
-def getNumActiveJobs(user):
-  '''Return the current number of active PBS jobs'''
-  
-  result = os.system('qstat -u '+user+' | wc -l')
-  lines = result.split('\n')
-  if len(lines) == 0:
-      return 0
-  # num tasks = num lines - header lines
-  return len(lines) - 3
-
-
 def getActiveJobs(user):
     '''Returns a list of the currently active jobs and their status'''
 
@@ -82,13 +71,6 @@ def getActiveJobs(user):
         jobs.append((name, status))
     return jobs
     
-
-def checkForJobName(user, name):
-  '''Check if the given job name is in the queue'''
-  result = os.system('qstat -u '+user+' | grep '+name+' | wc -l')
-  return result != ''
-
-
 def getNumCores(nodeType):
     '''Return the number of cores available for a given node type'''
 
@@ -105,7 +87,7 @@ def getNumCores(nodeType):
     raise Exception('Unrecognized node type: ' + nodeType)
 
 
-def submitJob(jobName, queueName, maxHours, minutesInDevelQueue,
+def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
               groupId, nodeType, scriptPath, args, logPrefix):
     '''Submits a job to the PBS system.
     Any such job must invoke icebridge_common.switchWorkDir().'''
@@ -136,13 +118,13 @@ def submitJob(jobName, queueName, maxHours, minutesInDevelQueue,
 
     # Debug the environment
     #for v in os.environ.keys():
-    #  print("env is " + v + '=' + os.environ[v])
+    #  logger.info("env is " + v + '=' + str(os.environ[v]))
 
     # We empty PYTHONSTARTUP and LD_LIBRARY_PATH so that python can function
     # properly on the nodes. 
     command = ('qsub -r n -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- /usr/bin/env OIB_WORK_DIR=%s PYTHONPATH=/u/oalexan1/.local/lib/python2.7/site-packages PYTHONSTARTUP="" LD_LIBRARY_PATH="" %s %s' % 
                (queueName, jobName, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, workDir, scriptPath, args))
-    print command
+    logger.info(command)
 
     outputPath = None
     suppressOutput = True
@@ -152,29 +134,38 @@ def submitJob(jobName, queueName, maxHours, minutesInDevelQueue,
           asp_system_utils.executeCommand(command, outputPath, 
                                           suppressOutput, redo, 
                                           noThrow, numAttempts, SLEEP_TIME)
-      
-def waitForRunCompletion(jobPrefix, jobList):
-    '''Sleep until all of the submitted jobs containing the provided job prefix have completed'''
 
-    print("Wait for completion with: " + jobPrefix)
+    if status != 0:
+      logger.info(out)
+      logger.info(err)
+      logger.info("Status is: " + str(status))
     
-    jobsRunning = []
-    user = icebridge_common.getUser()
-    stillWorking = True
-    while stillWorking:
-
-        time.sleep(SLEEP_TIME)
-        stillWorking = False
-
-        # Look through the list for jobs with the run's date in the name        
-        allJobs = getActiveJobs(user)
-        
-        for (job, status) in allJobs:
-            if job in jobList:
-                # Matching job found so we keep waiting
-                stillWorking = True
-                # Print a message if this is the first time we saw the job as running
-                if (status == 'R') and (job not in jobsRunning):
-                    jobsRunning.append(job)
-                    print 'Job launched: ' + job
+def waitForRunCompletion(jobPrefix, jobList, logger):
+  '''Sleep until all of the submitted jobs containing the provided job prefix have completed'''
+  
+  logger.info("Wait for completion with prefix: " + jobPrefix)
+  
+  jobsRunning = []
+  user = icebridge_common.getUser()
+  stillWorking = True
+  while stillWorking:
+    
+    time.sleep(SLEEP_TIME)
+    stillWorking = False
+    
+    # Look through the list for jobs with the run's date in the name        
+    allJobs = getActiveJobs(user)
+    
+    numActiveJobs = 0
+    for (job, status) in allJobs:
+      if job in jobList:
+        numActiveJobs += 1
+        # Matching job found so we keep waiting
+        stillWorking = True
+        # Print a message if this is the first time we saw the job as running
+        if (status == 'R') and (job not in jobsRunning):
+          jobsRunning.append(job)
+          logger.info('Job started running: ' + str(job))
+          
+    logger.info("Active jobs with prefix " + jobPrefix + ": " + str(numActiveJobs))
 

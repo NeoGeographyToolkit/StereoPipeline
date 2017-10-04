@@ -19,6 +19,9 @@
 ///
 /// This program will project a camera image onto a DEM using the
 /// camera model.
+/// TODO: This creates an RGBA output for an RGB input.
+/// It should create an RBG output for RGB input,
+/// and same for RGBA.
 
 #include <vw/Core.h>
 #include <vw/FileIO.h>

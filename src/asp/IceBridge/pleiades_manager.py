@@ -72,7 +72,10 @@ def stop_time(job, logger):
     g_stop_time = time.time()
     wall_s = float(g_stop_time - g_start_time)/3600.0
     logger.info( ("Elapsed time for %s is %g hours." % (job, wall_s) ) )
-    
+
+
+PFE_NODES = ['san', 'ivy', 'has', 'bro']
+
 #=========================================================================
 
 # 'wes' = Westmere = 12 cores/24 processors, 48 GB mem, SBU 1.0, Launch from mfe1 only!
@@ -170,11 +173,9 @@ def getRunsToProcess(allRuns, skipRuns, doneRuns):
 #---------------------------------------------------------------------
 
 
-def runFetch(run, options):
+def runFetch(run, options, logger):
     '''Fetch all the data for a run if it is not already available'''
 
-    logger = logging.getLogger(__name__)
-    
     logger.info("Checking all data is present.")
 
     # Check if already done
@@ -192,7 +193,7 @@ def runFetch(run, options):
 
     # Fetch the archive from lfe, only in the case the directory is not present
     if not options.skipTapeFetch:
-        archive_functions.retrieveRunData(run, options.unpackDir, options.useTar)
+        archive_functions.retrieveRunData(run, options.unpackDir, options.useTar, logger)
 
     pythonPath = asp_system_utils.which('python')
     
@@ -218,11 +219,9 @@ def runFetch(run, options):
     # Don't need to check results, they should be cleaned out in conversion call.
     run.setFlag('fetch_complete')
 
-def runConversion(run, options):
+def runConversion(run, options, logger):
     '''Run the conversion tasks for this run on the supercomputer nodes.
        This will also run through the fetch step to make sure we have everything we need.'''
-    
-    logger = logging.getLogger(__name__)
     
     # Check if already done
     try:
@@ -293,7 +292,7 @@ def runConversion(run, options):
 
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
         logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, maxHours,
+        pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, maxHours, logger,
                                 options.minutesInDevelQueue,
                                 GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
@@ -302,7 +301,7 @@ def runConversion(run, options):
         currentFrame += tasksPerJob
 
     # Wait for conversions to finish
-    pbs_functions.waitForRunCompletion(baseName, jobList)
+    pbs_functions.waitForRunCompletion(baseName, jobList, logger)
 
     # Check the results
     # - If we didn't get everything keep going and process as much as we can.
@@ -319,10 +318,9 @@ def runConversion(run, options):
     run.setFlag('conversion_complete')
 
 
-def generateBatchList(run, options, listPath):
+def generateBatchList(run, options, listPath, logger):
     '''Generate a list of all the processing batches required for a run'''
 
-    logger = logging.getLogger(__name__)
     logger.info("Generate batch list: " + listPath)
     
     refDemName = icebridge_common.getReferenceDemName(run.site)
@@ -361,10 +359,8 @@ def getOutputFolderFromBatchCommand(batchCommand):
     return outputFolder
 
 # TODO: Share code with the other function
-def filterBatchJobFile(run, batchListPath):
+def filterBatchJobFile(run, batchListPath, logger):
     '''Make a copy of the batch list file which only contains incomplete batches.'''
-    
-    logger = logging.getLogger(__name__)
     
     runFolder = run.getFolder()
     
@@ -386,11 +382,9 @@ def filterBatchJobFile(run, batchListPath):
 
     return newBatchPath
     
-def submitBatchJobs(run, options, batchListPath):
+def submitBatchJobs(run, options, batchListPath, logger):
     '''Read all the batch jobs required for a run and distribute them across job submissions.
        Returns the common string in the job names.'''
-
-    logger = logging.getLogger(__name__)
 
     if not os.path.exists(batchListPath):
         logger.error('Failed to generate batch list file: ' + batchListPath)
@@ -448,7 +442,7 @@ def submitBatchJobs(run, options, batchListPath):
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
 
-        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, maxHours,
+        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, maxHours, logger,
                                 options.minutesInDevelQueue,
                                 GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
@@ -458,13 +452,11 @@ def submitBatchJobs(run, options, batchListPath):
     # Waiting on these jobs happens outside this function
     return (baseName, jobList)
 
-def runJobs(run, mode, options):
+def runJobs(run, mode, options, logger):
     '''Run a blend or an ortho gen job.'''
     
     # TODO: Also merge with the logic for creating a camera file.
     
-    logger = logging.getLogger(__name__)
-        
     logger.info('Running task ' + mode + ' for run ' + str(run))
     
     # Retrieve parallel processing parameters
@@ -518,7 +510,7 @@ def runJobs(run, mode, options):
                     ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, mode + '_' + jobName)
         logger.info('Submitting job: ' + scriptPath +  ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, queueName, maxHours,
+        pbs_functions.submitJob(jobName, queueName, maxHours, logger,
                                 options.minutesInDevelQueue,
                                 GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
@@ -527,7 +519,7 @@ def runJobs(run, mode, options):
         currentFrame += tasksPerJob
 
     # Wait for conversions to finish
-    pbs_functions.waitForRunCompletion(baseName, jobList)
+    pbs_functions.waitForRunCompletion(baseName, jobList, logger)
 
 def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
 
@@ -709,6 +701,9 @@ def main(argsIn):
         parser.add_argument("--unpack-dir",  dest="unpackDir", default=None,
                             help="Where to unpack the data.")
 
+        parser.add_argument("--summary-dir",  dest="summaryFolder", default=None,
+                            help="Where to store the summaries.")
+
         parser.add_argument("--yyyymmdd",  dest="yyyymmdd", default=None,
                             help="Specify the year, month, and day in one YYYYMMDD string.")
 
@@ -850,6 +845,16 @@ def main(argsIn):
     except argparse.ArgumentError, msg:
         parser.error(msg)
 
+
+    # Check if we are on the right machine
+    (host, err, status) = asp_system_utils.executeCommand(['uname', '-n'],
+                                                         suppressOutput = True)
+    host = host.strip()
+    if 'pfe' in host and options.nodeType not in PFE_NODES:
+        raise Exception("From machine " + host + " can only launch on: " + " ".join(PFE_NODES)) 
+    if 'mfe' in host and options.nodeType != 'wes':
+        raise Exception("From machine " + host + " can only launch on: wes")
+    
     #ALL_RUN_LIST       = os.path.join(options.baseDir, 'full_run_list.txt')
     #SKIP_RUN_LIST      = os.path.join(options.baseDir, 'run_skip_list.txt')
     #COMPLETED_RUN_LIST = os.path.join(options.baseDir, 'completed_run_list.txt')
@@ -862,7 +867,8 @@ def main(argsIn):
         
     os.system('mkdir -p ' + options.unpackDir)
 
-    options.summaryFolder = os.path.join(options.baseDir, 'summaries')
+    if options.summaryFolder is None:
+        options.summaryFolder = os.path.join(options.baseDir, 'summaries')
     os.system('mkdir -p ' + options.summaryFolder)
     
     # TODO: Uncomment when processing more than one run!
@@ -903,7 +909,7 @@ def main(argsIn):
         if not options.skipFetch:
             # Obtain the data for a run if it is not already done
             start_time()
-            runFetch(run, options)       
+            runFetch(run, options, logger)       
             stop_time("fetch", logger)
 
         # This must happen after fetch, otherwise fetch gets confused.
@@ -925,7 +931,7 @@ def main(argsIn):
         if not options.skipConvert:                   
             # Run initial camera generation
             start_time()
-            runConversion(run, options)
+            runConversion(run, options, logger)
             stop_time("convert", logger)
             
         # I see no reason to exit early
@@ -944,34 +950,34 @@ def main(argsIn):
             else:
                 # Run command to generate the list of batch jobs for this run
                 logger.info('Fetching batch list for run ' + str(run))
-                generateBatchList(run, options, fullBatchListPath)
+                generateBatchList(run, options, fullBatchListPath, logger)
 
             if options.failedBatchesOnly:
                 logger.info('Assembling batch file with only failed batches...')
-                batchListPath = filterBatchJobFile(run, batchListPath)
+                batchListPath = filterBatchJobFile(run, batchListPath, logger)
             stop_time("batch gen", logger)
 
         if not options.skipProcess:
             start_time()
             # Divide up batches into jobs and submit them to machines.
             logger.info('Submitting jobs for run ' + str(run))
-            (baseName, jobList) = submitBatchJobs(run, options, batchListPath)
+            (baseName, jobList) = submitBatchJobs(run, options, batchListPath, logger)
 
             # Wait for all the jobs to finish
             logger.info('Waiting for job completion of run ' + str(run))
             
-            pbs_functions.waitForRunCompletion(baseName, jobList)
+            pbs_functions.waitForRunCompletion(baseName, jobList, logger)
             logger.info('All jobs finished for run '+str(run))
             stop_time("dem creation", logger)
         
         if not options.skipBlend:
             start_time()
-            runJobs(run, 'blend', options)
+            runJobs(run, 'blend', options, logger)
             stop_time("blend", logger)
         
         if not options.skipOrthoGen:
             start_time()
-            runJobs(run, 'orthogen', options)
+            runJobs(run, 'orthogen', options, logger)
             stop_time("orthogen", logger)
 
         # TODO: Uncomment when processing multiple runs.
@@ -983,7 +989,7 @@ def main(argsIn):
         if not options.skipArchiveCameras:
             start_time()
             try:
-                archive_functions.packAndSendCameraFolder(run)
+                archive_functions.packAndSendCameraFolder(run, logger)
             except Exception, e:
                 print 'Caught exception sending camera folder'
                 logger.exception(e)
@@ -993,7 +999,7 @@ def main(argsIn):
         if not options.skipArchiveAlignedCameras:
             start_time()
             try:
-                archive_functions.packAndSendAlignedCameras(run)
+                archive_functions.packAndSendAlignedCameras(run, logger)
             except Exception, e:
                 print 'Caught exception sending aligned cameras'
                 logger.exception(e)
@@ -1025,14 +1031,18 @@ def main(argsIn):
                 genCmd += ['--skip-kml']
                 
             logger.info("Running generate_flight_summary.py " + " ".join(genCmd))
-            generate_flight_summary.main(genCmd)
+            try:
+                generate_flight_summary.main(genCmd)
+            except Exception, e:
+                # Do not let this one ruin the day, if anything we can run it later
+                logger.info(str(e))
             stop_time("report", logger)
             
         # send data to lunokhod and lfe
         if not options.skipArchiveSummary:
             start_time()
             summaryFolder = os.path.join(options.summaryFolder, run.name())
-            archive_functions.packAndSendSummaryFolder(run, summaryFolder)
+            archive_functions.packAndSendSummaryFolder(run, summaryFolder, logger)
             stop_time("archive summary", logger)
             
         # Don't pack or clean up the run if it did not generate all the output files.
@@ -1041,14 +1051,14 @@ def main(argsIn):
         # Archive the DEMs
         if not options.skipArchiveRun:
             start_time()
-            archive_functions.packAndSendCompletedRun(run)
+            archive_functions.packAndSendCompletedRun(run, logger)
             stop_time("archive dems", logger)
             
         # Pack up the generated ortho images and store them for later
         if not options.skipArchiveOrthos:
             start_time()
             try:
-                archive_functions.packAndSendOrthos(run)
+                archive_functions.packAndSendOrthos(run, logger)
             except Exception, e:
                 print 'Caught exception sending ortho images.'
                 logger.exception(e)

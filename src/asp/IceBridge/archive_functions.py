@@ -73,11 +73,9 @@ elif icebridge_common.getUser() == 'oalexan1':
     LUNOKHOD                = 'lunokhod1'
     L_SUMMARY_FOLDER        = LUNOKHOD + ':/home/oalexan1/projects/data/icebridge/summaries'
 
-def retrieveRunData(run, unpackFolder, useTar):
+def retrieveRunData(run, unpackFolder, useTar, logger):
     '''Retrieve the data for the specified run from Lfe.'''
 
-    logger = logging.getLogger(__name__)
-    
     # First check that we have enough space available
 
     logger.info('Retrieving data for run ' + str(run))
@@ -104,13 +102,12 @@ def retrieveRunData(run, unpackFolder, useTar):
         raise Exception('Failed to copy data for run ' + str(run))
 
     # Retrieve a preprocessed set of camera files if we have it
-    fetchCameraFolder(run)
+    fetchCameraFolder(run, logger)
 
-def fetchCameraFolder(run):
+def fetchCameraFolder(run, logger):
     '''Fetch a camera folder from the archive if it exists.
        Returns True if we got the file.'''
     
-    logger = logging.getLogger(__name__)
     logger.info('Fetching camera folder for ' + str(run))
     
     # Tar up the camera files and send them at the same time using the shiftc command
@@ -130,10 +127,9 @@ def fetchCameraFolder(run):
         return True
 
 
-def packAndSendCameraFolder(run):
+def packAndSendCameraFolder(run, logger):
     '''Archive the camera folder for later use'''
     
-    logger = logging.getLogger(__name__)
     logger.info('Archiving camera folder for run ' + str(run))
     
     # Tar up the camera files and send them at the same time using the shiftc command
@@ -162,12 +158,11 @@ def packAndSendCameraFolder(run):
     logger.info('Finished sending cameras to lfe.')
 
     # Test if this is reversible
-    #fetchCameraFolder(run)
+    #fetchCameraFolder(run, logger)
     
-def packAndSendAlignedCameras(run):
+def packAndSendAlignedCameras(run, logger):
     '''Archive the pc_align-ed cameras for later use'''
     
-    logger = logging.getLogger(__name__)
     logger.info('Archiving aligned cameras for run ' + str(run))
 
     runFolder = str(run)
@@ -190,10 +185,9 @@ def packAndSendAlignedCameras(run):
         logger.info('Failed to pack/send aligned cameras for run ' + str(run))
     logger.info('Finished sending aligned cameras to lfe.')
 
-def packAndSendOrthos(run):
+def packAndSendOrthos(run, logger):
     '''Archive the created ortho images.'''
 
-    logger = logging.getLogger(__name__)
     logger.info('Archiving ortho images for run ' + str(run))
 
     runFolder = str(run)
@@ -215,10 +209,9 @@ def packAndSendOrthos(run):
         logger.info('Failed to pack/send ortho images for run ' + str(run))
     logger.info('Finished sending ortho images to lfe.')
 
-def packAndSendSummaryFolder(run, folder):
+def packAndSendSummaryFolder(run, folder, logger):
     '''Archive the summary folder in case we want to look at it later'''
     
-    logger = logging.getLogger(__name__)
     logger.info('Archiving summary folder for run ' + str(run))
     
     # Create a local tar file
@@ -273,10 +266,9 @@ def packAndSendSummaryFolder(run, folder):
     # Clean up the local tar file
     os.system('rm -f ' + fileName)
 
-def packAndSendCompletedRun(run):
+def packAndSendCompletedRun(run, logger):
     '''Assembles and compresses the deliverable parts of the run'''
     
-    logger = logging.getLogger(__name__)
     logger.info('Getting ready to pack up run ' + str(run))
     
     runFolder = str(run)

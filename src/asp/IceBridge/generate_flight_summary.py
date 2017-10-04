@@ -219,7 +219,11 @@ def generateFlightSummary(run, options):
             args = [inputPath, outputPath, '--skip', str(LIDAR_POINT_SKIP), '--color', 'red']
             if not os.path.exists(outputPath): # Don't recreate these files
                 print("Generating: " + outputPath) # This can be very slow, so print what is going on
-                lvis2kml.main(args)
+                try:
+                    lvis2kml.main(args)
+                except Exception, e:
+                    # Do not let this make our life miserable
+                    print("Problem: " + str(e))
        
     # Collect per-batch information
     batchInfoPath   = os.path.join(options.outputFolder, 'batchInfoSummary.csv')
