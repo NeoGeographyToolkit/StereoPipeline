@@ -492,7 +492,7 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
     except:
         fireLidarDiffResults = {'Mean':-999}
     try:
-        with open(percentageFlagFile, 'r') as f:
+        with open(fractionValidPath, 'r') as f:
             fractionValid = float(f.read())
     except:
         fractionValid = -1
