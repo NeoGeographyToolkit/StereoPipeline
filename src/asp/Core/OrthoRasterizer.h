@@ -25,6 +25,7 @@
 #ifndef __ASP_CORE_ORTHORASTERIZER_H__
 #define __ASP_CORE_ORTHORASTERIZER_H__
 
+#include <vw/Core/Thread.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Math/Vector.h>
@@ -62,6 +63,9 @@ namespace asp{
     double  m_error_cutoff;
     Vector2 m_median_filter_params;
     int     m_erode_len;
+    
+    size_t     *m_num_invalid_pixels; ///< Keep a count of nodata output pixels, needs to be pointer due to VW weirdness.
+    vw::Mutex  *m_count_mutex;        ///< A lock for m_num_invalid_pixels, needs to be pointer due to C++ weirdness.
 
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
@@ -82,21 +86,23 @@ namespace asp{
 
     /// Constructor.  You must call initialize_spacing before using the object!!
     OrthoRasterizerView(ImageViewRef<Vector3> point_image,
-			ImageViewRef<double> texture,
-			double  search_radius_factor,
-			double  sigma_factor,
-			bool    use_surface_sampling,
-			int     pc_tile_size,
-			vw::BBox2 const& projwin,
-			bool    remove_outliers_with_pct,
-			Vector2 const& remove_outliers_params,
-			ImageViewRef<double> const& error_image,
-			double  estim_max_error,
-			double  max_valid_triangulation_error,
-			Vector2 median_filter_params,
-			int     erode_len,
-			bool    has_las_or_csv,
-			const ProgressCallback& progress);
+                        ImageViewRef<double> texture,
+                        double  search_radius_factor,
+                        double  sigma_factor,
+                        bool    use_surface_sampling,
+                        int     pc_tile_size,
+                        vw::BBox2 const& projwin,
+                        bool    remove_outliers_with_pct,
+                        Vector2 const& remove_outliers_params,
+                        ImageViewRef<double> const& error_image,
+                        double  estim_max_error,
+                        double  max_valid_triangulation_error,
+                        Vector2 median_filter_params,
+                        int     erode_len,
+                        bool    has_las_or_csv,
+                        size_t  *num_invalid_pixels,
+                        vw::Mutex *count_mutex,
+                        const ProgressCallback& progress);
 
     /// This must be called before the object can be used!
     void initialize_spacing(double spacing=0.0);
@@ -157,7 +163,7 @@ namespace asp{
 
     }
 
-    double spacing() { return m_spacing; }
+    double spacing() const { return m_spacing; }
 
     // We may set m_hole_fill_len > 0 only during orthoimage generation
     void set_hole_fill_len(int hole_fill_len){
@@ -182,9 +188,8 @@ namespace asp{
     // Return the affine georeferencing transform.
     vw::Matrix<double,3,3> geo_transform();
 
-    void find_bdbox_robust_to_outliers(std::vector<BBoxPair >
-				       const& point_image_boundaries,
-				       BBox3 & bbox);
+    /// ??
+    void find_bdbox_robust_to_outliers(std::vector<BBoxPair > const& point_image_boundaries, BBox3 & bbox);
 
   };
 

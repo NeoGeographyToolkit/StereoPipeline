@@ -471,7 +471,7 @@ def consolidateGeodiffResults(inputFiles, outputPath=None):
 
 
 def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPath,  
-                     demPath, outputPath, logger, skipGeo = False):
+                     demPath, outputPath, fractionValidPath, logger, skipGeo = False):
     '''Consolidate statistics into a single file'''
 
     # Read in the diff results            
@@ -491,6 +491,11 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
         fireLidarDiffResults = icebridge_common.readGeodiffOutput(fireLidarDiffPath)
     except:
         fireLidarDiffResults = {'Mean':-999}
+    try:
+        with open(percentageFlagFile, 'r') as f:
+            fractionValid = float(f.read())
+    except:
+        fractionValid = -1
 
     # Get DEM stats
     success = True
@@ -526,10 +531,10 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
 
     # Write info to summary file        
     with open(outputPath, 'w') as f:
-        f.write('%f, %f, %f, %f, %f, %f, %f' % 
+        f.write('%f, %f, %f, %f, %f, %f, %f, %f' % 
                  (centerLon, centerLat, meanAlt, 
                   lidarDiffResults['Mean'], interDiffResults    ['Mean'],
-                  fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
+                  fireDiffResults ['Mean'], fireLidarDiffResults['Mean'], fractionValid))
 
 
 def readConsolidatedStatsFile(consolidatedStatsPath):
@@ -642,6 +647,28 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
     return s
     
 
+def getWidthAndMemUsageFromStereoOutput(outputText, errorText):
+    '''Parse the output from running stereo and return the search range width and
+       the memory usage in GB.'''
+
+    successParsintStats = False
+    corrSearchWidth = -1
+    memUsage        = -1
+    elapsed         = "-1"
+    out             = outputText + "\n" + errorText
+    for line in out.split('\n'):
+        m = re.match("^.*?Search\s+Range:.*?Origin:.*?width:\s*(\d+)", line, re.IGNORECASE)
+        if m:
+            corrSearchWidth = float(m.group(1))
+        m = re.match("^.*?elapsed=(.*?)\s+mem=(\d.*?)\s+.*?time_stereo_corr", line, re.IGNORECASE)
+        if m:
+            successParsintStats = True
+            elapsed = m.group(1)
+            memUsage = float(m.group(2))
+            memUsage = float(round(memUsage/100000.0))/10.0 # convert to GB
+            
+    return (corrSearchWidth, memUsage, elapsed, successParsintStats)
+
 def createDem(i, options, inputPairs, prefixes, demFiles, projString,
               heightLimitString, threadText, matchFilePair,
               suppressOutput, redo, logger=None):
@@ -714,40 +741,25 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
             icebridge_common.logger_print(logger, out + '\n' + err)
             raise Exception('Stereo call failed!')
 
-    # TODO: Make this into a function.
-    # Parse the output. Look at the very last lines having the given patterns.
-    successParsintStats = False
-    corrSearchWid = -1
-    memUsage = -1
-    elapsed = "-1"
-    out = out + "\n" + err
-    for line in out.split('\n'):
-        m = re.match("^.*?Search\s+Range:.*?Origin:.*?width:\s*(\d+)", line, re.IGNORECASE)
-        if m:
-            corrSearchWid = float(m.group(1))
-        m = re.match("^.*?elapsed=(.*?)\s+mem=(\d.*?)\s+.*?time_stereo_corr", line, re.IGNORECASE)
-        if m:
-            successParsintStats = True
-            elapsed = m.group(1)
-            memUsage = float(m.group(2))
-            memUsage = float(round(memUsage/100000.0))/10.0 # convert to GB
-            
-    icebridge_common.logger_print(logger, ( "Corr search width: %d mem usage: %f GB elapsed: %s" % \
-                   (corrSearchWid, memUsage, elapsed) ) )
+    # Extract the search range width and memory usage from the output text.
+    (corrSearchWidth, memUsage, elapsed, gotMemStats) = getWidthAndMemUsageFromStereoOutput(out, err)
 
-    if i == 0 and successParsintStats:
+    icebridge_common.logger_print(logger, ("Corr search width: %d mem usage: %f GB elapsed: %s" %
+                                          (corrSearchWidth, memUsage, elapsed) ) )
+
+    if i == 0 and gotMemStats:
         # If we could not parse the data, write nothing. Maybe this time
         # we are rerunning things, and did not actually do any work.
         filePath = os.path.join(os.path.dirname(os.path.dirname(thisPairPrefix)),
                                 icebridge_common.getRunStatsFile())
         icebridge_common.logger_print(logger, "Writing: " + filePath)
         with open(filePath, 'w') as f:
-            f.write( ("%d, %f, %s\n") % (corrSearchWid, memUsage, elapsed) )
+            f.write( ("%d, %f, %s\n") % (corrSearchWidth, memUsage, elapsed) )
         
     # point2dem on the result of ASP
     # - The size limit is to prevent bad point clouds from creating giant DEM files which
     #   cause the processing node to crash.
-    cmd = ('point2dem --max-output-size 10000 10000 --tr %lf --t_srs %s %s %s --errorimage' 
+    cmd = ('point2dem --max-output-size 10000 10000 --tr %lf --t_srs %s %s %s'
            % (options.demResolution, projString, triOutput, threadText))
     p2dOutput = demFiles[i]
     icebridge_common.logger_print(logger, cmd)
@@ -756,11 +768,35 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
 
+    # Require a certain percentage of valid output pixels to go forwards with this DEM
+    MIN_FRACTION_VALID_PIXELS = 0.10
+    percentageFlagFile = os.path.join(options.outputFolder, 'valid_pixel_fraction.txt')
+    fractionValid = 1.0;
+
+    # Try to parse the output text for the percentage or read it from disk if we already logged it.
+    m = re.findall(r"Percentage of valid pixels = ([0-9e\-\.\+]+)", out)
+    if len(m) == 1:
+        fractionValid = float(m[0])
+        logger.info('Valid DEM pixel fraction = ' + str(fractionValid))
+        with open(percentageFlagFile, 'w') as f: # Log the percentage to disk
+            f.write(str(fractionValid))
+    else:
+        try: # Read the percentage from disk
+            with open(percentageFlagFile, 'r') as f:
+                fractionValid = float(f.read())
+        except:
+            logger.warning('Unable to read dem percentage fraction from file ' + percentageFlagFile)
+            
+    logger.info('Detected valid pixel fraction = ' + str(fractionValid))
+    if fractionValid < MIN_FRACTION_VALID_PIXELS:
+        raise Exception('Required DEM pixel fraction is ' + str(MIN_FRACTION_VALID_PIXELS) +
+                        ', aborting processing on this DEM.')
+
     # The DEM with larger footprint, not filtered out as agressively. We use
     # the valid pixels in this DEM's footprint as a template where to blend.
     p2dFoot = thisPairPrefix + '-footprint'
-    cmd = ( ('point2dem --max-output-size 10000 10000 --tr %lf --t_srs %s %s %s --errorimage ' + \
-           ' --remove-outliers-params 75 12 -o %s ') \
+    cmd = ( ('point2dem --max-output-size 10000 10000 --tr %lf --t_srs %s %s %s ' +
+             ' --remove-outliers-params 75 12 -o %s ')
            % (options.demResolution, projString, triOutput, threadText, p2dFoot))
     p2dFoot = p2dFoot + '-DEM.tif'
     icebridge_common.logger_print(logger, cmd)
@@ -768,13 +804,6 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     if status != 0:
         icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
-
-
-    # COLORMAP
-    #colorOutput = thisPairPrefix+'-DEM_CMAP.tif'
-    #cmd = ('colormap %s -o %s' % (p2dOutput, colorOutput))
-    #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
-
 
 def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
                interDiffPaths, fireballDiffPaths):
@@ -841,11 +870,12 @@ def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
     consolidatedStatsPath = os.path.join(batchFolder, 'out-consolidated_stats.txt')
     if os.path.exists(consolidatedStatsPath):
         # Then we don't need the individual files
-        lidarDiffPath     = os.path.join(batchFolder, 'out-diff.csv')
-        interDiffPath     = os.path.join(batchFolder, 'out_inter_diff_summary.csv')
-        fireDiffPath      = os.path.join(batchFolder, 'out_fireball_diff_summary.csv')
-        fireLidarDiffPath = os.path.join(batchFolder, 'out_fireLidar_diff_summary.csv')
-        for filename in [lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPath]:
+        lidarDiffPath      = os.path.join(batchFolder, 'out-diff.csv')
+        interDiffPath      = os.path.join(batchFolder, 'out_inter_diff_summary.csv')
+        fireDiffPath       = os.path.join(batchFolder, 'out_fireball_diff_summary.csv')
+        fireLidarDiffPath  = os.path.join(batchFolder, 'out_fireLidar_diff_summary.csv')
+        percentageFlagFile = os.path.join(batchFolder, 'valid_pixel_fraction.txt')
+        for filename in [lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPath, percentageFlagFile]:
             os.system('rm -f ' + filename)
 
     # Wipe any aux.xml
@@ -1150,7 +1180,6 @@ def doWork(options, args, logger):
         
         # Either all the tasks are finished or the user requested a cancel.
         icebridge_common.stopTaskPool(pool)
-
     else:
         for i in range(0, numStereoRuns):
             createDem(i, options, inputPairs, prefixes, demFiles, projString, heightLimitString,
@@ -1215,6 +1244,7 @@ def doWork(options, args, logger):
         mosaicOutput = outputPrefix + '-tile-0.tif'
         logger.info(cmd) # to make it go to the log, not just on screen
         asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)
+        # TODO: Updated fractionValid in this case
         
         # Create a symlink to the mosaic file with a better name
         icebridge_common.makeSymLink(mosaicOutput, allDemPath)
@@ -1296,9 +1326,10 @@ def doWork(options, args, logger):
                                 threadText, heightLimitString, logger)
                                 
     # Consolidate statistics into a one line summary file
+    percentageFlagFile = os.path.join(options.outputFolder, 'valid_pixel_fraction.txt')
     consolidateStats(lidarDiffPath, interDiffSummaryPath, 
                      fireballDiffSummaryPath, fireLidarDiffSummaryPath,  
-                     allDemPath, consolidatedStatsPath, logger)
+                     allDemPath, consolidatedStatsPath, percentageFlagFile, logger)
 
 
     ## HILLSHADE

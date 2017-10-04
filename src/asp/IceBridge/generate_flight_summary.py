@@ -286,10 +286,11 @@ def generateFlightSummary(run, options):
             interDiffPath     = os.path.join(demFolder, 'out_inter_diff_summary.csv')
             fireDiffPath      = os.path.join(demFolder, 'out_fireball_diff_summary.csv')
             fireLidarDiffPath = os.path.join(demFolder, 'out_fireLidar_diff_summary.csv')
+            fractionValidPath = os.path.join(demFolder, 'valid_pixel_fraction.txt')
             process_icebridge_batch.consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath,
                                                      fireLidarDiffPath, dem,
                                                      consolidatedStatsPath,
-                                                     None, options.skipGeo)
+                                                     fractionValidPath, None, options.skipGeo)
         # Now the consolidated file should always be present
 
         with open(consolidatedStatsPath, 'r') as f:

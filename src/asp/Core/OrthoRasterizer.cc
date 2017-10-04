@@ -144,7 +144,8 @@ namespace asp{
     SubBlockBoundaryTask( ImageViewRef<Vector3> const& view,
 			  int sub_block_size,
 			  BBox2i const& image_bbox,
-			  BBox3& global_bbox, std::vector<BBoxPair>& boundaries,
+			  BBox3       & global_bbox, 
+			  std::vector<BBoxPair>& boundaries,
 			  ImageViewRef<double> const& error_image, double estim_max_error,
 			  std::vector<double> & errors_hist,
 			  double max_valid_triangulation_error,
@@ -366,6 +367,7 @@ namespace asp{
    ImageViewRef<double> const& error_image, double estim_max_error,
    double max_valid_triangulation_error,
    Vector2 median_filter_params, int erode_len, bool has_las_or_csv,
+   size_t *num_invalid_pixels, vw::Mutex *count_mutex,
    const ProgressCallback& progress):
     // Ensure all members are initiated, even if to temporary values
     m_point_image(point_image), m_texture(ImageView<float>(1,1)),
@@ -380,8 +382,10 @@ namespace asp{
     m_projwin(projwin),
     m_hole_fill_len(0),
     m_error_image(error_image), m_error_cutoff(-1.0),
-    m_median_filter_params(median_filter_params), m_erode_len(erode_len){
+    m_median_filter_params(median_filter_params), m_erode_len(erode_len), m_num_invalid_pixels(num_invalid_pixels),
+    m_count_mutex(count_mutex){
 
+    *m_num_invalid_pixels = 0; // Init counter
     set_texture(texture.impl());
 
     //dump_image("img", BBox2(0, 0, 3000, 3000), point_image);
@@ -421,11 +425,11 @@ namespace asp{
     float inc_amt = 1.0 / float(blocks.size());
     for ( size_t i = 0; i < blocks.size(); i++ ) {
       boost::shared_ptr<task_type>
-	task( new task_type( m_point_image, sub_block_size, blocks[i],
-			     m_bbox, m_point_image_boundaries,
-			     error_image, estim_max_error, errors_hist,
-			     max_valid_triangulation_error,
-			     mutex, progress, inc_amt ) );
+        task( new task_type( m_point_image, sub_block_size, blocks[i],
+                             m_bbox, m_point_image_boundaries,
+                             error_image, estim_max_error, errors_hist,
+                             max_valid_triangulation_error,
+                             mutex, progress, inc_amt ) );
       queue.add_task( task );
     }
     queue.join_all();
@@ -465,12 +469,10 @@ namespace asp{
       double error_percentile = estim_max_error*cutoff_index/double(hist_size);
       // Multiply by the outlier factor
       m_error_cutoff = factor*error_percentile;
-      vw_out() << "Automatic triangulation error cutoff is "
-               << m_error_cutoff << " meters.\n";
+      vw_out() << "Automatic triangulation error cutoff is " << m_error_cutoff << " meters.\n";
     }else if (max_valid_triangulation_error > 0.0){
       m_error_cutoff = max_valid_triangulation_error;
-      vw_out() << "Manual triangulation error cutoff is "
-               << m_error_cutoff << " meters.\n";
+      vw_out() << "Manual triangulation error cutoff is " << m_error_cutoff << " meters.\n";
     }
 
 
@@ -582,18 +584,16 @@ namespace asp{
     // Used to find which polygons are actually in the draw space.
     BBox3 local_3d_bbox = pixel_to_point_bbox(bbox_1);
 
-    ImageView<float> render_buffer;
+    ImageView<float > render_buffer;
     ImageView<double> d_buffer, weights;
     if (m_use_surface_sampling){
       render_buffer.set_size(bbox_1.width(), bbox_1.height());
     }
 
     // Setup a software renderer and the orthographic view matrix
-    vw::stereo::SoftwareRenderer renderer(bbox_1.width(),
-					  bbox_1.height(),
-					  &render_buffer(0,0) );
+    vw::stereo::SoftwareRenderer renderer(bbox_1.width(), bbox_1.height(), &render_buffer(0,0) );
     renderer.Ortho2D(local_3d_bbox.min().x(), local_3d_bbox.max().x(),
-		     local_3d_bbox.min().y(), local_3d_bbox.max().y());
+                     local_3d_bbox.min().y(), local_3d_bbox.max().y());
 
     // Given a DEM grid point, search for cloud points within the
     // circular region of radius equal to grid size. As such, a
@@ -607,12 +607,12 @@ namespace asp{
     else
       search_radius = m_spacing*m_search_radius_factor;
     vw::stereo::Point2Grid point2grid(bbox_1.width(),
-				      bbox_1.height(),
-				      d_buffer, weights,
-				      local_3d_bbox.min().x(),
-				      local_3d_bbox.min().y(),
-				      m_spacing, m_default_spacing,
-				      search_radius, m_sigma_factor);
+                                      bbox_1.height(),
+                                      d_buffer, weights,
+                                      local_3d_bbox.min().x(),
+                                      local_3d_bbox.min().y(),
+                                      m_spacing, m_default_spacing,
+                                      search_radius, m_sigma_factor);
 
     // Set up the default color value
     double min_val = 0.0;
@@ -641,14 +641,13 @@ namespace asp{
     // find the corresponding blocks in the point cloud space.  We
     // use here a map since we'd like to group together the point
     // cloud blocks which fall within the same 256 x 256 tile, to do
-    // their union instead of them individually, for reasons of
-    // speed.
+    // their union instead of them individually, for reasons of speed.
     typedef std::map<BBox2i, BBox2i, compare_bboxes> BlockMapType;
     typedef BlockMapType::iterator MapIterType;
     BlockMapType blocks_map;
-    BOOST_FOREACH( BBoxPair const& boundary,
-		   m_point_image_boundaries ) {
-      if (! local_3d_bbox.intersects(boundary.first) ) continue;
+    BOOST_FOREACH( BBoxPair const& boundary, m_point_image_boundaries ) {
+      if (! local_3d_bbox.intersects(boundary.first) )
+        continue;
 
       BBox2i pc_block = boundary.second;
 
@@ -666,15 +665,9 @@ namespace asp{
 
     if ( blocks_map.empty() ){
       if (m_use_surface_sampling){
-        return prerasterize_type( render_buffer,
-				  BBox2i(-bbox_1.min().x(),
-					 -bbox_1.min().y(),
-					 cols(), rows()) );
+        return prerasterize_type( render_buffer, BBox2i(-bbox_1.min().x(), -bbox_1.min().y(), cols(), rows()) );
       }else{
-        return prerasterize_type( d_buffer,
-				  BBox2i(-bbox_1.min().x(),
-					 -bbox_1.min().y(),
-					 cols(), rows()) );
+        return prerasterize_type( d_buffer,      BBox2i(-bbox_1.min().x(), -bbox_1.min().y(), cols(), rows()) );
       }
     }
 
@@ -718,57 +711,57 @@ namespace asp{
       for ( int32 row = 0; row < point_copy.rows()-d; ++row ) {
         PointAcc point_ul = row_acc;
 
-	    for ( int32 col = 0; col < point_copy.cols()-d; ++col ) {
+	      for ( int32 col = 0; col < point_copy.cols()-d; ++col ) {
 
-        PointAcc point_ur = point_ul; point_ur.next_col();
-        PointAcc point_ll = point_ul; point_ll.next_row();
-        PointAcc point_lr = point_ul; point_lr.advance(1,1);
+          PointAcc point_ur = point_ul; point_ur.next_col();
+          PointAcc point_ll = point_ul; point_ll.next_row();
+          PointAcc point_lr = point_ul; point_lr.advance(1,1);
 
-        if (m_use_surface_sampling){
+          if (m_use_surface_sampling){
 
-          // This loop rasterizes a quad indexed by the upper left.
-          if ( !boost::math::isnan((*point_ul).z()) &&
-               !boost::math::isnan((*point_lr).z()) ) {
+            // This loop rasterizes a quad indexed by the upper left.
+            if ( !boost::math::isnan((*point_ul).z()) &&
+                 !boost::math::isnan((*point_lr).z()) ) {
 
-            vertices[0] = (*point_ul).x(); // UL
-            vertices[1] = (*point_ul).y();
-            vertices[2] = (*point_ll).x(); // LL
-            vertices[3] = (*point_ll).y();
-            vertices[4] = (*point_lr).x(); // LR
-            vertices[5] = (*point_lr).y();
-            vertices[6] = (*point_ur).x(); // UR
-            vertices[7] = (*point_ur).y();
-            vertices[8] = (*point_ul).x(); // UL
-            vertices[9] = (*point_ul).y();
+              vertices[0] = (*point_ul).x(); // UL
+              vertices[1] = (*point_ul).y();
+              vertices[2] = (*point_ll).x(); // LL
+              vertices[3] = (*point_ll).y();
+              vertices[4] = (*point_lr).x(); // LR
+              vertices[5] = (*point_lr).y();
+              vertices[6] = (*point_ur).x(); // UR
+              vertices[7] = (*point_ur).y();
+              vertices[8] = (*point_ul).x(); // UL
+              vertices[9] = (*point_ul).y();
 
-            intensities[0] = texture_copy(col,  row);
-            intensities[1] = texture_copy(col,row+1);
-            intensities[2] = texture_copy(col+1,  row+1);
-            intensities[3] = texture_copy(col+1,row);
-            intensities[4] = texture_copy(col,row);
+              intensities[0] = texture_copy(col,  row);
+              intensities[1] = texture_copy(col,row+1);
+              intensities[2] = texture_copy(col+1,  row+1);
+              intensities[3] = texture_copy(col+1,row);
+              intensities[4] = texture_copy(col,row);
 
-            if ( !boost::math::isnan((*point_ll).z()) ) {
-              // triangle 1 is: UL LL LR
-              renderer.DrawPolygon(0, 3);
+              if ( !boost::math::isnan((*point_ll).z()) ) {
+                // triangle 1 is: UL LL LR
+                renderer.DrawPolygon(0, 3);
+              }
+              if ( !boost::math::isnan((*point_ur).z()) ) {
+                // triangle 2 is: LR, UR, UL
+                renderer.DrawPolygon(2, 3);
+              }
             }
-            if ( !boost::math::isnan((*point_ur).z()) ) {
-              // triangle 2 is: LR, UR, UL
-              renderer.DrawPolygon(2, 3);
-            }
-          }
 
           }else{
             // The new engine
             if ( !boost::math::isnan(point_copy(col, row).z()) ){
               point2grid.AddPoint(point_copy(col, row).x(),
-                point_copy(col, row).y(),
-                texture_copy(col,  row));
+                                  point_copy(col, row).y(),
+                                  texture_copy(col,  row));
             }
           }
           point_ul.next_col();
-        }
+        } // End column loop
         row_acc.next_row();
-      }
+      } // End row loop
 
     }
 
@@ -777,18 +770,28 @@ namespace asp{
 
     // The software renderer returns an image which will render
     // upside down in most image formats, so we correct that here.
-    // We also introduce transparent pixels into the result where
-    // necessary.
-    // To do: Here can do flipping in place.
+    // We also introduce transparent pixels into the result where necessary.
+    // TODO: Here can do flipping in place.
     ImageView< PixelGray<float> > result;
     if (m_use_surface_sampling)
       result = flip_vertical(render_buffer);
     else
       result = flip_vertical(d_buffer);
 
-    return prerasterize_type (result, BBox2i(-bbox_1.min().x(),
-					     -bbox_1.min().y(),
-					     cols(), rows()));
+    // Loop through result here and count up how many pixels have been changed from the default value.
+    size_t num_unset = 0;
+    for (int r=0; r<result.rows(); ++r) {
+      for (int c=0; c<result.cols(); ++c) {
+        if (result(c,r) == min_val)
+          ++num_unset;
+      }
+    }
+    { // Lock and update the total number of invalid pixels in this tile.
+      vw::Mutex::Lock lock(*m_count_mutex);
+      (*m_num_invalid_pixels) += num_unset;
+    }
+
+    return prerasterize_type (result, BBox2i(-bbox_1.min().x(), -bbox_1.min().y(), cols(), rows()));
   }
 
 

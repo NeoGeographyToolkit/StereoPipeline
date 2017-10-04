@@ -578,15 +578,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 template <class ImageT>
 ImageViewRef< PixelGray<float> >
-generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
-		      Options const& opt ) {
+generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer, Options const& opt ) {
   // This probably needs a lanczos filter. Sinc filter is the ideal
   // since it is the ideal brick filter.
   // ... or ...
   // possibly apply the blur on a linear scale (pow(0,2.2), blur, then exp).
 
-  float fsaa_sigma = 1.0f * float(opt.fsaa)/2.0f;
-  int kernel_size = vw::compute_kernel_size(fsaa_sigma);
+  float fsaa_sigma  = 1.0f * float(opt.fsaa)/2.0f;
+  int   kernel_size = vw::compute_kernel_size(fsaa_sigma);
 
   ImageViewRef< PixelGray<float> > rasterizer_fsaa;
   if ( opt.fsaa > 1 ) {
@@ -595,13 +594,12 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
       apply_mask
       (vw::resample_aa
        (translate
-	(gaussian_filter
-	 (fill_nodata_with_avg
-	  (create_mask(rasterizer.impl(),opt.nodata_value),
-	   kernel_size),
-	  fsaa_sigma),
-	 -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
-	 ConstantEdgeExtension()), 1.0/opt.fsaa),
+    (gaussian_filter
+     (fill_nodata_with_avg(create_mask(rasterizer.impl(),opt.nodata_value),
+                           kernel_size),
+      fsaa_sigma),
+     -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
+     ConstantEdgeExtension()), 1.0/opt.fsaa),
        opt.nodata_value);
   } else {
     rasterizer_fsaa = rasterizer.impl();
@@ -617,9 +615,9 @@ namespace asp{
     float m_nodata_val;
     Vector3 operator() (Vector3 const& vec) const {
       if (boost::math::isnan(vec.z()))
-	return Vector3(m_nodata_val, m_nodata_val, m_nodata_val); // invalid
+        return Vector3(m_nodata_val, m_nodata_val, m_nodata_val); // invalid
       else
-	return vec; // valid
+        return vec; // valid
     }
   };
 
@@ -648,6 +646,7 @@ namespace asp{
 						  ErrorToNED(georef) );
   }
 
+  /// Write an image to disk while handling some common options.
   template<class ImageT>
   void save_image(Options& opt, ImageT img, GeoReference const& georef,
                   int hole_fill_len, std::string const& imgName){
@@ -673,8 +672,8 @@ namespace asp{
       vw::cartography::write_gdal_image(output_file, img, georef, opt, tpc);
   } // End function save_image
 
-  // A class for combining the three channels of errors and finding
-  // their absolute values.
+
+  /// A class for combining the three channels of errors and finding their absolute values.
   template <class ImageT>
   class CombinedView : public ImageViewBase<CombinedView<ImageT> >
   {
@@ -710,7 +709,7 @@ namespace asp{
       Vector3f error(m_image1(i, j), m_image2(i, j), m_image3(i, j));
 
       if (error[0] == m_nodata_value || error[1] == m_nodata_value || error[2] == m_nodata_value){
-	return Vector3f(m_nodata_value, m_nodata_value, m_nodata_value);
+        return Vector3f(m_nodata_value, m_nodata_value, m_nodata_value);
       }
 
       return Vector3f(std::abs(error[0]), std::abs(error[1]), std::abs(error[2]));
@@ -745,29 +744,28 @@ namespace asp{
     return CombinedView<ImageT>(nodata_value, image1.impl(), image2.impl(), image3.impl());
   }
 
-  // Round pixels in given image to multiple of given scale.
-  // Don't round nodata values.
+  /// Round pixels in given image to multiple of given scale.
+  /// Don't round nodata values.
   template <class PixelT>
   struct RoundImagePixelsSkipNoData: public vw::ReturnFixedType<PixelT> {
 
     double m_scale, m_nodata;
 
-    RoundImagePixelsSkipNoData(double scale, double nodata):m_scale(scale),
-							    m_nodata(nodata){
+    RoundImagePixelsSkipNoData(double scale, double nodata) : m_scale(scale), m_nodata(nodata){
     }
 
     PixelT operator() (PixelT const& pt) const {
 
       // We will pass in m_scale = 0 if we don't want rounding to happen.
       if (m_scale <= 0)
-	return pt;
+        return pt;
 
       // Skip given pixel if any channels are nodata
       int num_channels = PixelNumChannels<PixelT>::value;
       typedef typename CompoundChannelType<PixelT>::type channel_type;
       for (int c = 0; c < num_channels; c++){
-	if ( (double)compound_select_channel<channel_type const&>(pt,c) == m_nodata )
-	  return pt;
+        if ( (double)compound_select_channel<channel_type const&>(pt,c) == m_nodata )
+          return pt;
       }
 
       return PixelT(m_scale*round(channel_cast<double>(pt)/m_scale));
@@ -778,7 +776,7 @@ namespace asp{
   template <class ImageT>
   vw::UnaryPerPixelView<ImageT, RoundImagePixelsSkipNoData<typename ImageT::pixel_type> >
   inline round_image_pixels_skip_nodata( vw::ImageViewBase<ImageT> const& image,
-					 double scale, double nodata ) {
+                                         double scale, double nodata ) {
     return vw::UnaryPerPixelView<ImageT, RoundImagePixelsSkipNoData<typename ImageT::pixel_type> >
       ( image.impl(), RoundImagePixelsSkipNoData<typename ImageT::pixel_type>(scale, nodata) );
   }
@@ -871,7 +869,7 @@ namespace asp{
       int num_channels = get_num_channels(pc_files[i]);
       min_num_channels = std::min(min_num_channels, num_channels);
       if (num_channels != num_channels0)
-	min_num_channels = std::min(min_num_channels, 3);
+        min_num_channels = std::min(min_num_channels, 3);
     }
     return min_num_channels;
   }
@@ -885,7 +883,8 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
                                 Options& opt,
                                 cartography::GeoReference& georef,
                                 ImageViewRef<double> const& error_image,
-                                double estim_max_error) {
+                                double estim_max_error,
+                                size_t *num_invalid_pixels) {
 
   vw_out() << "\t-- Starting DEM rasterization --\n";
   vw_out() << "\t--> DEM spacing: " <<     rasterizer.spacing() << " pt/px\n";
@@ -943,8 +942,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     Stopwatch sw2;
     sw2.start();
     ImageViewRef< PixelGray<float> > dem
-      = asp::round_image_pixels_skip_nodata(rasterizer_fsaa, opt.rounding_error,
-					    opt.nodata_value);
+      = asp::round_image_pixels_skip_nodata(rasterizer_fsaa, opt.rounding_error, opt.nodata_value);
 
     int hole_fill_len = opt.dem_hole_fill_len;
     if (hole_fill_len > 0){
@@ -958,8 +956,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
          opt.nodata_value);
     }
 
-    // Stop the program if it is going to create too large a DEM, this will 
-    //  cause a crash.
+    // Stop the program if it is going to create too large a DEM, this will cause a crash.
     Vector2i dem_size = bounding_box(dem).size();
     vw_out()<< "Creating output file that is " << dem_size << " px.\n";
     if ((dem_size[0] > opt.max_output_size[0]) || (dem_size[1] > opt.max_output_size[1]))
@@ -968,8 +965,13 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
 
     asp::save_image(opt, dem, georef, hole_fill_len, "DEM");
     sw2.stop();
-    vw_out(DebugMessage,"asp") << "DEM render time: "
-			       << sw2.elapsed_seconds() << std::endl;
+    vw_out(DebugMessage,"asp") << "DEM render time: " << sw2.elapsed_seconds() << std::endl;
+    
+    double num_invalid_pixelsD = static_cast<double>(*num_invalid_pixels);
+    double num_total_pixels    = static_cast<double>(dem_size[0]*dem_size[1]);
+    double invalid_ratio       = num_invalid_pixelsD / num_total_pixels;
+    vw_out() << "Percentage of valid pixels = " << 1.0-invalid_ratio << "\n";
+    *num_invalid_pixels = 0; // Reset this count
   }
 
   // Write triangulation error image if requested
@@ -1060,15 +1062,19 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
   // Perform the slow initialization that can be shared by all output resolutions
   Stopwatch sw1;
   sw1.start();
+  vw::Mutex count_mutex; // Need to pass in by pointer due to C++ class restrictions
+  size_t num_invalid_pixels = 0; // Need to pass in by pointer because we can't get back the number from
+                                 //  the original rasterizer object otherwise for some reason.
   asp::OrthoRasterizerView
     rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
-	       opt.search_radius_factor, opt.sigma_factor, opt.use_surface_sampling,
-	       asp::ASPGlobalOptions::tri_tile_size(), // to efficiently process the cloud
-	       opt.target_projwin,
-	       opt.remove_outliers_with_pct, opt.remove_outliers_params,
-	       error_image, estim_max_error, opt.max_valid_triangulation_error,
-	       opt.median_filter_params, opt.erode_len, opt.has_las_or_csv,
-	       TerminalProgressCallback("asp","QuadTree: ") );
+               opt.search_radius_factor, opt.sigma_factor, opt.use_surface_sampling,
+               asp::ASPGlobalOptions::tri_tile_size(), // to efficiently process the cloud
+               opt.target_projwin,
+               opt.remove_outliers_with_pct, opt.remove_outliers_params,
+               error_image, estim_max_error, opt.max_valid_triangulation_error,
+               opt.median_filter_params, opt.erode_len, opt.has_las_or_csv,
+               &num_invalid_pixels, &count_mutex,
+               TerminalProgressCallback("asp","QuadTree: "));
 
   sw1.stop();
   vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
@@ -1092,7 +1098,7 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
       opt.out_prefix = base_out_prefix;
     else // Write later iterations to a different path!!
       opt.out_prefix = base_out_prefix + "_" + vw::num_to_str(i);
-    do_software_rasterization( rasterizer, opt, georef, error_image, estim_max_error);
+    do_software_rasterization( rasterizer, opt, georef, error_image, estim_max_error, &num_invalid_pixels);
   } // End loop through spacings
 
   opt.out_prefix = base_out_prefix; // Restore the original value
@@ -1169,8 +1175,8 @@ int main( int argc, char *argv[] ) {
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
       vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
-	       << "      Angles: " << opt.phi_rot << "   "
-	       << opt.omega_rot << "  " << opt.kappa_rot << "\n";
+               << "      Angles: " << opt.phi_rot << "   "
+               << opt.omega_rot << "  " << opt.kappa_rot << "\n";
       point_image = asp::point_transform(point_image,
 					 math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
     }
@@ -1185,7 +1191,7 @@ int main( int argc, char *argv[] ) {
       else if (num_channels == 6) error_image = asp::error_norm<6>(opt.pointcloud_files);
       else{
         vw_out() << "The point cloud files must have an equal number of channels which "
-	         << "must be 4 or 6 to be able to remove outliers.\n";
+                 << "must be 4 or 6 to be able to remove outliers.\n";
         opt.remove_outliers_with_pct      = false;
         opt.max_valid_triangulation_error = 0.0;
       }
@@ -1242,7 +1248,7 @@ int main( int argc, char *argv[] ) {
     // We trade off readability here to avoid ImageViewRef dereferences
     if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.lon_offset
-	       << " " << opt.lat_offset << " " << opt.height_offset << "\n";
+               << " " << opt.lat_offset << " " << opt.height_offset << "\n";
       do_software_rasterization_multi_spacing
         (geodetic_to_point  // GDC to XYZ
             (asp::point_image_offset  // Add user coordinate offset
