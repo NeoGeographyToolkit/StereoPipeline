@@ -1601,10 +1601,13 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
       vw_out() << "No new outliers removed. No more passes are needed.\n";
       break;
     }
-    
+
     int num_points_remaining = num_points - outlier_xyz.size();
-    if (num_points_remaining < opt.min_matches)
+    if (opt.num_ba_passes > 1 && num_points_remaining < opt.min_matches) {
+      // Do not throw if there were is just one pass, as no outlier filtering happened.
+      // This is needed to not break functionality when only gcp are passed as inputs.
       vw_throw(ArgumentErr() << "Error: Too few points remain after filtering!.\n");
+    }
   }
 
   // Copy the latest version of the optimized intrinsic variables back
