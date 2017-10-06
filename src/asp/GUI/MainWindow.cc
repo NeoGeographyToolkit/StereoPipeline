@@ -691,8 +691,7 @@ void MainWindow::viewMatches(){
       for ( size_t icam = 0; icam < crn.size(); icam++ ) {
 	for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
 	  Vector2 observation = (**fiter).m_location;
-	  vw::ip::InterestPoint ip;
-	  ip.x = observation.x(); ip.y = observation.y();
+	  vw::ip::InterestPoint ip(observation.x(), observation.y());
 	  m_matches[icam].push_back(ip);
 	}
       }

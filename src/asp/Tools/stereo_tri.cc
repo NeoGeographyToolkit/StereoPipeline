@@ -211,9 +211,11 @@ stereo_error_triangulate( vector<DisparityT> const& disparities,
 /// This will create a correspondence from the left to right image,
 /// which we save in the match format
 template <class DisparityT, class TXT>
-void compute_matches_from_disp(vector<DisparityT> const& disparities,
+void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
+                               vector<DisparityT> const& disparities,
                                vector<TXT>        const& transforms,
-                               std::string        const& match_file) {
+                               std::string        const& match_file,
+                               int                      max_num_matches) {
 
   VW_ASSERT( disparities.size() == 1 && transforms.size() == 2,
                vw::ArgumentErr() << "Expecting two images and one disparity.\n" );
@@ -223,10 +225,25 @@ void compute_matches_from_disp(vector<DisparityT> const& disparities,
   TXT left_trans  = transforms[0];
   TXT right_trans = transforms[1];
 
-  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+  // Since all our code is templated, and for pinhole cameras
+  // there can be more than one type of transform, and there is no base
+  // pointer for all transforms, need to do this kludge.
+  bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
+                              ( opt_vec[0].session->name() == "pinhole" ||
+                                opt_vec[0].session->name() == "nadirpinhole") );
 
-  // TODO: This must be proportional to how many adjustments have!
-  double max_num_matches = stereo_settings().num_matches_for_piecewise_adjustment;
+  // Must initialize below the two cameras to something to respect the constructor.
+  asp::PinholeCamTrans left_trans2 = asp::PinholeCamTrans(vw::camera::PinholeModel(),
+                                                          vw::camera::PinholeModel());
+  asp::PinholeCamTrans right_trans2 = left_trans2;
+  if (usePinholeEpipolar) {
+    StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt_vec[0].session.get());
+    if (pinPtr == NULL) 
+      vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
+    pinPtr->pinhole_cam_trans(left_trans2, right_trans2);
+  }
+  
+  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
 
   double num_pixels = double(disp.cols()) * double(disp.rows());
   if (num_pixels < max_num_matches) max_num_matches = num_pixels;
@@ -261,14 +278,17 @@ void compute_matches_from_disp(vector<DisparityT> const& disparities,
         continue;
 
       // De-warp left and right pixels to be in the camera coordinate system
-      Vector2 left_pix  = left_trans.reverse ( Vector2(posx, posy) );
-      Vector2 right_pix = right_trans.reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
+      Vector2 left_pix, right_pix;
+      if (!usePinholeEpipolar) {
+        left_pix  = left_trans.reverse ( Vector2(posx, posy) );
+        right_pix = right_trans.reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
+      }else{
+        left_pix  = left_trans2.reverse ( Vector2(posx, posy) );
+        right_pix = right_trans2.reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
+      }
 
-      ip::InterestPoint lip, rip;
-      lip.x  = left_pix.x();  lip.y = left_pix.y();
-      rip.x = right_pix.x();  rip.y = right_pix.y();
-      left_ip.push_back(lip);
-      right_ip.push_back(rip);
+      left_ip.push_back(ip::InterestPoint(left_pix.x(), left_pix.y()));
+      right_ip.push_back(ip::InterestPoint(right_pix.x(), right_pix.y()));
     }
 
     tpc.report_incremental_progress( inc_amount );
@@ -508,12 +528,23 @@ void stereo_triangulation( string          const& output_prefix,
       disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
     }
 
+    std::string match_file = output_prefix + "-disp.match";
+
+    // Pull matches from disparity. Highly experimental. 
+    if (stereo_settings().num_matches_from_disparity > 0) {
+      compute_matches_from_disp(opt_vec, disparity_maps, transforms, match_file,
+                                stereo_settings().num_matches_from_disparity);
+    }
+    
     // Piecewise adjustments for jitter
     if (stereo_settings().image_lines_per_piecewise_adjustment > 0 &&
         !stereo_settings().skip_computing_piecewise_adjustments){
 
-      std::string match_file = output_prefix + "-disp.match";
-      compute_matches_from_disp(disparity_maps, transforms, match_file);
+      // TODO: This must be proportional to how many adjustments have!
+      double max_num_matches = stereo_settings().num_matches_for_piecewise_adjustment;
+
+      compute_matches_from_disp(opt_vec, disparity_maps, transforms, match_file,
+                                max_num_matches);
 
       int num_threads = opt_vec[0].num_threads;
       if (opt_vec[0].session->name() == "isis" || opt_vec[0].session->name() == "isismapisis")

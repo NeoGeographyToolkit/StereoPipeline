@@ -199,6 +199,9 @@ namespace asp {
     float  far_universe_radius;       // Radius of the universe in meters
     std::string bundle_adjust_prefix; // Use the camera adjustments obtained by previously running bundle_adjust with the output prefix specified here.
 
+    // Pull this many matches from the stereo disparity
+    int num_matches_from_disparity;
+    
     // piecewise adjustments
     int image_lines_per_piecewise_adjustment;
     vw::Vector2 piecewise_adjustment_percentiles;

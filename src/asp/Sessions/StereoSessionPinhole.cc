@@ -401,3 +401,24 @@ asp::StereoSessionPinhole::tx_right() const {
   }
   return tx_type( math::identity_matrix<3>() );
 }
+
+// TODO: Need tx_left to return a pointer, and then the logic of the function below
+// needs to be incorporated into tx_left(). This because for epipolar alignment
+// the camera transform type is not a homography transform.
+void asp::StereoSessionPinhole::pinhole_cam_trans(asp::PinholeCamTrans & left_trans,
+                                                  asp::PinholeCamTrans & right_trans){
+
+  // Load the epipolar aligned camera models
+  boost::shared_ptr<camera::CameraModel> left_aligned_model, right_aligned_model;
+  this->camera_models(left_aligned_model, right_aligned_model);
+  
+  boost::shared_ptr<camera::CameraModel> left_input_model, right_input_model;
+  this->get_unaligned_camera_models(left_input_model, right_input_model);
+
+  // Set up transform objects
+  typedef vw::camera::PinholeModel PinModel;
+  left_trans = asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*left_input_model )), *dynamic_cast<PinModel*>(&(*left_aligned_model )));
+
+  right_trans = asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*right_input_model )), *dynamic_cast<PinModel*>(&(*right_aligned_model )));
+
+}

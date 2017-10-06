@@ -134,7 +134,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     search_range.min() -= expansion;
     search_range.max() += expansion;
     //VW_OUT(DebugMessage,"asp") << "D_sub search range: " << search_range << " px\n";
-    std::cout << "D_sub search range: " << search_range << " px\n";
+    vw_out() << "D_sub search range: " << search_range << " px\n";
     stereo::CostFunctionType cost_mode = get_cost_mode_value();
     Vector2i kernel_size  = stereo_settings().corr_kernel;
     int corr_timeout      = 5*stereo_settings().corr_timeout; // 5x, so try hard
@@ -272,11 +272,16 @@ double adjust_ip_for_align_matrix(std::string               const& out_prefix,
       continue;
     l /= l[2];
     r /= r[2];
-    
+
     ip_left [i].x = l[0];
     ip_left [i].y = l[1];
+    ip_left [i].ix = l[0];
+    ip_left [i].iy = l[1];
+    
     ip_right[i].x = r[0];
     ip_right[i].y = r[1];
+    ip_right[i].ix = r[0];
+    ip_right[i].iy = r[1];
   }
   return 1.0; // If alignment files are present they take care of the scaling.
 	      
@@ -292,6 +297,13 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
                                       vector<ip::InterestPoint>      & ip_left,
                                       vector<ip::InterestPoint>      & ip_right) {
 
+  bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
+                              ( opt.session->name() == "pinhole" ||
+                                opt.session->name() == "nadirpinhole") );
+  
+  if (!usePinholeEpipolar) 
+    return false;
+  
   // This function does nothing if we are not using epipolar alignment,
   //  or if the IP were found using one of the aligned images.
   const std::string sub_match_file     = opt.out_prefix + "-L_sub__R_sub.match";
@@ -302,21 +314,15 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
 
   vw_out() << "Applying epipolar adjustment to input IP match file...\n";
 
-  // Load the epipolar aligned camera models
-  boost::shared_ptr<camera::CameraModel> left_aligned_model, right_aligned_model;
-  opt.session->camera_models(left_aligned_model, right_aligned_model);
-  
   // Need to cast the session pointer to Pinhole type to access the function we need.
-  boost::shared_ptr<camera::CameraModel> left_input_model, right_input_model;
   StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
-  boost::shared_ptr<StereoSessionPinhole> pin_session(pinPtr, boost::null_deleter());
-  pin_session->get_unaligned_camera_models(left_input_model, right_input_model);
-
-  // Set up transform objects
-  typedef vw::camera::PinholeModel PinModel;
-  typedef vw::camera::CameraTransform<PinModel, PinModel> CamTrans;
-  CamTrans trans_left (*dynamic_cast<PinModel*>(&(*left_input_model )), *dynamic_cast<PinModel*>(&(*left_aligned_model )));
-  CamTrans trans_right(*dynamic_cast<PinModel*>(&(*right_input_model)), *dynamic_cast<PinModel*>(&(*right_aligned_model)));
+  if (pinPtr == NULL) 
+    vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
+  // Must initialize below the two cameras to something to respect the constructor.
+  asp::PinholeCamTrans trans_left = asp::PinholeCamTrans(vw::camera::PinholeModel(),
+                                                         vw::camera::PinholeModel());
+  asp::PinholeCamTrans trans_right = trans_left;
+  pinPtr->pinhole_cam_trans(trans_left, trans_right);
 
   // Apply the transforms to all the IP we found
   for ( size_t i = 0; i < ip_left.size(); i++ ) {
@@ -572,22 +578,12 @@ BBox2i get_search_range_from_ip_hists(std::vector<double> const& hist_x,
   size_t min_bin_y = get_histogram_percentile(hist_y, min_percentile);
   size_t max_bin_x = get_histogram_percentile(hist_x, max_percentile);
   size_t max_bin_y = get_histogram_percentile(hist_y, max_percentile);
-  //std::cout << "min_bin_x = " << min_bin_x << std::endl;
-  //std::cout << "min_bin_y = " << min_bin_y << std::endl;
-  //std::cout << "max_bin_x = " << max_bin_x << std::endl;
-  //std::cout << "max_bin_y = " << max_bin_y << std::endl;
   Vector2 search_min(centers_x[min_bin_x], centers_y[min_bin_y]);
   Vector2 search_max(centers_x[max_bin_x], centers_y[max_bin_y]);
-  //std::cout << "search_min = " << search_min << std::endl;
-  //std::cout << "search_max = " << search_max << std::endl;
-  //std::cout << "Unscaled search range = " << BBox2i(search_min, search_max) << std::endl;
   Vector2 search_center = (search_max + search_min) / 2.0;
-  //std::cout << "search_center = " << search_center << std::endl;
   Vector2 d_min = search_min - search_center; // TODO: Make into a bbox function!
   Vector2 d_max = search_max - search_center;
   
-  //std::cout << "d_min = " << d_min << std::endl;
-  //std::cout << "d_max = " << d_max << std::endl;
   // Enforce a minimum expansion on the search range in each direction
   Vector2 min_expand = d_min*search_scale;
   Vector2 max_expand = d_max*search_scale;
@@ -602,8 +598,6 @@ BBox2i get_search_range_from_ip_hists(std::vector<double> const& hist_x,
   search_max = search_center + max_expand;
   Vector2i search_minI(floor(search_min[0]), floor(search_min[1])); // Round outwards
   Vector2i search_maxI(ceil (search_max[0]), ceil (search_max[1]));
-  //std::cout << "search_min = " << search_minI << std::endl;
-  //std::cout << "search_max = " << search_maxI << std::endl;  
 /*
    // Debug code to print all the points
   for (size_t i = 0; i < matched_ip1.size(); i++) {
@@ -642,7 +636,11 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
 
   // TODO: Consolidate IP adjustment
-
+  // TODO: This logic is messed up. We __know__ from stereo_settings() what
+  // alignment method is being used and what scale we are at, there is no
+  // need to try to read various and likely old files from disk
+  // to infer that. You can get the wrong answer.
+  
   // Handle alignment matrices if they are present
   // - Scale is reset to 1.0 if alignment matrices are present.
   ip_scale = adjust_ip_for_align_matrix(opt.out_prefix, in_ip1, in_ip2, ip_scale);
@@ -722,7 +720,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
     vw_out() << "Filtering IP with percentile cutoff " << current_percentile_cutoff << std::endl;
     search_range = get_search_range_from_ip_hists(hist_x, hist_y, centers_x, centers_y,
                                                   current_percentile_cutoff);
-    std::cout << "Scaled search range = " << search_range << std::endl;
+    vw_out() << "Scaled search range = " << search_range << std::endl;
     search_width = search_range.width();
     
     // Increase the percentile cutoff in case we need to filter out more IP

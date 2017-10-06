@@ -70,19 +70,22 @@ freeglut3-dev
 gtk2-dev
 
 If you have root access on your machine you can install them on a
-Debian-based distribution using the following command:
+Debian-based distribution using the following command (note that sometimes
+the precise names of packages may change):
 
-sudo apt-get install -y python g++ gfortran csh libtool libtool-bin                 \
-  autoconf automake openssl-dev wget curl git-core subversion zip xserver-xorg-dev  \
+sudo apt-get update -y
+sudo apt-get install -y python g++ gfortran tcsh libtool libtool-bin                \
+  autoconf automake libssl-dev wget curl git subversion zip xserver-xorg-dev        \
   xorg-dev libx11-dev libxext-dev libxmu6 libxmu-dev libxi-dev                      \
   '^libxcb.*-dev' libx11-xcb-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev     \
-   libgtk2.0-dev
+  libgtk2.0-dev
 
 If the package libtool-bin is not available (on older Linux versions),
-it can be simply removed, as libtool has all the functionality.
+it can be simply removed, as libtool has all the functionality. 
 
 For Red Hat-based distributions (CentOS/RHEL version >= 6) one can do instead:
 
+sudo yum update -y
 sudo yum -y install python gcc-c++ gcc-gfortran tcsh libtool autoconf               \
   automake openssl-devel wget curl git subversion xorg-x11-server-Xorg libX11-devel \
   libXext-devel libXmu libXmu-devel libXi-devel libxcb libxcb-devel xcb-util        \

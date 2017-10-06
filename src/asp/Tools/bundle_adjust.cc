@@ -1023,7 +1023,7 @@ int update_outliers(ControlNetwork                  & cnet,
                     size_t num_gcp_residuals, 
                     ceres::Problem &problem) {
   
-  vw_out() << "Removing pixel outliers in preparation for another solver attempt...";
+  vw_out() << "Removing pixel outliers in preparation for another solver attempt.\n";
 
   // Compute the reprojection error. Hence we should not add the contribution
   // of the loss function.
@@ -2506,7 +2506,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("num-passes",             po::value(&opt.num_ba_passes)->default_value(1),
      "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params, and re-optimization will take place. Match files and residual files with the outliers removed will be written to disk.")
     ("remove-outliers-params",        po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
-	    "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Specify as a list in quotes.")
+	    "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: 75.0 3.0 2.0 3.0.")
     
     ("min-triangulation-angle",             po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")

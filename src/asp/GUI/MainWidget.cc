@@ -2625,10 +2625,7 @@ namespace vw { namespace gui {
 
     // Convert mouse coords to world coords, then add a new IP to the list for this image.
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-    ip::InterestPoint ip;
-    ip.x = P.x();
-    ip.y = P.y();
-    m_matches[m_image_id].push_back(ip);
+    m_matches[m_image_id].push_back(ip::InterestPoint(P.x(), P.y()));
 
     bool view_matches = true;
     viewMatches(view_matches);
