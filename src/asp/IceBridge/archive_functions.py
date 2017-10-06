@@ -145,7 +145,7 @@ def packAndSendCameraFolder(run, logger):
 
     # Do the new file. Save the projection bounds, we will need that for later
     # as that file is very time conssuming to create. 
-    runFolder = str(run)
+    runFolder = run.getFolder()
     cmd = 'shiftc --wait -d -r --include=\'^.*?(' + os.path.basename(icebridge_common.projectionBoundsFile(runFolder)) + '|' + os.path.basename(icebridge_common.validFilesList(runFolder)) + '|' + \
           os.path.basename(cameraFolder) + '.*?\.tsai)$\' --create-tar ' + runFolder + \
           ' ' + lfePath
@@ -165,7 +165,7 @@ def packAndSendAlignedCameras(run, logger):
     
     logger.info('Archiving aligned cameras for run ' + str(run))
 
-    runFolder = str(run)
+    runFolder = run.getFolder()
     
     fileName = run.getAlignedCameraTarName()
     lfePath  = os.path.join(REMOTE_ALIGN_CAM_FOLDER, fileName)
@@ -190,7 +190,7 @@ def packAndSendOrthos(run, logger):
 
     logger.info('Archiving ortho images for run ' + str(run))
 
-    runFolder = str(run)
+    runFolder = run.getFolder()
     
     fileName = run.getOrthoTarName()
     lfePath  = os.path.join(REMOTE_ORTHO_FOLDER, fileName)
@@ -271,7 +271,7 @@ def packAndSendCompletedRun(run, logger):
     
     logger.info('Getting ready to pack up run ' + str(run))
     
-    runFolder = str(run)
+    runFolder = run.getFolder()
     
     # TODO: What do we want to deliver?
     # - The aligned DEM file from each batch folder
