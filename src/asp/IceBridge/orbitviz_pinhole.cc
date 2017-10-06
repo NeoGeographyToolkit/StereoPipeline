@@ -54,7 +54,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   Options() {}
   // Input
   std::vector<std::string> input_files;
-  std::string path_to_outside_model;
+  std::string path_to_outside_model, input_list;
 
   // Settings
   bool write_csv, hide_labels;
@@ -115,6 +115,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("output,o",                po::value(&opt.out_file)->default_value("orbit.kml"),
           "The output kml file that will be written")
+    ("input-list", po::value(&opt.input_list)->default_value(""),
+          "File containing list of input files")
     ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model),
           "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
     ("hide-labels",             po::bool_switch(&opt.hide_labels)->default_value(false)->implicit_value(true),
@@ -141,6 +143,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered );
+ 
+ if (opt.input_list != "") {
+   std::ifstream handle(opt.input_list.c_str());
+   std::string line;
+   size_t count = 0;
+   while (getline(handle, line)){
+     opt.input_files.push_back(line);
+     ++count;
+   }
+   handle.close();
+   vw_out() << "Read in " << count << " camera files from " << opt.input_list << std::endl;
+ }
  
  if (opt.input_files.empty())
   vw_throw( ArgumentErr() << "No input files provided!\n" );
