@@ -769,7 +769,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         raise Exception('point2dem call on stereo pair failed!')
 
     # Require a certain percentage of valid output pixels to go forwards with this DEM
-    MIN_FRACTION_VALID_PIXELS = 0.10
+    # - This calculation currently does not work well but anything under this is probably bad.
+    MIN_FRACTION_VALID_PIXELS = 0.4 
     percentageFlagFile = os.path.join(options.outputFolder, 'valid_pixel_fraction.txt')
     fractionValid = 1.0;
 

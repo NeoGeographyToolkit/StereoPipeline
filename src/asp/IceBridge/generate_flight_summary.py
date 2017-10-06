@@ -236,7 +236,7 @@ def generateFlightSummary(run, options):
     # Write the header for the batch log file
     batchInfoLog.write('# startFrame, stopFrame, centerLon, centerLat, meanAlt, ' +
                        'meanLidarDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff, ' +
-                       'meanBlendDiff, meanBlendDiffInFireballFootprint, ' + \
+                       'percentValid, meanBlendDiff, meanBlendDiffInFireballFootprint, ' + \
                        'corrSearchWid, corrMem(GB), corrElapsedTime(minutes)\n')
     failureLog.write('# startFrame, stopFrame, errorCode, errorText\n')
 

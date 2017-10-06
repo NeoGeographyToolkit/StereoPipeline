@@ -1193,6 +1193,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
                           Options                         & opt,
                           ControlNetwork                  & cnet,
                           CameraRelationNetwork<JFeature> & crn,
+                          bool                              first_pass,
                           bool                              last_pass,
                           int                               num_camera_params,
                           int                               num_point_params,
@@ -1346,29 +1347,34 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     }
   }
 
-  vw_out() << "Writing initial condition files..." << std::endl;
-
-  std::string residual_prefix = opt.out_prefix + "-initial_residuals_loss_function";
-  write_residual_logs(residual_prefix, true,  opt, num_cameras, num_camera_params,
-                      num_point_params, cam_residual_counts, num_gcp_residuals, crn,
-                      points, num_points, outlier_xyz, problem);
-  residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
-  write_residual_logs(residual_prefix, false, opt, num_cameras, num_camera_params,
-                      num_point_params, cam_residual_counts, num_gcp_residuals, crn,
-                      points, num_points, outlier_xyz, problem);
-
-  // Figure out a good KML point skip aount
   const size_t MIN_KML_POINTS = 20;  
   size_t kmlPointSkip = 30;
+  // Figure out a good KML point skip aount
   if (num_points / kmlPointSkip < MIN_KML_POINTS)
     kmlPointSkip = num_points / MIN_KML_POINTS;
   if (kmlPointSkip < 1)
     kmlPointSkip = 1;
+
+  std::string residual_prefix = opt.out_prefix + "-initial_residuals_loss_function";
+  std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
     
-  std::string point_kml_path = opt.out_prefix + "-initial_points.kml";
-  record_points_to_kml(point_kml_path, opt.datum, points, num_points, outlier_xyz,
-		       kmlPointSkip, "initial_points",
-                      "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png");
+  if (first_pass) { 
+    vw_out() << "Writing initial condition files..." << std::endl;
+
+    write_residual_logs(residual_prefix, true,  opt, num_cameras, num_camera_params,
+                        num_point_params, cam_residual_counts, num_gcp_residuals, crn,
+                        points, num_points, outlier_xyz, problem);
+    residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
+    write_residual_logs(residual_prefix, false, opt, num_cameras, num_camera_params,
+                        num_point_params, cam_residual_counts, num_gcp_residuals, crn,
+                        points, num_points, outlier_xyz, problem);
+
+
+      
+    record_points_to_kml(point_kml_path, opt.datum, points, num_points, outlier_xyz,
+		         kmlPointSkip, "initial_points",
+                        "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png");
+  }
 
   // Solve the problem
   ceres::Solver::Options options;
@@ -1591,7 +1597,7 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
     if (num_intrinsic_params > 0) intrinsics = &intrinsics_vec[0];
     
     bool last_pass = (pass == opt.num_ba_passes - 1);
-    int num_new_outliers = do_ba_ceres_one_pass(ba_model, opt,  cnet,  crn, last_pass,
+    int num_new_outliers = do_ba_ceres_one_pass(ba_model, opt,  cnet,  crn, (pass==0), last_pass,
                                                 num_camera_params,  num_point_params,  
                                                 num_intrinsic_params, num_cameras, num_points,  
                                                 orig_cameras_vec,  cameras,  intrinsics,  points,  

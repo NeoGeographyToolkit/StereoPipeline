@@ -312,6 +312,12 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
         shutil.move(tempFilePath, outputCamFile) # Use the camera file with the most points found
         if os.path.exists(tempMatchPath):
             shutil.move(tempMatchPath, matchPath)
+        print 'Best number of ortho points = ' + str(bestIpCount)
+    else:
+        print 'Best number of ortho points = ' + str(numPoints)
+    
+    os.system('rm -f ' + tempFilePath ) # Clean up these files
+    os.system('rm -f ' + tempMatchPath)
     
     if not os.path.exists(outputCamFile):
         # This function is getting called from a pool, so just log the failure.

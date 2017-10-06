@@ -133,22 +133,38 @@ void scan_line(std::string const& line,
     vw_throw( ArgumentErr() << "Could not scan 10 values from line: " << line << "\n" );
 }
 
+/// Rotate about X (forward)
+Matrix3x3 get_rotation_matrix_roll(double roll) {
+  Matrix3x3 M;
+  M(0,0) = 1.0;         M(0,1) = 0.0;           M(0,2) = 0.0;
+  M(1,0) = 0.0;         M(1,1) = cos(roll);     M(1,2) = sin(roll);
+  M(2,0) = 0.0;         M(2,1) = -sin(roll);    M(2,2) = cos(roll); 
+  return M;
+}
+/// Rotate about Y (right)
+Matrix3x3 get_rotation_matrix_pitch(double pitch) {
+  Matrix3x3 M;
+  M(0,0) = cos(pitch);  M(0,1) = 0.0;           M(0,2) = -sin(pitch);
+  M(1,0) = 0.0;         M(1,1) = 1.0;           M(1,2) = 0.0;
+  M(2,0) = sin(pitch);  M(2,1) = 0.0;           M(2,2) = cos(pitch);
+  return M;
+}
+/// Rotate about Z (down)
+Matrix3x3 get_rotation_matrix_yaw(double yaw) {
+  Matrix3x3 M;
+  M(0,0) = cos(yaw);    M(0,1) = -sin(yaw);     M(0,2) = 0.0;
+  M(1,0) = sin(yaw);    M(1,1) = cos(yaw);      M(1,2) = 0.0;
+  M(2,0) = 0.0;         M(2,1) = 0.0;           M(2,2) = 1.0; 
+  return M;
+}
+
 // TODO: It is not clear what the right order should be! 
 Matrix3x3 get_look_rotation_matrix(double yaw, double pitch, double roll, int rot_order) {
 
   // These calculations are copied from the SPOT 123-4-58 Geometry Handbook (GAEL-P135-DOC-001)
-  Matrix3x3 Mp, Mr, My;
-  Mp(0,0) = 1.0;         Mp(0,1) = 0.0;           Mp(0,2) = 0.0;
-  Mp(1,0) = 0.0;         Mp(1,1) = cos(pitch);    Mp(1,2) = sin(pitch);
-  Mp(2,0) = 0.0;         Mp(2,1) = -sin(pitch);   Mp(2,2) = cos(pitch); 
-  
-  Mr(0,0) = cos(roll);   Mr(0,1) = 0.0;           Mr(0,2) = -sin(roll);
-  Mr(1,0) = 0.0;         Mr(1,1) = 1.0;           Mr(1,2) = 0.0;
-  Mr(2,0) = sin(roll);   Mr(2,1) = 0.0;           Mr(2,2) = cos(roll);
-  
-  My(0,0) = cos(yaw);    My(0,1) = -sin(yaw);     My(0,2) = 0.0;
-  My(1,0) = sin(yaw);    My(1,1) = cos(yaw);      My(1,2) = 0.0;
-  My(2,0) = 0.0;         My(2,1) = 0.0;           My(2,2) = 1.0; 
+  Matrix3x3 Mp = get_rotation_matrix_pitch(pitch);
+  Matrix3x3 Mr = get_rotation_matrix_roll (roll );
+  Matrix3x3 My = get_rotation_matrix_yaw  (yaw  ); 
 
   if (rot_order == 1) return Mp*Mr*My;
   if (rot_order == 2) return Mp*My*Mr;
@@ -276,7 +292,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 class ScrollingNavInterpolator {
 public:
 
-  typedef vw::camera::LagrangianInterpolationVarTime InterpType;
+  // TODO: Is the rotation interpolation method ok?  It is the only
+  //       method implemented in VW with sparse time values!
+  typedef vw::camera::LagrangianInterpolationVarTime PosInterpType;
+  typedef vw::camera::LagrangianInterpolationVarTime RotInterpType;
 
   // Open the file
   ScrollingNavInterpolator(std::string const& path, Datum const& datum_in)
@@ -292,6 +311,7 @@ public:
     // Init vectors to a fixed size
     m_time_vector.resize(INTERPOLATE_CHUNK_LENGTH);
     m_loc_vector.resize (INTERPOLATE_CHUNK_LENGTH);
+    m_rot_vector.resize (INTERPOLATE_CHUNK_LENGTH);
     
     m_first_chunk = true;
   }
@@ -302,7 +322,8 @@ public:
 
   /// Set up the next interpolator
   /// - Returns false if the end of the file was reached
-  bool load_next_chunk(boost::shared_ptr<InterpType> &interpolator_ptr) {
+  bool load_next_chunk(boost::shared_ptr<PosInterpType> &pos_interpolator_ptr,
+                       boost::shared_ptr<PosInterpType> &rot_interpolator_ptr) {
 
     //vw_out() << "Loading next nav chunk\n";
   
@@ -314,6 +335,7 @@ public:
       for (index=0; index<m_chunk_overlap; ++index) {
         m_time_vector[index] = m_time_vector[end_index+index];
         m_loc_vector [index] = m_loc_vector [end_index+index];
+        m_rot_vector [index] = m_rot_vector [end_index+index];
       }
     }
     else
@@ -321,10 +343,11 @@ public:
     
     // Populate rest of the vectors by reading from the file
     double  time;
-    Vector3 loc;
-    while (read_next_line(time, loc)){
+    Vector3 loc, angles;
+    while (read_next_line(time, loc, angles)){
       m_time_vector[index] = time;
       m_loc_vector [index] = loc;
+      m_rot_vector [index] = angles;
       ++index;
       if (index == m_chunk_length)
         break;
@@ -337,9 +360,11 @@ public:
   
     // Set up the interpolator
     const int INTERP_RADIUS = 4;  
-    interpolator_ptr = boost::shared_ptr<InterpType>(
-          new InterpType(m_loc_vector, m_time_vector, INTERP_RADIUS));
-    
+    pos_interpolator_ptr = boost::shared_ptr<PosInterpType>(
+          new PosInterpType(m_loc_vector, m_time_vector, INTERP_RADIUS));
+    rot_interpolator_ptr = boost::shared_ptr<RotInterpType>(
+          new RotInterpType(m_rot_vector, m_time_vector, INTERP_RADIUS));
+              
     return true;
   }
   
@@ -352,16 +377,17 @@ public:
 
 private:
 
-  bool m_first_chunk;
-  const Datum m_datum;
+  bool                 m_first_chunk;
+  const Datum          m_datum;
   std::vector<double > m_time_vector;
   std::vector<Vector3> m_loc_vector;
-  size_t m_chunk_length;
-  size_t m_chunk_overlap;
-  std::ifstream m_input_stream;
+  std::vector<Vector3> m_rot_vector;
+  size_t               m_chunk_length;
+  size_t               m_chunk_overlap;
+  std::ifstream        m_input_stream;
 
   /// Read and parse the next line in the file
-  bool read_next_line(double &time, Vector3& loc) {
+  bool read_next_line(double &time, Vector3& loc, Vector3& rot) {
     // Try to read the line
     std::string line;
     if (!getline(m_input_stream, line))
@@ -372,6 +398,9 @@ private:
     scan_line(line, time, lat, lon, alt, roll, pitch, heading);
     Vector3 llh(lon, lat, alt);
     loc = m_datum.geodetic_to_cartesian(llh);
+    rot[0] = roll;
+    rot[1] = pitch;
+    rot[2] = heading;
     
     return true;
   }
@@ -380,6 +409,76 @@ private:
 
 
 
+// TODO: Fix the corresponding function in the datum class!
+// - Need to update all locations where it is called!
+vw::Matrix3x3 lonlat_to_ned_matrix( vw::Vector2 const& lonlat)  {
+  double lon = lonlat.x();
+  double lat = lonlat.y();
+  if ( lat < -90 ) lat = -90;
+  if ( lat >  90 ) lat =  90;
+
+  double rlon = (lon /*+ m_meridian_offset*/) * (M_PI/180);
+  double rlat = lat * (M_PI/180);
+  double slat = sin( rlat );
+  double clat = cos( rlat );
+  double slon = sin( rlon );
+  double clon = cos( rlon );
+
+  Matrix3x3 R;
+
+  R(0,0) = -slat*clon;
+  R(1,0) = -slat*slon;
+  R(2,0) = clat;
+  R(0,1) = -slon;
+  R(1,1) = clon;
+  R(2,1) = 0.0;
+  R(0,2) = -clon*clat;
+  R(1,2) = -slon*clat;
+  R(2,2) = -slat;
+
+  return R;
+}
+
+/// Pretty-print a rotation matrix.
+void print_matrix(Matrix3x3 const& m) {
+  for (int r=0; r<3; ++r){
+    for (int c=0; c<3; ++c){
+      std::cout << m(r,c) << " ";
+    }
+    std::cout << std::endl;
+  }
+}
+
+
+/// Helper function to write out the camera model once we have the position and pose.
+/// - This also adds the important row-direction flip from the camera to the image.
+void write_output_camera(Vector3 const& center, Matrix3x3 const& pose,
+                         std::string const& input_cam, 
+                         std::string const& output_camera) {
+                         
+  // Load the reference pinhole model, update it, and write it out to disk.
+  PinholeModel camera_model(input_cam);
+  camera_model.set_camera_center(center);
+  //camera_model.set_camera_pose(pose);
+  //vw_out() << "Writing: " << output_camera << std::endl;
+  
+  /*
+  TODO: The camera model does not handle this properly!!!
+  // The image is vertically flipped compared to the camera coordinate system
+  //  so negate the appropriate camera parameter here to account for that.
+  Vector3 u_vec, v_vec, w_vec;
+  camera_model.coordinate_frame(u_vec, v_vec, w_vec);
+  camera_model.set_coordinate_frame(u_vec, -1.0*v_vec, w_vec);
+  */
+  
+  Matrix3x3 pose_flip(pose); // As a workaround, negate the Y axis!
+  pose_flip(0,1) *= -1;
+  pose_flip(1,1) *= -1;
+  pose_flip(2,1) *= -1;
+  camera_model.set_camera_pose(pose_flip);
+  
+  camera_model.write(output_camera);
+}
 
 // ================================================================================
 
@@ -402,7 +501,8 @@ int main(int argc, char* argv[]) {
   std::cout << "Opening input stream: " << opt.nav_file << std::endl;
   ScrollingNavInterpolator interpLoader(opt.nav_file, datum_wgs84);
 
-  boost::shared_ptr<ScrollingNavInterpolator::InterpType> interpolator_ptr;
+  boost::shared_ptr<ScrollingNavInterpolator::PosInterpType> pos_interpolator_ptr;
+  boost::shared_ptr<ScrollingNavInterpolator::RotInterpType> rot_interpolator_ptr;
   double start, end;
   
   const double POSE_TIME_DELTA     = 0.1; // Look this far ahead/behind to determine direction
@@ -413,7 +513,7 @@ int main(int argc, char* argv[]) {
   const boost::filesystem::path output_dir(opt.output_folder);
 
   // Keep loading chunks until the nav data catches up with the images
-  while (interpLoader.load_next_chunk(interpolator_ptr)) {
+  while (interpLoader.load_next_chunk(pos_interpolator_ptr, rot_interpolator_ptr)) {
 
     // Get the time boundaries of the current chunk
     interpLoader.get_time_boundaries(start, end);  
@@ -430,7 +530,6 @@ int main(int argc, char* argv[]) {
       
       // Get time for this frame
       double ortho_time = gps_seconds(orthoimage_path);
-      //std::cout << "Ortho time  = " << ortho_time << std::endl;
 
       // If this ortho is too far ahead in time, move on to the next nav chunk.
       if (ortho_time > end - CHUNK_TIME_BOUNDARY)
@@ -444,9 +543,10 @@ int main(int argc, char* argv[]) {
       }
 
       // Try to interpolate this ortho position
-      Vector3 gcc_interp;
+      Vector3 gcc_interp, rot_interp;
       try{
-        gcc_interp = interpolator_ptr->operator()(ortho_time);
+        gcc_interp = pos_interpolator_ptr->operator()(ortho_time);
+        rot_interp = rot_interpolator_ptr->operator()(ortho_time);
       } catch(...){
         vw_out() << "Failed to interpolate position for file " << orthoimage_path << std::endl;
         ++file_index;
@@ -454,14 +554,31 @@ int main(int argc, char* argv[]) {
       }
       Vector3 llh_interp = datum_wgs84.cartesian_to_geodetic(gcc_interp);
       
+      double roll    = rot_interp[0];
+      double pitch   = rot_interp[1];
+      //double heading = rot_interp[2];
       //vw_out() << "For file " << orthoimage_path << " computed LLH " << llh_interp << std::endl;
+      //vw_out() << "Roll    = " << roll    << std::endl;
+      //vw_out() << "Pitch   = " << pitch   << std::endl;
+      //vw_out() << "Heading = " << heading << std::endl;
+
+      //std::cout << "Ortho time  = " << ortho_time << std::endl;
       
       // Now estimate the rotation information
-      // - TODO: Attempt to use the rotation information contained in the file!
+
+      /*
+        For some reason the heading interpolated from the navigation data is about 30 degrees
+        off from what is expected by looking at the flight path.  The roll and pitch values are
+        consistent with what is stored in the Icebridge-provided ortho files (the heading is not 
+        provided).  What has proven to work the best so far is to estimate the camera pose 
+        including the heading just by using the flight path, and then to apply the pitch and roll
+        to that matrix.  The best order to apply the pitch and roll has been determined by seeing 
+        which one map-projects closest to the lidar data.
+      */
       
       // Get a point ahead of and behind the frame location
-      Vector3 gcc_interp_forward  = interpolator_ptr->operator()(ortho_time+POSE_TIME_DELTA);
-      Vector3 gcc_interp_backward = interpolator_ptr->operator()(ortho_time-POSE_TIME_DELTA);
+      Vector3 gcc_interp_forward  = pos_interpolator_ptr->operator()(ortho_time+POSE_TIME_DELTA);
+      Vector3 gcc_interp_backward = pos_interpolator_ptr->operator()(ortho_time-POSE_TIME_DELTA);
       
       if (gcc_interp_forward == gcc_interp_backward) {
         vw_out() << "Failed to estimate pose for file " << orthoimage_path << std::endl;
@@ -485,25 +602,120 @@ int main(int argc, char* argv[]) {
       zDir = zDir / norm_2(zDir);
       
       // The Y vector is the cross product of the two established vectors
-      // - Negate this vector to make it consistent with VW conventions.
-      Vector3 yDir = -1.0 * cross_prod(xDir, zDir);
-      
-      //std::cout << "gcc = " << gcc_interp << std::endl;
-      //std::cout << "xDir = " << xDir << std::endl;
-      //std::cout << "yDir = " << yDir << std::endl;
-      //std::cout << "zDir = " << zDir << std::endl;
+      Vector3 yDir = cross_prod(xDir, zDir);
       
       // Pack into a rotation matrix
       Matrix3x3 rotation_matrix_gcc(xDir[0], yDir[0], zDir[0],
                                     xDir[1], yDir[1], zDir[1],
                                     xDir[2], yDir[2], zDir[2]);
       
-      // Load the reference pinhole model, update it, and write it out to disk.
-      PinholeModel camera_model(opt.input_cam);
-      camera_model.set_camera_center(gcc_interp);
-      camera_model.set_camera_pose(rotation_matrix_gcc);
-      //vw_out() << "Writing: " << output_camera_path.string() << std::endl;
-      camera_model.write(output_camera_path.string());
+      // TODO: ENU or NED?
+      //Matrix3x3 ned_matrix = datum_wgs84.lonlat_to_ned_matrix(Vector2(llh_interp[0], llh_interp[1]));
+      //Matrix3x3 ned_matrix = lonlat_to_ned_matrix(Vector2(llh_interp[0], llh_interp[1]));
+      //Matrix3x3 enu_matrix(ned_matrix(0,1), ned_matrix(0,0), -ned_matrix(0,2),
+      //                     ned_matrix(1,1), ned_matrix(1,0), -ned_matrix(1,2),
+      //                     ned_matrix(2,1), ned_matrix(2,0), -ned_matrix(2,2));
+
+      //Vector3 north(ned_matrix(0,0), ned_matrix(1,0), ned_matrix(2,0));
+      //double angle = acos(dot_prod(xDir, north) / (norm_2(north)*norm_2(xDir)));
+      
+      //std::cout << "Nav, est, diff, cam: " << heading <<", "<< angle << ", "<< fabs(heading)-angle << ", " << camera_file <<  std::endl;
+
+
+      //std::cout << "gcc = " << gcc_interp << std::endl;
+      //std::cout << "xDir = " << xDir << std::endl;
+      //std::cout << "yDir = " << yDir << std::endl;
+      //std::cout << "zDir = " << zDir << std::endl;
+      
+      //std::cout << std::endl << "Estimate based matrix " << std::endl;
+      //print_matrix(rotation_matrix_gcc);
+      
+      // TODO: Clean all this up once we are satisfied with it!
+      
+      Matrix3x3 M_roll  = get_rotation_matrix_roll (roll);
+      Matrix3x3 M_pitch = get_rotation_matrix_pitch(pitch);
+
+      //std::cout << "M_roll, M_pitch:\n";
+      //print_matrix(M_roll); std::cout << std::endl;
+      //print_matrix(M_pitch); std::cout << std::endl;
+      
+      // Without documentation it is very difficult to determine
+      // which of these rotation orders is correct!
+      // - Could be neither since the yaw rotation is already baked in.
+      Matrix3x3 M1 = M_pitch*M_roll*rotation_matrix_gcc; // <-- Works!
+      //Matrix3x3 M2 = M_roll*M_pitch*rotation_matrix_gcc; // <-- Only slightly different but does not work!
+      
+      //std::cout << "Modified matrices:\n";
+      //print_matrix(M1); std::cout << std::endl;
+      //print_matrix(M2); std::cout << std::endl;
+
+      //std::string var_path = output_camera_path.string() + "_";
+      //write_output_camera(gcc_interp, M1, opt.input_cam, var_path + "M1.tsai");
+      //write_output_camera(gcc_interp, M2, opt.input_cam, var_path + "M2.tsai");
+
+      write_output_camera(gcc_interp, M1,
+                          opt.input_cam, output_camera_path.string());
+
+      //std::cout << std::endl << "NED matrix " << std::endl;
+      //print_matrix(ned_matrix);
+
+      //std::cout << std::endl << "ENU matrix " << std::endl;
+      //std::cout << enu_matrix << std::endl << std::endl;
+      /*
+      double yaw = -3.14159 / 2;
+      Matrix3x3 My90 = get_rotation_matrix_yaw(yaw);
+      
+      for (int p=0; p<0; ++p) {
+        Matrix3x3 rotation_matrix_gcc_2 = get_look_rotation_matrix(heading, pitch, roll, p);
+
+
+        std::cout << std::endl << "Angle based matrix " << p << std::endl;
+        std::cout << ned_matrix * rotation_matrix_gcc_2 << std::endl;
+
+        //std::cout << std::endl << "Angle based matrix 90 1" << p << std::endl;
+        //std::cout << My90*(ned_matrix * rotation_matrix_gcc_2) << std::endl;
+        
+        std::cout << std::endl << "Angle based matrix 90 2 " << p << std::endl;
+        std::cout << (ned_matrix * rotation_matrix_gcc_2)*My90 << std::endl;  
+        
+        
+        std::cout << std::endl << "Angle based matrix ALT" << p << std::endl;
+        std::cout << rotation_matrix_gcc_2*ned_matrix << std::endl;
+        
+        //std::cout << std::endl << "Angle based matrix ALT 90 1" << p << std::endl;
+        //std::cout << My90*(rotation_matrix_gcc_2*ned_matrix) << std::endl;
+        
+        std::cout << std::endl << "Angle based matrix ALT 90 2 " << p << std::endl;
+        std::cout << (rotation_matrix_gcc_2*ned_matrix)*My90 << std::endl;        
+
+        std::cout << "------------\n";
+
+
+        std::cout << std::endl << "Angle based matrix " << p << std::endl;
+        std::cout << enu_matrix * rotation_matrix_gcc_2 << std::endl;
+
+        //std::cout << std::endl << "Angle based matrix 90 1" << p << std::endl;
+        //std::cout << My90*(enu_matrix * rotation_matrix_gcc_2) << std::endl;
+        
+        std::cout << std::endl << "Angle based matrix 90 2" << p << std::endl;
+        std::cout << (enu_matrix * rotation_matrix_gcc_2)*My90 << std::endl;  
+        
+        
+        std::cout << std::endl << "Angle based matrix ALT" << p << std::endl;
+        std::cout << rotation_matrix_gcc_2*enu_matrix << std::endl;
+        
+        //std::cout << std::endl << "Angle based matrix ALT 90 1" << p << std::endl;
+        //std::cout << My90*(rotation_matrix_gcc_2*enu_matrix) << std::endl;
+        
+        std::cout << std::endl << "Angle based matrix ALT 90 2" << p << std::endl;
+        std::cout << (rotation_matrix_gcc_2*enu_matrix)*My90 << std::endl;        
+
+        
+      }
+      std::cout << std::endl << std::endl;
+      */
+      //write_output_camera(gcc_interp, rotation_matrix_gcc,
+      //                    opt.input_cam, output_camera_path.string());
 
 
       // Update progress
@@ -519,8 +731,7 @@ int main(int argc, char* argv[]) {
   vw_out() << "Finished looping through the nav file.\n";
 /*
     
-    
-    // TODO: The camera position needs to be interpolated from the several nearest lines!
+        // TODO: The camera position needs to be interpolated from the several nearest lines!
     
     Vector3 xyz;
     Quat rot, look, ned;

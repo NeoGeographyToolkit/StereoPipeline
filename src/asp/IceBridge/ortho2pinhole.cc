@@ -449,6 +449,24 @@ void load_camera_and_find_ip(Options const& opt,
 } // End load_camera_and_find_ip
 
 
+/// Copy pertinent information from the nav camera estimate to the 
+///  pinhole camera model so that we keep the intrinsic parameters.
+void update_pinhole_from_nav_estimate(vw::camera::PinholeModel *pcam,
+                                      vw::camera::PinholeModel const& nav_camera) {
+  // Copy the camera position
+  pcam->set_camera_center(nav_camera.camera_center());
+  
+  // Copy the camera orientation, being careful to avoid undiagnosed quaternion/matrix issue.
+  pcam->set_camera_pose(nav_camera.get_rotation_matrix());
+  
+  // Copy the camera<->image transform which nav2cam uses to flip the vertical axis.
+  // -> This is not currently happening because our camera model is not properly
+  //    handling those parameters!  For now we are messing with the pose instead.
+  Vector3 u_vec, v_vec, w_vec;
+  nav_camera.coordinate_frame(u_vec, v_vec, w_vec);
+  pcam->set_coordinate_frame(u_vec, v_vec, w_vec);
+}
+
 /// Generate the estimated camera using a 3D affine transform or load in from a file.
 /// - pcam is the input camera model.
 void get_estimated_camera_position(Options const& opt,
@@ -487,6 +505,8 @@ void get_estimated_camera_position(Options const& opt,
   // Apply the transform to the camera.
   pcam->apply_transform(rotation, translation, scale);
 
+  std::cout << "Est affine camera:\n" << *pcam << std::endl;
+
   if (opt.camera_estimate != "") {
     // Load the estimated camera
     PinholeModel est_cam(opt.camera_estimate);
@@ -499,8 +519,7 @@ void get_estimated_camera_position(Options const& opt,
     vw_out() << "Flat affine estimate is " << dist 
              << " meters from the input camera estimate.\n";
     if (dist > MAX_CENTER_MOVEMENT) {
-      pcam->set_camera_center(est_cam.camera_center());
-      pcam->set_camera_pose(est_cam.get_rotation_matrix());
+      update_pinhole_from_nav_estimate(pcam, est_cam);
       vw_out() << "Flat affine estimate difference limit is " << MAX_CENTER_MOVEMENT 
                << ", using input estimate instead\n";
     }
@@ -679,6 +698,15 @@ void ortho2pinhole(Options & opt){
     vw_throw(ArgumentErr() << "Expecting the input camera to have identity rotation.\n");
   }
 
+  /*
+  // There is a vertical flip in the camera/image relationship not included in the camera files!
+  TODO: The camera model is not handling this parameter!!!!!!!
+  Vector3 u_vec, v_vec, w_vec;
+  pcam->coordinate_frame(u_vec, v_vec, w_vec);
+  pcam->set_coordinate_frame(u_vec, -1.0*v_vec, w_vec);
+  */
+
+
   // Find pairs of points. First point is in the camera coordinate system,
   // second in the ground coordinate system. This will allow us to transform
   // the camera to the latter system.
@@ -708,7 +736,7 @@ void ortho2pinhole(Options & opt){
     try {
       // Get ray from the raw image pixel
       Vector2 raw_pix(raw_ip[ip_iter].x, raw_ip[ip_iter].y);
-      Vector3 ctr = pcam->camera_center(raw_pix);
+      Vector3 ctr = pcam->camera_center  (raw_pix);
       Vector3 dir = pcam->pixel_to_vector(raw_pix);
       
       // We assume the ground is flat. Intersect rays going from camera
@@ -770,8 +798,7 @@ void ortho2pinhole(Options & opt){
     // If we have the estimated model use that, better than nothing.
     if (opt.camera_estimate != "") {
       PinholeModel est_cam(opt.camera_estimate);
-      pcam->set_camera_center(est_cam.camera_center());
-      pcam->set_camera_pose(est_cam.get_rotation_matrix());
+      update_pinhole_from_nav_estimate(pcam, est_cam);
     }
     vw_throw(ArgumentErr() << "Error: Only found " << num_ip_found << " interest points, quitting.\n");
   }
@@ -828,8 +855,7 @@ void ortho2pinhole(Options & opt){
       }
       if (revert_camera) { // Use estimated camera with input camera intrinsics
         PinholeModel est_cam(opt.camera_estimate);
-        pcam->set_camera_center(est_cam.camera_center());
-        pcam->set_camera_pose(est_cam.get_rotation_matrix());
+        update_pinhole_from_nav_estimate(pcam, est_cam);
       }
     }
     
