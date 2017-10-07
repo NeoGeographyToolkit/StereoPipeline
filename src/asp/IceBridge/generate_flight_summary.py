@@ -92,6 +92,7 @@ def getFailureCause(batchFolder):
     FAIL_STEREO   = 7
     FAIL_STEREO_POINT2DEM = 8
     FAIL_PC_ALIGN = 9
+    FAIL_FRACTION_VALID = 10
     
     errorSummaries = {} # Human readable error codes
     errorSummaries[UNKNOWN      ] = 'Unknown failure'
@@ -105,6 +106,7 @@ def getFailureCause(batchFolder):
     errorSummaries[FAIL_STEREO  ] = 'Stereo failed'
     errorSummaries[FAIL_STEREO_POINT2DEM] = 'Other stereo point2dem failure'
     errorSummaries[FAIL_PC_ALIGN] = 'pc_align failed'
+    errorSummaries[FAIL_FRACTION_VALID] = 'Too few valid pixels'
     
     
     errorLogText = {} # Text in the log file that indicates an error occurred
@@ -118,6 +120,8 @@ def getFailureCause(batchFolder):
     errorLogText[FAIL_STEREO  ] = 'Stereo call failed!'
     errorLogText[FAIL_STEREO_POINT2DEM] = 'point2dem call on stereo pair failed!'
     errorLogText[FAIL_PC_ALIGN] = 'Unable to find a good value for max-displacement in pc_align.'
+    errorLogText[FAIL_FRACTION_VALID] = 'Required DEM pixel fraction is'
+
 
     foundError = UNKNOWN
 
