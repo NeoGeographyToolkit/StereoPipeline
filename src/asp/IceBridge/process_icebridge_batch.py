@@ -229,10 +229,10 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     ipMethod  = [1,   0,   2,     1,   0,   2,     1,    0,      1,    0,    2   ]
     ipPerTile = [500, 500, 500,   500, 500, 500,   500,  500,    2000, 2000, 2000]
     useBlur   = [0,   0,   0,     1,   1,   1,     0,    0,      0,    0,    0   ]
-    epipolarT = [200, 200, 200,   300, 300, 300,   2000, 2000,   300,  300,  300 ]
+    epipolarT = [450, 450, 450,   450, 450, 450,   2000, 2000,   450,  450,  450 ]
    
-    if len(ipMethod) != len(ipPerTile) or len(ipMethod) != len(useBlur) or \
-           len(ipMethod) != len(epipolarT):
+    if (len(ipMethod) != len(ipPerTile)) or (len(ipMethod) != len(useBlur)) or \
+           (len(ipMethod) != len(epipolarT)):
         raise Exception("Book-keeping error in robust bundle adjustment.")
         
     # Fill inputPairs with output camera names
