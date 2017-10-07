@@ -351,6 +351,8 @@ public:
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i bbox) const {
 
+    BBox2i orig_box = bbox;
+    
     // When doing priority blending, we will do all the work in the
     // output pixels domain. Hence we need to take into account the
     // bias here rather than later.
@@ -936,6 +938,8 @@ public:
     long long int num_valid_in_tile = 0;
     for (int col = 0; col < tile.cols(); col++) {
       for (int row = 0; row < tile.rows(); row++) {
+        Vector2 pix = Vector2(col, row) + bbox.min();
+        if (!orig_box.contains(pix)) continue; // in case the box got expanded, ignore the padding
         if (tile(col, row) == m_opt.out_nodata_value) continue;
         num_valid_in_tile++;
       }

@@ -575,7 +575,7 @@ namespace asp{
 
   /// \cond INTERNAL
   OrthoRasterizerView::prerasterize_type OrthoRasterizerView::prerasterize( BBox2i const& bbox ) const {
-
+    
     BBox2i bbox_1 = bbox;
 
     // bugfix, ensure we see enough beyond current tile
@@ -664,6 +664,12 @@ namespace asp{
     }
 
     if ( blocks_map.empty() ){
+
+      { // Lock and update the total number of invalid pixels in this tile.
+        vw::Mutex::Lock lock(*m_count_mutex);
+        (*m_num_invalid_pixels) += bbox.width()*bbox.height();
+      }
+      
       if (m_use_surface_sampling){
         return prerasterize_type( render_buffer, BBox2i(-bbox_1.min().x(), -bbox_1.min().y(), cols(), rows()) );
       }else{
@@ -782,8 +788,13 @@ namespace asp{
     size_t num_unset = 0;
     for (int r=0; r<result.rows(); ++r) {
       for (int c=0; c<result.cols(); ++c) {
-        if (result(c,r) == min_val)
-          ++num_unset;
+        
+        Vector2i pix = Vector2(c, r) + bbox_1.min();
+        if (bbox.contains(pix)) {
+          //  Ignore the pixels in the temporary extension of bbox.
+          if (result(c,r) == min_val)
+            ++num_unset;
+        }
       }
     }
     { // Lock and update the total number of invalid pixels in this tile.

@@ -966,7 +966,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     asp::save_image(opt, dem, georef, hole_fill_len, "DEM");
     sw2.stop();
     vw_out(DebugMessage,"asp") << "DEM render time: " << sw2.elapsed_seconds() << std::endl;
-    
+
     double num_invalid_pixelsD = static_cast<double>(*num_invalid_pixels);
     double num_total_pixels    = static_cast<double>(dem_size[0]*dem_size[1]);
     double invalid_ratio       = num_invalid_pixelsD / num_total_pixels;
@@ -1243,8 +1243,6 @@ int main( int argc, char *argv[] ) {
     if (output_georef.overall_proj4_str().find("+proj=aea") == std::string::npos)
       output_georef.set_lon_center(avg_lon < 100);
     
-    //std::cout << "output_georef after lon center: \n" << output_georef << std::endl;   
-
     // We trade off readability here to avoid ImageViewRef dereferences
     if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.lon_offset
