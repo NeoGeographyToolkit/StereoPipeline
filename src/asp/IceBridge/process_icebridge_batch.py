@@ -796,7 +796,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
 
     # Require a certain percentage of valid output pixels to go forwards with this DEM
     # - This calculation currently does not work well but anything under this is probably bad.
-    MIN_FRACTION_VALID_PIXELS = 0.4 
+    # TODO: This validity fraction is NOT ACCURATE and needs to be improved!
+    MIN_FRACTION_VALID_PIXELS = 0.35 
     percentageFlagFile = os.path.join(options.outputFolder, 'valid_pixel_fraction.txt')
     fractionValid = 1.0;
 
@@ -813,7 +814,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
                 fractionValid = float(f.read())
         except:
             logger.warning('Unable to read dem percentage fraction from file ' + percentageFlagFile)
-            
+
+           
     logger.info('Detected valid pixel fraction = ' + str(fractionValid))
     if fractionValid < MIN_FRACTION_VALID_PIXELS:
         raise Exception('Required DEM pixel fraction is ' + str(MIN_FRACTION_VALID_PIXELS) +
@@ -831,6 +833,9 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     if status != 0:
         icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
+        
+        
+        
 
 def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
                interDiffPaths, fireballDiffPaths):
