@@ -441,8 +441,8 @@ void calc_target_geom(// Inputs
   // - TODO: Modify this function to optionally disable intersection outside the DEM
   float auto_res;
   cam_box = camera_bbox(dem, dem_georef,
-			target_georef, 
-			camera_model,
+                        target_georef, 
+                        camera_model,
                         image_size.x(), image_size.y(), auto_res);
 
   // Use auto-calculated ground resolution if that option was selected

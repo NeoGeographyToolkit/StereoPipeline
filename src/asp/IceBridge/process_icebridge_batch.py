@@ -263,12 +263,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     bestCmd = ''
     success = False
     for attempt in range(len(ipPerTile)):
-        
-        # If we already got a lot of points which were thrown out due to elevation,
-        #  skip the steps where we retry with more IP.
-        if (ipPerTile[attempt] > 1000) and (bestNumIpPreElevation > 300):
-            continue
-        
+               
         argString = imageCameraString
         if useBlur[attempt]: # Make sure blurred images are created
             for pair in blurPairs:
@@ -279,7 +274,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
                 '--translation-weight %0.16g -t nadirpinhole --skip-rough-homography ' +
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
-                '--overlap-exponent %0.16g --epipolar-threshold %d --ip-side-filter-percent %d')
+                '--overlap-exponent %0.16g --epipolar-threshold %d --ip-side-filter-percent %d ')
                % (argString, bundlePrefix, threadText, heightLimitString, 
                   TRANSLATION_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
                   ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT, epipolarT[attempt], SIDE_IP_CROP_PERCENT))
@@ -360,8 +355,6 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
 
     if not success:
         raise Exception('Bundle adjustment failed!\n')
-
-    raise Exception('DEBUGSSSS')
 
     # Return image/camera pairs with the camera files replaced with the bundle_adjust output files.
     # - Also return if we used blurred input images or not
@@ -632,9 +625,8 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
                         suppressOutput, redo, logger):
     '''Estimate the valid height range in a region based on input height info.'''
     
-    # DEBUG!@@
-    return '--elevation-limit ' + str(-40) +' '+ str(40)
-    
+    ## DEBUG!
+    #return '--elevation-limit ' + str(-40) +' '+ str(40)
     
     # Expand the estimate by this much in either direction
     # - If the input cameras are good then this can be fairly small, at least for flat
@@ -723,7 +715,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
     # - Note that the base level memory usage ignoring the SGM buffers is about 2 GB so this memory
     #   usage is in addition to that.
-    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 --min-num-ip 20 ' %
+    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 --min-num-ip 40 ' %
                  (argString, thisPairPrefix, threadText, heightLimitString))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
@@ -1130,7 +1122,6 @@ def doWork(options, args, logger):
                                                     projString, lidarFile,
                                                     options, threadText, 
                                                     suppressOutput, redo, logger)
-            #raise Exception('DEBUG')
        
     # BUNDLE_ADJUST
     origInputPairs = inputPairs
@@ -1224,7 +1215,6 @@ def doWork(options, args, logger):
     if atLeastOneDemMissing:
         redo = True
 
-    #raise Exception('BA DEBUG')
     logger.info('Finished running all stereo instances.')
     
     numDems = len(demFiles)
@@ -1365,23 +1355,6 @@ def doWork(options, args, logger):
     consolidateStats(lidarDiffPath, interDiffSummaryPath, 
                      fireballDiffSummaryPath, fireLidarDiffSummaryPath,  
                      allDemPath, consolidatedStatsPath, percentageFlagFile, logger)
-
-
-    ## HILLSHADE
-    #hillOutput = outputPrefix+'-DEM_HILLSHADE.tif'
-    #cmd = 'hillshade ' + allDemPath +' -o ' + hillOutput
-    #asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
-
-    ## Generate a low resolution compressed thumbnail of the hillshade for debugging
-    #thumbOutput = outputPrefix + '-DEM_HILLSHADE_browse.tif'
-    #cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
-    #asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
-    #os.remove(hillOutput) # Remove this file to keep down the file count
-
-    ## COLORMAP
-    #colorOutput = outputPrefix + '-DEM_CMAP.tif'
-    #cmd = ('colormap  %s -o %s' % (allDemPath, colorOutput))
-    #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
     if options.cleanup and os.path.exists(finalAlignedDEM):
         # Delete large files that we don't need going forwards.
