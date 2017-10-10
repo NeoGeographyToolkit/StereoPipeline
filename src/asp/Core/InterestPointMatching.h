@@ -232,8 +232,9 @@ namespace asp {
   ///
   /// This is not meant to be used directly. Please use ip_matching() or
   /// the dumb homography_ip_matching().
-  template <class List1T, class List2T, class Image1T, class Image2T>
-  void detect_ip( List1T& ip1, List2T& ip2,
+  template <class Image1T, class Image2T>
+  void detect_ip( vw::ip::InterestPointList& ip1, 
+                  vw::ip::InterestPointList& ip2,  
 		  vw::ImageViewBase<Image1T> const& image1,
 		  vw::ImageViewBase<Image2T> const& image2,
 		  int ip_per_tile,
@@ -388,12 +389,35 @@ namespace asp {
 				  << std::endl << "Nodata value used " << nodata << std::endl;
   } // End function remove_ip_near_nodata
 
+
+
+  /// Remove points in/out of a bounding box depending on "remove_outside".
+  /// - Returns the number of points removed.
+  /// TODO: MOVE THIS FUNCTION!
+  inline size_t remove_ip_bbox(vw::BBox2i const& roi, vw::ip::InterestPointList & ip_list,
+                        bool remove_outside){
+    // Loop through all the points
+    size_t num_removed = 0;
+    vw::ip::InterestPointList::iterator ip;
+    for (ip = ip_list.begin(); ip != ip_list.end(); ++ip) {
+      
+      if ( roi.contains(vw::Vector2i(ip->ix,ip->iy)) xor remove_outside  ) {
+        ip = ip_list.erase(ip);
+        ++num_removed;
+        --ip;
+      }
+    }
+    return num_removed;
+  } // End function remove_ip_near_nodata
+  
+
   // Detect InterestPoints
   //
   /// This is not meant to be used directly. Please use ip_matching() or
   /// the dumb homography_ip_matching().
-  template <class List1T, class List2T, class Image1T, class Image2T>
-  void detect_ip( List1T& ip1, List2T& ip2,
+  template <class Image1T, class Image2T>
+  void detect_ip( vw::ip::InterestPointList& ip1,
+                  vw::ip::InterestPointList& ip2,
                   vw::ImageViewBase<Image1T> const& image1,
                   vw::ImageViewBase<Image2T> const& image2,
                   int    ip_per_tile,
@@ -462,9 +486,10 @@ namespace asp {
       // - This normalize option will normalize PER-TILE which has different results than
       //   the whole-image normalization that ASP normally uses.
       bool opencv_normalize = stereo_settings().skip_image_normalization;
+      if (stereo_settings().ip_normalize_tiles)
+        opencv_normalize = true;
       if (opencv_normalize)
-        vw_out() << "Normalizing OpenCV images...\n";
-      std::cout << "pixel_format = " << image1.pixel_format() << std::endl;
+        vw_out() << "Using per-tile image normalization for IP detection...\n";
 
       bool build_opencv_descriptors = true;
       vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, points_per_tile);
@@ -487,11 +512,11 @@ namespace asp {
     vw_out(DebugMessage,"asp") << "Detect interest points elapsed time: "
                                << sw.elapsed_seconds() << " s." << std::endl;
 
-    //// DEBUG - Draw out the point matches pre-geometric filtering
-    //vw_out() << "\t    Writing IP debug images! " << std::endl;
-    //write_point_image("InterestPointMatching__ip_detect_debug1.tif", image1, ip1);
-    //write_point_image("InterestPointMatching__ip_detect_debug2.tif", image2, ip2);
-
+    if (stereo_settings().ip_debug_images) {
+      vw_out() << "\t    Writing detected IP debug images. " << std::endl;
+      write_point_image("InterestPointMatching__ip_detect_debug1.tif", image1, ip1);
+      write_point_image("InterestPointMatching__ip_detect_debug2.tif", image2, ip2);
+    }
 
     sw.start();
 
@@ -506,6 +531,23 @@ namespace asp {
     sw.stop();
     vw_out(DebugMessage,"asp") << "Remove IP elapsed time: "
 			       << sw.elapsed_seconds() << " s." << std::endl;
+
+    // Filter out IP from the opposite sides of the two images.
+    // - Would be better to just pass an ROI into the IP detector!
+    if (stereo_settings().ip_edge_buffer_percent > 0) {
+      // Figure out removal bboxes
+      double percent  = static_cast<double>(stereo_settings().ip_edge_buffer_percent)/100.0;
+      int width_left  = floor(static_cast<double>(image1.cols()) * percent);
+      int width_right = floor(static_cast<double>(image2.cols()) * percent);
+      BBox2 bbox_left (width_left, 0, image1.cols()-width_left,  image1.rows());
+      BBox2 bbox_right(0,          0, image2.cols()-width_right, image2.rows());
+      bool remove_outside = true;
+      // Remove the points
+      size_t num_removed_left  = remove_ip_bbox(bbox_left,  ip1, remove_outside);
+      size_t num_removed_right = remove_ip_bbox(bbox_right, ip2, remove_outside);
+      vw_out() << "Removed: " << num_removed_left << " points from the left side of the left image and "
+               << num_removed_right << " points from the right side of the right image.\n";
+    } // End side IP filtering
 
     sw.start();
 
@@ -579,11 +621,11 @@ namespace asp {
 
     ip::remove_duplicates( matched_ip1, matched_ip2 );
 
-    //// DEBUG - Draw out the point matches pre-geometric filtering
-    //vw_out() << "\t    Writing IP debug image! " << std::endl;
-    //write_match_image("InterestPointMatching__ip_matching_debug.tif",
-    //                  image1, image2,
-    //                  matched_ip1, matched_ip2);
+    if (stereo_settings().ip_debug_images) {
+      vw_out() << "\t    Writing IP initial match debug image.\n";
+      write_match_image("InterestPointMatching__ip_matching_debug.tif",
+                        image1, image2, matched_ip1, matched_ip2);
+    }
 
     vw_out() << "\n\t    Matched points: " << matched_ip1.size() << std::endl;
   }
@@ -636,11 +678,11 @@ namespace asp {
     }
 
 
-    //// DEBUG - Draw out the point matches pre-geometric filtering
-    //vw_out() << "\t    Writing IP debug image2! " << std::endl;
-    //write_match_image("InterestPointMatching__ip_matching_debug2.tif",
-    //                  image1, image2,
-    //                  final_ip1, final_ip2);
+    if (stereo_settings().ip_debug_images) {
+      vw_out() << "\t    Writing post-homography IP match debug image.\n";
+      write_match_image("InterestPointMatching__ip_matching_debug2.tif",
+                        image1, image2, final_ip1, final_ip2);
+    }
 
     vw_out() << "\t    * Writing match file: " << output_name << "\n";
     ip::write_binary_match_file(output_name, final_ip1, final_ip2);
@@ -731,11 +773,11 @@ namespace asp {
       }
     }
 
-    //// DEBUG - Draw out the point matches pre-geometric filtering
-    //vw_out() << "\t    Writing IP debug image! " << std::endl;
-    //write_match_image("InterestPointMatching__ip_matching_debug.tif",
-    //                  image1, image2,
-    //                  matched_ip1, matched_ip2);
+    if (stereo_settings().ip_debug_images) {
+      vw_out() << "\t    Writing IP match debug image prior to geometric filtering.\n";
+      write_match_image("InterestPointMatching__ip_matching_debug.tif",
+                        image1, image2, matched_ip1, matched_ip2);
+    }
 
     // Apply filtering of IP by a selection of assumptions. Low
     // triangulation error, agreement with klt tracking, and local
@@ -744,10 +786,12 @@ namespace asp {
     for ( size_t i = 0; i < matched_ip1.size(); i++ ) {
       good_indices.push_back(i);
     }
-    if (!tri_ip_filtering( matched_ip1, matched_ip2,
-			   cam1, cam2, good_indices, left_tx, right_tx ) ){
-      vw_out() << "No interest points left after triangulation filtering." << std::endl;
-      return false;
+    if (!stereo_settings().disable_tri_filtering) {
+      if (!tri_ip_filtering( matched_ip1, matched_ip2,
+			     cam1, cam2, good_indices, left_tx, right_tx ) ){
+        vw_out() << "No interest points left after triangulation filtering." << std::endl;
+        return false;
+      }
     }
     if (!stddev_ip_filtering( matched_ip1, matched_ip2, good_indices ) ) {
       vw_out() << "No interest points left after stddev filtering." << std::endl;
@@ -784,6 +828,7 @@ namespace asp {
     }
     matched_ip2 = buffer;
 
+    // If options are set, filter by elevation.
     if (stereo_settings().elevation_limit[0] < stereo_settings().elevation_limit[1] ||
         !stereo_settings().lon_lat_limit.empty()) {
 
@@ -805,16 +850,16 @@ namespace asp {
                                         matched_ip1_out, matched_ip2_out);
       matched_ip1 = matched_ip1_out;
       matched_ip2 = matched_ip2_out;
-    }
+    } // End elevation filtering
     
     vw_out() << "\t    * Writing match file: " << output_name << "\n";
     ip::write_binary_match_file( output_name, matched_ip1, matched_ip2 );
 
-    //// DEBUG - Draw out the point matches pre-geometric filtering
-    //vw_out() << "\t    Writing IP debug image! " << std::endl;
-    //write_match_image("InterestPointMatching__ip_matching_debug2.tif",
-    //                  image1, image2,
-    //                  matched_ip1, matched_ip2);
+    if (stereo_settings().ip_debug_images) {
+      vw_out() << "\t    Writing IP match debug image after geometric filtering.\n";
+      write_match_image("InterestPointMatching__ip_matching_debug2.tif",
+                        image1, image2, matched_ip1, matched_ip2);
+    }
 
     return true;
   }

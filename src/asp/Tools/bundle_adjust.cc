@@ -194,6 +194,54 @@ size_t filter_ip_sides(std::vector<ip::InterestPoint> const& ip1_in,
   return num_left;
 }
 
+
+double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
+                                 Vector2i const& image_size, int tile_size=1024) {
+
+  if (tile_size < 1)
+    vw_throw(LogicErr() << "calc_ip_coverage_fraction: tile size is " << tile_size);
+
+  // Generate a grid of ROIs covering the entire image
+  BBox2i full_bbox(Vector2i(0,0), image_size);
+  bool include_partials = false;
+  std::vector<BBox2i> rois;
+  rois = subdivide_bbox(full_bbox, tile_size, tile_size, include_partials);
+  const size_t num_rois = rois.size();
+  if (num_rois == 0)
+    return 0; // Can't have any coverage in the degenerate case!
+  
+  // Pack all IP into a list for speed
+  std::list<Vector2i> ip_list;
+  for (size_t i=0; i<ip.size(); ++i) {
+    ip_list.push_back(Vector2i(ip[i].x, ip[i].y));
+  }
+  
+  // Count up the pecentage of ROIs which have at least this many IP.
+  const int MIN_ROI_IP = 2;
+  
+  size_t num_filled_rois = 0;
+  for (size_t i=0; i<num_rois; ++i) { // Loop through ROIs
+    int ip_in_roi = 0;
+    
+    // Check if each point is in this ROI
+    std::list<Vector2i>::iterator iter;
+    for (iter=ip_list.begin(); iter!=ip_list.end(); ++iter) {
+      
+      // If the IP is in the ROI, remove it from the IP list so it
+      // does not get searched again.
+      if (rois[i].contains(*iter)) {
+        iter = ip_list.erase(iter);
+        ++ip_in_roi;
+        --iter;
+      }
+    } // End IP loop
+    if (ip_in_roi > MIN_ROI_IP)
+      ++num_filled_rois;
+  }// End ROI loop
+
+  return static_cast<double>(num_filled_rois) / static_cast<double>(num_rois);
+}
+
 //==================================================================================
 
 
@@ -201,12 +249,12 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string,
     cost_function, ba_type, mapprojected_data, gcp_data;
-  int    ip_per_tile, ip_extra_filter_threshold;
+  int    ip_per_tile, ip_edge_buffer_percent;
   double min_triangulation_angle, lambda, camera_weight, rotation_weight, 
          translation_weight, overlap_exponent, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
   bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics,
-         disable_tri_filtering;
+         disable_tri_filtering, ip_normalize_tiles, ip_debug_images;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, intrinsics_to_float_str;
   double semi_major, semi_minor, position_filter_dist;
@@ -1508,6 +1556,15 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
         vw_throw(ArgumentErr() << "Book-keeping error 2 in bundle adjustment.\n");
     }
 
+    // TODO: Move this into the IP finding code!
+    // Compute the coverage fraction
+    Vector2i right_image_size = file_image_size(opt.image_files[1]);
+    int right_ip_width = right_image_size[0]*
+                          static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
+    Vector2i ip_size(right_ip_width, right_image_size[1]);
+    double ip_coverage = calc_ip_coverage_fraction(right_ip, ip_size);
+    vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << std::endl;
+
     std::string match_file = opt.out_prefix  + "-clean.match";
     vw_out() << "Writing: " << match_file << std::endl;
     ip::write_binary_match_file(match_file, left_ip, right_ip);
@@ -1576,8 +1633,7 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
   std::set<int> outlier_xyz;
 
   if (opt.num_ba_passes <= 0)
-    vw_throw(ArgumentErr()
-             << "Error: Expecting at least one bundle adjust pass.\n");
+    vw_throw(ArgumentErr() << "Error: Expecting at least one bundle adjust pass.\n");
   
   for (int pass = 0; pass < opt.num_ba_passes; pass++) {
 
@@ -1795,7 +1851,7 @@ void do_ba_with_model(Options& opt){
     do_ba_costfun<L2Error>( L2Error(), opt );
   }else{
     vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function
-              << ". Options are: Cauchy, PseudoHuber, Huber, L1, L2.\n" );
+                            << ". Options are: Cauchy, PseudoHuber, Huber, L1, L2.\n" );
   }
 }
 
@@ -2424,6 +2480,8 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 
 }
 
+// TODO: Change something so we don't have to repeat all the stereo IP options here!
+
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
@@ -2470,10 +2528,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "A higher factor will result in more interest points, but perhaps also more outliers.")
     ("ip-uniqueness-threshold",          po::value(&opt.ip_uniqueness_thresh)->default_value(0.7),
      "A higher threshold will result in more interest points, but perhaps less unique ones.")
-    ("ip-side-filter-percent",        po::value(&opt.ip_extra_filter_threshold)->default_value(-1),
-     "Remove matched IPs this close to the image left/right sides.")
+    ("ip-side-filter-percent",        po::value(&opt.ip_edge_buffer_percent)->default_value(-1),
+     "Remove matched IPs this percentage from the image left/right sides.")
+    ("normalize-ip-tiles", po::bool_switch(&opt.ip_normalize_tiles)->default_value(false)->implicit_value(true),
+       "Individually normalize tiles used for IP detection.")
     ("disable-tri-ip-filter",    po::bool_switch(&opt.disable_tri_filtering)->default_value(false)->implicit_value(true),
      "Skip tri_ip filtering.")
+    ("ip-debug-images",     po::value(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
+                    "Write debug images to disk when detecting and matching interest points.")
     ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
      "Limit on expected elevation range: Specify as two values: min max.")
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
@@ -2618,7 +2680,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::stereo_settings().lon_lat_limit           = opt.lon_lat_limit;
   asp::stereo_settings().individually_normalize  = opt.individually_normalize;
   asp::stereo_settings().min_triangulation_angle = opt.min_triangulation_angle;
-  asp::stereo_settings().disable_tri_filtering = opt.disable_tri_filtering;
+  asp::stereo_settings().disable_tri_filtering   = opt.disable_tri_filtering;
+  asp::stereo_settings().ip_edge_buffer_percent  = opt.ip_edge_buffer_percent;
+  asp::stereo_settings().ip_debug_images         = opt.ip_debug_images;
+  asp::stereo_settings().ip_normalize_tiles      = opt.ip_normalize_tiles;
 
   // Ensure good order
   if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
@@ -2870,7 +2935,7 @@ int main(int argc, char* argv[]) {
                                nodata1, nodata2, match_filename,
                                opt.camera_models[i].get(),
                                opt.camera_models[j].get());
-         
+         /*
           // Experimental code to filter the IPs by removing any found in the
           //  far left and right sides of the input images.
           // - TODO: Once this code is reliable move it to the IP finding code
@@ -2885,13 +2950,24 @@ int main(int argc, char* argv[]) {
             filter_ip_sides(in_ip1, in_ip2, matched_ip1, matched_ip2,
                             image1_view.cols(), image2_view.cols(),
                             opt.ip_extra_filter_threshold);
-                            
+
             vw_out() << "Wrote out " << matched_ip1.size() << " points.\n";
 
-            vw_out() << "\t    * Writing match file: " << match_filename << "\n";
+            vw_out() << "\t    * Rewriting match file: " << match_filename << "\n";
             ip::write_binary_match_file(match_filename, matched_ip1, matched_ip2);
           } // End experimental IP filtering
-        
+        */
+          
+        // TODO: Move this into the IP finding code!
+        // Compute the coverage fraction
+        std::vector<ip::InterestPoint> ip1, ip2;
+        ip::read_binary_match_file(match_filename, ip1, ip2);       
+        int right_ip_width = rsrc1->cols()*
+                              static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
+        Vector2i ip_size(right_ip_width, rsrc1->rows());
+        double ip_coverage = calc_ip_coverage_fraction(ip2, ip_size);
+        vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
+          
                                
           ++num_pairs_matched;
         } catch ( const std::exception& e ){

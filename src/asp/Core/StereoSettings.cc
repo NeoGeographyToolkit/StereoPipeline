@@ -120,14 +120,18 @@ namespace asp {
        "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
       ("epipolar-threshold",       po::value(&global.epipolar_threshold)->default_value(-1),
                      "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation.")
+      ("ip-edge-buffer",          po::value(&global.ip_edge_buffer_percent)->default_value(0),
+       "Remove IP within this percentage from the outer edges of an image pair (integer percent).")
+      ("normalize-ip-tiles", po::bool_switch(&global.ip_normalize_tiles)->default_value(false)->implicit_value(true),
+       "Individually normalize tiles used for IP detection.")
       ("ip-inlier-factor",          po::value(&global.ip_inlier_factor)->default_value(1.0/15.0),
        " A higher factor will result in more interest points, but perhaps also more outliers.")
       ("ip-uniqueness-threshold",          po::value(&global.ip_uniqueness_thresh)->default_value(0.7),
        "Min percentage distance between closest and second closest IP descriptors, a larger value allows more IP matches.")
-      ("disable_tri_ip_filter",          po::value(&global.disable_tri_filtering)->default_value(false)->implicit_value(true),
-                      "Turn off tri-ip filtering step.")       
-       
-       
+      ("disable-tri-ip-filter",     po::value(&global.disable_tri_filtering)->default_value(false)->implicit_value(true),
+                      "Turn off tri-ip filtering step.")
+      ("ip-debug-images",     po::value(&global.ip_debug_images)->default_value(false)->implicit_value(true),
+                      "Write debug images to disk when detecting and matching interest points.")
       ("num-obalog-scales",              po::value(&global.num_scales)->default_value(-1),
        "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")
       ("nodata-value",             po::value(&global.nodata_value)->default_value(nan),

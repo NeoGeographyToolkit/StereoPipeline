@@ -101,6 +101,11 @@ namespace asp {
     double ip_uniqueness_thresh;            /// Min percentage distance between closest and second closest IP descriptors.
     bool   disable_tri_filtering;           ///< Turn of tri-ip filtering.
     int num_scales;                         /// How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. 
+    int    ip_edge_buffer_percent;          ///< When detecting IP, throw out points within this many % of pixels
+                                            ///  of the left/right edges of the images being matched.
+    bool   ip_normalize_tiles;              ///< Individually normalize tiles for IP detection.
+    bool   ip_debug_images;                 ///< Write debug interest point images.
+    
     double nodata_value;                    ///< Pixels with values less than or equal to this number are treated as no-data.
                                             //  This overrides the nodata values from input images.
     double nodata_pixel_percentage;         ///< Percentage of low-value pixels treated as no-data

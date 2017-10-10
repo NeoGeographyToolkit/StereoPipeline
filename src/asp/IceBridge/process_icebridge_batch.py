@@ -226,11 +226,15 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     # Try many attempts until one works
     # - Blurring can help with artifacts.
     # - Many IP can also help, but risks getting false matches and is slower.
-    ipMethod  = [1,   0,   2,     1,   0,   2,     1,    0,      1,    0,    2   ]
-    ipPerTile = [500, 500, 500,   500, 500, 500,   500,  500,    2000, 2000, 2000]
-    useBlur   = [0,   0,   0,     1,   1,   1,     0,    0,      0,    0,    0   ]
-    epipolarT = [450, 450, 450,   450, 450, 450,   2000, 2000,   450,  450,  450 ]
-   
+    ipMethod    = [1,   0,   2,     1,   0,   2,     1,    0,      1,    0,    2,     1   ]
+    ipPerTile   = [500, 500, 500,   500, 500, 500,   500,  500,    2000, 2000, 2000,  2000]
+    useBlur     = [0,   0,   0,     1,   1,   1,     0,    0,      0,    0,    0,     0   ]
+    epipolarT   = [450, 450, 450,   450, 450, 450,   2000, 2000,   450,  450,  450,   2000]
+    normIpTiles = [0,   0,   0,     0,   0,   0,     1,    1,      0,    0,    0,     1   ]
+
+    # This is the rough percentage of the image that we want to have interest points in.
+    MIN_IP_COVERAGE = 0.55
+
     if (len(ipMethod) != len(ipPerTile)) or (len(ipMethod) != len(useBlur)) or \
            (len(ipMethod) != len(epipolarT)):
         raise Exception("Book-keeping error in robust bundle adjustment.")
@@ -279,9 +283,15 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
                % (argString, bundlePrefix, threadText, heightLimitString, 
                   TRANSLATION_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
                   ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT, epipolarT[attempt], SIDE_IP_CROP_PERCENT))
-        
+
+        # This helps in cases where there is a small dark object (like a stream) that prevents
+        #  large snow areas from being processed well.  Can lead to false IP.
+        if normIpTiles[attempt]:
+            cmd += ' --normalize-ip-tiles'
+
         if options.solve_intr:
-            cmd += ' --solve-intrinsics'
+            cmd += ' --solve-intrinsics'            
+            
         # Disabling triangulation error filtering up front and then applying it post bundle adjust
         #  works well but it is currently only supported in bundle_adjust for two cameras at once!
         if len(inputPairs) == 2:
@@ -294,6 +304,19 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
                                                              noThrow=True)
         logger.info(out + '\n' + err)
         
+        # Check to see if we got the desired amount of coverage.
+        # - TODO: How to do this with >2 cameras?
+        m = re.findall(r"IP coverage fraction after cleaning = ([0-9e\-\.\+]*)", out)
+        if len(m) == 0: # Handle case where no IP were removed for high residual.
+            m = re.findall(r"IP coverage fraction = ([0-9e\-\.\+]*)", out)
+        if len(m) > 0: # If this text is available...
+            ipCoveragePercentage = float(m[-1]) # Use the last instance of this text.
+            logger.info('Read coverage percentage: ' + str(ipCoveragePercentage))
+            if ipCoveragePercentage < MIN_IP_COVERAGE:
+                logger.info('Coverage percentage is less than required amount: ' 
+                            + str(MIN_IP_COVERAGE) + ', trying more IP options to get more coverage.')
+                status = -1
+                
         if status == 0:
             logger.info("Bundle adjustment succeded on attempt " + str(attempt))
             success = True
@@ -319,11 +342,16 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
              
     # End bundle adjust attempts
 
-    # Retry the best attempt without the elevation string
-    # - This increases the risk of bad IP's being used but it is better than failing.
+    # Retry the best attempt
     if (not success) and (bestNumIpPreElevation > 0):
-        logger.info("Retrying bundle_adjust without elevation restriction")
-        cmd = bestCmd.replace(heightLimitString, '')
+        
+        if (bestNumIpPreElevation < MIN_IP_MATCHES):
+            # This increases the risk of bad IP's being used but it is better than failing.
+            # - Don't do this if we got to here because of coverage problems but we did
+            #   have enough IP.
+            logger.info("Retrying bundle_adjust without elevation restriction")
+            cmd = bestCmd.replace(heightLimitString, '')
+            
         (out, err, status) = asp_system_utils.executeCommand(cmd, outputCamera, True, redo,
                                                              noThrow=True)    
         if status == 0:
@@ -332,6 +360,8 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
 
     if not success:
         raise Exception('Bundle adjustment failed!\n')
+
+    raise Exception('DEBUGSSSS')
 
     # Return image/camera pairs with the camera files replaced with the bundle_adjust output files.
     # - Also return if we used blurred input images or not
@@ -601,6 +631,10 @@ def cropGdalImage(projBounds, inputPath, outputPath, logger):
 def estimateHeightRange(projBounds, projString, lidarFile, options, threadText, 
                         suppressOutput, redo, logger):
     '''Estimate the valid height range in a region based on input height info.'''
+    
+    # DEBUG!@@
+    return '--elevation-limit ' + str(-40) +' '+ str(40)
+    
     
     # Expand the estimate by this much in either direction
     # - If the input cameras are good then this can be fairly small, at least for flat
