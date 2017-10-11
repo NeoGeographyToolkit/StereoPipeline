@@ -233,7 +233,8 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, dayVal,
 # These exist both in AN and GR, all mixed up, and have to separate by lat
 def isInSeparateByLatTable(yyyymmdd):
     ''''''
-    return yyyymmdd in ['20150924', '20151005', '20151020', '20151022'];
+    return yyyymmdd in ['20150923', '20150924', '20151004', '20151005',
+                        '20151019', '20151020', '20151021', '20151022'];
     
 def twoFlightsInOneDay(site, yyyymmdd):
     '''Return true if there are two flights in one day.'''
