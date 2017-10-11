@@ -249,6 +249,88 @@ class RunHelper():
         
         return True # Success!
 
+    def checkForImages(self, startFrame, stopFrame, logger):
+        '''Return true if all the images have been converted from jpeg.'''
+
+        logger.info("Checking if all jpegs have been converted.")
+        
+        jpegFolder = self.getJpegFolder()
+        imageFolder = self.getImageFolder()
+        if not os.path.exists(jpegFolder):
+            logger.info("Missing: " + jpegFolder)
+            return False
+        if not os.path.exists(imageFolder):
+            logger.info("Missing: " + imageFolder)
+            return False
+
+        jpegIndexPath = icebridge_common.csvIndexFile(jpegFolder)
+        if not os.path.exists(jpegIndexPath):
+            logger.info("Missing: " + jpegIndexPath)
+            return False
+
+        (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath,
+                                                                  prependFolder = True)
+
+        num = len(jpegFrameDict.keys())
+        count = 0
+        allGood = True
+        
+        # Fast check for missing images. This is fragile, as maybe it gets
+        # the wrong file with a similar name, but this check is otherwise
+        # very slow.
+        imageFiles = icebridge_common.getTifs(imageFolder, prependFolder = True)
+        imageFrameDict = {}
+        for imageFile in imageFiles:
+            
+            frame = icebridge_common.getFrameNumberFromFilename(imageFile)
+            if frame < startFrame or frame > stopFrame: continue
+            
+            # Add the progress, as this operation can be terribly slow
+            # when the filesystem is not doing too well, especially on mfe.
+            count = count + 1
+            if (count - 1) % 1000 == 0:
+                logger.info('Progress: ' + str(count) + '/' + str(num))
+
+            imageFrameDict[frame] = imageFile
+            
+        for frame in sorted(jpegFrameDict.keys()):
+            if frame < startFrame or frame > stopFrame: continue
+            if frame not in imageFrameDict.keys():
+                allGood = False
+
+        return allGood
+    
+        # Thorough check for missing images. It is very slow.
+        allGood = True
+        count = 0
+        for frame in sorted(jpegFrameDict.keys()):
+
+            if frame < startFrame or frame > stopFrame: continue
+            
+            # Add the progress, as this operation can be terribly slow
+            # when the filesystem is not doing too well, especially on mfe.
+            count = count + 1
+            if (count - 1) % 1000 == 0:
+                logger.info('Progress: ' + str(count) + '/' + str(num))
+                
+            inputPath = jpegFrameDict[frame]
+        
+            # Make sure the timestamp and frame number are in the output file name
+            try:
+                outputPath = icebridge_common.jpegToImageFile(inputPath)
+            except Exception, e:
+                logger.info(str(e))
+                logger.info("Removing bad file: " + inputPath)
+                if os.path.exists(inputPath): os.remove(inputPath)
+
+                allGood = False
+                continue
+
+            if not os.path.exists(outputPath):
+                logger.info("Missing image file: " + outputPath)
+                allGood = False
+                
+        return allGood
 
     def conversionIsFinished(self, startFrame, stopFrame, verbose=False):
         '''Return true if this run is present and conversion has finished running on it'''

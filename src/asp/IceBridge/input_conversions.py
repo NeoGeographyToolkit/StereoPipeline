@@ -40,29 +40,6 @@ import asp_system_utils, asp_alg_utils, asp_geo_utils
 
 asp_system_utils.verify_python_version_is_supported()
 
-def getJpegDateTime(filepath):
-    '''Get the date and time from a raw jpeg file.'''
-    
-    # TODO: For some files it is probably in the name.
-    
-    # Use this tool to extract the metadata
-    cmd      = [asp_system_utils.which('gdalinfo'), filepath]
-    p        = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    out, err = p.communicate()
-    
-    lines = out.split('\n')
-
-    for line in lines:
-        if 'EXIF_DateTimeOriginal' not in line:
-            continue
-        parts = line.replace('=',' ').split()
-        dateString = parts[1].strip().replace(':','')
-        timeString = parts[2].strip().replace(':','')
-        
-        return (dateString, timeString)
-
-    raise Exception('Failed to read date/time from file: ' + filepath)
-
 def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, logger):
     '''Convert jpeg images from RGB to single channel.
        Returns false if any files failed.'''
@@ -81,6 +58,14 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
     (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath,
                                                                   prependFolder = True)
     
+
+    # Fast check for missing images. This is fragile, as maybe it gets
+    # the wrong file with a similar name, but an honest check is very slow.
+    imageFiles = icebridge_common.getTifs(imageFolder, prependFolder = True)
+    imageFrameDict = {}
+    for imageFile in imageFiles:
+        imageFrameDict[frame] = imageFile
+        
     for frame in sorted(jpegFrameDict.keys()):
 
         inputPath = jpegFrameDict[frame]
@@ -89,9 +74,13 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
 
+        if frame in imageFrameDict.keys() and skipValidate:
+            # Fast, hackish check
+            continue
+        
         # Make sure the timestamp and frame number are in the output file name
         try:
-            (dateStr, timeStr) = getJpegDateTime(inputPath)
+            outputPath = icebridge_common.jpegToImageFile(inputPath)
         except Exception, e:
             logger.info(str(e))
             logger.info("Removing bad file: " + inputPath)
@@ -99,9 +88,6 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
             badFiles = True
             continue
         
-        outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
-        outputPath = os.path.join(imageFolder, outputName)
-
         # Skip existing valid files
         if skipValidate:
             if os.path.exists(outputPath):

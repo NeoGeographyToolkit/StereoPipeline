@@ -215,14 +215,27 @@ def runFetch(run, options, logger):
             
         logger.info(cmd)
         os.system(cmd)
-    
+
     # Don't need to check results, they should be cleaned out in conversion call.
     run.setFlag('fetch_complete')
 
 def runConversion(run, options, logger):
     '''Run the conversion tasks for this run on the supercomputer nodes.
        This will also run through the fetch step to make sure we have everything we need.'''
+
+    # Checking for images must happen here, after we know the frame range.
+    if not run.checkForImages(options.startFrame, options.stopFrame, logger):
+        logger.info("Must fetch and convert missing images.")
+        pythonPath = asp_system_utils.which('python')
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch --stop-after-convert --no-lidar-convert --no-ortho-convert --no-nav --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
     
+        if options.skipValidate:
+            cmd += ' --skip-validate'
+            
+        logger.info(cmd)
+        os.system(cmd)    
+        logger.info("Finished fetching missing images.")
+
     # Check if already done
     try:
         if run.conversionIsFinished(options.startFrame, options.stopFrame):
@@ -240,7 +253,7 @@ def runConversion(run, options, logger):
     if not options.noNavFetch:
         logger.info("Generating estimated camera files from the navigation files.")
         pythonPath = asp_system_utils.which('python')
-        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions  --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
     
         if options.skipValidate:
             cmd += ' --skip-validate'

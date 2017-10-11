@@ -146,6 +146,50 @@ def csvIndexFile(folder):
     '''Return the clean csv version of the html index file for this folder (if appropriate) '''
     return htmlIndexFile(folder) + ".csv"
 
+def getJpegDateTime(filepath):
+    '''Get the date and time from a raw jpeg file.'''
+    
+    # TODO: For some files it is probably in the name.
+    
+    # Use this tool to extract the metadata
+    cmd      = [asp_system_utils.which('gdalinfo'), filepath]
+    p        = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    out, err = p.communicate()
+    
+    lines = out.split('\n')
+
+    for line in lines:
+        if 'EXIF_DateTimeOriginal' not in line:
+            continue
+        parts = line.replace('=',' ').split()
+        dateString = parts[1].strip().replace(':','')
+        timeString = parts[2].strip().replace(':','')
+        
+        return (dateString, timeString)
+
+    raise Exception('Failed to read date/time from file: ' + filepath)
+
+def jpegToImageFile(jpegFile):
+    '''Given AN_20111023/jpeg/2011_10_23_02806.JPG, create
+    AN_20111023/image/DMS_20111023_151417_02806.tif.
+    This can throw an exception.'''
+    
+    jpegFolder  = os.path.dirname(jpegFile)
+    imageFolder = getImageFolder(os.path.dirname(jpegFolder))
+    if not os.path.exists(jpegFolder):
+        raise Exception("Missing " + jpegFolder)
+    if not os.path.exists(imageFolder):
+        raise Exception("Missing " + imageFolder)
+    if not os.path.exists(jpegFile):
+        raise Exception("Missing " + jpegFile)
+
+    frame = getFrameNumberFromFilename(jpegFile)
+        
+    (dateStr, timeStr) = getJpegDateTime(jpegFile)
+    outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
+    outputPath = os.path.join(imageFolder, outputName)
+    return outputPath
+
 def projectionBoundsFile(folder):
     return os.path.join(folder, 'projection_bounds.csv')
 
