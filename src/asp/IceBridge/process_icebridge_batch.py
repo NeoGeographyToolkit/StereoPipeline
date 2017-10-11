@@ -686,12 +686,13 @@ def getWidthAndMemUsageFromStereoOutput(outputText, errorText):
         m = re.match("^.*?Search\s+Range:.*?Origin:.*?width:\s*(\d+)", line, re.IGNORECASE)
         if m:
             corrSearchWidth = float(m.group(1))
+            successParsintStats = True
         m = re.match("^.*?elapsed=(.*?)\s+mem=(\d.*?)\s+.*?time_stereo_corr", line, re.IGNORECASE)
         if m:
-            successParsintStats = True
             elapsed = m.group(1)
             memUsage = float(m.group(2))
             memUsage = float(round(memUsage/100000.0))/10.0 # convert to GB
+            successParsintStats = True
             
     return (corrSearchWidth, memUsage, elapsed, successParsintStats)
 

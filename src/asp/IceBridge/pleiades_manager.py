@@ -969,7 +969,7 @@ def main(argsIn):
             pbs_functions.waitForRunCompletion(baseName, jobList, logger)
             logger.info('All jobs finished for run '+str(run))
             stop_time("dem creation", logger)
-        
+
         if not options.skipBlend:
             start_time()
             runJobs(run, 'blend', options, logger)

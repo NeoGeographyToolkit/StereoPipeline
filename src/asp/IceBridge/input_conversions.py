@@ -71,25 +71,34 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
     
     logger.info('Converting input images to grayscale...')
 
-    # Loop through all the input images
     os.system('mkdir -p ' + imageFolder)
-    jpegFiles = os.listdir(jpegFolder)
-    for jpegFile in jpegFiles:
-        
-        inputPath = os.path.join(jpegFolder, jpegFile)
-        
-        # Skip non-image files
-        ext = os.path.splitext(jpegFile)[1]
-        if ext != '.JPG':
-            continue
+
+    # Loop through all the input images
+
+    jpegIndexPath = icebridge_common.csvIndexFile(jpegFolder)
+    if not os.path.exists(jpegIndexPath):
+        raise Exception("Error: Missing jpeg index file: " + jpegIndexPath + ".")
+    (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath,
+                                                                  prependFolder = True)
+    
+    for frame in sorted(jpegFrameDict.keys()):
+
+        inputPath = jpegFrameDict[frame]
         
         # Only deal with frames in range
-        frame = icebridge_common.getFrameNumberFromFilename(inputPath)
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
 
         # Make sure the timestamp and frame number are in the output file name
-        (dateStr, timeStr) = getJpegDateTime(inputPath)
+        try:
+            (dateStr, timeStr) = getJpegDateTime(inputPath)
+        except Exception, e:
+            logger.info(str(e))
+            logger.info("Removing bad file: " + inputPath)
+            if os.path.exists(inputPath ): os.remove(inputPath)
+            badFiles = True
+            continue
+        
         outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
         outputPath = os.path.join(imageFolder, outputName)
 
@@ -118,7 +127,7 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
 
         if not os.path.exists(outputPath):
             badFiles = True
-            logger.error('Failed to convert jpeg file: ' + jpegFile)
+            logger.error('Failed to convert jpeg file: ' + inputPath)
 
         # Check for corrupted files
         if error is not None:

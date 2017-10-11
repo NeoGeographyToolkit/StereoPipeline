@@ -365,7 +365,8 @@ def main(argsIn):
     else:
         # Call data fetch routine and check the result
         fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
-                                      jpegFolder, orthoFolder, fireballFolder, lidarFolder, navFolder)
+                                      jpegFolder, orthoFolder, fireballFolder, lidarFolder,
+                                      navFolder)
         if fetchResult < 0:
             logger.error("Fetching failed, quitting the program!") 
             return -1
@@ -417,16 +418,20 @@ def main(argsIn):
                     logger.error("Conversions failed. Trying to re-fetch problematic files.")
                     fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
                                                   jpegFolder, orthoFolder, fireballFolder,
-                                                  lidarFolder)
+                                                  lidarFolder, navFolder)
                     if fetchResult < 0:
                         logger.error("Fetching failed, quitting the program!")
                         return -1
                     isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
                                                             options.startFrame, options.stopFrame,
                                                             options.skipValidate, logger)
+                    
                     if not isGood:
-                        logger.error("Jpeg conversions failed, quitting the program!") 
-                        return -1
+                        # If second time failed, well, have to go on, as some
+                        # files are genuinely bad on the server. 
+                        logger.info("Failed to convert jpegs on second attempt. Continuing.")
+                    #    logger.error("Jpeg conversions failed, quitting the program!") 
+                    #    return -1
                     
                 else:
                     logger.error("Jpeg conversions failed, quitting the program!")

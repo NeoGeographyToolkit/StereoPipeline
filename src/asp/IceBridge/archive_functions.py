@@ -247,21 +247,23 @@ def packAndSendSummaryFolder(run, folder, logger):
         raise Exception('Failed to pack/send summary folder for run ' + str(run))
     logger.info('Finished sending summary to lfe.')
 
-    # Wipe the copy on lunokhod
-    l2Path   = os.path.join(L_SUMMARY_FOLDER, fileName)
-    cmd      = "ssh " + LUNOKHOD + "  'rm -f "+ stripHost(l2Path) +"' 2>/dev/null"
-    logger.info(cmd)
-    os.system(cmd)
-
-    # Make target directory on lunokhod
-    cmd = "ssh  " + LUNOKHOD + " 'mkdir -p " + os.path.dirname(stripHost(l2Path)) + "' 2>/dev/null"
-    logger.info(cmd)
-    os.system(cmd)
-
-    # Send a copy of the file to Lunokhod for convenience
-    cmd = 'scp ' + fileName + ' ' + l2Path + ' 2>/dev/null'
-    logger.info(cmd)
-    os.system(cmd)
+    if icebridge_common.getUser() != 'oalexan1':
+        # Wipe the copy on lunokhod
+        l2Path   = os.path.join(L_SUMMARY_FOLDER, fileName)
+        cmd      = "ssh " + LUNOKHOD + "  'rm -f "+ stripHost(l2Path) +"' 2>/dev/null"
+        logger.info(cmd)
+        os.system(cmd)
+        
+        # Make target directory on lunokhod
+        cmd = "ssh  " + LUNOKHOD + " 'mkdir -p " + os.path.dirname(stripHost(l2Path)) + \
+              "' 2>/dev/null"
+        logger.info(cmd)
+        os.system(cmd)
+        
+        # Send a copy of the file to Lunokhod for convenience
+        cmd = 'scp ' + fileName + ' ' + l2Path + ' 2>/dev/null'
+        logger.info(cmd)
+        os.system(cmd)
 
     # Clean up the local tar file
     os.system('rm -f ' + fileName)
