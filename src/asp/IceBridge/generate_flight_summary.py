@@ -345,7 +345,7 @@ def generateFlightSummary(run, options):
         # Make a link to the ortho thumbnail file in our summary folder
         orthoPath = os.path.join(demFolder,  icebridge_common.orthoPreviewFileName())
         if os.path.exists(orthoPath):
-            thumbName = ('ortho_%05d_%05d_browse.tif' % (frames[0], frames[1]))
+            thumbName = ('ortho_%05d_%05d_browse.jpg' % (frames[0], frames[1]))
             thumbPath = os.path.join(options.outputFolder, thumbName)
             icebridge_common.makeSymLink(orthoPath, thumbPath, verbose=False)
 
