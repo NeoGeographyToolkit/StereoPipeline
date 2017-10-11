@@ -296,6 +296,7 @@ class RunHelper():
         for frame in sorted(jpegFrameDict.keys()):
             if frame < startFrame or frame > stopFrame: continue
             if frame not in imageFrameDict.keys():
+                logger.info("Missing converted jpeg for: " + jpegFrameDict[frame])
                 allGood = False
 
         return allGood

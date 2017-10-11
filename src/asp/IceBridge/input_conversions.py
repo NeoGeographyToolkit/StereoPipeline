@@ -64,6 +64,8 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
     imageFiles = icebridge_common.getTifs(imageFolder, prependFolder = True)
     imageFrameDict = {}
     for imageFile in imageFiles:
+        frame = icebridge_common.getFrameNumberFromFilename(imageFile)
+        if frame < startFrame or frame > stopFrame: continue
         imageFrameDict[frame] = imageFile
         
     for frame in sorted(jpegFrameDict.keys()):
