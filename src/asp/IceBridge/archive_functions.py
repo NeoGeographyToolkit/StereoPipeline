@@ -144,14 +144,17 @@ def packAndSendCameraFolder(run, logger):
     os.system(cmd)
 
     # Do the new file. Save the projection bounds, we will need that for later
-    # as that file is very time conssuming to create. 
-    runFolder = run.getFolder()
+    # as that file is very time conssuming to create.
+    cwd = os.getcwd()
+    os.chdir(run.parentFolder)
+    runFolder = str(run)
     cmd = 'shiftc --wait -d -r --include=\'^.*?(' + os.path.basename(icebridge_common.projectionBoundsFile(runFolder)) + '|' + os.path.basename(icebridge_common.validFilesList(runFolder)) + '|' + \
           os.path.basename(cameraFolder) + '.*?\.tsai)$\' --create-tar ' + runFolder + \
           ' ' + lfePath
     
     logger.info(cmd)
     status = os.system(cmd)
+    os.chdir(cwd)
     print status
     if status != 0:
         raise Exception('Failed to pack/send cameras for run ' + str(run))
@@ -164,9 +167,9 @@ def packAndSendAlignedCameras(run, logger):
     '''Archive the pc_align-ed cameras for later use'''
     
     logger.info('Archiving aligned cameras for run ' + str(run))
-
-    runFolder = run.getFolder()
-    
+    cwd = os.getcwd()
+    os.chdir(run.parentFolder)
+    runFolder = str(run)   
     fileName = run.getAlignedCameraTarName()
     lfePath  = os.path.join(REMOTE_ALIGN_CAM_FOLDER, fileName)
     
@@ -181,6 +184,7 @@ def packAndSendAlignedCameras(run, logger):
     ' ' + lfePath
     logger.info(cmd)
     status = os.system(cmd)
+    os.chdir(cwd)
     if status != 0:
         logger.info('Failed to pack/send aligned cameras for run ' + str(run))
     logger.info('Finished sending aligned cameras to lfe.')
@@ -190,8 +194,9 @@ def packAndSendOrthos(run, logger):
 
     logger.info('Archiving ortho images for run ' + str(run))
 
-    runFolder = run.getFolder()
-    
+    cwd = os.getcwd()
+    os.chdir(run.parentFolder)
+    runFolder = str(run)
     fileName = run.getOrthoTarName()
     lfePath  = os.path.join(REMOTE_ORTHO_FOLDER, fileName)
 
@@ -205,6 +210,7 @@ def packAndSendOrthos(run, logger):
           '$\' --create-tar ' + runFolder + ' ' + lfePath
     logger.info(cmd)
     status = os.system(cmd)
+    os.chdir(cwd)
     if status != 0:
         logger.info('Failed to pack/send ortho images for run ' + str(run))
     logger.info('Finished sending ortho images to lfe.')
@@ -273,20 +279,16 @@ def packAndSendCompletedRun(run, logger):
     
     logger.info('Getting ready to pack up run ' + str(run))
     
-    runFolder = run.getFolder()
-    
-    # TODO: What do we want to deliver?
-    # - The aligned DEM file from each batch folder
-    # - Some low-size diagnostic information about the run
-    # - Camera calibration files used?
-    # - Information about how we created the run (process date, ASP version, etc)
+    cwd = os.getcwd()
+    os.chdir(run.parentFolder)
+    runFolder = str(run)
 
     # Use symlinks to assemble a fake file structure to tar up
     assemblyFolder = run.getAssemblyFolder()
     batchFolders   = run.getBatchFolderList()
     os.system('mkdir -p ' + assemblyFolder)
 
-    # Bugfix: Wipe any dead symlinks, as maybe this is not the first time the assembly is made
+    # Wipe any dead symlinks, as maybe this is not the first time the assembly is made
     pattern = os.path.join(assemblyFolder, '*')
     currFiles = glob.glob(pattern)
     for filename in currFiles:
@@ -320,7 +322,7 @@ def packAndSendCompletedRun(run, logger):
 
     logger.info('Sending run to lfe...')
 
-    cmd      = "ssh lfe 'rm -f " + stripHost(lfePath) + "' 2>/dev/null"
+    cmd = "ssh lfe 'rm -f " + stripHost(lfePath) + "' 2>/dev/null"
 
     logger.info(cmd)
     os.system(cmd)
@@ -335,6 +337,7 @@ def packAndSendCompletedRun(run, logger):
     
     logger.info(cmd)
     status = os.system(cmd)
+    os.chdir(cwd)
     if status != 0:
         raise Exception('Failed to pack/send results for run ' + str(run) + \
                         '. Maybe not all sym links are valid.')

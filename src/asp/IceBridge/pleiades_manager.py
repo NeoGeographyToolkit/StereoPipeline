@@ -509,7 +509,7 @@ def runJobs(run, mode, options, logger):
 
     # Get the location to store the logs    
     pbsLogFolder = run.getPbsLogFolder()
-    
+
     # Submit all the jobs
     jobList = []
     currentFrame = options.startFrame
@@ -714,9 +714,6 @@ def main(argsIn):
         parser.add_argument("--unpack-dir",  dest="unpackDir", default=None,
                             help="Where to unpack the data.")
 
-        parser.add_argument("--summary-dir",  dest="summaryFolder", default=None,
-                            help="Where to store the summaries.")
-
         parser.add_argument("--yyyymmdd",  dest="yyyymmdd", default=None,
                             help="Specify the year, month, and day in one YYYYMMDD string.")
 
@@ -879,10 +876,6 @@ def main(argsIn):
         options.unpackDir = os.path.join(options.baseDir, 'data')
         
     os.system('mkdir -p ' + options.unpackDir)
-
-    if options.summaryFolder is None:
-        options.summaryFolder = os.path.join(options.baseDir, 'summaries')
-    os.system('mkdir -p ' + options.summaryFolder)
     
     # TODO: Uncomment when processing more than one run!
     # Get the list of runs to process
@@ -893,6 +886,8 @@ def main(argsIn):
     #runList  = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
     run = run_helper.RunHelper(options.site, options.yyyymmdd, options.unpackDir)
+    
+    summaryFolder = run.getSummaryFolder()
     
     logLevel = logging.INFO
     logger   = icebridge_common.setUpLogger(options.logFolder, logLevel,
@@ -1030,16 +1025,14 @@ def main(argsIn):
         if not options.skipReport:
             start_time()
             # Generate a summary folder and send a copy to Lou
-            # - Currently the summary folders need to be deleted manually, but they should not
-            #   take up much space due to the large amount of compression used.
-            summaryFolder = os.path.join(options.summaryFolder, run.name())
+            os.system('mkdir -p ' + summaryFolder)
             genCmd = ['--yyyymmdd', run.yyyymmdd, '--site', run.site, 
                       '--output-folder', summaryFolder, '--parent-folder', run.parentFolder]
 
-            if options.startFrame != icebridge_common.getSmallestFrame() and \
-               options.stopFrame != icebridge_common.getLargestFrame():
+            if ((options.startFrame != icebridge_common.getSmallestFrame()) and
+                (options.stopFrame  != icebridge_common.getLargestFrame() ) ):
                 genCmd += ['--start-frame', str(options.startFrame),
-                           '--stop-frame', str(options.stopFrame)]
+                           '--stop-frame',  str(options.stopFrame )]
             if options.skipKml:
                 genCmd += ['--skip-kml']
                 
@@ -1054,13 +1047,9 @@ def main(argsIn):
         # send data to lunokhod and lfe
         if not options.skipArchiveSummary:
             start_time()
-            summaryFolder = os.path.join(options.summaryFolder, run.name())
             archive_functions.packAndSendSummaryFolder(run, summaryFolder, logger)
             stop_time("archive summary", logger)
             
-        # Don't pack or clean up the run if it did not generate all the output files.
-        # - TODO: Will never produce 100% of outputs. So wiping better be done anyway.
-
         # Archive the DEMs
         if not options.skipArchiveRun:
             start_time()

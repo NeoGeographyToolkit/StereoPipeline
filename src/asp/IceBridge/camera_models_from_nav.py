@@ -157,17 +157,16 @@ def main(argsIn):
         os.system(cmd)
     
     # Generate a kml file for the nav camera files
-    kmlPath  = os.path.join(outputFolder, 'nav_cameras.kml')
-    camFiles = os.listdir(outputFolder)
-    camFiles = [os.path.join(outputFolder, x) for x in camFiles 
-                if (('.tsai' in x) and ('~' not in x))]
-    camString = ' '.join(camFiles)
+    kmlPath = os.path.join(outputFolder, 'nav_cameras.kml')
     try:
+        tempPath = os.path.join(outputFolder, 'list.txt')
         logger.info('Generating nav camera kml file: ' + kmlPath)
+        os.system('ls ' + outputFolder + '/* > ' + tempPath)
         orbitviz_pinhole = asp_system_utils.which('orbitviz_pinhole')
-        cmd = orbitviz_pinhole + ' --hide-labels -o ' + kmlPath + ' ' + camString
-        #logger.info(cmd)
+        cmd = orbitviz_pinhole + ' --hide-labels -o ' + kmlPath + ' --input-list ' + tempPath
+        logger.info(cmd)
         asp_system_utils.executeCommand(cmd, kmlPath, suppressOutput=True, redo=False)
+        os.remove(tempPath)
     except Exception, e:
         logger.info("Warning: " + str(e))
         

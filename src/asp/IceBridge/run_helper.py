@@ -123,6 +123,8 @@ class RunHelper():
         return self._internalLoc('tarAssembly')
     def getPbsLogFolder(self):
         return self._internalLoc('pbsLog')
+    def getSummaryFolder(self):
+        return self._internalLoc('summary')
 
     def getJpegList(self, prependFolder=False):
         '''Return a list containing all the currently stored jpeg files'''
