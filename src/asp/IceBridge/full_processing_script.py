@@ -90,7 +90,7 @@ def fetchAllRunData(options, startFrame, stopFrame,
     if fetch_icebridge_data.main(orthoCommand.split()) < 0:
         return -1
     if fetch_icebridge_data.main(fireballCommand.split()) < 0:
-        print 'Fireball DEM data is optional, continuing run.'
+        logger.info('Fireball DEM data is optional, continuing run.')
     if not options.noNavFetch:
         if fetch_icebridge_data.main(navCommand.split()) < 0:
             return -1
@@ -109,11 +109,19 @@ def fetchAllRunData(options, startFrame, stopFrame,
         (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndex)
         
         for jpegFrame in jpegFrameDict.keys():
+            
+            if jpegFrame < startFrame or jpegFrame > stopFrame:
+                continue
+            
             if jpegFrame not in orthoFrameDict.keys():
                 logger.info("Found jpeg frame missing from ortho: " + str(jpegFrame))
                 #raise Exception ("Found jpeg frame missing from ortho:" + str(jpegFrame))
 
         for orthoFrame in orthoFrameDict.keys():
+
+            if orthoFrame < startFrame or orthoFrame > stopFrame:
+                continue
+            
             if orthoFrame not in jpegFrameDict.keys():
                 # This can happen, don't die because of it
                 logger.info("Found ortho frame missing from jpeg: " + str(orthoFrame))
@@ -123,6 +131,98 @@ def fetchAllRunData(options, startFrame, stopFrame,
     
     return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
 
+def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, orthoFolder,
+                    fireballFolder, corrFireballFolder, lidarFolder, processedFolder,
+                    navFolder, navCameraFolder, logger):
+    '''Fetch and/or convert. Return 0 on success.'''
+
+    if options.noFetch:
+        logger.info('Skipping fetch.')
+    else:
+        # Call data fetch routine and check the result
+        fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
+                                      jpegFolder, orthoFolder, fireballFolder, lidarFolder,
+                                      navFolder)
+        if fetchResult < 0:
+            logger.error("Fetching failed!") 
+            return -1
+
+        # This step is slow, so run it here as part of fetching and save its result
+        # We certainly don't want it to throw any exception at this stage.
+        try:
+            forceAllFramesInRange = True
+            availableFrames = []
+            (autoStereoInterval, breaks) = \
+                                 process_icebridge_run.getImageSpacing(orthoFolder, availableFrames,
+                                                                       options.startFrame,
+                                                                       options.stopFrame,
+                                                                       forceAllFramesInRange)
+        except Exception, e:
+            pass
+        
+    if options.stopAfterFetch or options.dryRun:
+        logger.info('Fetching complete, finished!')
+        return 0
+
+    # Keep track of how we are doing
+    isGood = True
+    
+    if options.noConvert:        
+        logger.info('Skipping convert.')
+    else:
+
+        # When files fail in these conversion functions we log the error and keep going
+
+        if not options.skipFastConvert:
+
+            # Run non-ortho conversions without any multiprocessing (they are pretty fast)
+            # TODO: May be worth doing the faster functions with multiprocessing in the future
+
+            if not options.noLidarConvert:
+                ans = input_conversions.convertLidarDataToCsv(lidarFolder, options.skipValidate,
+                                                              logger)
+                isGood = (isGood and ans)
+                
+                ans = input_conversions.pairLidarFiles(lidarFolder, options.skipValidate, logger)
+                isGood = (isGood and ans)
+                
+            ans = input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
+                                                        options.startFrame, options.stopFrame,
+                                                        (not isSouth), options.skipValidate,
+                                                        logger)
+            isGood = (isGood and ans)
+
+            ans = input_conversions.convertJpegs(jpegFolder, imageFolder, 
+                                                 options.startFrame, options.stopFrame,
+                                                 options.skipValidate, logger)
+            isGood = (isGood and ans)
+            
+        if not options.noNavFetch:
+            # Single process call to parse the nav files.
+            input_conversions.getCameraModelsFromNav(imageFolder, orthoFolder, 
+                                    options.inputCalFolder, navFolder, navCameraFolder)
+        else:
+            navCameraFolder = ""
+            
+        if not options.noOrthoConvert:
+            # Multi-process call to convert ortho images
+            input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder,
+                                                       options.inputCalFolder, 
+                                                       options.cameraLookupFile,
+                                                       navCameraFolder,
+                                                       options.yyyymmdd, options.site, 
+                                                       refDemPath, cameraFolder, 
+                                                       options.simpleCameras,
+                                                       options.startFrame, options.stopFrame,
+                                                       options.numOrthoProcesses, options.numThreads,
+                                                       logger)
+
+
+    if isGood:
+        return 0
+
+    return -1
+    
 def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   fireballFolder, processedFolder, isSouth, referenceDem):
     
@@ -360,106 +460,25 @@ def main(argsIn):
         processedFolder = os.path.join(processedFolder, options.processingSubfolder)
         logger.info('Will write to processing subfolder: ' + options.processingSubfolder)
        
-    if options.noFetch:
-        logger.info('Skipping fetch.')
-    else:
-        # Call data fetch routine and check the result
-        fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
-                                      jpegFolder, orthoFolder, fireballFolder, lidarFolder,
-                                      navFolder)
-        if fetchResult < 0:
-            logger.error("Fetching failed, quitting the program!") 
-            return -1
-
-        # This step is slow, so run it here as part of fetching and save its result
-        # We certainly don't want it to throw any exception at this stage.
-        try:
-            forceAllFramesInRange = True
-            availableFrames = []
-            (autoStereoInterval, breaks) = \
-                                 process_icebridge_run.getImageSpacing(orthoFolder, availableFrames,
-                                                                       options.startFrame,
-                                                                       options.stopFrame,
-                                                                       forceAllFramesInRange)
-        except Exception, e:
-            pass
-        
-    if options.stopAfterFetch or options.dryRun:
-        logger.info('Fetching complete, finished!')
-        return 0
-
-    if options.noConvert:        
-        logger.info('Skipping convert.')
-    else:
-
-        # When files fail in these conversion functions we log the error and keep going
-
-        if not options.skipFastConvert:
-
-            # Run non-ortho conversions without any multiprocessing (they are pretty fast)
-            # TODO: May be worth doing the faster functions with multiprocessing in the future
-
-            if not options.noLidarConvert:
-                input_conversions.convertLidarDataToCsv(lidarFolder, options.skipValidate,
-                                                        logger)
-                input_conversions.pairLidarFiles(lidarFolder, options.skipValidate, logger)
-         
-            input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
-                                                  options.startFrame, options.stopFrame,
-                                                  (not isSouth), options.skipValidate,
-                                                  logger)
-
-            isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
-                                                    options.startFrame, options.stopFrame,
-                                                    options.skipValidate, logger)
-            if not isGood:
-                if options.reFetch and (not options.noFetch):
-                    # During conversion we may realize some data is bad. 
-                    logger.error("Conversions failed. Trying to re-fetch problematic files.")
-                    fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
-                                                  jpegFolder, orthoFolder, fireballFolder,
-                                                  lidarFolder, navFolder)
-                    if fetchResult < 0:
-                        logger.error("Fetching failed, quitting the program!")
-                        return -1
-                    isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
-                                                            options.startFrame, options.stopFrame,
-                                                            options.skipValidate, logger)
-                    
-                    if not isGood:
-                        # If second time failed, well, have to go on, as some
-                        # files are genuinely bad on the server. 
-                        logger.info("Failed to convert jpegs on second attempt. Continuing.")
-                    #    logger.error("Jpeg conversions failed, quitting the program!") 
-                    #    return -1
-                    
-                else:
-                    logger.error("Jpeg conversions failed, quitting the program!")
-                    return -1
-
-        if not options.noNavFetch:
-            # Single process call to parse the nav files.
-            input_conversions.getCameraModelsFromNav(imageFolder, orthoFolder, 
-                                    options.inputCalFolder, navFolder, navCameraFolder)
-        else:
-            navCameraFolder = ""
+    # If something failed in the first attempt either in fetch or in
+    # convert, we will wipe bad files, and try to refetch/re-convert.
+    numAttempts = 1
+    if options.reFetch and (not options.noFetch):
+        numAttempts = 2
+    
+    for attempt in range(numAttempts):
+        if numAttempts > 1:
+            logger.info("Fetch/convert attempt: " + str(attempt+1))
+        ans = runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, orthoFolder,
+                              fireballFolder, corrFireballFolder, lidarFolder, processedFolder,
+                              navFolder, navCameraFolder, logger)
+        if ans == 0:
+            break
             
-        if not options.noOrthoConvert:
-            # Multi-process call to convert ortho images
-            input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder,
-                                                       options.inputCalFolder, 
-                                                       options.cameraLookupFile,
-                                                       navCameraFolder,
-                                                       options.yyyymmdd, options.site, 
-                                                       refDemPath, cameraFolder, 
-                                                       options.simpleCameras,
-                                                       options.startFrame, options.stopFrame,
-                                                       options.numOrthoProcesses, options.numThreads,
-                                                       logger)
     if options.stopAfterConvert:
-        print 'Conversion complete, finished!'
+        logger.info('Conversion complete, finished!')
         return 0
-
+                
     # Call the processing routine
     processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   corrFireballFolder, processedFolder,

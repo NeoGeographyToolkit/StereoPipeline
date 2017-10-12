@@ -617,8 +617,8 @@ def hasValidChkSum(filename, logger):
     actualChksum = hashlib.md5(open(filename,'rb').read()).hexdigest()
 
     if actualChksum != expectedChksum or actualChksum == '' or expectedChksum == '':
-        logger.info("Computed chksum: ", actualChksum, filename)
-        logger.info("Expected chksum: ", expectedChksum, filename)
+        logger.info("Computed chksum: " + str(actualChksum) + " in " + filename)
+        logger.info("Expected chksum: " + str(expectedChksum) + " in " + filename)
         
         return False
     

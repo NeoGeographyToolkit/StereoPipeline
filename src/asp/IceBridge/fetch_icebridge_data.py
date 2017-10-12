@@ -789,7 +789,7 @@ def doFetch(options, outputFolder):
                 isGood = icebridge_common.hasValidChkSum(outputPath, logger)
                 if not isGood:
                     xmlFile = icebridge_common.xmlFile(outputPath)
-                    logger.info('Found invalid data. Will wipe it: ' + outputPath + ' ' + xmlFile)
+                    logger.info('Found invalid data. Will wipe: ' + outputPath + ' ' + xmlFile)
                     if os.path.exists(outputPath): os.remove(outputPath)
                     if os.path.exists(xmlFile):    os.remove(xmlFile)
                     failedFiles.append(outputPath)
@@ -815,7 +815,6 @@ def doFetch(options, outputFolder):
                 else:
                     logger.info('Valid tfw file: ' + outputPath)
                     validFilesSet.add(outputPath)
-                
 
     # Write to disk the list of validated files, but only if new
     # validations happened.  First re-read that list, in case a

@@ -111,7 +111,8 @@ def startWithLouArchive(options, logger):
     (pfePath, lfePath) = workDirs()
 
     # See tarAndWipe() for the logic of how one can work with pfe and lfe
-    lfeCmd = 'cd ' + lfePath + '; tar xfv ' + lfePath + '/' + options.outputFolder + '.tar' + \
+    tarFile = options.outputFolder + '.tar'
+    lfeCmd = 'cd ' + lfePath + '; tar xfv ' + lfePath + '/' + tarFile + \
              ' -C ' + pfePath
 
     cmd = 'ssh ' + louUser + '@lfe "' + lfeCmd + '"'
@@ -119,7 +120,9 @@ def startWithLouArchive(options, logger):
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     output, error = p.communicate()
     if p.returncode != 0:
-        raise Exception('Failed to untar lfe archive: ' + options.outputFolder + '.tar')
+        # Don't fail, just continue
+        logger.info('Failed to untar lfe archive: ' + tarFile)
+        #raise Exception('Failed to untar lfe archive: ' + options.outputFolder + '.tar')
     else:
         logger.info('Success untarring lfe archive.')
 
@@ -234,9 +237,18 @@ def main(argsIn):
         cmd += ' --no-nav'
     if options.inputCalFolder is not None:
         cmd += ' --camera-calibration-folder ' + options.inputCalFolder
+
+    # Refetch all nav stuff, as it was unreliable in the past
+    navFolder = icebridge_common.getNavFolder(options.outputFolder)
+    navCameraFolder = icebridge_common.getNavCameraFolder(options.outputFolder)
+    if os.path.exists(navFolder):
+        logger.info("Wiping: " + navFolder)
+        os.system('rm -rf ' + navFolder)
+    if os.path.exists(navCameraFolder):
+        logger.info("Wiping: " + navCameraFolder)
+        os.system('rm -rf ' + navCameraFolder)
         
     logger.info("full_processing_script.py " + cmd)
-    
     if full_processing_script.main(cmd.split()) < 0:
         return -1
 
