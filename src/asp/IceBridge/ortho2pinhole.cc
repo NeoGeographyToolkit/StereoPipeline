@@ -71,7 +71,7 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string raw_image, ortho_image, input_cam, output_cam, reference_dem, camera_estimate;
-  double camera_height, orthoimage_height, ip_inlier_factor;
+  double camera_height, orthoimage_height, ip_inlier_factor, max_translation;
   int    ip_per_tile, ip_detect_method, min_ip;
   bool   individually_normalize, keep_match_file, write_gcp_file, skip_image_normalization, 
     show_error, short_circuit, crop_reference_dem;
@@ -514,13 +514,12 @@ void get_estimated_camera_position(Options const& opt,
       
     // If our solution moved too far from the estimated camera, use
     // the estimated position/pose instead.
-    const double MAX_CENTER_MOVEMENT = 10;
     double dist = norm_2(pcam->camera_center() - est_cam.camera_center());
     vw_out() << "Flat affine estimate is " << dist 
              << " meters from the input camera estimate.\n";
-    if (dist > MAX_CENTER_MOVEMENT) {
+    if (dist > opt.max_translation) {
       update_pinhole_from_nav_estimate(pcam, est_cam);
-      vw_out() << "Flat affine estimate difference limit is " << MAX_CENTER_MOVEMENT 
+      vw_out() << "Flat affine estimate difference limit is " << opt.max_translation 
                << ", using input estimate instead\n";
     }
   } // End have camera estimate case
@@ -838,7 +837,6 @@ void ortho2pinhole(Options & opt){
     // If an estimate was provided and the DEM optimization moved us too far away from that estimate,
     //  revert back to the input estimate.  Also revert if the error was too high.
     const double MAX_REFINE_ERROR = 4000;
-    const double MAX_CAMERA_MOVEMENT = 15;
     if (opt.camera_estimate != "") {
       bool revert_camera = false;
       if (refine_error > MAX_REFINE_ERROR) {
@@ -848,7 +846,7 @@ void ortho2pinhole(Options & opt){
       else {
         double dist = norm_2(pcam->camera_center() - gcc_cam_est);
         vw_out() << "Camera distance from estimate is " << dist << std::endl;
-        if (dist > MAX_CAMERA_MOVEMENT) {
+        if (dist > opt.max_translation) {
           vw_out() << "Camera solution is too far from the input estimate, reverting to estimate.\n";
           revert_camera = true;
         }
@@ -914,6 +912,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("camera-estimate",   po::value(&opt.camera_estimate)->default_value(""),
      "An estimated camera model used for location and pose estimate only.")
+    ("max-translation",   po::value(&opt.max_translation)->default_value(10.0),
+     "The maximum distance the camera solution is allowed to move from camera-estimate.")     
     ("camera-height",   po::value(&opt.camera_height)->default_value(-1.0),
      "The approximate height above the datum, in meters, at which the camera should be. If not specified, it will be read from the orthoimage metadata.")
     ("orthoimage-height",   po::value(&opt.orthoimage_height)->default_value(0.0),

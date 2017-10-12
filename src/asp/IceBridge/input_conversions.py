@@ -251,6 +251,10 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
     MIN_IP     = 15  # Require more IP to make sure we don't get bogus camera models
     DESIRED_IP = 200 # If we don't hit this number, try other methods before taking the best one.
 
+    # The max distance in meters the ortho2pinhole solution is allowed to move from the input
+    #  navigation estimate.
+    MAX_TRANSLATION = 7
+
     bestIpCount = 0
     tempFilePath  = outputCamFile + '_temp' # Used to hold the current best result
     matchPath     = outputCamFile + '.match' # Used to hold the match file if it exists
@@ -268,7 +272,10 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
 
         # Call ortho2pinhole command
         ortho2pinhole = asp_system_utils.which("ortho2pinhole")
-        cmd = (('%s %s %s %s %s --reference-dem %s --crop-reference-dem --threads %d --ip-detect-method %d --minimum-ip %d ') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ipMethod, MIN_IP))
+        cmd = (('%s %s %s %s %s --reference-dem %s --crop-reference-dem --threads %d --ip-detect-method %d' \
+                ' --minimum-ip %d --max-translation %f') 
+                % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, 
+                   refDemPath, numThreads, ipMethod, MIN_IP, MAX_TRANSLATION) )
         if localNorm:
             cmd += ' --skip-image-normalization'
         if estimatedCameraPath is not None:

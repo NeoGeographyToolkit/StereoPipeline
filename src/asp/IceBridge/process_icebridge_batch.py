@@ -262,6 +262,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     bestNumIpPreElevation = 0
     bestCmd = ''
     success = False
+    successWithoutCoverage = False
     for attempt in range(len(ipPerTile)):
                
         argString = imageCameraString
@@ -299,6 +300,9 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
                                                              noThrow=True)
         logger.info(out + '\n' + err)
         
+        if status == 0: # Record if we had a success before coverage was checked
+            successWithoutCoverage = True
+        
         # Check to see if we got the desired amount of coverage.
         # - TODO: How to do this with >2 cameras?
         m = re.findall(r"IP coverage fraction after cleaning = ([0-9e\-\.\+]*)", out)
@@ -334,16 +338,15 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
                 continue
             logger.info("Wipe: " + f)
             os.remove(f)
-             
+
     # End bundle adjust attempts
 
-    # Retry the best attempt
-    if (not success) and (bestNumIpPreElevation > 0):
+    # If we failed, retry the best attempt
+    if not success:
         
-        if (bestNumIpPreElevation < MIN_IP_MATCHES):
-            # This increases the risk of bad IP's being used but it is better than failing.
-            # - Don't do this if we got to here because of coverage problems but we did
-            #   have enough IP.
+        # If we never succeeded even before coverage checking, lift the elevation restriction.
+        # - This increases the risk of bad IP's being used but it is better than failing.
+        if not successWithoutCoverage:
             logger.info("Retrying bundle_adjust without elevation restriction")
             cmd = bestCmd.replace(heightLimitString, '')
             
@@ -837,9 +840,6 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     if status != 0:
         icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
-        
-        
-        
 
 def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
                interDiffPaths, fireballDiffPaths):
