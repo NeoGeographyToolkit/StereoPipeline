@@ -716,8 +716,9 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
     # - Note that the base level memory usage ignoring the SGM buffers is about 2 GB so this memory
     #   usage is in addition to that.
-    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 --min-num-ip 40 ' %
-                 (argString, thisPairPrefix, threadText, heightLimitString))
+    minIpString = ' --min-num-ip 40'
+    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 %s ' %
+                 (argString, thisPairPrefix, threadText, heightLimitString, minIpString))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
     if '--stereo-algorithm 0' not in options.stereoArgs:
@@ -757,7 +758,9 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
             raise Exception('Failed to create .match file symlink: ' + matchFilePair[1])
             
         # With the .match file copied we can retry with the same parameters.
+        # - Remove some filtering steps we don't need.
         # - Exception is the height limit string, which we can remove if using existing IP.
+        stereoCmd = stereoCmd.replace(minIpString, ' --min-num-ip 10')
         stereoCmd = stereoCmd.replace(heightLimitString, ' ')
         icebridge_common.logger_print(logger, stereoCmd)
         os.system('rm -f ' + triOutput) # In case the output cloud exists but is bad
