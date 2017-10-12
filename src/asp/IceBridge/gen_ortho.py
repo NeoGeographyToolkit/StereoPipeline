@@ -132,6 +132,12 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
             localRedo = True # The file below should not exist unless there was a crash
             asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, localRedo)
 
+            # TODO: Also blend into this mosaic the "-footprint-" file
+            # with a lower priority blending length. Just want to make
+            # sure there is always enough real estate to mapproject
+            # onto.
+            # TODO: Look at more aggressive hole-filling. But need a testcase.
+            
             filesToWipe += glob.glob(mosaicPrefix + '*' + '-log-' + '*')
 
             # First mapproject to create a tif image with 4 channels.

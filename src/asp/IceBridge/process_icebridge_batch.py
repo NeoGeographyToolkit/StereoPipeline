@@ -169,7 +169,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
 
         try:
             # POINT2DEM on the aligned PC file
-            cmd = ('point2dem --search-radius-factor 5 --tr %lf --t_srs %s %s %s' 
+            cmd = ('point2dem --search-radius-factor 5 --dem-hole-fill-len 500 --tr %lf --t_srs %s %s %s' 
                    % (options.demResolution, projString, alignedFootPC, threadText))
             alignedFootDEM = alignPrefixFoot + '-trans_reference-DEM.tif'
             logger.info(cmd) # to make it go to the log, not just on screen

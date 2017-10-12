@@ -199,10 +199,12 @@ def runFetch(run, options, logger):
     
     # Fetch whatever is missing directly from NSIDC, and force to have the indices
     # regenerated in this case. Hopefully just a few files are missing.
-    # - This is likely to have to fetch the large nav data file(s)
+    # - This is likely to have to fetch the large nav data file(s).
+    # Note that we do all conversions as well, sans camera generation. But hopefully the run is clean and all
+    # has been done by now. 
     if not options.noRefetch:
         logger.info("Fetch from NSIDC.")
-        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --stop-after-fetch --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --stop-after-convert --no-ortho-convert --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
 
         if options.noNavFetch:
             cmd += ' --no-nav'
