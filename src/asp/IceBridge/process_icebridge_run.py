@@ -60,7 +60,7 @@ os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 #  be written to with the --log-batches option.
 BATCH_COMMAND_LOG_FILE = 'batch_commands_log.txt'
 
-def processBatch(imageCameraPairs, lidarFolder, referenceDem, outputFolder, extraOptions, 
+def processBatch(imageCameraPairs, lidarFolder, referenceDem, skipInterval, outputFolder, extraOptions, 
                  outputResolution, stereoArgs, batchNum, batchLogPath=''):
     '''Processes a batch of images at once'''
 
@@ -75,8 +75,9 @@ def processBatch(imageCameraPairs, lidarFolder, referenceDem, outputFolder, extr
 
     # Just set the options and call the pair python tool.
     # We can try out bundle adjustment for intrinsic parameters here.
-    cmd = ('--lidar-overlay --lidar-folder %s --reference-dem %s --dem-resolution %f --output-folder %s %s %s --stereo-arguments ' 
-           % (lidarFolder, referenceDem, outputResolution, outputFolder, argString, extraOptions))
+    cmd = ('--lidar-overlay --lidar-folder %s --reference-dem %s --stereo-image-interval %d --dem-resolution %f' \
+           ' --output-folder %s %s %s --stereo-arguments ' 
+           % (lidarFolder, referenceDem, skipInterval, outputResolution, outputFolder, argString, extraOptions))
         
     if batchLogPath:
         # With this option we just log the commands to a text file
@@ -102,9 +103,9 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
 
     logger.info('Computing optimal image stereo interval...')
 
-    # With very few cameras this is the only possible way to process them
-    if len(availableFrames) < 3 and not forceAllFramesInRange:
-        return (1, []) # No skip, no breaks
+    ## With very few cameras this is the only possible way to process them
+    #if len(availableFrames) < 3 and not forceAllFramesInRange:
+    #    return ([], {}) # No skip, no breaks
 
     # Retrieve a list of the ortho files
     orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
@@ -115,6 +116,7 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
 
     # From the dictionary create a sorted list of ortho files in the frame range
     breaks     = []
+    largeSkips = {}
     orthoFiles = []
     for frame in sorted(orthoFrameDict.keys()):
 
@@ -182,8 +184,9 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
         
     # Since we are only comparing the image bounding boxes, not their exact corners,
     #  these ratios are only estimates.
-    MAX_RATIO = 0.8 # Increase skip until we get below this...
-    MIN_RATIO = 0.4 # ... but don't go below this value!
+    MAX_RATIO   = 0.8  # Increase skip until we get below this...
+    MIN_RATIO   = 0.6  # ... but don't go below this value!
+    NOTRY_RATIO = 0.35 # Don't bother with overlap amounts less than this
 
     def getBboxArea(bbox):
         '''Return the area of a bounding box in form of (minX, maxX, minY, maxY)'''
@@ -193,57 +196,52 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
             return 0
         return width*height
 
-    # Iterate over stereo image intervals to try to get our target numbers
-    interval  = 0
-    meanRatio = 1.0
-    while meanRatio > MAX_RATIO:
-        meanRatio = 0
-        count     = 0
-        interval  = interval + 1
-        logger.info('Trying stereo image interval ' + str(interval))
-
-        if numOrthos <= interval:
-            raise Exception('Error: There are too few images and they overlap too much. ' +
-                            'Consider processing more images in the given batch.')       
-
-        for i in range(0, numOrthos-interval):
+    # Iterate over the frames and find the best stereo frame for each    
+    for i in range(0, numOrthos-1):
+    
+        thisBox  = bboxes[i]
+        thisArea = getBboxArea(thisBox)
+        interval = 1
+        
+        while(True):
             
             # Compute intersection area between this and next image
-            thisBox   = bboxes[i  ]
-            lastBox   = bboxes[i+interval]
-            intersect = [max(lastBox[0], thisBox[0]), # Min X
-                         min(lastBox[1], thisBox[1]), # Max X
-                         max(lastBox[2], thisBox[2]), # Min Y
-                         min(lastBox[3], thisBox[3])] # Max Y
-            thisArea  = getBboxArea(thisBox)
+            nextBox   = bboxes[i+interval]
+            intersect = [max(thisBox[0], nextBox[0]), # Min X
+                         min(thisBox[1], nextBox[1]), # Max X
+                         max(thisBox[2], nextBox[2]), # Min Y
+                         min(thisBox[3], nextBox[3])] # Max Y
             area      = getBboxArea(intersect)
-            ratio     = area / thisArea
-
-            # Don't include non-overlapping frames in the statistics
+            ratio = 0
             if area > 0:
-                meanRatio = meanRatio + ratio
-                count     = count + 1
+                ratio = area / thisArea
             
-            # On the first pass (with interval 1) check for gaps in coverage.
-            if (interval == 1) and (area <= 0):
-                breaks.append(frames[i])
-                logger.info('Detected large break after frame ' + str(frames[i]))
-            
-        # Get the mean intersection ratio
-        meanRatio = meanRatio / count
-        logger.info('  --> meanRatio = ' + str(meanRatio))
+            #print str(frames[i]) +', ' + str(frames[i+interval]) + ' -> ' + str(ratio)
+            if interval == 1: # Cases for the smallest interval...
+                if ratio < NOTRY_RATIO:
+                    breaks.append(frames[i]) # No match for this frame
+                    logger.info('Detected large break after frame ' + str(frames[i]))
+                    break
+                if ratio < MIN_RATIO:
+                    break # No reason to try increasing skip amounts for this frame
+            else: # interval > 1
+                if ratio < MIN_RATIO: # Went too small, walk back the interval.
+                    interval = interval - 1
+                    break
+                    
+            if ratio > MAX_RATIO: # Too much overlap, increase interval
+                interval = interval + 1
+            else: # Overlap is fine, keep this interval.
+                break
+        
+        if interval > 1: # Only record larger than normal intervals.
+            largeSkips[frames[i]] = interval
 
-    # If we increased the interval too much, back it off by one step.
-    if (meanRatio < MIN_RATIO) and (interval > 1):
-        interval = interval - 1
     
-    if interval < 1: # Make sure this never happens!
-        interval = 1
-    
-    logger.info('Computed automatic image stereo interval: ' + str(interval))
-    logger.info('Detected ' + str(interval) + ' breaks in image coverage.')
-    
-    return (interval, breaks)
+    logger.info('Detected ' + str(len(breaks)) + ' breaks in image coverage.')
+    logger.info('Detected ' + str(len(largeSkips)) + ' images with interval > 1.')
+
+    return (breaks, largeSkips)
 
 def list_median(lst):
     sortedLst = sorted(lst)
@@ -397,6 +395,8 @@ def main(argsIn):
                                                             options.startFrame, options.stopFrame,
                                                             logger)
     numFiles = len(imageCameraPairs)
+    if numFiles < 2:
+        raise Exception('Failed to find any image camera pairs!')
     
     # Check that the files are properly aligned
     availableFrames = []
@@ -451,21 +451,15 @@ def main(argsIn):
 
     # We ran this before, as part of fetching, so hopefully all the data is cached
     forceAllFramesInRange = False
-    (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder, availableFrames,
-                                                   options.startFrame, options.stopFrame,
-                                                   forceAllFramesInRange)
+    (breaks, largeSkips) = getImageSpacing(options.orthoFolder, availableFrames,
+                                           options.startFrame, options.stopFrame,
+                                           forceAllFramesInRange)
     if options.imageStereoInterval: 
         logger.info('Using manually specified image stereo interval: ' +
                     str(options.imageStereoInterval))
+        largeSkips = [] # Always use a manually specified skip interval
     else:
-        logger.info('Using automatic stereo interval: ' + str(autoStereoInterval))
-        options.imageStereoInterval = autoStereoInterval
-        if options.imageStereoInterval >= numFiles:
-            raise Exception('Error: Automatic skip interval is greater than the ' +
-                            'number of input files!')       
-    extraOptions += ' --stereo-image-interval ' + str(options.imageStereoInterval)
-
-    logger.info('Detected frame breaks: ' + str(breaks))
+        options.imageStereoInterval = 1
 
     sleepTime = 20
 
@@ -490,56 +484,82 @@ def main(argsIn):
     taskHandles           = []
     batchImageCameraPairs = []
     frameNumbers          = []
-    for i in range(0,numFiles):
-    
-        # Check if this is inside the user specified frame range
-        frameNumber = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[i][0])
-        if not options.logBatches:
-            logger.info('Processing frame number: ' + str(frameNumber))
+    i = 0 # The frame index that starts the current batch
+    while True: # Loop for adding batches
+ 
+        firstBundleFrame = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[i][0])
 
-        # Add frame to the list for the current batch
-        batchImageCameraPairs.append(imageCameraPairs[i])
-        frameNumbers.append(frameNumber)
-        
-        numPairs = len(batchImageCameraPairs)
-        
-        # Keep adding frames until we get enough or hit the last frame or hit a break
-        hitBreakFrame = frameNumber in breaks
-        if ((numPairs < options.bundleLength) and (frameNumber < options.stopFrame) and 
-               (not hitBreakFrame)):
-            continue
-          
-        # The output folder is named after the first and last frame in the batch.
-        # We count on this convention in blend_dems.py.
-        #batchFolderName  = ('batch_%05d_%05d_%d' % (frameNumbers[0], frameNumbers[-1], options.bundleLength)) # TODO: Make this change!
-        batchFolderName  = ('batch_%d_%d_%d' % (frameNumbers[0], frameNumbers[-1], options.bundleLength))
-        thisOutputFolder = os.path.join(outputFolder, batchFolderName)
-                                        
+        # Determine the frame skip amount for this batch (set by the first frame)
+        thisSkipInterval = options.imageStereoInterval
+        if firstBundleFrame in largeSkips:
+            thisSkipInterval = largeSkips[firstBundleFrame]
+        thisBatchSize = options.bundleLength + thisSkipInterval - 1
 
-        if not options.logBatches:
-            logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
-                        'with options: ' + extraOptions + ' --stereo-arguments ' + options.stereoArgs)
+        # Keep adding frames until we have enough or run out of frames
+        j = i # The frame index that ends the batch
+        while True:
+            # Update conditions
+            hitBreakFrame = frameNumber in breaks
+            lastFrame     = (frameNumber > options.stopFrame) or (j >= numFiles)
+            endBatch      = len(frameNumbers) >= thisBatchSize
         
-        if not options.dryRun:
-            # Generate the command call
-            taskHandles.append(pool.apply_async(processBatch, 
-                (batchImageCameraPairs, lidarFolder, options.referenceDem,
-                 thisOutputFolder, extraOptions, 
-                 outputResolution, options.stereoArgs, batchNum, batchLogPath)))
-        batchNum += 1
+            if lastFrame or endBatch:
+                break # The new frame is too much, don't add it to the batch
         
+            # Add frame to the list for the current batch
+            frameNumber = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[j][0])
+            batchImageCameraPairs.append(imageCameraPairs[j])
+            frameNumbers.append(frameNumber)
+            
+            if hitBreakFrame:
+                break # Break after this frame, it is the last one added to the batch.
+            
+            j = j + 1
+        # Done adding frames to this batch
+
+        if len(frameNumbers) <= thisSkipInterval:
+            logger.info('Batch from frame: ' + str(firstBundleFrame) + ' is too small to run.  Skipping.')
+        else:
+
+            # Submit the batch
+            if not options.logBatches:
+                logger.info('Processing frame number: ' + str(firstBundleFrame))
+                     
+            # The output folder is named after the first and last frame in the batch.
+            # We count on this convention in blend_dems.py.
+            batchFolderName  = ('batch_%05d_%05d_%d' % (frameNumbers[0], frameNumbers[-1], options.bundleLength))
+            thisOutputFolder = os.path.join(outputFolder, batchFolderName)
+
+            if not options.logBatches:
+                logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
+                            'with options: ' + extraOptions + ' --stereo-arguments ' + options.stereoArgs)
+            
+            if not options.dryRun:
+                # Generate the command call
+                taskHandles.append(pool.apply_async(processBatch, 
+                    (batchImageCameraPairs, lidarFolder, options.referenceDem, thisSkipInterval,
+                     thisOutputFolder, extraOptions, 
+                     outputResolution, options.stereoArgs, batchNum, batchLogPath)))
+            batchNum += 1
+            
+        
+        # Reset these lists
+        batchImageCameraPairs = []
+        frameNumbers          = []
+        
+        # Advance to the frame that starts the next batch
         if hitBreakFrame:
             # When we hit a break in the frames we need to start the
             # next batch after the break frame
-            batchImageCameraPairs = []
-            frameNumbers          = []
+            i = j + 1
         else:
-            # Reset variables to start from a frame near the end of the current set.
-            # - The amount of frame overlap is equal to the image stereo interval,
-            #   this makes it so that that each image gets to be the left image in a stereo pair.
-            batchOverlapCount     = -1 * options.imageStereoInterval
-            batchImageCameraPairs = batchImageCameraPairs[batchOverlapCount:]
-            frameNumbers          = frameNumbers[batchOverlapCount:]
+            # Start in the next frame that was not used as a "left" stereo image.
+            i = i + options.bundleLength - 1
+        
+        if lastFrame:
+            break # Quit the main loop if we hit the end of the frame list.
+
+            
             
     # End of loop through input file pairs
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
