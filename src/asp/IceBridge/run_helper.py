@@ -92,6 +92,10 @@ class RunHelper():
         '''Return the file name used to tar up the final results'''
         return 'DEM_' + self.name() + '_V1.tar'
 
+    def getLabelTarName(self):
+        '''Return the file name used to tar up the label files'''
+        return 'LABELS_' + self.name() + '.tar'
+
     def getFolder(self):
         '''Returns the folder where this run will be stored'''
         return os.path.join(self.parentFolder, str(self))
@@ -125,6 +129,8 @@ class RunHelper():
         return self._internalLoc('pbsLog')
     def getSummaryFolder(self):
         return self._internalLoc('summary')
+    def getLabelFolder(self):
+        return self._internalLoc('labeled')
 
     def getJpegList(self, prependFolder=False):
         '''Return a list containing all the currently stored jpeg files'''

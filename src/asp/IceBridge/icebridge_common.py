@@ -128,6 +128,9 @@ def getNavFolder(outputFolder):
 def getNavCameraFolder(outputFolder):
     return  os.path.join(outputFolder, 'nav_camera')
 
+def getLabelFolder(outputFolder):
+    return os.path.join(outputFolder, 'labeled')
+
 def getConvertedLidarIndexFile(lidarFolder):
     return os.path.join(lidarFolder, 'converted_lidar_index.csv')
 

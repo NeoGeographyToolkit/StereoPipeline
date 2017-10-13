@@ -57,6 +57,7 @@ CAMGEN_PBS_QUEUE   = 'normal'
 BATCH_PBS_QUEUE    = 'normal'
 BLEND_PBS_QUEUE    = 'normal'
 ORTHOGEN_PBS_QUEUE = 'normal'
+LABEL_PBS_QUEUE = 'normal'
 
 GROUP_ID = 's1827'
 
@@ -108,11 +109,18 @@ def getParallelParams(nodeType, task):
         if nodeType == 'wes': return (10, 3,  800, 8) 
     
     if task == 'orthogen':
-        # TODO: Need to think more here
-        if nodeType == 'san': return (8,  2, 350, 4)
-        if nodeType == 'ivy': return (10, 2, 400, 4)
+        if nodeType == 'san': return (8,  2, 350, 6)
+        if nodeType == 'ivy': return (10, 2, 400, 5)
         if nodeType == 'bro': return (14, 4, 500, 4)
         if nodeType == 'wes': return (10, 4, 400, 8)
+
+    # TODO: All guesses!
+    if task == 'label':
+        if nodeType == 'san': return (16, 1, 350, 6)
+        if nodeType == 'ivy': return (30, 1, 400, 5)
+        if nodeType == 'bro': return (28, 1, 500, 4)
+        if nodeType == 'wes': return (12, 1, 400, 8)
+
 
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
 
@@ -511,7 +519,7 @@ def submitBatchJobs(run, options, batchListPath, logger):
     return (baseName, jobList)
 
 def runJobs(run, mode, options, logger):
-    '''Run a blend or an ortho gen job.'''
+    '''Run a blend, ortho gen, or label job.'''
     
     # TODO: Also merge with the logic for creating a camera file.
     
@@ -521,8 +529,8 @@ def runJobs(run, mode, options, logger):
     (numProcesses, numThreads, tasksPerJob, maxHours) = getParallelParams(options.nodeType, mode)
     
     # Split the jobs across multiple nodes using frame ranges
-    numFrames    = options.stopFrame - options.startFrame + 1
-    numJobs = numFrames / tasksPerJob
+    numFrames = options.stopFrame - options.startFrame + 1
+    numJobs   = numFrames / tasksPerJob
     if numJobs < 1:
         numJobs = 1
         
@@ -538,17 +546,22 @@ def runJobs(run, mode, options, logger):
         scriptPath = icebridge_common.fullPath('gen_ortho.py')
         queueName  = ORTHOGEN_PBS_QUEUE
         jobTag     = 'O'
+        extraArgs  = ' --bundle-length ' + str(options.bundleLength)
     elif mode == 'blend':
         scriptPath = icebridge_common.fullPath('blend_dems.py')
         queueName  = BLEND_PBS_QUEUE
         jobTag     = 'B'
-        extraArgs  = '  --blend-to-fireball-footprint'
+        extraArgs  = ' --blend-to-fireball-footprint --bundle-length ' + str(options.bundleLength)
+    else:
+    elif mode == 'label':
+        scriptPath = icebridge_common.fullPath('label_images.py')
+        queueName  = LABEL_PBS_QUEUE
+        jobTag     = 'L'
     else:
         raise Exception("Unknown mode: " + mode)
     args = (('--site %s --yyyymmdd %s --num-threads %d --num-processes %d ' + \
-            '--output-folder %s --bundle-length %d %s ') 
-            % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder,
-               options.bundleLength, extraArgs))
+            '--output-folder %s %s ') 
+            % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, extraArgs))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
@@ -897,6 +910,14 @@ def main(argsIn):
 
         parser.add_argument("--wipe-all", action="store_true", dest="wipeAll", default=False,
                             help="Wipe completely the directory, including the inputs.")
+
+        parser.add_argument("--generate-labels", action="store_true",
+                            dest="generateLabels", default=False,
+                            help="Run python label creation script on input jpegs.  Only for sea ice flights!")
+
+        parser.add_argument("--archive-labels", action="store_true",
+                            dest="archiveLabels", default=False,
+                            help="Archive the results from --generate-labels.")
                           
         options = parser.parse_args(argsIn)
 
@@ -1036,6 +1057,11 @@ def main(argsIn):
             runJobs(run, 'orthogen', options, logger)
             stop_time("orthogen", logger)
 
+        if options.generateLabels:
+            start_time()
+            runJobs(run, 'label', options, logger)
+            stop_time("label", logger)
+
         # TODO: Uncomment when processing multiple runs.
         ## Log the run as completed
         ## - If the run was not processed correctly it will have to be looked at manually
@@ -1113,6 +1139,12 @@ def main(argsIn):
                 print 'Caught exception sending ortho images.'
                 logger.exception(e)
             stop_time("archive orthos", logger)
+
+        # Archive the label files
+        if options.archiveLabels:
+            start_time()
+            archive_functions.packAndSendLabels(run, logger)
+            stop_time("archive labels", logger)
 
         if not options.skipEmail:
             emailAddress = getEmailAddress(icebridge_common.getUser())
