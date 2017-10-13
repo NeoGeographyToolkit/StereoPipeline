@@ -318,7 +318,7 @@ def runConversion(run, options, logger):
         currentFrame += tasksPerJob
 
     # Wait for conversions to finish
-    pbs_functions.waitForRunCompletion(baseName, jobList, logger)
+    pbs_functions.waitForJobCompletion(jobList, logger)
 
     if options.parallelValidate:
 
@@ -518,7 +518,7 @@ def submitBatchJobs(run, options, batchListPath, logger):
     # Waiting on these jobs happens outside this function
     return (baseName, jobList)
 
-def runJobs(run, mode, options, logger):
+def launchJobs(run, mode, options, logger):
     '''Run a blend, ortho gen, or label job.'''
     
     # TODO: Also merge with the logic for creating a camera file.
@@ -540,8 +540,9 @@ def runJobs(run, mode, options, logger):
     outputFolder = run.getFolder()
 
     scriptPath = ""
-    extraArgs = ""
-    jobTag = ""
+    extraArgs  = ""
+    jobTag     = ""
+    priority   = 5
     if mode == 'orthogen':
         scriptPath = icebridge_common.fullPath('gen_ortho.py')
         queueName  = ORTHOGEN_PBS_QUEUE
@@ -557,6 +558,8 @@ def runJobs(run, mode, options, logger):
         scriptPath = icebridge_common.fullPath('label_images.py')
         queueName  = LABEL_PBS_QUEUE
         jobTag     = 'L'
+        priority   = 0 # Make these slightly lower priority than the other jobs.
+                       # May need to experiment with these numbers.
     else:
         raise Exception("Unknown mode: " + mode)
     args = (('--site %s --yyyymmdd %s --num-threads %d --num-processes %d ' + \
@@ -577,20 +580,18 @@ def runJobs(run, mode, options, logger):
         stopFrame  = currentFrame+tasksPerJob # Last frame passed to the tool is not processed
         if (i == numJobs - 1):
             stopFrame = options.stopFrame # Make sure nothing is lost at the end
-        thisArgs = (args + ' --start-frame ' + str(startFrame) + \
-                    ' --stop-frame ' + str(stopFrame) )
+        thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, mode + '_' + jobName)
         logger.info('Submitting job: ' + scriptPath +  ' ' + thisArgs)
         pbs_functions.submitJob(jobName, queueName, maxHours, logger,
                                 options.minutesInDevelQueue,
                                 GROUP_ID,
                                 options.nodeType, '/usr/bin/python2.7',
-                                scriptPath + ' ' + thisArgs, logPrefix)
+                                scriptPath + ' ' + thisArgs, logPrefix, priority)
         jobList.append(jobName)
         currentFrame += tasksPerJob
 
-    # Wait for conversions to finish
-    pbs_functions.waitForRunCompletion(baseName, jobList, logger)
+    return (baseName, jobList)
 
 def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
 
@@ -1043,24 +1044,29 @@ def main(argsIn):
             # Wait for all the jobs to finish
             logger.info('Waiting for job completion of run ' + str(run))
             
-            pbs_functions.waitForRunCompletion(baseName, jobList, logger)
+            pbs_functions.waitForJobCompletion(jobList, logger, baseName)
             logger.info('All jobs finished for run '+str(run))
             stop_time("dem creation", logger)
 
+        labelJobList = None
+        if options.generateLabels:
+            (baseName, labelJobList) = launchJobs(run, 'label', options, logger)
+            # Go ahead and launch the other jobs while these are in the queue
+
         if not options.skipBlend:
             start_time()
-            runJobs(run, 'blend', options, logger)
+            (baseName, jobList) = launchJobs(run, 'blend', options, logger)
+            pbs_functions.waitForJobCompletion(jobList, logger, baseName)
             stop_time("blend", logger)
         
         if not options.skipOrthoGen:
             start_time()
-            runJobs(run, 'orthogen', options, logger)
+            (baseName, jobList) = launchJobs(run, 'orthogen', options, logger)
+            pbs_functions.waitForJobCompletion(jobList, logger, baseName)
             stop_time("orthogen", logger)
 
-        if options.generateLabels:
-            start_time()
-            runJobs(run, 'label', options, logger)
-            stop_time("label", logger)
+        if labelJobList: # Now wait for any label jobs to finish.
+            pbs_functions.waitForJobCompletion(labelJobList, logger, baseName)
 
         # TODO: Uncomment when processing multiple runs.
         ## Log the run as completed

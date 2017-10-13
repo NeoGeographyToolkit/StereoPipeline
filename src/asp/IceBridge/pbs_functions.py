@@ -31,7 +31,7 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 # Constants
 MAX_PBS_NAME_LENGTH = 15
 
-# Wait this long between checking for job completion
+# Wait this many seconds between checking for job completion
 SLEEP_TIME = 60
 
 def getActiveJobs(user):
@@ -88,7 +88,7 @@ def getNumCores(nodeType):
 
 
 def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
-              groupId, nodeType, scriptPath, args, logPrefix):
+              groupId, nodeType, scriptPath, args, logPrefix, priority=None):
     '''Submits a job to the PBS system.
     Any such job must invoke icebridge_common.switchWorkDir().'''
     
@@ -112,7 +112,6 @@ def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
       hourString = '00:' + str(minutesInDevelQueue).zfill(2) + ':00'
       #numAttempts = 1 # For some reason qsub errors out in the devel queue
       
-    # TODO: Does this need to be wrapped in a shell script?
     # The "-m eb" option sends the user an email when the process begins and when it ends.
     # The -r n ensures the job does not restart if it runs out of memory.
 
@@ -122,8 +121,12 @@ def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
 
     # We empty PYTHONSTARTUP and LD_LIBRARY_PATH so that python can function
     # properly on the nodes. 
-    command = ('qsub -r n -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- /usr/bin/env OIB_WORK_DIR=%s PYTHONPATH=/u/oalexan1/.local/lib/python2.7/site-packages PYTHONSTARTUP="" LD_LIBRARY_PATH="" %s %s' % 
-               (queueName, jobName, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, workDir, scriptPath, args))
+    priorityString = ''
+    if priority:
+        priorityString = ' -p ' + str(priority) + ' '
+    command = ('qsub -r n -q %s -N %s %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- /usr/bin/env OIB_WORK_DIR=%s PYTHONPATH=/u/oalexan1/.local/lib/python2.7/site-packages PYTHONSTARTUP="" LD_LIBRARY_PATH="" %s %s' % 
+               (queueName, jobName, priorityString, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, workDir, scriptPath, args))
+
     logger.info(command)
 
     outputPath = None
@@ -140,10 +143,13 @@ def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
       logger.info(err)
       logger.info("Status is: " + str(status))
     
-def waitForRunCompletion(jobPrefix, jobList, logger):
+def waitForJobCompletion(jobList, logger, name=None):
   '''Sleep until all of the submitted jobs containing the provided job prefix have completed'''
   
-  logger.info("Wait for completion with prefix: " + jobPrefix)
+  postfix = '.'
+  if name:
+      postfix = ' from flight ' + name + '.'
+  logger.info("Began waiting on " + str(len(jobList)) + " jobs" + postfix)
   
   jobsRunning = []
   user = icebridge_common.getUser()
@@ -167,5 +173,5 @@ def waitForRunCompletion(jobPrefix, jobList, logger):
           jobsRunning.append(job)
           logger.info('Job started running: ' + str(job))
           
-    logger.info("Active jobs with prefix " + jobPrefix + ": " + str(numActiveJobs))
+    logger.info("Waiting on " + str(numActiveJobs) + " jobs" + postfix)
 
