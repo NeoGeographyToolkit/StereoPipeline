@@ -128,7 +128,6 @@ def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
                (queueName, jobName, priorityString, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, workDir, scriptPath, args))
 
     logger.info(command)
-
     outputPath = None
     suppressOutput = True
     redo = True
@@ -138,10 +137,17 @@ def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
                                           suppressOutput, redo, 
                                           noThrow, numAttempts, SLEEP_TIME)
 
+    print out
+    print status
     if status != 0:
-      logger.info(out)
-      logger.info(err)
-      logger.info("Status is: " + str(status))
+        logger.info(out)
+        logger.info(err)
+        logger.info("Status is: " + str(status))
+        jobId = ''
+    else:
+        jobId = out
+        
+    return jobId
     
 def waitForJobCompletion(jobList, logger, name=None):
   '''Sleep until all of the submitted jobs containing the provided job prefix have completed'''

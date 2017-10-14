@@ -553,7 +553,6 @@ def launchJobs(run, mode, options, logger):
         queueName  = BLEND_PBS_QUEUE
         jobTag     = 'B'
         extraArgs  = ' --blend-to-fireball-footprint --bundle-length ' + str(options.bundleLength)
-    else:
     elif mode == 'label':
         scriptPath = icebridge_common.fullPath('label_images.py')
         queueName  = LABEL_PBS_QUEUE
@@ -572,7 +571,8 @@ def launchJobs(run, mode, options, logger):
     pbsLogFolder = run.getPbsLogFolder()
 
     # Submit all the jobs
-    jobList = []
+    jobNames = []
+    jobIds   = []
     currentFrame = options.startFrame
     for i in range(0, numJobs):
         jobName    = ('%s%06d%s' % (jobTag, currentFrame, baseName) ) # 'B'lend or 'O'rtho
@@ -583,15 +583,16 @@ def launchJobs(run, mode, options, logger):
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, mode + '_' + jobName)
         logger.info('Submitting job: ' + scriptPath +  ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, queueName, maxHours, logger,
-                                options.minutesInDevelQueue,
-                                GROUP_ID,
-                                options.nodeType, '/usr/bin/python2.7',
-                                scriptPath + ' ' + thisArgs, logPrefix, priority)
-        jobList.append(jobName)
+        jobId = pbs_functions.submitJob(jobName, queueName, maxHours, logger,
+                                        options.minutesInDevelQueue,
+                                        GROUP_ID,
+                                        options.nodeType, '/usr/bin/python2.7',
+                                        scriptPath + ' ' + thisArgs, logPrefix, priority)
+        jobNames.append(jobName)
+        jobIds.append(jobName)
         currentFrame += tasksPerJob
 
-    return (baseName, jobList)
+    return (baseName, jobNames, jobIds)
 
 def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
 
@@ -1050,23 +1051,23 @@ def main(argsIn):
 
         labelJobList = None
         if options.generateLabels:
-            (baseName, labelJobList) = launchJobs(run, 'label', options, logger)
+            (baseName, labelJobNames, labelJobIds) = launchJobs(run, 'label', options, logger)
             # Go ahead and launch the other jobs while these are in the queue
 
         if not options.skipBlend:
             start_time()
-            (baseName, jobList) = launchJobs(run, 'blend', options, logger)
-            pbs_functions.waitForJobCompletion(jobList, logger, baseName)
+            (baseName, jobNames, jobIds) = launchJobs(run, 'blend', options, logger)
+            pbs_functions.waitForJobCompletion(jobNames, logger, baseName)
             stop_time("blend", logger)
         
         if not options.skipOrthoGen:
             start_time()
-            (baseName, jobList) = launchJobs(run, 'orthogen', options, logger)
-            pbs_functions.waitForJobCompletion(jobList, logger, baseName)
+            (baseName, jobNames, jobIds) = launchJobs(run, 'orthogen', options, logger)
+            pbs_functions.waitForJobCompletion(jobNames, logger, baseName)
             stop_time("orthogen", logger)
 
         if labelJobList: # Now wait for any label jobs to finish.
-            pbs_functions.waitForJobCompletion(labelJobList, logger, baseName)
+            pbs_functions.waitForJobCompletion(labelJobNames, logger, baseName)
 
         # TODO: Uncomment when processing multiple runs.
         ## Log the run as completed
