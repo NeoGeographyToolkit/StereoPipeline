@@ -21,7 +21,7 @@
 #   superceded by another script.
 
 import os, sys, argparse, datetime, time, subprocess, logging, multiprocessing
-import re, shutil
+import re, shutil, glob
 
 import os.path as P
 
@@ -204,12 +204,13 @@ def runFetch(run, options, logger):
     # has been done by now. 
     if not options.noRefetch:
         logger.info("Fetch from NSIDC.")
-        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch --stop-after-convert --no-ortho-convert --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch --stop-after-fetch --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
 
         if options.noNavFetch:
             cmd += ' --no-nav'
             
-        if options.skipValidate:
+        if options.skipValidate or options.parallelValidate:
+            # We will do validation in parallel later
             cmd += ' --skip-validate'
 
         if not options.noRefetchIndex:
@@ -225,22 +226,14 @@ def runConversion(run, options, logger):
     '''Run the conversion tasks for this run on the supercomputer nodes.
        This will also run through the fetch step to make sure we have everything we need.'''
 
-    # Checking for images must happen here, after we know the frame range.
-    if not run.checkForImages(options.startFrame, options.stopFrame, logger):
-        logger.info("Must fetch and convert missing images.")
-        pythonPath = asp_system_utils.which('python')
-        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch --stop-after-convert --no-lidar-convert --no-ortho-convert --no-nav --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
-    
-        if options.skipValidate:
-            cmd += ' --skip-validate'
-            
-        logger.info(cmd)
-        os.system(cmd)    
-        logger.info("Finished fetching missing images.")
-
-    # Check if already done
+    # Check if already done. If we want to validate in parallel, we must still
+    # go through this step, though hopefully it will be very fast then.
+    # TODO: Can have a check if all files have been validated (jpeg, ortho, image, etc),
+    # and then, if all cameras are also present, this step can be skipped.
     try:
-        if run.conversionIsFinished(options.startFrame, options.stopFrame):
+        if run.conversionIsFinished(options.startFrame, options.stopFrame)   and \
+           run.checkForImages(options.startFrame, options.stopFrame, logger) and \
+           (not options.parallelValidate):
             logger.info('Conversion is already complete.')
             return
     except Exception, e:
@@ -257,7 +250,7 @@ def runConversion(run, options, logger):
         pythonPath = asp_system_utils.which('python')
         cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
     
-        if options.skipValidate:
+        if options.skipValidate or options.parallelValidate:
             cmd += ' --skip-validate'
             
         logger.info(cmd)
@@ -268,14 +261,15 @@ def runConversion(run, options, logger):
     (numProcesses, numThreads, tasksPerJob, maxHours) = getParallelParams(options.nodeType, 'camgen')
     
     # Split the conversions across multiple nodes using frame ranges
-    # - The first job submitted will be the only one that converts the lidar data
+    # - The first job submitted will be the only one that converts the lidar data.
+    # We will also run validation in parallel.
     numFrames    = options.stopFrame - options.startFrame + 1
     numCamgenJobs = numFrames / tasksPerJob
     if numCamgenJobs < 1:
         numCamgenJobs = 1
         
     outputFolder = run.getFolder()
-    
+
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
     args       = (' --skip-fetch --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s' 
                   % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
@@ -318,6 +312,36 @@ def runConversion(run, options, logger):
     # Wait for conversions to finish
     pbs_functions.waitForRunCompletion(baseName, jobList, logger)
 
+    if options.parallelValidate:
+
+        # Consolidate various validation files done in parallel, to make the subsequent
+        # step faster.
+        validFilesList = icebridge_common.validFilesList(outputFolder,
+                                                         options.startFrame, options.stopFrame)
+        validFilesSet = set()
+        validFilesSet = icebridge_common.updateValidFilesListFromDisk(validFilesList, validFilesSet)
+
+        allValidFiles = glob.glob(os.path.join(outputFolder,
+                                               icebridge_common.validFilesPrefix() + '*'))
+        for fileName in allValidFiles:
+            validFilesSet = icebridge_common.updateValidFilesListFromDisk(fileName, validFilesSet)
+
+        icebridge_common.writeValidFilesList(validFilesList, validFilesSet)
+
+        # Now we will refetch and reprocess all files that were not
+        # valid so far. Hopefully not too many. This must be on a head
+        # node to be able to access the network.
+        logger.info("Refetch and process any invalid files.")
+        pythonPath = asp_system_utils.which('python')
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --refetch --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --stop-after-convert --start-frame %d --stop-frame %d --num-threads %d --num-processes %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses))
+    
+        if options.noNavFetch:
+            args += ' --no-nav'
+            
+        logger.info(cmd)
+        os.system(cmd)    
+        logger.info("Finished refetching and reprocessing.")
+
     # Check the results
     # - If we didn't get everything keep going and process as much as we can.
     success = False
@@ -329,7 +353,8 @@ def runConversion(run, options, logger):
     if not success:
         #raise Exception('Failed to convert run ' + str(run))
         logger.warning('Could not fully convert run ' + str(run))
-        
+
+
     run.setFlag('conversion_complete')
 
 
@@ -845,6 +870,9 @@ def main(argsIn):
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                             default=False, help="Don't validate the input data.")
 
+        parser.add_argument("--parallel-validate", action="store_true", dest="parallelValidate",
+                            default=False, help="Validate in parallel, during conversion.")
+        
         parser.add_argument("--wipe-processed", action="store_true", dest="wipeProcessed",
                             default=False,
                             help="Wipe the processed folder.")

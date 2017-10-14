@@ -716,7 +716,8 @@ def doFetch(options, outputFolder):
                                          allFilesToFetch, allUrlsToFetch, logger)
 
     # Fetch from disk the set of already validated files, if any
-    validFilesList = icebridge_common.validFilesList(os.path.dirname(outputFolder))
+    validFilesList = icebridge_common.validFilesList(os.path.dirname(outputFolder),
+                                                     options.startFrame, options.stopFrame)
     validFilesSet = set()
     validFilesSet = icebridge_common.updateValidFilesListFromDisk(validFilesList, validFilesSet)
     numInitialValidFiles = len(validFilesSet)

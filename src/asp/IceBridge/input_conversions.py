@@ -58,9 +58,9 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
     (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath,
                                                                   prependFolder = True)
     
-
     if not skipValidate:
-        validFilesList = icebridge_common.validFilesList(os.path.dirname(jpegFolder))
+        validFilesList = icebridge_common.validFilesList(os.path.dirname(jpegFolder),
+                                                         startFrame, stopFrame)
         validFilesSet = set()
         validFilesSet = icebridge_common.updateValidFilesListFromDisk(validFilesList, validFilesSet)
         numInitialValidFiles = len(validFilesSet)
@@ -92,7 +92,7 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
         except Exception, e:
             logger.info(str(e))
             logger.info("Removing bad file: " + inputPath)
-            if os.path.exists(inputPath): os.remove(inputPath)
+            os.system('rm -f ' + inputPath) # will not throw
             badFiles = True
             continue
         
@@ -109,7 +109,9 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
             if icebridge_common.isValidImage(outputPath):
                 logger.info("File exists and is valid, skipping: " + outputPath)
                 if not skipValidate:
-                    validFilesSet.add(outputPath) # mark it as validated
+                    # Mark both the input and the output as validated
+                    validFilesSet.add(inputPath) 
+                    validFilesSet.add(outputPath)
                 continue
         
         # Use ImageMagick tool to convert from RGB to grayscale
@@ -126,16 +128,16 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
             logger.error("Command failed.")
             logger.error("Wiping bad files: " + inputPath + " and " + outputPath + '\n'
                          + output)
-            if os.path.exists(inputPath ): os.remove(inputPath)
-            if os.path.exists(outputPath): os.remove(outputPath)
+            os.system('rm -f ' + inputPath) # will not throw
+            os.system('rm -f ' + outputPath) # will not throw
 
         if not os.path.exists(outputPath):
             badFiles = True
             logger.error('Failed to convert jpeg file: ' + inputPath)
             logger.error("Wiping bad files: " + inputPath + " and " + outputPath + '\n'
                          + output)
-            if os.path.exists(inputPath ): os.remove(inputPath)
-            if os.path.exists(outputPath): os.remove(outputPath)
+            os.system('rm -f ' + inputPath) # will not throw
+            os.system('rm -f ' + outputPath) # will not throw
 
         # Check for corrupted files
         if error is not None:
@@ -145,8 +147,8 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
             badFiles = True
             logger.error("Wiping bad files: " + inputPath + " and " + outputPath + '\n'
                          + output)
-            if os.path.exists(inputPath ): os.remove(inputPath)
-            if os.path.exists(outputPath): os.remove(outputPath)
+            os.system('rm -f ' + inputPath) # will not throw
+            os.system('rm -f ' + outputPath) # will not throw
 
     if not skipValidate:
         # Write to disk the list of validated files, but only if new
@@ -180,7 +182,8 @@ def correctFireballDems(fireballFolder, corrFireballFolder, startFrame, stopFram
                         icebridge_common.readIndexFile(fireballIndexPath, prependFolder = True)
     
     if not skipValidate:
-        validFilesList = icebridge_common.validFilesList(os.path.dirname(fireballFolder))
+        validFilesList = icebridge_common.validFilesList(os.path.dirname(fireballFolder),
+                                                         startFrame, stopFrame)
         validFilesSet = set()
         validFilesSet = icebridge_common.updateValidFilesListFromDisk(validFilesList, validFilesSet)
         numInitialValidFiles = len(validFilesSet)
@@ -226,8 +229,8 @@ def correctFireballDems(fireballFolder, corrFireballFolder, startFrame, stopFram
         # Check if the output file is good
         if not icebridge_common.isValidImage(outputPath):
             logger.error('Failed to convert dem file, wiping: ' + inputPath + ' ' + outputPath)
-            if os.path.exists(inputPath): os.remove(inputPath)
-            if os.path.exists(outputPath): os.remove(outputPath)
+            os.system('rm -f ' + inputPath) # will not throw
+            os.system('rm -f ' + outputPath) # will not throw
             badFiles = True
         else:
             if not skipValidate:
@@ -499,18 +502,26 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     return True
 
 def getCameraModelsFromNav(imageFolder, orthoFolder, 
-                           inputCalFolder, navFolder, navCameraFolder):
+                           inputCalFolder, navFolder, navCameraFolder,
+                           startFrame, stopFrame, 
+                           logger):
     '''Given the folder containing navigation files, generate an
        estimated camera model for each file.'''
    
     # Note: Currently these output files DO NOT contain accurate intrinsic parameters!
+
+    logger.info("Get camera models from nav.")
     
     # All the work is done by the separate file.
-    cmd = [imageFolder, orthoFolder, inputCalFolder, navFolder, navCameraFolder]
+    cmd = [imageFolder, orthoFolder, inputCalFolder, navFolder, navCameraFolder,
+           str(startFrame), str(stopFrame)]
+    logger.info("camera_models_from_nav.py " + " ".join(cmd))
+    
     if (camera_models_from_nav.main(cmd) < 0):
         raise Exception('Error generating camera models from nav!')
 
-def convertLidarDataToCsv(lidarFolder, skipValidate, logger):
+def convertLidarDataToCsv(lidarFolder, startFrame, stopFrame, 
+                          skipValidate, logger):
     '''Make sure all lidar data is available in a readable text format.
        Returns false if any files failed to convert.'''
 
@@ -520,7 +531,8 @@ def convertLidarDataToCsv(lidarFolder, skipValidate, logger):
     (frameDict, urlDict) = icebridge_common.readIndexFile(lidarIndexPath)
 
     if not skipValidate:
-        validFilesList = icebridge_common.validFilesList(os.path.dirname(lidarFolder))
+        validFilesList = icebridge_common.validFilesList(os.path.dirname(lidarFolder),
+                                                         startFrame, stopFrame)
         validFilesSet = set()
         validFilesSet = icebridge_common.updateValidFilesListFromDisk(validFilesList, validFilesSet)
         numInitialValidFiles = len(validFilesSet)
@@ -547,7 +559,19 @@ def convertLidarDataToCsv(lidarFolder, skipValidate, logger):
         if not os.path.exists(fullPath):
             logger.info("Cannot convert missing file: " + fullPath)
             continue
-        
+
+        # If the input is invalid, wipe both it, its xml, and the output
+        # Hopefully there will be a subsquent fetch step where it will get
+        # refetched.
+        if not icebridge_common.hasValidChkSum(fullPath, logger):
+            logger.info("Will wipe invalid file: " + fullPath)
+            xmlFile = icebridge_common.xmlFile(fullPath)
+            os.system('rm -f ' + fullPath) # will not throw
+            os.system('rm -f ' + xmlFile) # will not throw
+            os.system('rm -f ' + outputPath) # will not throw
+            badFiles = True
+            continue
+
         # Skip existing valid files
         if skipValidate:
             if os.path.exists(outputPath):
@@ -568,7 +592,7 @@ def convertLidarDataToCsv(lidarFolder, skipValidate, logger):
         # Check the result
         if not icebridge_common.isValidLidarCSV(outputPath):
             logger.error('Failed to parse LIDAR file, will wipe: ' + outputPath)
-            if os.path.exists(outputPath): os.remove(outputPath)
+            os.system('rm -f ' + outputPath) # will not throw            
             badFiles = True
         else:
             if not skipValidate:
@@ -638,6 +662,12 @@ def pairLidarFiles(lidarFolder, skipValidate, logger):
 
         if not os.path.exists(path1) or not os.path.exists(path2):
             logger.info("Cannot create " + outputPath + " as we are missing its inputs")
+            # If the inputs are missing, but the output is there, most likely it is corrupt.
+            # Wipe it. Hopefully a subsequent fetch and convert step will bring it back.
+            if os.path.exists(outputPath):
+                logger.info("Wiping: " + outputPath)
+                os.system('rm -f ' + outputPath) # will not throw
+                badFiles = True
             continue
         
         # Skip existing valid files
@@ -662,7 +692,7 @@ def pairLidarFiles(lidarFolder, skipValidate, logger):
 
         if not icebridge_common.isValidLidarCSV(outputPath):
             logger.error('Failed to generate merged LIDAR file, will wipe: ' + outputPath)
-            if os.path.exists(outputPath): os.remove(outputPath)
+            os.system('rm -f ' + outputPath) # will not throw
             badFiles = True
 
     pairedLidarFile = icebridge_common.getPairedIndexFile(pairedFolder)

@@ -20,10 +20,6 @@
 
 import os, sys, optparse, subprocess, logging
 
-# TODO: Improve this!
-logging.info('DEBUG')
-logger = logging.getLogger(__name__)
-
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
 pythonpath  = os.path.abspath(basepath + '/../Python')     # for dev ASP
@@ -47,10 +43,10 @@ def main(argsIn):
 
     # Command line parsing
     try:
-        usage  = "usage: camera_models_from_nav.py <image_folder> <ortho_folder> <cal_folder> <nav_folder> <output_folder>"
+        usage  = "usage: camera_models_from_nav.py <image_folder> <ortho_folder> <cal_folder> <nav_folder> <output_folder> startFrame stopFrame"
         parser = optparse.OptionParser(usage=usage)
         (options, args) = parser.parse_args(argsIn)
-        if len(args) < 4:
+        if len(args) < 7:
             print 'Error: Missing arguments.'
             print usage
             return -1
@@ -59,10 +55,18 @@ def main(argsIn):
         calFolder    = os.path.abspath(args[2])
         navFolder    = os.path.abspath(args[3])
         outputFolder = os.path.abspath(args[4])
+        startFrame   = int(args[5])
+        stopFrame    = int(args[6])
         
     except optparse.OptionError, msg:
         raise Exception(msg)
 
+    runDir = os.path.dirname(orthoFolder)
+    os.system("mkdir -p " + runDir)
+    
+    logLevel = logging.INFO # Make this an option??
+    logger   = icebridge_common.setUpLogger(runDir, logLevel,
+                                            'camera_models_from_nav_log')
     if not os.path.exists(orthoFolder):
         logger.error('Ortho folder ' + orthoFolder + ' does not exist!')
         return -1
@@ -76,6 +80,12 @@ def main(argsIn):
         return -1
     navPath = os.path.join(navFolder, fileList[0])
 
+    # Convert the nav file from binary to text    
+    parsedNavPath = navPath.replace('.out', '.txt')
+    cmd = 'sbet2txt.pl -q ' + navPath + ' > ' + parsedNavPath
+    logger.info(cmd)
+    if not asp_file_utils.fileIsNonZero(parsedNavPath):
+        os.system(cmd)
 
     # Find a camera file to use.
     # - nav2cam does not support per-frame intrinsic data, so just feed
@@ -98,6 +108,8 @@ def main(argsIn):
         if ('gray' in ortho) or ('sub' in ortho):
             continue
         frame = icebridge_common.getFrameNumberFromFilename(ortho)
+        if frame < startFrame or frame > stopFrame:
+            continue
         infoDict[frame] = [ortho, '']
 
     # Get the image file list
@@ -109,15 +121,17 @@ def main(argsIn):
         if ('gray' in image) or ('sub' in image):
             continue
         frame = icebridge_common.getFrameNumberFromFilename(image)
+        if frame < startFrame or frame > stopFrame:
+            continue
         if frame not in infoDict:
             raise Exception('Image missing ortho file: ' +image)
         infoDict[frame][1] = image
 
-
     os.system('mkdir -p ' + outputFolder)
-    orthoListFile = os.path.join(outputFolder, 'ortho_file_list.csv')
+    orthoListFile = os.path.join(outputFolder, 'ortho_file_list_' + str(startFrame) + "_" + str(stopFrame) + '.csv')
 
     # Open the output file for writing
+    logger.info("Writing: " + orthoListFile)
     with open(orthoListFile, 'w') as outputFile:
 
         # Loop through frames in order
@@ -142,12 +156,6 @@ def main(argsIn):
                 haveAllFiles = False
                 break
 
-    # Convert the nav file from binary to text    
-    parsedNavPath = navPath.replace('.out', '.txt')
-    cmd = 'sbet2txt.pl -q ' + navPath + ' > ' + parsedNavPath
-    logger.info(cmd)
-    if not asp_file_utils.fileIsNonZero(parsedNavPath):
-        os.system(cmd)
 
     # Call the C++ tool to generate a camera model for each ortho file
     if not haveAllFiles:
@@ -155,20 +163,28 @@ def main(argsIn):
                % (cameraPath, parsedNavPath, orthoListFile, outputFolder))
         logger.info(cmd)
         os.system(cmd)
-    
+    else:
+        logger.info("All nav files were already generated.")
+
+      
     # Generate a kml file for the nav camera files
     kmlPath = os.path.join(outputFolder, 'nav_cameras.kml')
-    try:
-        tempPath = os.path.join(outputFolder, 'list.txt')
-        logger.info('Generating nav camera kml file: ' + kmlPath)
-        os.system('ls ' + outputFolder + '/* > ' + tempPath)
-        orbitviz_pinhole = asp_system_utils.which('orbitviz_pinhole')
-        cmd = orbitviz_pinhole + ' --hide-labels -o ' + kmlPath + ' --input-list ' + tempPath
-        logger.info(cmd)
-        asp_system_utils.executeCommand(cmd, kmlPath, suppressOutput=True, redo=False)
-        os.remove(tempPath)
-    except Exception, e:
-        logger.info("Warning: " + str(e))
+
+    # This is a hack. If we are invoked from a Pleiades node, do not
+    # create this kml file, as nodes will just overwrite each other.
+    # This job may happen anyway earlier or later when on the head node.
+    if not 'PBS_NODEFILE' in os.environ:
+        try:
+            tempPath = os.path.join(outputFolder, 'list.txt')
+            logger.info('Generating nav camera kml file: ' + kmlPath)
+            os.system('ls ' + outputFolder + '/* > ' + tempPath)
+            orbitviz_pinhole = asp_system_utils.which('orbitviz_pinhole')
+            cmd = orbitviz_pinhole + ' --hide-labels -o ' + kmlPath + ' --input-list ' + tempPath
+            logger.info(cmd)
+            asp_system_utils.executeCommand(cmd, kmlPath, suppressOutput=True, redo=False)
+            os.remove(tempPath)
+        except Exception, e:
+            logger.info("Warning: " + str(e))
         
     logger.info('Finished generating camera models from nav!')
     

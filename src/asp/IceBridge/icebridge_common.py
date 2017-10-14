@@ -229,9 +229,18 @@ def writeProjectionBounds(indexFile, bounds):
                 f.write(str(val) + ', ')
             f.write('\n')
 
-def validFilesList(folder):
-    '''File containing the list of fetched files that were validated.'''
-    return os.path.join(folder, 'valid_files.csv')
+def validFilesPrefix():
+    '''This one is used in multiple places.'''
+    return 'valid_files'
+
+def validFilesList(folder, startFrame, stopFrame):
+    '''File containing the list of fetched files that were validated.
+    for the given range. Need the range so that when we validate in
+    parallel, we do not overwrite the same file. Later these validation
+    files will be merged.'''
+    
+    prefix = validFilesPrefix() + '_' + str(startFrame) + '_' + str(stopFrame) + '.csv'
+    return os.path.join(folder, prefix)
 
 def updateValidFilesListFromDisk(filesList, filesSet):
     '''Update the current set of valid files with any new info from disk.'''
@@ -576,7 +585,7 @@ def hasValidChkSum(filename, logger):
     '''Some files have an xml file containing the chksum. If so, varify
        its validity. This applies to orthoimages, DEMs, and tfw files.'''
 
-    isTfw = (fileExtension(filename) == '.tfw')
+    #isTfw = (fileExtension(filename) == '.tfw')
     
     if not os.path.exists(filename):
         logger.info("File does not exist: " + filename)

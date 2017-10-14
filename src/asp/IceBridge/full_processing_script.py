@@ -131,9 +131,94 @@ def fetchAllRunData(options, startFrame, stopFrame,
     
     return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
 
+def validateOrthosAndFireball(options, fileType, logger):
+    '''Validate ortho and fireball files within the current frame range. This
+    is expected to be in called in parallel for smaller chunks. Lidar files
+    will be validated serially. Jpegs get validated when converted to tif.
+    Return True if all is good.'''
+
+    badFiles = False
+    
+    if fileType   == 'ortho':
+        dataFolder = icebridge_common.getOrthoFolder(options.outputFolder)
+    elif fileType == 'fireball':
+        dataFolder = icebridge_common.getFireballFolder(options.outputFolder)
+    else:
+        raise Exception("Unknown file type: " + fileType)
+
+    indexPath = icebridge_common.csvIndexFile(dataFolder)
+    if not os.path.exists(indexPath):
+        # The issue of what to do when the index does not exist should
+        # have been settled by now.
+        return (not badFiles)
+
+    # Fetch from disk the set of already validated files, if any
+    validFilesList = icebridge_common.validFilesList(options.outputFolder,
+                                                     options.startFrame, options.stopFrame)
+    validFilesSet = set()
+    validFilesSet = icebridge_common.updateValidFilesListFromDisk(validFilesList, validFilesSet)
+    numInitialValidFiles = len(validFilesSet)
+    
+    (frameDict, urlDict) = icebridge_common.readIndexFile(indexPath, prependFolder = True)
+    for frame in frameDict.keys():
+
+        if frame < options.startFrame or frame > options.stopFrame:
+            continue
+
+        outputPath = frameDict[frame]
+        xmlFile = icebridge_common.xmlFile(outputPath)
+
+        if outputPath in validFilesSet and os.path.exists(outputPath) and \
+            xmlFile in validFilesSet and os.path.exists(xmlFile):
+            logger.info('Previously validated: ' + outputPath + ' ' + xmlFile)
+        else:
+            isGood = icebridge_common.hasValidChkSum(outputPath, logger)
+            if not isGood:
+                logger.info('Found invalid data. Will wipe: ' + outputPath + ' ' + xmlFile)
+                os.system('rm -f ' + outputPath) # will not throw
+                os.system('rm -f ' + xmlFile) # will not throw
+                badFiles = True
+            else:
+                logger.info('Valid file: ' + outputPath)
+                validFilesSet.add(outputPath)
+                validFilesSet.add(xmlFile)
+            
+        if fileType != 'fireball':
+            continue
+
+        # Also validate tfw
+        tfwFile = icebridge_common.tfwFile(outputPath)
+        xmlFile = icebridge_common.xmlFile(tfwFile)
+        if tfwFile in validFilesSet and os.path.exists(tfwFile) and \
+            xmlFile in validFilesSet and os.path.exists(xmlFile):
+            logger.info('Previously validated: ' + tfwFile + ' ' + xmlFile)
+        else:
+            isGood = icebridge_common.isValidTfw(tfwFile, logger)
+            if not isGood:
+                logger.info('Found invalid tfw. Will wipe: ' + tfwFile + ' ' + xmlFile)
+                os.system('rm -f ' + tfwFile) # will not throw
+                os.system('rm -f ' + xmlFile) # will not throw
+                badFiles = True
+            else:
+                logger.info('Valid tfw file: ' + tfwFile)
+                validFilesSet.add(tfwFile)
+                validFilesSet.add(xmlFile)
+        
+    # Write to disk the list of validated files, but only if new
+    # validations happened.  First re-read that list, in case a
+    # different process modified it in the meantime, such as if two
+    # managers are running at the same time.
+    numFinalValidFiles = len(validFilesSet)
+    if numInitialValidFiles != numFinalValidFiles:
+        validFilesSet = \
+                      icebridge_common.updateValidFilesListFromDisk(validFilesList, validFilesSet)
+        icebridge_common.writeValidFilesList(validFilesList, validFilesSet)
+
+    return (not badFiles)
+    
 def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, orthoFolder,
                     fireballFolder, corrFireballFolder, lidarFolder, processedFolder,
-                    navFolder, navCameraFolder, logger):
+                    navFolder, navCameraFolder, refDemPath, logger):
     '''Fetch and/or convert. Return 0 on success.'''
 
     if options.noFetch:
@@ -175,11 +260,21 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
 
         if not options.skipFastConvert:
 
+            if not options.skipValidate:
+                # Validate orthos and dems for this frame range.
+                logger.info("Ortho and fireball validation")
+                ans = validateOrthosAndFireball(options, 'ortho', logger)
+                isGood = (isGood and ans)
+                ans = validateOrthosAndFireball(options, 'fireball', logger)
+                isGood = (isGood and ans)
+            
             # Run non-ortho conversions without any multiprocessing (they are pretty fast)
             # TODO: May be worth doing the faster functions with multiprocessing in the future
 
             if not options.noLidarConvert:
-                ans = input_conversions.convertLidarDataToCsv(lidarFolder, options.skipValidate,
+                ans = input_conversions.convertLidarDataToCsv(lidarFolder,
+                                                              options.startFrame, options.stopFrame,
+                                                              options.skipValidate,
                                                               logger)
                 isGood = (isGood and ans)
                 
@@ -200,7 +295,10 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
         if not options.noNavFetch:
             # Single process call to parse the nav files.
             input_conversions.getCameraModelsFromNav(imageFolder, orthoFolder, 
-                                    options.inputCalFolder, navFolder, navCameraFolder)
+                                                     options.inputCalFolder, navFolder,
+                                                     navCameraFolder,
+                                                     options.startFrame, options.stopFrame,
+                                                     logger)
         else:
             navCameraFolder = ""
             
@@ -347,8 +445,8 @@ def main(argsIn):
                           default=False,
                           help="Stop program after data conversion.")
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
-                          default=False,
-                          help="Skip input data validation.")
+                            default=False,
+                            help="Skip input data validation.")
         parser.add_argument("--ignore-missing-lidar", action="store_true", dest="ignoreMissingLidar",
                             default=False,
                             help="Keep going if the lidar is missing.")
@@ -430,18 +528,17 @@ def main(argsIn):
     os.system("umask 022")   # enforce files be readable by others
     
     # Perform some input checks and initializations
-    if not (options.noOrthoConvert and (options.stopAfterConvert or options.stopAfterFetch) ):
-        # These are not needed unless cameras are initialized 
-        if options.inputCalFolder is None or not os.path.exists(options.inputCalFolder):
-            raise Exception("Missing camera calibration folder.")
-        if options.refDemFolder is None or not os.path.exists(options.refDemFolder):
-            raise Exception("Missing reference DEM folder.")
-
-        refDemName = icebridge_common.getReferenceDemName(options.site)
-        refDemPath = os.path.join(options.refDemFolder, refDemName)
-        if not os.path.exists(refDemPath):
-            raise Exception("Missing reference DEM: " + refDemPath)
-
+    # These are not needed unless cameras are initialized 
+    if options.inputCalFolder is None or not os.path.exists(options.inputCalFolder):
+        raise Exception("Missing camera calibration folder.")
+    if options.refDemFolder is None or not os.path.exists(options.refDemFolder):
+        raise Exception("Missing reference DEM folder.")
+    
+    refDemName = icebridge_common.getReferenceDemName(options.site)
+    refDemPath = os.path.join(options.refDemFolder, refDemName)
+    if not os.path.exists(refDemPath):
+        raise Exception("Missing reference DEM: " + refDemPath)
+    
     # TODO: CLEAN UP!!!
     # Set up the output folders
     cameraFolder       = icebridge_common.getCameraFolder(options.outputFolder)
@@ -471,14 +568,14 @@ def main(argsIn):
             logger.info("Fetch/convert attempt: " + str(attempt+1))
         ans = runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, orthoFolder,
                               fireballFolder, corrFireballFolder, lidarFolder, processedFolder,
-                              navFolder, navCameraFolder, logger)
+                              navFolder, navCameraFolder, refDemPath, logger)
         if ans == 0:
             break
-            
-    if options.stopAfterConvert:
-        logger.info('Conversion complete, finished!')
+        
+    if options.stopAfterFetch or options.dryRun or options.stopAfterConvert:
+        logger.info('Fetch/convert finished!')
         return 0
-                
+    
     # Call the processing routine
     processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   corrFireballFolder, processedFolder,
