@@ -320,26 +320,46 @@ def runConversion(run, options, logger):
                                                          options.startFrame, options.stopFrame)
         validFilesSet = set()
         validFilesSet = icebridge_common.updateValidFilesListFromDisk(validFilesList, validFilesSet)
-
         allValidFiles = glob.glob(os.path.join(outputFolder,
                                                icebridge_common.validFilesPrefix() + '*'))
         for fileName in allValidFiles:
             validFilesSet = icebridge_common.updateValidFilesListFromDisk(fileName, validFilesSet)
-
         icebridge_common.writeValidFilesList(validFilesList, validFilesSet)
 
         # Now we will refetch and reprocess all files that were not
         # valid so far. Hopefully not too many. This must be on a head
-        # node to be able to access the network.
+        # node to be able to access the network. We don't do any orthoconvert
+        # here as that one is too time-consuming
         logger.info("Refetch and process any invalid files.")
         pythonPath = asp_system_utils.which('python')
-        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --refetch --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --stop-after-convert --start-frame %d --stop-frame %d --num-threads %d --num-processes %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses))
-    
+        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --refetch --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --stop-after-convert --no-ortho-convert --start-frame %d --stop-frame %d --num-threads %d --num-processes %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses))
         if options.noNavFetch:
-            args += ' --no-nav'
-            
+            cmd += ' --no-nav'
         logger.info(cmd)
-        os.system(cmd)    
+        os.system(cmd)
+
+        # See if there are any new files for which we need to run ortho2pinhole on some node
+        logger.info("See for which files to redo ortho.")
+        (orthoList, numFrames) = icebridge_common.orthoListToRerun(validFilesSet, outputFolder)
+
+        logger.info("Number of cameras to regenerate using ortho2pinhole: " + str(numFrames))
+        if numFrames > 0:
+            cmd = (icebridge_common.fullPath('full_processing_script.py') + ' --skip-fetch --skip-validate --skip-fast-conversions --no-nav --stop-after-convert --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --start-frame %d --stop-frame %d --num-threads %d --num-processes %d --frames-file %s' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses, orthoList))
+            #logger.info(cmd)
+            jobList = []
+            jobName    = ('%s%06d%s' % ('C', 0, baseName) ) # C for camera
+            logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
+            logger.info('Submitting camera generation job: ' + cmd)
+            pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, maxHours, logger,
+                                    options.minutesInDevelQueue,
+                                    GROUP_ID,
+                                    options.nodeType, '/usr/bin/python2.7',
+                                    cmd, logPrefix)
+            jobList.append(jobName)
+            
+            # Wait for conversions to finish
+            pbs_functions.waitForRunCompletion(baseName, jobList, logger)
+
         logger.info("Finished refetching and reprocessing.")
 
     # Check the results
@@ -354,9 +374,7 @@ def runConversion(run, options, logger):
         #raise Exception('Failed to convert run ' + str(run))
         logger.warning('Could not fully convert run ' + str(run))
 
-
     run.setFlag('conversion_complete')
-
 
 def generateBatchList(run, options, listPath, logger):
     '''Generate a list of all the processing batches required for a run'''

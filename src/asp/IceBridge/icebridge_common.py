@@ -229,6 +229,21 @@ def writeProjectionBounds(indexFile, bounds):
                 f.write(str(val) + ', ')
             f.write('\n')
 
+def readLinesInSet(fileName):
+    '''Read the lines from a file as elements in a set, while stripping all leading
+    and trailing spaces.'''
+
+    filesSet = set()
+    if not os.path.exists(fileName):
+        return filesSet
+
+    with open(fileName, 'r') as f:
+        for line in f:
+            line = line.strip()
+            filesSet.add(line)
+            
+    return filesSet
+    
 def validFilesPrefix():
     '''This one is used in multiple places.'''
     return 'valid_files'
@@ -536,6 +551,65 @@ def frameToFile(frame, suffix, processFolder, bundleLength):
 
     return matches[0], os.path.dirname(matches[0])
 
+def findInvalidFrames(validFilesSet, outputFolder, fileType):
+    '''Out of the files of a given type, find the ones that are not in
+    the given set of valid images.'''
+
+    if fileType   == 'ortho':
+        dataFolder = getOrthoFolder(outputFolder)
+    elif fileType == 'jpeg':
+        dataFolder = getJpegFolder(outputFolder)
+    else:
+        raise Exception("Unknown file type: " + fileType)
+
+    # To be able to study which files are in which set, make all paths consistenty
+    # absolute
+    localOutputFolder = os.path.basename(outputFolder)
+    localFileSet = set()
+    for fileName in validFilesSet:
+        fileName = os.path.abspath(fileName)
+
+        # Correct for wrong path to folder (fragile)
+        #m = re.match("^.*?" + localOutputFolder + "/(.*?)$", fileName)
+        #if not m: continue
+        #fileName = os.path.abspath(os.path.join(outputFolder, m.group(1)))
+        localFileSet.add(fileName)
+
+    indexPath = csvIndexFile(dataFolder)
+    if not os.path.exists(indexPath):
+        raise Exception("Missing file: " + indexPath)
+    (frameDict, urlDict) = readIndexFile(indexPath, prependFolder = True)
+    badFrameDict = {}
+
+    for frame in frameDict.keys():
+        fileName = os.path.abspath(frameDict[frame])
+
+        # Correct for wrong path to folder (fragile)
+        #m = re.match("^.*?" + localOutputFolder + "/(.*?)$", fileName)
+        #if not m: continue
+        #fileName = os.path.abspath(os.path.join(outputFolder, m.group(1)))
+        if fileName not in localFileSet:
+            badFrameDict[frame] = fileName
+    
+    return badFrameDict
+
+def orthoListToRerun(validFilesSet, outputFolder):
+    '''See for which files we need to redo ortho2pinhole.'''
+
+    invalidJpegs  = findInvalidFrames(validFilesSet, outputFolder, 'jpeg')
+    invalidOrthos = findInvalidFrames(validFilesSet, outputFolder, 'ortho')
+
+    doneFrames = set()
+    orthoList = os.path.join(outputFolder, 'orthosToRerun.txt')
+    with open(orthoList, 'w') as f:
+        for frame in sorted(invalidJpegs.keys() + invalidOrthos.keys()):
+            if frame in doneFrames:
+                continue
+            doneFrames.add(frame)
+            f.write(str(frame) + '\n')
+
+    return (orthoList, len(doneFrames))
+    
 def getBatchFolderFromBatchLine(line):
     '''Returns something like /path/to/AN_20111012/processed/batch_125_126_2.'''
     # Extract just the desired folder name    

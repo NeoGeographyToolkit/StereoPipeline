@@ -312,6 +312,7 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
                                                        refDemPath, cameraFolder, 
                                                        options.simpleCameras,
                                                        options.startFrame, options.stopFrame,
+                                                       options.framesFile,
                                                        options.numOrthoProcesses, options.numThreads,
                                                        logger)
 
@@ -406,6 +407,9 @@ def main(argsIn):
         parser.add_argument('--stop-frame', dest='stopFrame', type=int,
                           default=icebridge_common.getLargestFrame(),
                           help='Frame to stop on.')
+        parser.add_argument('--frames-file', dest='framesFile', default="",
+                            help='Specific frames to run ortho2pinhole on within this frame range.')
+
         parser.add_argument('--max-num-lidar-to-fetch', dest='maxNumLidarToFetch', default=None,
                           type=int, help="The maximum number of lidar files to fetch. " + \
                           "This is used in debugging.")

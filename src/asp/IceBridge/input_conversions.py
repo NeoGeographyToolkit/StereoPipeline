@@ -104,6 +104,7 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
         else:
             if outputPath in validFilesSet and os.path.exists(outputPath):
                 logger.info('Previously validated: ' + outputPath)
+                validFilesSet.add(inputPath) 
                 continue
             
             if icebridge_common.isValidImage(outputPath):
@@ -384,6 +385,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
     
     os.system('rm -f ' + tempFilePath ) # Clean up these files
     os.system('rm -f ' + tempMatchPath)
+    os.system("rm -f core.*") # these keep on popping up
     
     if not os.path.exists(outputCamFile):
         # This function is getting called from a pool, so just log the failure.
@@ -398,6 +400,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
                              refDemPath, cameraFolder,
                              simpleCameras,
                              startFrame, stopFrame,
+                             framesFile,
                              numProcesses, numThreads, logger):
     '''Generate camera models from the ortho files.
        Returns false if any files were not generated.'''
@@ -410,16 +413,26 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         estimateFiles = icebridge_common.getByExtension(navCameraFolder, '.tsai')
     else:
         estimateFiles = []
-       
+
+    # See if to process frames from file
+    filesSet = set()
+    if framesFile != "":
+        filesSet = icebridge_common.readLinesInSet(framesFile)
+
     # Make a dictionary of ortho files by frame
     # - The orthoFiles list contains _gray.tif as well as the original
     #   images.  Prefer the gray versions because it saves a bit of time
     #   in the ortho2pinhole process.
     orthoFrames = {}
     for f in orthoFiles:
+
         frame = icebridge_common.getFrameNumberFromFilename(f)
+
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
+        if (framesFile != "") and (str(frame) not in filesSet):
+            continue
+
         # Record this file if it is the first of this frame or
         #  if it is the gray version of this frame.
         if (frame not in orthoFrames) or ('_gray.tif' in f):
@@ -429,8 +442,12 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     estimatedFrames = {}
     for f in estimateFiles:
         frame = icebridge_common.getFrameNumberFromFilename(f)
+        
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
+        if (framesFile != "") and (str(frame) not in filesSet):
+            continue
+
         estimatedFrames[frame] = f
 
     imageFiles.sort()
@@ -452,8 +469,15 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
 
         # Get associated orthofile
         frame = icebridge_common.getFrameNumberFromFilename(imageFile)
+
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
+        if (framesFile != "") and (str(frame) not in filesSet):
+            continue
+
+        if not frame in orthoFrames.keys():
+            continue
+        
         orthoFile = orthoFrames[frame]
         try:
             estimatedCameraFile = estimatedFrames[frame]
