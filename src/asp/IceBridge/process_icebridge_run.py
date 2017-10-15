@@ -143,7 +143,6 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
     
     # Get the bounding box and frame number of each ortho image
     logger.info('Loading bounding boxes...')
-    bboxes = []
     frames = []
     updatedBounds = False # will be true if some computation got done
     count = 0
@@ -155,15 +154,12 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
             logger.info('Progress: ' + str(count) + '/' + str(numOrthos))
 
         thisFrame    = icebridge_common.getFrameNumberFromFilename(orthoFiles[i])
-        if thisFrame in boundsDict:
-            thisBox = boundsDict[thisFrame]
-        else:
+        if thisFrame not in boundsDict:
             imageGeoInfo   = asp_geo_utils.getImageGeoInfo(orthoFiles[i], getStats=False)
             thisBox        = imageGeoInfo['projection_bounds']
             boundsDict[thisFrame] = thisBox
             updatedBounds = True
             
-        bboxes.append(thisBox)
         frames.append(thisFrame)
 
     # Read this file again, in case some other process modified it in the meantime.
@@ -176,8 +172,7 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
 
     # Save the bounds. There is always the danger that two processes will
     # do that at the same time, but this is rare, as hopefully we get here
-    # only once from the manager. It is not a big loss if this file
-    # gets messed up.
+    # only once from the manager. It is not a big loss if this file gets messed up.
     if updatedBounds:
         logger.info("Writing: " + projectionIndexFile)
         icebridge_common.writeProjectionBounds(projectionIndexFile, boundsDict)
@@ -199,14 +194,17 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
     # Iterate over the frames and find the best stereo frame for each    
     for i in range(0, numOrthos-1):
     
-        thisBox  = bboxes[i]
-        thisArea = getBboxArea(thisBox)
-        interval = 1
+        thisFrame = frames[i]
+        thisBox   = boundsDict[thisFrame]
+        thisArea  = getBboxArea(thisBox)
+        interval  = 1
         
         while(True):
             
             # Compute intersection area between this and next image
-            nextBox   = bboxes[i+interval]
+
+            nextFrame = frames[i+interval]
+            nextBox   = boundsDict[nextFrame]
             intersect = [max(thisBox[0], nextBox[0]), # Min X
                          min(thisBox[1], nextBox[1]), # Max X
                          max(thisBox[2], nextBox[2]), # Min Y
@@ -216,11 +214,11 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
             if area > 0:
                 ratio = area / thisArea
             
-            #print str(frames[i]) +', ' + str(frames[i+interval]) + ' -> ' + str(ratio)
+            #print str(thisFrame) +', ' + str(nextFrame) + ' -> ' + str(ratio)
             if interval == 1: # Cases for the smallest interval...
                 if ratio < NOTRY_RATIO:
-                    breaks.append(frames[i]) # No match for this frame
-                    logger.info('Detected large break after frame ' + str(frames[i]))
+                    breaks.append(thisFrame) # No match for this frame
+                    logger.info('Detected large break after frame ' + str(thisFrame))
                     break
                 if ratio < MIN_RATIO:
                     break # No reason to try increasing skip amounts for this frame
@@ -233,9 +231,14 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
                 interval = interval + 1
             else: # Overlap is fine, keep this interval.
                 break
+
+            # Handle the case where we go past the end of frames looking for a match.
+            if i+interval >= len(frames):
+                interval = interval - 1
+                break
         
         if interval > 1: # Only record larger than normal intervals.
-            largeSkips[frames[i]] = interval
+            largeSkips[thisFrame] = interval
 
     
     logger.info('Detected ' + str(len(breaks)) + ' breaks in image coverage.')
