@@ -307,8 +307,9 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
     '''Generate a camera model from a single ortho file'''
 
     # Make multiple calls with different options until we get one that works well
-    IP_METHOD   = [1, 0, 2, 1, 2] # IP method
-    LOCAL_NORM  = [False, False, False, True, True] # If true, image tiles are individually normalized with method 1 and 2
+    IP_METHOD    = [1, 0, 2, 1, 2, 0] # IP method
+    FORCE_SIMPLE = [0, 0, 0, 0, 0, 1] # If all else fails use simple mode
+    LOCAL_NORM   = [False, False, False, True, True, False] # If true, image tiles are individually normalized with method 1 and 2
     numAttempts = len(IP_METHOD)
    
     MIN_IP     = 15  # Require more IP to make sure we don't get bogus camera models
@@ -332,6 +333,9 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
         # Get parameters for this attempt
         ipMethod  = IP_METHOD[i]
         localNorm = LOCAL_NORM[i]
+
+        if FORCE_SIMPLE[i]: # Always turn this on for the final attempt!
+            simpleCamera = True
 
         # Call ortho2pinhole command
         ortho2pinhole = asp_system_utils.which("ortho2pinhole")
