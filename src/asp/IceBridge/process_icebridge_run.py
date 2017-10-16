@@ -180,7 +180,7 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
     # Since we are only comparing the image bounding boxes, not their exact corners,
     #  these ratios are only estimates.
     MAX_RATIO   = 0.85  # Increase skip until we get below this...
-    MIN_RATIO   = 0.7  # ... but don't go below this value!
+    MIN_RATIO   = 0.75  # ... but don't go below this value!
     NOTRY_RATIO = 0.35 # Don't bother with overlap amounts less than this
 
     def getBboxArea(bbox):
