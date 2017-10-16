@@ -179,8 +179,8 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
         
     # Since we are only comparing the image bounding boxes, not their exact corners,
     #  these ratios are only estimates.
-    MAX_RATIO   = 0.8  # Increase skip until we get below this...
-    MIN_RATIO   = 0.6  # ... but don't go below this value!
+    MAX_RATIO   = 0.85  # Increase skip until we get below this...
+    MIN_RATIO   = 0.7  # ... but don't go below this value!
     NOTRY_RATIO = 0.35 # Don't bother with overlap amounts less than this
 
     def getBboxArea(bbox):
@@ -428,8 +428,8 @@ def main(argsIn):
     orbitvizBefore = os.path.join(outputFolder, 'cameras_in.kml')
     vizString  = ''
     for (image, camera) in imageCameraPairs: 
-        vizString += image +' ' + camera+' '
-    cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizBefore +' '+ vizString
+        vizString += camera+' '
+    cmd = 'orbitviz_pinhole --hide-labels -o '+ orbitvizBefore +' '+ vizString
     logger.info('Running orbitviz on input files...')
 
     asp_system_utils.executeCommand(cmd, orbitvizBefore, True, redo) # Suppress (potentially long) output

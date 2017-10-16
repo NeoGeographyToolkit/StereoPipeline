@@ -49,9 +49,10 @@ os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 # over the place.
 
 def formImageCameraString(inputPairs):
+    '''Generate [images] [cameras] string from a list of input pairs.'''
     imagesAndCams = ""
-    images = ""
-    cameras = ""
+    images        = ""
+    cameras       = ""
     for (image, camera) in inputPairs: 
         images  += image;  images  += " "
         cameras += camera; cameras += " "
@@ -202,7 +203,7 @@ def blurImage(inputPath, outputPath, suppressOutput, redo):
     asp_system_utils.executeCommand(cmd, outputPath, suppressOutput, redo)
 
 
-def robustBundleAdjust(options, inputPairs, imageCameraString,
+def robustBundleAdjust(options, inputPairs,
                        suppressOutput, redo,
                        threadText, heightLimitString, logger):
     '''Perform bundle adjustment with multiple retries in case things fail.
@@ -238,7 +239,9 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     if (len(ipMethod) != len(ipPerTile)) or (len(ipMethod) != len(useBlur)) or \
            (len(ipMethod) != len(epipolarT)):
         raise Exception("Book-keeping error in robust bundle adjustment.")
-        
+
+    imageCameraString = formImageCameraString(inputPairs)
+
     # Fill inputPairs with output camera names
     for pair in inputPairs:
         pair[1] = bundlePrefix +'-'+ os.path.basename(pair[1])
@@ -1133,8 +1136,15 @@ def doWork(options, args, logger):
                                                     suppressOutput, redo, logger)
        
     # BUNDLE_ADJUST
-    origInputPairs = inputPairs
-    inputPairs = robustBundleAdjust(options, inputPairs, imageCameraString,
+    origInputPairs = inputPairs # All input pairs, non-blurred or otherwise altered.
+    
+    # For now at least only pass into bundle adjust the images which will be used in stereo.
+    # - This lets use use some BA tools which are currently only supported for two images.
+    if numStereoRuns == 1:
+        prunedInputPairs = [ inputPairs[0], inputPairs[-1]]
+    else: # Bundle on all input images
+        prunedInputPairs = inputPairs
+    inputPairs = robustBundleAdjust(options, prunedInputPairs,
                                     suppressOutput, redo,
                                     threadText, heightLimitString, logger)
 
@@ -1142,9 +1152,8 @@ def doWork(options, args, logger):
     orbitvizAfter = os.path.join(options.outputFolder, 'cameras_out.kml')
     vizString  = ''
     for (image, camera) in inputPairs: 
-        vizString += image + ' ' + camera + ' '
-    cmd = ('orbitviz --hide-labels -t nadirpinhole -r wgs84 -o ' +
-           orbitvizAfter + ' '+ vizString)
+        vizString += camera + ' '
+    cmd = ('orbitviz_pinhole --hide-labels -o ' +orbitvizAfter + ' '+ vizString)
     logger.info(cmd) # to make it go to the log, not just on screen
     asp_system_utils.executeCommand(cmd, orbitvizAfter, suppressOutput, redo)
 
