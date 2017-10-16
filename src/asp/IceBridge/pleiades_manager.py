@@ -366,7 +366,7 @@ def runConversion(run, options, logger):
             jobList.append(jobName)
             
             # Wait for conversions to finish
-            pbs_functions.waitForRunCompletion(baseName, jobList, logger)
+            pbs_functions.waitForJobCompletion(jobList, logger, baseName)
 
         logger.info("Finished refetching and reprocessing.")
 
