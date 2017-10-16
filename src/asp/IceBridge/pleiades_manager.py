@@ -421,7 +421,7 @@ def getOutputFolderFromBatchCommand(batchCommand):
     # TODO: Integrate with the more robust logic in icebridge_common.getFrameRangeFromBatchFolder()
     # which can parse a batch command.
     parts        = batchCommand.split()
-    outputFolder = parts[10] # This needs to be kept up to date with the file format!
+    outputFolder = parts[12] # This needs to be kept up to date with the file format!
     return outputFolder
 
 # TODO: Share code with the other function
