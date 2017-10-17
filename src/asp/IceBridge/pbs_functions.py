@@ -88,7 +88,7 @@ def getNumCores(nodeType):
 
 
 def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
-              groupId, nodeType, scriptPath, args, logPrefix, priority=None):
+              groupId, nodeType, commandPath, args, logPrefix, priority=None):
     '''Submits a job to the PBS system.
     Any such job must invoke icebridge_common.switchWorkDir().'''
     
@@ -98,9 +98,17 @@ def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
     numCpus = getNumCores(nodeType) # Cores or CPUs?
     
     hourString = '"'+str(maxHours)+':00:00"'
-    
-    errorsPath = logPrefix + '_errors.log'
-    outputPath = logPrefix + '_output.log'
+
+    # We must create and execute a shell script, to be able to explicitely
+    # direct the output and error to files, without counting
+    # on PBS to manage that, as that one overfloes.
+    # All our outputs and errors will go to the "verbose" files,
+    # while PBS will write its summaries, etc, to the other files.
+    shellScriptPath   = logPrefix + '_script.sh'
+    verboseOutputPath = logPrefix + '_verbose_output.log'
+    verboseErrorsPath = logPrefix + '_verbose_errors.log'
+    outputPath        = logPrefix + '_output.log'
+    errorsPath        = logPrefix + '_errors.log'
     
     workDir = os.getcwd()
 
@@ -124,16 +132,27 @@ def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
     priorityString = ''
     if priority:
         priorityString = ' -p ' + str(priority) + ' '
-    command = ('qsub -r n -q %s -N %s %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- /usr/bin/env OIB_WORK_DIR=%s PYTHONPATH=/u/oalexan1/.local/lib/python2.7/site-packages PYTHONSTARTUP="" LD_LIBRARY_PATH="" %s %s' % 
-               (queueName, jobName, priorityString, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, workDir, scriptPath, args))
 
-    logger.info(command)
+    # Generate the shell command
+    shellCommand = ( "%s %s > %s 2> %s\n" % (commandPath, args,
+                                                 verboseOutputPath, verboseErrorsPath) )
+    with open(shellScriptPath, 'w') as f:
+        f.write("#!/bin/bash\n")
+        f.write(shellCommand)
+    # Make it executable
+    os.system("chmod a+rx " + shellScriptPath)
+
+    # Run it
+    pbsCommand = ('qsub -r n -q %s -N %s %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- /usr/bin/env OIB_WORK_DIR=%s PYTHONPATH=/u/oalexan1/.local/lib/python2.7/site-packages PYTHONSTARTUP="" LD_LIBRARY_PATH="" %s' % 
+               (queueName, jobName, priorityString, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, workDir, shellScriptPath))
+
+    logger.info(pbsCommand)
     outputPath = None
     suppressOutput = True
     redo = True
     noThrow = True
     (out, err, status) = \
-          asp_system_utils.executeCommand(command, outputPath, 
+          asp_system_utils.executeCommand(pbsCommand, outputPath, 
                                           suppressOutput, redo, 
                                           noThrow, numAttempts, SLEEP_TIME)
 

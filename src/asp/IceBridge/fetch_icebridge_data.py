@@ -739,8 +739,10 @@ def doFetch(options, outputFolder):
                 # This check is just so slow. Turn it off for now.
                 # This will impact only the validation of jpegs,
                 # as the other files can be validated via the checksum.
+                # Jpegs will be validated when converting them to 1 band images
                 if outputPath in validFilesSet and os.path.exists(outputPath):
-                    logger.info('Previously validated: ' + outputPath)
+                    #logger.info('Previously validated: ' + outputPath)   # verbose
+                    continue
                 else:
                     if not icebridge_common.isValidImage(outputPath):
                         logger.info('Found an invalid image. Will wipe it: ' + outputPath)
@@ -754,7 +756,8 @@ def doFetch(options, outputFolder):
         # Sanity check: XML files must have the right latitude.
         if icebridge_common.fileExtension(outputPath) == '.xml':
             if outputPath in validFilesSet and os.path.exists(outputPath):
-                logger.info('Previously validated: ' + outputPath)
+                #logger.info('Previously validated: ' + outputPath) #verbose
+                continue
             else:
                 if os.path.exists(outputPath):
                     try:
@@ -785,7 +788,8 @@ def doFetch(options, outputFolder):
         if hasXml and len(outputPath) >= 4 and outputPath[-4:] != '.xml' \
                and outputPath[-4:] != '.tfw':
             if outputPath in validFilesSet and os.path.exists(outputPath):
-                logger.info('Previously validated: ' + outputPath)
+                #logger.info('Previously validated: ' + outputPath) # verbose
+                continue
             else:
                 isGood = icebridge_common.hasValidChkSum(outputPath, logger)
                 if not isGood:
@@ -802,7 +806,8 @@ def doFetch(options, outputFolder):
 
         if hasTfw and icebridge_common.fileExtension(outputPath) == '.tfw':
             if outputPath in validFilesSet and os.path.exists(outputPath):
-                logger.info('Previously validated: ' + outputPath)
+                #logger.info('Previously validated: ' + outputPath)
+                continue
             else:
                 isGood = icebridge_common.isValidTfw(outputPath, logger)
                 if not isGood:

@@ -103,12 +103,12 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
                 continue
         else:
             if outputPath in validFilesSet and os.path.exists(outputPath):
-                logger.info('Previously validated: ' + outputPath)
-                validFilesSet.add(inputPath) 
+                #logger.info('Previously validated: ' + outputPath) # very verbose
+                validFilesSet.add(inputPath) # Must have this
                 continue
             
             if icebridge_common.isValidImage(outputPath):
-                logger.info("File exists and is valid, skipping: " + outputPath)
+                #logger.info("File exists and is valid, skipping: " + outputPath) # verbose
                 if not skipValidate:
                     # Mark both the input and the output as validated
                     validFilesSet.add(inputPath) 
@@ -211,11 +211,11 @@ def correctFireballDems(fireballFolder, corrFireballFolder, startFrame, stopFram
                 continue
         else:
             if outputPath in validFilesSet and os.path.exists(outputPath):
-                logger.info('Previously validated: ' + outputPath)
+                #logger.info('Previously validated: ' + outputPath) # very vebose
                 continue
             
             if icebridge_common.isValidImage(outputPath):
-                logger.info("File exists and is valid, skipping: " + outputPath)
+                #logger.info("File exists and is valid, skipping: " + outputPath)
                 validFilesSet.add(outputPath) # mark it as validated
                 continue
         
@@ -569,7 +569,7 @@ def convertLidarDataToCsv(lidarFolder, startFrame, stopFrame,
     
     # Loop through all files in the folder
     badFiles = False
-    for frame in frameDict:
+    for frame in sorted(frameDict.keys()):
 
         f = frameDict[frame]
         extension = icebridge_common.fileExtension(f)
@@ -607,10 +607,10 @@ def convertLidarDataToCsv(lidarFolder, startFrame, stopFrame,
                 continue
         else:
             if outputPath in validFilesSet and os.path.exists(outputPath):
-                logger.info('Previously validated: ' + outputPath)
+                #logger.info('Previously validated: ' + outputPath) # verbose
                 continue
             if icebridge_common.isValidLidarCSV(outputPath):
-                logger.info("File exists and is valid, skipping: " + outputPath)
+                #logger.info("File exists and is valid, skipping: " + outputPath)
                 continue
         
         # Call the conversion
@@ -705,7 +705,7 @@ def pairLidarFiles(lidarFolder, skipValidate, logger):
                 continue
         else:
             if icebridge_common.isValidLidarCSV(outputPath):
-                logger.info("File exists and is valid, skipping: " + outputPath)
+                #logger.info("File exists and is valid, skipping: " + outputPath)
                 continue
 
         # Concatenate the two files
