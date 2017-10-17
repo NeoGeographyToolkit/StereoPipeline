@@ -489,7 +489,12 @@ def main(argsIn):
     frameNumbers          = []
     i = 0 # The frame index that starts the current batch
     while True: # Loop for adding batches
- 
+
+        # Bugfix: arrived at the last feasible frame (maybe there are more but
+        # they lack cameras).
+        if i >= len(imageCameraPairs):
+            break
+        
         firstBundleFrame = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[i][0])
 
         # Determine the frame skip amount for this batch (set by the first frame)
@@ -562,8 +567,6 @@ def main(argsIn):
         if lastFrame:
             break # Quit the main loop if we hit the end of the frame list.
 
-            
-            
     # End of loop through input file pairs
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
     

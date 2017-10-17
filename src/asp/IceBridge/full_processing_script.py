@@ -521,8 +521,11 @@ def main(argsIn):
     os.system('mkdir -p ' + options.outputFolder)
     logLevel = logging.INFO # Make this an option??
     logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
-                                            'icebridge_processing_log')
+                                            'icebridge_processing_log_frames_' + str(options.startFrame) + "_" + str(options.stopFrame))
 
+    # Make sure we later know what we were doing
+    logger.info("full_processing_script.py " + " ".join(argsIn)) 
+                
     (out, err, status) = asp_system_utils.executeCommand(['uname', '-a'],
                                                          suppressOutput = True)
     logger.info("Running on machine: " + out)

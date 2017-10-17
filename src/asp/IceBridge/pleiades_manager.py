@@ -230,9 +230,10 @@ def runFetch(run, options, logger):
     # Don't need to check results, they should be cleaned out in conversion call.
     run.setFlag('fetch_complete')
 
-def runConversion(run, options, logger):
+def runConversion(run, options, conversionAttempt, logger):
     '''Run the conversion tasks for this run on the supercomputer nodes.
-       This will also run through the fetch step to make sure we have everything we need.'''
+       This will also run through the fetch step to make sure we have everything we need.
+       Note: This function calls itself!'''
 
     # Check if already done. If we want to validate in parallel, we must still
     # go through this step, though hopefully it will be very fast then.
@@ -352,6 +353,14 @@ def runConversion(run, options, logger):
 
         logger.info("Number of cameras to regenerate using ortho2pinhole: " + str(numFrames))
         if numFrames > 0:
+            if numFrames > tasksPerJob and conversionAttempt == 0:
+                # Too many frames, just rerun all jobs
+                conversionAttempt = 1
+                logger.info("Re-running conversion with many nodes.")
+                runConversion(run, options, conversionAttempt, logger)
+                return
+                
+            logger.info("Re-running conversion with one node.")
             cmd = (icebridge_common.fullPath('full_processing_script.py') + ' --skip-fetch --skip-validate --skip-fast-conversions --no-nav --stop-after-convert --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --start-frame %d --stop-frame %d --num-threads %d --num-processes %d --frames-file %s' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses, orthoList))
             #logger.info(cmd)
             jobList = []
@@ -1010,7 +1019,8 @@ def main(argsIn):
         if not options.skipConvert:                   
             # Run initial camera generation
             start_time()
-            runConversion(run, options, logger)
+            conversionAttempt = 0
+            runConversion(run, options, conversionAttempt, logger)
             stop_time("convert", logger)
             
         # I see no reason to exit early
