@@ -1215,7 +1215,7 @@ def doWork(options, args, logger):
         taskHandles = []
         for i in range(0, numStereoRuns):
             taskHandles.append(pool.apply_async(createDem, 
-                                                (i, options, inputPairs, prefixes, demFiles,
+                                                (i, options, origInputPairs, prefixes, demFiles,
                                                  projString, heightLimitString, threadText, baMatchFiles[i],
                                                  suppressOutput, redo)))
         # Wait for all the tasks to complete
@@ -1226,7 +1226,7 @@ def doWork(options, args, logger):
         icebridge_common.stopTaskPool(pool)
     else:
         for i in range(0, numStereoRuns):
-            createDem(i, options, inputPairs, prefixes, demFiles, projString, heightLimitString,
+            createDem(i, options, origInputPairs, prefixes, demFiles, projString, heightLimitString,
                       threadText, baMatchFiles[i], suppressOutput, redo, logger)
 
     # If we had to create at least one DEM, need to redo all the post-DEM creation steps
