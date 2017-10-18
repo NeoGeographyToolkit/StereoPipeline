@@ -111,7 +111,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     (out, err, status) = asp_system_utils.executeCommand(cmd, checkErrorPath, suppressOutput, True)
     icebridge_common.logger_print(logger, out + '\n' + err)
     
-    refNumLidarPoints = asp_file_utils.getFileLineCount(endErrorPath) - ERR_HEADER_SIZE
+    refNumLidarPoints = asp_file_utils.getFileLineCount(checkErrorPath) - ERR_HEADER_SIZE
     minLidarPoints    = refNumLidarPoints * LIDAR_POINT_FRACTION
     icebridge_common.logger_print(logger, 'Computed min number of lidar points: ' + str(minLidarPoints))
     os.system('rm -rf ' + checkFolder) # Go ahead and clean this up now!
