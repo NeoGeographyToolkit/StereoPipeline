@@ -264,6 +264,7 @@ def robustBundleAdjust(options, inputPairs,
     # Loop through all our parameter settings, quit as soon as one works.
     bestNumIpPreElevation = 0
     bestCmd = ''
+    bestCmdSuccess = False
     success = False
     successWithoutCoverage = False
     for attempt in range(len(ipPerTile)):
@@ -305,19 +306,21 @@ def robustBundleAdjust(options, inputPairs,
         
         if status == 0: # Record if we had a success before coverage was checked
             successWithoutCoverage = True
+        thisSuccessWithoutCoverage = (status == 0)
         
-        # Check to see if we got the desired amount of coverage.
-        # - TODO: How to do this with >2 cameras?
-        m = re.findall(r"IP coverage fraction after cleaning = ([0-9e\-\.\+]*)", out)
-        if len(m) == 0: # Handle case where no IP were removed for high residual.
-            m = re.findall(r"IP coverage fraction = ([0-9e\-\.\+]*)", out)
-        if len(m) > 0: # If this text is available...
-            ipCoveragePercentage = float(m[-1]) # Use the last instance of this text.
-            logger.info('Read coverage percentage: ' + str(ipCoveragePercentage))
-            if ipCoveragePercentage < MIN_IP_COVERAGE:
-                logger.info('Coverage percentage is less than required amount: ' 
-                            + str(MIN_IP_COVERAGE) + ', trying more IP options to get more coverage.')
-                status = -1
+        if status == 0:
+            # Check to see if we got the desired amount of coverage.
+            # - TODO: How to do this with >2 cameras?
+            m = re.findall(r"IP coverage fraction after cleaning = ([0-9e\-\.\+]*)", out)
+            if len(m) == 0: # Handle case where no IP were removed for high residual.
+                m = re.findall(r"IP coverage fraction = ([0-9e\-\.\+]*)", out)
+            if len(m) > 0: # If this text is available...
+                ipCoveragePercentage = float(m[-1]) # Use the last instance of this text.
+                logger.info('Read coverage percentage: ' + str(ipCoveragePercentage))
+                if ipCoveragePercentage < MIN_IP_COVERAGE:
+                    logger.info('Coverage percentage is less than required amount: ' 
+                                + str(MIN_IP_COVERAGE) + ', trying more IP options to get more coverage.')
+                    status = -1
                 
         if status == 0:
             logger.info("Bundle adjustment succeded on attempt " + str(attempt))
@@ -325,14 +328,19 @@ def robustBundleAdjust(options, inputPairs,
             break
 
         # Keep track of the best number of IP before elevation filtering.
-        # - Dont use high IP counts without filtering.
-        if (ipPerTile[attempt] < 2000) or (bestNumIpPreElevation < MIN_IP_MATCHES):
-            m = re.findall(r"Reduced matches to (\d+)", out)
-            if len(m) == 1: # If this text is available...
-                numIpPreElevation = int(m[0])
-                if numIpPreElevation > bestNumIpPreElevation:
-                    bestNumIpPreElevation = numIpPreElevation
-                    bestCmd = cmd
+        m = re.findall(r"Reduced matches to (\d+)", out)
+        if len(m) == 1: # If this text is available...
+            numIpPreElevation = int(m[0])
+            # Mostly want to save a successful command but use numIpPreElevation as a tiebreaker.
+            logger.info('numIpPreElevation = ' + str(numIpPreElevation))
+            logger.info('thisSuccessWithoutCoverage = ' + str(thisSuccessWithoutCoverage))
+            if ((numIpPreElevation > bestNumIpPreElevation) and not (bestCmdSuccess and not thisSuccessWithoutCoverage)) \
+               or (thisSuccessWithoutCoverage and not bestCmdSuccess):
+                bestNumIpPreElevation = numIpPreElevation
+                bestCmd = cmd
+                bestCmdSuccess = thisSuccessWithoutCoverage
+                logger.info('bestNumIpPreElevation = ' + str(bestNumIpPreElevation))
+                logger.info('bestCmdSuccess = ' + str(bestCmdSuccess))
     
         # Try again. Carefully wipe only relevant files
         logger.info("Trying bundle adjustment again.")
@@ -349,12 +357,17 @@ def robustBundleAdjust(options, inputPairs,
         
         # If we never succeeded even before coverage checking, lift the elevation restriction.
         # - This increases the risk of bad IP's being used but it is better than failing.
-        if not successWithoutCoverage:
-            logger.info("Retrying bundle_adjust without elevation restriction")
+        if successWithoutCoverage:
+            logger.info("Retrying bundle_adjust without coverage check")
+            cmd = bestCmd
+        else:
+            logger.info("Retrying bundle_adjust without coverage check or elevation restriction")
             cmd = bestCmd.replace(heightLimitString, '')
-            
+
+        icebridge_common.logger_print(logger, cmd)
         (out, err, status) = asp_system_utils.executeCommand(cmd, outputCamera, True, redo,
-                                                             noThrow=True)    
+                                                             noThrow=True)
+        logger.info(out + '\n' + err)
         if status == 0:
             logger.info("Bundle adjustment succeded with elevation check removed")
             success = True
@@ -428,7 +441,12 @@ def getMatchFiles(options, origInputPairs, index):
     thisOutputFolder = os.path.join(options.outputFolder, 'stereo_pair_'+str(index))
     thisPairPrefix   = os.path.join(thisOutputFolder,     'out')
     
-    pairIndex = index + options.stereoImageInterval        
+    # Saturate the pair index at the end of the list.
+    # - This serves to handle the case where bundle_adjust was called with a
+    #   truncated input image list in a one-DEM multiple-image case.
+    pairIndex = index + options.stereoImageInterval
+    if pairIndex >= len(origInputPairs):
+        pairIndex = len(origInputPairs) - 1
 
     leftImageName  = os.path.basename(origInputPairs[index    ][0])
     rightImageName = os.path.basename(origInputPairs[pairIndex][0])
@@ -722,7 +740,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
     # - Note that the base level memory usage ignoring the SGM buffers is about 2 GB so this memory
     #   usage is in addition to that.
-    minIpString = ' --min-num-ip 40'
+    minIpString = '--min-num-ip 40'
     stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 %s ' %
                  (argString, thisPairPrefix, threadText, heightLimitString, minIpString))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
@@ -766,7 +784,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         # With the .match file copied we can retry with the same parameters.
         # - Remove some filtering steps we don't need.
         # - Exception is the height limit string, which we can remove if using existing IP.
-        stereoCmd = stereoCmd.replace(minIpString, ' --min-num-ip 10')
+        stereoCmd = stereoCmd.replace(minIpString, '--min-num-ip 10')
         stereoCmd = stereoCmd.replace(heightLimitString, ' ')
         icebridge_common.logger_print(logger, stereoCmd)
         os.system('rm -f ' + triOutput) # In case the output cloud exists but is bad
@@ -1148,6 +1166,13 @@ def doWork(options, args, logger):
                                     suppressOutput, redo,
                                     threadText, heightLimitString, logger)
 
+    # Record the best match file generated by bundle_adjust for each output pair
+    #  and where it can be copied for stereo to re-use it.
+    baMatchFiles = []
+    for i in range(0,len(prunedInputPairs)-1):
+        (inputMatch, outputMatch) = getMatchFiles(options, prunedInputPairs, i)
+        baMatchFiles.append( (inputMatch, outputMatch))
+
     # Generate a map of post-bundle camera positions
     orbitvizAfter = os.path.join(options.outputFolder, 'cameras_out.kml')
     vizString  = ''
@@ -1164,7 +1189,6 @@ def doWork(options, args, logger):
     # Check if we have all of the stereo output files
     prefixes              = []
     demFiles              = []
-    baMatchFiles          = []
     fireLidarDiffCsvPaths = []                      
 
     # Load index of fireball DEMs for comparison
@@ -1182,11 +1206,6 @@ def doWork(options, args, logger):
         demFiles.append(p2dOutput)
         if not os.path.exists(p2dOutput):
             atLeastOneDemMissing = True
-
-        # Record the match file bundle_adjust used for this pair and where
-        #  it can be copied for stereo to re-use it.
-        (inputMatch, outputMatch) = getMatchFiles(options, origInputPairs, i)
-        baMatchFiles.append( (inputMatch, outputMatch))
 
         # Diff with fireball early, in case our run fails
         currCam = inputPairs[i][1]
