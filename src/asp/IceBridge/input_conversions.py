@@ -390,7 +390,8 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
     os.system('rm -f ' + tempFilePath ) # Clean up these files
     os.system('rm -f ' + tempMatchPath)
     os.system("rm -f core.*") # these keep on popping up
-    
+    os.system("rm -f " + outputCamFile + "*-log-*") # wipe logs
+              
     if not os.path.exists(outputCamFile):
         # This function is getting called from a pool, so just log the failure.
         print('Failed to convert ortho file: ' + orthoPath)
@@ -502,6 +503,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         outputFiles.append(outputCamFile)
         if os.path.exists(outputCamFile):
             logger.info("File exists, skipping: " + outputCamFile)
+            os.system("rm -f " + outputCamFile + "*-log-*") # wipe logs
             continue
 
         # Determine which input camera file will be used for this frame

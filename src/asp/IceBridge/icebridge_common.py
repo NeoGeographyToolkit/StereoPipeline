@@ -598,22 +598,22 @@ def findInvalidFrames(validFilesSet, outputFolder, fileType):
     
     return badFrameDict
 
-def orthoListToRerun(validFilesSet, outputFolder):
+def orthoListToRerun(validFilesSet, outputFolder, startFrame, stopFrame):
     '''See for which files we need to redo ortho2pinhole.'''
-
+    # TODO: This must take startFrame and stopFrame as inputs!
     invalidJpegs  = findInvalidFrames(validFilesSet, outputFolder, 'jpeg')
     invalidOrthos = findInvalidFrames(validFilesSet, outputFolder, 'ortho')
 
-    doneFrames = set()
+    trackedFrames = set()
     orthoList = os.path.join(outputFolder, 'orthosToRerun.txt')
     with open(orthoList, 'w') as f:
         for frame in sorted(invalidJpegs.keys() + invalidOrthos.keys()):
-            if frame in doneFrames:
-                continue
-            doneFrames.add(frame)
+            if frame in trackedFrames: continue # we already saw this
+            if int(frame) < startFrame or int(frame) > stopFrame: continue
+            trackedFrames.add(frame)
             f.write(str(frame) + '\n')
 
-    return (orthoList, len(doneFrames))
+    return (orthoList, len(trackedFrames))
     
 def getBatchFolderFromBatchLine(line):
     '''Returns something like /path/to/AN_20111012/processed/batch_125_126_2.'''
@@ -629,7 +629,7 @@ def getFrameRangeFromBatchFolder(folder):
     # Extract just the desired folder name    
     m = re.match('^.*?batch_([0-9]+)_([0-9]+)', folder)
     if not m:
-        raise Exception('Failed to find batch frames in folder:' + folder)
+        raise Exception('Failed to find batch frames in folder: ' + folder)
     return (int(m.group(1)), int(m.group(2)))
 
 def xmlFile(filename):

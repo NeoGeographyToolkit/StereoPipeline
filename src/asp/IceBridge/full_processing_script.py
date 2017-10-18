@@ -138,6 +138,7 @@ def validateOrthosAndFireball(options, fileType, logger):
     Return True if all is good.'''
 
     badFiles = False
+    logger.info("Validating files of type:" + fileType)
     
     if fileType   == 'ortho':
         dataFolder = icebridge_common.getOrthoFolder(options.outputFolder)
@@ -170,7 +171,8 @@ def validateOrthosAndFireball(options, fileType, logger):
 
         if outputPath in validFilesSet and os.path.exists(outputPath) and \
             xmlFile in validFilesSet and os.path.exists(xmlFile):
-            logger.info('Previously validated: ' + outputPath + ' ' + xmlFile)
+            #logger.info('Previously validated: ' + outputPath + ' ' + xmlFile)
+            continue
         else:
             isGood = icebridge_common.hasValidChkSum(outputPath, logger)
             if not isGood:
@@ -191,7 +193,8 @@ def validateOrthosAndFireball(options, fileType, logger):
         xmlFile = icebridge_common.xmlFile(tfwFile)
         if tfwFile in validFilesSet and os.path.exists(tfwFile) and \
             xmlFile in validFilesSet and os.path.exists(xmlFile):
-            logger.info('Previously validated: ' + tfwFile + ' ' + xmlFile)
+            #logger.info('Previously validated: ' + tfwFile + ' ' + xmlFile)
+            continue
         else:
             isGood = icebridge_common.isValidTfw(tfwFile, logger)
             if not isGood:
@@ -262,7 +265,6 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
 
             if not options.skipValidate:
                 # Validate orthos and dems for this frame range.
-                logger.info("Ortho and fireball validation")
                 ans = validateOrthosAndFireball(options, 'ortho', logger)
                 isGood = (isGood and ans)
                 ans = validateOrthosAndFireball(options, 'fireball', logger)

@@ -75,7 +75,7 @@ elif icebridge_common.getUser() == 'oalexan1':
     LUNOKHOD                = 'lunokhod1'
     L_SUMMARY_FOLDER        = LUNOKHOD + ':/home/oalexan1/projects/data/icebridge/summaries'
 
-def retrieveRunData(run, unpackFolder, useTar, logger):
+def retrieveRunData(run, unpackFolder, useTar, forceTapeFetch, logger):
     '''Retrieve the data for the specified run from Lfe.'''
 
     # First check that we have enough space available
@@ -85,7 +85,7 @@ def retrieveRunData(run, unpackFolder, useTar, logger):
     fileName = run.getInputTarName()
 
     unpackedDir = os.path.join(unpackFolder, os.path.splitext(fileName)[0])
-    if os.path.exists(unpackedDir) and os.path.isdir(unpackedDir):
+    if os.path.exists(unpackedDir) and os.path.isdir(unpackedDir) and (not forceTapeFetch):
         logger.info("Directory exists, won't fetch from lfe: " + unpackedDir)
         return
 
@@ -235,11 +235,11 @@ def packAndSendSummaryFolder(run, folder, logger):
     ans = out + '\n' + err
     vals = ans.split('\n')
     if len(vals) < 10:
-        print(ans)
+        logger.info(ans)
     else:
         vals = vals[0:10]
-        print("\n".join(vals))
-        print("Above output truncated.")
+        logger.info("\n".join(vals))
+        logger.info("Above output truncated.")
 
     # Delete any existing copy of the file on lfe
     lfePath  = os.path.join(REMOTE_SUMMARY_FOLDER, fileName)

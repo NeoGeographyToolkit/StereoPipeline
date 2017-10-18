@@ -201,7 +201,8 @@ def runFetch(run, options, logger):
 
     # Fetch the archive from lfe, only in the case the directory is not present
     if not options.skipTapeFetch:
-        archive_functions.retrieveRunData(run, options.unpackDir, options.useTar, logger)
+        archive_functions.retrieveRunData(run, options.unpackDir, options.useTar,
+                                          options.forceTapeFetch, logger)
 
     pythonPath = asp_system_utils.which('python')
     
@@ -349,8 +350,10 @@ def runConversion(run, options, conversionAttempt, logger):
 
         # See if there are any new files for which we need to run ortho2pinhole on some node
         logger.info("See for which files to redo ortho.")
-        (orthoList, numFrames) = icebridge_common.orthoListToRerun(validFilesSet, outputFolder)
-
+        (orthoList, numFrames) = \
+                    icebridge_common.orthoListToRerun(validFilesSet, outputFolder,
+                                                      options.startFrame, options.stopFrame)
+        
         logger.info("Number of cameras to regenerate using ortho2pinhole: " + str(numFrames))
         if numFrames > 0:
             if numFrames > tasksPerJob and conversionAttempt == 0:
@@ -359,7 +362,7 @@ def runConversion(run, options, conversionAttempt, logger):
                 logger.info("Re-running conversion with many nodes.")
                 runConversion(run, options, conversionAttempt, logger)
                 return
-                
+            
             logger.info("Re-running conversion with one node.")
             cmd = (icebridge_common.fullPath('full_processing_script.py') + ' --skip-fetch --skip-validate --skip-fast-conversions --no-nav --stop-after-convert --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --start-frame %d --stop-frame %d --num-threads %d --num-processes %d --frames-file %s' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses, orthoList))
             #logger.info(cmd)
@@ -427,11 +430,10 @@ def generateBatchList(run, options, listPath, logger):
 
 def getOutputFolderFromBatchCommand(batchCommand):
     '''Extract the output folder from a line in the batch file'''
-    # TODO: Integrate with the more robust logic in icebridge_common.getFrameRangeFromBatchFolder()
-    # which can parse a batch command.
-    parts        = batchCommand.split()
-    outputFolder = parts[12] # This needs to be kept up to date with the file format!
-    return outputFolder
+    m = re.match('^.*?--output-folder\s+(.*?)\s', batchCommand)
+    if not m:
+        raise Exception('Failed to extract output folder from: ' + batchCommand)
+    return m.group(1)
 
 # TODO: Share code with the other function
 def filterBatchJobFile(run, batchListPath, logger):
@@ -612,7 +614,7 @@ def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
 
     with open(batchListPath, 'r') as f:
         for line in f:
-            
+
             outputFolder = getOutputFolderFromBatchCommand(line)
             (begFrame, endFrame) = icebridge_common.getFrameRangeFromBatchFolder(outputFolder)
 
@@ -846,6 +848,8 @@ def main(argsIn):
         parser.add_argument("--skip-tape-fetch", action="store_true", dest="skipTapeFetch", default=False, 
                             help="Don't fetch from tape, go directly to NSIDC. With this, one must not skip the convert step, as then subsequent steps will fail.")
         
+        parser.add_argument("--force-tape-fetch", action="store_true", dest="forceTapeFetch", default=False, 
+                            help="Fetch from tape even if a partial run directory is alrady present.")
         parser.add_argument("--skip-convert", action="store_true", dest="skipConvert",
                             default=False, 
                             help="Don't convert.")
