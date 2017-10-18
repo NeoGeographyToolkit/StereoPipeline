@@ -600,7 +600,6 @@ def findInvalidFrames(validFilesSet, outputFolder, fileType):
 
 def orthoListToRerun(validFilesSet, outputFolder, startFrame, stopFrame):
     '''See for which files we need to redo ortho2pinhole.'''
-    # TODO: This must take startFrame and stopFrame as inputs!
     invalidJpegs  = findInvalidFrames(validFilesSet, outputFolder, 'jpeg')
     invalidOrthos = findInvalidFrames(validFilesSet, outputFolder, 'ortho')
 
