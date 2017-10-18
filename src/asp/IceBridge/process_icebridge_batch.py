@@ -60,18 +60,18 @@ def formImageCameraString(inputPairs):
     return imagesAndCams
     
 
-# TODO: Move this function!
-def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM, 
+
+def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath, 
+                  demPath, finalAlignedDEM, 
                   projString, lidarCsvFormatString, threadText,
                   suppressOutput, redo, logger):
     '''Try pc_align with increasing max displacements until we it completes
        with enough lidar points used in the comparison'''
 
-    STARTING_DISPLACEMENT  = 30
-    MAX_DISPLACEMENT       = 120
-    DISPLACEMENT_INCREMENT = 20
-    ERR_HEADER_SIZE        = 3
-    MIN_LIDAR_POINTS       = 10000 #15000 is closer to a good value, so increase if we will iterate.
+    STARTING_DISPLACEMENT    = 30
+    MAX_DISPLACEMENT         = 120
+    DISPLACEMENT_INCREMENT   = 20
+    ERR_HEADER_SIZE          = 3
 
     lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
 
@@ -93,7 +93,30 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
         results = icebridge_common.readGeodiffOutput(lidarDiffPath)
         logger.info("Outputs of pc_align already exist.")
         return alignedDem, lidarDiffPath, results['Mean']
+
+    # Check the lidar DEM to estimate how many points we should be looking for
+    # - The lidar cloud density is not constant across flights so we need to have
+    #   an estimate of how many matches we are looking for.
+    # - By comparing the lidar DEM to the lidar cloud we can count the number of
+    #   lidar points in the bounding box surrounding the image DEM.
+    LIDAR_POINT_FRACTION = 0.4 # Needs to be low since the lidar DEM is produced in an expanded bbox.
+
+    icebridge_common.logger_print(logger, 'Computing desired number of aligned lidar points...')
+    alignOptions   = '--max-displacement 1.0 --csv-format ' + lidarCsvFormatString
+    checkFolder    = os.path.join(options.outputFolder, 'point_check')
+    checkPrefix    = os.path.join(checkFolder, 'out')
+    checkErrorPath = checkPrefix + '-end_errors.csv'
+    cmd = ('pc_align %s %s %s -o %s %s' %
+           (alignOptions, lidarDemPath, lidarFile, checkPrefix, threadText))
+    (out, err, status) = asp_system_utils.executeCommand(cmd, checkErrorPath, suppressOutput, True)
+    icebridge_common.logger_print(logger, out + '\n' + err)
     
+    refNumLidarPoints = asp_file_utils.getFileLineCount(endErrorPath) - ERR_HEADER_SIZE
+    minLidarPoints    = refNumLidarPoints * LIDAR_POINT_FRACTION
+    icebridge_common.logger_print(logger, 'Computed min number of lidar points: ' + str(minLidarPoints))
+    os.system('rm -rf ' + checkFolder) # Go ahead and clean this up now!
+    
+    # Done computing the desired point count, now align our DEM.
     while(True):
         
         # Call pc_align
@@ -106,10 +129,11 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
         try:
             # Redo must be true here
             icebridge_common.logger_print(logger, cmd)
-            asp_system_utils.executeCommand(cmd, alignedPC, suppressOutput, True) 
+            (out, err, status) = asp_system_utils.executeCommand(cmd, alignedPC, suppressOutput, True)
+            icebridge_common.logger_print(logger, out + '\n' + err)
         except: 
             pass
-        
+    
         # Check if finished and the number of points used.
         if not os.path.exists(endErrorPath):
             # Failed to produce any output, maybe raising the error cutoff will help?
@@ -117,12 +141,12 @@ def robustPcAlign(options, outputPrefix, lidarFile, demPath, finalAlignedDEM,
         else:
             numLidarPointsUsed = asp_file_utils.getFileLineCount(endErrorPath) - ERR_HEADER_SIZE
     
-        if (numLidarPointsUsed >= MIN_LIDAR_POINTS):
+        if (numLidarPointsUsed >= minLidarPoints):
             break # Success!
         elif (currentMaxDisplacement >= MAX_DISPLACEMENT):
             # Hit the maximum max limit!
             raise Exception('Error! Unable to find a good value for max-displacement' + 
-                            ' in pc_align.  Wanted ' + str(MIN_LIDAR_POINTS) +
+                            ' in pc_align.  Wanted ' + str(minLidarPoints) +
                             ' points, only found ' +
                             str(numLidarPointsUsed))
         else: # Try again with a higher max limit
@@ -647,11 +671,9 @@ def cropGdalImage(projBounds, inputPath, outputPath, logger):
 
 def estimateHeightRange(projBounds, projString, lidarFile, options, threadText, 
                         suppressOutput, redo, logger):
-    '''Estimate the valid height range in a region based on input height info.'''
-    
-    ## DEBUG!
-    #return '--elevation-limit ' + str(-40) +' '+ str(40)
-    
+    '''Estimate the valid height range in a region based on input height info.
+       Also generates the lidar DEM.'''
+        
     # Expand the estimate by this much in either direction
     # - If the input cameras are good then this can be fairly small, at least for flat
     #   regions.  Bad cameras are much farther off.
@@ -694,7 +716,7 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
     
     # Generate the height string
     s = '--elevation-limit ' + str(minHeight) +' '+ str(maxHeight)
-    return s
+    return (s, lidarDemPath)
     
 
 def getWidthAndMemUsageFromStereoOutput(outputText, errorText):
@@ -1108,6 +1130,7 @@ def doWork(options, args, logger):
     
     # Check that the output GSD is not set too much lower than the native resolution
     heightLimitString = ''
+    lidarDemPath      = None # Path to a DEM created from lidar data.
     if options.referenceDem:
         MAX_OVERSAMPLING = 3.0
         computedGsd = options.demResolution
@@ -1148,7 +1171,7 @@ def doWork(options, args, logger):
             # Compute a good height limit from the reference DEM
             # - Can try generating lonlat bounds in the future, but maybe better
             #   to keep these in projected coordinate space.
-            heightLimitString = estimateHeightRange(totalBounds,
+            (heightLimitString, lidarDemPath) = estimateHeightRange(totalBounds,
                                                     projString, lidarFile,
                                                     options, threadText, 
                                                     suppressOutput, redo, logger)
@@ -1370,7 +1393,7 @@ def doWork(options, args, logger):
         # - Use function to call with increasing max distance limits
         alignedDem, lidarDiffPath, meanErr = \
                     robustPcAlign(options, outputPrefix,
-                                  lidarFile, allDemPath, finalAlignedDEM,
+                                  lidarFile, lidarDemPath, allDemPath, finalAlignedDEM,
                                   projString, lidarCsvFormatString, 
                                   threadText, 
                                   suppressOutput, redo, logger)
