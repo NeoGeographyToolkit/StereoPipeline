@@ -19,7 +19,7 @@
 # Class to help manage a run stored on disk
 
 import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
-import re, shutil, time, getpass
+import re, shutil, time, getpass, glob
 
 import os.path as P
 
@@ -257,6 +257,90 @@ class RunHelper():
         
         return True # Success!
 
+    def massRenameByGlob(self, startFrame, stopFrame, orthoFrameDict,
+                         globStr, logger):
+        '''Axuxually function used below.'''
+        
+        files = glob.glob(globStr)
+        for fileName in files:
+
+            [prefix, dateString, timeString, frameString, suffix] = \
+                     icebridge_common.parseParts(fileName)
+
+            if frameString == "":
+                logger.info("Could not parse frame and time stamps from: " + fileName)
+                continue
+
+            frame = int(frameString)
+
+            if frame < startFrame or frame > stopFrame:
+                continue
+            
+            if not frame in orthoFrameDict:
+                logger.info("Missing ortho for frame: " + frame)
+                continue
+
+            [newDateString, newTimeString] = icebridge_common.parseTimeStamps(orthoFrameDict[frame])
+
+            newFile = prefix + icebridge_common.formFilePrefix(newDateString, newTimeString,
+                                                               frame) + suffix
+            if not os.path.exists(fileName):
+                continue
+
+            if fileName == newFile:
+                continue
+            
+            if os.path.exists(newFile):
+                logger.info("File exists: " + newFile + ", will wipe " + fileName)
+                os.system("rm -f " + fileName)
+                continue
+
+            logger.info("Renaming: " + fileName + " to " + newFile)
+            os.system("mv -f " + fileName + " " + newFile)
+            
+    def massRename(self, startFrame, stopFrame, logger):
+        '''We changed how the timestamp for images and cameras is computed.
+        Make all existing converted images, cameras, nav cameras, and aligned cameras conform.'''
+
+        logger.info("Renaming files with timestamp. This is slow.")
+        
+        # Need to do a mass rename for incorrect timestamp for:
+        # converted images, nav cameras, cameras, and bundle aligned cameras
+        outputFolder    = self.getFolder()
+        cameraFolder    = icebridge_common.getCameraFolder(outputFolder)
+        imageFolder     = icebridge_common.getImageFolder(outputFolder)
+        jpegFolder      = icebridge_common.getJpegFolder(outputFolder)
+        orthoFolder     = icebridge_common.getOrthoFolder(outputFolder)
+        processedFolder = icebridge_common.getProcessedFolder(outputFolder)
+        navFolder       = icebridge_common.getNavFolder(outputFolder)
+        navCameraFolder = icebridge_common.getNavCameraFolder(outputFolder)
+        
+        # Need the orthos to get the timestamp
+        orthoFolder = icebridge_common.getOrthoFolder(os.path.dirname(jpegFolder))
+        orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
+        if not os.path.exists(orthoIndexPath):
+            raise Exception("Error: Missing ortho index file: " + orthoIndexPath + ".")
+        (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath,
+                                                                        prependFolder = True)
+
+        # Rename camera files
+        self.massRenameByGlob(startFrame, stopFrame, orthoFrameDict, 
+                              os.path.join(cameraFolder, '*DMS*tsai'), logger)
+
+        # Rename nav camera files
+        self.massRenameByGlob(startFrame, stopFrame, orthoFrameDict, 
+                              os.path.join(navCameraFolder, '*DMS*tsai'), logger)
+
+        # Rename converted jpegs
+        self.massRenameByGlob(startFrame, stopFrame, orthoFrameDict, 
+                              os.path.join(imageFolder, '*DMS*tif'), logger)
+
+        # Rename aligned cameras
+        self.massRenameByGlob(startFrame, stopFrame, orthoFrameDict, 
+                              os.path.join(processedFolder, 'batch*',
+                                           icebridge_common.alignedBundleStr() + '*DMS*tsai'),
+                              logger)
+        
     def checkForImages(self, startFrame, stopFrame, logger):
         '''Return true if all the images have been converted from jpeg.'''
 
@@ -264,6 +348,8 @@ class RunHelper():
         
         jpegFolder = self.getJpegFolder()
         imageFolder = self.getImageFolder()
+        orthoFolder = self.getOrthoFolder()
+        
         if not os.path.exists(jpegFolder):
             logger.info("Missing: " + jpegFolder)
             return False
@@ -275,41 +361,18 @@ class RunHelper():
         if not os.path.exists(jpegIndexPath):
             logger.info("Missing: " + jpegIndexPath)
             return False
-
         (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath,
                                                                   prependFolder = True)
 
-        num = len(jpegFrameDict.keys())
-        count = 0
-        allGood = True
+        # Need the orthos to get the timestamp
+        orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
+        if not os.path.exists(orthoIndexPath):
+            raise Exception("Error: Missing ortho index file: " + orthoIndexPath + ".")
+        (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath,
+                                                                        prependFolder = True)
         
-        # Fast check for missing images. This is fragile, as maybe it gets
-        # the wrong file with a similar name, but this check is otherwise
-        # very slow.
-        imageFiles = icebridge_common.getTifs(imageFolder, prependFolder = True)
-        imageFrameDict = {}
-        for imageFile in imageFiles:
-            
-            frame = icebridge_common.getFrameNumberFromFilename(imageFile)
-            if frame < startFrame or frame > stopFrame: continue
-            
-            # Add the progress, as this operation can be terribly slow
-            # when the filesystem is not doing too well, especially on mfe.
-            count = count + 1
-            if (count - 1) % 1000 == 0:
-                logger.info('Progress: ' + str(count) + '/' + str(num))
-
-            imageFrameDict[frame] = imageFile
-            
-        for frame in sorted(jpegFrameDict.keys()):
-            if frame < startFrame or frame > stopFrame: continue
-            if frame not in imageFrameDict.keys():
-                logger.info("Missing converted jpeg for: " + jpegFrameDict[frame])
-                allGood = False
-
-        return allGood
-    
         # Thorough check for missing images. It is very slow.
+        num = len(jpegFrameDict.keys())
         allGood = True
         count = 0
         for frame in sorted(jpegFrameDict.keys()):
@@ -323,10 +386,14 @@ class RunHelper():
                 logger.info('Progress: ' + str(count) + '/' + str(num))
                 
             inputPath = jpegFrameDict[frame]
+            
+            if not frame in orthoFrameDict:
+                logger.info("Missing ortho for frame: " + frame)
+                continue
         
             # Make sure the timestamp and frame number are in the output file name
             try:
-                outputPath = icebridge_common.jpegToImageFile(inputPath)
+                outputPath = icebridge_common.jpegToImageFile(inputPath, orthoFrameDict[frame])
             except Exception, e:
                 logger.info(str(e))
                 logger.info("Removing bad file: " + inputPath)

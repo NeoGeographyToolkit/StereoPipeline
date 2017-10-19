@@ -138,7 +138,7 @@ def validateOrthosAndFireball(options, fileType, logger):
     Return True if all is good.'''
 
     badFiles = False
-    logger.info("Validating files of type:" + fileType)
+    logger.info("Validating files of type: " + fileType)
     
     if fileType   == 'ortho':
         dataFolder = icebridge_common.getOrthoFolder(options.outputFolder)

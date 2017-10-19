@@ -228,6 +228,11 @@ def runFetch(run, options, logger):
         logger.info(cmd)
         os.system(cmd)
 
+    # Rename to the newest convention of computing the timestamp.
+    # This must happen after all is fetched from tape and we
+    # refreshed the indicies from NSIDC.
+    run.massRename(options.startFrame, options.stopFrame, logger)
+    
     # Don't need to check results, they should be cleaned out in conversion call.
     run.setFlag('fetch_complete')
 

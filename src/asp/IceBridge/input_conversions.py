@@ -58,6 +58,14 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
     (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath,
                                                                   prependFolder = True)
     
+    # Need the orthos to get the timestamp
+    orthoFolder = icebridge_common.getOrthoFolder(os.path.dirname(jpegFolder))
+    orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
+    if not os.path.exists(orthoIndexPath):
+        raise Exception("Error: Missing ortho index file: " + orthoIndexPath + ".")
+    (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath,
+                                                                  prependFolder = True)
+    
     if not skipValidate:
         validFilesList = icebridge_common.validFilesList(os.path.dirname(jpegFolder),
                                                          startFrame, stopFrame)
@@ -85,10 +93,15 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
         if frame in imageFrameDict.keys() and skipValidate:
             # Fast, hackish check
             continue
+
+        if frame not in orthoFrameDict:
+            logger.info("Error: Could not find ortho image for jpeg frame: " + str(frame))
+            # Don't want to throw here. Just ignore the missing ortho
+            continue
         
         # Make sure the timestamp and frame number are in the output file name
         try:
-            outputPath = icebridge_common.jpegToImageFile(inputPath)
+            outputPath = icebridge_common.jpegToImageFile(inputPath, orthoFrameDict[frame])
         except Exception, e:
             logger.info(str(e))
             logger.info("Removing bad file: " + inputPath)

@@ -138,7 +138,7 @@ def getPairedIndexFile(pairedFolder):
     return os.path.join(pairedFolder, 'paired_lidar_index.csv')
 
 def folderToType(folder):
-    '''If input is myRun/ortho, return 'ortho'. Same for 'fireball', 'lidar', etc.'''
+    '''If input is myRun/ortho, return "ortho". Same for "fireball", "lidar", etc.'''
     return os.path.basename(folder)
 
 def htmlIndexFile(folder):
@@ -172,25 +172,31 @@ def getJpegDateTime(filepath):
 
     raise Exception('Failed to read date/time from file: ' + filepath)
 
-def jpegToImageFile(jpegFile):
-    '''Given AN_20111023/jpeg/2011_10_23_02806.JPG, create
-    AN_20111023/image/DMS_20111023_151417_02806.tif.
+def jpegToImageFile(jpegFile, orthoFile):
+    '''Given AN_20121107/jpeg/2012_11_08_17415.JPG and DMS_1381721_17415_20121108_00303910.tif
+    create AN_20121107/image/DMS_20121108_003039_17415.tif.
     This can throw an exception.'''
     
     jpegFolder  = os.path.dirname(jpegFile)
     imageFolder = getImageFolder(os.path.dirname(jpegFolder))
+
     if not os.path.exists(jpegFolder):
         raise Exception("Missing " + jpegFolder)
     if not os.path.exists(imageFolder):
         raise Exception("Missing " + imageFolder)
     if not os.path.exists(jpegFile):
         raise Exception("Missing " + jpegFile)
-
+    
     frame = getFrameNumberFromFilename(jpegFile)
-        
-    (dateStr, timeStr) = getJpegDateTime(jpegFile)
-    outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
+
+    # This was the original implementation, but it can give wrong results
+    # when the jpeg has incorrect time.
+    #(dateString, timeString) = getJpegDateTime(jpegFile)
+    
+    [dateString, timeString] = parseTimeStamps(orthoFile)
+    outputName = formFilePrefix(dateString, timeString, frame) + ".tif"
     outputPath = os.path.join(imageFolder, outputName)
+
     return outputPath
 
 def projectionBoundsFile(folder):
@@ -925,8 +931,26 @@ def secondsSinceMidnightToHHMMSS(secondsSinceMidnight):
     minutes, seconds = divmod(remainder, 60)
     
     return ('%02d%02d%02d' % (hours, minutes, seconds))
-    
 
+
+def formFilePrefix(dateString, timeString, frame):
+    '''Form a file with given numbers. This is used in more than one place.'''
+    
+    if len(timeString) > 6:
+        timeString = timeString[0:6] # dump the fractions of a second
+
+    return ('DMS_%s_%s_%05d') % (dateString, timeString, frame)
+
+def parseParts(fileName):
+    '''This function parses pieces of a file. It is very related
+    to formFilePrefix(), parseTimeStamps(), and getFrameNumberFromFilename()'''
+    
+    m = re.match("^(.*?)DMS_(\d+)_(\d+)_(\d+)(\..*?)$", fileName)
+    if not m:
+        return ["", "", "", "", ""]
+    
+    return [m.group(1), m.group(2), m.group(3), m.group(4), m.group(5)]
+    
 def parseTimeStamps(fileName):
     '''Pull two six or eight digit values from the given file name
        as the time and date stamps.'''
@@ -941,6 +965,18 @@ def parseTimeStamps(fileName):
         return [lidarDateString, lidarTimeString]
 
     fileName = os.path.basename(fileName)
+
+    # Now look at something like: DMS_1100106_11985_20101026_19113275.tif
+    
+    m = re.match("^DMS\_(\d+)_(\d+)_(\d+)_(\d+)\.tif", fileName, re.IGNORECASE)
+    if m:
+        # The format is: a value, frame number, yyyymmdd, hhmmssss
+        dateString = m.group(3)
+        timeString = m.group(4)
+        return [dateString, timeString]
+    
+    # This is somewhat fragile older code andling other cases
+    
     fileName = fileName.replace('.', '_')
     fileName = fileName.replace('-', '_')
     parts    = fileName.split('_')
