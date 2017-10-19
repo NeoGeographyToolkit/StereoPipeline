@@ -137,16 +137,16 @@ void scan_line(std::string const& line,
 Matrix3x3 get_rotation_matrix_roll(double roll) {
   Matrix3x3 M;
   M(0,0) = 1.0;         M(0,1) = 0.0;           M(0,2) = 0.0;
-  M(1,0) = 0.0;         M(1,1) = cos(roll);     M(1,2) = sin(roll);
-  M(2,0) = 0.0;         M(2,1) = -sin(roll);    M(2,2) = cos(roll); 
+  M(1,0) = 0.0;         M(1,1) = cos(roll);     M(1,2) = -sin(roll);
+  M(2,0) = 0.0;         M(2,1) = sin(roll);     M(2,2) = cos(roll); 
   return M;
 }
 /// Rotate about Y (right)
 Matrix3x3 get_rotation_matrix_pitch(double pitch) {
   Matrix3x3 M;
-  M(0,0) = cos(pitch);  M(0,1) = 0.0;           M(0,2) = -sin(pitch);
+  M(0,0) = cos(pitch);  M(0,1) = 0.0;           M(0,2) = sin(pitch);
   M(1,0) = 0.0;         M(1,1) = 1.0;           M(1,2) = 0.0;
-  M(2,0) = sin(pitch);  M(2,1) = 0.0;           M(2,2) = cos(pitch);
+  M(2,0) = -sin(pitch); M(2,1) = 0.0;           M(2,2) = cos(pitch);
   return M;
 }
 /// Rotate about Z (down)
@@ -459,7 +459,7 @@ void write_output_camera(Vector3 const& center, Matrix3x3 const& pose,
   // Load the reference pinhole model, update it, and write it out to disk.
   PinholeModel camera_model(input_cam);
   camera_model.set_camera_center(center);
-  //camera_model.set_camera_pose(pose);
+  camera_model.set_camera_pose(pose);
   //vw_out() << "Writing: " << output_camera << std::endl;
   
   /*
@@ -470,13 +470,13 @@ void write_output_camera(Vector3 const& center, Matrix3x3 const& pose,
   camera_model.coordinate_frame(u_vec, v_vec, w_vec);
   camera_model.set_coordinate_frame(u_vec, -1.0*v_vec, w_vec);
   */
-  
+  /*
   Matrix3x3 pose_flip(pose); // As a workaround, negate the Y axis!
   pose_flip(0,1) *= -1;
   pose_flip(1,1) *= -1;
   pose_flip(2,1) *= -1;
   camera_model.set_camera_pose(pose_flip);
-  
+  */
   camera_model.write(output_camera);
 }
 
@@ -558,8 +558,8 @@ int main(int argc, char* argv[]) {
       double pitch   = rot_interp[1];
       //double heading = rot_interp[2];
       //vw_out() << "For file " << orthoimage_path << " computed LLH " << llh_interp << std::endl;
-      //vw_out() << "Roll    = " << roll    << std::endl;
-      //vw_out() << "Pitch   = " << pitch   << std::endl;
+      //vw_out() << "Roll    = " << roll    <<" = "<< roll*180/3.14159<< std::endl;
+      //vw_out() << "Pitch   = " << pitch   <<" = "<< pitch*180/3.14159<< std::endl;
       //vw_out() << "Heading = " << heading << std::endl;
 
       //std::cout << "Ortho time  = " << ortho_time << std::endl;
@@ -602,7 +602,7 @@ int main(int argc, char* argv[]) {
       zDir = zDir / norm_2(zDir);
       
       // The Y vector is the cross product of the two established vectors
-      Vector3 yDir = cross_prod(xDir, zDir);
+      Vector3 yDir = cross_prod(zDir, xDir);
       
       // Pack into a rotation matrix
       Matrix3x3 rotation_matrix_gcc(xDir[0], yDir[0], zDir[0],
@@ -636,24 +636,31 @@ int main(int argc, char* argv[]) {
       Matrix3x3 M_pitch = get_rotation_matrix_pitch(pitch);
 
       //std::cout << "M_roll, M_pitch:\n";
-      //print_matrix(M_roll); std::cout << std::endl;
+      //print_matrix(M_roll ); std::cout << std::endl;
       //print_matrix(M_pitch); std::cout << std::endl;
       
       // Without documentation it is very difficult to determine
       // which of these rotation orders is correct!
       // - Could be neither since the yaw rotation is already baked in.
-      Matrix3x3 M1 = M_pitch*M_roll*rotation_matrix_gcc; // <-- Works!
-      //Matrix3x3 M2 = M_roll*M_pitch*rotation_matrix_gcc; // <-- Only slightly different but does not work!
+      Matrix3x3 M1 = M_pitch*M_roll*rotation_matrix_gcc; // <-- off
+      Matrix3x3 M2 = M_roll*M_pitch*rotation_matrix_gcc; // <-- off
+      Matrix3x3 M3 = rotation_matrix_gcc*M_pitch*M_roll; // <-- Best
+      Matrix3x3 M4 = rotation_matrix_gcc*M_roll*M_pitch; // <-- Ok
       
       //std::cout << "Modified matrices:\n";
       //print_matrix(M1); std::cout << std::endl;
       //print_matrix(M2); std::cout << std::endl;
+      //print_matrix(M3); std::cout << std::endl;
+      //print_matrix(M4); std::cout << std::endl;
 
       //std::string var_path = output_camera_path.string() + "_";
+      //write_output_camera(gcc_interp, rotation_matrix_gcc, opt.input_cam, var_path + "M0.tsai");
       //write_output_camera(gcc_interp, M1, opt.input_cam, var_path + "M1.tsai");
       //write_output_camera(gcc_interp, M2, opt.input_cam, var_path + "M2.tsai");
+      //write_output_camera(gcc_interp, M3, opt.input_cam, var_path + "M3.tsai");
+      //write_output_camera(gcc_interp, M4, opt.input_cam, var_path + "batch_06420_06421_2M4.tsai");
 
-      write_output_camera(gcc_interp, M1,
+      write_output_camera(gcc_interp, M3,
                           opt.input_cam, output_camera_path.string());
 
       //std::cout << std::endl << "NED matrix " << std::endl;

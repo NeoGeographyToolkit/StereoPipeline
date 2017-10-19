@@ -442,8 +442,8 @@ void calc_target_geom(// Inputs
   float auto_res;
   cam_box = camera_bbox(dem, dem_georef,
                         target_georef, 
-                        camera_model,
-                        image_size.x(), image_size.y(), auto_res);
+                        camera_model, // TODO: There is a bug with the non-quick intersection code!!
+                        image_size.x(), image_size.y(), auto_res, true);
 
   // Use auto-calculated ground resolution if that option was selected
   double current_resolution;
@@ -785,9 +785,9 @@ int main( int argc, char* argv[] ) {
     double radius = target_georef.datum().semi_major_axis();
     if ( !std::isnan(opt.tr) ){ // --tr was set
       if (target_georef.is_projected()) {
-	if (std::isnan(opt.mpp)) opt.mpp = opt.tr; // User must have provided be meters per pixel
+        if (std::isnan(opt.mpp)) opt.mpp = opt.tr; // User must have provided be meters per pixel
       }else {
-	if (std::isnan(opt.ppd)) opt.ppd = 1.0/opt.tr; // User must have provided degrees per pixel
+        if (std::isnan(opt.ppd)) opt.ppd = 1.0/opt.tr; // User must have provided degrees per pixel
       }
     }
     

@@ -260,7 +260,7 @@ def robustBundleAdjust(options, inputPairs,
     normIpTiles = [0,   0,   0,     0,   0,   0,     1,    1,      0,    0,    0,     1   ]
 
     # This is the rough percentage of the image that we want to have interest points in.
-    MIN_IP_COVERAGE = 0.55
+    MIN_IP_COVERAGE = 0.70
 
     if (len(ipMethod) != len(ipPerTile)) or (len(ipMethod) != len(useBlur)) or \
            (len(ipMethod) != len(epipolarT)):
@@ -358,15 +358,11 @@ def robustBundleAdjust(options, inputPairs,
         if len(m) == 1: # If this text is available...
             numIpPreElevation = int(m[0])
             # Mostly want to save a successful command but use numIpPreElevation as a tiebreaker.
-            logger.info('numIpPreElevation = ' + str(numIpPreElevation))
-            logger.info('thisSuccessWithoutCoverage = ' + str(thisSuccessWithoutCoverage))
             if ((numIpPreElevation > bestNumIpPreElevation) and not (bestCmdSuccess and not thisSuccessWithoutCoverage)) \
                or (thisSuccessWithoutCoverage and not bestCmdSuccess):
                 bestNumIpPreElevation = numIpPreElevation
                 bestCmd = cmd
                 bestCmdSuccess = thisSuccessWithoutCoverage
-                logger.info('bestNumIpPreElevation = ' + str(bestNumIpPreElevation))
-                logger.info('bestCmdSuccess = ' + str(bestCmdSuccess))
     
         # Try again. Carefully wipe only relevant files
         logger.info("Trying bundle adjustment again.")
@@ -395,7 +391,7 @@ def robustBundleAdjust(options, inputPairs,
                                                              noThrow=True)
         logger.info(out + '\n' + err)
         if status == 0:
-            logger.info("Bundle adjustment succeded with elevation check removed")
+            logger.info("Bundle adjustment succeded on repeat attempt.")
             success = True
 
     if not success:

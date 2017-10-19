@@ -26,6 +26,7 @@
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/FileIO/KML.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
@@ -48,7 +49,7 @@ using namespace vw::cartography;
 
 struct Options : public vw::cartography::GdalWriteOptions {
   string image_file, camera_file, stereo_session, bundle_adjust_prefix,
-         datum_str, dem_file, target_srs_string;
+         datum_str, dem_file, target_srs_string, output_kml;
   bool quick;
   //BBox2i image_crop_box;
 };
@@ -61,6 +62,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string). Can also be an URL or in WKT format, as in GDAL.")
     ("quick",            po::bool_switch(&opt.quick)->default_value(false),
 	     "Use a faster but less accurate computation.")
+    ("output-kml", po::value(&opt.output_kml),
+     "Create an output KML file at this path.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: pinhole isis rpc dg spot5 aster.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
@@ -117,7 +120,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 int main( int argc, char *argv[] ) {
 
   Options opt;
-  try {
+  //try {
 
     handle_arguments(argc, argv, opt);
 
@@ -160,19 +163,27 @@ int main( int argc, char *argv[] ) {
     
     // Perform the computation
     
+    GeoReference target_georef;
+    
     BBox2 footprint_bbox;
-    float mean_gsd;
+    float mean_gsd=0;
+    std::vector<Vector3> coords;
     if (opt.dem_file.empty()) { // No DEM available, intersect with the datum.
 
       // Initialize the georef/datum
       bool have_user_datum = (opt.datum_str != "");
       cartography::Datum datum(opt.datum_str);
-      GeoReference georef(datum);
+      target_georef = GeoReference(datum);
       
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, datum, georef);
-      vw_out() << "Using georef: " << georef << std::endl;
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, datum, target_georef);
+      vw_out() << "Using georef: " << target_georef << std::endl;
 
-      footprint_bbox = camera_bbox(georef, cam, image_size[0], image_size[1], mean_gsd);
+      std::vector<Vector2> coords2;
+      footprint_bbox = camera_bbox(target_georef, cam, image_size[0], image_size[1], mean_gsd, &coords2);
+      for (size_t i=0; i<coords2.size(); ++i) {
+        Vector3 proj_coord(coords2[i][0], coords2[i][1], 0.0);
+        coords.push_back(target_georef.point_to_geodetic(proj_coord));
+      }
       
     } else { // DEM provided, intersect with it.
 
@@ -186,16 +197,58 @@ int main( int argc, char *argv[] ) {
       if (!read_georeference(dem_georef, opt.dem_file))
         vw_throw( ArgumentErr() << "Missing georef.\n");
 
-      GeoReference target_georef = dem_georef; // return box in this projection
+      target_georef = dem_georef; // return box in this projection
+      vw_out() << "Using georef: " << target_georef << std::endl;
+      
       footprint_bbox = camera_bbox(dem, dem_georef, target_georef, cam,
-                                   image_size[0], image_size[1], mean_gsd, opt.quick);
+                                   image_size[0], image_size[1], mean_gsd, opt.quick, &coords);
+      for (size_t i=0; i<coords.size(); ++i)
+        coords[i] = target_georef.datum().cartesian_to_geodetic(coords[i]);
     }
     
     // Print out the results    
     vw_out() << "Computed footprint bounding box:\n" << footprint_bbox << std::endl;
     vw_out() << "Computed mean gsd: " << mean_gsd << std::endl;
+ 
+    if (opt.output_kml == "")
+      return 0;
+
+    // Create the KML file if specified by the user.
+    // - TODO: Create an accurate footprint instead of a bounding box!
+    KMLFile kml(opt.output_kml, "footprint");
+
+    // Style listing
+
+    // Placemark Style
+    const bool HIDE_LABELS = true;
+    kml.append_style( "dot", "", 1.2,
+                      "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png", 
+                      HIDE_LABELS);
+    kml.append_style( "dot_highlight", "", 1.4,
+                      "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
+    kml.append_stylemap( "placemark", "dot",
+                         "dot_highlight" );
+
+
+    /*
+    std::vector<Vector2> lonlat[4];
+    std::vector<Vector3> coordinates[4];
+    lonlat[0] = target_georef.point_to_lonlat(footprint_bbox.min());
+    lonlat[1] = target_georef.point_to_lonlat(Vector2(footprint_bbox.max()[0], footprint_bbox.min()[1]);
+    lonlat[2] = target_georef.point_to_lonlat(footprint_bbox.max());
+    lonlat[3] = target_georef.point_to_lonlat(Vector2(footprint_bbox.min()[0], footprint_bbox.max()[1]);
+    for (int i=0; i<4; ++i)
+      coordinates[i] = Vector3(lonlat[i][0], lonlat[i][1], 0);
+    kml.append_line(coordinates);
+    */  
     
-  } ASP_STANDARD_CATCHES;
+    kml.append_line(coords, "intersections", "placemark");
+    vw_out() << "Writing: " << opt.output_kml << std::endl; 
+    kml.close_kml();
+    
+
+    
+  //} ASP_STANDARD_CATCHES;
 
   return 0;
 }

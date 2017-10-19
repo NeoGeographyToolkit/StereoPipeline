@@ -1160,6 +1160,7 @@ int update_outliers(ControlNetwork                  & cnet,
       
       was_added.insert(ipt);
       actual_residuals.push_back(mean_residuals[ipt]);
+      //vw_out() << "XYZ residual " << ipt << " = " << mean_residuals[ipt] << std::endl;
     }
   } // End double loop through all the observations
 
@@ -1170,6 +1171,7 @@ int update_outliers(ControlNetwork                  & cnet,
 
   double b, e; 
   vw::math::find_outlier_brackets(actual_residuals, pct, outlier_factor, b, e);
+  vw_out() << "Outlier statistics: b = " << b << ", e = " << e << ".\n";
   
   // If this is too aggressive, the user can tame it. It is
   // unreasonable to throw out pixel residuals as small as 1 or 2
@@ -1195,18 +1197,20 @@ int update_outliers(ControlNetwork                  & cnet,
       if (cnet[ipt].type() == ControlPoint::GroundControlPoint) continue;
 
       if (mean_residuals[ipt] > e) {
+        //vw_out() << "Removing " << ipt << " with residual " << mean_residuals[ipt] << std::endl;
         new_outliers.insert(ipt);
       }
 
       const double * point = points + ipt * num_point_params;
       Vector3 xyz(point[0], point[1], point[2]);
       Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
-  
+  /*
       // Also filter by elevation limit
       if ( (asp::stereo_settings().elevation_limit[0] <
             asp::stereo_settings().elevation_limit[1]) && 
-	   ( (llh[2] < asp::stereo_settings().elevation_limit[0]) ||
+	           ( (llh[2] < asp::stereo_settings().elevation_limit[0]) ||
              (llh[2] > asp::stereo_settings().elevation_limit[1]) ) ) {
+        vw_out() << "Removing " << ipt << " with elevation " << llh[2] << std::endl;
         new_outliers.insert(ipt); 
       }
 
@@ -1214,8 +1218,9 @@ int update_outliers(ControlNetwork                  & cnet,
       Vector2 lon_lat = subvector(llh, 0, 2);
       if ( (!asp::stereo_settings().lon_lat_limit.empty()) &&
            (!asp::stereo_settings().lon_lat_limit.contains(lon_lat)) ) {
+        vw_out() << "Removing " << ipt << " with lonlat " << lon_lat << std::endl;
         new_outliers.insert(ipt); 
-      }
+      }*/
     }
   } // End double loop through all the observations
 

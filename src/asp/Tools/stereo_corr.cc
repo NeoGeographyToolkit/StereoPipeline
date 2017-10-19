@@ -572,7 +572,7 @@ BBox2i get_search_range_from_ip_hists(std::vector<double> const& hist_x,
   const double min_percentile = edge_discard_percentile;
   const double max_percentile = 1.0 - edge_discard_percentile;
 
-  const Vector2 FORCED_EXPANSION = Vector2(10,2); // Must expand range by at least this much
+  const Vector2 FORCED_EXPANSION = Vector2(20,2); // Must expand range by at least this much
   double search_scale = 2.0;
   size_t min_bin_x = get_histogram_percentile(hist_x, min_percentile);
   size_t min_bin_y = get_histogram_percentile(hist_y, min_percentile);
