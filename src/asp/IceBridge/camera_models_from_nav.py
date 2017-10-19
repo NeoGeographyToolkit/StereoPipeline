@@ -177,7 +177,7 @@ def main(argsIn):
         try:
             tempPath = os.path.join(outputFolder, 'list.txt')
             logger.info('Generating nav camera kml file: ' + kmlPath)
-            os.system('ls ' + outputFolder + '/* > ' + tempPath)
+            os.system('ls ' + outputFolder + '/*.tsai > ' + tempPath)
             orbitviz_pinhole = asp_system_utils.which('orbitviz_pinhole')
             cmd = orbitviz_pinhole + ' --hide-labels -o ' + kmlPath + ' --input-list ' + tempPath
             logger.info(cmd)
