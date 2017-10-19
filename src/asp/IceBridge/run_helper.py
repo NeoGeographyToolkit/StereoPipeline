@@ -262,31 +262,31 @@ class RunHelper():
         '''Axuxually function used below.'''
         
         files = glob.glob(globStr)
+
         for fileName in files:
 
+            # This is rather fragile, try to ignore certain types of files
+            if ('_sub' in fileName) or ('pct.tif' in fileName) or ('_hillshade_' in fileName):
+                continue
+            
             [prefix, dateString, timeString, frameString, suffix] = \
                      icebridge_common.parseParts(fileName)
-
             if frameString == "":
                 logger.info("Could not parse frame and time stamps from: " + fileName)
                 continue
 
             frame = int(frameString)
-
             if frame < startFrame or frame > stopFrame:
                 continue
-            
             if not frame in orthoFrameDict:
                 logger.info("Missing ortho for frame: " + frame)
                 continue
 
             [newDateString, newTimeString] = icebridge_common.parseTimeStamps(orthoFrameDict[frame])
-
             newFile = prefix + icebridge_common.formFilePrefix(newDateString, newTimeString,
                                                                frame) + suffix
             if not os.path.exists(fileName):
                 continue
-
             if fileName == newFile:
                 continue
             
