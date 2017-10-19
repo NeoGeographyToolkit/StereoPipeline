@@ -70,6 +70,7 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
     os.system("umask 022")   # enforce files be readable by others
 
     # This will run as multiple processes. Hence have to catch all exceptions:
+    projBounds = ()
     try:
 
         alignCamFile, batchFolder = \
@@ -97,6 +98,10 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
                 print("Could not find DEM for frame: " + str(frame + offset))
                 return
 
+            if offset == 0:
+                demGeoInfo = asp_geo_utils.getImageGeoInfo(demFile, getStats=False)
+                projBounds = demGeoInfo['projection_bounds'] # minX maxX minY maxY
+                
             if demFile == "":
                 # Missing DEM
                 continue
@@ -120,22 +125,60 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
         if (not redo) and os.path.exists(finalOrtho):
             print("File exists: " + finalOrtho + ".")
         else:
+
+            filesToWipe = []
+
+            # If the center dem spans say 1 km, there's no way the
+            # ortho can span more than 5 km, unless something is
+            # seriously out of whack, such as alignment failing for
+            # some neighbours. In the best case, if the center dem is
+            # 1 km by 1 km, the obtained ortho will likely be 1.4 km
+            # by 1 km, as an image extends beyond its stereo dem with
+            # a neighbor.
+            factor = float(2.0)
+            projWinStr = ""
+            if len(projBounds) >= 4:
+                # projBounds is in the format minX maxX minY maxY
+                widX = float(projBounds[1]) - float(projBounds[0])
+                widY = float(projBounds[3]) - float(projBounds[2])
+                projBounds = ( 
+                    float(projBounds[0]) - factor*widX, # minX
+                    float(projBounds[1]) + factor*widX, # maxX
+                    float(projBounds[2]) - factor*widY, # minY
+                    float(projBounds[3]) + factor*widY  # maxY
+                    ) 
+                projWinStr = ("--t_projwin %f %f %f %f" % \
+                              (projBounds[0], projBounds[2], projBounds[1], projBounds[3]))
+                
             # See if we have a pre-existing DEM to use as footprint
             mosaicPrefix = os.path.join(batchFolder, 'out-temp-mosaic')
             mosaicOutput = mosaicPrefix + '-tile-0.tif'
-            filesToWipe = []
-            cmd = ('dem_mosaic --hole-fill-length 100 %s %s -o %s' 
-                   % (demList, threadText, mosaicPrefix))
+            cmd = ('dem_mosaic --hole-fill-length 500 %s %s %s -o %s' 
+                   % (demList, threadText, projWinStr, mosaicPrefix))
             filesToWipe.append(mosaicOutput) # no longer needed
 
             print(cmd)
             localRedo = True # The file below should not exist unless there was a crash
             asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, localRedo)
 
-            # TODO: Also blend into this mosaic the "-footprint-" file
-            # with a lower priority blending length. Just want to make
-            # sure there is always enough real estate to mapproject
-            # onto.
+            # Borow some pixels from the footprint DEM,just to grow a bit the real estate
+            finalFootprintDEM = os.path.join(batchFolder,
+                                             icebridge_common.footprintFileName())
+            if os.path.exists(finalFootprintDEM):
+                mosaicPrefix2 = os.path.join(batchFolder, 'out-temp-mosaic2')
+                mosaicOutput2 = mosaicPrefix2 + '-tile-0.tif'
+                cmd = ('dem_mosaic --priority-blending-length 50 %s %s %s %s -o %s' 
+                       % (mosaicOutput, finalFootprintDEM, threadText, projWinStr, mosaicPrefix2))
+                
+                print(cmd)
+                localRedo = True # The file below should not exist unless there was a crash
+                asp_system_utils.executeCommand(cmd, mosaicOutput2, suppressOutput, localRedo,
+                                                noThrow = True)
+                if os.path.exists(mosaicOutput2):
+                    cmd = "mv -f " + mosaicOutput2 + " " + mosaicOutput
+                    print(cmd) 
+                    os.system(cmd)
+                
             # TODO: Look at more aggressive hole-filling. But need a testcase.
             
             filesToWipe += glob.glob(mosaicPrefix + '*' + '-log-' + '*')

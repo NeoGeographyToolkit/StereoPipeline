@@ -172,7 +172,8 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     results = icebridge_common.readGeodiffOutput(lidarDiffPath)
 
     # Apply the same transform to the footprint DEM. This one is used in blending later.
-    finalFootprintDEM = os.path.join(options.outputFolder, 'out-trans-footprint-DEM.tif')
+    finalFootprintDEM = os.path.join(options.outputFolder,
+                                     icebridge_common.footprintFileName())
     if os.path.exists(finalFootprintDEM):
         logger.info("File exists: " + finalFootprintDEM)
     else:

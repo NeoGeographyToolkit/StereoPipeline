@@ -92,8 +92,6 @@ def getImageGeoInfo(imagePath, getStats=True):
     elif '+proj=ster' in textOutput:
         outputDict['projection'] = 'POLAR STEREOGRAPHIC'
     
-    
-    
     # Extract this variable which ASP inserts into its point cloud files
     try:
         pointOffsetLine = asp_string_utils.getLineAfterText(textOutput, 'POINT_OFFSET=') # Tag name must be synced with C++ code

@@ -1057,6 +1057,10 @@ def orthoFileName():
     '''The name of a generated ortho file.'''
     return 'out-ortho.tif'
 
+def footprintFileName():
+    '''The name of a generated footprint DEM.'''
+    return 'out-trans-footprint-DEM.tif'
+
 def orthoPreviewFileName():
     '''The name of a generated ortho preview file.'''
     return 'out-ortho-PREVIEW.jpg'
