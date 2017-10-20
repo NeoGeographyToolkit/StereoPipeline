@@ -268,7 +268,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int    ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value;
-  bool   skip_rough_homography, individually_normalize;
+  bool   skip_rough_homography, individually_normalize, use_llh_error;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
   vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   std::set<std::string> intrinsics_to_float;
@@ -288,7 +288,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                                       "Reference Meridian", 1, 1, 0)),
              ip_detect_method(0), num_scales(-1), skip_rough_homography(false),
-             individually_normalize(false){}
+             individually_normalize(false), use_llh_error(false){}
 };
 
 // TODO: This update stuff should really be done somewhere else!
@@ -610,6 +610,50 @@ struct XYZError {
   Vector3 m_observation;
   Vector3 m_xyz_sigma;
 };
+
+/// A ceres cost function. The residual is the difference between the
+/// observed 3D point lon-lat-height, and the current (floating) 3D
+/// point lon-lat-height, normalized by sigma. Used only for
+/// ground control points. This has the advantage, unlike
+/// XYZError, that when the height is not known reliably,
+/// but lon-lat is, we can, in the GCP file, assign a bigger
+/// sigma to the latter.
+struct LLHError {
+  LLHError(Vector3 const& observation_xyz, Vector3 const& sigma, vw::cartography::Datum & datum):
+    m_observation_xyz(observation_xyz), m_sigma(sigma), m_datum(datum){}
+
+  template <typename T>
+  bool operator()(const T* point, T* residuals) const {
+    Vector3 observation_llh, point_xyz, point_llh;
+    for (size_t p = 0; p < m_observation_xyz.size(); p++) {
+      point_xyz[p] = double(point[p]);
+    }
+
+    point_llh       = m_datum.cartesian_to_geodetic(point_xyz);
+    observation_llh = m_datum.cartesian_to_geodetic(m_observation_xyz);
+
+    for (size_t p = 0; p < m_observation_xyz.size(); p++) 
+      residuals[p] = (point_llh[p] - observation_llh[p])/m_sigma[p]; // Input units are meters
+    
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(Vector3 const& observation_xyz,
+                                     Vector3 const& sigma,
+                                     vw::cartography::Datum & datum){
+
+    return (new ceres::NumericDiffCostFunction<LLHError, ceres::CENTRAL, 3, 3>
+            (new LLHError(observation_xyz, sigma, datum)));
+    
+  }
+  
+  Vector3 m_observation_xyz;
+  Vector3 m_sigma;
+  vw::cartography::Datum m_datum;
+};
+
 
 /// A ceres cost function. The residual is the difference between the
 /// original camera center and the current (floating) camera center.
@@ -1340,7 +1384,11 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     Vector3 observation = cnet[ipt].position();
     Vector3 xyz_sigma   = cnet[ipt].sigma();
 
-    ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
+    ceres::CostFunction* cost_function;
+    if (!opt.use_llh_error) 
+      cost_function = XYZError::Create(observation, xyz_sigma);
+    else
+      cost_function = LLHError::Create(observation, xyz_sigma, opt.datum);
 
     // Don't use the same loss function as for pixels since that one discounts
     //  outliers and the cameras should never be discounted.
@@ -1483,7 +1531,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
 
   // Print stats for optimized gcp
   if (num_gcp > 0) {
-    vw_out() << "input_gcp_xyz optimized_gcp_xyz diff_norm\n";
+    vw_out() << "input_gcp optimized_gcp diff\n";
     for (int ipt = 0; ipt < num_points; ipt++){
       if (cnet[ipt].type() != ControlPoint::GroundControlPoint) continue;
       if (outlier_xyz.find(ipt) != outlier_xyz.end()) continue; // skip outliers
@@ -1494,7 +1542,13 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       Vector3 opt_gcp;
       for (int p = 0; p < 3; p++) opt_gcp[p] = point[p];
       
-      vw_out() << input_gcp << ' ' << opt_gcp << ' ' << norm_2(input_gcp - opt_gcp) << std::endl;
+      vw_out() << "xyz: " << input_gcp << ' ' << opt_gcp << ' ' << input_gcp - opt_gcp
+               << std::endl;
+
+      input_gcp = opt.datum.cartesian_to_geodetic(input_gcp);
+      opt_gcp   = opt.datum.cartesian_to_geodetic(opt_gcp);
+      vw_out() << "llh: " << input_gcp << ' ' << opt_gcp << ' ' << input_gcp - opt_gcp
+               << std::endl;
     }
   }
 
@@ -2572,6 +2626,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     
     ("min-triangulation-angle",             po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
+    ("use-lon-lat-height-gcp-error", po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
+     "When having GCP, instead of minimizing the xyz error (computed vs what is in the GCP file), minimize the lon-lat-height error. This way, if the height is not known accurately, in the GCP file the third sigma (corresponding to the height), can be given a bigger weight to reduce its importance.")
+    
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
      "Given map-projected versions of the input images and the DEM mapprojected onto, and IP matches among them, create IP matches among the un-projected images before doing bundle adjustment. Niche and experimental, not for general use.")
     ("gcp-data",  po::value(&opt.gcp_data)->default_value(""),
