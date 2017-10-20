@@ -369,7 +369,10 @@ def runConversion(run, options, conversionAttempt, logger):
                 return
             
             logger.info("Re-running conversion with one node.")
-            cmd = (icebridge_common.fullPath('full_processing_script.py') + ' --skip-fetch --skip-validate --skip-fast-conversions --no-nav --stop-after-convert --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --start-frame %d --stop-frame %d --num-threads %d --num-processes %d --frames-file %s' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses, orthoList))
+            cmd = (icebridge_common.fullPath('full_processing_script.py') + ' --skip-fetch --skip-validate --skip-fast-conversions --stop-after-convert --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --start-frame %d --stop-frame %d --num-threads %d --num-processes %d --frames-file %s' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses, orthoList))
+            if options.noNavFetch:
+                cmd += ' --no-nav'
+
             #logger.info(cmd)
             jobList = []
             jobName    = ('%s%06d%s' % ('C', 0, baseName) ) # C for camera

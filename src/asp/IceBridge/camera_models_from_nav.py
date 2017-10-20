@@ -113,7 +113,11 @@ def main(argsIn):
         infoDict[frame] = [ortho, '']
 
     # Get the image file list
-    imageFiles = icebridge_common.getTifs(imageFolder)
+    try:
+        imageFiles = icebridge_common.getTifs(imageFolder)
+    except Exception, e:
+        raise Exception("Cannot continue with nav generation, will resume later when images are created. This is not a fatal error. " + str(e))
+    
     logger.info('Found ' + str(len(imageFiles)) + ' image files.')
 
     # Update the second part of each dictionary object
