@@ -108,6 +108,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     checkErrorPath = checkPrefix + '-end_errors.csv'
     cmd = ('pc_align %s %s %s -o %s %s' %
            (alignOptions, lidarDemPath, lidarFile, checkPrefix, threadText))
+    icebridge_common.logger_print(logger, cmd)
     (out, err, status) = asp_system_utils.executeCommand(cmd, checkErrorPath, suppressOutput, True)
     icebridge_common.logger_print(logger, out + '\n' + err)
     

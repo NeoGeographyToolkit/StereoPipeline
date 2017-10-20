@@ -199,7 +199,7 @@ def generateFlightSummary(run, options):
         kmlList = os.path.join(options.outputFolder, 'kml_list.txt')
         print("Writing: " + kmlList)
         with open(kmlList, 'w') as f:
-            for filename in camKmlFiles.split():
+            for filename in sorted(camKmlFiles.split()):
                 filename = filename.strip()
                 if filename == "":
                     continue
