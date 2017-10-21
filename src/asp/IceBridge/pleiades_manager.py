@@ -126,6 +126,14 @@ def getParallelParams(nodeType, task):
 
 #=========================================================================
 
+def getLabelTrainingPath(userName):
+    '''Path to the OSSP label training file'''
+
+    if userName == 'smcmich1':
+        return '/u/smcmich1/repo/OSSP/training_datasets/icebridge_v1_training_data.h5'
+    if userName == 'oalexan1':
+        raise Exception('Need to set the label training path!')
+
 def getEmailAddress(userName):
     '''Return the email address to use for a user'''
     
@@ -292,6 +300,7 @@ def runConversion(run, options, conversionAttempt, logger):
         args += ' --no-nav'
     if options.simpleCameras:       # This option greatly decreases the conversion run time
         args += ' --simple-cameras' # - Camera conversion could be local but image conversion still takes time.
+        maxHours = 1
 
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
@@ -578,6 +587,7 @@ def launchJobs(run, mode, options, logger):
         jobTag     = 'L'
         priority   = 0 # Make these slightly lower priority than the other jobs.
                        # May need to experiment with these numbers.
+        extraArgs  = ' --training ' + getLabelTrainingPath(icebridge_common.getUser())
     else:
         raise Exception("Unknown mode: " + mode)
     args = (('--site %s --yyyymmdd %s --num-threads %d --num-processes %d ' + \
@@ -603,10 +613,10 @@ def launchJobs(run, mode, options, logger):
         logPrefix = os.path.join(pbsLogFolder, mode + '_' + jobName)
         logger.info('Submitting job: ' + scriptPath +  ' ' + thisArgs)
         jobId = pbs_functions.submitJob(jobName, queueName, maxHours, logger,
-                                        options.minutesInDevelQueue,
-                                        GROUP_ID,
+                                        options.minutesInDevelQueue, GROUP_ID,
                                         options.nodeType, '/usr/bin/python2.7',
                                         scriptPath + ' ' + thisArgs, logPrefix, priority)
+
         jobNames.append(jobName)
         jobIds.append(jobName)
         currentFrame += tasksPerJob
@@ -1071,7 +1081,7 @@ def main(argsIn):
             logger.info('All jobs finished for run '+str(run))
             stop_time("dem creation", logger)
 
-        labelJobList = None
+        labelJobNames = None
         if options.generateLabels:
             (baseName, labelJobNames, labelJobIds) = launchJobs(run, 'label', options, logger)
             # Go ahead and launch the other jobs while these are in the queue
@@ -1088,7 +1098,7 @@ def main(argsIn):
             pbs_functions.waitForJobCompletion(jobNames, logger, baseName)
             stop_time("orthogen", logger)
 
-        if labelJobList: # Now wait for any label jobs to finish.
+        if labelJobNames: # Now wait for any label jobs to finish.
             pbs_functions.waitForJobCompletion(labelJobNames, logger, baseName)
 
         # TODO: Uncomment when processing multiple runs.

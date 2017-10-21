@@ -124,6 +124,10 @@ def main(argsIn):
     except argparse.ArgumentError, msg:
         parser.error(msg)
 
+    if not os.path.exists(options.trainingPath):
+        print 'Error: Input training file ' + options.trainingPath + ' does not exist!'
+        return -1
+
     # TODO: Everything should use the RunHelper class for this!
     if options.outputFolder is None:
         options.outputFolder = icebridge_common.outputFolder(options.site, options.yyyymmdd)
