@@ -96,14 +96,14 @@ double gps_seconds(std::string const& orthoimage_path){
   std::string date = orthoimage_path.substr(it, 8);
   std::string time = orthoimage_path.substr(it+9, 8);
 
-  int year  = atof(date.substr(0, 4).c_str());
-  int month = atof(date.substr(4, 2).c_str());
-  int day   = atof(date.substr(6, 2).c_str());
+  int year  = atoi(date.substr(0, 4).c_str());
+  int month = atoi(date.substr(4, 2).c_str());
+  int day   = atoi(date.substr(6, 2).c_str());
 
-  int hour  = atof(time.substr(0, 2).c_str());
-  int min   = atof(time.substr(2, 2).c_str());
-  int sec   = atof(time.substr(4, 2).c_str());
-  int fsec  = atof(time.substr(6, 2).c_str()); // first two digit of fractional part of second
+  int hour  = atoi(time.substr(0, 2).c_str());
+  int min   = atoi(time.substr(2, 2).c_str());
+  int sec   = atoi(time.substr(4, 2).c_str());
+  int fsec  = atoi(time.substr(6, 2).c_str()); // first two digit of fractional part of second
 
   std::tm time_in = {sec, min, hour, // second, minute, hour
                      day,            // 1-based day
@@ -116,11 +116,17 @@ double gps_seconds(std::string const& orthoimage_path){
   // this function from more than one thread!
   std::tm const *time_out = std::localtime(&time_val);
 
-  int weekday = time_out->tm_wday; // Sunday is 0
+  uint64 weekday = time_out->tm_wday; // Sunday is 0
 
-  double seconds = weekday*24*3600.0 + hour*3600.0 + min*60 + sec + fsec/100.0;
+  //std::cout << "min = " << min << std::endl;
+  //std::cout << "sec = " << sec << std::endl;
+  //std::cout << "fsec = " << fsec << std::endl;
 
-  return seconds; 
+  uint64 all_seconds = weekday*24*3600 + (uint64)hour*3600 + (uint64)min*60 + (uint64)sec;
+  double final_time  = static_cast<double>(all_seconds) + static_cast<double>(fsec)/100.0;
+  //std::cout << "final_time = " << final_time << std::endl;
+
+  return final_time; 
 }
 
 /// Extract the parameters from a line of the nav file
@@ -224,6 +230,8 @@ void parse_camera_pose(std::string const& line, Vector3 & xyz, Quat & look, Quat
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string nav_file, input_cam, output_folder;
   std::vector<std::string> image_files, camera_files;
+  bool detect_offset;
+  double time_offset;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -233,8 +241,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("input-cam",      po::value(&opt.input_cam)->default_value(""), 
                        "The input camera file from where to read the intrinsics.")
     ("nav-file",       po::value(&opt.nav_file)->default_value(""), "The nav file, in text format.")
+    ("time-offset",    po::value(&opt.time_offset)->default_value(0.0),
+                       "Time offset to be added to the navigation file timestamps.")
     ("output-folder",  po::value(&opt.output_folder)->default_value(""), 
                        "Output folder where the camera files are written.")
+    ("detect-offset",  po::bool_switch(&opt.detect_offset)->default_value(false)->implicit_value(true),
+        "Instead of generating camera files, estimate time offset to the provided camera files.")
     ("cam-list",       po::value(&cam_list_path)->default_value(""), 
                        "A sorted list of input ortho and camera files.");
   
@@ -325,7 +337,8 @@ public:
   bool load_next_chunk(boost::shared_ptr<PosInterpType> &pos_interpolator_ptr,
                        boost::shared_ptr<PosInterpType> &rot_interpolator_ptr) {
 
-    //vw_out() << "Loading next nav chunk\n";
+    if (m_input_stream.bad())
+      return false;
   
     size_t index = 0;
     
@@ -374,6 +387,22 @@ public:
     end   = m_time_vector.back ();
   }
 
+  /// Load a target location vector.
+  void set_target_locs(std::vector<Vector3> const& target_locs) {
+    m_target_loc_vector = target_locs;
+    m_target_distance_vector.resize(m_target_loc_vector.size());
+    m_target_time_vector.resize    (m_target_loc_vector.size());
+    for (size_t i=0; i<m_target_distance_vector.size(); ++i) {
+      m_target_distance_vector[i] = 999999999;
+      m_target_time_vector    [i] = -1;
+    }
+  }
+  /// Get target location vector closest times.
+  void get_target_times(std::vector<double> &target_time_vector,
+                        std::vector<double> &target_distance_vector) const {
+    target_time_vector     = m_target_time_vector;
+    target_distance_vector = m_target_distance_vector;
+  }
 
 private:
 
@@ -385,6 +414,12 @@ private:
   size_t               m_chunk_length;
   size_t               m_chunk_overlap;
   std::ifstream        m_input_stream;
+  
+  /// Search for these locations in the entire file!
+  std::vector<Vector3> m_target_loc_vector;
+  std::vector<double > m_target_distance_vector;
+  std::vector<double > m_target_time_vector;
+
 
   /// Read and parse the next line in the file
   bool read_next_line(double &time, Vector3& loc, Vector3& rot) {
@@ -402,7 +437,23 @@ private:
     rot[1] = pitch;
     rot[2] = heading;
     
+    // Compare this position to target locations if they exist.
+    if (!m_target_loc_vector.empty())
+      update_target_locs(loc, time);
+    
     return true;
+  }
+  
+  /// Check if this location is the best match to any target locations.
+  void update_target_locs(Vector3 loc, double time) {
+    // For each target, record the time and distance if this is the best match.
+    for (size_t i=0; i<m_target_loc_vector.size(); ++i) {
+      double distance = norm_2(loc - m_target_loc_vector[i]);
+      if (distance < m_target_distance_vector[i]) {
+        m_target_distance_vector[i] = distance;
+        m_target_time_vector    [i] = time;
+      }
+    } // End loop through targets
   }
 
 }; // End class ScrollingNavInterpolator
@@ -488,18 +539,35 @@ int main(int argc, char* argv[]) {
   //try {
   handle_arguments(argc, argv, opt);
 
-  //std::cout << "--nav file is " << opt.nav_file << std::endl;
-
-  //const double BIG_NUMBER  = 1000000;
-  //double lon0 = BIG_NUMBER;
   Datum datum_wgs84("WGS84");
   
   // Print progress every N files
   const size_t PRINT_INTERVAL = 200;
   
-  // Initialize the na v interpolator
+  const boost::filesystem::path output_dir(opt.output_folder);
+  
+  // Initialize the nav interpolator
   std::cout << "Opening input stream: " << opt.nav_file << std::endl;
   ScrollingNavInterpolator interpLoader(opt.nav_file, datum_wgs84);
+
+  // Load target camera positions if desired
+  std::vector<Vector3> target_locations;
+  std::vector<double > target_times;
+  if (opt.detect_offset) {
+    std::cout << "Reading target locations...\n";
+    const size_t num_targets = opt.camera_files.size();
+    target_locations.resize(num_targets);
+    target_times.resize    (num_targets);
+    for (size_t i=0; i<num_targets; ++i) {
+      boost::filesystem::path camera_file(opt.camera_files[i]);
+      boost::filesystem::path camera_path = output_dir / camera_file;
+      PinholeModel model(camera_path.string());
+      target_locations[i] = model.camera_center();
+      target_times    [i] = gps_seconds(opt.image_files[i]);
+    }
+    interpLoader.set_target_locs(target_locations);
+    std::cout << "Done loading target locations.\n";
+  } // End target loading condition
 
   boost::shared_ptr<ScrollingNavInterpolator::PosInterpType> pos_interpolator_ptr;
   boost::shared_ptr<ScrollingNavInterpolator::RotInterpType> rot_interpolator_ptr;
@@ -510,15 +578,18 @@ int main(int argc, char* argv[]) {
   size_t file_index = 0;
   const size_t num_files = opt.image_files.size();
 
-  const boost::filesystem::path output_dir(opt.output_folder);
-
   // Keep loading chunks until the nav data catches up with the images
+  double ortho_time=0;
   while (interpLoader.load_next_chunk(pos_interpolator_ptr, rot_interpolator_ptr)) {
 
     // Get the time boundaries of the current chunk
     interpLoader.get_time_boundaries(start, end);  
 
     //std::cout << "Time range: " << start << " ---- " << end << std::endl;
+
+    // When detecting offsets all we want to do is loop through the nav file.
+    if (opt.detect_offset)
+      continue;
 
     // Loop through ortho files until we need to advance the nav chunk
     while (file_index < num_files) {
@@ -529,7 +600,8 @@ int main(int argc, char* argv[]) {
       boost::filesystem::path output_camera_path = output_dir / camera_file;
       
       // Get time for this frame
-      double ortho_time = gps_seconds(orthoimage_path);
+      if (ortho_time == 0)
+        ortho_time = gps_seconds(orthoimage_path) - opt.time_offset;
 
       // If this ortho is too far ahead in time, move on to the next nav chunk.
       if (ortho_time > end - CHUNK_TIME_BOUNDARY)
@@ -557,12 +629,13 @@ int main(int argc, char* argv[]) {
       double roll    = rot_interp[0];
       double pitch   = rot_interp[1];
       //double heading = rot_interp[2];
-      //vw_out() << "For file " << orthoimage_path << " computed LLH " << llh_interp << std::endl;
+      vw_out() << "For file " << orthoimage_path << " computed LLH " << llh_interp << std::endl;
       //vw_out() << "Roll    = " << roll    <<" = "<< roll*180/3.14159<< std::endl;
       //vw_out() << "Pitch   = " << pitch   <<" = "<< pitch*180/3.14159<< std::endl;
       //vw_out() << "Heading = " << heading << std::endl;
 
-      //std::cout << "Ortho time  = " << ortho_time << std::endl;
+      std::cout << "Ortho time  = " << ortho_time << std::endl;
+      vw_out() << "llh = " << llh_interp << std::endl;
       
       // Now estimate the rotation information
 
@@ -730,6 +803,7 @@ int main(int argc, char* argv[]) {
         vw_out() << file_index << " files processed.\n";
 
       ++file_index;
+      ortho_time = 0;
 
     } // End loop through ortho files
     
@@ -783,6 +857,27 @@ int main(int argc, char* argv[]) {
   } // End loop through input files
   
   */
+  
+  if (opt.detect_offset) {
+    std::cout << "Getting target results...\n";
+    // Compute the mean difference between the target camera time and the matched time
+    //  and print the results.
+    std::vector<double> matched_times, best_distances;
+    interpLoader.get_target_times(matched_times, best_distances);
+    const size_t num_targets = target_times.size();
+    double mean_offset = 0, mean_dist = 0;
+    for (size_t i=0; i<num_targets; ++i) {
+      double diff = matched_times[i] - target_times[i];
+      mean_offset += diff;
+      mean_dist   += best_distances[i];
+      std::cout << "Offset: " << diff << ", dist = " << best_distances[i]
+                << ", time = " << matched_times[i] << std::endl;
+    }
+    mean_offset /= static_cast<double>(num_targets);
+    mean_dist   /= static_cast<double>(num_targets);
+    std::cout << "Computed mean nav time offset: " << mean_offset << std::endl;
+    std::cout << "Computed mean nav distance   : " << mean_dist   << std::endl;
+  }
   
   return 0;
     
