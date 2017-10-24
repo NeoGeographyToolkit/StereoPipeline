@@ -572,7 +572,7 @@ BBox2i get_search_range_from_ip_hists(std::vector<double> const& hist_x,
   const double min_percentile = edge_discard_percentile;
   const double max_percentile = 1.0 - edge_discard_percentile;
 
-  const Vector2 FORCED_EXPANSION = Vector2(20,2); // Must expand range by at least this much
+  const Vector2 FORCED_EXPANSION = Vector2(30,2); // Must expand range by at least this much
   double search_scale = 2.0;
   size_t min_bin_x = get_histogram_percentile(hist_x, min_percentile);
   size_t min_bin_y = get_histogram_percentile(hist_y, min_percentile);
@@ -584,6 +584,8 @@ BBox2i get_search_range_from_ip_hists(std::vector<double> const& hist_x,
   Vector2 d_min = search_min - search_center; // TODO: Make into a bbox function!
   Vector2 d_max = search_max - search_center;
   
+  vw_out(InfoMessage,"asp") << "Percentile filtered range: " 
+                            << BBox2i(d_min, d_max) << std::endl;
   // Enforce a minimum expansion on the search range in each direction
   Vector2 min_expand = d_min*search_scale;
   Vector2 max_expand = d_max*search_scale;
@@ -676,25 +678,43 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
                            << stereo_settings().min_num_ip << ", aborting stereo_corr.\n");
 
   // Find search window based on interest point matches
+  size_t num_ip = matched_ip1.size();
+  vw_out(InfoMessage,"asp") << "Estimating search range with: " 
+                            << num_ip << " interest points.\n";
 
   // Record the disparities for each point pair
-  size_t num_ip = matched_ip1.size();
+  const double BIG_NUM   =  99999999;
+  const double SMALL_NUM = -99999999;
   std::vector<double> dx, dy;
-  double min_dx, min_dy, max_dx, max_dy;
-  min_dx = min_dy = std::numeric_limits<double>::max();
-  max_dx = max_dy = std::numeric_limits<double>::min();
+  double min_dx = BIG_NUM, max_dx = SMALL_NUM,
+         min_dy = BIG_NUM, max_dy = SMALL_NUM;
   for (size_t i = 0; i < num_ip; i++) {
     double diffX = i_scale * (matched_ip2[i].x - matched_ip1[i].x);
     double diffY = i_scale * (matched_ip2[i].y - matched_ip1[i].y);      
     dx.push_back(diffX);
     dy.push_back(diffY);
-    
-    if (diffX < min_dx) min_dx = diffX;  // Could be smarter about how this is done.
+    if (diffX < min_dx) min_dx = diffX;
     if (diffY < min_dy) min_dy = diffY;
     if (diffX > max_dx) max_dx = diffX;
     if (diffY > max_dy) max_dy = diffY;
   }
-  num_ip = dx.size();
+
+  vw_out(InfoMessage,"asp") << "Initial search range: " 
+        << BBox2i(Vector2(min_dx,min_dy),Vector2(max_dx,max_dy)) << std::endl;
+
+  const int MAX_SEARCH_WIDTH = 4000; // Try to avoid searching this width
+  const int MIN_SEARCH_WIDTH = 200;  // Under this width don't filter IP.
+  const Vector2i MINIMAL_EXPAND(10,1);
+
+  // If the input search range is small just expand it a bit and
+  //  return without doing any filtering.  
+  if (max_dx-min_dx <= MIN_SEARCH_WIDTH) {
+    BBox2i search_range(Vector2i(min_dx,min_dy),Vector2i(max_dx,max_dy));
+    search_range.expand(MINIMAL_EXPAND);
+    vw_out(InfoMessage,"asp") << "Using expanded search range: " 
+                              << search_range << std::endl;
+    return search_range;
+  }
   
   // Compute histograms
   const int NUM_BINS = 2000; // Accuracy is important with scaled pixels
@@ -708,9 +728,8 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   //  printf("%d => X: %lf: %lf,   Y:  %lf: %lf\n", i, centers_x[i], hist_x[i], centers_y[i], hist_y[i]);
   //}
 
-  const int    MAX_SEARCH_WIDTH      = 4000; // TODO: Get this number from somewhere!!!
-  const double PERCENTILE_CUTOFF     = 0.05;
-  const double PERCENTILE_CUTOFF_INC = 0.05;
+  const double PERCENTILE_CUTOFF     = 0.05; // Gradually increase the filtering
+  const double PERCENTILE_CUTOFF_INC = 0.05; //  until the search width is reasonable.
   const double MAX_PERCENTILE_CUTOFF = 0.201;
 
   double current_percentile_cutoff = PERCENTILE_CUTOFF;
