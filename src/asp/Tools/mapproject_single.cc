@@ -442,8 +442,8 @@ void calc_target_geom(// Inputs
   float auto_res;
   cam_box = camera_bbox(dem, dem_georef,
                         target_georef, 
-                        camera_model, // TODO: There is a bug with the non-quick intersection code!!
-                        image_size.x(), image_size.y(), auto_res, true);
+                        camera_model,
+                        image_size.x(), image_size.y(), auto_res, false);
 
   // Use auto-calculated ground resolution if that option was selected
   double current_resolution;
