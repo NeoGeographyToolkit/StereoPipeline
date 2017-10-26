@@ -710,7 +710,8 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   //  return without doing any filtering.  
   if (max_dx-min_dx <= MIN_SEARCH_WIDTH) {
     BBox2i search_range(Vector2i(min_dx,min_dy),Vector2i(max_dx,max_dy));
-    search_range.expand(MINIMAL_EXPAND);
+    search_range.min() -= MINIMAL_EXPAND; // BBox2.expand() function does not always work!!!!
+    search_range.max() += MINIMAL_EXPAND;
     vw_out(InfoMessage,"asp") << "Using expanded search range: " 
                               << search_range << std::endl;
     return search_range;

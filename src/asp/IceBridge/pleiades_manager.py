@@ -934,8 +934,8 @@ def main(argsIn):
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                             default=False, help="Don't validate the input data.")
 
-        parser.add_argument("--parallel-validate", action="store_true", dest="parallelValidate",
-                            default=False, help="Validate in parallel, during conversion.")
+        parser.add_argument("--no-parallel-validate", action="store_false", dest="parallelValidate",
+                            default=True, help="Validate in parallel, during conversion.")
         
         parser.add_argument("--wipe-processed", action="store_true", dest="wipeProcessed",
                             default=False,
