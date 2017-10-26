@@ -19,7 +19,7 @@
 # Run bundle adjustment, stereo, generate DEMs, merge dems, perform alignment, etc,
 # for a series of icebridge images
 
-import os, sys, optparse, datetime, logging, multiprocessing, glob, re
+import os, sys, optparse, datetime, logging, multiprocessing, glob, re, shutil
 
 # The path to the ASP python files
 basepath      = os.path.dirname(os.path.realpath(__file__))  # won't change, unlike syspath
@@ -60,6 +60,34 @@ def formImageCameraString(inputPairs):
     return imagesAndCams
     
 
+def makeDemAndCheckError(options, projString, pointCloud, 
+                          lidarFile, lidarCsvFormatString,
+                          threadText, logger):
+    '''Make a DEM from a point cloud and compute the geodiff results with lidar.'''
+
+    suppressOutput = True
+    redo = True
+
+    # Generate a DEM file from the point cloud
+    cmd = ('point2dem --tr %lf --t_srs %s %s %s' 
+           % (options.demResolution, projString, pointCloud, threadText))
+    icebridge_common.logger_print(logger, cmd)
+    demPath = pointCloud.replace('.tif', '-DEM.tif')
+    asp_system_utils.executeCommand(cmd, demPath, suppressOutput, redo)
+    
+    # Run geodiff with lidar and read in the results
+    diffPrefix = pointCloud
+    diffPath   = diffPrefix + '-diff.csv'
+    cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' %
+           (lidarCsvFormatString, demPath, lidarFile, diffPrefix))
+    icebridge_common.logger_print(logger, cmd)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, diffPath, suppressOutput, redo)
+    icebridge_common.logger_print(logger, out + '\n' + err)
+    
+    results = icebridge_common.readGeodiffOutput(diffPath)
+    
+    return (demPath, diffPath, results)
+
 
 def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath, 
                   demPath, finalAlignedDEM, 
@@ -68,24 +96,22 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     '''Try pc_align with increasing max displacements until we it completes
        with enough lidar points used in the comparison'''
 
-    STARTING_DISPLACEMENT    = 30
-    MAX_DISPLACEMENT         = 120
-    DISPLACEMENT_INCREMENT   = 20
-    ERR_HEADER_SIZE          = 3
+    # Displacements are still since an initial vertical shift is applied
+    DISPLACEMENTS        = [2, 4, 6, 10, 15, 25]
+    ERR_HEADER_SIZE      = 3
+    IDEAL_LIDAR_DIST     = 0.1  # Quit aligning if we get under this error
+    MIN_DIST_IMPROVEMENT = 0.25 # Percentage improvement in error to accept a larger max-disp
 
     lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
-
-    # Determine the number of points we want
-    currentMaxDisplacement = STARTING_DISPLACEMENT
     
     alignPrefix   = icebridge_common.getAlignPrefix(options.outputFolder)
     
     pcAlignFolder = os.path.dirname(alignPrefix)
     endErrorPath  = alignPrefix + '-end_errors.csv'
-
-    alignedPC      = alignPrefix+'-trans_reference.tif'
-    alignedDem     = alignedPC.replace('-trans_reference.tif', '-trans_reference-DEM.tif')
-    lidarDiffPath  = outputPrefix + "-diff.csv"
+    transformPath = alignPrefix + '-transform.txt'
+    alignedPC     = alignPrefix+'-trans_reference.tif'
+    alignedDem    = alignedPC.replace('-trans_reference.tif', '-trans_reference-DEM.tif')
+    lidarDiffPath = outputPrefix + "-diff.csv"
 
     # Check if the file is already there
     if ( os.path.exists(alignedDem) or os.path.exists(finalAlignedDEM) ) \
@@ -94,83 +120,84 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
         logger.info("Outputs of pc_align already exist.")
         return alignedDem, lidarDiffPath, results['Mean']
 
-    # Check the lidar DEM to estimate how many points we should be looking for
-    # - The lidar cloud density is not constant across flights so we need to have
-    #   an estimate of how many matches we are looking for.
-    # - By comparing the lidar DEM to the lidar cloud we can count the number of
-    #   lidar points in the bounding box surrounding the image DEM.
-    LIDAR_POINT_FRACTION = 0.4 # Needs to be low since the lidar DEM is produced in an expanded bbox.
-
-    icebridge_common.logger_print(logger, 'Computing desired number of aligned lidar points...')
-    alignOptions   = '--max-displacement 1.0 --csv-format ' + lidarCsvFormatString
-    checkFolder    = os.path.join(options.outputFolder, 'point_check')
-    checkPrefix    = os.path.join(checkFolder, 'out')
-    checkErrorPath = checkPrefix + '-end_errors.csv'
-    cmd = ('pc_align %s %s %s -o %s %s' %
-           (alignOptions, lidarDemPath, lidarFile, checkPrefix, threadText))
-    icebridge_common.logger_print(logger, cmd)
-    (out, err, status) = asp_system_utils.executeCommand(cmd, checkErrorPath, suppressOutput, True)
+    # Estimate an initial vertical shift between our DEM and the lidar data.
+    diffPrefix = os.path.join(options.outputFolder, 'out')
+    diffOutput = diffPrefix + '-diff.tif'
+    cmd = ('geodiff %s %s -o %s' % (demPath, lidarDemPath, diffPrefix))
+    (out, err, status) = asp_system_utils.executeCommand(cmd, diffOutput, suppressOutput, True)
     icebridge_common.logger_print(logger, out + '\n' + err)
-    
-    refNumLidarPoints = asp_file_utils.getFileLineCount(checkErrorPath) - ERR_HEADER_SIZE
-    minLidarPoints    = refNumLidarPoints * LIDAR_POINT_FRACTION
-    icebridge_common.logger_print(logger, 'Computed min number of lidar points: ' + str(minLidarPoints))
-    os.system('rm -rf ' + checkFolder) # Go ahead and clean this up now!
-    
+    diffInfo = asp_image_utils.getImageStats(diffOutput)
+    print diffInfo
+    meanDiff = -1.0 * diffInfo[0][2] # This adjustment is made in the down direction.
+    os.system('rm -rf ' + diffOutput) # Go ahead and clean this up now
+    logger.info('Vertical diff estimate from lidar = ' + str(meanDiff))
+
+
+    bestMeanDiff  = -1
+    bestMaxDisp   = -1
+    bestTransPath = os.path.join(pcAlignFolder, 'best_transform.txt')
+    bestDemPath   = os.path.join(pcAlignFolder, 'best_dem.tif')
+
     # Done computing the desired point count, now align our DEM.
-    while(True):
-        
+    for maxDisp in DISPLACEMENTS:
+               
         # Call pc_align
-        # TODO: Remove options.maxDisplacement
-        alignOptions = ( ('--max-displacement %f --csv-format %s ' +   \
-                          '--save-inv-transformed-reference-points ') % \
-                         (currentMaxDisplacement, lidarCsvFormatString))
+        alignOptions = ( ('--max-displacement %f --csv-format %s ' +
+                          '--save-inv-transformed-reference-points ' + 
+                          '--highest-accuracy --initial-ned-translation "0 0 %f"') % 
+                         (maxDisp, lidarCsvFormatString, meanDiff))
         cmd = ('pc_align %s %s %s -o %s %s' %
                (alignOptions, demPath, lidarFile, alignPrefix, threadText))
         try:
             # Redo must be true here
             icebridge_common.logger_print(logger, cmd)
             (out, err, status) = asp_system_utils.executeCommand(cmd, alignedPC, suppressOutput, True)
-            icebridge_common.logger_print(logger, out + '\n' + err)
+            #icebridge_common.logger_print(logger, out + '\n' + err)
+            
+            # Get diff stats for this attempt
+            (thisDem, thisLidarDiffPath, results) = \
+                makeDemAndCheckError(options, projString, alignedPC, 
+                                     lidarFile, lidarCsvFormatString,
+                                     threadText, logger)
+            transformPath = thisDem.replace('trans_reference-DEM.tif', 'transform.txt')
+            
         except: 
-            pass
-    
-        # Check if finished and the number of points used.
-        if not os.path.exists(endErrorPath):
-            # Failed to produce any output, maybe raising the error cutoff will help?
-            numLidarPointsUsed = 0 
-        else:
-            numLidarPointsUsed = asp_file_utils.getFileLineCount(endErrorPath) - ERR_HEADER_SIZE
-    
-        if (numLidarPointsUsed >= minLidarPoints):
-            break # Success!
-        elif (currentMaxDisplacement >= MAX_DISPLACEMENT):
-            # Hit the maximum max limit!
-            raise Exception('Error! Unable to find a good value for max-displacement' + 
-                            ' in pc_align.  Wanted ' + str(minLidarPoints) +
-                            ' points, only found ' +
-                            str(numLidarPointsUsed))
-        else: # Try again with a higher max limit
-            logger.info('Trying pc_align again, only got ' + str(numLidarPointsUsed)
-                        + ' lidar point matches with value ' + str(currentMaxDisplacement))
-            currentMaxDisplacement = currentMaxDisplacement + DISPLACEMENT_INCREMENT            
+            icebridge_common.logger_print(logger, 'Alignment failed, trying next displacement.')
+            continue # Try the next displacement
+
+        shutil.copyfile(thisDem, str(maxDisp) + '_dem.tif') # DEBUG
+        
+        # Keep track of the best displacement result, requiring a minimum
+        #  improvement in the mean error to accept a 
+        thisDiff = results['Mean']
+        percent_improvement = (bestMeanDiff - thisDiff) / bestMeanDiff
+        icebridge_common.logger_print(logger, '\nDiff results for max displacement ' 
+                                               + str(maxDisp) + ' = ' + str(results)
+                                               + ', improvement ratio = ' 
+                                               + str(percent_improvement))
+        icebridge_common.logger_print(logger, out + '\n' + err)
+        if ( (bestMeanDiff < 0) or 
+             (percent_improvement >= MIN_DIST_IMPROVEMENT) or
+             (thisDiff < IDEAL_LIDAR_DIST) ):
+            icebridge_common.logger_print(logger, 
+                    'Accepting pc_align result for displacement ' + str(maxDisp))
+            bestMeanDiff = thisDiff
+            bestMaxDisp  = maxDisp
+            shutil.move(thisDem,       bestDemPath  )
+            shutil.move(transformPath, bestTransPath)
+            
+        if thisDiff < IDEAL_LIDAR_DIST:
+            break # No need to check more displacements if this result is great
+
+    # Move the best result into the default file locations.
+    icebridge_common.logger_print(logger, 'Best mean diff is ' + str(bestMeanDiff) 
+                                  +' with --max-displacement = ' + str(bestMaxDisp))
+    shutil.move(bestDemPath,   alignedDem)
+    shutil.move(bestTransPath, transformPath)
 
     # Final success check
     if not os.path.exists(alignedPC):
         raise Exception('pc_align call failed!')
-
-    # POINT2DEM on the aligned PC file
-    cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
-           % (options.demResolution, projString, alignedPC, threadText))
-    icebridge_common.logger_print(logger, cmd)
-    asp_system_utils.executeCommand(cmd, alignedDem, suppressOutput, redo)
-    
-    cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
-           (lidarCsvFormatString, alignedDem, lidarFile, outputPrefix))
-    logger.info(cmd) # to make it go to the log, not just on screen
-    asp_system_utils.executeCommand(cmd, lidarDiffPath, suppressOutput, redo)
-    
-    results = icebridge_common.readGeodiffOutput(lidarDiffPath)
 
     # Apply the same transform to the footprint DEM. This one is used in blending later.
     finalFootprintDEM = os.path.join(options.outputFolder,
@@ -183,8 +210,8 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
                             (lidarCsvFormatString))
         alignPrefixFoot = alignPrefix + '-footprint'
         footDemPath = demPath.replace("DEM.tif", "footprint-DEM.tif")
-        cmd = ('pc_align --num-iterations 0 --initial-transform %s-transform.txt %s %s %s -o %s %s' %
-               (alignPrefix, alignOptions, footDemPath, lidarFile, alignPrefixFoot, threadText))
+        cmd = ('pc_align --num-iterations 0 --initial-transform %s %s %s %s -o %s %s' %
+               (transformPath, alignOptions, footDemPath, lidarFile, alignPrefixFoot, threadText))
         alignedFootPC = alignPrefixFoot + '-trans_reference.tif'
         try:
             logger.info(cmd) # to make it go to the log, not just on screen

@@ -629,13 +629,13 @@ int main(int argc, char* argv[]) {
       double roll    = rot_interp[0];
       double pitch   = rot_interp[1];
       //double heading = rot_interp[2];
-      vw_out() << "For file " << orthoimage_path << " computed LLH " << llh_interp << std::endl;
+      //vw_out() << "For file " << orthoimage_path << " computed LLH " << llh_interp << std::endl;
       //vw_out() << "Roll    = " << roll    <<" = "<< roll*180/3.14159<< std::endl;
       //vw_out() << "Pitch   = " << pitch   <<" = "<< pitch*180/3.14159<< std::endl;
       //vw_out() << "Heading = " << heading << std::endl;
 
-      std::cout << "Ortho time  = " << ortho_time << std::endl;
-      vw_out() << "llh = " << llh_interp << std::endl;
+      //std::cout << "Ortho time  = " << ortho_time << std::endl;
+      //vw_out() << "llh = " << llh_interp << std::endl;
       
       // Now estimate the rotation information
 
@@ -715,10 +715,10 @@ int main(int argc, char* argv[]) {
       // Without documentation it is very difficult to determine
       // which of these rotation orders is correct!
       // - Could be neither since the yaw rotation is already baked in.
-      Matrix3x3 M1 = M_pitch*M_roll*rotation_matrix_gcc; // <-- off
-      Matrix3x3 M2 = M_roll*M_pitch*rotation_matrix_gcc; // <-- off
+      //Matrix3x3 M1 = M_pitch*M_roll*rotation_matrix_gcc; // <-- off
+      //Matrix3x3 M2 = M_roll*M_pitch*rotation_matrix_gcc; // <-- off
       Matrix3x3 M3 = rotation_matrix_gcc*M_pitch*M_roll; // <-- Best
-      Matrix3x3 M4 = rotation_matrix_gcc*M_roll*M_pitch; // <-- Ok
+      //Matrix3x3 M4 = rotation_matrix_gcc*M_roll*M_pitch; // <-- Ok
       
       //std::cout << "Modified matrices:\n";
       //print_matrix(M1); std::cout << std::endl;
