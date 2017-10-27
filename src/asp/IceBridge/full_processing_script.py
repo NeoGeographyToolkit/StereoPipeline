@@ -521,7 +521,7 @@ def main(argsIn):
         options.stopAfterFetch = True
         
     os.system('mkdir -p ' + options.outputFolder)
-    logLevel = logging.INFO # Make this an option??
+    logLevel = logging.INFO # Record everything
     logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
                                             'icebridge_processing_log_frames_' + str(options.startFrame) + "_" + str(options.stopFrame))
 

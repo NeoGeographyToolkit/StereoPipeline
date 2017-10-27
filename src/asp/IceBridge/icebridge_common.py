@@ -1281,13 +1281,6 @@ def nonBlockingRawInput(prompt='', timeout=20):
         pass # Timeout
     signal.signal(signal.SIGALRM, signal.SIG_IGN)
     return ''
-
-def logger_print(logger, msg):
-    '''Print to logger, if present. This helps keeps all messages in sync.'''
-    if logger is not None:
-        logger.info(msg)
-    else:
-        print(msg)
         
 def waitForTaskCompletionOrKeypress(taskHandles, logger = None, interactive=True, quitKey='q',
                                     sleepTime=20):
@@ -1347,14 +1340,29 @@ def setUpLogger(outputFolder, logLevel, logPathPrefix):
     logger.setLevel(level=logLevel)
     logger.propagate = False # This is a unique logger, don't copy messages to parent modules.
     
+    # Make sure we have exacly one stream handler to mirror logging to console.
+    hasStreamHandler = False
+    for h in logger.handlers:
+        if 'StreamHandler' in str(h):
+            hasStreamHandler = True
+    if not hasStreamHandler:
+        logger.addHandler(logging.StreamHandler())
+    
     fileHandler = logging.FileHandler(logPath)
     formatter   = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fileHandler.setFormatter(formatter)
     logger.addHandler(fileHandler)
-    logger.addHandler(logging.StreamHandler()) # Mirror logging to console
 
-    logger = logging.getLogger(__name__) # We configured root, but continue logging with the normal name.
+    logger = logging.getLogger(__name__) # We configured root, but continue logging with the normal name.    
+    
     return logger
+
+def logger_print(logger, msg):
+    '''Print to logger, if present. This helps keeps all messages in sync.'''
+    if logger is not None:
+        logger.info(msg)
+    else:
+        print(msg)
 
 # TODO: Rename to isSouth.
 def checkSite(site):

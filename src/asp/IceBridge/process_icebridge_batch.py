@@ -91,8 +91,7 @@ def makeDemAndCheckError(options, projString, pointCloud,
 
 def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath, 
                   demPath, finalAlignedDEM, 
-                  projString, lidarCsvFormatString, threadText,
-                  suppressOutput, redo, logger):
+                  projString, lidarCsvFormatString, threadText, logger):
     '''Try pc_align with increasing max displacements until we it completes
        with enough lidar points used in the comparison'''
 
@@ -124,10 +123,9 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     diffPrefix = os.path.join(options.outputFolder, 'out')
     diffOutput = diffPrefix + '-diff.tif'
     cmd = ('geodiff %s %s -o %s' % (demPath, lidarDemPath, diffPrefix))
-    (out, err, status) = asp_system_utils.executeCommand(cmd, diffOutput, suppressOutput, True)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, diffOutput, True, True)
     icebridge_common.logger_print(logger, out + '\n' + err)
     diffInfo = asp_image_utils.getImageStats(diffOutput)
-    print diffInfo
     meanDiff = -1.0 * diffInfo[0][2] # This adjustment is made in the down direction.
     os.system('rm -rf ' + diffOutput) # Go ahead and clean this up now
     logger.info('Vertical diff estimate from lidar = ' + str(meanDiff))
@@ -151,8 +149,8 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
         try:
             # Redo must be true here
             icebridge_common.logger_print(logger, cmd)
-            (out, err, status) = asp_system_utils.executeCommand(cmd, alignedPC, suppressOutput, True)
-            #icebridge_common.logger_print(logger, out + '\n' + err)
+            (out, err, status) = asp_system_utils.executeCommand(cmd, alignedPC, True, True)
+            icebridge_common.logger_print(logger, out + '\n' + err)
             
             # Get diff stats for this attempt
             (thisDem, thisLidarDiffPath, results) = \
@@ -215,7 +213,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
         alignedFootPC = alignPrefixFoot + '-trans_reference.tif'
         try:
             logger.info(cmd) # to make it go to the log, not just on screen
-            asp_system_utils.executeCommand(cmd, alignedFootPC, suppressOutput, redo)
+            asp_system_utils.executeCommand(cmd, alignedFootPC, False, True)
             if os.path.exists(footDemPath):
                 os.remove(footDemPath) # No longer needed
         except: 
@@ -227,7 +225,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
                    % (options.demResolution, projString, alignedFootPC, threadText))
             alignedFootDEM = alignPrefixFoot + '-trans_reference-DEM.tif'
             logger.info(cmd) # to make it go to the log, not just on screen
-            asp_system_utils.executeCommand(cmd, alignedFootDEM, suppressOutput, redo)
+            asp_system_utils.executeCommand(cmd, alignedFootDEM, False, True)
         except: 
             pass
 
@@ -646,7 +644,7 @@ def readConsolidatedStatsFile(consolidatedStatsPath):
 
 
 def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText, 
-                  suppressOutput, redo, logger):
+                  redo, logger):
     '''Generate a DEM from a lidar file in the given region (plus a buffer)'''
 
     LIDAR_DEM_RESOLUTION     = 5 # TODO: Vary this
@@ -668,15 +666,10 @@ def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText,
               lidarCsvFormatString, lidarDemPrefix))
     lidarDemOutput = lidarDemPrefix+'-DEM.tif'
     icebridge_common.logger_print(logger, cmd)
-    (out, err, status) = asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo, noThrow=True)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, lidarDemOutput, True, redo, noThrow=True)
+    logger.info(out + '\n' + err)
     if status != 0:
-        logger.info(out + '\n' + err)
         raise Exception('Did not generate any lidar DEM!')
-
-
-    #colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
-    #cmd = ('colormap  %s -o %s' % ( lidarDemOutput, colorOutput))
-    #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
     
     return lidarDemOutput
 
@@ -707,7 +700,7 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
     # Create a lidar DEM at the region
     lidarDemPath = lidarCsvToDem(lidarFile, projBounds, projString, 
                                  options.outputFolder, threadText, 
-                                 suppressOutput, redo, logger)
+                                 redo, logger)
     
     # Get the min and max height of the lidar file
     try:
@@ -1373,7 +1366,7 @@ def doWork(options, args, logger):
 
         # Generate a DEM from the lidar point cloud in this region
         lidarDemOutput = lidarCsvToDem(lidarFile, projBounds, projString, options.outputFolder, 
-                                       threadText, suppressOutput, redo, logger)
+                                       threadText, redo, logger)
 
     # More comparisons with Fireball DEMs if available
     fireballDiffPaths     = []
@@ -1420,8 +1413,7 @@ def doWork(options, args, logger):
                     robustPcAlign(options, outputPrefix,
                                   lidarFile, lidarDemPath, allDemPath, finalAlignedDEM,
                                   projString, lidarCsvFormatString, 
-                                  threadText, 
-                                  suppressOutput, redo, logger)
+                                  threadText, logger)
         
         # Move the aligned DEM to the main directory, to have one file less
         if os.path.exists(alignedDem):

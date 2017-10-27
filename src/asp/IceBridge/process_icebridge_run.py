@@ -402,13 +402,19 @@ def main(argsIn):
         raise Exception('Failed to find any image camera pairs!')
     
     # Check that the files are properly aligned
+    lastFrame = -1
     availableFrames = []
-    for (image, camera) in imageCameraPairs: 
+    for (image, camera) in imageCameraPairs:
         frameNumber = icebridge_common.getFrameNumberFromFilename(image)
         availableFrames.append(frameNumber)
         if (icebridge_common.getFrameNumberFromFilename(camera) != frameNumber):
-          logger.error('Error: input files do not align!\n' + str((image, camera)))
-          return -1
+            logger.error('Error: input files do not align!\n' + str((image, camera)))
+            return -1
+        if frameNumber <= lastFrame:
+            logger.error('Error: input frames not sorted properly!\n')
+            return -1
+        lastFrame = frameNumber
+
 
     # Set the output resolution as the computed mean GSD
     # - Currently we process ten frames total but this should be increased for production!
