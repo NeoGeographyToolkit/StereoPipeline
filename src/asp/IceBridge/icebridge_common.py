@@ -30,7 +30,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-import asp_system_utils, asp_alg_utils, asp_geo_utils, asp_image_utils
+import asp_system_utils, asp_alg_utils, asp_geo_utils, asp_image_utils, asp_file_utils
 asp_system_utils.verify_python_version_is_supported()
 
 def switchWorkDir():
@@ -1465,10 +1465,12 @@ def readGeodiffOutput(inputPath):
 
     ext = os.path.splitext(inputPath)[1]
     if ext == '.csv':
+        numHeaderLines = 0
         with open(inputPath, 'r') as f:
             for line in f:
                 if '#' not in line: # Quit when we go past the comment lines
                     break
+                numHeaderLines = numHeaderLines + 1
                 for word in keywords: # Look for the four values
                     if word in line:
                         parts = line.split(':') # Extract the number
@@ -1476,6 +1478,9 @@ def readGeodiffOutput(inputPath):
                             raise Exception('Error parsing geodiff line:\n' + line)
                         results[word] = float(parts[1])
                         break # Go on to the next line in the file
+        # For CSV files, include a count of the number of points compared.   
+        numLines = asp_file_utils.getFileLineCount(inputPath) - numHeaderLines
+        results['NumDiffs'] = numLines
     else: # Handle .tif files
         stats = asp_image_utils.getImageStats(inputPath)[0]
         results['Min'   ] = stats[0]

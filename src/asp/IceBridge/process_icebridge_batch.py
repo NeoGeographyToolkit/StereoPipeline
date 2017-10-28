@@ -88,6 +88,40 @@ def makeDemAndCheckError(options, projString, pointCloud,
     
     return (demPath, diffPath, results)
 
+# TODO: May not need this function!
+def getOverlapAmount(dem1, dem2, logger):
+    '''Count the number of overlapping pixels in two DEMs'''
+    
+    # Generate a DEM file from the point cloud
+    mosaicPrefix = os.path.join(os.path.dirname(dem1), 'overlapTemp')
+    mosaicOutput = mosaicPrefix + '-tile-0-count.tif'
+    cmd = ('dem_mosaic --count %s %s -o %s' % (dem1, dem2, mosaicPrefix))
+    icebridge_common.logger_print(logger, cmd)
+    asp_system_utils.executeCommand(cmd, mosaicOutput, True, True)
+
+    # Count up the '2' values
+
+    # Need to be 8 bit for ImageMagick
+    u8Mosaic = mosaicPrefix + '-u8_count.tif'
+    cmd = ('gdal_translate -ot byte %s %s' % (mosaicOutput, u8Mosaic))
+    icebridge_common.logger_print(logger, cmd)
+    asp_system_utils.executeCommand(cmd, u8Mosaic, True, True)
+    
+    # Now count the overlapping pixels
+    cmd = ('convert '+u8Mosaic+
+           ' -fill black +opaque "gray(2)" -fill white -opaque "gray(2)" -format "%[fx:w*h*mean]" info:')
+    icebridge_common.logger_print(logger, cmd)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, u8Mosaic, True, True)    
+    if status != 0:
+        raise Exception('Failed to compute overlap amount!')
+    count = int(out.strip())
+    
+    # Clean up
+    os.remove(mosaicOutput)
+    os.remove(u8Mosaic)
+    
+    return count
+
 
 def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath, 
                   demPath, finalAlignedDEM, 
@@ -96,7 +130,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
        with enough lidar points used in the comparison'''
 
     # Displacements are still since an initial vertical shift is applied
-    DISPLACEMENTS        = [2, 4, 6, 10, 15, 25]
+    DISPLACEMENTS        = [1, 2, 4, 6, 10, 25] # TODO: Increase these numbers for land flights!
     ERR_HEADER_SIZE      = 3
     IDEAL_LIDAR_DIST     = 0.1  # Quit aligning if we get under this error
     MIN_DIST_IMPROVEMENT = 0.25 # Percentage improvement in error to accept a larger max-disp
@@ -133,16 +167,18 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
 
     bestMeanDiff  = -1
     bestMaxDisp   = -1
+    bestNumDiffs  = -1
     bestTransPath = os.path.join(pcAlignFolder, 'best_transform.txt')
     bestDemPath   = os.path.join(pcAlignFolder, 'best_dem.tif')
 
     # Done computing the desired point count, now align our DEM.
+    resultsDict = {}
     for maxDisp in DISPLACEMENTS:
                
         # Call pc_align
         alignOptions = ( ('--max-displacement %f --csv-format %s ' +
                           '--save-inv-transformed-reference-points ' + 
-                          '--highest-accuracy --initial-ned-translation "0 0 %f"') % 
+                          '--initial-ned-translation "0 0 %f"') % 
                          (maxDisp, lidarCsvFormatString, meanDiff))
         cmd = ('pc_align %s %s %s -o %s %s' %
                (alignOptions, demPath, lidarFile, alignPrefix, threadText))
@@ -159,28 +195,36 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
                                      threadText, logger)
             transformPath = thisDem.replace('trans_reference-DEM.tif', 'transform.txt')
             
+            #numDiffs = getOverlapAmount(thisDem, lidarDemPath, logger)
         except: 
             icebridge_common.logger_print(logger, 'Alignment failed, trying next displacement.')
             continue # Try the next displacement
 
-        shutil.copyfile(thisDem, str(maxDisp) + '_dem.tif') # DEBUG
+        #shutil.copyfile(thisDem, str(maxDisp) + '_dem.tif') # DEBUG
         
         # Keep track of the best displacement result, requiring a minimum
-        #  improvement in the mean error to accept a 
+        #  improvement in the mean error to accept a higher-displacement result.
+        # - Also don't accept results with less lidar points covered because that is 
+        #   a sign that the DEM has been tilted away from the LIDAR path.
         thisDiff = results['Mean']
+        numDiffs = results['NumDiffs']
         percent_improvement = (bestMeanDiff - thisDiff) / bestMeanDiff
         icebridge_common.logger_print(logger, '\nDiff results for max displacement ' 
                                                + str(maxDisp) + ' = ' + str(results)
+                                               + ', num diffs = ' 
+                                               + str(numDiffs)
                                                + ', improvement ratio = ' 
                                                + str(percent_improvement))
-        icebridge_common.logger_print(logger, out + '\n' + err)
+        resultsDict[str(maxDisp)] = results
         if ( (bestMeanDiff < 0) or 
-             (percent_improvement >= MIN_DIST_IMPROVEMENT) or
-             (thisDiff < IDEAL_LIDAR_DIST) ):
+             (thisDiff < IDEAL_LIDAR_DIST) or
+             ((percent_improvement >= MIN_DIST_IMPROVEMENT) and
+              (numDiffs >= bestNumDiffs)) ):
             icebridge_common.logger_print(logger, 
                     'Accepting pc_align result for displacement ' + str(maxDisp))
             bestMeanDiff = thisDiff
             bestMaxDisp  = maxDisp
+            bestNumDiffs = numDiffs
             shutil.move(thisDem,       bestDemPath  )
             shutil.move(transformPath, bestTransPath)
             
@@ -189,7 +233,9 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
 
     # Move the best result into the default file locations.
     icebridge_common.logger_print(logger, 'Best mean diff is ' + str(bestMeanDiff) 
-                                  +' with --max-displacement = ' + str(bestMaxDisp))
+                                  +' with --max-displacement = ' + str(bestMaxDisp)
+                                  +' and num diffs = ' + str(bestNumDiffs))
+    logger.info(resultsDict)
     shutil.move(bestDemPath,   alignedDem)
     shutil.move(bestTransPath, transformPath)
 
