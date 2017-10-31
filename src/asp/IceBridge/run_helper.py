@@ -323,19 +323,19 @@ class RunHelper():
         (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath,
                                                                         prependFolder = True)
 
-        # Rename camera files
+        logger.info('Renaming camera files...')
         self.massRenameByGlob(startFrame, stopFrame, orthoFrameDict, 
                               os.path.join(cameraFolder, '*DMS*tsai'), logger)
 
-        # Rename nav camera files
+        logger.info('Renaming nav camera files...')
         self.massRenameByGlob(startFrame, stopFrame, orthoFrameDict, 
                               os.path.join(navCameraFolder, '*DMS*tsai'), logger)
 
-        # Rename converted jpegs
+        logger.info('Renaming converted images...')
         self.massRenameByGlob(startFrame, stopFrame, orthoFrameDict, 
                               os.path.join(imageFolder, '*DMS*tif'), logger)
 
-        # Rename aligned cameras
+        logger.info('Renaming aligned cameras...')
         self.massRenameByGlob(startFrame, stopFrame, orthoFrameDict, 
                               os.path.join(processedFolder, 'batch*',
                                            icebridge_common.alignedBundleStr() + '*DMS*tsai'),

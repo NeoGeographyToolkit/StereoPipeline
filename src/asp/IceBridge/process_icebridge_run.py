@@ -75,7 +75,7 @@ def processBatch(imageCameraPairs, lidarFolder, referenceDem, skipInterval, outp
 
     # Just set the options and call the pair python tool.
     # We can try out bundle adjustment for intrinsic parameters here.
-    cmd = ('--lidar-overlay --lidar-folder %s --reference-dem %s --stereo-image-interval %d --dem-resolution %f' \
+    cmd = ('--lidar-folder %s --reference-dem %s --stereo-image-interval %d --dem-resolution %f' \
            ' --output-folder %s %s %s --stereo-arguments ' 
            % (lidarFolder, referenceDem, skipInterval, outputResolution, outputFolder, argString, extraOptions))
         

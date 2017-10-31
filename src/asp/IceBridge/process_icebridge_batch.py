@@ -154,15 +154,19 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
         return alignedDem, lidarDiffPath, results['Mean']
 
     # Estimate an initial vertical shift between our DEM and the lidar data.
-    diffPrefix = os.path.join(options.outputFolder, 'out')
-    diffOutput = diffPrefix + '-diff.tif'
-    cmd = ('geodiff %s %s -o %s' % (demPath, lidarDemPath, diffPrefix))
-    (out, err, status) = asp_system_utils.executeCommand(cmd, diffOutput, True, True)
-    icebridge_common.logger_print(logger, out + '\n' + err)
-    diffInfo = asp_image_utils.getImageStats(diffOutput)
-    meanDiff = -1.0 * diffInfo[0][2] # This adjustment is made in the down direction.
-    os.system('rm -rf ' + diffOutput) # Go ahead and clean this up now
-    logger.info('Vertical diff estimate from lidar = ' + str(meanDiff))
+    try:
+        diffPrefix = os.path.join(options.outputFolder, 'out')
+        diffOutput = diffPrefix + '-diff.tif'
+        cmd = ('geodiff %s %s -o %s' % (demPath, lidarDemPath, diffPrefix))
+        icebridge_common.logger_print(logger, cmd)
+        (out, err, status) = asp_system_utils.executeCommand(cmd, diffOutput, True, True)
+        icebridge_common.logger_print(logger, out + '\n' + err)
+        diffInfo = asp_image_utils.getImageStats(diffOutput)
+        meanDiff = -1.0 * diffInfo[0][2] # This adjustment is made in the down direction.
+        os.system('rm -rf ' + diffOutput) # Go ahead and clean this up now
+        logger.info('Vertical diff estimate from lidar = ' + str(meanDiff))
+    except:
+        raise Exception('No overlap between lidar DEM and stereo DEM!')
 
 
     bestMeanDiff  = -1
@@ -1065,10 +1069,6 @@ def main(argsIn):
                           ' Also sets bundle adjust overlap limit.')
 
         # Output options
-        parser.add_option('--lidar-overlay', action='store_true', default=False,
-                          dest='lidarOverlay',  
-                          help='Generate a lidar overlay for debugging.')
-
         parser.add_option('--dem-resolution', dest='demResolution', default=0.4,
                           type='float', help='Generate output DEMs at this resolution.')
 
@@ -1397,22 +1397,6 @@ def doWork(options, args, logger):
         
         # Create a symlink to the mosaic file with a better name
         icebridge_common.makeSymLink(mosaicOutput, allDemPath)
-
-
-    # Optional visualization of the LIDAR file
-    if options.lidarOverlay and lidarFile:
-
-        # Get projection bounds of our output DEM
-        # - TODO: Avoid doing this if the file exists.
-        demGeoInfo = asp_geo_utils.getImageGeoInfo(allDemPath, getStats=False)
-        projBounds = demGeoInfo['projection_bounds']
-        # Rearrange to minX, minY, maxX, maxY
-        projBounds = (projBounds[0], projBounds[2], projBounds[1], projBounds[3])
-
-
-        # Generate a DEM from the lidar point cloud in this region
-        lidarDemOutput = lidarCsvToDem(lidarFile, projBounds, projString, options.outputFolder, 
-                                       threadText, redo, logger)
 
     # More comparisons with Fireball DEMs if available
     fireballDiffPaths     = []
