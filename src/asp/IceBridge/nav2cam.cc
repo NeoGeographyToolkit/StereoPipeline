@@ -459,37 +459,6 @@ private:
 }; // End class ScrollingNavInterpolator
 
 
-
-// TODO: Fix the corresponding function in the datum class!
-// - Need to update all locations where it is called!
-vw::Matrix3x3 lonlat_to_ned_matrix( vw::Vector2 const& lonlat)  {
-  double lon = lonlat.x();
-  double lat = lonlat.y();
-  if ( lat < -90 ) lat = -90;
-  if ( lat >  90 ) lat =  90;
-
-  double rlon = (lon /*+ m_meridian_offset*/) * (M_PI/180);
-  double rlat = lat * (M_PI/180);
-  double slat = sin( rlat );
-  double clat = cos( rlat );
-  double slon = sin( rlon );
-  double clon = cos( rlon );
-
-  Matrix3x3 R;
-
-  R(0,0) = -slat*clon;
-  R(1,0) = -slat*slon;
-  R(2,0) = clat;
-  R(0,1) = -slon;
-  R(1,1) = clon;
-  R(2,1) = 0.0;
-  R(0,2) = -clon*clat;
-  R(1,2) = -slon*clat;
-  R(2,2) = -slat;
-
-  return R;
-}
-
 /// Pretty-print a rotation matrix.
 void print_matrix(Matrix3x3 const& m) {
   for (int r=0; r<3; ++r){
@@ -684,7 +653,6 @@ int main(int argc, char* argv[]) {
       
       // TODO: ENU or NED?
       //Matrix3x3 ned_matrix = datum_wgs84.lonlat_to_ned_matrix(Vector2(llh_interp[0], llh_interp[1]));
-      //Matrix3x3 ned_matrix = lonlat_to_ned_matrix(Vector2(llh_interp[0], llh_interp[1]));
       //Matrix3x3 enu_matrix(ned_matrix(0,1), ned_matrix(0,0), -ned_matrix(0,2),
       //                     ned_matrix(1,1), ned_matrix(1,0), -ned_matrix(1,2),
       //                     ned_matrix(2,1), ned_matrix(2,0), -ned_matrix(2,2));

@@ -1022,7 +1022,7 @@ PointMatcher<RealT>::Matrix ned_to_caresian_transform(vw::cartography::Datum con
 
   vw::Vector3 loc_llh = datum.cartesian_to_geodetic(location);
   vw::Matrix3x3 M = datum.lonlat_to_ned_matrix(subvector(loc_llh, 0, 2));
-  vw::Vector3 xyz_shift = inverse(M)*ned;
+  vw::Vector3 xyz_shift = M*ned;
   
   PointMatcher<RealT>::Matrix T = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
 
