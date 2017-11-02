@@ -68,7 +68,12 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 int g_ba_num_errors = 0;
 Mutex g_ba_mutex;
 
+typedef PixelMask< Vector<float, 2> > DispPixelT;
 
+// These are used to read and write tif images with vector pixels
+namespace vw {
+  template<> struct PixelFormatID< DispPixelT >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+}
 
 //==================================================================================
 // IP filtering functions -> Move them somewhere else once they are settled
@@ -256,7 +261,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics,
          disable_tri_filtering, ip_normalize_tiles, ip_debug_images;
   std::string datum_str, camera_position_file, initial_transform_file,
-    csv_format_str, csv_proj4_str, intrinsics_to_float_str;
+    csv_format_str, csv_proj4_str, lidar_file, disparity_file, intrinsics_to_float_str;
   double semi_major, semi_minor, position_filter_dist;
   int num_ba_passes;
   std::string remove_outliers_params_str;
@@ -374,8 +379,7 @@ struct BaReprojectionError {
     m_icam(icam), m_ipt(ipt){}
 
   template <typename T>
-  bool operator()(const T* camera, const T* point,
-                  T* residuals) const {
+  bool operator()(const T* camera, const T* point, T* residuals) const {
 
     try{
 
@@ -457,9 +461,9 @@ struct BaPinholeError {
   /// Compute residuals of observing this point with these camera parameters
   bool operator()(const double * const camera,
                   const double * const point,
-                  const double * const focal_length,
-                  const double * const optical_center,
-                  const double * const nonlens_intrinsics,
+                  const double * const scaled_focal_length,
+                  const double * const scaled_optical_center,
+                  const double * const scaled_distortion_intrinsics,
                   double       * residuals) const {
     try{
       int num_cameras = m_ba_model->num_cameras();
@@ -474,12 +478,30 @@ struct BaPinholeError {
       BAPinholeModel::point_vector_t       point_vec;
 
       m_ba_model->concat_extrinsics_intrinsics(camera,
-                                               focal_length, optical_center, nonlens_intrinsics,
+                                               scaled_focal_length,
+                                               scaled_optical_center,
+                                               scaled_distortion_intrinsics,
                                                cam_intr_vec);
-      Vector3 offset(393898.51796331455, 209453.73827364066, -6350895.8432638068);
       for (size_t p = 0; p < point_vec.size(); p++)
-        point_vec[p] = point[p];// + offset[p];
+        point_vec[p] = point[p];
 
+      BAPinholeModel::intrinsic_vector_t orig_intrinsics = m_ba_model->get_intrinsics();
+
+      size_t ncp = BAPinholeModel::camera_params_n;
+
+      if (!m_ba_model->are_intrinsics_constant()) {
+        if (orig_intrinsics.size() + ncp != cam_intr_vec.size()) 
+          vw_throw(LogicErr() << "Wrong number of intrinsics!");
+      }else{
+        if (ncp != cam_intr_vec.size()) 
+          vw_throw(LogicErr() << "Wrong number of intrinsics!");
+      }
+
+      // Multiply the original intrinsics by their relative intrinsics
+      // being optimized
+      for (size_t intrIter = ncp; intrIter < cam_intr_vec.size(); intrIter++)
+        cam_intr_vec[intrIter] *= orig_intrinsics[intrIter - ncp];
+      
       // Project the current point into the current camera
       Vector2 prediction = m_ba_model->cam_pixel(m_ipt, m_icam, cam_intr_vec, point_vec);
 
@@ -500,22 +522,24 @@ struct BaPinholeError {
   /// Overload for when there is no distortion
   bool operator()(const double * const camera,
                   const double * const point,
-                  const double * const focal_length,
-                  const double * const optical_center,
+                  const double * const scaled_focal_length,
+                  const double * const scaled_optical_center,
                   double       * residuals) const {
-    return this->operator()(camera, point, focal_length, optical_center, 0, residuals);
+    return this->operator()(camera, point, scaled_focal_length, scaled_optical_center, 0, residuals);
   }
   
   /// Overload for when all intrinsics are in one vector
   bool operator()(const double * const camera,
                   const double * const point,
-                  const double * const intrinsic,
+                  const double * const scaled_intrinsics,
                   double       * residuals) const {
     
     int nf = BAPinholeModel::focal_length_params_n;
     int nc = BAPinholeModel::optical_center_params_n;
     return this->operator()(camera, point,
-                            intrinsic, intrinsic + nf, intrinsic + nf + nc,
+                            scaled_intrinsics,           // focal length
+                            scaled_intrinsics + nf,      // optical center
+                            scaled_intrinsics + nf + nc, // distortion
                             residuals);
   }
   
@@ -570,7 +594,11 @@ struct BaPinholeError {
     case 13:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 10>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
     case 14:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 11>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
     case 15:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 12>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-      
+    case 16:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 13>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 17:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 14>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 18:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 15>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 19:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 16>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 20:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 17>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
     default:
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
     };
@@ -583,6 +611,290 @@ struct BaPinholeError {
   size_t m_icam, m_ipt;
 };
 
+/// A ceres cost function. Here we float two pinhole camera's intrinsic
+/// and extrinsic parameters. We take as input a lidar point and a disparity
+/// from left to right image. The error metric is the following:
+/// The lidar point is projected in the left image. It is mapped via
+/// the disparity to the right image. There, the residual error
+/// is the difference between that pixel and the pixel obtained by
+/// projecting the lidar point straight into the right image. 
+struct BaDispLidarError {
+  BaDispLidarError(Vector3 const& lidar_point,
+                   ImageViewRef<DispPixelT> const& interp_disp, 
+                   BAPinholeModel const& ba_model, size_t left_icam, size_t right_icam):
+    m_lidar_point(lidar_point),
+    m_interp_disp(interp_disp),
+    m_ba_model(ba_model),
+    m_left_icam(left_icam), m_right_icam(right_icam){}
+
+  /// Compute residuals of observing this point with these camera parameters
+  bool operator()(const double * const left_camera,
+                  const double * const right_camera,
+                  const double * const scaled_focal_length,
+                  const double * const scaled_optical_center,
+                  const double * const scaled_distortion_intrinsics,
+                  double       * residuals) const {
+    try{
+      int num_cameras = m_ba_model.num_cameras();
+      VW_ASSERT(int(m_left_icam) < num_cameras, ArgumentErr()
+                << "Out of bounds in the number of cameras");
+      VW_ASSERT(int(m_right_icam) < num_cameras, ArgumentErr()
+                << "Out of bounds in the number of cameras");
+      
+      // Copy the input data to structures expected by the BA model
+      BAPinholeModel::camera_intr_vector_t left_cam_intr_vec, right_cam_intr_vec;
+      BAPinholeModel::point_vector_t       point_vec;
+
+      m_ba_model.concat_extrinsics_intrinsics(left_camera,
+                                              scaled_focal_length,
+                                              scaled_optical_center,
+                                              scaled_distortion_intrinsics,
+                                              left_cam_intr_vec);
+      m_ba_model.concat_extrinsics_intrinsics(right_camera,
+                                              scaled_focal_length, scaled_optical_center,
+                                              scaled_distortion_intrinsics,
+                                              right_cam_intr_vec);
+      
+      VW_ASSERT(m_lidar_point.size() == point_vec.size(), ArgumentErr()
+                << "Inconsistency in point size.");
+            
+      for (size_t p = 0; p < point_vec.size(); p++)
+        point_vec[p] = m_lidar_point[p];
+
+      // Original intrinsics
+      BAPinholeModel::intrinsic_vector_t orig_intrinsics = m_ba_model.get_intrinsics();
+      size_t ncp = BAPinholeModel::camera_params_n;
+
+      if (!m_ba_model.are_intrinsics_constant()) {
+        if (orig_intrinsics.size() + ncp != left_cam_intr_vec.size()) 
+          vw_throw(LogicErr() << "Wrong number of intrinsics!");
+      }else{
+        if (ncp != left_cam_intr_vec.size()) 
+          vw_throw(LogicErr() << "Wrong number of intrinsics!");
+      }
+      
+      // So far we had scaled intrinsics, very close to 1. Multiply them
+      // by the original intrinsics, to get the actual intrinsics. 
+      for (size_t intrIter = ncp; intrIter < left_cam_intr_vec.size(); intrIter++) {
+        left_cam_intr_vec[intrIter]  *= orig_intrinsics[intrIter - ncp];
+        right_cam_intr_vec[intrIter] *= orig_intrinsics[intrIter - ncp];
+      }
+      
+      // Project the current point into the current camera
+      Vector2 left_prediction = m_ba_model.cam_pixel(0, m_left_icam,
+						      left_cam_intr_vec, point_vec);
+      Vector2 right_prediction = m_ba_model.cam_pixel(0, m_right_icam,
+						       right_cam_intr_vec, point_vec);
+
+      bool good_ans = true;
+      if (left_prediction[0] < 0 || left_prediction[0] > m_interp_disp.cols()-1 ||
+	  left_prediction[1] < 0 || left_prediction[1] > m_interp_disp.rows()-1) {
+	good_ans = false;
+      }else{
+
+        DispPixelT dispPix = m_interp_disp(left_prediction[0], left_prediction[1]);
+        if (!is_valid(dispPix)) {
+	  good_ans = false;
+	}else{
+	  Vector2 right_prediction_from_disp = left_prediction + dispPix.child();
+	  residuals[0] = right_prediction_from_disp[0] - right_prediction [0];
+	  residuals[1] = right_prediction_from_disp[1] - right_prediction [1];
+	}
+      }
+
+      // TODO: Think more of what to do below. Also try with a non-hole-filled disparity
+      // and with disparity from MGM which is unwarped.
+      
+      if (!good_ans) {
+	// Failed to find the residuals
+	residuals[0] = 10;
+	residuals[1] = 10;
+	return true;
+      }
+
+    } catch (const camera::PointToPixelErr& e) {
+      // Failed to project into the camera
+      residuals[0] = 10;
+      residuals[1] = 10;
+      return true;
+    }
+    return true;
+  }
+
+  /// Overload for when there is no distortion
+  bool operator()(const double * const left_camera,
+                  const double * const right_camera,
+                  const double * const scaled_focal_length,
+                  const double * const scaled_optical_center,
+                  double       * residuals) const {
+    return this->operator()(left_camera, right_camera, scaled_focal_length,
+                            scaled_optical_center, 0, residuals);
+  }
+  
+  /// Overload for when all intrinsics are in one vector
+  bool operator()(const double * const left_camera,
+                  const double * const right_camera,
+                  const double * const scaled_intrinsics,
+                  double       * residuals) const {
+    int nf = BAPinholeModel::focal_length_params_n;
+    int nc = BAPinholeModel::optical_center_params_n;
+    return this->operator()(left_camera, right_camera,
+                            scaled_intrinsics, scaled_intrinsics + nf,
+                            scaled_intrinsics + nf + nc,
+                            residuals);
+  }
+  
+  /// Overload for when intrinsic parameters are not provided.
+  bool operator()(const double * const left_camera,
+                  const double * const right_camera,
+                  double       * residuals) const {
+    // Just call the other function with a dummy intrinsic vector which will not be used.
+    return this->operator()(left_camera, right_camera, 0, residuals);
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(Vector3 const& lidar_point,
+				     ImageViewRef<DispPixelT> const& interp_disp,
+                                     BAPinholeModel const& ba_model,
+                                     size_t left_icam,
+                                     size_t right_icam){
+    
+    const int nob = PIXEL_SIZE; // Num observation elements: Column, row
+    const int ncp = BAPinholeModel::camera_params_n;
+    const int nf  = BAPinholeModel::focal_length_params_n;
+    const int nc  = BAPinholeModel::optical_center_params_n;
+    const int num_intrinsics = ba_model.num_intrinsic_params();
+
+    // Create a ceres::AutoDiffCostFunction object templated to the
+    // exact problem sizes we need. Notice that if we have more than 3 intrinsics that
+    // means focal length (1 param), optical center (2 params), and the rest are
+    // distortion params.
+
+    // TODO: Use a macro below
+    
+    switch (num_intrinsics) {
+    case 0: // This case is different, it does not set an intrinsic size.
+      return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+      // All of the other cases hard code the intrinsic length.
+    case 1:
+      vw_throw(LogicErr() << "bundle_adjust.cc not set up for 1 intrinsic param!");
+    case 2:
+      vw_throw(LogicErr() << "bundle_adjust.cc not set up for 2 intrinsic params!");
+    case 3: return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam))); // no distortion
+    case 4:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 1>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 5:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 2>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 6:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 3>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 7:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 4>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 8:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 5>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 9:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 6>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 10:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 7>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 11:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 8>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 12:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 9>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 13:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 10>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 14:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 11>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 15:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 12>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 16:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 13>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 17:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 14>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 18:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 15>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 19:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 16>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 20:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 17>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    default:
+      vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
+    };
+    return 0;
+  } // End function Create
+
+  Vector3 m_lidar_point;
+  ImageViewRef<DispPixelT> const& m_interp_disp;
+  BAPinholeModel const& m_ba_model;
+  size_t m_left_icam, m_right_icam;
+  
+};
+
+// Add residual block for the error using lidar
+// This one does nothing, as the functionality is implemented only for pinhole models
+template<class ModelT>
+void add_residual_block(Vector3 const& lidar_point,
+                        ImageViewRef<DispPixelT> const& interp_disp, 
+                        ModelT & ba_model,
+                        size_t left_icam, size_t right_icam,
+                        double * left_camera, double * right_camera,
+                        double * scaled_intrinsics,
+                        std::set<std::string> const& intrinsics_to_float,
+                        ceres::LossFunction* loss_function,
+                        ceres::Problem & problem){
+}
+
+// Add residual block for the error using lidar for pinhole
+template<>
+void add_residual_block<BAPinholeModel>(Vector3 const& lidar_point,
+                                        ImageViewRef<DispPixelT> const& interp_disp, 
+                                        BAPinholeModel & ba_model,
+                                        size_t left_icam, size_t right_icam,
+                                        double * left_camera, double * right_camera,
+                                        double * scaled_intrinsics,
+                                        std::set<std::string> const& intrinsics_to_float,
+                                        ceres::LossFunction* loss_function,
+                                        ceres::Problem & problem){
+
+  ceres::CostFunction* cost_function =
+    BaDispLidarError::Create(lidar_point, interp_disp, ba_model, left_icam, right_icam);
+
+    // If the intrinsics are constant, do not even include them in the optimization
+  if (ba_model.are_intrinsics_constant()) {
+    problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera);
+  } else {
+
+    // We will float some or more of the intrinsics
+
+    int nf = BAPinholeModel::focal_length_params_n;
+    int nc = BAPinholeModel::optical_center_params_n;
+
+    const int num_distortion_params = ba_model.num_distortion_params();
+    if (num_distortion_params == 0) 
+      problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera,
+                               scaled_intrinsics,          // focal length
+                               scaled_intrinsics + nf      // optical center
+                               );
+    else{
+      problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera,
+                               scaled_intrinsics,          // focal length      (1 param)
+                               scaled_intrinsics + nf,     // optical center    (2 params)
+                               scaled_intrinsics + nf + nc // distortion params (all else)
+                               );
+    }
+    
+    // See if to float only certain intrinsics
+    if (!intrinsics_to_float.empty()) {
+
+      if (intrinsics_to_float.find("focal_length") == intrinsics_to_float.end()) {
+        //vw_out() << "Will not float focal length.\n";
+        problem.SetParameterBlockConstant(scaled_intrinsics);
+      }else{
+        //vw_out() << "Will float focal length.\n";
+      }
+
+      if (intrinsics_to_float.find("optical_center") == intrinsics_to_float.end()) {
+        //vw_out() << "Will not float optical center.\n";
+        problem.SetParameterBlockConstant(scaled_intrinsics + nf);
+      }else{
+        //vw_out() << "Will float optical center.\n";
+      }
+
+      if (intrinsics_to_float.find("distortion_params") == intrinsics_to_float.end()) {
+        //vw_out() << "Will not float distortion parameters.\n";
+        if (num_distortion_params > 0)
+          problem.SetParameterBlockConstant(scaled_intrinsics + nf + nc);
+      }else{
+        //vw_out() << "Will float distortion parameters.\n";
+      }
+      
+    } 
+    
+  } // end dealing with intrinsics
+  
+}
 
 /// A ceres cost function. The residual is the difference between the
 /// observed 3D point and the current (floating) 3D point, normalized by
@@ -763,12 +1075,12 @@ ceres::LossFunction* get_loss_function(Options const& opt ){
 }
 
 
-// Add residual block without floating intrinsics
+// Add residual block without floating intrinsics for the reprojection error
 template<class ModelT>
 void add_residual_block(ModelT & ba_model,
                         Vector2 const& observation, Vector2 const& pixel_sigma,
                         size_t icam, size_t ipt,
-                        double * camera, double * point, double * intrinsics,
+                        double * camera, double * point, double * scaled_intrinsics,
                         std::set<std::string> const& intrinsics_to_float,
                         ceres::LossFunction* loss_function,
                         ceres::Problem & problem){
@@ -779,13 +1091,13 @@ void add_residual_block(ModelT & ba_model,
   problem.AddResidualBlock(cost_function, loss_function, camera, point);
 }
 
-// Add residual block, optionally floating the intrinsics
+// Add residual block for the reprojection error, optionally floating the intrinsics
 template<>
 void add_residual_block<BAPinholeModel>
                   (BAPinholeModel & ba_model,
                    Vector2 const& observation, Vector2 const& pixel_sigma,
                    size_t icam, size_t ipt,
-                   double * camera, double * point, double * intrinsics,
+                   double * camera, double * point, double * scaled_intrinsics,
                    std::set<std::string> const& intrinsics_to_float,
                    ceres::LossFunction* loss_function,
                    ceres::Problem & problem){
@@ -798,7 +1110,7 @@ void add_residual_block<BAPinholeModel>
   }
   else {
 
-    // Use a special const function using intrinsics
+    // Use a special cost function using intrinsics
 
     ceres::CostFunction* cost_function =
       BaPinholeError::Create(observation, pixel_sigma, &ba_model, icam, ipt);
@@ -809,14 +1121,14 @@ void add_residual_block<BAPinholeModel>
     const int num_distortion_params = ba_model.num_distortion_params();
     if (num_distortion_params == 0) 
       problem.AddResidualBlock(cost_function, loss_function, camera, point,
-                               intrinsics,          // focal length
-                               intrinsics + nf      // optical center
+                               scaled_intrinsics,          // focal length
+                               scaled_intrinsics + nf      // optical center
                                );
     else{
       problem.AddResidualBlock(cost_function, loss_function, camera, point,
-                               intrinsics,          // focal length      (1 param)
-                               intrinsics + nf,     // optical center    (2 params)
-                               intrinsics + nf + nc // distortion params (all else)
+                               scaled_intrinsics,          // focal length      (1 param)
+                               scaled_intrinsics + nf,     // optical center    (2 params)
+                               scaled_intrinsics + nf + nc // distortion params (all else)
                                );
     }
     
@@ -825,14 +1137,14 @@ void add_residual_block<BAPinholeModel>
 
       if (intrinsics_to_float.find("focal_length") == intrinsics_to_float.end()) {
         //vw_out() << "Will not float focal length.\n";
-        problem.SetParameterBlockConstant(intrinsics);
+        problem.SetParameterBlockConstant(scaled_intrinsics);
       }else{
         //vw_out() << "Will float focal length.\n";
       }
 
       if (intrinsics_to_float.find("optical_center") == intrinsics_to_float.end()) {
         //vw_out() << "Will not float optical center.\n";
-        problem.SetParameterBlockConstant(intrinsics + nf);
+        problem.SetParameterBlockConstant(scaled_intrinsics + nf);
       }else{
         //vw_out() << "Will float optical center.\n";
       }
@@ -840,7 +1152,7 @@ void add_residual_block<BAPinholeModel>
       if (intrinsics_to_float.find("distortion_params") == intrinsics_to_float.end()) {
         //vw_out() << "Will not float distortion parameters.\n";
         if (num_distortion_params > 0)
-          problem.SetParameterBlockConstant(intrinsics + nf + nc);
+          problem.SetParameterBlockConstant(scaled_intrinsics + nf + nc);
       }else{
         //vw_out() << "Will float distortion parameters.\n";
       }
@@ -926,9 +1238,8 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
   vw_out() << "Writing: " << output_path << std::endl;
   
   std::ofstream file;
-  file.open(output_path.c_str());
-  file << "lon, lat, alt, mean_residual, num_observations\n";
-  file.precision(18);
+  file.open(output_path.c_str()); file.precision(18);
+  file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
   
   // Now write all the points to the file
   for (size_t i = 0; i < num_points; ++i) {
@@ -955,6 +1266,7 @@ void compute_residuals(bool apply_loss_function,
 		       size_t num_camera_params, size_t num_point_params,
 		       std::vector<size_t> const& cam_residual_counts,
 		       size_t num_gcp_residuals, 
+                       std::vector<vw::Vector3> const& lidar_points,
 		       CameraRelationNetwork<JFeature> & crn,
 		       ceres::Problem &problem,
 		       std::vector<double> & residuals // output
@@ -977,6 +1289,7 @@ void compute_residuals(bool apply_loss_function,
     num_expected_residuals += num_cameras*num_camera_params;
   if (opt.rotation_weight > 0 || opt.translation_weight > 0)
     num_expected_residuals += num_cameras*num_camera_params;
+  num_expected_residuals += lidar_points.size() * PIXEL_SIZE;
   
   if (num_expected_residuals != num_residuals)
     vw_throw( LogicErr() << "Expected " << num_expected_residuals
@@ -984,12 +1297,14 @@ void compute_residuals(bool apply_loss_function,
 
 }
 
-/// Write log files describing all residual errors.
+/// Write log files describing all residual errors. The order of data stored
+/// in residuals must mirror perfectly the way residuals were created. 
 void write_residual_logs(std::string const& residual_prefix, bool apply_loss_function,
 			 Options const& opt, size_t num_cameras,
 			 size_t num_camera_params, size_t num_point_params,
 			 std::vector<size_t> const& cam_residual_counts,
 			 size_t num_gcp_residuals, 
+                         std::vector<vw::Vector3> const& lidar_points,
 			 CameraRelationNetwork<JFeature> & crn,
 			 const double *points, const size_t num_points,
 			 std::set<int>  const& outlier_xyz,
@@ -997,8 +1312,8 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   
   std::vector<double> residuals;
   compute_residuals(apply_loss_function, opt, num_cameras, num_camera_params, num_point_params,  
-		    cam_residual_counts,  num_gcp_residuals,  crn,  problem,  
-		    residuals// output
+		    cam_residual_counts,  num_gcp_residuals, lidar_points, crn, problem,  
+		    residuals // output
 		    );
     
   const size_t num_residuals = residuals.size();
@@ -1007,22 +1322,29 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   const std::string residual_raw_pixels_path = residual_prefix + "_raw_pixels.txt";
   const std::string residual_raw_gcp_path    = residual_prefix + "_raw_gcp.txt";
   const std::string residual_raw_cams_path   = residual_prefix + "_raw_cameras.txt";
+  const std::string residual_lidar_path      = residual_prefix + "_lidar.txt";
 
   // Write a report on residual errors
   std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp,
-    residual_file_raw_cams;
+    residual_file_raw_cams, residual_file_lidar;
   vw_out() << "Writing: " << residual_path << std::endl;
   vw_out() << "Writing: " << residual_raw_pixels_path << std::endl;
   vw_out() << "Writing: " << residual_raw_gcp_path << std::endl;
   vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
   
-  residual_file.open(residual_path.c_str());
-  residual_file_raw_pixels.open(residual_raw_pixels_path.c_str());
-  residual_file_raw_cams.open(residual_raw_cams_path.c_str());
+  residual_file.open(residual_path.c_str()); residual_file.precision(18);
+  residual_file_raw_pixels.open(residual_raw_pixels_path.c_str()); residual_file_raw_pixels.precision(18);
+  residual_file_raw_cams.open(residual_raw_cams_path.c_str()); residual_file_raw_cams.precision(18);
+
+  if (lidar_points.size() > 0) {
+    vw_out() << "Writing: " << residual_lidar_path << std::endl;
+    residual_file_lidar.open(residual_lidar_path.c_str()); residual_file_lidar.precision(18);
+  }
+  
   size_t index = 0;
   // For each camera, average together all the point observation residuals
   residual_file << "Mean residual error and point count for cameras:\n";
-  for (size_t c=0; c<num_cameras; ++c) {
+  for (size_t c = 0; c < num_cameras; ++c) {
     size_t num_this_cam_residuals = cam_residual_counts[c];
     
     // Write header for the raw file
@@ -1046,7 +1368,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   
   // List the GCP residuals
   if (num_gcp_residuals > 0) {
-    residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
+    residual_file_raw_gcp.open(residual_raw_gcp_path.c_str()); residual_file_raw_gcp.precision(18);
     residual_file << "GCP residual errors:\n";
     for (size_t i=0; i<num_gcp_residuals; ++i) {
       double mean_residual = 0; // Take average of XYZ error for each point
@@ -1066,7 +1388,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   // List the camera weight residuals
   int num_passes = int(opt.camera_weight > 0) +
     int(opt.rotation_weight > 0 || opt.translation_weight > 0);
-  for (int pas = 0; pas < num_passes; pas++) {
+  for (int pass = 0; pass < num_passes; pass++) {
     residual_file << "Camera weight position and orientation residual errors:\n";
     const size_t part_size = num_camera_params/2;
     for (size_t c=0; c<num_cameras; ++c) {
@@ -1092,6 +1414,21 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   }
   residual_file_raw_cams.close();
   residual_file.close();
+
+  if (lidar_points.size() > 0) {
+    residual_file << "Lidar residual errors:\n";
+    residual_file_lidar << "# lon, lat, height_above_datum, pixel_error_norm\n";
+    for (size_t i = 0; i < lidar_points.size(); ++i) {
+
+      Vector3 llh = opt.datum.cartesian_to_geodetic(lidar_points[i]);
+      double err = norm_2(Vector2(residuals[index], residuals[index + 1]));
+      index += PIXEL_SIZE;
+      residual_file_lidar << llh[0] << ", " << llh[1] << ", " << llh[2] << ", " << err << "\n";
+      residual_file << i << ", " << err << "\n";
+      
+    }
+    residual_file_lidar.close();
+  }
   
   if (index != num_residuals)
     vw_throw( LogicErr() << "Have " << num_residuals << " residuals but iterated through " << index);
@@ -1112,7 +1449,8 @@ int update_outliers(ControlNetwork                  & cnet,
                     size_t num_cameras,
                     size_t num_camera_params, size_t num_point_params,
                     std::vector<size_t> const& cam_residual_counts,
-                    size_t num_gcp_residuals, 
+                    size_t num_gcp_residuals,
+                    std::vector<vw::Vector3> const& lidar_points, 
                     ceres::Problem &problem) {
   
   vw_out() << "Removing pixel outliers in preparation for another solver attempt.\n";
@@ -1123,7 +1461,7 @@ int update_outliers(ControlNetwork                  & cnet,
   std::vector<double> residuals;
   compute_residuals(apply_loss_function,  
                     opt, num_cameras, num_camera_params, num_point_params,  cam_residual_counts,  
-                    num_gcp_residuals,  crn, problem,
+                    num_gcp_residuals, lidar_points, crn, problem,
                     residuals // output
                    );
 
@@ -1201,10 +1539,10 @@ int update_outliers(ControlNetwork                  & cnet,
         new_outliers.insert(ipt);
       }
 
+      /*
       const double * point = points + ipt * num_point_params;
       Vector3 xyz(point[0], point[1], point[2]);
       Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
-  /*
       // Also filter by elevation limit
       if ( (asp::stereo_settings().elevation_limit[0] <
             asp::stereo_settings().elevation_limit[1]) && 
@@ -1324,7 +1662,17 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       }
     }
   }
-  
+
+  // We will optimize multipliers of the intrinsics. This way
+  // each intrinsic changes by a scale specific to it.
+  // TODO: If an intrinsic starts as 0, it will then stay as 0.
+  std::vector<double> scaled_intrinsics(num_intrinsic_params);
+  for (int intrIter = 0; intrIter < num_intrinsic_params; intrIter++)
+    scaled_intrinsics[intrIter] = 1;
+  double * scaled_intrinsics_ptr = NULL;
+  if (num_intrinsic_params > 0)
+    scaled_intrinsics_ptr = &scaled_intrinsics[0];
+
   // Add the various cost functions the solver will optimize over.
   std::vector<size_t> cam_residual_counts(num_cameras);
   for ( int icam = 0; icam < num_cameras; icam++ ) {
@@ -1367,7 +1715,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
 
       // Call function to select the appropriate Ceres residual block to add.
       add_residual_block(ba_model, observation, pixel_sigma, icam, ipt,
-                         camera, point, intrinsics, opt.intrinsics_to_float,
+                         camera, point, scaled_intrinsics_ptr, opt.intrinsics_to_float,
                          loss_function, problem);
                          
       cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
@@ -1448,6 +1796,149 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     }
   }
 
+  // Add a cost function meant to tie us to known disparity
+  // form left to right image and known ground truth lidar.
+  // This was only tested for local pinhole cameras.
+  ImageView<DispPixelT> Disp;
+  ImageViewRef<DispPixelT> interp_disp; 
+  std::vector<vw::Vector3> lidar_points;
+  if (opt.local_pinhole_input && opt.lidar_file != "") {
+
+    if (opt.csv_format_str == "") 
+      vw_throw( ArgumentErr() << "When using a lidar file, must specify the csv-format.\n");
+
+    if (opt.datum_str == "")
+      vw_throw( ArgumentErr() << "When using a lidar file, must specify the datum.\n");
+
+    if (opt.disparity_file == "") {
+      vw_throw( ArgumentErr() << "When using a lidar file, must specify a disparity.\n");
+    }
+
+    if (num_cameras != 2) {
+      vw_throw( ArgumentErr() << "A lidar file can only be used with two cameras.\n");
+    }
+    
+    // Read the input csv file
+    asp::CsvConv conv;
+    conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
+    std::list<asp::CsvConv::CsvRecord> pos_records;
+    typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
+    vw_out() << "Reading: " << opt.lidar_file << std::endl;
+    conv.read_csv_file(opt.lidar_file, pos_records);
+    
+    // Set up a GeoReference object using the datum
+    vw::cartography::GeoReference geo;
+    geo.set_datum(opt.datum); // We checked for a datum earlier
+    // Use user's csv_proj4 string, if provided, to add info to the georef.
+    conv.parse_georef(geo);
+    
+    // TODO: This can be large, but if small it is better to read in memory.
+    vw_out() << "Reading: " << opt.disparity_file << std::endl;
+    Disp = copy(DiskImageView<DispPixelT>(opt.disparity_file));
+    interp_disp = interpolate(Disp, BilinearInterpolation(), ConstantEdgeExtension());
+    
+    std::vector<vw::BBox2i> image_boxes;
+    for ( int icam = 0; icam < num_cameras; icam++){
+      DiskImageView<float> img(opt.image_files[icam]);
+      BBox2i bbox = vw::bounding_box(img);
+      image_boxes.push_back(bbox);
+    }
+
+    vw_out() << "Setting up the error to lidar.\n";
+    TerminalProgressCallback tpc("", "\t--> ");
+    tpc.report_progress(0);
+    double inc_amount = 1.0/double(pos_records.size());
+				   
+    lidar_points.clear();
+    for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
+      
+      vw::Vector3 lidar_xyz = conv.csv_to_cartesian(*iter, geo);
+
+      // Filter by lonlat box if provided, this is very much recommended
+      // to quickly discard most points in the huge lidar file.
+      // Let's hope there is no 360 degree offset when computing
+      // the longitude. 
+      if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
+	vw::Vector3 llh = geo.datum().cartesian_to_geodetic(lidar_xyz);
+	vw::Vector2 ll = subvector(llh, 0, 2);
+	if (!asp::stereo_settings().lon_lat_limit.contains(ll)) {
+	  continue;
+	}
+      }
+
+      bool good_point = true;
+      Vector2 left_pred;
+
+      // Iterate over the two cameras
+      for ( int icam = 0; icam < num_cameras; icam++ ) {
+
+        // Get pointers to the camera and point coordinates
+        double * camera = cameras + icam * num_camera_params;
+        double * point  = &lidar_xyz[0];
+
+        // Project the current point into the current camera
+        typename ModelT::camera_intr_vector_t cam_intr_vec;
+        typename ModelT::point_vector_t       point_vec;
+        ba_model.concat_extrinsics_intrinsics(camera, intrinsics, cam_intr_vec);
+        for (size_t p = 0; p < point_vec.size(); p++) point_vec[p] = point[p];
+        Vector2 prediction;
+        try {
+          prediction = ba_model.cam_pixel(0, icam, cam_intr_vec, point_vec);
+        }catch(std::exception const& e){
+          good_point = false;
+          break;
+        }
+
+	// Check if the current point projects in the camera
+        if (!image_boxes[icam].contains(prediction)) {
+          good_point = false;
+          break;
+	}
+
+        if (icam == 0) {
+          left_pred = prediction;
+	  // Record where we projected in the left camera, and then switch to the right camera
+          continue;
+        }
+
+	if (icam != 1)
+	  vw_throw(ArgumentErr() << "Expecting two cameras only.\n");
+	
+        // Check for out of range, etc
+	if (!good_point) break;
+        if (left_pred != left_pred) break;
+        if (left_pred[0] < 0 || left_pred[0] > interp_disp.cols() - 1 ) break;
+        if (left_pred[1] < 0 || left_pred[1] > interp_disp.rows() - 1 ) break;
+
+        DispPixelT dispPix = interp_disp(left_pred[0], left_pred[1]);
+        if (!is_valid(dispPix)) break;
+          
+        Vector2 right_pix = left_pred + dispPix.child();
+        if (!image_boxes[icam].contains(right_pix)) {
+          break;
+	}
+
+	lidar_points.push_back(lidar_xyz);
+
+        ceres::LossFunction* loss_function = get_loss_function(opt);
+        
+        // Call function to select the appropriate Ceres residual block to add.
+        // TODO: Fix here if more than two cameras
+        add_residual_block(lidar_xyz, interp_disp, ba_model,
+                           0, 1, // left icam and right icam
+                           cameras + 0 * num_camera_params, // left cam
+                           cameras + 1 * num_camera_params, // right cam
+                           scaled_intrinsics_ptr,
+                           opt.intrinsics_to_float,
+                           loss_function, problem);
+      }
+      tpc.report_incremental_progress( inc_amount );
+    }
+    
+    tpc.report_finished();
+    vw_out() << "Found " << lidar_points.size() << " lidar points in range.\n";
+  }
+  
   const size_t MIN_KML_POINTS = 20;  
   size_t kmlPointSkip = 30;
   // Figure out a good KML point skip aount
@@ -1463,12 +1954,12 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     vw_out() << "Writing initial condition files..." << std::endl;
 
     write_residual_logs(residual_prefix, true,  opt, num_cameras, num_camera_params,
-                        num_point_params, cam_residual_counts, num_gcp_residuals, crn,
-                        points, num_points, outlier_xyz, problem);
+                        num_point_params, cam_residual_counts, num_gcp_residuals,
+                        lidar_points, crn, points, num_points, outlier_xyz, problem);
     residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
     write_residual_logs(residual_prefix, false, opt, num_cameras, num_camera_params,
-                        num_point_params, cam_residual_counts, num_gcp_residuals, crn,
-                        points, num_points, outlier_xyz, problem);
+                        num_point_params, cam_residual_counts, num_gcp_residuals,
+                        lidar_points, crn, points, num_points, outlier_xyz, problem);
 
 
       
@@ -1519,14 +2010,27 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     vw_out() << "Found a valid solution, but did not reach the actual minimum." << std::endl;
   }
 
+  // Multiply the original intrinsics by the scaled optimized values
+  for (int intrIter = 0; intrIter < num_intrinsic_params; intrIter++)
+    intrinsics[intrIter] = intrinsics[intrIter] * scaled_intrinsics_ptr[intrIter];
+
+  if (opt.local_pinhole_input && opt.solve_intrinsics) {
+    vw_out() << "Final scaled intrinsics:\n";
+    for (int intrIter = 0; intrIter < num_intrinsic_params; intrIter++) 
+      vw_out() << scaled_intrinsics[intrIter] << " ";
+    vw_out() << std::endl;
+  }
+  
   vw_out() << "Writing final condition log files..." << std::endl;
   residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
   write_residual_logs(residual_prefix, true,  opt, num_cameras, num_camera_params,
-                      num_point_params, cam_residual_counts, num_gcp_residuals, crn,
+                      num_point_params, cam_residual_counts,
+                      num_gcp_residuals, lidar_points, crn,
                       points, num_points, outlier_xyz, problem);
   residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
   write_residual_logs(residual_prefix, false, opt, num_cameras, num_camera_params,
-                      num_point_params, cam_residual_counts, num_gcp_residuals, crn,
+                      num_point_params, cam_residual_counts,
+                      num_gcp_residuals, lidar_points, crn,
                       points, num_points, outlier_xyz, problem);
 
   point_kml_path = opt.out_prefix + "-final_points.kml";
@@ -1563,8 +2067,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       update_outliers(cnet, crn, points, num_points,
                       outlier_xyz,   // in-out
                       opt, num_cameras, num_camera_params, num_point_params, cam_residual_counts,  
-                      num_gcp_residuals, problem);
-
+                      num_gcp_residuals, lidar_points, problem);
 
   // Create a match file with clean points.
   // TODO: Make this a function.
@@ -1669,10 +2172,9 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
 
   // Points
   std::vector<double> points_vec(num_points*num_point_params, 0.0);
-  //Vector3 offset(393898.51796331455, 209453.73827364066, -6350895.8432638068);
   for (int ipt = 0; ipt < num_points; ipt++){
     for (int q = 0; q < num_point_params; q++){
-      points_vec[ipt*num_point_params + q] = cnet[ipt].position()[q];// - offset[q];
+      points_vec[ipt*num_point_params + q] = cnet[ipt].position()[q];
     }
   }
 
@@ -1700,9 +2202,9 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
       vw_out() << "Bundle adjust pass: " << pass << std::endl;
       // Go back to the original inputs to optimize, sans the outliers. Note that we
       // copy values, to not disturb the pointer of each vector.
-      for (size_t i = 0; i < cameras_vec.size(); i++)    cameras_vec[i]   = orig_cameras_vec[i];
-      for (size_t i = 0; i < points_vec.size(); i++)     points_vec[i]    = orig_points_vec[i];
-      for (size_t i = 0; i < intrinsics_vec.size(); i++) intrinsics_vec[i]=orig_intrinsics_vec[i];
+      for (size_t i = 0; i < cameras_vec.size(); i++)    cameras_vec[i]    = orig_cameras_vec[i];
+      for (size_t i = 0; i < points_vec.size(); i++)     points_vec[i]     = orig_points_vec[i];
+      for (size_t i = 0; i < intrinsics_vec.size(); i++) intrinsics_vec[i] = orig_intrinsics_vec[i];
     }
     
     // Camera extrinsics and intrinsics
@@ -1996,7 +2498,7 @@ void check_gcp_dists(Options const &opt) {
 
     double dist = norm_2(mean_ip - mean_gcp);
     if (dist > 100000)
-      std::cout << "WARNING: GCPs are over 100 KM from the other points. Are your lat/lon GCP coordinates swapped?\n";
+      vw_out() << "WARNING: GCPs are over 100 KM from the other points. Are your lat/lon GCP coordinates swapped?\n";
 }
 
 
@@ -2045,7 +2547,7 @@ int load_estimated_camera_positions(Options &opt,
       }
     }
     if (iter == no_match) {
-      std::cout << "WARNING: Camera file " << file_name << " not found in camera position file.\n";
+      vw_out() << "WARNING: Camera file " << file_name << " not found in camera position file.\n";
       estimated_camera_gcc[i] = Vector3(0,0,0);
     }else
       ++num_matches_found;
@@ -2061,21 +2563,21 @@ int load_estimated_camera_positions(Options &opt,
 bool init_pinhole_model_with_camera_positions(Options &opt,
                                               std::vector<Vector3> const & estimated_camera_gcc) {
 
-  std::cout << "Initializing camera positions from input file..." << std::endl;
+  vw_out() << "Initializing camera positions from input file..." << std::endl;
 
   // Count the number of matches and check for problems
   const int num_cameras = opt.image_files.size();
   if (int(estimated_camera_gcc.size()) != num_cameras)
     vw_throw( ArgumentErr() << "No camera matches provided to init function!\n" );
   
-  std::cout << "Num cameras: " << num_cameras << std::endl;
+  vw_out() << "Num cameras: " << num_cameras << std::endl;
     
   int num_matches_found = 0;
   for (int i=0; i<num_cameras; ++i)
     if (estimated_camera_gcc[i] != Vector3(0,0,0))
       ++num_matches_found;
 
-  std::cout << "Number of matches found: " << num_matches_found << std::endl;
+  vw_out() << "Number of matches found: " << num_matches_found << std::endl;
   
   const int MIN_NUM_MATCHES = 3;
   if (num_matches_found < MIN_NUM_MATCHES)
@@ -2138,7 +2640,7 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
 /// - This function overwrites the camera parameters in-place
 bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
 
-    std::cout << "Initializing camera positions from ground control points..." << std::endl;
+    vw_out() << "Initializing camera positions from ground control points..." << std::endl;
 
     const ControlNetwork & cnet = *opt.cnet.get(); // Helper alias
 
@@ -2569,6 +3071,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("csv-format",       po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",        po::value(&opt.csv_proj4_str)->default_value(""),
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
+    ("lidar-file",        po::value(&opt.lidar_file)->default_value(""),
+                                 "The lidar file to use when optimizing the intrinsics.")
+    ("disparity-file",        po::value(&opt.disparity_file)->default_value(""),
+                                 "The disparity file to use when optimizing the intrinsics.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
                          "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
@@ -2926,7 +3432,8 @@ int main(int argc, char* argv[]) {
     // Load estimated camera positions if they were provided.
     std::vector<Vector3> estimated_camera_gcc;
     load_estimated_camera_positions(opt, estimated_camera_gcc);
-    const bool got_est_cam_positions = (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
+    const bool got_est_cam_positions =
+      (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
     
     int num_pairs_matched = 0;
     for (int i = 0; i < num_images; i++){

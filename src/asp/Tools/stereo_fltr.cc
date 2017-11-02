@@ -39,9 +39,6 @@ namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
-
-
-
 /// Apply a set of smoothing filters to the subpixel disparity results.
 template <class ImageT, class DispImageT>
 class TextureAwareDisparityFilter: public ImageViewBase<TextureAwareDisparityFilter<ImageT, DispImageT> >{

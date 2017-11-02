@@ -207,6 +207,104 @@ stereo_error_triangulate( vector<DisparityT> const& disparities,
   return result_type( disparities, transforms, model, is_map_projected );
 }
 
+// Take a given disparity and make it between the original unaligned images
+template <class DisparityT, class TXT>
+void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
+                               vector<DisparityT> const& disparities,
+                               vector<TXT>        const& transforms,
+                               std::string        const& disp_file) {
+
+  VW_ASSERT( disparities.size() == 1 && transforms.size() == 2,
+               vw::ArgumentErr() << "Expecting two images and one disparity.\n" );
+  DisparityT const& disp = disparities[0]; // pull the disparity
+
+  // Transforms to compensate for alignment
+  TXT left_trans  = transforms[0];
+  TXT right_trans = transforms[1];
+
+  // Since all our code is templated, and for pinhole cameras
+  // there can be more than one type of transform, and there is no base
+  // pointer for all transforms, need to do this kludge.
+  bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
+                              ( opt_vec[0].session->name() == "pinhole" ||
+                                opt_vec[0].session->name() == "nadirpinhole") );
+
+  // Must initialize below the two cameras to something to respect the constructor.
+  asp::PinholeCamTrans left_trans2 = asp::PinholeCamTrans(vw::camera::PinholeModel(),
+                                                          vw::camera::PinholeModel());
+  asp::PinholeCamTrans right_trans2 = left_trans2;
+  if (usePinholeEpipolar) {
+    StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt_vec[0].session.get());
+    if (pinPtr == NULL) 
+      vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
+    pinPtr->pinhole_cam_trans(left_trans2, right_trans2);
+  }
+
+  std::string left_file = opt_vec[0].in_file1;
+  std::string right_file = opt_vec[0].in_file2;
+  std::string prefix = opt_vec[0].out_prefix;
+
+  typedef typename DisparityT::pixel_type DispPixelT;
+
+  DiskImageView<float> left_img(left_file);
+  ImageView<DispPixelT> unaligned_disp(left_img.cols(), left_img.rows());
+  std::cout << "unaligned disp size " << left_img.cols() << ' ' << left_img.rows() << std::endl;
+
+  for (int col = 0; col < left_img.cols(); col++) {
+    for (int row = 0; row < left_img.rows(); row++) {
+      unaligned_disp(col, row) = DispPixelT();
+      unaligned_disp(col, row).invalidate();
+    }
+  }
+  
+  vw_out() << "Unwarping the disparity.\n";
+  
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  double inc_amount = 1.0 / double(disp.cols());
+  tpc.report_progress(0);
+
+  // TODO: This is too slow. Needs to be multi-threaded.
+  for (int col = 0; col < disp.cols(); col++) {
+    for (int row = 0; row < disp.rows(); row++) {
+      
+      DispPixelT dpix = disp(col, row);
+      if (!is_valid(dpix))
+        continue;
+
+      // De-warp left and right pixels to be in the camera coordinate system
+      Vector2 left_pix, right_pix;
+      if (!usePinholeEpipolar) {
+        left_pix  = left_trans.reverse ( Vector2(col, row) );
+        right_pix = right_trans.reverse( Vector2(col, row) + stereo::DispHelper(dpix) );
+      }else{
+        left_pix  = left_trans2.reverse ( Vector2(col, row) );
+        right_pix = right_trans2.reverse( Vector2(col, row) + stereo::DispHelper(dpix) );
+      }
+      
+      left_pix = round(left_pix);
+      if (left_pix[0] < 0 || left_pix[0] >= left_img.cols()) continue;
+      if (left_pix[1] < 0 || left_pix[1] >= left_img.rows()) continue;
+      
+      unaligned_disp(left_pix[0], left_pix[1]) = right_pix - left_pix;
+      unaligned_disp(left_pix[0], left_pix[1]).validate();
+    }
+
+    tpc.report_incremental_progress( inc_amount );
+  }
+  tpc.report_finished();
+
+  vw_out() << "Writing: " << disp_file << std::endl;
+
+  cartography::GeoReference left_georef;
+  bool   has_left_georef = false;
+  bool   has_nodata      = false;
+  double nodata          = -32768.0;
+  vw::cartography::block_write_gdal_image(disp_file, unaligned_disp,
+					  has_left_georef, left_georef,
+					  has_nodata, nodata, opt_vec[0],
+					  TerminalProgressCallback("asp", "\t--> Undist disp:") );
+}
+
 /// Bin the disparities, and from each bin get a disparity value.
 /// This will create a correspondence from the left to right image,
 /// which we save in the match format
@@ -526,6 +624,13 @@ void stereo_triangulation( string          const& output_prefix,
     vector<PVImageT> disparity_maps;
     for (int p = 0; p < (int)opt_vec.size(); p++){
       disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
+    }
+
+    std::string unalign_disp = output_prefix + "-unaligned-D.tif";
+
+    // Pull matches from disparity. Highly experimental. 
+    if (stereo_settings().unalign_disparity) {
+      unalign_disparity(opt_vec, disparity_maps, transforms, unalign_disp);
     }
 
     std::string match_file = output_prefix + "-disp.match";

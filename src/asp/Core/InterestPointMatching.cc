@@ -91,13 +91,14 @@ namespace asp {
       return select_col(nsp,0);
 
     } catch (std::exception const& e) {
-      Mutex::Lock lock( g_ip_mutex );
-      g_ip_num_errors++;
-      if (g_ip_num_errors < 100) {
-        vw_out(ErrorMessage) << e.what() << std::endl;
-      }else if (g_ip_num_errors == 100) {
-        vw_out() << "Will print no more error messages about failing to find epipolar line.\n";
-      }
+      // Turn this off, it can be verbose
+      //Mutex::Lock lock( g_ip_mutex );
+      //g_ip_num_errors++;
+      //if (g_ip_num_errors < 100) {
+      //  vw_out(ErrorMessage) << e.what() << std::endl;
+      //}else if (g_ip_num_errors == 100) {
+      //  vw_out() << "Will print no more error messages about failing to find epipolar line.\n";
+      //}
     }
 
     success = false;

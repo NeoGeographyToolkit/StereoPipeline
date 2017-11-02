@@ -119,7 +119,7 @@ public:
   /// Copy both extrinsics and intrinsics into a presized parameter vector.
   void concat_extrinsics_intrinsics(const double* const extrinsics,
                                     const double* const intrinsics,
-                                    camera_intr_vector_t & concat){
+                                    camera_intr_vector_t & concat) const{
     for (size_t c = 0; c < camera_params_n; c++)
       concat[c] = extrinsics[c];
   }
@@ -392,11 +392,12 @@ public:
   void set_cam_params(int j, camera_intr_vector_t const& cam_j)       { m_cam_vec[j] = cam_j;       }
   void get_cam_params(int j, camera_intr_vector_t      & cam_j) const { cam_j        = m_cam_vec[j];}
 
+  intrinsic_vector_t get_intrinsics() const { return m_shared_intrinsics;}
 
   /// Copy both extrinsics and intrinsics into a presized parameter vector.
   void concat_extrinsics_intrinsics(const double* const extrinsics,
                                     const double* const intrinsics,
-                                    camera_intr_vector_t & concat){
+                                    camera_intr_vector_t & concat) const{
     const size_t intr_len = num_intrinsic_params();
     concat.set_size(camera_params_n+intr_len);
     for (size_t c = 0; c < camera_params_n; c++)
@@ -411,25 +412,32 @@ public:
   void concat_extrinsics_intrinsics(const double* const extrinsics,
                                     const double* const focal_length,
                                     const double* const optical_center,
-                                    const double* const nonlens_intrinsics,
-                                    camera_intr_vector_t & concat){
+                                    const double* const distortion_intrinsics,
+                                    camera_intr_vector_t & concat) const{
 
     const size_t intr_len = num_intrinsic_params();
     concat.set_size(camera_params_n+intr_len);
     for (size_t c = 0; c < camera_params_n; c++)
       concat[c] = extrinsics[c];
 
-    const size_t num_lens_params = num_distortion_params();
-    
-    for (size_t i = 0; i < focal_length_params_n; i++)
-      concat[camera_params_n + i] = focal_length[i];
-    
-    for (size_t i = 0; i < optical_center_params_n; i++)
-      concat[camera_params_n + focal_length_params_n + i] = optical_center[i];
-
-    for (size_t i = 0; i < num_lens_params; i++)
-      concat[camera_params_n + focal_length_params_n + optical_center_params_n + i]
-        = nonlens_intrinsics[i];
+    if (intr_len > 0) {
+      // This check is necessary. Sometimes the intrinsics are present, but we
+      // are not optimizing them, then the arrays above will just go
+      // out of bounds without the check.
+      
+      const size_t num_lens_params = num_distortion_params();
+      
+      for (size_t i = 0; i < focal_length_params_n; i++)
+	concat[camera_params_n + i] = focal_length[i];
+      
+      for (size_t i = 0; i < optical_center_params_n; i++)
+	concat[camera_params_n + focal_length_params_n + i] = optical_center[i];
+      
+      for (size_t i = 0; i < num_lens_params; i++)
+	concat[camera_params_n + focal_length_params_n + optical_center_params_n + i]
+	  = distortion_intrinsics[i];
+      
+    }
   }
 
   /// Grab and set up the camera parameters from the parameter vector
@@ -558,14 +566,15 @@ public:
   /// point, return the location of point_i on imager j in pixel coordinates.
   vw::Vector2 cam_pixel(unsigned /*i*/, unsigned j,
 			camera_intr_vector_t const& cam_j,
-			point_vector_t       const& point_i) {
+			point_vector_t       const& point_i) const {
 
     try {
       vw::camera::PinholeModel model = params_to_model(cam_j);
       //std::cout << "cam_pixel: " << point_i << " --> " << model.point_to_pixel(point_i) << std::endl;
       return model.point_to_pixel(point_i);
     }
-    catch(...) { // If the camera parameters were bad, return a garbage pixel instead of crashing
+    catch(std::exception const& e) { // If the camera parameters were bad, return a garbage pixel instead of crashing
+      //std::cout << e.what() << std::endl;
       //std::cout << "MISSED point at: " << point_i << "   with CAM: " << cam_j << std::endl;
       return vw::Vector2(-999999,-999999);
     }

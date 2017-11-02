@@ -412,7 +412,8 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
     # I saw this being recommended, to dump all print statements in the current task
     sys.stdout.flush()
 
-def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
+def getCameraModelsFromOrtho(imageFolder, orthoFolder,
+                             inputCalFolder, inputCalCamera,
                              cameraLookupPath, navCameraFolder,
                              yyyymmdd, site,
                              refDemPath, cameraFolder,
@@ -522,8 +523,15 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
             continue
 
         # Determine which input camera file will be used for this frame
-        inputCamFile = getCalibrationFileForFrame(cameraLookupPath, inputCalFolder,
-                                                  frame, yyyymmdd, site)
+        if inputCalCamera == "":
+            inputCamFile = getCalibrationFileForFrame(cameraLookupPath, inputCalFolder,
+                                                      frame, yyyymmdd, site)
+        else:
+            # This logic will force to use a given camera rather than
+            # looking it up. This is not the usual way of doing things.
+            inputCamFile = inputCalCamera
+            if not os.path.exists(inputCalCamera):
+                raise Exception("Could not find: " + inputCalCamera)
 
         # Add ortho2pinhole command to the task pool
         taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 

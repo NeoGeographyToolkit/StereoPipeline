@@ -224,7 +224,8 @@ namespace asp {
     double point_cloud_rounding_error;        // How much to round the output point cloud values
     bool   compute_point_cloud_center_only;   // Only compute the center of triangulated point cloud and exit.
     bool   skip_point_cloud_center_comp;
-
+    bool   unalign_disparity;                 // Compute disparity between unaligned images
+    
     // stereo_gui options
     int grid_cols;
     vw::Vector2i window_size; // The size of the GUI window

@@ -307,7 +307,8 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
         if not options.noOrthoConvert:
             # Multi-process call to convert ortho images
             input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder,
-                                                       options.inputCalFolder, 
+                                                       options.inputCalFolder,
+                                                       options.inputCalCamera,
                                                        options.cameraLookupFile,
                                                        navCameraFolder,
                                                        options.yyyymmdd, options.site, 
@@ -418,6 +419,10 @@ def main(argsIn):
         
         parser.add_argument("--camera-calibration-folder",  dest="inputCalFolder", default=None,
                           help="The folder containing camera calibration.")
+
+        parser.add_argument("--input-calibration-camera",  dest="inputCalCamera", default="",
+                            help="Instead of looking up the calibrated camera in the calibration folder, use this one.")
+        
         parser.add_argument("--reference-dem-folder",  dest="refDemFolder", default=None,
                           help="The folder containing DEMs that created orthoimages.")
 

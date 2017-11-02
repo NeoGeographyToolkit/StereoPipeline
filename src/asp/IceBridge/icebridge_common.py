@@ -540,8 +540,6 @@ def frameToFile(frame, suffix, processFolder, bundleLength):
     folder with given suffix.'''
     
     # We count here on the convention for writing batch folders
-    if bundleLength != 2:
-        print 'WARNING: frameToFile may not work with bundleLength > 2!'
     prefix = ('batch_%05d_*_%d' % (frame, bundleLength))   
     batchFolderGlob = os.path.join(processFolder,
                                    prefix + '/*' + suffix)
