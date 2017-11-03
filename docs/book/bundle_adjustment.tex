@@ -119,6 +119,31 @@ Running stereo while using the bundle-adjusted camera models.
 
 A comparison of the two ways of doing stereo is shown in figure \ref{fig:asp-ba-example}.
 
+\subsection{Floating intrinsics and using lidar ground truth.}
+
+This is adanced section documenting some not yet fully formed concepts.
+
+When the input cameras are of pinhole type, it is possible to optimize
+the intrinsic parameters, in addition to the extrinsics. It is also
+possible to take advantage of lidar ground truth when doing so.
+
+We recommend that first bundle adjustment is run with the intrinsics fixed,
+to get the extrinsics mostly correct, as optimizing for all of them at
+the same time may result in a non-convex problem which may lead to an 
+unhelpful local minimum. In fact it may be good to run stereo after bundle
+adjustment as well, and inspect \texttt{bundle\_adjust}'s output
+residual file, whose name contains the string \texttt{final\_residuals\_n\o_loss\_function\_pointmap}
+and the output error image obtained with \texttt{point2dem -\/-errorimage}. These
+may suggest systematic errors in intrinsics, which perhaps floating the intrinsics would
+correct. 
+
+Also, if a ground truth lidar file is available, this may be the time to aligned the
+DEM obtained from stereo to this file with \texttt{pc\_align}, 
+and apply those transforms to the bundle-adjusted cameras that were used to create the DEM. 
+
+
+
+
 \section{Bundle adjustment using ISIS}
 
 In what follows we describe how to do bundle adjustment using
