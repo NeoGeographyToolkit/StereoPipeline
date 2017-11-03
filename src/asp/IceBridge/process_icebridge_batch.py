@@ -174,6 +174,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     bestNumDiffs  = -1
     bestTransPath = os.path.join(pcAlignFolder, 'best_transform.txt')
     bestDemPath   = os.path.join(pcAlignFolder, 'best_dem.tif')
+    bestDiffPath   = os.path.join(pcAlignFolder, 'best_diff.csv')
 
     # Done computing the desired point count, now align our DEM.
     resultsDict = {}
@@ -231,6 +232,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
             bestNumDiffs = numDiffs
             shutil.move(thisDem,       bestDemPath  )
             shutil.move(transformPath, bestTransPath)
+            shutil.move(thisLidarDiffPath, bestDiffPath)
             
         if thisDiff < IDEAL_LIDAR_DIST:
             break # No need to check more displacements if this result is great
@@ -242,7 +244,10 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     logger.info(resultsDict)
     shutil.move(bestDemPath,   alignedDem)
     shutil.move(bestTransPath, transformPath)
-
+    shutil.move(bestDiffPath,  lidarDiffPath)
+    
+    results = icebridge_common.readGeodiffOutput(lidarDiffPath)
+    
     # Final success check
     if not os.path.exists(alignedPC):
         raise Exception('pc_align call failed!')
@@ -285,7 +290,9 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
                 os.remove(finalFootprintDEM)
             logger.info("Renaming " + alignedFootDEM + " to " + finalFootprintDEM)
             os.rename(alignedFootDEM, finalFootprintDEM)
-
+        else:
+            logger.info("File does not exist: " + alignedFootDEM)
+            
         # Wipe all auxilliary footprint files
         for filename in glob.glob(alignPrefix + '-footprint-*'):
             logger.info("Removing: " + filename)
@@ -923,7 +930,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     m = re.findall(r"Percentage of valid pixels = ([0-9e\-\.\+]+)", out)
     if len(m) == 1:
         fractionValid = float(m[0])
-        logger.info('Valid DEM pixel fraction = ' + str(fractionValid))
+        icebridge_common.logger_print(logger, 'Valid DEM pixel fraction = ' + str(fractionValid))
         with open(percentageFlagFile, 'w') as f: # Log the percentage to disk
             f.write(str(fractionValid))
     else:
@@ -931,10 +938,10 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
             with open(percentageFlagFile, 'r') as f:
                 fractionValid = float(f.read())
         except:
-            logger.warning('Unable to read dem percentage fraction from file ' + percentageFlagFile)
+            icebridge_common.logger_print(logger, 'Unable to read dem percentage fraction from file ' + percentageFlagFile)
 
            
-    logger.info('Detected valid pixel fraction = ' + str(fractionValid))
+    icebridge_common.logger_print(logger, 'Detected valid pixel fraction = ' + str(fractionValid))
     if fractionValid < MIN_FRACTION_VALID_PIXELS:
         raise Exception('Required DEM pixel fraction is ' + str(MIN_FRACTION_VALID_PIXELS) +
                         ', aborting processing on this DEM.')
@@ -1381,7 +1388,11 @@ def doWork(options, args, logger):
         demFoot = demFiles[0].replace("DEM.tif", "footprint-DEM.tif")
         if os.path.exists(demFoot):
             allDemFoot = allDemPath.replace("DEM.tif", "footprint-DEM.tif")
+            logger.info("ln -s " + demFoot + " " + allDemFoot)
             icebridge_common.makeSymLink(demFoot, allDemFoot)
+        else:
+            logger.info("File does not exist: " + demFoot)
+            
     else:
         demString = ' '.join(demFiles)
         # Only the default blend method produces good results but the DEMs must not be too 
