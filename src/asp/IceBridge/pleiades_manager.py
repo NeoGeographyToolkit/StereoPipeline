@@ -91,7 +91,7 @@ def getParallelParams(nodeType, task):
     # Define additional combinations and edit as needed.
 
     if task == 'camgen':
-        if nodeType == 'san': return (8,  3, 300, 3)
+        if nodeType == 'san': return (8,  4, 300, 3)
         if nodeType == 'ivy': return (10, 3, 400, 3)
         if nodeType == 'bro': return (14, 4, 500, 3)
         if nodeType == 'wes': return (10, 4, 400, 8)
@@ -103,13 +103,13 @@ def getParallelParams(nodeType, task):
         if nodeType == 'wes': return (3, 8, 75,  8)
     
     if task == 'blend':
-        if nodeType == 'san': return (8,  3,  800, 4)
+        if nodeType == 'san': return (8,  3, 1200, 4)
         if nodeType == 'ivy': return (10, 3, 1000, 4)
         if nodeType == 'bro': return (14, 4, 1400, 4) # 200 seems to finish in 10 minutes
         if nodeType == 'wes': return (10, 3,  800, 8) 
     
     if task == 'orthogen':
-        if nodeType == 'san': return (8,  2, 350, 6)
+        if nodeType == 'san': return (8,  4, 350, 6)
         if nodeType == 'ivy': return (10, 2, 400, 5)
         if nodeType == 'bro': return (14, 4, 500, 4)
         if nodeType == 'wes': return (10, 4, 400, 8)

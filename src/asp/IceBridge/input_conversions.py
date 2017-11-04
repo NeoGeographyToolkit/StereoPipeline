@@ -495,17 +495,19 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
 
         if not frame in orthoFrames.keys():
             continue
-        
+
+        # Find the estimated camera file to use with this ortho frame.        
         orthoFile = orthoFrames[frame]
         try:
             estimatedCameraFile = estimatedFrames[frame]
             estimatedCameraPath = os.path.join(navCameraFolder, estimatedCameraFile)
         except:
-            logger.warning('Missing nav estimated camera for frame ' + str(frame))
-            estimatedCameraFile = None
-            estimatedCameraPath = None
-        
-        # Get estimated camera from nav
+            # For now treat this as an error, a missing nav file suggests
+            #  that something is going wrong with the flight!
+            logger.error('Missing nav estimated camera for frame ' + str(frame))
+            continue
+            #estimatedCameraFile = None
+            #estimatedCameraPath = None
         
         # Check output file
         inputPath = os.path.join(imageFolder, imageFile)

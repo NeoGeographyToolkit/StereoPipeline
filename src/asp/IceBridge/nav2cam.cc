@@ -51,6 +51,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/Extrinsics.h>
 #include <ctime>
+#include <stdlib.h>
 
 // Turn off warnings from eigen
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -117,11 +118,17 @@ double gps_seconds(std::string const& orthoimage_path){
   std::tm const *time_out = std::localtime(&time_val);
 
   uint64 weekday = time_out->tm_wday; // Sunday is 0
-
-  //std::cout << "min = " << min << std::endl;
-  //std::cout << "sec = " << sec << std::endl;
-  //std::cout << "fsec = " << fsec << std::endl;
-
+/*
+  std::cout << "year = " << year << std::endl;
+  std::cout << "month = " << month << std::endl;
+  std::cout << "day = " << day << std::endl;
+  std::cout << "weekday_in = " << time_in.tm_wday << std::endl;
+  std::cout << "weekday_out = " << weekday << std::endl;
+  std::cout << "hour = " << hour << std::endl;
+  std::cout << "min = " << min << std::endl;
+  std::cout << "sec = " << sec << std::endl;
+  std::cout << "fsec = " << fsec << std::endl;
+*/
   uint64 all_seconds = weekday*24*3600 + (uint64)hour*3600 + (uint64)min*60 + (uint64)sec;
   double final_time  = static_cast<double>(all_seconds) + static_cast<double>(fsec)/100.0;
   //std::cout << "final_time = " << final_time << std::endl;
@@ -292,6 +299,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     input_stream.close();
     vw_out() << "Read " << opt.image_files.size() << " files from " << cam_list_path << std::endl;
   }
+
+
 
 }
 
@@ -509,7 +518,16 @@ int main(int argc, char* argv[]) {
   handle_arguments(argc, argv, opt);
 
   Datum datum_wgs84("WGS84");
-  
+
+  // Set the time zone for the program (used inside the gps_seconds function) to UTC
+  //  time so our time conversions work properly.
+  // TODO: Should this be always be the same?
+  const std::string TZ_UTC = "TZ=UTC";
+  vw_out() << "Setting time zone: " << TZ_UTC << std::endl;
+  char* temp = (char*)TZ_UTC.c_str();
+  putenv(temp);
+
+
   // Print progress every N files
   const size_t PRINT_INTERVAL = 200;
   
@@ -569,8 +587,10 @@ int main(int argc, char* argv[]) {
       boost::filesystem::path output_camera_path = output_dir / camera_file;
       
       // Get time for this frame
-      if (ortho_time == 0)
+      if (ortho_time == 0) {
         ortho_time = gps_seconds(orthoimage_path) - opt.time_offset;
+        //vw_out() << orthoimage_path << " -> gps_time = " << ortho_time << std::endl;
+      }
 
       // If this ortho is too far ahead in time, move on to the next nav chunk.
       if (ortho_time > end - CHUNK_TIME_BOUNDARY)
@@ -580,6 +600,7 @@ int main(int argc, char* argv[]) {
       if (ortho_time < start + CHUNK_TIME_BOUNDARY) {
         vw_out() << "Too early to interpolate position for file " << orthoimage_path << std::endl;
         ++file_index;
+        ortho_time = 0;
         continue;
       }
 
@@ -591,6 +612,7 @@ int main(int argc, char* argv[]) {
       } catch(...){
         vw_out() << "Failed to interpolate position for file " << orthoimage_path << std::endl;
         ++file_index;
+        ortho_time = 0;
         continue;
       }
       Vector3 llh_interp = datum_wgs84.cartesian_to_geodetic(gcc_interp);
@@ -625,6 +647,7 @@ int main(int argc, char* argv[]) {
       if (gcc_interp_forward == gcc_interp_backward) {
         vw_out() << "Failed to estimate pose for file " << orthoimage_path << std::endl;
         ++file_index;
+        ortho_time = 0;
         continue;
       }
       
