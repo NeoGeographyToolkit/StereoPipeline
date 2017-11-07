@@ -52,7 +52,12 @@ class RunHelper():
            If optional parent folder is provided, it will be prependend to all returned paths.'''
         self.site          = site
         self.yyyymmdd      = yyyymmdd
-        self.parentFolder = parentFolder
+        self.parentFolder  = parentFolder
+        # Create the timestamp just once, rather than each time it is
+        # needed, as maybe the date has changed while the run
+        # was being done.
+        self.suffix        = "_V"
+        self.timestamp     = self.suffix +datetime.datetime.now().strftime("%Y%m%d")
         
     def __str__(self):
         '''Define string autoconversion'''
@@ -69,32 +74,32 @@ class RunHelper():
     # TODO: Add version numbers to these in a way that is easily handled!
     def getInputTarName(self):
         '''Return the file name used to tar up the downloaded input data'''
-        return self.name() + '.tar'
+        return self.name() + self.timestamp + '.tar'
 
     def getCameraTarName(self):
         '''Return the file name used to tar up the generated camera files'''
-        return 'CAMERA_' + self.name() + '.tar'
+        return 'CAMERA_' + self.name()  + self.timestamp + '.tar'
 
     def getAlignedCameraTarName(self):
         '''Return the file name used to tar up the generated bundle-adjustd
         and aligned camera files'''
-        return 'ALIGNED_CAMERA_' + self.name() + '.tar'
+        return 'ALIGNED_CAMERA_' + self.name() + self.timestamp + '.tar'
 
     def getOrthoTarName(self):
         '''Return the file name used to tar up the generated ortho images.'''
-        return 'ORTHO_' + self.name() + '.tar'
+        return 'ORTHO_' + self.name() + self.timestamp + '.tar'
 
     def getSummaryTarName(self):
         '''Return the file name used to tar up the generated camera files'''
-        return 'SUMMARY_' + self.name() + '.tar'
+        return 'SUMMARY_' + self.name()  + self.timestamp + '.tar'
 
     def getOutputTarName(self):
         '''Return the file name used to tar up the final results'''
-        return 'DEM_' + self.name() + '_V1.tar'
+        return 'DEM_' + self.name() + self.timestamp + '.tar'
 
     def getLabelTarName(self):
         '''Return the file name used to tar up the label files'''
-        return 'LABELS_' + self.name() + '.tar'
+        return 'LABELS_' + self.name()  + self.timestamp + '.tar'
 
     def getFolder(self):
         '''Returns the folder where this run will be stored'''

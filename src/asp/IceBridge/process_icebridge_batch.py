@@ -1120,7 +1120,8 @@ def main(argsIn):
     #logger = logging.getLogger(__name__)
     logLevel = logging.INFO # Make this an option??
     asp_system_utils.mkdir_p(options.outputFolder)
-    logger = icebridge_common.setUpLogger(options.outputFolder, logLevel, 'icebridge_batch_log')
+    logger = icebridge_common.setUpLogger(options.outputFolder, logLevel,
+                                          icebridge_common.logFilePrefix())
 
     logger.info('Input arguments: ' + str(argsIn))
 

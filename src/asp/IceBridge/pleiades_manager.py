@@ -971,14 +971,6 @@ def main(argsIn):
     #SKIP_RUN_LIST      = os.path.join(options.baseDir, 'run_skip_list.txt')
     #COMPLETED_RUN_LIST = os.path.join(options.baseDir, 'completed_run_list.txt')
 
-    options.logFolder = os.path.join(options.baseDir, 'manager_logs')
-    os.system('mkdir -p ' + options.logFolder)
-
-    if options.unpackDir is None:
-        options.unpackDir = os.path.join(options.baseDir, 'data')
-        
-    os.system('mkdir -p ' + options.unpackDir)
-    
     # TODO: Uncomment when processing more than one run!
     # Get the list of runs to process
     #logger.info('Reading run lists...')
@@ -988,13 +980,23 @@ def main(argsIn):
     #runList  = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
     run = run_helper.RunHelper(options.site, options.yyyymmdd, options.unpackDir)
+
+    # Set up logging in the run directory
+    options.logFolder = os.path.join(run.getFolder(), 'manager_logs')
+    os.system('mkdir -p ' + options.logFolder)
+    logLevel = logging.INFO
+    logger   = icebridge_common.setUpLogger(options.logFolder, logLevel,
+                                            icebridge_common.manager_log_prefix())
+    logger.info("Logging in: " + options.logFolder)
+    
+    if options.unpackDir is None:
+        options.unpackDir = os.path.join(options.baseDir, 'data')
+        
+    os.system('mkdir -p ' + options.unpackDir)
+    
     
     summaryFolder = run.getSummaryFolder()
     
-    logLevel = logging.INFO
-    logger   = icebridge_common.setUpLogger(options.logFolder, logLevel,
-                                            'pleiades_manager_log_' + str(run))
-
     checkRequiredTools() # Make sure all the needed tools can be found before we start
 
     logger.info("Disabling core dumps.") # these just take a lot of room
@@ -1157,12 +1159,6 @@ def main(argsIn):
                 logger.info(str(e))
             stop_time("report", logger)
             
-        # send data to lunokhod and lfe
-        if not options.skipArchiveSummary:
-            start_time()
-            archive_functions.packAndSendSummaryFolder(run, summaryFolder, logger)
-            stop_time("archive summary", logger)
-            
         # Archive the DEMs
         if not options.skipArchiveRun:
             start_time()
@@ -1185,6 +1181,14 @@ def main(argsIn):
             archive_functions.packAndSendLabels(run, logger)
             stop_time("archive labels", logger)
 
+        # send summary and logs to lunokhod and lfe.
+        # This must be towards the end, as it saves the log of this
+        # script as well.
+        if not options.skipArchiveSummary:
+            start_time()
+            archive_functions.packAndSendSummaryFolder(run, summaryFolder, logger)
+            stop_time("archive summary", logger)
+            
         if not options.skipEmail:
             emailAddress = getEmailAddress(icebridge_common.getUser())
             logger.info("Sending email to: " + emailAddress)

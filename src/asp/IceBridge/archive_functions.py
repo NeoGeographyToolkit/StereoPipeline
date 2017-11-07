@@ -107,16 +107,39 @@ def retrieveRunData(run, unpackFolder, useTar, forceTapeFetch, logger):
     fetchCameraFolder(run, logger)
 
 def fetchCameraFolder(run, logger):
-    '''Fetch a camera folder from the archive if it exists.
-       Returns True if we got the file.'''
+    '''Fetch a camera folder from the archive if it exists.  Returns
+    True if we got the file. If more than one, return the latest by
+    modification time.'''
     
     logger.info('Fetching camera folder for ' + str(run))
     
     # Tar up the camera files and send them at the same time using the shiftc command
     cameraFolder = run.getCameraFolder()
     fileName     = run.getCameraTarName()
-    lfePath      = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
 
+    # There could be multiple camera folders, fetch the latest by modification time.
+    strippedName = fileName
+    m = re.match('^(.*?)\.tar', strippedName)
+    if m:
+        strippedName = m.group(1)
+    m = re.match('^(.*?)' + run.suffix, strippedName)
+    if m:
+        strippedName = m.group(1)
+    cmd = 'ssh lfe "ls -dt ' + stripHost(REMOTE_CAMERA_FOLDER) + '/' + strippedName + '*.tar"'
+    logger.info(cmd)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, outputPath = None, 
+                                                         suppressOutput = True, redo = True,
+                                                         noThrow = True)
+    out = out.strip()
+    vals = out.split()
+    if len(vals) >= 1:
+        # Pick the first one, which is the newest
+        out = vals[0]
+    if out == "":
+        logger.info('Did not find camera file for run.')
+        return False
+    fileName = os.path.basename(out)
+    lfePath  = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
     cmd = 'shiftc --wait -d -r --extract-tar ' + lfePath + ' .'  
     logger.info(cmd)
     status = os.system(cmd)
@@ -128,12 +151,11 @@ def fetchCameraFolder(run, logger):
         logger.info('Finished retrieving cameras from lfe.')
         return True
 
-
 def packAndSendCameraFolder(run, logger):
     '''Archive the camera folder for later use'''
     
     logger.info('Archiving camera folder for run ' + str(run))
-    
+
     # Tar up the camera files and send them at the same time using the shiftc command
     cameraFolder = run.getCameraFolder()
     fileName     = run.getCameraTarName()
@@ -150,7 +172,9 @@ def packAndSendCameraFolder(run, logger):
     cwd = os.getcwd()
     os.chdir(run.parentFolder)
     runFolder = str(run)
-    cmd = 'shiftc --wait -d -r --include=\'^.*?(' + os.path.basename(icebridge_common.projectionBoundsFile(runFolder)) + '|' + icebridge_common.validFilesPrefix() + '|' + \
+    cmd = 'shiftc --wait -d -r --include=\'^.*?(' + \
+          os.path.basename(icebridge_common.projectionBoundsFile(runFolder)) + \
+          '|' + icebridge_common.validFilesPrefix() + '|' + \
           os.path.basename(cameraFolder) + '.*?\.tsai)$\' --create-tar ' + runFolder + \
           ' ' + lfePath
     
@@ -222,25 +246,40 @@ def packAndSendSummaryFolder(run, folder, logger):
     
     logger.info('Archiving summary folder for run ' + str(run))
     
-    # Create a local tar file
-    # - Some fiddling to make the packed folders convenient
     fileName = run.getSummaryTarName()
-    cmd = 'tar -chf '+ fileName +' -C '+ folder +'/.. ' + os.path.basename(folder)
-    logger.info(cmd)
-    (out, err, status) = asp_system_utils.executeCommand(cmd, outputPath = None, 
-                                                         suppressOutput = True, redo = True,
-                                                         noThrow = True)
 
+    # Create a local tar file.
+
+    # Turn this approach off, new approach below.
+    # - Some fiddling to make the packed folders convenient
+    #cmd = 'tar -chf '+ fileName +' -C '+ folder +'/.. ' + os.path.basename(folder)
+    #logger.info(cmd)
+    #(out, err, status) = asp_system_utils.executeCommand(cmd, outputPath = None, 
+    #                                                     suppressOutput = True, redo = True,
+    #                                                     noThrow = True)
     # This tends to print a very verbose message
-    ans = out + '\n' + err
-    vals = ans.split('\n')
-    if len(vals) < 10:
-        logger.info(ans)
-    else:
-        vals = vals[0:10]
-        logger.info("\n".join(vals))
-        logger.info("Above output truncated.")
+    #ans = out + '\n' + err
+    #vals = ans.split('\n')
+    #if len(vals) < 10:
+    #    logger.info(ans)
+    #else:
+    #    vals = vals[0:10]
+    #    logger.info("\n".join(vals))
+    #    logger.info("Above output truncated.")
 
+    # Use shiftc to create a local copy, and we want to include log files too
+    runFolder = str(run)
+    sumName = os.path.basename(run.getSummaryFolder())
+    cmd = 'shiftc --wait -d -r --include=\'^.*?('  \
+          + icebridge_common.logFilePrefix() + '|' \
+          + runFolder + '/' + sumName        + '|' \
+          + icebridge_common.manager_log_prefix()  \
+          + ')\' --create-tar ' + runFolder        \
+          +  ' ' + fileName
+    
+    logger.info(cmd)
+    os.system(cmd)
+    
     # Delete any existing copy of the file on lfe
     lfePath  = os.path.join(REMOTE_SUMMARY_FOLDER, fileName)
     cmd      = "ssh lfe 'rm -f " + stripHost(lfePath) + "' 2>/dev/null"
@@ -255,7 +294,7 @@ def packAndSendSummaryFolder(run, folder, logger):
         raise Exception('Failed to pack/send summary folder for run ' + str(run))
     logger.info('Finished sending summary to lfe.')
 
-    if icebridge_common.getUser() != 'oalexan1':
+    if True: # icebridge_common.getUser() != 'oalexan1':
         # Wipe the copy on lunokhod
         l2Path   = os.path.join(L_SUMMARY_FOLDER, fileName)
         cmd      = "ssh " + LUNOKHOD + "  'rm -f "+ stripHost(l2Path) +"' 2>/dev/null"
@@ -274,7 +313,9 @@ def packAndSendSummaryFolder(run, folder, logger):
         os.system(cmd)
 
     # Clean up the local tar file
-    os.system('rm -f ' + fileName)
+    cmd = 'rm -f ' + fileName
+    logger.info(cmd)
+    os.system(cmd)
 
 def packAndSendCompletedRun(run, logger):
     '''Assembles and compresses the deliverable parts of the run'''

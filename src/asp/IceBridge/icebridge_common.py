@@ -252,10 +252,16 @@ def readLinesInSet(fileName):
             filesSet.add(line)
             
     return filesSet
-    
+
+def logFilePrefix():
+    return 'icebridge_batch_log'
+
 def validFilesPrefix():
     '''This one is used in multiple places.'''
     return 'valid_files'
+
+def manager_log_prefix():
+    return 'pleiades_manager_log'
 
 def validFilesList(folder, startFrame, stopFrame):
     '''File containing the list of fetched files that were validated.

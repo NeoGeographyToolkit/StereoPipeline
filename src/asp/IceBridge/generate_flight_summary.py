@@ -126,7 +126,7 @@ def getFailureCause(batchFolder):
 
     foundError = UNKNOWN
 
-    logPrefix = os.path.join(batchFolder, 'icebridge_batch_log_')
+    logPrefix = os.path.join(batchFolder, icebridge_common.logFilePrefix())
     latestLog = getLastLog(logPrefix)
     if not latestLog:
         print("Cannot find log matching: " + logPrefix)
