@@ -75,18 +75,17 @@ elif icebridge_common.getUser() == 'oalexan1':
     LUNOKHOD                = 'lunokhod1'
     L_SUMMARY_FOLDER        = LUNOKHOD + ':/home/oalexan1/projects/data/icebridge/summaries'
 
-def retrieveRunData(run, unpackFolder, useTar, forceTapeFetch, logger):
+def retrieveRunData(run, unpackFolder, useTar, forceTapeFetch, skipTapeCameraFetch, logger):
     '''Retrieve the data for the specified run from Lfe.'''
-
-    # First check that we have enough space available
 
     logger.info('Retrieving data for run ' + str(run))
 
     fileName = run.getInputTarName()
 
-    unpackedDir = os.path.join(unpackFolder, os.path.splitext(fileName)[0])
-    if os.path.exists(unpackedDir) and os.path.isdir(unpackedDir) and (not forceTapeFetch):
-        logger.info("Directory exists, won't fetch from lfe: " + unpackedDir)
+    unpackDir = os.path.join(unpackFolder, os.path.splitext(fileName)[0])
+    jpegDir = os.path.join(unpackDir, os.path.basename(run.getJpegFolder()))
+    if os.path.exists(jpegDir) and os.path.isdir(jpegDir) and (not forceTapeFetch):
+        logger.info("Won't fetch from lfe, as we already have: " + jpegDir)
         return
 
     lfePath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)
@@ -104,7 +103,10 @@ def retrieveRunData(run, unpackFolder, useTar, forceTapeFetch, logger):
         raise Exception('Failed to copy data for run ' + str(run))
 
     # Retrieve a preprocessed set of camera files if we have it
-    fetchCameraFolder(run, logger)
+    if not skipTapeCameraFetch:
+        fetchCameraFolder(run, logger)
+    else:
+        logger.info("Skip fetching cameras from tape.")
 
 def fetchCameraFolder(run, logger):
     '''Fetch a camera folder from the archive if it exists.  Returns

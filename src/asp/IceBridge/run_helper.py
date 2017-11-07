@@ -74,7 +74,7 @@ class RunHelper():
     # TODO: Add version numbers to these in a way that is easily handled!
     def getInputTarName(self):
         '''Return the file name used to tar up the downloaded input data'''
-        return self.name() + self.timestamp + '.tar'
+        return self.name() + '.tar'
 
     def getCameraTarName(self):
         '''Return the file name used to tar up the generated camera files'''

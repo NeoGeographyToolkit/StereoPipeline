@@ -210,7 +210,8 @@ def runFetch(run, options, logger):
     # Fetch the archive from lfe, only in the case the directory is not present
     if not options.skipTapeFetch:
         archive_functions.retrieveRunData(run, options.unpackDir, options.useTar,
-                                          options.forceTapeFetch, logger)
+                                          options.forceTapeFetch, options.skipTapeCameraFetch,
+                                          logger)
 
     pythonPath = asp_system_utils.which('python')
     
@@ -868,6 +869,9 @@ def main(argsIn):
         
         parser.add_argument("--force-tape-fetch", action="store_true", dest="forceTapeFetch", default=False, 
                             help="Fetch from tape even if a partial run directory is alrady present.")
+        parser.add_argument("--skip-fetch-camera-from-tape", action="store_true", dest="skipTapeCameraFetch", default=False, 
+                            help="Don't fetch any archived cameras, create them from scratch.")
+
         parser.add_argument("--skip-convert", action="store_true", dest="skipConvert",
                             default=False, 
                             help="Don't convert.")
