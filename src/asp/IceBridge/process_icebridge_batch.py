@@ -142,7 +142,8 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     pcAlignFolder = os.path.dirname(alignPrefix)
     endErrorPath  = alignPrefix + '-end_errors.csv'
     transformPath = alignPrefix + '-transform.txt'
-    alignedPC     = alignPrefix+'-trans_reference.tif'
+    invTransPath  = alignPrefix + '-inverse-transform.txt' # needed for ortho gen
+    alignedPC     = alignPrefix +'-trans_reference.tif'
     alignedDem    = alignedPC.replace('-trans_reference.tif', '-trans_reference-DEM.tif')
     lidarDiffPath = outputPrefix + "-diff.csv"
 
@@ -172,8 +173,9 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     bestMeanDiff  = -1
     bestMaxDisp   = -1
     bestNumDiffs  = -1
-    bestTransPath = os.path.join(pcAlignFolder, 'best_transform.txt')
-    bestDemPath   = os.path.join(pcAlignFolder, 'best_dem.tif')
+    bestTransPath    = os.path.join(pcAlignFolder, 'best_transform.txt')
+    bestInvTransPath = os.path.join(pcAlignFolder, 'best_inverse_transform.txt')
+    bestDemPath      = os.path.join(pcAlignFolder, 'best_dem.tif')
     bestDiffPath   = os.path.join(pcAlignFolder, 'best_diff.csv')
 
     # Done computing the desired point count, now align our DEM.
@@ -199,6 +201,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
                                      lidarFile, lidarCsvFormatString,
                                      threadText, logger)
             transformPath = thisDem.replace('trans_reference-DEM.tif', 'transform.txt')
+            invTransPath  = thisDem.replace('trans_reference-DEM.tif', 'inverse-transform.txt')
             
             #numDiffs = getOverlapAmount(thisDem, lidarDemPath, logger)
         except: 
@@ -232,6 +235,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
             bestNumDiffs = numDiffs
             shutil.move(thisDem,       bestDemPath  )
             shutil.move(transformPath, bestTransPath)
+            shutil.move(invTransPath,  bestInvTransPath)
             shutil.move(thisLidarDiffPath, bestDiffPath)
             
         if thisDiff < IDEAL_LIDAR_DIST:
@@ -241,11 +245,20 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     icebridge_common.logger_print(logger, 'Best mean diff is ' + str(bestMeanDiff) 
                                   +' with --max-displacement = ' + str(bestMaxDisp)
                                   +' and num diffs = ' + str(bestNumDiffs))
+
     logger.info(resultsDict)
     shutil.move(bestDemPath,   alignedDem)
-    shutil.move(bestTransPath, transformPath)
+
+    transformPath = alignPrefix + '-transform.txt'
+    invTransPath  = alignPrefix + '-inverse-transform.txt' # needed for ortho gen
+    logger.info("mv " + bestTransPath + " " + transformPath)
+    logger.info("mv " + bestInvTransPath + " " + invTransPath)
+    if bestTransPath != transformPath and os.path.exists(bestTransPath):
+        shutil.move(bestTransPath, transformPath)
+    if bestInvTransPath != invTransPath and os.path.exists(bestInvTransPath):
+        shutil.move(bestInvTransPath, invTransPath)
+
     shutil.move(bestDiffPath,  lidarDiffPath)
-    
     results = icebridge_common.readGeodiffOutput(lidarDiffPath)
     
     # Final success check

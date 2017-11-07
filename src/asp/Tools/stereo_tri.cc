@@ -248,12 +248,12 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
 
   DiskImageView<float> left_img(left_file);
   ImageView<DispPixelT> unaligned_disp(left_img.cols(), left_img.rows());
-  std::cout << "unaligned disp size " << left_img.cols() << ' ' << left_img.rows() << std::endl;
-
+  ImageView<int> count(left_img.cols(), left_img.rows());
   for (int col = 0; col < left_img.cols(); col++) {
     for (int row = 0; row < left_img.rows(); row++) {
       unaligned_disp(col, row) = DispPixelT();
       unaligned_disp(col, row).invalidate();
+      count(col, row) = 0; 
     }
   }
   
@@ -280,19 +280,36 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
         left_pix  = left_trans2.reverse ( Vector2(col, row) );
         right_pix = right_trans2.reverse( Vector2(col, row) + stereo::DispHelper(dpix) );
       }
-      
-      left_pix = round(left_pix);
-      if (left_pix[0] < 0 || left_pix[0] >= left_img.cols()) continue;
-      if (left_pix[1] < 0 || left_pix[1] >= left_img.rows()) continue;
-      
-      unaligned_disp(left_pix[0], left_pix[1]) = right_pix - left_pix;
-      unaligned_disp(left_pix[0], left_pix[1]).validate();
+      Vector2 dir = right_pix - left_pix; // disparity value
+
+      // This averaging is useful in filling tiny holes and avoiding staircasing.
+      // TODO: Use some weights. The closer contribution should have more weight.
+      for (int icol = -1; icol <= 1; icol++) {
+        for (int irow = -1; irow <= 1; irow++) {
+          int lcol = round(left_pix[0]) + icol;
+          int lrow = round(left_pix[1]) + irow;
+          if (lcol < 0 || lcol >= left_img.cols())  continue;
+          if (lrow < 0 || lrow >= left_img.rows())  continue;
+          if (!is_valid(unaligned_disp(lcol, lrow))) unaligned_disp(lcol, lrow).validate();
+          unaligned_disp(lcol, lrow).child() += dir;
+          count(lcol, lrow)++;
+        }
+      }
     }
 
     tpc.report_incremental_progress( inc_amount );
   }
   tpc.report_finished();
 
+  for (int col = 0; col < unaligned_disp.cols(); col++) {
+    for (int row = 0; row < unaligned_disp.rows(); row++) {
+      if (count(col, row ) == 0) {
+        unaligned_disp(col, row).invalidate();
+      } else{
+        unaligned_disp(col, row) /= double(count(col, row));
+      }
+    }
+  }
   vw_out() << "Writing: " << disp_file << std::endl;
 
   cartography::GeoReference left_georef;

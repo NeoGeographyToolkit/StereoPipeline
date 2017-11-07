@@ -25,6 +25,7 @@
 
 #include <vw/Camera.h>
 #include <vw/Image/Transform.h>
+#include <vw/Camera/CameraUtilities.h>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem/operations.hpp>
