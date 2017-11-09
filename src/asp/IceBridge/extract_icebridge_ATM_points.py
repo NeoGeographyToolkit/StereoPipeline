@@ -43,6 +43,7 @@ def extract_qi_points(inputPath):
     lookInLibexec = True
     execPath = asp_system_utils.which('qi2txt', lookInLibexec)
     cmd = execPath + ' -S' + endianFlag + inputPath + ' > ' + outputPath
+    print(cmd)
     os.system(cmd)  
     if os.path.exists(outputPath):
         print 'Wrote file: ' + outputPath
@@ -62,15 +63,22 @@ def extract_hdf5_points(inputPath):
     lookInLibexec = True
     execPath = asp_system_utils.which('h5dump', lookInLibexec)
     
-    cmd = execPath + ' -o '+tempLat+' -m "%.7f" --noindex  -w 20 --dataset=latitude  ' + inputPath
+    cmd = execPath + ' -o '+tempLat+' -m "%.7f" --noindex  -w 20 --dataset=latitude  ' + \
+          inputPath + ' >/dev/null'
+    print(cmd)
     os.system(cmd)
-    cmd = execPath + ' -o '+tempLon+' -m "%.7f" --noindex  -w 20 --dataset=longitude ' + inputPath
+    cmd = execPath + ' -o '+tempLon+' -m "%.7f" --noindex  -w 20 --dataset=longitude ' + \
+          inputPath + ' >/dev/null'
+    print(cmd)
     os.system(cmd)
-    cmd = execPath + ' -o '+tempAlt+' -m "%.7f" --noindex  -w 20 --dataset=elevation ' + inputPath
+    cmd = execPath + ' -o '+tempAlt+' -m "%.7f" --noindex  -w 20 --dataset=elevation ' + \
+          inputPath + ' >/dev/null'
+    print(cmd)
     os.system(cmd)
     
     execPath = asp_system_utils.which('paste', lookInLibexec)
     cmd = execPath + ' ' + tempLat + ' ' + tempLon + ' ' + tempAlt + ' > ' + outputPath
+    print(cmd)
     os.system(cmd)
     
     if os.path.exists(tempLat): os.remove(tempLat)
@@ -78,10 +86,9 @@ def extract_hdf5_points(inputPath):
     if os.path.exists(tempAlt): os.remove(tempAlt)
     
     if os.path.exists(outputPath):
-        print 'Wrote file: ' + outputPath
+        print('Wrote: ' + outputPath)
     else:
-        print 'Failed to write file ' + outputPath + '!!!'
-
+        print('Failed to write: ' + outputPath)
 
 def main(argsIn):
 

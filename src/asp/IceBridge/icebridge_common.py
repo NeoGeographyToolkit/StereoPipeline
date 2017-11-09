@@ -371,7 +371,7 @@ def isLidar(filename):
 
 def isValidLidarCSV(filename):
     '''Check that a lidar csv file is valid. It must have at least threee entries on one line.'''
-    
+
     if not os.path.exists(filename):
         return False
 
@@ -379,8 +379,12 @@ def isValidLidarCSV(filename):
         array = []
         for line in ins:
 
+            # This will help with lines which only have spaces
+            line = line.strip()
+            
             # Skip empty lines
-            if len(line) == 0: continue
+            if len(line) == 0:
+                continue
 
             # Skip lines starting with spaces followed by #
             m = re.match("^\s*\#", line)
@@ -393,7 +397,8 @@ def isValidLidarCSV(filename):
             vals = line.split(' ')
             num = 0
             for val in vals:
-                if len(val) == 0: continue
+                if len(val) == 0:
+                    continue
                 num += 1
 
             if num >= 3:
