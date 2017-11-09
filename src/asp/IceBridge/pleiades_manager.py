@@ -979,6 +979,9 @@ def main(argsIn):
     #doneRuns = readRunList(COMPLETED_RUN_LIST, options)
     #runList  = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
+    if options.unpackDir is None:
+        options.unpackDir = os.path.join(options.baseDir, 'data')
+
     run = run_helper.RunHelper(options.site, options.yyyymmdd, options.unpackDir)
 
     # Set up logging in the run directory
@@ -988,9 +991,6 @@ def main(argsIn):
     logger   = icebridge_common.setUpLogger(options.logFolder, logLevel,
                                             icebridge_common.manager_log_prefix())
     logger.info("Logging in: " + options.logFolder)
-    
-    if options.unpackDir is None:
-        options.unpackDir = os.path.join(options.baseDir, 'data')
         
     os.system('mkdir -p ' + options.unpackDir)
     
