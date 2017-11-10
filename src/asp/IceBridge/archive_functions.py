@@ -202,7 +202,7 @@ def packAndSendCameraFolder(run, logger):
     runFolder = str(run)
     cmd = 'shiftc --wait -d -r --include=\'^.*?(' + \
           os.path.basename(icebridge_common.projectionBoundsFile(runFolder)) + \
-          '|' + icebridge_common.validFilesPrefix() + '|' + \
+          '|' + icebridge_common.validFilesPrefix() + '.*|' + \
           os.path.basename(cameraFolder) + '.*?\.tsai)$\' --create-tar ' + runFolder + \
           ' ' + lfePath
     
