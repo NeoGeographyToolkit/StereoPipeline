@@ -67,8 +67,44 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath      + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
+# TODO: Should use the logger!
+
+def getMeanDemDiff(dems, outputPrefix):
+    '''Get the mean distance between the input DEMs to the main DEM.'''
+
+    mainDem  = dems[0]
+    meanDiff  = 0.0
+    meanCount = 0.0
+    for i in range(1:len(dems)):
+        thisDem = dems[i]
+        if not thisDem:
+            continue
+            
+        #try:
+        diffPath = outputPrefix + '-diff.tif'
+        cmd = ('geodiff --absolute %s %s -o %s' % (mainDem, thisDem, outputPrefix))
+        print(cmd)
+        asp_system_utils.executeCommand(cmd, diffPath, True, False)
+
+        # Read in and examine the results
+        results = icebridge_common.readGeodiffOutput(diffPath)
+        print("Found mean inter-DEM diff: " + str(results['Mean']))
+        meanDiff = meanDiff + results['Mean']
+        meanCount = meanCount + 1.0
+        #except:
+        #   continue
+        
+    if meanCount < 1: # Handle degenerate cases
+        return 0
+
+    print('Mean of DEM diffs = ' + str(meanDiff))
+    meanDiff = meanDiff / meanCount
+    return meanDiff
+
 def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
              threadText, redo, suppressOutput):
+
+    WEIGHT_EXP = 1.3
 
     # This will run as multiple processes. Hence have to catch all exceptions:
     try:
@@ -118,6 +154,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
         # Look at frames with these offsets when blending
         frameOffsets = [0, 1, -1, 2, -2]
 
+        demMeanOutputPrefix = os.path.join(workDir, 'dd_'+ str(i))
+
         for index in range(len(frameOffsets)):
 
             # Find all the DEMs up to the current index
@@ -137,6 +175,15 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
                 # The last DEM was not present. Hence this iteration will add nothing new.
                 continue
 
+            # Compute the mean distance between the DEMs
+            # TODO: Make sure this gets cleaned up!
+            workDir  = batchFolder
+            meanDiff = getMeanDemDiff(dems, workDir)
+            
+            # If the mean error between DEMs is creater than this,
+            #  use a less aggressive blending method.
+            MEAN_DIFF_BLEND_THRESHOLD = 1.0
+
             demString = " ".join(dems)
             outputPrefix = os.path.join(batchFolder, 'out-blend-' + str(index))
 
@@ -144,16 +191,17 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             footprintDEM = os.path.join(batchFolder, 'out-trans-footprint-DEM.tif')
             blendOutput = outputPrefix + '-tile-0.tif'
             if os.path.exists(footprintDEM):
-                cmd = ('dem_mosaic --this-dem-as-reference %s %s %s -o %s' 
-                       % (footprintDEM, demString, threadText, outputPrefix))
-                #filesToWipe.append(footprintDEM) # no longer needed
+                cmd = ('dem_mosaic  --weights-exponent %f --this-dem-as-reference %s %s %s -o %s' 
+                       % (WEIGHT_EXP, footprintDEM, demString, threadText, outputPrefix))
             else:
-                cmd = ('dem_mosaic --first-dem-as-reference %s %s -o %s' 
-                       % (demString, threadText, outputPrefix))
-                
+                cmd = ('dem_mosaic --weights-exponent %f --first-dem-as-reference %s %s -o %s' 
+                       % (WEIGHT_EXP, demString, threadText, outputPrefix))
+            if meanDiff > MEAN_DIFF_BLEND_THRESHOLD:
+                cmd += ' --propagate-nodata  --use-centerline-weights '
             print(cmd)
 
-            # Sometimes there is junk left from a previous interrupted run. So if we
+            # Execute the blend command.
+            # - Sometimes there is junk left from a previous interrupted run. So if we
             # got so far, recreate all files.
             localRedo = True
             asp_system_utils.executeCommand(cmd, blendOutput, suppressOutput, localRedo)
@@ -162,6 +210,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             diffPath = outputPrefix + "-diff.csv"
             filesToWipe.append(diffPath)
             
+            # Compute post-blending error to lidar
             cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % 
                    (lidarCsvFormatString, blendOutput, lidarFile, outputPrefix))
             print(cmd)
@@ -217,8 +266,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
                 dems.append(currDemFile)
                 
             demString = " ".join(dems)
-            cmd = ('dem_mosaic --this-dem-as-reference %s %s %s -o %s' 
-                   % (fireballDEM, demString, threadText, fireballOutputPrefix))
+            cmd = ('dem_mosaic --weights-exponent %f--this-dem-as-reference %s %s %s -o %s' 
+                   % (WEIGHT_EXP, fireballDEM, demString, threadText, fireballOutputPrefix))
             
             #filesToWipe.append(fireballBlendOutput)
 
@@ -266,6 +315,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             if os.path.exists(fileName):
                 print("Removing: " + fileName)
                 os.remove(fileName)
+        # TODO: Handle this cleanup better!
+        os.cmd('rm -f ' + demMeanOutputPrefix + '/*')
                 
     except Exception as e:
         print('Blending failed!\n' + str(e) + ". " + str(traceback.print_exc()))
@@ -354,7 +405,7 @@ def main(argsIn):
         processFolder = os.path.join(processFolder, options.processingSubfolder)
         logger.info('Reading from processing subfolder: ' + options.processingSubfolder)
 
-    orthoFolder = icebridge_common.getOrthoFolder(options.outputFolder)
+    orthoFolder    = icebridge_common.getOrthoFolder(options.outputFolder)
     orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
     if not os.path.exists(orthoIndexPath):
         raise Exception("Error: Missing ortho index file: " + orthoIndexPath + ".")
@@ -371,7 +422,7 @@ def main(argsIn):
     
     redo = False
     suppressOutput = True
-    taskHandles  = []
+    taskHandles    = []
     if options.numProcesses > 1:    
         pool = multiprocessing.Pool(options.numProcesses)
 

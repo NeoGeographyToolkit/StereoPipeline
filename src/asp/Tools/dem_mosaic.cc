@@ -159,7 +159,7 @@ void centerline_weights2(ImageT const& img, ImageView<double> & weights,
         if (inner_pixel)
           new_weight = hole_fill_value;
         else // Border pixel
-          new_weight = border_pixel_value;
+          new_weight = border_fill_value;
       }
       weights(col-output_bbox.min().x(), row-output_bbox.min().y()) = new_weight;
       
