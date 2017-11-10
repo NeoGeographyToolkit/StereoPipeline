@@ -1000,8 +1000,17 @@ void asp::parse_utm_str(std::string const& utm, int & zone, bool & north){
 }
 
 bool asp::is_valid_csv_line(std::string const& line){
-  // A valid line is not empty and does not start with '#'.
-  return (!line.empty()) && (line[0] != '#');
+  // A valid line is not empty and does not start with '#' and does not have spaces only.
+
+  bool only_spaces = true;
+  for (size_t it = 0; it < line.size(); it++) {
+    if (line[it] != ' ' && line[it] != '\n' && line[it] != '\t') {
+      only_spaces = false;
+      break;
+    }
+  }
+  
+  return (!only_spaces) && (!line.empty()) && (line[0] != '#');
 }
 
 boost::uint64_t asp::csv_file_size(std::string const& file){

@@ -361,6 +361,7 @@ def isValidImage(filename):
 
 def isDEM(filename):
     '''Return true if a file is a recognized DEM.'''
+    if 'crop' in filename or 'CMAP' in filename: return False # ignore some stray files
     return (len(filename) >= 8 and filename[-8:] == '_DEM.tif')
 
 def isLidar(filename):
@@ -1025,8 +1026,9 @@ def parseTimeStamps(fileName):
     return [imageDateString, imageTimeString]
 
 def lidarFiles(lidarFolder):
-    '''Find lidar files in given folder. Note that the folder
-    name is not prepended to the file names.'''
+    '''Find lidar files in given folder that are plain text, so either
+    .TXT or .csv converted from ATM, etc. Note that the folder name is
+    not prepended to the file names.'''
     
     # All files in the folder
     allFiles = os.listdir(lidarFolder)
