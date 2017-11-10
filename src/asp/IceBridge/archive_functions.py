@@ -271,6 +271,9 @@ def packAndSendSummaryFolder(run, folder, logger):
     
     logger.info('Archiving summary folder for run ' + str(run))
     
+    cwd = os.getcwd()
+    os.chdir(run.parentFolder)
+
     fileName = run.getSummaryTarName()
 
     # Create a local tar file.
@@ -339,6 +342,8 @@ def packAndSendSummaryFolder(run, folder, logger):
     cmd = 'rm -f ' + fileName
     logger.info(cmd)
     os.system(cmd)
+
+    os.chdir(cwd)
 
 def packAndSendCompletedRun(run, logger):
     '''Assembles and compresses the deliverable parts of the run'''
