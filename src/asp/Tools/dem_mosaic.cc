@@ -70,6 +70,107 @@ typedef float RealT;
 // This is used for various tolerances
 double g_tol = 1e-6;
 
+
+// TODO: Fold modifications into VW!
+template<class ImageT>
+void centerline_weights2(ImageT const& img, ImageView<double> & weights,
+                         double hole_fill_value=0, double border_fill_value=-1, 
+                         BBox2i roi=BBox2i()){
+
+  int numRows = img.rows();
+  int numCols = img.cols();
+
+  // Arrays to be returned out of this function
+  std::vector<double> hCenterLine  (numRows, 0);
+  std::vector<double> hMaxDistArray(numRows, 0);
+  std::vector<double> vCenterLine  (numCols, 0);
+  std::vector<double> vMaxDistArray(numCols, 0);
+
+  std::vector<int> minValInRow(numRows, 0);
+  std::vector<int> maxValInRow(numRows, 0);
+  std::vector<int> minValInCol(numCols, 0);
+  std::vector<int> maxValInCol(numCols, 0);
+
+  for (int k = 0; k < numRows; k++){
+    minValInRow[k] = numCols;
+    maxValInRow[k] = 0;
+  }
+  for (int col = 0; col < numCols; col++){
+    minValInCol[col] = numRows;
+    maxValInCol[col] = 0;
+  }
+
+  // Note that we do just a single pass through the image to compute
+  // both the horizontal and vertical min/max values.
+  for (int row = 0 ; row < numRows; row++) {
+    for (int col = 0; col < numCols; col++) {
+
+      if ( !is_valid(img(col,row)) ) continue;
+      
+      // Record the first and last valid column in each row
+      if (col < minValInRow[row]) minValInRow[row] = col;
+      if (col > maxValInRow[row]) maxValInRow[row] = col;
+      
+      // Record the first and last valid row in each column
+      if (row < minValInCol[col]) minValInCol[col] = row;
+      if (row > maxValInCol[col]) maxValInCol[col] = row;   
+    }
+  }
+  
+  // For each row, record central column and the column width
+  for (int row = 0; row < numRows; row++) {
+    hCenterLine   [row] = (minValInRow[row] + maxValInRow[row])/2.0;
+    hMaxDistArray [row] =  maxValInRow[row] - minValInRow[row];
+    if (hMaxDistArray[row] < 0){
+      hMaxDistArray[row]=0;
+    }
+  }
+
+  // For each row, record central column and the column width
+  for (int col = 0 ; col < numCols; col++) {
+    vCenterLine   [col] = (minValInCol[col] + maxValInCol[col])/2.0;
+    vMaxDistArray [col] =  maxValInCol[col] - minValInCol[col];
+    if (vMaxDistArray[col] < 0){
+      vMaxDistArray[col]=0;
+    }
+  }
+
+  BBox2i output_bbox = roi;
+  if (roi.empty())
+    output_bbox = bounding_box(img);
+
+  // Compute the weighting for each pixel in the image
+  weights.set_size(output_bbox.width(), output_bbox.height());
+  fill(weights, 0);
+  
+  for (int row = output_bbox.min().y(); row < output_bbox.max().y(); row++){
+    for (int col = output_bbox.min().x(); col < output_bbox.max().x(); col++){
+      bool inner_row = ((row >= minValInCol[col]) && (row <= maxValInCol[col]));
+      bool inner_col = ((col >= minValInRow[row]) && (col <= maxValInRow[row]));
+      bool inner_pixel = inner_row && inner_col;
+      Vector2 pix(col, row);
+      double new_weight = 0; // Invalid pixels usually get zero weight
+      if (is_valid(img(col,row))) {
+        double weight_h = compute_line_weights(pix, true,  hCenterLine, hMaxDistArray);
+        double weight_v = compute_line_weights(pix, false, vCenterLine, vMaxDistArray);
+        new_weight = weight_h*weight_v;
+      }
+      else { // Invalid pixel
+        if (inner_pixel)
+          new_weight = hole_fill_value;
+        else // Border pixel
+          new_weight = border_pixel_value;
+      }
+      weights(col-output_bbox.min().x(), row-output_bbox.min().y()) = new_weight;
+      
+    }
+  }
+
+} // End function weights_from_centerline
+
+
+
+
 // An S-shaped function. Value at 0 is 0. Value at M is M.
 // Flat before 0 and after M. Higher value of L means
 // more flatness at the ends, but higher growth
@@ -117,17 +218,6 @@ struct BigOrZero: public ReturnFixedType<PixelT> {
   }
 };
 
-template<class ImageT>
-ImageView<double> compute_weights(ImageT const& img, bool use_centerline_weights){
-  if (use_centerline_weights) {
-    ImageView<double> result;
-    weights_from_centerline(img, result);
-    return result;
-  }
-
-  return grassfire(img);
-}
-
 void blur_weights(ImageView<double> & weights, double sigma){
 
   if (sigma <= 0)
@@ -153,7 +243,10 @@ void blur_weights(ImageView<double> & weights, double sigma){
   fill(extra_wts, 0);
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
-      extra_wts(col + extra, row + extra) = weights(col, row);
+      if (weights(col,row) > 0)
+        extra_wts(col + extra, row + extra) = weights(col, row);
+      else
+        extra_wts(col + extra, row + extra) = 0;
     }
   }
 
@@ -235,7 +328,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, block_size, save_dem_weight;
   double  weights_exp, weights_blur_sigma, dem_blur_sigma;
   double nodata_threshold;
-  bool   first, last, min, max, block_max, mean, stddev, median, count, save_index_map, use_centerline_weights, first_dem_as_reference;
+  bool   first, last, min, max, block_max, mean, stddev, median, count, save_index_map, use_centerline_weights, first_dem_as_reference, propagate_nodata;
   std::set<int> tile_list;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
@@ -412,6 +505,7 @@ public:
     }
 
     ImageView<double> first_dem;
+    ImageView<double> local_wts_orig;
     
     // Loop through all input DEMs
     for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++){
@@ -428,8 +522,7 @@ public:
       BBox2 in_box = geotrans.reverse_bbox(bbox);
 
       // Grow to account for blending and erosion length, etc.  If
-      // priority blending length was positive, we've already done
-      // that.
+      // priority blending length was positive, we've already done that.
       if (m_opt.priority_blending_len <= 0)
         in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
 
@@ -476,6 +569,7 @@ public:
       }
 
       if (m_opt.first_dem_as_reference && dem_iter == 0) {
+        //TODO: Should be a function!
         // Convert to the output nodata value
         for (int col = 0; col < first_dem.cols(); col++) {
           for (int row = 0; row < first_dem.rows(); row++) {
@@ -498,6 +592,7 @@ public:
       
       // Compute linear weights
       ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value));
+      local_wts_orig = local_wts;
       if (m_opt.use_centerline_weights) {
         // Erode based on grassfire weights, and then overwrite the grassfire
         // weights with centerline weights
@@ -509,9 +604,10 @@ public:
             }
           }
         }
-        centerline_weights
+        // TODO: Generalize this modification and move it to VW!!!
+        centerline_weights2
                 (create_mask_less_or_equal(select_channel(dem2, 0), nodata_value),
-                 local_wts);
+                 local_wts, -1.0);
       }
 
       // If we don't limit the weights from above, we will have tiling artifacts,
@@ -545,7 +641,8 @@ public:
       if (m_opt.weights_exp != 1 && m_opt.priority_blending_len <= 0) {
         for (int col = 0; col < dem.cols(); col++){
           for (int row = 0; row < dem.rows(); row++){
-            local_wts(col, row) = pow(local_wts(col, row), m_opt.weights_exp);
+            if (local_wts(col, row) > 0)
+              local_wts(col, row) = pow(local_wts(col, row), m_opt.weights_exp);
           }
         }
       }
@@ -563,6 +660,7 @@ public:
 			     TerminalProgressCallback("asp", ""));
 #endif
 
+      // TODO: Function call!
       // Set the weights in the alpha channel
       for (int col = 0; col < dem.cols(); col++){
         for (int row = 0; row < dem.rows(); row++){
@@ -614,11 +712,20 @@ public:
             // If we have weights of 0, that means there are invalid pixels, so skip this point.
             int i0 = (int)floor(x), j0 = (int)floor(y);
             int i1 = (int)ceil(x),  j1 = (int)ceil(y);
-            if ((dem(i0, j0).a() <= 0) || (dem(i1, j0).a() <= 0) ||
-	        (dem(i0, j1).a() <= 0) || (dem(i1, j1).a() <= 0))
-              continue;
+            bool nodata = ((dem(i0, j0).a() == 0) || (dem(i1, j0).a() == 0) ||
+                           (dem(i0, j1).a() == 0) || (dem(i1, j1).a() == 0));
+            bool border = ((dem(i0, j0).a() <  0) || (dem(i1, j0).a() <  0) ||
+                           (dem(i0, j1).a() <  0) || (dem(i1, j1).a() <  0));
+            
+            if (nodata || border) {
+              pval.v() = 0;
+              pval.a() = -1; // Flag as border
 
-            pval = interp_dem(x, y); // Things checked out, do the interpolation.
+              if (m_opt.propagate_nodata && !border)
+                pval.a() = 0; // Flag as nodata
+              
+            } else
+              pval = interp_dem(x, y); // Things checked out, do the interpolation.
           }
           // Seperate the value and alpha for this pixel.
           double val = pval.v();
@@ -636,6 +743,13 @@ public:
             double wt2 = wt;
             wt2 = std::max(0.0, m_opt.priority_blending_len - wt2);
             weight_modifier(c, r) = std::min(weight_modifier(c, r), wt2);
+          }
+
+          // If point is in-bounds and nodata, make sure this point stays 
+          //  at nodata even if other DEMS contain it.
+          if ((wt == 0) && m_opt.propagate_nodata) {
+            tile   (c, r) = 0;
+            weights(c, r) = -1.0;
           }
 
           if (wt <= 0)
@@ -729,8 +843,8 @@ public:
           if ( weights(c, r) > 0 )
             tile(c, r) /= weights(c, r);
 
-          if (m_opt.save_dem_weight >= 0 && weights(c, r) > 0)
-            saved_weight(c, r) /= weights(c, r);
+          //if (m_opt.save_dem_weight >= 0 && weights(c, r) > 0)
+          //  saved_weight(c, r) /= weights(c, r);
 
         } // End row loop
       } // End col loop
@@ -939,8 +1053,10 @@ public:
     for (int col = 0; col < tile.cols(); col++) {
       for (int row = 0; row < tile.rows(); row++) {
         Vector2 pix = Vector2(col, row) + bbox.min();
-        if (!orig_box.contains(pix)) continue; // in case the box got expanded, ignore the padding
-        if (tile(col, row) == m_opt.out_nodata_value) continue;
+        if (!orig_box.contains(pix))
+          continue; // in case the box got expanded, ignore the padding
+        if (tile(col, row) == m_opt.out_nodata_value)
+          continue;
         num_valid_in_tile++;
       }
     }
@@ -1137,6 +1253,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Blur the final DEM using a Gaussian with this value of sigma. Default: No blur.")
     ("nodata-threshold", po::value(&opt.nodata_threshold)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Values no larger than this number will be interpreted as no-data.")
+    ("propagate-nodata", po::bool_switch(&opt.propagate_nodata)->default_value(false),
+	   "Set a pixel to nodata if any input DEM is also nodata at that location.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).")
     ("block-size",      po::value<int>(&opt.block_size)->default_value(0),
@@ -1362,7 +1480,7 @@ int main( int argc, char *argv[] ) {
                  << "Cannot change the projection, spacing, or output box, if the first DEM "
                  << "is to be used as reference.\n");
       if (opt.first || opt.last || opt.min || opt.max || opt.mean || opt.median || opt.stddev ||
-          opt.priority_blending_len > 0 || opt.save_dem_weight >= 0 ||
+          opt.priority_blending_len > 0 || //opt.save_dem_weight >= 0 ||
           !boost::math::isnan(opt.nodata_threshold)) {
         vw_throw(ArgumentErr()
                  << "Cannot do anything except regular blending if the first DEM "
