@@ -156,8 +156,6 @@ def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
                                           suppressOutput, redo, 
                                           noThrow, numAttempts, SLEEP_TIME)
 
-    print out
-    print status
     if status != 0:
         logger.info(out)
         logger.info(err)

@@ -47,7 +47,7 @@ os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 
 def runCommand(command):
     '''Run one of the commands from the file'''
-    print command
+    print(command)
     os.system(command)  
 
 def main(argsIn):
@@ -88,12 +88,12 @@ def main(argsIn):
     os.system("umask 022")   # enforce files be readable by others
     
     if not os.path.exists(options.commandFilePath):
-        print 'Error: File ' + options.commandFilePath + ' does not exist!'
+        print('Error: File ' + options.commandFilePath + ' does not exist!')
         return -1
 
     # TODO: Write to a log?
 
-    print 'Starting processing pool with ' + str(options.numProcesses) +' processes.'
+    print('Starting processing pool with ' + str(options.numProcesses) +' processes.')
     pool = multiprocessing.Pool(options.numProcesses)
     taskHandles = []
 
@@ -109,7 +109,7 @@ def main(argsIn):
 
     # Open the file and loop through all the lines
     # - Count the lines as we go so we only process the desired lines
-    print 'Opening command file ' + options.commandFilePath
+    print('Opening command file ' + options.commandFilePath)
     text = ''
     with open(options.commandFilePath, 'r') as f:
         text = f.read()
@@ -145,13 +145,12 @@ def main(argsIn):
             taskHandles.append(pool.apply_async(runCommand, (line,)))
 
     # Wait for all the tasks to complete
-    print 'Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.'
+    print('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
     icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive=False)
 
     # All tasks should be finished, clean up the processing pool
-    print 'Cleaning up the processing pool...'
     icebridge_common.stopTaskPool(pool)
-    print 'Finished cleaning up the processing pool'
+    print('Jobs finished.')
 
 # Run main function if called from shell
 if __name__ == "__main__":

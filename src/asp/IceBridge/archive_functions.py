@@ -48,6 +48,32 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 REMOTE_INPUT_FOLDER     = 'lfe:/u/oalexan1/projects/data/icebridge'
 
+def robust_shiftc(cmd, logger):
+    '''Try to fetch/submit with shiftc for at least 2 hours, with attempts every minute.
+    We worked hard for many hours to produce a run, and we should not let
+    a temporary problem with the server nullify our work.'''
+    sleep_time = 60
+    attempts   = 120
+
+    for attempt in range(attempts):
+
+        if attempt > 0:
+            logger.info("Trying attempt: " + str(attempt+1) + " out of " + str(attempts))
+            
+        logger.info(cmd)
+        status = os.system(cmd)
+        if status == 0:
+            return
+        
+        if attempt == attempts - 1:
+            raise Exception('Failed to copy data after ' + str(attempts) + ' attempts.')
+        else:
+            attempt += 1 
+            logger.info("Will try shiftc again after sleeping for " + str(sleep_time) + \
+                        " seconds.")
+            time.sleep(sleep_time)
+
+    
 def stripHost(val):
     # Replace lfe:/path with /path
     m = re.match("^.*?:\s*(.*?)$", val)
@@ -97,10 +123,7 @@ def retrieveRunData(run, unpackFolder, useTar, forceTapeFetch, skipTapeCameraFet
     else:
         cmd = 'shiftc --wait -d -r --verify --extract-tar ' + lfePath + ' ' + unpackFolder
             
-    logger.info(cmd)
-    status = os.system(cmd)
-    if status != 0:
-        raise Exception('Failed to copy data for run ' + str(run))
+    robust_shiftc(cmd, logger)
 
     # Retrieve a preprocessed set of camera files if we have it
     if not skipTapeCameraFetch:
@@ -143,9 +166,11 @@ def fetchCameraFolder(run, logger):
     fileName = os.path.basename(out)
     lfePath  = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
     cmd = 'shiftc --wait -d -r --extract-tar ' + lfePath + ' .'  
+
+    # Don't try too hard below, if failed first time that means there are no cameras
+    # to fetch
     logger.info(cmd)
     status = os.system(cmd)
-    print status
     if status != 0:
         logger.info('Did not find camera file for run.')
         return False
@@ -173,6 +198,7 @@ def packAndSendCameraFolder(run, logger):
     # as that file is very time consuming to create.
     cwd = os.getcwd()
     os.chdir(run.parentFolder)
+    
     runFolder = str(run)
     cmd = 'shiftc --wait -d -r --include=\'^.*?(' + \
           os.path.basename(icebridge_common.projectionBoundsFile(runFolder)) + \
@@ -180,14 +206,12 @@ def packAndSendCameraFolder(run, logger):
           os.path.basename(cameraFolder) + '.*?\.tsai)$\' --create-tar ' + runFolder + \
           ' ' + lfePath
     
-    logger.info(cmd)
-    status = os.system(cmd)
-    os.chdir(cwd)
-    print status
-    if status != 0:
-        raise Exception('Failed to pack/send cameras for run ' + str(run))
-    logger.info('Finished sending cameras to lfe.')
+    robust_shiftc(cmd, logger)
 
+    logger.info("Finished archiving cameras.")
+    
+    os.chdir(cwd)
+    
     # Test if this is reversible
     #fetchCameraFolder(run, logger)
     
@@ -197,6 +221,7 @@ def packAndSendAlignedCameras(run, logger):
     logger.info('Archiving aligned cameras for run ' + str(run))
     cwd = os.getcwd()
     os.chdir(run.parentFolder)
+    
     runFolder = str(run)   
     fileName = run.getAlignedCameraTarName()
     lfePath  = os.path.join(REMOTE_ALIGN_CAM_FOLDER, fileName)
@@ -210,11 +235,10 @@ def packAndSendAlignedCameras(run, logger):
     cmd = 'shiftc --wait -d -r --include=\'^.*?' + icebridge_common.alignedBundleStr() + \
           '.*?\.tsai$\' --create-tar ' + runFolder + \
     ' ' + lfePath
-    logger.info(cmd)
-    status = os.system(cmd)
+
+    robust_shiftc(cmd, logger)
+
     os.chdir(cwd)
-    if status != 0:
-        logger.info('Failed to pack/send aligned cameras for run ' + str(run))
     logger.info('Finished sending aligned cameras to lfe.')
 
 def packAndSendOrthos(run, logger):
@@ -224,6 +248,7 @@ def packAndSendOrthos(run, logger):
 
     cwd = os.getcwd()
     os.chdir(run.parentFolder)
+    
     runFolder = str(run)
     fileName = run.getOrthoTarName()
     lfePath  = os.path.join(REMOTE_ORTHO_FOLDER, fileName)
@@ -236,11 +261,9 @@ def packAndSendOrthos(run, logger):
     # Create a new archive
     cmd = 'shiftc --wait -d -r --include=\'^.*?' + icebridge_common.orthoFileName() + \
           '$\' --create-tar ' + runFolder + ' ' + lfePath
-    logger.info(cmd)
-    status = os.system(cmd)
+    robust_shiftc(cmd, logger)
+
     os.chdir(cwd)
-    if status != 0:
-        logger.info('Failed to pack/send ortho images for run ' + str(run))
     logger.info('Finished sending ortho images to lfe.')
 
 def packAndSendSummaryFolder(run, folder, logger):
@@ -290,10 +313,8 @@ def packAndSendSummaryFolder(run, folder, logger):
 
     # Send the file to lfe using shiftc
     cmd = 'shiftc --wait -d -r ' + fileName + ' ' + lfePath
-    logger.info(cmd)
-    status = os.system(cmd)
-    if status != 0:
-        raise Exception('Failed to pack/send summary folder for run ' + str(run))
+    robust_shiftc(cmd, logger)
+
     logger.info('Finished sending summary to lfe.')
 
     if True: # icebridge_common.getUser() != 'oalexan1':
@@ -326,6 +347,7 @@ def packAndSendCompletedRun(run, logger):
     
     cwd = os.getcwd()
     os.chdir(run.parentFolder)
+    
     runFolder = str(run)
 
     # Use symlinks to assemble a fake file structure to tar up
@@ -379,15 +401,17 @@ def packAndSendCompletedRun(run, logger):
     #cmd = 'shiftc --wait -d -r --include=\'^.*?' + icebridge_common.blendFileName() + \
     #      '$\' --create-tar ' + runFolder + \
     #      ' ' + lfePath
-    
-    logger.info(cmd)
-    status = os.system(cmd)
-    os.chdir(cwd)
-    if status != 0:
-        raise Exception('Failed to pack/send results for run ' + str(run) + \
-                        '. Maybe not all sym links are valid.')
-    logger.info('Finished sending run to lfe.')
 
+    try:
+        robust_shiftc(cmd, logger)
+    except Exception, e:
+        logger.info(str(e))
+        raise Exception('Failed to pack/send results for run ' + str(run) + \
+                    '. Maybe not all sym links are valid.')
+    
+    os.chdir(cwd)
+    
+    logger.info('Finished sending run to lfe.')
 
 def packAndSendLabels(run, logger):
     '''Archive the labeled images generated by the 3rd party tool.'''
@@ -397,6 +421,7 @@ def packAndSendLabels(run, logger):
     logger.info('Archiving labled images for run ' + str(run))
     cwd = os.getcwd()
     os.chdir(run.parentFolder)
+    
     runFolder = str(run)   
     relRunFolder = os.path.join(runFolder, os.path.basename(run.getLabelFolder)) 
     fileName = run.getLabelTarName()
@@ -409,11 +434,10 @@ def packAndSendLabels(run, logger):
 
     # Create a new archive
     cmd = 'shiftc --wait -d -r --create-tar ' + relRunFolder + ' ' + lfePath
-    logger.info(cmd)
-    status = os.system(cmd)
+    robust_shiftc(cmd, logger)
+
     os.chdir(cwd)
-    if status != 0:
-        logger.info('Failed to pack/send labels for run ' + str(run))
+
     logger.info('Finished sending labels to lfe.')
 
 
