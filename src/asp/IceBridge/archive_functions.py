@@ -280,33 +280,33 @@ def packAndSendSummaryFolder(run, folder, logger):
 
     # Turn this approach off, new approach below.
     # - Some fiddling to make the packed folders convenient
-    #cmd = 'tar -chf '+ fileName +' -C '+ folder +'/.. ' + os.path.basename(folder)
-    #logger.info(cmd)
-    #(out, err, status) = asp_system_utils.executeCommand(cmd, outputPath = None, 
-    #                                                     suppressOutput = True, redo = True,
-    #                                                     noThrow = True)
+    cmd = 'tar -chf '+ fileName +' -C '+ folder +'/.. ' + os.path.basename(folder)
+    logger.info(cmd)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, outputPath = None, 
+                                                         suppressOutput = True, redo = True,
+                                                         noThrow = True)
     # This tends to print a very verbose message
-    #ans = out + '\n' + err
-    #vals = ans.split('\n')
-    #if len(vals) < 10:
-    #    logger.info(ans)
-    #else:
-    #    vals = vals[0:10]
-    #    logger.info("\n".join(vals))
-    #    logger.info("Above output truncated.")
+    ans = out + '\n' + err
+    vals = ans.split('\n')
+    if len(vals) < 10:
+        logger.info(ans)
+    else:
+        vals = vals[0:10]
+        logger.info("\n".join(vals))
+        logger.info("Above output truncated.")
 
     # Use shiftc to create a local copy, and we want to include log files too
-    runFolder = str(run)
-    sumName = os.path.basename(run.getSummaryFolder())
-    cmd = 'shiftc --wait -d -r --include=\'^.*?('  \
-          + icebridge_common.logFilePrefix() + '|' \
-          + runFolder + '/' + sumName        + '|' \
-          + icebridge_common.manager_log_prefix()  \
-          + ')\' --create-tar ' + runFolder        \
-          +  ' ' + fileName
+    #runFolder = str(run)
+    #sumName = os.path.basename(run.getSummaryFolder())
+    #cmd = 'shiftc --wait -d -r --dereference --include=\'^.*?('  \
+    #      + icebridge_common.logFilePrefix() + '|' \
+    #      + runFolder + '/' + sumName        + '|' \
+    #      + icebridge_common.manager_log_prefix()  \
+    #      + ')\' --create-tar ' + runFolder        \
+    #      +  ' ' + fileName
     
-    logger.info(cmd)
-    os.system(cmd)
+    #logger.info(cmd)
+    #os.system(cmd)
     
     # Delete any existing copy of the file on lfe
     lfePath  = os.path.join(REMOTE_SUMMARY_FOLDER, fileName)
