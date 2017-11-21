@@ -151,6 +151,7 @@ GR_20100409 - Image quality is poor.
 AN_20111013 - Not great image quality at the beginning.
 AN_20091025 - Mix of fine features and bad images
 GR_20110415 - Mix of large terrain and small features.
+GR_20110322 - Only frames 1-600 have lidar, after that altitude is much higher, careful about auto-GSD.
 
 7. Flights lacking features
 

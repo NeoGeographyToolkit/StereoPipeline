@@ -134,6 +134,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
     ERR_HEADER_SIZE      = 3
     IDEAL_LIDAR_DIST     = 0.1  # Quit aligning if we get under this error
     MIN_DIST_IMPROVEMENT = 0.25 # Percentage improvement in error to accept a larger max-disp
+    MIN_NUM_DIFFS        = 100  # Can't trust results with fewer diffs.
 
     lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
     
@@ -224,10 +225,12 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
                                                + ', improvement ratio = ' 
                                                + str(percent_improvement))
         resultsDict[str(maxDisp)] = results
-        if ( (bestMeanDiff < 0) or 
-             (thisDiff < IDEAL_LIDAR_DIST) or
-             ((percent_improvement >= MIN_DIST_IMPROVEMENT) and
-              (numDiffs >= bestNumDiffs)) ):
+        if ((numDiffs > MIN_NUM_DIFFS) and
+             ( (bestMeanDiff < 0) or 
+               (thisDiff < IDEAL_LIDAR_DIST) or
+               ((percent_improvement >= MIN_DIST_IMPROVEMENT) and
+                (numDiffs >= bestNumDiffs)) )
+           ):
             icebridge_common.logger_print(logger, 
                     'Accepting pc_align result for displacement ' + str(maxDisp))
             bestMeanDiff = thisDiff
@@ -238,8 +241,11 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
             shutil.move(invTransPath,  bestInvTransPath)
             shutil.move(thisLidarDiffPath, bestDiffPath)
             
-        if thisDiff < IDEAL_LIDAR_DIST:
-            break # No need to check more displacements if this result is great
+            if thisDiff < IDEAL_LIDAR_DIST:
+                break # No need to check more displacements if this result is great
+
+    if bestMeanDiff < 0:
+        raise Exception('Unable to align image at max displacement!')
 
     # Move the best result into the default file locations.
     icebridge_common.logger_print(logger, 'Best mean diff is ' + str(bestMeanDiff) 
@@ -260,10 +266,6 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
 
     shutil.move(bestDiffPath,  lidarDiffPath)
     results = icebridge_common.readGeodiffOutput(lidarDiffPath)
-    
-    # Final success check
-    if not os.path.exists(alignedPC):
-        raise Exception('pc_align call failed!')
 
     # Apply the same transform to the footprint DEM. This one is used in blending later.
     finalFootprintDEM = os.path.join(options.outputFolder,
@@ -845,8 +847,6 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[pairIndex][0], 
                                         inputPairs[i][1],  inputPairs[pairIndex][1]))
 
-    # Testing: Is there any performance hit from using --corr-seed-mode 0 ??
-    #          This skips D_sub creation and saves processing time.
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
     # - Note that the base level memory usage ignoring the SGM buffers is about 2 GB so this memory
     #   usage is in addition to that.
@@ -958,6 +958,13 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     if fractionValid < MIN_FRACTION_VALID_PIXELS:
         raise Exception('Required DEM pixel fraction is ' + str(MIN_FRACTION_VALID_PIXELS) +
                         ', aborting processing on this DEM.')
+
+    # If the output DEM is too small then something is probably wrong.
+    MIN_DEM_SIZE_PIXELS = 200
+    (width, height) = asp_image_utils.getImageSize(p2dOutput)
+    if (width < MIN_DEM_SIZE_PIXELS) or (height < MIN_DEM_SIZE_PIXELS):
+        raise Exception('DEM size (' + str(width) + ', ' + str(height) +
+                        ') is less than minumum size ' + str(MIN_DEM_SIZE_PIXELS))
 
     # The DEM with larger footprint, not filtered out as agressively. We use
     # the valid pixels in this DEM's footprint as a template where to blend.

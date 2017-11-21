@@ -94,6 +94,7 @@ def getFailureCause(batchFolder):
     FAIL_PC_ALIGN = 9
     FAIL_FRACTION_VALID = 10
     FAIL_NO_LIDAR_DEM_OVERLAP = 11
+    FAIL_TINY_DEM = 12
     
     errorSummaries = {} # Human readable error codes
     errorSummaries[UNKNOWN      ] = 'Unknown failure'
@@ -109,6 +110,7 @@ def getFailureCause(batchFolder):
     errorSummaries[FAIL_PC_ALIGN] = 'pc_align failed'
     errorSummaries[FAIL_FRACTION_VALID] = 'Too few valid pixels'
     errorSummaries[FAIL_NO_LIDAR_DEM_OVERLAP] = 'No lidar-DEM overlap'
+    errorSummaries[FAIL_TINY_DEM] = 'Generated DEM is too small'
     
     errorLogText = {} # Text in the log file that indicates an error occurred
     errorLogText[SUCCESS      ] = 'Finished script process_icebridge_batch!'
@@ -120,9 +122,10 @@ def getFailureCause(batchFolder):
     errorLogText[FAIL_STEREO_NO_POINTS] = 'OrthoRasterize: Input point cloud is empty!'
     errorLogText[FAIL_STEREO  ] = 'Stereo call failed!'
     errorLogText[FAIL_STEREO_POINT2DEM] = 'point2dem call on stereo pair failed!'
-    errorLogText[FAIL_PC_ALIGN] = 'Unable to find a good value for max-displacement in pc_align.'
+    errorLogText[FAIL_PC_ALIGN] = 'Unable to align image at max displacement!'
     errorLogText[FAIL_FRACTION_VALID] = 'Required DEM pixel fraction is'
     errorLogText[FAIL_NO_LIDAR_DEM_OVERLAP] = 'No overlap between lidar DEM and stereo DEM'
+    errorLogText[FAIL_TINY_DEM] = 'is less than minumum size'
 
     foundError = UNKNOWN
 

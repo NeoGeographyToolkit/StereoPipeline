@@ -75,20 +75,21 @@ def getMeanDemDiff(dems, outputPrefix):
     mainDem  = dems[0]
     meanDiff  = 0.0
     meanCount = 0.0
-    for i in range(1:len(dems)):
+    for i in range(1,len(dems)):
         thisDem = dems[i]
         if not thisDem:
             continue
             
         #try:
-        diffPath = outputPrefix + '-diff.tif'
-        cmd = ('geodiff --absolute %s %s -o %s' % (mainDem, thisDem, outputPrefix))
+        diffPrefix = outputPrefix + '_' + str(i)
+        diffPath = diffPrefix + '-diff.tif'
+        cmd = ('geodiff --absolute %s %s -o %s' % (mainDem, thisDem, diffPrefix))
         print(cmd)
         asp_system_utils.executeCommand(cmd, diffPath, True, False)
 
         # Read in and examine the results
         results = icebridge_common.readGeodiffOutput(diffPath)
-        print("Found mean inter-DEM diff: " + str(results['Mean']))
+        print("Found inter-DEM diff " + str(i) + " = " + str(results['Mean']))
         meanDiff = meanDiff + results['Mean']
         meanCount = meanCount + 1.0
         #except:
@@ -97,8 +98,8 @@ def getMeanDemDiff(dems, outputPrefix):
     if meanCount < 1: # Handle degenerate cases
         return 0
 
-    print('Mean of DEM diffs = ' + str(meanDiff))
     meanDiff = meanDiff / meanCount
+    print('Mean of DEM diffs = ' + str(meanDiff))
     return meanDiff
 
 def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
@@ -154,8 +155,6 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
         # Look at frames with these offsets when blending
         frameOffsets = [0, 1, -1, 2, -2]
 
-        demMeanOutputPrefix = os.path.join(workDir, 'dd_'+ str(i))
-
         for index in range(len(frameOffsets)):
 
             # Find all the DEMs up to the current index
@@ -177,8 +176,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
 
             # Compute the mean distance between the DEMs
             # TODO: Make sure this gets cleaned up!
-            workDir  = batchFolder
-            meanDiff = getMeanDemDiff(dems, workDir)
+            meanWorkPrefix  = os.path.join(batchFolder, 'bd')
+            meanDiff = getMeanDemDiff(dems, meanWorkPrefix)
             
             # If the mean error between DEMs is creater than this,
             #  use a less aggressive blending method.
@@ -266,7 +265,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
                 dems.append(currDemFile)
                 
             demString = " ".join(dems)
-            cmd = ('dem_mosaic --weights-exponent %f--this-dem-as-reference %s %s %s -o %s' 
+            cmd = ('dem_mosaic --weights-exponent %f --this-dem-as-reference %s %s %s -o %s' 
                    % (WEIGHT_EXP, fireballDEM, demString, threadText, fireballOutputPrefix))
             
             #filesToWipe.append(fireballBlendOutput)
@@ -316,7 +315,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
                 print("Removing: " + fileName)
                 os.remove(fileName)
         # TODO: Handle this cleanup better!
-        os.cmd('rm -f ' + demMeanOutputPrefix + '/*')
+        os.system('rm -f ' + meanWorkPrefix + '*')
                 
     except Exception as e:
         print('Blending failed!\n' + str(e) + ". " + str(traceback.print_exc()))
