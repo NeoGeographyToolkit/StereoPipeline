@@ -63,6 +63,7 @@ def extract_hdf5_points(inputPath):
     lookInLibexec = True
     execPath = asp_system_utils.which('h5dump', lookInLibexec)
     
+    # Extract the three values of interest one at a time
     cmd = execPath + ' -o '+tempLat+' -m "%.7f" --noindex  -w 20 --dataset=latitude  ' + \
           inputPath + ' >/dev/null'
     print(cmd)
@@ -76,6 +77,7 @@ def extract_hdf5_points(inputPath):
     print(cmd)
     os.system(cmd)
     
+    # Merge the three one column files into a single three column file
     execPath = asp_system_utils.which('paste', lookInLibexec)
     cmd = execPath + ' ' + tempLat + ' ' + tempLon + ' ' + tempAlt + ' > ' + outputPath
     print(cmd)
@@ -84,6 +86,11 @@ def extract_hdf5_points(inputPath):
     if os.path.exists(tempLat): os.remove(tempLat)
     if os.path.exists(tempLon): os.remove(tempLon)
     if os.path.exists(tempAlt): os.remove(tempAlt)
+    
+    # Strip empty lines from the output files (the first line can be empty)
+    cmd = "sed -i '/^\s*$/d' " + outputPath
+    print(cmd)
+    os.system(cmd)
     
     if os.path.exists(outputPath):
         print('Wrote: ' + outputPath)
