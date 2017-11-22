@@ -353,8 +353,8 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
 
         # Call ortho2pinhole command
         ortho2pinhole = asp_system_utils.which("ortho2pinhole")
-        cmd = (('%s %s %s %s %s --reference-dem %s --crop-reference-dem --threads %d --ip-detect-method %d' \
-                ' --minimum-ip %d --max-translation %f') 
+        cmd = (('%s %s %s %s %s --reference-dem %s --crop-reference-dem --threads %d ' \
+                '--ip-detect-method %d --minimum-ip %d --max-translation %f') 
                 % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, 
                    refDemPath, numThreads, ipMethod, MIN_IP, MAX_TRANSLATION) )
         if localNorm:
@@ -363,8 +363,8 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
             cmd += ' --camera-estimate ' + estimatedCameraPath
         if simpleCamera:
             cmd += ' --short-circuit'
-        if IP_PER_TTILE[i] > 0:
-			cmd += ' --ip-per-tile ' + str(IP_PER_TTILE[i])
+        if IP_PER_TILE[i] > 0:
+            cmd += ' --ip-per-tile ' + str(IP_PER_TILE[i])
 
         # Use a print statement as the logger fails from multiple processes
         print(cmd)
@@ -428,9 +428,6 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder,
                              numProcesses, numThreads, logger):
     '''Generate camera models from the ortho files.
        Returns false if any files were not generated.'''
-
-    
-    print("Simple cam is ", simpleCameras)
 
     logger.info('Generating camera models from ortho images...')
     
@@ -545,11 +542,16 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder,
             if not os.path.exists(inputCalCamera):
                 raise Exception("Could not find: " + inputCalCamera)
 
-        # Add ortho2pinhole command to the task pool
-        taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
-                                            (inputPath, orthoPath, inputCamFile,
-                                             estimatedCameraPath, outputCamFile,
-                                             refDemPath, simpleCameras, numThreads)))
+        orthoArgs = (inputPath, orthoPath, inputCamFile,
+                     estimatedCameraPath, outputCamFile,
+                     refDemPath, simpleCameras, numThreads)
+
+        if numProcesses > 1:
+            # Add ortho2pinhole command to the task pool
+            taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, orthoArgs))
+        else:
+            # Single process, more logging info this way
+            cameraFromOrthoWrapper(*orthoArgs)
 
     # Wait for all the tasks to complete
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
