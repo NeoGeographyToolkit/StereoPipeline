@@ -96,8 +96,19 @@ def main(argsIn):
     if not fileList:
         logger.error('Unable to find any camera files in ' + calFolder)
         return -1
-    cameraPath = os.path.join(calFolder, fileList[0])
 
+    # This is a bugfix: Check if the camera file is valid
+    goodFile = False
+    for fileName in fileList:
+        cameraPath = os.path.join(calFolder, fileName)
+        with open(cameraPath, 'r') as f:
+            for line in f:
+                if 'fu' in line:
+                    goodFile = True
+                    break
+        if goodFile:
+            break
+            
     # Get the ortho list
     orthoFiles = icebridge_common.getTifs(orthoFolder)
     logger.info('Found ' + str(len(orthoFiles)) + ' ortho files.')

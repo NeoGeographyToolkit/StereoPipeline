@@ -320,9 +320,10 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
     '''Generate a camera model from a single ortho file'''
 
     # Make multiple calls with different options until we get one that works well
-    IP_METHOD    = [1, 0, 2, 1, 2, 0] # IP method
-    FORCE_SIMPLE = [0, 0, 0, 0, 0, 1] # If all else fails use simple mode
-    LOCAL_NORM   = [False, False, False, True, True, False] # If true, image tiles are individually normalized with method 1 and 2
+    IP_METHOD    = [1, 0, 2, 1, 1, 2, 0] # IP method
+    FORCE_SIMPLE = [0, 0, 0, 0, 0, 0, 1] # If all else fails use simple mode
+    LOCAL_NORM   = [False, False, False, False, True, True, False] # If true, image tiles are individually normalized with method 1 and 2
+    IP_PER_TILE  = [0, 0, 0, 1024, 0, 0, 0]
     numAttempts = len(IP_METHOD)
    
     MIN_IP     = 15  # Require more IP to make sure we don't get bogus camera models
@@ -346,7 +347,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
         # Get parameters for this attempt
         ipMethod  = IP_METHOD[i]
         localNorm = LOCAL_NORM[i]
-
+    
         if FORCE_SIMPLE[i]: # Always turn this on for the final attempt!
             simpleCamera = True
 
@@ -362,6 +363,8 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
             cmd += ' --camera-estimate ' + estimatedCameraPath
         if simpleCamera:
             cmd += ' --short-circuit'
+        if IP_PER_TTILE[i] > 0:
+			cmd += ' --ip-per-tile ' + str(IP_PER_TTILE[i])
 
         # Use a print statement as the logger fails from multiple processes
         print(cmd)
@@ -414,7 +417,9 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
 
 def getCameraModelsFromOrtho(imageFolder, orthoFolder,
                              inputCalFolder, inputCalCamera,
-                             cameraLookupPath, navCameraFolder,
+                             cameraLookupPath, 
+							 noNav, 
+							 navCameraFolder,
                              yyyymmdd, site,
                              refDemPath, cameraFolder,
                              simpleCameras,
@@ -423,7 +428,10 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder,
                              numProcesses, numThreads, logger):
     '''Generate camera models from the ortho files.
        Returns false if any files were not generated.'''
+
     
+    print("Simple cam is ", simpleCameras)
+
     logger.info('Generating camera models from ortho images...')
     
     imageFiles    = icebridge_common.getTifs(imageFolder)
@@ -505,8 +513,12 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder,
         except:
             # For now treat this as an error, a missing nav file suggests
             #  that something is going wrong with the flight!
-            logger.error('Missing nav estimated camera for frame ' + str(frame))
-            continue
+			if not noNav:
+				logger.error('Missing nav estimated camera for frame ' + str(frame))
+				continue
+			else:
+				estimatedCameraFile = None
+				estimatedCameraPath = None
             #estimatedCameraFile = None
             #estimatedCameraPath = None
         

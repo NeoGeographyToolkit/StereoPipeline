@@ -303,13 +303,15 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
                                                      logger)
         else:
             navCameraFolder = ""
-            
+            options.simpleCameras = False
+
         if not options.noOrthoConvert:
             # Multi-process call to convert ortho images
             input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder,
                                                        options.inputCalFolder,
                                                        options.inputCalCamera,
                                                        options.cameraLookupFile,
+													   options.noNavFetch,
                                                        navCameraFolder,
                                                        options.yyyymmdd, options.site, 
                                                        refDemPath, cameraFolder, 
