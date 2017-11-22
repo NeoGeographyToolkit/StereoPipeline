@@ -261,7 +261,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics,
          disable_tri_filtering, ip_normalize_tiles, ip_debug_images;
   std::string datum_str, camera_position_file, initial_transform_file,
-    csv_format_str, csv_proj4_str, lidar_file, disparity_list, intrinsics_to_float_str;
+    csv_format_str, csv_proj4_str, lidar_file, disparity_list, intrinsics_to_float_str,
+    heights_from_dem;
   double semi_major, semi_minor, position_filter_dist;
   int num_ba_passes;
   std::string remove_outliers_params_str;
@@ -603,6 +604,9 @@ struct BaPinholeError {
     case vw::camera::RPCLensDistortion::num_distortion_params + 3:
       return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, vw::camera::RPCLensDistortion::num_distortion_params>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
       
+    case vw::camera::RPCLensDistortion5::num_distortion_params + 3:
+      return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, vw::camera::RPCLensDistortion5::num_distortion_params>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+
     default:
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
     };
@@ -804,6 +808,8 @@ struct BaDispLidarError {
     case 20:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 17>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
 
     case vw::camera::RPCLensDistortion::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion::num_distortion_params>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+
+    case vw::camera::RPCLensDistortion5::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion5::num_distortion_params>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
       
     default:
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
@@ -1629,6 +1635,27 @@ void record_points_to_kml(const std::string &kml_path, const cartography::Datum&
   kml.close_kml();
 }
 
+
+void create_interp_dem(std::string & dem_file,
+                       vw::cartography::GeoReference & dem_georef,
+                       ImageViewRef< PixelMask<double> > & interp_dem){
+  
+  vw_out() << "Loading DEM: " << dem_file << std::endl;
+  double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
+  if (vw::read_nodata_val(dem_file, nodata_val)){
+    vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
+  }
+  
+  ImageView< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
+  
+  interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
+  bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
+  if (!is_good) {
+    vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
+             << dem_file << ".\n");
+  }
+}
+
 template <class ModelT>
 int do_ba_ceres_one_pass(ModelT                          & ba_model,
                           Options                         & opt,
@@ -1679,6 +1706,15 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   if (num_intrinsic_params > 0)
     scaled_intrinsics_ptr = &scaled_intrinsics[0];
 
+  
+  vw::cartography::GeoReference dem_georef;
+  ImageViewRef< PixelMask<double> >  interp_dem;
+  if (opt.heights_from_dem != "") {
+    if (!opt.local_pinhole_input) 
+      vw_throw( ArgumentErr() << "When using a high quality DEM, must use the --local-pinhole option.\n");
+    create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
+  }
+  
   // Add the various cost functions the solver will optimize over.
   std::vector<size_t> cam_residual_counts(num_cameras);
   for ( int icam = 0; icam < num_cameras; icam++ ) {
@@ -1723,10 +1759,37 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       add_residual_block(ba_model, observation, pixel_sigma, icam, ipt,
                          camera, point, scaled_intrinsics_ptr, opt.intrinsics_to_float,
                          loss_function, problem);
-                         
+
+      if (opt.heights_from_dem != "") {
+        // For non-GCP points, copy the heights for xyz points from the DEM.
+        // Fix the obtained xyz points as they are considered reliable
+        // and we should have the cameras and intrinsics params to conform
+        // to these.
+        if (cnet[ipt].type() != ControlPoint::GroundControlPoint){
+          Vector3 xyz(point[0], point[1], point[2]);
+          vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
+          vw::Vector2 ll = subvector(llh, 0, 2);
+          Vector2 pix = dem_georef.lonlat_to_pixel(ll);
+          if (pix[0] >= 0 &&
+              pix[1] >= 0 &&
+              pix[0] <= interp_dem.cols()-1 &&
+              pix[1] <= interp_dem.rows()-1) {
+            PixelMask<double> ht = interp_dem(pix[0], pix[1]);
+            if (is_valid(ht)) {
+              llh[2] = ht.child();
+              xyz = dem_georef.datum().geodetic_to_cartesian(llh);
+              for (size_t it = 0; it < xyz.size(); it++) 
+                point[it] = xyz[it];
+            }
+          }
+          problem.SetParameterBlockConstant(point);
+        }
+      }
+      
       cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
-    }
-  }
+
+    } // end iterating over points
+  } // end iterating over cameras
 
   // Add ground control points
   // - Error goes up as GCP's move from their input positions.
@@ -2817,21 +2880,10 @@ void create_matches_from_mapprojected_images(Options const& opt){
   }
   std::string dem_file = map_files.back();
   map_files.erase(map_files.end() - 1);
-  vw_out() << "Loading DEM: " << dem_file << std::endl;
-  double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
-  if (vw::read_nodata_val(dem_file, nodata_val)){
-    vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
-  }
-  
-  ImageView< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
-  InterpolationView<EdgeExtensionView< ImageView< PixelMask<double> >, ConstantEdgeExtension >, BilinearInterpolation> interp_dem = interpolate(dem, BilinearInterpolation(),
-																		ConstantEdgeExtension());
+
   vw::cartography::GeoReference dem_georef;
-  bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
-  if (!is_good) {
-    vw_throw(ArgumentErr()
-             << "Error: Cannot read georeference from DEM: " << dem_file << ".\n");
-  }
+  ImageViewRef< PixelMask<double> > interp_dem;
+  create_interp_dem(dem_file, dem_georef, interp_dem);
   
   for (size_t i = 0; i < map_files.size(); i++) {
     for (size_t j = i+1; j < map_files.size(); j++) {
@@ -2862,8 +2914,8 @@ void create_matches_from_mapprojected_images(Options const& opt){
         Vector2 pix1(P1.x, P1.y);
         Vector2 ll1 = georef1.pixel_to_lonlat(pix1);
         Vector2 dem_pix1 = dem_georef.lonlat_to_pixel(ll1);
-        if (dem_pix1[0] < 0 || dem_pix1[0] >= dem.cols() - 1) continue;
-        if (dem_pix1[1] < 0 || dem_pix1[1] >= dem.rows() - 1) continue;
+        if (dem_pix1[0] < 0 || dem_pix1[0] >= interp_dem.cols() - 1) continue;
+        if (dem_pix1[1] < 0 || dem_pix1[1] >= interp_dem.rows() - 1) continue;
         PixelMask<double> dem_val1 = interp_dem(dem_pix1[0], dem_pix1[1]);
         if (!is_valid(dem_val1)) continue;
         Vector3 llh1(ll1[0], ll1[1], dem_val1.child());
@@ -2877,8 +2929,8 @@ void create_matches_from_mapprojected_images(Options const& opt){
         Vector2 pix2(P2.x, P2.y);
         Vector2 ll2 = georef2.pixel_to_lonlat(pix2);
         Vector2 dem_pix2 = dem_georef.lonlat_to_pixel(ll2);
-        if (dem_pix2[0] < 0 || dem_pix2[0] >= dem.cols() - 1) continue;
-        if (dem_pix2[1] < 0 || dem_pix2[1] >= dem.rows() - 1) continue;
+        if (dem_pix2[0] < 0 || dem_pix2[0] >= interp_dem.cols() - 1) continue;
+        if (dem_pix2[1] < 0 || dem_pix2[1] >= interp_dem.rows() - 1) continue;
         PixelMask<double> dem_val2 = interp_dem(dem_pix2[0], dem_pix2[1]);
         if (!is_valid(dem_val2)) continue;
         Vector3 llh2(ll2[0], ll2[1], dem_val2.child());
@@ -2920,22 +2972,11 @@ void create_gcp_from_mapprojected_images(Options const& opt){
   }
   std::string dem_file = image_files.back();
   image_files.erase(image_files.end() - 1); // wipe the dem from the list
-  vw_out() << "Loading DEM: " << dem_file << std::endl;
-  double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
-  if (vw::read_nodata_val(dem_file, nodata_val)){
-    vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
-  }
-  
-  ImageView< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
-  InterpolationView<EdgeExtensionView< ImageView< PixelMask<double> >, ConstantEdgeExtension >, BilinearInterpolation>
-    interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
-  vw::cartography::GeoReference georef_dem;
-  bool is_good = vw::cartography::read_georeference(georef_dem, dem_file);
-  if (!is_good) {
-    vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
-             << dem_file << ".\n");
-  }
 
+  vw::cartography::GeoReference dem_georef;
+  ImageViewRef< PixelMask<double> > interp_dem;
+  create_interp_dem(dem_file, dem_georef, interp_dem);
+  
   int num_images = image_files.size();
   std::vector<std::vector<vw::ip::InterestPoint> > matches;
   std::vector<vw::cartography::GeoReference> img_georefs;
@@ -2987,10 +3028,10 @@ void create_gcp_from_mapprojected_images(Options const& opt){
     // Compute the GDC coordinate of the point
     ip::InterestPoint dem_ip = matches[num_images][p];
     Vector2 dem_pixel(dem_ip.x, dem_ip.y);
-    Vector2 lonlat = georef_dem.pixel_to_lonlat(dem_pixel);
+    Vector2 lonlat = dem_georef.pixel_to_lonlat(dem_pixel);
     
-    if (dem_pixel[0] < 0 || dem_pixel[0] >= dem.cols() - 1 ||
-        dem_pixel[1] < 0 || dem_pixel[1] >= dem.rows() - 1) {
+    if (dem_pixel[0] < 0 || dem_pixel[0] >= interp_dem.cols() - 1 ||
+        dem_pixel[1] < 0 || dem_pixel[1] >= interp_dem.rows() - 1) {
       vw_out() << "Skipping pixel outside of DEM: " << dem_pixel << std::endl;
       continue;
     }
@@ -2999,7 +3040,7 @@ void create_gcp_from_mapprojected_images(Options const& opt){
     if (!is_valid(mask_height)) continue;
     
     Vector3 llh(lonlat[0], lonlat[1], mask_height.child());
-    //Vector3 dem_xyz = georef_dem.datum().geodetic_to_cartesian(llh);
+    //Vector3 dem_xyz = dem_georef.datum().geodetic_to_cartesian(llh);
 
     // The ground control point ID
     output_handle << pts_count;
@@ -3019,13 +3060,13 @@ void create_gcp_from_mapprojected_images(Options const& opt){
       Vector2 ip_pix(ip.x, ip.y);
       Vector2 ll = img_georefs[i].pixel_to_lonlat(ip_pix);
       
-      Vector2 dem_pix = georef_dem.lonlat_to_pixel(ll);
-      if (dem_pix[0] < 0 || dem_pix[0] >= dem.cols() - 1) continue;
-      if (dem_pix[1] < 0 || dem_pix[1] >= dem.rows() - 1) continue;
+      Vector2 dem_pix = dem_georef.lonlat_to_pixel(ll);
+      if (dem_pix[0] < 0 || dem_pix[0] >= interp_dem.cols() - 1) continue;
+      if (dem_pix[1] < 0 || dem_pix[1] >= interp_dem.rows() - 1) continue;
       PixelMask<double> dem_val = interp_dem(dem_pix[0], dem_pix[1]);
       if (!is_valid(dem_val)) continue;
       Vector3 llh(ll[0], ll[1], dem_val.child());
-      Vector3 xyz = georef_dem.datum().geodetic_to_cartesian(llh);
+      Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
       Vector2 cam_pix;
       try { cam_pix = opt.camera_models[i]->point_to_pixel(xyz); }
       catch(...){ continue; }
@@ -3158,9 +3199,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("use-lon-lat-height-gcp-error", po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
      "When having GCP, instead of minimizing the xyz error (computed vs what is in the GCP file), minimize the lon-lat-height error. This way, if the height is not known accurately, in the GCP file the third sigma (corresponding to the height), can be given a bigger weight to reduce its importance.")
-    
+
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
      "Given map-projected versions of the input images and the DEM mapprojected onto, and IP matches among them, create IP matches among the un-projected images before doing bundle adjustment. Niche and experimental, not for general use.")
+    
+    ("heights-from-dem",  po::value(&opt.heights_from_dem)->default_value(""),
+     "If the cameras have already been bunde-adjusted and rigidly transformed to create a DEM aligned to a known high-quality DEM, in the original triangulated xyz points replace the heights with the ones from this high quality DEM and fix those points. This can be used to refine camera positions and intrinsics and works only for pinhole images. Niche and experimental, not for general use.")
     ("gcp-data",  po::value(&opt.gcp_data)->default_value(""),
      "Given map-projected versions of the input images and the DEM mapprojected onto, create GCP so that during bundle adjustment the original unprojected images are adjusted to mapproject where desired onto the DEM. Niche and experimental, not for general use.")
     ("lambda,l",         po::value(&opt.lambda)->default_value(-1),

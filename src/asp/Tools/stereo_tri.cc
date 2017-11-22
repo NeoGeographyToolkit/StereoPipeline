@@ -650,8 +650,10 @@ void stereo_triangulation( string          const& output_prefix,
       unalign_disparity(opt_vec, disparity_maps, transforms, unalign_disp);
     }
 
-    std::string match_file = output_prefix + "-disp.match";
-
+    std::string match_file = ip::match_filename(output_prefix + "-disp",
+						opt_vec[0].in_file1, 
+						opt_vec[0].in_file2);
+    
     // Pull matches from disparity. Highly experimental. 
     if (stereo_settings().num_matches_from_disparity > 0) {
       compute_matches_from_disp(opt_vec, disparity_maps, transforms, match_file,
