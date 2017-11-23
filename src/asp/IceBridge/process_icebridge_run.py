@@ -214,7 +214,7 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
             if area > 0:
                 ratio = area / thisArea
             
-            #print str(thisFrame) +', ' + str(nextFrame) + ' -> ' + str(ratio)
+            #print(str(thisFrame) +', ' + str(nextFrame) + ' -> ' + str(ratio))
             if interval == 1: # Cases for the smallest interval...
                 if ratio < NOTRY_RATIO:
                     breaks.append(thisFrame) # No match for this frame
@@ -366,7 +366,7 @@ def main(argsIn):
         (options, args) = parser.parse_args(argsIn)
 
         if len(args) < 4:
-            print usage
+            print(usage)
             return 0
 
         imageFolder  = args[0]
@@ -414,7 +414,6 @@ def main(argsIn):
             logger.error('Error: input frames not sorted properly!\n')
             return -1
         lastFrame = frameNumber
-
 
     # Set the output resolution as the computed mean GSD
     # - Currently we process ten frames total but this should be increased for production!
@@ -511,28 +510,38 @@ def main(argsIn):
 
         # Keep adding frames until we have enough or run out of frames
         j = i # The frame index that ends the batch
+        
         while True:
+
+            if j >= len(imageCameraPairs):
+                # Bugfix: arrived at the last feasible frame.
+                break
+            
+            frameNumber = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[j][0])
+
             # Update conditions
-            hitBreakFrame = frameNumber in breaks
+            hitBreakFrame = (frameNumber in breaks)
+
             lastFrame     = (frameNumber > options.stopFrame) or (j >= numFiles)
-            endBatch      = len(frameNumbers) >= thisBatchSize
+            endBatch      = ( len(frameNumbers) >= thisBatchSize )
         
             if lastFrame or endBatch:
                 break # The new frame is too much, don't add it to the batch
         
             # Add frame to the list for the current batch
-            frameNumber = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[j][0])
             batchImageCameraPairs.append(imageCameraPairs[j])
             frameNumbers.append(frameNumber)
             
             if hitBreakFrame:
+                logger.info("Hit a break, won't start a batch with frame: " + str(frameNumber))
                 break # Break after this frame, it is the last one added to the batch.
             
             j = j + 1
         # Done adding frames to this batch
 
         if len(frameNumbers) <= thisSkipInterval:
-            logger.info('Batch from frame: ' + str(firstBundleFrame) + ' is too small to run.  Skipping.')
+            logger.info('Batch from frame: ' + str(firstBundleFrame) +
+                        ' is too small to run. Skipping.')
         else:
 
             # Submit the batch
@@ -541,12 +550,14 @@ def main(argsIn):
                      
             # The output folder is named after the first and last frame in the batch.
             # We count on this convention in blend_dems.py.
-            batchFolderName  = ('batch_%05d_%05d_%d' % (frameNumbers[0], frameNumbers[-1], options.bundleLength))
+            batchFolderName  = ('batch_%05d_%05d_%d' % (frameNumbers[0], frameNumbers[-1],
+                                                        options.bundleLength))
             thisOutputFolder = os.path.join(outputFolder, batchFolderName)
 
             if not options.logBatches:
                 logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
-                            'with options: ' + extraOptions + ' --stereo-arguments ' + options.stereoArgs)
+                            'with options: ' + extraOptions + ' --stereo-arguments ' +
+                            options.stereoArgs)
             
             if not options.dryRun:
                 # Generate the command call
