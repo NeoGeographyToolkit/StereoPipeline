@@ -80,20 +80,20 @@ def getMeanDemDiff(dems, outputPrefix):
         if not thisDem:
             continue
             
-        #try:
         diffPrefix = outputPrefix + '_' + str(i)
         diffPath = diffPrefix + '-diff.tif'
         cmd = ('geodiff --absolute %s %s -o %s' % (mainDem, thisDem, diffPrefix))
         print(cmd)
         asp_system_utils.executeCommand(cmd, diffPath, True, False)
 
-        # Read in and examine the results
-        results = icebridge_common.readGeodiffOutput(diffPath)
-        print("Found inter-DEM diff " + str(i) + " = " + str(results['Mean']))
-        meanDiff = meanDiff + results['Mean']
-        meanCount = meanCount + 1.0
-        #except:
-        #   continue
+        try:
+            # Read in and examine the results
+            results = icebridge_common.readGeodiffOutput(diffPath)
+            print("Found inter-DEM diff " + str(i) + " = " + str(results['Mean']))
+            meanDiff = meanDiff + results['Mean']
+            meanCount = meanCount + 1.0
+        except:
+           print('No overlap with DEM ' + thisDem)
         
     if meanCount < 1: # Handle degenerate cases
         return 0
