@@ -75,17 +75,38 @@ def main(argsIn):
     # - There should only be one or two nav files per flight.
     fileList = os.listdir(navFolder)
     fileList = [x for x in fileList if '.out' in x]
-    if len(fileList) > 1:
-        logger.error('TODO: Support double nav files!')
+    if len(fileList) == 0:
+        logger.error('No nav files in: ' + navFolder)
         return -1
-    navPath = os.path.join(navFolder, fileList[0])
 
-    # Convert the nav file from binary to text    
+    navPath = os.path.join(navFolder, fileList[0])
     parsedNavPath = navPath.replace('.out', '.txt')
-    cmd = 'sbet2txt.pl -q ' + navPath + ' > ' + parsedNavPath
-    logger.info(cmd)
-    if not asp_file_utils.fileIsNonZero(parsedNavPath):
-        os.system(cmd)
+
+    # Create the output file only if it is empty or does not exist
+    isNonEmpty = asp_file_utils.fileIsNonZero(parsedNavPath)
+
+    if not isNonEmpty:
+        # Initialize the output file as being empty
+        logger.info("Create empty file: " + parsedNavPath)
+        open(parsedNavPath, 'w').close()
+        
+    # Append to the output parsed nav file
+    for fileName in fileList:
+        # Convert the nav file from binary to text    
+        navPath = os.path.join(navFolder, fileName)
+
+        with open(navPath, 'r') as f:
+            text = f.readline()
+            if 'HTML' in text:
+                # Sometimes the server is down, and instead of the binary nav file
+                # we are given an html file with an error message.
+                logger.info("Skip invalid file: " + navPath)
+                continue
+            
+        cmd = asp_system_utils.which('sbet2txt.pl') + ' -q ' + navPath + ' >> ' + parsedNavPath
+        logger.info(cmd)
+        if not isNonEmpty:
+            os.system(cmd)
 
     # Find a camera file to use.
     # - nav2cam does not support per-frame intrinsic data, so just feed

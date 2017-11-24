@@ -666,7 +666,18 @@ def convertLidarDataToCsv(lidarFolder, startFrame, stopFrame,
                 validFilesSet.add(outputPath) # mark it as validated
             
     convLidarFile = icebridge_common.getConvertedLidarIndexFile(lidarFolder)
+
+    willWriteConvFile = False
     if not os.path.exists(convLidarFile):
+        willWriteConvFile = True
+    else: 
+        # Bugfix: Sometimes the written converted file has the wrong size, maybe
+        # something got interrupted earlier.
+        (lidarDictIn, dummyUrlDict) = icebridge_common.readIndexFile(convLidarFile)
+        if len(lidarDictIn.keys()) != len(convDict.keys()):
+            willWriteConvFile = True
+            
+    if willWriteConvFile:
         logger.info("Writing: " + convLidarFile)
         icebridge_common.writeIndexFile(convLidarFile, convDict, {})
         

@@ -58,7 +58,6 @@ def formImageCameraString(inputPairs):
         cameras += camera; cameras += " "
     imagesAndCams = images + cameras
     return imagesAndCams
-    
 
 def makeDemAndCheckError(options, projString, pointCloud, 
                           lidarFile, lidarCsvFormatString,
@@ -108,8 +107,9 @@ def getOverlapAmount(dem1, dem2, logger):
     asp_system_utils.executeCommand(cmd, u8Mosaic, True, True)
     
     # Now count the overlapping pixels
-    cmd = ('convert '+u8Mosaic+
-           ' -fill black +opaque "gray(2)" -fill white -opaque "gray(2)" -format "%[fx:w*h*mean]" info:')
+    cmd = ('convert ' + u8Mosaic + 
+           ' -fill black +opaque "gray(2)" -fill white -opaque "gray(2)" ' +
+           '-format "%[fx:w*h*mean]" info:')
     icebridge_common.logger_print(logger, cmd)
     (out, err, status) = asp_system_utils.executeCommand(cmd, u8Mosaic, True, True)    
     if status != 0:
