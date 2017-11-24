@@ -966,6 +966,10 @@ def parseTimeStamps(fileName):
        as the time and date stamps.'''
 
     # Start by handling ILVIS2_AQ2011_1012_R1203_049752.TXT
+    # Format is ILVIS1B_LOYYYY_MMDD_RYYMM_nnnnnn.xxx
+    # where nnnnnn is number of seconds since UTC midnight of the day the data collection started
+    # per http://nsidc.org/data/ilvis1b/versions/1 and
+    #     https://nsidc.org/data/ilvis1b
     m = re.match("^.*?ILVIS\d\_[A-Z][A-Z](\d\d\d\d)\_(\d\d\d\d)\_.*?\_(\d+)\.TXT",
                  fileName, re.IGNORECASE)
     if m:
@@ -1095,32 +1099,17 @@ def getAlignedBundlePrefix(outputFolder):
 def lidar_pair_prefix():
     return 'LIDAR_PAIR_'
 
-def pairFiles(pairedFolder):
-    '''Find the lidar pairs. Here we prepend the folder name to the files.'''
-
-    allFiles   = os.listdir(pairedFolder)
-    pairs = []
-    
-    for f in allFiles:
-
-        # Filter by lidar pair prefix. Do not filter by extension or do it well. That
-        # one can be .csv or .TXT.
-        if lidar_pair_prefix() not in f:
-            continue
-
-        # Extract time for this file
-        fullPath = os.path.join(pairedFolder, f)
-        pairs.append(fullPath)
-        
-    return pairs
-
 def findMatchingLidarFile(imageFile, lidarFolder):
     '''Given an image file, find the best lidar file to use for alignment.'''
     
     # Look in the paired lidar folder, not the original lidar folder.
     pairedFolder = getPairedLidarFolder(lidarFolder)
-    lidarFiles    = pairFiles(pairedFolder)
-
+    pairedLidarFile = getPairedIndexFile(pairedFolder)
+    if not os.path.exists(pairedLidarFile):
+        raise Exception("Missing file: " + pairedLidarFile)
+    (lidarDict, dummyUrlDict) = readIndexFile(pairedLidarFile, prependFolder = True)
+    lidarFiles = sorted(lidarDict.values())
+    
     if len(lidarFiles) <= 0:
         raise Exception("Empty directory of pairs in " + pairedFolder)
 
