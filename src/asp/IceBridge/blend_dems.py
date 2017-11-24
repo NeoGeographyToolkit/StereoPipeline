@@ -67,8 +67,6 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath      + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
-# TODO: Should use the logger!
-
 def getMeanDemDiff(dems, outputPrefix):
     '''Get the mean distance between the input DEMs to the main DEM.'''
 
