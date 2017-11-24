@@ -214,15 +214,18 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             asp_system_utils.executeCommand(cmd, diffPath, suppressOutput, redo)
                 
             # Read in and examine the results
-            results = icebridge_common.readGeodiffOutput(diffPath)
-            print("Current mean error to lidar is " + str(results['Mean']))
+            try:
+                results = icebridge_common.readGeodiffOutput(diffPath)
+                print("Current mean error to lidar is " + str(results['Mean']))
 
-            if  bestMean > float(results['Mean']):
-                bestMean  = float(results['Mean'])
-                bestBlend = blendOutput
-                bestVals  = demString
-                bestDiff  = diffPath
-
+                if  bestMean > float(results['Mean']):
+                    bestMean  = float(results['Mean'])
+                    bestBlend = blendOutput
+                    bestVals  = demString
+                    bestDiff  = diffPath
+            except Exception, e:
+                pass
+            
             logFiles = glob.glob(outputPrefix + "*" + "-log-" + "*")
             filesToWipe += logFiles
         
@@ -283,13 +286,16 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             asp_system_utils.executeCommand(cmd, fireballDiffPath, suppressOutput, redo)
 
             # Read in and examine the results
-            results = icebridge_common.readGeodiffOutput(fireballDiffPath)
-            print("Mean error to lidar in fireball footprint is " + str(results['Mean']))
+            try:
+                results = icebridge_common.readGeodiffOutput(fireballDiffPath)
+                print("Mean error to lidar in fireball footprint is " + str(results['Mean']))
+                
+                cmd = "mv " + fireballBlendOutput   + " " + finalFireballOutput
+                print(cmd)
+                asp_system_utils.executeCommand(cmd, finalFireballOutput, suppressOutput, redo)
+            except Exception, e:
+                pass
             
-            cmd = "mv " + fireballBlendOutput   + " " + finalFireballOutput
-            print(cmd)
-            asp_system_utils.executeCommand(cmd, finalFireballOutput, suppressOutput, redo)
-
             # Generate a thumbnail of the final DEM
             #hillOutput = fireballOutputPrefix+'_HILLSHADE.tif'
             #cmd = 'hillshade ' + finalFireballOutput +' -o ' + hillOutput
