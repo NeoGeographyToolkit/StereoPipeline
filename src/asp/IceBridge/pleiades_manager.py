@@ -94,7 +94,7 @@ def getParallelParams(nodeType, task):
         if nodeType == 'san': return (8,  4, 300, 3)
         if nodeType == 'ivy': return (10, 3, 400, 3)
         if nodeType == 'bro': return (14, 4, 500, 3)
-        if nodeType == 'wes': return (8,  4, 300, 8)
+        if nodeType == 'wes': return (8,  4, 150, 3) # more jobs will go faster
     
     if task == 'dem':
         if nodeType == 'san': return (2, 8, 70,  8)
@@ -106,20 +106,20 @@ def getParallelParams(nodeType, task):
         if nodeType == 'san': return (8,  3, 1200, 4)
         if nodeType == 'ivy': return (10, 3, 1000, 4)
         if nodeType == 'bro': return (14, 4, 1400, 4) # 200 seems to finish in 10 minutes
-        if nodeType == 'wes': return (8,  3,  800, 8) 
+        if nodeType == 'wes': return (8,  3,  300, 8) # use more nodes so less jobs per node  
     
     if task == 'orthogen':
         if nodeType == 'san': return (8,  4, 350, 6)
         if nodeType == 'ivy': return (10, 2, 400, 5)
         if nodeType == 'bro': return (14, 4, 500, 4)
-        if nodeType == 'wes': return (8,  4, 300, 8)
+        if nodeType == 'wes': return (8,  4, 200, 8)
 
     # TODO: All guesses!
     if task == 'label':
         if nodeType == 'san': return (16, 1, 350, 6)
         if nodeType == 'ivy': return (30, 1, 400, 5)
         if nodeType == 'bro': return (28, 1, 500, 4)
-        if nodeType == 'wes': return (12, 1, 300, 8)
+        if nodeType == 'wes': return (12, 1, 200, 4)
 
 
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
