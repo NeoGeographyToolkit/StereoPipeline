@@ -675,7 +675,7 @@ def convertLidarDataToCsv(lidarFolder, startFrame, stopFrame,
         # Bugfix: Sometimes the written converted file has the wrong size, maybe
         # something got interrupted earlier.
         (lidarDictIn, dummyUrlDict) = icebridge_common.readIndexFile(convLidarFile)
-        if len(lidarDictIn.keys()) != len(convDict.keys()):
+        if lidarDictIn != convDict:
             willWriteConvFile = True
             
     if willWriteConvFile:
@@ -775,7 +775,18 @@ def pairLidarFiles(lidarFolder, skipValidate, logger):
             badFiles = True
 
     pairedLidarFile = icebridge_common.getPairedIndexFile(pairedFolder)
+    
+    willWritePairedFile = False
     if not os.path.exists(pairedLidarFile):
+        willWritePairedFile = True
+    else: 
+        # Bugfix: Sometimes the written converted file has the wrong size, maybe
+        # something got interrupted earlier.
+        (lidarDictIn, dummyUrlDict) = icebridge_common.readIndexFile(pairedLidarFile)
+        if lidarDictIn != pairedDict:
+            willWritePairedFile = True
+    
+    if willWritePairedFile:
         logger.info("Writing: " + pairedLidarFile)
         icebridge_common.writeIndexFile(pairedLidarFile, pairedDict, {})
 
