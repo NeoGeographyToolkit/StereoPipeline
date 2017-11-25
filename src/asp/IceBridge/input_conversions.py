@@ -341,7 +341,8 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
     os.system("ulimit -c 0")  # disable core dumps
     os.system("rm -f core.*") # these keep on popping up
     os.system("umask 022")    # enforce files be readable by others
-        
+
+    numPoints = 0 # must be initialized
     for i in range(0,numAttempts):
 
         # Get parameters for this attempt
