@@ -543,17 +543,20 @@ int main(int argc, char* argv[]) {
   if (opt.detect_offset) {
     std::cout << "Reading target locations...\n";
     const size_t num_targets = opt.camera_files.size();
-    target_locations.resize(num_targets);
-    target_times.resize    (num_targets);
+    target_locations.reserve(num_targets);
+    target_times.reserve    (num_targets);
     for (size_t i=0; i<num_targets; ++i) {
-      boost::filesystem::path camera_file(opt.camera_files[i]);
-      boost::filesystem::path camera_path = output_dir / camera_file;
-      PinholeModel model(camera_path.string());
-      target_locations[i] = model.camera_center();
-      target_times    [i] = gps_seconds(opt.image_files[i]);
+      try {
+        boost::filesystem::path camera_file(opt.camera_files[i]);
+        boost::filesystem::path camera_path = output_dir / camera_file;
+        PinholeModel model(camera_path.string());
+        target_locations.push_back(model.camera_center());
+        target_times.push_back    (gps_seconds(opt.image_files[i]));
+      } catch(...) {
+      } // Just skip cameras that we can't read in.
     }
     interpLoader.set_target_locs(target_locations);
-    std::cout << "Done loading target locations.\n";
+    std::cout << "Done loading " << target_locations.size() << " target locations.\n";
   } // End target loading condition
 
   boost::shared_ptr<ScrollingNavInterpolator::PosInterpType> pos_interpolator_ptr;

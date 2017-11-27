@@ -61,8 +61,8 @@ def readPositions(positionFilePath):
                 
             if '#' in line: # Skip lines containing the comment symbol
                 continue
-            
-            strings = line.split()
+          
+            strings = line.replace(',','').split()
             
             # Record lot/lat/alt triples
             if isLvisFile:
@@ -100,8 +100,8 @@ def generatePointKml(pointList, outputPath, pointSkip, name, color):
             maxHeight = p[ALT]
     heightRange = maxHeight - minHeight
     
-    print 'min = ' + str(minHeight)
-    print 'max = ' + str(maxHeight)
+    #print 'min = ' + str(minHeight)
+    #print 'max = ' + str(maxHeight)
     
     # Plot each point
     counter = 0
