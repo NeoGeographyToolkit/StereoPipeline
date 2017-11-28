@@ -1103,7 +1103,7 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     '''Given an image file, find the best lidar file to use for alignment.'''
     
     # Look in the paired lidar folder, not the original lidar folder.
-    pairedFolder = getPairedLidarFolder(lidarFolder)
+    pairedFolder    = getPairedLidarFolder(lidarFolder)
     pairedLidarFile = getPairedIndexFile(pairedFolder)
     if not os.path.exists(pairedLidarFile):
         raise Exception("Missing file: " + pairedLidarFile)
@@ -1140,7 +1140,8 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
     for lidarPath in lidarFiles:
 
         vals = parseTimeStamps(lidarPath)
-        if len(vals) < 2: continue # ignore bad files
+        if len(vals) < 2:
+          continue # ignore bad files
 
         useTimeFix = False
         returnMinAndSecOnly = True
@@ -1157,7 +1158,8 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
     useTimeFix = False
     if maxMinSec >= 60:
         useTimeFix = True
-        
+        print 'Using lidar time fix!'
+
     for lidarPath in lidarFiles:
 
         vals = parseTimeStamps(lidarPath)
@@ -1167,6 +1169,7 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
         try:
             returnMinAndSecOnly = False
             lidarDateTime = parseDateTimeStrings(vals[0], vals[1], useTimeFix, returnMinAndSecOnly)
+            #lidarDateTime = lidarDateTime - datetime.timedelta(hours=1) # Manual hack for flights with bad lidar times!
         except Exception as e:
             raise Exception('Failed to parse datetime for lidar file: ' + lidarPath + '\n' +
                             'Error is: ' + str(e))
@@ -1174,7 +1177,7 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
         #print 'THIS = ' + str(lidarDateTime)
 
         # Compare time to the image time
-        timeDelta       = abs(imageDateTime - lidarDateTime)
+        timeDelta = abs(imageDateTime - lidarDateTime)
         #print 'DELTA = ' + str(timeDelta)
         # Select the closest lidar time
         # - Since we are using the paired files, the file time is in the middle 
@@ -1184,8 +1187,16 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
             bestLidarFile = lidarPath
             bestTimeDelta = timeDelta
 
-    if bestLidarFile == 'NA':
-        raise Exception('Failed to find matching lidar file for image ' + imageFile)
+    # Normal spacing seems to be 6.5 minutes but this must vary by flight.
+    MAX_DELTA = datetime.timedelta(minutes=15)
+    if (bestLidarFile == 'NA') or (bestTimeDelta > MAX_DELTA):
+        errorMessage = 'Failed to find matching lidar file for image ' + imageFile
+        if bestLidarFile:
+            errorMessage += '\n--> Nearest lidar file was '+ bestLidarFile +' with delta ' + str(bestTimeDelta)
+        raise Exception(errorMessage)
+
+    #print bestLidarFile
+    #print bestTimeDelta
 
     return bestLidarFile
 
