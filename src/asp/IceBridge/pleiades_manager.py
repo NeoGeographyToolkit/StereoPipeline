@@ -242,6 +242,13 @@ def runFetch(run, options, logger):
     # refreshed the indicies from NSIDC.
     run.massRename(options.startFrame, options.stopFrame, logger)
     
+    # Many of the archived input lidar files have problems, correct them here.
+    # - Remove blank lines and remove trailing commas.
+    # - Would be nice if this step was faster.
+    cmd = 'find '+run.getLidarFolder()+''' -name "*.csv" -exec sed -i 's/,$//;/,/!d' {} \;'''
+    print cmd
+    os.system(cmd)
+    
     # Don't need to check results, they should be cleaned out in conversion call.
     run.setFlag('fetch_complete')
 

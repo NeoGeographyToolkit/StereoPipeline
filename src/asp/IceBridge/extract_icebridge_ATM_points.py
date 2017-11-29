@@ -87,8 +87,8 @@ def extract_hdf5_points(inputPath):
     if os.path.exists(tempLon): os.remove(tempLon)
     if os.path.exists(tempAlt): os.remove(tempAlt)
     
-    # Strip empty lines from the output files (the first line can be empty)
-    cmd = "sed -i '/^\s*$/d' " + outputPath
+    # Remove any trailing commas in lines and strip all lines without commas.
+    cmd = "sed -i 's/,$//;/,/!d' " + outputPath
     print(cmd)
     os.system(cmd)
     

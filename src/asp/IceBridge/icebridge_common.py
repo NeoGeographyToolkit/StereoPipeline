@@ -1108,7 +1108,16 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     if not os.path.exists(pairedLidarFile):
         raise Exception("Missing file: " + pairedLidarFile)
     (lidarDict, dummyUrlDict) = readIndexFile(pairedLidarFile, prependFolder = True)
-    lidarFiles = sorted(lidarDict.values())
+    lidarFilesIn = sorted(lidarDict.values())
+    lidarFiles = []
+    
+    # Verify that all the expected lidar files are there!
+    for f in lidarFilesIn:
+        print f
+        if os.path.exists(f):
+            lidarFiles.append(f)
+        else:
+            print 'WARNING: Expected paired lidar file ' + f + ' does not exist!'
     
     if len(lidarFiles) <= 0:
         raise Exception("Empty directory of pairs in " + pairedFolder)

@@ -498,40 +498,57 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
     return parsedIndexPath
 
 def lidarFilesInRange(lidarDict, lidarFolder, startFrame, stopFrame):
-    '''Fetch only lidar files for the given frame range. Do that as follows.   '''
-    '''For each ortho frame in [startFrame, stopFrame], find the lidar         '''
-    '''file with the closest timestamp. Collect them all.                      '''
-    '''Add the two neighboring ones, to help with finding lidar pairs later.   '''
+    '''Fetch only lidar files for the given frame range. Do that as follows.
+       For each ortho frame in [startFrame, stopFrame], find the lidar
+       file with the closest timestamp. Collect them all.
+       Add the two neighboring ones, to help with finding lidar pairs later.'''
     
     lidarList = []
     for frame in sorted(lidarDict.keys()):
         lidarList.append(lidarDict[frame])
 
-    orthoFolder = icebridge_common.getOrthoFolder(os.path.dirname(lidarFolder))
-    orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
-    (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath)
-    minLidarIndex = len(lidarList)
-    maxLidarIndex = 0
-    for frame in sorted(orthoFrameDict.keys()):
-        if ((frame < startFrame) or (frame > stopFrame) ): continue
-        orthoFrame = orthoFrameDict[frame]
-        matchingLidar = icebridge_common.findMatchingLidarFileFromList(orthoFrame, lidarList)
 
-        for index in range(len(lidarList)):
-            if lidarList[index] == matchingLidar:
-                if minLidarIndex > index:
-                    minLidarIndex = index
-                if maxLidarIndex < index:
-                    maxLidarIndex = index
 
-    # We will fetch neighboring lidar files as well
-    if minLidarIndex > 0:
-        minLidarIndex = minLidarIndex -1
-    if maxLidarIndex + 1 < len(lidarList):
-        maxLidarIndex = maxLidarIndex + 1
+    # If we requested all frames, also get all the lidar files.
+    if ((startFrame == icebridge_common.getSmallestFrame()) and
+        (stopFrame  == icebridge_common.getLargestFrame() )    ):
+
+        minLidarIndex = 0
+        maxLidarIndex = len(lidarList)-1
+
+    else:
+
+        minLidarIndex = len(lidarList)
+        maxLidarIndex = 0
+
+        # Build up a list of lidar files that match the requested input frames
+        orthoFolder    = icebridge_common.getOrthoFolder(os.path.dirname(lidarFolder))
+        orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
+        (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath)
+        for frame in sorted(orthoFrameDict.keys()):
+            if ((frame < startFrame) or (frame > stopFrame) ): continue
+            orthoFrame = orthoFrameDict[frame]
+            try:
+                matchingLidar = icebridge_common.findMatchingLidarFileFromList(orthoFrame, lidarList)
+            except:
+                # Some image files don't have a matching lidar file, just keep going.
+                continue
+
+            for index in range(len(lidarList)):
+                if lidarList[index] == matchingLidar:
+                    if minLidarIndex > index:
+                        minLidarIndex = index
+                    if maxLidarIndex < index:
+                        maxLidarIndex = index
+
+        # We will fetch neighboring lidar files as well
+        if minLidarIndex > 0:
+            minLidarIndex = minLidarIndex -1
+        if maxLidarIndex + 1 < len(lidarList):
+            maxLidarIndex = maxLidarIndex + 1
 
     lidarsToFetch = set()
-    for index in range(minLidarIndex, maxLidarIndex+1):
+    for index in range(minLidarIndex, maxLidarIndex+1): # Fetch only the requested lidar files.
         lidarsToFetch.add(lidarList[index])
 
     return lidarsToFetch
