@@ -237,7 +237,7 @@ void parse_camera_pose(std::string const& line, Vector3 & xyz, Quat & look, Quat
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string nav_file, input_cam, output_folder;
   std::vector<std::string> image_files, camera_files;
-  bool detect_offset;
+  bool detect_offset, flip_camera;
   double time_offset;
 };
 
@@ -252,6 +252,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                        "Time offset to be added to the navigation file timestamps.")
     ("output-folder",  po::value(&opt.output_folder)->default_value(""), 
                        "Output folder where the camera files are written.")
+    ("flip-camera"  ,  po::bool_switch(&opt.flip_camera)->default_value(false)->implicit_value(true),
+        "Use when the camera is rotated 180 degrees (left edge is forwards).")
     ("detect-offset",  po::bool_switch(&opt.detect_offset)->default_value(false)->implicit_value(true),
         "Instead of generating camera files, estimate time offset to the provided camera files.")
     ("cam-list",       po::value(&cam_list_path)->default_value(""), 
@@ -658,6 +660,9 @@ int main(int argc, char* argv[]) {
       Vector3 dir1 = gcc_interp_forward - gcc_interp;
       Vector3 dir2 = gcc_interp - gcc_interp_backward;
       Vector3 xDir = (dir1 + dir2) / 2.0;
+      
+      if (opt.flip_camera) // Camera is rotated 180 degrees on the aircraft
+        xDir = xDir * -1.0;
       
       // The Z vector is straight down from the camera to the ground.
       Vector3 llh_ground = llh_interp;

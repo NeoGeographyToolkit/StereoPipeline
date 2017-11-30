@@ -1199,7 +1199,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
       vw_throw(ArgumentErr()
                << "Error: SGM processing is not permitted with a tile size smaller than the image!\n"
                << "Value of --corr-tile-size is " << stereo_settings().corr_tile_size_ovr
-               << " but disparity size is " << image_size << ".\n" 
+               << " but image size is " << image_size << ".\n" 
                << "Increase --corr-tile-size so the entire image fits in one tile, or "
                << "use parallel_stereo. Not that making --corr-tile-size larger than 9000 or so may "
                << "cause GDAL to crash.\n\n");

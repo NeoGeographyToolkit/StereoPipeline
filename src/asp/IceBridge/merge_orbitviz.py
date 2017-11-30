@@ -66,6 +66,10 @@ def main(args):
     else:
         inputPaths = [os.path.abspath(x) for x in args[1:]]
 
+    if not inputPaths:
+        print 'Error: No input files detected!'
+        return -1
+
     # Open the output file
     with open(outputPath, 'w') as outputFile:
         # Copy most of the input file, stopping at the document close tags

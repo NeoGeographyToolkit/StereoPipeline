@@ -42,24 +42,35 @@ os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
 def main(argsIn):
 
     # Command line parsing
+
     try:
-        usage  = "usage: camera_models_from_nav.py <image_folder> <ortho_folder> <cal_folder> <nav_folder> <output_folder> startFrame stopFrame"
+        usage  = "usage: camera_models_from_nav.py <image_folder> <ortho_folder> <cal_folder> <nav_folder> <output_folder> [options]"
+                      
         parser = optparse.OptionParser(usage=usage)
+
+        parser.add_option('--start-frame', dest='startFrame', default=-1,
+                          type='int', help='The frame number to start processing with.')
+        parser.add_option('--stop-frame', dest='stopFrame', default=999999,
+                          type='int', help='The frame number to finish processing with.')        
+        parser.add_option('--flip-camera', action='store_true', default=False, dest='flipCamera',  
+                          help='Set if the camera is flipped (left side is forward direction).')
+
         (options, args) = parser.parse_args(argsIn)
-        if len(args) < 7:
+
+        if len(args) < 5:
             print 'Error: Missing arguments.'
             print usage
             return -1
+
         imageFolder  = os.path.abspath(args[0])
-        orthoFolder  = os.path.abspath(args[1]) # TODO: Replace with options
+        orthoFolder  = os.path.abspath(args[1])
         calFolder    = os.path.abspath(args[2])
         navFolder    = os.path.abspath(args[3])
         outputFolder = os.path.abspath(args[4])
-        startFrame   = int(args[5])
-        stopFrame    = int(args[6])
-        
+
     except optparse.OptionError, msg:
-        raise Exception(msg)
+        raise Usage(msg)
+
 
     runDir = os.path.dirname(orthoFolder)
     os.system("mkdir -p " + runDir)
@@ -140,7 +151,7 @@ def main(argsIn):
         if ('gray' in ortho) or ('sub' in ortho):
             continue
         frame = icebridge_common.getFrameNumberFromFilename(ortho)
-        if frame < startFrame or frame > stopFrame:
+        if frame < options.startFrame or frame > options.stopFrame:
             continue
         infoDict[frame] = [ortho, '']
 
@@ -157,14 +168,16 @@ def main(argsIn):
         if ('gray' in image) or ('sub' in image):
             continue
         frame = icebridge_common.getFrameNumberFromFilename(image)
-        if frame < startFrame or frame > stopFrame:
+        if frame < options.startFrame or frame > options.stopFrame:
             continue
         if frame not in infoDict:
             raise Exception('Image missing ortho file: ' +image)
         infoDict[frame][1] = image
 
     os.system('mkdir -p ' + outputFolder)
-    orthoListFile = os.path.join(outputFolder, 'ortho_file_list_' + str(startFrame) + "_" + str(stopFrame) + '.csv')
+    orthoListFile = os.path.join(outputFolder, 'ortho_file_list_' + 
+                                 str(options.startFrame) + "_" + 
+                                 str(options.stopFrame) + '.csv')
 
     # Open the output file for writing
     logger.info("Writing: " + orthoListFile)
@@ -197,6 +210,8 @@ def main(argsIn):
     if not haveAllFiles:
         cmd = ('nav2cam --input-cam %s --nav-file %s --cam-list %s --output-folder %s' 
                % (cameraPath, parsedNavPath, orthoListFile, outputFolder))
+        if options.flipCamera:
+            cmd = cmd + ' --flip-camera'
         logger.info(cmd)
         os.system(cmd)
     else:

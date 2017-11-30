@@ -300,6 +300,7 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
                                                      options.inputCalFolder, navFolder,
                                                      navCameraFolder,
                                                      options.startFrame, options.stopFrame,
+                                                     options.flipCamera,
                                                      logger)
         else:
             navCameraFolder = ""
@@ -434,6 +435,10 @@ def main(argsIn):
                           
         parser.add_argument("--simple-cameras", action="store_true", dest="simpleCameras", default=False,
                           help="Don't use orthoimages to refine the camera models.")
+
+        # This option is only needed when generating camera models from the nav files.
+        parser.add_argument('--flip-camera', action='store_true', default=False, dest='flipCamera',  
+                            help='Set if the camera is flipped (left side is forward direction).')
 
         # Performance options  
         parser.add_argument('--num-processes', dest='numProcesses', default=1,

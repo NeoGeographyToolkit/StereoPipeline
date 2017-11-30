@@ -283,6 +283,8 @@ def runConversion(run, options, conversionAttempt, logger):
     
         if options.skipValidate or options.parallelValidate:
             cmd += ' --skip-validate'
+        if options.flipCamera:
+            cmd += ' --flip-camera'
             
         logger.info(cmd)
         os.system(cmd)    
@@ -951,6 +953,10 @@ def main(argsIn):
 
         parser.add_argument("--simple-cameras", action="store_true", dest="simpleCameras",
                             default=False, help="Don't use ortho images to refine camera models.")
+
+        parser.add_argument("--flip-camera", action="store_true", dest="flipCamera",
+                            default=False, 
+                            help="Set when cameras are flipped (left is forward direction).")
         
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                             default=False, help="Don't validate the input data.")
