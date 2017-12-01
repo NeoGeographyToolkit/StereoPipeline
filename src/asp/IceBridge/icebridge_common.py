@@ -1167,7 +1167,7 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
     useTimeFix = False
     if maxMinSec >= 60:
         useTimeFix = True
-        print 'Using lidar time fix!'
+        #print 'Using lidar time fix!'
 
     for lidarPath in lidarFiles:
 

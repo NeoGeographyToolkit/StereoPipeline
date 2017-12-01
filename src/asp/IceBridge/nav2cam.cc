@@ -237,7 +237,8 @@ void parse_camera_pose(std::string const& line, Vector3 & xyz, Quat & look, Quat
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string nav_file, input_cam, output_folder;
   std::vector<std::string> image_files, camera_files;
-  bool detect_offset, flip_camera;
+  bool detect_offset;
+  int  camera_mounting;
   double time_offset;
 };
 
@@ -252,8 +253,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                        "Time offset to be added to the navigation file timestamps.")
     ("output-folder",  po::value(&opt.output_folder)->default_value(""), 
                        "Output folder where the camera files are written.")
-    ("flip-camera"  ,  po::bool_switch(&opt.flip_camera)->default_value(false)->implicit_value(true),
-        "Use when the camera is rotated 180 degrees (left edge is forwards).")
+    // TODO: Remove secret option to pass in negative values to change how rotations are applied!
+    ("camera-mounting"  ,  po::value(&opt.camera_mounting)->default_value(0),
+        "0 = right-forwards, 1=left-forwards, 2=top-forwards, 3=bottom-forwards.")
     ("detect-offset",  po::bool_switch(&opt.detect_offset)->default_value(false)->implicit_value(true),
         "Instead of generating camera files, estimate time offset to the provided camera files.")
     ("cam-list",       po::value(&cam_list_path)->default_value(""), 
@@ -660,10 +662,7 @@ int main(int argc, char* argv[]) {
       Vector3 dir1 = gcc_interp_forward - gcc_interp;
       Vector3 dir2 = gcc_interp - gcc_interp_backward;
       Vector3 xDir = (dir1 + dir2) / 2.0;
-      
-      if (opt.flip_camera) // Camera is rotated 180 degrees on the aircraft
-        xDir = xDir * -1.0;
-      
+     
       // The Z vector is straight down from the camera to the ground.
       Vector3 llh_ground = llh_interp;
       llh_ground[2] = 0;
@@ -676,6 +675,43 @@ int main(int argc, char* argv[]) {
       
       // The Y vector is the cross product of the two established vectors
       Vector3 yDir = cross_prod(zDir, xDir);
+
+      // Hack to allow testing of whether rotation is applied before axis change.
+      // - The rotations appear to take affect BEFORE the camera mounting (ie they are aircraft rotations)
+      // - Once we are satisfied this is always true, remove the option not to do this.
+      if (opt.camera_mounting > 0) {
+        Matrix3x3 rotation_matrix_gcc(xDir[0], yDir[0], zDir[0],
+                                      xDir[1], yDir[1], zDir[1],
+                                      xDir[2], yDir[2], zDir[2]);
+        Matrix3x3 M_roll  = get_rotation_matrix_roll (roll);
+        Matrix3x3 M_pitch = get_rotation_matrix_pitch(pitch);
+        Matrix3x3 M       = rotation_matrix_gcc*M_pitch*M_roll; // Pre-apply rotation.
+        xDir  = Vector3(M(0,0), M(1,0), M(2,0)); // Restore axes
+        yDir  = Vector3(M(0,1), M(1,1), M(2,1));
+        zDir  = Vector3(M(0,2), M(1,2), M(2,2));
+        roll  = 0; // Set to zero so that these rotations are not applied twice
+        pitch = 0;
+      }
+
+      // Account for the camera mounting direction relative to aircraft motion.
+      Vector3 vTemp;
+      switch(abs(opt.camera_mounting)) {
+        case 1: // Left forwards
+          xDir = xDir * -1.0;
+          yDir = yDir * -1.0;
+          break;
+        case 2: // Top forwards
+          vTemp = xDir;
+          xDir = -1.0*yDir;
+          yDir = vTemp;
+          break;
+        case 3: // Bottom forwards
+          vTemp = xDir;
+          xDir = yDir;
+          yDir = -1.0*vTemp;
+          break;
+        default: break; // Right forwards, the default.
+      }
       
       // Pack into a rotation matrix
       Matrix3x3 rotation_matrix_gcc(xDir[0], yDir[0], zDir[0],

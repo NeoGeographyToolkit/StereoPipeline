@@ -571,7 +571,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder,
 
 def getCameraModelsFromNav(imageFolder, orthoFolder, 
                            inputCalFolder, navFolder, navCameraFolder,
-                           startFrame, stopFrame, flipCameras,
+                           startFrame, stopFrame, cameraMounting,
                            logger):
     '''Given the folder containing navigation files, generate an
        estimated camera model for each file.'''
@@ -584,8 +584,8 @@ def getCameraModelsFromNav(imageFolder, orthoFolder,
     cmd = [imageFolder, orthoFolder, inputCalFolder, navFolder, navCameraFolder,
            '--start-frame', str(startFrame), 
            '--stop-frame',  str(stopFrame)]
-    if flipCameras:
-        cmd += ['--flip-camera']
+    if cameraMounting != 0:
+        cmd += ['--camera-mounting', str(cameraMounting)]
     logger.info("camera_models_from_nav.py " + " ".join(cmd))
     
     if (camera_models_from_nav.main(cmd) < 0):

@@ -954,9 +954,8 @@ def main(argsIn):
         parser.add_argument("--simple-cameras", action="store_true", dest="simpleCameras",
                             default=False, help="Don't use ortho images to refine camera models.")
 
-        parser.add_argument("--flip-camera", action="store_true", dest="flipCamera",
-                            default=False, 
-                            help="Set when cameras are flipped (left is forward direction).")
+        parser.add_argument("--camera-mounting", dest="cameraMounting", default=0, 
+              help='0=right-forwards, 1=left-forwards, 2=top-forwards, 3=bottom-forwards.')
         
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                             default=False, help="Don't validate the input data.")

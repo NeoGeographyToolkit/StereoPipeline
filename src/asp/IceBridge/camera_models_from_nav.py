@@ -52,8 +52,8 @@ def main(argsIn):
                           type='int', help='The frame number to start processing with.')
         parser.add_option('--stop-frame', dest='stopFrame', default=999999,
                           type='int', help='The frame number to finish processing with.')        
-        parser.add_option('--flip-camera', action='store_true', default=False, dest='flipCamera',  
-                          help='Set if the camera is flipped (left side is forward direction).')
+        parser.add_option('--camera-mounting', dest='cameraMounting',  default=0, type='int',
+            help='0=right-forwards, 1=left-forwards, 2=top-forwards, 3=bottom-forwards.')
 
         (options, args) = parser.parse_args(argsIn)
 
@@ -208,10 +208,8 @@ def main(argsIn):
 
     # Call the C++ tool to generate a camera model for each ortho file
     if not haveAllFiles:
-        cmd = ('nav2cam --input-cam %s --nav-file %s --cam-list %s --output-folder %s' 
-               % (cameraPath, parsedNavPath, orthoListFile, outputFolder))
-        if options.flipCamera:
-            cmd = cmd + ' --flip-camera'
+        cmd = ('nav2cam --input-cam %s --nav-file %s --cam-list %s --output-folder %s --camera-mounting %d' 
+               % (cameraPath, parsedNavPath, orthoListFile, outputFolder, options.cameraMounting))
         logger.info(cmd)
         os.system(cmd)
     else:
