@@ -283,8 +283,8 @@ def runConversion(run, options, conversionAttempt, logger):
     
         if options.skipValidate or options.parallelValidate:
             cmd += ' --skip-validate'
-        if options.flipCamera:
-            cmd += ' --flip-camera'
+        if options.cameraMounting:
+            cmd += ' --camera-mount ' + str(options.cameraMounting)
             
         logger.info(cmd)
         os.system(cmd)    
