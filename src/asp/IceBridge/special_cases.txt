@@ -1,4 +1,11 @@
-1. For GR_04222010, raw images are split into two dirs:
+1. Major flight notes
+
+- 2015 flights are rotated 180 degrees from the standard camera mounting,
+    ie flight direction is towards the left side of the image.
+- 2016 flights are rotated 90 degrees from the standard camera mounting,
+    ie flight direction is towards the upper side of the image.
+
+2. For GR_04222010, raw images are split into two dirs:
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2010_GR_NASA/04222010a_raw/
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2010_GR_NASA/04222010b_raw/
@@ -10,7 +17,7 @@ https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2010.04.22/
 
 The fetching tool takes care of this automatically.
 
-2. For flight AN 20091025, the raw image folder 
+3. For flight AN 20091025, the raw image folder 
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2009_AN_NASA/10252009_raw/
 
@@ -57,7 +64,7 @@ GR 20160715
 
 The fetching tool takes care of this automatically.
 
-3. There exist runs with the same flight day in the North and South
+4. There exist runs with the same flight day in the North and South
 Hemisphere. For example, consider the raw images:
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2015_GR_NASA/09242015_raw/2015_09_24_00280.JPG
@@ -101,7 +108,7 @@ fetching the corresponding XML files for each orthoimage and then
 filtering by latitude. It also determines which LIDAR file to get
 using similar logic. None of these have Fireball DEMs.
 
-4. For 20151019, there are both LVIS and ATM clouds:
+5. For 20151019, there are both LVIS and ATM clouds:
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/2015.10.19/
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2015.10.19/
@@ -117,7 +124,7 @@ https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2015_AN_NASA/1020
 The software is able to fetch the right LIDAR for the GR run, and
 should not be invoked for the AN run.
 
-5. Some AN test flights are in fact over California, East Coast, or en
+6. Some AN test flights are in fact over California, East Coast, or en
 route. Those should be ignored, as they have no LIDAR.
 
 AN 20111004 (https://asapdata.arc.nasa.gov/dms/flight_html/1281702.html)
@@ -141,7 +148,7 @@ https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.001/2011.10.12
 
 We need to think of what to do in such a situation.
 
-6. Miscellaneous flight notes:
+7. Miscellaneous flight notes:
 
 AN 20101104 - This is a short flight which travels around the South Pole but
               it suffers from a lot of cloud coverage and missing lidar sections.
@@ -153,7 +160,7 @@ AN_20091025 - Mix of fine features and bad images
 GR_20110415 - Mix of large terrain and small features.
 GR_20110322 - Only frames 1-600 have lidar, after that altitude is much higher, careful about auto-GSD.
 
-7. Flights lacking features
+8. Flights lacking features
 
 Some combination of altitude, camera quality, and ground features results in some flights
 containing sections of images which have no quality features for us to use. These images are

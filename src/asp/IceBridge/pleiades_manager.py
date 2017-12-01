@@ -226,6 +226,8 @@ def runFetch(run, options, logger):
 
         if options.noNavFetch:
             cmd += ' --no-nav'
+        if options.cameraMounting:
+            cmd += ' --camera-mount ' + str(options.cameraMounting)
             
         if options.skipValidate or options.parallelValidate:
             # We will do validation in parallel later
@@ -313,6 +315,8 @@ def runConversion(run, options, conversionAttempt, logger):
     if options.simpleCameras:       # This option greatly decreases the conversion run time
         args += ' --simple-cameras' # - Camera conversion could be local but image conversion still takes time.
         maxHours = 1
+    if options.cameraMounting:
+        args += ' --camera-mount ' + str(options.cameraMounting)
 
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
@@ -373,6 +377,8 @@ def runConversion(run, options, conversionAttempt, logger):
             cmd += ' --no-nav'
         if options.noOrthoConvert:
             cmd += ' --no-ortho-convert'
+        if options.cameraMounting:
+            cmd += ' --camera-mount ' + str(options.cameraMounting)
         logger.info(cmd)
         os.system(cmd)
 
@@ -397,6 +403,8 @@ def runConversion(run, options, conversionAttempt, logger):
                 cmd += ' --no-nav'
             if options.noOrthoConvert:
                 cmd += ' --no-ortho-convert'
+            if options.cameraMounting:
+                cmd += ' --camera-mount ' + str(options.cameraMounting)
 
             #logger.info(cmd)
             jobList = []
@@ -453,6 +461,8 @@ def generateBatchList(run, options, listPath, logger):
 
     if options.noNavFetch:
         cmd += ' --no-nav'
+    if options.cameraMounting:
+        cmd += ' --camera-mount ' + str(options.cameraMounting)
 
 # TODO: Find out what takes so long here!
 # - Also fix the logging!

@@ -130,7 +130,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
        with enough lidar points used in the comparison'''
 
     # Displacements are still since an initial vertical shift is applied
-    DISPLACEMENTS        = [1, 2, 4, 6, 10, 25] # TODO: Increase these numbers for land flights!
+    DISPLACEMENTS        = [4, 6, 10, 25] # TODO: Increase these numbers for land flights!
     ERR_HEADER_SIZE      = 3
     IDEAL_LIDAR_DIST     = 0.1  # Quit aligning if we get under this error
     MIN_DIST_IMPROVEMENT = 0.25 # Percentage improvement in error to accept a larger max-disp
@@ -150,7 +150,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
 
     # Check if the file is already there
     if ( os.path.exists(alignedDem) or os.path.exists(finalAlignedDEM) ) \
-           and os.path.exists(lidarDiffPath) and not redo:
+           and os.path.exists(lidarDiffPath):
         results = icebridge_common.readGeodiffOutput(lidarDiffPath)
         logger.info("Outputs of pc_align already exist.")
         return alignedDem, lidarDiffPath, results['Mean']
@@ -341,7 +341,8 @@ def robustBundleAdjust(options, inputPairs,
     ROBUST_THRESHOLD     = 2.0
     OVERLAP_EXPONENT     = 0
     MIN_IP_MATCHES       = 22
-    SIDE_IP_CROP_PERCENT = 20 # Remove IP in 20% of the sides of the images
+    #SIDE_IP_CROP_PERCENT = 20 # Remove IP in 20% of the sides of the images # TODO: Does not work with rotated images!!!
+    SIDE_IP_CROP_PERCENT = 1 # Remove IP in 20% of the sides of the images
     bundlePrefix   = icebridge_common.getBundlePrefix(options.outputFolder)
     baOverlapLimit = options.stereoImageInterval + 3
     if baOverlapLimit < MIN_BA_OVERLAP:
@@ -357,7 +358,7 @@ def robustBundleAdjust(options, inputPairs,
     normIpTiles = [0,   0,   0,     0,   0,   0,     1,    1,      0,    0,    0,     1   ]
 
     # This is the rough percentage of the image that we want to have interest points in.
-    MIN_IP_COVERAGE = 0.70
+    MIN_IP_COVERAGE = 0.5#DEBUG#0.70
 
     if (len(ipMethod) != len(ipPerTile)) or (len(ipMethod) != len(useBlur)) or \
            (len(ipMethod) != len(epipolarT)):
