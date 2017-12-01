@@ -40,7 +40,8 @@ import asp_system_utils, asp_alg_utils, asp_geo_utils
 
 asp_system_utils.verify_python_version_is_supported()
 
-def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, logger):
+def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate,
+                 cameraMounting, logger):
     '''Convert jpeg images from RGB to single channel.
        Returns false if any files failed.'''
 
@@ -129,9 +130,14 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, l
                 continue
         
         # Use ImageMagick tool to convert from RGB to grayscale
-        
-        cmd = ('%s %s -colorspace Gray %s') % \
-              (asp_system_utils.which('convert'), inputPath, outputPath)
+        # - Some image orientations are rotated to make stereo processing easier.
+        rotateString = ''
+        if cameraMounting == 2: # Flight direction towards top of image
+            rotateString = '-rotate 90'
+        if cameraMounting == 3: # Flight direction towards bottom of image
+            rotateString = '-rotate -90'
+        cmd = ('%s %s -colorspace Gray %s %s') % \
+              (asp_system_utils.which('convert'), inputPath, rotateString, outputPath)
         logger.info(cmd)
 
         # Run command and fetch its output
@@ -584,8 +590,12 @@ def getCameraModelsFromNav(imageFolder, orthoFolder,
     cmd = [imageFolder, orthoFolder, inputCalFolder, navFolder, navCameraFolder,
            '--start-frame', str(startFrame), 
            '--stop-frame',  str(stopFrame)]
-    if cameraMounting != 0:
+
+    # Only one alternate orientation (180 degree flipped) is handled here.
+    # - The two 90 degree flips are handled by rotating the input images!
+    if cameraMounting == 1:
         cmd += ['--camera-mounting', str(cameraMounting)]
+        
     logger.info("camera_models_from_nav.py " + " ".join(cmd))
     
     if (camera_models_from_nav.main(cmd) < 0):

@@ -291,7 +291,7 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
 
             ans = input_conversions.convertJpegs(jpegFolder, imageFolder, 
                                                  options.startFrame, options.stopFrame,
-                                                 options.skipValidate, logger)
+                                                 options.skipValidate, options.cameraMounting, logger)
             isGood = (isGood and ans)
             
         if not options.noNavFetch:
