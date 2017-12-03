@@ -358,7 +358,7 @@ def robustBundleAdjust(options, inputPairs,
     normIpTiles = [0,   0,   0,     0,   0,   0,     1,    1,      0,    0,    0,     1   ]
 
     # This is the rough percentage of the image that we want to have interest points in.
-    MIN_IP_COVERAGE = 0.5#DEBUG#0.70
+    MIN_IP_COVERAGE = 0.70
 
     if (len(ipMethod) != len(ipPerTile)) or (len(ipMethod) != len(useBlur)) or \
            (len(ipMethod) != len(epipolarT)):

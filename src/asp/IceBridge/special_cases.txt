@@ -2,8 +2,10 @@
 
 - 2015 flights are rotated 180 degrees from the standard camera mounting,
     ie flight direction is towards the left side of the image.
+    - Use the option "--camera-mounting 1"
 - 2016 flights are rotated 90 degrees from the standard camera mounting,
     ie flight direction is towards the upper side of the image.
+    - Use the option "--camera-mounting 2"
 
 2. For GR_04222010, raw images are split into two dirs:
 

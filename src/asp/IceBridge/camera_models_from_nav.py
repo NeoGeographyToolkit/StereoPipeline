@@ -93,6 +93,10 @@ def main(argsIn):
     navPath = os.path.join(navFolder, fileList[0])
     parsedNavPath = navPath.replace('.out', '.txt')
 
+    if not asp_file_utils.fileIsNonZero(navPath):
+        logger.error('Nav file ' + navPath + ' is invalid!')
+        return -1
+
     # Create the output file only if it is empty or does not exist
     isNonEmpty = asp_file_utils.fileIsNonZero(parsedNavPath)
 
