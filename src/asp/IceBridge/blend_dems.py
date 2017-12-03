@@ -79,7 +79,7 @@ def getMeanDemDiff(dems, outputPrefix):
             continue
             
         diffPrefix = outputPrefix + '_' + str(i)
-        diffPath = diffPrefix + '-diff.tif'
+        diffPath   = diffPrefix + '-diff.tif'
         cmd = ('geodiff --absolute %s %s -o %s' % (mainDem, thisDem, diffPrefix))
         print(cmd)
         asp_system_utils.executeCommand(cmd, diffPath, True, False)
@@ -145,10 +145,10 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
 
         # We will blend the dems with frame offsets within frameOffsets[0:index]
         filesToWipe = []
-        bestMean = 1.0e+100
-        bestBlend  = ''
-        bestVals = ''
-        bestDiff = ''
+        bestMean    = 1.0e+100
+        bestBlend   = ''
+        bestVals    = ''
+        bestDiff    = ''
         
         # Look at frames with these offsets when blending
         frameOffsets = [0, 1, -1, 2, -2]
@@ -174,19 +174,19 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
 
             # Compute the mean distance between the DEMs
             # TODO: Make sure this gets cleaned up!
-            meanWorkPrefix  = os.path.join(batchFolder, 'bd')
-            meanDiff = getMeanDemDiff(dems, meanWorkPrefix)
+            meanWorkPrefix = os.path.join(batchFolder, 'bd')
+            meanDiff       = getMeanDemDiff(dems, meanWorkPrefix)
             
             # If the mean error between DEMs is creater than this,
             #  use a less aggressive blending method.
             MEAN_DIFF_BLEND_THRESHOLD = 1.0
 
-            demString = " ".join(dems)
+            demString    = " ".join(dems)
             outputPrefix = os.path.join(batchFolder, 'out-blend-' + str(index))
 
             # See if we have a pre-existing DEM to use as footprint
             footprintDEM = os.path.join(batchFolder, 'out-trans-footprint-DEM.tif')
-            blendOutput = outputPrefix + '-tile-0.tif'
+            blendOutput  = outputPrefix + '-tile-0.tif'
             if os.path.exists(footprintDEM):
                 cmd = ('dem_mosaic  --weights-exponent %f --this-dem-as-reference %s %s %s -o %s' 
                        % (WEIGHT_EXP, footprintDEM, demString, threadText, outputPrefix))
@@ -448,7 +448,10 @@ def main(argsIn):
             continue
         
         orthoFile = orthoFrameDict[frame]
-        lidarFile = icebridge_common.findMatchingLidarFile(orthoFile, lidarFolder)
+        try:
+            lidarFile = icebridge_common.findMatchingLidarFile(orthoFile, lidarFolder)
+        except: # Skip if no lidar file matches this frame
+            continue
 
         fireballDEM = ""
         if options.blendToFireball:

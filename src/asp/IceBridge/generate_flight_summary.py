@@ -95,6 +95,7 @@ def getFailureCause(batchFolder):
     FAIL_FRACTION_VALID = 10
     FAIL_NO_LIDAR_DEM_OVERLAP = 11
     FAIL_TINY_DEM = 12
+    FAIL_NO_LIDAR_MATCH = 13
     
     errorSummaries = {} # Human readable error codes
     errorSummaries[UNKNOWN      ] = 'Unknown failure'
@@ -111,6 +112,7 @@ def getFailureCause(batchFolder):
     errorSummaries[FAIL_FRACTION_VALID] = 'Too few valid pixels'
     errorSummaries[FAIL_NO_LIDAR_DEM_OVERLAP] = 'No lidar-DEM overlap'
     errorSummaries[FAIL_TINY_DEM] = 'Generated DEM is too small'
+    errorSummaries[FAIL_NO_LIDAR_MATCH] = 'Failed to find matching lidar file for image'
     
     errorLogText = {} # Text in the log file that indicates an error occurred
     errorLogText[SUCCESS      ] = 'Finished script process_icebridge_batch!'
@@ -126,6 +128,8 @@ def getFailureCause(batchFolder):
     errorLogText[FAIL_FRACTION_VALID] = 'Required DEM pixel fraction is'
     errorLogText[FAIL_NO_LIDAR_DEM_OVERLAP] = 'No overlap between lidar DEM and stereo DEM'
     errorLogText[FAIL_TINY_DEM] = 'is less than minumum size'
+    errorLogText[FAIL_NO_LIDAR_MATCH] = 'Failed to find matching lidar file for image'
+    
 
     foundError = UNKNOWN
 
