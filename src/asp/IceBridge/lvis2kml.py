@@ -66,10 +66,14 @@ def readPositions(positionFilePath):
             
             # Record lot/lat/alt triples
             if isLvisFile:
+                if len(strings) < 6:
+                    continue
                 lon    = float(strings[3])
                 lat    = float(strings[4])
                 height = float(strings[5])
             else: # ATM lidar
+                if len(strings) < 3:
+                    continue
                 lon    = float(strings[1])
                 lat    = float(strings[0])
                 height = float(strings[2])                
