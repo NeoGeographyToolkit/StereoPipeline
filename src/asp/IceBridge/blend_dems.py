@@ -105,7 +105,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
 
     WEIGHT_EXP = 1.3
 
-    # This will run as multiple processes. Hence have to catch all exceptions:
+    # This will run as multiple processes. Hence have to catch all exceptions.
     try:
         
         demFile, batchFolder = icebridge_common.frameToFile(frame, icebridge_common.alignFileName(),
@@ -126,6 +126,24 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
         finalFireballOutput  = fireballOutputPrefix + '-DEM.tif'
         fireballDiffPath     = fireballOutputPrefix + "-diff.csv"
 
+        # This is turned off for now. Find the diff between neighboring
+        # aligned DEMs before blending.
+        prevDemFile, prevBatchFolder = icebridge_common.frameToFile(frame-1,
+                                                                    icebridge_common.alignFileName(),
+                                                                    processFolder, bundleLength)
+        prevDiffPrefix = os.path.join(batchFolder, 'out-prev')
+        prevDiffFile   = prevDiffPrefix + '-diff.tif'
+        if False and redo and os.path.exists(prevDiffFile):
+            os.system("rm -f " + prevDiffFile)
+        if os.path.exists(prevDemFile) and os.path.exists(demFile):
+            if os.path.exists(prevDiffFile):
+                print("File exists: " + prevDiffFile)
+            else:
+                cmd = ('geodiff --absolute %s %s -o %s' % 
+                       (prevDemFile, demFile, prevDiffPrefix))
+                print(cmd)
+                asp_system_utils.executeCommand(cmd, prevDiffFile, suppressOutput, redo)
+        
         if not redo:
             set1Exists = False
             if (os.path.exists(finalBlend) and os.path.exists(finalDiff)):
@@ -201,6 +219,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             # - Sometimes there is junk left from a previous interrupted run. So if we
             # got so far, recreate all files.
             localRedo = True
+            print(cmd)
             asp_system_utils.executeCommand(cmd, blendOutput, suppressOutput, localRedo)
             filesToWipe.append(blendOutput)
             

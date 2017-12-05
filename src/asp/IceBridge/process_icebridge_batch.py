@@ -291,7 +291,8 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
 
         try:
             # POINT2DEM on the aligned PC file
-            cmd = ('point2dem --search-radius-factor 5 --dem-hole-fill-len 500 --tr %lf --t_srs %s %s %s' 
+            cmd = (('point2dem --search-radius-factor 5 --dem-hole-fill-len 500 ' +
+                    '--tr %lf --t_srs %s %s %s') 
                    % (options.demResolution, projString, alignedFootPC, threadText))
             alignedFootDEM = alignPrefixFoot + '-trans_reference-DEM.tif'
             logger.info(cmd) # to make it go to the log, not just on screen
@@ -876,7 +877,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # Call and check status
     triOutput = thisPairPrefix + '-PC.tif'
     icebridge_common.logger_print(logger, stereoCmd)
-    (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo, noThrow=True)
+    (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput,
+                                                         suppressOutput, redo, noThrow=True)
     
     if status != 0:
         # If stereo failed, try it again with the .match file that was created by bundle_adjust.
@@ -924,11 +926,14 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # point2dem on the result of ASP
     # - The size limit is to prevent bad point clouds from creating giant DEM files which
     #   cause the processing node to crash.
-    cmd = ('point2dem --max-output-size 10000 10000 --tr %lf --t_srs %s %s %s'
+    # Note to use error image and big error when optimizing the distortion!
+    cmd = (('point2dem ' + # ' --errorimage --max-valid-triangulation-error 10 ' +
+            '--max-output-size 10000 10000 --tr %lf --t_srs %s %s %s')
            % (options.demResolution, projString, triOutput, threadText))
     p2dOutput = demFiles[i]
     icebridge_common.logger_print(logger, cmd)
-    (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo, noThrow=True)
+    (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput,
+                                                          redo, noThrow=True)
     if status != 0:
         icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
@@ -1268,6 +1273,7 @@ def doWork(options, args, logger):
                                                     projString, lidarFile,
                                                     options, threadText, 
                                                     suppressOutput, redo, logger)
+            # heightLimitString = "" # To turn it off
        
     # BUNDLE_ADJUST
     origInputPairs = inputPairs # All input pairs, non-blurred or otherwise altered.

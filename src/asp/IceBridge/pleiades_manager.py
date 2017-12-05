@@ -229,6 +229,9 @@ def runFetch(run, options, logger):
         if options.cameraMounting:
             cmd += ' --camera-mount ' + str(options.cameraMounting)
             
+        if options.inputCalCamera != "":
+            cmd += ' --input-calibration-camera ' + options.inputCalCamera
+            
         if options.skipValidate or options.parallelValidate:
             # We will do validation in parallel later
             cmd += ' --skip-validate'
@@ -287,6 +290,8 @@ def runConversion(run, options, conversionAttempt, logger):
             cmd += ' --skip-validate'
         if options.cameraMounting:
             cmd += ' --camera-mount ' + str(options.cameraMounting)
+        if options.inputCalCamera != "":
+            cmd += ' --input-calibration-camera ' + options.inputCalCamera
             
         logger.info(cmd)
         os.system(cmd)    
@@ -318,6 +323,9 @@ def runConversion(run, options, conversionAttempt, logger):
     if options.cameraMounting:
         args += ' --camera-mount ' + str(options.cameraMounting)
 
+    if options.inputCalCamera != "":
+        args += ' --input-calibration-camera ' + options.inputCalCamera
+
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
     # Get the location to store the logs    
@@ -326,7 +334,7 @@ def runConversion(run, options, conversionAttempt, logger):
 
     # Submit all the jobs
     currentFrame = options.startFrame
-    jobList = []
+    jobIDs = []
     for i in range(0, numCamgenJobs):
         jobName    = ('%s%06d%s' % ('C', currentFrame, baseName) ) # C for camera
         startFrame = currentFrame
@@ -341,16 +349,16 @@ def runConversion(run, options, conversionAttempt, logger):
 
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
         logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
-        pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, maxHours, logger,
-                                options.minutesInDevelQueue,
-                                GROUP_ID,
-                                options.nodeType, '/usr/bin/python2.7',
-                                scriptPath + " " + thisArgs, logPrefix)
-        jobList.append(jobName)
+        jobID = pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, maxHours, logger,
+                                        options.minutesInDevelQueue,
+                                        GROUP_ID,
+                                        options.nodeType, '/usr/bin/python2.7',
+                                        scriptPath + " " + thisArgs, logPrefix)
+        jobIDs.append(jobID)
         currentFrame += tasksPerJob
 
     # Wait for conversions to finish
-    pbs_functions.waitForJobCompletion(jobList, logger)
+    pbs_functions.waitForJobCompletion(jobIDs, logger)
 
     if options.parallelValidate:
 
@@ -379,6 +387,9 @@ def runConversion(run, options, conversionAttempt, logger):
             cmd += ' --no-ortho-convert'
         if options.cameraMounting:
             cmd += ' --camera-mount ' + str(options.cameraMounting)
+        if options.inputCalCamera != "":
+            cmd += ' --input-calibration-camera ' + options.inputCalCamera
+            
         logger.info(cmd)
         os.system(cmd)
 
@@ -405,21 +416,23 @@ def runConversion(run, options, conversionAttempt, logger):
                 cmd += ' --no-ortho-convert'
             if options.cameraMounting:
                 cmd += ' --camera-mount ' + str(options.cameraMounting)
+            if options.inputCalCamera != "":
+                cmd += ' --input-calibration-camera ' + options.inputCalCamera
 
             #logger.info(cmd)
-            jobList = []
+            jobIDs = []
             jobName    = ('%s%06d%s' % ('C', 0, baseName) ) # C for camera
             logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
             logger.info('Submitting camera generation job: ' + cmd)
-            pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, maxHours, logger,
-                                    options.minutesInDevelQueue,
-                                    GROUP_ID,
-                                    options.nodeType, '/usr/bin/python2.7',
-                                    cmd, logPrefix)
-            jobList.append(jobName)
+            jobID = pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, maxHours, logger,
+                                            options.minutesInDevelQueue,
+                                            GROUP_ID,
+                                            options.nodeType, '/usr/bin/python2.7',
+                                            cmd, logPrefix)
+            jobIDs.append(jobID)
             
             # Wait for conversions to finish
-            pbs_functions.waitForJobCompletion(jobList, logger, baseName)
+            pbs_functions.waitForJobCompletion(jobIDs, logger, baseName)
 
         logger.info("Finished refetching and reprocessing.")
 
@@ -464,6 +477,9 @@ def generateBatchList(run, options, listPath, logger):
     if options.cameraMounting:
         cmd += ' --camera-mount ' + str(options.cameraMounting)
 
+    if options.inputCalCamera != "":
+        cmd += ' --input-calibration-camera ' + options.inputCalCamera
+        
 # TODO: Find out what takes so long here!
 # - Also fix the logging!
 
@@ -544,7 +560,7 @@ def submitBatchJobs(run, options, batchListPath, logger):
     outputFolder = run.getFolder()
     pbsLogFolder = run.getPbsLogFolder()
 
-    jobList = []
+    jobIDs = []
     for group in frameGroups:
         if len(group) == 0:
             continue
@@ -562,15 +578,15 @@ def submitBatchJobs(run, options, batchListPath, logger):
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
 
-        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, maxHours, logger,
-                                options.minutesInDevelQueue,
-                                GROUP_ID,
-                                options.nodeType, '/usr/bin/python2.7',
-                                scriptPath + ' ' + args, logPrefix)
-        jobList.append(jobName)
+        jobID = pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, maxHours, logger,
+                                        options.minutesInDevelQueue,
+                                        GROUP_ID,
+                                        options.nodeType, '/usr/bin/python2.7',
+                                        scriptPath + ' ' + args, logPrefix)
+        jobIDs.append(jobID)
 
     # Waiting on these jobs happens outside this function
-    return (baseName, jobList)
+    return (baseName, jobIDs)
 
 def launchJobs(run, mode, options, logger):
     '''Run a blend, ortho gen, or label job.'''
@@ -627,7 +643,7 @@ def launchJobs(run, mode, options, logger):
 
     # Submit all the jobs
     jobNames = []
-    jobIds   = []
+    jobIDs   = []
     currentFrame = options.startFrame
     for i in range(0, numJobs):
         jobName    = ('%s%06d%s' % (jobTag, currentFrame, baseName) ) # 'B'lend or 'O'rtho
@@ -638,16 +654,16 @@ def launchJobs(run, mode, options, logger):
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, mode + '_' + jobName)
         logger.info('Submitting job: ' + scriptPath +  ' ' + thisArgs)
-        jobId = pbs_functions.submitJob(jobName, queueName, maxHours, logger,
+        jobID = pbs_functions.submitJob(jobName, queueName, maxHours, logger,
                                         options.minutesInDevelQueue, GROUP_ID,
                                         options.nodeType, '/usr/bin/python2.7',
                                         scriptPath + ' ' + thisArgs, logPrefix, priority)
 
         jobNames.append(jobName)
-        jobIds.append(jobName)
+        jobIDs.append(jobID)
         currentFrame += tasksPerJob
 
-    return (baseName, jobNames, jobIds)
+    return (baseName, jobNames, jobIDs)
 
 def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
 
@@ -854,6 +870,9 @@ def main(argsIn):
         
         parser.add_argument("--camera-calibration-folder",  dest="inputCalFolder", default=None,
                           help="The folder containing camera calibration.")
+        parser.add_argument("--input-calibration-camera",  dest="inputCalCamera", default="",
+                            help="Instead of looking up the calibrated camera in the calibration folder, use this one.")
+        
         parser.add_argument("--reference-dem-folder",  dest="refDemFolder", default=None,
                           help="The folder containing DEMs that created orthoimages.")
 
@@ -1110,12 +1129,12 @@ def main(argsIn):
             start_time()
             # Divide up batches into jobs and submit them to machines.
             logger.info('Submitting jobs for run ' + str(run))
-            (baseName, jobList) = submitBatchJobs(run, options, batchListPath, logger)
+            (baseName, jobIDs) = submitBatchJobs(run, options, batchListPath, logger)
 
             # Wait for all the jobs to finish
             logger.info('Waiting for job completion of run ' + str(run))
             
-            pbs_functions.waitForJobCompletion(jobList, logger, baseName)
+            pbs_functions.waitForJobCompletion(jobIDs, logger, baseName)
             logger.info('All jobs finished for run '+str(run))
             stop_time("dem creation", logger)
 
@@ -1126,18 +1145,18 @@ def main(argsIn):
 
         if not options.skipBlend:
             start_time()
-            (baseName, jobNames, jobIds) = launchJobs(run, 'blend', options, logger)
-            pbs_functions.waitForJobCompletion(jobNames, logger, baseName)
+            (baseName, jobNames, jobIDs) = launchJobs(run, 'blend', options, logger)
+            pbs_functions.waitForJobCompletion(jobIDs, logger, baseName)
             stop_time("blend", logger)
         
         if not options.skipOrthoGen:
             start_time()
-            (baseName, jobNames, jobIds) = launchJobs(run, 'orthogen', options, logger)
-            pbs_functions.waitForJobCompletion(jobNames, logger, baseName)
+            (baseName, jobNames, jobIDs) = launchJobs(run, 'orthogen', options, logger)
+            pbs_functions.waitForJobCompletion(jobIDs, logger, baseName)
             stop_time("orthogen", logger)
 
         if labelJobNames: # Now wait for any label jobs to finish.
-            pbs_functions.waitForJobCompletion(labelJobNames, logger, baseName)
+            pbs_functions.waitForJobCompletion(labelJobIds, logger, baseName)
 
         # TODO: Uncomment when processing multiple runs.
         ## Log the run as completed

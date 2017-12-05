@@ -34,6 +34,16 @@ MAX_PBS_NAME_LENGTH = 15
 # Wait this many seconds between checking for job completion
 SLEEP_TIME = 60
 
+def cleanJobID(jobID):
+    '''Remove the part after the dot, when the input looks like 149691.pbspl233b.'''
+
+    jobID = jobID.strip()
+    m = re.match('^(.*?)\.', jobID)
+    if m:
+        return m.group(1)
+    else:
+        return jobID
+    
 def getActiveJobs(user):
     '''Returns a list of the currently active jobs and their status'''
 
@@ -54,6 +64,7 @@ def getActiveJobs(user):
     
     # Strip header lines
     NUM_HEADER_LINES = 3
+    JOBID_INDEX      = 0
     NAME_INDEX       = 3
     STATUS_INDEX     = 7
     if len(lines) <= NUM_HEADER_LINES:
@@ -66,9 +77,10 @@ def getActiveJobs(user):
         parts = line.split()
         if len(parts) < STATUS_INDEX:
             continue
-        name   = parts[NAME_INDEX]
-        status = parts[STATUS_INDEX]
-        jobs.append((name, status))
+        jobID   = cleanJobID(parts[JOBID_INDEX])
+        jobName = parts[NAME_INDEX]
+        status  = parts[STATUS_INDEX]
+        jobs.append((jobID, jobName, status))
     return jobs
     
 def getNumCores(nodeType):
@@ -160,19 +172,21 @@ def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
         logger.info(out)
         logger.info(err)
         logger.info("Status is: " + str(status))
-        jobId = ''
+        jobID = ''
     else:
-        jobId = out
-        
-    return jobId
+        jobID = cleanJobID(out)
+
+    logger.info("Submitted job named " + str(jobName) + " with id " + str(jobID))
     
-def waitForJobCompletion(jobList, logger, name=None):
+    return jobID
+    
+def waitForJobCompletion(jobIDs, logger, name=None):
   '''Sleep until all of the submitted jobs containing the provided job prefix have completed'''
   
   postfix = '.'
   if name:
       postfix = ' from flight ' + name + '.'
-  logger.info("Began waiting on " + str(len(jobList)) + " jobs" + postfix)
+  logger.info("Began waiting on " + str(len(jobIDs)) + " job(s)" + postfix)
   
   jobsRunning = []
   user = icebridge_common.getUser()
@@ -186,15 +200,15 @@ def waitForJobCompletion(jobList, logger, name=None):
     allJobs = getActiveJobs(user)
     
     numActiveJobs = 0
-    for (job, status) in allJobs:
-      if job in jobList:
+    for (jobID, jobName, status) in allJobs:
+      if jobID in jobIDs:
         numActiveJobs += 1
         # Matching job found so we keep waiting
         stillWorking = True
         # Print a message if this is the first time we saw the job as running
-        if (status == 'R') and (job not in jobsRunning):
-          jobsRunning.append(job)
-          logger.info('Job started running: ' + str(job))
+        if (status == 'R') and (jobID not in jobsRunning):
+          jobsRunning.append(jobID)
+          logger.info('Started running job named ' + str(jobName) + ' with id ' + str(jobID))
           
     logger.info("Waiting on " + str(numActiveJobs) + " jobs" + postfix)
 
