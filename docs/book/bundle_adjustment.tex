@@ -119,15 +119,14 @@ Running stereo while using the bundle-adjusted camera models.
 
 A comparison of the two ways of doing stereo is shown in figure \ref{fig:asp-ba-example}.
 
-\subsection{Floating intrinsics and using lidar ground truth}
+\subsection{Floating intrinsics and using a lidar or DEM ground truth}
 
 This is an advanced section documenting some not yet fully formed concepts.
 It is mostly for internal use. 
 
 When the input cameras are of pinhole type, it is possible to optimize
 the intrinsic parameters, in addition to the extrinsics. It is also
-possible to take advantage of lidar ground truth when doing so
-(in future this will be expanded to using a DEM).
+possible to take advantage of an existing terrain ground truth, as a lidar file or a DEM.
 
 We recommend that first bundle adjustment is run with the intrinsics fixed,
 to get the extrinsics mostly correct, as optimizing for both of them at
@@ -210,7 +209,7 @@ the output directory, with names containing the strings
 \texttt{point2dem}, then one can look at the stats, have them colorized,
 and viewed in \texttt{stereo\_gui}).
 
-If a ground truth lidar file is present, say named \texttt{lidar.csv}, it can be used
+If a ground truth lidar file (or DEM) is present, say named \texttt{lidar.csv}, it can be used
 as part of bundle adjustment. For that, the DEM obtained with the earlier
 stereo pass needs to be first aligned to this lidar file, such as:
 
@@ -251,14 +250,14 @@ the lidar file. Note that we use the cameras obtained after alignment:
   bundle_adjust -t nadirpinhole --local-pinhole --solve-intrinsics               \
     --camera-weight 10000                                                        \  
     left.tif right.tif run_align/run-run-left.tsai run_align/run-run-right.tsai  \
-    --lidar-file lidar.csv --disparity-list run_stereo/run-unaligned-D.tif       \
-    -o run_ba_intr_lidar/run
+    --reference-terrain lidar.csv --disparity-list run_stereo/run-unaligned-D.tif       \
+    --max-disp-error 10 --max-num-reference-points 1000000 -o run_ba_intr_lidar/run
 \end{verbatim}
 
 This will write some residual files of the form 
 \begin{verbatim}
-  initial_residuals_no_loss_function_lidar.txt
-  final_residuals_no_loss_function_lidar.txt
+  initial_residuals_no_loss_function_reference_terrain.txt
+  final_residuals_no_loss_function_reference_terrain.txt
 \end{verbatim}
 
 which may be studied to see if the error-to-lidar decreased.

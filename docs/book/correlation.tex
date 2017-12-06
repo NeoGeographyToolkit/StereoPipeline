@@ -452,18 +452,25 @@ after dealing with the long SGM processing time you do not need to follow it up 
     {\includegraphics[width=0.47\textwidth]{images/correlation/icebridge_subpix3_crop.png}}
     {\includegraphics[width=0.47\textwidth]{images/correlation/icebridge_sgm_crop.png}}
   \end{subfigure}
-  \caption{A section of a Nasa IceBridge image with a pair of hill-shaded DEMs below it 
-  showing the difference between default ASP processing and processing using the SGM algorithm. 
-  The DEM on the left was generated using the default stereo parameters and 
-  \texttt{-{}-subpixel-mode 3}.  The DEM on the right was generated using the following options: 
-  \texttt{-{}-stereo-algorithm 1 -{}-threads 1 -{}-xcorr-threshold -1 -{}-corr-kernel 7 7 -{}-corr-tile-size 6400 
-  -{}-cost-mode 4 -{}-subpixel-mode 0 -{}-median-filter-size 3 
-  -{}-texture-smooth-size 13 -{}-texture-smooth-scale 0.13}.  Some grid pattern noise is visible in the 
-  image produced using SGM.}
+  \caption{A section of a NASA IceBridge image with a pair of hill-shaded DEMs below it 
+  showing the difference between default ASP processing and processing using the SGM algorithm.}
   \label{fig:corr-sgm-example}
 \end{figure}
 
+Figure \ref{fig:corr-sgm-example} shows a comparision between two stereo modes. The DEM on the left was generated using the default stereo parameters and 
+  \texttt{-{}-subpixel-mode 3}.  The DEM on the right was generated using the command: 
 
+\begin{verbatim}
+  stereo --stereo-algorithm 1 --threads 1 --xcorr-threshold -1 --corr-kernel 7 7 \
+  --corr-tile-size 6400 --cost-mode 4 --subpixel-mode 0 --median-filter-size 3   \
+  --texture-smooth-size 13 --texture-smooth-scale 0.13
+\end{verbatim}
+
+Some grid pattern noise is visible in the image produced using
+SGM. Using \texttt{-\/-stereo-algorithm 2} should reduce it. And, as
+mentioned earlier, for large images which won't fit in memory,
+\texttt{-\/-corr-tile-size} can be set to a value like 4096, and
+\texttt{parallel\_stereo} should be used.
 
 \section{Sub-pixel Refinement}
 \label{sec:subpixel}

@@ -205,7 +205,7 @@ namespace asp {
     std::string bundle_adjust_prefix; // Use the camera adjustments obtained by previously running bundle_adjust with the output prefix specified here.
 
     // Pull this many matches from the stereo disparity
-    int num_matches_from_disparity;
+    int num_matches_from_disparity, num_matches_from_disp_triplets;
     
     // piecewise adjustments
     int image_lines_per_piecewise_adjustment;

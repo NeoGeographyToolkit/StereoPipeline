@@ -59,6 +59,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/EigenUtils.h>
 #include <liblas/liblas.hpp>
 
 #include <limits>
@@ -66,6 +67,7 @@
 
 #include <pointmatcher/PointMatcher.h>
 
+namespace asp {
 /*
   This file contains helper functions for the pc_align tool.
 
@@ -75,141 +77,51 @@
 
 
 typedef double RealT; // We will use doubles in libpointmatcher.
-
+  
 // This stuff is from the libpointmatcher library
 typedef PointMatcher<RealT> PM;
 typedef PM::DataPoints DP;
-
-// Note: Just changing 3 to 2 below won't be enough to make the code
-// work with 2D point clouds. There are some Vector3's all over the place.
-const int DIM = 3;
 
 std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
 //======================================================================
 
-/// Analyze a file name to determine the file type
-std::string get_file_type(std::string const& file_name);
-
-/// cartesian_to_geodetic() returns longitude between -180 and 180.
-/// Sometimes this is 360 degrees less than what desired,
-/// so here we do an adjustment.
-/// To do: This may not be perfectly fool-proof.
-vw::Vector3 cartesian_to_geodetic_adj(vw::cartography::GeoReference const&
-                                      geo, vw::Vector3 xyz);
-
 /// Generate libpointmatcher compatible labels.
 template<typename T>
 typename PointMatcher<T>::DataPoints::Labels form_labels(int dim);
 
-/// Out of the elements 0, 1,..., n - 1, pick m unique
-/// random elements and sort them in increasing order.
-void pick_at_most_m_unique_elems_from_n_elems(int m, int n, std::vector<int>& elems);
-
-/// Return at most m random points out of the input point cloud.
-template<typename T>
-void random_pc_subsample(int m, typename PointMatcher<T>::DataPoints& points);
-
-/// Loads a helper file associated with the CSV files.
-template<typename T>
-int load_csv_aux(std::string const& file_name, int num_points_to_load,
-                 vw::BBox2 const& lonlat_box, bool verbose,
-                 bool calc_shift, vw::Vector3 & shift,
-                 vw::cartography::GeoReference const& geo, asp::CsvConv const& csv_conv,
-                 bool & is_lola_rdr_format, double & mean_longitude,
-                 typename PointMatcher<T>::DataPoints & data);
-
-/// Load a csv file
-template<typename T>
-void load_csv(std::string const& file_name,
-                 int num_points_to_load,
-                 vw::BBox2 const& lonlat_box,
-                 bool verbose,
-                 bool calc_shift,
-                 vw::Vector3 & shift,
-                 vw::cartography::GeoReference const& geo,
-                 asp::CsvConv const& csv_conv,
-                 bool & is_lola_rdr_format,
-                 double & mean_longitude,
-                 typename PointMatcher<T>::DataPoints & data);
-
-/// Load a DEM file
-/// - The points are stored in GCC coordinates.  These coordinates are either
-///   shifted by the "shift" argument or (if calc_shift) so that the top left
-///   coordinate becomes (0,0,0).
-/// - If provided, only points in the lonlat_box will be loaded.
-template<typename T>
-void load_dem(bool verbose, std::string const& file_name,
-              int num_points_to_load, vw::BBox2 const& lonlat_box,
-              bool calc_shift, vw::Vector3 & shift,
-              typename PointMatcher<T>::DataPoints & data);
-
-/// Helper function to load a Stereo Pipeline point cloud files.
-template<typename T>
-vw::int64 load_pc_aux(bool verbose,
-                  std::string const& file_name,
-                  int num_points_to_load,
-                  vw::BBox2 const& lonlat_box,
-                  bool calc_shift,
-                  vw::Vector3 & shift,
-                  vw::cartography::GeoReference const& geo,
-                  typename PointMatcher<T>::DataPoints & data);
-
-/// Helper function to load a LAS file.
-template<typename T>
-vw::int64 load_las_aux(bool verbose,
-                  std::string const& file_name,
-                  int num_points_to_load,
-                  vw::BBox2 const& lonlat_box,
-                  bool calc_shift,
-                  vw::Vector3 & shift,
-                  vw::cartography::GeoReference const& geo,
-                  typename PointMatcher<T>::DataPoints & data);
-
-/// Load one of the Stereo Pipeline Point Cloud files with additional options.
-template<typename T>
-void load_pc(bool verbose,
-             std::string const& file_name,
-             int num_points_to_load,
-             vw::BBox2 const& lonlat_box,
-             bool calc_shift,
-             vw::Vector3 & shift,
-             vw::cartography::GeoReference const& geo,
-             typename PointMatcher<T>::DataPoints & data
-             );
-
-/// Load an LAS file with additional options.
-template<typename T>
-void load_las(bool verbose,
-             std::string const& file_name,
-             int num_points_to_load,
-             vw::BBox2 const& lonlat_box,
-             bool calc_shift,
-             vw::Vector3 & shift,
-             vw::cartography::GeoReference const& geo,
-             typename PointMatcher<T>::DataPoints & data
-             );
-
-/// Load a file from disk and convert to libpointmatcher's format
-template<typename T>
-void load_file(std::string const& file_name,
+// Load xyz points from disk into a matrix with 4 columns. Last column is just ones.
+void load_cloud(std::string const& file_name,
                int num_points_to_load,
                vw::BBox2 const& lonlat_box,
                bool calc_shift,
                vw::Vector3 & shift,
                vw::cartography::GeoReference const& geo,
-               asp::CsvConv const& csv_conv,
+               CsvConv const& csv_conv,
                bool & is_lola_rdr_format,
                double & mean_longitude,
                bool verbose,
-               typename PointMatcher<T>::DataPoints & data);
+               DoubleMatrix & data);
+
+/// Load a file from disk and convert to libpointmatcher's format
+void load_cloud(std::string const& file_name,
+		int num_points_to_load,
+		vw::BBox2 const& lonlat_box,
+		bool calc_shift,
+		vw::Vector3 & shift,
+		vw::cartography::GeoReference const& geo,
+		CsvConv const& csv_conv,
+		bool   & is_lola_rdr_format,
+		double & mean_longitude,
+		bool verbose,
+		typename PointMatcher<RealT>::DataPoints & data);
 
 /// Calculate the lon-lat bounding box of the points and bias it based
 /// on max displacement (which is in meters). This is used to throw
 /// away points in the other cloud which are not within this box.
 vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                 int num_sample_pts,
-                                asp::CsvConv const& csv_conv,
+                                CsvConv const& csv_conv,
                                 std::string const& file_name,
                                 double max_disp);
 
@@ -218,7 +130,6 @@ double calc_mean(std::vector<double> const& errs, int len);
 
 /// Compute the standard deviation of an std::vector out to a length
 double calc_stddev(std::vector<double> const& errs, double mean);
-
 
 /// Consider a 4x4 matrix T which implements a rotation + translation
 /// y = A*x + b. Consider a point s in space close to the points
@@ -244,11 +155,8 @@ void calc_translation_vec(DP const& source, DP const& trans_source,
 void calc_max_displacment(DP const& source, DP const& trans_source);
 
 
-namespace asp{
-  /// Apply a transformation matrix to a Vector3 in homogenous coordinates
-  vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 const& P);
-}
-
+/// Apply a transformation matrix to a Vector3 in homogenous coordinates
+vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 const& P);
 
 /// Apply a transform to the first three coordinates of the cloud
 struct TransformPC: public vw::UnaryReturnSameType {
@@ -262,7 +170,7 @@ struct TransformPC: public vw::UnaryReturnSameType {
     if (xyz == vw::Vector3())
       return P; // invalid point
 
-    vw::Vector3 Q = asp::apply_transform(m_T, xyz);
+    vw::Vector3 Q = apply_transform(m_T, xyz);
     subvector(P, 0, 3) = Q;
 
     return P;
@@ -277,7 +185,7 @@ void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
                             vw::cartography::GeoReference const& geo,
-                            asp::CsvConv const& csv_conv,
+                            CsvConv const& csv_conv,
                             PointMatcher<RealT>::Matrix const& T);
 
 /// Save a transformed point cloud with N bands
@@ -301,7 +209,7 @@ void save_trans_point_cloud_n(vw::cartography::GdalWriteOptions const& opt,
   bool has_nodata = false;
   double nodata = -std::numeric_limits<float>::max(); // smallest float
 
-  vw::ImageViewRef< vw::Vector<double, n> > point_cloud = asp::read_asp_point_cloud<n>(input_file);
+  vw::ImageViewRef< vw::Vector<double, n> > point_cloud = read_asp_point_cloud<n>(input_file);
   vw::cartography::block_write_gdal_image(output_file,
                               per_pixel_filter(point_cloud, TransformPC(T)),
                               has_georef, curr_geo,
@@ -329,6 +237,8 @@ bool interp_dem_height(vw::ImageViewRef< vw::PixelMask<float> > const& dem,
                        vw::cartography::GeoReference const & georef,
                        vw::Vector3                   const & lonlat,
                        double                              & dem_height);
+
+}
 
 #include <asp/Tools/pc_align_utils.tcc>
 

@@ -77,6 +77,7 @@ namespace po = boost::program_options;
 using namespace vw;
 using namespace std;
 using namespace vw::cartography;
+using namespace asp;
 
 typedef double RealT; // We will use doubles in libpointmatcher.
 typedef PointMatcher<RealT> PM;
@@ -123,7 +124,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   Options() : max_disp(-1.0), verbose(true){}
 
   /// Return true if the reference file is a DEM file and this option is not disabled
-  bool use_dem_distances() const { return ( (get_file_type(this->reference) == "DEM") && !dont_use_dem_distances); }
+  bool use_dem_distances() const { return ( (asp::get_cloud_type(this->reference) == "DEM") && !dont_use_dem_distances); }
 };
 
 
@@ -279,7 +280,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( (opt.alignment_method == "least-squares" ||
 	opt.alignment_method == "similarity-least-squares")
-       && get_file_type(opt.reference) != "DEM")
+       && asp::get_cloud_type(opt.reference) != "DEM")
     vw_throw( ArgumentErr()
 	      << "Least squares alignment can be used only when the "
 	      << "reference cloud is a DEM.\n" );
@@ -300,9 +301,9 @@ void read_georef(Options& opt, asp::CsvConv& csv_conv, GeoReference& geo){
 
   // First, get the datum from the DEM if available.
   string dem_file = "";
-  if ( get_file_type(opt.reference) == "DEM" )
+  if ( asp::get_cloud_type(opt.reference) == "DEM" )
     dem_file = opt.reference;
-  else if ( get_file_type(opt.source) == "DEM" )
+  else if ( asp::get_cloud_type(opt.source) == "DEM" )
     dem_file = opt.source;
   if (dem_file != ""){
     GeoReference local_geo;
@@ -317,7 +318,7 @@ void read_georef(Options& opt, asp::CsvConv& csv_conv, GeoReference& geo){
   // Then, try to set it from the pc file if available.
   // Either one, or both or neither of the pc files may have a georef.
   string pc_file = "";
-  if ( get_file_type(opt.reference) == "PC" ){
+  if ( asp::get_cloud_type(opt.reference) == "PC" ){
     GeoReference local_geo;
     if (cartography::read_georeference(local_geo, opt.reference)){
       pc_file = opt.reference;
@@ -326,7 +327,7 @@ void read_georef(Options& opt, asp::CsvConv& csv_conv, GeoReference& geo){
       is_good = true;
     }
   }
-  if ( get_file_type(opt.source) == "PC" ){
+  if ( asp::get_cloud_type(opt.source) == "PC" ){
     GeoReference local_geo;
     if (cartography::read_georeference(local_geo, opt.source)){
       pc_file = opt.source;
@@ -339,7 +340,7 @@ void read_georef(Options& opt, asp::CsvConv& csv_conv, GeoReference& geo){
   // Then, try to set it from the las file if available.
   // Either one, or both or neither of the las files may have a georef.
   string las_file = "";
-  if ( get_file_type(opt.reference) == "LAS" ){
+  if ( asp::get_cloud_type(opt.reference) == "LAS" ){
     GeoReference local_geo;
     if (asp::georef_from_las(opt.reference, local_geo)){
       las_file = opt.reference;
@@ -348,7 +349,7 @@ void read_georef(Options& opt, asp::CsvConv& csv_conv, GeoReference& geo){
       is_good = true;
     }
   }
-  if ( get_file_type(opt.source) == "LAS" ){
+  if ( asp::get_cloud_type(opt.source) == "LAS" ){
     GeoReference local_geo;
     if (asp::georef_from_las(opt.source, local_geo)){
       las_file = opt.source;
@@ -390,8 +391,8 @@ void read_georef(Options& opt, asp::CsvConv& csv_conv, GeoReference& geo){
     // There is no DEM/LAS to read the datum from, and the user either
     // did not specify the CSV format (then we set it to lat, lon,
     // height), or it is specified as containing lat, lon, rather than xyz.
-    bool has_csv = ( get_file_type(opt.reference) == "CSV" ) ||
-                   ( get_file_type(opt.source   ) == "CSV" );
+    bool has_csv = ( asp::get_cloud_type(opt.reference) == "CSV" ) ||
+                   ( asp::get_cloud_type(opt.source   ) == "CSV" );
     if (has_csv){
       // We are in trouble, will not be able to convert input lat, lon, to xyz.
       vw_throw( ArgumentErr() << "Cannot detect the datum. "
@@ -912,8 +913,8 @@ std::string alignment_method_fallback(std::string const& alignment_method){
 // Compute a manual transform based on tie points (interest point matches).
 void manual_transform(Options & opt){
 
-  if (get_file_type(opt.reference) != "DEM" ||
-      get_file_type(opt.source) != "DEM" )
+  if (asp::get_cloud_type(opt.reference) != "DEM" ||
+      asp::get_cloud_type(opt.source) != "DEM" )
     vw_throw( ArgumentErr() << "The alignment transform computation based on manually chosen point matches only works for DEMs. Use point2dem to first create DEMs from the input point clouds.\n" );
 
   vector<vw::ip::InterestPoint> ref_ip, source_ip;
@@ -1136,10 +1137,10 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw1;
     sw1.start();
     DP ref_point_cloud;
-    load_file<RealT>(opt.reference, opt.max_num_reference_points,
-                     source_box, // source box is used to bound reference
-                     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-                     mean_ref_longitude, opt.verbose, ref_point_cloud);
+    load_cloud(opt.reference, opt.max_num_reference_points,
+               source_box, // source box is used to bound reference
+               calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+               mean_ref_longitude, opt.verbose, ref_point_cloud);
     sw1.stop();
     if (opt.verbose)
       vw_out() << "Loading the reference point cloud took "
@@ -1157,10 +1158,10 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw2;
     sw2.start();
     DP source_point_cloud;
-    load_file<RealT>(opt.source, num_source_pts,
-                     ref_box, // ref box is used to bound source
-                     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-                     mean_source_longitude, opt.verbose, source_point_cloud);
+    load_cloud(opt.source, num_source_pts,
+	      ref_box, // ref box is used to bound source
+	      calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+	      mean_source_longitude, opt.verbose, source_point_cloud);
     sw2.stop();
     if (opt.verbose)
       vw_out() << "Loading the source point cloud took "
@@ -1233,7 +1234,7 @@ int main( int argc, char *argv[] ) {
                           shift, dem_georef, reference_dem_ref, opt);
     }
 
-    random_pc_subsample<RealT>(opt.max_num_source_points, source_point_cloud);
+    random_pc_subsample(opt.max_num_source_points, source_point_cloud.features);
     vw_out() << "Reducing number of source points to "
              << source_point_cloud.features.cols() << endl;
 

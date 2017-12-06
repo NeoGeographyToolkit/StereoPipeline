@@ -28,6 +28,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>
 #include <vw/BundleAdjustment.h>
+#include <vw/Cartography/Datum.h>
 #include <vw/Math.h>
 
 #include <stdlib.h>
@@ -587,7 +588,8 @@ public:
   }
 
   /// Write complete camera models to disk as opposed to adjustment files
-  void write_camera_models(std::vector<std::string> const& cam_files){
+  void write_camera_models(std::vector<std::string> const& cam_files,
+			   bool has_datum, vw::cartography::Datum & datum){
 
     VW_ASSERT(cam_files.size() == m_cam_vec.size(),
                   vw::ArgumentErr() << "Must have as many camera files as cameras.\n");
@@ -597,7 +599,14 @@ public:
       vw::camera::PinholeModel model = get_camera_model(icam);
       model.write(cam_files[icam]);
       //std::cout << "Writing BAPinhole model params: " << m_cam_vec[icam] << std::endl;
-      std::cout << "Writing output model: " << model << std::endl;      
+      vw::vw_out() << "Writing output model: " << model << std::endl;
+
+      if (has_datum) {
+	vw::vw_out() << "Camera center for " << cam_files[icam] << ": "
+		     << datum.cartesian_to_geodetic(model.camera_center())
+		     << " (longitude, latitude, height above datum(m))\n\n";
+	
+      }
     }
 
   }

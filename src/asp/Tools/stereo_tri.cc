@@ -324,13 +324,18 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
 
 /// Bin the disparities, and from each bin get a disparity value.
 /// This will create a correspondence from the left to right image,
-/// which we save in the match format
+/// which we save in the match format.
+/// When gen_triplets is true, and there are many overlapping images,
+/// try hard to have many IP with the property that each such IP is seen
+/// in more than two images. This helps with bundle adjustment.
 template <class DisparityT, class TXT>
 void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
                                vector<DisparityT> const& disparities,
                                vector<TXT>        const& transforms,
                                std::string        const& match_file,
-                               int                      max_num_matches) {
+                               int                const  max_num_matches,
+                               bool                      gen_triplets
+                               ) {
 
   VW_ASSERT( disparities.size() == 1 && transforms.size() == 2,
                vw::ArgumentErr() << "Expecting two images and one disparity.\n" );
@@ -360,55 +365,195 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
   
   std::vector<vw::ip::InterestPoint> left_ip, right_ip;
 
-  double num_pixels = double(disp.cols()) * double(disp.rows());
-  if (num_pixels < max_num_matches) max_num_matches = num_pixels;
+  if (!gen_triplets) {
 
-  double bin_len = sqrt(num_pixels/max_num_matches);
-  VW_ASSERT( bin_len >= 1.0, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
+    double num_pixels = double(disp.cols()) * double(disp.rows());
+    double bin_len = sqrt(num_pixels/std::min(double(max_num_matches), num_pixels));
+    VW_ASSERT( bin_len >= 1.0, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
 
-  int lenx = round( disp.cols()/bin_len ); lenx = std::max(1, lenx);
-  int leny = round( disp.rows()/bin_len ); leny = std::max(1, leny);
+    int lenx = round( disp.cols()/bin_len ); lenx = std::max(1, lenx);
+    int leny = round( disp.rows()/bin_len ); leny = std::max(1, leny);
 
-  // Iterate over bins.
+    // Iterate over bins.
 
-  vw_out() << "Computing interest point matches based on disparity.\n";
-  vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  double inc_amount = 1.0 / double(lenx);
-  tpc.report_progress(0);
+    vw_out() << "Computing interest point matches based on disparity.\n";
+    vw::TerminalProgressCallback tpc("asp", "\t--> ");
+    double inc_amount = 1.0 / double(lenx);
+    tpc.report_progress(0);
 
-  for (int binx = 0; binx < lenx; binx++) {
+    for (int binx = 0; binx < lenx; binx++) {
 
-    // Pick the disparity at the center of the bin
-    int posx = round( (binx+0.5)*bin_len );
+      // Pick the disparity at the center of the bin
+      int posx = round( (binx+0.5)*bin_len );
 
-    for (int biny = 0; biny < leny; biny++) {
+      for (int biny = 0; biny < leny; biny++) {
 
-      int posy = round( (biny+0.5)*bin_len );
+        int posy = round( (biny+0.5)*bin_len );
 
-      if (posx >= disp.cols() || posy >= disp.rows()) 
-        continue;
-      typedef typename DisparityT::pixel_type DispPixelT;
-      DispPixelT dpix = disp(posx, posy);
-      if (!is_valid(dpix))
-        continue;
+        if (posx >= disp.cols() || posy >= disp.rows()) 
+          continue;
+        typedef typename DisparityT::pixel_type DispPixelT;
+        DispPixelT dpix = disp(posx, posy);
+        if (!is_valid(dpix))
+          continue;
 
-      // De-warp left and right pixels to be in the camera coordinate system
-      Vector2 left_pix, right_pix;
-      if (!usePinholeEpipolar) {
-        left_pix  = left_trans.reverse ( Vector2(posx, posy) );
-        right_pix = right_trans.reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
-      }else{
-        left_pix  = left_trans2.reverse ( Vector2(posx, posy) );
-        right_pix = right_trans2.reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
+        // De-warp left and right pixels to be in the camera coordinate system
+        Vector2 left_pix, right_pix;
+        if (!usePinholeEpipolar) {
+          left_pix  = left_trans.reverse ( Vector2(posx, posy) );
+          right_pix = right_trans.reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
+        }else{
+          left_pix  = left_trans2.reverse ( Vector2(posx, posy) );
+          right_pix = right_trans2.reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
+        }
+
+        left_ip.push_back(ip::InterestPoint(left_pix.x(), left_pix.y()));
+        right_ip.push_back(ip::InterestPoint(right_pix.x(), right_pix.y()));
       }
 
-      left_ip.push_back(ip::InterestPoint(left_pix.x(), left_pix.y()));
-      right_ip.push_back(ip::InterestPoint(right_pix.x(), right_pix.y()));
+      tpc.report_incremental_progress( inc_amount );
     }
+    tpc.report_finished();
 
-    tpc.report_incremental_progress( inc_amount );
-  }
-  tpc.report_finished();
+  } else{
+
+    // First create ip with left_ip being at integer multiple of bin size.
+    // Then do the same for right_ip. This way there is a symmetry
+    // and predictable location for ip. So if three images overlap,
+    // a feature can often be seen in many of them whether a given
+    // image is left in some pairs or right in some others.
+
+    // Note that the code above is modified in subtle ways.
+    
+    // Start with the left
+    {
+      DiskImageView<float> left_img(opt_vec[0].in_file1);
+    
+      double num_pixels = double(left_img.cols()) * double(left_img.rows());
+      int bin_len = round(sqrt(num_pixels/std::min(double(max_num_matches), num_pixels)));
+      VW_ASSERT( bin_len >= 1, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
+
+      int lenx = round( left_img.cols()/bin_len ); lenx = std::max(1, lenx);
+      int leny = round( left_img.rows()/bin_len ); leny = std::max(1, leny);
+
+      // Iterate over bins.
+
+      vw_out() << "Computing interest point matches based on disparity.\n";
+      vw::TerminalProgressCallback tpc("asp", "\t--> ");
+      double inc_amount = 1.0 / double(lenx);
+      tpc.report_progress(0);
+
+      for (int binx = 0; binx <= lenx; binx++) {
+
+        int posx = binx*bin_len; // integer multiple of bin length
+
+        for (int biny = 0; biny <= leny; biny++) {
+
+          int posy = biny*bin_len; // integer multiple of bin length
+
+          if (posx >= left_img.cols() || posy >= left_img.rows()) 
+            continue;
+
+          Vector2 left_pix(posx, posy);
+          Vector2 trans_left_pix, trans_right_pix, right_pix;
+        
+          typedef typename DisparityT::pixel_type DispPixelT;
+
+          // Make the left pixel go to the disparity domain. Find the corresponding
+          // right pixel. And make that one go to the right image domain.
+          if (!usePinholeEpipolar) {
+            trans_left_pix = round(left_trans.forward(left_pix));
+            if (trans_left_pix[0] < 0 || trans_left_pix[0] >= disp.cols()) continue;
+            if (trans_left_pix[1] < 0 || trans_left_pix[1] >= disp.rows()) continue;
+            DispPixelT dpix = disp(trans_left_pix[0], trans_left_pix[1]);
+            if (!is_valid(dpix))
+              continue;
+            trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
+            right_pix = right_trans.reverse(trans_right_pix);
+          }else{
+            trans_left_pix = round(left_trans2.forward(left_pix));
+            if (trans_left_pix[0] < 0 || trans_left_pix[0] >= disp.cols()) continue;
+            if (trans_left_pix[1] < 0 || trans_left_pix[1] >= disp.rows()) continue;
+            DispPixelT dpix = disp(trans_left_pix[0], trans_left_pix[1]);
+            if (!is_valid(dpix))
+              continue;
+            trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
+            right_pix = right_trans2.reverse(trans_right_pix);
+          }
+
+          left_ip.push_back(ip::InterestPoint(left_pix.x(), left_pix.y()));
+          right_ip.push_back(ip::InterestPoint(right_pix.x(), right_pix.y()));
+        }
+
+        tpc.report_incremental_progress( inc_amount );
+      }
+      tpc.report_finished();
+    }
+    
+    // No create ip in predictable location for the right image.  This is hard,
+    // as the disparity goes from right to right, so we need to examine every disparity.
+    typedef typename DisparityT::pixel_type DispPixelT;
+    ImageView<DispPixelT> disp_copy = copy(disp);
+    {
+      DiskImageView<float> right_img(opt_vec[0].in_file2);
+    
+      double num_pixels = double(right_img.cols()) * double(right_img.rows());
+      int bin_len = round(sqrt(num_pixels/std::min(double(max_num_matches), num_pixels)));
+      VW_ASSERT( bin_len >= 1, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
+
+      std::map<int, int> done;
+      
+      // Iterate over disparity.
+
+      vw_out() << "Doing a second pass. This will be very slow.\n";
+      vw::TerminalProgressCallback tpc("asp", "\t--> ");
+      double inc_amount = 1.0 / double(disp_copy.cols());
+      tpc.report_progress(0);
+
+      for (int col = 0; col < disp_copy.cols(); col++) {
+        for (int row = 0; row < disp_copy.rows(); row++) {
+
+          Vector2 trans_left_pix(col, row);
+          Vector2 left_pix, trans_right_pix, right_pix;
+
+          DispPixelT dpix = disp_copy(trans_left_pix[0], trans_left_pix[1]);
+          if (!is_valid(dpix))
+            continue;
+          
+          // Compute the left and right pixels. 
+          if (!usePinholeEpipolar) {
+            left_pix        = left_trans.reverse(trans_left_pix);
+            trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
+            right_pix       = right_trans.reverse(trans_right_pix);
+          }else{
+            left_pix        = left_trans2.reverse(trans_left_pix);
+            trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
+            right_pix       = right_trans2.reverse(trans_right_pix);
+          }
+
+          // If the right pixel is a multiple of the bin size, keep
+          // it.
+          right_pix = round(right_pix); // very important
+          if ( int(right_pix[0]) % bin_len != 0 ) continue;
+          if ( int(right_pix[1]) % bin_len != 0 ) continue;
+
+          std::map<int,int>::iterator it = done.find(int(right_pix[0]));
+          if (it != done.end() && it->second == int(right_pix[1]) ) {
+            // We already found this element
+            continue; 
+          }
+          done[int(right_pix[0])] = right_pix[1];
+
+          left_ip.push_back(ip::InterestPoint(left_pix.x(), left_pix.y()));
+          right_ip.push_back(ip::InterestPoint(right_pix.x(), right_pix.y()));
+        }
+
+        tpc.report_incremental_progress( inc_amount );
+      }
+      tpc.report_finished();
+    }
+    
+  } // end considering multi-image friendly ip
 
   vw_out() << "Determined " << left_ip.size()
            << " interest point matches from disparity.\n";
@@ -643,8 +788,10 @@ void stereo_triangulation( string          const& output_prefix,
       disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
     }
 
-    std::string unalign_disp = output_prefix + "-unaligned-D.tif";
-
+    std::string unalign_disp = asp::unwarped_disp_file(output_prefix,
+                                                       opt_vec[0].in_file1, 
+                                                       opt_vec[0].in_file2);
+    
     // Pull matches from disparity. Highly experimental. 
     if (stereo_settings().unalign_disparity) {
       unalign_disparity(opt_vec, disparity_maps, transforms, unalign_disp);
@@ -653,11 +800,24 @@ void stereo_triangulation( string          const& output_prefix,
     std::string match_file = ip::match_filename(output_prefix + "-disp",
 						opt_vec[0].in_file1, 
 						opt_vec[0].in_file2);
-    
-    // Pull matches from disparity. Highly experimental. 
+
+    // Pull matches from disparity. Highly experimental.
+
+    if (stereo_settings().num_matches_from_disparity > 0 && 
+        stereo_settings().num_matches_from_disp_triplets > 0) {
+      vw_throw( ArgumentErr() << "Cannot have both --num-matches-from-disparity and  "
+                << "--num-matches-from-disp-triplets.\n" );
+    }
+
     if (stereo_settings().num_matches_from_disparity > 0) {
+      bool gen_triplets = false;
       compute_matches_from_disp(opt_vec, disparity_maps, transforms, match_file,
-                                stereo_settings().num_matches_from_disparity);
+                                stereo_settings().num_matches_from_disparity, gen_triplets);
+    }
+    if (stereo_settings().num_matches_from_disp_triplets > 0) {
+      bool gen_triplets = true;
+      compute_matches_from_disp(opt_vec, disparity_maps, transforms, match_file,
+                                stereo_settings().num_matches_from_disp_triplets, gen_triplets);
     }
     
     // Piecewise adjustments for jitter
@@ -667,8 +827,9 @@ void stereo_triangulation( string          const& output_prefix,
       // TODO: This must be proportional to how many adjustments have!
       double max_num_matches = stereo_settings().num_matches_for_piecewise_adjustment;
 
+      bool gen_triplets = false;
       compute_matches_from_disp(opt_vec, disparity_maps, transforms, match_file,
-                                max_num_matches);
+                                max_num_matches, gen_triplets);
 
       int num_threads = opt_vec[0].num_threads;
       if (opt_vec[0].session->name() == "isis" || opt_vec[0].session->name() == "isismapisis")
@@ -685,6 +846,12 @@ void stereo_triangulation( string          const& output_prefix,
       return;
     }
 
+    if (stereo_settings().unalign_disparity || stereo_settings().num_matches_from_disparity > 0 ||
+        stereo_settings().num_matches_from_disp_triplets > 0){
+      vw_out() << "Add-on functionality finished. Will not triangulate.\n";
+      return;
+    }
+    
     // Reload the cameras, loading the piecewise corrections for jitter.
     if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
 

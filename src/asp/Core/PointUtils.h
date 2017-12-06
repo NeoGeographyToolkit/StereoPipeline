@@ -394,6 +394,9 @@ vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> con
 // Find the average longitude for a given point image with lon, lat, height values
   double find_avg_lon(vw::ImageViewRef<vw::Vector3> const& point_image);
 
+
+  std::string get_cloud_type(std::string const& file_name);
+  
 } // End namespace asp
 
 #endif

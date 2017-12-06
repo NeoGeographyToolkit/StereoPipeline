@@ -46,50 +46,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
-
-/// Analyze a file name to determine the file type
-std::string get_file_type(std::string const& file_name){
-
-  if (asp::is_csv(file_name))
-    return "CSV";
-  if (asp::is_las(file_name))
-    return "LAS";
-
-  // Note that any tif, ntf, and cub file with one channel with georeference be
-  // interpreted as a DEM.
-  int nc = vw::get_num_channels(file_name);
-
-  vw::cartography::GeoReference geo;
-  bool has_georef = vw::cartography::read_georeference(geo, file_name);
-
-  if (nc == 1 && has_georef)
-    return "DEM";
-  if (nc >= 3)
-    return "PC";
-  vw_throw(vw::ArgumentErr() << "File: " << file_name
-                         << " is neither a point cloud nor a DEM.\n");
-}
-
-
-
-vw::Vector3 cartesian_to_geodetic_adj(vw::cartography::GeoReference const&
-                                      geo, vw::Vector3 xyz){
-
-  // cartesian_to_geodetic() returns longitude between -180 and 180.
-  // Sometimes this is 360 degrees less than what desired,
-  // so here we do an adjustment.
-  // To do: This may not be perfectly fool-proof.
-  vw::Vector3 G  = geo.datum().cartesian_to_geodetic(xyz);
-  vw::Vector2 ll = geo.pixel_to_lonlat(vw::Vector2(0, 0));
-  G(0) += 360*round((ll[0] - G(0))/360.0);
-  return G;
-}
-
-void null_check(const char* token, std::string const& line){
-  if (token == NULL)
-    vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
-}
+namespace asp {
 
 template<typename T>
 typename PointMatcher<T>::DataPoints::Labels form_labels(int dim){
@@ -108,558 +65,18 @@ typename PointMatcher<T>::DataPoints::Labels form_labels(int dim){
   return labels;
 }
 
-void pick_at_most_m_unique_elems_from_n_elems(int m, int n, std::vector<int>& elems){
-
-  // Out of the elements 0, 1,..., n - 1, pick m unique
-  // random elements and sort them in increasing order.
-
-  elems.clear();
-
-  if (m < 1 || n < 1) return;
-  if (m > n) m = n;
-
-  std::vector<int> all(n);
-  for (int i = 0; i < n; i++) all[i] = i;
-
-  // Swap a randomly selected element from index 0 to j with the one
-  // at index j. Then decrement j. Done after m elements are
-  // processed.
-  for (int j = n-1; j >= n-m; j--){
-    int r = rand()%(j+1); // 0 <= r <= j
-    std::swap(all[r], all[j]);
-  }
-
-  elems.resize(m);
-  for (int i = 0; i < m; i++) elems[i] = all[n-m+i];
-  std::sort(elems.begin(), elems.end());
-
-}
-
-template<typename T>
-void random_pc_subsample(int m, typename PointMatcher<T>::DataPoints& points){
-
-  // Return at most m random points out of the input point cloud.
-
-  int n = points.features.cols();
-  std::vector<int> elems;
-  pick_at_most_m_unique_elems_from_n_elems(m, n, elems);
-  m = elems.size();
-
-  for (int col = 0; col < m; col++){
-    for (int row = 0; row < DIM; row++)
-      points.features(row, col) = points.features(row, elems[col]);
-  }
-  points.features.conservativeResize(Eigen::NoChange, m);
-}
-
-template<typename T>
-int load_csv_aux(std::string const& file_name, int num_points_to_load,
-                 vw::BBox2 const& lonlat_box, bool verbose,
-                 bool calc_shift, vw::Vector3 & shift,
-                 vw::cartography::GeoReference const& geo, asp::CsvConv const& csv_conv,
-                 bool & is_lola_rdr_format, double & mean_longitude,
-                 typename PointMatcher<T>::DataPoints & data){
-
-  // Note: The input CsvConv object is responsible for parsing out the
-  //       type of information contained in the CSV file.
-
-  PointMatcherSupport::validateFile(file_name);
-
-  is_lola_rdr_format = false;
-
-  int num_total_points = asp::csv_file_size(file_name);
-
-  std::string sep_str = asp::csv_separator();
-  const char* sep = sep_str.c_str();
-
-  const int bufSize = 1024;
-  char temp[bufSize];
-  std::ifstream file( file_name.c_str() );
-  if( !file ) {
-    vw_throw( vw::IOErr() << "Unable to open file \"" << file_name << "\"" );
-  }
-
-  // We will randomly pick or not a point with probability load_ratio
-  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
-
-  data.features.conservativeResize(DIM+1, std::min(num_points_to_load, num_total_points));
-  data.featureLabels = form_labels<T>(DIM);
-
-  // Peek at the first valid line and see how many elements it has
-  std::string line;
-  while ( getline(file, line, '\n') ) {
-    if (asp::is_valid_csv_line(line))
-      break;
-  }
-
-  file.clear(); file.seekg(0, std::ios_base::beg); // go back to start of file
-  strncpy(temp, line.c_str(), bufSize);
-  const char* token = strtok (temp, sep);
-  int numTokens = 0;
-  while (token != NULL){
-    numTokens++;
-    token = strtok (NULL, sep);
-  }
-  if (numTokens < 3){
-    vw_throw( vw::IOErr() << "Expecting at least three fields on each "
-                          << "line of file: " << file_name << "\n" );
-  }
-
-  if (!csv_conv.is_configured()){
-    if (numTokens > 20){
-      is_lola_rdr_format = true;
-      if (verbose)
-        vw::vw_out() << "Guessing file " << file_name << " to be in LOLA RDR PointPerRow format.\n";
-    }else{
-      is_lola_rdr_format = false;
-      if (verbose)
-        vw::vw_out() << "Guessing file " << file_name
-                     << " to be in latitude,longitude,height above datum (meters) format.\n";
-    }
-  }
-  // TODO: We parse these guessed file types manually but we should use a CsvConv object to do it!!!!!
-
-  if (is_lola_rdr_format && geo.datum().semi_major_axis() != geo.datum().semi_minor_axis() ){
-    vw_throw( vw::ArgumentErr() << "The CSV file was detected to be in the"
-              << " LOLA RDR format, yet the datum semi-axes are not equal "
-              << "as expected for the Moon.\n" );
-  }
-
-  bool shift_was_calc = false;
-  bool is_first_line  = true;
-  int points_count = 0;
-  mean_longitude = 0.0;
-  line = "";
-  while ( getline(file, line, '\n') ){
-
-    if (!is_first_line && !line.empty() && line[0] == '#') {
-      vw::vw_out() << "Ignoring line starting with comment: " << line << std::endl;
-      continue;
-    }
-    
-    if (points_count >= num_points_to_load)
-      break;
-
-    if (!asp::is_valid_csv_line(line))
-      continue;
-
-    // Randomly skip a percentage of points
-    double r = (double)std::rand()/(double)RAND_MAX;
-    if (r > load_ratio)
-      continue;
-
-    // We went with C-style file reading instead of C++ in this instance
-    // because we found it to be significantly faster on large files.
-
-    vw::Vector3 xyz;
-    double lon = 0.0, lat = 0.0;
-
-    if (csv_conv.is_configured()){
-
-      // Parse custom CSV file with given format string
-      bool success;
-      asp::CsvConv::CsvRecord vals = csv_conv.parse_csv_line(is_first_line, success, line);
-      if (!success)
-        continue;
-
-      xyz = csv_conv.csv_to_cartesian(vals, geo);
-
-      // Decide if the point is in the box. Also save for the future
-      // the longitude of the point, we'll use it to compute the mean longitude.
-      vw::Vector2 lonlat = csv_conv.csv_to_lonlat(vals, geo);
-      lon = lonlat[0]; // Needed for mean calculation below
-      lat = lonlat[1];
-
-      // TODO: We really need a lonlat bbox function that handles wraparound!!!!!!
-      // Skip points outside the given box
-      if (!lonlat_box.empty() && !lonlat_box.contains(lonlat)
-                              && !lonlat_box.contains(lonlat+vw::Vector2(360,0))
-                              && !lonlat_box.contains(lonlat-vw::Vector2(360,0))) {
-        continue;
-      }
-
-    }else if (!is_lola_rdr_format){
-
-      // lat,lon,height format
-      double height;
-
-      strncpy(temp, line.c_str(), bufSize);
-      const char* token = strtok(temp, sep); null_check(token, line);
-      int ret = sscanf(token, "%lg", &lat);
-
-      token = strtok(NULL, sep); null_check(token, line);
-      ret += sscanf(token, "%lg", &lon);
-
-      token = strtok(NULL, sep); null_check(token, line);
-      ret += sscanf(token, "%lg", &height);
-
-      // Be prepared for the fact that the first line may be the header.
-      if (ret != 3){
-        if (!is_first_line){
-          vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
-        }else{
-          is_first_line = false;
-          continue;
-        }
-      }
-      is_first_line = false;
-
-      // Skip points outside the given box
-      if (!lonlat_box.empty() && !lonlat_box.contains(vw::Vector2(lon, lat)))
-        continue;
-
-      vw::Vector3 llh( lon, lat, height );
-      xyz = geo.datum().geodetic_to_cartesian( llh );
-      if ( xyz == vw::Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
-
-    }else{
-
-      // Load a RDR_*PointPerRow_csv_table.csv file used for LOLA. Code
-      // copied from Ara Nefian's lidar2dem tool.
-      // We will ignore lines which do not start with year (or a value that
-      // cannot be converted into an integer greater than zero, specifically).
-
-      int year, month, day, hour, min;
-      double lat, rad, sec, is_invalid;
-
-      strncpy(temp, line.c_str(), bufSize);
-      const char* token = strtok(temp, sep); null_check(token, line);
-
-      int ret = sscanf(token, "%d-%d-%dT%d:%d:%lg", &year, &month, &day, &hour,
-                       &min, &sec);
-      if( year <= 0 )
-        continue;
-
-      token = strtok(NULL, sep); null_check(token, line);
-      ret += sscanf(token, "%lg", &lon);
-
-      token = strtok(NULL, sep); null_check(token, line);
-      ret += sscanf(token, "%lg", &lat);
-      token = strtok(NULL, sep); null_check(token, line);
-      ret += sscanf(token, "%lg", &rad);
-      rad *= 1000; // km to m
-
-      // Scan 7 more fields, until we get to the is_invalid flag.
-      for (int i = 0; i < 7; i++)
-        token = strtok(NULL, sep); null_check(token, line);
-      ret += sscanf(token, "%lg", &is_invalid);
-
-      // Be prepared for the fact that the first line may be the header.
-      if (ret != 10){
-        if (!is_first_line){
-          vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
-        }else{
-          is_first_line = false;
-          continue;
-        }
-      }
-      is_first_line = false;
-
-      if (is_invalid)
-        continue;
-
-      // Skip points outside the given box
-      if (!lonlat_box.empty() && !lonlat_box.contains(vw::Vector2(lon, lat)))
-        continue;
-
-      vw::Vector3 lonlatrad( lon, lat, 0 );
-
-      xyz = geo.datum().geodetic_to_cartesian( lonlatrad );
-      if ( xyz == vw::Vector3() || !(xyz == xyz) )
-        continue; // invalid and NaN check
-
-      // Adjust the point so that it is at the right distance from
-      // planet center.
-      xyz = rad*(xyz/norm_2(xyz));
-    }
-
-    if (calc_shift && !shift_was_calc){
-      shift = xyz;
-      shift_was_calc = true;
-    }
-
-    for (int row = 0; row < DIM; row++)
-      data.features(row, points_count) = xyz[row] - shift[row];
-    data.features(DIM, points_count) = 1;
-
-    points_count++;
-    mean_longitude += lon;
-
-    // Throw an error if the lon and lat are not within bounds.
-    // Note that we allow some slack for lon, perhaps the point
-    // cloud is say from 350 to 370 degrees.
-    if (std::abs(lat) > 90.0)
-      vw_throw(vw::ArgumentErr() << "Invalid latitude value: "
-               << lat << " in " << file_name << "\n");
-    if (lon < -360.0 || lon > 2*360.0)
-      vw_throw(vw::ArgumentErr() << "Invalid longitude value: "
-               << lon << " in " << file_name << "\n");
-  }
-  data.features.conservativeResize(Eigen::NoChange, points_count);
-
-  mean_longitude /= points_count;
-
-  return num_total_points;
-}
-
-// Load a csv file
-template<typename T>
-void load_csv(std::string const& file_name,
-                 int num_points_to_load,
-                 vw::BBox2 const& lonlat_box,
-                 bool verbose,
-                 bool calc_shift,
-                 vw::Vector3 & shift,
-                 vw::cartography::GeoReference const& geo,
-                 asp::CsvConv const& csv_conv,
-                 bool & is_lola_rdr_format,
-                 double & mean_longitude,
-                 typename PointMatcher<T>::DataPoints & data){
-
-  int num_total_points = load_csv_aux<T>(file_name, num_points_to_load,
-                                         lonlat_box, verbose,
-                                         calc_shift, shift,
-                                         geo, csv_conv, is_lola_rdr_format,
-                                         mean_longitude, data
-                                         );
-
-  int num_loaded_points = data.features.cols();
-  if (!lonlat_box.empty()                    &&
-      num_loaded_points < num_points_to_load &&
-      num_loaded_points < num_total_points){
-    // We loaded too few points. Just load them all, as CSV files are
-    // not too large, we will drop extraneous points later.
-    load_csv_aux<T>(file_name, num_total_points, lonlat_box,
-                    false, // Skip repeating same messages
-                    calc_shift, shift,
-                    geo, csv_conv, is_lola_rdr_format,
-                    mean_longitude, data
-                    );
-  }
-
-  return;
-}
-
-// Load a DEM
-template<typename T, typename DemPixelType>
-void load_dem_pixel_type(bool verbose, std::string const& file_name,
-                         int num_points_to_load, vw::BBox2 const& lonlat_box,
-                         bool calc_shift, vw::Vector3 & shift,
-                         typename PointMatcher<T>::DataPoints & data){
-  
-  PointMatcherSupport::validateFile(file_name);
-
-  data.features.conservativeResize(DIM+1, num_points_to_load);
-  data.featureLabels = form_labels<T>(DIM);
-
-  vw::cartography::GeoReference dem_geo;
-  bool has_georef = vw::cartography::read_georeference( dem_geo, file_name );
-  if (!has_georef)
-    vw_throw(vw::ArgumentErr() << "DEM: " << file_name
-                               << " does not have a georeference.\n");
-
-  vw::DiskImageView<DemPixelType> dem(file_name);
-  DemPixelType nodata = std::numeric_limits<DemPixelType>::quiet_NaN();
-  {
-    boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
-    if (dem_rsrc->has_nodata_read())
-      nodata = dem_rsrc->nodata_read();
-  }
-  
-  // Load only points within lonlat_box
-  vw::BBox2i pix_box;
-  if (!lonlat_box.empty()){
-    // Need a lot of catch statements, as lonlat_to_pixel() can throw things
-    try { pix_box.grow(dem_geo.lonlat_to_pixel(lonlat_box.min())); } catch(...){}
-    try { pix_box.grow(dem_geo.lonlat_to_pixel(lonlat_box.max())); } catch(...){}
-    try {
-      pix_box.grow(dem_geo.lonlat_to_pixel(vw::Vector2(lonlat_box.min().x(),
-                                                       lonlat_box.max().y())));
-    }catch(...){}
-    try{
-      pix_box.grow(dem_geo.lonlat_to_pixel(vw::Vector2(lonlat_box.max().x(),
-                                                       lonlat_box.min().y())));
-    }catch(...){}
-    pix_box.expand(1); // to counteract casting to int
-    pix_box.crop(bounding_box(dem));
-  }
-  if (pix_box.empty())
-    pix_box = bounding_box(dem);
-
-  // We will randomly pick or not a point with probability load_ratio
-  int    num_points = pix_box.width()*pix_box.height();
-  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
-
-  bool shift_was_calc = false;
-  int  points_count   = 0;
-
-  vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  double inc_amount = 1.0 / double(pix_box.width() );
-  if (verbose)
-    tpc.report_progress(0);
-
-  for (int i = pix_box.min().x(); i < pix_box.max().x(); i++ ) {
-
-    for (int j = pix_box.min().y(); j < pix_box.max().y(); j++ ) {
-      if (points_count >= num_points_to_load)
-        break;
-
-      double r = (double)std::rand()/(double)RAND_MAX;
-      if (r > load_ratio)
-        continue;
-
-      if ( dem(i, j) == nodata || std::isnan(dem(i, j)) || std::isinf(dem(i, j)) )
-        continue;
-      
-      vw::Vector2 lonlat = dem_geo.pixel_to_lonlat( vw::Vector2(i,j) );
-
-      // Skip points outside the given box
-      if (!lonlat_box.empty() && !lonlat_box.contains(lonlat))
-        continue;
-
-      vw::Vector3 llh( lonlat.x(), lonlat.y(), dem(i,j) );
-      vw::Vector3 xyz = dem_geo.datum().geodetic_to_cartesian( llh );
-      if ( xyz == vw::Vector3() || !(xyz == xyz) )
-        continue; // invalid and NaN check
-
-      if (calc_shift && !shift_was_calc){
-        shift = xyz;
-        shift_was_calc = true;
-      }
-
-      for (int row = 0; row < DIM; row++)
-        data.features(row, points_count) = xyz[row] - shift[row];
-      data.features(DIM, points_count) = 1; // Extend to be a homogenous coordinate
-
-      points_count++;
-    } // end y loop
-
-    if (verbose)
-      tpc.report_incremental_progress( inc_amount );
-  } // end x loop
-  if (verbose)
-    tpc.report_finished();
-
-  data.features.conservativeResize(Eigen::NoChange, points_count);
-
-}
-
-
-// Load a DEM
-template<typename T>
-void load_dem(bool verbose, std::string const& file_name,
-              int num_points_to_load, vw::BBox2 const& lonlat_box,
-              bool calc_shift, vw::Vector3 & shift,
-              typename PointMatcher<T>::DataPoints & data){
-
-  PointMatcherSupport::validateFile(file_name);
-
-  boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
-  vw::ImageFormat image_fmt = dem_rsrc->format();
-  if (image_fmt.channel_type == vw::VW_CHANNEL_FLOAT64) {
-    // We could have loaded this DEM as float, the difference in the
-    // final transform is very minor if we do so, but it is better to
-    // use the full input accuracy.
-    load_dem_pixel_type<T, double>(verbose, file_name,  
-                                   num_points_to_load, lonlat_box,  
-                                   calc_shift, shift,  
-                                   data);
-  }else{
-    load_dem_pixel_type<T, float>(verbose, file_name,  
-                                  num_points_to_load, lonlat_box,  
-                                  calc_shift, shift,  
-                                  data);
-  }
-}
-
-template<typename T>
-vw::int64 load_pc_aux(bool verbose,
-                  std::string const& file_name,
-                  int num_points_to_load,
-                  vw::BBox2 const& lonlat_box,
-                  bool calc_shift,
-                  vw::Vector3 & shift,
-                  vw::cartography::GeoReference const& geo,
-                  typename PointMatcher<T>::DataPoints & data){
-
-  PointMatcherSupport::validateFile(file_name);
-
-  data.features.conservativeResize(DIM+1, num_points_to_load);
-  data.featureLabels = form_labels<T>(DIM);
-
-  // To do: Is it faster to to do for_each?
-  vw::ImageViewRef<vw::Vector3> point_cloud = asp::read_asp_point_cloud<DIM>(file_name);
-
-  // We will randomly pick or not a point with probability load_ratio
-  vw::int64 num_total_points = point_cloud.cols()*point_cloud.rows();
-  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
-
-  bool shift_was_calc = false;
-  vw::int64 points_count = 0;
-
-  vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  double inc_amount = 1.0 / double(point_cloud.rows() );
-  if (verbose) tpc.report_progress(0);
-
-  for (int j = 0; j < point_cloud.rows(); j++ ) {
-
-    for ( int i = 0; i < point_cloud.cols(); i++ ) {
-
-      if (points_count >= num_points_to_load)
-        break;
-
-      double r = (double)std::rand()/(double)RAND_MAX;
-      if (r > load_ratio)
-        continue;
-
-      vw::Vector3 xyz = point_cloud(i, j);
-      if ( xyz == vw::Vector3() || !(xyz == xyz) )
-        continue; // invalid and NaN check
-
-      if (calc_shift && !shift_was_calc){
-        shift = xyz;
-        shift_was_calc = true;
-      }
-
-      // Skip points outside the given box
-      if (!lonlat_box.empty()){
-        vw::Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
-        if ( !lonlat_box.contains(subvector(llh, 0, 2)))
-          continue;
-      }
-
-      for (int row = 0; row < DIM; row++)
-        data.features(row, points_count) = xyz[row] - shift[row];
-      data.features(DIM, points_count) = 1;
-
-      points_count++;
-    }
-    if (verbose) tpc.report_incremental_progress( inc_amount );
-  }
-  if (verbose) tpc.report_finished();
-
-  data.features.conservativeResize(Eigen::NoChange, points_count);
-
-  return num_total_points;
-}
-
-template<typename T>
-vw::int64 load_las_aux(bool verbose,
-                  std::string const& file_name,
-                  int num_points_to_load,
-                  vw::BBox2 const& lonlat_box,
-                  bool calc_shift,
-                  vw::Vector3 & shift,
-                  vw::cartography::GeoReference const& geo,
-                  typename PointMatcher<T>::DataPoints & data){
-
-  PointMatcherSupport::validateFile(file_name);
-
-  data.features.conservativeResize(DIM+1, num_points_to_load);
-  data.featureLabels = form_labels<T>(DIM);
+vw::int64 load_las_aux(std::string const& file_name,
+                       int num_points_to_load,
+                       vw::BBox2 const& lonlat_box,
+                       bool calc_shift,
+                       vw::Vector3 & shift,
+                       vw::cartography::GeoReference const& geo,
+                       bool verbose, DoubleMatrix & data){
+
+  data.conservativeResize(DIM+1, num_points_to_load);
 
   vw::cartography::GeoReference las_georef;
-  bool has_georef = asp::georef_from_las(file_name, las_georef);
+  bool has_georef = georef_from_las(file_name, las_georef);
   if (!has_georef)
     vw_throw(vw::ArgumentErr() << "LAS: " << file_name
                                << " does not have a georeference.\n");
@@ -670,7 +87,7 @@ vw::int64 load_las_aux(bool verbose,
   liblas::Reader reader = f.CreateWithStream(ifs);
 
   // We will randomly pick or not a point with probability load_ratio
-  vw::int64 num_total_points = asp::las_file_size(file_name);
+  vw::int64 num_total_points = las_file_size(file_name);
   double load_ratio
     = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
 
@@ -712,8 +129,8 @@ vw::int64 load_las_aux(bool verbose,
     }
 
     for (int row = 0; row < DIM; row++)
-      data.features(row, points_count) = xyz[row] - shift[row];
-    data.features(DIM, points_count) = 1;
+      data(row, points_count) = xyz[row] - shift[row];
+    data(DIM, points_count) = 1;
 
     if (verbose && points_count%spacing == 0) tpc.report_incremental_progress( inc_amount );
 
@@ -722,28 +139,24 @@ vw::int64 load_las_aux(bool verbose,
 
   if (verbose) tpc.report_finished();
 
-  data.features.conservativeResize(Eigen::NoChange, points_count);
+  data.conservativeResize(Eigen::NoChange, points_count);
 
   return num_total_points;
 }
 
-template<typename T>
-void load_pc(bool verbose,
-             std::string const& file_name,
+void load_las(std::string const& file_name,
              int num_points_to_load,
              vw::BBox2 const& lonlat_box,
              bool calc_shift,
              vw::Vector3 & shift,
              vw::cartography::GeoReference const& geo,
-             typename PointMatcher<T>::DataPoints & data
-             ){
+             bool verbose, DoubleMatrix & data){
 
-  vw::int64 num_total_points = load_pc_aux<T>(verbose,
-                                          file_name, num_points_to_load,
+  vw::int64 num_total_points = load_las_aux(file_name, num_points_to_load,
                                           lonlat_box, calc_shift, shift,
-                                          geo, data);
+                                          geo, verbose, data);
 
-  int num_loaded_points = data.features.cols();
+  int num_loaded_points = data.cols();
   if (!lonlat_box.empty()                    &&
       num_loaded_points < num_points_to_load &&
       num_loaded_points < num_total_points){
@@ -753,59 +166,24 @@ void load_pc(bool verbose,
     num_points_to_load = std::max(4*num_points_to_load, 10000000);
     if (verbose)
       vw::vw_out() << "Too few points were loaded. Trying again." << std::endl;
-    load_pc_aux<T>(verbose,
-                   file_name, num_points_to_load, lonlat_box,
-                   calc_shift, shift, geo, data);
+    load_las_aux(file_name, num_points_to_load, lonlat_box,
+		 calc_shift, shift, geo, verbose, data);
   }
 
 }
 
-template<typename T>
-void load_las(bool verbose,
-             std::string const& file_name,
-             int num_points_to_load,
-             vw::BBox2 const& lonlat_box,
-             bool calc_shift,
-             vw::Vector3 & shift,
-             vw::cartography::GeoReference const& geo,
-             typename PointMatcher<T>::DataPoints & data
-             ){
-
-  vw::int64 num_total_points = load_las_aux<T>(verbose,
-                                          file_name, num_points_to_load,
-                                          lonlat_box, calc_shift, shift,
-                                          geo, data);
-
-  int num_loaded_points = data.features.cols();
-  if (!lonlat_box.empty()                    &&
-      num_loaded_points < num_points_to_load &&
-      num_loaded_points < num_total_points){
-
-    // We loaded too few points. Try harder. Need some care here as to not run
-    // out of memory.
-    num_points_to_load = std::max(4*num_points_to_load, 10000000);
-    if (verbose)
-      vw::vw_out() << "Too few points were loaded. Trying again." << std::endl;
-    load_las_aux<T>(verbose,
-                   file_name, num_points_to_load, lonlat_box,
-                   calc_shift, shift, geo, data);
-  }
-
-}
-
-// Load file from disk and convert to libpointmatcher's format
-template<typename T>
-void load_file(std::string const& file_name,
+// Load xyz points from disk into a matrix with 4 columns. Last column is just ones.
+void load_cloud(std::string const& file_name,
                int num_points_to_load,
                vw::BBox2 const& lonlat_box,
                bool calc_shift,
                vw::Vector3 & shift,
                vw::cartography::GeoReference const& geo,
-               asp::CsvConv const& csv_conv,
+               CsvConv const& csv_conv,
                bool   & is_lola_rdr_format,
                double & mean_longitude,
                bool verbose,
-               typename PointMatcher<T>::DataPoints & data){
+               DoubleMatrix & data){
 
   if (verbose)
     vw::vw_out() << "Reading: " << file_name << std::endl;
@@ -814,39 +192,58 @@ void load_file(std::string const& file_name,
   // longitude is available.
   mean_longitude = 0.0;
 
-  std::string file_type = get_file_type(file_name);
+  std::string file_type = get_cloud_type(file_name);
   if (file_type == "DEM")
-    load_dem<T>(verbose,
-                file_name, num_points_to_load, lonlat_box,
-                calc_shift, shift, data);
+    load_dem(file_name, num_points_to_load, lonlat_box,
+	     calc_shift, shift, verbose, data);
   else if (file_type == "PC")
-    load_pc<T>(verbose,
-               file_name, num_points_to_load, lonlat_box, calc_shift, shift,
-               geo, data);
+    load_pc(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
+	    geo, verbose, data);
   else if (file_type == "LAS")
-    load_las<T>(verbose,
-                file_name, num_points_to_load, lonlat_box, calc_shift, shift,
-                geo, data);
+    load_las(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
+	     geo, verbose, data);
   else if (file_type == "CSV"){
     bool verbose = true;
-    load_csv<T>(file_name, num_points_to_load, lonlat_box, verbose,
+    load_csv(file_name, num_points_to_load, lonlat_box, 
                 calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-                mean_longitude, data
+                mean_longitude, verbose, data
                 );
   }else
     vw_throw( vw::ArgumentErr() << "Unknown file type: " << file_name << "\n" );
 
   if (verbose)
-    vw::vw_out() << "Loaded points: " << data.features.cols() << std::endl;
+    vw::vw_out() << "Loaded points: " << data.cols() << std::endl;
 
 }
 
+// Load xyz points from disk in libpointmatcher's format.
+void load_cloud(std::string const& file_name,
+               int num_points_to_load,
+               vw::BBox2 const& lonlat_box,
+               bool calc_shift,
+               vw::Vector3 & shift,
+               vw::cartography::GeoReference const& geo,
+               CsvConv const& csv_conv,
+               bool   & is_lola_rdr_format,
+               double & mean_longitude,
+               bool verbose,
+               typename PointMatcher<RealT>::DataPoints & data){
+  
+  data.featureLabels = form_labels<RealT>(DIM);
+  PointMatcherSupport::validateFile(file_name);
+
+  load_cloud(file_name, num_points_to_load,  lonlat_box,  calc_shift,  
+	    shift,  geo,  csv_conv,  is_lola_rdr_format,  mean_longitude,  
+	    verbose,  data.features);
+  
+}
+  
 // Calculate the lon-lat bounding box of the points and bias it based
 // on max displacement (which is in meters). This is used to throw
 // away points in the other cloud which are not within this box.
 vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                 int num_sample_pts,
-                                asp::CsvConv const& csv_conv,
+                                CsvConv const& csv_conv,
                                 std::string const& file_name,
                                 double max_disp){
 
@@ -867,10 +264,10 @@ vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   bool is_lola_rdr_format;
   // Load a sample of points, hopefully enough to estimate the box
   // reliably.
-  load_file<RealT>(file_name, num_sample_pts, dummy_box,
-                   calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-                   mean_longitude, verbose, points);
-
+  load_cloud(file_name, num_sample_pts, dummy_box,
+	     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+	     mean_longitude, verbose, points);
+  
   // Bias the xyz points in several directions by max_disp, then
   // convert to lon-lat and grow the box. This is a rough
   // overestimate, but should be good enough.
@@ -903,7 +300,7 @@ void adjust_lonlat_bbox(std::string const& file_name,
   using namespace vw;
 
   // Can only adjust DEM boxes
-  if (get_file_type(file_name) != "DEM")
+  if (get_cloud_type(file_name) != "DEM")
     return;
 
   cartography::GeoReference georef;
@@ -1023,22 +420,20 @@ void calc_max_displacment(DP const& source, DP const& trans_source){
 }
 
 
-namespace asp{
-  /// Apply a transformation matrix to a vw::Vector3 in homogenous coordinates
-  vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 const& P){
-
-    Eigen::VectorXd V(4); // Copy our 3D Vector into a homogenous Eigen Vector
-    V[0] = P[0];
-    V[1] = P[1];
-    V[2] = P[2];
-    V[3] = 1;
-    V = T*V; // Apply the transform to the new vector
-    vw::Vector3 Q; // Copy the transformed Eigen vector back to our 3D vector class
-    Q[0] = V[0];
-    Q[1] = V[1];
-    Q[2] = V[2];
+/// Apply a transformation matrix to a vw::Vector3 in homogenous coordinates
+vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 const& P){
+  
+  Eigen::VectorXd V(4); // Copy our 3D Vector into a homogenous Eigen Vector
+  V[0] = P[0];
+  V[1] = P[1];
+  V[2] = P[2];
+  V[3] = 1;
+  V = T*V; // Apply the transform to the new vector
+  vw::Vector3 Q; // Copy the transformed Eigen vector back to our 3D vector class
+  Q[0] = V[0];
+  Q[1] = V[1];
+  Q[2] = V[2];
     return Q;
-  }
 }
 
 /// Apply a given transform to the point cloud in input file,
@@ -1049,10 +444,10 @@ void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
                             vw::cartography::GeoReference const& geo,
-                            asp::CsvConv const& csv_conv,
+                            CsvConv const& csv_conv,
                             PointMatcher<RealT>::Matrix const& T){
 
-  std::string file_type = get_file_type(input_file);
+  std::string file_type = get_cloud_type(input_file);
 
   std::string output_file;
   if (file_type == "CSV")
@@ -1106,9 +501,9 @@ void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
 
   }else if (file_type == "LAS"){
 
-    vw::int64 num_total_points = asp::las_file_size(input_file);
+    vw::int64 num_total_points = las_file_size(input_file);
     vw::cartography::GeoReference las_georef;
-    bool has_georef = asp::georef_from_las(input_file, las_georef);
+    bool has_georef = georef_from_las(input_file, las_georef);
 
     std::ifstream ifs;
     ifs.open(input_file.c_str(), std::ios::in | std::ios::binary);
@@ -1134,7 +529,7 @@ void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
         vw::Vector2 ll = las_georef.point_to_lonlat(subvector(P, 0, 2));
         P = las_georef.datum().geodetic_to_cartesian(vw::Vector3(ll[0], ll[1], P[2]));
       }
-      P = asp::apply_transform(T, P);
+      P = apply_transform(T, P);
       if (has_georef){
         // Go from xyz to projected space
         vw::Vector3 llh = las_georef.datum().cartesian_to_geodetic(P);
@@ -1163,10 +558,10 @@ void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
     bool        is_lola_rdr_format;
     double      mean_longitude;
     DP          point_cloud;
-    load_csv<RealT>(input_file, std::numeric_limits<int>::max(),
-                    empty_box, verbose, calc_shift, shift,
-                    geo, csv_conv, is_lola_rdr_format,
-                    mean_longitude, point_cloud);
+    load_cloud(input_file, std::numeric_limits<int>::max(),
+	       empty_box, calc_shift, shift,
+	       geo, csv_conv, is_lola_rdr_format,
+	       mean_longitude, verbose, point_cloud);
 
     std::ofstream outfile( output_file.c_str() );
     outfile.precision(16);
@@ -1281,4 +676,6 @@ bool interp_dem_height(vw::ImageViewRef< vw::PixelMask<float> > const& dem,
 
   dem_height = v.child();
   return true;
+}
+
 }

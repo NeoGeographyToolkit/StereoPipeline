@@ -1096,3 +1096,29 @@ double asp::find_avg_lon(ImageViewRef<Vector3> const& point_image){
 
   return avg_lon;
 }
+
+
+/// Analyze a file name to determine the file type
+std::string asp::get_cloud_type(std::string const& file_name){
+
+  if (asp::is_csv(file_name))
+    return "CSV";
+  if (asp::is_las(file_name))
+    return "LAS";
+
+  // Note that any tif, ntf, and cub file with one channel with georeference be
+  // interpreted as a DEM.
+  int nc = vw::get_num_channels(file_name);
+
+  vw::cartography::GeoReference geo;
+  bool has_georef = vw::cartography::read_georeference(geo, file_name);
+
+  if (nc == 1 && has_georef)
+    return "DEM";
+  if (nc >= 3)
+    return "PC";
+  vw_throw(vw::ArgumentErr() << "File: " << file_name
+                         << " is neither a point cloud nor a DEM.\n");
+}
+
+

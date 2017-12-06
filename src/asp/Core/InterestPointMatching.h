@@ -35,7 +35,6 @@
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
 
-
 // TODO: This function should live somewhere else!  It was pulled from vw->tools->ipmatch.cc
 template <typename Image1T, typename Image2T>
 void write_match_image(std::string const& out_file_name,
@@ -958,6 +957,13 @@ namespace asp {
                                              vw::ImageView<float> const& image2,
                                              int ip_per_tile,
                                              double nodata1, double nodata2);
+
+  /// The unwarped disparity file name.
+  /// We put it here because this file knows about vw::ip. That is why it should not
+  /// in Common.h which should not know so much.
+  std::string unwarped_disp_file(std::string const& prefix, std::string const& left_image,
+                                 std::string const& right_image);
+  
   
 } // End namespace asp
 

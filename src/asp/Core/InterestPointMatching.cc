@@ -816,5 +816,18 @@ namespace asp {
     return T;
 
   }
-  
+
+  /// The unwarped disparity file name
+  std::string unwarped_disp_file(std::string const& prefix, std::string const& left_image,
+                                      std::string const& right_image){
+    
+    std::string match_file = vw::ip::match_filename(prefix, left_image, right_image);
+
+    std::string disp_file = boost::filesystem::path(match_file).replace_extension("").string();
+    if (!disp_file.empty())
+      disp_file.resize(disp_file.size()-1); // wipe the dot
+    
+    return disp_file + "-unaligned-D.tif";
+  }
+
 }

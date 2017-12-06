@@ -112,8 +112,18 @@ int main(int argc, char** argv) {
     vector<ASPGlobalOptions> opt_vec;
     string output_prefix;
     std::vector<std::string> images;
+
+    // First try to parse a regular stereo command
     try {
 
+      // If we found a match file, go right to displaying images 
+      for (int it = 1; it < argc; it++) {
+        if (get_extension(argv[it]) == ".match") {
+          // This error will be quiet
+          vw_throw(ArgumentErr() << "Found an unexpected match file.\n");
+        }
+      }
+      
       // For some reason, there is a crash with ISIS sometimes if
       // going through the full flow of parsing arguments. ISIS and Qt
       // mis-communicate.  Stop before loading any cameras. This
@@ -148,9 +158,14 @@ int main(int argc, char** argv) {
 	    is_image = true;
     	  }catch(std::exception & e){
             if (!image.empty() && image[0] != '-') {
-              if (asp::has_shp_extension(image)) {
+              if (get_extension(image) == ".match") {
+                // See if this is a match file
+                stereo_settings().match_file = image;
+                is_image = false;
+              }else if (asp::has_shp_extension(image)) {
+                // See if this is a shape file
 		vw_out() << "Reading shapefile: " << image << std::endl;
-		is_image = true;
+		is_image = true; // will load it in the same struct as for images
 	      }else{
 		vw_out() << "Not a valid image: " << image << ".\n";
 		if (!fs::exists(image)) {

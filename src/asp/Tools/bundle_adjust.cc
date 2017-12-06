@@ -28,7 +28,7 @@
 #include <asp/Tools/bundle_adjust.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <xercesc/util/PlatformUtils.hpp>
-
+#include <asp/Core/EigenUtils.h>
 
 // Turn off warnings from eigen
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -67,6 +67,9 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 int g_ba_num_errors = 0;
 Mutex g_ba_mutex;
+
+// TODO: Pas this properly
+double g_max_disp_error = -1;
 
 typedef PixelMask< Vector<float, 2> > DispPixelT;
 
@@ -261,10 +264,10 @@ struct Options : public vw::cartography::GdalWriteOptions {
   bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics,
          disable_tri_filtering, ip_normalize_tiles, ip_debug_images;
   std::string datum_str, camera_position_file, initial_transform_file,
-    csv_format_str, csv_proj4_str, lidar_file, disparity_list, intrinsics_to_float_str,
+    csv_format_str, csv_proj4_str, reference_terrain, disparity_list, intrinsics_to_float_str,
     heights_from_dem;
   double semi_major, semi_minor, position_filter_dist;
-  int num_ba_passes;
+  int num_ba_passes, max_num_reference_points;
   std::string remove_outliers_params_str;
   vw::Vector<double, 4> remove_outliers_params;
 
@@ -273,7 +276,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   cartography::Datum datum;
   int    ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
-  double ip_inlier_factor, ip_uniqueness_thresh, nodata_value;
+  double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error;
   bool   skip_rough_homography, individually_normalize, use_llh_error;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
   vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
@@ -290,7 +293,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              max_iterations(0), overlap_limit(0), save_iteration(false),
              local_pinhole_input(false), fix_gcp_xyz(false), solve_intrinsics(false),
              semi_major(0), semi_minor(0), position_filter_dist(-1),
-             num_ba_passes(1),
+             num_ba_passes(1), max_num_reference_points(-1),
              datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                                       "Reference Meridian", 1, 1, 0)),
              ip_detect_method(0), num_scales(-1), skip_rough_homography(false),
@@ -619,18 +622,19 @@ struct BaPinholeError {
   size_t m_icam, m_ipt;
 };
 
-/// A ceres cost function. Here we float two pinhole camera's intrinsic
-/// and extrinsic parameters. We take as input a lidar point and a disparity
-/// from left to right image. The error metric is the following:
-/// The lidar point is projected in the left image. It is mapped via
-/// the disparity to the right image. There, the residual error
-/// is the difference between that pixel and the pixel obtained by
-/// projecting the lidar point straight into the right image. 
-struct BaDispLidarError {
-  BaDispLidarError(Vector3 const& lidar_point,
+/// A ceres cost function. Here we float two pinhole camera's
+/// intrinsic and extrinsic parameters. We take as input a reference
+/// xyz point and a disparity from left to right image. The
+/// error metric is the following: The reference xyz point is projected in the
+/// left image. It is mapped via the disparity to the right
+/// image. There, the residual error is the difference between that
+/// pixel and the pixel obtained by projecting the xyz point
+/// straight into the right image.
+struct BaDispXyzError {
+  BaDispXyzError(Vector3 const& reference_xyz,
                    ImageViewRef<DispPixelT> const& interp_disp, 
                    BAPinholeModel const& ba_model, size_t left_icam, size_t right_icam):
-    m_lidar_point(lidar_point),
+    m_reference_xyz(reference_xyz),
     m_interp_disp(interp_disp),
     m_ba_model(ba_model),
     m_left_icam(left_icam), m_right_icam(right_icam){}
@@ -663,11 +667,11 @@ struct BaDispLidarError {
                                               scaled_distortion_intrinsics,
                                               right_cam_intr_vec);
       
-      VW_ASSERT(m_lidar_point.size() == point_vec.size(), ArgumentErr()
+      VW_ASSERT(m_reference_xyz.size() == point_vec.size(), ArgumentErr()
                 << "Inconsistency in point size.");
             
       for (size_t p = 0; p < point_vec.size(); p++)
-        point_vec[p] = m_lidar_point[p];
+        point_vec[p] = m_reference_xyz[p];
 
       // Original intrinsics
       BAPinholeModel::intrinsic_vector_t orig_intrinsics = m_ba_model.get_intrinsics();
@@ -714,15 +718,15 @@ struct BaDispLidarError {
       // function will take care of big residuals graciously.
       if (!good_ans) {
 	// Failed to find the residuals
-	residuals[0] = 10;
-	residuals[1] = 10;
+	residuals[0] = g_max_disp_error;
+	residuals[1] = g_max_disp_error;
 	return true;
       }
 
     } catch (const camera::PointToPixelErr& e) {
       // Failed to project into the camera
-      residuals[0] = 10;
-      residuals[1] = 10;
+      residuals[0] = g_max_disp_error;
+      residuals[1] = g_max_disp_error;
       return true;
     }
     return true;
@@ -761,7 +765,7 @@ struct BaDispLidarError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(Vector3 const& lidar_point,
+  static ceres::CostFunction* Create(Vector3 const& reference_xyz,
 				     ImageViewRef<DispPixelT> const& interp_disp,
                                      BAPinholeModel const& ba_model,
                                      size_t left_icam,
@@ -782,34 +786,34 @@ struct BaDispLidarError {
     
     switch (num_intrinsics) {
     case 0: // This case is different, it does not set an intrinsic size.
-      return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+      return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
       // All of the other cases hard code the intrinsic length.
     case 1:
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for 1 intrinsic param!");
     case 2:
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for 2 intrinsic params!");
-    case 3: return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam))); // no distortion
-    case 4:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 1>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 5:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 2>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 6:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 3>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 7:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 4>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 8:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 5>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 9:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 6>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 10:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 7>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 11:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 8>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 12:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 9>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 13:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 10>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 14:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 11>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 15:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 12>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 16:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 13>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 17:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 14>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 18:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 15>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 19:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 16>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
-    case 20:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 17>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case 3: return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam))); // no distortion
+    case 4:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 1>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 5:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 2>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 6:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 3>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 7:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 4>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 8:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 5>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 9:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 6>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 10:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 7>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 11:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 8>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 12:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 9>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 13:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 10>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 14:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 11>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 15:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 12>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 16:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 13>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 17:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 14>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 18:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 15>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 19:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 16>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    case 20:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 17>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
 
-    case vw::camera::RPCLensDistortion::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion::num_distortion_params>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case vw::camera::RPCLensDistortion::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion::num_distortion_params>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
 
-    case vw::camera::RPCLensDistortion5::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispLidarError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion5::num_distortion_params>(new BaDispLidarError(lidar_point, interp_disp, ba_model, left_icam, right_icam)));
+    case vw::camera::RPCLensDistortion5::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion5::num_distortion_params>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
       
     default:
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
@@ -817,17 +821,17 @@ struct BaDispLidarError {
     return 0;
   } // End function Create
 
-  Vector3 m_lidar_point;
+  Vector3 m_reference_xyz;
   ImageViewRef<DispPixelT> const& m_interp_disp;
   BAPinholeModel const& m_ba_model;
   size_t m_left_icam, m_right_icam;
   
 };
 
-// Add residual block for the error using lidar
+// Add residual block for the error using reference xyz
 // This one does nothing, as the functionality is implemented only for pinhole models
 template<class ModelT>
-void add_residual_block(Vector3 const& lidar_point,
+void add_residual_block(Vector3 const& reference_xyz,
                         ImageViewRef<DispPixelT> const& interp_disp, 
                         ModelT & ba_model,
                         size_t left_icam, size_t right_icam,
@@ -838,9 +842,9 @@ void add_residual_block(Vector3 const& lidar_point,
                         ceres::Problem & problem){
 }
 
-// Add residual block for the error using lidar for pinhole
+// Add residual block for the error using reference xyz for pinhole
 template<>
-void add_residual_block<BAPinholeModel>(Vector3 const& lidar_point,
+void add_residual_block<BAPinholeModel>(Vector3 const& reference_xyz,
                                         ImageViewRef<DispPixelT> const& interp_disp, 
                                         BAPinholeModel & ba_model,
                                         size_t left_icam, size_t right_icam,
@@ -851,7 +855,7 @@ void add_residual_block<BAPinholeModel>(Vector3 const& lidar_point,
                                         ceres::Problem & problem){
 
   ceres::CostFunction* cost_function =
-    BaDispLidarError::Create(lidar_point, interp_disp, ba_model, left_icam, right_icam);
+    BaDispXyzError::Create(reference_xyz, interp_disp, ba_model, left_icam, right_icam);
 
     // If the intrinsics are constant, do not even include them in the optimization
   if (ba_model.are_intrinsics_constant()) {
@@ -1278,7 +1282,7 @@ void compute_residuals(bool apply_loss_function,
 		       size_t num_camera_params, size_t num_point_params,
 		       std::vector<size_t> const& cam_residual_counts,
 		       size_t num_gcp_residuals, 
-                       std::vector<vw::Vector3> const& lidar_points,
+                       std::vector<vw::Vector3> const& reference_vec,
 		       CameraRelationNetwork<JFeature> & crn,
 		       ceres::Problem &problem,
 		       std::vector<double> & residuals // output
@@ -1301,7 +1305,7 @@ void compute_residuals(bool apply_loss_function,
     num_expected_residuals += num_cameras*num_camera_params;
   if (opt.rotation_weight > 0 || opt.translation_weight > 0)
     num_expected_residuals += num_cameras*num_camera_params;
-  num_expected_residuals += lidar_points.size() * PIXEL_SIZE;
+  num_expected_residuals += reference_vec.size() * PIXEL_SIZE;
   
   if (num_expected_residuals != num_residuals)
     vw_throw( LogicErr() << "Expected " << num_expected_residuals
@@ -1316,7 +1320,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 			 size_t num_camera_params, size_t num_point_params,
 			 std::vector<size_t> const& cam_residual_counts,
 			 size_t num_gcp_residuals, 
-                         std::vector<vw::Vector3> const& lidar_points,
+                         std::vector<vw::Vector3> const& reference_vec,
 			 CameraRelationNetwork<JFeature> & crn,
 			 const double *points, const size_t num_points,
 			 std::set<int>  const& outlier_xyz,
@@ -1324,7 +1328,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   
   std::vector<double> residuals;
   compute_residuals(apply_loss_function, opt, num_cameras, num_camera_params, num_point_params,  
-		    cam_residual_counts,  num_gcp_residuals, lidar_points, crn, problem,  
+		    cam_residual_counts,  num_gcp_residuals, reference_vec, crn, problem,  
 		    residuals // output
 		    );
     
@@ -1334,11 +1338,11 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   const std::string residual_raw_pixels_path = residual_prefix + "_raw_pixels.txt";
   const std::string residual_raw_gcp_path    = residual_prefix + "_raw_gcp.txt";
   const std::string residual_raw_cams_path   = residual_prefix + "_raw_cameras.txt";
-  const std::string residual_lidar_path      = residual_prefix + "_lidar.txt";
+  const std::string residual_reference_xyz_path      = residual_prefix + "_reference_terrain.txt";
 
   // Write a report on residual errors
   std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp,
-    residual_file_raw_cams, residual_file_lidar;
+    residual_file_raw_cams, residual_file_reference_xyz;
   vw_out() << "Writing: " << residual_path << std::endl;
   vw_out() << "Writing: " << residual_raw_pixels_path << std::endl;
   vw_out() << "Writing: " << residual_raw_gcp_path << std::endl;
@@ -1348,9 +1352,9 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   residual_file_raw_pixels.open(residual_raw_pixels_path.c_str()); residual_file_raw_pixels.precision(18);
   residual_file_raw_cams.open(residual_raw_cams_path.c_str()); residual_file_raw_cams.precision(18);
 
-  if (lidar_points.size() > 0) {
-    vw_out() << "Writing: " << residual_lidar_path << std::endl;
-    residual_file_lidar.open(residual_lidar_path.c_str()); residual_file_lidar.precision(18);
+  if (reference_vec.size() > 0) {
+    vw_out() << "Writing: " << residual_reference_xyz_path << std::endl;
+    residual_file_reference_xyz.open(residual_reference_xyz_path.c_str()); residual_file_reference_xyz.precision(18);
   }
   
   size_t index = 0;
@@ -1427,19 +1431,19 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   residual_file_raw_cams.close();
   residual_file.close();
 
-  if (lidar_points.size() > 0) {
-    residual_file << "Lidar residual errors:\n";
-    residual_file_lidar << "# lon, lat, height_above_datum, pixel_error_norm\n";
-    for (size_t i = 0; i < lidar_points.size(); ++i) {
+  if (reference_vec.size() > 0) {
+    residual_file << "reference terrain residual errors:\n";
+    residual_file_reference_xyz << "# lon, lat, height_above_datum, pixel_error_norm\n";
+    for (size_t i = 0; i < reference_vec.size(); ++i) {
 
-      Vector3 llh = opt.datum.cartesian_to_geodetic(lidar_points[i]);
+      Vector3 llh = opt.datum.cartesian_to_geodetic(reference_vec[i]);
       double err = norm_2(Vector2(residuals[index], residuals[index + 1]));
       index += PIXEL_SIZE;
-      residual_file_lidar << llh[0] << ", " << llh[1] << ", " << llh[2] << ", " << err << "\n";
+      residual_file_reference_xyz << llh[0] << ", " << llh[1] << ", " << llh[2] << ", " << err << "\n";
       residual_file << i << ", " << err << "\n";
       
     }
-    residual_file_lidar.close();
+    residual_file_reference_xyz.close();
   }
   
   if (index != num_residuals)
@@ -1462,7 +1466,7 @@ int update_outliers(ControlNetwork                  & cnet,
                     size_t num_camera_params, size_t num_point_params,
                     std::vector<size_t> const& cam_residual_counts,
                     size_t num_gcp_residuals,
-                    std::vector<vw::Vector3> const& lidar_points, 
+                    std::vector<vw::Vector3> const& reference_vec, 
                     ceres::Problem &problem) {
   
   vw_out() << "Removing pixel outliers in preparation for another solver attempt.\n";
@@ -1473,7 +1477,7 @@ int update_outliers(ControlNetwork                  & cnet,
   std::vector<double> residuals;
   compute_residuals(apply_loss_function,  
                     opt, num_cameras, num_camera_params, num_point_params,  cam_residual_counts,  
-                    num_gcp_residuals, lidar_points, crn, problem,
+                    num_gcp_residuals, reference_vec, crn, problem,
                     residuals // output
                    );
 
@@ -1866,7 +1870,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   }
 
   // Add a cost function meant to tie up to known disparity
-  // form left to right image and known ground truth lidar.
+  // form left to right image and known ground truth reference terrain.
   // This was only tested for local pinhole cameras.
   // Disparity must be created with stereo -e 3 with the
   // options --enable-fill-holes --unalign-disparity.
@@ -1875,31 +1879,67 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   // The doc has more info in the bundle_adjust chapter.
   std::vector< ImageView<DispPixelT> > disp_vec;
   std::vector< ImageViewRef<DispPixelT> > interp_disp; 
-  std::vector<vw::Vector3> lidar_points;
-  if (opt.local_pinhole_input && opt.lidar_file != "") {
+  std::vector<vw::Vector3> reference_vec;
+  if (opt.local_pinhole_input && opt.reference_terrain != "") {
 
-    if (opt.csv_format_str == "") 
-      vw_throw( ArgumentErr() << "When using a lidar file, must specify the csv-format.\n");
-    if (opt.datum_str == "")
-      vw_throw( ArgumentErr() << "When using a lidar file, must specify the datum.\n");
-    if (opt.disparity_list == "") 
-      vw_throw( ArgumentErr() << "When using a lidar file, must specify a list of disparities.\n");
-    if (num_cameras%2 != 0) 
-      vw_throw( ArgumentErr() << "A lidar file can only be used with an even number of cameras.\n");
+    std::string file_type = asp::get_cloud_type(opt.reference_terrain);
+
+    if (file_type == "CSV" && opt.csv_format_str == "") 
+      vw_throw( ArgumentErr() << "When using a csv reference terrain, "
+                << "must specify the csv-format.\n");
     
-    // Read the input csv file
-    asp::CsvConv conv;
-    conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
-    std::list<asp::CsvConv::CsvRecord> pos_records;
-    typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
-    vw_out() << "Reading: " << opt.lidar_file << std::endl;
-    conv.read_csv_file(opt.lidar_file, pos_records);
+    if (opt.datum_str == "")
+      vw_throw( ArgumentErr() << "When using a reference terrain, must specify the datum.\n");
+    if (opt.disparity_list == "") 
+      vw_throw( ArgumentErr() << "When using a reference terrain, must specify a list "
+                << "of disparities.\n");
+    if (num_cameras%2 != 0) 
+      vw_throw( ArgumentErr() << "A reference terrain can only be used with an even number "
+                << "of cameras.\n");
+    if (opt.max_disp_error <= 0) 
+      vw_throw( ArgumentErr() << "Must specify --max-disp-error in pixels as a positive value.\n");
+
+    g_max_disp_error = opt.max_disp_error;
     
     // Set up a GeoReference object using the datum
     vw::cartography::GeoReference geo;
     geo.set_datum(opt.datum); // We checked for a datum earlier
+
+    asp::CsvConv csv_conv;
+    csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
+
     // Use user's csv_proj4 string, if provided, to add info to the georef.
-    conv.parse_georef(geo);
+    csv_conv.parse_georef(geo);
+
+    vw::BBox2 lonlat_box; // not used
+    bool calc_shift = false;
+    Vector3 shift; // must be set to 0
+    bool is_lola_rdr_format;
+    double mean_longitude;
+    bool verbose = true;
+    asp::DoubleMatrix data;
+    
+    // Read the reference terrain
+    vw_out() << "Loading at most " << opt.max_num_reference_points << " points from "
+             << opt.reference_terrain << std::endl;
+    if (file_type == "DEM") 
+      asp::load_dem(opt.reference_terrain,  
+               opt.max_num_reference_points, lonlat_box,  
+               calc_shift, shift, verbose, data);
+      
+    else if (file_type == "CSV")
+      asp::load_csv(opt.reference_terrain,  opt.max_num_reference_points,
+		    lonlat_box, calc_shift, shift, geo,  
+		    csv_conv, is_lola_rdr_format, mean_longitude, verbose,  
+		    data);
+    else
+      vw_throw( ArgumentErr() << "Unsupported file: " << opt.reference_terrain << " of type" <<
+		file_type << ".\n");
+    
+    //std::list<asp::CsvConv::CsvRecord> pos_records;
+    //typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
+    //vw_out() << "Reading: " << opt.reference_terrain << std::endl;
+    //csv_conv.read_csv_file(opt.reference_terrain, pos_records);
     
     // TODO: Disparities can be large, but if small it is better to
     // read them in memory.
@@ -1921,22 +1961,28 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       image_boxes.push_back(bbox);
     }
 
-    vw_out() << "Setting up the error to lidar.\n";
+    vw_out() << "Setting up the error to reference terrain.\n";
     TerminalProgressCallback tpc("", "\t--> ");
     tpc.report_progress(0);
-    double inc_amount = 1.0/double(pos_records.size());
+    int num_cols = data.cols();
+    //double inc_amount = 1.0/double(pos_records.size());
+    double inc_amount = 1.0/double(num_cols);
 				   
-    lidar_points.clear();
-    for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
-      
-      vw::Vector3 lidar_xyz = conv.csv_to_cartesian(*iter, geo);
+    reference_vec.clear();
+    //for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
+    for (int data_col = 0; data_col < num_cols; data_col++) {
+
+      //vw::Vector3 reference_xyz = csv_conv.csv_to_cartesian(*iter, geo);
+      vw::Vector3 reference_xyz;
+      for (int row = 0; row < asp::DIM; row++)
+        reference_xyz[row] = data(row, data_col);
 
       // Filter by lonlat box if provided, this is very much recommended
-      // to quickly discard most points in the huge lidar file.
+      // to quickly discard most points in the huge reference terrain.
       // Let's hope there is no 360 degree offset when computing
       // the longitude. 
       if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
-	vw::Vector3 llh = geo.datum().cartesian_to_geodetic(lidar_xyz);
+	vw::Vector3 llh = geo.datum().cartesian_to_geodetic(reference_xyz);
 	vw::Vector2 ll = subvector(llh, 0, 2);
 	if (!asp::stereo_settings().lon_lat_limit.contains(ll)) {
 	  continue;
@@ -1946,7 +1992,8 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       bool good_point = true;
       Vector2 left_pred;
 
-      // Iterate over the cameras, add a residual for each point and each camera pair
+      // Iterate over the cameras, add a residual for each point and each camera pair.
+      // Camera 0 is paired with camera 1, camera 2 with camera 3, etc. 
       for ( int icam = 0; icam < num_cameras; icam++ ) {
 
         if (icam%2 == 0) {
@@ -1958,14 +2005,14 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
           
         // Get pointers to the camera and point coordinates
         double * camera = cameras + icam * num_camera_params;
-        double * point  = &lidar_xyz[0];
+        double * point  = &reference_xyz[0];
 
         // Project the current point into the current camera
         typename ModelT::camera_intr_vector_t cam_intr_vec;
         typename ModelT::point_vector_t       point_vec;
         ba_model.concat_extrinsics_intrinsics(camera, intrinsics, cam_intr_vec);
         for (size_t p = 0; p < point_vec.size(); p++) point_vec[p] = point[p];
-        Vector2 prediction;
+        Vector2 prediction, right_pred;
         try {
           prediction = ba_model.cam_pixel(0, icam, cam_intr_vec, point_vec);
         }catch(std::exception const& e){
@@ -1987,7 +2034,9 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
 
 	if (icam%2 != 1)
 	  vw_throw(ArgumentErr() << "Expecting an odd camera here.\n");
-	
+
+        right_pred = prediction;
+        
         // Check for out of range, etc
 	if (!good_point) continue;
         if (left_pred != left_pred) continue; // nan check
@@ -2000,13 +2049,18 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
         Vector2 right_pix = left_pred + dispPix.child();
         if (!image_boxes[icam].contains(right_pix)) 
           continue;
-	
-	lidar_points.push_back(lidar_xyz);
+
+        if (right_pred != right_pred || norm_2(right_pix - right_pred) > opt.max_disp_error) {
+          // Ignore pixels which are too far from where they should be before optimization
+          continue;
+        }
+        
+	reference_vec.push_back(reference_xyz);
 
         ceres::LossFunction* loss_function = get_loss_function(opt);
         
         // Call function to select the appropriate Ceres residual block to add.
-        add_residual_block(lidar_xyz, interp_disp[icam/2], ba_model,
+        add_residual_block(reference_xyz, interp_disp[icam/2], ba_model,
                            icam-1, icam, // left icam and right icam
                            cameras + (icam-1) * num_camera_params, // left cam
                            cameras + icam * num_camera_params, // right cam
@@ -2018,7 +2072,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     }
     
     tpc.report_finished();
-    vw_out() << "Found " << lidar_points.size() << " lidar points in range.\n";
+    vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
   }
   
   const size_t MIN_KML_POINTS = 20;  
@@ -2037,11 +2091,11 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
 
     write_residual_logs(residual_prefix, true,  opt, num_cameras, num_camera_params,
                         num_point_params, cam_residual_counts, num_gcp_residuals,
-                        lidar_points, crn, points, num_points, outlier_xyz, problem);
+                        reference_vec, crn, points, num_points, outlier_xyz, problem);
     residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
     write_residual_logs(residual_prefix, false, opt, num_cameras, num_camera_params,
                         num_point_params, cam_residual_counts, num_gcp_residuals,
-                        lidar_points, crn, points, num_points, outlier_xyz, problem);
+                        reference_vec, crn, points, num_points, outlier_xyz, problem);
 
 
       
@@ -2107,12 +2161,12 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
   write_residual_logs(residual_prefix, true,  opt, num_cameras, num_camera_params,
                       num_point_params, cam_residual_counts,
-                      num_gcp_residuals, lidar_points, crn,
+                      num_gcp_residuals, reference_vec, crn,
                       points, num_points, outlier_xyz, problem);
   residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
   write_residual_logs(residual_prefix, false, opt, num_cameras, num_camera_params,
                       num_point_params, cam_residual_counts,
-                      num_gcp_residuals, lidar_points, crn,
+                      num_gcp_residuals, reference_vec, crn,
                       points, num_points, outlier_xyz, problem);
 
   point_kml_path = opt.out_prefix + "-final_points.kml";
@@ -2149,7 +2203,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       update_outliers(cnet, crn, points, num_points,
                       outlier_xyz,   // in-out
                       opt, num_cameras, num_camera_params, num_point_params, cam_residual_counts,  
-                      num_gcp_residuals, lidar_points, problem);
+                      num_gcp_residuals, reference_vec, problem);
 
   // Create a match file with clean points.
   // TODO: Make this a function.
@@ -3131,10 +3185,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("csv-format",       po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",        po::value(&opt.csv_proj4_str)->default_value(""),
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
-    ("lidar-file",        po::value(&opt.lidar_file)->default_value(""),
-                                 "The lidar file to use when optimizing the intrinsics.")
+    ("reference-terrain",        po::value(&opt.reference_terrain)->default_value(""),
+     "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file very close to the 3D data obtained from the given images and cameras that can be used instead of GCP to optimize the intrinsics of the cameras.")
+    ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
+     "Maximum number of (randomly picked) points from the reference terrain to use.")
     ("disparity-list",        po::value(&opt.disparity_list)->default_value(""),
                                  "The disparity files, one for each camera pair to use when optimizing the intrinsics. Specify them as a list in quotes. First file is for the first two cameras, etc.")
+    ("max-disp-error",             po::value(&opt.max_disp_error)->default_value(-1),
+     "When using a reference terrain as an external control, ignore as outliers xyz which projected in the left image and transported by disparity to the right image, differ by the projection of xyz in the right image by more than this value in pixels.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
                          "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
@@ -3266,7 +3324,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if (opt.overlap_list_file != "") {
     if (!fs::exists(opt.overlap_list_file))
-      vw_throw( ArgumentErr() << "The overlap list does not exist.\n" << usage << general_options );
+      vw_throw( ArgumentErr() << "The overlap list does not exist.\n" << usage
+		<< general_options );
     opt.overlap_list.clear();
     std::string image1, image2;
     std::ifstream ifs(opt.overlap_list_file.c_str());
@@ -3330,7 +3389,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
   
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
-    vw_throw( ArgumentErr() << "When using a camera position file, the csv-format option must be set.\n"
+    vw_throw( ArgumentErr() << "When using a camera position file, the csv-format "
+	      << "option must be set.\n"
 	      << usage << general_options );
   
   // Try to infer the datum, if possible, from the images. For
@@ -3519,7 +3579,8 @@ int main(int argc, char* argv[]) {
                (other_pos != Vector3(0,0,0)) && // and they are too far apart
                (norm_2(this_pos - other_pos) > opt.position_filter_dist) ) {
             vw_out() << "Skipping position: " << this_pos << " and "
-                     << other_pos << " with distance " << norm_2(this_pos - other_pos) << std::endl;
+                     << other_pos << " with distance " << norm_2(this_pos - other_pos)
+		     << std::endl;
             continue; // Skip this image pair
           }
         } // End estimated camera position filtering
@@ -3706,7 +3767,9 @@ int main(int argc, char* argv[]) {
         //   ba_model.get_camera_model(icam).pixel_to_vector(Vector2(100, 100)) << std::endl;
 
       }
-      ba_model.write_camera_models(cam_files);
+
+      bool has_datum = (opt.datum.name() != UNSPECIFIED_DATUM);
+      ba_model.write_camera_models(cam_files, has_datum, opt.datum);
 
       //double error=0;
       //stereo::StereoModel sm(ba_model.get_camera_model(0), ba_model.get_camera_model(1));
