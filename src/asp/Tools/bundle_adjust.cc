@@ -1936,11 +1936,6 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       vw_throw( ArgumentErr() << "Unsupported file: " << opt.reference_terrain << " of type" <<
 		file_type << ".\n");
     
-    //std::list<asp::CsvConv::CsvRecord> pos_records;
-    //typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
-    //vw_out() << "Reading: " << opt.reference_terrain << std::endl;
-    //csv_conv.read_csv_file(opt.reference_terrain, pos_records);
-    
     // TODO: Disparities can be large, but if small it is better to
     // read them in memory.
     std::istringstream is(opt.disparity_list);
@@ -1969,7 +1964,6 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     double inc_amount = 1.0/double(num_cols);
 				   
     reference_vec.clear();
-    //for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
     for (int data_col = 0; data_col < num_cols; data_col++) {
 
       //vw::Vector3 reference_xyz = csv_conv.csv_to_cartesian(*iter, geo);
