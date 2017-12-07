@@ -1110,7 +1110,7 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     (lidarDict, dummyUrlDict) = readIndexFile(pairedLidarFile, prependFolder = True)
     lidarFilesIn = sorted(lidarDict.values())
     lidarFiles = []
-    
+
     # Verify that all the expected lidar files are there!
     for f in lidarFilesIn:
         print f

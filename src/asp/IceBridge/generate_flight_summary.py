@@ -129,7 +129,6 @@ def getFailureCause(batchFolder):
     errorLogText[FAIL_NO_LIDAR_DEM_OVERLAP] = 'No overlap between lidar DEM and stereo DEM'
     errorLogText[FAIL_TINY_DEM] = 'is less than minumum size'
     errorLogText[FAIL_NO_LIDAR_MATCH] = 'Failed to find matching lidar file for image'
-    
 
     foundError = UNKNOWN
 

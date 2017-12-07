@@ -115,9 +115,9 @@ def main(argsIn):
             if 'HTML' in text:
                 # Sometimes the server is down, and instead of the binary nav file
                 # we are given an html file with an error message.
-                logger.info("Skip invalid file: " + navPath)
-                continue
-            
+                logger.info("Have invalid nav file: " + navPath)
+                return -1 # Die in this case!
+
         cmd = asp_system_utils.which('sbet2txt.pl') + ' -q ' + navPath + ' >> ' + parsedNavPath
         logger.info(cmd)
         if not isNonEmpty:

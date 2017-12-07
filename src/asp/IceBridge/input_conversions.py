@@ -133,10 +133,10 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate,
         # - Some image orientations are rotated to make stereo processing easier.
         rotateString = ''
         if cameraMounting == 2: # Flight direction towards top of image
-            rotateString = '-rotate 90'
+            rotateString = '-rotate 90 '
         if cameraMounting == 3: # Flight direction towards bottom of image
-            rotateString = '-rotate -90'
-        cmd = ('%s %s -colorspace Gray %s %s') % \
+            rotateString = '-rotate -90 '
+        cmd = ('%s %s -colorspace Gray %s%s') % \
               (asp_system_utils.which('convert'), inputPath, rotateString, outputPath)
         logger.info(cmd)
 

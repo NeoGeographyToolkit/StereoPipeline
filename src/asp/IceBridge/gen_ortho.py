@@ -62,7 +62,68 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath      + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
-def runOrtho(frame, processFolder, imageFile, bundleLength,
+
+def createRotatedCameraFile(cameraIn, cameraOut, cameraMounting):
+    '''Create a copy of the input camera model which accounts for a 90 degree
+       rotation of the corresponding image.'''
+
+    # Usually the input camera file is fine
+    if cameraMounting < 2:
+        cameraOut = cameraIn
+        return
+
+    # Read in the camera file
+    cameraLinesIn  = []
+    cameraLinesOut = []
+    with open(cameraIn, 'r') as f:
+        for line in f:
+            cameraLinesIn.append(line.strip())
+    cameraLinesOut.append(cameraLinesIn[0]) # VERSION
+    cameraLinesOut.append(cameraLinesIn[2].replace('v','u')) # fu = fv
+    cameraLinesOut.append(cameraLinesIn[1].replace('u','v')) # fv = fu
+    cameraLinesOut.append(cameraLinesIn[4].replace('v','u')) # cu = cv
+    cameraLinesOut.append(cameraLinesIn[3].replace('u','v')) # cv = cu
+    cameraLinesOut.append(cameraLinesIn[5]) # u_direction
+    cameraLinesOut.append(cameraLinesIn[6]) # v_direction
+    cameraLinesOut.append(cameraLinesIn[7]) # w_direction
+    cameraLinesOut.append(cameraLinesIn[8]) # C
+    cameraLinesOut.append('dummy') # R
+    R = [float(x) for x in cameraLinesIn[9].strip().split()[2:]]
+    cameraLinesOut.append(cameraLinesIn[10]) # pitch
+    cameraLinesOut.append(cameraLinesIn[11]) # distortion type
+    cameraLinesOut.append(cameraLinesIn[13].replace('y','x')) # xy = yp
+    cameraLinesOut.append(cameraLinesIn[12].replace('x','y')) # yp = xp
+    for i in range(14,len(cameraLinesIn)):
+        cameraLinesOut.append(cameraLinesIn[i]) # copy the remaining values (k, p, b) unchanged.
+
+    rNew = R[:]
+    
+    if cameraMounting == 2: # Rotate the camera 90 degrees clockwise
+        # x = y, y = -x
+        rNew[0] = R[1] # x = y
+        rNew[3] = R[4]
+        rNew[6] = R[7]
+        rNew[1] = -1.0*R[0] # y = -x
+        rNew[4] = -1.0*R[3]
+        rNew[7] = -1.0*R[6]
+    
+    if cameraMounting == 3: # Rotate the camera 90 degrees counter-clockwise.
+        rNew[0] = -1.0*R[1] # x = -y
+        rNew[3] = -1.0*R[4]
+        rNew[6] = -1.0*R[7]
+        rNew[1] = R[0] # y = x
+        rNew[4] = R[3]
+        rNew[7] = R[6]
+
+    cameraLinesOut[9] = 'R = ' + ' '.join([str(x) for x in rNew])
+
+    with open(cameraOut, 'w') as f:
+        for line in cameraLinesOut:
+            f.write(line + '\n')
+
+    return
+
+def runOrtho(frame, processFolder, imageFile, bundleLength, cameraMounting,
              threadText, redo, suppressOutput):
 
     os.system("ulimit -c 0") # disable core dumps
@@ -73,6 +134,7 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
     projBounds = ()
     try:
 
+        # Retrieve the aligned camera file
         alignCamFile, batchFolder = \
                       icebridge_common.frameToFile(frame,
                                                    icebridge_common.alignedBundleStr() + 
@@ -88,7 +150,8 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
         # for skipped frames.
         frameOffsets = [0, 1, -1, 2, -2, -3, 3, -4, 4]
         dems = []
-        for offset in frameOffsets: 
+        for offset in frameOffsets:
+            # Find the DEM file for the desired frame
             demFile, batchFolder = icebridge_common.frameToFile(frame + offset,
                                                                 icebridge_common.blendFileName(),
                                                                 processFolder, bundleLength)
@@ -119,7 +182,7 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
                                                                 processFolder, bundleLength)
 
         # The names for the final results
-        finalOrtho = os.path.join(batchFolder, icebridge_common.orthoFileName())
+        finalOrtho        = os.path.join(batchFolder, icebridge_common.orthoFileName())
         finalOrthoPreview = os.path.join(batchFolder, icebridge_common.orthoPreviewFileName())
         
         if (not redo) and os.path.exists(finalOrtho):
@@ -157,6 +220,7 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
                    % (demList, threadText, projWinStr, mosaicPrefix))
             filesToWipe.append(mosaicOutput) # no longer needed
 
+            # Generate the DEM mosaic
             print(cmd)
             localRedo = True # The file below should not exist unless there was a crash
             asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, localRedo)
@@ -192,13 +256,22 @@ def runOrtho(frame, processFolder, imageFile, bundleLength,
             # There is no need for this file to exist unless it is stray junk
             if os.path.exists(tempOrtho):
                 os.remove(tempOrtho)
-                
+
+            # If needed, generate a temporary camera file to correct a mounting rotation.
+            # - When the camera mount is rotated 90 degrees stereo is run on a corrected version
+            #   but ortho needs to work on the original uncorrected jpeg image.
+            tempCamFile = alignCamFile + '_temp_rot.tsai'
+            createRotatedCameraFile(alignCamFile, tempCamFile, cameraMounting)
+
             # Run mapproject. The grid size is auto-determined.
             cmd = ('mapproject --no-geoheader-info %s %s %s %s %s' 
-                   % (mosaicOutput, imageFile, alignCamFile, tempOrtho, threadText))
+                   % (mosaicOutput, imageFile, tempCamFile, tempOrtho, threadText))
             print(cmd)
             asp_system_utils.executeCommand(cmd, tempOrtho, suppressOutput, redo)
+            # Set temporary files to be cleaned up
             filesToWipe.append(tempOrtho)
+            if tempCamFile != alignCamFile:
+                filesToWipe.append(tempCamFile)
 
             # This makes the images smaller than Rose's by a factor of about 4,
             # even though both types are jpeg compressed. Rose's images filtered
@@ -265,6 +338,9 @@ def main(argsIn):
         parser.add_argument('--stop-frame', dest='stopFrame', type=int,
                           default=icebridge_common.getLargestFrame(),
                           help='Frame to stop on. This frame will also be processed.')
+                          
+        parser.add_argument('--camera-mounting', dest='cameraMounting',  default=0, type=int,
+            help='0=right-forwards, 1=left-forwards, 2=top-forwards, 3=bottom-forwards.')
 
         parser.add_argument("--processing-subfolder",  dest="processingSubfolder", default=None,
                           help="Specify a subfolder name where the processing outputs will go. "+\
@@ -305,7 +381,7 @@ def main(argsIn):
         processFolder = os.path.join(processFolder, options.processingSubfolder)
         logger.info('Reading from processing subfolder: ' + options.processingSubfolder)
 
-    jpegFolder = icebridge_common.getJpegFolder(options.outputFolder)
+    jpegFolder    = icebridge_common.getJpegFolder(options.outputFolder)
     jpegIndexPath = icebridge_common.csvIndexFile(jpegFolder)
     if not os.path.exists(jpegIndexPath):
         raise Exception("Error: Missing jpeg index file: " + jpegIndexPath + ".")
@@ -343,8 +419,8 @@ def main(argsIn):
         # Find the right image
         currImage = jpegFrameDict[frame]
 
-        args = (frame, processFolder, currImage, options.bundleLength, threadText,
-                redo, suppressOutput)
+        args = (frame, processFolder, currImage, options.bundleLength, 
+                options.cameraMounting, threadText, redo, suppressOutput)
 
         # Run things sequentially if only one process, to make it easy to debug
         if options.numProcesses > 1:
