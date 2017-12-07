@@ -550,8 +550,8 @@ def main(argsIn):
                      
             # The output folder is named after the first and last frame in the batch.
             # We count on this convention in blend_dems.py.
-            batchFolderName  = ('batch_%05d_%05d_%d' % (frameNumbers[0], frameNumbers[-1],
-                                                        options.bundleLength))
+            batchFolderName  = icebridge_common.batchFolderName(frameNumbers[0], frameNumbers[-1],
+                                                                options.bundleLength)
             thisOutputFolder = os.path.join(outputFolder, batchFolderName)
 
             if not options.logBatches:

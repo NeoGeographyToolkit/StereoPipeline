@@ -21,6 +21,7 @@
 
 import os, sys, argparse, datetime, time, subprocess, logging, multiprocessing, re, shutil, time
 import os.path as P
+import glob
 
 # The path to the ASP python files and tools
 basepath      = os.path.dirname(os.path.realpath(__file__))  # won't change, unlike syspath
@@ -312,7 +313,7 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
                                                        options.inputCalFolder,
                                                        options.inputCalCamera,
                                                        options.cameraLookupFile,
-													   options.noNavFetch,
+                                                       options.noNavFetch,
                                                        navCameraFolder,
                                                        options.yyyymmdd, options.site, 
                                                        refDemPath, cameraFolder, 
@@ -329,7 +330,7 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
     return -1
     
 def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
-                  fireballFolder, processedFolder, isSouth, referenceDem):
+                  fireballFolder, processedFolder, isSouth, refDemPath):
     
     '''Do all the run processing'''
 
@@ -339,7 +340,7 @@ def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
                        '--num-processes-per-batch %d --reference-dem %s')
                       % (imageFolder, cameraFolder, lidarFolder, processedFolder,
                          options.bundleLength, fireballFolder, orthoFolder, options.numProcesses,
-                         options.numThreads, options.numProcessesPerBatch, referenceDem))
+                         options.numThreads, options.numProcessesPerBatch, refDemPath))
     if isSouth:
         processCommand += ' --south'
     if options.startFrame:
@@ -360,6 +361,223 @@ def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
     args += (options.stereoArgs.strip(),) # Make sure this is properly passed
     process_icebridge_run.main(args)
 
+def solveIntrinsics_Part1(options, jpegFolder, cameraFolder, processedFolder,
+                          navCameraFolder, logger):
+    '''Some preliminary work before solving for intrinsics. Here we
+    look up the default calibration file, and generate an RPC
+    approximation of its distortion model with polynomials of degree
+    4. We will then create cameras and stereo DEMs using this initial
+    camera file with RPC distortion.'''
+
+    # Sanity checks
+    if options.startFrame == icebridge_common.getSmallestFrame() or \
+       options.stopFrame == icebridge_common.getLargestFrame():
+        raise Exception("When solving for intrinsics, must specify a frame range.")
+    if options.bundleLength != 2:
+        raise Exception("When solving for intrinsics, we assume bundle length of 2.")
+    if (options.stopFrame - options.startFrame) % 2 == 0:
+        raise Exception("When solving for intrinsics, must have an even number of frames, " +
+                        " so stopFrame - startFrame must be odd.")
+    if options.processingSubfolder:
+        raise Exception("Processing subfolder not supported when solving for intrinsics.")
+
+    # Generate extra data we will use later to float intrinsics
+    options.stereoArgs += "  --num-matches-from-disp-triplets 10000 --unalign-disparity"
+
+    # Create separate directories for cameras and processed data,
+    # as these will be distinct than what we will finally be
+    # using to do the full run.
+    suff = "_camgen"
+    cameraFolder    += suff
+    navCameraFolder += suff
+    processedFolder += suff
+
+    # Get the input calibration file
+    defaultCalibFile = ""
+    for frame in range(options.startFrame, options.stopFrame+1):
+        currCalibFile = input_conversions.getCalibrationFileForFrame(options.cameraLookupFile,
+                                                                     options.inputCalFolder,
+                                                                     frame, options.yyyymmdd,
+                                                                     options.site)
+        if defaultCalibFile == "":
+            defaultCalibFile = currCalibFile
+
+        if defaultCalibFile != currCalibFile:
+            # This is important, the calibration file must be unique
+            raise Exception("Found two distinct calibration files: " + defaultCalibFile + \
+                            " and " + currCalibFile)
+
+    logger.info("Default calibration file: " + defaultCalibFile)
+    if options.inputCalCamera != "":
+        defaultCalibFile = options.inputCalCamera
+        logger.info("Using instead the user-provided: " + defaultCalibFile)
+
+    # Find the first image in the range
+    jpegIndex  = icebridge_common.csvIndexFile(jpegFolder)
+    (jpegFrameDict, jpegUrlDict)   = icebridge_common.readIndexFile(jpegIndex,
+                                                                    prependFolder = True)
+    if options.startFrame not in jpegFrameDict.keys():
+        raise Exception("Could not find jpeg image for frame: " + options.startFrame)
+    firstImage = jpegFrameDict[options.startFrame]
+
+    # Create the RPC file before optimization
+    rpcCalibFile = os.path.join(processedFolder, os.path.basename(defaultCalibFile))
+    rpcCalibFile = rpcCalibFile.replace(".tsai", "_INIT_RPC.tsai")
+    logger.info("Will approximate camera model " + defaultCalibFile + " with RPC model " +
+                rpcCalibFile)
+    os.system("mkdir -p " + os.path.dirname(rpcCalibFile))
+    cmd = "convert_pinhole_model --input-file " + firstImage + ' --camera-file '     + \
+          defaultCalibFile + ' --output-type RPCLensDistortion --sample-spacing 50 ' + \
+          '-o ' + rpcCalibFile
+    logger.info(cmd)
+    os.system(cmd)
+
+    # Use this one from now on
+    options.inputCalCamera = rpcCalibFile
+
+    # Return the modified values
+    return (options, cameraFolder, processedFolder)
+    
+def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
+                         processedFolder, isSouth, logger):
+    
+    '''Create a camera model with optimized intrinsics. By now we
+    processed a bunch of images and created bundle-adjusted and
+    pc_aligned cameras and DEMs while using a camera model with
+    distortion implemented using RPC coefficients which was obtained
+    from the photometrics model. We now use the obtained cameras as
+    inputs to a bundle adjust problem where we will optimize the
+    intrinsics, including the distortion RPC coefficients, using the
+    lidar as an external constraint, and many dense IP pairs and
+    triplets (no quadruplets yet, even if 4 images overlap).'''
+
+    # Get a list of all the input files
+    imageCameraPairs = icebridge_common.getImageCameraPairs(imageFolder, cameraFolder, 
+                                                            options.startFrame, options.stopFrame,
+                                                            logger)
+    
+    # The paired lidar file for the first image should be huge enough to contain
+    # all images.
+    lidarFile = icebridge_common.findMatchingLidarFile(imageCameraPairs[0][0], lidarFolder)
+    logger.info('Found matching lidar file ' + lidarFile)
+    lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
+
+    numFiles = len(imageCameraPairs)
+    if numFiles < 2:
+        raise Exception('Failed to find any image camera pairs!')
+    if numFiles % 2 != 0:
+        raise Exception("When solving for intrinsics, must have an even number of frames to use.")
+
+
+    # Collect pc_align-ed cameras, unaligned disparities, and dense match files
+    images = []
+    cameras = []
+    dispFiles = []
+    for it in range(numFiles/2):
+        begFrame = options.startFrame + 2*it
+        endFrame = begFrame + 1
+        batchFolderName  = icebridge_common.batchFolderName(begFrame, endFrame, options.bundleLength)
+        thisOutputFolder = os.path.join(processedFolder, batchFolderName)
+        
+        # Find all the cameras after bundle adjustment and pc_align.
+        pattern = icebridge_common.getAlignedBundlePrefix(thisOutputFolder) + '*.tsai'
+        alignedCameras = glob.glob(pattern)
+        if len(alignedCameras) != options.bundleLength:
+            raise Exception("Expected " + str(options.bundleLength) + " cameras, here's what " +
+                            " was obtained instead: " + " ".join(alignedCameras))
+        img0 = ""; cam0 = ""; img1 = ""; cam1 = ""
+        for cam in alignedCameras:
+            frame = icebridge_common.getFrameNumberFromFilename(cam)
+            if begFrame == frame:
+                img0 = imageCameraPairs[2*it][0]
+                cam0 = cam
+            if endFrame == frame:
+                img1 = imageCameraPairs[2*it+1][0]
+                cam1 = cam
+        images.append(img0);  images.append(img1)
+        cameras.append(cam0); cameras.append(cam1)
+
+        # Unaligned disparity
+        stereoFolder = os.path.join(thisOutputFolder, 'stereo_pair_'+str(0))
+        currDispFiles = glob.glob(os.path.join(stereoFolder, '*unaligned-D.tif'))
+        if len(currDispFiles) != 1:
+            raise Exception("Expecting a single unaligned disparity file in " + stereoFolder)
+        dispFiles.append(currDispFiles[0])
+        
+    # Match files
+    matchFiles = []
+    for it in range(numFiles-1):
+        begFrame = options.startFrame + it
+        endFrame = begFrame + 1
+        batchFolderName  = icebridge_common.batchFolderName(begFrame, endFrame, options.bundleLength)
+        thisOutputFolder = os.path.join(processedFolder, batchFolderName)
+        stereoFolder = os.path.join(thisOutputFolder, 'stereo_pair_'+str(0))
+        DISP_PREFIX = "disp-"
+        currMatchFiles = glob.glob(os.path.join(stereoFolder, '*' + DISP_PREFIX + '*.match'))
+        if len(currMatchFiles) != 1:
+            raise Exception("Expecting a single dense match file in " + stereoFolder)
+        matchFiles.append(currMatchFiles[0])
+
+    # Create output directory for bundle adjustment and copy there the match files
+    baDir = os.path.join(processedFolder, "ba_camgen")
+    baPrefix = os.path.join(baDir, "out")
+    os.system("mkdir -p " + baDir)
+    for matchFile in matchFiles:
+        dstFile = os.path.basename(matchFile)
+        dstFile = dstFile.replace(DISP_PREFIX, '')
+        dstFile = os.path.join(baDir, dstFile)
+        cmd = "cp -f " + matchFile + " " + dstFile
+        logger.info(cmd)
+        os.system(cmd)
+
+    # The bundle adjustment
+    cmd = "bundle_adjust " + " ".join(images) + " " +  " ".join(cameras) + \
+            ' --reference-terrain ' + lidarFile + \
+            ' --disparity-list "' + " ".join(dispFiles) + '"' + \
+            ' --datum wgs84 -t nadirpinhole --local-pinhole --robust-threshold 2' + \
+            ' --camera-weight 1 --solve-intrinsics --csv-format ' + lidarCsvFormatString + \
+            ' --overlap-limit 1 --max-disp-error 10 --max-iterations 100 ' + \
+            '-o ' + baPrefix
+    logger.info(cmd)
+    #os.system(cmd)
+
+    # Generate DEMs of residuals before and after optimization
+    projString = icebridge_common.getEpsgCode(isSouth, asString=True)
+    for val in ['initial', 'final']:
+        cmd = 'point2dem --t_srs ' + projString + ' --tr 2'    + \
+              ' --csv-format 1:lon,2:lat,4:height_above_datum' + \
+              ' ' + baPrefix + '-' + val + '_residuals_no_loss_function_pointmap_point_log.csv'
+        logger.info(cmd)
+        os.system(cmd)
+        cmd = 'point2dem --t_srs ' + projString + ' --tr 2'    + \
+              ' --csv-format 1:lon,2:lat,4:height_above_datum' + \
+              ' ' + baPrefix + '-' + val +'_residuals_no_loss_function_reference_terrain.txt'
+        logger.info(cmd)
+        os.system(cmd)
+
+    # Look at the latest written tsai file, that will be the optimized distortion file.
+    # Force the initial rotation and translation to be the identity, this is
+    # expected by ortho2pinhole.
+    outFiles = filter(os.path.isfile, glob.glob(baPrefix + '*.tsai'))
+    outFiles.sort(key=lambda x: os.path.getmtime(x))
+    optFile = outFiles[-1]
+    logger.info("Reading optimized file: " + optFile)
+    with open(optFile, 'r') as f:
+        lines = f.readlines()
+    for it in range(len(lines)):
+        lines[it] = lines[it].strip()
+        if re.match("^C\s*=\s*", lines[it]):
+            lines[it] = "C = 0 0 0"
+        if re.match("^R\s*=\s*", lines[it]):
+            lines[it] = "R = 1 0 0 0 1 0 0 0 1"
+
+    # Write the final desired optimized RPC file
+    logger.info("Writing final optimized file: " + options.outputCalCamera) 
+    os.system("mkdir -p " + os.path.dirname(options.outputCalCamera))
+    with open(options.outputCalCamera, 'w') as f:
+        for line in lines:
+            f.write(line + "\n")
+        
 def main(argsIn):
 
     try:
@@ -426,6 +644,9 @@ def main(argsIn):
         parser.add_argument("--input-calibration-camera",  dest="inputCalCamera", default="",
                             help="Instead of looking up the calibrated camera in the calibration folder, use this one.")
         
+        parser.add_argument("--output-calibration-camera",  dest="outputCalCamera", default="",
+                            help="If specified, float the intrinsics and write the optimized model here.")
+
         parser.add_argument("--reference-dem-folder",  dest="refDemFolder", default=None,
                           help="The folder containing DEMs that created orthoimages.")
 
@@ -535,7 +756,8 @@ def main(argsIn):
     os.system('mkdir -p ' + options.outputFolder)
     logLevel = logging.INFO # Record everything
     logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
-                                            'icebridge_processing_log_frames_' + str(options.startFrame) + "_" + str(options.stopFrame))
+                                            'icebridge_processing_log_frames_' + \
+                                            str(options.startFrame) + "_" + str(options.stopFrame))
 
     # Make sure we later know what we were doing
     logger.info("full_processing_script.py " + " ".join(argsIn)) 
@@ -573,6 +795,12 @@ def main(argsIn):
     navFolder          = icebridge_common.getNavFolder(options.outputFolder)
     navCameraFolder    = icebridge_common.getNavCameraFolder(options.outputFolder)
 
+    if options.outputCalCamera != "":
+        # Prepare to solve for intrinsics. Note that this modifies some things along the way.
+        (options, cameraFolder, processedFolder) = \
+                  solveIntrinsics_Part1(options, jpegFolder, cameraFolder, processedFolder,
+                                        navCameraFolder, logger)
+        
     # Handle subfolder option.  This is useful for comparing results with different parameters!
     if options.processingSubfolder:
         processedFolder = os.path.join(processedFolder, options.processingSubfolder)
@@ -596,13 +824,18 @@ def main(argsIn):
     if options.stopAfterFetch or options.dryRun or options.stopAfterConvert:
         logger.info('Fetch/convert finished!')
         return 0
-    
+
+       
     # Call the processing routine
     processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   corrFireballFolder, processedFolder,
                   isSouth, refDemPath)
    
-
+    if options.outputCalCamera != "":
+        # Finish solving for intrinscs. 
+        solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
+                              processedFolder, isSouth, logger)
+        
 # Run main function if file used from shell
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

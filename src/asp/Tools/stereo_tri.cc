@@ -424,6 +424,10 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
     // image is left in some pairs or right in some others.
 
     // Note that the code above is modified in subtle ways.
+
+    // Need these to not insert an ip twice, as then bundle_adjust
+    // will wipe both copies
+    std::map<double, double> left_done, right_done;
     
     // Start with the left
     {
@@ -481,17 +485,28 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
             right_pix = right_trans2.reverse(trans_right_pix);
           }
 
-          left_ip.push_back(ip::InterestPoint(left_pix.x(), left_pix.y()));
-          right_ip.push_back(ip::InterestPoint(right_pix.x(), right_pix.y()));
+          // Add this ip unless found already. This is clumsy, but we
+          // can't use a set since there is no ordering for pairs.
+          std::map<double, double>::iterator it;
+          it = left_done.find(left_pix.x());
+          if (it != left_done.end() && it->second == left_pix.y()) continue; 
+          it = right_done.find(right_pix.x());
+          if (it != right_done.end() && it->second == right_pix.y()) continue; 
+          left_done[left_pix.x()] = left_pix.y();
+          right_done[right_pix.x()] = right_pix.y();
+          ip::InterestPoint lip(left_pix.x(), left_pix.y());
+          ip::InterestPoint rip(right_pix.x(), right_pix.y());
+          left_ip.push_back(lip); 
+          right_ip.push_back(rip);
         }
-
+        
         tpc.report_incremental_progress( inc_amount );
       }
       tpc.report_finished();
     }
     
-    // No create ip in predictable location for the right image.  This is hard,
-    // as the disparity goes from right to right, so we need to examine every disparity.
+    // Now create ip in predictable location for the right image.This is hard,
+    // as the disparity goes from left to right, so we need to examine every disparity.
     typedef typename DisparityT::pixel_type DispPixelT;
     ImageView<DispPixelT> disp_copy = copy(disp);
     {
@@ -501,8 +516,6 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
       int bin_len = round(sqrt(num_pixels/std::min(double(max_num_matches), num_pixels)));
       VW_ASSERT( bin_len >= 1, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
 
-      std::map<int, int> done;
-      
       // Iterate over disparity.
 
       vw_out() << "Doing a second pass. This will be very slow.\n";
@@ -537,21 +550,26 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
           if ( int(right_pix[0]) % bin_len != 0 ) continue;
           if ( int(right_pix[1]) % bin_len != 0 ) continue;
 
-          std::map<int,int>::iterator it = done.find(int(right_pix[0]));
-          if (it != done.end() && it->second == int(right_pix[1]) ) {
-            // We already found this element
-            continue; 
-          }
-          done[int(right_pix[0])] = right_pix[1];
-
-          left_ip.push_back(ip::InterestPoint(left_pix.x(), left_pix.y()));
-          right_ip.push_back(ip::InterestPoint(right_pix.x(), right_pix.y()));
+          // Add this ip unless found already. This is clumsy, but we
+          // can't use a set since there is no ordering for pairs.
+          std::map<double, double>::iterator it;
+          it = left_done.find(left_pix.x());
+          if (it != left_done.end() && it->second == left_pix.y()) continue; 
+          it = right_done.find(right_pix.x());
+          if (it != right_done.end() && it->second == right_pix.y()) continue; 
+          left_done[left_pix.x()] = left_pix.y();
+          right_done[right_pix.x()] = right_pix.y();
+          ip::InterestPoint lip(left_pix.x(), left_pix.y());
+          ip::InterestPoint rip(right_pix.x(), right_pix.y());
+          left_ip.push_back(lip); 
+          right_ip.push_back(rip);
         }
-
+        
         tpc.report_incremental_progress( inc_amount );
       }
       tpc.report_finished();
     }
+
     
   } // end considering multi-image friendly ip
 
@@ -846,11 +864,12 @@ void stereo_triangulation( string          const& output_prefix,
       return;
     }
 
-    if (stereo_settings().unalign_disparity || stereo_settings().num_matches_from_disparity > 0 ||
-        stereo_settings().num_matches_from_disp_triplets > 0){
-      vw_out() << "Add-on functionality finished. Will not triangulate.\n";
-      return;
-    }
+    // Need this off for oib
+    //if (stereo_settings().unalign_disparity || stereo_settings().num_matches_from_disparity > 0 ||
+    //    stereo_settings().num_matches_from_disp_triplets > 0){
+    //  vw_out() << "Add-on functionality finished. Will not triangulate.\n";
+    //  return;
+    //}
     
     // Reload the cameras, loading the piecewise corrections for jitter.
     if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {

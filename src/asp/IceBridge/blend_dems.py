@@ -70,7 +70,7 @@ os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 def getMeanDemDiff(dems, outputPrefix):
     '''Get the mean distance between the input DEMs to the main DEM.'''
 
-    mainDem  = dems[0]
+    mainDem   = dems[0]
     meanDiff  = 0.0
     meanCount = 0.0
     for i in range(1,len(dems)):
@@ -134,6 +134,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
         prevDiffPrefix = os.path.join(batchFolder, 'out-prev')
         prevDiffFile   = prevDiffPrefix + '-diff.tif'
         if False and redo and os.path.exists(prevDiffFile):
+            # TODO: turn this on. But it will make more files.
+            # Stuff this info somewhere. 
             os.system("rm -f " + prevDiffFile)
         if os.path.exists(prevDemFile) and os.path.exists(demFile):
             if os.path.exists(prevDiffFile):

@@ -547,12 +547,20 @@ def getImageCameraPairs(imageFolder, cameraFolder, startFrame, stopFrame, logger
     imageCameraPairs = zip(imageFiles, cameraFiles)
     return imageCameraPairs
 
+def batchFolderPrefix():
+    '''The name of the batch folder starts like this.'''
+    return "batch_"
+
+def batchFolderName(startFrame, stopFrame, bundleLength):
+    '''The name of the folder containing processed data for given frames.'''
+    return ('%s%05d_%05d_%d' % (batchFolderPrefix(), startFrame, stopFrame, bundleLength))
+
 def frameToFile(frame, suffix, processFolder, bundleLength):
     '''For a given frame, find the corresponding file in the batch
     folder with given suffix.'''
     
     # We count here on the convention for writing batch folders
-    prefix = ('batch_%05d_*_%d' % (frame, bundleLength))   
+    prefix = ('%s%05d_*_%d' % (batchFolderPrefix(), frame, bundleLength))   
     batchFolderGlob = os.path.join(processFolder,
                                    prefix + '/*' + suffix)
 
@@ -633,7 +641,7 @@ def orthoListToRerun(validFilesSet, outputFolder, startFrame, stopFrame):
 def getBatchFolderFromBatchLine(line):
     '''Returns something like /path/to/AN_20111012/processed/batch_125_126_2.'''
     # Extract just the desired folder name    
-    m = re.match('^.*?\s([^\s]*?batch_\d+_\d+_\d+)', line)
+    m = re.match('^.*?\s([^\s]*?' + batchFolderPrefix() +'\d+_\d+_\d+)', line)
     if m:
         return m.group(1)
     return ""
@@ -642,7 +650,7 @@ def getFrameRangeFromBatchFolder(folder):
     '''Returns (startFrame, endFrame) for a batch folder.'''
     '''This is also used to parse a command in a batch file.'''
     # Extract just the desired folder name    
-    m = re.match('^.*?batch_([0-9]+)_([0-9]+)', folder)
+    m = re.match('^.*?' + batchFolderPrefix() + '([0-9]+)_([0-9]+)', folder)
     if not m:
         raise Exception('Failed to find batch frames in folder: ' + folder)
     return (int(m.group(1)), int(m.group(2)))
@@ -1113,7 +1121,6 @@ def findMatchingLidarFile(imageFile, lidarFolder):
 
     # Verify that all the expected lidar files are there!
     for f in lidarFilesIn:
-        print f
         if os.path.exists(f):
             lidarFiles.append(f)
         else:

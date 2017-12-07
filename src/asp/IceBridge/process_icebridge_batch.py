@@ -342,7 +342,8 @@ def robustBundleAdjust(options, inputPairs,
     ROBUST_THRESHOLD     = 2.0
     OVERLAP_EXPONENT     = 0
     MIN_IP_MATCHES       = 22
-    #SIDE_IP_CROP_PERCENT = 20 # Remove IP in 20% of the sides of the images # TODO: Does not work with rotated images!!!
+    # The cropping below does not work with rotated images!
+    #SIDE_IP_CROP_PERCENT = 20 # Remove IP in 20% of the sides of the images 
     SIDE_IP_CROP_PERCENT = 1 # Remove IP in 20% of the sides of the images
     bundlePrefix   = icebridge_common.getBundlePrefix(options.outputFolder)
     baOverlapLimit = options.stereoImageInterval + 3
@@ -927,7 +928,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # - The size limit is to prevent bad point clouds from creating giant DEM files which
     #   cause the processing node to crash.
     # Note to use error image and big error when optimizing the distortion!
-    cmd = (('point2dem ' + # ' --errorimage --max-valid-triangulation-error 10 ' +
+    cmd = (('point2dem ' + ' --errorimage ' +
+            # '--max-valid-triangulation-error 10 ' +
             '--max-output-size 10000 10000 --tr %lf --t_srs %s %s %s')
            % (options.demResolution, projString, triOutput, threadText))
     p2dOutput = demFiles[i]
