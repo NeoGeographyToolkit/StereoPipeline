@@ -539,7 +539,7 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
             ' --overlap-limit 1 --max-disp-error 10 --max-iterations 100 ' + \
             '-o ' + baPrefix
     logger.info(cmd)
-    #os.system(cmd)
+    os.system(cmd)
 
     # Generate DEMs of residuals before and after optimization
     projString = icebridge_common.getEpsgCode(isSouth, asString=True)

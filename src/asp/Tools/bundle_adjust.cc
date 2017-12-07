@@ -1956,7 +1956,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       image_boxes.push_back(bbox);
     }
 
-    vw_out() << "Setting up the error to reference terrain.\n";
+    vw_out() << "Setting up the error to the reference terrain.\n";
     TerminalProgressCallback tpc("", "\t--> ");
     tpc.report_progress(0);
     int num_cols = data.cols();
