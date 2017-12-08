@@ -429,14 +429,14 @@ public:
       const size_t num_lens_params = num_distortion_params();
       
       for (size_t i = 0; i < focal_length_params_n; i++)
-	concat[camera_params_n + i] = focal_length[i];
+        concat[camera_params_n + i] = focal_length[i];
       
       for (size_t i = 0; i < optical_center_params_n; i++)
-	concat[camera_params_n + focal_length_params_n + i] = optical_center[i];
+        concat[camera_params_n + focal_length_params_n + i] = optical_center[i];
       
       for (size_t i = 0; i < num_lens_params; i++)
-	concat[camera_params_n + focal_length_params_n + optical_center_params_n + i]
-	  = distortion_intrinsics[i];
+        concat[camera_params_n + focal_length_params_n + optical_center_params_n + i]
+            = distortion_intrinsics[i];
       
     }
   }
@@ -543,7 +543,7 @@ public:
     intrinsics[1] = po[0];
     intrinsics[2] = po[1];
     
-    // Copy the lens distortion parameters -> Not currently used!
+    // Copy the lens distortion parameters
     for (size_t i=0; i<num_lens_params; ++i)
       intrinsics[i+nonlens_intrinsics_n] = lens_distortion_params[i];
   }
@@ -588,8 +588,10 @@ public:
   }
 
   /// Write complete camera models to disk as opposed to adjustment files
+  /// - If a lens distortion model is provided, use it in all output files.
   void write_camera_models(std::vector<std::string> const& cam_files,
-			   bool has_datum, vw::cartography::Datum & datum){
+			   bool has_datum, vw::cartography::Datum & datum,
+			   vw::camera::LensDistortion const* input_ld=0){
 
     VW_ASSERT(cam_files.size() == m_cam_vec.size(),
                   vw::ArgumentErr() << "Must have as many camera files as cameras.\n");
@@ -597,14 +599,16 @@ public:
     for (int icam = 0; icam < (int)cam_files.size(); icam++){
       vw::vw_out() << "Writing: " << cam_files[icam] << std::endl;
       vw::camera::PinholeModel model = get_camera_model(icam);
+      if (input_ld)
+        model.set_lens_distortion(*input_ld);
       model.write(cam_files[icam]);
       //std::cout << "Writing BAPinhole model params: " << m_cam_vec[icam] << std::endl;
       vw::vw_out() << "Writing output model: " << model << std::endl;
 
       if (has_datum) {
-	vw::vw_out() << "Camera center for " << cam_files[icam] << ": "
-		     << datum.cartesian_to_geodetic(model.camera_center())
-		     << " (longitude, latitude, height above datum(m))\n\n";
+        vw::vw_out() << "Camera center for " << cam_files[icam] << ": "
+                     << datum.cartesian_to_geodetic(model.camera_center())
+                     << " (longitude, latitude, height above datum(m))\n\n";
 	
       }
     }

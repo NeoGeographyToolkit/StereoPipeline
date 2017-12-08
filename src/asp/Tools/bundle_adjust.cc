@@ -20,6 +20,7 @@
 ///
 
 #include <vw/FileIO/KML.h>
+#include <vw/Camera/CameraUtilities.h>
 #include <asp/Core/Macros.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -261,7 +262,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double min_triangulation_angle, lambda, camera_weight, rotation_weight, 
          translation_weight, overlap_exponent, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
-  bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics,
+  bool   save_iteration, local_pinhole_input, approximate_pinhole_intrinsics,
+         fix_gcp_xyz, solve_intrinsics,
          disable_tri_filtering, ip_normalize_tiles, ip_debug_images;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, reference_terrain, disparity_list, intrinsics_to_float_str,
@@ -3166,6 +3168,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
     ("local-pinhole",    po::bool_switch(&opt.local_pinhole_input)->default_value(false),
                          "Use special methods to handle a local coordinate input pinhole model.")
+    ("approximate-pinhole-intrinsics", po::bool_switch(&opt.approximate_pinhole_intrinsics)->default_value(false),
+                         "If it reduces computation time, approximate the lens distortion model.")
+                         
     ("fix-gcp-xyz",  po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
                          "If the GCP are highly accurate, use this option to not float them during the optimization.")
     ("solve-intrinsics",  po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
@@ -3349,6 +3354,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (!opt.local_pinhole_input && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole cameras.\n");
 
+  if (!opt.local_pinhole_input && opt.approximate_pinhole_intrinsics)
+    vw_throw( ArgumentErr() << "Can't approximate intrinsics unless using pinhole cameras.\n");
+
+  if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
+    vw_throw( ArgumentErr() << "Can't approximate intrinsics while solving for them.\n");
+
+
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
   opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4> >(opt.remove_outliers_params_str);
   
@@ -3514,6 +3526,9 @@ int main(int argc, char* argv[]) {
       vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
     }
 
+
+    boost::shared_ptr<LensDistortion> input_lens_distortion;
+    
     // Create the stereo session. This will attempt to identify the session type.
     // Read in the camera model and image info for the input images.
     for (int i = 0; i < num_images; i++){
@@ -3530,6 +3545,17 @@ int main(int argc, char* argv[]) {
 
       opt.camera_models.push_back(session->camera_model(opt.image_files [i],
                                                         opt.camera_files[i]));
+      if (opt.approximate_pinhole_intrinsics) {
+        boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
+                boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models.back());
+        if (i == 0) // Record a copy of the input lens distortion
+          input_lens_distortion = pinhole_ptr->lens_distortion()->copy();
+        // Replace lens distortion with fast approximation
+        vw::camera::update_pinhole_for_fast_point2pixel<TsaiLensDistortion, 
+            TsaiLensDistortion::num_distortion_params>(*(pinhole_ptr.get()),
+                                                       file_image_size(opt.image_files[i]));
+      }
+
     } // End loop through images loading all the camera models
 
     // Create match files from mapprojection.
@@ -3574,7 +3600,7 @@ int main(int argc, char* argv[]) {
                (norm_2(this_pos - other_pos) > opt.position_filter_dist) ) {
             vw_out() << "Skipping position: " << this_pos << " and "
                      << other_pos << " with distance " << norm_2(this_pos - other_pos)
-		     << std::endl;
+                     << std::endl;
             continue; // Skip this image pair
           }
         } // End estimated camera position filtering
@@ -3622,29 +3648,7 @@ int main(int argc, char* argv[]) {
                                nodata1, nodata2, match_filename,
                                opt.camera_models[i].get(),
                                opt.camera_models[j].get());
-         /*
-          // Experimental code to filter the IPs by removing any found in the
-          //  far left and right sides of the input images.
-          // - TODO: Once this code is reliable move it to the IP finding code
-          if (opt.ip_extra_filter_threshold > 0) {
-
-            // Load the IPs we just wrote, apply filtering, and overwrite the file on disk.
-            std::vector<ip::InterestPoint> in_ip1, in_ip2, matched_ip1, matched_ip2;
-            vw_out() << "\t    * Loading match file: " << match_filename << "\n";
-            ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
-            vw_out() << "Read in " << in_ip1.size() << " points.\n";
-            
-            filter_ip_sides(in_ip1, in_ip2, matched_ip1, matched_ip2,
-                            image1_view.cols(), image2_view.cols(),
-                            opt.ip_extra_filter_threshold);
-
-            vw_out() << "Wrote out " << matched_ip1.size() << " points.\n";
-
-            vw_out() << "\t    * Rewriting match file: " << match_filename << "\n";
-            ip::write_binary_match_file(match_filename, matched_ip1, matched_ip2);
-          } // End experimental IP filtering
-        */
-          
+        
         // TODO: Move this into the IP finding code!
         // Compute the coverage fraction
         std::vector<ip::InterestPoint> ip1, ip2;
@@ -3762,8 +3766,9 @@ int main(int argc, char* argv[]) {
 
       }
 
+      // If we approximated the lens distortions re-insert the original value here.
       bool has_datum = (opt.datum.name() != UNSPECIFIED_DATUM);
-      ba_model.write_camera_models(cam_files, has_datum, opt.datum);
+      ba_model.write_camera_models(cam_files, has_datum, opt.datum, input_lens_distortion.get());
 
       //double error=0;
       //stereo::StereoModel sm(ba_model.get_camera_model(0), ba_model.get_camera_model(1));
