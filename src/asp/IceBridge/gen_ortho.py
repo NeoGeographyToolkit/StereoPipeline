@@ -69,8 +69,7 @@ def createRotatedCameraFile(cameraIn, cameraOut, cameraMounting):
 
     # Usually the input camera file is fine
     if cameraMounting < 2:
-        cameraOut = cameraIn
-        return
+        return cameraIn
 
     # Read in the camera file
     cameraLinesIn  = []
@@ -121,7 +120,7 @@ def createRotatedCameraFile(cameraIn, cameraOut, cameraMounting):
         for line in cameraLinesOut:
             f.write(line + '\n')
 
-    return
+    return cameraOut
 
 def runOrtho(frame, processFolder, imageFile, bundleLength, cameraMounting,
              threadText, redo, suppressOutput):
@@ -261,8 +260,7 @@ def runOrtho(frame, processFolder, imageFile, bundleLength, cameraMounting,
             # - When the camera mount is rotated 90 degrees stereo is run on a corrected version
             #   but ortho needs to work on the original uncorrected jpeg image.
             tempCamFile = alignCamFile + '_temp_rot.tsai'
-            createRotatedCameraFile(alignCamFile, tempCamFile, cameraMounting)
-
+            tempCamFile = createRotatedCameraFile(alignCamFile, tempCamFile, cameraMounting)
             # Run mapproject. The grid size is auto-determined.
             cmd = ('mapproject --no-geoheader-info %s %s %s %s %s' 
                    % (mosaicOutput, imageFile, tempCamFile, tempOrtho, threadText))
