@@ -355,13 +355,20 @@ void asp::log_to_file(int argc, char *argv[],
   // Create the log file and open it in write mode
   std::ostringstream os;
   int pid = getpid();
-  os << out_prefix << "-log-" << prog_name << "-" << pid << ".txt";
+  std::string timestamp = 
+      boost::posix_time::to_iso_string(boost::posix_time::second_clock::local_time());
+  std::string clean_timestamp = timestamp.substr(4, 9); // Trim off the year
+  clean_timestamp.replace(4, 1, 1, '-'); // Replace T with -
+  clean_timestamp.insert (2, 1,    '-'); // Insert - between month and day
+  os << out_prefix << "-log-" << prog_name << "-" 
+     << clean_timestamp << "-" << pid << ".txt";
   std::string log_file = os.str();
   vw_out() << "Writing log info to: " << log_file << std::endl;
   std::ofstream lg(log_file.c_str());
 
   // Write the program name and its arguments
-  for (int s = 0; s < argc; s++) lg << std::string(argv[s]) + " ";
+  for (int s = 0; s < argc; s++)
+    lg << std::string(argv[s]) + " ";
   lg << std::endl << std::endl;
 
   // Must ensure to close the file handle before further appending to
