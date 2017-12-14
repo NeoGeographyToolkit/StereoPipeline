@@ -617,7 +617,8 @@ def launchJobs(run, mode, options, logger):
         scriptPath = icebridge_common.fullPath('gen_ortho.py')
         queueName  = ORTHOGEN_PBS_QUEUE
         jobTag     = 'O'
-        extraArgs  = ' --bundle-length ' + str(options.bundleLength)
+        extraArgs  = ' --bundle-length ' + str(options.bundleLength) + \
+                     ' --camera-mounting ' + str(options.cameraMounting)
     elif mode == 'blend':
         scriptPath = icebridge_common.fullPath('blend_dems.py')
         queueName  = BLEND_PBS_QUEUE

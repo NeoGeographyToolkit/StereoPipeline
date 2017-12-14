@@ -401,7 +401,7 @@ def robustBundleAdjust(options, inputPairs,
                 blurImage(pair[0], pair[1], False, False)
             argString = blurredImageCameraString                     
 
-        cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
+        cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 --approximate-pinhole-intrinsics ' +
                 '--translation-weight %0.16g -t nadirpinhole --skip-rough-homography ' +
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 

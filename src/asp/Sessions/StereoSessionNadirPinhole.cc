@@ -90,6 +90,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     if ( boost::ends_with(lcase_file, ".pinhole") ||
          boost::ends_with(lcase_file, ".tsai"   )   ) {
 
+      // This loads epipolar-aligned camera models.
       Vector2i left_out_size, right_out_size;
       load_camera_models( left_cam, right_cam, left_out_size, right_out_size );
       
@@ -102,6 +103,8 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
       if (right_pin_model)
         right_pin_model->write(m_out_prefix + "-R.tsai");
       
+      // Transform the input images to be as if they were captured by the
+      //  epipolar-aligned camera models, aligning the two images.
       get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
                                               left_cam, right_cam,
                                               left_masked_image, right_masked_image,

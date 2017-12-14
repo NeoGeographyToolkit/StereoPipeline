@@ -90,12 +90,15 @@ def createRotatedCameraFile(cameraIn, cameraOut, cameraMounting):
     R = [float(x) for x in cameraLinesIn[9].strip().split()[2:]]
     cameraLinesOut.append(cameraLinesIn[10]) # pitch
     cameraLinesOut.append(cameraLinesIn[11]) # distortion type
-    cameraLinesOut.append(cameraLinesIn[13].replace('y','x')) # xy = yp
-    cameraLinesOut.append(cameraLinesIn[12].replace('x','y')) # yp = xp
+    cameraLinesOut.append('dummy') # xp
+    cameraLinesOut.append('dummy') # yp
     for i in range(14,len(cameraLinesIn)):
         cameraLinesOut.append(cameraLinesIn[i]) # copy the remaining values (k, p, b) unchanged.
 
     rNew = R[:]
+
+    xpIn = float(cameraLinesIn[12]).strip().split()[2]) # Extract input xp, yp
+    ypIn = float(cameraLinesIn[13]).strip().split()[2])
     
     if cameraMounting == 2: # Rotate the camera 90 degrees clockwise
         # x = y, y = -x
@@ -105,6 +108,9 @@ def createRotatedCameraFile(cameraIn, cameraOut, cameraMounting):
         rNew[1] = -1.0*R[0] # y = -x
         rNew[4] = -1.0*R[3]
         rNew[7] = -1.0*R[6]
+        
+        xpOut = -1.0*ypIn
+        ypOut = xpIn
     
     if cameraMounting == 3: # Rotate the camera 90 degrees counter-clockwise.
         rNew[0] = -1.0*R[1] # x = -y
@@ -114,7 +120,13 @@ def createRotatedCameraFile(cameraIn, cameraOut, cameraMounting):
         rNew[4] = R[3]
         rNew[7] = R[6]
 
-    cameraLinesOut[9] = 'R = ' + ' '.join([str(x) for x in rNew])
+        xpOut = ypIn
+        ypOut = -1.0*xpIn
+
+    # Repack the rotated values
+    cameraLinesOut[ 9] = 'R = ' + ' '.join([str(x) for x in rNew])
+    cameraLinesOut[12] = 'xp = ' + str(xpOut)
+    cameraLinesOut[13] = 'yp = ' + str(ypOut)
 
     with open(cameraOut, 'w') as f:
         for line in cameraLinesOut:
