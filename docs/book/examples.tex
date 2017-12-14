@@ -140,7 +140,17 @@ process them.
     -A "*RED*IMG"
 \end{verbatim}
 
-Go to the directory containing the files. You can run the
+Alternately, you can pass the \texttt{-\/-download-folder} option to
+\texttt{hiedr2mosaic.py} and pass in the url of the web page containing the EDR
+files as the only positional argument.  This will cause the tool to first download
+all of the RED CCD images to the specified folder and then continue with processing.
+
+\begin{verbatim}
+  hiedr2mosaic.py --download-folder hirise_example/
+    http://hirise-pds.lpl.arizona.edu/PDS/EDR/ESP/ORB_029400_029499/ESP_029421_2300/
+\end{verbatim}
+
+Assuming you downloaded the files manually, go to the directory containing the files. You can run the
 \texttt{hiedr2mosaic.py} program without any arguments to view a short
 help statement, with the \texttt{-h} option to view a longer help statement,
 or just run the program on the EDR files like so:

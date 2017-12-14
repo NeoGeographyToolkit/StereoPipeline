@@ -44,6 +44,7 @@
      point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/
    * Added --max-output-size option to point2dem to prevent against
      creation of too large DEMs.
+   * Added image download option in hiedr2mosaic.py
    
 *** RELEASE 2.6.0, May 15, 2017 ***
 

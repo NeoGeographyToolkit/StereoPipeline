@@ -18,6 +18,8 @@
 
 
 import os, glob, optparse, re, shutil, subprocess, sys, string
+import urllib2
+from BeautifulSoup import BeautifulSoup
 
 libexecpath = os.path.abspath(sys.path[0] + '/../libexec')
 sys.path.insert(0, libexecpath) # prepend to Python path
@@ -135,6 +137,12 @@ def isisversion(verbose=False):
     return False
 
 
+def check_output_files(file_list):
+    '''Verify the output files were created.'''
+    for f in file_list:
+        if not os.path.exists(f):
+            raise Exception('Failed to generate file: ' + f)
+
 def hi2isis( img_files, threads ):
     hi2isis_cubs = []
     for img in img_files:
@@ -147,6 +155,7 @@ def hi2isis( img_files, threads ):
             add_job(cmd, threads)
         hi2isis_cubs.append( to_cub )
     wait_on_all_jobs()
+    check_output_files(hi2isis_cubs)
     return hi2isis_cubs
 
 def hical( cub_files, threads, delete=False ):
@@ -161,6 +170,7 @@ def hical( cub_files, threads, delete=False ):
             add_job(cmd, threads)
         hical_cubs.append( to_cub )
     wait_on_all_jobs()
+    check_output_files(hical_cubs)
     if( delete ):
         for cub in cub_files: os.remove( cub )
         hical_log_files = glob.glob( os.path.commonprefix(cub_files) + '*.hical.log' )
@@ -169,7 +179,7 @@ def hical( cub_files, threads, delete=False ):
 
 def histitch( cub_files, threads, delete=False ):
     histitch_cubs = []
-    to_del_cubs = []
+    to_del_cubs   = []
     # Strictly, we should probably look in the image headers, but instead we'll
     # assume that people have kept a sane naming convention for their files, such
     # that the name consists of prefix + 'N_C' + suffix
@@ -212,6 +222,7 @@ def histitch( cub_files, threads, delete=False ):
             histitch_cubs.append( to_cub )
 
     wait_on_all_jobs()
+    check_output_files(histitch_cubs)
     if( delete ):
         for cub in to_del_cubs: os.remove( cub )
     return histitch_cubs
@@ -324,6 +335,35 @@ def cubenorm( fromcub, delete=False ):
     return tocub
 
 
+def fetch_files( url, output_folder, image_type='RED' ):
+    '''Fetch all the files for a HiRISE image and return the list of files.'''
+
+    os.system('mkdir -p ' + output_folder)
+
+    # The URL should look like this:
+    # https://hirise-pds.lpl.arizona.edu/PDS/EDR/ESP/ORB_052800_052899/ESP_052893_1835/
+       
+    parsedDataPage = BeautifulSoup(urllib2.urlopen((url)).read())
+    
+    # Loop through all the links on the page
+    image_list = []
+    for link in parsedDataPage.findAll('a'):
+        filename = link.string
+        if image_type not in filename:
+            continue # Skip types that don't match
+        
+        full_url   = os.path.join(url,           filename)
+        local_path = os.path.join(output_folder, filename)
+        image_list.append(local_path)
+
+        # Download the file if it is not already there        
+        if not os.path.exists(local_path):
+            cmd = 'wget ' + full_url + ' -O ' + local_path
+            print cmd
+            os.system(cmd)
+    
+    return image_list
+
 #----------------------------
 
 def main():
@@ -347,11 +387,19 @@ def main():
             parser.add_option("-k", "--keep", action="store_false",
                               dest="delete",
                               help="Will not delete intermediate files.")
+            parser.add_option("--download-folder", dest="download_folder", default=None,
+                              help="Download files to this folder.  Instead of passing IMG file list, pass in the url of the page to download the files from.")
 
             (options, args) = parser.parse_args()
 
             if not args: 
-                parser.error("need .IMG files")
+                parser.error("need .IMG files or a URL")
+            
+            if options.download_folder:
+                print 'Downloading HiRISE images from URL...'
+                # For now we only fetch RED images.
+                args = fetch_files(args[0], options.download_folder, image_type='RED')
+                print 'Finished downloading ' + str(len(args)) + ' images.'
             
             # Make sure there is a valid match CCD
             if len(args) % 2 != 0 and not options.resume_no_proj:
