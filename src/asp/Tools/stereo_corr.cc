@@ -525,48 +525,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
 
 
-
-// TODO: Move this histogram code!  Merge with image histogram code!
-
-
-  /// Compute simple histogram from a vector of data
-  void histogram( std::vector<double> const& values, int num_bins, double min_val, double max_val,
-                  std::vector<double> &hist, std::vector<double> &bin_centers){
-    
-    VW_ASSERT(num_bins > 0, ArgumentErr() << "histogram: number of input bins must be positive");
-    
-    // TODO: Verify max/min values!
-    
-    // Populate the list of bin centers
-    // The min and max vals represent the outer limits of the available bins.
-    const double range     = max_val - min_val;
-    const double bin_width = range / num_bins;
-    bin_centers.resize(num_bins);
-    for (int i=0; i<num_bins; ++i)
-      bin_centers[i] = min_val + i*bin_width + bin_width/2.0;
-    
-    hist.assign(num_bins, 0.0);
-    for (size_t i = 0; i < values.size(); ++i){
-      double val = values[i];
-      int bin = (int)round( (num_bins - 1) * ((val - min_val)/range) );
-      
-      // Saturate the bin assignment to prevent a memory exception.
-      if (bin < 0)
-        bin = 0;
-      if (bin > num_bins-1)
-        bin = num_bins-1;
-        
-      ++(hist[bin]);
-    }
-    return;
-  }
-
-
-
-BBox2i get_search_range_from_ip_hists(std::vector<double> const& hist_x,
-                                      std::vector<double> const& hist_y,
-                                      std::vector<double> const& centers_x,
-                                      std::vector<double> const& centers_y,
+BBox2i get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
+                                      vw::math::Histogram const& hist_y,
                                       double edge_discard_percentile = 0.05) {
 
   const double min_percentile = edge_discard_percentile;
@@ -574,12 +534,12 @@ BBox2i get_search_range_from_ip_hists(std::vector<double> const& hist_x,
 
   const Vector2 FORCED_EXPANSION = Vector2(30,2); // Must expand range by at least this much
   double search_scale = 2.0;
-  size_t min_bin_x = get_histogram_percentile(hist_x, min_percentile);
-  size_t min_bin_y = get_histogram_percentile(hist_y, min_percentile);
-  size_t max_bin_x = get_histogram_percentile(hist_x, max_percentile);
-  size_t max_bin_y = get_histogram_percentile(hist_y, max_percentile);
-  Vector2 search_min(centers_x[min_bin_x], centers_y[min_bin_y]);
-  Vector2 search_max(centers_x[max_bin_x], centers_y[max_bin_y]);
+  size_t min_bin_x = hist_x.get_percentile(min_percentile);
+  size_t min_bin_y = hist_y.get_percentile(min_percentile);
+  size_t max_bin_x = hist_x.get_percentile(max_percentile);
+  size_t max_bin_y = hist_y.get_percentile(max_percentile);
+  Vector2 search_min(hist_x.get_bin_center(min_bin_x), hist_y.get_bin_center(min_bin_y));
+  Vector2 search_max(hist_x.get_bin_center(max_bin_x), hist_y.get_bin_center(max_bin_y));
   Vector2 search_center = (search_max + search_min) / 2.0;
   Vector2 d_min = search_min - search_center; // TODO: Make into a bbox function!
   Vector2 d_max = search_max - search_center;
@@ -719,10 +679,14 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   
   // Compute histograms
   const int NUM_BINS = 2000; // Accuracy is important with scaled pixels
-  std::vector<double> hist_x, hist_y, centers_x, centers_y;
-  histogram(dx, NUM_BINS, min_dx, max_dx, hist_x, centers_x);
-  histogram(dy, NUM_BINS, min_dy, max_dy, hist_y, centers_y);
-   
+  vw::math::Histogram hist_x(NUM_BINS, min_dx, max_dx);
+  vw::math::Histogram hist_y(NUM_BINS, min_dy, max_dy);
+  for (size_t i = 0; i < dx.size(); ++i){
+    hist_x.add_value(dx[i]);
+    hist_y.add_value(dy[i]);
+  }
+
+
   //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
   
   //for (int i=0; i<NUM_BINS; ++i) {
@@ -738,8 +702,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   BBox2i search_range;
   while (true) {
     vw_out() << "Filtering IP with percentile cutoff " << current_percentile_cutoff << std::endl;
-    search_range = get_search_range_from_ip_hists(hist_x, hist_y, centers_x, centers_y,
-                                                  current_percentile_cutoff);
+    search_range = get_search_range_from_ip_hists(hist_x, hist_y, current_percentile_cutoff);
     vw_out() << "Scaled search range = " << search_range << std::endl;
     search_width = search_range.width();
     
