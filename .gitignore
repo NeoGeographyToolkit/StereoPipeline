@@ -77,6 +77,19 @@ src/asp/Core/tests/TestIntegralAutoGainDetector
 src/asp/Core/tests/TestInterestPointMatching
 src/asp/Core/tests/TestSoftwareRenderer
 src/asp/Core/tests/TestThreadedEdgeMask
+src/asp/Core/tests/TestCommon
+src/asp/Core/tests/TestPointUtils
+src/asp/Core/tests/dem.tif
+src/asp/Core/tests/img1.cub
+src/asp/Core/tests/img1.cub.aux.xml
+src/asp/Core/tests/img1.tif
+src/asp/Core/tests/img1.xml
+src/asp/Core/tests/img2.cub
+src/asp/Core/tests/img2.cub.aux.xml
+src/asp/Core/tests/img2.tif
+src/asp/Core/tests/img2.xml
+src/asp/Core/tests/img3.tif
+src/asp/Core/tests/img4.tif
 
 # Camera
 src/asp/Camera/tests/TestDGCameraModel
@@ -93,6 +106,9 @@ src/asp/Sessions/tests/TestInstantiation
 src/asp/Sessions/tests/TestStereoSessionDG
 src/asp/Sessions/tests/TestStereoSessionDGMapRPC
 src/asp/Sessions/tests/TestStereoSessionRPC
+src/asp/Sessions/tests/TestStereoSessionASTER
+src/asp/Sessions/tests/TestStereoSessionSpot
+
 
 src/asp/WVCorrect/disp_avg
 
@@ -159,6 +175,25 @@ src/asp/Tools/stereo_tri
 src/asp/Tools/tif_mosaic
 src/asp/Tools/time_trials
 src/asp/Tools/wv_correct
+src/asp/Tools/add_spot_rpc
+src/asp/Tools/cam2rpc
+src/asp/Tools/camera_footprint
+src/asp/Tools/stereo_blend
+
+# Icebridge
+src/asp/IceBridge/correct_icebridge_l3_dem
+src/asp/IceBridge/fetch_all_script.py
+src/asp/IceBridge/find_all_gsds.py
+src/asp/IceBridge/nav2cam
+src/asp/IceBridge/orbitviz_pinhole
+src/asp/IceBridge/ortho2pinhole
+src/asp/IceBridge/pleiades_managerV2.py
+src/asp/IceBridge/qi2txt
+src/asp/IceBridge/test_bundle_adjustment.py
+
+
+
+
 
 # Doc
 docs/book/*aux
@@ -178,3 +213,4 @@ docs/photometry/*pdf
 docs/photometry/*toc
 docs/photometry/graph/*pdf
 /.project
+docs/book/build_docs.sh
