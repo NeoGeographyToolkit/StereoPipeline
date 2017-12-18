@@ -548,8 +548,9 @@ def lidarFilesInRange(lidarDict, lidarFolder, startFrame, stopFrame):
             maxLidarIndex = maxLidarIndex + 1
 
     lidarsToFetch = set()
-    for index in range(minLidarIndex, maxLidarIndex+1): # Fetch only the requested lidar files.
-        lidarsToFetch.add(lidarList[index])
+    if lidarList:
+        for index in range(minLidarIndex, maxLidarIndex+1): # Fetch only the requested lidar files.
+            lidarsToFetch.add(lidarList[index])
 
     return lidarsToFetch
 
