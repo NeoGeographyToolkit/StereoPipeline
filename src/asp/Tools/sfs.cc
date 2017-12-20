@@ -3644,7 +3644,7 @@ int main(int argc, char* argv[]) {
 	  vw_out() << "Local exposure for image " << image_iter << " and clip "
 		   << dem_iter << ": " << exposure << std::endl;
 	
-	  double big = 1e+10; // There's no way image exposure can be bigger than this
+	  double big = 1e+100; // There's no way image exposure can be bigger than this
 	  bool is_good = ( 0 < exposure && exposure < big );
 	  if (is_good) {
 	    exposures_per_dem.push_back(exposure);
