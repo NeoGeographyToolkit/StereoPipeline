@@ -352,6 +352,8 @@ def main(argsIn):
                           help="Just log the batch commands to a file.")
         parser.add_option('--cleanup', action='store_true', default=False, dest='cleanup',  
                           help='If the final result is produced delete intermediate files.')
+        parser.add_option('--many-ip', action='store_true', default=False, dest='manyip',  
+                          help='If to use a lot of IP in bundle adjustment from the beginning.')
         parser.add_option('--dry-run', action='store_true', default=False, dest='dryRun',  
                           help="Print but don't launch the processing jobs.")
 
@@ -456,6 +458,8 @@ def main(argsIn):
         extraOptions += ' --fireball-folder ' + str(options.fireballFolder)
     if options.cleanup:
         extraOptions += ' --cleanup '
+    if options.manyip:
+        extraOptions += ' --many-ip '
 
     # We ran this before, as part of fetching, so hopefully all the data is cached
     forceAllFramesInRange = False

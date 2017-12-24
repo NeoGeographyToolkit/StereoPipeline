@@ -226,6 +226,8 @@ def runFetch(run, options, logger):
 
         if options.noNavFetch:
             cmd += ' --no-nav'
+        if options.manyip:
+            cmd += ' --many-ip'
         if options.cameraMounting:
             cmd += ' --camera-mount ' + str(options.cameraMounting)
             
@@ -315,6 +317,8 @@ def runConversion(run, options, conversionAttempt, logger):
                   % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
     if options.noNavFetch:
         args += ' --no-nav'
+    if options.manyip:
+        args += ' --many-ip'
     if options.noOrthoConvert:
         args += ' --no-ortho-convert'
     if options.simpleCameras:       # This option greatly decreases the conversion run time
@@ -383,6 +387,8 @@ def runConversion(run, options, conversionAttempt, logger):
         cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --refetch --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --stop-after-convert --no-ortho-convert --start-frame %d --stop-frame %d --num-threads %d --num-processes %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses))
         if options.noNavFetch:
             cmd += ' --no-nav'
+        if options.manyip:
+            cmd += ' --many-ip'
         if options.noOrthoConvert:
             cmd += ' --no-ortho-convert'
         if options.cameraMounting:
@@ -412,6 +418,8 @@ def runConversion(run, options, conversionAttempt, logger):
             cmd = (icebridge_common.fullPath('full_processing_script.py') + ' --skip-fetch --skip-validate --skip-fast-conversions --stop-after-convert --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --start-frame %d --stop-frame %d --num-threads %d --num-processes %d --frames-file %s' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses, orthoList))
             if options.noNavFetch:
                 cmd += ' --no-nav'
+            if options.manyip:
+                cmd += ' --many-ip'
             if options.noOrthoConvert:
                 cmd += ' --no-ortho-convert'
             if options.cameraMounting:
@@ -474,6 +482,8 @@ def generateBatchList(run, options, listPath, logger):
 
     if options.noNavFetch:
         cmd += ' --no-nav'
+    if options.manyip:
+        cmd += ' --many-ip'
     if options.cameraMounting:
         cmd += ' --camera-mount ' + str(options.cameraMounting)
 
@@ -976,6 +986,9 @@ def main(argsIn):
 
         parser.add_argument("--no-nav", action="store_true", dest="noNavFetch",
                             default=False, help="Don't fetch or convert the nav data.")
+
+        parser.add_argument('--many-ip', action='store_true', default=False, dest='manyip',  
+                          help='If to use a lot of IP in bundle adjustment from the beginning.')
 
         parser.add_argument("--no-ortho-convert", action="store_true", dest="noOrthoConvert",
                           default=False,

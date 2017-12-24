@@ -52,9 +52,10 @@ def main(argsIn):
                           type='int', help='The frame number to start processing with.')
         parser.add_option('--stop-frame', dest='stopFrame', default=999999,
                           type='int', help='The frame number to finish processing with.')        
+        parser.add_option("--input-calibration-camera",  dest="inputCalCamera", default="",
+                          help="Use this input calibrated camera.")
         parser.add_option('--camera-mounting', dest='cameraMounting',  default=0, type='int',
             help='0=right-forwards, 1=left-forwards, 2=top-forwards, 3=bottom-forwards.')
-
         (options, args) = parser.parse_args(argsIn)
 
         if len(args) < 5:
@@ -123,27 +124,26 @@ def main(argsIn):
         if not isNonEmpty:
             os.system(cmd)
 
-    # Find a camera file to use.
-    # - nav2cam does not support per-frame intrinsic data, so just feed
-    #   it any random camera file and let ortho2pinhole insert the 
-    #   correct instrinsic data.
-    fileList = os.listdir(calFolder)
-    fileList = [x for x in fileList if (('.tsai' in x) and ('~' not in x))]
-    if not fileList:
-        logger.error('Unable to find any camera files in ' + calFolder)
-        return -1
-
-    # This is a bugfix: Check if the camera file is valid
-    goodFile = False
-    for fileName in fileList:
-        cameraPath = os.path.join(calFolder, fileName)
-        with open(cameraPath, 'r') as f:
-            for line in f:
-                if 'fu' in line:
-                    goodFile = True
-                    break
-        if goodFile:
-            break
+    cameraPath = options.inputCalCamera
+    if cameraPath == "":
+        # No input camera file provided, look one up. It does not matter much,
+        # as later ortho2pinhole will insert the correct intrinsics.
+        goodFile = False
+        fileList = os.listdir(calFolder)
+        fileList = [x for x in fileList if (('.tsai' in x) and ('~' not in x))]
+        if not fileList:
+            logger.error('Unable to find any camera files in ' + calFolder)
+            return -1
+        for fileName in fileList:
+            cameraPath = os.path.join(calFolder, fileName)
+            #  Check if this path is valid
+            with open(cameraPath, 'r') as f:
+                for line in f:
+                    if 'fu' in line:
+                        goodFile = True
+                        break
+            if goodFile:
+                break
             
     # Get the ortho list
     orthoFiles = icebridge_common.getTifs(orthoFolder)

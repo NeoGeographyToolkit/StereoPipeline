@@ -70,8 +70,8 @@ def createRotatedCameraFile(cameraIn, cameraOut, cameraMounting):
     # Usually the input camera file is fine
     if cameraMounting < 2:
         return cameraIn
-
-    # Read in the camera file
+    
+	# Read in the camera file
     cameraLinesIn  = []
     cameraLinesOut = []
     with open(cameraIn, 'r') as f:
@@ -272,16 +272,24 @@ def runOrtho(frame, processFolder, imageFile, bundleLength, cameraMounting,
             # - When the camera mount is rotated 90 degrees stereo is run on a corrected version
             #   but ortho needs to work on the original uncorrected jpeg image.
             tempCamFile = alignCamFile + '_temp_rot.tsai'
+<<<<<<< HEAD
             tempCamFile = createRotatedCameraFile(alignCamFile, tempCamFile, cameraMounting)
+||||||| merged common ancestors
+            createRotatedCameraFile(alignCamFile, tempCamFile, cameraMounting)
+
+=======
+            cameraOut = createRotatedCameraFile(alignCamFile, tempCamFile, cameraMounting)
+
+>>>>>>> Added option --many-ip, other minor
             # Run mapproject. The grid size is auto-determined.
             cmd = ('mapproject --no-geoheader-info %s %s %s %s %s' 
-                   % (mosaicOutput, imageFile, tempCamFile, tempOrtho, threadText))
+                   % (mosaicOutput, imageFile, cameraOut, tempOrtho, threadText))
             print(cmd)
             asp_system_utils.executeCommand(cmd, tempOrtho, suppressOutput, redo)
             # Set temporary files to be cleaned up
             filesToWipe.append(tempOrtho)
-            if tempCamFile != alignCamFile:
-                filesToWipe.append(tempCamFile)
+            if cameraOut != alignCamFile:
+                filesToWipe.append(cameraOut)
 
             # This makes the images smaller than Rose's by a factor of about 4,
             # even though both types are jpeg compressed. Rose's images filtered

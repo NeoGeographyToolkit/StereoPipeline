@@ -292,14 +292,18 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
 
             ans = input_conversions.convertJpegs(jpegFolder, imageFolder, 
                                                  options.startFrame, options.stopFrame,
-                                                 options.skipValidate, options.cameraMounting, logger)
+                                                 options.skipValidate, options.cameraMounting,
+                                                 logger)
             isGood = (isGood and ans)
             
         if not options.noNavFetch:
             # Single process call to parse the nav files.
             input_conversions.getCameraModelsFromNav(imageFolder, orthoFolder, 
-                                                     options.inputCalFolder, navFolder,
-                                                     navCameraFolder,
+                                                     options.inputCalFolder,
+                                                     options.inputCalCamera,
+                                                     options.cameraLookupFile,
+                                                     navFolder, navCameraFolder,
+                                                     options.yyyymmdd, options.site, 
                                                      options.startFrame, options.stopFrame,
                                                      options.cameraMounting,
                                                      logger)
@@ -324,6 +328,8 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
                                                        logger)
 
 
+    os.system("rm -f core.*") # these keep on popping up
+    
     if isGood:
         return 0
 
@@ -351,6 +357,8 @@ def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
         processCommand += ' --log-batches'
     if options.cleanup:
         processCommand += ' --cleanup'
+    if options.manyip:
+        processCommand += ' --many-ip'
         
     processCommand += ' --stereo-arguments '
 
@@ -361,8 +369,8 @@ def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
     args += (options.stereoArgs.strip(),) # Make sure this is properly passed
     process_icebridge_run.main(args)
 
-def solveIntrinsics_Part1(options, jpegFolder, cameraFolder, processedFolder,
-                          navCameraFolder, logger):
+def solveIntrinsics_Part1(options, jpegFolder, cameraFolder, navCameraFolder, processedFolder,
+                          logger):
     '''Some preliminary work before solving for intrinsics. Here we
     look up the default calibration file, and generate an RPC
     approximation of its distortion model with polynomials of degree
@@ -382,7 +390,7 @@ def solveIntrinsics_Part1(options, jpegFolder, cameraFolder, processedFolder,
         raise Exception("Processing subfolder not supported when solving for intrinsics.")
 
     # Generate extra data we will use later to float intrinsics
-    options.stereoArgs += "  --num-matches-from-disp-triplets 10000 --unalign-disparity"
+    options.stereoArgs += "  --num-matches-from-disp-triplets 10000 --unalign-disparity " #  --enable-fill-holes "
 
     # Create separate directories for cameras and processed data,
     # as these will be distinct than what we will finally be
@@ -423,12 +431,12 @@ def solveIntrinsics_Part1(options, jpegFolder, cameraFolder, processedFolder,
     # Create the RPC file before optimization
     rpcCalibFile = os.path.join(processedFolder, os.path.basename(defaultCalibFile))
     rpcCalibFile = rpcCalibFile.replace(".tsai", "_INIT_RPC.tsai")
-    logger.info("Will approximate camera model " + defaultCalibFile + " with RPC model " +
-                rpcCalibFile)
+    logger.info("Will approximate camera model " + defaultCalibFile + " with " + \
+                options.outputModelType + " model " + rpcCalibFile)
     os.system("mkdir -p " + os.path.dirname(rpcCalibFile))
-    cmd = "convert_pinhole_model --input-file " + firstImage + ' --camera-file '     + \
-          defaultCalibFile + ' --output-type RPCLensDistortion --sample-spacing 50 ' + \
-          '-o ' + rpcCalibFile
+    cmd = "convert_pinhole_model --input-file " + firstImage + ' --camera-file '   +  \
+          defaultCalibFile + ' --output-type ' + options.outputModelType           +  \
+          ' --sample-spacing 50 -o ' + rpcCalibFile
     logger.info(cmd)
     os.system(cmd)
 
@@ -436,7 +444,7 @@ def solveIntrinsics_Part1(options, jpegFolder, cameraFolder, processedFolder,
     options.inputCalCamera = rpcCalibFile
 
     # Return the modified values
-    return (options, cameraFolder, processedFolder)
+    return (options, cameraFolder, navCameraFolder, processedFolder)
     
 def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
                          processedFolder, isSouth, logger):
@@ -519,7 +527,7 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
         matchFiles.append(currMatchFiles[0])
 
     # Create output directory for bundle adjustment and copy there the match files
-    baDir = os.path.join(processedFolder, "ba_camgen")
+    baDir = os.path.join(processedFolder, "bundle_intrinsics")
     baPrefix = os.path.join(baDir, "out")
     os.system("mkdir -p " + baDir)
     for matchFile in matchFiles:
@@ -537,7 +545,7 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
             ' --datum wgs84 -t nadirpinhole --local-pinhole --robust-threshold 2' + \
             ' --camera-weight 1 --solve-intrinsics --csv-format ' + lidarCsvFormatString + \
             ' --overlap-limit 1 --max-disp-error 10 --max-iterations 100 ' + \
-            '-o ' + baPrefix
+            ' --parameter-tolerance 1e-12 -o ' + baPrefix
     logger.info(cmd)
     os.system(cmd)
 
@@ -647,6 +655,8 @@ def main(argsIn):
         parser.add_argument("--output-calibration-camera",  dest="outputCalCamera", default="",
                             help="If specified, float the intrinsics and write the optimized model here.")
 
+        parser.add_argument("--output-model-type",  dest="outputModelType", default="RPC",
+                            help="Generate a distortion model of type RPC, RPC5, or RPC6.")
         parser.add_argument("--reference-dem-folder",  dest="refDemFolder", default=None,
                           help="The folder containing DEMs that created orthoimages.")
 
@@ -693,6 +703,8 @@ def main(argsIn):
                           help="Log the required batch commands without running them.")
         parser.add_argument('--cleanup', action='store_true', default=False, dest='cleanup',  
                           help='If the final result is produced delete intermediate files.')
+        parser.add_argument('--many-ip', action='store_true', default=False, dest='manyip',  
+                          help='If to use a lot of IP in bundle adjustment from the beginning.')
         parser.add_argument("--dry-run", action="store_true", dest="dryRun", default=False,
                           help="Set up the input directories but do not fetch/process any imagery.")
 
@@ -791,15 +803,15 @@ def main(argsIn):
     fireballFolder     = icebridge_common.getFireballFolder(options.outputFolder)
     corrFireballFolder = icebridge_common.getCorrFireballFolder(options.outputFolder)
     lidarFolder        = icebridge_common.getLidarFolder(options.outputFolder)
-    processedFolder    = icebridge_common.getProcessedFolder(options.outputFolder)
     navFolder          = icebridge_common.getNavFolder(options.outputFolder)
     navCameraFolder    = icebridge_common.getNavCameraFolder(options.outputFolder)
+    processedFolder    = icebridge_common.getProcessedFolder(options.outputFolder)
 
     if options.outputCalCamera != "":
         # Prepare to solve for intrinsics. Note that this modifies some things along the way.
-        (options, cameraFolder, processedFolder) = \
-                  solveIntrinsics_Part1(options, jpegFolder, cameraFolder, processedFolder,
-                                        navCameraFolder, logger)
+        (options, cameraFolder, navCameraFolder, processedFolder) = \
+                  solveIntrinsics_Part1(options, jpegFolder, cameraFolder, navCameraFolder,
+                                        processedFolder, logger)
         
     # Handle subfolder option.  This is useful for comparing results with different parameters!
     if options.processingSubfolder:

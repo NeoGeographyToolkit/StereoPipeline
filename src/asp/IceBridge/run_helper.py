@@ -85,16 +85,22 @@ class RunHelper():
         and aligned camera files'''
         return 'ALIGNED_CAMERA_' + self.name() + self.timestamp + '.tar'
 
-    def getOrthoTarName(self):
+    def getOrthoTarName(self, useWildCard = False):
         '''Return the file name used to tar up the generated ortho images.'''
+        if useWildCard:
+            # This is conventient when we want to list all existing outputs
+            return 'ORTHO_' + self.name() + '*' + '.tar'
         return 'ORTHO_' + self.name() + self.timestamp + '.tar'
 
     def getSummaryTarName(self):
         '''Return the file name used to tar up the generated camera files'''
         return 'SUMMARY_' + self.name()  + self.timestamp + '.tar'
 
-    def getOutputTarName(self):
+    def getOutputTarName(self, useWildCard = False):
         '''Return the file name used to tar up the final results'''
+        if useWildCard:
+            # This is conventient when we want to list all existing outputs
+            return 'DEM_' + self.name() + '*' + '.tar'
         return 'DEM_' + self.name() + self.timestamp + '.tar'
 
     def getLabelTarName(self):

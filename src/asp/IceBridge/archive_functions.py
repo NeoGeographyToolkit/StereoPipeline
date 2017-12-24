@@ -131,6 +131,50 @@ def retrieveRunData(run, unpackFolder, useTar, forceTapeFetch, skipTapeCameraFet
     else:
         logger.info("Skip fetching cameras from tape.")
 
+def fetchProcessedByType(run, logger, dataType):
+    '''Fetch from lfe the latest archive of processed DEMs or orthos by modification time.
+    For now we ignore the timestamp.'''
+    
+    logger.info('Fetching processed ' + dataType + ' data for ' + str(run))
+
+    # Fetch the latest by timestamp
+    if dataType == 'DEM':
+        fileName = run.getOutputTarName(useWildCard = True)
+        lfePath  = os.path.join(REMOTE_OUTPUT_FOLDER, fileName)
+    elif dataType == 'ORTHO':
+        fileName = run.getOrthoTarName(useWildCard = True)
+        lfePath  = os.path.join(REMOTE_ORTHO_FOLDER, fileName)
+    else:
+        raise Exception("Unknown data type: " + dataType)
+    
+    cmd = 'ssh lfe "ls -dt ' + stripHost(lfePath) + '"'
+    logger.info(cmd)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, outputPath = None, 
+                                                         suppressOutput = True, redo = True,
+                                                         noThrow = True)
+    out = out.strip()
+    vals = out.split()
+    if len(vals) >= 1:
+        # Pick the first one, which is the newest
+        logger.info("Found multiple archives: " + " ".join(vals))
+        out = vals[0]
+        logger.info("Will pick the latest: " + out)
+    if out == "":
+        logger.info('Did not find processed data for run of type: ' + dataType)
+        return False
+    
+    fileName = os.path.basename(out)
+    lfePath  = os.path.join(os.path.dirname(lfePath), fileName) # rm the wildcard
+    cmd = 'shiftc --wait -d -r --extract-tar ' + lfePath + ' .'  
+    
+    logger.info(cmd)
+    status = os.system(cmd)
+    if status != 0:
+        logger.info('Did not sucessfully fetch archived processed data of type: ' + dataType)
+        return False
+
+    return True
+
 def fetchCameraFolder(run, logger):
     '''Fetch a camera folder from the archive if it exists.  Returns
     True if we got the file. If more than one, return the latest by
@@ -377,6 +421,7 @@ def packAndSendCompletedRun(run, logger):
         
         # Need to change the name of these files when they go in the output folder
         (startFrame, stopFrame) = icebridge_common.getFrameRangeFromBatchFolder(batch)
+        # We respect the convention below in push_to_nsidc.py.
         prefix = ('F_%05d_%05d' % (startFrame, stopFrame))
         prefix = os.path.join(assemblyFolder, prefix)
         target = prefix + '_DEM.tif'

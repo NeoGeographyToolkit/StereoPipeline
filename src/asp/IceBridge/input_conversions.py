@@ -424,7 +424,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
 
 def getCameraModelsFromOrtho(imageFolder, orthoFolder,
                              inputCalFolder, inputCalCamera,
-                             cameraLookupPath, 
+                             cameraLookupFile, 
                              noNav, 
                              navCameraFolder,
                              yyyymmdd, site,
@@ -517,12 +517,12 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder,
         except:
             # For now treat this as an error, a missing nav file suggests
             #  that something is going wrong with the flight!
-			if not noNav:
-				logger.error('Missing nav estimated camera for frame ' + str(frame))
-				continue
-			else:
-				estimatedCameraFile = None
-				estimatedCameraPath = None
+            if not noNav:
+                logger.error('Missing nav estimated camera for frame ' + str(frame))
+                continue
+            else:
+                estimatedCameraFile = None
+                estimatedCameraPath = None
             #estimatedCameraFile = None
             #estimatedCameraPath = None
         
@@ -540,7 +540,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder,
 
         # Determine which input camera file will be used for this frame
         if inputCalCamera == "":
-            inputCamFile = getCalibrationFileForFrame(cameraLookupPath, inputCalFolder,
+            inputCamFile = getCalibrationFileForFrame(cameraLookupFile, inputCalFolder,
                                                       frame, yyyymmdd, site)
         else:
             # This logic will force to use a given camera rather than
@@ -576,7 +576,10 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder,
     return True
 
 def getCameraModelsFromNav(imageFolder, orthoFolder, 
-                           inputCalFolder, navFolder, navCameraFolder,
+                           inputCalFolder, inputCalCamera,
+                           cameraLookupFile, 
+                           navFolder, navCameraFolder,
+                           yyyymmdd, site,
                            startFrame, stopFrame, cameraMounting,
                            logger):
     '''Given the folder containing navigation files, generate an
@@ -585,19 +588,28 @@ def getCameraModelsFromNav(imageFolder, orthoFolder,
     # Note: Currently these output files DO NOT contain accurate intrinsic parameters!
 
     logger.info("Get camera models from nav.")
-    
+
     # All the work is done by the separate file.
     cmd = [imageFolder, orthoFolder, inputCalFolder, navFolder, navCameraFolder,
            '--start-frame', str(startFrame), 
            '--stop-frame',  str(stopFrame)]
 
+    # Pick an input calibration file to use. The exact one is not essential here,
+    # things will be refined later.
+    if inputCalCamera == "":
+        inputCalCamera = getCalibrationFileForFrame(cameraLookupFile, inputCalFolder,
+                                                    startFrame, yyyymmdd, site)
+
+    if inputCalCamera != "" and os.path.exists(inputCalCamera):
+        cmd += ['--input-calibration-camera', inputCalCamera]
+        
     # Only one alternate orientation (180 degree flipped) is handled here.
     # - The two 90 degree flips are handled by rotating the input images!
     if cameraMounting == 1:
         cmd += ['--camera-mounting', str(cameraMounting)]
-        
+
     logger.info("camera_models_from_nav.py " + " ".join(cmd))
-    
+
     if (camera_models_from_nav.main(cmd) < 0):
         raise Exception('Error generating camera models from nav!')
 

@@ -359,6 +359,14 @@ def robustBundleAdjust(options, inputPairs,
     epipolarT   = [450, 450, 450,   450, 450, 450,   2000, 2000,   450,  450,  450,   2000]
     normIpTiles = [0,   0,   0,     0,   0,   0,     1,    1,      0,    0,    0,     1   ]
 
+    if options.manyip:
+        # When using many IP, ip-method 0 gives more ip
+        ipMethod[0] = 0
+        ipMethod[1] = 1
+        SIDE_IP_CROP_PERCENT = 0
+        for v in range(len(ipPerTile)):
+            ipPerTile[v] = 2000
+        
     # This is the rough percentage of the image that we want to have interest points in.
     MIN_IP_COVERAGE = 0.70
 
@@ -927,9 +935,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # point2dem on the result of ASP
     # - The size limit is to prevent bad point clouds from creating giant DEM files which
     #   cause the processing node to crash.
-    # Note to use error image and big error when optimizing the distortion!
     cmd = (('point2dem ' + ' --errorimage ' +
-            # '--max-valid-triangulation-error 10 ' +
+            # '--max-valid-triangulation-error 10 ' + # useful when studying distortion
             '--max-output-size 10000 10000 --tr %lf --t_srs %s %s %s')
            % (options.demResolution, projString, triOutput, threadText))
     p2dOutput = demFiles[i]
@@ -1110,6 +1117,9 @@ def main(argsIn):
         parser.add_option('--cleanup', action='store_true', default=False, dest='cleanup',  
                           help='If the final result is produced delete intermediate files.')
 
+        parser.add_option('--many-ip', action='store_true', default=False, dest='manyip',  
+                          help='If to use a lot of IP in bundle adjustment from the beginning.')
+        
         # Performance options
         parser.add_option('--num-threads', dest='numThreads', default=None,
                           type='int', help='The number of threads to use for processing.')
@@ -1275,7 +1285,8 @@ def doWork(options, args, logger):
                                                     projString, lidarFile,
                                                     options, threadText, 
                                                     suppressOutput, redo, logger)
-            # heightLimitString = "" # To turn it off
+        if options.manyip:
+            heightLimitString = "" # Turn it off
        
     # BUNDLE_ADJUST
     origInputPairs = inputPairs # All input pairs, non-blurred or otherwise altered.
