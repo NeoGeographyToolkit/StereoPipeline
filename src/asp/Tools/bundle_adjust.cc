@@ -260,7 +260,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     cost_function, ba_type, mapprojected_data, gcp_data;
   int    ip_per_tile, ip_edge_buffer_percent;
   double min_triangulation_angle, lambda, camera_weight, rotation_weight, 
-         translation_weight, overlap_exponent, robust_threshold;
+    translation_weight, overlap_exponent, robust_threshold, parameter_tolerance;
   int    report_level, min_matches, max_iterations, overlap_limit;
   bool   save_iteration, local_pinhole_input, approximate_pinhole_intrinsics,
          fix_gcp_xyz, solve_intrinsics,
@@ -612,6 +612,9 @@ struct BaPinholeError {
     case vw::camera::RPCLensDistortion5::num_distortion_params + 3:
       return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, vw::camera::RPCLensDistortion5::num_distortion_params>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
 
+    case vw::camera::RPCLensDistortion6::num_distortion_params + 3:
+      return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, vw::camera::RPCLensDistortion6::num_distortion_params>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+
     default:
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
     };
@@ -817,6 +820,8 @@ struct BaDispXyzError {
 
     case vw::camera::RPCLensDistortion5::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion5::num_distortion_params>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
       
+    case vw::camera::RPCLensDistortion6::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion6::num_distortion_params>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+
     default:
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
     };
@@ -2104,6 +2109,8 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
+  options.parameter_tolerance = opt.parameter_tolerance; // default is 1e-8
+
   options.max_num_iterations = opt.max_iterations;
   options.max_num_consecutive_invalid_steps = std::max(5, opt.max_iterations/5); // try hard
   options.minimizer_progress_to_stdout = true;//(opt.report_level >= vw::ba::ReportFile);
@@ -3233,6 +3240,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                         "Individually normalize the input images instead of using common values.")
     ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
                          "Set the maximum number of iterations.")
+    ("parameter-tolerance",   po::value(&opt.parameter_tolerance)->default_value(1e-8),
+     "Making this smaller will result in more iterations.")
     ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(0),
                          "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
     ("overlap-list",    po::value(&opt.overlap_list_file)->default_value(""),
