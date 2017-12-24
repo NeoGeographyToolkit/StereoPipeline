@@ -17,6 +17,8 @@
 # __END_LICENSE__
 
 # Push DEMs and orthos to NSIDC.
+# Usage: /usr/bin/python push_to_nsidc.py --yyyymmdd 20140321 --site GR --camera-calibration-folder camera_calib --reference-dem-folder reference_dems --login-info 'user,password server.nsidc.org'
+
 # TODO: How to prevent old copies littering the remote directory?
 
 import os, sys, argparse, datetime, time, subprocess, logging, multiprocessing
