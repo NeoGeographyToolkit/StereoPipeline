@@ -100,7 +100,8 @@ def parse_cv_yaml_file(path):
 
     params  = dict()
     cv_file = open(path)
-    lines   = cv_file.read().split('\n')
+    linesIn = cv_file.read().split('\n')
+    lines   = [x for x in linesIn if x != '---'] # Strip this line added in later OpenCV version
     params['width' ] = int(get_value_after_colon(lines[2]))
     params['height'] = int(get_value_after_colon(lines[3]))
     
