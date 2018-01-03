@@ -1300,7 +1300,10 @@ void compute_residuals(bool apply_loss_function,
   double cost = 0;
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.apply_loss_function = apply_loss_function;
-  eval_options.num_threads = opt.num_threads;
+  if (opt.stereo_session_string == "isis")
+    eval_options.num_threads = 1;
+  else
+    eval_options.num_threads = opt.num_threads;
   problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
   const size_t num_residuals = residuals.size();
   
