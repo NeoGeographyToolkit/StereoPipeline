@@ -97,8 +97,8 @@ def createRotatedCameraFile(cameraIn, cameraOut, cameraMounting):
 
     rNew = R[:]
 
-    xpIn = float(cameraLinesIn[12]).strip().split()[2]) # Extract input xp, yp
-    ypIn = float(cameraLinesIn[13]).strip().split()[2])
+    xpIn = float(cameraLinesIn[12].strip().split()[2]) # Extract input xp, yp
+    ypIn = float(cameraLinesIn[13].strip().split()[2])
     
     if cameraMounting == 2: # Rotate the camera 90 degrees clockwise
         # x = y, y = -x

@@ -576,6 +576,11 @@ def fetchNavData(options, outputFolder):
     else:
         fileList = [filenameA, filenameB]
 
+    if options.refetchNav:
+        cmd = "rm -f " + os.path.join(outputFolder, "sbet_*")
+        print(cmd)
+        os.system(cmd)
+     
     # Download the files    
     for f in fileList:
         url        = os.path.join(folderUrl, f)
@@ -896,6 +901,9 @@ def main(argsIn):
         parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
                           default=False,
                           help="Force refetch of the index file.")
+        parser.add_option("--refetch-nav", action="store_true", dest="refetchNav",
+                          default=False,
+                          help="Force refetch of the nav file.")
         parser.add_option("--stop-after-index-fetch", action="store_true",
                           dest="stopAfterIndexFetch", default=False,
                           help="Stop after fetching the indices.")

@@ -19,6 +19,9 @@
 # Push DEMs and orthos to NSIDC.
 # Usage: /usr/bin/python push_to_nsidc.py --yyyymmdd 20140321 --site GR --camera-calibration-folder camera_calib --reference-dem-folder reference_dems --login-info 'user,password server.nsidc.org'
 
+# If there is more than one archive, push the one with the latest
+# modification time.
+
 # TODO: How to prevent old copies littering the remote directory?
 
 import os, sys, argparse, datetime, time, subprocess, logging, multiprocessing
@@ -59,24 +62,36 @@ def stop_time(job, logger):
     g_stop_time = time.time()
     wall_s = float(g_stop_time - g_start_time)/3600.0
     logger.info( ("Elapsed time for %s is %g hours." % (job, wall_s) ) )
-
+    
+def fetchIndices(options, logger):
+    '''Fetch the csv indices of available files.'''
+    logger.info("Fetch indices from NSIDC.")
+    pythonPath = asp_system_utils.which('python')
+    cmd = ( (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + \
+             ' --camera-calibration-folder %s --reference-dem-folder %s --site %s ' + \
+             '--yyyymmdd %s --stop-after-index-fetch --no-nav ' ) % \
+            (options.inputCalFolder, options.refDemFolder, options.site, options.yyyymmdd))
+    logger.info(cmd)
+    start_time()
+    os.system(cmd)
+    stop_time("fetch index", logger)
+    
 def pushByType(run, options, logger, dataType):
                
     # Fetch the ortho index from NSIDC if missing
     outputFolder   = run.getFolder()
+    logger.info("Output folder is " + outputFolder)
+    os.system("mkdir -p " + outputFolder)
+    
+    # Current directory. It is important to go from /u to the real dir which is /nobackup...
+    unpackDir = os.path.realpath(os.getcwd())
+    logger.info("Unpack directory is " + unpackDir)
+    
     orthoFolder    = icebridge_common.getOrthoFolder(outputFolder)
     orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
     if not os.path.exists(orthoIndexPath):
-        logger.info("Fetch indices from NSIDC.")
-        pythonPath = asp_system_utils.which('python')
-        cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + \
-               ' --camera-calibration-folder %s --reference-dem-folder %s --site %s ' + \
-               '--yyyymmdd %s --stop-after-index-fetch --no-nav ' % \
-               (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd))
-        logger.info(cmd)
-        start_time()
-        os.system(cmd)
-        stop_time("fetch index", logger)
+        fetchIndices(options, logger)
+        
     logger.info("Reading ortho index: " + orthoIndexPath)
     (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath)
 
@@ -92,7 +107,7 @@ def pushByType(run, options, logger, dataType):
     # Especially for ortho, force-fetch each time, as there is no good way
     # of checking if we fetched well before.
     start_time()
-    if not archive_functions.fetchProcessedByType(run, logger, dataType):
+    if not archive_functions.fetchProcessedByType(run, unpackDir, logger, dataType):
         return
     stop_time("fetching archived data by type: " + dataType, logger)
 
@@ -137,7 +152,14 @@ def pushByType(run, options, logger, dataType):
 
         # For each data file, copy from the ortho its meta info
         if not frameNumber in orthoFrameDict.keys():
-            raise Exception("Cannot find ortho for frame " + str(frameNumber))
+            # Bugfix: Ortho fetching failed, try again
+            fetchIndices(options, logger)
+            logger.info("Re-reading ortho index: " + orthoIndexPath)
+            (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath)
+            if not frameNumber in orthoFrameDict.keys():
+                # This time there is nothing we can do
+                raise Exception("Cannot find ortho for frame: " + str(frameNumber))
+            
         orthoFile = orthoFrameDict[frameNumber]
         [dateString, timeString] = icebridge_common.parseTimeStamps(orthoFile)
 
@@ -165,7 +187,15 @@ def pushByType(run, options, logger, dataType):
           ' ' + remoteDirPath + ' -i \'\.(tif)$\'; bye\" -u ' + options.loginInfo
     logger.info(cmd)
     start_time()
-    os.system(cmd)
+
+    (output, err, status) = asp_system_utils.executeCommand(cmd,
+                                                            suppressOutput = True)
+    #status = os.system(cmd)
+    logger.info("LFTP output and error: " + output + ' ' + err)
+    logger.info("LFTP status: " + str(status))
+    #if status != 0:
+    #    raise Exception("Problem pushing")
+    
     stop_time("push to NSIDC", logger)
 
 def main(argsIn):
@@ -174,12 +204,15 @@ def main(argsIn):
         usage = '''usage: push_to_nsidc.py <options> '''
         parser = argparse.ArgumentParser(usage=usage)
 
-        parser.add_argument("--yyyymmdd",  dest="yyyymmdd", default=None,
+        parser.add_argument("--yyyymmdd",  dest="yyyymmdd", default="",
                             help="Specify the year, month, and day in one YYYYMMDD string.")
 
-        parser.add_argument("--site",  dest="site", required=True,
+        parser.add_argument("--site",  dest="site", default = "",
                             help="Name of the location of the images (AN, GR, or AL)")
                             
+        parser.add_argument("--site_yyyymmdd",  dest="site_yyyymmdd", default = "",
+                            help="A value like GR_20150330, which will be split into site and yyyymmdd by this script.")
+
         parser.add_argument('--start-frame', dest='startFrame', type=int,
                             default=icebridge_common.getSmallestFrame(),
                             help="Frame to start with.  Leave this and stop-frame blank to " + \
@@ -197,23 +230,61 @@ def main(argsIn):
         parser.add_argument("--login-info",  dest="loginInfo", default=None,
                             help="user,password destination.nsidc.org.")
 
+        parser.add_argument("--done-file",  dest="doneFile", default=None,
+                            help="List of runs that were done by now.")
+
         options = parser.parse_args(argsIn)
 
     except argparse.ArgumentError, msg:
         parser.error(msg)
 
+    # parse --site_yyyymmdd. Sometimes it is easier to pass this than
+    # to pass separately --site and --yyyymmdd.
+    m = re.match('^(\w+)_(\w+)', options.site_yyyymmdd)
+    if m:
+        options.site = m.group(1)
+        options.yyyymmdd = m.group(2)
+    else:
+        options.site_yyyymmdd = options.site + "_" + options.yyyymmdd
+        
+    # Read the done file and exit if the current flight is done
+    done = set()
+    if options.doneFile != "":
+        with open(options.doneFile, 'r') as f:
+            for val in f:
+                val = val.strip()
+                done.add(val)
+    if options.site_yyyymmdd in done:
+        print("Skipping done flight: " + options.site_yyyymmdd)
+        return 0
+    
     run = run_helper.RunHelper(options.site, options.yyyymmdd, os.getcwd())
 
-    # Set up logging in the run directory
-    logFolder = os.path.join(run.getFolder(), 'push_logs')
+    # Set up logging in the run directory. Log outside of the run dir,
+    # as that one we will wipe
+    logFolder = os.path.abspath(os.path.join(run.getFolder(), '..', 'push_logs'))
     os.system('mkdir -p ' + logFolder)
     logLevel = logging.INFO
     logger   = icebridge_common.setUpLogger(logFolder, logLevel, "push")
     logger.info("Logging in: " + logFolder)
 
+    # Check the lftp version. On some machines it is too old. 
+    (out, err, status) = asp_system_utils.executeCommand(['lftp', '--version'],
+                                                         suppressOutput = True)
+    m = re.match('^.*?LFTP\s+\|\s+Version\s+4.5', out)
+    if not m:
+        raise Exception('Expecting LFTP version 4.5.')
+    else:
+        logger.info("Found an acceptable version of LFTP.")
+    
     pushByType(run, options, logger, 'DEM')
-    pushByType(run, options, logger, 'ORTHO')
-        
+    #pushByType(run, options, logger, 'ORTHO') # need to wait for format decision
+
+    # Wipe at the end
+    cmd = "rm -rf " + run.getFolder()
+    logger.info(cmd)
+    os.system(cmd)
+    
 # Run main function if file used from shell
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

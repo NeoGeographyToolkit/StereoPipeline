@@ -91,10 +91,10 @@ def getParallelParams(nodeType, task):
     # Define additional combinations and edit as needed.
 
     if task == 'camgen':
-        if nodeType == 'san': return (8,  4, 300, 3)
-        if nodeType == 'ivy': return (10, 3, 400, 3)
-        if nodeType == 'bro': return (14, 4, 500, 3)
-        if nodeType == 'wes': return (8,  4, 150, 3) # more jobs will go faster
+        if nodeType == 'san': return (8,  4, 300, 8)
+        if nodeType == 'ivy': return (10, 3, 400, 8)
+        if nodeType == 'bro': return (14, 4, 500, 8)
+        if nodeType == 'wes': return (8,  4, 150, 8) # more jobs will go faster
     
     if task == 'dem':
         if nodeType == 'san': return (2, 8, 70,  8)
@@ -103,15 +103,15 @@ def getParallelParams(nodeType, task):
         if nodeType == 'wes': return (3, 8, 70,  8)
     
     if task == 'blend':
-        if nodeType == 'san': return (8,  3, 1200, 4)
-        if nodeType == 'ivy': return (10, 3, 1000, 4)
-        if nodeType == 'bro': return (14, 4, 1400, 4) # 200 seems to finish in 10 minutes
+        if nodeType == 'san': return (8,  3, 1200, 6)
+        if nodeType == 'ivy': return (10, 3, 1000, 6)
+        if nodeType == 'bro': return (14, 4, 1400, 6) # 200 seems to finish in 10 minutes
         if nodeType == 'wes': return (8,  3,  300, 8) # use more nodes so less jobs per node  
     
     if task == 'orthogen':
-        if nodeType == 'san': return (8,  4, 350, 6)
-        if nodeType == 'ivy': return (10, 2, 400, 5)
-        if nodeType == 'bro': return (14, 4, 500, 4)
+        if nodeType == 'san': return (8,  4, 350, 8)
+        if nodeType == 'ivy': return (10, 2, 400, 8)
+        if nodeType == 'bro': return (14, 4, 500, 8)
         if nodeType == 'wes': return (8,  4, 200, 8)
 
     # TODO: All guesses!
@@ -209,9 +209,12 @@ def runFetch(run, options, logger):
 
     # Fetch the archive from lfe, only in the case the directory is not present
     if not options.skipTapeFetch:
-        archive_functions.retrieveRunData(run, options.unpackDir, options.useTar,
-                                          options.forceTapeFetch, options.skipTapeCameraFetch,
-                                          logger)
+        try:
+            archive_functions.retrieveRunData(run, options.unpackDir, options.useTar,
+                                              options.forceTapeFetch, options.skipTapeCameraFetch,
+                                              logger)
+        except Exception, e:
+            pass # return gracefully
 
     pythonPath = asp_system_utils.which('python')
     
@@ -240,6 +243,9 @@ def runFetch(run, options, logger):
 
         if not options.noRefetchIndex:
             cmd += ' --refetch-index'
+            
+        if options.refetchNav:
+            cmd += ' --refetch-nav'
             
         logger.info(cmd)
         os.system(cmd)
@@ -901,6 +907,10 @@ def main(argsIn):
         parser.add_argument("--no-refetch-index", action="store_true", 
                             dest="noRefetchIndex", default=False, 
                             help="Do not refetch the index from NSIDC.")
+ 
+        parser.add_argument("--refetch-nav", action="store_true", 
+                            dest="refetchNav", default=False, 
+                            help="Force refetch the nav data.")
 
         parser.add_argument("--skip-check-inputs", action="store_true", 
                             dest="skipCheckInputs", default=False, 

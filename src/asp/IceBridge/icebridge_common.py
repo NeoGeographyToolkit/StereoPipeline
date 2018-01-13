@@ -461,13 +461,38 @@ def getCorrectedFireballDems(outputFolder):
         raise Exception("Error: Missing fireball index file: " + fireballIndexPath + ".")
     (fireballFrameDict, fireballUrlDict) = \
                         readIndexFile(fireballIndexPath, prependFolder = True)
-    
-    for frame in fireballFrameDict.keys():
-        # Get the corrected one
-        fireballFrameDict[frame] = os.path.join(corrFireballFolder,
-                                                os.path.basename(fireballFrameDict[frame]))
 
-    return fireballFrameDict
+    orthoFolder     = getOrthoFolder(outputFolder)
+    orthoIndexPath  = csvIndexFile(orthoFolder)
+    if not os.path.exists(orthoIndexPath):
+        raise Exception("Error: Missing ortho index file: " + orthoIndexPath + ".")
+    (orthoFrameDict, orthoUrlDict) = \
+                        readIndexFile(orthoIndexPath, prependFolder = True)
+    
+    correctedFireballFrameDict  = {}
+
+    for frame in fireballFrameDict.keys():
+
+        fireballDem = fireballFrameDict[frame]
+        
+        # Get the corrected one
+        corrDem = os.path.join(corrFireballFolder, os.path.basename(fireballDem))
+
+        # This is a bugfix. Sometimes fireball DEMs for one flight
+        # actually are for the next flight. All this sorry story is
+        # because sometimes flights extend beyond midnight, and the
+        # book-keeping gets confused. This was fixed for orthos.  Here, if
+        # a DEM has a different date than the ortho, ignore it.
+        if frame not in orthoFrameDict:
+            continue
+        [orthoDateString, orthoTimeString] = parseTimeStamps(orthoFrameDict[frame])
+        [fireballDateString, fireballTimeString] = parseTimeStamps(fireballDem)
+        if orthoDateString != fireballDateString:
+            continue
+        
+        correctedFireballFrameDict[frame] = corrDem
+
+    return correctedFireballFrameDict
     
 def getCameraGsdAndBoundsRetry(imagePath, cameraPath, logger, referenceDem, projString=""):
     '''As getCameraGsd, but retry with the datum if the DEM fails.'''

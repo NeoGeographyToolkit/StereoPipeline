@@ -67,6 +67,9 @@ def fetchAllRunData(options, startFrame, stopFrame,
 
     if options.refetchIndex:
         baseCommand += ' --refetch-index' # this was not right in older fetched runs
+    if options.refetchNav:
+        baseCommand += ' --refetch-nav' # sometimes this was corrupted
+        
         
     if options.stopAfterIndexFetch:
         baseCommand += ' --stop-after-index-fetch' 
@@ -714,6 +717,9 @@ def main(argsIn):
         parser.add_argument("--refetch-index", action="store_true", dest="refetchIndex",
                           default=False,
                           help="Force refetch of the index file.")
+        parser.add_argument("--refetch-nav", action="store_true", dest="refetchNav",
+                          default=False,
+                          help="Force refetch of the nav file.")
         parser.add_argument("--stop-after-index-fetch", action="store_true",
                           dest="stopAfterIndexFetch", default=False,
                           help="Stop after fetching the indices.")

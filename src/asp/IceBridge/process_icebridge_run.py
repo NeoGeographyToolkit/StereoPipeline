@@ -179,9 +179,9 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
         
     # Since we are only comparing the image bounding boxes, not their exact corners,
     #  these ratios are only estimates.
-    MAX_RATIO   = 0.85  # Increase skip until we get below this...
-    MIN_RATIO   = 0.75  # ... but don't go below this value!
-    NOTRY_RATIO = 0.35 # Don't bother with overlap amounts less than this
+    MAX_RATIO   = 0.85    # Increase skip until we get below this...
+    MIN_RATIO   = 0.75    # ... but don't go below this value!
+    NOTRY_RATIO = 0.0001  # Don't bother with overlap amounts less than this (small on purpose)
 
     def getBboxArea(bbox):
         '''Return the area of a bounding box in form of (minX, maxX, minY, maxY)'''
@@ -214,7 +214,6 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
             if area > 0:
                 ratio = area / thisArea
             
-            #print(str(thisFrame) +', ' + str(nextFrame) + ' -> ' + str(ratio))
             if interval == 1: # Cases for the smallest interval...
                 if ratio < NOTRY_RATIO:
                     breaks.append(thisFrame) # No match for this frame
@@ -240,7 +239,6 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
         if interval > 1: # Only record larger than normal intervals.
             largeSkips[thisFrame] = interval
 
-    
     logger.info('Detected ' + str(len(breaks)) + ' breaks in image coverage.')
     logger.info('Detected ' + str(len(largeSkips)) + ' images with interval > 1.')
 
@@ -505,30 +503,38 @@ def main(argsIn):
             break
         
         firstBundleFrame = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[i][0])
-
+        
         # Determine the frame skip amount for this batch (set by the first frame)
         thisSkipInterval = options.imageStereoInterval
         if firstBundleFrame in largeSkips:
+            #print(" ", firstBundleFrame, " in largeskips!" )
             thisSkipInterval = largeSkips[firstBundleFrame]
         thisBatchSize = options.bundleLength + thisSkipInterval - 1
 
         # Keep adding frames until we have enough or run out of frames
         j = i # The frame index that ends the batch
-        
         while True:
-
+            
             if j >= len(imageCameraPairs):
                 # Bugfix: arrived at the last feasible frame.
                 break
             
             frameNumber = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[j][0])
-
+            # Useful debugging code
+            #print("Framenumber is ", frameNumber)
+            #if int(frameNumber) > 8531:
+            #    #    pass
+            #    for t in range(8340, 8360):
+            #        print("i frame is ", t, imageCameraPairs[t][0])
+            #    print("breaks are ", breaks)
+            #    sys.exit(1)
+                
             # Update conditions
             hitBreakFrame = (frameNumber in breaks)
-
+            
             lastFrame     = (frameNumber > options.stopFrame) or (j >= numFiles)
             endBatch      = ( len(frameNumbers) >= thisBatchSize )
-        
+
             if lastFrame or endBatch:
                 break # The new frame is too much, don't add it to the batch
         
@@ -580,6 +586,7 @@ def main(argsIn):
         if hitBreakFrame:
             # When we hit a break in the frames we need to start the
             # next batch after the break frame
+            #print("Hit break frame for i, j, frameNumber", i, j, frameNumber)
             i = j + 1
         else:
             # Start in the next frame that was not used as a "left" stereo image.

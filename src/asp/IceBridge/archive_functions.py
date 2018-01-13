@@ -48,12 +48,11 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 REMOTE_INPUT_FOLDER     = 'lfe:/u/oalexan1/projects/data/icebridge'
 
-def robust_shiftc(cmd, logger):
+def robust_shiftc(cmd, logger, attempts = 120):
     '''Try to fetch/submit with shiftc for at least 2 hours, with attempts every minute.
     We worked hard for many hours to produce a run, and we should not let
     a temporary problem with the server nullify our work.'''
     sleep_time = 60
-    attempts   = 120
 
     for attempt in range(attempts):
 
@@ -81,12 +80,29 @@ def stripHost(val):
         return m.group(1)
     else:
         return val
+
+def get_remote_output_folder(user):
+    '''Get the folder containing DEMs for given user.'''
+    if user == 'smcmich1':
+        return 'lfe:/u/smcmich1/icebridge/output'
+    elif user == 'oalexan1':
+        return 'lfe:/u/oalexan1/projects/data/icebridge/output'
+    else:
+        raise Exception("Unknown user: " + user)
+    
+def get_remote_ortho_folder(user):
+    '''Get the folder containing orthos for given user.'''
+    if user == 'smcmich1':
+        return 'lfe:/u/smcmich1/icebridge/ortho'
+    elif user == 'oalexan1':
+        return 'lfe:/u/oalexan1/projects/data/icebridge/ortho'
+    else:
+        raise Exception("Unknown user: " + user)
     
 if icebridge_common.getUser() == 'smcmich1':
     REMOTE_CAMERA_FOLDER    = 'lfe:/u/smcmich1/icebridge/camera'
     REMOTE_ALIGN_CAM_FOLDER = 'lfe:/u/smcmich1/icebridge/aligned_cameras'
     REMOTE_ORTHO_FOLDER     = 'lfe:/u/smcmich1/icebridge/ortho'
-    REMOTE_OUTPUT_FOLDER    = 'lfe:/u/smcmich1/icebridge/output'
     REMOTE_SUMMARY_FOLDER   = 'lfe:/u/smcmich1/icebridge/summaries'
     REMOTE_LABEL_FOLDER     = 'lfe:/u/smcmich1/icebridge/labels'
     LUNOKHOD                = 'lunokhod2'
@@ -94,12 +110,13 @@ if icebridge_common.getUser() == 'smcmich1':
 elif icebridge_common.getUser() == 'oalexan1':
     REMOTE_CAMERA_FOLDER    = 'lfe:/u/oalexan1/projects/data/icebridge/camera'
     REMOTE_ALIGN_CAM_FOLDER = 'lfe:/u/oalexan1/projects/data/icebridge/aligned_cameras'
-    REMOTE_ORTHO_FOLDER     = 'lfe:/u/oalexan1/projects/data/icebridge/ortho'
-    REMOTE_OUTPUT_FOLDER    = 'lfe:/u/oalexan1/projects/data/icebridge/output'
     REMOTE_SUMMARY_FOLDER   = 'lfe:/u/oalexan1/projects/data/icebridge/summaries'
     REMOTE_LABEL_FOLDER     = 'lfe:/u/oalexan1/projects/data/icebridge/labels'
     LUNOKHOD                = 'lunokhod1'
     L_SUMMARY_FOLDER        = LUNOKHOD + ':/home/oalexan1/projects/data/icebridge/summaries'
+
+REMOTE_OUTPUT_FOLDER = get_remote_output_folder(icebridge_common.getUser())
+REMOTE_ORTHO_FOLDER  = get_remote_ortho_folder(icebridge_common.getUser())
 
 def retrieveRunData(run, unpackFolder, useTar, forceTapeFetch, skipTapeCameraFetch, logger):
     '''Retrieve the data for the specified run from Lfe.'''
@@ -116,62 +133,92 @@ def retrieveRunData(run, unpackFolder, useTar, forceTapeFetch, skipTapeCameraFet
 
     lfePath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)
 
-    if useTar:
-        # I have had bad luck with shift to fetch
-        cmd = 'ssh lfe "cd ' + os.path.dirname(stripHost(lfePath)) + "; tar xfv " + \
-              os.path.basename(lfePath) + " -C " + os.path.realpath(unpackFolder) + '"'
-    else:
-        cmd = 'shiftc --wait -d -r --verify --extract-tar ' + lfePath + ' ' + unpackFolder
-            
-    robust_shiftc(cmd, logger)
+    # I have had bad luck with shift to fetch. So in the worst case try tar.
 
+    tar_cmd = 'ssh lfe "cd ' + os.path.dirname(stripHost(lfePath)) + "; tar xfv " + \
+              os.path.basename(lfePath) + " -C " + os.path.realpath(unpackFolder) + '"'
+    shift_cmd = 'shiftc --wait -d -r --verify --extract-tar ' + lfePath + ' ' + unpackFolder
+    
+    if useTar:
+        # If to use tar right away
+        robust_shiftc(tar_cmd, logger, attempts = 1)
+    else:
+        try:
+            # If shiftc does not work, fall back to tar.
+            # Don't try too hard on fetching.
+            robust_shiftc(shift_cmd, logger, attempts = 10)
+        except Exception, e:
+            robust_shiftc(tar_cmd, logger, attempts = 1)
+            
     # Retrieve a preprocessed set of camera files if we have it
     if not skipTapeCameraFetch:
         fetchCameraFolder(run, logger)
     else:
         logger.info("Skip fetching cameras from tape.")
 
-def fetchProcessedByType(run, logger, dataType):
+def fetchProcessedByType(run, unpackFolder, logger, dataType):
     '''Fetch from lfe the latest archive of processed DEMs or orthos by modification time.
     For now we ignore the timestamp.'''
     
     logger.info('Fetching processed ' + dataType + ' data for ' + str(run))
 
-    # Fetch the latest by timestamp
+    # Fetch the latest file by modification time as returned by 'ls'. 
+    # A given file can be either in Scott's or Oleg's archive. 
+    # It can be in both, and it can be multiple instances.
+    # Need to list all and fetch the latest.
     if dataType == 'DEM':
         fileName = run.getOutputTarName(useWildCard = True)
-        lfePath  = os.path.join(REMOTE_OUTPUT_FOLDER, fileName)
+        lfePaths = os.path.join(stripHost(get_remote_output_folder('oalexan1')), fileName) + " " + \
+                   os.path.join(stripHost(get_remote_output_folder('smcmich1')), fileName)
     elif dataType == 'ORTHO':
         fileName = run.getOrthoTarName(useWildCard = True)
-        lfePath  = os.path.join(REMOTE_ORTHO_FOLDER, fileName)
+        lfePaths = os.path.join(stripHost(get_remote_ortho_folder('oalexan1')), fileName) + " " + \
+                   os.path.join(stripHost(get_remote_ortho_folder('smcmich1')), fileName)
     else:
         raise Exception("Unknown data type: " + dataType)
-    
-    cmd = 'ssh lfe "ls -dt ' + stripHost(lfePath) + '"'
+
+    # Get the list 
+    cmd = 'ssh lfe "ls -altd ' + lfePaths + '"'
     logger.info(cmd)
     (out, err, status) = asp_system_utils.executeCommand(cmd, outputPath = None, 
                                                          suppressOutput = True, redo = True,
                                                          noThrow = True)
+
+    # Parse the answer and keep the latest. 
     out = out.strip()
-    vals = out.split()
-    if len(vals) >= 1:
-        # Pick the first one, which is the newest
-        logger.info("Found multiple archives: " + " ".join(vals))
-        out = vals[0]
-        logger.info("Will pick the latest: " + out)
-    if out == "":
-        logger.info('Did not find processed data for run of type: ' + dataType)
+    vals = out.split('\n')
+    for val in vals:
+        logger.info("Found: " + val)
+    lfePath = ""
+    for val in vals:
+        if len(val) >= 1 and val[0] == 'l':
+            continue # this is a symlink
+        arr = val.split()
+        lfePath = arr[-1]
+        break # found what we needed
+
+    if lfePath == "":
+        logger.info("Could not locate: " + fileName)
         return False
-    
-    fileName = os.path.basename(out)
-    lfePath  = os.path.join(os.path.dirname(lfePath), fileName) # rm the wildcard
-    cmd = 'shiftc --wait -d -r --extract-tar ' + lfePath + ' .'  
-    
+
+    cmd = 'shiftc --wait -d -r --verify --extract-tar ' + 'lfe:' + lfePath + ' ' + unpackFolder  
     logger.info(cmd)
     status = os.system(cmd)
+    
+    # Try tar if shift failed
     if status != 0:
         logger.info('Did not sucessfully fetch archived processed data of type: ' + dataType)
-        return False
+        logger.info('Will try with tar.''')
+
+        tar_cmd = 'ssh lfe "cd ' + os.path.dirname(lfePath) + "; tar xfv " + \
+                  os.path.basename(lfePath) + " -C " + os.path.realpath(unpackFolder) + '"'
+        
+        logger.info(tar_cmd)
+        status = os.system(tar_cmd)
+        if status != 0:
+            logger.info('Failed using tar as well.')
+            
+            return False
 
     return True
 
