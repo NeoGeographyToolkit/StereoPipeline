@@ -888,13 +888,14 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     icebridge_common.logger_print(logger, stereoCmd)
     (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput,
                                                          suppressOutput, redo, noThrow=True)
-    
     if status != 0:
         # If stereo failed, try it again with the .match file that was created by bundle_adjust.
         icebridge_common.logger_print(logger, 'First stereo attempt failed, will copy .match file from bundle_adjust and retry.')
         
         # Clear any existing .match file then link in the new one.
-        os.system('rm -f ' + thisPairPrefix + '*.match')
+        cmd = 'rm -f ' + thisPairPrefix + '*.match'
+        icebridge_common.logger_print(logger, cmd)
+        os.system(cmd)
         if matchFilePair[0] == "":
             # This can happen if the bundle adjust directory got cleaned up. Nothing we can do.
             raise Exception("No usable match files. Stereo call failed.")
@@ -907,7 +908,9 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         # - Remove some filtering steps we don't need.
         # - Exception is the height limit string, which we can remove if using existing IP.
         stereoCmd = stereoCmd.replace(minIpString, '--min-num-ip 10')
-        stereoCmd = stereoCmd.replace(heightLimitString, ' ')
+        m = re.match("^\s*$", heightLimitString)
+        if not m: # This is a bugfix, check for empty heightLimitString
+            stereoCmd = stereoCmd.replace(heightLimitString, ' ')
         icebridge_common.logger_print(logger, stereoCmd)
         os.system('rm -f ' + triOutput) # In case the output cloud exists but is bad
         (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, 
@@ -950,7 +953,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # Require a certain percentage of valid output pixels to go forwards with this DEM
     # - This calculation currently does not work well but anything under this is probably bad.
     # TODO: This validity fraction is NOT ACCURATE and needs to be improved!
-    MIN_FRACTION_VALID_PIXELS = 0.35 
+    MIN_FRACTION_VALID_PIXELS = 0.10 
     percentageFlagFile = os.path.join(options.outputFolder, 'valid_pixel_fraction.txt')
     fractionValid = 1.0;
 
@@ -972,7 +975,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     icebridge_common.logger_print(logger, 'Detected valid pixel fraction = ' + str(fractionValid))
     if fractionValid < MIN_FRACTION_VALID_PIXELS:
         raise Exception('Required DEM pixel fraction is ' + str(MIN_FRACTION_VALID_PIXELS) +
-                        ', aborting processing on this DEM.')
+                        ', got instead ' + str(fractionValid) + ' aborting processing on this DEM.')
 
     # If the output DEM is too small then something is probably wrong.
     MIN_DEM_SIZE_PIXELS = 200
