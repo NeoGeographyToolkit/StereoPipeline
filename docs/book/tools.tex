@@ -973,7 +973,12 @@ be passed to the tool.
 The output mosaic is written as non-overlapping tiles with desired tile
 size, with the size set either in pixels or in georeferenced (projected)
 units. The default tile size is large enough that normally the entire
-mosaic is saved as one tile.
+mosaic is saved as one tile, in the format
+output\_file\_prefix-tile-0.tif.  Alternatively, one can pass to the
+\texttt{-o} option an output file name ending in .tif. Then the
+mosaic will be written with this exact name, without appending
+tile-0.tif. (This will fail if the tool decides there is a need for more
+than one tile.)
 
 Individual tiles can be saved via the \texttt{-\/-tile-index} option
 (the tool displays the total number of tiles when it is being run). As
@@ -1043,6 +1048,11 @@ Example 3 (Find the mean DEM, no blending is used):
   dem_mosaic -l imagelist.txt --mean -o mosaic
 \end{verbatim}
 
+Example 4 (write with the exact output name, without using the tile-0.tif extension):
+\begin{verbatim}
+  dem_mosaic dem1.tif dem2.tif -o blended.tif
+\end{verbatim}
+
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dem\_mosaic}
 \label{tbl:demmosaic}
@@ -1059,7 +1069,7 @@ Options & Description \\
 Text file listing the DEM files to mosaic, one per line.
 \\ \hline
 \texttt{-o | -\/-output-prefix  \textit{string} } &
-Specify the output prefix.
+Specify the output prefix. One or more tiles will be written with this prefix. Alternatively, an exact output file can be specified, with a .tif extension.
 \\ \hline
 \texttt{-\/-tile-size \textit{integer(=1000000)}} &
 The maximum size of output DEM tile files to write, in pixels.

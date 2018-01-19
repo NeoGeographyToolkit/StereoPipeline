@@ -1591,7 +1591,7 @@ int update_outliers(ControlNetwork                  & cnet,
   int num_new_outliers     = new_outliers.size() - outlier_xyz.size();
   int num_remaining_points = num_points - new_outliers.size();
   vw_out() << "Removed " << num_new_outliers << " outliers, now have "
-           << num_remaining_points << " points remaining\n";
+           << num_remaining_points << " points remaining.\n";
 
   // TODO: Write how many outliers were removed because of the lonlat check and elevation check
   
@@ -2267,7 +2267,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
                           static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
     Vector2i ip_size(right_ip_width, right_image_size[1]);
     double ip_coverage = calc_ip_coverage_fraction(right_ip, ip_size);
-    vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << std::endl;
+    vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << ".\n";
 
     std::string match_file = opt.out_prefix  + "-clean.match";
     vw_out() << "Writing: " << match_file << std::endl;

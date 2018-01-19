@@ -1202,7 +1202,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("dem-list-file,l", po::value<string>(&opt.dem_list_file),
 	   "Text file listing the DEM files to mosaic, one per line.")
-    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
+    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix. One or more tiles will be written with this prefix. Alternatively, an exact output file can be specified, with a .tif extension.")
     ("tile-size",       po::value<int>(&opt.tile_size)->default_value(1000000),
 	   "The maximum size of output DEM tile files to write, in pixels.")
     ("tile-index",      po::value<int>(&opt.tile_index),
@@ -1592,7 +1592,11 @@ int main( int argc, char *argv[] ) {
     block_size = std::max(block_size, 256); // don't make them too small though
     if (opt.block_size > 0)
       block_size = opt.block_size;
-    
+
+    // See if to lump all mosaic in just a given file, rather than creating tiles.
+    bool write_to_precise_file = ( opt.out_prefix.size() >= 4 &&
+				   opt.out_prefix.substr(opt.out_prefix.size()-4, 4) == ".tif");
+      
     int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
     int num_tiles_y = (int)ceil((double)rows/double(opt.tile_size));
     if (num_tiles_x <= 0) num_tiles_x = 1;
@@ -1607,6 +1611,11 @@ int main( int argc, char *argv[] ) {
       return 0;
     }
 
+    if (num_tiles > 1 && write_to_precise_file) 
+      vw_throw(ArgumentErr() << "Cannot fit all mosaic in the given output file name. "
+	       << "Hence specify an output prefix instead, and then multiple "
+	       << "tiles will be created.\n");
+    
     // If to use a range
     if (!opt.tile_list.empty() && opt.tile_index >= 0) 
       vw_throw(ArgumentErr() << "Cannot specify both tile index and tile range.\n");
@@ -1726,12 +1735,16 @@ int main( int argc, char *argv[] ) {
       // Get the bounding box we previously computed
       BBox2i tile_box = tile_pixel_bboxes[tile_id - start_tile];
 
-      ostringstream os;
-      os << opt.out_prefix << "-tile-"
-         << std::setfill('0') << std::setw(num_digits) << tile_id
-         << tile_suffix(opt) << ".tif";
-      std::string dem_tile = os.str();
-
+      std::string dem_tile;
+      if (!write_to_precise_file) {
+	ostringstream os;
+	os << opt.out_prefix << "-tile-"
+	   << std::setfill('0') << std::setw(num_digits) << tile_id
+	   << tile_suffix(opt) << ".tif";
+	dem_tile = os.str();
+      }else
+	dem_tile = opt.out_prefix; // the file name was set by user
+      
       // Set up tile image and metadata
       long long int num_valid_pixels; // Will be populated when saving to disk
       vw::Mutex count_mutex; // to lock when updating num_valid_pixels
