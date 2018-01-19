@@ -318,22 +318,25 @@ def generateFlightSummary(run, options):
 
         # Keep a list of batches that did not generate an output DEM
         parts = statsText.split(',')
-        if (float(parts[0]) == 0) and (float(parts[1]) == 0) and (float(parts[2]) == -999):
+        if len(parts) <= 2:
+            print("Cannot parse " + consolidatedStatsPath + ", skipping.")
+        else:
+            if (float(parts[0]) == 0) and (float(parts[1]) == 0) and (float(parts[2]) == -999):
 
-            if os.path.exists(dem): # Handle the case where the statistics are bad for some reason
-                errorCode = 0
-                errorText = 'Success but statistics are bad'
-            else: # A real failure, figure out the cause
-                batchFolder = os.path.dirname(dem)
-                (errorCode, errorText) = getFailureCause(batchFolder)
-                #print str((errorCode, errorText))
-            #if errorCode < 0: # Debug code for unknown errors
-                #print str((errorCode, errorText))
-                #print statsText
-                #print batchFolder
-                #raise Exception('DEBUG')
-            failureLog.write('%d, %d, %d, %s\n' %  (frames[0], frames[1], errorCode, errorText))
-
+                if os.path.exists(dem):
+                    # Handle the case where the statistics are bad for some reason
+                    errorCode = 0
+                    errorText = 'Success but statistics are bad'
+                else: # A real failure, figure out the cause
+                    batchFolder = os.path.dirname(dem)
+                    (errorCode, errorText) = getFailureCause(batchFolder)
+                    #print str((errorCode, errorText))
+                #if errorCode < 0: # Debug code for unknown errors
+                    #print str((errorCode, errorText))
+                    #print statsText
+                    #print batchFolder
+                    #raise Exception('DEBUG')
+                failureLog.write('%d, %d, %d, %s\n' %  (frames[0], frames[1], errorCode, errorText))
 
         # Make a link to the DEM thumbnail file in our summary folder
         hillshadePath = os.path.join(demFolder, 'out-blend-DEM_HILLSHADE_browse.tif')
