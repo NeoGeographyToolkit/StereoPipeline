@@ -886,11 +886,20 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # Call and check status
     triOutput = thisPairPrefix + '-PC.tif'
     icebridge_common.logger_print(logger, stereoCmd)
-    (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput,
-                                                         suppressOutput, redo, noThrow=True)
+    if (not options.manyip) or (matchFilePair[0] == ""):
+        (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput,
+                                                             suppressOutput, redo, noThrow=True)
+    else:
+        # Jump directly to using the ip from bundle_adjust
+        (out, err, status) = ("", "", -1)
+        
     if status != 0:
         # If stereo failed, try it again with the .match file that was created by bundle_adjust.
-        icebridge_common.logger_print(logger, 'First stereo attempt failed, will copy .match file from bundle_adjust and retry.')
+
+        if not options.manyip:
+            icebridge_common.logger_print(logger, 'First stereo attempt failed, will copy .match file from bundle_adjust and retry.')
+        else:
+            icebridge_common.logger_print(logger, 'Copy right away .match file from bundle_adjust and retry.')
         
         # Clear any existing .match file then link in the new one.
         cmd = 'rm -f ' + thisPairPrefix + '*.match'
@@ -1288,8 +1297,8 @@ def doWork(options, args, logger):
                                                     projString, lidarFile,
                                                     options, threadText, 
                                                     suppressOutput, redo, logger)
-        if options.manyip:
-            heightLimitString = "" # Turn it off
+        #if options.manyip:
+        #    heightLimitString = "" # Turn it off
        
     # BUNDLE_ADJUST
     origInputPairs = inputPairs # All input pairs, non-blurred or otherwise altered.
