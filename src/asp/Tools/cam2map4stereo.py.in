@@ -86,7 +86,7 @@ def mapfile( cube, prefix, suffix ):
 
     return mapname
 
-def camrange( cube, options ):
+def camrange( cube, lonGroupName, options ):
     '''run camrange on cube'''
     info = ImgInfo();
     try:
@@ -106,7 +106,6 @@ def camrange( cube, options ):
 
         # By default we get the longitude from the Universal field,
         #   but if the user specified a longitude region we need to match it.
-        lonGroupName = 'UniversalGroundRange'
         lonDomain    = '360'
         lonDirection = 'PositiveEast'
         if options.map:
@@ -179,10 +178,25 @@ def main():
         except optparse.OptionError as msg:
             raise Usage(msg)
 
-        # Call
-        image1 = camrange( args[0], options)
-        image2 = camrange( args[1], options)
+        # Call camrange to get bounds. If the lon bounds come as [0, 360] then try a different group.
+        success = False
+        lonGroupNames = ['UniversalGroundRange',  'PositiveEast180',
+                         'PositiveWest180', 'PositiveWest360']
+        for lonGroupName in lonGroupNames:
+            image1 = camrange( args[0], lonGroupName, options)
+            image2 = camrange( args[1], lonGroupName, options)
+            lonRange = float(max(image1.maxlon, image2.maxlon)) - \
+                       float(min(image1.minlon, image2.minlon))
+            if lonRange >= 360.0:
+                print("With lonGroupName = " + lonGroupName + " found a longitude range of " + \
+                      str(lonRange) + ". Will try the next group from: " + (" ".join(lonGroupNames)))
+            else:
+                success = True
+                break
 
+        if not success:
+            raise Exception('ProcessError', 'The longitude range keeps on coming as encompasing the entire planet. Something is wrong.')
+            
         mapout = ImgInfo()
 
         mapout.minlat     = max( image1.minlat,     image2.minlat )

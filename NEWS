@@ -49,7 +49,8 @@
    * Added --max-output-size option to point2dem to prevent against
      creation of too large DEMs.
    * Added image download option in hiedr2mosaic.py
-   
+   * Bugfix in cam2map4stereo.py when the longitude crosses 180 degrees.
+
 *** RELEASE 2.6.0, May 15, 2017 ***
 
  - New stereo algorithms
