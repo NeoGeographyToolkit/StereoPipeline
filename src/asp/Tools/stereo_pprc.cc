@@ -505,8 +505,9 @@ int main(int argc, char* argv[]) {
                          verbose, output_prefix, opt_vec);
     ASPGlobalOptions opt = opt_vec[0];
 
-    vw_out() << "Using image  files: " << opt.in_file1  << ", " << opt.in_file2  << std::endl;
-    vw_out() << "Using camera files: " << opt.cam_file1 << ", " << opt.cam_file2 << std::endl;
+    vw_out() <<   "Using image files:  " << opt.in_file1  << ", " << opt.in_file2  << std::endl;
+    if (opt.cam_file1 != "" || opt.cam_file2 != "") 
+      vw_out() << "Using camera files: " << opt.cam_file1 << ", " << opt.cam_file2 << std::endl;
     if (!opt.input_dem.empty())
       vw_out() << "Using input DEM: " << opt.input_dem << std::endl;
 
