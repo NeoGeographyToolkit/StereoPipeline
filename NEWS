@@ -41,6 +41,9 @@
      written to this exact file, rather than creating tiles. 
 
  - Misc
+   * The tools mapproject, dem_mosaic, dg_mosaic, and wv_correct support
+     the --ot option, to round the output pixels to several types of
+     integer, reducing storage, but perhaps decreasing accuracy.
    * Handle properly in bundle_adjust, orbitviz, and stereo 
      with mapprojected images the case when, for RPC cameras,
      these coefficients are stored in _RPC.TXT files.
@@ -48,7 +51,7 @@
      point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/
    * Added --max-output-size option to point2dem to prevent against
      creation of too large DEMs.
-   * Added image download option in hiedr2mosaic.py
+   * Added image download option in hiedr2mosaic.py.
    * Bugfix in cam2map4stereo.py when the longitude crosses 180 degrees.
 
 *** RELEASE 2.6.0, May 15, 2017 ***
@@ -78,7 +81,7 @@
    * Added the options --ip-inlier-threshold and --ip-uniqueness-threshold
      for finer-grained control over interest point generation.
    * Fix a bug with interest point matching the camera model is RPC
-     and the RPC approximation domain does not itersect the datum.
+     and the RPC approximation domain does not intersect the datum.
   
  - stereo_corr
    * Added new option --stereo-algorithm.  Choices 1 and 2 replaces
@@ -95,11 +98,11 @@
  - stereo_gui
   * Zooming in one image can trigger all other side-by-side images to
     zoom to same region.
-  * Clicking on a pixel prints image pixel indicies, value, and image 
+  * Clicking on a pixel prints image pixel indices, value, and image 
     name. Selecting a region with Control+Mouse prints its bounds in 
     pixels, and, if georeferenced, in projected and degree units. 
   * Added a 1D profile tool for DEMs.
-  * Can visualize the pixel locations for a GCP file (by interpretting
+  * Can visualize the pixel locations for a GCP file (by interpreting
     them as interest points).
   * Can save a screenshot of the current view.
   * If all images are in the same window, can show a given image above
@@ -166,7 +169,7 @@
     Ubuntu 14.
   * Ship with GDAL's gdalwarp and gdaldem.
   * Added integration with Zenodo so that this and all future ASP 
-	releases wil have a DOI.  More info in the asp_book.pdf
+	releases will have a DOI.  More info in the asp_book.pdf
 
 *** RELEASE 2.5.3, August 24, 2016 ***
 

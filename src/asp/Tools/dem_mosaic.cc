@@ -47,6 +47,7 @@
 #include <vw/Math.h>
 #include <vw/FileIO/DiskImageManager.h>
 #include <vw/Image/InpaintView.h>
+#include <vw/Image/Algorithms2.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 
@@ -320,7 +321,7 @@ std::string processed_proj4(std::string const& srs){
 }
 
 struct Options : vw::cartography::GdalWriteOptions {
-  string dem_list_file, out_prefix, target_srs_string, tile_list_str, this_dem_as_reference;
+  string dem_list_file, out_prefix, target_srs_string, output_type, tile_list_str, this_dem_as_reference;
   vector<string> dem_files;
   double tr, geo_tile_size;
   bool   has_out_nodata;
@@ -1242,11 +1243,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("georef-tile-size",    po::value<double>(&opt.geo_tile_size),
 	   "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<double>(&opt.out_nodata_value),
-	   "No-data value to use on output. Default: use the one from the first DEM to be mosaicked.")
+     "No-data value to use on output. Default: use the one from the first DEM to be mosaicked.")
+    ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.")
     ("weights-blur-sigma", po::value<double>(&opt.weights_blur_sigma)->default_value(5.0),
-	   "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.")
+     "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.")
     ("weights-exponent",   po::value<double>(&opt.weights_exp)->default_value(2.0),
-	   "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.")
+     "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.")
     ("use-centerline-weights",   po::bool_switch(&opt.use_centerline_weights)->default_value(false),
      "Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.")
     ("dem-blur-sigma", po::value<double>(&opt.dem_blur_sigma)->default_value(0.0),
@@ -1759,11 +1761,45 @@ int main( int argc, char *argv[] ) {
       GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
 				      tile_box.min().y());
 
-      // Raster the tile to disk
+      // Raster the tile to disk. Optionally cast to int (may be
+      // useful for mosaicking ortho images).
       vw_out() << "Writing: " << dem_tile << std::endl;
       TerminalProgressCallback tpc("asp", "\t--> ");
-      asp::save_with_temp_big_blocks(block_size, dem_tile, out_dem, crop_georef,
-				     opt.out_nodata_value, opt, tpc);
+      if (opt.output_type == "Float32") 
+        asp::save_with_temp_big_blocks(block_size, dem_tile, out_dem, crop_georef,
+                                       opt.out_nodata_value, opt, tpc);
+      else if (opt.output_type == "Byte") 
+        asp::save_with_temp_big_blocks(block_size, dem_tile,
+                                       vw::round_and_clamp<ImageView<RealT>, uint8>(out_dem),
+                                       crop_georef,
+                                       vw::round_and_clamp<uint8>(opt.out_nodata_value),
+                                       opt, tpc);
+      else if (opt.output_type == "UInt16") 
+        asp::save_with_temp_big_blocks(block_size, dem_tile,
+                                       vw::round_and_clamp<ImageView<RealT>, uint16>(out_dem),
+                                       crop_georef,
+                                       vw::round_and_clamp<uint16>(opt.out_nodata_value),
+                                       opt, tpc);
+      else if (opt.output_type == "Int16") 
+        asp::save_with_temp_big_blocks(block_size, dem_tile,
+                                       vw::round_and_clamp<ImageView<RealT>, int16>(out_dem),
+                                       crop_georef,
+                                       vw::round_and_clamp<int16>(opt.out_nodata_value),
+                                       opt, tpc);
+      else if (opt.output_type == "UInt32") 
+        asp::save_with_temp_big_blocks(block_size, dem_tile,
+                                       vw::round_and_clamp<ImageView<RealT>, uint32>(out_dem),
+                                       crop_georef,
+                                       vw::round_and_clamp<uint32>(opt.out_nodata_value),
+                                       opt, tpc);
+      else if (opt.output_type == "Int32") 
+        asp::save_with_temp_big_blocks(block_size, dem_tile,
+                                       vw::round_and_clamp<ImageView<RealT>, int32>(out_dem),
+                                       crop_georef,
+                                       vw::round_and_clamp<int32>(opt.out_nodata_value),
+                                       opt, tpc);
+      else
+        vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
 
       vw_out() << "Number of valid (not no-data) pixels written: " << num_valid_pixels
                << "."<< std::endl;

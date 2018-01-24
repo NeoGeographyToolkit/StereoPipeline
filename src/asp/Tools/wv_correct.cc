@@ -32,6 +32,7 @@
 #include <vw/Image.h>
 #include <vw/Cartography.h>
 #include <vw/Math.h>
+#include <vw/Image/Algorithms2.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Camera/RPC_XML.h>
@@ -57,12 +58,14 @@ namespace vw {
 }
 
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string camera_image_file, camera_model_file, output_image; 
+  std::string camera_image_file, camera_model_file, output_image, output_type; 
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   po::options_description general_options("");
+  general_options.add_options()
+    ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.");
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   
   po::options_description positional("");
@@ -615,25 +618,61 @@ int main( int argc, char *argv[] ) {
       nodata = img_rsrc->nodata_read();
     }
 
+    vw::cartography::GeoReference georef;
+    bool has_georef = false;
+    
+    ImageViewRef<float> corr_img;
+    if (has_nodata) 
+      corr_img = apply_mask(wv_correct(create_mask(input_img, nodata),
+                                       tdi, is_wv01, is_forward,
+                                       pitch_ratio), nodata);
+    else
+      corr_img = wv_correct(input_img, tdi, is_wv01, is_forward, pitch_ratio);
+    
     vw_out() << "Writing: " << opt.output_image << std::endl;
-    if (has_nodata){
+    TerminalProgressCallback tpc("asp", "\t--> ");
+    if (opt.output_type == "Float32") 
+      vw::cartography::block_write_gdal_image(opt.output_image, corr_img,
+                                              has_georef, georef, has_nodata, nodata, opt, tpc);
+    else if (opt.output_type == "Byte") 
       vw::cartography::block_write_gdal_image(opt.output_image,
-                                  apply_mask
-                                  (wv_correct(create_mask(input_img,
-                                                          nodata),
-                                              tdi, is_wv01, is_forward,
-                                              pitch_ratio),
-                                   nodata),
-                                  nodata, opt,
-                                  TerminalProgressCallback("asp", "\t-->: "));
-    }else{
+                                              vw::round_and_clamp<ImageView<float>,
+                                              uint8>(corr_img),
+                                              has_georef, georef, has_nodata,
+                                              vw::round_and_clamp<uint8>(nodata),
+                                              opt, tpc);
+    else if (opt.output_type == "UInt16") 
       vw::cartography::block_write_gdal_image(opt.output_image,
-                                  wv_correct(input_img,
-                                             tdi, is_wv01, is_forward,
-                                             pitch_ratio),
-                                  opt,
-                                  TerminalProgressCallback("asp", "\t-->: "));
-    }
+                                              vw::round_and_clamp<ImageView<float>,
+                                              uint16>(corr_img),
+                                              has_georef, georef, has_nodata,
+                                              vw::round_and_clamp<uint16>(nodata),
+                                              opt, tpc);
+    else if (opt.output_type == "Int16") 
+      vw::cartography::block_write_gdal_image(opt.output_image,
+                                              vw::round_and_clamp<ImageView<float>,
+                                              int16>(corr_img),
+                                              has_georef, georef, has_nodata,
+                                              vw::round_and_clamp<int16>(nodata),
+                                              opt, tpc);
+
+    else if (opt.output_type == "UInt32") 
+      vw::cartography::block_write_gdal_image(opt.output_image,
+                                              vw::round_and_clamp<ImageView<float>,
+                                              uint32>(corr_img),
+                                              has_georef, georef, has_nodata,
+                                              vw::round_and_clamp<uint32>(nodata),
+                                              opt, tpc);
+    else if (opt.output_type == "Int32") 
+      vw::cartography::block_write_gdal_image(opt.output_image,
+                                              vw::round_and_clamp<ImageView<float>,
+                                              int32>(corr_img),
+                                              has_georef, georef, has_nodata,
+                                              vw::round_and_clamp<int32>(nodata),
+                                              opt, tpc);
+    else
+      vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
+    
     
   } ASP_STANDARD_CATCHES;
   

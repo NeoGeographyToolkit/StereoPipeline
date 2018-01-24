@@ -1145,6 +1145,8 @@ Set the tile size in georeferenced (projected) units (e.g., degrees or meters).
 No-data value to use on output. Default: use the one from the first DEM to be mosaicked.
 \\ \hline
 
+\texttt{-\/-ot \textit{string(=Float32)}} & Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type. \\ \hline
+
 \texttt{-\/-weights-blur-sigma \textit{integer (=5)} } &
 The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.
 \\ \hline
@@ -1278,6 +1280,8 @@ The weight to use to penalize higher order RPC coefficients when generating the 
 \texttt{-\/-input-nodata-value \textit{float}} & Nodata value to use on input; input pixel values less than or equal to this are considered invalid. \\ \hline
 \texttt{-\/-output-nodata-value \textit{float}} & Nodata value to use on output. \\ \hline
 
+\texttt{-\/-ot \textit{string(=Float32)}} & Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type. \\ \hline
+
 \texttt{-\/-fix-seams} & Fix seams in the output mosaic due to inconsistencies between image and camera data using interest point matching. \\ \hline
 
 \texttt{-\/-ignore-inconsistencies} & Ignore the fact that some of the files to be mosaicked have inconsistent EPH/ATT values. Do this at your own risk. \\ \hline
@@ -1360,6 +1364,7 @@ session type to use for processing. Choose 'rpc' if it is desired to later do st
 \texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
 adjustment obtained by previously running bundle\_adjust with this
 output prefix. \\ \hline
+\texttt{-\/-ot \textit{string(=Float32)}} & Output data type, when the input is single channel. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type. This option will be ignored for multi-channel images, when the output type is set to be the same as the input type. \\ \hline
 \texttt{-\/-num-processes} & Number of parallel processes to use (default program chooses).\\ \hline
 \texttt{-\/-nodes-list} & List of available computing nodes.\\ \hline
 \texttt{-\/-tile-size} & Size of square tiles to break processing up into.\\ \hline
@@ -2022,9 +2027,6 @@ Options & Description \\ \hline \hline
 \texttt{-\/-output-file|-o} & Specify the output file (required).\\ \hline
 \end{longtable}
 
-
-
-
 \section{wv\_correct}
 \label{wvcorrect}
 
@@ -2074,6 +2076,7 @@ Usage:\\
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
+\texttt{-\/-ot \textit{string(=Float32)}} & Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type. \\ \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to
 use. 0 means use the default defined in the program or in the .vwrc file. \\ \hline

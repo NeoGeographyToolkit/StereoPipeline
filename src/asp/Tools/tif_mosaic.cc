@@ -23,6 +23,7 @@
 #include <vw/Cartography.h>
 #include <vw/Math.h>
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Image/Algorithms2.h>
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
@@ -363,7 +364,7 @@ public:
 };
 
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string img_data, output_image;
+  std::string img_data, output_image, output_type;
   int band;
   bool has_input_nodata_value, has_output_nodata_value, fix_seams;
   double percent, input_nodata_value, output_nodata_value;
@@ -379,7 +380,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("image-data", po::value(&opt.img_data)->default_value(""),
          "Information on the images to mosaic.")
     ("output-image,o", po::value(&opt.output_image)->default_value(""),
-         "Specify the output image.")
+     "Specify the output image.")
+    ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.")
     ("band", po::value(&opt.band), "Which band to use (for multi-spectral images).")
     ("input-nodata-value", po::value(&opt.input_nodata_value),
          "Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
@@ -441,13 +443,42 @@ int main( int argc, char *argv[] ) {
       output_nodata_value = opt.output_nodata_value;
 
     vw_out() << "Writing: " << opt.output_image << std::endl;
-    vw::cartography::block_write_gdal_image(opt.output_image,
-                                TifMosaicView(dst_cols, dst_rows,
-                                              img_data, scale,
-                                              output_nodata_value),
-                                output_nodata_value, opt,
-                                TerminalProgressCallback("asp", "\t    Mosaic:"));
-
+    TerminalProgressCallback tpc("asp", "\t    Mosaic:");
+    ImageViewRef<float> out_img = TifMosaicView(dst_cols, dst_rows,
+                                                img_data, scale,
+                                                output_nodata_value);
+    if (opt.output_type == "Float32") 
+      vw::cartography::block_write_gdal_image(opt.output_image, out_img,
+                                              output_nodata_value, opt, tpc);
+    else if (opt.output_type == "Byte") 
+      vw::cartography::block_write_gdal_image(opt.output_image,
+                                              vw::round_and_clamp<ImageView<float>, uint8>(out_img),
+                                              vw::round_and_clamp<uint8>(output_nodata_value),
+                                              opt, tpc);
+    else if (opt.output_type == "UInt16") 
+      vw::cartography::block_write_gdal_image(opt.output_image,
+                                              vw::round_and_clamp<ImageView<float>, uint16>(out_img),
+                                              vw::round_and_clamp<uint16>(output_nodata_value),
+                                              opt, tpc);
+    else if (opt.output_type == "Int16") 
+      vw::cartography::block_write_gdal_image(opt.output_image,
+                                              vw::round_and_clamp<ImageView<float>, int16>(out_img),
+                                              vw::round_and_clamp<int16>(output_nodata_value),
+                                              opt, tpc);
+    
+    else if (opt.output_type == "UInt32") 
+      vw::cartography::block_write_gdal_image(opt.output_image,
+                                              vw::round_and_clamp<ImageView<float>, uint32>(out_img),
+                                              vw::round_and_clamp<uint32>(output_nodata_value),
+                                              opt, tpc);
+    else if (opt.output_type == "Int32") 
+      vw::cartography::block_write_gdal_image(opt.output_image,
+                                              vw::round_and_clamp<ImageView<float>, int32>(out_img),
+                                              vw::round_and_clamp<int32>(output_nodata_value),
+                                              opt, tpc);
+    else
+      vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
+    
   } ASP_STANDARD_CATCHES;
   return 0;
 }

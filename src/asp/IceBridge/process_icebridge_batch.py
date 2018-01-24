@@ -850,7 +850,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
 
     # Since we use epipolar alignment our images should be aligned at least this well.
     VERTICAL_SEARCH_LIMIT = 10
-    
+    TIMEOUT = 40*60 # Do not let any process take more than this time in seconds
+
     # Get the appropriate image to use as a stereo pair    
     pairIndex = i + options.stereoImageInterval
 
@@ -888,7 +889,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     icebridge_common.logger_print(logger, stereoCmd)
     if (not options.manyip) or (matchFilePair[0] == ""):
         (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput,
-                                                             suppressOutput, redo, noThrow=True)
+                                                             suppressOutput, redo, noThrow=True,
+                                                             timeout = TIMEOUT)
     else:
         # Jump directly to using the ip from bundle_adjust
         (out, err, status) = ("", "", -1)
@@ -923,7 +925,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         icebridge_common.logger_print(logger, stereoCmd)
         os.system('rm -f ' + triOutput) # In case the output cloud exists but is bad
         (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, 
-                                                             redo, noThrow=True)
+                                                             redo, noThrow=True, timeout = TIMEOUT)
         if status != 0:
             # If we fail again give up.
             icebridge_common.logger_print(logger, out + '\n' + err)

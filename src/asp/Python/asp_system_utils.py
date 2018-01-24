@@ -21,7 +21,7 @@
 General system related utilities
 """
 
-import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing
+import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, signal
 import os.path as P
 import asp_string_utils, asp_cmd_utils
 
@@ -304,14 +304,19 @@ def run_with_return_code(cmd, verbose=False):
 
     return p.returncode
 
+# For timeout
+def timeout_alarm_handler(signum, frame):
+    raise Exception("Timeout reached!")
+
 # TODO: Improve this function a bit
 def executeCommand(cmd,
                    outputPath=None,      # If given, throw if the file is not created.  Don't run if it already exists.
                    suppressOutput=False, # If true, don't print anything!
                    redo=False,           # If true, run even if outputPath already exists.
                    noThrow=False,        # If true, don't throw if output is missing
-                   numAttempts = 1,         # How many attempts to use
-                   sleepTime = 60        # How much to sleep between attempts
+                   numAttempts = 1,      # How many attempts to use
+                   sleepTime = 60,       # How much to sleep between attempts
+                   timeout   = -1        # After how long to timeout in seconds
                    ):
     '''Executes a command with multiple options'''
 
@@ -327,7 +332,7 @@ def executeCommand(cmd,
     # Convert the input to list format if needed
     if not asp_string_utils.isNotString(cmd):
         cmd = asp_string_utils.stringToArgList(cmd)
-
+    
     for attempt in range(numAttempts):
         
         # Run the command if conditions are met
@@ -336,13 +341,37 @@ def executeCommand(cmd,
             if not suppressOutput:
                 print asp_string_utils.argListToString(cmd)
 
+            if timeout > 0:
+                print("Will enforce timeout of " + str(timeout) + " seconds.")
+                signal.signal(signal.SIGALRM, timeout_alarm_handler)
+                signal.alarm(timeout)
+                    
             try:
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = p.communicate()
                 status = p.returncode
-            except OSError as e:
+                if timeout > 0:
+                    signal.alarm(0)  # reset the alarm
+            except Exception, e:
                 out = ""
                 err = ('Error: %s: %s' % (asp_string_utils.argListToString(cmd), e))
+                if timeout > 0:
+                    # this module is generally not available, so this use is very niche
+                    import psutil
+                    def kill_proc_tree(pid, including_parent=True):    
+                        parent = psutil.Process(pid)
+                        for child in parent.children(recursive=True):
+                            print("Killing: " + str(child))
+                            child.kill()
+                        if including_parent:
+                            print("Killing: " + str(parent))
+                            parent.kill()
+                    pid = psutil.Process(p.pid)
+                    try:
+                        kill_proc_tree(p.pid)
+                    except:
+                        pass
+                    
                 status = 1
                 if not noThrow:
                     raise Exception(err)
