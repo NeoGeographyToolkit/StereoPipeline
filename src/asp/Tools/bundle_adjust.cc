@@ -272,6 +272,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int num_ba_passes, max_num_reference_points;
   std::string remove_outliers_params_str;
   vw::Vector<double, 4> remove_outliers_params;
+  vw::Vector2 remove_outliers_by_disp_params;
 
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
@@ -1528,13 +1529,13 @@ int update_outliers(ControlNetwork                  & cnet,
     }
   } // End double loop through all the observations
 
-  double pct            = 1.0 - opt.remove_outliers_params[0]/100.0;
-  double outlier_factor = opt.remove_outliers_params[1];
-  double max_pix1 =  opt.remove_outliers_params[2];
-  double max_pix2 =  opt.remove_outliers_params[3];
+  double pct      = 1.0 - opt.remove_outliers_params[0]/100.0;
+  double factor   = opt.remove_outliers_params[1];
+  double max_pix1 = opt.remove_outliers_params[2];
+  double max_pix2 = opt.remove_outliers_params[3];
 
   double b, e; 
-  vw::math::find_outlier_brackets(actual_residuals, pct, outlier_factor, b, e);
+  vw::math::find_outlier_brackets(actual_residuals, pct, factor, b, e);
   vw_out() << "Outlier statistics: b = " << b << ", e = " << e << ".\n";
   
   // If this is too aggressive, the user can tame it. It is
@@ -2208,7 +2209,8 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     num_new_outliers =
       update_outliers(cnet, crn, points, num_points,
                       outlier_xyz,   // in-out
-                      opt, num_cameras, num_camera_params, num_point_params, cam_residual_counts,  
+                      opt, num_cameras, num_camera_params, num_point_params,
+                      cam_residual_counts,  
                       num_gcp_residuals, reference_vec, problem);
 
   // Create a match file with clean points.
@@ -2260,6 +2262,11 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
         vw_throw(ArgumentErr() << "Book-keeping error 2 in bundle adjustment.\n");
     }
 
+    // Also filter by disparity.
+    asp::filter_ip_by_disparity(opt.remove_outliers_by_disp_params[0],
+                                opt.remove_outliers_by_disp_params[1],
+                                left_ip, right_ip);
+    
     // TODO: Move this into the IP finding code!
     // Compute the coverage fraction
     Vector2i right_image_size = file_image_size(opt.image_files[1]);
@@ -2267,11 +2274,13 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
                           static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
     Vector2i ip_size(right_ip_width, right_image_size[1]);
     double ip_coverage = calc_ip_coverage_fraction(right_ip, ip_size);
-    vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << ".\n";
+    // Careful with the line below, it gets used in process_icebridge_batch.py.
+    vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << "\n";
 
     std::string match_file = opt.out_prefix  + "-clean.match";
     vw_out() << "Writing: " << match_file << std::endl;
     ip::write_binary_match_file(match_file, left_ip, right_ip);
+    
   } // End outlier update case
       
   return num_new_outliers;
@@ -3262,8 +3271,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("num-passes",             po::value(&opt.num_ba_passes)->default_value(1),
      "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params, and re-optimization will take place. Match files and residual files with the outliers removed will be written to disk.")
     ("remove-outliers-params",        po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
-	    "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: 75.0 3.0 2.0 3.0.")
-    
+     "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.")
+    ("remove-outliers-by-disparity-params",  po::value(&opt.remove_outliers_by_disp_params)->default_value(Vector2(90.0,3.0), "pct factor"),
+     "Outlier removal based on the disparity of interest points, when more than one bundle adjustment pass is used. Points with x or y disparity not within the 100-'pct' to 'pct' percentile interval expanded by 'factor' will be removed as outliers. Default: pct = 90.0 and factor = 3.0.")
     ("min-triangulation-angle",             po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("use-lon-lat-height-gcp-error", po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),

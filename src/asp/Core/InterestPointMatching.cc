@@ -773,6 +773,42 @@ namespace asp {
     return ip1_out.size();
 } // End filter_ip_by_elevation
 
+  // Outlier removal based on the disparity of interest points.
+  // Points with x or y disparity not within the 100-'pct' to 'pct'
+  // percentile interval expanded by 'factor' will be removed as
+  // outliers. Overwrite the ip in place.
+  void filter_ip_by_disparity(double pct, // for example, 90.0
+                              double factor, // for example, 3.0
+                              std::vector<vw::ip::InterestPoint> & left_ip,
+                              std::vector<vw::ip::InterestPoint> & right_ip){
+
+    double pct_fraction = 1.0 - pct/100.0;
+    double bx, ex, by, ey;
+    std::vector<double> dispx, dispy;
+    for (size_t it = 0; it < left_ip.size(); it++) {
+      dispx.push_back(right_ip[it].x - left_ip[it].x);
+      dispy.push_back(right_ip[it].y - left_ip[it].y);
+    }
+    vw::math::find_outlier_brackets(dispx, pct_fraction, factor, bx, ex);
+    vw::math::find_outlier_brackets(dispy, pct_fraction, factor, by, ey);
+    
+    //vw_out() << "Outlier statistics by disparity in x: b = " << bx << ", e = " << ex << ".\n";
+    //vw_out() << "Outlier statistics by disparity in y: b = " << by << ", e = " << ey << ".\n";
+    // Remove the bad ip 
+    size_t good_it = 0;
+    for (size_t it = 0; it < left_ip.size(); it++) {
+      if (dispx[it] < bx || dispx[it] > ex) continue;
+      if (dispy[it] < by || dispy[it] > ey) continue;
+      left_ip [good_it] = left_ip[it];
+      right_ip[good_it] = right_ip[it];
+      good_it++;
+    }
+    vw_out() << "Removed " << left_ip.size() - good_it << " outliers based on disparity of ip.\n";
+    left_ip.resize(good_it);
+    right_ip.resize(good_it);
+
+  }
+  
   // Do IP matching, return, the best translation+scale fitting functor.
   vw::Matrix<double> translation_ip_matching(vw::ImageView<float> const& image1,
                                               vw::ImageView<float> const& image2,

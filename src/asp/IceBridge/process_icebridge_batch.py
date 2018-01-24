@@ -429,7 +429,9 @@ def robustBundleAdjust(options, inputPairs,
         # Disabling triangulation error filtering up front and then applying it post bundle adjust
         #  works well but it is currently only supported in bundle_adjust for two cameras at once!
         if len(inputPairs) == 2:
-            cmd += ' --disable-tri-ip-filter --num-passes 3 --remove-outliers-params "75.0 3.0 2.0 3.0" '
+            cmd += ' --disable-tri-ip-filter --num-passes 3 '   + \
+                   '--remove-outliers-params 75.0,3.0,2.0,3.0 ' + \
+                   '--remove-outliers-by-disparity-params 90.0 3.0 '
     
         # Run the BA command and log errors
         logger.info(cmd) # to make it go to the log, not just on screen
@@ -863,7 +865,9 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # - Note that the base level memory usage ignoring the SGM buffers is about 2 GB so this memory
     #   usage is in addition to that.
     minIpString = '--min-num-ip 40'
-    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10 %s ' %
+    stereoCmd = (('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar ' +
+                  '--skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 ' +
+                  '--remove-outliers-by-disparity-params 90.0 3.0 --epipolar-threshold 10 %s ') %
                  (argString, thisPairPrefix, threadText, heightLimitString, minIpString))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )

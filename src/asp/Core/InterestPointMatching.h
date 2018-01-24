@@ -299,6 +299,15 @@ namespace asp {
    std::vector<vw::ip::InterestPoint> & ip1_out,
    std::vector<vw::ip::InterestPoint> & ip2_out);
 
+  // Outlier removal based on the disparity of interest points.
+  // Points with x or y disparity not within the 100-'pct' to 'pct'
+  // percentile interval expanded by 'factor' will be removed as
+  // outliers. Overwrite the ip in place.
+  void filter_ip_by_disparity(double pct, // for example, 90.0
+                              double factor, // for example, 3.0
+                              std::vector<vw::ip::InterestPoint> & left_ip,
+                              std::vector<vw::ip::InterestPoint> & right_ip);
+                              
   /// Smart IP matching that uses clustering on triangulation and
   /// datum information to determine inliers.
   ///

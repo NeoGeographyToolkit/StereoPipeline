@@ -631,6 +631,11 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 							   stereo_settings().lon_lat_limit,
 							   matched_ip1, matched_ip2);
 
+  // If the user set this, filter by disparity of ip
+  Vector2 disp_params = stereo_settings().remove_outliers_by_disp_params;
+  if (disp_params[0] < 100.0) // not enabled by default
+    asp::filter_ip_by_disparity(disp_params[0], disp_params[1], matched_ip1, matched_ip2); 
+  
   // Quit if we don't have the requested number of IP.
   if (static_cast<int>(num_left) < stereo_settings().min_num_ip)
     vw_throw(ArgumentErr() << "Number of IPs left after filtering is " << num_left
