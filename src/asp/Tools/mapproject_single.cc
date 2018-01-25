@@ -216,8 +216,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
 }
 
-// If the output type is uint8, round and clamp to this type, both the
-// pixels and the nodata-value. Else write as it is. 
+// If the output type is some type of int, round and clamp to this
+// type, both the pixels and the nodata-value. Else write as it is.
 template <class ImageT>
 void write_parallel_type( std::string              const& filename,
                           ImageT                   const& image,
