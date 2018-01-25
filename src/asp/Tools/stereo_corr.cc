@@ -631,7 +631,10 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 							   stereo_settings().lon_lat_limit,
 							   matched_ip1, matched_ip2);
 
-  // If the user set this, filter by disparity of ip
+  // If the user set this, filter by disparity of ip.
+  // TODO: This kind of logic is present below one more time, at
+  // get_search_range_from_ip_hists() where a factor of 2 is used!
+  // This logic better be integrated together!
   Vector2 disp_params = stereo_settings().remove_outliers_by_disp_params;
   if (disp_params[0] < 100.0) // not enabled by default
     asp::filter_ip_by_disparity(disp_params[0], disp_params[1], matched_ip1, matched_ip2); 
