@@ -100,7 +100,7 @@ def getParallelParams(nodeType, task):
         if nodeType == 'san': return (2, 8, 70,  8)
         if nodeType == 'ivy': return (4, 8, 80,  8)
         if nodeType == 'bro': return (6, 8, 100, 8)
-        if nodeType == 'wes': return (3, 8, 50,  8)
+        if nodeType == 'wes': return (3, 8, 50,  4) # temporary!!!
     
     if task == 'blend':
         if nodeType == 'san': return (8,  3, 1200, 6)
@@ -329,7 +329,7 @@ def runConversion(run, options, conversionAttempt, logger):
         args += ' --no-ortho-convert'
     if options.simpleCameras:       # This option greatly decreases the conversion run time
         args += ' --simple-cameras' # - Camera conversion could be local but image conversion still takes time.
-        maxHours = 1
+        #maxHours = 1 # turn this off, it times out
     if options.cameraMounting:
         args += ' --camera-mount ' + str(options.cameraMounting)
 
