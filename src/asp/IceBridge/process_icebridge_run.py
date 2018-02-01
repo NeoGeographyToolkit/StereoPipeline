@@ -60,8 +60,9 @@ os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 #  be written to with the --log-batches option.
 BATCH_COMMAND_LOG_FILE = 'batch_commands_log.txt'
 
-def processBatch(imageCameraPairs, lidarFolder, referenceDem, skipInterval, outputFolder, extraOptions, 
-                 outputResolution, stereoArgs, batchNum, batchLogPath=''):
+def processBatch(imageCameraPairs, lidarFolder, referenceDem, skipInterval,
+                 outputFolder, extraOptions, outputResolution, stereoArgs,
+                 batchNum, batchLogPath=''):
     '''Processes a batch of images at once'''
 
     suppressOutput = False
@@ -77,7 +78,8 @@ def processBatch(imageCameraPairs, lidarFolder, referenceDem, skipInterval, outp
     # We can try out bundle adjustment for intrinsic parameters here.
     cmd = ('--lidar-folder %s --reference-dem %s --stereo-image-interval %d --dem-resolution %f' \
            ' --output-folder %s %s %s --stereo-arguments ' 
-           % (lidarFolder, referenceDem, skipInterval, outputResolution, outputFolder, argString, extraOptions))
+           % (lidarFolder, referenceDem, skipInterval, outputResolution,
+              outputFolder, argString, extraOptions))
         
     if batchLogPath:
         # With this option we just log the commands to a text file
@@ -282,7 +284,6 @@ def getRunMedianGsd(imageCameraPairs, referenceDem, isSouth, frameSkip=1):
     
     logger.info('Computed input image mean GSD: ' + str(medianGsd))
     return medianGsd
-        
 
 class NoDaemonProcess(multiprocessing.Process):
     # make 'daemon' attribute always return False
@@ -415,19 +416,19 @@ def main(argsIn):
             return -1
         lastFrame = frameNumber
 
-    # Set the output resolution as the computed mean GSD
-    # - Currently we process ten frames total but this should be increased for production!
-    # TODO: This should be cashed, and recomputed only when the batch file changes!
-    GSD_RESOLUTION_MULTIPLIER = 4.0
-    NUM_GSD_FRAMES = 20
-    logger.info('Computing GSD with ' + str(NUM_GSD_FRAMES) + ' frames.')
-    gsdFrameSkip = len(imageCameraPairs) / NUM_GSD_FRAMES
-    if gsdFrameSkip < 1:
-        gsdFrameSkip = 1
-    medianGsd = getRunMedianGsd(imageCameraPairs, options.referenceDem, options.isSouth, gsdFrameSkip)
-    outputResolution = medianGsd * GSD_RESOLUTION_MULTIPLIER
-    logger.info('OUTPUT_RESOLUTION: ' + str(outputResolution))
-    #return 0
+    # Do not compute output resolution. Will be overwritten anyway per frame. 
+    ## Set the output resolution as the computed mean GSD
+    ## TODO: This should be cashed, and recomputed only when the batch file changes!
+    #NUM_GSD_FRAMES = 20
+    #logger.info('Computing GSD with ' + str(NUM_GSD_FRAMES) + ' frames.')
+    #gsdFrameSkip = len(imageCameraPairs) / NUM_GSD_FRAMES
+    #if gsdFrameSkip < 1:
+    #    gsdFrameSkip = 1
+    #medianGsd = getRunMedianGsd(imageCameraPairs, options.referenceDem, options.isSouth,
+    #                            gsdFrameSkip)
+    #outputResolution = icebridge_common.gsdToDemRes(medianGsd)
+    #logger.info('OUTPUT_RESOLUTION: ' + str(outputResolution))
+    outputResolution = 0.4 
 
     # Generate a map of initial camera positions
     orbitvizBefore = os.path.join(outputFolder, 'cameras_in.kml')
@@ -437,8 +438,8 @@ def main(argsIn):
     cmd = 'orbitviz_pinhole --hide-labels -o '+ orbitvizBefore +' '+ vizString
     logger.info('Running orbitviz on input files...')
 
-    asp_system_utils.executeCommand(cmd, orbitvizBefore, True, redo) # Suppress (potentially long) output
-    #raise Exception('DEBUG')
+    # Suppress (potentially long) output
+    asp_system_utils.executeCommand(cmd, orbitvizBefore, True, redo)
 
     # Set up options for process_icebridge_batch
     extraOptions = ''

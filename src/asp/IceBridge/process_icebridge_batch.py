@@ -130,10 +130,12 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
        with enough lidar points used in the comparison'''
 
     # Displacements are still since an initial vertical shift is applied
-    DISPLACEMENTS        = [4, 6, 10, 25] # TODO: Increase these numbers for land flights!
+    DISPLACEMENTS        = [4, 6, 10, 25
+                            #, 50, 100, 200
+                            ] # TODO: Increase these numbers for land flights!
     ERR_HEADER_SIZE      = 3
     IDEAL_LIDAR_DIST     = 0.1  # Quit aligning if we get under this error
-    MIN_DIST_IMPROVEMENT = 0.25 # Percentage improvement in error to accept a larger max-disp
+    MIN_DIST_IMPROVEMENT = 0.25 # Pct improvement in error to accept a larger max-disp
     MIN_NUM_DIFFS        = 100  # Can't trust results with fewer diffs.
 
     lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
@@ -409,14 +411,18 @@ def robustBundleAdjust(options, inputPairs,
                 blurImage(pair[0], pair[1], False, False)
             argString = blurredImageCameraString                     
 
-        cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 --approximate-pinhole-intrinsics ' +
+        cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
+                '--approximate-pinhole-intrinsics ' +
+                # '--rotation-weight 400 ' + # this may be needed for some flights
                 '--translation-weight %0.16g -t nadirpinhole --skip-rough-homography ' +
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
-                '--overlap-exponent %0.16g --epipolar-threshold %d --ip-side-filter-percent %d ')
+                '--overlap-exponent %0.16g --epipolar-threshold %d ' +
+                '--ip-side-filter-percent %d ')
                % (argString, bundlePrefix, threadText, heightLimitString, 
                   TRANSLATION_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
-                  ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT, epipolarT[attempt], SIDE_IP_CROP_PERCENT))
+                  ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT,
+                  epipolarT[attempt], SIDE_IP_CROP_PERCENT))
 
         # This helps in cases where there is a small dark object (like a stream) that prevents
         #  large snow areas from being processed well.  Can lead to false IP.
@@ -1285,16 +1291,19 @@ def doWork(options, args, logger):
         meanGsd = meanGsd / numCameras                
         #print 'GSD = ' + str(meanGsd)
         #print 'TotalBounds = ' + str(totalBounds)
-        if options.demResolution < (meanGsd*MAX_OVERSAMPLING):
-            logger.warning('Specified resolution ' + str(options.demResolution) + 
-                           ' is too fine for camera with computed GSD ' + str(meanGsd) +
-                           '.  Switching to native GSD.)')
-            options.demResolution = meanGsd*MAX_OVERSAMPLING
+        #if options.demResolution < (meanGsd*MAX_OVERSAMPLING):
+        #    logger.warning('Specified resolution ' + str(options.demResolution) + 
+        #                   ' is too fine for camera with computed GSD ' + str(meanGsd) +
+        #                   '.  Switching to native GSD.)')
+        #    options.demResolution = meanGsd*MAX_OVERSAMPLING
         # Undersampling is not as dangerous, just print a warning.
-        if options.demResolution > 5*meanGsd:
-            logger.warning('Specified resolution ' + str(options.demResolution) + 
-                           ' is much larger than computed GSD ' + str(meanGsd))
-                           
+        #if options.demResolution > 5*meanGsd:
+        #    logger.warning('Specified resolution ' + str(options.demResolution) + 
+        #                   ' is much larger than computed GSD ' + str(meanGsd))
+
+        # Use variable GSD, depending on the frame only
+        options.demResolution = icebridge_common.gsdToDemRes(meanGsd)
+
         if lidarFile:
             # Compute a good height limit from the reference DEM
             # - Can try generating lonlat bounds in the future, but maybe better
@@ -1388,8 +1397,8 @@ def doWork(options, args, logger):
         for i in range(0, numStereoRuns):
             taskHandles.append(pool.apply_async(createDem, 
                                                 (i, options, origInputPairs, prefixes, demFiles,
-                                                 projString, heightLimitString, threadText, baMatchFiles[i],
-                                                 suppressOutput, redo)))
+                                                 projString, heightLimitString, threadText,
+                                                 baMatchFiles[i], suppressOutput, redo)))
         # Wait for all the tasks to complete
         icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, interactive = False, 
                                                          quitKey='q', sleepTime=20)

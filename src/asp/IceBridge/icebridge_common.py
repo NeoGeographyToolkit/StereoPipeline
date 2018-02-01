@@ -1556,6 +1556,11 @@ def isBatchValid(batchFolder):
     except:
         return False
 
+def gsdToDemRes(gsd):
+    '''The DEM resolution is 4x the GSD.'''
+    GSD_RESOLUTION_MULTIPLIER = 4.0
+    return gsd * GSD_RESOLUTION_MULTIPLIER
+
 # For debugging functions
 #if __name__ == "__main__":
 #    print getFrameRangeFromBatchFolder('/home/test/batch_234_1425/')
