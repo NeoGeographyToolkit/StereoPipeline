@@ -269,7 +269,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
         thumbOutput = finalOutputPrefix + '_HILLSHADE_browse.tif'
         cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
         asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
-        os.remove(hillOutput) # Remove this file to keep down the file count
+        os.system("rm -f " + hillOutput) # Remove this file to keep down the file count
 
         # Do another blend, to this DEM's footprint, but not using it
         if fireballDEM != "":
@@ -327,7 +327,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
             #thumbOutput = fireballOutputPrefix + '_HILLSHADE_browse.tif'
             #cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
             #asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
-            #os.remove(hillOutput) # Remove this file to keep down the file count
+            #os.system("rm -f " + hillOutput) # Remove this file to keep down the file count
             
             logFiles = glob.glob(fireballOutputPrefix + "*" + "-log-" + "*")
             filesToWipe += logFiles
@@ -338,7 +338,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
         for fileName in filesToWipe:
             if os.path.exists(fileName):
                 print("Removing: " + fileName)
-                os.remove(fileName)
+                os.system("rm -f " + fileName)
         # TODO: Handle this cleanup better!
         os.system('rm -f ' + meanWorkPrefix + '*')
                 
