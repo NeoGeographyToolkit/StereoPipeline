@@ -346,10 +346,10 @@ def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
     # Some care is taken with the --stereo-arguments argument to make sure it is passed correctly.
     processCommand = (('%s %s %s %s --bundle-length %d --fireball-folder %s ' +
                        '--ortho-folder %s --num-processes %d --num-threads %d ' +
-                       '--num-processes-per-batch %d --reference-dem %s')
+                       '--reference-dem %s')
                       % (imageFolder, cameraFolder, lidarFolder, processedFolder,
                          options.bundleLength, fireballFolder, orthoFolder, options.numProcesses,
-                         options.numThreads, options.numProcessesPerBatch, refDemPath))
+                         options.numThreads, refDemPath))
     if isSouth:
         processCommand += ' --south'
     if options.startFrame:
@@ -682,9 +682,6 @@ def main(argsIn):
                           type=int, help='The number of simultaneous ortho processes to run.')
         parser.add_argument('--num-threads', dest='numThreads', default=8,
                           type=int, help='The number of threads per process.')
-        parser.add_argument('--num-processes-per-batch', dest='numProcessesPerBatch', default=1,
-                          type=int, help='The number of simultaneous processes to run ' + \
-                          'for each batch. This better be kept at 1 if running more than one batch.')
 
         # Action control
         parser.add_argument("--skip-fetch", action="store_true", dest="noFetch", default=False,

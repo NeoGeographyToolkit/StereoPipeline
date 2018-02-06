@@ -172,6 +172,22 @@ def getJpegDateTime(filepath):
 
     raise Exception('Failed to read date/time from file: ' + filepath)
 
+def getPixelSize(filepath):
+    '''Get the pixel size from a GeoTiff'''
+    
+    cmd      = [asp_system_utils.which('gdalinfo'), filepath]
+    p        = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    out, err = p.communicate()
+    
+    lines = out.split('\n')
+    for line in lines:
+        m = re.match("^.*?Pixel\s+Size\s*=\s*\((.*?)\s*,", line)
+        if m:
+            return float(m.group(1))
+
+    # If nothing works
+    return -1.0
+
 def jpegToImageFile(jpegFile, orthoFile):
     '''Given AN_20121107/jpeg/2012_11_08_17415.JPG and DMS_1381721_17415_20121108_00303910.tif
     create AN_20121107/image/DMS_20121108_003039_17415.tif.

@@ -340,9 +340,6 @@ def main(argsIn):
                           type='int', help='The number of simultaneous processes to run.')
         parser.add_option('--num-threads', dest='numThreads', default=None,
                           type='int', help='The number threads to use per process.')
-        parser.add_option('--num-processes-per-batch', dest='numProcessesPerBatch', default=1,
-                          type='int', help='The number of simultaneous processes to run ' + \
-                          'for each batch. This better be kept at 1 if running more than one batch.')
 
         # Action options
         parser.add_option('--interactive', action='store_true', default=False, dest='interactive',  
@@ -445,8 +442,6 @@ def main(argsIn):
     extraOptions = ''
     if options.numThreads:
         extraOptions += ' --num-threads ' + str(options.numThreads)
-    if options.numProcessesPerBatch:
-        extraOptions += ' --num-processes-per-batch ' + str(options.numProcessesPerBatch)
     if options.solve_intr:
         extraOptions += ' --solve-intrinsics '
     if options.isSouth:
@@ -481,7 +476,6 @@ def main(argsIn):
 
     if options.logBatches:
         options.numProcesses = 1
-        options.numProcessesPerBatch = 1
         sleepTime    = 1
         batchLogPath = os.path.join(outputFolder, BATCH_COMMAND_LOG_FILE)
         os.system('rm -f ' + batchLogPath)

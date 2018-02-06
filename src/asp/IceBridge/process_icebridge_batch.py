@@ -896,6 +896,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
 
     # Call and check status
     triOutput = thisPairPrefix + '-PC.tif'
+        
     icebridge_common.logger_print(logger, stereoCmd)
     if (not options.manyip) or (matchFilePair[0] == ""):
         (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput,
@@ -942,7 +943,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
             raise Exception('Stereo call failed!')
 
     # Extract the search range width and memory usage from the output text.
-    (corrSearchWidth, memUsage, elapsed, gotMemStats) = getWidthAndMemUsageFromStereoOutput(out, err)
+    (corrSearchWidth, memUsage, elapsed, gotMemStats)  = \
+                      getWidthAndMemUsageFromStereoOutput(out, err)
 
     icebridge_common.logger_print(logger, ("Corr search width: %d mem usage: %f GB elapsed: %s" %
                                           (corrSearchWidth, memUsage, elapsed) ) )
@@ -959,10 +961,11 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # point2dem on the result of ASP
     # - The size limit is to prevent bad point clouds from creating giant DEM files which
     #   cause the processing node to crash.
+    DEFAULT_GRID_SIZE_MULTIPLIER = 4.0 # 4x times the native GSD resolution
     cmd = (('point2dem ' + ' --errorimage ' +
             # '--max-valid-triangulation-error 10 ' + # useful when studying distortion
-            '--max-output-size 10000 10000 --tr %lf --t_srs %s %s %s')
-           % (options.demResolution, projString, triOutput, threadText))
+            '--max-output-size 10000 10000 --default-grid-size-multiplier %lf --t_srs %s %s %s')
+           % (DEFAULT_GRID_SIZE_MULTIPLIER, projString, triOutput, threadText))
     p2dOutput = demFiles[i]
     icebridge_common.logger_print(logger, cmd)
     (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput,
@@ -971,6 +974,11 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
 
+    # We will return the DEM pixel size
+    demPixelSize = icebridge_common.getPixelSize(p2dOutput)
+    if demPixelSize <= 0:
+        raise Exception("Could not parse DEM pixel size.")
+    
     # Require a certain percentage of valid output pixels to go forwards with this DEM
     # - This calculation currently does not work well but anything under this is probably bad.
     # TODO: This validity fraction is NOT ACCURATE and needs to be improved!
@@ -1013,10 +1021,13 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
            % (options.demResolution, projString, triOutput, threadText, p2dFoot))
     p2dFoot = p2dFoot + '-DEM.tif'
     icebridge_common.logger_print(logger, cmd)
-    (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dFoot, suppressOutput, redo, noThrow=True)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, p2dFoot, suppressOutput, redo,
+                                                          noThrow=True)
     if status != 0:
         icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
+
+    return demPixelSize
 
 def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
                interDiffPaths, fireballDiffPaths):
@@ -1148,10 +1159,6 @@ def main(argsIn):
         parser.add_option('--num-threads', dest='numThreads', default=None,
                           type='int', help='The number of threads to use for processing.')
 
-        parser.add_option('--num-processes-per-batch', dest='numProcessesPerBatch', default=1,
-                          type='int', help='The number of simultaneous processes to run ' + \
-                          'for each batch. This better be kept at 1 if running more than one batch.')
-
         (options, args) = parser.parse_args(argsIn)
 
         # Check argument count
@@ -1262,11 +1269,12 @@ def doWork(options, args, logger):
         logger.info('Finished script process_icebridge_batch!') 
         return
     
-    # Check that the output GSD is not set too much lower than the native resolution
+    # Find the mean GSD and the bounds. Note that later we don't actually use
+    # this resolution, rather we compute it automatically with point2dem. 
     heightLimitString = ''
     lidarDemPath      = None # Path to a DEM created from lidar data.
     if options.referenceDem:
-        MAX_OVERSAMPLING = 3.0
+        #MAX_OVERSAMPLING = 3.0
         computedGsd = options.demResolution
         meanGsd     = 0
         totalBounds = [99999999, 99999999, -99999999, -999999999] # minX, minY, maxX, maxY
@@ -1289,6 +1297,7 @@ def doWork(options, args, logger):
             except:
                 logger.warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
         meanGsd = meanGsd / numCameras                
+        # Check that the output GSD is not set too much lower than the native resolution
         #print 'GSD = ' + str(meanGsd)
         #print 'TotalBounds = ' + str(totalBounds)
         #if options.demResolution < (meanGsd*MAX_OVERSAMPLING):
@@ -1301,7 +1310,8 @@ def doWork(options, args, logger):
         #    logger.warning('Specified resolution ' + str(options.demResolution) + 
         #                   ' is much larger than computed GSD ' + str(meanGsd))
 
-        # Use variable GSD, depending on the frame only
+        # Use variable GSD, depending on the frame only. We will ignore this though
+        # and use directly point2dem's computation.
         options.demResolution = icebridge_common.gsdToDemRes(meanGsd)
 
         if lidarFile:
@@ -1321,7 +1331,7 @@ def doWork(options, args, logger):
     # For now at least only pass into bundle adjust the images which will be used in stereo.
     # - This lets use use some BA tools which are currently only supported for two images.
     if numStereoRuns == 1:
-        prunedInputPairs = [ inputPairs[0], inputPairs[-1]]
+        prunedInputPairs = [inputPairs[0], inputPairs[-1]]
     else: # Bundle on all input images
         prunedInputPairs = inputPairs
     inputPairs = robustBundleAdjust(options, prunedInputPairs,
@@ -1386,30 +1396,18 @@ def doWork(options, args, logger):
             asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
             fireLidarDiffCsvPaths.append(csvPath)
         
-    # We can either process the batch serially, or in parallel For
-    # many batches the former is preferred, with the batches
-    # themselves being in parallel.
-    if options.numProcessesPerBatch > 1:
-        logger.info('Starting processing pool for given batch with ' +
-                    str(options.numProcessesPerBatch) + ' processes.')
-        pool = multiprocessing.Pool(options.numProcessesPerBatch)
-        taskHandles = []
-        for i in range(0, numStereoRuns):
-            taskHandles.append(pool.apply_async(createDem, 
-                                                (i, options, origInputPairs, prefixes, demFiles,
-                                                 projString, heightLimitString, threadText,
-                                                 baMatchFiles[i], suppressOutput, redo)))
-        # Wait for all the tasks to complete
-        icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, interactive = False, 
-                                                         quitKey='q', sleepTime=20)
-        
-        # Either all the tasks are finished or the user requested a cancel.
-        icebridge_common.stopTaskPool(pool)
-    else:
-        for i in range(0, numStereoRuns):
-            createDem(i, options, origInputPairs, prefixes, demFiles, projString, heightLimitString,
-                      threadText, baMatchFiles[i], suppressOutput, redo, logger)
+    # Process the batch serially (but we will start multiple such batches in parallel).
+    options.demResolution = 0
+    for i in range(0, numStereoRuns):
+        demPixelSize  = createDem(i, options, origInputPairs, prefixes, demFiles,
+                                  projString, heightLimitString, threadText,
+                                  baMatchFiles[i], suppressOutput, redo, logger)
+        options.demResolution += demPixelSize
 
+    # Mean pixel size
+    options.demResolution = options.demResolution / float(numStereoRuns)
+    logger.info("DEM resolution: " + str(options.demResolution))
+    
     # If we had to create at least one DEM, need to redo all the post-DEM creation steps
     if atLeastOneDemMissing:
         redo = True

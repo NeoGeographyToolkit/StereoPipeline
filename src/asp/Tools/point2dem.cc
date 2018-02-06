@@ -414,7 +414,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("gaussian-sigma-factor", po::value(&opt.sigma_factor)->default_value(0.0),
      "The value s to be used in the Gaussian exp(-s*(x/grid_size)^2) when computing the DEM. The default is -log(0.25) = 1.3863. A smaller value will result in a smoother terrain.")
     ("default-grid-size-multiplier", po::value(&opt.default_grid_size_multiplier)->default_value(1.0),
-	     "If the user did not specify an output DEM grid size (--dem-spacing), compute it automatically, and then multiply it by this number.")
+	     "If the output DEM grid size (--dem-spacing) is not specified, compute it automatically (as the mean ground sample distance), and then multiply it by this number. It is suggested that this number be set to 4 though the default is 1.")
     ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
      "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
     ("fsaa",   po::value<int>(&opt.fsaa)->default_value(1),            "Oversampling amount to perform antialiasing (obsolete).")
