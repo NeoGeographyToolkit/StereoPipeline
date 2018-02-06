@@ -583,8 +583,9 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
             lines[it] = "R = 1 0 0 0 1 0 0 0 1"
 
     # Write the final desired optimized RPC file
-    logger.info("Writing final optimized file: " + options.outputCalCamera) 
-    os.system("mkdir -p " + os.path.dirname(options.outputCalCamera))
+    logger.info("Writing final optimized file: " + options.outputCalCamera)
+    # Below is a bugfix, must take full path to find the dir, otherwise it may fail.
+    os.system("mkdir -p " + os.path.dirname(os.path.abspath(options.outputCalCamera)))
     with open(options.outputCalCamera, 'w') as f:
         for line in lines:
             f.write(line + "\n")
