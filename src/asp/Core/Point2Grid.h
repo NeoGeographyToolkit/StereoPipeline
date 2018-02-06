@@ -24,15 +24,21 @@
 
 #include <vw/Image/ImageView.h>
 
-namespace vw { namespace stereo {
-  
-  struct Point2Grid {
+namespace asp {
+
+  // The type of filter to apply to points within a circular bin.
+  enum FilterType {f_weighted_average, f_min, f_max, f_mean, f_median, f_stddev, f_nmad,
+                   f_percentile};
     
+  class Point2Grid {
+    
+  public:
     Point2Grid(int width, int height,
-               ImageView<double> & buffer, ImageView<double> & weights,
+               vw::ImageView<double> & buffer, vw::ImageView<double> & weights,
                double x0, double y0,
                double grid_size, double min_spacing, double radius,
-	       double sigma_factor);
+	       double sigma_factor,
+               FilterType filter, double percentile);
     ~Point2Grid(){}
     void Clear(const float val);
     void AddPoint(double x, double y, double z);
@@ -40,16 +46,19 @@ namespace vw { namespace stereo {
 
   private:
     int m_width, m_height; // DEM dimensions
-    ImageView<double> & m_buffer;
-    ImageView<double> & m_weights;
+    vw::ImageView<double> & m_buffer;
+    vw::ImageView<double> & m_weights;
+    vw::ImageView< std::vector<double> > m_vals; // when need to keep all individual values
     double m_x0, m_y0; // lower-left corner
     double m_grid_size;  // spacing between output DEM pixels
     double m_radius;   // how far to search for cloud points
     double m_dx;       // spacing between samples
     std::vector<double> m_sampled_gauss;
+    FilterType m_filter;
+    double m_percentile; // The actual value of the percentile to use if in that mode
     
   };
   
-}}
+}
 
 #endif  // __VW_POINT2GRID_H__

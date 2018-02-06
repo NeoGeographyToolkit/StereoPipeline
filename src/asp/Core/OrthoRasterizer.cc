@@ -35,7 +35,6 @@
 #include <vw/Image/InpaintView.h>
 
 #include <asp/Core/SoftwareRenderer.h>
-#include <asp/Core/Point2Grid.h>
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/next.hpp>
 #include <asp/Core/OrthoRasterizer.h>
@@ -367,6 +366,8 @@ namespace asp{
    ImageViewRef<double> const& error_image, double estim_max_error,
    double max_valid_triangulation_error,
    Vector2 median_filter_params, int erode_len, bool has_las_or_csv,
+   std::string const& filter,
+   double default_grid_size_multiplier,
    size_t *num_invalid_pixels, vw::Mutex *count_mutex,
    const ProgressCallback& progress):
     // Ensure all members are initiated, even if to temporary values
@@ -382,11 +383,26 @@ namespace asp{
     m_projwin(projwin),
     m_hole_fill_len(0),
     m_error_image(error_image), m_error_cutoff(-1.0),
-    m_median_filter_params(median_filter_params), m_erode_len(erode_len), m_num_invalid_pixels(num_invalid_pixels),
+    m_median_filter_params(median_filter_params), m_erode_len(erode_len),
+    m_default_grid_size_multiplier(default_grid_size_multiplier),
+    m_num_invalid_pixels(num_invalid_pixels),
     m_count_mutex(count_mutex){
 
     *m_num_invalid_pixels = 0; // Init counter
     set_texture(texture.impl());
+
+    // Convert the filter from string to enum, to speed up checking against it later
+    m_percentile = -1; // ensure it is initialized
+    if (filter      == "weighted_average") m_filter = asp::f_weighted_average;
+    else if (filter == "min"             ) m_filter = asp::f_min;
+    else if (filter == "max"             ) m_filter = asp::f_max;
+    else if (filter == "mean"            ) m_filter = asp::f_mean;
+    else if (filter == "median"          ) m_filter = asp::f_median;
+    else if (filter == "stddev"          ) m_filter = asp::f_stddev;
+    else if (filter == "nmad"            ) m_filter = asp::f_nmad;
+    else if (sscanf (filter.c_str(), "%lf-pct", &m_percentile) == 1) m_filter = asp::f_percentile;
+  else
+    vw_throw( ArgumentErr() << "OrthoRasterize: unknown filter: " << filter << ".\n" );
 
     //dump_image("img", BBox2(0, 0, 3000, 3000), point_image);
 
@@ -501,7 +517,7 @@ namespace asp{
         // wrong.  This code should be an average of the values in the
         // [25%, 75%] range.
         // TODO: Integrate with the logic for mapproject.
-	// TODO: The fault spacing should be 4x times this.
+	// TODO: The default spacing should be 4x times this.
 	// https://github.com/NeoGeographyToolkit/StereoPipeline/issues/173
         m_default_spacing_x = vx[(int)(0.5*len)];
         m_default_spacing_y = vy[(int)(0.5*len)];
@@ -574,7 +590,8 @@ namespace asp{
   }
 
   /// \cond INTERNAL
-  OrthoRasterizerView::prerasterize_type OrthoRasterizerView::prerasterize( BBox2i const& bbox ) const {
+  OrthoRasterizerView::prerasterize_type OrthoRasterizerView::prerasterize( BBox2i const& bbox )
+    const {
     
     BBox2i bbox_1 = bbox;
 
@@ -606,14 +623,15 @@ namespace asp{
       search_radius = std::max(m_spacing, m_default_spacing);
     else
       search_radius = m_spacing*m_search_radius_factor;
-    vw::stereo::Point2Grid point2grid(bbox_1.width(),
-                                      bbox_1.height(),
-                                      d_buffer, weights,
-                                      local_3d_bbox.min().x(),
-                                      local_3d_bbox.min().y(),
-                                      m_spacing, m_default_spacing,
-                                      search_radius, m_sigma_factor);
-
+    asp::Point2Grid point2grid(bbox_1.width(),
+                               bbox_1.height(),
+                               d_buffer, weights,
+                               local_3d_bbox.min().x(),
+                               local_3d_bbox.min().y(),
+                               m_spacing, m_default_spacing,
+                               search_radius, m_sigma_factor,
+                               m_filter, m_percentile);
+    
     // Set up the default color value
     double min_val = 0.0;
     if (m_use_alpha) {

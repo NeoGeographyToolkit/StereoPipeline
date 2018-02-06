@@ -92,8 +92,8 @@ struct Options : vw::cartography::GdalWriteOptions {
   double      max_valid_triangulation_error;
   Vector2     median_filter_params;
   int         erode_len;
-  std::string csv_format_str, csv_proj4_str;
-  double      search_radius_factor, sigma_factor;
+  std::string csv_format_str, csv_proj4_str, filter;
+  double      search_radius_factor, sigma_factor, default_grid_size_multiplier;
   bool        use_surface_sampling;
   bool        has_las_or_csv;
   Vector2i    max_output_size;
@@ -106,7 +106,8 @@ struct Options : vw::cartography::GdalWriteOptions {
 	      semi_major(0), semi_minor(0), fsaa(1),
 	      dem_hole_fill_len(0), ortho_hole_fill_len(0),
 	      remove_outliers_with_pct(true), max_valid_triangulation_error(0),
-	      erode_len(0), search_radius_factor(0), sigma_factor(0), use_surface_sampling(false),
+	      erode_len(0), search_radius_factor(0), sigma_factor(0),
+	      default_grid_size_multiplier(1.0), use_surface_sampling(false),
 	      has_las_or_csv(false), max_output_size(9999999, 9999999){}
 };
 
@@ -405,12 +406,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	    "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
     ("csv-format",     po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files, if those files contain Easting and Northing fields. If not specified, --t_srs will be used.")
+    ("filter",      po::value(&opt.filter)->default_value("weighted_average"), "The filter to apply to the heights of the cloud points within a given circular neighborhood when gridding. Options: weighted_average (default), min, max, mean, median, stddev, nmad (= mad/stddev), n-pct (where n is an integer between 0 and 100 (for example, 80-pct, meaning, 80th percentile). Except for the default, the name of the filter will be added to the obtained DEM file name, e.g., output-min-DEM.tif.")
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
 	    "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
 	     "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
     ("gaussian-sigma-factor", po::value(&opt.sigma_factor)->default_value(0.0),
      "The value s to be used in the Gaussian exp(-s*(x/grid_size)^2) when computing the DEM. The default is -log(0.25) = 1.3863. A smaller value will result in a smoother terrain.")
+    ("default-grid-size-multiplier", po::value(&opt.default_grid_size_multiplier)->default_value(1.0),
+	     "If the user did not specify an output DEM grid size (--dem-spacing), compute it automatically, and then multiply it by this number.")
     ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
      "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
     ("fsaa",   po::value<int>(&opt.fsaa)->default_value(1),            "Oversampling amount to perform antialiasing (obsolete).")
@@ -496,6 +500,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 			   << "is obsolete, it will be removed in future versions.\n";
   }
 
+  if (opt.use_surface_sampling && opt.filter != "weighted_average")
+    vw_throw( ArgumentErr() << "Cannot use surface "
+              << "sampling with any filter of point cloud points.\n" );
+    
   if (opt.use_surface_sampling && opt.has_las_or_csv)
     vw_throw( ArgumentErr() << "Cannot use surface "
 			    << "sampling with LAS or CSV files.\n" );
@@ -1073,6 +1081,7 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
                opt.remove_outliers_with_pct, opt.remove_outliers_params,
                error_image, estim_max_error, opt.max_valid_triangulation_error,
                opt.median_filter_params, opt.erode_len, opt.has_las_or_csv,
+               opt.filter, opt.default_grid_size_multiplier,
                &num_invalid_pixels, &count_mutex,
                TerminalProgressCallback("asp","QuadTree: "));
 
@@ -1089,7 +1098,7 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
   // Call the function for each dem spacing
   for (size_t i=0; i<opt.dem_spacing.size(); ++i) {
     double this_spacing = opt.dem_spacing[i];
-
+    
     // Required second init step for each spacing
     rasterizer.initialize_spacing(this_spacing);
 

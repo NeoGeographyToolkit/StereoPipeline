@@ -30,6 +30,7 @@
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
+#include <asp/Core/Point2Grid.h>
 
 namespace asp{
 
@@ -63,7 +64,9 @@ namespace asp{
     double  m_error_cutoff;
     Vector2 m_median_filter_params;
     int     m_erode_len;
-    
+    asp::FilterType m_filter;
+    double m_percentile;
+    double m_default_grid_size_multiplier;
     size_t     *m_num_invalid_pixels; ///< Keep a count of nodata output pixels, needs to be pointer due to VW weirdness.
     vw::Mutex  *m_count_mutex;        ///< A lock for m_num_invalid_pixels, needs to be pointer due to C++ weirdness.
 
@@ -100,6 +103,8 @@ namespace asp{
                         Vector2 median_filter_params,
                         int     erode_len,
                         bool    has_las_or_csv,
+                        std::string const& filter,
+			double default_grid_size_multiplier,
                         size_t  *num_invalid_pixels,
                         vw::Mutex *count_mutex,
                         const ProgressCallback& progress);
@@ -156,7 +161,7 @@ namespace asp{
     /// original image.
     void set_spacing(double val) {
       if (val == 0.0) {
-        m_spacing = m_default_spacing;
+        m_spacing = m_default_spacing * m_default_grid_size_multiplier;
       } else {
         m_spacing = val;
       }

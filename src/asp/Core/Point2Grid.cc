@@ -27,8 +27,9 @@
 
 using namespace std;
 using namespace vw;
-using namespace stereo;
 
+namespace asp {
+  
 // ===========================================================================
 // Class Member Functions
 // ===========================================================================
@@ -36,15 +37,24 @@ using namespace stereo;
 Point2Grid::Point2Grid(int width, int height,
                        ImageView<double> & buffer, ImageView<double> & weights,
                        double x0, double y0, double grid_size, double min_spacing,
-                       double radius, double sigma_factor):
+                       double radius, double sigma_factor,
+                       FilterType filter, double percentile):
   m_width(width), m_height(height),
   m_buffer(buffer), m_weights(weights),
   m_x0(x0), m_y0(y0), m_grid_size(grid_size),
-  m_radius(radius){
+  m_radius(radius), m_filter(filter), m_percentile(percentile){
+  
   if (m_grid_size <= 0)
     vw_throw( ArgumentErr() << "Point2Grid: Grid size must be > 0.\n" );
   if (m_radius <= 0)
     vw_throw( ArgumentErr() << "Point2Grid: Search radius must be > 0.\n" );
+
+  if (m_filter == f_percentile && (m_percentile < 0 || m_percentile > 100.0) )  
+    vw_throw( ArgumentErr() << "Point2Grid: Expecting the percentile in the range 0.0 to 100.0.\n" );
+
+  // Stop here if we don't need to create gaussian weights
+  if (m_filter != f_weighted_average) 
+    return; 
 
   // By the time we reached the distance 'spacing' from the origin, we
   // want the Gaussian exp(-sigma*x^2) to decay to given value.  Note
@@ -75,10 +85,18 @@ void Point2Grid::Clear(const float value) {
   m_weights.set_size (m_width, m_height);
   for (int c = 0; c < m_buffer.cols(); c++){
     for (int r = 0; r < m_buffer.rows(); r++){
-      m_buffer (c, r) = value;
+      m_buffer (c, r) = value; // usually this is the no-data value
       m_weights(c, r) = 0.0;
     }
   }
+
+  // For these we need to keep all values (in fact, for stddev we could get away with less,
+  // but it is not worth trying so hard).
+  if (m_filter == f_median || m_filter == f_stddev ||
+      m_filter == f_nmad || m_filter == f_percentile) {
+    m_vals.set_size(m_width, m_height);
+  }
+  
 }
 
 void Point2Grid::AddPoint(double x, double y, double z){
@@ -98,11 +116,40 @@ void Point2Grid::AddPoint(double x, double y, double z){
       double dist = sqrt( (x-gx)*(x-gx) + (y-gy)*(y-gy) );
       if ( dist > m_radius ) continue;
 
-      if (m_weights(ix, iy) == 0) m_buffer(ix, iy) = 0.0;
-      double wt = m_sampled_gauss[(int)round(dist/m_dx)];
-      if (wt <= 0) continue;
-      m_buffer(ix, iy)  += z*wt;
-      m_weights(ix, iy) += wt;
+      if (m_filter == f_weighted_average) {
+        if (m_weights(ix, iy) == 0) m_buffer(ix, iy) = 0.0; // set to 0 before incrementing below
+        double wt = m_sampled_gauss[(int)round(dist/m_dx)];
+        if (wt <= 0) continue;
+        m_buffer(ix, iy)  += z*wt;
+        m_weights(ix, iy) += wt;
+
+	// TODO: All the code below needs to be inspected!	
+      }else if (m_filter == f_mean){
+        if (m_weights(ix, iy) == 0) m_buffer(ix, iy) = 0.0; // set to 0 before incrementing below
+        m_buffer(ix, iy)  += z;
+        m_weights(ix, iy) += 1;
+        
+      }else if (m_filter == f_min){
+        if (m_weights(ix, iy) == 0) {
+          m_buffer(ix, iy)  = z; // first time we set the value
+          m_weights(ix, iy) = 1; // mark the fact that the buffer was initialized
+        }
+        else
+          m_buffer(ix, iy) = std::min(m_buffer(ix, iy), z);
+      
+      }else if (m_filter == f_max){
+        if (m_weights(ix, iy) == 0) {
+          m_buffer(ix, iy)  = z; // first time we set the value
+          m_weights(ix, iy) = 1; // mark the fact that the buffer was initialized
+        }
+        else
+          m_buffer(ix, iy) = std::max(m_buffer(ix, iy), z);
+        
+      }else if (m_filter == f_stddev || m_filter == f_median ||
+                m_filter == f_nmad   || m_filter == f_percentile){
+        m_vals(ix, iy).push_back(z); // not strictly needed for stddev
+      }
+      
     }
     
   }
@@ -111,8 +158,14 @@ void Point2Grid::AddPoint(double x, double y, double z){
 void Point2Grid::normalize(){
   for (int c = 0; c < m_buffer.cols(); c++){
     for (int r = 0; r < m_buffer.rows(); r++){
-      if (m_weights(c, r) > 0)
-        m_buffer (c, r) /= m_weights(c, r);
+
+      if (m_filter == f_weighted_average || m_filter == f_mean) {
+        if (m_weights(c, r) > 0)
+          m_buffer (c, r) /= m_weights(c, r);
+      }
+      
     }
   }
 }
+  
+} // end namespace asp
