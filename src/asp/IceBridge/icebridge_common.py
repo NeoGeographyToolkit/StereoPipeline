@@ -471,7 +471,6 @@ def getCameraGsdAndBounds(imagePath, cameraPath, logger, referenceDem=None, proj
 def getGsdFromMapproject(imagePath, cameraPath, logger, referenceDem):
     '''Compute the GSD by quering mapproject.'''
     
-    # Run GSD tool
     tmpOutFile = cameraPath + ".tmp.tif"
     tool = asp_system_utils.which('mapproject')
     cmd = ('%s %s %s %s %s --query-projection' %
