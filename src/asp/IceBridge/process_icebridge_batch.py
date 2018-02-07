@@ -751,7 +751,9 @@ def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText,
 
     # Generate a DEM from the lidar point cloud in this region        
     lidarDemPrefix = os.path.join(outputFolder, 'cropped_lidar')
-    cmd = ('point2dem --max-output-size 10000 10000 --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
+    # Add --search-radius-factor 5 to help with mapproject later
+    # when estimating the gsd.
+    cmd = ('point2dem --search-radius-factor 5 --max-output-size 10000 10000 --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
            % (minX, minY, maxX, maxY,
               LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
               lidarCsvFormatString, lidarDemPrefix))
@@ -961,11 +963,10 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # point2dem on the result of ASP
     # - The size limit is to prevent bad point clouds from creating giant DEM files which
     #   cause the processing node to crash.
-    DEFAULT_GRID_SIZE_MULTIPLIER = 4.0 # 4x times the native GSD resolution
     cmd = (('point2dem ' + ' --errorimage ' +
             # '--max-valid-triangulation-error 10 ' + # useful when studying distortion
-            '--max-output-size 10000 10000 --default-grid-size-multiplier %lf --t_srs %s %s %s')
-           % (DEFAULT_GRID_SIZE_MULTIPLIER, projString, triOutput, threadText))
+            '--max-output-size 10000 10000 --dem-spacing %lf --t_srs %s %s %s')
+           % (options.demResolution, projString, triOutput, threadText))
     p2dOutput = demFiles[i]
     icebridge_common.logger_print(logger, cmd)
     (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput,
@@ -974,11 +975,6 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
 
-    # We will return the DEM pixel size
-    demPixelSize = icebridge_common.getPixelSize(p2dOutput)
-    if demPixelSize <= 0:
-        raise Exception("Could not parse DEM pixel size.")
-    
     # Require a certain percentage of valid output pixels to go forwards with this DEM
     # - This calculation currently does not work well but anything under this is probably bad.
     # TODO: This validity fraction is NOT ACCURATE and needs to be improved!
@@ -1026,8 +1022,6 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     if status != 0:
         icebridge_common.logger_print(logger, out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
-
-    return demPixelSize
 
 def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
                interDiffPaths, fireballDiffPaths):
@@ -1310,8 +1304,7 @@ def doWork(options, args, logger):
         #    logger.warning('Specified resolution ' + str(options.demResolution) + 
         #                   ' is much larger than computed GSD ' + str(meanGsd))
 
-        # Use variable GSD, depending on the frame only. We will ignore this though
-        # and use directly point2dem's computation.
+        # Use variable GSD, depending on the frame only.
         options.demResolution = icebridge_common.gsdToDemRes(meanGsd)
 
         if lidarFile:
@@ -1319,12 +1312,32 @@ def doWork(options, args, logger):
             # - Can try generating lonlat bounds in the future, but maybe better
             #   to keep these in projected coordinate space.
             (heightLimitString, lidarDemPath) = estimateHeightRange(totalBounds,
-                                                    projString, lidarFile,
-                                                    options, threadText, 
-                                                    suppressOutput, redo, logger)
+                                                                    projString, lidarFile,
+                                                                    options, threadText, 
+                                                                    suppressOutput, redo, logger)
         #if options.manyip:
         #    heightLimitString = "" # Turn it off
-       
+        
+        # Recompute mean gsd based on quering mapproject
+        meanGsd = 0
+        numVals = 0
+        for i in range(0,numCameras):
+            try:
+                # Compute the native GSD of the first input camera
+                computedGsd = \
+                            icebridge_common.getGsdFromMapproject(inputPairs[i][0],
+                                                                  inputPairs[i][1], logger, 
+                                                                  lidarDemPath)
+                meanGsd += computedGsd
+                numVals += 1
+            except:
+                logger.warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
+                
+        meanGsd = meanGsd / numVals            
+        options.demResolution = icebridge_common.gsdToDemRes(meanGsd)
+
+        logger.info('DEM resolution ' + str(options.demResolution))
+        
     # BUNDLE_ADJUST
     origInputPairs = inputPairs # All input pairs, non-blurred or otherwise altered.
     
@@ -1397,17 +1410,11 @@ def doWork(options, args, logger):
             fireLidarDiffCsvPaths.append(csvPath)
         
     # Process the batch serially (but we will start multiple such batches in parallel).
-    options.demResolution = 0
     for i in range(0, numStereoRuns):
-        demPixelSize  = createDem(i, options, origInputPairs, prefixes, demFiles,
-                                  projString, heightLimitString, threadText,
-                                  baMatchFiles[i], suppressOutput, redo, logger)
-        options.demResolution += demPixelSize
-
-    # Mean pixel size
-    options.demResolution = options.demResolution / float(numStereoRuns)
-    logger.info("DEM resolution: " + str(options.demResolution))
-    
+        createDem(i, options, origInputPairs, prefixes, demFiles,
+                  projString, heightLimitString, threadText,
+                  baMatchFiles[i], suppressOutput, redo, logger)
+        
     # If we had to create at least one DEM, need to redo all the post-DEM creation steps
     if atLeastOneDemMissing:
         redo = True

@@ -468,6 +468,30 @@ def getCameraGsdAndBounds(imagePath, cameraPath, logger, referenceDem=None, proj
 
     return (gsd, bounds)
 
+def getGsdFromMapproject(imagePath, cameraPath, logger, referenceDem):
+    '''Compute the GSD by quering mapproject.'''
+    
+    # Run GSD tool
+    tmpOutFile = cameraPath + ".tmp.tif"
+    tool = asp_system_utils.which('mapproject')
+    cmd = ('%s %s %s %s %s --query-projection' %
+            (tool, referenceDem, imagePath, cameraPath, tmpOutFile))
+    cmd = cmd.split()
+    logger.info(" ".join(cmd))
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    textOutput, err = p.communicate()
+    logger.info(textOutput)
+    
+    # Extract the gsd from the output text
+    m = re.findall(r"Output pixel size:\s*(.*?)\n", textOutput)
+    if len(m) != 1: # An unknown error occurred, move on.
+        raise Exception('Unable to compute GSD for file: ' + cameraPath)
+    gsd = float(m[0])
+
+    os.system("rm -f " + tmpOutFile)
+    
+    return gsd
+
 def getCorrectedFireballDems(outputFolder):
     '''Get a dictionary of the corrected fireball DEMs, with path prepended to them.'''
     fireballFolder     = getFireballFolder(outputFolder)
