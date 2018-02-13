@@ -100,7 +100,7 @@ def getMeanDemDiff(dems, outputPrefix):
     print('Mean of DEM diffs = ' + str(meanDiff))
     return meanDiff
 
-def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
+def runBlend(frame, processFolder, lidarFile, fireballDEM, options,
              threadText, redo, suppressOutput):
 
     WEIGHT_EXP = 1.3
@@ -109,7 +109,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
     try:
         
         demFile, batchFolder = icebridge_common.frameToFile(frame, icebridge_common.alignFileName(),
-                                                            processFolder, bundleLength)
+                                                            processFolder, options.bundleLength)
         lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
 
         if demFile == "":
@@ -128,14 +128,13 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
 
         # This is turned off for now. Find the diff between neighboring
         # aligned DEMs before blending.
-        prevDemFile, prevBatchFolder = icebridge_common.frameToFile(frame-1,
-                                                                    icebridge_common.alignFileName(),
-                                                                    processFolder, bundleLength)
+        prevDemFile, prevBatchFolder = \
+                     icebridge_common.frameToFile(frame-1,
+                                                  icebridge_common.alignFileName(),
+                                                  processFolder, options.bundleLength)
         prevDiffPrefix = os.path.join(batchFolder, 'out-prev')
         prevDiffFile   = prevDiffPrefix + '-diff.tif'
-        if False and redo and os.path.exists(prevDiffFile):
-            # TODO: turn this on. But it will make more files.
-            # Stuff this info somewhere. 
+        if options.computeDiffToPrev and redo and os.path.exists(prevDiffFile):
             os.system("rm -f " + prevDiffFile)
         if os.path.exists(prevDemFile) and os.path.exists(demFile):
             if os.path.exists(prevDiffFile):
@@ -183,7 +182,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
                 currDemFile, currBatchFolder = \
                              icebridge_common.frameToFile(frame + offset,
                                                           icebridge_common.alignFileName(),
-                                                          processFolder, bundleLength)
+                                                          processFolder, options.bundleLength)
                 if currDemFile == "":
                     continue
                 dems.append(currDemFile)
@@ -281,7 +280,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, bundleLength,
                 currDemFile, currBatchFolder = \
                              icebridge_common.frameToFile(frame + offset,
                                                           icebridge_common.alignFileName(),
-                                                          processFolder, bundleLength)
+                                                          processFolder, options.bundleLength)
                 if currDemFile == "":
                     continue
                 dems.append(currDemFile)
@@ -385,6 +384,11 @@ def main(argsIn):
                           help="Specify a subfolder name where the processing outputs will go. "+\
                             "The default is no additional folder.")
 
+        parser.add_argument("--compute-diff-to-prev-dem", action="store_true",
+                            dest="computeDiffToPrev", default=False,
+                            help="Compute the absolute difference between the current DEM " +
+                            "and the one before it.")
+
         parser.add_argument("--blend-to-fireball-footprint", action="store_true",
                             dest="blendToFireball", default=False,
                             help="Create additional blended DEMs having the same " + \
@@ -481,7 +485,7 @@ def main(argsIn):
             else:
                 logger.info("No fireball DEM for frame: " + str(frame))
             
-        args = (frame, processFolder, lidarFile, fireballDEM, options.bundleLength, threadText,
+        args = (frame, processFolder, lidarFile, fireballDEM, options, threadText,
                 redo, suppressOutput)
 
         # Run things sequentially if only one process, to make it easy to debug

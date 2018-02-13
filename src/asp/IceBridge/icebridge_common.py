@@ -468,25 +468,32 @@ def getCameraGsdAndBounds(imagePath, cameraPath, logger, referenceDem=None, proj
 
     return (gsd, bounds)
 
-def getGsdFromMapproject(imagePath, cameraPath, logger, referenceDem):
+def getGsdFromMapproject(imagePath, cameraPath, logger, lidarDem, referenceDem):
     '''Compute the GSD by quering mapproject.'''
-    
-    tmpOutFile = cameraPath + ".tmp.tif"
-    tool = asp_system_utils.which('mapproject')
-    cmd = ('%s %s %s %s %s --query-projection' %
-            (tool, referenceDem, imagePath, cameraPath, tmpOutFile))
-    cmd = cmd.split()
-    logger.info(" ".join(cmd))
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    textOutput, err = p.communicate()
-    logger.info(textOutput)
-    
-    # Extract the gsd from the output text
-    m = re.findall(r"Output pixel size:\s*(.*?)\n", textOutput)
-    if len(m) != 1: # An unknown error occurred, move on.
-        raise Exception('Unable to compute GSD for file: ' + cameraPath)
-    gsd = float(m[0])
 
+    # Try to compute the gsd first from the lidar dem, and if that fails,
+    # from the reference dem.
+    gsd = -1
+    for dem in [lidarDem, referenceDem]:
+        tmpOutFile = cameraPath + ".tmp.tif"
+        tool = asp_system_utils.which('mapproject')
+        cmd = ('%s %s %s %s %s --query-projection' %
+               (tool, dem, imagePath, cameraPath, tmpOutFile))
+        cmd = cmd.split()
+        logger.info(" ".join(cmd))
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        textOutput, err = p.communicate()
+        logger.info(textOutput)
+        
+        # Extract the gsd from the output text
+        m = re.findall(r"Output pixel size:\s*(.*?)\n", textOutput)
+        if len(m) == 1: 
+            gsd = float(m[0])
+            break
+
+    if gsd == -1:
+        raise Exception('Unable to compute GSD for file: ' + cameraPath)
+    
     os.system("rm -f " + tmpOutFile)
     
     return gsd

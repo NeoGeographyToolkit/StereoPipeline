@@ -1327,7 +1327,8 @@ def doWork(options, args, logger):
                 computedGsd = \
                             icebridge_common.getGsdFromMapproject(inputPairs[i][0],
                                                                   inputPairs[i][1], logger, 
-                                                                  lidarDemPath)
+                                                                  lidarDemPath,
+                                                                  options.referenceDem)
                 meanGsd += computedGsd
                 numVals += 1
             except:

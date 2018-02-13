@@ -640,6 +640,8 @@ def launchJobs(run, mode, options, logger):
         queueName  = BLEND_PBS_QUEUE
         jobTag     = 'B'
         extraArgs  = ' --blend-to-fireball-footprint --bundle-length ' + str(options.bundleLength)
+        if options.computeDiffToPrev:
+            extraArgs += ' --compute-diff-to-prev-dem'
     elif mode == 'label':
         scriptPath = icebridge_common.fullPath('label_images.py')
         queueName  = LABEL_PBS_QUEUE
@@ -1013,9 +1015,14 @@ def main(argsIn):
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                             default=False, help="Don't validate the input data.")
 
+        parser.add_argument("--compute-diff-to-prev-dem", action="store_true",
+                            dest="computeDiffToPrev", default=False,
+                            help="Compute the absolute difference between the current DEM " + \
+                            "and the one before it when blending.")
+
         parser.add_argument("--no-parallel-validate", action="store_false", dest="parallelValidate",
                             default=True, help="Validate in parallel, during conversion.")
-        
+
         parser.add_argument("--wipe-processed", action="store_true", dest="wipeProcessed",
                             default=False,
                             help="Wipe the processed folder.")
