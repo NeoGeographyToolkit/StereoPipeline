@@ -246,7 +246,7 @@ def mkdir_p(path):
 # comma-separated values.  The first value on each line becomes the
 # output variable name, the other values are read into the array of
 # variable values.
-def run_and_parse_output(cmd, args, sep, verbose, **kw ):
+def run_and_parse_output(cmd, args, sep, verbose, return_full_lines = False, **kw ):
     libexecpath = libexec_path(cmd)
     call = [libexecpath]
     call.extend(args)
@@ -270,17 +270,22 @@ def run_and_parse_output(cmd, args, sep, verbose, **kw ):
         if stdout is not None: print(stdout)
         if stderr is not None: print(stderr)
 
+    count = 0
     for line in stdout.split('\n'):
 
         # Print warning messages to stdout
         if re.match("^Warning", line): print(line)
 
-        if sep in line:
-            keywords = line.split(sep)
-            for index, item in enumerate(keywords):
-                # Strip whitespace from ends
-                keywords[index] = item.strip(' \t\n\r')
-            data[keywords[0]] = keywords[1:]
+        if return_full_lines:
+            data[count] = line # return the entire line
+            count += 1
+        else:
+            if sep in line:
+                keywords = line.split(sep)
+                for index, item in enumerate(keywords):
+                    # Strip whitespace from ends
+                    keywords[index] = item.strip(' \t\n\r')
+                data[keywords[0]] = keywords[1:]
 
     return data
 

@@ -1365,6 +1365,7 @@ session type to use for processing. Choose 'rpc' if it is desired to later do st
 adjustment obtained by previously running bundle\_adjust with this
 output prefix. \\ \hline
 \texttt{-\/-ot \textit{string(=Float32)}} & Output data type, when the input is single channel. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type. This option will be ignored for multi-channel images, when the output type is set to be the same as the input type. \\ \hline
+\texttt{-\/-mo \textit{string}} & Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces. \\ \hline
 \texttt{-\/-num-processes} & Number of parallel processes to use (default program chooses).\\ \hline
 \texttt{-\/-nodes-list} & List of available computing nodes.\\ \hline
 \texttt{-\/-tile-size} & Size of square tiles to break processing up into.\\ \hline

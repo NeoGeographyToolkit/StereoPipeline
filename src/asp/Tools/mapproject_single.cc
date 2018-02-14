@@ -34,6 +34,8 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
 
+#include <boost/algorithm/string/replace.hpp>
+
 using namespace vw;
 using namespace vw::cartography;
 namespace po = boost::program_options;
@@ -125,7 +127,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   bool isQuery, noGeoHeaderInfo;
 
   // Settings
-  std::string target_srs_string, output_type;
+  std::string target_srs_string, output_type, metadata;
   double nodata_value, tr, mpp, ppd, datum_offset;
   BBox2 target_projwin, target_pixelwin;
 };
@@ -157,8 +159,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
     ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type, when the input is single channel. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type. This option will be ignored for multi-channel images, when the output type is set to be the same as the input type.")
+    ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
-     "Suppress writing some auxialliary information in geoheaders.");
+     "Suppress writing some auxiliary information in geoheaders.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -276,6 +279,17 @@ void write_parallel_cond( std::string              const& filename,
     if (prefix == "") prefix = "NONE"; // to save the field, need to make it non-empty
     keywords["BUNDLE_ADJUST_PREFIX" ] = prefix;
     keywords["DEM_FILE" ]             = opt.dem_file;
+  }
+
+  // Parse keywords from --mo.
+  std::istringstream is(opt.metadata);
+  std::string meta, var, val;
+  while (is >> meta){
+    boost::replace_all(meta, "=", " ");  // replace equal with space
+    std::istringstream is2(meta);
+    if (!(is2 >> var >> val) ) 
+      vw_throw( ArgumentErr() << "Could not parse: " << meta << "\n" );
+    keywords[var] = val;
   }
   
   bool has_georef = true;

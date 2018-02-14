@@ -444,27 +444,44 @@ def main(argsIn):
     os.system(cmd)
 
     # Modify the vrt to append some metadata from the original tiles
-    # Get the metadata
-    args=[tiles[0]]
-    sep = "="
-    verbose = False
-    gdal_settings = asp_system_utils.run_and_parse_output( "gdalinfo", args, sep, verbose)
     if not options.noGeoHeaderInfo:
+        args=[tiles[0]]
+        sep = ""
+        verbose = False
+        gdal_settings = asp_system_utils.run_and_parse_output( "gdalinfo", args, sep,
+                                                               verbose, return_full_lines = True)
+        meta_dict = {}
+        isGood = False
+        for v in sorted(gdal_settings.keys()):
+            # Parse only the values beween 'Metadata:' and 'Image Structure Metadata:'
+            if gdal_settings[v] == 'Metadata:':
+                isGood = True
+                continue
+            if gdal_settings[v] == 'Image Structure Metadata:':
+                isGood = False
+                break
+            if not isGood:
+                continue
+            
+            m = re.match("^\s*(.*?)\s*=\s*(.*?)\s*$", gdal_settings[v])
+            if not m:
+                continue
+            meta_dict[m.group(1)] = m.group(2)
+            
         meta = ["  <Metadata>\n"]
-        for v in ['CAMERA_MODEL_TYPE', 'BUNDLE_ADJUST_PREFIX', 'DEM_FILE']:
-            if v in gdal_settings:
-                line = "    <MDI key=\"" + v + "\">" + gdal_settings[v][0] + "</MDI>\n"
-                meta.append(line)
+        for v in sorted(meta_dict.keys()):
+            line = "    <MDI key=\"" + v + "\">" + meta_dict[v] + "</MDI>\n"
+            meta.append(line)
         meta.append("  </Metadata>\n")
 
-    # Append the metadata after the first line in the vrt.
-    f = open(vrtPath, "r")
-    lines = f.readlines()
-    f.close()
-    lines = [ lines[0] ] + meta + lines[1:len(lines)]
-    f = open(vrtPath, "w")
-    f.writelines(lines)
-    f.close()
+        # Append the metadata after the first line in the vrt.
+        f = open(vrtPath, "r")
+        lines = f.readlines()
+        f.close()
+        lines = [ lines[0] ] + meta + lines[1:len(lines)]
+        f = open(vrtPath, "w")
+        f.writelines(lines)
+        f.close()
 
     # Convert VRT file to final output file
     cmd = "gdal_translate -co compress=lzw -co bigtiff=yes -co TILED=yes -co INTERLEAVE=BAND -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 " + vrtPath + " " + options.outputPath;
