@@ -1095,7 +1095,6 @@ def cleanBatch(batchFolder, alignPrefix, stereoPrefixes,
         percentageFlagFile = os.path.join(batchFolder, 'valid_pixel_fraction.txt')
         for filename in [lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPath, percentageFlagFile]:
             os.system('rm -f ' + filename)
-
     # Wipe any aux.xml
     for filename in glob.glob(os.path.join(batchFolder, '*aux.xml')):
         os.system('rm -f ' + filename)

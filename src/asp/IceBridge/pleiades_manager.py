@@ -229,6 +229,8 @@ def runFetch(run, options, logger):
 
         if options.noNavFetch:
             cmd += ' --no-nav'
+        if options.simpleCameras:
+            cmd += ' --simple-cameras'
         if options.manyip:
             cmd += ' --many-ip'
         if options.cameraMounting:
@@ -294,6 +296,8 @@ def runConversion(run, options, conversionAttempt, logger):
         pythonPath = asp_system_utils.which('python')
         cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --skip-fetch --stop-after-convert --no-lidar-convert --no-ortho-convert --skip-fast-conversions --start-frame %d --stop-frame %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame))
     
+        if options.simpleCameras:
+            cmd += ' --simple-cameras'
         if options.skipValidate or options.parallelValidate:
             cmd += ' --skip-validate'
         if options.cameraMounting:
@@ -323,13 +327,12 @@ def runConversion(run, options, conversionAttempt, logger):
                   % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
     if options.noNavFetch:
         args += ' --no-nav'
+    if options.simpleCameras:       # This option greatly decreases the conversion run time
+        args += ' --simple-cameras' 
     if options.manyip:
         args += ' --many-ip'
     if options.noOrthoConvert:
         args += ' --no-ortho-convert'
-    if options.simpleCameras:       # This option greatly decreases the conversion run time
-        args += ' --simple-cameras' # - Camera conversion could be local but image conversion still takes time.
-        #maxHours = 1 # turn this off, it times out
     if options.cameraMounting:
         args += ' --camera-mount ' + str(options.cameraMounting)
 
@@ -393,6 +396,8 @@ def runConversion(run, options, conversionAttempt, logger):
         cmd = (pythonPath + ' ' + icebridge_common.fullPath('full_processing_script.py') + ' --refetch --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --stop-after-convert --no-ortho-convert --start-frame %d --stop-frame %d --num-threads %d --num-processes %d' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses))
         if options.noNavFetch:
             cmd += ' --no-nav'
+        if options.simpleCameras:
+            cmd += ' --simple-cameras'
         if options.manyip:
             cmd += ' --many-ip'
         if options.noOrthoConvert:
@@ -424,6 +429,8 @@ def runConversion(run, options, conversionAttempt, logger):
             cmd = (icebridge_common.fullPath('full_processing_script.py') + ' --skip-fetch --skip-validate --skip-fast-conversions --stop-after-convert --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --start-frame %d --stop-frame %d --num-threads %d --num-processes %d --frames-file %s' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder(), options.startFrame, options.stopFrame, numThreads, numProcesses, orthoList))
             if options.noNavFetch:
                 cmd += ' --no-nav'
+            if options.simpleCameras:
+                cmd += ' --simple-cameras'
             if options.manyip:
                 cmd += ' --many-ip'
             if options.noOrthoConvert:
@@ -488,11 +495,12 @@ def generateBatchList(run, options, listPath, logger):
 
     if options.noNavFetch:
         cmd += ' --no-nav'
+    if options.simpleCameras:
+        cmd += ' --simple-cameras'
     if options.manyip:
         cmd += ' --many-ip'
     if options.cameraMounting:
         cmd += ' --camera-mount ' + str(options.cameraMounting)
-
     if options.inputCalCamera != "":
         cmd += ' --input-calibration-camera ' + options.inputCalCamera
         
