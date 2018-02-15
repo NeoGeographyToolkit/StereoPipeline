@@ -40,12 +40,19 @@
    * If the -o option value is specified as filename.tif, all mosaic will be
      written to this exact file, rather than creating tiles. 
 
+ - point2dem 
+   * Added the ability to apply a filter to the cloud points in each circular
+     neighborhood before gridding. In addition to the current weighted average
+     option, it supports min, max, mean, median, stddev, count, nmad,
+     and percentile.
+
  - Misc
    * The tools mapproject, dem_mosaic, dg_mosaic, and wv_correct support
      the --ot option, to round the output pixels to several types of
      integer, reducing storage, but perhaps decreasing accuracy.
-   * The tool mapproject supports the --mo option to add metadata to the 
-     geoheader in the format 'VAR1=VAL1 VAR2=VAL2', etc.
+   * The tools mapproject and image_calc support the --mo option to
+     add metadata to the geoheader in the format 'VAR1=VAL1 VAR2=VAL2',
+     etc.
    * Handle properly in bundle_adjust, orbitviz, and stereo 
      with mapprojected images the case when, for RPC cameras,
      these coefficients are stored in _RPC.TXT files.

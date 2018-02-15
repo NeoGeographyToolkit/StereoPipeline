@@ -292,6 +292,22 @@ std::string asp::bundle_adjust_file_name(std::string const& prefix,
   return prefix + "-" + fs::path(file).stem().string() + ".adjust";
 }
 
+/// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
+/// so it may have some items there beforehand.
+void asp::parse_append_metadata(std::string const& metadata,
+                                std::map<std::string, std::string> & keywords){
+  
+  std::istringstream is(metadata);
+  std::string meta, var, val;
+  while (is >> meta){
+    boost::replace_all(meta, "=", " ");  // replace equal with space
+    std::istringstream is2(meta);
+    if (!(is2 >> var >> val) ) 
+      vw_throw( ArgumentErr() << "Could not parse: " << meta << "\n" );
+    keywords[var] = val;
+  }
+}
+
 // Print time function
 std::string asp::current_posix_time_string() {
   return boost::posix_time::to_simple_string(boost::posix_time::second_clock::local_time());

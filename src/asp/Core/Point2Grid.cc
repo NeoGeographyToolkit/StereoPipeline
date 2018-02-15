@@ -22,6 +22,7 @@
 #include <vw/Core/Exception.h>
 #include <vw/Core/FundamentalTypes.h>
 #include <asp/Core/Point2Grid.h>
+#include <vw/Math/Functors.h>
 
 #include <iostream>
 
@@ -117,13 +118,12 @@ void Point2Grid::AddPoint(double x, double y, double z){
       if ( dist > m_radius ) continue;
 
       if (m_filter == f_weighted_average) {
-        if (m_weights(ix, iy) == 0) m_buffer(ix, iy) = 0.0; // set to 0 before incrementing below
         double wt = m_sampled_gauss[(int)round(dist/m_dx)];
         if (wt <= 0) continue;
+        if (m_weights(ix, iy) == 0) m_buffer(ix, iy) = 0.0; // set to 0 before incrementing below
         m_buffer(ix, iy)  += z*wt;
         m_weights(ix, iy) += wt;
 
-	// TODO: All the code below needs to be inspected!	
       }else if (m_filter == f_mean){
         if (m_weights(ix, iy) == 0) m_buffer(ix, iy) = 0.0; // set to 0 before incrementing below
         m_buffer(ix, iy)  += z;
@@ -133,17 +133,21 @@ void Point2Grid::AddPoint(double x, double y, double z){
         if (m_weights(ix, iy) == 0) {
           m_buffer(ix, iy)  = z; // first time we set the value
           m_weights(ix, iy) = 1; // mark the fact that the buffer was initialized
-        }
-        else
+        }else
           m_buffer(ix, iy) = std::min(m_buffer(ix, iy), z);
       
       }else if (m_filter == f_max){
         if (m_weights(ix, iy) == 0) {
           m_buffer(ix, iy)  = z; // first time we set the value
           m_weights(ix, iy) = 1; // mark the fact that the buffer was initialized
-        }
-        else
+        }else
           m_buffer(ix, iy) = std::max(m_buffer(ix, iy), z);
+        
+      }else if (m_filter == f_count){
+        if (m_weights(ix, iy) == 0) {
+          m_weights(ix, iy) = 1; // mark the fact that the buffer was initialized
+        }else
+          m_weights(ix, iy) += 1;
         
       }else if (m_filter == f_stddev || m_filter == f_median ||
                 m_filter == f_nmad   || m_filter == f_percentile){
@@ -162,6 +166,38 @@ void Point2Grid::normalize(){
       if (m_filter == f_weighted_average || m_filter == f_mean) {
         if (m_weights(c, r) > 0)
           m_buffer (c, r) /= m_weights(c, r);
+
+      }else if (m_filter == f_count)
+        m_buffer(c, r) = m_weights(c, r); // hence instead of no-data we will have always 0
+
+      else if (m_filter == f_stddev){
+        if (m_vals(c, r).empty())
+          continue; // nothing to compute
+        vw::math::StdDevAccumulator<double> V;
+        for (size_t it = 0; it < m_vals(c, r).size(); it++) 
+          V(m_vals(c, r)[it]);
+        m_buffer(c, r) = V.value(); // test with mean!!!
+      }
+      
+      else if (m_filter == f_median){
+        if (m_vals(c, r).empty())
+          continue; // nothing to compute
+        vw::math::MedianAccumulator<double> V;
+        for (size_t it = 0; it < m_vals(c, r).size(); it++) 
+          V(m_vals(c, r)[it]);
+        m_buffer(c, r) = V.value(); // test with destructive mean!!!
+      }
+
+      else if (m_filter == f_nmad){
+        if (m_vals(c, r).empty())
+          continue; // nothing to compute
+        m_buffer(c, r) = vw::math::destructive_nmad(m_vals(c, r)); // test with destructive mean!!!
+      }
+      
+      else if (m_filter == f_percentile){
+        if (m_vals(c, r).empty())
+          continue; // nothing to compute
+        m_buffer(c, r) = vw::math::destructive_percentile(m_vals(c, r), m_percentile); // compare with median!
       }
       
     }

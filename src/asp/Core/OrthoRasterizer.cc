@@ -399,6 +399,7 @@ namespace asp{
     else if (filter == "mean"            ) m_filter = asp::f_mean;
     else if (filter == "median"          ) m_filter = asp::f_median;
     else if (filter == "stddev"          ) m_filter = asp::f_stddev;
+    else if (filter == "count"           ) m_filter = asp::f_count;
     else if (filter == "nmad"            ) m_filter = asp::f_nmad;
     else if (sscanf (filter.c_str(), "%lf-pct", &m_percentile) == 1) m_filter = asp::f_percentile;
   else

@@ -542,7 +542,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   bool        has_out_nodata;
   double      out_nodata_value;
   std::string calc_string;
-  std::string output_file;
+  std::string output_file, metadata;
 };
 
 
@@ -574,10 +574,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-data-type,d",  po::value(&opt.output_data_string)->default_value("float64"), data_type_string.c_str())
     ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
     ("output-nodata-value", po::value(&opt.out_nodata_value), "Value to use for no-data in the output image.")
+    ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("help,h",            "Display this help message");
     
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
-
 
   po::options_description positional("");
   positional.add_options()
@@ -634,20 +634,25 @@ void generate_output(const std::string                         & output_file,
                            std::vector< ImageViewRef<PixelT> > & input_images,
                      const std::vector<bool  >                 & has_nodata_vec,
                      const std::vector<PixelT>                 & nodata_vec ) {
+
+  // Parse keywords from --mo.
+  std::map<std::string, std::string> keywords;
+  asp::parse_append_metadata(opt.metadata, keywords);
+  
   vw_out() << "Writing: " << output_file << std::endl;
-  vw::cartography::block_write_gdal_image( output_file,
-                                ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images,
-                                                                     has_nodata_vec,
-                                                                     nodata_vec,
-                                                                     opt.out_nodata_value,
-                                                                     calc_tree),
-                               have_georef, georef,
-                               opt.has_out_nodata, opt.out_nodata_value,
-                               opt,
-                               TerminalProgressCallback("image_calc","Writing:"));
+  vw::cartography::block_write_gdal_image
+    (output_file,
+     ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images,
+                                                    has_nodata_vec,
+                                                    nodata_vec,
+                                                    opt.out_nodata_value,
+                                                    calc_tree),
+     have_georef, georef,
+     opt.has_out_nodata, opt.out_nodata_value,
+     opt,
+     TerminalProgressCallback("image_calc","Writing:"),
+     keywords);
 }
-
-
 
 /// This function loads the input images and calls the main processing function
 template <typename PixelT>

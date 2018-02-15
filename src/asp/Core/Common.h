@@ -88,6 +88,12 @@ namespace asp {
   std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img,
                                       std::string const& input_cam);
 
+
+  /// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
+  /// so it may have some items there beforehand.
+  void parse_append_metadata(std::string const& metadata,
+                             std::map<std::string, std::string> & keywords);
+  
   /// Print time function
   std::string current_posix_time_string();
 

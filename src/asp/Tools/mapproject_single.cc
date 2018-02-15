@@ -279,17 +279,9 @@ void write_parallel_cond( std::string              const& filename,
     if (prefix == "") prefix = "NONE"; // to save the field, need to make it non-empty
     keywords["BUNDLE_ADJUST_PREFIX" ] = prefix;
     keywords["DEM_FILE" ]             = opt.dem_file;
-  }
 
-  // Parse keywords from --mo.
-  std::istringstream is(opt.metadata);
-  std::string meta, var, val;
-  while (is >> meta){
-    boost::replace_all(meta, "=", " ");  // replace equal with space
-    std::istringstream is2(meta);
-    if (!(is2 >> var >> val) ) 
-      vw_throw( ArgumentErr() << "Could not parse: " << meta << "\n" );
-    keywords[var] = val;
+    // Parse keywords from --mo.
+    asp::parse_append_metadata(opt.metadata, keywords);
   }
   
   bool has_georef = true;

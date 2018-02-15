@@ -27,8 +27,8 @@
 namespace asp {
 
   // The type of filter to apply to points within a circular bin.
-  enum FilterType {f_weighted_average, f_min, f_max, f_mean, f_median, f_stddev, f_nmad,
-                   f_percentile};
+  enum FilterType {f_weighted_average, f_min, f_max, f_mean, f_median, f_stddev, f_count,
+                   f_nmad, f_percentile};
     
   class Point2Grid {
     

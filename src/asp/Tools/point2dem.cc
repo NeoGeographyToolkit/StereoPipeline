@@ -406,20 +406,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	    "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
     ("csv-format",     po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files, if those files contain Easting and Northing fields. If not specified, --t_srs will be used.")
-    ("filter",      po::value(&opt.filter)->default_value("weighted_average"), "The filter to apply to the heights of the cloud points within a given circular neighborhood when gridding. Options: weighted_average (default), min, max, mean, median, stddev, nmad (= mad/stddev), n-pct (where n is an integer between 0 and 100 (for example, 80-pct, meaning, 80th percentile). Except for the default, the name of the filter will be added to the obtained DEM file name, e.g., output-min-DEM.tif.")
+    ("filter",      po::value(&opt.filter)->default_value("weighted_average"), "The filter to apply to the heights of the cloud points within a given circular neighborhood when gridding. Options: weighted_average (default), min, max, mean, median, stddev, count (number of points), nmad (= 1.4826 * median(abs(X - median(X)))), n-pct (where n is a real value between 0 and 100 (for example, 80-pct, meaning, 80th percentile). Except for the default, the name of the filter will be added to the obtained DEM file name, e.g., output-min-DEM.tif.")
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
 	    "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
-	     "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
+     "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
     ("gaussian-sigma-factor", po::value(&opt.sigma_factor)->default_value(0.0),
      "The value s to be used in the Gaussian exp(-s*(x/grid_size)^2) when computing the DEM. The default is -log(0.25) = 1.3863. A smaller value will result in a smoother terrain.")
     ("default-grid-size-multiplier", po::value(&opt.default_grid_size_multiplier)->default_value(1.0),
-	     "If the output DEM grid size (--dem-spacing) is not specified, compute it automatically (as the mean ground sample distance), and then multiply it by this number. It is suggested that this number be set to 4 though the default is 1.")
+     "If the output DEM grid size (--dem-spacing) is not specified, compute it automatically (as the mean ground sample distance), and then multiply it by this number. It is suggested that this number be set to 4 though the default is 1.")
     ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
      "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
     ("fsaa",   po::value<int>(&opt.fsaa)->default_value(1),            "Oversampling amount to perform antialiasing (obsolete).")
     ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.");
-
+  
   general_options.add( manipulation_options );
   general_options.add( projection_options );
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
@@ -666,16 +666,24 @@ namespace asp{
     // only to save a small center block.  For that reason, save
     // temporarily with big blocks, and then re-save with small blocks.
     if (hole_fill_len > 512)
-      vw_out(WarningMessage) << "Detected large hole-fill length. Memory usage and run-time may go up.\n";
+      vw_out(WarningMessage) << "Detected large hole-fill length. "
+                             << "Memory usage and run-time may go up.\n";
 
     int block_size = nextpow2(2.0*hole_fill_len);
     block_size = std::max(256, block_size);
 
-    std::string output_file = opt.out_prefix + "-" + imgName + "." + opt.output_file_type;
+    // Append a tag if desired to compute the min, max, etc. Later on, in OrthoRasterizer
+    // we do a full validation of opt.filter.
+    std::string tag = "";
+    if (opt.filter != "weighted_average")
+      tag = "-" + opt.filter; 
+    
+    std::string output_file = opt.out_prefix + tag + "-" + imgName + "." + opt.output_file_type;
     vw_out() << "Writing: " << output_file << "\n";
     TerminalProgressCallback tpc("asp", imgName + ": ");
     if ( opt.output_file_type == "tif" )
-      asp::save_with_temp_big_blocks(block_size, output_file, img, georef, opt.nodata_value, opt, tpc);
+      asp::save_with_temp_big_blocks(block_size, output_file, img, georef,
+                                     opt.nodata_value, opt, tpc);
     else
       vw::cartography::write_gdal_image(output_file, img, georef, opt, tpc);
   } // End function save_image
