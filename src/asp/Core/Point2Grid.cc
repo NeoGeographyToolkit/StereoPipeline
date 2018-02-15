@@ -176,7 +176,7 @@ void Point2Grid::normalize(){
         vw::math::StdDevAccumulator<double> V;
         for (size_t it = 0; it < m_vals(c, r).size(); it++) 
           V(m_vals(c, r)[it]);
-        m_buffer(c, r) = V.value(); // test with mean!!!
+        m_buffer(c, r) = V.value();
       }
       
       else if (m_filter == f_median){
@@ -185,19 +185,19 @@ void Point2Grid::normalize(){
         vw::math::MedianAccumulator<double> V;
         for (size_t it = 0; it < m_vals(c, r).size(); it++) 
           V(m_vals(c, r)[it]);
-        m_buffer(c, r) = V.value(); // test with destructive mean!!!
+        m_buffer(c, r) = V.value();
       }
 
       else if (m_filter == f_nmad){
         if (m_vals(c, r).empty())
           continue; // nothing to compute
-        m_buffer(c, r) = vw::math::destructive_nmad(m_vals(c, r)); // test with destructive mean!!!
+        m_buffer(c, r) = vw::math::destructive_nmad(m_vals(c, r));
       }
       
       else if (m_filter == f_percentile){
         if (m_vals(c, r).empty())
           continue; // nothing to compute
-        m_buffer(c, r) = vw::math::destructive_percentile(m_vals(c, r), m_percentile); // compare with median!
+        m_buffer(c, r) = vw::math::destructive_percentile(m_vals(c, r), m_percentile);
       }
       
     }
