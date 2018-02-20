@@ -759,7 +759,8 @@ def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText,
               lidarCsvFormatString, lidarDemPrefix))
     lidarDemOutput = lidarDemPrefix+'-DEM.tif'
     icebridge_common.logger_print(logger, cmd)
-    (out, err, status) = asp_system_utils.executeCommand(cmd, lidarDemOutput, True, redo, noThrow=True)
+    (out, err, status) = asp_system_utils.executeCommand(cmd, lidarDemOutput,
+                                                         True, redo, noThrow=True)
     logger.info(out + '\n' + err)
     if status != 0:
         raise Exception('Did not generate any lidar DEM!')

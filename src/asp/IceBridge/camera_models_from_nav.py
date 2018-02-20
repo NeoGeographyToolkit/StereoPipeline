@@ -175,7 +175,10 @@ def main(argsIn):
         if frame < options.startFrame or frame > options.stopFrame:
             continue
         if frame not in infoDict:
-            raise Exception('Image missing ortho file: ' +image)
+            logger.info('Image missing ortho file: ' +image)
+            # don't throw here, that will mess the whole batch, we will recover
+            # the missing one later.
+            continue 
         infoDict[frame][1] = image
 
     os.system('mkdir -p ' + outputFolder)
