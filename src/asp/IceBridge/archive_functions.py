@@ -411,7 +411,7 @@ def packAndSendSummaryFolder(run, folder, logger):
 
     logger.info('Finished sending summary to lfe.')
 
-    if True: # icebridge_common.getUser() != 'oalexan1':
+    if icebridge_common.getUser() != 'oalexan1':
         # Wipe the copy on lunokhod
         l2Path   = os.path.join(L_SUMMARY_FOLDER, fileName)
         cmd      = "ssh " + LUNOKHOD + "  'rm -f "+ stripHost(l2Path) +"' 2>/dev/null"

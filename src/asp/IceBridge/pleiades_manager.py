@@ -1197,34 +1197,8 @@ def main(argsIn):
         if labelJobNames: # Now wait for any label jobs to finish.
             pbs_functions.waitForJobCompletion(labelJobIds, logger, baseName)
 
-        # TODO: Uncomment when processing multiple runs.
-        ## Log the run as completed
-        ## - If the run was not processed correctly it will have to be looked at manually
-        #addToRunList(COMPLETED_RUN_LIST, run)
-
-        # Pack up camera folder and store it for later.
-        if not options.skipArchiveCameras:
-            start_time()
-            try:
-                archive_functions.packAndSendCameraFolder(run, logger)
-            except Exception, e:
-                print 'Caught exception sending camera folder'
-                logger.exception(e)
-            stop_time("archive cameras", logger)
-
-        # Pack up the aligned cameras and store them for later
-        if not options.skipArchiveAlignedCameras:
-            start_time()
-            try:
-                archive_functions.packAndSendAlignedCameras(run, logger)
-            except Exception, e:
-                print 'Caught exception sending aligned cameras'
-                logger.exception(e)
-            stop_time("archive aligned cameras", logger)
-
         runWasSuccess = True
         resultText = 'Summary skipped'
-        
         if not options.skipCheckOutputs:
             start_time()
             # Generate a simple report of the results
@@ -1253,6 +1227,27 @@ def main(argsIn):
                 logger.info(str(e))
             stop_time("report", logger)
             
+        # Pack up camera folder and store it for later.
+        if not options.skipArchiveCameras:
+            start_time()
+            try:
+                archive_functions.packAndSendCameraFolder(run, logger)
+            except Exception, e:
+                print 'Caught exception sending camera folder'
+                logger.exception(e)
+            stop_time("archive cameras", logger)
+
+        # Pack up the aligned cameras and store them for later
+        if not options.skipArchiveAlignedCameras:
+            start_time()
+            try:
+                archive_functions.packAndSendAlignedCameras(run, logger)
+            except Exception, e:
+                print 'Caught exception sending aligned cameras'
+                logger.exception(e)
+            stop_time("archive aligned cameras", logger)
+
+
         # Archive the DEMs
         if not options.skipArchiveRun:
             start_time()

@@ -1,4 +1,4 @@
-# Camera used for each flight, based on https://nsidc.org/data/IODCC0/versions/1 
+# Camera used for each flight, based on https://nsidc.org/data/IODCC0/
 # in the "User Guide" tab.
 
 # Fall 2009, Antarctic
