@@ -57,7 +57,10 @@ def checkIfUrlExists(url):
     conn = httplib.HTTPConnection(p.netloc)
     conn.request('HEAD', p.path)
     resp = conn.getresponse()
+    
     # Invalid pages return 404, valid pages should return one of the numbers below.
+    # This is not robust enough!
+    
     return (resp.status == 403) or (resp.status == 301)
 
 def makeYearFolder(year, site):
@@ -554,11 +557,26 @@ def lidarFilesInRange(lidarDict, lidarFolder, startFrame, stopFrame):
 
     return lidarsToFetch
 
+def validateNavOrWipe(filename, logger):
+    '''If a nav file is not valid, wipe it.'''
+    
+    if not os.path.exists(filename):
+        return False
+
+    f = open(filename)
+    line = f.readline()
+    m = re.match("^.*?DOCTYPE\s+HTML", line)
+    if m:
+        logger.info("Bad nav data, will wipe: " + filename)
+        os.system("rm -f " + filename)
+        return False
+    
+    return True
 
 def fetchNavData(options, outputFolder):
     '''Fetch all the nav data for a flight.'''
 
-    numFailed = 0
+    success = False
 
     # The storage convention for these is very easy!
     # - A few dates have two files instead of one.
@@ -570,12 +588,15 @@ def fetchNavData(options, outputFolder):
     filenameB = 'sbet_' + options.yyyymmdd + 'b.out'
     
     # Check which urls are accurate for this file
-    url = folderUrl + filename
-    if checkIfUrlExists(url):
-        fileList = [filename]
-    else:
-        fileList = [filenameA, filenameB]
-
+    # This is not robust enough, as it can return good status even when the data is missing.
+    # So comment it out. Rather fetch all files and check them later.
+    #url = folderUrl + filename
+    #if checkIfUrlExists(url):
+    #    fileList = [filename]
+    #else:
+    #    fileList = [filenameA, filenameB]
+    fileList = [filename, filenameA, filenameB]
+    
     if options.refetchNav:
         cmd = "rm -f " + os.path.join(outputFolder, "sbet_*")
         print(cmd)
@@ -586,12 +607,25 @@ def fetchNavData(options, outputFolder):
         url        = os.path.join(folderUrl, f)
         outputPath = os.path.join(outputFolder, f)
         # TODO: How to handle refetch?
-        if os.path.exists(outputPath):
+        if validateNavOrWipe(outputPath, logger):
+            success = True
             continue
-        if not icebridge_common.fetchFile(url, outputPath):
-            numFailed = numFailed + 1
 
-    return numFailed
+        if not checkIfUrlExists(url):
+            continue
+        
+        ans = icebridge_common.fetchFile(url, outputPath)
+        if not ans:
+            logger.info("Bad url: " + url)
+            continue
+        
+        if validateNavOrWipe(outputPath, logger):
+            success = True
+            
+    if success:
+        return 0
+    
+    return 1
 
 def doFetch(options, outputFolder):
     '''The main fetch function.
