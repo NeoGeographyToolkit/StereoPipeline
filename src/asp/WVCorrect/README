@@ -38,8 +38,11 @@ little or no clouds and must be as wide as the whole image.
 
 6. In the directory for each stereo pair, run the script run_lr.sh
 (see inside of it for usage). Note that you may pass in crop windows
-to use. This will do two stereo runs, from left to right, and in reverse.
-The outputs will be saved in 'run_lr' and 'run_rl'.
+to use. The crop windows must be in quotes, and must be as wide as the
+full image (it is simple to select crop windows in stereo_gui, and it
+is fine if the window goes out of bounds of the image).  This will do
+two stereo runs, from left to right, and in reverse.  The outputs will
+be saved in 'run_lr' and 'run_rl'.
 
 In the directory for each stereo pair, have a dem.tif file
 pointing to a pre-existing DEM of the area covered by the images.

@@ -411,6 +411,11 @@ def robustBundleAdjust(options, inputPairs,
                 blurImage(pair[0], pair[1], False, False)
             argString = blurredImageCameraString                     
 
+        # If using many ip, stop using the elevation restriction earlier
+        currHeightLimitString = heightLimitString
+        if options.manyip and attempt > len(ipPerTile)/2:
+            currHeightLimitString = ""
+        
         cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
                 '--approximate-pinhole-intrinsics ' +
                 # '--rotation-weight 400 ' + # this may be needed for some flights
@@ -419,7 +424,7 @@ def robustBundleAdjust(options, inputPairs,
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
                 '--overlap-exponent %0.16g --epipolar-threshold %d ' +
                 '--ip-side-filter-percent %d ')
-               % (argString, bundlePrefix, threadText, heightLimitString, 
+               % (argString, bundlePrefix, threadText, currHeightLimitString, 
                   TRANSLATION_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
                   ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT,
                   epipolarT[attempt], SIDE_IP_CROP_PERCENT))
