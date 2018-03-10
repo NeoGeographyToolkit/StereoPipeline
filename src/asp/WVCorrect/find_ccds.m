@@ -68,7 +68,8 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
          error(sprintf('Missing file: %s', disparity_path));
       end
       % Load the data and extract the crop amount
-      disparity_data = load(disparity_path); 
+      disparity_data = load(disparity_path);
+
       col_start      = disparity_data(1); % Data outside this range is junk, existing zero handling should
       col_stop       = disparity_data(2); % take care of it.
       %disparity_data = disparity_data(3:end);
@@ -153,7 +154,8 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
 
    % These colors are rotated through as files are plotted
    colors  = {'b', 'r', 'g', 'c', 'k'};
-   brushes = {'-', '--', '-.', ':', '-', '--', '-.', ':', '-', '--', '-.', ':', '-', '--', '-.', ':'};
+   brushes = {'-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'};
+%   brushes = {'-', '--', '-.', ':', '-', '--', '-.', ':', '-', '--', '-.', ':', '-', '--', '-.', ':'};
 
    figure(fig); clf; hold on;
    sep_size=0.0;
@@ -161,6 +163,8 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
       sep_size = 0.25; % vertical gap between individual curves, for visibility
    end
    
+   % Remove really bad files
+   goodFile = ones(n_files_stored, 1);
    
    for r=1:n_files_stored
       if r <= length(disparity_file_paths) 
@@ -170,6 +174,14 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
       % Subtract out a smoothed version of this file's data
       Y = X(r, :) - find_moving_avg(X(r, :));
       X(r, :) = Y;
+
+      goodIndices = find(isnan(Y) ~= 1);
+      maxVal = max(abs(Y(goodIndices)));
+      if maxVal > 1
+         disp(sprintf('Skipping file with maximum value %g', maxVal));
+         goodFile(r) = 0;
+         continue
+      end
       
       if (PRINT_EACH_FILE) % Plot the data set, vertically shifted
          % Select a color for this file and plot the shifted data
@@ -187,7 +199,7 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
       sum = 0;
       num = 0;
       for r=1:n_files_stored
-         if ~isnan(X(r, c))
+         if ~isnan(X(r, c)) & goodFile(r) == 1
             sum = sum + X(r, c);
             num = num + 1;
          end

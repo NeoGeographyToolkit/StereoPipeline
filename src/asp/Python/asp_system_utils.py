@@ -155,8 +155,8 @@ def check_parallel_version():
     # This error will never be reached for users of our packaged final
     # product as that one bundles 'parallel' with it.
     ver = get_prog_version('parallel')
-    if ver < '2013':
-        die("Expecting a version of GNU parallel from at least 2013.")
+    if ver < '20170722':
+        die("Expecting a version of GNU parallel >= 20170722.")
 
 def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, parallelArgs=[], nodeListPath=None, verbose=False):
     """Use GNU Parallel to spread task across multiple computers and processes"""

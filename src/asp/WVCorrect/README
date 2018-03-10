@@ -5,20 +5,20 @@ the goal for now is to have it documented and checked in.
 Basic idea
 ----------
 
-For each TDI perform several runs. For each run, average all rows of
-the disparity (ignore invalid disparities).  Average these over
-multiple runs. We get n Vector2 values (since each valid disparity
-pixel is a Vector2), where n is the image width. From these, we will
-extract the locations of CCD jumps and their values in x and in
-y. Those will be hard-coded in asp/Tools/wv_correct.cc.
+For each TDI and scan direction perform several runs. For each run,
+average all rows of the disparity (ignore invalid disparities).
+Average these over multiple runs. We get n Vector2 values (since each
+valid disparity pixel is a Vector2), where n is the image width. From
+these, we will extract the locations of CCD jumps and their values in
+x and in y. Those will be hard-coded in asp/Tools/wv_correct.cc.
 
 Detailed instructions
 ---------------------
 
-1. Choose a satellite (WV1 or WV2; this approach does not work for
-WV3), a TDI (values are various multiples of 8 from 8 to 64), and a
-scan direction (forward or reverse). (All this information can be
-found in the XML files.)
+1. Choose a satellite (WV1 or WV2; this approach does not work for WV3
+which seems fine as it is), a TDI (values are various multiples of 8
+from 8 to 64), and a scan direction (forward or reverse). (All this
+information can be found in the XML files.)
 
 2. Create a work directory. Have there at least 5-10 image sets for
 the desired satellite/TDI/scan direction combination, with reasonably
@@ -27,27 +27,28 @@ flat terrain, little or no clouds, and reasonable amount of detail.
 3. Build ASP in dev mode. Ensure that the Tools and WVCorrect
 directories are in your path.
 
-4. Optionally run dg_mosaic to mosaic the left and right
-images/cameras for each image set. This will create a stereo pair.  In
-practice it is easier not to mosaic, but to pick one left and one
-right image from the existing data.
+4. For a given stereo pair, inspect the left and right images in
+stereo_gui. Select with the mouse a region wider than the image in
+the left image, and of height say 5000 or more pixels.  Its bounds
+will be printed on screen. Select a region from the right image as
+well, encompassing with a generous margin all terrain already seen in
+the left image (say of heieght 12000 pixels). Make the region again
+wider than the image, to not leave any image part out either on left
+or on right sides.
 
-5. For each stereo pair, inspect the left and right images in stereo_gui.
-Select corresponding areas to run stereo on. Each such area must have
-little or no clouds and must be as wide as the whole image.
+Run the script run_lr_wrap.sh (see its source for usage). 
 
-6. In the directory for each stereo pair, run the script run_lr.sh
-(see inside of it for usage). Note that you may pass in crop windows
-to use. The crop windows must be in quotes, and must be as wide as the
-full image (it is simple to select crop windows in stereo_gui, and it
-is fine if the window goes out of bounds of the image).  This will do
-two stereo runs, from left to right, and in reverse.  The outputs will
-be saved in 'run_lr' and 'run_rl'.
+Repeat this excercise for other portions of the left image. 
 
-In the directory for each stereo pair, have a dem.tif file
-pointing to a pre-existing DEM of the area covered by the images.
-This is optional, but it is queried to find the projection 
-to use in point2dem during the execution of run_lr.sh.
+Repeat this again several times when opening the images in reverse
+order. This is important in order to get good disparity coverage.
+
+Before doing all this, in each directory have a dem.tif file pointing
+to a pre-existing DEM of the area covered by the images.  This is
+optional, but it is queried to find the projection to use in point2dem
+during the execution of run_lr_wrap.sh. 
+
+5. Repeat this excercise a few more times for other stereo pairs.
 
 7. Inspect the obtained F.tif disparities. Crop away some top and
 bottom rows if they are incomplete or have noise. You will have to
@@ -61,7 +62,13 @@ addpath(genpath('/home/USER/projects/StereoPipeline/src/asp/WVCorrect'))
 
 9. In Matlab, create an entry for each run you made, for example, as
 
-dirs={'run1/run_lr', 'run1/run_rl', 'run2/run_lr', 'run2/run_rl'};
+dirs={'pair1/run_lr1', 'pair1/run_rl2', 'pair2/run_lr1', 'pair2/run_rl2'};
+
+The following one-liner can be used to generate the above dirs value:
+
+ls -d pair*/run_lr* | perl -pi -e "s#^(.*?)\n#'\$1\', #g" | perl -pi -e "s#^(.*?),\s*\$#dirs=\{\$1\}\n#g"
+
+Initialize the pitches as: 
 
 pitches=zeros(length(dirs), 1) + 8.0e-3;
 
@@ -74,9 +81,7 @@ to extract information on pitches, etc.
 
 10. Run
 
-do_find = 1;
-fig_no = 1;
-find_ccds(do_find, dirs, pitches, fig_no);
+do_find = 1; fig_no = 1; find_ccds(do_find, dirs, pitches, fig_no);
 
 This will save the CCD corrections to files, from there they can be hard-coded
 in wv_correct.cc. 
@@ -91,11 +96,18 @@ Be prepared for a lot of manual iterative work over many days.
 
 13. Recompile wv_correct.cc. Run it to get corrected images. Redo
 stereo and point2dem. Examine if the IntersectionError.tif file looks
-better than before.
+better than before. This can be done, for example, by again running
+run_lr_wrap.sh but this time setting the "corr" flag to 1. 
+
+An "improved" intersection error file will have less noticeable vertical bands
+corresponding to ccd artifacts, and its mean, and especially standard deviation, 
+should be lower than with the original uncorrecteed images. Some residual
+CCD artifacts should be noticeable, and there should be clear jitter present,
+which we do not correct for with wv_correct.
 
 wv_correct will only ever be run once per image.  The Matlab find_ccds tool will 
 also only be run once per TDI; it can be re-run to get a better set of fixes, but
-corrected data is never fed back in to the find_ccds tool.
+corrected data should never fed back in to the find_ccds tool.
 
 To improve the correction as seen in IntersectionError.tif, the following steps can
 be taken:
@@ -122,9 +134,11 @@ in the height of the jumps indicates that our correction amount is also off by s
 Other Observations
 ---------------------
 
-At least some WV images show a consistent 0.25 pixel oscillation in the X-direction disparity
-results.  This oscillation is independent of the CCD border correction and about half the magnitude.
-It is not noticably affected by the subpixel mode used and it is visible on the intersection error image.
+At least some WV images show a consistent 0.25 pixel oscillation in
+the X-direction disparity results.  This oscillation is independent of
+the CCD border correction and about half the magnitude.  It is not
+noticably affected by the subpixel mode used and it is visible on the
+intersection error image.
 
 Seen in WV1 and WV2, multiple directions and TDIs.
 

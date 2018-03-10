@@ -45,6 +45,9 @@
      neighborhood before gridding. In addition to the current weighted average
      option, it supports min, max, mean, median, stddev, count, nmad,
      and percentile.
+ 
+ - wv_correct:
+   * Supports WV2 TDI = 32 in reverse scan direction.
 
  - Misc
    * The tools mapproject, dem_mosaic, dg_mosaic, and wv_correct support

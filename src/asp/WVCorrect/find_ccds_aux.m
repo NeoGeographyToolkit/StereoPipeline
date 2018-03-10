@@ -100,7 +100,7 @@ function [jump_indices, jump_magnitudes] = sparse_ccds(wid, period, shift, ...
    PLOT_SEARCH_REGIONS = false; % This is kind of slow
    PLOT_KNOWN_JUMPS    = false;
    WV_SAT_NUM          = 2;
-   CROP_START_COL      = 0 % Crop amount for the "left" image, fixes locations for a single cropped input
+   CROP_START_COL      = 0; % Crop amount for the "left" image, fixes locations for a single cropped input
 
    jump_indices = jump_indices;
 

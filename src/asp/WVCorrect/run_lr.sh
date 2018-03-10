@@ -1,24 +1,34 @@
 #!/bin/bash
 
 if [ "$#" -lt 4 ]; then 
-    echo Usage: $0 left_crop_win right_crop_win left_image right_image left_cam right_cam; [left | right]
+    echo Usage: $0 left_crop_win right_crop_win left_image right_image left_cam right_cam tag corr 
     exit; 
 fi
 
-execDir=/home/smcmich1/repo/StereoPipeline/src/asp/WVCorrect
+#execDir=/home/smcmich1/repo/StereoPipeline/src/asp/WVCorrect
+execDir=/home6/oalexan1/projects/StereoPipeline/src/asp/WVCorrect
 
 echo execDir is $execDir
+
+# Need to first find disp_avg, then stereo, from the dev build, then our own parallel_stereo
+# from the packaged build. 
+export PATH=$execDir:$execDir/../Tools:/u/oalexan1/projects/BinaryBuilder/latest/libexec:$PATH
 
 left_crop_win=$1
 right_crop_win=$2
 left_image=$3
-right_image=$4
-left_cam=$5
+left_cam=$4
+right_image=$5
 right_cam=$6
+tag=$7 # A string to append to the output directory, to distinguish several runs
+corr=$8 # Is 1 if to run the flow with wv_correct-ed images for verification. Normally should be 0. 
 
-side=""
-if [ "$#" -gt 6 ]; then
-    side=$7
+if [ "$corr" = "1" ]; then
+    left_corr=${left_image/.ntf/.tif};   left_corr=${left_corr/.tif/_corr_tag${tag}.tif}
+    right_corr=${right_image/.ntf/.tif}; right_corr=${right_corr/.tif/_corr_tag${tag}.tif}
+
+    wv_correct $left_image $left_cam $left_corr
+    wv_correct $right_image $right_cam $right_corr
 fi
 
 #export ASP_PYTHON_MODULES_PATH=$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib64/python2.6/site-packages:$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib64/python2.6/site-packages/GDAL-1.10.0-py2.6-linux-x86_64.egg/osgeo:$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib
@@ -28,70 +38,61 @@ fi
 base_cmd="parallel_stereo --corr-seed-mode 1 --subpixel-kernel 13 13
   --part-of-multiview-run --alignment-method homography
   --subpixel-mode 1 --corr-max-levels 2 --disable-fill-holes
-  --corr-timeout 300 --bundle-adjust-prefix run_ba/run"
+  --corr-timeout 600 " # sometimes may want to use many ip: --ip-per-tile 1000"
+#  --bundle-adjust-prefix run_ba/run"
 
-projwin=$(gdalinfo -proj4 dem.tif 2>/dev/null |grep -i "proj=" | perl -pi -e "s#\'##g")
+projwin=$(gdalinfo -proj4 dem.tif 2>/dev/null |grep -i "proj=" | perl -p -e "s#\'##g")
 if [ "$projwin" != "" ]; then
     projwin=$projwin # Wipe quotes
     echo "Found projwin from dem: $projwin"
 else
+    # Ths is good enough for areas close to the North Pole
     projwin="+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs "
     echo "Using default projwin $projwin"
 fi
 
-for i in 1 2; do
+dir=run_lr_${tag}
 
-    if [ "$i" == "1" ]; then
+if [ "$corr" = "1" ]; then
+    dir_orig=$dir
+    dir=${dir}_corr
+fi
 
-        if [ "$side" == "right" ]; then continue; fi # Skip if right was requested
+leftc="--left-image-crop-win $left_crop_win"
+rightc="--right-image-crop-win $right_crop_win"
 
-        dir=run_lr
-        leftc=""
-        rightc=""
-        if [ "$left_crop_win" != "" ];  then
-            leftc="--left-image-crop-win $left_crop_win"
-        else
-            rm -rfv ./$dir
-        fi
+rm -rf ./$dir
+mkdir -p $dir
 
-        if [ "$right_crop_win" != "" ]; then rightc="--right-image-crop-win $right_crop_win"; fi
+if [ "$corr" = "1" ]; then
 
-        rm -rf $dir
-        cmd="$base_cmd $leftc $rightc $left_image $right_image $left_cam $right_cam $dir/run"
+    # Steal the old ip file, to not spend time re-creating it
+    echo cp -fv $(ls $dir_orig/*match) $dir
+    cp -fv $dir_orig/*match $dir
+    
+    cmd="$base_cmd $leftc $rightc $left_corr $right_corr $left_cam $right_cam $dir/run"
+else
+    cmd="$base_cmd $leftc $rightc $left_image $right_image $left_cam $right_cam $dir/run"
+fi
 
-        echo $cmd
-    else
 
-        if [ "$side" == "left" ]; then continue; fi # Skip if left was requested
+echo $cmd
 
-        dir=run_rl
-        leftc=""
-        rightc=""
-        if [ "$right_crop_win" != "" ]; then
-            leftc="--left-image-crop-win $right_crop_win";
-        else
-            rm -rfv ./$dir
-        fi
+$cmd
 
-        if [ "$left_crop_win" != "" ];  then rightc="--right-image-crop-win $left_crop_win"; fi
+# Create the DEM
+point2dem $dir/run-PC.tif --errorimage --tr 2 --t_srs "$projwin"
 
-        cmd="$base_cmd $leftc $rightc $right_image $left_image $right_cam $left_cam $dir/run"
+# Wipe extra stuff
+rm -fv ./$dir/run-PC.tif ./$dir/run-D.tif ./$dir/run-RD.tif
 
-        echo $cmd
-    fi
+disparitydebug $dir/run-F.tif
+stereo_gui --create-image-pyramids-only $dir/run-F-H.tif $dir/run-F-V.tif
 
-    $cmd
-
-    point2dem $dir/run-PC.tif --errorimage --tr 2 --t_srs "$projwin"
-
-    rm -fv ./$dir/run-PC.tif ./$dir/run-D.tif ./$dir/run-RD.tif
-
-    disparitydebug $dir/run-F.tif
-    stereo_gui --create-image-pyramids-only $dir/run-F-H.tif $dir/run-F-V.tif
-
+if [ "$corr" != "1" ]; then
     # This needs to be manually run for each data set using good bounds!
     $execDir/disp_avg $dir/run-F.tif $dir/dx.txt $dir/dy.txt
-done
+fi
 
 exit
 
@@ -102,7 +103,7 @@ source ~/.bashenv
 
 export PATH=$HOME/projects/StereoPipeline/src/asp/Tools:$HOME/projects/visionworkbench/src/vw/tools:$HOME/projects/base_system/bin:$HOME/projects/packages/bin:$HOME/bin:$PATH
 # Path for merope
-v=$(stereo_fltr 2>&1 |grep -i "bin/sed" | perl -pi -e "s#\s##g")
+v=$(stereo_fltr 2>&1 |grep -i "bin/sed" | perl -p -e "s#\s##g")
 if [ "$v" != "" ]; then
     export PATH=$HOME/projects/StereoPipeline2/src/asp/Tools:$PATH
 fi
@@ -141,7 +142,7 @@ if [[ ! $opts =~ left-image-crop-win ]]; then
     echo "Must specify crop-win as input"
     exit 1;
 fi
-win=$(echo $opts | perl -pi -e 's#^.*?left-image-crop-win\s+(\d+\s+\d+\s+\d+\s+\d+).*?$#$1#g')
+win=$(echo $opts | perl -p -e 's#^.*?left-image-crop-win\s+(\d+\s+\d+\s+\d+\s+\d+).*?$#$1#g')
 
 #win2="0 0 7168 7168"  # temporary!!!
 win2="0 0 50600 21504"
