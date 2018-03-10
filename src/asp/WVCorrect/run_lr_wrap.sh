@@ -5,11 +5,7 @@
 
 # $(pwd) tag corr Crop src win for  WV02_20170511151556_103001006882D700_17MAY11151556-P1BS-501479705100_01_P002.ntf: -874 2797 36397 8486 Crop src win for  WV02_20170511151722_1030010069726100_17MAY11151722-P1BS-501493169020_01_P002.ntf: -552 6652 36618 7884 
 
-# and will launch run_lr.sh for "left", while looking up the camera models.
-
-# Instead of bothering with "right", just redo this while opening the
-# images in the gui in reverse order. Note that the left crop win
-# better fit inside the right crop win completely.
+# and will launch run_lr.sh while looking up the camera models.
 
 # Here, 'tag' is just a string label, and 'corr' is 0 when we we are working on making
 # corrections, and is 1, when corrections are already in wv_correct and we want
