@@ -100,7 +100,7 @@ def getParallelParams(nodeType, task):
         if nodeType == 'san': return (2, 8, 70,  8)
         if nodeType == 'ivy': return (4, 8, 80,  8)
         if nodeType == 'bro': return (6, 8, 100, 8)
-        if nodeType == 'wes': return (3, 8, 50,  8)
+        if nodeType == 'wes': return (3, 8, 50,  12)
     
     if task == 'blend':
         if nodeType == 'san': return (8,  3, 1200, 6)
