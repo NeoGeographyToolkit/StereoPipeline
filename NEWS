@@ -26,6 +26,8 @@
      to penalize large rotation and translation changes. For example
      bundle_adjust can effectively constrain the adjustments to be
      translation only.
+   * Added the option --fixed-camera-indices to keep some cameras
+     fixed while optimizing others. 
 
    * Added the parameter --nodata-value. 
 

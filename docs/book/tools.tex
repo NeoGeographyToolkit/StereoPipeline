@@ -61,7 +61,7 @@ in sub-directories, we recommend using an output prefix like
 \hline
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-session-type|-t pinhole|isis|dg|rpc|spot5|aster|pinholemappinhole|isismapisis|dgmaprpc|rpcmaprpc|astermaprpc} & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension.\\ \hline
+\texttt{-\/-session-type|-t \textit{string} } & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension. Options: pinhole isis dg rpc spot5 aster pinholemappinhole isismapisis dgmaprpc rpcmaprpc astermaprpc. \\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use.\\ \hline
 \texttt{-\/-entry-point|-e integer(=0 to 4)} & Stereo Pipeline entry
 point (start at this stage). \\ \hline
@@ -469,9 +469,9 @@ in meters (needed only if ground control points are used).\\ \hline
 \texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis
 in meters (needed only if ground control points are used).\\ \hline
 
-\texttt{-\/-session-type|-t pinhole|nadirpinhole|isis|dg|rpc|spot5|aster} & Select the stereo
+\texttt{-\/-session-type|-t \textit{string}} & Select the stereo
 session type to use for processing. Usually the program can select this
-automatically by the file extension.\\ \hline
+automatically by the file extension. Options: pinhole nadirpinhole isis dg rpc spot5 aster. \\ \hline
 
 \texttt{-\/-min-matches \textit{integer(=30)}} & Set the minimum number of matches
 between images that will be considered. \\ \hline
@@ -484,6 +484,9 @@ subsequent images to search for matches to the current image to this
 value.  By default try to match all images.\\ \hline
 
 \texttt{-\/-overlap-list \textit{string}} & A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.
+\\ \hline
+
+\texttt{-\/-fixed-camera-indices \textit{string}} & A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.
 \\ \hline
 
 \texttt{-\/-rotation-weight \textit{double(=0.0)}} &
@@ -500,12 +503,12 @@ the original values (only for the Ceres solver).  A higher weight means that the
 change less.  The options -\/-rotation-weight and -\/-translation-weight can be used for finer-grained control and a stronger response.
 \\ \hline
 
-\texttt{-\/-ip-per-tile \textit{int}} &
+\texttt{-\/-ip-per-tile \textit{integer}} &
 How many interest points to detect in each $1024^2$ image tile (default: automatic
 determination).
 \\ \hline
 
-\texttt{-\/-ip-detect-method \textit{string [default: OBAloG]}} & Choose an interest point
+\texttt{-\/-ip-detect-method \textit{integer(=0)}} & Choose an interest point
 detection method from: 0=OBAloG, 1=SIFT, 2=ORB. \\ \hline
 
 \texttt{-\/-epipolar-threshold \textit{double(=-1)}} & 
@@ -538,7 +541,7 @@ the csv-format setting must also be set.  The "file" field is searched for strin
 in the input image files to match locations to cameras.\\ \hline
 
 
-\texttt{-\/-initial-transform \textit{filename}} & Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as output by pc\_align's source-to-reference or reference-to-source alignment transform. One may set the number of iterations to 0 to just stop at this step. \\ \hline
+\texttt{-\/-initial-transform \textit{filename}} & Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as output by pc\_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. \\ \hline
 
 \texttt{-\/-fix-gcp-xyz} & If the GCP are highly accurate, use this option to not float them during the optimization.\\ \hline
 

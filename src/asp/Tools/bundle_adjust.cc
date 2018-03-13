@@ -203,7 +203,6 @@ size_t filter_ip_sides(std::vector<ip::InterestPoint> const& ip1_in,
   return num_left;
 }
 
-
 double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
                                  Vector2i const& image_size, int tile_size=1024) {
 
@@ -273,7 +272,6 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string remove_outliers_params_str;
   vw::Vector<double, 4> remove_outliers_params;
   vw::Vector2 remove_outliers_by_disp_params;
-
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
@@ -287,6 +285,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string           overlap_list_file;
   std::set< std::pair<std::string, std::string> > overlap_list;
   vw::Matrix4x4 initial_transform;
+  std::string fixed_cameras_indices_str;
+  std::set<int> fixed_cameras_indices;
   
   // Make sure all values are initialized, even though they will be
   // over-written later.
@@ -392,8 +392,8 @@ struct BaReprojectionError {
 
       size_t num_cameras = m_ba_model->num_cameras();
       size_t num_points  = m_ba_model->num_points();
-      VW_ASSERT(m_icam < num_cameras, ArgumentErr() << "Out of bounds in the number of cameras");
-      VW_ASSERT(m_ipt  < num_points , ArgumentErr() << "Out of bounds in the number of points" );
+      VW_ASSERT(m_icam < num_cameras, ArgumentErr() << "Out of bounds in the number of cameras.");
+      VW_ASSERT(m_ipt  < num_points , ArgumentErr() << "Out of bounds in the number of points." );
 
       // Copy the input data to structures expected by the BA model
       typename ModelT::camera_vector_t cam_vec;
@@ -1359,13 +1359,17 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   vw_out() << "Writing: " << residual_raw_gcp_path << std::endl;
   vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
   
-  residual_file.open(residual_path.c_str()); residual_file.precision(18);
-  residual_file_raw_pixels.open(residual_raw_pixels_path.c_str()); residual_file_raw_pixels.precision(18);
-  residual_file_raw_cams.open(residual_raw_cams_path.c_str()); residual_file_raw_cams.precision(18);
+  residual_file.open(residual_path.c_str());
+  residual_file.precision(18);
+  residual_file_raw_pixels.open(residual_raw_pixels_path.c_str());
+  residual_file_raw_pixels.precision(18);
+  residual_file_raw_cams.open(residual_raw_cams_path.c_str());
+  residual_file_raw_cams.precision(18);
 
   if (reference_vec.size() > 0) {
     vw_out() << "Writing: " << residual_reference_xyz_path << std::endl;
-    residual_file_reference_xyz.open(residual_reference_xyz_path.c_str()); residual_file_reference_xyz.precision(18);
+    residual_file_reference_xyz.open(residual_reference_xyz_path.c_str());
+    residual_file_reference_xyz.precision(18);
   }
   
   size_t index = 0;
@@ -1389,13 +1393,15 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     }
     // Write line for the summary file
     mean_residual /= static_cast<double>(num_this_cam_residuals);
-    residual_file << opt.camera_files[c] << ", " << mean_residual << ", " << num_this_cam_residuals << std::endl;
+    residual_file << opt.camera_files[c] << ", " << mean_residual << ", "
+		  << num_this_cam_residuals << std::endl;
   }
   residual_file_raw_pixels.close();
   
   // List the GCP residuals
   if (num_gcp_residuals > 0) {
-    residual_file_raw_gcp.open(residual_raw_gcp_path.c_str()); residual_file_raw_gcp.precision(18);
+    residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
+    residual_file_raw_gcp.precision(18);
     residual_file << "GCP residual errors:\n";
     for (size_t i=0; i<num_gcp_residuals; ++i) {
       double mean_residual = 0; // Take average of XYZ error for each point
@@ -1435,7 +1441,8 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
       mean_residual_pos /= static_cast<double>(part_size);
       mean_residual_rot /= static_cast<double>(part_size);
     
-      residual_file << opt.camera_files[c] << ", " << mean_residual_pos << ", " << mean_residual_rot << std::endl;
+      residual_file << opt.camera_files[c] << ", " << mean_residual_pos << ", "
+		    << mean_residual_rot << std::endl;
       residual_file_raw_cams << std::endl;
     }
   }
@@ -1458,7 +1465,8 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   }
   
   if (index != num_residuals)
-    vw_throw( LogicErr() << "Have " << num_residuals << " residuals but iterated through " << index);
+    vw_throw( LogicErr() << "Have " << num_residuals << " residuals but iterated through "
+	      << index);
 
   // Generate the location based files
   std::string map_prefix = residual_prefix + "_pointmap";
@@ -1775,6 +1783,10 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
                          camera, point, scaled_intrinsics_ptr, opt.intrinsics_to_float,
                          loss_function, problem);
 
+      // Fix this camera if requested
+      if (opt.fixed_cameras_indices.find(icam) != opt.fixed_cameras_indices.end()) 
+	problem.SetParameterBlockConstant(camera);
+            
       if (opt.heights_from_dem != "") {
         // For non-GCP points, copy the heights for xyz points from the DEM.
         // Fix the obtained xyz points as they are considered reliable
@@ -2733,7 +2745,7 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
   const int MIN_NUM_MATCHES = 3;
   if (num_matches_found < MIN_NUM_MATCHES)
     vw_throw( ArgumentErr() << "At least " << MIN_NUM_MATCHES 
-                            << " camera position matches are required to initialize sensor models!\n" );
+	      << " camera position matches are required to initialize sensor models!\n" );
   
   // Populate matrices containing the current and known camera positions.
   vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);
@@ -3199,7 +3211,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("camera-positions", po::value(&opt.camera_position_file)->default_value(""),
           "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the local-pinhole option.")
     ("initial-transform", po::value(&opt.initial_transform_file)->default_value(""),
-     "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as output by pc_align's source-to-reference or reference-to-source alignment transform. One may set the number of iterations to 0 to just stop at this step.")
+     "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as output by pc_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step.")
     ("csv-format",       po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",        po::value(&opt.csv_proj4_str)->default_value(""),
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
@@ -3258,6 +3270,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
     ("overlap-list",    po::value(&opt.overlap_list_file)->default_value(""),
      "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
+    ("fixed-camera-indices",    po::value(&opt.fixed_cameras_indices_str)->default_value(""),
+     "A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
                          "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("rotation-weight",  po::value(&opt.rotation_weight)->default_value(0.0), "A higher weight will penalize more rotation deviations from the original configuration.")
@@ -3503,7 +3517,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     }
     vw_out() << "Initial transform:\n" << opt.initial_transform << std::endl;
   }
-  
+
+  // Parse the indices of cameras not to float
+  if (opt.fixed_cameras_indices_str != "") {
+    opt.fixed_cameras_indices.clear();
+    std::istringstream is(opt.fixed_cameras_indices_str);
+    int val;
+    while (is >> val) {
+      opt.fixed_cameras_indices.insert(val);
+      if (val < 0 || val >= (int)opt.image_files.size()) 
+	vw_throw( vw::IOErr() << "The camera index to keep fixed " << val
+		  << " is out of bounds.\n" );
+    }
+  }
 }
 
 
@@ -3631,7 +3657,7 @@ int main(int argc, char* argv[]) {
         // - The points are written to a file on disk.
         std::string camera1_path = opt.camera_files[i];
         std::string camera2_path = opt.camera_files[j];        
-        std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);       
+        std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
         match_files[ std::pair<int, int>(i, j) ] = match_filename;
         if (fs::exists(match_filename)) {
           vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
