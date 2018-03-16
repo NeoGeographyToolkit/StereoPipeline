@@ -3220,7 +3220,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) points from the reference terrain to use.")
     ("disparity-list",        po::value(&opt.disparity_list)->default_value(""),
-                                 "The disparity files, one for each camera pair to use when optimizing the intrinsics. Specify them as a list in quotes. First file is for the first two cameras, etc.")
+                                 "The disparity files, one for each camera pair to use when optimizing the intrinsics. Specify them as a list in quotes. First file is for the first two cameras, second for the next two, etc.")
     ("max-disp-error",             po::value(&opt.max_disp_error)->default_value(-1),
      "When using a reference terrain as an external control, ignore as outliers xyz which projected in the left image and transported by disparity to the right image, differ by the projection of xyz in the right image by more than this value in pixels.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
