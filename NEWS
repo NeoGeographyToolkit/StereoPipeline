@@ -1,7 +1,17 @@
 *** RELEASE 2.6.X, TBA ***
 
  - New satellites
-   Support Cartosat-1 and Perusat-1 RPC cameras.
+   * Support Cartosat-1 and Perusat-1 RPC cameras.
+
+ - New tools
+   * Added convert_pinhole_model, to convert between various
+     existing such models. 
+
+ - New camera models
+    * Added support for pinhole camera models where the distortion is
+      given by an RPC model (rational polynomial coefficients). Such 
+      a model may be more expressive than existing ones, and its 
+      coefficients can now be optimized using bundle adjustment.
 
  - stereo_corr
    * Added new options for post-SGM subpixel stereo.
@@ -20,8 +30,11 @@
    * Added --min-num-ip option.
    
  - bundle_adjust
+   * Added the ability to optimize intrinsics parameters, with and without
+     having a LIDAR or DEM ground truth to be used as reference (the
+     latter is very recommended though).
    * The tool is a lot more sensitive now to --camera-weight,
-     existing results may change a lot.  
+     existing results may change a lot. 
    * Added the parameters --rotation-weight and --translation-weight
      to penalize large rotation and translation changes. For example
      bundle_adjust can effectively constrain the adjustments to be
@@ -910,7 +923,7 @@ EXAMPLES
 
 TOOLS
  - Dropped release of isis_adjust and bundlevis.
- - Fix int32 overflow in arithmetic for preprocessing's subsample.
+ - Fix int32 overflow in arithmetic for subsampling in preprocessing.
  - Remove Python 2.4 incompatible call in cam2map4stereo.py.
  - Speed up point2dem texture access by remove unnecessary mutex.
  - Add earth mode and fix non spherical support in point2dem.

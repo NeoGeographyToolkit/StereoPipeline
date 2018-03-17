@@ -120,13 +120,17 @@ Running stereo while using the bundle-adjusted camera models.
 A comparison of the two ways of doing stereo is shown in figure \ref{fig:asp-ba-example}.
 
 \subsection{Floating intrinsics and using a lidar or DEM ground truth}
+\label{floatingintrinsics}
 
-This is an advanced section documenting some not yet fully formed concepts.
-It is mostly for internal use. 
+This section documents some advanced functionality, and it suggested the
+reader study it carefully and invest a certain amount of time to fully
+take advantage of these concepts.
 
 When the input cameras are of pinhole type, it is possible to optimize
 the intrinsic parameters, in addition to the extrinsics. It is also
-possible to take advantage of an existing terrain ground truth, as a lidar file or a DEM.
+possible to take advantage of an existing terrain ground truth, as a lidar file or a DEM,
+to correct imperfectly calibrated intrinsic parameters, which can result in greatly
+improved results. 
 
 We recommend that first bundle adjustment is run with the intrinsics fixed,
 to get the extrinsics mostly correct, as optimizing for both of them at
@@ -167,16 +171,18 @@ and then selecting to view the interest points from the menu.
 If the interest points are not well-distributed, this may result in large intersection error
 where they are missing. If so, they can be re-created by modifying \texttt{-\/-ip-detect-method}
 and \texttt{-\/-ip-per-tile}. Or, one can take advantage of the just-completed stereo run
-and run \texttt{stereo\_tri} with the option 
+and run \texttt{stereo\_tri} with the additional option 
 \begin{verbatim} 
   --num-matches-from-disp-triplets 10000
 \end{verbatim}
 
-to create
-uniformly distributed interest points with desired density (the latter creates a .match file
-that needs to be copied to the name \texttt{bundle\_adjust} expects). This option also ensures
-that if three images are present, and stereo is invoked on the first and second image, and then on the second and the third, many of the generated intrest points will be seen in all three images
-in the area of overlap, which can be a very good constraint on bundle adjustment later.  
+to create dense and uniformly distributed interest points with desired density
+(the latter creates a .match file that needs to be copied to the name
+\texttt{bundle\_adjust} expects). This option also ensures that if three
+images are present, and stereo is invoked on the first and second image,
+and then on the second and the third, many of the generated interest
+points will be seen in all three images in the area of overlap, which
+can be a very good constraint on bundle adjustment later.
 
 If the interest points are good and the mean intersection error is
 acceptable, but this error shows an odd nonlinear pattern, that means
@@ -187,7 +193,7 @@ that is:
 
 \begin{verbatim}
   bundle_adjust -t nadirpinhole --local-pinhole --solve-intrinsics \
-    --camera-weight 100                                          \  
+    --camera-weight 100                                            \  
     left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai  \
     -o run_ba_intr/run
 \end{verbatim}
@@ -199,13 +205,16 @@ to small non-zero value suggestive of its final estimated scale.
 
 Sometimes the camera weight may need to be decreased, even all the way
 to 1 if it appears that the solver is not aggressive enough, or it may
-need to be increased if perhaps it overfits.
+need to be increased if perhaps it over-fits.
 
-Next, one can run stereo as before, with the new cameras, and see if the obtained
-solution is more acceptable, that is, if the intersection error is smaller. It is good to
-note that a preliminary investigation can already be made right after bundle adjustment,
-by looking at the residual error files before and after bundle adjustment. They are in 
-the output directory, with names containing the strings
+Next, one can run bundle adjustment with fixed intrinsics, to re-adjust
+the extrinsics, and then run stereo as before, with the new cameras, and
+see if the obtained solution is more acceptable, that is, if the
+intersection error is smaller. It is good to note that a preliminary
+investigation can already be made right after bundle adjustment, by
+looking at the residual error files before and after bundle
+adjustment. They are in the output directory, with names containing the
+strings
 \begin{verbatim}
   initial_residuals_no_loss_function_pointmap
   final_residuals_no_loss_function_pointmap
@@ -241,29 +250,28 @@ means, and then any tools that use this cloud must set \texttt{-\/-csv-format}
 and perhaps also \texttt{-\/-datum} and/or \texttt{-\/-csv-proj4}. 
 
 Next, we will need to create a disparity from the left and right images
-to be bundle-adjusted when the lidar file is used. For that we will take the disparity obtained
+that we will use during bundle adjustment. For that we will take the disparity obtained
 in stereo and remove any intermediate transforms stereo applied to the
-images and the disparity. We'd also like that disparity to be hole-filled, if possible, 
-though this may be optional. All this can be done as follows:
+images and the disparity. This can be done as follows:
 
 \begin{verbatim}
   stereo -e 3 -t nadirpinhole --alignment-method epipolar left.tif right.tif \
     run_ba/run-left.tsai run_ba/run-right.tsai run_stereo/run                \
-    --enable-fill-holes --unalign-disparity 
+    --unalign-disparity 
 \end{verbatim}
 
 and then bundle adjustment can be invoked with this disparity and
-the lidar file. Note that we use the cameras obtained after alignment:
+the lidar/DEM file. Note that we use the cameras obtained after alignment:
 
 \begin{verbatim}
-  bundle_adjust -t nadirpinhole --local-pinhole --solve-intrinsics               \
-    --camera-weight 100                                                        \  
-    left.tif right.tif run_align/run-run-left.tsai run_align/run-run-right.tsai  \
-    --reference-terrain lidar.csv --disparity-list run_stereo/run-unaligned-D.tif       \
+  bundle_adjust -t nadirpinhole --local-pinhole --solve-intrinsics                   \
+    --camera-weight 100                                                              \  
+    left.tif right.tif run_align/run-run-left.tsai run_align/run-run-right.tsai      \
+    --reference-terrain lidar.csv --disparity-list run_stereo/run-unaligned-D.tif    \
     --max-disp-error 10 --max-num-reference-points 1000000 -o run_ba_intr_lidar/run
 \end{verbatim}
 
-This will write some residual files of the form 
+This tool will write some residual files of the form 
 \begin{verbatim}
   initial_residuals_no_loss_function_reference_terrain.txt
   final_residuals_no_loss_function_reference_terrain.txt
@@ -271,36 +279,52 @@ This will write some residual files of the form
 
 which may be studied to see if the error-to-lidar decreased.
 
+We strongly recommend that for this process one should not rely on bundle adjustment
+to create interest points, but to use the dense and uniformly distributed ones 
+created with stereo, as suggested earlier. 
+
 A final bundle adjustment may be necessary after these operations,
 simply to refine a bit the extrinsics while keeping the intrinsics
 fixed this time, and then stereo can be run. Hopefully this will
 result in a smaller intersection error and a smaller error to lidar
 (the later can be evaluated by invoking \texttt{geodiff -\/-absolute}
-on the aligned DEM and the lidar file). 
+on the ASP-created aligned DEM and the reference lidar/DEM file). 
 
 When the lidar file is large, in bundle adjustment one can
 accept a flag \texttt{-\/-lon-lat-limit} to read only a relevant portion of
 it. This can speed up setting up the problem but does not affect the optimization.
 
 Everything mentioned earlier works with more than two images, in fact,
-this approach is highly desirable if possible, and ideally the images
-overlap a lot. For example, one can create stereo pairs consisting of
-first and second images, third and fourth, etc., invoke the above logic
-for each pair, that is, run stereo, alignment to the ground truth, dense
-interest point generation, and transforming the cameras using the
-alignment transform matrix.  Then, a directory can be created in which
-one can copy the transformed cameras from these runs, and run bundle
-adjustment with intrinsics optimization jointly for all cameras.
+having more images is highly desirable, and ideally the images overlap a
+lot. For example, one can create stereo pairs consisting of first and
+second images, third and fourth, etc., invoke the above logic for each
+pair, that is, run stereo, alignment to the ground truth, dense interest
+point generation, and transforming the cameras using the alignment
+transform matrix.  Then, a directory can be created in which one can
+copy the transformed cameras from these runs and the dense interest
+point files, and run bundle adjustment with intrinsics optimization
+jointly for all cameras.
 
-The tool must be invoked with an even number of images, there should
-exist a generated disparity for the first and second images, third and
-fourth, etc, and the disparity names can be specified as a list in
-quotes with space as a separator, to the option
-\texttt{-\/-disparity-list}. The option \texttt{-\/-overlap-list} can be
-used to control which images should be tested for interest point
-matches. One may want to decrease \texttt{-\/-parameter-tolerance} to say 
-1e-12, and set a value for \texttt{-\/-max-disp-error}, e.g, 10, to exclude
-unreasonable disparities. 
+This methodology suggests that the tool must be invoked with an even
+number of images, and there should exist a generated unaligned disparity
+for the first and second images, third and fourth, etc, and the
+disparity names can be specified as a list in quotes with space as a
+separator to the option \texttt{-\/-disparity-list}. The option
+\texttt{-\/-overlap-list} can be used to control which images should be
+tested for interest point matches, and a good value for it is say 1 if
+one plans to use the interest points generated by stereo, though a value
+of 2 may not hurt either. One may want to decrease
+\texttt{-\/-parameter-tolerance}, for example, to 1e-12, and set a value
+for \texttt{-\/-max-disp-error}, e.g, 10, to exclude unreasonable
+disparities.
+
+If it is realized that the optimized intrinsics still do not make the ASP-generated
+DEMs agree very well with the ground truth, and some residual and systematic error can be seen
+either by comparing these two or in intersection error files, it may be convenient
+to convert the current camera models to ones with the distortion given by rational function
+coefficients (RPC) (chapter \ref{chapter:pinholemodels}). An RPC model has a lot more
+coefficients to optimize, hence a better fit can be found (though we noticed situations 
+in which it was still not expressive enough, but still better than simpler models). 
 
 \section{Bundle adjustment using ISIS}
 

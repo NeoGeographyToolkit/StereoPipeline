@@ -17,7 +17,8 @@ TEXSRCS =	acknowledgments.tex \
 			stereodefault.tex \
 			tools.tex \
 			tutorial.tex \
-			vwlogconfig.tex
+			vwlogconfig.tex\
+			pinholemodels.tex
 OTHER_PDF=	graph/asp_deps.pdf
 OTHER+=		$(OTHER_PDF) asp_book.tex
 

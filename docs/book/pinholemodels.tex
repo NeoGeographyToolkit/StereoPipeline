@@ -41,10 +41,12 @@ The following lens distortion models are currently supported:
     \item \textit{K1, K2} = Radial distortion parameters.
     \item \textit{P1, P2} = Tangential distortion parameters.
   \end{description}
-\hfill \\ The following equations describe the distortion:
+\hfill \\ The following equations describe the distortion, starting with the undistorted pixel $(Px, Py)$:
+
+\[ (x, y) = \left(\frac{Px - cu}{fu}, \frac{Py-cv}{fv}\right) \]
 \[ r^{2} = x^{2} + y^{2} \]
-\[ x(distorted) = x*(K_{1}r^{2} + K_{2}r^{4} + 2P_{1}y + P_{2}(\frac{r^{2}}{x} + 2x)) \]
-\[ y(distorted) = y*(K_{1}r^{2} + K_{2}r^{4} + 2P_{2}x + P_{1}(\frac{r^{2}}{y} + 2y))  \]
+\[ x(distorted) = x\left(K_{1}r^{2} + K_{2}r^{4} + 2P_{1}y + P_{2}\left(\frac{r^{2}}{x} + 2x\right)\right)  \]
+\[ y(distorted) = y\left(K_{1}r^{2} + K_{2}r^{4} + 2P_{2}x + P_{1}\left(\frac{r^{2}}{y} + 2y\right)\right)  \]
 \hfill \\ References:
 \begin{description}
    \item Roger Tsai, A Versatile Camera Calibration Technique for a High-Accuracy 3D
@@ -52,9 +54,38 @@ The following lens distortion models are currently supported:
 \end{description}
 \hfill \\ Note that this model uses normalized pixel units.
 
-\item  \textbf{Adjustable Tsai} = A variant of the Tsai model where any number of \textit{K} terms and a skew term (alhpa) can be used.  Can apply the AgiSoft Lens calibration parameters.
+\item  \textbf{Adjustable Tsai} = A variant of the Tsai model where any number of \textit{K} terms and a skew term (alpha) can be used.  Can apply the AgiSoft Lens calibration parameters.
 
 \item  \textbf{Brown-Conrady} = An older model based on a centering angle.
+
+ This model uses the following parameters:
+  \begin{description}
+    \item \textit{K1, K2, K3} = Radial distortion parameters.
+    \item \textit{P1, P2} = Tangential distortion parameters.
+    \item \textit{xp, yp} = Principal point offset.
+    \item \textit{phi} = Tangential distortion angle in radians.
+  \end{description}
+\hfill \\ The following equations describe the distortion:
+\[ x = x(distorted) - xp \]
+\[ y = y(distorted) - yp \]
+\[ r^{2} = x^{2} + y^{2} \]
+\[ dr = K_{1}r^{3} + K_{2}r^{5} + K_{3}r^{7} \]
+\[ x(undistorted) = x + x\frac{dr}{r} - (P_{1}r^{2} +P_{2}r^{4})\sin(phi) \]
+\[ y(undistorted) = y + y\frac{dr}{r} + (P_{1}r^{2} +P_{2}r^{4})\cos(phi) \]
+\hfill \\ Note that this model uses non-normalized pixel units, so they
+are in mm.
+
+
+\hfill \\ References:
+\begin{description}
+   \item Decentering Distortion of Lenses - D.C. Brown, 
+          Photometric Engineering, pages 444-462, Vol. 32, No. 3, 1966
+   \item Close-Range Camera Calibration - D.C. Brown, 
+          Photogrammetric Engineering, pages 855-866, Vol. 37, No. 8, 1971
+\end{description}
+
+\item  \textbf{Photometrix} = A model matching the conventions used by the Australis software from Photometrix.
+
   \begin{description}
     \item \textit{K1, K2, K3} = Radial distortion parameters.
     \item \textit{P1, P2} = Tangential distortion parameters.
@@ -71,31 +102,25 @@ The following lens distortion models are currently supported:
 \hfill \\ Note that this model uses non-normalized pixel units, so they
 are in mm.
 
-\hfill \\ References:
-\begin{description}
-   \item Decentering Distortion of Lenses - D.C. Brown, 
-          Photometric Engineering, pages 444-462, Vol. 32, No. 3, 1966
-   \item Close-Range Camera Calibration - D.C. Brown, 
-          Photogrammetric Engineering, pages 855-866, Vol. 37, No. 8, 1971
-\end{description}
+\item  \textbf{RPC} = A rational polynomial coefficient model.
 
-\item  \textbf{Photometrix} = A model matching the conventions used by the Australis software from Photometrix.
- This model uses the following parameters:
-  \begin{description}
-    \item \textit{K1, K2, K3} = Radial distortion parameters.
-    \item \textit{P1, P2} = Tangential distortion parameters.
-    \item \textit{xp, yp} = Principal point offset.
-    \item \textit{phi} = Tangential distortion angle in radians.
-  \end{description}
-\hfill \\ The following equations describe the distortion:
-\[ x = x(distorted) - xp \]
-\[ y = y(distorted) - yp \]
-\[ r^{2} = x^{2} + y^{2} \]
-\[ dr = K_{1}r^{3} + K_{2}r^{5} + K_{3}r^{7} \]
-\[ x(undistorted) = x + x\frac{dr}{r} - (P_{1}r^{2} +P_{2}r^{4})sin(phi) +  \]
-\[ y(undistorted) = y + y\frac{dr}{r} + (P_{1}r^{2} +P_{2}r^{4})cos(phi) \]
-\hfill \\ Note that this model uses non-normalized pixel units, so they
-are in mm.
+In this model, one goes from distorted coordinates $(x, y)$ to undistorted
+coordinates via the formula
+
+\[ x(undistorted) = \frac{P_1(x, y)}{Q_1(x, y)} \]
+\[ y(undistorted) = \frac{P_2(x, y)}{Q_2(x, y)} \]
+
+The functions in the numerator and denominator are polynomials in $x$
+and $y$ with certain coefficients to be determined. The degree of
+polynomials is 4. ASP also supports the similarly named RPC5 and RPC6
+models, when the degree is 5 and 6 respectively.
+
+RPC distortion models can be generated as approximations to other pre-existing
+models with the tool \texttt{convert\_pinhole\_model} (section \ref{convertpinholemodel}).
+
+This tool also creates polynomials to speed up the reverse operation, of
+going from undistorted to distorted pixels, and those polynomial coefficients are
+also saved as part of the model.
 
 \end{itemize}
 

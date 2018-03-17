@@ -2774,7 +2774,49 @@ description in this document.  For more information about THEIA flagfile
 options see their website or edit a copy of the default flagfile
 generated in the output folder
 
+\section{convert\_pinhole\_model}
+\label{convertpinholemodel}
 
+This tool can be used to approximately convert a pinhole model from one
+of the types listed in chapter \ref{chapter:pinholemodels} to any other
+type. This can be convenient, for example, because the Brown-Conrady and Photometrix models
+provide a fast formula to undistort pixels, while the distortion operation is very slow,
+requiring a solver with multiple iterations using the undistortion formula at each step,
+which can make it time-consuming to run bundle adjustment and epipolar alignment during stereo.
+For other models, such as Tsai and Adjustable Tsai, the reverse is true, hence converting
+from the former to the latter models can be very convenient for performance reasons. 
+
+Also, this tool can be used to convert a pinhole model to one with RPC
+lens distortion (chapter \ref{chapter:pinholemodels}), which is a model
+with many more coefficients, and later its coefficients can be optimized
+using bundle adjustment to refine the distortion coefficients (section \ref{floatingintrinsics}). 
+
+
+Usage:
+\begin{verbatim}
+  > convert_pinhole_model [options] <input image> <input camera> -o <output camera>
+\end{verbatim}
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for camera\_solve}
+\label{tbl:camerasolve}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-h | -\/-help } & Display this help message.\\ \hline
+
+\texttt{-o | -\/-output-file \textit{string} } & Specify the output file. It is expected to have the .tsai extension. \\ \hline
+
+\texttt{-\/-output-type \textit{string}} & The output model type. Options: TsaiLensDistortion, 
+BrownConradyDistortion, RPC, RPC5, RPC6. Default: TsaiLensDistortion.\\ \hline
+
+\texttt{-\/-sample-spacing \textit{int}} & Pick one out of this many
+consecutive pixels to sample. Default: 50. \\ \hline
+
+\end{longtable}
 
 \section{icebridge\_kmz\_to\_csv}
 \label{icebridgekmztocsv}
