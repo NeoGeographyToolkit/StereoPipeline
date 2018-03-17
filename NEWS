@@ -30,7 +30,7 @@
    * Added --min-num-ip option.
    
  - bundle_adjust
-   * Added the ability to optimize intrinsics parameters, with and without
+   * Added the ability to optimize intrinsic parameters, with and without
      having a LIDAR or DEM ground truth to be used as reference (the
      latter is very recommended though).
    * The tool is a lot more sensitive now to --camera-weight,
