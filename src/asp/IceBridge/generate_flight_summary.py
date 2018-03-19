@@ -312,10 +312,15 @@ def generateFlightSummary(run, options):
             statsText = f.read()
 
         # Write info to summary file
-        batchInfoLog.write('%d, %d, %s, %f, %f, %s\n' % 
-                           (frames[0], frames[1], statsText,
-                            blendDiffResults['Mean'], fireballBlendDiffResults['Mean'], statsLine))
-
+        try:
+            batchInfoLog.write('%d, %d, %s, %f, %f, %s\n' % 
+                               (frames[0], frames[1], statsText,
+                                blendDiffResults['Mean'], fireballBlendDiffResults['Mean'],
+                                statsLine))
+        except:
+            # Bugfix for corrupted data
+            print("Problem parsing frame: " + str(frames[0]))
+                
         # Keep a list of batches that did not generate an output DEM
         parts = statsText.split(',')
         if len(parts) <= 2:
