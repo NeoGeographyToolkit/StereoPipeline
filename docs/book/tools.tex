@@ -549,6 +549,14 @@ in the input image files to match locations to cameras.\\ \hline
 
 \texttt{-\/-intrinsics-to-float arg} & If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal\_length, optical\_center, distortion\_params.\\ \hline
 
+\texttt{-\/-reference-terrain arg} & An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the streo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras. See section \ref{float-intrinsics}. \\ \hline
+
+\texttt{-\/-max-num-reference-points \textit{integer(=100000000)}} & Maximum number of (randomly picked) points from the reference terrain to use.\\ \hline
+
+\texttt{-\/-disparity-list arg} & The disparity files, one for each camera pair to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two cameras, second for the next two cameras, etc. \\ \hline
+
+\texttt{-\/-max-disp-error \textit{double(=-1)}} & When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.\\ \hline
+
 \texttt{-\/-csv-format \textit{string}} & Specify the format of input
 CSV files as a list of entries column\_index:column\_type (indices start
 from 1). Examples: '1:x 2:y 3:z 4:file' (a Cartesian coordinate system with

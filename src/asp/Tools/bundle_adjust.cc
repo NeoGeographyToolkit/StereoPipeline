@@ -3216,13 +3216,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("csv-proj4",        po::value(&opt.csv_proj4_str)->default_value(""),
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("reference-terrain",        po::value(&opt.reference_terrain)->default_value(""),
-     "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file very close to the 3D data obtained from the given images and cameras that can be used instead of GCP to optimize the intrinsics of the cameras.")
+     "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the streo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras.")
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) points from the reference terrain to use.")
     ("disparity-list",        po::value(&opt.disparity_list)->default_value(""),
-                                 "The disparity files, one for each camera pair to use when optimizing the intrinsics. Specify them as a list in quotes. First file is for the first two cameras, second for the next two, etc.")
+                                 "The disparity files, one for each camera pair to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two cameras, second for the next two cameras, etc.")
     ("max-disp-error",             po::value(&opt.max_disp_error)->default_value(-1),
-     "When using a reference terrain as an external control, ignore as outliers xyz which projected in the left image and transported by disparity to the right image, differ by the projection of xyz in the right image by more than this value in pixels.")
+     "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
                          "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
