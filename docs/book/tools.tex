@@ -439,7 +439,7 @@ passed directly to stereo:
   stereo file1.JPG file2.JPG run_ba/run-file1.tsai run_ba/run-file2.tsai run_stereo/run
 \end{verbatim} 
 
-\begin{longtable}{|l|p{7.5cm}|}
+\begin{longtable}{|l|p{8.0cm}|}
 \caption{Command-line options for bundle\_adjust}
 \label{tbl:bundleadjust}
 \endfirsthead
@@ -452,11 +452,11 @@ Option & Description \\ \hline \hline
 
 \texttt{-\/-output-prefix|-o \textit{filename}} & Prefix for output filenames. \\ \hline
 
-\texttt{-\/-bundle-adjuster \textit{string [default: Ceres]}} & Choose a solver from:
-Ceres, RobustSparse, RobustRef, Sparse, Ref. \\ \hline
+\texttt{-\/-bundle-adjuster \textit{string}} & Choose a solver from:
+Ceres, RobustSparse, RobustRef, Sparse, Ref. Default: Ceres.\\ \hline
 
-\texttt{-\/-cost-function \textit{string [default: Cauchy]}} & Choose a cost function
-from: Cauchy, PseudoHuber, Huber, L1, L2. \\ \hline
+\texttt{-\/-cost-function \textit{string}} & Choose a cost function
+from: Cauchy, PseudoHuber, Huber, L1, L2. Default: Cauchy. \\ \hline
 
 \texttt{-\/-robust-threshold \textit{double(=0.5)}} & Set the threshold for robust
 cost functions.  Increasing this makes the solver focus harder on the larger errors.\\ \hline
@@ -519,7 +519,8 @@ Maximum distance from the epipolar line to search for IP matches. Default: autom
 A higher factor will result in more interest points, but perhaps also more outliers.
 \\ \hline
 
-\texttt{-\/-ip-uniqueness-threshold \textit{double(=0.7)}} & 
+\texttt{-\/-ip-uniqueness-threshold} \\
+\texttt{\textit{double(=0.7)}} & 
 A higher threshold will result in more interest points, but perhaps less unique ones.
 \\ \hline
 
@@ -549,11 +550,12 @@ in the input image files to match locations to cameras.\\ \hline
 
 \texttt{-\/-intrinsics-to-float arg} & If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal\_length, optical\_center, distortion\_params.\\ \hline
 
-\texttt{-\/-reference-terrain arg} & An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the streo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras. See section \ref{float-intrinsics}. \\ \hline
+\texttt{-\/-reference-terrain arg} & An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras. See section \ref{floatingintrinsics}. \\ \hline
 
-\texttt{-\/-max-num-reference-points \textit{integer(=100000000)}} & Maximum number of (randomly picked) points from the reference terrain to use.\\ \hline
+\texttt{-\/-max-num-reference-points} \\
+\texttt{\textit{integer(=100000000)}}   & Maximum number of (randomly picked) points from the reference terrain to use.\\ \hline
 
-\texttt{-\/-disparity-list arg} & The disparity files, one for each camera pair to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two cameras, second for the next two cameras, etc. \\ \hline
+\texttt{-\/-disparity-list arg} & The disparity files, one for each camera pair, to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two cameras, second for the next two cameras, etc. \\ \hline
 
 \texttt{-\/-max-disp-error \textit{double(=-1)}} & When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.\\ \hline
 
