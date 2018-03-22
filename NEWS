@@ -41,6 +41,10 @@
      translation only.
    * Added the option --fixed-camera-indices to keep some cameras
      fixed while optimizing others. 
+   * Can read read each of pc_align's output transforms and apply it
+     to the input cameras via --initial-transform.
+   * Can read the adjustments from a previous invocation of this
+     program via --input-adjustments-prefix.
 
    * Added the parameter --nodata-value. 
 

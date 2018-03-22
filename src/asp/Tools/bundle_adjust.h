@@ -188,6 +188,27 @@ public:
     }
   }
 
+  /// Read the adjusted camera at the given index from disk
+  void read_adjustment(int j, std::string const& filename,
+                       std::vector<double> & cameras_vec) const {
+    
+    std::vector<vw::Vector3> position_correction;
+    std::vector<vw::Quat   > pose_correction;
+    
+    // not used, just for the api
+    bool piecewise_adjustments;
+    vw::Vector2 adjustment_bounds;
+    std::string session;
+    
+    vw::vw_out() << "Reading adjusted camera model: " << filename << std::endl;
+    asp::read_adjustments(filename, piecewise_adjustments,
+                          adjustment_bounds, position_correction, pose_correction,
+                          session);
+    
+    pack_camera_params_base(*this, &cameras_vec[camera_params_n*j], // output 
+                            position_correction[0], pose_correction[0]);
+  }
+  
   /// Write the adjusted camera at the given index to disk
   void write_adjustment(int j, std::string const& filename) const {
     vw::Vector3 position_correction;

@@ -216,7 +216,7 @@ double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
   rois = subdivide_bbox(full_bbox, tile_size, tile_size, include_partials);
   const size_t num_rois = rois.size();
   if (num_rois == 0)
-    return 0; // Can't have any coverage in the degenerate case!
+    return 0; // Cannot have any coverage in the degenerate case!
   
   // Pack all IP into a list for speed
   std::list<Vector2i> ip_list;
@@ -255,7 +255,7 @@ double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
 
 struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
-  std::string cnet_file, out_prefix, stereo_session_string,
+  std::string cnet_file, out_prefix, input_prefix, stereo_session_string,
     cost_function, ba_type, mapprojected_data, gcp_data;
   int    ip_per_tile, ip_edge_buffer_percent;
   double min_triangulation_angle, lambda, camera_weight, rotation_weight, 
@@ -316,8 +316,22 @@ update_cnet_and_init_cams(ModelT & ba_model, Options & opt,
                           std::vector<double> & cameras_vec,
                           std::vector<double> & intrinsics_vec){
 
-  if (opt.initial_transform_file != "") {
+  if (opt.initial_transform_file != "" && opt.input_prefix != "")
+    vw_throw( ArgumentErr() << "Cannot have both input adjustments and an input transform.\n" );
+
+  // Read the pc_align transform from disk and apply it
+  if (opt.initial_transform_file != "")
     ba_model.import_transform(opt.initial_transform, cameras_vec);
+
+  // Read the adjustments from a previous run
+  if (opt.input_prefix != "") {
+    for (size_t icam = 0; icam < ba_model.num_cameras(); icam++){
+      std::string adjust_file = asp::bundle_adjust_file_name(opt.input_prefix,
+                                                             opt.image_files[icam],
+                                                             opt.camera_files[icam]);
+
+      ba_model.read_adjustment(icam, adjust_file, cameras_vec);
+    }
   }
   
 }
@@ -339,9 +353,8 @@ update_cnet_and_init_cams<BAPinholeModel>(
   cameras_vec.resize(num_camera_params);
 
   // First apply any transform to the pinhole cameras
-  if (opt.initial_transform_file != "") {
+  if (opt.initial_transform_file != "") 
     ba_model.import_transform(opt.initial_transform, cameras_vec);
-  }
   
   // Copy the camera parameters from the model to cameras_vec
   int index = 0;
@@ -3202,16 +3215,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("approximate-pinhole-intrinsics", po::bool_switch(&opt.approximate_pinhole_intrinsics)->default_value(false),
                          "If it reduces computation time, approximate the lens distortion model.")
                          
-    ("fix-gcp-xyz",  po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
-                         "If the GCP are highly accurate, use this option to not float them during the optimization.")
     ("solve-intrinsics",  po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
                          "Optimize intrinsic camera parameters.  Only used for pinhole cameras.")
     ("intrinsics-to-float", po::value(&opt.intrinsics_to_float_str)->default_value(""),
      "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
     ("camera-positions", po::value(&opt.camera_position_file)->default_value(""),
           "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the local-pinhole option.")
+    ("input-adjustments-prefix",  po::value(&opt.input_prefix), "Prefix to read initial adjustments from, written by a previous invocation of this program.")
     ("initial-transform", po::value(&opt.initial_transform_file)->default_value(""),
-     "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as output by pc_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step.")
+     "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step.")
+    ("fixed-camera-indices",    po::value(&opt.fixed_cameras_indices_str)->default_value(""),
+     "A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.")
+    ("fix-gcp-xyz",  po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
+     "If the GCP are highly accurate, use this option to not float them during the optimization.")
+
     ("csv-format",       po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",        po::value(&opt.csv_proj4_str)->default_value(""),
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
@@ -3226,9 +3243,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("datum",            po::value(&opt.datum_str)->default_value(""),
                          "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
-                         "Explicitly set the datum semi-major axis in meters (needed only if ground control points are used).")
+                         "Explicitly set the datum semi-major axis in meters (see above).")
     ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
-                         "Explicitly set the datum semi-minor axis in meters (needed only if ground control points are used).")
+                         "Explicitly set the datum semi-minor axis in meters (see above).")
     ("session-type,t",   po::value(&opt.stereo_session_string)->default_value(""),
                          "Select the stereo session type to use for processing. Options: pinhole nadirpinhole isis dg rpc spot5 aster. Usually the program can select this automatically by the file extension.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
@@ -3270,8 +3287,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
     ("overlap-list",    po::value(&opt.overlap_list_file)->default_value(""),
      "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
-    ("fixed-camera-indices",    po::value(&opt.fixed_cameras_indices_str)->default_value(""),
-     "A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
                          "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("rotation-weight",  po::value(&opt.rotation_weight)->default_value(0.0), "A higher weight will penalize more rotation deviations from the original configuration.")
@@ -3385,17 +3400,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 
   if (opt.local_pinhole_input && !asp::has_pinhole_extension(opt.camera_files[0]))
-    vw_throw( ArgumentErr() << "Can't use special pinhole handling with non-pinhole input!\n");
+    vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
 
   if (!opt.local_pinhole_input && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole cameras.\n");
 
   if (!opt.local_pinhole_input && opt.approximate_pinhole_intrinsics)
-    vw_throw( ArgumentErr() << "Can't approximate intrinsics unless using pinhole cameras.\n");
+    vw_throw( ArgumentErr() << "Cannot approximate intrinsics unless using pinhole cameras.\n");
 
   if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
-    vw_throw( ArgumentErr() << "Can't approximate intrinsics while solving for them.\n");
+    vw_throw( ArgumentErr() << "Cannot approximate intrinsics while solving for them.\n");
 
+  if (opt.local_pinhole_input && opt.input_prefix != "")
+    vw_throw( ArgumentErr() << "Cannot use initial adjustments with pinhole cameras. Read the cameras directly.\n");
 
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
   opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4> >(opt.remove_outliers_params_str);

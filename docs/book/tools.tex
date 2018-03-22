@@ -392,12 +392,13 @@ image tile for a single process. \\ \hline
 \label{bundleadjust}
 
 The \texttt{bundle\_adjust} program performs bundle adjustment on a
-given set of images and cameras. An introduction to bundle adjustment
-can be found in chapter \ref{ch:bundle_adjustment}, with an example of
-how to use this program in section \ref{baasp}.
+given set of images and cameras. An introduction to bundle adjustment,
+and some advanced usage, including solving for intrinsics, 
+can be found in chapter \ref{ch:bundle_adjustment}.
 
-This tool can use several algorithms for bundle adjustment. The default is
-to use Google's Ceres Solver (\url{http://ceres-solver.org/}).
+This tool can use several underlying least-squares minimization
+algorithms, the default is Google's Ceres Solver
+(\url{http://ceres-solver.org/}).
 
 Usage:
 \begin{verbatim}
@@ -465,9 +466,9 @@ cost functions.  Increasing this makes the solver focus harder on the larger err
 Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON). \\ \hline
 
 \texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis
-in meters (needed only if ground control points are used).\\ \hline
+in meters (see above).\\ \hline
 \texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis
-in meters (needed only if ground control points are used).\\ \hline
+in meters (see above).\\ \hline
 
 \texttt{-\/-session-type|-t \textit{string}} & Select the stereo
 session type to use for processing. Usually the program can select this
@@ -484,9 +485,6 @@ subsequent images to search for matches to the current image to this
 value.  By default try to match all images.\\ \hline
 
 \texttt{-\/-overlap-list \textit{string}} & A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.
-\\ \hline
-
-\texttt{-\/-fixed-camera-indices \textit{string}} & A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.
 \\ \hline
 
 \texttt{-\/-rotation-weight \textit{double(=0.0)}} &
@@ -541,8 +539,12 @@ Only used with the local-pinhole setting to initialize global camera coordinates
 the csv-format setting must also be set.  The "file" field is searched for strings that are found
 in the input image files to match locations to cameras.\\ \hline
 
+\texttt{-\/-input-adjustments-prefix \textit{string}} & Prefix to read initial adjustments from, written by a previous invocation of this program. \\ \hline
 
-\texttt{-\/-initial-transform \textit{filename}} & Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as output by pc\_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. \\ \hline
+\texttt{-\/-initial-transform \textit{string}} & Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc\_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. \\ \hline
+
+\texttt{-\/-fixed-camera-indices \textit{string}} & A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.
+\\ \hline
 
 \texttt{-\/-fix-gcp-xyz} & If the GCP are highly accurate, use this option to not float them during the optimization.\\ \hline
 

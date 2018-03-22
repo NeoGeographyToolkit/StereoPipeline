@@ -114,7 +114,6 @@ void asp::write_adjustments(std::string const& filename,
   ostr.close();
 }
 
-
 void asp::write_adjustments(std::string const& filename,
                        Vector3 const& position_correction,
                        Quat const& pose_correction) {
