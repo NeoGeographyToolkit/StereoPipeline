@@ -245,6 +245,11 @@ def twoFlightsInOneDay(site, yyyymmdd):
     # For this day, there are GR_20100422a and GR_20100422b
     if site == 'GR' and yyyymmdd == '20100422':
         return True
+
+    # For this day, there are GR_20170725a and GR_20170725b
+    if site == 'GR' and yyyymmdd == '20170725':
+        return True
+    
     return False
 
 def getFolderUrl(yyyymmdd, year, month, day,

@@ -19,6 +19,8 @@ https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2010.04.22/
 
 The fetching tool takes care of this automatically.
 
+Same for GR_07252017.
+
 3. For flight AN 20091025, the raw image folder 
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2009_AN_NASA/10252009_raw/
