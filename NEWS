@@ -45,7 +45,8 @@
      to the input cameras via --initial-transform.
    * Can read the adjustments from a previous invocation of this
      program via --input-adjustments-prefix.
-
+   * Renamed --local-pinhole to --create-pinhole-cameras.
+ 
    * Added the parameter --nodata-value. 
 
  - stereo_gui

@@ -261,7 +261,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double min_triangulation_angle, lambda, camera_weight, rotation_weight, 
     translation_weight, overlap_exponent, robust_threshold, parameter_tolerance;
   int    report_level, min_matches, max_iterations, overlap_limit;
-  bool   save_iteration, local_pinhole_input, approximate_pinhole_intrinsics,
+  bool   save_iteration, create_pinhole, approximate_pinhole_intrinsics,
          fix_gcp_xyz, solve_intrinsics,
          disable_tri_filtering, ip_normalize_tiles, ip_debug_images;
   std::string datum_str, camera_position_file, initial_transform_file,
@@ -294,7 +294,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              rotation_weight(0), translation_weight(0), overlap_exponent(0), 
              robust_threshold(0), report_level(0), min_matches(0),
              max_iterations(0), overlap_limit(0), save_iteration(false),
-             local_pinhole_input(false), fix_gcp_xyz(false), solve_intrinsics(false),
+             create_pinhole(false), fix_gcp_xyz(false), solve_intrinsics(false),
              semi_major(0), semi_minor(0), position_filter_dist(-1),
              num_ba_passes(1), max_num_reference_points(-1),
              datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
@@ -1746,8 +1746,8 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   vw::cartography::GeoReference dem_georef;
   ImageViewRef< PixelMask<double> >  interp_dem;
   if (opt.heights_from_dem != "") {
-    if (!opt.local_pinhole_input) 
-      vw_throw( ArgumentErr() << "When using a high quality DEM, must use the --local-pinhole option.\n");
+    if (!opt.create_pinhole) 
+      vw_throw( ArgumentErr() << "When using a high quality DEM, must use the --create-pinhole-cameras option.\n");
     create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
   }
   
@@ -1916,7 +1916,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   std::vector< ImageView<DispPixelT> > disp_vec;
   std::vector< ImageViewRef<DispPixelT> > interp_disp; 
   std::vector<vw::Vector3> reference_vec;
-  if (opt.local_pinhole_input && opt.reference_terrain != "") {
+  if (opt.create_pinhole && opt.reference_terrain != "") {
 
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
 
@@ -2182,7 +2182,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   for (int intrIter = 0; intrIter < num_intrinsic_params; intrIter++)
     intrinsics[intrIter] = intrinsics[intrIter] * scaled_intrinsics_ptr[intrIter];
 
-  if (opt.local_pinhole_input && opt.solve_intrinsics) {
+  if (opt.create_pinhole && opt.solve_intrinsics) {
     vw_out() << "Final scaled intrinsics:\n";
     for (int intrIter = 0; intrIter < num_intrinsic_params; intrIter++) 
       vw_out() << scaled_intrinsics[intrIter] << " ";
@@ -3210,8 +3210,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
                          "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
-    ("local-pinhole",    po::bool_switch(&opt.local_pinhole_input)->default_value(false),
-                         "Use special methods to handle a local coordinate input pinhole model.")
+    ("create-pinhole-cameras",    po::bool_switch(&opt.create_pinhole)->default_value(false),
+                         " If the input cameras are of the pinhole type, apply the adjustments directly to the cameras, rather than saving them separately as .adjust files.")
     ("approximate-pinhole-intrinsics", po::bool_switch(&opt.approximate_pinhole_intrinsics)->default_value(false),
                          "If it reduces computation time, approximate the lens distortion model.")
                          
@@ -3220,7 +3220,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("intrinsics-to-float", po::value(&opt.intrinsics_to_float_str)->default_value(""),
      "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
     ("camera-positions", po::value(&opt.camera_position_file)->default_value(""),
-          "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the local-pinhole option.")
+          "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the create-pinhole-cameras option.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix), "Prefix to read initial adjustments from, written by a previous invocation of this program.")
     ("initial-transform", po::value(&opt.initial_transform_file)->default_value(""),
      "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step.")
@@ -3399,19 +3399,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << general_options );
 
 
-  if (opt.local_pinhole_input && !asp::has_pinhole_extension(opt.camera_files[0]))
+  if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
     vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
 
-  if (!opt.local_pinhole_input && opt.solve_intrinsics)
+  if (!opt.create_pinhole && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole cameras.\n");
 
-  if (!opt.local_pinhole_input && opt.approximate_pinhole_intrinsics)
+  if (!opt.create_pinhole && opt.approximate_pinhole_intrinsics)
     vw_throw( ArgumentErr() << "Cannot approximate intrinsics unless using pinhole cameras.\n");
 
   if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Cannot approximate intrinsics while solving for them.\n");
 
-  if (opt.local_pinhole_input && opt.input_prefix != "")
+  if (opt.create_pinhole && opt.input_prefix != "")
     vw_throw( ArgumentErr() << "Cannot use initial adjustments with pinhole cameras. Read the cameras directly.\n");
 
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
@@ -3786,7 +3786,7 @@ int main(int argc, char* argv[]) {
 
     // If camera positions were provided for local inputs, align to them.
     const bool have_est_camera_positions = (opt.camera_position_file != "");
-    if (opt.local_pinhole_input && have_est_camera_positions)
+    if (opt.create_pinhole && have_est_camera_positions)
       init_pinhole_model_with_camera_positions(opt, estimated_camera_gcc);
 
     // If we have GPC's for pinhole cameras, try to do a simple affine initialization
@@ -3796,7 +3796,7 @@ int main(int argc, char* argv[]) {
     //   to adjust our camera model positions.  Otherwise we could init the adjustment values...
     if (opt.gcp_files.size() > 0) {
 
-      if (opt.local_pinhole_input && !have_est_camera_positions)
+      if (opt.create_pinhole && !have_est_camera_positions)
         init_pinhole_model_with_gcp(opt);
 
       // Issue a warning if the GCPs are far away from the camera coords
@@ -3804,7 +3804,7 @@ int main(int argc, char* argv[]) {
     }
 
 
-    if (opt.local_pinhole_input == false) {
+    if (opt.create_pinhole == false) {
       do_ba_with_model(opt);
     } else {
 

@@ -143,8 +143,8 @@ intrinsics.
 Hence, the first invocation of camera optimization should be like:
 
 \begin{verbatim}
-  bundle_adjust -t nadirpinhole --local-pinhole left.tif right.tif \
-  left.tsai right.tsai -o run_ba/run
+  bundle_adjust -t nadirpinhole --create-pinhole-cameras \
+    left.tif right.tif left.tsai right.tsai -o run_ba/run
 \end{verbatim}
 
 It is suggested that one run \texttt{stereo} with the obtained cameras, 
@@ -192,8 +192,8 @@ mostly fixed, as motivated above, by using a large camera weight,
 that is:
 
 \begin{verbatim}
-  bundle_adjust -t nadirpinhole --local-pinhole --solve-intrinsics \
-    --camera-weight 100                                            \  
+  bundle_adjust -t nadirpinhole --create-pinhole-cameras           \
+    --solve-intrinsics --camera-weight 100                         \
     left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai  \
     -o run_ba_intr/run
 \end{verbatim}
@@ -238,9 +238,9 @@ stereo pass needs to be first aligned to this lidar file, such as:
 This alignment can then be applied to the cameras as well:
 
 \begin{verbatim}
-  bundle_adjust -t nadirpinhole --local-pinhole --max-iterations 0 \
-    --initial-transform run_align/run-inverse-transform.txt        \
-    left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai  \
+  bundle_adjust -t nadirpinhole --create-pinhole-cameras --max-iterations 0 \
+    --initial-transform run_align/run-inverse-transform.txt                 \
+    left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai           \
     -o run_align/run
 \end{verbatim}
 
@@ -264,7 +264,7 @@ and then bundle adjustment can be invoked with this disparity and
 the lidar/DEM file. Note that we use the cameras obtained after alignment:
 
 \begin{verbatim}
-  bundle_adjust -t nadirpinhole --local-pinhole --solve-intrinsics                   \
+  bundle_adjust -t nadirpinhole --create-pinhole-cameras --solve-intrinsics          \
     --camera-weight 100                                                              \  
     left.tif right.tif run_align/run-run-left.tsai run_align/run-run-right.tsai      \
     --reference-terrain lidar.csv --disparity-list run_stereo/run-unaligned-D.tif    \

@@ -419,8 +419,9 @@ Example (for Digital Globe Earth data, using ground control points):
 
 Example (for generic pinhole camera data, using estimated camera positions):
 \begin{verbatim}
-  bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai -o run_ba/run          \
-     -t pinhole --local-pinhole --datum WGS_1984 --camera-positions nav_data.csv \
+  bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai -o run_ba/run  \
+     -t pinhole --create-pinhole-cameras --datum WGS_1984                \
+     --camera-positions nav_data.csv                                     \
      --csv-format "1:file 6:lat 7:lon 9:height_above_datum"
 \end{verbatim}
 
@@ -432,10 +433,11 @@ this output prefix via the option \texttt{-\/-bundle-adjust-prefix}. For example
   stereo file1.cub file2.cub run_stereo/run --bundle-adjust-prefix run_ba/run
 \end{verbatim}
 
-If the \texttt{-\/-local-pinhole} option is used, no separate adjustments
-will be written, rather, the tool will save to disk copies of the input
-cameras with adjustments applied to them. These output cameras can then be
-passed directly to stereo:
+If the \texttt{-\/-create-pinhole-cameras} option is used, no separate
+adjustments will be written, rather, the
+tool will save to disk copies of the input cameras with adjustments
+already applied to them. These output cameras can then be passed
+directly to stereo:
 \begin{verbatim}
   stereo file1.JPG file2.JPG run_ba/run-file1.tsai run_ba/run-file2.tsai run_stereo/run
 \end{verbatim} 
@@ -529,13 +531,11 @@ Pixels with values less than or equal to this number are treated as no-data. Thi
 \texttt{-\/-individually-normalize} & Individually normalize the input images instead of using common values.
 \\ \hline
 
-\texttt{-\/-local-pinhole} & Optimize processing for inputs which are local coordinate 
-pinhole models.
-Also writes out a standalone .tsai camera model file instead of adjust files. 
+\texttt{-\/-create-pinhole-cameras} & If the input cameras are of the pinhole type, apply the adjustments directly to the cameras, rather than saving them separately as .adjust files. 
 \\ \hline
 
 \texttt{-\/-camera-positions \textit{filename}} & CSV file containing estimated positions of each camera.
-Only used with the local-pinhole setting to initialize global camera coordinates. If used,
+Only used with the create-pinhole-cameras setting to initialize global camera coordinates. If used,
 the csv-format setting must also be set.  The "file" field is searched for strings that are found
 in the input image files to match locations to cameras.\\ \hline
 

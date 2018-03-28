@@ -356,7 +356,7 @@ public:
         for (size_t j = 0; j < intrinsics_0.size(); j++) {
           if (intrinsics_0[j] != intrinsics_i[j]) {
             vw::vw_throw( vw::ArgumentErr() 
-                          << "When using --local-pinhole, all cameras "
+                          << "When using --create-pinhole-cameras, all cameras "
                           << "must have the same intrinsics.\n" );
           }
         }

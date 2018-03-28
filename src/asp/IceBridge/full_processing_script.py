@@ -545,7 +545,7 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
     cmd = "bundle_adjust " + " ".join(images) + " " +  " ".join(cameras) + \
             ' --reference-terrain ' + lidarFile + \
             ' --disparity-list "' + " ".join(dispFiles) + '"' + \
-            ' --datum wgs84 -t nadirpinhole --local-pinhole --robust-threshold 2' + \
+            ' --datum wgs84 -t nadirpinhole --create-pinhole-cameras --robust-threshold 2' + \
             ' --camera-weight 1 --solve-intrinsics --csv-format ' + lidarCsvFormatString + \
             ' --overlap-limit 1 --max-disp-error 10 --max-iterations 100 ' + \
             ' --parameter-tolerance 1e-12 -o ' + baPrefix
