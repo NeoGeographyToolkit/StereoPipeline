@@ -86,7 +86,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   double      rounding_error;
   std::string target_srs_string;
   BBox2       target_projwin;
-  int         fsaa, dem_hole_fill_len, ortho_hole_fill_len;
+  int         fsaa, dem_hole_fill_len, ortho_hole_fill_len, ortho_hole_fill_extra_len;
   bool        remove_outliers_with_pct;
   Vector2     remove_outliers_params;
   double      max_valid_triangulation_error;
@@ -104,7 +104,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   // Defaults that the user doesn't need to see.
   Options() : nodata_value(-std::numeric_limits<float>::max()),
 	      semi_major(0), semi_minor(0), fsaa(1),
-	      dem_hole_fill_len(0), ortho_hole_fill_len(0),
+	      dem_hole_fill_len(0), ortho_hole_fill_len(0), ortho_hole_fill_extra_len(0),
 	      remove_outliers_with_pct(true), max_valid_triangulation_error(0),
 	      erode_len(0), search_radius_factor(0), sigma_factor(0),
 	      default_grid_size_multiplier(1.0), use_surface_sampling(false),
@@ -392,6 +392,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("dem-hole-fill-len", po::value(&opt.dem_hole_fill_len)->default_value(0),    "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
     ("orthoimage-hole-fill-len",      po::value(&opt.ortho_hole_fill_len)->default_value(0),
 	    "Maximum dimensions of a hole in the output orthoimage to fill in, in pixels.")
+    ("orthoimage-hole-fill-extra-len",      po::value(&opt.ortho_hole_fill_extra_len)->default_value(0),
+	    "This value, in pixels, will make orthoimage hole filling more aggressive by first extrapolating the point cloud. A small value is suggested to avoid artifacts. Hole-filling also works better when less strict with outlier removal, such as in --remove-outliers-params, etc.")
     ("remove-outliers",               po::bool_switch(&opt.remove_outliers_with_pct)->default_value(true),
 	    "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
     ("remove-outliers-params",        po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
@@ -406,7 +408,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	    "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
     ("csv-format",     po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files, if those files contain Easting and Northing fields. If not specified, --t_srs will be used.")
-    ("filter",      po::value(&opt.filter)->default_value("weighted_average"), "The filter to apply to the heights of the cloud points within a given circular neighborhood when gridding. Options: weighted_average (default), min, max, mean, median, stddev, count (number of points), nmad (= 1.4826 * median(abs(X - median(X)))), n-pct (where n is a real value between 0 and 100, for example, 80-pct, meaning, 80th percentile). Except for the default, the name of the filter will be added to the obtained DEM file name, e.g., output-min-DEM.tif.")
+    ("filter",      po::value(&opt.filter)->default_value("weighted_average"), "The filter to apply to the heights of the cloud points within a given circular neighborhood when gridding (its radius is controlled via --search-radius-factor). Options: weighted_average (default), min, max, mean, median, stddev, count (number of points), nmad (= 1.4826 * median(abs(X - median(X)))), n-pct (where n is a real value between 0 and 100, for example, 80-pct, meaning, 80th percentile). Except for the default, the name of the filter will be added to the obtained DEM file name, e.g., output-min-DEM.tif.")
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
 	    "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
@@ -518,14 +520,35 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.ortho_hole_fill_len < 0)
     vw_throw( ArgumentErr() << "The value of "
 			    << "--orthoimage-hole-fill-len must be non-negative.\n");
+  if (opt.ortho_hole_fill_extra_len < 0)
+    vw_throw( ArgumentErr() << "The value of "
+			    << "--orthoimage-hole-fill-extra-len must be non-negative.\n");
   if ( !opt.do_ortho && opt.ortho_hole_fill_len > 0) {
     vw_throw( ArgumentErr() << "The value of --orthoimage-hole-fill-len"
 			    << " is positive, but orthoimage generation was not requested.\n");
   }
 
+  if (opt.ortho_hole_fill_len > 0) {
+    // We do hole-filling before erosion and outlier removal, for performance reason,
+    // and the two may not play nicely together.
+    if (opt.erode_len > 0) 
+      vw_out(WarningMessage) << "Erosion may interfere with filling "
+                             << "holes in ortho images.\n";
+    if (opt.median_filter_params[0] > 0 && opt.median_filter_params[1] > 0)
+      vw_out(WarningMessage) << "Removing outliers using a median filter may interfere "
+                             << "with filling holes in ortho images.\n";
+    if (opt.remove_outliers_params[0] < 100)
+      vw_out(WarningMessage) << "Removing outliers using a percentile filter may interfere "
+                             << "with filling holes in ortho images.\n";
+    
+
+      }
+
+  
   double pct = opt.remove_outliers_params[0], factor = opt.remove_outliers_params[1];
   if (pct <= 0 || pct > 100 || factor <= 0.0){
-    vw_throw( ArgumentErr() << "Invalid values were provided for remove-outliers-params.\n");
+    vw_throw( ArgumentErr()
+              << "Invalid values were provided for remove-outliers-params.\n");
   }
 
   if (opt.max_valid_triangulation_error > 0){
@@ -617,6 +640,30 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer, Options const& op
 
 namespace asp{
 
+  // If the third component of a vector is NaN, mask that vector as invalid
+  template<class VectorT>
+  struct NaN2Mask: public ReturnFixedType< PixelMask<VectorT> > {
+    NaN2Mask(){}
+    PixelMask<VectorT> operator() (VectorT const& vec) const {
+      if (boost::math::isnan(vec.z()))
+        return PixelMask<VectorT>(); // invalid
+      else
+        return PixelMask<VectorT>(vec); // valid
+    }
+  };
+
+  // Reverse the operation of NaN2Mask
+  template<class VectorT>
+  struct Mask2NaN: public ReturnFixedType<VectorT> {
+    Mask2NaN(){}
+    VectorT operator() (PixelMask<VectorT> const& pvec) const {
+      if (!is_valid(pvec))
+        return VectorT(0, 0, std::numeric_limits<typename VectorT::value_type>::quiet_NaN());
+      else
+        return pvec.child();
+    }
+  };
+
   // If the third component of a vector is NaN, assign to it the given no-data value
   struct NaN2NoData: public ReturnFixedType<Vector3> {
     NaN2NoData(float nodata_val):m_nodata_val(nodata_val){}
@@ -678,7 +725,8 @@ namespace asp{
     if (opt.filter != "weighted_average")
       tag = "-" + opt.filter; 
     
-    std::string output_file = opt.out_prefix + tag + "-" + imgName + "." + opt.output_file_type;
+    std::string output_file = opt.out_prefix + tag + "-" + imgName
+      + "." + opt.output_file_type;
     vw_out() << "Writing: " << output_file << "\n";
     TerminalProgressCallback tpc("asp", imgName + ": ");
     if ( opt.output_file_type == "tif" )
@@ -846,8 +894,6 @@ namespace asp{
 
   };
 
-
-
   template<int num_ch>
   ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files){
 
@@ -945,11 +991,8 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     opt.rounding_error = 0.0;
   }
 
-  // We will first generate the DEM with holes, and then fill them later,
-  // rather than filling holes in the cloud first. This is faster.
-  rasterizer.set_hole_fill_len(0);
-
-  ImageViewRef< PixelGray<float> > rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
+  ImageViewRef< PixelGray<float> > rasterizer_fsaa
+    = generate_fsaa_raster( rasterizer, opt );
 
   // Write out the DEM. We've set the texture to be the height.
   Vector2 tile_size(vw_settings().default_tile_size(),
@@ -958,17 +1001,18 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     Stopwatch sw2;
     sw2.start();
     ImageViewRef< PixelGray<float> > dem
-      = asp::round_image_pixels_skip_nodata(rasterizer_fsaa, opt.rounding_error, opt.nodata_value);
+      = asp::round_image_pixels_skip_nodata(rasterizer_fsaa, opt.rounding_error,
+                                            opt.nodata_value);
 
     int hole_fill_len = opt.dem_hole_fill_len;
     if (hole_fill_len > 0){
       // Note that we first cache the tiles of the rasterized DEM, and
       // fill holes later. This greatly improves the performance.
       dem = apply_mask
-        (asp::fill_holes_grass(create_mask
-                                          (block_cache(dem, tile_size, opt.num_threads),
-                                           opt.nodata_value),
-		                           hole_fill_len),
+        (vw::fill_holes_grass(create_mask
+                               (block_cache(dem, tile_size, opt.num_threads),
+                                opt.nodata_value),
+                               hole_fill_len),
          opt.nodata_value);
     }
 
@@ -976,12 +1020,13 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     Vector2i dem_size = bounding_box(dem).size();
     vw_out()<< "Creating output file that is " << dem_size << " px.\n";
     if ((dem_size[0] > opt.max_output_size[0]) || (dem_size[1] > opt.max_output_size[1]))
-      vw_throw( ArgumentErr() << "Requested DEM size is too large, max allowed output size is "
-                              << opt.max_output_size << " pixels.\n" );
-
+      vw_throw( ArgumentErr()
+                << "Requested DEM size is too large, max allowed output size is "
+                << opt.max_output_size << " pixels.\n" );
+    
     asp::save_image(opt, dem, georef, hole_fill_len, "DEM");
     sw2.stop();
-    vw_out(DebugMessage,"asp") << "DEM render time: " << sw2.elapsed_seconds() << std::endl;
+    vw_out(DebugMessage,"asp") << "DEM render time: " << sw2.elapsed_seconds() << ".\n";
 
     double num_invalid_pixelsD = static_cast<double>(*num_invalid_pixels);
     double num_total_pixels    = static_cast<double>(dem_size[0]*dem_size[1]);
@@ -997,11 +1042,11 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     int hole_fill_len = 0;
     if (num_channels == 4){
       // The error is a scalar.
-      ImageViewRef<Vector4> point_disk_image = asp::form_point_cloud_composite<Vector4>(opt.pointcloud_files,
-							    asp::OrthoRasterizerView::max_subblock_size());
+      ImageViewRef<Vector4> point_disk_image
+        = asp::form_point_cloud_composite<Vector4>
+        (opt.pointcloud_files, asp::OrthoRasterizerView::max_subblock_size());
       ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
       rasterizer.set_texture( error_channel );
-      rasterizer.set_hole_fill_len(hole_fill_len);
       rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
       save_image(opt,
 		 asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
@@ -1010,14 +1055,13 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
 		 georef, hole_fill_len, "IntersectionErr");
     }else if (num_channels == 6){
       // The error is a 3D vector. Convert it to NED coordinate system, and rasterize it.
-      ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>(opt.pointcloud_files,
-							    asp::OrthoRasterizerView::max_subblock_size());
+      ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
+        (opt.pointcloud_files, asp::OrthoRasterizerView::max_subblock_size());
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
       std::vector< ImageViewRef< PixelGray<float> > >  rasterized(3);
       for (int ch_index = 0; ch_index < 3; ch_index++){
         ImageViewRef<double> ch = select_channel(ned_err, ch_index);
         rasterizer.set_texture(ch);
-        rasterizer.set_hole_fill_len(hole_fill_len);
         rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
         rasterized[ch_index] =
           block_cache(rasterizer_fsaa, tile_size, opt.num_threads);
@@ -1037,21 +1081,6 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     }
   }
 
-  // Write DRG if the user requested and provided a texture file
-  if (opt.do_ortho) {
-    int hole_fill_len = opt.ortho_hole_fill_len;
-    Stopwatch sw3;
-    sw3.start();
-    ImageViewRef< PixelGray<float> > texture = asp::form_point_cloud_composite< PixelGray<float> >(opt.texture_files,
-							  asp::OrthoRasterizerView::max_subblock_size());
-    rasterizer.set_texture(texture);
-    rasterizer.set_hole_fill_len(hole_fill_len);
-    rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
-    asp::save_image(opt, rasterizer_fsaa, georef, hole_fill_len, "DRG");
-    sw3.stop();
-    vw_out(DebugMessage,"asp") << "DRG render time: " << sw3.elapsed_seconds() << std::endl;
-  }
-
   // Write out a normalized version of the DEM, if requested (for debugging)
   if (opt.do_normalize) {
     int hole_fill_len = 0;
@@ -1066,15 +1095,97 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
 			   0, 255))),
 	       georef, hole_fill_len, "DEM-normalized");
   }
+
+  // Write DRG if the user requested and provided a texture file.
+  // This must be at the end, as we may be messing with the point
+  // image in irreversible ways.
+  if (opt.do_ortho) {
+    
+    Stopwatch sw3;
+    sw3.start();
+    ImageViewRef< PixelGray<float> > texture
+      = asp::form_point_cloud_composite< PixelGray<float> >
+      (opt.texture_files, asp::OrthoRasterizerView::max_subblock_size());
+    rasterizer.set_texture(texture);
+    
+    if (opt.ortho_hole_fill_len > 0) {
+
+      // Need to convert the hole fill length from output image pixels
+      // to input point cloud pixels as we will fill holes in the cloud
+      // itself.
+      int hole_fill_len = rasterizer.pc_hole_fill_len(opt.ortho_hole_fill_len);
+
+      // Fetch a reference to the current point image
+      ImageViewRef<Vector3> point_image = rasterizer.get_point_image();
+
+      // Mask the NaNs
+      ImageViewRef< PixelMask<Vector3> > point_image_mask
+        = per_pixel_filter(point_image, asp::NaN2Mask<Vector3>());
+
+      // If to grow the cloud a bit, to help hole-filling later. This should
+      // not be large as it creates artifacts. The main work better
+      // be done by grassfire later. 
+      if (opt.ortho_hole_fill_extra_len > 0) {
+        int hole_fill_mode = 2;
+        int hole_fill_num_smooth_iter = 3;
+        int hole_fill_extra_len
+          = rasterizer.pc_hole_fill_len(opt.ortho_hole_fill_extra_len);
+        point_image_mask = vw::fill_holes(point_image_mask, hole_fill_mode,
+                                          hole_fill_num_smooth_iter,
+                                          hole_fill_extra_len);
+
+        // Use big tiles, to reduce the overhead
+        // of expanding each tile by hole size. 
+        int big_block_size = nextpow2(2.0*hole_fill_extra_len);
+        big_block_size = std::max(256, big_block_size);
+
+        // Cache each hole-filled point cloud tile as likely we will
+        // need it again in the future when rasterizing a different
+        // portion of the output ortho image.
+        point_image_mask = block_cache(point_image_mask, 
+                                       vw::Vector2(big_block_size, big_block_size),
+                                       opt.num_threads);
+      }
+      
+      // Fill the holes
+      point_image_mask =vw::fill_holes_grass(point_image_mask, hole_fill_len);
+
+      // back to NaNs
+      point_image = per_pixel_filter(point_image_mask, asp::Mask2NaN<Vector3>());
+
+      // When filling holes, use big tiles, to reduce the overhead
+      // of expanding each tile by hole size. 
+      int big_block_size = nextpow2(2.0*hole_fill_len);
+      big_block_size = std::max(256, big_block_size);
+
+      // Cache each hole-filled point cloud tile as likely we will
+      // need it again in the future when rasterizing a different
+      // portion of the output ortho image.
+      point_image = block_cache(point_image, 
+                                vw::Vector2(big_block_size, big_block_size),
+                                opt.num_threads);
+
+      // Pass to the rasterizer the point image with the holes filled
+      rasterizer.set_point_image(point_image);
+    }
+
+    rasterizer_fsaa = generate_fsaa_raster(rasterizer, opt);
+    asp::save_image(opt, rasterizer_fsaa, georef,
+                    0, // no need for a buffer here, as we cache hole-filled tiles
+                    "DRG");
+    sw3.stop();
+    vw_out(DebugMessage,"asp") << "DRG render time: " << sw3.elapsed_seconds() << "\n";
+  }
+
 } // End do_software_rasterization
 
 
 // Wrapper for do_software_rasterization that goes through all spacing values
-void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_point_input,
-					      Options& opt,
-					      cartography::GeoReference& georef,
-					      ImageViewRef<double> const& error_image,
-					      double estim_max_error) {
+void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_point_input,
+                                             Options& opt,
+                                             cartography::GeoReference& georef,
+                                             ImageViewRef<double> const& error_image,
+                                             double estim_max_error) {
   // Perform the slow initialization that can be shared by all output resolutions
   Stopwatch sw1;
   sw1.start();
@@ -1104,7 +1215,7 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
   std::string base_out_prefix = opt.out_prefix;
 
   // Call the function for each dem spacing
-  for (size_t i=0; i<opt.dem_spacing.size(); ++i) {
+  for (size_t i = 0; i < opt.dem_spacing.size(); i++) {
     double this_spacing = opt.dem_spacing[i];
     
     // Required second init step for each spacing
@@ -1113,9 +1224,10 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
     // Each spacing gets a variation of the output prefix
     if (i == 0)
       opt.out_prefix = base_out_prefix;
-    else // Write later iterations to a different path!!
+    else // Write later iterations to a different path.
       opt.out_prefix = base_out_prefix + "_" + vw::num_to_str(i);
-    do_software_rasterization( rasterizer, opt, georef, error_image, estim_max_error, &num_invalid_pixels);
+    do_software_rasterization(rasterizer, opt, georef, error_image,
+                              estim_max_error, &num_invalid_pixels);
   } // End loop through spacings
 
   opt.out_prefix = base_out_prefix; // Restore the original value
@@ -1198,7 +1310,9 @@ int main( int argc, char *argv[] ) {
 					 math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
     }
     // Estimate the maximum value of the error channel in case we would
-    // like to remove outliers.
+    // like to remove outliers. This not the cuttoff triangulation error,
+    // just a large but reasonable number that will be used to estimate
+    // that error later.
     ImageViewRef<double> error_image;
     double estim_max_error = 0.0;
     if (opt.remove_outliers_with_pct || opt.max_valid_triangulation_error > 0.0){

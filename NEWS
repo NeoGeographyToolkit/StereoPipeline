@@ -8,53 +8,57 @@
      existing such models. 
 
  - New camera models
-    * Added support for pinhole camera models where the distortion is
-      given by an RPC model (rational polynomial coefficients). Such 
-      a model may be more expressive than existing ones, and its 
-      coefficients can now be optimized using bundle adjustment.
+    * Added support for pinhole camera models where the lens
+      distortion is given by an RPC model (rational polynomial
+      coefficients), of degrees 4, 5, and 6. Such a model may be more
+      expressive than existing ones, and its coefficients can now be
+      optimized using bundle adjustment. An initial model can be
+      created with convert_pinhole_model.
 
  - stereo_corr
-   * Added new options for post-SGM subpixel stereo.
-     Previously only a parabola method was used.
-   * Added option to perform cross-correlation checks on
-     multiple resolution levels while using SGM/MGM.
-   * Added option --corr-search-limit to constrain the 
-     automatically computed correlation search range.
-   * Added --corr-memory-limit-mb option to limit the
-     memory usage of the SGM/MGM algorithms.
-   * Improved search range estimation in nadir epipolar 
-     alignment cases. Added --elevation-limit option to
-     help constrain this search range.
+   * Added new options for post-SGM subpixel stereo. Previously only a
+     parabola method was used.
+   * Added option to perform cross-correlation checks on multiple
+     resolution levels while using SGM/MGM.
+   * Added option --corr-search-limit to constrain the automatically
+     computed correlation search range.
+   * Added --corr-memory-limit-mb option to limit the memory usage of
+     the SGM/MGM algorithms.
+   * Improved search range estimation in nadir epipolar alignment
+     cases. Added --elevation-limit option to help constrain this
+     search range.
    * Added hybrid SGM/MGM stereo option.
    * Improvements to SGM search range estimation.
    * Added --min-num-ip option.
    
  - bundle_adjust
-   * Added the ability to optimize intrinsic parameters, with and without
-     having a LIDAR or DEM ground truth to be used as reference (the
-     latter is very recommended though).
+   * Added the ability to optimize pinhole camera intrinsic
+     parameters, with and without having a LIDAR or DEM ground truth
+     to be used as reference (the latter is recommended though).
    * The tool is a lot more sensitive now to --camera-weight,
      existing results may change a lot. 
    * Added the parameters --rotation-weight and --translation-weight
-     to penalize large rotation and translation changes. For example
-     bundle_adjust can effectively constrain the adjustments to be
-     translation only.
+     to penalize large rotation and translation changes.
    * Added the option --fixed-camera-indices to keep some cameras
      fixed while optimizing others. 
    * Can read each of pc_align's output transforms and apply it
-     to the input cameras via --initial-transform.
+     to the input cameras via --initial-transform, to be able to 
+     bring the cameras in the same coordinate system as the aligned
+     terrain.
    * Can read the adjustments from a previous invocation of this
      program via --input-adjustments-prefix.
    * Renamed --local-pinhole to --create-pinhole-cameras.
- 
-   * Added the parameter --nodata-value. 
+   * Added the parameter --nodata-value to ignore pixels at and below
+     a threshold.
 
  - stereo_gui
    * Can view SPOT5 .BIL files.
 
  - pc_align
-   * Add the ability to help the tool with an initial translation,
-     to be used for gross offsets. The option is --initial-ned-translation. 
+   * Add the ability to help the tool with an initial translation
+     specified as North-East-Down vector, to be used to correct known
+     gross offsets before proceeding with alignment. The option is
+     --initial-ned-translation.
 
  - dem_mosaic
    * If the -o option value is specified as filename.tif, all mosaic will be
@@ -64,8 +68,12 @@
    * Added the ability to apply a filter to the cloud points in each circular
      neighborhood before gridding. In addition to the current weighted average
      option, it supports min, max, mean, median, stddev, count, nmad,
-     and percentile.
- 
+     and percentile filters. The --search-radius-factor paramter can
+     control the neighborhood size.
+   * Sped up hole-filling in ortho image generation. 
+   * Added the option --orthoimage-hole-fill-extra-len to make hole-filling
+     more aggressive by first extrapolating the cloud.
+
  - wv_correct:
    * Supports WV2 TDI = 32 in reverse scan direction.
 

@@ -59,7 +59,6 @@ namespace asp{
     bool    m_use_alpha;
     int     m_block_size;
     BBox2   m_projwin;
-    int     m_hole_fill_len;
     ImageViewRef<double> const& m_error_image;
     double  m_error_cutoff;
     Vector2 m_median_filter_params;
@@ -170,22 +169,14 @@ namespace asp{
 
     double spacing() const { return m_spacing; }
 
-    // We may set m_hole_fill_len > 0 only during orthoimage generation
-    void set_hole_fill_len(int hole_fill_len){
+    // Convert the hole fill length from output image pixels to point cloud pixels.
+    int pc_hole_fill_len(int hole_fill_len){
 
-      // Need this check, as sometimes m_default_spacing which we use
-      // below may not be set.
-      if (hole_fill_len == 0){
-        m_hole_fill_len = 0;
-        return;
-      }
-
-      // Important: the hole fill len was set in DEM pixels. We convert it
-      // here to point cloud pixels, as what we will fill is holes
-      // in the point cloud before creating the image.
+      if (hole_fill_len ==0) return 0;
+        
       VW_ASSERT(m_spacing > 0 && m_default_spacing > 0,
                 ArgumentErr() << "Expecting positive DEM spacing.");
-      m_hole_fill_len = (int)round((m_spacing/m_default_spacing)*hole_fill_len);
+      return (int)round((m_spacing/m_default_spacing)*hole_fill_len);
     }
 
     BBox3 bounding_box() const { return m_snapped_bbox; }
@@ -193,9 +184,17 @@ namespace asp{
     // Return the affine georeferencing transform.
     vw::Matrix<double,3,3> geo_transform();
 
-    /// ??
-    void find_bdbox_robust_to_outliers(std::vector<BBoxPair > const& point_image_boundaries, BBox3 & bbox);
+    /// Do some kind of percentile-based statistics to remove points in the cloud
+    /// whose (x, y) coordinates are way off. This was not tested and may not be the
+    /// right solution. Ideally we will estimate decent (x, y) bounds at the same
+    /// time when we estimate the max valid triangulation error.
+    void find_bdbox_robust_to_outliers(std::vector<BBoxPair > const& point_image_boundaries,
+                                       BBox3 & bbox);
 
+    ImageViewRef<Vector3> get_point_image() { return m_point_image; }
+    
+    void set_point_image(ImageViewRef<Vector3> point_image) {m_point_image = point_image;}
+    
   };
 
   // TODO: Make this a BBox class function!!!

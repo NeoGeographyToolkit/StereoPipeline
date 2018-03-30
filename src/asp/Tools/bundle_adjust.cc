@@ -3789,11 +3789,13 @@ int main(int argc, char* argv[]) {
     if (opt.create_pinhole && have_est_camera_positions)
       init_pinhole_model_with_camera_positions(opt, estimated_camera_gcc);
 
-    // If we have GPC's for pinhole cameras, try to do a simple affine initialization
-    //  of the camera parameters.
-    // - This function also updates all the ControlNetwork world point positions
-    // - We could do this for other camera types too, but it would require us to be able
-    //   to adjust our camera model positions.  Otherwise we could init the adjustment values...
+    // If we have GPC's for pinhole cameras, try to do a simple affine
+    // initialization of the camera parameters.
+    // - This function also updates all the ControlNetwork world point
+    //   positions.
+    // - We could do this for other camera types too, but it would
+    //   require us to be able to adjust our camera model positions.
+    //   Otherwise we could init the adjustment values.
     if (opt.gcp_files.size() > 0) {
 
       if (opt.create_pinhole && !have_est_camera_positions)

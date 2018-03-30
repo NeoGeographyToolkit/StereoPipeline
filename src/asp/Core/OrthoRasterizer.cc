@@ -51,30 +51,6 @@ namespace asp{
     }
   };
 
-  // If the third component of a vector is NaN, mask that vector as invalid
-  template<class VectorT>
-  struct NaN2Mask: public ReturnFixedType< PixelMask<VectorT> > {
-    NaN2Mask(){}
-    PixelMask<VectorT> operator() (VectorT const& vec) const {
-      if (boost::math::isnan(vec.z()))
-        return PixelMask<VectorT>(); // invalid
-      else
-        return PixelMask<VectorT>(vec); // valid
-    }
-  };
-
-  // Reverse the operation of NaN2Mask
-  template<class VectorT>
-  struct Mask2NaN: public ReturnFixedType<VectorT> {
-    Mask2NaN(){}
-    VectorT operator() (PixelMask<VectorT> const& pvec) const {
-      if (!is_valid(pvec))
-        return VectorT(0, 0, std::numeric_limits<typename VectorT::value_type>::quiet_NaN());
-      else
-        return pvec.child();
-    }
-  };
-
   void dump_image(std::string const& prefix, BBox2i const& box,
 		  ImageViewRef<Vector3> const& I){
 
@@ -325,7 +301,7 @@ namespace asp{
       for (int col = 0; col < nc; col++){
         int start_col = std::max(col-1, 0      );
         int stop_col  = std::min(col+1, max_col);
-	      for (int row = 0; row < nr; row++){
+        for (int row = 0; row < nr; row++){
           int start_row = std::max(row-1, 0      );
           int stop_row  = std::min(row+1, max_row);
 
@@ -381,7 +357,6 @@ namespace asp{
     m_minz_as_default(true), m_use_alpha(false),
     m_block_size(pc_tile_size),
     m_projwin(projwin),
-    m_hole_fill_len(0),
     m_error_image(error_image), m_error_cutoff(-1.0),
     m_median_filter_params(median_filter_params), m_erode_len(erode_len),
     m_default_grid_size_multiplier(default_grid_size_multiplier),
@@ -401,7 +376,8 @@ namespace asp{
     else if (filter == "stddev"          ) m_filter = asp::f_stddev;
     else if (filter == "count"           ) m_filter = asp::f_count;
     else if (filter == "nmad"            ) m_filter = asp::f_nmad;
-    else if (sscanf (filter.c_str(), "%lf-pct", &m_percentile) == 1) m_filter = asp::f_percentile;
+    else if (sscanf (filter.c_str(), "%lf-pct", &m_percentile) == 1)
+      m_filter = asp::f_percentile;
   else
     vw_throw( ArgumentErr() << "OrthoRasterize: unknown filter: " << filter << ".\n" );
 
@@ -486,10 +462,12 @@ namespace asp{
       double error_percentile = estim_max_error*cutoff_index/double(hist_size);
       // Multiply by the outlier factor
       m_error_cutoff = factor*error_percentile;
-      vw_out() << "Automatic triangulation error cutoff is " << m_error_cutoff << " meters.\n";
+      vw_out() << "Automatic triangulation error cutoff is " << m_error_cutoff
+               << " meters.\n";
     }else if (max_valid_triangulation_error > 0.0){
       m_error_cutoff = max_valid_triangulation_error;
-      vw_out() << "Manual triangulation error cutoff is " << m_error_cutoff << " meters.\n";
+      vw_out() << "Manual triangulation error cutoff is " << m_error_cutoff
+               << " meters.\n";
     }
 
 
@@ -576,18 +554,19 @@ namespace asp{
 
   } // End function initialize_spacing()
 
-
-
-
   // Function to convert pixel coordinates to the point domain
-  BBox3 OrthoRasterizerView::pixel_to_point_bbox( BBox2 const& px ) const {
-    BBox3 output = m_snapped_bbox;
+  BBox3 OrthoRasterizerView::pixel_to_point_bbox( BBox2 const& inbox ) const {
+    BBox3 outbox = m_snapped_bbox;
     int d = (int)m_use_surface_sampling;
-    output.min().x() = m_snapped_bbox.min().x() + ((double(px.min().x() - d)) * m_spacing);
-    output.max().x() = m_snapped_bbox.min().x() + ((double(px.max().x() - d)) * m_spacing);
-    output.min().y() = m_snapped_bbox.min().y() + ((double(rows() - px.max().y() - d)) * m_spacing);
-    output.max().y() = m_snapped_bbox.min().y() + ((double(rows() - px.min().y() - d)) * m_spacing);
-    return output;
+    outbox.min().x() = m_snapped_bbox.min().x() + ((double(inbox.min().x() - d))
+                                                   * m_spacing);
+    outbox.max().x() = m_snapped_bbox.min().x() + ((double(inbox.max().x() - d))
+                                                   * m_spacing);
+    outbox.min().y() = m_snapped_bbox.min().y() + ((double(rows() - inbox.max().y() - d))
+                                                   * m_spacing);
+    outbox.max().y() = m_snapped_bbox.min().y() + ((double(rows() - inbox.min().y() - d))
+                                                   * m_spacing);
+    return outbox;
   }
 
   /// \cond INTERNAL
@@ -609,7 +588,8 @@ namespace asp{
     }
 
     // Setup a software renderer and the orthographic view matrix
-    vw::stereo::SoftwareRenderer renderer(bbox_1.width(), bbox_1.height(), &render_buffer(0,0) );
+    vw::stereo::SoftwareRenderer renderer(bbox_1.width(), bbox_1.height(),
+                                          &render_buffer(0,0) );
     renderer.Ortho2D(local_3d_bbox.min().x(), local_3d_bbox.max().x(),
                      local_3d_bbox.min().y(), local_3d_bbox.max().y());
 
@@ -710,7 +690,7 @@ namespace asp{
       // Pull a copy of the input image in memory.  Expand the image
       // to be able to see a bit beyond when filling holes.
       BBox2i biased_block = block;
-      int bias = m_hole_fill_len + m_median_filter_params[0]/2 + m_erode_len;
+      int bias = m_median_filter_params[0]/2 + m_erode_len;
       biased_block.expand(bias);
       biased_block.crop(vw::bounding_box(m_point_image));
       ImageView<Vector3> point_copy = crop(m_point_image, biased_block);
@@ -718,13 +698,6 @@ namespace asp{
       remove_outliers(point_copy, m_error_image, m_error_cutoff, biased_block);
       filter_by_median(point_copy, m_median_filter_params);
       erode_image(point_copy, m_erode_len);
-
-      if (m_hole_fill_len > 0)
-        point_copy = per_pixel_filter(asp::fill_holes_grass
-				      (per_pixel_filter(point_copy,
-							NaN2Mask<Vector3>()),
-				       m_hole_fill_len),
-				      Mask2NaN<Vector3>());
 
       // Crop back to the area of interest
       point_copy = crop(point_copy, block - biased_block.min());
@@ -736,7 +709,7 @@ namespace asp{
       for ( int32 row = 0; row < point_copy.rows()-d; ++row ) {
         PointAcc point_ul = row_acc;
 
-	      for ( int32 col = 0; col < point_copy.cols()-d; ++col ) {
+        for ( int32 col = 0; col < point_copy.cols()-d; ++col ) {
 
           PointAcc point_ur = point_ul; point_ur.next_col();
           PointAcc point_ll = point_ul; point_ll.next_row();
@@ -803,7 +776,8 @@ namespace asp{
     else
       result = flip_vertical(d_buffer);
 
-    // Loop through result here and count up how many pixels have been changed from the default value.
+    // Loop through result here and count up how many pixels have been
+    // changed from the default value.
     size_t num_unset = 0;
     for (int r=0; r<result.rows(); ++r) {
       for (int c=0; c<result.cols(); ++c) {
@@ -821,7 +795,8 @@ namespace asp{
       (*m_num_invalid_pixels) += num_unset;
     }
 
-    return prerasterize_type (result, BBox2i(-bbox_1.min().x(), -bbox_1.min().y(), cols(), rows()));
+    return prerasterize_type (result, BBox2i(-bbox_1.min().x(),
+                                             -bbox_1.min().y(), cols(), rows()));
   }
 
 
