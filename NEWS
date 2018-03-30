@@ -56,7 +56,7 @@
 
  - pc_align
    * Add the ability to help the tool with an initial translation
-     specified as North-East-Down vector, to be used to correct known
+     specified as a North-East-Down vector, to be used to correct known
      gross offsets before proceeding with alignment. The option is
      --initial-ned-translation.
 
