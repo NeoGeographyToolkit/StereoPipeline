@@ -70,7 +70,9 @@
      option, it supports min, max, mean, median, stddev, count, nmad,
      and percentile filters. The --search-radius-factor paramter can
      control the neighborhood size.
-   * Sped up hole-filling in ortho image generation. 
+   * Sped up hole-filling in ortho image generation. If this creates
+     more holes than before, it is suggested to relax all outlier filtering,
+     including via --remove-outliers-params, median filtering, and erosion. 
    * Added the option --orthoimage-hole-fill-extra-len to make hole-filling
      more aggressive by first extrapolating the cloud.
 
