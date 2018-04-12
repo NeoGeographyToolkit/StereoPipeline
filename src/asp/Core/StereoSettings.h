@@ -184,7 +184,7 @@ namespace asp {
     vw::Vector2i rm_half_kernel;      // Low confidence pixel removal kernel size
     int    max_mean_diff;             // Max mean diff between pixel and neighbors
     int    rm_min_matches;            // Min # of pxl to be matched to keep pxl
-    int    rm_threshold;              // rm_treshold < disp[n]-disp[m] reject pxl
+    double rm_threshold;              // rm_treshold < disp[n]-disp[m] reject pxl
     double rm_quantile_percentile;    // For quantile based filtering, reject low-res correlation
     double rm_quantile_multiple;      //   values >  multiple * quantile.
     int    rm_cleanup_passes;         // Number of times to perform cleanup
