@@ -55,9 +55,12 @@ def checkIfUrlExists(url):
     '''Return true if the given IceBrige folder URL is valid'''
     p    = urlparse(url)
     conn = httplib.HTTPConnection(p.netloc)
-    conn.request('HEAD', p.path)
-    resp = conn.getresponse()
-    
+    try:
+        conn.request('HEAD', p.path)
+        resp = conn.getresponse()
+    except Exception as e:
+        print 'Error reading URL ' + url + ' --> ' + str(e)
+        return False
     # Invalid pages return 404, valid pages should return one of the numbers below.
     # This is not robust enough!
     

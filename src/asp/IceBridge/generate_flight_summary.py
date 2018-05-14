@@ -96,6 +96,8 @@ def getFailureCause(batchFolder):
     FAIL_NO_LIDAR_DEM_OVERLAP = 11
     FAIL_TINY_DEM = 12
     FAIL_NO_LIDAR_MATCH = 13
+    FAIL_CAMERA_GSD = 14
+
     
     errorSummaries = {} # Human readable error codes
     errorSummaries[UNKNOWN      ] = 'Unknown failure'
@@ -113,6 +115,8 @@ def getFailureCause(batchFolder):
     errorSummaries[FAIL_NO_LIDAR_DEM_OVERLAP] = 'No lidar-DEM overlap'
     errorSummaries[FAIL_TINY_DEM] = 'Generated DEM is too small'
     errorSummaries[FAIL_NO_LIDAR_MATCH] = 'Failed to find matching lidar file for image'
+    errorSummaries[FAIL_CAMERA_GSD] = 'Error computing camera GSD in process_icebridge_batch'
+
     
     errorLogText = {} # Text in the log file that indicates an error occurred
     errorLogText[SUCCESS      ] = 'Finished script process_icebridge_batch!'
@@ -129,6 +133,9 @@ def getFailureCause(batchFolder):
     errorLogText[FAIL_NO_LIDAR_DEM_OVERLAP] = 'No overlap between lidar DEM and stereo DEM'
     errorLogText[FAIL_TINY_DEM] = 'is less than minumum size'
     errorLogText[FAIL_NO_LIDAR_MATCH] = 'Failed to find matching lidar file for image'
+    errorLogText[FAIL_CAMERA_GSD] = 'Failed to compute GSD for any camera'
+
+    
 
     foundError = UNKNOWN
 
