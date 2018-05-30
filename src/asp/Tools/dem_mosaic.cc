@@ -71,7 +71,6 @@ typedef float RealT;
 // This is used for various tolerances
 double g_tol = 1e-6;
 
-
 // TODO: Fold modifications into VW!
 template<class ImageT>
 void centerline_weights2(ImageT const& img, ImageView<double> & weights,
@@ -1770,31 +1769,31 @@ int main( int argc, char *argv[] ) {
                                        opt.out_nodata_value, opt, tpc);
       else if (opt.output_type == "Byte") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-                                       vw::round_and_clamp<ImageView<RealT>, uint8>(out_dem),
+				       per_pixel_filter(out_dem, RoundAndClamp<uint8, RealT>()),
                                        crop_georef,
                                        vw::round_and_clamp<uint8>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "UInt16") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-                                       vw::round_and_clamp<ImageView<RealT>, uint16>(out_dem),
+				       per_pixel_filter(out_dem, RoundAndClamp<uint16, RealT>()),
                                        crop_georef,
                                        vw::round_and_clamp<uint16>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "Int16") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-                                       vw::round_and_clamp<ImageView<RealT>, int16>(out_dem),
+				       per_pixel_filter(out_dem, RoundAndClamp<int16, RealT>()),
                                        crop_georef,
                                        vw::round_and_clamp<int16>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "UInt32") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-                                       vw::round_and_clamp<ImageView<RealT>, uint32>(out_dem),
+				       per_pixel_filter(out_dem, RoundAndClamp<uint32, RealT>()),
                                        crop_georef,
                                        vw::round_and_clamp<uint32>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "Int32") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
-                                       vw::round_and_clamp<ImageView<RealT>, int32>(out_dem),
+				       per_pixel_filter(out_dem, RoundAndClamp<int32, RealT>()),
                                        crop_georef,
                                        vw::round_and_clamp<int32>(opt.out_nodata_value),
                                        opt, tpc);

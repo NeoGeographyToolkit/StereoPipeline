@@ -653,37 +653,37 @@ int main( int argc, char *argv[] ) {
                                               has_georef, georef, has_nodata, nodata, opt, tpc);
     else if (opt.output_type == "Byte") 
       vw::cartography::block_write_gdal_image(opt.output_image,
-                                              vw::round_and_clamp<ImageView<float>,
-                                              uint8>(corr_img),
-                                              has_georef, georef, has_nodata,
+					      per_pixel_filter(corr_img,
+							       RoundAndClamp<uint8, float>()),
+					      has_georef, georef, has_nodata,
                                               vw::round_and_clamp<uint8>(nodata),
                                               opt, tpc);
     else if (opt.output_type == "UInt16") 
       vw::cartography::block_write_gdal_image(opt.output_image,
-                                              vw::round_and_clamp<ImageView<float>,
-                                              uint16>(corr_img),
+					      per_pixel_filter(corr_img,
+							       RoundAndClamp<uint16, float>()),
                                               has_georef, georef, has_nodata,
                                               vw::round_and_clamp<uint16>(nodata),
                                               opt, tpc);
     else if (opt.output_type == "Int16") 
       vw::cartography::block_write_gdal_image(opt.output_image,
-                                              vw::round_and_clamp<ImageView<float>,
-                                              int16>(corr_img),
+					      per_pixel_filter(corr_img,
+							       RoundAndClamp<int16, float>()),
                                               has_georef, georef, has_nodata,
                                               vw::round_and_clamp<int16>(nodata),
                                               opt, tpc);
 
     else if (opt.output_type == "UInt32") 
       vw::cartography::block_write_gdal_image(opt.output_image,
-                                              vw::round_and_clamp<ImageView<float>,
-                                              uint32>(corr_img),
+					      per_pixel_filter(corr_img,
+							       RoundAndClamp<uint32, float>()),
                                               has_georef, georef, has_nodata,
                                               vw::round_and_clamp<uint32>(nodata),
                                               opt, tpc);
     else if (opt.output_type == "Int32") 
       vw::cartography::block_write_gdal_image(opt.output_image,
-                                              vw::round_and_clamp<ImageView<float>,
-                                              int32>(corr_img),
+					      per_pixel_filter(corr_img,
+							       RoundAndClamp<int32, float>()),
                                               has_georef, georef, has_nodata,
                                               vw::round_and_clamp<int32>(nodata),
                                               opt, tpc);

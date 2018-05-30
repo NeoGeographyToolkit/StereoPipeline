@@ -229,23 +229,40 @@ void write_parallel_type( std::string              const& filename,
                           Options                  const& opt,
                           TerminalProgressCallback const& tpc ) {
 
+  typedef typename ImageT::pixel_type InputType;
+  
   if (opt.output_type == "Float32") 
     write_parallel_cond(filename, image, georef, has_nodata, nodata_val, opt, tpc);
   else if (opt.output_type == "Byte") 
-    write_parallel_cond(filename, vw::round_and_clamp<ImageT, uint8>(image),
-                        georef, has_nodata, vw::round_and_clamp<uint8>(nodata_val), opt, tpc);
+    write_parallel_cond(filename,
+			per_pixel_filter(image, RoundAndClamp<uint8, InputType>()),
+			georef, has_nodata,
+			vw::round_and_clamp<uint8>(nodata_val),
+			opt, tpc);
   else if (opt.output_type == "UInt16") 
-    write_parallel_cond(filename, vw::round_and_clamp<ImageT, uint16>(image),
-                        georef, has_nodata, vw::round_and_clamp<uint16>(nodata_val), opt, tpc);
+    write_parallel_cond(filename,
+			per_pixel_filter(image, RoundAndClamp<uint16, InputType>()),
+                        georef, has_nodata,
+			vw::round_and_clamp<uint16>(nodata_val),
+			opt, tpc);
   else if (opt.output_type == "Int16") 
-    write_parallel_cond(filename, vw::round_and_clamp<ImageT, int16>(image),
-                        georef, has_nodata, vw::round_and_clamp<int16>(nodata_val), opt, tpc);
+    write_parallel_cond(filename,
+			per_pixel_filter(image, RoundAndClamp<int16, InputType>()),
+                        georef, has_nodata,
+			vw::round_and_clamp<int16>(nodata_val),
+			opt, tpc);
   else if (opt.output_type == "UInt32") 
-    write_parallel_cond(filename, vw::round_and_clamp<ImageT, uint32>(image),
-                        georef, has_nodata, vw::round_and_clamp<uint32>(nodata_val), opt, tpc);
+    write_parallel_cond(filename,
+			per_pixel_filter(image, RoundAndClamp<uint32, InputType>()),
+                        georef, has_nodata,
+			vw::round_and_clamp<uint32>(nodata_val),
+			opt, tpc);
   else if (opt.output_type == "Int32") 
-    write_parallel_cond(filename, vw::round_and_clamp<ImageT, int32>(image),
-                        georef, has_nodata, vw::round_and_clamp<int32>(nodata_val), opt, tpc);
+    write_parallel_cond(filename,
+			per_pixel_filter(image, RoundAndClamp<int32, InputType>()),
+                        georef, has_nodata,
+			vw::round_and_clamp<int32>(nodata_val),
+			opt, tpc);
   else
     vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
   
