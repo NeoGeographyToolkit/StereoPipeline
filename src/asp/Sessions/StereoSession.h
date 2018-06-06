@@ -179,10 +179,11 @@ namespace asp {
     virtual void main_or_rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
                                            boost::shared_ptr<vw::camera::CameraModel> &cam2);
     
+    // TODO: What exactly distinguises this function???
     /// Method that produces a Camera Model from input files.
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model(std::string const& image_file,
-		 std::string const& camera_file = "") = 0;
+                 std::string const& camera_file = "") = 0;
 
     /// Method to help determine what session we actually have
     virtual std::string name() const = 0;
@@ -208,6 +209,9 @@ namespace asp {
     // Peek inside the images and camera models and return the datum and projection,
     // or at least the datum, packaged in a georef.
     virtual vw::cartography::GeoReference get_georef();
+
+    /// Get the crop ROI applied to the two input images.
+    void get_input_image_crops(vw::BBox2i &left_image_crop, vw::BBox2i &right_image_crop) const;
 
     // All Stereo Session children must define the following which are not defined in the the parent:
     //   typedef VWStereoModel stereo_model_type;

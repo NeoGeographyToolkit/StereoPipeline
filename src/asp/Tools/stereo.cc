@@ -476,6 +476,9 @@ namespace asp {
     if ( (left_resource->channels() > 1) || (right_resource->channels() > 1) )
       vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n" << usage << general_options );
 
+    if ((stereo_settings().bundle_adjust_prefix != "") && (stereo_settings().alignment_method == "epipolar"))
+      vw_throw(ArgumentErr() << "Error: Epipolar alignment does not support bundle adjust prefixes.\n\n" << usage << general_options );
+    
     // Replace normal default values with these when SGM is enabled.
     // - TODO: Move these somewhere easier to find!
     const int SGM_DEFAULT_COST_MODE            = 4;

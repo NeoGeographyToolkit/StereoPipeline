@@ -38,6 +38,7 @@ using namespace vw::camera;
 //TODO: There is a lot of duplicate code here with the Pinhole
 //class. Common functionality must be factored out.
 
+
 void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
                                                             std::string const& left_input_file,
                                                             std::string const& right_input_file,
@@ -51,18 +52,18 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   vw::cartography::GeoReference left_georef, right_georef;
   bool exit_early =
     StereoSession::shared_preprocessing_hook(options,
-					     left_input_file,   right_input_file,
-					     left_output_file,  right_output_file,
-					     left_cropped_file, right_cropped_file,
-					     left_nodata_value, right_nodata_value,
-					     has_left_georef,   has_right_georef,
-					     left_georef,       right_georef);
+                                             left_input_file,   right_input_file,
+                                             left_output_file,  right_output_file,
+                                             left_cropped_file, right_cropped_file,
+                                             left_nodata_value, right_nodata_value,
+                                             has_left_georef,   has_right_georef,
+                                             left_georef,       right_georef);
   if (exit_early) 
     return;
 
   // Load the cropped images
-  DiskImageView<float> left_disk_image(left_cropped_file),
-    right_disk_image(right_cropped_file);
+  DiskImageView<float> left_disk_image (left_cropped_file),
+                       right_disk_image(right_cropped_file);
 
   ImageViewRef< PixelMask<float> > left_masked_image
     = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
@@ -78,7 +79,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   // Use no-data in interpolation and edge extension.
   PixelMask<float> nodata_pix(0);
   nodata_pix.invalidate();
-  ValueEdgeExtension< PixelMask<float> > ext(nodata_pix); 
+  ValueEdgeExtension< PixelMask<float> > ext_nodata(nodata_pix); 
 
   if ( stereo_settings().alignment_method == "epipolar" ) {
 
@@ -91,6 +92,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
          boost::ends_with(lcase_file, ".tsai"   )   ) {
 
       // This loads epipolar-aligned camera models.
+      // - The out sizes incorporate the crop amount if any, the camera models 
       Vector2i left_out_size, right_out_size;
       load_camera_models( left_cam, right_cam, left_out_size, right_out_size );
       
@@ -102,15 +104,20 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
         left_pin_model->write(m_out_prefix + "-L.tsai");
       if (right_pin_model)
         right_pin_model->write(m_out_prefix + "-R.tsai");
-      
+
+      // Get the input image crop regions, if any.
+      BBox2i left_image_in_roi, right_image_in_roi;
+      get_input_image_crops(left_image_in_roi, right_image_in_roi);
+
       // Transform the input images to be as if they were captured by the
       //  epipolar-aligned camera models, aligning the two images.
       get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
                                               left_cam, right_cam,
                                               left_masked_image, right_masked_image,
+                                              left_image_in_roi, right_image_in_roi,
                                               left_out_size, right_out_size,
                                               Limg, Rimg,
-                                              ext,
+                                              ext_nodata,
                                               BilinearInterpolation());
     } else { // Handle CAHV derived models
       
@@ -119,7 +126,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
       get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
                                       left_cam, right_cam,
                                       left_masked_image, right_masked_image,
-                                      Limg, Rimg, ext);
+                                      Limg, Rimg, ext_nodata);
     }                                    
     
   } else if ( stereo_settings().alignment_method == "homography" ||
@@ -204,7 +211,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                           TerminalProgressCallback("asp","\t  L:  ") );
   vw_out() << "\t--> Writing: " << right_output_file << ".\n";
   block_write_gdal_image( right_output_file,
-                          apply_mask(crop(edge_extend(Rimg, ext),
+                          apply_mask(crop(edge_extend(Rimg, ext_nodata), // Force -R.tif to be the same size as -L.tif! ???
                                           bounding_box(Limg)), output_nodata),
                           has_right_georef, right_georef,
                           has_nodata, output_nodata,

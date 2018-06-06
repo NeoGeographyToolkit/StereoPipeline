@@ -240,9 +240,9 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
     pinPtr->pinhole_cam_trans(left_trans2, right_trans2);
   }
 
-  std::string left_file = opt_vec[0].in_file1;
+  std::string left_file  = opt_vec[0].in_file1;
   std::string right_file = opt_vec[0].in_file2;
-  std::string prefix = opt_vec[0].out_prefix;
+  std::string prefix     = opt_vec[0].out_prefix;
 
   typedef typename DisparityT::pixel_type DispPixelT;
 

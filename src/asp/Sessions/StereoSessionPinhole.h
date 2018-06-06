@@ -51,10 +51,15 @@ namespace asp {
 
     static StereoSession* construct() { return new StereoSessionPinhole; }
 
-    /// Override this function
+    /// TODO: How is this supposed to work???
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model(std::string const& image_file,
                  std::string const& camera_file = "");
+
+    /// Override this function to make sure it properly generates the
+    ///  aligned camera models.
+    virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
+                               boost::shared_ptr<vw::camera::CameraModel> &cam2);
 
     /// Specialized function to load both camera models and find their output sizes
     void load_camera_models(boost::shared_ptr<vw::camera::CameraModel> &left_cam,
@@ -102,7 +107,7 @@ namespace asp {
                                          float nodata1, float nodata2);
  };
 
-  // TODO: Move this to a Pinhole loader class
+  /// TODO: What is this function supposed to do?
   boost::shared_ptr<vw::camera::CameraModel>
   load_adj_pinhole_model(std::string const& image_file, std::string const& camera_file,
                          std::string const& left_image_file, std::string const& right_image_file,

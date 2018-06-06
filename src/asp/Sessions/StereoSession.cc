@@ -465,6 +465,24 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
   return false; // don't exit early
 }
 
+void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop, vw::BBox2i &right_image_crop) const {
+
+  // Set the ROIs to the entire image if the input crop windows are not set.
+  Vector2i left_size  = file_image_size(m_left_image_file );
+  Vector2i right_size = file_image_size(m_right_image_file);
+
+  if (stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0))
+    left_image_crop  = stereo_settings().left_image_crop_win;
+  else
+    left_image_crop = BBox2i(0, 0, left_size [0], left_size [1]);
+
+  if (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0))
+    right_image_crop = stereo_settings().right_image_crop_win;
+  else
+    right_image_crop = BBox2i(0, 0, right_size[0], right_size[1]);
+}
+
+
 // TODO: Find a better place for these functions!
 
 // If both left-image-crop-win and right-image-crop win are specified,

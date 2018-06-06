@@ -53,6 +53,7 @@ namespace vw {
 //       Why does the Pinhole Session need to use something different?
 
 
+
 // Helper function for determining image alignment.
 vw::Matrix3x3
 asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
@@ -141,7 +142,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   // Use no-data in interpolation and edge extension.
   PixelMask<float> nodata_pix(0);
   nodata_pix.invalidate();
-  ValueEdgeExtension< PixelMask<float> > ext(nodata_pix); 
+  ValueEdgeExtension< PixelMask<float> > ext_nodata(nodata_pix); 
   
   ImageViewRef< PixelMask<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
@@ -162,14 +163,22 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
       // Write out the camera models used to generate the aligned images.
       dynamic_cast<PinholeModel*>(left_cam.get ())->write(m_out_prefix + "-L.tsai");
       dynamic_cast<PinholeModel*>(right_cam.get())->write(m_out_prefix + "-R.tsai");
-      
+
+      // Get the input crop ROIs, if any.
+      BBox2i left_image_in_roi, right_image_in_roi;
+      get_input_image_crops(left_image_in_roi, right_image_in_roi);
+
+      // Transform the input images to be as if they were captured by the
+      //  epipolar-aligned camera models, aligning the two images.
       get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
                                               left_cam, right_cam,
                                               left_masked_image, right_masked_image,
+                                              left_image_in_roi, right_image_in_roi,
                                               left_out_size, right_out_size,
                                               Limg, Rimg,
-                                              ext,
+                                              ext_nodata,
                                               BilinearInterpolation());
+
     } else { // Handle CAHV derived models
     
       camera_models( left_cam, right_cam );
@@ -177,7 +186,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
       get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
                                       left_cam, right_cam,
                                       left_masked_image, right_masked_image,
-                                      Limg, Rimg, ext);
+                                      Limg, Rimg, ext_nodata);
     }                                    
 
   } else if ( stereo_settings().alignment_method == "homography" ) {
@@ -224,7 +233,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
                           TerminalProgressCallback("asp","\t  L:  ") );
   vw_out() << "\t--> Writing: " << right_output_file << ".\n";
   block_write_gdal_image( right_output_file,
-                          apply_mask(crop(edge_extend(Rimg, ext),
+                          apply_mask(crop(edge_extend(Rimg, ext_nodata),
                                           bounding_box(Limg)), output_nodata),
                           has_right_georef, right_georef,
                           has_nodata, output_nodata,
@@ -252,7 +261,7 @@ void asp::StereoSessionPinhole::get_unaligned_camera_models(
                                   m_right_image_file, m_right_camera_file, right_pixel_offset);                                 
 }
 
-
+// TODO: Should this function incorporate alignment at all ??????
 boost::shared_ptr<vw::camera::CameraModel>
 load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
                        std::string const& left_image_file,  std::string const& right_image_file,
@@ -302,7 +311,9 @@ load_adj_pinhole_model(std::string const& image_file,       std::string const& c
     Vector2i epi_size1, epi_size2; // TODO: Use these!
     resize_epipolar_cameras_to_fit(left_pin, right_pin,
                                    *(epipolar_left_pin.get()), *(epipolar_right_pin.get()),
-                                   left_size, right_size, epi_size1, epi_size2);
+                                   BBox2i(Vector2i(0,0), left_size),
+                                   BBox2i(Vector2i(0,0), right_size),
+                                   epi_size1, epi_size2);
 
     if (is_left_camera)
       return load_adjusted_model(epipolar_left_pin, image_file, camera_file, pixel_offset);
@@ -336,7 +347,14 @@ asp::StereoSessionPinhole::camera_model(std::string const& image_file,
   return asp::load_adj_pinhole_model(image_file, camera_file,
                                 m_left_image_file, m_right_image_file,
                                 m_left_camera_file, m_right_camera_file,
-                                m_input_dem);
+                                m_input_dem);  
+}
+
+
+void asp::StereoSessionPinhole::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
+                                              boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+  vw::Vector2i left_out_size, right_out_size;
+  load_camera_models(cam1, cam2, left_out_size, right_out_size);
 }
 
 
@@ -356,9 +374,9 @@ void asp::StereoSessionPinhole::load_camera_models(
     return;
   }
 
-  // PinholeModel case is more complicated
-  // TODO: Don't duplicate as much code!
-  // TODO: Verify this works with offsets!
+  // PinholeModel case is more complicated.
+  // - The camera models returned do not include a crop offset, but the aligned camera models have been shifted
+  //   so that they are aligned after the crop has been applied.
 
   PinholeModel left_pin (m_left_camera_file );
   PinholeModel right_pin(m_right_camera_file);
@@ -371,19 +389,21 @@ void asp::StereoSessionPinhole::load_camera_models(
   // Expand epipolar cameras to contain the entire source images.
   Vector2i left_size  = file_image_size(m_left_image_file );
   Vector2i right_size = file_image_size(m_right_image_file);
+
+  // Get the input image crop regions, if any.
+  BBox2i left_bbox, right_bbox;
+  get_input_image_crops(left_bbox, right_bbox);
+
+  // Shift the epipolar cameras to line up with the top left corner of the image and also
+  //  get the pixel sizes of -L.tif and -R.tif.
+  // - These camera model still represent the entire image as if no cropping occurred.
   resize_epipolar_cameras_to_fit(left_pin, right_pin,
                                  *(epipolar_left_pin.get()), *(epipolar_right_pin.get()),
-                                 left_size, right_size, left_out_size, right_out_size);
+                                 left_bbox, right_bbox, left_out_size, right_out_size);
 
-
-  // Retrieve the pixel offset (if any) to cropped images
-  vw::Vector2 left_pixel_offset  = camera_pixel_offset(m_input_dem, m_left_image_file,
-                                                       m_right_image_file, m_left_image_file);
-  vw::Vector2 right_pixel_offset = camera_pixel_offset(m_input_dem, m_left_image_file,
-                                                       m_right_image_file, m_right_image_file);
-
-  left_cam  = load_adjusted_model(epipolar_left_pin,  m_left_image_file,  m_left_camera_file,  left_pixel_offset );
-  right_cam = load_adjusted_model(epipolar_right_pin, m_right_image_file, m_right_camera_file, right_pixel_offset);
+  // The pinhole epipolar case is incompatible with adjustment files so they are not loaded.
+  left_cam  = epipolar_left_pin;
+  right_cam = epipolar_right_pin;
 }
 
 
