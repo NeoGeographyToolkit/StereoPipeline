@@ -332,7 +332,8 @@ AX_PKG_ONE_OF(GSL,
 
 AX_PKG(CURL,    [], [-lcurl], [curl/curl.h])
 AX_PKG(GEOID, [], [-legm2008], [])
-
+AX_PKG(PCL,    [FLANN Z PNG BOOST BOOST_REGEX BOOST_THREAD BOOST_FILESYSTEM BOOST_SYSTEM BOOST_PROGRAM_OPTIONS BOOST_DATETIME BOOST_IOSTREAMS], 
+                    [-lpcl_common -lpcl_io_ply -lpcl_keypoints -lpcl_recognition -lpcl_search -lpcl_surface -lpcl_features   -lpcl_io -lpcl_ml -lpcl_registration -lpcl_segmentation -lpcl_tracking -lpcl_filters -lpcl_kdtree  -lpcl_octree -lpcl_sample_consensus -lpcl_stereo], [pcl/pcl_base.h])
 AX_PKG(GEOS,    [], [-lgeos -lgeos_c], [geos.h])
 AX_PKG(XERCESC, [CURL], [-lxerces-c], [xercesc/dom/DOM.hpp xercesc/util/XMLString.hpp xercesc/parsers/XercesDOMParser.hpp])
 AX_PKG(SUITESPARSE, [], [-lsuitesparseconfig], [SuiteSparse_config.h])
@@ -356,7 +357,7 @@ if test x"$host_vendor" = "xapple"; then
     OPENMPFLAGS=""
     AC_DEFINE([OSX_BUILD], [1], [Building on OSX?])
 else
-    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC SUPERLU PROTOBUF CHOLMOD GEOTIFF TIFF HDF5],[],[],[],[],[],[KAKADU])
+    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC SUPERLU PROTOBUF CHOLMOD GEOTIFF TIFF HDF5 OPENCV PCL],[],[],[],[],[],[KAKADU])
     OPENMPFLAGS="-fopenmp"
     AC_DEFINE([OSX_BUILD], [0], [Building on OSX?])
 fi
