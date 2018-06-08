@@ -370,7 +370,8 @@ void asp::StereoSessionPinhole::load_camera_models(
          !boost::ends_with(lcase_file, ".tsai"   )   ) ) {
     // Non-PinholeModel and non-epipolar case, just use the simpler handling method
     // and leave the sizes unset, they won't be used.
-    camera_models(left_cam, right_cam);
+    left_cam  = camera_model(m_left_image_file,  m_left_camera_file );
+    right_cam = camera_model(m_right_image_file, m_right_camera_file);
     return;
   }
 
@@ -385,10 +386,6 @@ void asp::StereoSessionPinhole::load_camera_models(
   boost::shared_ptr<PinholeModel> epipolar_left_pin (new PinholeModel);
   boost::shared_ptr<PinholeModel> epipolar_right_pin(new PinholeModel);
   epipolar(left_pin,  right_pin, *epipolar_left_pin, *epipolar_right_pin);
-
-  // Expand epipolar cameras to contain the entire source images.
-  Vector2i left_size  = file_image_size(m_left_image_file );
-  Vector2i right_size = file_image_size(m_right_image_file);
 
   // Get the input image crop regions, if any.
   BBox2i left_bbox, right_bbox;
