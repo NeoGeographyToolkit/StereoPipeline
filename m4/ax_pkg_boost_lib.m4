@@ -107,7 +107,7 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
           AX_LOG([Using suffix ${PKG_BOOST_SAME_SUFFIX}])
         ])
 
-        PKG_BOOST_$1_CPPFLAGS="-I${PKG_BOOST_INCDIR}"
+        PKG_BOOST_$1_CPPFLAGS="-isystem${PKG_BOOST_INCDIR}"
 
         # Check to make sure we found a working one
         CPPFLAGS="$ax_pkg_old_cppflags $PKG_BOOST_$1_CPPFLAGS"

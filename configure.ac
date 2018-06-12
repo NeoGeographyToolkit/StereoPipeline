@@ -397,7 +397,7 @@ AX_MODULE(CAMERA,   [src/asp/Camera],   [libaspCamera.la],   yes, [CORE], [VW], 
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [CORE], [VW SPICE])
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [CORE], [ISIS VW_CARTOGRAPHY])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [CAMERA ISISIO SPICEIO], [])
-AX_MODULE(GUI,      [src/asp/GUI],      [libaspGUI.la],      yes, [CORE VW_GEOMETRY], [QT], [])
+AX_MODULE(GUI,      [src/asp/GUI],      [libaspGUI.la],      yes, [CORE VW_GEOMETRY], [QT VW_BUNDLEADJUSTMENT], [])
 AX_MODULE(PYTHON,   [src/asp/Python],   [],                  yes, [],     [],   [])
 
 # Tools - The yes/no means to enable by default

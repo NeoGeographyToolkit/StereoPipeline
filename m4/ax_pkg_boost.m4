@@ -87,7 +87,7 @@ AC_DEFUN([AX_PKG_BOOST],
 
   if test "${HAVE_PKG_BOOST}" = "yes" ; then
     ax_have_pkg_bool=1
-    OTHER_CPPFLAGS="${OTHER_CPPFLAGS} -I${PKG_BOOST_INCDIR}"
+    OTHER_CPPFLAGS="${OTHER_CPPFLAGS} -isystem${PKG_BOOST_INCDIR}"
     OTHER_LDFLAGS="${OTHER_LDFLAGS} -L${PKG_BOOST_LIBDIR}"
     AC_MSG_RESULT([yes])
   elif test x"${HAVE_PKG_BOOST#no:}" != "x$HAVE_PKG_BOOST"; then # read as: if has_prefix(HAVE_PKG_BOOST, "no:")
