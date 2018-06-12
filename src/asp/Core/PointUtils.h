@@ -183,9 +183,11 @@ namespace asp {
                          asp::CsvConv const& csv_conv);
 
 
-  bool is_las       (std::string const& file); ///< Return true if this is a LAS file
-  bool is_csv       (std::string const& file); ///< Return true if this is a CSV file
-  bool is_las_or_csv(std::string const& file); ///< Return true if this file is LAS or CSV format
+  bool is_las              (std::string const& file); ///< Return true if this is a LAS file
+  bool is_csv              (std::string const& file); ///< Return true if this is a CSV file
+  bool is_pcd              (std::string const& file); ///< Return true if this is a PCD file
+  bool is_las_or_csv_or_pcd(std::string const& file); ///< Return true if this file is LAS or CSV or PCD format
+
 
   /// Builds a GeoReference from a LAS file
   bool georef_from_las(std::string const& las_file,
@@ -223,6 +225,9 @@ namespace asp {
 
   /// Returns the number of points contained in a CSV file
   boost::uint64_t csv_file_size(std::string const& file);
+
+  /// Returns the number of points contained in a PCD file
+  boost::uint64_t pcd_file_size(std::string const& file);
 
   /// Erases a file suffix if one exists and returns the base string
   std::string prefix_from_pointcloud_filename(std::string const& filename);
@@ -330,6 +335,46 @@ namespace asp {
   /// by having the z component of the point be NaN.
   vw::BBox3 pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
                             bool is_geodetic);
+
+
+  // Classes to read points from CSV and LAS files one point at a
+  // time. We basically implement an interface for CSV files
+  // mimicking the existing interface for las files in liblas.
+  class BaseReader{
+  public:
+    boost::uint64_t     m_num_points;
+    bool                m_has_georef; ///< ??
+    vw::cartography::GeoReference m_georef;
+    
+    virtual bool        ReadNextPoint() = 0;
+    virtual vw::Vector3 GetPoint() = 0;
+    virtual ~BaseReader(){}
+  };
+ 
+ // In the header file for the test, the others would ideally also have a test.
+ /// Reader for .pcd files created by the PCL library.
+ /// - Supports ascii and binary, but only three element GCC data.
+ /// - This class needs to be tested before it is used!!!!
+ class PcdReader: public BaseReader{
+  private:
+    std::string  m_pcd_file;
+    bool         m_has_valid_point;
+    bool         m_binary_format;
+    int          m_size_bytes;
+    char         m_type;
+    size_t       m_header_length_bytes;
+    vw::Vector3  m_curr_point;
+    std::ifstream * m_ifs;
+    
+    /// Read the text header of the PCD file
+    void read_header();
+    
+  public:
+    PcdReader(std::string const & pcd_file);
+    virtual bool ReadNextPoint();
+    virtual vw::Vector3 GetPoint();
+    virtual ~PcdReader();
+  }; // End class PcdReader
 
 //===================================================================================
 // Template function definitions

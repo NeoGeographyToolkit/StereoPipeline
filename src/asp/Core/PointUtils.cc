@@ -116,23 +116,6 @@ namespace asp{
 
 
 
-
-  // Classes to read points from CSV and LAS files one point at a
-  // time. We basically implement an interface for CSV files
-  // mimicking the existing interface for las files in liblas.
-
-  class BaseReader{
-
-  public:
-    boost::uint64_t m_num_points;
-    bool m_has_georef;
-    GeoReference m_georef;
-    virtual bool ReadNextPoint() = 0;
-    virtual Vector3 GetPoint() = 0;
-
-    virtual ~BaseReader(){}
-  };
-
   class LasReader: public BaseReader{
     liblas::Reader& m_reader;
   public:
@@ -231,6 +214,160 @@ namespace asp{
   }; // End class CsvReader
 
 
+
+
+  void PcdReader::read_header() {
+    // Open the file as text
+    std::ifstream handle;
+    handle.open(m_pcd_file.c_str());
+    if (handle.fail()) {
+      vw_throw( vw::IOErr() << "Unable to open file \"" << m_pcd_file << "\"" );
+    }
+    // Start checking all of the header elements
+    bool valid = true;
+    std::string line, dummy, value;
+    std::getline(handle, line);     
+    while (line[0] == '#') // Skip initial comment lines
+      std::getline(handle, line);
+    // Check the header version - we only support one kind for now.
+    boost::to_lower(line);
+    if (line.find("version 0.7") == std::string::npos) {
+      vw_out() << "Error: Unsupported PCD file version: " << line << std::endl;
+      valid = false;
+    }
+    // Verify the fields
+    std::getline(handle, line);
+    boost::to_lower(line);
+    if (line.find("fields x y z") == std::string::npos) {
+      vw_out() << "Error: Unsupported PCD fields: " << line << std::endl;
+      valid = false;
+    }
+    // Get some other information, no checking here...
+    handle >> dummy >> m_size_bytes;
+    std::getline(handle, line); // Go to the next line
+    if ((m_size_bytes != 4) && (m_size_bytes != 8)) {
+      vw_out() << "Error: Unsupported byte size: " << m_size_bytes << std::endl;
+      valid = false;
+    }
+    handle >> dummy >> m_type;
+    std::getline(handle, line); // Go to the next line
+    if (m_type == 'F')
+      m_type = 'f';
+    if (m_type != 'f') {
+      vw_out() << "Error: Currently only Float type PCD files are supported!\n";
+      valid = false;
+    }
+    
+    // Get size info
+    int width, height, count;
+    handle >> dummy >> count;
+    std::getline(handle, line); // Go to the next line
+    if (count != 1) {
+      vw_out() << "Error: Unsupported PCD count: " << count << std::endl;
+      valid = false;
+    }
+    handle >> dummy >> width >> dummy >> height;
+    std::getline(handle, line); // Skip viewpoint line
+    std::getline(handle, line);
+    handle >> dummy >> m_num_points;
+    if (m_num_points != (static_cast<size_t>(width*height))) {
+      vw_out() << "Error: PCD point count error!\n";
+      valid = false;
+    }
+    // Get the type of file, ascii or binary
+    handle >> dummy >> value;
+    boost::to_lower(value);
+    m_binary_format = (value != "ascii");
+    
+    if (handle.fail()) {
+      vw_out() << "Error: PCD read error!\n";
+      valid = false;
+    }
+    
+    m_header_length_bytes = handle.tellg();
+    
+    // Stop reading the header file
+    handle.close();
+    if (!valid)
+      vw_throw(ArgumentErr() << "Fatal error reading PCD file: " << m_pcd_file);
+  }
+
+  
+  PcdReader::PcdReader(std::string const & pcd_file)
+    : m_pcd_file(pcd_file), m_has_valid_point(false){
+
+    // For now PCD files are required to be in XYZ GCC format.
+    m_has_georef = false;
+
+    read_header();      
+    
+    // Open the file for data reading in the proper format then skip past the header
+    if (m_binary_format)
+      m_ifs = new std::ifstream ( m_pcd_file.c_str(), std::ios_base::binary);
+    else
+      m_ifs = new std::ifstream ( m_pcd_file.c_str());
+
+    m_ifs->seekg(m_header_length_bytes);
+  }
+
+  bool PcdReader::ReadNextPoint(){
+
+    // Check if there is more data
+    if (!m_ifs->good()) {
+      m_has_valid_point = false;
+      return false;
+    }
+
+    if (m_binary_format) {
+
+      if (m_size_bytes == 4) { // -> float
+        float x, y, z;
+        m_ifs->read(reinterpret_cast<char*>(&x), m_size_bytes);
+        m_ifs->read(reinterpret_cast<char*>(&y), m_size_bytes);
+        m_ifs->read(reinterpret_cast<char*>(&z), m_size_bytes);
+        m_curr_point = Vector3(x, y, z);
+      }else { // 8 bytes -> double
+        double x, y, z;
+        m_ifs->read(reinterpret_cast<char*>(&x), m_size_bytes);
+        m_ifs->read(reinterpret_cast<char*>(&y), m_size_bytes);
+        m_ifs->read(reinterpret_cast<char*>(&z), m_size_bytes);
+        m_curr_point = Vector3(x, y, z);          
+      }
+    
+    } else { // Text format
+
+      // Read in the next point
+      double x, y, z;
+      (*m_ifs) >> x >> y >> z;
+      m_curr_point = Vector3(x, y, z);
+    }
+    
+    // Make sure the reads succeeded
+    if (m_ifs->fail()) {
+      m_has_valid_point = false;
+      return false;
+    }
+    
+    return true;
+  }
+
+  Vector3 PcdReader::GetPoint(){
+    return m_curr_point;
+  }
+
+  PcdReader::~PcdReader(){
+    delete m_ifs;
+    m_ifs = NULL;
+  }
+
+
+
+  boost::uint64_t pcd_file_size(std::string const& file) {
+    PcdReader reader(file);
+    return reader.m_num_points;
+  }
+
+
   /// Create a point cloud image from a las file. The image will be
   /// created block by block, when it needs to be written to disk. It is
   /// important that the writer invoking this image be single-threaded,
@@ -299,8 +436,7 @@ namespace asp{
 
       // Take the points just read, and put them in groups by spatial
       // location, so that later point2dem does not need to read every
-      // input point when writing a given tile, but only certain
-      // groups.
+      // input point when writing a given tile, but only certain groups.
       ImageView<Vector3> Img;
       Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef, num_cols, num_rows, Img);
 
@@ -842,29 +978,33 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
   Vector2 original_tile_size = opt->raster_tile_size;
   opt->raster_tile_size = tile_size;
 
+  boost::shared_ptr<asp::BaseReader> reader_ptr;
+  std::ifstream ifs;
+  liblas::ReaderFactory las_reader_factory;
+  boost::shared_ptr<liblas::Reader> laslib_reader_ptr;
+
   if (asp::is_csv(in_file)){ // CSV
 
-    boost::shared_ptr<asp::CsvReader> csvReaderPtr( new asp::CsvReader(in_file, csv_conv, csv_georef) );
-    ImageViewRef<Vector3> Img
-      = asp::LasOrCsvToTif_Class< ImageView<Vector3> > (csvReaderPtr.get(), num_rows, TILE_LEN, block_size);
+    reader_ptr = boost::shared_ptr<asp::CsvReader>( new asp::CsvReader(in_file, csv_conv, csv_georef) );
 
-    // Must use a thread only, as we read the las file serially.
-    vw::cartography::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
+  }else if (asp::is_pcd(in_file)){ // PCD
+
+    reader_ptr = boost::shared_ptr<asp::PcdReader>( new asp::PcdReader(in_file) );
 
   }else if (asp::is_las(in_file)){ // LAS
 
-    std::ifstream ifs;
     ifs.open(in_file.c_str(), std::ios::in | std::ios::binary);
-    liblas::ReaderFactory f;
-    liblas::Reader reader = f.CreateWithStream(ifs);
-    boost::shared_ptr<asp::LasReader> lasReaderPtr( new asp::LasReader(reader) );
-    ImageViewRef<Vector3> Img
-      = asp::LasOrCsvToTif_Class< ImageView<Vector3> > (lasReaderPtr.get(), num_rows, TILE_LEN, block_size);
+    laslib_reader_ptr.reset(new liblas::Reader(las_reader_factory.CreateWithStream(ifs)));
+    reader_ptr = boost::shared_ptr<asp::LasReader>( new asp::LasReader(*laslib_reader_ptr) );
 
-    // Must use a thread only, as we read the las file serially.
-    vw::cartography::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
   }else
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
+
+  ImageViewRef<Vector3> Img
+    = asp::LasOrCsvToTif_Class< ImageView<Vector3> > (reader_ptr.get(), num_rows, TILE_LEN, block_size);
+
+  // Must use a thread only, as we read the input file serially.
+  vw::cartography::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
 
   // Restore the original tile size
   opt->raster_tile_size = original_tile_size;
@@ -882,7 +1022,12 @@ bool asp::is_csv(std::string const& file){
   return ( boost::iends_with(lfile, ".csv")  || boost::iends_with(lfile, ".txt")  );
 }
 
-bool asp::is_las_or_csv(std::string const& file){
+bool asp::is_pcd(std::string const& file){
+  std::string lfile = boost::to_lower_copy(file);
+  return boost::iends_with(lfile, ".pcd");
+}
+
+bool asp::is_las_or_csv_or_pcd(std::string const& file){
   return asp::is_las(file) || is_csv(file);
 }
 

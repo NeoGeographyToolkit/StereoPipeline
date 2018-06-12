@@ -124,7 +124,31 @@ TEST( PointUtils, CsvConv ) {
   EXPECT_NEAR(3.77738,    point[0], delta); // lon
   EXPECT_NEAR(27.4985,    point[1], delta); // lat
   EXPECT_NEAR(-1501.8749, point[2], delta); // height
- 
-  
   
 }
+
+// Open up an ascii style PCD file and make sure we can read all of the values from it.
+TEST( PointUtils, PcdReader ) {
+
+  asp::PcdReader reader("sample_ascii.pcd");
+
+  std::vector<vw::Vector3> values;
+  values.push_back(Vector3(17.799999, -181.40001, 584.96973));
+  values.push_back(Vector3(14.56,     -145.12001, 467.97577));
+  values.push_back(Vector3(15.663157, -152.7579,  492.60608));
+  values.push_back(Vector3(17.882353, -170.72942, 550.55975));
+  values.push_back(Vector3(18.258823, -170.72942, 550.55975));
+  values.push_back(Vector3(18.635294, -170.72942, 550.55975));
+  values.push_back(Vector3(23.085714, -207.3143,  668.5368 ));
+  values.push_back(Vector3(27.466667, -241.86668, 779.95966));
+  values.push_back(Vector3(18.97143,  -206.85715, 668.5368 ));
+
+  for (size_t i=0; i<values.size(); ++i) {  
+    EXPECT_TRUE(reader.ReadNextPoint());
+    EXPECT_VECTOR_NEAR( reader.GetPoint(), values[i], 1e-16 );
+  }
+  EXPECT_FALSE(reader.ReadNextPoint());
+
+}
+
+

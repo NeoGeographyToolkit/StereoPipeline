@@ -95,7 +95,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string csv_format_str, csv_proj4_str, filter;
   double      search_radius_factor, sigma_factor, default_grid_size_multiplier;
   bool        use_surface_sampling;
-  bool        has_las_or_csv;
+  bool        has_las_or_csv_or_pcd;
   Vector2i    max_output_size;
 
   // Output
@@ -108,7 +108,7 @@ struct Options : vw::cartography::GdalWriteOptions {
 	      remove_outliers_with_pct(true), max_valid_triangulation_error(0),
 	      erode_len(0), search_radius_factor(0), sigma_factor(0),
 	      default_grid_size_multiplier(1.0), use_surface_sampling(false),
-	      has_las_or_csv(false), max_output_size(9999999, 9999999){}
+	      has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999){}
 };
 
 void parse_input_clouds_textures(std::vector<std::string> const& files,
@@ -154,7 +154,7 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
   // Separate the input point clouds from the textures
   opt.pointcloud_files.clear(); opt.texture_files.clear();
   for (int i = 0; i < num; i++){
-    if (asp::is_las_or_csv(files[i]) || get_num_channels(files[i]) >= 3)
+    if (asp::is_las_or_csv_or_pcd(files[i]) || get_num_channels(files[i]) >= 3)
       opt.pointcloud_files.push_back(files[i]);
     else
       opt.texture_files.push_back(files[i]);
@@ -168,10 +168,10 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 
   // Must have this check here before we start assuming all input files
   // are tif.
-  opt.has_las_or_csv = false;
+  opt.has_las_or_csv_or_pcd = false;
   for (int i = 0; i < (int)files.size(); i++)
-    opt.has_las_or_csv = opt.has_las_or_csv || asp::is_las_or_csv(files[i]);
-  if (opt.has_las_or_csv && opt.do_ortho)
+    opt.has_las_or_csv_or_pcd = opt.has_las_or_csv_or_pcd || asp::is_las_or_csv_or_pcd(files[i]);
+  if (opt.has_las_or_csv_or_pcd && opt.do_ortho)
     vw_throw( ArgumentErr() << "Cannot create orthoimages if "
 	      << "point clouds are LAS or CSV.\n" );
 
@@ -201,11 +201,11 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 /// Convert any LAS or CSV files to ASP tif files. We do some binning
 /// to make the spatial data more localized, to improve performance.
 /// - We will later wipe these temporary tifs.
-void las_or_csv_to_tifs(Options& opt,
+void las_or_csv_or_pcd_to_tifs(Options& opt,
 			cartography::Datum const& datum,
 			std::vector<std::string> & tmp_tifs){
 
-  if (!opt.has_las_or_csv)
+  if (!opt.has_las_or_csv_or_pcd)
     return;
 
   Stopwatch sw;
@@ -247,7 +247,7 @@ void las_or_csv_to_tifs(Options& opt,
   // to right for the purpose of creating the DEM, we waste little space.
   int num_rows = 0;
   for (int i = 0; i < num_files; i++){
-    if (asp::is_las_or_csv(opt.pointcloud_files[i]))
+    if (asp::is_las_or_csv_or_pcd(opt.pointcloud_files[i]))
       continue;
     DiskImageView<float> img(opt.pointcloud_files[i]);
     num_rows = std::max(num_rows, img.rows()); // Record the max number of rows across all input tifs
@@ -260,7 +260,8 @@ void las_or_csv_to_tifs(Options& opt,
       std::string file = opt.pointcloud_files[i];
       if (asp::is_las(file))  max_num_pts = std::max(max_num_pts, asp::las_file_size(file));
       if (asp::is_csv(file))  max_num_pts = std::max(max_num_pts, asp::csv_file_size(file));
-      // No need to check for other cases; At least one file must be las or csv!
+      if (asp::is_pcd(file))  max_num_pts = std::max(max_num_pts, asp::pcd_file_size(file)); // Note: PCD support needs to be tested!
+      // No need to check for other cases; At least one file must be las or csv or pcd!
     }
     num_rows = std::max(1, (int)ceil(sqrt(double(max_num_pts))));
   }
@@ -274,7 +275,7 @@ void las_or_csv_to_tifs(Options& opt,
   // indices.  This is key to fast rasterization later.
   for (int i = 0; i < num_files; i++){
 
-    if (!asp::is_las_or_csv(opt.pointcloud_files[i])) // Skip tif files
+    if (!asp::is_las_or_csv_or_pcd(opt.pointcloud_files[i])) // Skip tif files
       continue;
     std::string in_file = opt.pointcloud_files[i];
     std::string stem    = fs::path( in_file ).stem().string();
@@ -289,7 +290,7 @@ void las_or_csv_to_tifs(Options& opt,
     const int NUM_TEMP_NAME_RETRIES = 1000;
     for (int count = 0; count < NUM_TEMP_NAME_RETRIES; count++){
       if (!fs::exists(out_file))
-	break;
+        break;
       // File exists, try a different name
       vw_out() << "File exists: " << out_file << std::endl;
       std::ostringstream os; os << count;
@@ -453,7 +454,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 			    << usage << general_options );
   }
 
-  if (opt.has_las_or_csv && opt.median_filter_params[0] > 0 &&
+  if (opt.has_las_or_csv_or_pcd && opt.median_filter_params[0] > 0 &&
       opt.median_filter_params[1] > 0){
     vw_throw( ArgumentErr() << "Median-based filtering cannot handle CSV or LAS files.\n"
 			    << usage << general_options );
@@ -489,7 +490,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       spacing_provided = true;
   }
 
-  if (opt.has_las_or_csv && !spacing_provided){
+  if (opt.has_las_or_csv_or_pcd && !spacing_provided){
     vw_throw( ArgumentErr() << "When inputs are LAS or CSV files, the "
 			    << "output DEM resolution must be set.\n" );
   }
@@ -506,7 +507,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Cannot use surface "
               << "sampling with any filter of point cloud points.\n" );
     
-  if (opt.use_surface_sampling && opt.has_las_or_csv)
+  if (opt.use_surface_sampling && opt.has_las_or_csv_or_pcd)
     vw_throw( ArgumentErr() << "Cannot use surface "
 			    << "sampling with LAS or CSV files.\n" );
 
@@ -1199,7 +1200,7 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
                opt.target_projwin,
                opt.remove_outliers_with_pct, opt.remove_outliers_params,
                error_image, estim_max_error, opt.max_valid_triangulation_error,
-               opt.median_filter_params, opt.erode_len, opt.has_las_or_csv,
+               opt.median_filter_params, opt.erode_len, opt.has_las_or_csv_or_pcd,
                opt.filter, opt.default_grid_size_multiplier,
                &num_invalid_pixels, &count_mutex,
                TerminalProgressCallback("asp","QuadTree: "));
@@ -1294,7 +1295,7 @@ int main( int argc, char *argv[] ) {
     //   themselves specify a different datum.
     // - Should all be XYZ format when finished
     std::vector<std::string> tmp_tifs;
-    las_or_csv_to_tifs(opt, output_georef.datum(), tmp_tifs);
+    las_or_csv_or_pcd_to_tifs(opt, output_georef.datum(), tmp_tifs);
 
     // Generate a merged xyz point cloud consisting of all inputs
     // - By now, each input exists in xyz tif format.
