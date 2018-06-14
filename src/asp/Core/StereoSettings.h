@@ -112,7 +112,9 @@ namespace asp {
                                             //  This overrides the nodata values from input images.
     double nodata_pixel_percentage;         ///< Percentage of low-value pixels treated as no-data
     double nodata_optimal_threshold_factor; ///< Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data
-    bool   skip_rough_homography;           /// Use this if datum-based rough homography fails. 
+    double nodata_stddev_thresh;            ///
+    int    nodata_stddev_kernel;            ///< Kernel size of the nadata stddev calculation
+    bool   skip_rough_homography;           ///< Use this if datum-based rough homography fails. 
     bool   skip_image_normalization;        ///< Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
     bool   part_of_multiview_run;           ///< If this run is part of a larger multiview run
     std::string datum;                      ///< The datum to use with RPC camera models

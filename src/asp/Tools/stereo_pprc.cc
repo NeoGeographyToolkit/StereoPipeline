@@ -21,6 +21,7 @@
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/BlobIndex.h>
 #include <vw/Image/InpaintView.h>
+#include <vw/Image/WindowAlgorithms.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Math/Functors.h>
@@ -191,7 +192,6 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   float output_nodata = -32768.0;
 
 
-
   if (!rebuild) {
     vw_out() << "\t--> Using cached masks.\n";
   }else{
@@ -271,6 +271,17 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       ImageViewRef< PixelMask<uint8> > right_thresh_mask = RB.mask_and_fill_holes(right_image, right_threshold);
       left_mask  = intersect_mask(left_mask,  left_thresh_mask );
       right_mask = intersect_mask(right_mask, right_thresh_mask);
+    }
+
+    // Mask out regions with low input pixel value standard deviations if the user requested it.
+    if (stereo_settings().nodata_stddev_kernel > 0) {
+      Vector2i stddev_kernel(stereo_settings().nodata_stddev_kernel, stereo_settings().nodata_stddev_kernel);
+      left_mask  = intersect_mask(left_mask,
+                                  create_mask_less_or_equal(vw::stddev_filter_view(left_image, stddev_kernel),
+                                                            stereo_settings().nodata_stddev_thresh));
+      right_mask = intersect_mask(right_mask,
+                                  create_mask_less_or_equal(vw::stddev_filter_view(right_image, stddev_kernel),
+                                                            stereo_settings().nodata_stddev_thresh));
     }
 
     // Handle cropped images

@@ -143,6 +143,10 @@ namespace asp {
        "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
       ("nodata-optimal-threshold-factor", po::value(&global.nodata_optimal_threshold_factor)->default_value(nan),
                      "Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data. Suggested value: 0.1 to 0.2.")
+      ("stddev-mask-thresh",  po::value(&global.nodata_stddev_thresh)->default_value(0.5),
+       "Mask out pixels from regions where the local standard deviation score is less than this value.")
+      ("stddev-mask-kernel",  po::value(&global.nodata_stddev_kernel)->default_value(-1),
+       "Size of kernel used in standard deviation filtering, must be odd and > 2.")
       ("skip-rough-homography", po::bool_switch(&global.skip_rough_homography)->default_value(false)->implicit_value(true),
        "Skip the step of performing datum-based rough homography if it fails.")
       ("skip-image-normalization", po::bool_switch(&global.skip_image_normalization)->default_value(false)->implicit_value(true),
