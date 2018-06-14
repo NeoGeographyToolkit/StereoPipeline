@@ -276,12 +276,29 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     // Mask out regions with low input pixel value standard deviations if the user requested it.
     if (stereo_settings().nodata_stddev_kernel > 0) {
       Vector2i stddev_kernel(stereo_settings().nodata_stddev_kernel, stereo_settings().nodata_stddev_kernel);
-      left_mask  = intersect_mask(left_mask,
-                                  create_mask_less_or_equal(vw::stddev_filter_view(left_image, stddev_kernel),
-                                                            stereo_settings().nodata_stddev_thresh));
-      right_mask = intersect_mask(right_mask,
-                                  create_mask_less_or_equal(vw::stddev_filter_view(right_image, stddev_kernel),
-                                                            stereo_settings().nodata_stddev_thresh));
+
+      // If the threshold value is negative write out a debug image instead, allowing the user to tune the threshold.
+      if (stereo_settings().nodata_stddev_thresh < 0) {
+        vw::cartography::block_write_gdal_image(opt.out_prefix + "-L_stddev_filter_output.tif",
+                                    vw::stddev_filter_view(left_image, stddev_kernel),
+                                    has_left_georef, left_georef,
+                                    false, output_nodata,
+                                    opt, TerminalProgressCallback("asp", "\t  StdDev filter raw output (left): ")
+                                    );
+        vw::cartography::block_write_gdal_image(opt.out_prefix + "-R_stddev_filter_output.tif",
+                                    vw::stddev_filter_view(left_image, stddev_kernel),
+                                    has_left_georef, left_georef,
+                                    false, output_nodata,
+                                    opt, TerminalProgressCallback("asp", "\t  StdDev filter raw output (right): ")
+                                    );
+      } else {
+        left_mask  = intersect_mask(left_mask,
+                                    create_mask_less_or_equal(vw::stddev_filter_view(left_image, stddev_kernel),
+                                                              stereo_settings().nodata_stddev_thresh));
+        right_mask = intersect_mask(right_mask,
+                                    create_mask_less_or_equal(vw::stddev_filter_view(right_image, stddev_kernel),
+                                                              stereo_settings().nodata_stddev_thresh));
+      }
     }
 
     // Handle cropped images
