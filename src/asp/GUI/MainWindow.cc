@@ -229,9 +229,10 @@ void MainWindow::createLayout() {
     }
 
     // Pass all images to a single MainWidget object
+    const int image_id = 0;
     MainWidget * widget = new MainWidget(centralWidget,
                                          m_opt,
-                                         0, m_output_prefix,
+                                         image_id, m_output_prefix,
                                          m_image_files, base_image_file,
                                          m_matches, m_chooseFiles,
                                          m_use_georef, m_hillshade_vec, m_view_matches,
@@ -250,13 +251,14 @@ void MainWindow::createLayout() {
       // Recall the previous hillshade choice if possible
       std::vector<bool> local_hillshade;
       if (m_hillshade_vec.size() == m_image_files.size())
-	local_hillshade.push_back(m_hillshade_vec[i]);
+        local_hillshade.push_back(m_hillshade_vec[i]);
       else
-	local_hillshade.push_back(m_hillshade);
+        local_hillshade.push_back(m_hillshade);
       
+      const int image_id = i;
       MainWidget * widget = new MainWidget(centralWidget,
                                            m_opt,
-                                           i, m_output_prefix,
+                                           image_id, m_output_prefix,
                                            local_images, base_image_file,
                                            m_matches,
                                            m_chooseFiles,
@@ -841,9 +843,13 @@ void MainWindow::writeGroundControlPoints() {
   const size_t num_ips    = m_matches[0].size();
   const size_t num_images = m_image_files.size();
   const size_t num_images_to_save = num_images - 1; // Don't record pixels from the last image.
-  if (num_images != m_matches.size()) {
+
+  vw_out() << "Trying to save GCPs with " << num_images << " images and " << num_ips << " ips.\n";
+
+  if (num_images != m_matches.size())
     return popUp("Cannot save matches. Image and match vectors are unequal!");
-  }
+  if (num_ips < 1)
+    return popUp("Cannot save matches. No matches been created!");
 
   // Prompt the user for a DEM path
   std::string dem_path = "";
@@ -894,6 +900,8 @@ void MainWindow::writeGroundControlPoints() {
   std::string save_path = "";
   try {
     std::string default_path = m_output_prefix + "/ground_control_points.gcp";
+    if (m_output_prefix.empty()) // Default to current dir if prefix not set
+      default_path = "ground_control_points.gcp";
     save_path = QFileDialog::getSaveFileName(0,
                                       "Select a path to save the GCP file to",
                                       default_path.c_str()).toStdString();
@@ -1131,8 +1139,10 @@ void MainWindow::setZoomAllToSameRegion() {
     
     // If zooming to same region, windows better not be on top of each other
     if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
-      if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
-      else m_view_type = VIEW_SIDE_BY_SIDE;
+      if (m_view_type_old != VIEW_IN_SINGLE_WINDOW)
+        m_view_type = m_view_type_old; // restore this
+      else
+        m_view_type = VIEW_SIDE_BY_SIDE;
     }
 
     // If all images are georeferenced, it makes perfect sense

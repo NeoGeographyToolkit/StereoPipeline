@@ -60,7 +60,7 @@ namespace vw { namespace gui {
     // Create an empty border margin, to make it easier to zoom
     // by allowing the zoom window to slightly exceed the visible image
     // area (that inability was such a nuisance).
-    x = m_border_factor*(x - m_window_width/2.0) + m_window_width/2.0;
+    x = m_border_factor*(x - m_window_width /2.0) + m_window_width /2.0;
     y = m_border_factor*(y - m_window_height/2.0) + m_window_height/2.0;
 
     return vw::Vector2(x, y);
@@ -72,14 +72,12 @@ namespace vw { namespace gui {
 
     // First undo the empty border margin
     double x = p.x(), y = p.y();
-    x = (x - m_window_width/2.0)/m_border_factor + m_window_width/2.0;
+    x = (x - m_window_width /2.0)/m_border_factor + m_window_width /2.0;
     y = (y - m_window_height/2.0)/m_border_factor + m_window_height/2.0;
 
     // Scale to world coordinates
-    x = m_current_view.min().x()
-      + m_current_view.width() * x / m_window_width;
-    y = m_current_view.min().y()
-      + m_current_view.height() * y / m_window_height;
+    x = m_current_view.min().x() + (m_current_view.width () * x / m_window_width );
+    y = m_current_view.min().y() + (m_current_view.height() * y / m_window_height);
 
     return vw::Vector2(x, y);
   }
@@ -244,8 +242,8 @@ namespace vw { namespace gui {
       // The first encountered vector layer becomes the one we draw.
       // This needs to be cleaned up. Ideally each image has its own vector layer.
       if (m_images[i].isPoly() && m_polyVec.empty()){
-	m_polyVec = m_images[i].polyVec;
-	m_polyVecIndex = i;
+        m_polyVec = m_images[i].polyVec;
+        m_polyVecIndex = i;
       }
     }
 
@@ -455,7 +453,7 @@ namespace vw { namespace gui {
     for (int rowIter = 0; rowIter < rows; rowIter++){
       QTableWidgetItem *item = filesTable->item(rowIter, 0);
       if (item->checkState() == Qt::Checked){
-	allOff = false;
+        allOff = false;
       }
     }
 
@@ -466,10 +464,10 @@ namespace vw { namespace gui {
       string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
 
       if (allOff){
-	item->setCheckState(Qt::Checked);
+        item->setCheckState(Qt::Checked);
       }else{
-	item->setCheckState(Qt::Unchecked);
-	m_filesToHide.insert(fileName);
+        item->setCheckState(Qt::Unchecked);
+        m_filesToHide.insert(fileName);
       }
     }
 
@@ -907,7 +905,7 @@ namespace vw { namespace gui {
       image_box.max() = ceil(image_box.max());
 
       if (m_images[i].isPoly())
-	continue;
+        continue;
       
       QImage qimg;
       // Since the image portion contained in image_box could be huge,
@@ -972,7 +970,7 @@ namespace vw { namespace gui {
             }catch ( const std::exception & e ) {
               continue;
             }
-                        
+
             // Convert to scaled image pixels and snap to integer value
             p = round(p/scale_out);
 
@@ -984,7 +982,7 @@ namespace vw { namespace gui {
               vw_out() << "Book-keeping failure!";
               vw_throw(ArgumentErr() << "Book-keeping failure.\n");
             }
-	    qimg2.setPixel(x-screen_box.min().x(), // Fill the temp QImage object
+            qimg2.setPixel(x-screen_box.min().x(), // Fill the temp QImage object
                            y-screen_box.min().y(),
                            qimg.pixel(px, py));
           }
@@ -1202,48 +1200,49 @@ namespace vw { namespace gui {
       
       if (polyIter == 0) {
 
-	if (m_currPolyX.empty() || !m_polyEditMode) continue;
-	
-	if (!m_images[m_polyVecIndex].has_georef) // this should not happen
-	  vw_throw(ArgumentErr() << "Expecting images with georeference.\n");
-	
-	poly.reset();
-	poly.appendPolygon(m_currPolyX.size(),  
-			   vw::geometry::vecPtr(m_currPolyX),  
-			   vw::geometry::vecPtr(m_currPolyY),  
-			   isPolyClosed, polyColorStr, layer);
+        if (m_currPolyX.empty() || !m_polyEditMode)
+          continue;
+
+        if (!m_images[m_polyVecIndex].has_georef) // this should not happen
+          vw_throw(ArgumentErr() << "Expecting images with georeference.\n");
+
+        poly.reset();
+        poly.appendPolygon(m_currPolyX.size(),  
+                           vw::geometry::vecPtr(m_currPolyX),  
+                           vw::geometry::vecPtr(m_currPolyY),  
+                           isPolyClosed, polyColorStr, layer);
       }else{
-	poly = m_polyVec[polyIter-1]; // make a deep copy
+        poly = m_polyVec[polyIter-1]; // make a deep copy
       }
-      
+
       double val1 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
-					 poly.get_xv(), poly.get_yv());
+                                                 poly.get_xv(), poly.get_yv());
 
       // Convert to world units
       int            numVerts  = poly.get_totalNumVerts();
       double *             xv  = poly.get_xv();
       double *             yv  = poly.get_yv();
       for (int vIter = 0; vIter < numVerts; vIter++){
-	Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyVecIndex); 
-	xv[vIter] = P.x();
-	yv[vIter] = P.y();
+        Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyVecIndex); 
+        xv[vIter] = P.x();
+        yv[vIter] = P.y();
       }
 
       if (polyIter > 0 && m_polyEditMode && m_moveVertex->isChecked()) {
-	drawVertIndex = 1; // to draw a little square at each movable vertex
-	plotPoints = true;
+        drawVertIndex = 1; // to draw a little square at each movable vertex
+        plotPoints = true;
       }else{
-	drawVertIndex = 0;
-	plotPoints = false;
+        drawVertIndex = 0;
+        plotPoints = false;
       }
 
       double val2 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
-					 poly.get_xv(), poly.get_yv());
+                                                 poly.get_xv(), poly.get_yv());
 
       // If the conversion to world coords flips the orientation, correct for that.
       // TODO: This seems necessary. More thought is needed. 
       if (val1 * val2 < 0)
-	poly.reverse();
+        poly.reverse();
 
       MainWidget::plotDPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
                             m_showIndices->isChecked(),
@@ -1298,13 +1297,13 @@ namespace vw { namespace gui {
       // Find the vertex we want to move
       double min_x, min_y, min_dist;
       findClosestPolyVertex(// inputs
-			    P.x(), P.y(), m_polyVec,
-			    // outputs
-			    m_editPolyVecIndex,
-			    m_editIndexInCurrPoly,
-			    m_editVertIndexInCurrPoly,
-			    min_x, min_y, min_dist
-			    );
+                            P.x(), P.y(), m_polyVec,
+                            // outputs
+                            m_editPolyVecIndex,
+                            m_editIndexInCurrPoly,
+                            m_editVertIndexInCurrPoly,
+                            min_x, min_y, min_dist
+                            );
       
       // This will redraw just the polygons, not the pixmap
       update();
@@ -1435,9 +1434,9 @@ namespace vw { namespace gui {
   // We assume the user picked n points in the image.
   // Draw n-1 segments in between them. Plot the obtained profile.
   void MainWidget::plotProfile(std::vector<imageData> const& images,
-			       // indices in the image to profile
-			       std::vector<double> const& profileX, 
-			       std::vector<double> const& profileY){
+                               // indices in the image to profile
+                               std::vector<double> const& profileX, 
+                               std::vector<double> const& profileY){
 
     if (images.empty()) return; // nothing to do
 
@@ -1463,10 +1462,9 @@ namespace vw { namespace gui {
 
       Vector2 endP;
       if (num_pts == 1) {
-	endP = begP; // only one point is present
+        endP = begP; // only one point is present
       }else{
-	endP = MainWidget::world2image(Vector2(profileX[pt_iter+1], profileY[pt_iter+1]),
-				       imgInd);
+        endP = MainWidget::world2image(Vector2(profileX[pt_iter+1], profileY[pt_iter+1]), imgInd);
       }
       
       int begX = begP.x(),   begY = begP.y();
@@ -1474,23 +1472,24 @@ namespace vw { namespace gui {
       int seg_len = std::abs(begX - endX) + std::abs(begY - endY);
       if (seg_len == 0) seg_len = 1; // ensure it is never empty
       for (int p = 0; p <= seg_len; p++) {
-	double t = double(p)/seg_len;
-	int x = round( begX + t*(endX - begX) );
-	int y = round( begY + t*(endY - begY) );
-	bool is_in = (x >= 0 && x <= images[imgInd].img.cols()-1 &&
-		      y >= 0 && y <= images[imgInd].img.rows()-1 );
-	if (!is_in) continue;
+        double t = double(p)/seg_len;
+        int x = round( begX + t*(endX - begX) );
+        int y = round( begY + t*(endY - begY) );
+        bool is_in = (x >= 0 && x <= images[imgInd].img.cols()-1 &&
+                      y >= 0 && y <= images[imgInd].img.rows()-1 );
+        if (!is_in)
+          continue;
 
         double pixel_val = images[imgInd].img.get_value_as_double(x, y);
 
-	// TODO: Deal with this NAN
-	if (pixel_val == nodata_val)
+        // TODO: Deal with this NAN
+        if (pixel_val == nodata_val)
           pixel_val = std::numeric_limits<double>::quiet_NaN();
         m_valsX.push_back(count);
         m_valsY.push_back(pixel_val);
         count++;
       }
-      
+
     }
 
     if (num_pts == 1) {
@@ -1516,15 +1515,15 @@ namespace vw { namespace gui {
       // Ensure the window is always valid
       double small = 0.1;
       if (min_x == max_x) {
-	min_x -= small; max_x += small;
+        min_x -= small; max_x += small;
       }
       if (min_y == max_y) {
-	min_y -= small; max_y += small;
+        min_y -= small; max_y += small;
       }
 
       // Plot a point as a fat dot
       if (num_pts == 1)  {
-	curve->setStyle(QwtPlotCurve::Dots);
+        curve->setStyle(QwtPlotCurve::Dots);
       }
       
       curve->setData(new QwtCPointerData(&m_valsX[0], &m_valsY[0], m_valsX.size()));
@@ -1553,10 +1552,10 @@ namespace vw { namespace gui {
 
       // Close the window. 
       if (m_profilePlot != NULL) {
-	m_profilePlot->close();
-	m_profilePlot->deleteLater();
-	delete m_profilePlot;
-	m_profilePlot = NULL;
+        m_profilePlot->close();
+        m_profilePlot->deleteLater();
+        delete m_profilePlot;
+        m_profilePlot = NULL;
       }
 
       // Call back to the main window and tell it to uncheck the profile
@@ -1644,7 +1643,7 @@ namespace vw { namespace gui {
       // drawn. Add the current point.
 
       if (!m_images[m_polyVecIndex].has_georef) // this should not happen
-	vw_throw(ArgumentErr() << "Expecting images with georeference.\n"); 
+        vw_throw(ArgumentErr() << "Expecting images with georeference.\n"); 
       
       S = screen2world(S);                    // world coordinates
       m_world_box.grow(S); // to not cut when plotting later
@@ -1774,17 +1773,19 @@ namespace vw { namespace gui {
           Vector2 P = projpoint2world(Vector2(x, y), m_polyVecIndex);
 
           // This vertex will be deleted
-          if (m_stereoCropWin.contains(P)) continue;
+          if (m_stereoCropWin.contains(P))
+            continue;
 
           out_xv.push_back(x);
           out_yv.push_back(y);
         }
 
         // If no viable polygon is left
-        if (out_xv.size() < 3) continue; 
+        if (out_xv.size() < 3)
+          continue; 
           
         bool isPolyClosed = true;
-	poly_out.appendPolygon(out_xv.size(),  
+        poly_out.appendPolygon(out_xv.size(),  
                                vw::geometry::vecPtr(out_xv),  
                                vw::geometry::vecPtr(out_yv),  
                                isPolyClosed, colors[polyIter], layers[layerIter]);
@@ -1792,7 +1793,7 @@ namespace vw { namespace gui {
 
       // Overwrite the polygon
       m_polyVec[layerIter] = poly_out;
-    }      
+    }
 
     // The selection has done its job
     m_stereoCropWin = BBox2();
@@ -2623,8 +2624,12 @@ namespace vw { namespace gui {
       return;
     }
 
-    // Convert mouse coords to world coords, then add a new IP to the list for this image.
-    Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
+    // Convert mouse coords to world coords then image coords, then add a new IP to the list for this image.
+    int trans_image_id = m_image_id;
+    if (trans_image_id >= m_world2image_geotransforms.size()) // TODO: Cleaner way to determine this?
+      trans_image_id = 0;
+    Vector2 world_coord = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
+    Vector2 P           = world2image(world_coord, trans_image_id);
     m_matches[m_image_id].push_back(ip::InterestPoint(P.x(), P.y()));
 
     bool view_matches = true;
