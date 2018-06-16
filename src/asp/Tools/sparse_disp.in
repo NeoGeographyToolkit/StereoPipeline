@@ -165,23 +165,24 @@ def match_range(s0, ns, d0, nd):
     any_valid=(di1>di0) & (si1 > si0)
     return (si0, si1, di0, di1, any_valid)
 
-# Try and use the faster Fourier transform functions from the anfft
+
+# Try and use the faster Fourier transform functions from the pyFFTW
 # module if available. Otherwise use the normal scipy fftpack ones
 # instead (~2-3x slower!).
 try:
-    import anfft as _anfft
+    import pyFFTW
     # measure == True for self-optimisation of repeat Fourier transforms of
     # similarly-shaped arrays
     def fftn(A,shape=None):
             if shape != None:
                     A = _checkffttype(A)
                     A = procrustes(A,target=shape,side='after',padval=0)
-            return _anfft.fftn(A,measure=True)
+            return pyFFTW.fftn(A,measure=True)
     def ifftn(B,shape=None):
             if shape != None:
                     B = _checkffttype(B)
                     B = procrustes(B,target=shape,side='after',padval=0)
-            return _anfft.ifftn(B,measure=True)
+            return pyFFTW.ifftn(B,measure=True)
     def _checkffttype(C):
             # make sure input arrays are typed correctly for FFTW
             if C.dtype == 'complex256':
@@ -193,7 +194,7 @@ try:
             return C
 
 except ImportError:
-    print("Module 'anfft' (FFTW Python bindings) could not be imported.\n"\
+    print("Module 'pyFFTW' (FFTW Python bindings) could not be imported.\n"\
           "To install it, try running 'easy_install anfft' from the terminal.\n"\
           "Falling back on the slower 'fftpack' module for ND Fourier transforms.")
     from scipy.fftpack import fftn, ifftn
@@ -215,14 +216,13 @@ class TemplateMatch(object):
     def __call__(self,a):
 
         if a.ndim != self.template.ndim:
-            raise Exception('Input array must have the same number '\
-                    'of dimensions as the template (%i)'
-                    %self.template.ndim)
+            raise Exception('Input array must have the same number of dimensions as the template (%i)'
+                            %self.template.ndim)
 
-        C=norm_xcorr(self.template,a,trim=True)
+        C = norm_xcorr(self.template, a, trim=True)
         return  C
 
-def norm_xcorr(t,a,trim=True):
+def norm_xcorr(t, a, trim=True):
     """
     Fast normalized cross-correlation for n-dimensional arrays
 
@@ -294,7 +294,7 @@ def norm_xcorr(t,a,trim=True):
 
     # local linear and quadratic sums of input array in the region of the
     # template
-    ls_a = local_sum(a,t.shape, 0)
+    ls_a  = local_sum(a,t.shape, 0)
     ls2_a = local_sum(a**2,t.shape, np.mean(a**2))
 
     # now we need to make sure xcorr is the same size as ls_a
@@ -317,36 +317,36 @@ def norm_xcorr(t,a,trim=True):
     # sigma_t cannot be zero, so wherever the denominator is zero, this must
     # be because sigma_a is zero (and therefore the normalized cross-
     # correlation is undefined), so set nxcorr to zero in these regions
-    tol = np.sqrt(np.finfo(denom.dtype).eps)
-    nxcorr=np.zeros(numer.shape)
-    good=denom>tol
+    tol    = np.sqrt(np.finfo(denom.dtype).eps)
+    nxcorr = np.zeros(numer.shape)
+    good   = denom>tol
     nxcorr[good]=numer[good]/denom[good]
     #nxcorr = np.where(denom < tol,0,numer/denom)
 
     # if any of the coefficients are outside the range [-1 1], they will be
     # unstable to small variance in a or t, so set them to zero to reflect
     # the undefined 0/0 condition
-    bad=nxcorr-1. >  np.sqrt(np.finfo(nxcorr.dtype).eps);
-    nxcorr[bad]=0.
+    bad = nxcorr-1. >  np.sqrt(np.finfo(nxcorr.dtype).eps);
+    nxcorr[bad] = 0.
 
     if trim:
-        nxcorr = procrustes(nxcorr,a.shape,side='both')
-        sigma_a =procrustes(sigma_a,a.shape,side='both')
+        nxcorr  = procrustes(nxcorr,a.shape,side='both')
+        sigma_a = procrustes(sigma_a,a.shape,side='both')
     return nxcorr
 
-def local_sum(a,tshape, padval):
+def local_sum(a, tshape, padval):
     """For each element in an n-dimensional input array, calculate
     the sum of the elements within a surrounding region the size of
     the template"""
 
     # zero-padding
-    a = ndpad(a,tshape, padval)
+    a = ndpad(a, tshape, padval)
 
     # difference between shifted copies of an array along a given dimension
     def shiftdiff(a,tshape,shiftdim):
         ind1 = [slice(None,None),]*a.ndim
         ind2 = [slice(None,None),]*a.ndim
-        ind1[shiftdim] = slice(tshape[shiftdim],a.shape[shiftdim]-1)
+        ind1[shiftdim] = slice(tshape[shiftdim], a.shape[shiftdim]-1)
         ind2[shiftdim] = slice(0,a.shape[shiftdim]-tshape[shiftdim]-1)
         return a[ind1] - a[ind2]
 
@@ -407,7 +407,7 @@ def ndpad(a,npad=None,padval=0):
     b = np.ones(padsize,a.dtype)*padval
 
     # construct an N-dimensional list of slice objects
-    ind = [slice(np.floor(npad[dd]),a.shape[dd]+np.floor(npad[dd])) for dd in xrange(a.ndim)]
+    ind = [slice(int(np.floor(npad[dd])), int(a.shape[dd]+np.floor(npad[dd]))) for dd in xrange(a.ndim)]
 
     # fill in the non-pad part of the array
     b[ind] = a
@@ -443,27 +443,27 @@ def procrustes(a,target,side='both',padval=0):
     if side == 'after':
         for dd in xrange(a.ndim):
             if a.shape[dd] > target[dd]:
-                aind[dd] = slice(None,target[dd])
+                aind[dd] = slice(None, int(target[dd]))
             elif a.shape[dd] < target[dd]:
-                bind[dd] = slice(None,a.shape[dd])
+                bind[dd] = slice(None, int(a.shape[dd]))
 
     # pad/trim comes before the array in each dimension
     elif side == 'before':
         for dd in xrange(a.ndim):
             if a.shape[dd] > target[dd]:
-                aind[dd] = slice(a.shape[dd]-target[dd],None)
+                aind[dd] = slice(int(a.shape[dd]-target[dd]), None)
             elif a.shape[dd] < target[dd]:
-                bind[dd] = slice(target[dd]-a.shape[dd],None)
+                bind[dd] = slice(int(target[dd]-a.shape[dd]), None)
 
     # pad/trim both sides of the array in each dimension
     elif side == 'both':
         for dd in xrange(a.ndim):
             if a.shape[dd] > target[dd]:
                 diff = (a.shape[dd]-target[dd])/2.
-                aind[dd] = slice(np.floor(diff),a.shape[dd]-np.ceil(diff))
+                aind[dd] = slice(int(np.floor(diff)), int(a.shape[dd]-np.ceil(diff)))
             elif a.shape[dd] < target[dd]:
                 diff = (target[dd]-a.shape[dd])/2.
-                bind[dd] = slice(np.floor(diff),target[dd]-np.ceil(diff))
+                bind[dd] = slice(int(np.floor(diff)), int(target[dd]-np.ceil(diff)))
 
     else:
         raise Exception('Invalid choice of pad type: %s' %side)
@@ -502,45 +502,45 @@ def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
 
     # Do template matching for a single block in the left image.
     # LOG filter the images
-    T_filt=log_filter(T_img, noData)
-    S_filt=log_filter(S_img, noData)
-    std_T=np.std(T_filt)
+    T_filt = log_filter(T_img, noData)
+    S_filt = log_filter(S_img, noData)
+    std_T  = np.std(T_filt)
     if min_template_sigma is not None:
         if std_T <= min_template_sigma:
             return(-2, Xc, Yc, -1, 0, 0)
 
-    # run the feature match.
-    TT=T_filt[KW:template_size+KW, KW:template_size+KW]
-    SS=S_filt[KW:search_range_y+KW, KW:search_range_x+KW]
+    # Run the feature match.
+    TT = T_filt[KW:template_size+KW,  KW:template_size+KW ]
+    SS = S_filt[KW:search_range_y+KW, KW:search_range_x+KW]
     # If the search image is large, do an initial search at 2x lower resolution
     if (SS.shape[0] > 32+TT.shape[0]) or (SS.shape[1] >32+TT.shape[1]):
-        TT1=TT[1:-1:2, 1:-1:2]
-        SS1=SS[1:-1:2, 1:-1:2]
-        TM=TemplateMatch(TT1)
-        result=TM(SS1)
+        low_res_template = TT[1:-1:2, 1:-1:2]
+        low_res_image    = SS[1:-1:2, 1:-1:2]
+        template_matcher = TemplateMatch(low_res_template) # Perform template search
+        result = template_matcher(low_res_image)
         if result is None:
             #warnings.warn('run_one_block: TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
             return(-3., Xc, Yc, 0., np.NaN, np.NaN)
 
-        result=result[(template_size/4):(search_range_y/2-template_size/4), (template_size/4):(search_range_x/2-template_size/4)]
-        ijC = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
+        result = result[(template_size/4):(search_range_y/2-template_size/4), (template_size/4):(search_range_x/2-template_size/4)]
+        ijC    = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
 
-        t_xr=np.array(ijC[1]+[-template_size/2-16, template_size/2+16]+SS.shape[1]/2, dtype=np.int16)
-        t_yr=np.array(ijC[0]+[-template_size/2-16, template_size/2+16]+SS.shape[0]/2, dtype=np.int16)
+        t_xr = np.array(ijC[1]+[-template_size/2-16, template_size/2+16]+SS.shape[1]/2, dtype=np.int16)
+        t_yr = np.array(ijC[0]+[-template_size/2-16, template_size/2+16]+SS.shape[0]/2, dtype=np.int16)
         if t_xr[0] >= 0 and t_yr[0] >= 0 and t_xr[1] <= SS.shape[1] and t_yr[1] <= SS.shape[0] :
-            dx0=dx0+ijC[1]
-            dy0=dy0+ijC[0]
-            SS=SS[t_yr[0]:t_yr[1], t_xr[0]:t_xr[1]]
+            dx0 = dx0+ijC[1]
+            dy0 = dy0+ijC[0]
+            SS  = SS[t_yr[0]:t_yr[1], t_xr[0]:t_xr[1]]
 
-    TM=TemplateMatch(TT)
-    result=TM(SS)
+    template_matcher = TemplateMatch(TT)
+    result = template_matcher(SS)
 
     # trim off edges of result
     result=result[(template_size/2):(SS.shape[0]-template_size/2),
                   (template_size/2):(SS.shape[1]-template_size/2)]
 
-    ij = np.unravel_index(np.argmax(result), result.shape)
-    ijC=ij-np.array([result.shape[0]/2, result.shape[1]/2])
+    ij  = np.unravel_index(np.argmax(result), result.shape)
+    ijC = ij-np.array([result.shape[0]/2, result.shape[1]/2])
 
     return (result[ij], Xc, Yc, std_T, ijC[1]+dx0, ijC[0]+dy0)
 
@@ -574,13 +574,12 @@ def run_blocks(param):
     T_buffer=im_subset(0, 0, 0, 0, matcher.T_sub, user_nodata, pad_val=matcher.T_sub.noData)
     S_buffer=im_subset(0, 0, 0, 0, matcher.S_sub, user_nodata, pad_val=matcher.S_sub.noData)
 
-    for Xc, Yc, search_range_x, search_range_y, dx0, dy0 in zip(XYc_i[:,0], XYc_i[:,1], search_range_xy_i[:,0],
-                                            search_range_xy_i[:,1], dxy0_i[:,0],
-                                            dxy0_i[:,1]):
+    for Xc, Yc, search_range_x, search_range_y, dx0, dy0 in \
+          zip(XYc_i[:,0], XYc_i[:,1], search_range_xy_i[:,0], search_range_xy_i[:,1], dxy0_i[:,0],dxy0_i[:,1]):
         #print("S_buffer.Nodata=%f, T_buffer.noData"% (matcher.S_sub.noData, matcher.T_sub.noData)
         count=count+1
-        t_xr=[Xc-(template_size/2-1)-KW, Xc+(template_size/2)+KW]
-        t_yr=[Yc-(template_size/2-1)-KW, Xc+(template_size/2)+KW]
+        t_xr=[Xc-(template_size/2-1)-KW,      Xc+(template_size/2) +KW]
+        t_yr=[Yc-(template_size/2-1)-KW,      Xc+(template_size/2) +KW]
         s_xr=[Xc+dx0-(search_range_x/2-1)-KW, Xc+(search_range_x/2)+KW]
         s_yr=[Yc+dy0-(search_range_y/2-1)-KW, Yc+(search_range_y/2)+KW]
 
@@ -600,8 +599,8 @@ def run_blocks(param):
         S_img=S_buffer.z[0,:,:]
         if np.mean(S_img<=S_buffer.noData) > .25: # bail if > 25% 0
             continue
-        out = run_one_block(template_size, KW, min_template_sigma, Xc, Yc, search_range_x,
-                            search_range_y, dx0, dy0, T_img, S_img, T_buffer.noData)
+        out = run_one_block(template_size, KW, min_template_sigma, Xc, Yc, int(search_range_x),
+                            int(search_range_y), dx0, dy0, T_img, S_img, T_buffer.noData)
 
         indices.append(these_ind[count])
         c.append(out[0])
@@ -710,7 +709,7 @@ class fft_matcher(object):
                      self.user_nodata)
             TaskParams.append(param)
 
-        if self.processes > 0: # Run using multiple processes
+        if self.processes > 1: # Run using multiple processes
             pool = Pool(processes=self.processes)
             Out = pool.map(run_blocks, TaskParams, chunksize=1)
         else: # Run using single process (for debugging)
@@ -799,28 +798,28 @@ def neighborhood_range(pt_list, dx_mat, dy_mat, tri, pt_dict, max_dist=None, cal
         dx_range: an Nx4 martix.  columns 0 and 1 give the min and max x
         offsets around each point, columns 2 and 3 give the min and max y.
     """
-    dxy_range=np.zeros([len(pt_list), 4])
+    dxy_range = np.zeros([len(pt_list), 4])
     if calc_min_slope is not None:
-        dxy_slope=np.zeros([len(pt_list), 2])
+        dxy_slope = np.zeros([len(pt_list), 2])
     for row, pt in enumerate(pt_list):
-        neighbors=pt_dict[pt]
-        nbhd_pts=tri.points[neighbors,:]
-        this_pt=tri.points[pt,:]
+        neighbors = pt_dict[pt]
+        nbhd_pts  = tri.points[neighbors,:]
+        this_pt   = tri.points[pt,:]
         if max_dist is not None:
-            dist2=(nbhd_pts[:,1]-this_pt[1])**2 + (nbhd_pts[:,0]-this_pt[0])**2
-            nbhd_pts=nbhd_pts[dist2 < max_dist**2,:]
+            dist2    = (nbhd_pts[:,1]-this_pt[1])**2 + (nbhd_pts[:,0]-this_pt[0])**2
+            nbhd_pts = nbhd_pts[dist2 < max_dist**2,:]
         if nbhd_pts is None or min(nbhd_pts.shape) < 1:
             continue
-        dx_vals=np.append(np.array(dx_mat[nbhd_pts[:,1], nbhd_pts[:,0]]), dx_mat[this_pt[1], this_pt[0]])
-        dy_vals=np.append(np.array(dy_mat[nbhd_pts[:,1], nbhd_pts[:,0]]), dy_mat[this_pt[1], this_pt[0]])
+        dx_vals = np.append(np.array(dx_mat[nbhd_pts[:,1], nbhd_pts[:,0]]), dx_mat[int(this_pt[1]), int(this_pt[0])])
+        dy_vals = np.append(np.array(dy_mat[nbhd_pts[:,1], nbhd_pts[:,0]]), dy_mat[int(this_pt[1]), int(this_pt[0])])
         if calc_min_slope is not None:
-            dist=np.sqrt((nbhd_pts[:,1]-this_pt[1])**2 + (nbhd_pts[:,0]-this_pt[0])**2)
-            dx_slope=np.abs(dx_vals[0:-1]-dx_vals[-1])/dist
-            dy_slope=np.abs(dy_vals[0:-1]-dy_vals[-1])/dist
-            dxy_slope[row,:]=[np.min(dx_slope), np.min(dy_slope)];
+            dist     = np.sqrt((nbhd_pts[:,1]-this_pt[1])**2 + (nbhd_pts[:,0]-this_pt[0])**2)
+            dx_slope = np.abs(dx_vals[0:-1]-dx_vals[-1])/dist
+            dy_slope = np.abs(dy_vals[0:-1]-dy_vals[-1])/dist
+            dxy_slope[row,:] = [np.min(dx_slope), np.min(dy_slope)];
 
-        dxy_range[row,[0,1]]=[np.min(dx_vals), np.max(dx_vals)]
-        dxy_range[row,[2,3]]=[np.min(dy_vals), np.max(dy_vals)]
+        dxy_range[row,[0,1]] = [np.min(dx_vals), np.max(dx_vals)]
+        dxy_range[row,[2,3]] = [np.min(dy_vals), np.max(dy_vals)]
     if calc_min_slope is not None:
         return dxy_range, dxy_slope
     else:
@@ -1321,7 +1320,7 @@ def main():
         # Test the new points and their neighbors for convergence
         to_refine = np.logical_or(((dxy_score[:,OFFSET_MAX_X]-dxy_score[:,OFFSET_MIN_X]) > options.refine_tol), 
                                   ((dxy_score[:,OFFSET_MAX_Y]-dxy_score[:,OFFSET_MIN_Y]) > options.refine_tol))
-        indices_to_refine = test_pts [to_refine,:]
+        indices_to_refine = test_pts [to_refine]
         dxy_score         = dxy_score[to_refine,:]
         # N.B.  we can often end up refining more points than we searched on the
         # last round, because points from previous rounds can get marked for refinement

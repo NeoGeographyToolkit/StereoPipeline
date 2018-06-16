@@ -43,6 +43,8 @@ using namespace vw;
 using namespace vw::cartography;
 using namespace std;
 
+/// Image view which adds or subtracts the ellipsoid/geoid difference
+///  from elevations in a DEM image.
 template <class ImageT>
 class DemGeoidView : public ImageViewBase<DemGeoidView<ImageT> >
 {
@@ -62,8 +64,7 @@ public:
   typedef double result_type;
   typedef ProceduralPixelAccessor<DemGeoidView> pixel_accessor;
 
-  /// Image view which adds or subtracts the ellipsoid/geoid difference
-  ///  from elevations in a DEM image.
+
   DemGeoidView(ImageT const& img, GeoReference const& georef,
                bool is_egm2008, vector<double> const& egm2008_grid,
                ImageViewRef<PixelMask<double> > const& geoid,
@@ -94,7 +95,7 @@ public:
     //lonlat[0] = -152;   lonlat[1] = 66;   // Alaska
     //lonlat[0] = -155.5; lonlat[1] = 19.5; // Hawaii
 
-    // TODO: This wrapping needs to be integrated in the Georef class!
+    // TODO: Does the GeoRef class handle this now?
 
     // Need to carefully wrap lonlat to the [0, 360) x [-90, 90) box.
     // Note that lon = 25, lat = 91 is the same as lon = 180 + 25, lat = 89
@@ -133,7 +134,7 @@ public:
     geoid_height += m_correction;
 
     result_type height_above_ellipsoid = m_img(col, row, p);
-    
+
     // Compute height above the geoid
     // - See the note in the main program about the formula below
     if (m_reverse_adjustment)
@@ -170,10 +171,11 @@ dem_geoid( ImageViewBase<ImageT> const& img, GeoReference const& georef,
                                reverse_adjustment, correction, nodata_val );
 }
 
+/// Parameters for this tool
 struct Options : vw::cartography::GdalWriteOptions {
-  string dem_name, geoid, out_prefix;
+  string dem_path, geoid, out_prefix;
   double nodata_value;
-  bool   use_double;
+  bool   use_double; // Otherwise use float
   bool   reverse_adjustment;
 };
 
@@ -222,7 +224,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 
   po::options_description positional("");
   positional.add_options()
-    ("dem", po::value(&opt.dem_name), "Explicitly specify the DEM.");
+    ("dem", po::value(&opt.dem_path), "Explicitly specify the DEM.");
 
   po::positional_options_description positional_desc;
   positional_desc.add("dem", 1);
@@ -235,14 +237,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
-  if ( opt.dem_name.empty() )
+  if ( opt.dem_path.empty() )
     vw_throw( ArgumentErr() << "Requires <dem> in order to proceed.\n\n"
               << usage << general_options );
 
   boost::to_lower(opt.geoid);
 
   if ( opt.out_prefix.empty() )
-    opt.out_prefix = fs::path(opt.dem_name).stem().string();
+    opt.out_prefix = fs::path(opt.dem_path).stem().string();
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
@@ -290,6 +292,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 // We store the tabulated values as a tif file, and modified
 // the routine to be callable from this executable.
 
+
+
+/* TODO:
+NAD83 realizations: HARN, CSRS96, CSRS, CSRS98, CORS96, PACP00, MARP00, NSRS2007, 2011, PA11, MA11
+WGS84 realizations: G730, G873, G1150, G1674, G1762
+Any realizations for Mars?
+
+In theory these are already handled by gdal/proj4 if the proper EPSG code is used.
+
+*/
+
+
+
 int main( int argc, char *argv[] ) {
 
   Options opt;
@@ -299,19 +314,22 @@ int main( int argc, char *argv[] ) {
     bool reverse_adjustment = opt.reverse_adjustment;
 
     // Read the DEM to adjust
-    DiskImageResourceGDAL dem_rsrc(opt.dem_name);
+    DiskImageResourceGDAL dem_rsrc(opt.dem_path);
     double dem_nodata_val = opt.nodata_value;
     if ( dem_rsrc.has_nodata_read() ) {
       dem_nodata_val = dem_rsrc.nodata_read();
-      vw_out() << "\tFound input nodata value for " << opt.dem_name << ": "
+      vw_out() << "\tFound input nodata value for " << opt.dem_path << ": "
                << dem_nodata_val << endl;
     }
     DiskImageView<double> dem_img(dem_rsrc);
     GeoReference dem_georef;
     bool has_georef = read_georeference(dem_georef, dem_rsrc);
     if (!has_georef)
-      vw_throw( ArgumentErr() << "Missing georeference for DEM: " << opt.dem_name << "\n" );
+      vw_throw( ArgumentErr() << "Missing georeference for DEM: " << opt.dem_path << "\n" );
 
+    
+    // TODO: Improve this handling so it can read DEMS with relevant EPSG codes, etc.
+    
     // Find out the datum from the DEM. If we fail, we do an educated guess.
     string datum_name = dem_georef.datum().name();
     string lname      = boost::to_lower_copy(datum_name);
@@ -351,20 +369,20 @@ int main( int argc, char *argv[] ) {
         vw_throw( ArgumentErr() << "The datum is WGS84. The only supported options for the geoid are EGM96 and EGM2008. Got instead: " << opt.geoid << ".\n");
     }else if (lname == "north_american_datum_1983"){
       if (opt.geoid != "" && opt.geoid != "navd88")
-	vw_throw( ArgumentErr() << "The datum is North_American_Datum_1983. "
-		  << "Hence the value of the --geoid option must be either "
-		  << "empty (auto-detected) or NAVD88. Got instead: "
-		  << opt.geoid << ".\n");
+        vw_throw( ArgumentErr() << "The datum is North_American_Datum_1983. "
+                                << "Hence the value of the --geoid option must be either "
+                                << "empty (auto-detected) or NAVD88. Got instead: "
+                                << opt.geoid << ".\n");
     }else if (is_mola){
       if (opt.geoid != "" && opt.geoid != "mola")
-	vw_throw( ArgumentErr() << "Detected a Mars DEM. In that case, the "
-		  << "value of the --geoid option must be either empty "
-		  << "(auto-detected) or MOLA. Got instead: " << opt.geoid << ".\n");
-	
+        vw_throw( ArgumentErr() << "Detected a Mars DEM. In that case, the "
+                                << "value of the --geoid option must be either empty "
+                                << "(auto-detected) or MOLA. Got instead: " << opt.geoid << ".\n");
+
     }else if (opt.geoid != "")
       vw_throw( ArgumentErr() << "The geoid value: " << opt.geoid
                 << " is applicable only for the WGS_1984 datum.\n");
-    
+
     if (is_mola)
       geoid_file = "mola_areoid.tif";
 
@@ -386,7 +404,7 @@ int main( int argc, char *argv[] ) {
     if (is_wgs84 && !is_egm2008){
       // Convert the egm96 int16 JPEG2000-encoded geoid to float.
       double a =  0, 
-             b =  65534, 
+             b =  65534, // TODO: What is this?
              c = -108, 
              d =  86, 
              s = (d-c)/(b-a);
@@ -403,7 +421,7 @@ int main( int argc, char *argv[] ) {
     vector<double> egm2008_grid;
     if (is_egm2008){
       double a  =  0,  
-             b  =  65534, 
+             b  =  65534, // TODO: What is this?
              c  = -107, 
              d  =  86, 
              s  = (d-c)/(b-a);

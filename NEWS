@@ -30,7 +30,7 @@
    * Added hybrid SGM/MGM stereo option.
    * Improvements to SGM search range estimation.
    * Added --min-num-ip option.
-   
+
  - bundle_adjust
    * Added the ability to optimize pinhole camera intrinsic
      parameters, with and without having a LIDAR or DEM ground truth
@@ -95,6 +95,8 @@
      creation of too large DEMs.
    * Added image download option in hiedr2mosaic.py.
    * Bugfix in cam2map4stereo.py when the longitude crosses 180 degrees.
+   * Added support for running sparse_disp with your own Python installation.
+   * Bugfix for image cropping with epipolar aligned images.
 
 *** RELEASE 2.6.0, May 15, 2017 ***
 
