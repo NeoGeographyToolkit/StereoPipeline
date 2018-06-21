@@ -534,13 +534,21 @@ Here is an example:
              dg/dg srtm_53_07.tif
 \end{verbatim}
 
-It is important to note that \texttt{sparse\_disp} is written in Python
-and depends on a variety of binary Python modules. These modules cannot
+If \texttt{sparse\_disp} is not working well for your images you may be
+able to improve its results by experimenting with the set of \texttt{sparse\_disp}
+options which can be passed into \texttt{stereo} through the 
+texttt{-\/-sparse-disp-options} parameter.  \texttt{sparse\_disp}
+has so far only been tested with \texttt{affineepipolar} image alignment
+so you may not get results with other alignment methods.
+
+
+Since \texttt{sparse\_disp} is written in Python
+it depends on a variety of binary Python modules. These modules cannot
 be distributed with Stereo Pipeline as they depend on the version of
 Python installed on your system. One way to get these Python modules is
 to install them yourself. We reccomend the Conda Python management system
-(\href{https://conda.io/docs/index.html}{https://conda.io/docs/index.html}) as an easy way to install these
-dependencies.
+(\href{https://conda.io/docs/index.html}{https://conda.io/docs/index.html})
+as an easy way to install these dependencies.
 
 \texttt{sparse\_disp} has been tested on Ubuntu 16.04 using Conda with
 following additional packages installed:

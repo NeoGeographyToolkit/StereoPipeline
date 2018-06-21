@@ -1174,6 +1174,9 @@ def main():
     else:
         # Create boolean array with True for all values in dx, don't filter the points.
         good_indices = (dxy != np.nan)[:,0]
+    if len(good_indices) == 0:
+        print('No correlation matches detected!')
+        return -1
 
     # Make sparse matrices for storing dx and dy values, store initial values
     im_shape     = [matcher.Ny, matcher.Nx]
@@ -1364,6 +1367,10 @@ def main():
     dy_mat    = dy_mat.tocsr()
     all_pts   = np.c_[score_mat.nonzero()];
     all_pts   = all_pts[:,[1,0]];
+    if len(all_pts) == 0:
+        print('No points remaining after outlier rejection!')
+        return -1
+    
     # Triangulate all the good points so far
     tri       = sp.Delaunay(all_pts)
     pt_dict   = make_pt_2_neighbors(tri)
