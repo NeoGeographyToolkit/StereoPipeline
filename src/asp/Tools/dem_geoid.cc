@@ -373,7 +373,7 @@ int main( int argc, char *argv[] ) {
 
     }else if (opt.geoid != "")
       vw_throw( ArgumentErr() << "The geoid value: " << opt.geoid
-                << " is applicable only for the WGS_1984 datum.\n");
+                              << " is applicable only for the WGS_1984 datum.\n");
 
     if (is_mola)
       geoid_file = "mola_areoid.tif";
@@ -465,23 +465,22 @@ int main( int argc, char *argv[] ) {
     string adj_dem_file = opt.out_prefix + "-adj.tif";
     vw_out() << "Writing adjusted DEM: " << adj_dem_file << endl;
 
+    std::map<std::string, std::string> keywords;
+    keywords["GEOID"] = opt.geoid;
+    GdalWriteOptions geo_opt;
+
     if ( opt.use_double ) {
       // Output as double
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( vw::cartography::build_gdal_rsrc(adj_dem_file,
-                                                                          adj_dem, opt ) );
-      rsrc->set_nodata_write( dem_nodata_val );
-      write_georeference( *rsrc, dem_georef );
-      block_write_image( *rsrc, adj_dem,
-                         TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: ") );
+      block_write_gdal_image(adj_dem_file, adj_dem, true, dem_georef,true, dem_nodata_val, geo_opt,
+                             TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: "),
+                             keywords);
     }else{
       // Output as float
       ImageViewRef<float> adj_dem_float = channel_cast<float>( adj_dem );
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( vw::cartography::build_gdal_rsrc(adj_dem_file,
-                                                                          adj_dem_float, opt ) );
-      rsrc->set_nodata_write( dem_nodata_val );
-      write_georeference( *rsrc, dem_georef );
-      block_write_image( *rsrc, adj_dem_float,
-                         TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: ") );
+
+      block_write_gdal_image(adj_dem_file, adj_dem_float, true, dem_georef,true, dem_nodata_val, geo_opt,
+                             TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: "),
+                             keywords);
     }
 
 
