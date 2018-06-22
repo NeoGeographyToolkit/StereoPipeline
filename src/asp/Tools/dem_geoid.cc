@@ -294,14 +294,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 
 
 
-/* TODO:
-NAD83 realizations: HARN, CSRS96, CSRS, CSRS98, CORS96, PACP00, MARP00, NSRS2007, 2011, PA11, MA11
-WGS84 realizations: G730, G873, G1150, G1674, G1762
-Any realizations for Mars?
-
-In theory these are already handled by gdal/proj4 if the proper EPSG code is used.
-
-*/
 
 
 

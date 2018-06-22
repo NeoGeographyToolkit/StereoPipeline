@@ -50,14 +50,15 @@ public:
   typedef double result_type;
   typedef ProceduralPixelAccessor<DatumConvertView> pixel_accessor;
 
-  /// Image view which adds or subtracts the ellipsoid/geoid difference
-  ///  from elevations in a DEM image.
+  /// Image view which replaces each input elevation with the elevation
+  ///  value of the same location in the output georeference system.
+  /// - This view does not do any horizontal movement.
   DatumConvertView(ImageT       const& input_dem,
                    GeoReference const& input_georef,
                    GeoReference const& output_georef,
                    double nodata_val):
     m_input_dem(input_dem), m_input_georef(input_georef), m_output_georef(output_georef),
-    m_nodata_val(nodata_val){}
+    m_nodata_val(nodata_val) {}
 
   inline int32 cols  () const { return m_input_dem.cols(); }
   inline int32 rows  () const { return m_input_dem.rows(); }
@@ -77,7 +78,7 @@ public:
     Vector3 input_llh(input_lonlat[0], input_lonlat[1], current_height);
     Vector3 gcc_coord       = m_input_georef.datum().geodetic_to_cartesian(input_llh);
     Vector3 output_lonlat   = m_output_georef.datum().cartesian_to_geodetic(gcc_coord);
-    double output_height = output_lonlat[2];
+    double  output_height   = output_lonlat[2];
 /*
     if ( (current_height < -50) || (current_height > 700))
     {
@@ -111,7 +112,7 @@ datum_convert( ImageViewBase<ImageT> const& input_dem,
                GeoReference          const& input_georef,
                GeoReference          const& output_georef,
                double                       nodata_val) {
-  return DatumConvertView<ImageT>( input_dem.impl(), input_georef, output_georef, nodata_val );
+  return DatumConvertView<ImageT>(input_dem.impl(), input_georef, output_georef, nodata_val);
 }
 
 /// Convert input pixel location to output projection location
@@ -121,9 +122,13 @@ Vector2 get_output_loc(Vector2      const& input_pixel,
                        GeoReference const& output_georef) {
   Vector2 input_lonlat     = input_georef.pixel_to_lonlat(input_pixel);
   Vector3 input_llh(input_lonlat[0], input_lonlat[1], dem_height);
+  //std::cout << "input_llh = " << input_llh << std::endl;
   Vector3 gcc_coord        = input_georef.datum().geodetic_to_cartesian(input_llh);
-  Vector3 output_lonlat    = output_georef.datum().cartesian_to_geodetic(gcc_coord);
-  Vector2 output_projected = output_georef.lonlat_to_point(Vector2(output_lonlat[0], output_lonlat[1]));
+  //std::cout << "gcc_coord = " << gcc_coord << std::endl;
+  Vector3 output_llh      = output_georef.datum().cartesian_to_geodetic(gcc_coord);
+  //std::cout << "output_lonlat = " << output_llh << std::endl;
+  Vector2 output_projected = output_georef.lonlat_to_point(Vector2(output_llh[0], output_llh[1]));
+  //std::cout << "output_projected = " << output_projected  << std::endl;
   return output_projected;
 }
 
@@ -131,12 +136,13 @@ Vector2 get_output_loc(Vector2      const& input_pixel,
 template <typename T>
 BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
                                 GeoReference     const& output_georef,
-                                DiskImageView<T> const& input_dem) {
+                                DiskImageView<T> const& input_dem,
+                                double           const  nodata) {
 
   const int num_rows = input_dem.rows();
   const int num_cols = input_dem.cols();
 
-  vw_out() << "Image size = " << Vector2(num_cols, num_rows) << std::endl;
+  vw_out() << "Input image size = " << Vector2(num_cols, num_rows) << std::endl;
 
   // Expand along sides
   BBox2 output_bbox;
@@ -145,6 +151,12 @@ BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
     Vector2 pixel_right(num_cols-1, r);
     double height_left  = input_dem(pixel_left[0],  pixel_left[1]);
     double height_right = input_dem(pixel_right[0], pixel_right[1]);
+
+    // Don't allow nodata elevation values to be used in computations.
+    // - Would be more accurate to use a mean elevation or something 
+    //   instead of zero for the default value but this would increase the execution time.
+    if (height_left  <= nodata) height_left  = 0;
+    if (height_right <= nodata) height_right = 0;
 
     output_bbox.grow(get_output_loc(pixel_left,  height_left,  input_georef, output_georef));
     output_bbox.grow(get_output_loc(pixel_right, height_right, input_georef, output_georef));
@@ -156,6 +168,9 @@ BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
     Vector2 pixel_bot(c, num_rows-1);
     double height_top = input_dem(pixel_top[0], pixel_top[1]);
     double height_bot = input_dem(pixel_bot[0], pixel_bot[1]);
+
+    if (height_top <= nodata) height_top = 0;
+    if (height_bot <= nodata) height_bot = 0;
 
     output_bbox.grow(get_output_loc(pixel_top, height_top, input_georef, output_georef));
     output_bbox.grow(get_output_loc(pixel_bot, height_bot, input_georef, output_georef));
@@ -219,13 +234,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 
 }
 
-/// Perform vertical datum conversion.
-/// - gdalwarp should be used after this tool to perform the horizontal conversion
-/// - TODO: This tool does everything?
+/* TODO:  Make sure more Datum realizations are handled.
+NAD83 realizations: HARN, CSRS96, CSRS, CSRS98, CORS96, PACP00, MARP00, NSRS2007, 2011, PA11, MA11
+WGS84 realizations: G730, G873, G1150, G1674, G1762
+*/
 
-// --> Option 1: Run this tool before gdalwarp, all conversions handled.
-// --> Option 2: This tool does everything, but only handles datum conversions
-//               within the same projection type.
 
 template <typename T>
 void do_work(Options const& opt) {
@@ -235,7 +248,7 @@ void do_work(Options const& opt) {
   double dem_nodata_val = opt.nodata_value;
   if ( dem_rsrc.has_nodata_read() ) {
     dem_nodata_val = dem_rsrc.nodata_read();
-    vw_out() << "\tFound input nodata value for " << opt.input_dem << ": " << dem_nodata_val << endl;
+    vw_out() << "Found input nodata value for " << opt.input_dem << ": " << dem_nodata_val << endl;
   }
   DiskImageView<T> dem_img(dem_rsrc);
   GeoReference dem_georef;
@@ -261,8 +274,11 @@ void do_work(Options const& opt) {
 
   vw_out() << "Input georef:\n"  << dem_georef    << std::endl;
 
-  BBox2 output_proj_box = get_output_projected_bbox(dem_georef, output_georef, dem_img);
-
+  BBox2 output_proj_box = get_output_projected_bbox(dem_georef, output_georef, dem_img, dem_nodata_val);
+  if (output_proj_box.area() <= 0) {
+    vw_out() << "Error: No valid pixels found when computing output projected BBox!\n";
+    return;
+  }
   vw_out() << "Computed output projected box:\n" << output_proj_box << std::endl;
 
   // Overwrite the projected bounds in the output bounding box
@@ -279,12 +295,19 @@ void do_work(Options const& opt) {
   BBox2i output_pixel_box = output_georef.point_to_pixel_bbox(output_proj_box);
   vw_out() << "Computed output pixel box:\n" << output_pixel_box << std::endl;
 
+  // Check against an arbitrary size to 
+  const int MAX_OUTPUT_SIZE = 999999;
+  if ((output_pixel_box.width () > MAX_OUTPUT_SIZE) ||
+      (output_pixel_box.height() > MAX_OUTPUT_SIZE)) {
+    vw_out() << "Error: computed output size is too large!\n";
+    return;
+  }
+
   // Update the elevation values in the image to account for the new datum.
   ImageViewRef<double> dem_new_heights = datum_convert(pixel_cast<double>(dem_img),
                                                        dem_georef,
                                                        output_georef,
-                                                       dem_nodata_val
-                                                      );
+                                                       dem_nodata_val);
 
   // Apply the horizontal warping to the image on account of the new datum.
   ImageViewRef<double> output_dem = apply_mask(geo_transform(create_mask(dem_new_heights,
