@@ -34,14 +34,6 @@ namespace po = boost::program_options;
 
 #include <limits>
 
-namespace vw {
-  template<> struct PixelFormatID<Vector<uint16, 1> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_1_CHANNEL; };
-  template<> struct PixelFormatID<Vector<uint16, 4> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
-  template<> struct PixelFormatID<Vector<float, 1> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_1_CHANNEL; };
-  template<> struct PixelFormatID<Vector<float, 4> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
-  template<> struct PixelFormatID<Vector<double, 1> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_1_CHANNEL; };
-  template<> struct PixelFormatID<Vector<double, 4> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
-}
 
 struct ImageData{
   std::string src_file;

@@ -46,17 +46,6 @@ using namespace vw;
 using namespace asp;
 using namespace std;
 
-// These are used to read and write tif images with vector pixels
-namespace vw {
-  typedef Vector<double, 6> Vector6;
-  template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-  template<> struct PixelFormatID<Vector<double, 6> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-  template<> struct PixelFormatID<Vector<double, 4> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
-  template<> struct PixelFormatID<Vector<float,  6> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-  template<> struct PixelFormatID<Vector<float,  4> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
-  template<> struct PixelFormatID<Vector<float,  2> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
-}
-
 /// The main class for taking in a set of disparities and returning a point cloud via joint triangulation.
 template <class DisparityImageT, class TXT, class StereoModelT>
 class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, TXT, StereoModelT> >

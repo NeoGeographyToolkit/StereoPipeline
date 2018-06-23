@@ -2625,7 +2625,7 @@ namespace vw { namespace gui {
     }
 
     // Convert mouse coords to world coords then image coords, then add a new IP to the list for this image.
-    int trans_image_id = m_image_id;
+    size_t trans_image_id = m_image_id;
     if (trans_image_id >= m_world2image_geotransforms.size()) // TODO: Cleaner way to determine this?
       trans_image_id = 0;
     Vector2 world_coord = screen2world(Vector2(m_mousePrsX, m_mousePrsY));

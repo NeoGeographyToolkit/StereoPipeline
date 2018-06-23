@@ -34,10 +34,6 @@ using namespace vw::stereo;
 using namespace asp;
 using namespace std;
 
-namespace vw {
-  template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-}
-
 template <class Image1T, class Image2T>
 ImageViewRef<PixelMask<Vector2f> >
 refine_disparity(Image1T const& left_image,

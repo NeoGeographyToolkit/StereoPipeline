@@ -64,13 +64,6 @@ namespace po = boost::program_options;
 // UTILITIES
 // ---------------------------------------------------------
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  typedef Vector<float64,6> Vector6;
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
-  template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-}
 
 struct Options : vw::cartography::GdalWriteOptions {
   Options() : root( new osg::Group() ), simplify_percent(0) {};

@@ -41,10 +41,6 @@ using namespace vw::stereo;
 using namespace asp;
 using namespace std;
 
-// Allows FileIO to correctly read/write unusual pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
 
 namespace asp{
 

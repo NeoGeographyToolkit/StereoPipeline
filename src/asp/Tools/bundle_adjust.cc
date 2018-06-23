@@ -74,10 +74,6 @@ double g_max_disp_error = -1;
 
 typedef PixelMask< Vector<float, 2> > DispPixelT;
 
-// These are used to read and write tif images with vector pixels
-namespace vw {
-  template<> struct PixelFormatID< DispPixelT >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
 
 //==================================================================================
 // IP filtering functions -> Move them somewhere else once they are settled

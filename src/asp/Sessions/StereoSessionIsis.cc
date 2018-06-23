@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
+/*
 /// \file StereoSessionIsis.cc
 ///
 
@@ -71,3 +71,4 @@ namespace vw {
 }
 
 #endif  // ASP_HAVE_PKG_ISISIO
+*/

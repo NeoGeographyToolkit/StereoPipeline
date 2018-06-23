@@ -181,7 +181,8 @@ namespace asp {
   };
 
 
-  /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the DG sensor model.
+  // TODO: Why is this class split up?  Why is it not shared with the map projected version?
+  /// Final implementation
   class StereoSessionIsis : public StereoSessionIsisBase<DISKTRANSFORM_TYPE_MATRIX>  {
   public:
     StereoSessionIsis(){};

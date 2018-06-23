@@ -42,12 +42,6 @@ using namespace asp;
 namespace pt = boost::posix_time;
 namespace fs = boost::filesystem;
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<Vector2f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
-}
-
 
 namespace asp {
 

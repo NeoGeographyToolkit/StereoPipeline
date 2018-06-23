@@ -68,13 +68,6 @@ class QContextMenuEvent;
 class QMenu;
 class QPolygon;
 
-namespace vw {
-  // To be able to write multi-channel images
-  template<> struct PixelFormatID< Vector<vw::uint8, 1> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_1_CHANNEL; };
-  template<> struct PixelFormatID< Vector<vw::uint8, 2> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
-  template<> struct PixelFormatID< Vector<vw::uint8, 3> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID< Vector<vw::uint8, 4> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
-}
 
 namespace vw { namespace gui {
 

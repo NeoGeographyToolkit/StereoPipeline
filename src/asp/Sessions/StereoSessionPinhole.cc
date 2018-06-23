@@ -43,10 +43,6 @@ using namespace vw::camera;
 //TODO: There is a lot of duplicate code here with the Pinhole
 //class. Common functionality must be factored out.
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
 
 // TODO: The other Session classes use functions like affine_epipolar_rectification
 //        and homograhy_rectification (in the IP file) to perform this task.

@@ -35,10 +35,6 @@ using namespace vw;
 using namespace asp;
 using namespace std;
 
-namespace vw {
-  template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-}
-
 // Invalidate pixels < threshold
 struct MaskAboveThreshold: public ReturnFixedType< PixelMask<uint8> > {
   double m_threshold;

@@ -37,13 +37,6 @@ using namespace vw;
 using namespace vw::cartography;
 using namespace std;
 
-/// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-  template<> struct PixelFormatID<Vector3             > { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<PixelMask<Vector2f> > { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
 struct Options : vw::cartography::GdalWriteOptions {
   string input_RD, disp_1d_file, mask_1d_file, output_F, input_file, output_file;
   Vector2i left_crop, right_crop, shrink, grow;

@@ -48,14 +48,6 @@ using namespace vw::cartography;
 using namespace xercesc;
 using namespace std;
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  typedef Vector<float64,6> Vector6;
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<Vector3f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
-  template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-}
 
 struct Options : vw::cartography::GdalWriteOptions {
   std::string camera_image_file, camera_model_file, output_image, output_type;

@@ -86,15 +86,6 @@ using namespace PointMatcherSupport;
 
 const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the largest double
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  typedef Vector<float64,6> Vector6;
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<Vector3f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
-  template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-}
-
 /// Options container for the pc_align tool
 struct Options : public vw::cartography::GdalWriteOptions {
   // Input

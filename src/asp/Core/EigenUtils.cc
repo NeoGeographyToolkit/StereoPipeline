@@ -21,11 +21,6 @@
 
 #include <asp/Core/EigenUtils.h>
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3> { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
 using namespace vw;
 using namespace vw::cartography;
 
