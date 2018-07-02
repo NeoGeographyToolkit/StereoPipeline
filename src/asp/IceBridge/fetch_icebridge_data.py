@@ -51,20 +51,65 @@ os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
 LIDAR_TYPES = ['atm1', 'atm2', 'lvis']
 MAX_IN_ONE_CALL = 100 # when fetching in batches
 
-def checkIfUrlExists(url):
-    '''Return true if the given IceBrige folder URL is valid'''
-    p    = urlparse(url)
-    conn = httplib.HTTPConnection(p.netloc)
-    try:
-        conn.request('HEAD', p.path)
-        resp = conn.getresponse()
-    except Exception as e:
-        print 'Error reading URL ' + url + ' --> ' + str(e)
+def validateNavOrWipe(filename, logger):
+    '''If a nav file is not valid, wipe it.'''
+    
+    if not os.path.exists(filename):
         return False
+
+    f = open(filename)
+    line = f.readline()
+    m = re.match("^.*?DOCTYPE\s+HTML", line)
+    if m:
+        logger.info("Bad nav data, will wipe: " + filename)
+        os.system("rm -f " + filename)
+        return False
+    
+    return True
+
+def checkFound(filename):
+    '''Check if an HTML file has the 404 Not Found message.'''
+    
+    if not os.path.exists(filename):
+        return False
+
+    with open(filename, 'r') as f:
+        for line in f:
+            m = re.match("<title>404 Not Found", line)
+            if m:
+                return False
+    return True
+
+def checkIfUrlExists(url, baseCurlCmd):
+    '''Return true if the given IceBrige folder URL is valid. This
+    functionality, if done right, times out, likely to pecularities of
+    the NSIDC server. Hence, do a hack. Fetch the file first, and
+    check for whether it was found or not.'''
+
+    path = url.replace('/','_') # a temporary path
+    curlCmd = baseCurlCmd + ' ' + url + ' > ' + path
+    p = subprocess.Popen(curlCmd, shell=True)
+    os.waitpid(p.pid, 0)
+
+    found = checkFound(path)
+
+    wipeCmd = "rm -f " + path
+    os.system(wipeCmd)
+
+    return found
+
+    #p    = urlparse(url)
+    #conn = httplib.HTTPConnection(p.netloc)
+    #try:
+    #    conn.request('HEAD', p.path)
+    #    resp = conn.getresponse()
+    #except Exception as e:
+    #    print 'Error reading URL ' + url + ' --> ' + str(e)
+    #    return False
     # Invalid pages return 404, valid pages should return one of the numbers below.
     # This is not robust enough!
     
-    return (resp.status == 403) or (resp.status == 301)
+    #return (resp.status == 403) or (resp.status == 301)
 
 def makeYearFolder(year, site):
     '''Generate part of the URL.  Only used for images.'''
@@ -400,7 +445,7 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
                                          options.day, dayVal, # note here the dayVal
                                          options.site, lidar)
                 logger.info('Checking lidar URL: ' + folderUrl)
-                if checkIfUrlExists(folderUrl):
+                if checkIfUrlExists(folderUrl, baseCurlCmd):
                     logger.info('Found match with lidar type: ' + lidar)
                     folderUrls.append(folderUrl)
                     lidar_types.append(lidar)
@@ -565,22 +610,6 @@ def lidarFilesInRange(lidarDict, lidarFolder, startFrame, stopFrame):
 
     return lidarsToFetch
 
-def validateNavOrWipe(filename, logger):
-    '''If a nav file is not valid, wipe it.'''
-    
-    if not os.path.exists(filename):
-        return False
-
-    f = open(filename)
-    line = f.readline()
-    m = re.match("^.*?DOCTYPE\s+HTML", line)
-    if m:
-        logger.info("Bad nav data, will wipe: " + filename)
-        os.system("rm -f " + filename)
-        return False
-    
-    return True
-
 def fetchNavData(options, outputFolder):
     '''Fetch all the nav data for a flight.'''
 
@@ -619,8 +648,9 @@ def fetchNavData(options, outputFolder):
             success = True
             continue
 
-        if not checkIfUrlExists(url):
-            continue
+        # This times out, so avoid it
+        #if not checkIfUrlExists(url):
+        #    continue
         
         ans = icebridge_common.fetchFile(url, outputPath)
         if not ans:

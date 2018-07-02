@@ -269,7 +269,7 @@ def correctFireballDems(fireballFolder, corrFireballFolder, startFrame, stopFram
 
     return (not badFiles)
             
-def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmdd, site):
+def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmdd, site, logger):
     '''Return the camera model file to be used with a given input frame.'''
 
     # To manually force a certain camera file, use this spot!
@@ -541,7 +541,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder,
         # Determine which input camera file will be used for this frame
         if inputCalCamera == "":
             inputCamFile = getCalibrationFileForFrame(cameraLookupFile, inputCalFolder,
-                                                      frame, yyyymmdd, site)
+                                                      frame, yyyymmdd, site, logger)
         else:
             # This logic will force to use a given camera rather than
             # looking it up. This is not the usual way of doing things.
@@ -598,7 +598,7 @@ def getCameraModelsFromNav(imageFolder, orthoFolder,
     # things will be refined later.
     if inputCalCamera == "":
         inputCalCamera = getCalibrationFileForFrame(cameraLookupFile, inputCalFolder,
-                                                    startFrame, yyyymmdd, site)
+                                                    startFrame, yyyymmdd, site, logger)
 
     if inputCalCamera != "" and os.path.exists(inputCalCamera):
         cmd += ['--input-calibration-camera', inputCalCamera]

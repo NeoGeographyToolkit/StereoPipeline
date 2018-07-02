@@ -409,7 +409,7 @@ def solveIntrinsics_Part1(options, jpegFolder, cameraFolder, navCameraFolder, pr
         currCalibFile = input_conversions.getCalibrationFileForFrame(options.cameraLookupFile,
                                                                      options.inputCalFolder,
                                                                      frame, options.yyyymmdd,
-                                                                     options.site)
+                                                                     options.site, logger)
         if defaultCalibFile == "":
             defaultCalibFile = currCalibFile
 
