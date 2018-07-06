@@ -1360,7 +1360,6 @@ int main( int argc, char *argv[] ) {
     // be using [0,360].
     double avg_lon = asp::find_avg_lon(point_image);
     
-    
     // TODO: Do we need the recenter code now that we have this?
     // TODO: Modify other code so we don't have to handle this one special case!
     // Forcing the georef object outside its comfort zone is not safe for all projections!

@@ -120,7 +120,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 int main( int argc, char *argv[] ) {
 
   Options opt;
-  //try {
+  try {
 
     handle_arguments(argc, argv, opt);
 
@@ -156,10 +156,10 @@ int main( int argc, char *argv[] ) {
     // Just get the image size
     vw::Vector2i image_size = vw::file_image_size(opt.image_file);
 
-//    // The bounding box -> Add this feature in the future!
-//    BBox2 image_box = bounding_box(input_img);
-//    if (!opt.image_crop_box.empty()) 
-//      image_box.crop(opt.image_crop_box);
+    //    // The bounding box -> Add this feature in the future!
+    //    BBox2 image_box = bounding_box(input_img);
+    //    if (!opt.image_crop_box.empty()) 
+    //      image_box.crop(opt.image_crop_box);
     
     // Perform the computation
     
@@ -231,15 +231,15 @@ int main( int argc, char *argv[] ) {
 
 
     /*
-    std::vector<Vector2> lonlat[4];
-    std::vector<Vector3> coordinates[4];
-    lonlat[0] = target_georef.point_to_lonlat(footprint_bbox.min());
-    lonlat[1] = target_georef.point_to_lonlat(Vector2(footprint_bbox.max()[0], footprint_bbox.min()[1]);
-    lonlat[2] = target_georef.point_to_lonlat(footprint_bbox.max());
-    lonlat[3] = target_georef.point_to_lonlat(Vector2(footprint_bbox.min()[0], footprint_bbox.max()[1]);
-    for (int i=0; i<4; ++i)
+      std::vector<Vector2> lonlat[4];
+      std::vector<Vector3> coordinates[4];
+      lonlat[0] = target_georef.point_to_lonlat(footprint_bbox.min());
+      lonlat[1] = target_georef.point_to_lonlat(Vector2(footprint_bbox.max()[0], footprint_bbox.min()[1]);
+      lonlat[2] = target_georef.point_to_lonlat(footprint_bbox.max());
+      lonlat[3] = target_georef.point_to_lonlat(Vector2(footprint_bbox.min()[0], footprint_bbox.max()[1]);
+      for (int i=0; i<4; ++i)
       coordinates[i] = Vector3(lonlat[i][0], lonlat[i][1], 0);
-    kml.append_line(coordinates);
+      kml.append_line(coordinates);
     */  
     
     kml.append_line(coords, "intersections", "placemark");
@@ -248,7 +248,7 @@ int main( int argc, char *argv[] ) {
     
 
     
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

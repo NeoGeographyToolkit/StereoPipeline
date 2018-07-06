@@ -164,89 +164,89 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main(int argc, char* argv[]) {
 
   Options opt;
-  //try {
-  handle_arguments( argc, argv, opt );
+  try {
+    handle_arguments( argc, argv, opt );
 
-  size_t num_cameras = opt.input_files.size();
+    size_t num_cameras = opt.input_files.size();
 
-  // Prepare output directory
-  vw::create_out_dir(opt.out_file);
+    // Prepare output directory
+    vw::create_out_dir(opt.out_file);
   
-  // Create the KML file.
-  KMLFile kml( opt.out_file, "orbitviz" );
+    // Create the KML file.
+    KMLFile kml( opt.out_file, "orbitviz" );
 
-  // Style listing
-  if ( opt.path_to_outside_model.empty() ) {
-    // Placemark Style
-    kml.append_style( "plane", "", 1.2,
-                      "http://maps.google.com/mapfiles/kml/shapes/airports.png", 
-                      opt.hide_labels);
-    kml.append_style( "plane_highlight", "", 1.4,
-                      "http://maps.google.com/mapfiles/kml/shapes/airports.png");
-    kml.append_stylemap( "camera_placemark", "plane",
-                         "plane_highlight" );
-  }
+    // Style listing
+    if ( opt.path_to_outside_model.empty() ) {
+      // Placemark Style
+      kml.append_style( "plane", "", 1.2,
+                        "http://maps.google.com/mapfiles/kml/shapes/airports.png", 
+                        opt.hide_labels);
+      kml.append_style( "plane_highlight", "", 1.4,
+                        "http://maps.google.com/mapfiles/kml/shapes/airports.png");
+      kml.append_stylemap( "camera_placemark", "plane",
+                           "plane_highlight" );
+    }
 
-  // Load up the datum
-  cartography::Datum datum("WGS84");
+    // Load up the datum
+    cartography::Datum datum("WGS84");
 
-  std::string csv_file = fs::path(opt.out_file).replace_extension("csv").string();
-  std::ofstream csv_handle;
-  if ( opt.write_csv ) {
-    csv_handle.open(csv_file.c_str());
-  
-    if ( !csv_handle.is_open() )
-      vw_throw( IOErr() << "Unable to open output file.\n" );
-  }
-  
-  Vector2 camera_pixel(0, 0);
-
-  // Building Camera Models and then writing to KML
-  std::vector<Vector3> camera_positions(num_cameras);
-  for (size_t i=0; i < num_cameras; i++) {
-    // Load this input file
-    PinholeModel current_camera(opt.input_files[i]);
-
+    std::string csv_file = fs::path(opt.out_file).replace_extension("csv").string();
+    std::ofstream csv_handle;
     if ( opt.write_csv ) {
-      csv_handle << opt.input_files[i] << ", ";
+      csv_handle.open(csv_file.c_str());
+  
+      if ( !csv_handle.is_open() )
+        vw_throw( IOErr() << "Unable to open output file.\n" );
+    }
+  
+    Vector2 camera_pixel(0, 0);
 
-      Vector3 xyz = current_camera.camera_center(camera_pixel);
-      csv_handle << std::setprecision(12);
-      csv_handle << xyz[0] << ", "
-                 << xyz[1] << ", " << xyz[2] << "\n";
-    } // End csv write condition
+    // Building Camera Models and then writing to KML
+    std::vector<Vector3> camera_positions(num_cameras);
+    for (size_t i=0; i < num_cameras; i++) {
+      // Load this input file
+      PinholeModel current_camera(opt.input_files[i]);
+
+      if ( opt.write_csv ) {
+        csv_handle << opt.input_files[i] << ", ";
+
+        Vector3 xyz = current_camera.camera_center(camera_pixel);
+        csv_handle << std::setprecision(12);
+        csv_handle << xyz[0] << ", "
+                   << xyz[1] << ", " << xyz[2] << "\n";
+      } // End csv write condition
     
-    // Compute and record the GDC coordinates
-    Vector3 lon_lat_alt = datum.cartesian_to_geodetic(
-                              current_camera.camera_center(camera_pixel));
-    camera_positions[i] = lon_lat_alt;
+      // Compute and record the GDC coordinates
+      Vector3 lon_lat_alt
+        = datum.cartesian_to_geodetic(current_camera.camera_center(camera_pixel));
+      camera_positions[i] = lon_lat_alt;
 
-    // Adding Placemarks
-    std::string display_name = strip_directory(opt.input_files[i]);
-    if (!opt.path_to_outside_model.empty()) {
-      kml.append_model( opt.path_to_outside_model,
-                        lon_lat_alt.x(), lon_lat_alt.y(),
-                        inverse(current_camera.camera_pose(camera_pixel)),
-                        display_name, "",
-                        lon_lat_alt[2], opt.model_scale );
-    } else {
-      kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
-                            display_name, "", "camera_placemark",
-                            lon_lat_alt[2], true );
+      // Adding placemarks
+      std::string display_name = strip_directory(opt.input_files[i]);
+      if (!opt.path_to_outside_model.empty()) {
+        kml.append_model( opt.path_to_outside_model,
+                          lon_lat_alt.x(), lon_lat_alt.y(),
+                          inverse(current_camera.camera_pose(camera_pixel)),
+                          display_name, "",
+                          lon_lat_alt[2], opt.model_scale );
+      } else {
+        kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
+                              display_name, "", "camera_placemark",
+                              lon_lat_alt[2], true );
+      }
+    
+    } // End loop through cameras
+
+    // Put the Writing: messages here, so that they show up after all other info.
+    vw_out() << "Writing: " << opt.out_file << std::endl; 
+    kml.close_kml();
+
+    if (opt.write_csv){
+      vw_out() << "Writing: " << csv_file << std::endl;
+      csv_handle.close();
     }
     
-  } // End loop through cameras
-
-  // Put the Writing: messages here, so that they show up after all other info.
-  vw_out() << "Writing: " << opt.out_file << std::endl; 
-  kml.close_kml();
-
-  if (opt.write_csv){
-    vw_out() << "Writing: " << csv_file << std::endl;
-    csv_handle.close();
-  }
-    
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

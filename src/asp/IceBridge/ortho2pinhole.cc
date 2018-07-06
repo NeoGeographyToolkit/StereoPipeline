@@ -1006,32 +1006,32 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main(int argc, char* argv[]) {
 
   Options opt;
-  //try {
-  handle_arguments( argc, argv, opt );
+  try {
+    handle_arguments( argc, argv, opt );
    
-  if (opt.short_circuit) {
-    vw_out() << "Creating camera without using ortho image.\n";
+    if (opt.short_circuit) {
+      vw_out() << "Creating camera without using ortho image.\n";
   
-    // Load input camera files
-    vw_out() << "Loading: " << opt.input_cam << std::endl;
-    PinholeModel input_cam(opt.input_cam);
-    vw_out() << "Loading: " << opt.camera_estimate << std::endl;
-    PinholeModel est_cam(opt.camera_estimate);
+      // Load input camera files
+      vw_out() << "Loading: " << opt.input_cam << std::endl;
+      PinholeModel input_cam(opt.input_cam);
+      vw_out() << "Loading: " << opt.camera_estimate << std::endl;
+      PinholeModel est_cam(opt.camera_estimate);
     
-    // Copy camera position and pose from estimate camera to input camera
-    input_cam.set_camera_center(est_cam.camera_center());
-    input_cam.set_camera_pose  (est_cam.camera_pose  ());
+      // Copy camera position and pose from estimate camera to input camera
+      input_cam.set_camera_center(est_cam.camera_center());
+      input_cam.set_camera_pose  (est_cam.camera_pose  ());
     
-    // Write to output camera
-    vw_out() << "Writing: " << opt.output_cam << std::endl;
-    input_cam.write(opt.output_cam);
-    return 0;
-  }
+      // Write to output camera
+      vw_out() << "Writing: " << opt.output_cam << std::endl;
+      input_cam.write(opt.output_cam);
+      return 0;
+    }
   
-  opt.raw_image   = handle_rgb_input(opt.raw_image,   opt);
-  opt.ortho_image = handle_rgb_input(opt.ortho_image, opt);
+    opt.raw_image   = handle_rgb_input(opt.raw_image,   opt);
+    opt.ortho_image = handle_rgb_input(opt.ortho_image, opt);
   
-  ortho2pinhole(opt);
+    ortho2pinhole(opt);
+  } ASP_STANDARD_CATCHES;
   return 0;
-  //} ASP_STANDARD_CATCHES;
 }

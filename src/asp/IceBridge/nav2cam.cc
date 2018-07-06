@@ -518,184 +518,184 @@ void write_output_camera(Vector3 const& center, Matrix3x3 const& pose,
 int main(int argc, char* argv[]) {
 
   Options opt;
-  //try {
-  handle_arguments(argc, argv, opt);
+  try {
+    handle_arguments(argc, argv, opt);
 
-  Datum datum_wgs84("WGS84");
+    Datum datum_wgs84("WGS84");
 
-  // Set the time zone for the program (used inside the gps_seconds function) to UTC
-  //  time so our time conversions work properly.
-  // TODO: Should this be always be the same?
-  const std::string TZ_UTC = "TZ=UTC";
-  vw_out() << "Setting time zone: " << TZ_UTC << std::endl;
-  char* temp = (char*)TZ_UTC.c_str();
-  putenv(temp);
+    // Set the time zone for the program (used inside the gps_seconds function) to UTC
+    //  time so our time conversions work properly.
+    // TODO: Should this be always be the same?
+    const std::string TZ_UTC = "TZ=UTC";
+    vw_out() << "Setting time zone: " << TZ_UTC << std::endl;
+    char* temp = (char*)TZ_UTC.c_str();
+    putenv(temp);
 
 
-  // Print progress every N files
-  const size_t PRINT_INTERVAL = 200;
+    // Print progress every N files
+    const size_t PRINT_INTERVAL = 200;
   
-  const boost::filesystem::path output_dir(opt.output_folder);
+    const boost::filesystem::path output_dir(opt.output_folder);
   
-  // Initialize the nav interpolator
-  std::cout << "Opening input stream: " << opt.nav_file << std::endl;
-  ScrollingNavInterpolator interpLoader(opt.nav_file, datum_wgs84);
+    // Initialize the nav interpolator
+    std::cout << "Opening input stream: " << opt.nav_file << std::endl;
+    ScrollingNavInterpolator interpLoader(opt.nav_file, datum_wgs84);
 
-  // Load target camera positions if desired
-  std::vector<Vector3> target_locations;
-  std::vector<double > target_times;
-  if (opt.detect_offset) {
-    std::cout << "Reading target locations...\n";
-    const size_t num_targets = opt.camera_files.size();
-    target_locations.reserve(num_targets);
-    target_times.reserve    (num_targets);
-    for (size_t i=0; i<num_targets; ++i) {
-      try {
-        boost::filesystem::path camera_file(opt.camera_files[i]);
-        boost::filesystem::path camera_path = output_dir / camera_file;
-        PinholeModel model(camera_path.string());
-        target_locations.push_back(model.camera_center());
-        target_times.push_back    (gps_seconds(opt.image_files[i]));
-      } catch(...) {
-      } // Just skip cameras that we can't read in.
-    }
-    interpLoader.set_target_locs(target_locations);
-    std::cout << "Done loading " << target_locations.size() << " target locations.\n";
-  } // End target loading condition
+    // Load target camera positions if desired
+    std::vector<Vector3> target_locations;
+    std::vector<double > target_times;
+    if (opt.detect_offset) {
+      std::cout << "Reading target locations...\n";
+      const size_t num_targets = opt.camera_files.size();
+      target_locations.reserve(num_targets);
+      target_times.reserve    (num_targets);
+      for (size_t i=0; i<num_targets; ++i) {
+        try {
+          boost::filesystem::path camera_file(opt.camera_files[i]);
+          boost::filesystem::path camera_path = output_dir / camera_file;
+          PinholeModel model(camera_path.string());
+          target_locations.push_back(model.camera_center());
+          target_times.push_back    (gps_seconds(opt.image_files[i]));
+        } catch(...) {
+        } // Just skip cameras that we can't read in.
+      }
+      interpLoader.set_target_locs(target_locations);
+      std::cout << "Done loading " << target_locations.size() << " target locations.\n";
+    } // End target loading condition
 
-  boost::shared_ptr<ScrollingNavInterpolator::PosInterpType> pos_interpolator_ptr;
-  boost::shared_ptr<ScrollingNavInterpolator::RotInterpType> rot_interpolator_ptr;
-  double start, end;
+    boost::shared_ptr<ScrollingNavInterpolator::PosInterpType> pos_interpolator_ptr;
+    boost::shared_ptr<ScrollingNavInterpolator::RotInterpType> rot_interpolator_ptr;
+    double start, end;
   
-  const double POSE_TIME_DELTA     = 0.1; // Look this far ahead/behind to determine direction
-  const double CHUNK_TIME_BOUNDARY = 1.0; // Require this much interpolation time
-  size_t file_index = 0;
-  const size_t num_files = opt.image_files.size();
+    const double POSE_TIME_DELTA     = 0.1; // Look this far ahead/behind to determine direction
+    const double CHUNK_TIME_BOUNDARY = 1.0; // Require this much interpolation time
+    size_t file_index = 0;
+    const size_t num_files = opt.image_files.size();
 
-  // Keep loading chunks until the nav data catches up with the images
-  double ortho_time=0;
-  while (interpLoader.load_next_chunk(pos_interpolator_ptr, rot_interpolator_ptr)) {
+    // Keep loading chunks until the nav data catches up with the images
+    double ortho_time=0;
+    while (interpLoader.load_next_chunk(pos_interpolator_ptr, rot_interpolator_ptr)) {
 
-    // Get the time boundaries of the current chunk
-    interpLoader.get_time_boundaries(start, end);  
+      // Get the time boundaries of the current chunk
+      interpLoader.get_time_boundaries(start, end);  
 
-    //std::cout << "Time range: " << start << " ---- " << end << std::endl;
+      //std::cout << "Time range: " << start << " ---- " << end << std::endl;
 
-    // When detecting offsets all we want to do is loop through the nav file.
-    if (opt.detect_offset)
-      continue;
-
-    // Loop through ortho files until we need to advance the nav chunk
-    while (file_index < num_files) {
-
-      // Get the next input and output paths
-      std::string             orthoimage_path = opt.image_files [file_index];
-      boost::filesystem::path camera_file(opt.camera_files[file_index]);
-      boost::filesystem::path output_camera_path = output_dir / camera_file;
-      
-      // Get time for this frame
-      if (ortho_time == 0) {
-        ortho_time = gps_seconds(orthoimage_path) - opt.time_offset;
-        //vw_out() << orthoimage_path << " -> gps_time = " << ortho_time << std::endl;
-      }
-
-      // If this ortho is too far ahead in time, move on to the next nav chunk.
-      if (ortho_time > end - CHUNK_TIME_BOUNDARY)
-        break; // Don't advance file_index
-
-      // If this ortho is too early in time, move on to the next ortho file.
-      if (ortho_time < start + CHUNK_TIME_BOUNDARY) {
-        vw_out() << "Too early to interpolate position for file " << orthoimage_path << std::endl;
-        ++file_index;
-        ortho_time = 0;
+      // When detecting offsets all we want to do is loop through the nav file.
+      if (opt.detect_offset)
         continue;
-      }
 
-      // Try to interpolate this ortho position
-      Vector3 gcc_interp, rot_interp;
-      try{
-        gcc_interp = pos_interpolator_ptr->operator()(ortho_time);
-        rot_interp = rot_interpolator_ptr->operator()(ortho_time);
-      } catch(...){
-        vw_out() << "Failed to interpolate position for file " << orthoimage_path << std::endl;
-        ++file_index;
-        ortho_time = 0;
-        continue;
-      }
-      Vector3 llh_interp = datum_wgs84.cartesian_to_geodetic(gcc_interp);
-      
-      double roll    = rot_interp[0];
-      double pitch   = rot_interp[1];
-      //double heading = rot_interp[2];
-      //vw_out() << "For file " << orthoimage_path << " computed LLH " << llh_interp << std::endl;
-      //vw_out() << "Roll    = " << roll    <<" = "<< roll*180/3.14159<< std::endl;
-      //vw_out() << "Pitch   = " << pitch   <<" = "<< pitch*180/3.14159<< std::endl;
-      //vw_out() << "Heading = " << heading << std::endl;
+      // Loop through ortho files until we need to advance the nav chunk
+      while (file_index < num_files) {
 
-      //std::cout << "Ortho time  = " << ortho_time << std::endl;
-      //vw_out() << "llh = " << llh_interp << std::endl;
+        // Get the next input and output paths
+        std::string             orthoimage_path = opt.image_files [file_index];
+        boost::filesystem::path camera_file(opt.camera_files[file_index]);
+        boost::filesystem::path output_camera_path = output_dir / camera_file;
       
-      // Now estimate the rotation information
+        // Get time for this frame
+        if (ortho_time == 0) {
+          ortho_time = gps_seconds(orthoimage_path) - opt.time_offset;
+          //vw_out() << orthoimage_path << " -> gps_time = " << ortho_time << std::endl;
+        }
 
-      /*
-        For some reason the heading interpolated from the navigation data is about 30 degrees
-        off from what is expected by looking at the flight path.  The roll and pitch values are
-        consistent with what is stored in the Icebridge-provided ortho files (the heading is not 
-        provided).  What has proven to work the best so far is to estimate the camera pose 
-        including the heading just by using the flight path, and then to apply the pitch and roll
-        to that matrix.  The best order to apply the pitch and roll has been determined by seeing 
-        which one map-projects closest to the lidar data.
-      */
+        // If this ortho is too far ahead in time, move on to the next nav chunk.
+        if (ortho_time > end - CHUNK_TIME_BOUNDARY)
+          break; // Don't advance file_index
+
+        // If this ortho is too early in time, move on to the next ortho file.
+        if (ortho_time < start + CHUNK_TIME_BOUNDARY) {
+          vw_out() << "Too early to interpolate position for file " << orthoimage_path << std::endl;
+          ++file_index;
+          ortho_time = 0;
+          continue;
+        }
+
+        // Try to interpolate this ortho position
+        Vector3 gcc_interp, rot_interp;
+        try{
+          gcc_interp = pos_interpolator_ptr->operator()(ortho_time);
+          rot_interp = rot_interpolator_ptr->operator()(ortho_time);
+        } catch(...){
+          vw_out() << "Failed to interpolate position for file " << orthoimage_path << std::endl;
+          ++file_index;
+          ortho_time = 0;
+          continue;
+        }
+        Vector3 llh_interp = datum_wgs84.cartesian_to_geodetic(gcc_interp);
       
-      // Get a point ahead of and behind the frame location
-      Vector3 gcc_interp_forward  = pos_interpolator_ptr->operator()(ortho_time+POSE_TIME_DELTA);
-      Vector3 gcc_interp_backward = pos_interpolator_ptr->operator()(ortho_time-POSE_TIME_DELTA);
+        double roll    = rot_interp[0];
+        double pitch   = rot_interp[1];
+        //double heading = rot_interp[2];
+        //vw_out() << "For file " << orthoimage_path << " computed LLH " << llh_interp << std::endl;
+        //vw_out() << "Roll    = " << roll    <<" = "<< roll*180/3.14159<< std::endl;
+        //vw_out() << "Pitch   = " << pitch   <<" = "<< pitch*180/3.14159<< std::endl;
+        //vw_out() << "Heading = " << heading << std::endl;
+
+        //std::cout << "Ortho time  = " << ortho_time << std::endl;
+        //vw_out() << "llh = " << llh_interp << std::endl;
       
-      if (gcc_interp_forward == gcc_interp_backward) {
-        vw_out() << "Failed to estimate pose for file " << orthoimage_path << std::endl;
-        ++file_index;
-        ortho_time = 0;
-        continue;
-      }
+        // Now estimate the rotation information
+
+        /*
+          For some reason the heading interpolated from the navigation data is about 30 degrees
+          off from what is expected by looking at the flight path.  The roll and pitch values are
+          consistent with what is stored in the Icebridge-provided ortho files (the heading is not 
+          provided).  What has proven to work the best so far is to estimate the camera pose 
+          including the heading just by using the flight path, and then to apply the pitch and roll
+          to that matrix.  The best order to apply the pitch and roll has been determined by seeing 
+          which one map-projects closest to the lidar data.
+        */
       
-      // From these points get two flight direction vectors and take the mean.
-      Vector3 dir1 = gcc_interp_forward - gcc_interp;
-      Vector3 dir2 = gcc_interp - gcc_interp_backward;
-      Vector3 xDir = (dir1 + dir2) / 2.0;
+        // Get a point ahead of and behind the frame location
+        Vector3 gcc_interp_forward  = pos_interpolator_ptr->operator()(ortho_time+POSE_TIME_DELTA);
+        Vector3 gcc_interp_backward = pos_interpolator_ptr->operator()(ortho_time-POSE_TIME_DELTA);
+      
+        if (gcc_interp_forward == gcc_interp_backward) {
+          vw_out() << "Failed to estimate pose for file " << orthoimage_path << std::endl;
+          ++file_index;
+          ortho_time = 0;
+          continue;
+        }
+      
+        // From these points get two flight direction vectors and take the mean.
+        Vector3 dir1 = gcc_interp_forward - gcc_interp;
+        Vector3 dir2 = gcc_interp - gcc_interp_backward;
+        Vector3 xDir = (dir1 + dir2) / 2.0;
      
-      // The Z vector is straight down from the camera to the ground.
-      Vector3 llh_ground = llh_interp;
-      llh_ground[2] = 0;
-      Vector3 gcc_ground = datum_wgs84.geodetic_to_cartesian(llh_ground);
-      Vector3 zDir = gcc_ground - gcc_interp;
+        // The Z vector is straight down from the camera to the ground.
+        Vector3 llh_ground = llh_interp;
+        llh_ground[2] = 0;
+        Vector3 gcc_ground = datum_wgs84.geodetic_to_cartesian(llh_ground);
+        Vector3 zDir = gcc_ground - gcc_interp;
       
-      // Normalize the vectors
-      xDir = xDir / norm_2(xDir);
-      zDir = zDir / norm_2(zDir);
+        // Normalize the vectors
+        xDir = xDir / norm_2(xDir);
+        zDir = zDir / norm_2(zDir);
       
-      // The Y vector is the cross product of the two established vectors
-      Vector3 yDir = cross_prod(zDir, xDir);
+        // The Y vector is the cross product of the two established vectors
+        Vector3 yDir = cross_prod(zDir, xDir);
 
-      // Hack to allow testing of whether rotation is applied before axis change.
-      // - The rotations appear to take affect BEFORE the camera mounting (ie they are aircraft rotations)
-      // - Once we are satisfied this is always true, remove the option not to do this.
-      if (opt.camera_mounting > 0) {
-        Matrix3x3 rotation_matrix_gcc(xDir[0], yDir[0], zDir[0],
-                                      xDir[1], yDir[1], zDir[1],
-                                      xDir[2], yDir[2], zDir[2]);
-        Matrix3x3 M_roll  = get_rotation_matrix_roll (roll);
-        Matrix3x3 M_pitch = get_rotation_matrix_pitch(pitch);
-        Matrix3x3 M       = rotation_matrix_gcc*M_pitch*M_roll; // Pre-apply rotation.
-        xDir  = Vector3(M(0,0), M(1,0), M(2,0)); // Restore axes
-        yDir  = Vector3(M(0,1), M(1,1), M(2,1));
-        zDir  = Vector3(M(0,2), M(1,2), M(2,2));
-        roll  = 0; // Set to zero so that these rotations are not applied twice
-        pitch = 0;
-      }
+        // Hack to allow testing of whether rotation is applied before axis change.
+        // - The rotations appear to take affect BEFORE the camera mounting (ie they are aircraft rotations)
+        // - Once we are satisfied this is always true, remove the option not to do this.
+        if (opt.camera_mounting > 0) {
+          Matrix3x3 rotation_matrix_gcc(xDir[0], yDir[0], zDir[0],
+                                        xDir[1], yDir[1], zDir[1],
+                                        xDir[2], yDir[2], zDir[2]);
+          Matrix3x3 M_roll  = get_rotation_matrix_roll (roll);
+          Matrix3x3 M_pitch = get_rotation_matrix_pitch(pitch);
+          Matrix3x3 M       = rotation_matrix_gcc*M_pitch*M_roll; // Pre-apply rotation.
+          xDir  = Vector3(M(0,0), M(1,0), M(2,0)); // Restore axes
+          yDir  = Vector3(M(0,1), M(1,1), M(2,1));
+          zDir  = Vector3(M(0,2), M(1,2), M(2,2));
+          roll  = 0; // Set to zero so that these rotations are not applied twice
+          pitch = 0;
+        }
 
-      // Account for the camera mounting direction relative to aircraft motion.
-      Vector3 vTemp;
-      switch(abs(opt.camera_mounting)) {
+        // Account for the camera mounting direction relative to aircraft motion.
+        Vector3 vTemp;
+        switch(abs(opt.camera_mounting)) {
         case 1: // Left forwards
           xDir = xDir * -1.0;
           yDir = yDir * -1.0;
@@ -711,143 +711,143 @@ int main(int argc, char* argv[]) {
           yDir = -1.0*vTemp;
           break;
         default: break; // Right forwards, the default.
-      }
+        }
       
-      // Pack into a rotation matrix
-      Matrix3x3 rotation_matrix_gcc(xDir[0], yDir[0], zDir[0],
-                                    xDir[1], yDir[1], zDir[1],
-                                    xDir[2], yDir[2], zDir[2]);
+        // Pack into a rotation matrix
+        Matrix3x3 rotation_matrix_gcc(xDir[0], yDir[0], zDir[0],
+                                      xDir[1], yDir[1], zDir[1],
+                                      xDir[2], yDir[2], zDir[2]);
       
-      // TODO: ENU or NED?
-      //Matrix3x3 ned_matrix = datum_wgs84.lonlat_to_ned_matrix(Vector2(llh_interp[0], llh_interp[1]));
-      //Matrix3x3 enu_matrix(ned_matrix(0,1), ned_matrix(0,0), -ned_matrix(0,2),
-      //                     ned_matrix(1,1), ned_matrix(1,0), -ned_matrix(1,2),
-      //                     ned_matrix(2,1), ned_matrix(2,0), -ned_matrix(2,2));
+        // TODO: ENU or NED?
+        //Matrix3x3 ned_matrix = datum_wgs84.lonlat_to_ned_matrix(Vector2(llh_interp[0], llh_interp[1]));
+        //Matrix3x3 enu_matrix(ned_matrix(0,1), ned_matrix(0,0), -ned_matrix(0,2),
+        //                     ned_matrix(1,1), ned_matrix(1,0), -ned_matrix(1,2),
+        //                     ned_matrix(2,1), ned_matrix(2,0), -ned_matrix(2,2));
 
-      //Vector3 north(ned_matrix(0,0), ned_matrix(1,0), ned_matrix(2,0));
-      //double angle = acos(dot_prod(xDir, north) / (norm_2(north)*norm_2(xDir)));
+        //Vector3 north(ned_matrix(0,0), ned_matrix(1,0), ned_matrix(2,0));
+        //double angle = acos(dot_prod(xDir, north) / (norm_2(north)*norm_2(xDir)));
       
-      //std::cout << "Nav, est, diff, cam: " << heading <<", "<< angle << ", "<< fabs(heading)-angle << ", " << camera_file <<  std::endl;
+        //std::cout << "Nav, est, diff, cam: " << heading <<", "<< angle << ", "<< fabs(heading)-angle << ", " << camera_file <<  std::endl;
 
 
-      //std::cout << "gcc = " << gcc_interp << std::endl;
-      //std::cout << "xDir = " << xDir << std::endl;
-      //std::cout << "yDir = " << yDir << std::endl;
-      //std::cout << "zDir = " << zDir << std::endl;
+        //std::cout << "gcc = " << gcc_interp << std::endl;
+        //std::cout << "xDir = " << xDir << std::endl;
+        //std::cout << "yDir = " << yDir << std::endl;
+        //std::cout << "zDir = " << zDir << std::endl;
       
-      //std::cout << std::endl << "Estimate based matrix " << std::endl;
-      //print_matrix(rotation_matrix_gcc);
+        //std::cout << std::endl << "Estimate based matrix " << std::endl;
+        //print_matrix(rotation_matrix_gcc);
       
-      // TODO: Clean all this up once we are satisfied with it!
+        // TODO: Clean all this up once we are satisfied with it!
       
-      Matrix3x3 M_roll  = get_rotation_matrix_roll (roll);
-      Matrix3x3 M_pitch = get_rotation_matrix_pitch(pitch);
+        Matrix3x3 M_roll  = get_rotation_matrix_roll (roll);
+        Matrix3x3 M_pitch = get_rotation_matrix_pitch(pitch);
 
-      //std::cout << "M_roll, M_pitch:\n";
-      //print_matrix(M_roll ); std::cout << std::endl;
-      //print_matrix(M_pitch); std::cout << std::endl;
+        //std::cout << "M_roll, M_pitch:\n";
+        //print_matrix(M_roll ); std::cout << std::endl;
+        //print_matrix(M_pitch); std::cout << std::endl;
       
-      // Without documentation it is very difficult to determine
-      // which of these rotation orders is correct!
-      // - Could be neither since the yaw rotation is already baked in.
-      //Matrix3x3 M1 = M_pitch*M_roll*rotation_matrix_gcc; // <-- off
-      //Matrix3x3 M2 = M_roll*M_pitch*rotation_matrix_gcc; // <-- off
-      Matrix3x3 M3 = rotation_matrix_gcc*M_pitch*M_roll; // <-- Best
-      //Matrix3x3 M4 = rotation_matrix_gcc*M_roll*M_pitch; // <-- Ok
+        // Without documentation it is very difficult to determine
+        // which of these rotation orders is correct!
+        // - Could be neither since the yaw rotation is already baked in.
+        //Matrix3x3 M1 = M_pitch*M_roll*rotation_matrix_gcc; // <-- off
+        //Matrix3x3 M2 = M_roll*M_pitch*rotation_matrix_gcc; // <-- off
+        Matrix3x3 M3 = rotation_matrix_gcc*M_pitch*M_roll; // <-- Best
+        //Matrix3x3 M4 = rotation_matrix_gcc*M_roll*M_pitch; // <-- Ok
       
-      //std::cout << "Modified matrices:\n";
-      //print_matrix(M1); std::cout << std::endl;
-      //print_matrix(M2); std::cout << std::endl;
-      //print_matrix(M3); std::cout << std::endl;
-      //print_matrix(M4); std::cout << std::endl;
+        //std::cout << "Modified matrices:\n";
+        //print_matrix(M1); std::cout << std::endl;
+        //print_matrix(M2); std::cout << std::endl;
+        //print_matrix(M3); std::cout << std::endl;
+        //print_matrix(M4); std::cout << std::endl;
 
-      //std::string var_path = output_camera_path.string() + "_";
-      //write_output_camera(gcc_interp, rotation_matrix_gcc, opt.input_cam, var_path + "M0.tsai");
-      //write_output_camera(gcc_interp, M1, opt.input_cam, var_path + "M1.tsai");
-      //write_output_camera(gcc_interp, M2, opt.input_cam, var_path + "M2.tsai");
-      //write_output_camera(gcc_interp, M3, opt.input_cam, var_path + "M3.tsai");
-      //write_output_camera(gcc_interp, M4, opt.input_cam, var_path + "batch_06420_06421_2M4.tsai");
+        //std::string var_path = output_camera_path.string() + "_";
+        //write_output_camera(gcc_interp, rotation_matrix_gcc, opt.input_cam, var_path + "M0.tsai");
+        //write_output_camera(gcc_interp, M1, opt.input_cam, var_path + "M1.tsai");
+        //write_output_camera(gcc_interp, M2, opt.input_cam, var_path + "M2.tsai");
+        //write_output_camera(gcc_interp, M3, opt.input_cam, var_path + "M3.tsai");
+        //write_output_camera(gcc_interp, M4, opt.input_cam, var_path + "batch_06420_06421_2M4.tsai");
 
-      write_output_camera(gcc_interp, M3,
-                          opt.input_cam, output_camera_path.string());
+        write_output_camera(gcc_interp, M3,
+                            opt.input_cam, output_camera_path.string());
 
-      //std::cout << std::endl << "NED matrix " << std::endl;
-      //print_matrix(ned_matrix);
+        //std::cout << std::endl << "NED matrix " << std::endl;
+        //print_matrix(ned_matrix);
 
-      //std::cout << std::endl << "ENU matrix " << std::endl;
-      //std::cout << enu_matrix << std::endl << std::endl;
-      /*
-      double yaw = -3.14159 / 2;
-      Matrix3x3 My90 = get_rotation_matrix_yaw(yaw);
+        //std::cout << std::endl << "ENU matrix " << std::endl;
+        //std::cout << enu_matrix << std::endl << std::endl;
+        /*
+          double yaw = -3.14159 / 2;
+          Matrix3x3 My90 = get_rotation_matrix_yaw(yaw);
       
-      for (int p=0; p<0; ++p) {
-        Matrix3x3 rotation_matrix_gcc_2 = get_look_rotation_matrix(heading, pitch, roll, p);
+          for (int p=0; p<0; ++p) {
+          Matrix3x3 rotation_matrix_gcc_2 = get_look_rotation_matrix(heading, pitch, roll, p);
 
 
-        std::cout << std::endl << "Angle based matrix " << p << std::endl;
-        std::cout << ned_matrix * rotation_matrix_gcc_2 << std::endl;
+          std::cout << std::endl << "Angle based matrix " << p << std::endl;
+          std::cout << ned_matrix * rotation_matrix_gcc_2 << std::endl;
 
-        //std::cout << std::endl << "Angle based matrix 90 1" << p << std::endl;
-        //std::cout << My90*(ned_matrix * rotation_matrix_gcc_2) << std::endl;
+          //std::cout << std::endl << "Angle based matrix 90 1" << p << std::endl;
+          //std::cout << My90*(ned_matrix * rotation_matrix_gcc_2) << std::endl;
         
-        std::cout << std::endl << "Angle based matrix 90 2 " << p << std::endl;
-        std::cout << (ned_matrix * rotation_matrix_gcc_2)*My90 << std::endl;  
-        
-        
-        std::cout << std::endl << "Angle based matrix ALT" << p << std::endl;
-        std::cout << rotation_matrix_gcc_2*ned_matrix << std::endl;
-        
-        //std::cout << std::endl << "Angle based matrix ALT 90 1" << p << std::endl;
-        //std::cout << My90*(rotation_matrix_gcc_2*ned_matrix) << std::endl;
-        
-        std::cout << std::endl << "Angle based matrix ALT 90 2 " << p << std::endl;
-        std::cout << (rotation_matrix_gcc_2*ned_matrix)*My90 << std::endl;        
-
-        std::cout << "------------\n";
-
-
-        std::cout << std::endl << "Angle based matrix " << p << std::endl;
-        std::cout << enu_matrix * rotation_matrix_gcc_2 << std::endl;
-
-        //std::cout << std::endl << "Angle based matrix 90 1" << p << std::endl;
-        //std::cout << My90*(enu_matrix * rotation_matrix_gcc_2) << std::endl;
-        
-        std::cout << std::endl << "Angle based matrix 90 2" << p << std::endl;
-        std::cout << (enu_matrix * rotation_matrix_gcc_2)*My90 << std::endl;  
+          std::cout << std::endl << "Angle based matrix 90 2 " << p << std::endl;
+          std::cout << (ned_matrix * rotation_matrix_gcc_2)*My90 << std::endl;  
         
         
-        std::cout << std::endl << "Angle based matrix ALT" << p << std::endl;
-        std::cout << rotation_matrix_gcc_2*enu_matrix << std::endl;
+          std::cout << std::endl << "Angle based matrix ALT" << p << std::endl;
+          std::cout << rotation_matrix_gcc_2*ned_matrix << std::endl;
         
-        //std::cout << std::endl << "Angle based matrix ALT 90 1" << p << std::endl;
-        //std::cout << My90*(rotation_matrix_gcc_2*enu_matrix) << std::endl;
+          //std::cout << std::endl << "Angle based matrix ALT 90 1" << p << std::endl;
+          //std::cout << My90*(rotation_matrix_gcc_2*ned_matrix) << std::endl;
         
-        std::cout << std::endl << "Angle based matrix ALT 90 2" << p << std::endl;
-        std::cout << (rotation_matrix_gcc_2*enu_matrix)*My90 << std::endl;        
+          std::cout << std::endl << "Angle based matrix ALT 90 2 " << p << std::endl;
+          std::cout << (rotation_matrix_gcc_2*ned_matrix)*My90 << std::endl;        
+
+          std::cout << "------------\n";
+
+
+          std::cout << std::endl << "Angle based matrix " << p << std::endl;
+          std::cout << enu_matrix * rotation_matrix_gcc_2 << std::endl;
+
+          //std::cout << std::endl << "Angle based matrix 90 1" << p << std::endl;
+          //std::cout << My90*(enu_matrix * rotation_matrix_gcc_2) << std::endl;
+        
+          std::cout << std::endl << "Angle based matrix 90 2" << p << std::endl;
+          std::cout << (enu_matrix * rotation_matrix_gcc_2)*My90 << std::endl;  
+        
+        
+          std::cout << std::endl << "Angle based matrix ALT" << p << std::endl;
+          std::cout << rotation_matrix_gcc_2*enu_matrix << std::endl;
+        
+          //std::cout << std::endl << "Angle based matrix ALT 90 1" << p << std::endl;
+          //std::cout << My90*(rotation_matrix_gcc_2*enu_matrix) << std::endl;
+        
+          std::cout << std::endl << "Angle based matrix ALT 90 2" << p << std::endl;
+          std::cout << (rotation_matrix_gcc_2*enu_matrix)*My90 << std::endl;        
 
         
-      }
-      std::cout << std::endl << std::endl;
-      */
-      //write_output_camera(gcc_interp, rotation_matrix_gcc,
-      //                    opt.input_cam, output_camera_path.string());
+          }
+          std::cout << std::endl << std::endl;
+        */
+        //write_output_camera(gcc_interp, rotation_matrix_gcc,
+        //                    opt.input_cam, output_camera_path.string());
 
 
-      // Update progress
-      if (file_index % PRINT_INTERVAL == 0)
-        vw_out() << file_index << " files processed.\n";
+        // Update progress
+        if (file_index % PRINT_INTERVAL == 0)
+          vw_out() << file_index << " files processed.\n";
 
-      ++file_index;
-      ortho_time = 0;
+        ++file_index;
+        ortho_time = 0;
 
-    } // End loop through ortho files
+      } // End loop through ortho files
     
-  } // End loop through nav batches
+    } // End loop through nav batches
   
-  vw_out() << "Finished looping through the nav file.\n";
-/*
+    vw_out() << "Finished looping through the nav file.\n";
+    /*
     
-        // TODO: The camera position needs to be interpolated from the several nearest lines!
+    // TODO: The camera position needs to be interpolated from the several nearest lines!
     
     Vector3 xyz;
     Quat rot, look, ned;
@@ -855,68 +855,67 @@ int main(int argc, char* argv[]) {
     // Try out different rotation orders
     for (int rot_order = 5; rot_order <= 5; rot_order++) {
     
-      // Process the navigation information from this line
-      parse_camera_pose(curr_line, xyz, look, ned, 
-                        lon, lat, alt, roll, pitch, heading, rot_order);
+    // Process the navigation information from this line
+    parse_camera_pose(curr_line, xyz, look, ned, 
+    lon, lat, alt, roll, pitch, heading, rot_order);
 
-      vw_out() << "Got GCC coord: " << xyz << std::endl;
+    vw_out() << "Got GCC coord: " << xyz << std::endl;
 
-      // This is highly confusing, but apparently we need to keep
-      // the original longitude when computing the ned matrix that
-      // transforms from the coordinate system with orgin at the
-      // center of the Earth to the North-East-Down coordinate
-      // system that was obtained from the starting image, rather
-      // than modifying it as we move over new points over the Earth surface.
-      if (lon0 == BIG_NUMBER){
-        // First value for these variables.
-        lon0 = lon;
-      }
-      //std::cout << "--temporary!!!" << std::endl;
-      //lon0 = -65;
-      //ned = Quat(datum_wgs84.lonlat_to_ned_matrix(Vector2(lon0, lat)));
+    // This is highly confusing, but apparently we need to keep
+    // the original longitude when computing the ned matrix that
+    // transforms from the coordinate system with orgin at the
+    // center of the Earth to the North-East-Down coordinate
+    // system that was obtained from the starting image, rather
+    // than modifying it as we move over new points over the Earth surface.
+    if (lon0 == BIG_NUMBER){
+    // First value for these variables.
+    lon0 = lon;
+    }
+    //std::cout << "--temporary!!!" << std::endl;
+    //lon0 = -65;
+    //ned = Quat(datum_wgs84.lonlat_to_ned_matrix(Vector2(lon0, lat)));
 
-      Quat rotation_matrix_gcc = inverse(ned)*inverse(look);
+    Quat rotation_matrix_gcc = inverse(ned)*inverse(look);
       
-      // Update the input pinhole model and write it out to disk.
-      input_pinhole_model.set_camera_center(xyz);
-      input_pinhole_model.set_camera_pose(rotation_matrix_gcc);
-      vw_out() << "Writing: " << output_camera_path << std::endl;
-      input_pinhole_model.write(output_camera_path);
+    // Update the input pinhole model and write it out to disk.
+    input_pinhole_model.set_camera_center(xyz);
+    input_pinhole_model.set_camera_pose(rotation_matrix_gcc);
+    vw_out() << "Writing: " << output_camera_path << std::endl;
+    input_pinhole_model.write(output_camera_path);
       
     } // End rot_order loop
   
     // Update progress
     if (i % PRINT_INTERVAL == 0)
-      vw_out() << i << " files completed.\n";
+    vw_out() << i << " files completed.\n";
     
-  } // End loop through input files
+    } // End loop through input files
   
-  */
+    */
   
-  if (opt.detect_offset) {
-    std::cout << "Getting target results...\n";
-    // Compute the mean difference between the target camera time and the matched time
-    //  and print the results.
-    std::vector<double> matched_times, best_distances;
-    interpLoader.get_target_times(matched_times, best_distances);
-    const size_t num_targets = target_times.size();
-    double mean_offset = 0, mean_dist = 0;
-    for (size_t i=0; i<num_targets; ++i) {
-      double diff = matched_times[i] - target_times[i];
-      mean_offset += diff;
-      mean_dist   += best_distances[i];
-      std::cout << "Offset: " << diff << ", dist = " << best_distances[i]
-                << ", time = " << matched_times[i] << std::endl;
+    if (opt.detect_offset) {
+      std::cout << "Getting target results...\n";
+      // Compute the mean difference between the target camera time and the matched time
+      //  and print the results.
+      std::vector<double> matched_times, best_distances;
+      interpLoader.get_target_times(matched_times, best_distances);
+      const size_t num_targets = target_times.size();
+      double mean_offset = 0, mean_dist = 0;
+      for (size_t i=0; i<num_targets; ++i) {
+        double diff = matched_times[i] - target_times[i];
+        mean_offset += diff;
+        mean_dist   += best_distances[i];
+        std::cout << "Offset: " << diff << ", dist = " << best_distances[i]
+                  << ", time = " << matched_times[i] << std::endl;
+      }
+      mean_offset /= static_cast<double>(num_targets);
+      mean_dist   /= static_cast<double>(num_targets);
+      std::cout << "Computed mean nav time offset: " << mean_offset << std::endl;
+      std::cout << "Computed mean nav distance   : " << mean_dist   << std::endl;
     }
-    mean_offset /= static_cast<double>(num_targets);
-    mean_dist   /= static_cast<double>(num_targets);
-    std::cout << "Computed mean nav time offset: " << mean_offset << std::endl;
-    std::cout << "Computed mean nav distance   : " << mean_dist   << std::endl;
-  }
   
-  return 0;
-    
-  //} ASP_STANDARD_CATCHES;
-}
+  } ASP_STANDARD_CATCHES;
 
+  return 0;
+}
   

@@ -336,9 +336,9 @@ void save_xml(Vector3 const& llh_scale,
 int main( int argc, char *argv[] ) {
 
   Options opt;
-  //try {
+  try {
     handle_arguments(argc, argv, opt);
-   
+    
     // Generate all the point pairs using the input options
     Vector<double> normalized_geodetics;
     Vector<double> normalized_pixels;
@@ -361,7 +361,7 @@ int main( int argc, char *argv[] ) {
              line_num, line_den, samp_num, samp_den,  
              opt.output_path);
     
-  //} ASP_STANDARD_CATCHES;
-
+  } ASP_STANDARD_CATCHES;
+  
   return 0;
 }
