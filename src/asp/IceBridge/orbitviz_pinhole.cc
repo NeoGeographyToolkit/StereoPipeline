@@ -42,7 +42,7 @@
 #include <boost/filesystem/fstream.hpp>
 
 #include <asp/Core/Common.h>
-
+#include <asp/Core/Macros.h>
 
 using namespace vw;
 using namespace vw::camera;
