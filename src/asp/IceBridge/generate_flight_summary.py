@@ -203,7 +203,8 @@ def generateFlightSummary(run, options):
         #   in multiple bundles.
         print 'Merging output camera kml files...'
         cmd = "find "+procFolder+" -name cameras_out.kml"
-        p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=False)
+        p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=False,
+                             universal_newlines=True)
         textOutput, err = p.communicate()
         camKmlFiles = textOutput.replace('\n', ' ')
 

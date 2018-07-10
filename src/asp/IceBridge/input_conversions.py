@@ -378,7 +378,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
         print(cmd)
 
         os.system('rm -f ' + matchPath) # Needs to be gone
-        p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+        p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, universal_newlines=True)
         textOutput, err = p.communicate()
         p.wait()
         print(textOutput)
@@ -789,10 +789,12 @@ def pairLidarFiles(lidarFolder, skipValidate, logger):
         cmd1 = 'cat ' + path1 + ' > ' + outputPath
         cmd2 = 'tail -n +2 -q ' + path2 + ' >> ' + outputPath
         logger.info(cmd1)
-        p        = subprocess.Popen(cmd1, stdout=subprocess.PIPE, shell=True)
+        p        = subprocess.Popen(cmd1, stdout=subprocess.PIPE, shell=True,
+                                    universal_newlines=True)
         out, err = p.communicate()
         logger.info(cmd2)
-        p        = subprocess.Popen(cmd2, stdout=subprocess.PIPE, shell=True)
+        p        = subprocess.Popen(cmd2, stdout=subprocess.PIPE, shell=True,
+                                    universal_newlines=True)
         out, err = p.communicate()
 
         if not icebridge_common.isValidLidarCSV(outputPath):

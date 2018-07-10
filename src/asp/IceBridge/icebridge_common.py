@@ -1302,7 +1302,7 @@ def fetchFile(url, outputPath):
 
     # Download the file
     print (cmd)
-    p = subprocess.Popen(cmd, shell=True)
+    p = subprocess.Popen(cmd, shell=True, universal_newlines=True)
     os.waitpid(p.pid, 0)
     
     return os.path.exists(outputPath)
@@ -1354,7 +1354,7 @@ def fetchFilesInBatches(baseCurlCmd, batchSize, dryRun, outputFolder, files, url
             logger.info(curlCmd)
             if not dryRun:
                 logger.info("Saving the data in " + outputFolder)
-                p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True)
+                p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True, universal_newlines=True)
                 os.waitpid(p.pid, 0)
                 
             # Start command fresh for the next file

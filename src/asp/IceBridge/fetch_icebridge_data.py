@@ -90,7 +90,7 @@ def checkIfUrlExists(url, baseCurlCmd):
 
     path = url.replace('/','_') # a temporary path
     curlCmd = baseCurlCmd + ' ' + url + ' > ' + path
-    p = subprocess.Popen(curlCmd, shell=True)
+    p = subprocess.Popen(curlCmd, shell=True, universal_newlines=True)
     os.waitpid(p.pid, 0)
 
     found = checkFound(path)
@@ -128,7 +128,7 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, dayVal,
     # Download the html file
     curlCmd = baseCurlCmd + ' ' + folderUrl + ' > ' + path
     logger.info(curlCmd)
-    p = subprocess.Popen(curlCmd, shell=True)
+    p = subprocess.Popen(curlCmd, shell=True, universal_newlines=True)
     os.waitpid(p.pid, 0)
 
     # Find all the file names in the index file and
@@ -468,7 +468,7 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
                         # Download the file
                         curlCmd = baseCurlCmd + ' ' + url + ' > ' + xmlFile
                         logger.info(curlCmd)
-                        p = subprocess.Popen(curlCmd, shell=True)
+                        p = subprocess.Popen(curlCmd, shell=True, universal_newlines=True)
                         os.waitpid(p.pid, 0)
                         
                         latitude = icebridge_common.parseLatitude(xmlFile)

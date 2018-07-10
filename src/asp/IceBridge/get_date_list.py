@@ -51,7 +51,7 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
 
     # Download the file
     print cmd
-    p = subprocess.Popen(cmd, shell=True)
+    p = subprocess.Popen(cmd, shell=True, universal_newlines=True)
     os.waitpid(p.pid, 0)
     
     # Find all the file names in the index file and

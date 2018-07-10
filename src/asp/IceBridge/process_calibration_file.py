@@ -65,7 +65,7 @@ def main(argsIn):
     pdfToTextExec = asp_system_utils.which("pdftotext")
     cmd = pdfToTextExec + ' ' + inFile 
     print(cmd)
-    p = subprocess.Popen(cmd, shell=True)
+    p = subprocess.Popen(cmd, shell=True, universal_newlines=True)
     os.waitpid(p.pid, 0)
     
     txtFile = base + '.txt'

@@ -100,7 +100,7 @@ def tarAndWipe(options, logger):
     
     cmd = 'ssh ' + louUser + '@lfe "' + lfeCmd + '"'
     logger.info(cmd)
-    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, universal_newlines=True)
     output, error = p.communicate()
     if p.returncode != 0:
         raise Exception('Failed to tar and copy to lfe.')
@@ -136,7 +136,7 @@ def startWithLouArchive(options, logger):
     cmd = 'ssh ' + louUser + '@lfe "' + lfeCmd + '"'
     logger.info(cmd)
     os.system(cmd)
-    #p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    #p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, universal_newlines=True)
     #output, error = p.communicate()
     #if p.returncode != 0:
     #    # Don't fail, just continue
