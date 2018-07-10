@@ -97,6 +97,7 @@
    * Bugfix in cam2map4stereo.py when the longitude crosses 180 degrees.
    * Added support for running sparse_disp with your own Python installation.
    * Bugfix for image cropping with epipolar aligned images.
+   * The software works with both Python 2 and 3. 
 
 *** RELEASE 2.6.0, May 15, 2017 ***
 
