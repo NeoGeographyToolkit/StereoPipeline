@@ -40,7 +40,6 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-
 import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()
 
@@ -69,8 +68,6 @@ from stereo_utils import get_asp_version
 #==============================================================================
 # Start of supporting functions
 #==============================================================================
-
-
 def prevpow2(i):
     """ Find largest 2^n that is <= given number. """
     n = 1
@@ -284,7 +281,7 @@ def norm_xcorr(t, a, trim=True):
     a = np.float64(a)
 
     # output dimensions of xcorr need to match those of local_sum
-    outdims = np.array([a.shape[dd]+t.shape[dd]-1 for dd in xrange(a.ndim)])
+    outdims = np.array([a.shape[dd]+t.shape[dd]-1 for dd in range(a.ndim)])
     # hack by BS 1/15/2013-- the direct method appears not to work
 
     af = fftn(a,shape=outdims)
@@ -357,7 +354,7 @@ def local_sum(a, tshape, padval):
     #
     # See:
     # <http://www.idiom.com/~zilla/Papers/nvisionInterface/nip.html>
-    for dd in xrange(a.ndim):
+    for dd in range(a.ndim):
         a = np.cumsum(a,dd)
         a = shiftdiff(a,tshape,dd)
     return a
@@ -403,11 +400,11 @@ def ndpad(a,npad=None,padval=0):
                 %(len(npad),a.ndim))
 
     # initialise padded output
-    padsize = [a.shape[dd]+2*npad[dd] for dd in xrange(a.ndim)]
+    padsize = [a.shape[dd]+2*npad[dd] for dd in range(a.ndim)]
     b = np.ones(padsize,a.dtype)*padval
 
     # construct an N-dimensional list of slice objects
-    ind = [slice(int(np.floor(npad[dd])), int(a.shape[dd]+np.floor(npad[dd]))) for dd in xrange(a.ndim)]
+    ind = [slice(int(np.floor(npad[dd])), int(a.shape[dd]+np.floor(npad[dd]))) for dd in range(a.ndim)]
 
     # fill in the non-pad part of the array
     b[ind] = a
@@ -441,7 +438,7 @@ def procrustes(a,target,side='both',padval=0):
 
     # pad/trim comes after the array in each dimension
     if side == 'after':
-        for dd in xrange(a.ndim):
+        for dd in range(a.ndim):
             if a.shape[dd] > target[dd]:
                 aind[dd] = slice(None, int(target[dd]))
             elif a.shape[dd] < target[dd]:
@@ -449,7 +446,7 @@ def procrustes(a,target,side='both',padval=0):
 
     # pad/trim comes before the array in each dimension
     elif side == 'before':
-        for dd in xrange(a.ndim):
+        for dd in range(a.ndim):
             if a.shape[dd] > target[dd]:
                 aind[dd] = slice(int(a.shape[dd]-target[dd]), None)
             elif a.shape[dd] < target[dd]:
@@ -457,7 +454,7 @@ def procrustes(a,target,side='both',padval=0):
 
     # pad/trim both sides of the array in each dimension
     elif side == 'both':
-        for dd in xrange(a.ndim):
+        for dd in range(a.ndim):
             if a.shape[dd] > target[dd]:
                 diff = (a.shape[dd]-target[dd])/2.
                 aind[dd] = slice(int(np.floor(diff)), int(a.shape[dd]-np.ceil(diff)))
@@ -522,7 +519,7 @@ def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
             #warnings.warn('run_one_block: TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
             return(-3., Xc, Yc, 0., np.NaN, np.NaN)
 
-        result = result[(template_size/4):(search_range_y/2-template_size/4), (template_size/4):(search_range_x/2-template_size/4)]
+        result = result[int(template_size/4):int(search_range_y/2-template_size/4), int(template_size/4):int(search_range_x/2-template_size/4)]
         ijC    = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
 
         t_xr = np.array(ijC[1]+[-template_size/2-16, template_size/2+16]+SS.shape[1]/2, dtype=np.int16)
@@ -536,8 +533,8 @@ def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
     result = template_matcher(SS)
 
     # trim off edges of result
-    result=result[(template_size/2):(SS.shape[0]-template_size/2),
-                  (template_size/2):(SS.shape[1]-template_size/2)]
+    result=result[int(template_size/2):int(SS.shape[0]-template_size/2),
+                  int(template_size/2):int(SS.shape[1]-template_size/2)]
 
     ij  = np.unravel_index(np.argmax(result), result.shape)
     ijC = ij-np.array([result.shape[0]/2, result.shape[1]/2])
@@ -1504,7 +1501,7 @@ def main():
                     print(" ...based on %d points" % np.sum(ii))
                 if (np.amax(out[ii,0])-np.amin(out[ii,0]) > 0) and (np.amax(out[ii,1])-np.amin(out[ii,1]) > 0 ) :
                     grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5], out[ii,6], 
-                              options.fill_dist, search_range_x, dispDs, spreadDs, options.output_scale, cr_out)
+                              options.fill_dist, int(search_range_x), dispDs, spreadDs, options.output_scale, cr_out)
 
         for Ds in (dispDs, spreadDs):
             Ds.SetGeoTransform(tuple(GT1))

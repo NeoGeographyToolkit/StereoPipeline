@@ -53,7 +53,7 @@ def getImageGeoInfo(imagePath, getStats=True):
     cmd = [asp_system_utils.which('gdalinfo'), imagePath, '-proj4']
     if getStats:
         cmd.append('-stats')
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     textOutput, err = p.communicate()
     
     # Get the size in pixels
@@ -139,7 +139,7 @@ def doesImageHaveGeoData(imagePath):
     
     # Call command line tool silently
     cmd = [asp_system_utils.which('gdalinfo'), imagePath, '-proj4']
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     textOutput, err = p.communicate()
     
     # For now we just do a very simple check
@@ -159,7 +159,7 @@ def doesImageHaveGeoData(imagePath):
 #    
 #    # Call command line tool silently
 #    cmd = ['geoRefTool', '--printBounds', geoTiffPath]
-#    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+#    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 #    textOutput, err = p.communicate()
 #
 #    # Check that the call did not fail
@@ -357,7 +357,7 @@ def getCubeCenterLatitude(cubePath, workDir='tmp'):
     # Call caminfo (from ISIS) on the input cube to find out the CenterLatitude value
     camInfoOuputPath = workDir + "/camInfoOutput.txt"
     cmd = 'caminfo from=' + cubePath + ' to=' + camInfoOuputPath
-    print cmd
+    print (cmd)
     os.system(cmd)
 
     if not os.path.exists(camInfoOuputPath):
@@ -462,7 +462,8 @@ def convertCoords(x, y, projStringIn, projStringOut):
     # Using subprocess32 to access the timeout argument which is not always present in subprocess
     cmd = [asp_system_utils.which('gdaltransform'), '-s_srs', projStringIn, '-t_srs', projStringOut]
     #print(" ".join(cmd))
-    p = subprocess32.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
+    p = subprocess32.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False,
+                           universal_newlines=True)
     textOutput, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.5 )
     parts = textOutput.split()
 

@@ -372,7 +372,7 @@ def main(argsIn):
         lidarFolder  = args[2]
         outputFolder = args[3]
 
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         raise Usage(msg)
 
     os.system("ulimit -c 0") # disable core dumps
@@ -395,7 +395,7 @@ def main(argsIn):
     imageCameraPairs = icebridge_common.getImageCameraPairs(imageFolder, cameraFolder, 
                                                             options.startFrame, options.stopFrame,
                                                             logger)
-    numFiles = len(imageCameraPairs)
+    numFiles = len(list(imageCameraPairs))
     if numFiles < 2:
         raise Exception('Failed to find any image camera pairs!')
     
@@ -494,7 +494,7 @@ def main(argsIn):
 
         # Bugfix: arrived at the last feasible frame (maybe there are more but
         # they lack cameras).
-        if i >= len(imageCameraPairs):
+        if i >= len(list(imageCameraPairs)):
             break
         
         firstBundleFrame = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[i][0])
@@ -560,10 +560,11 @@ def main(argsIn):
             thisOutputFolder = os.path.join(outputFolder, batchFolderName)
 
             if not options.logBatches:
-                logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
-                            'with options: ' + extraOptions + ' --stereo-arguments ' +
+                logger.info('Running processing batch in output folder: ' +  \
+                            thisOutputFolder + '\n' + 'with options: '    +  \
+                            extraOptions + ' --stereo-arguments '         +  \
                             options.stereoArgs)
-            
+
             if not options.dryRun:
                 # Generate the command call
                 taskHandles.append(pool.apply_async(processBatch, 

@@ -147,7 +147,7 @@ def retrieveRunData(run, unpackFolder, useTar, forceTapeFetch, skipTapeCameraFet
             # If shiftc does not work, fall back to tar.
             # Don't try too hard on fetching.
             robust_shiftc(shift_cmd, logger, attempts = 10)
-        except Exception, e:
+        except Exception as e:
             robust_shiftc(tar_cmd, logger, attempts = 1)
             
     # Retrieve a preprocessed set of camera files if we have it
@@ -476,7 +476,7 @@ def packAndSendCompletedRun(run, logger):
             if os.path.exists(target):
                 os.system("rm -f " + target) # to wipe whatever was there
             os.symlink(finalDemFile, target)
-        except Exception, e:
+        except Exception as e:
             logger.info(str(e) + " when doing: ln -s " + finalDemFile + " " + target)
     
     # Tar up the assembled files and send them at the same time using the shiftc command
@@ -501,7 +501,7 @@ def packAndSendCompletedRun(run, logger):
 
     try:
         robust_shiftc(cmd, logger)
-    except Exception, e:
+    except Exception as e:
         logger.info(str(e))
         raise Exception('Failed to pack/send results for run ' + str(run) + \
                     '. Maybe not all sym links are valid.')

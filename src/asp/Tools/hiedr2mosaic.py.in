@@ -16,10 +16,13 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-
+from __future__ import print_function
 import os, glob, optparse, re, shutil, subprocess, sys, string
-import urllib2
-from BeautifulSoup import BeautifulSoup
+
+try:
+    from urllib2 import urlopen
+except ImportError:  
+    from urllib.request import urlopen
 
 libexecpath = os.path.abspath(sys.path[0] + '/../libexec')
 sys.path.insert(0, libexecpath) # prepend to Python path
@@ -31,8 +34,8 @@ asp_system_utils.verify_python_version_is_supported()
 job_pool = [];
 
 def man(option, opt, value, parser):
-    print >>sys.stderr, parser.usage
-    print >>sys.stderr, '''\
+    print (parser.usage, file=sys.stderr)
+    print ('''\
 This program operates on HiRISE EDR (.IMG) channel files, and performs the
 following ISIS 3 operations:
  * Converts to ISIS format (hi2isis)
@@ -43,8 +46,8 @@ following ISIS 3 operations:
  * Perfroms jitter analysis (hijitreg)
  * Mosaics individual CCDs into one unified image file (handmos)
  * Normalizes the mosaic (cubenorm)
-
-'''
+''', file=sys.stderr)
+    
     sys.exit()
 
 class Usage(Exception):
@@ -193,7 +196,7 @@ def histitch( cub_files, threads, delete=False ):
         if( match ):
             ccd     = match.group(1)
             channel = match.group(2)
-            # print 'ccd: ' + ccd + ' channel: '+ channel
+            # print ('ccd: ' + ccd + ' channel: '+ channel)
             channel_files[int(ccd)][int(channel)] = cub
         else:
             raise Exception( 'Could not find a CCD and channel identifier in ' + cub )
@@ -255,7 +258,7 @@ def noproj( CCD_object, threads, delete=False ):
             #     +' match= '+ CCD_object.matchcube() \
             #     +' source= frommatch to= '+ to_cub
             add_job(cmd, threads)
-            # print cmd
+            # print (cmd)
             # os.system(cmd)
         noproj_CCDs.append( to_cub )
     wait_on_all_jobs()
@@ -342,8 +345,15 @@ def fetch_files( url, output_folder, image_type='RED' ):
 
     # The URL should look like this:
     # https://hirise-pds.lpl.arizona.edu/PDS/EDR/ESP/ORB_052800_052899/ESP_052893_1835/
-       
-    parsedDataPage = BeautifulSoup(urllib2.urlopen((url)).read())
+
+    try:
+        # python2 
+        from BeautifulSoup import BeautifulSoup
+        parsedDataPage = BeautifulSoup(urlopen(url).read())
+    except ImportError:
+        # python3
+        from bs4 import BeautifulSoup        
+        parsedDataPage = BeautifulSoup(urlopen(url).read(), "html.parser")
     
     # Loop through all the links on the page
     image_list = []
@@ -359,7 +369,7 @@ def fetch_files( url, output_folder, image_type='RED' ):
         # Download the file if it is not already there        
         if not os.path.exists(local_path):
             cmd = 'wget ' + full_url + ' -O ' + local_path
-            print cmd
+            print (cmd)
             os.system(cmd)
     
     return image_list
@@ -396,17 +406,17 @@ def main():
                 parser.error("need .IMG files or a URL")
             
             if options.download_folder:
-                print 'Downloading HiRISE images from URL...'
+                print ('Downloading HiRISE images from URL...')
                 # For now we only fetch RED images.
                 args = fetch_files(args[0], options.download_folder, image_type='RED')
-                print 'Finished downloading ' + str(len(args)) + ' images.'
+                print ('Finished downloading ' + str(len(args)) + ' images.')
             
             # Make sure there is a valid match CCD
             if len(args) % 2 != 0 and not options.resume_no_proj:
                 raise Exception('An even number of input CCD files is required!')
             numCcds = len(args) / 2
             if options.match >= numCcds:
-                print 'Warning: match argument is greater than number of input CCDs, forcing it lower!'
+                print ('Warning: match argument is greater than number of input CCDs, forcing it lower!')
                 options.match = numCcds - 1
 
 
@@ -460,12 +470,11 @@ def main():
         return 0
 
     except Usage as err:
-        print >>sys.stderr, err.msg
-        # print >>sys.stderr, "for help use --help"
+        print (err.msg, file = sys.stderr)
         return 2
 
 	# To more easily debug this program, comment out this catch block.
-    # except Exception, err:
+    # except Exception as err:
     #     sys.stderr.write( str(err) + '\n' )
     #     return 1
 

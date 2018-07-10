@@ -495,7 +495,7 @@ def main():
         return 2
 
     # To more easily debug this program, comment out this catch block.
-    # except Exception, err:
+    # except Exception as err:
     #     sys.stderr.write( str(err) + '\n' )
     #     return 1
 

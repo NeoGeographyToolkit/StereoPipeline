@@ -21,30 +21,27 @@
 General system related utilities
 """
 
+from __future__ import print_function
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, signal
 import os.path as P
 import asp_string_utils, asp_cmd_utils
 
 def die(msg, code=-1):
     '''Exit the program with a message'''
-    print >>sys.stderr, msg
+    print(msg, file=sys.stderr)
     sys.exit(code)
 
 def verify_python_version_is_supported():
     '''Verifies that a supported version of Python is being used.'''
     
     if sys.version_info < (2, 6, 0):
-        print('\nERROR: Must use Python 2.6.x or 2.7.x.')
-        sys.exit(1)
-
-    if sys.version_info[0] > 2:
-        print('\nERROR: Python 3 is not supported, must use Python 2.6.x or 2.7.x')
+        print('\nERROR: Must use Python version >= 2.6.')
         sys.exit(1)
 
 def get_prog_version(prog):
     '''Get the version of a command line program.'''
     try:
-        p = subprocess.Popen([prog,"--version"], stdout=subprocess.PIPE)
+        p = subprocess.Popen([prog,"--version"], stdout=subprocess.PIPE, universal_newlines=True)
         out, err = p.communicate()
     except:
         raise Exception("Could not find: " + prog)
@@ -79,7 +76,8 @@ def checkIfToolExists(toolName):
 
     # Look for the tool using the 'which' command
     cmd = ['which', toolName]
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         universal_newlines=True)
     translateOut, err = p.communicate()
 
     # Check if that command failed to find the file
@@ -252,10 +250,10 @@ def run_and_parse_output(cmd, args, sep, verbose, return_full_lines = False, **k
     call.extend(args)
 
     if verbose:
-        print asp_string_utils.argListToString(call) 
+        print (asp_string_utils.argListToString(call))
 
     try:
-        p = subprocess.Popen(call, stdout=subprocess.PIPE)
+        p = subprocess.Popen(call, stdout=subprocess.PIPE, universal_newlines=True)
     except OSError as e:
         raise Exception('%s: %s' % (libexecpath, e))
     (stdout, stderr) = p.communicate()
@@ -292,10 +290,10 @@ def run_and_parse_output(cmd, args, sep, verbose, return_full_lines = False, **k
 def run_with_return_code(cmd, verbose=False):
     # TODO: Wipe this and use instead executeCommand.
     if verbose:
-        print asp_string_utils.argListToString(cmd) 
+        print (asp_string_utils.argListToString(cmd))
 
     try:
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     except OSError as e:
         print('Error: %s: %s' % ( asp_string_utils.argListToString(cmd), e))
         
@@ -344,7 +342,7 @@ def executeCommand(cmd,
         if redo or (outputPath is None) or (not os.path.exists(outputPath)):
 
             if not suppressOutput:
-                print asp_string_utils.argListToString(cmd)
+                print (asp_string_utils.argListToString(cmd))
 
             if timeout > 0:
                 print("Will enforce timeout of " + str(timeout) + " seconds.")
@@ -352,12 +350,13 @@ def executeCommand(cmd,
                 signal.alarm(timeout)
                     
             try:
-                p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                     universal_newlines=True)
                 out, err = p.communicate()
                 status = p.returncode
                 if timeout > 0:
                     signal.alarm(0)  # reset the alarm
-            except Exception, e:
+            except Exception as e:
                 out = ""
                 err = ('Error: %s: %s' % (asp_string_utils.argListToString(cmd), e))
                 if timeout > 0:
@@ -385,7 +384,7 @@ def executeCommand(cmd,
             if err is None: err = ""
 
             if not suppressOutput:
-                print out + '\n' + err
+                print (out + '\n' + err)
 
             if status == 0:
                 break

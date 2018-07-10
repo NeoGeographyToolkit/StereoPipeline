@@ -97,16 +97,16 @@ def handleArguments(args):
                 continue
 
             optionsList.append(n)  # Otherwise record the next entry as a value.
-            iterable.next()        # Skip the next entry in the loop.
+            next(iterable)        # Skip the next entry in the loop.
 
             if (a == '--crop-win'):  # These arguments have four values, not just one.
                 # Add the additional three arguments and skip them in the loop.
                 optionsList.append(args[i+2])           
                 optionsList.append(args[i+3])
                 optionsList.append(args[i+4])
-                iterable.next()
-                iterable.next()
-                iterable.next()
+                next(iterable)
+                next(iterable)
+                next(iterable)
 
         else: # This is one of the three positional arguments
             requiredList.append(a)
@@ -210,7 +210,7 @@ def main(argsIn):
         try:
             # Get the help text from the base C++ tool so we can append it to the python help
             cmd = [sfsPath,  '--help']
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
             baseHelp, err = p.communicate()
         except OSError:
             print("Error: Unable to find the required sfs tool!")

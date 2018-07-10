@@ -47,7 +47,7 @@ def make_image_list(options):
     cmd = ['opencv_imagelist_creator ' 
             +  os.path.abspath(options.xml_list_path) +' '+ os.path.abspath(options.image_wildcard)]
     #print cmd
-    proc   = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc   = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     output = proc.communicate()
     
     if not os.path.exists(options.xml_list_path):

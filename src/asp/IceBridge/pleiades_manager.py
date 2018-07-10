@@ -151,7 +151,7 @@ def sendEmail(address, subject, body):
         cmd = 'mail -s "' + subject + '" ' + address + ' <<< "' + body + '"'
         #print(cmd) # too verbose to print
         os.system(cmd)
-    except Exception, e:
+    except Exception as e:
         print("Could not send mail.")
         
 #---------------------------------------------------------------------
@@ -202,7 +202,7 @@ def runFetch(run, options, logger):
         try:
             # Note that the check below is incomplete, it does not check for Fireball
             allIsFetched = run.allSourceDataFetched(options.noNavFetch)
-        except Exception, e:
+        except Exception as e:
             allIsFetched = False
             logger.warning('Caught error checking fetch status.\n'
                        + str(e))
@@ -213,7 +213,7 @@ def runFetch(run, options, logger):
             archive_functions.retrieveRunData(run, options.unpackDir, options.useTar,
                                               options.forceTapeFetch, options.skipTapeCameraFetch,
                                               logger)
-        except Exception, e:
+        except Exception as e:
             pass # return gracefully
 
     pythonPath = asp_system_utils.which('python')
@@ -282,7 +282,7 @@ def runConversion(run, options, conversionAttempt, logger):
            (not options.parallelValidate):
             logger.info('Conversion is already complete.')
             return
-    except Exception, e:
+    except Exception as e:
         logger.warning('Caught error checking conversion status, re-running conversion.\n' + str(e))
         
     logger.info('Converting data for run ' + str(run))
@@ -462,7 +462,7 @@ def runConversion(run, options, conversionAttempt, logger):
     success = False
     try:
         success = run.conversionIsFinished(options.startFrame, options.stopFrame, verbose = True)
-    except Exception, e:
+    except Exception as e:
         logger.warning('Caught error checking conversion status.\n' + str(e))
 
     if not success:
@@ -784,7 +784,7 @@ def checkResults(run, options, logger, batchListPath):
             if frame < options.startFrame or frame >= options.stopFrame:
                 continue
             fireballDems[frame] = allFireballDems[frame]
-    except Exception, e:
+    except Exception as e:
         # No fireball
         logger.info(str(e))
 
@@ -1048,7 +1048,7 @@ def main(argsIn):
                           
         options = parser.parse_args(argsIn)
 
-    except argparse.ArgumentError, msg:
+    except argparse.ArgumentError as msg:
         parser.error(msg)
 
 
@@ -1222,7 +1222,7 @@ def main(argsIn):
             logger.info("Running generate_flight_summary.py " + " ".join(genCmd))
             try:
                 generate_flight_summary.main(genCmd)
-            except Exception, e:
+            except Exception as e:
                 # Do not let this one ruin the day, if anything we can run it later
                 logger.info(str(e))
             stop_time("report", logger)
@@ -1232,7 +1232,7 @@ def main(argsIn):
             start_time()
             try:
                 archive_functions.packAndSendCameraFolder(run, logger)
-            except Exception, e:
+            except Exception as e:
                 print 'Caught exception sending camera folder'
                 logger.exception(e)
             stop_time("archive cameras", logger)
@@ -1242,7 +1242,7 @@ def main(argsIn):
             start_time()
             try:
                 archive_functions.packAndSendAlignedCameras(run, logger)
-            except Exception, e:
+            except Exception as e:
                 print 'Caught exception sending aligned cameras'
                 logger.exception(e)
             stop_time("archive aligned cameras", logger)
@@ -1259,7 +1259,7 @@ def main(argsIn):
             start_time()
             try:
                 archive_functions.packAndSendOrthos(run, logger)
-            except Exception, e:
+            except Exception as e:
                 print 'Caught exception sending ortho images.'
                 logger.exception(e)
             stop_time("archive orthos", logger)

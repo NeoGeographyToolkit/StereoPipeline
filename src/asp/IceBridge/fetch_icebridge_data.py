@@ -23,8 +23,6 @@ Tool for downloading IceBridge data
 
 import sys, os, re, subprocess, optparse, logging
 import icebridge_common
-import httplib
-from urlparse import urlparse
 
 logging.info('DEBUG')
 logger = logging.getLogger(__name__)
@@ -57,14 +55,18 @@ def validateNavOrWipe(filename, logger):
     if not os.path.exists(filename):
         return False
 
-    f = open(filename)
-    line = f.readline()
-    m = re.match("^.*?DOCTYPE\s+HTML", line)
-    if m:
-        logger.info("Bad nav data, will wipe: " + filename)
-        os.system("rm -f " + filename)
-        return False
-    
+    try:
+        f = open(filename)
+        line = f.readline()
+        m = re.match("^.*?DOCTYPE\s+HTML", line)
+        if m:
+            logger.info("Bad nav data, will wipe: " + filename)
+            os.system("rm -f " + filename)
+            return False
+    except UnicodeDecodeError as e:
+         # If it cannot be decoded, the file is likely in binary, hence valid
+         return True
+         
     return True
 
 def checkFound(filename):
@@ -97,19 +99,6 @@ def checkIfUrlExists(url, baseCurlCmd):
     os.system(wipeCmd)
 
     return found
-
-    #p    = urlparse(url)
-    #conn = httplib.HTTPConnection(p.netloc)
-    #try:
-    #    conn.request('HEAD', p.path)
-    #    resp = conn.getresponse()
-    #except Exception as e:
-    #    print 'Error reading URL ' + url + ' --> ' + str(e)
-    #    return False
-    # Invalid pages return 404, valid pages should return one of the numbers below.
-    # This is not robust enough!
-    
-    #return (resp.status == 403) or (resp.status == 301)
 
 def makeYearFolder(year, site):
     '''Generate part of the URL.  Only used for images.'''
@@ -996,7 +985,7 @@ def main(argsIn):
         options.type = icebridge_common.folderToType(outputFolder)
         if options.type == 'lidar':
             options.type = LIDAR_TYPES[0]
-        print 'Detected type: ' + options.type
+        print ('Detected type: ' + options.type)
             
         # Handle unified date option
         if options.yyyymmdd:
@@ -1022,7 +1011,7 @@ def main(argsIn):
             logger.error('Error, type must be image, ortho, fireball, or a lidar type.\n' + usage)
             return -1
 
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         raise Exception(msg)
 
     # Make several attempts. Stop if there is no progress.

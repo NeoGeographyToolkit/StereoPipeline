@@ -97,15 +97,15 @@ def handleArguments(args):
                 continue
 
             optionsList.append(n)  # Otherwise record the next entry as a value.
-            iterable.next()              # Skip the next entry in the loop.
+            next(iterable)              # Skip the next entry in the loop.
 
             if (a == '--t_projwin') or (a == '--t_pixelwin'):  # These arguments have four values, not just one.
                 optionsList.append(args[i+2])              # Add the additional three arguments and skip them in the loop.
                 optionsList.append(args[i+3])
                 optionsList.append(args[i+4])
-                iterable.next()
-                iterable.next()
-                iterable.next()
+                next(iterable)
+                next(iterable)
+                next(iterable)
 
         else: # This is one of the three positional arguments
             requiredList.append(a)
@@ -190,7 +190,7 @@ def main(argsIn):
         try:
             # Get the help text from the base C++ tool so we can append it to the python help
             cmd = ['mapproject_single',  '--help']
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
             baseHelp, err = p.communicate()
         except OSError:
             print("Error: Unable to find required mapproject_single tool!")
@@ -312,7 +312,7 @@ def main(argsIn):
     if options.noGeoHeaderInfo:
         cmd += ['--no-geoheader-info']
     print(" ".join(cmd))
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     projectionInfo, err = p.communicate()
     if not options.suppressOutput:
         print(projectionInfo)

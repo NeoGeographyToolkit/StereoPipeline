@@ -695,7 +695,7 @@ if __name__ == '__main__':
         if ('--job-size-w' not in sys.argv[1:]) and ('--job-size-h' not in sys.argv[1:]):
             opt.job_size_w = corr_tile_size
             opt.job_size_h = opt.job_size_w
-            print 'Setting SGM job size to: ' + str(opt.job_size_w)
+            print ('Setting SGM job size to: ' + str(opt.job_size_w))
         else:
             # The current code does not work correctly if these numbers differ
             if '--job-size-w' in sys.argv[1:] and opt.job_size_w != corr_tile_size:

@@ -235,7 +235,7 @@ def main(argsIn):
 
         options = parser.parse_args(argsIn)
 
-    except argparse.ArgumentError, msg:
+    except argparse.ArgumentError as msg:
         parser.error(msg)
 
     # parse --site_yyyymmdd. Sometimes it is easier to pass this than

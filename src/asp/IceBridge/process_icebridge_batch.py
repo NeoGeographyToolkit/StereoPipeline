@@ -704,7 +704,7 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
             PROJ_STR_WGS84 = 'EPSG:4326'
             centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY,
                                                                projString, PROJ_STR_WGS84)
-        except Exception, e:
+        except Exception as e:
             pass
             # Print nothing, comes out too verbose
             #if logger:
@@ -1165,10 +1165,10 @@ def main(argsIn):
         numCameras = (numArgs) / 2
         if ( (2*numCameras - numArgs) != 0) or (numCameras < 2):
             print("Expecting as many images as cameras. Got: " + " ".join(args))
-            print usage
+            print (usage)
             return 0
 
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         raise Usage(msg)
 
     # Start up the logger, output will go in the output folder.
@@ -1185,7 +1185,7 @@ def main(argsIn):
         doWork(options, args, logger)
         return 0 # Success!
         
-    except Exception, e:
+    except Exception as e:
         logger.exception(e) # Failed to generate output file
         
         try: # When we failed to generate the output DEM, 
@@ -1476,10 +1476,10 @@ def doWork(options, args, logger):
         demString = ' '.join(demFiles)
         # Only the default blend method produces good results but the DEMs must not be too 
         #  far off for it to work.
-        print projString
+        print (projString)
         cmd = ('dem_mosaic %s --tr %lf --t_srs %s %s -o %s' 
                % (demString, options.demResolution, projString, threadText, outputPrefix))
-        print cmd
+        print (cmd)
         mosaicOutput = outputPrefix + '-tile-0.tif'
         logger.info(cmd) # to make it go to the log, not just on screen
         asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)
@@ -1509,7 +1509,7 @@ def doWork(options, args, logger):
             logger.info(cmd)
             try:
                 asp_system_utils.executeCommand(cmd, diffPath, suppressOutput, redo)
-            except Exception, e:
+            except Exception as e:
                 # This is necessary, sometimes the fireball DEM is wrong
                 logger.info('Caught exception doing diff to fireball: ' + str(e))
                 logger.info("Not fatal, will continue.") # for clarity in the log, use this line

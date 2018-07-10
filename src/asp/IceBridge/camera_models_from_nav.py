@@ -59,8 +59,8 @@ def main(argsIn):
         (options, args) = parser.parse_args(argsIn)
 
         if len(args) < 5:
-            print 'Error: Missing arguments.'
-            print usage
+            print ('Error: Missing arguments.')
+            print (usage)
             return -1
 
         imageFolder  = os.path.abspath(args[0])
@@ -69,7 +69,7 @@ def main(argsIn):
         navFolder    = os.path.abspath(args[3])
         outputFolder = os.path.abspath(args[4])
 
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         raise Usage(msg)
 
 
@@ -112,12 +112,16 @@ def main(argsIn):
         navPath = os.path.join(navFolder, fileName)
 
         with open(navPath, 'r') as f:
-            text = f.readline()
-            if 'HTML' in text:
-                # Sometimes the server is down, and instead of the binary nav file
-                # we are given an html file with an error message.
-                logger.info("Have invalid nav file: " + navPath)
-                return -1 # Die in this case!
+            try:
+                text = f.readline()
+                if 'HTML' in text:
+                    # Sometimes the server is down, and instead of the binary nav file
+                    # we are given an html file with an error message.
+                    logger.info("Have invalid nav file: " + navPath)
+                    return -1 # Die in this case!
+            except UnicodeDecodeError as e:
+                # Got a binary file, that means likely we are good
+                pass
 
         cmd = asp_system_utils.which('sbet2txt.pl') + ' -q ' + navPath + ' >> ' + parsedNavPath
         logger.info(cmd)
@@ -162,7 +166,7 @@ def main(argsIn):
     # Get the image file list
     try:
         imageFiles = icebridge_common.getTifs(imageFolder)
-    except Exception, e:
+    except Exception as e:
         raise Exception("Cannot continue with nav generation, will resume later when images are created. This is not a fatal error. " + str(e))
     
     logger.info('Found ' + str(len(imageFiles)) + ' image files.')
@@ -239,7 +243,7 @@ def main(argsIn):
             logger.info(cmd)
             asp_system_utils.executeCommand(cmd, kmlPath, suppressOutput=True, redo=False)
             os.remove(tempPath)
-        except Exception, e:
+        except Exception as e:
             logger.info("Warning: " + str(e))
         
     logger.info('Finished generating camera models from nav!')

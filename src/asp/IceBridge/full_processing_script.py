@@ -133,7 +133,7 @@ def fetchAllRunData(options, startFrame, stopFrame,
 
     # TODO: Wipe any ortho and jpeg images not in the index, or at least warn about it.
     
-    return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
+    return 0
 
 def validateOrthosAndFireball(options, fileType, logger):
     '''Validate ortho and fireball files within the current frame range. This
@@ -249,7 +249,7 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
                                                                        options.startFrame,
                                                                        options.stopFrame,
                                                                        forceAllFramesInRange)
-        except Exception, e:
+        except Exception as e:
             pass
         
     if options.stopAfterFetch or options.dryRun:
@@ -737,7 +737,7 @@ def main(argsIn):
                           
         options = parser.parse_args(argsIn)
 
-    except argparse.ArgumentError, msg:
+    except argparse.ArgumentError as msg:
         parser.error(msg)
 
     icebridge_common.switchWorkDir()

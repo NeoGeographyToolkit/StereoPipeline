@@ -66,7 +66,7 @@ def makeSymLink(oldFile, newFile, verbose=True):
         if verbose:
             print("ln -s " + oldPath + " " + newFile)
         os.symlink(oldPath, newFile)
-    except OSError, e:
+    except OSError as e:
         if e.errno == errno.EEXIST:
             os.remove(newFile)
             os.symlink(oldPath, newFile)
@@ -156,7 +156,7 @@ def getJpegDateTime(filepath):
     
     # Use this tool to extract the metadata
     cmd      = [asp_system_utils.which('gdalinfo'), filepath]
-    p        = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    p        = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     out, err = p.communicate()
     
     lines = out.split('\n')
@@ -176,7 +176,7 @@ def getPixelSize(filepath):
     '''Get the pixel size from a GeoTiff'''
     
     cmd      = [asp_system_utils.which('gdalinfo'), filepath]
-    p        = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    p        = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     out, err = p.communicate()
     
     lines = out.split('\n')
@@ -360,16 +360,17 @@ def isValidImage(filename):
     if os.path.exists(auxFile):
         os.remove(auxFile)
         
-    p = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          universal_newlines=True)
     output, error = p.communicate()
     if p.returncode != 0:
         return False
     
     if error is not None:
         output += error
-        
+
     m = re.match("^.*?(Block\s+failed|Premature\s+end)", output,
-                re.IGNORECASE|re.MULTILINE|re.DOTALL)
+                 re.IGNORECASE|re.MULTILINE|re.DOTALL)
     if m:
         return False
     
@@ -408,8 +409,8 @@ def isValidLidarCSV(filename):
             if m:
                 continue
 
-            line = string.replace(line, ',',  ' ')
-            line = string.replace(line, '\t', ' ')
+            line = line.replace(',',  ' ')
+            line = line.replace('\t', ' ')
 
             vals = line.split(' ')
             num = 0
@@ -447,7 +448,7 @@ def getCameraGsdAndBounds(imagePath, cameraPath, logger, referenceDem=None, proj
         cmd.append('--t_srs',)
         cmd.append(projString)
     logger.info(" ".join(cmd))
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     textOutput, err = p.communicate()
     logger.info(textOutput)
     
@@ -458,7 +459,7 @@ def getCameraGsdAndBounds(imagePath, cameraPath, logger, referenceDem=None, proj
     gsd = float(m[0])
 
     # Extract the bounding box from the output text
-    print textOutput
+    print(textOutput)
     m = re.findall(
           r"Origin: \(([0-9e\-\.\+]*), ([0-9e\-\.\+]*)\) width: ([0-9e\-\.\+]*) height: ([0-9e\-\.\+]*)",
           textOutput)
@@ -481,7 +482,7 @@ def getGsdFromMapproject(imagePath, cameraPath, logger, lidarDem, referenceDem):
                (tool, dem, imagePath, cameraPath, tmpOutFile))
         cmd = cmd.split()
         logger.info(" ".join(cmd))
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
         textOutput, err = p.communicate()
         logger.info(textOutput)
         
@@ -1007,7 +1008,7 @@ def parseDateTimeStrings(dateString, timeString, useTimeFix, returnMinAndSecOnly
     try:
         result = datetime.datetime(year, month, day, hour, minute, second, usecond)
         return result
-    except Exception, e:
+    except Exception as e:
         raise Exception('Caught exception processing dateString: ' 
                         + dateString +', timeString: ' + timeString
                         +'\n with values: ' + str((year, month, day, hour, minute, second, usecond))
@@ -1195,7 +1196,7 @@ def findMatchingLidarFile(imageFile, lidarFolder):
         if os.path.exists(f):
             lidarFiles.append(f)
         else:
-            print 'WARNING: Expected paired lidar file ' + f + ' does not exist!'
+            print ('WARNING: Expected paired lidar file ' + f + ' does not exist!')
     
     if len(lidarFiles) <= 0:
         raise Exception("Empty directory of pairs in " + pairedFolder)
@@ -1300,7 +1301,7 @@ def fetchFile(url, outputPath):
     cmd = 'curl ' + cookiePaths + curlOpts + url + ' > ' + outputPath
 
     # Download the file
-    print cmd
+    print (cmd)
     p = subprocess.Popen(cmd, shell=True)
     os.waitpid(p.pid, 0)
     
@@ -1609,5 +1610,5 @@ def gsdToDemRes(gsd):
 
 # For debugging functions
 #if __name__ == "__main__":
-#    print getFrameRangeFromBatchFolder('/home/test/batch_234_1425/')
+#    print (getFrameRangeFromBatchFolder('/home/test/batch_234_1425/'))
 

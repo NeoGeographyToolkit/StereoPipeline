@@ -46,7 +46,7 @@ def main(argsIn):
                       
         parser = optparse.OptionParser(usage=usage)
         (options, args) = parser.parse_args(argsIn)
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         raise Usage(msg)
 
 

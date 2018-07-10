@@ -405,7 +405,7 @@ class RunHelper():
             # Make sure the timestamp and frame number are in the output file name
             try:
                 outputPath = icebridge_common.jpegToImageFile(inputPath, orthoFrameDict[frame])
-            except Exception, e:
+            except Exception as e:
                 logger.info(str(e))
                 logger.info("Removing bad file: " + inputPath)
                 if os.path.exists(inputPath): os.remove(inputPath)

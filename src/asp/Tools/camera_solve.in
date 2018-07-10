@@ -651,7 +651,7 @@ def main(argsIn):
         # If we don't have input camera params we have to solve for them.
         if not options.camera_param_paths:
             if not options.solveIntrinsic:
-                print 'Since no calib-file provided, setting --solve-intrinsics.'
+                print ('Since no calib-file provided, setting --solve-intrinsics.')
             options.solveIntrinsic = True
             
         else:

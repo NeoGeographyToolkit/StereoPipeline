@@ -213,7 +213,7 @@ def main(argsIn):
                           
         (options, args) = parser.parse_args(argsIn)
 
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         raise Usage(msg)
 
     if options.yyyymmdd is None or options.site is None:

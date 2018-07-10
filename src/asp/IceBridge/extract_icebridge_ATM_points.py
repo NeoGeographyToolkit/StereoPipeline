@@ -46,9 +46,9 @@ def extract_qi_points(inputPath):
     print(cmd)
     os.system(cmd)  
     if os.path.exists(outputPath):
-        print 'Wrote file: ' + outputPath
+        print ('Wrote file: ' + outputPath)
     else:
-        print 'Failed to write file ' + outputPath + '!!!'
+        print ('Failed to write file ' + outputPath + '!!!')
 
 def extract_hdf5_points(inputPath):
     '''Extract data from an Icebridge hdf5 file.
@@ -122,7 +122,7 @@ def main(argsIn):
         extract_qi_points(inputPath)
         return 0
         
-    print 'Did not recognize input file type!'
+    print ('Did not recognize input file type!')
     return -1
     
 if __name__ == "__main__":

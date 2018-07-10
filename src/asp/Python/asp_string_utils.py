@@ -102,6 +102,13 @@ def getNumberAfterEqualSign(text, lineStart=0):
 #  representations of command line arguments
 def isNotString(a):
     """Returns true if the object is not a string"""
+
+    # Python 2/3 compatibilty
+    try:
+        basestring
+    except NameError:
+        basestring = str
+        
     return (not isinstance(a, basestring))
 
 def argListToString(argList):

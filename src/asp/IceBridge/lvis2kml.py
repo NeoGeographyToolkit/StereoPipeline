@@ -182,7 +182,7 @@ def main(argsIn):
         parser.add_option("--color", dest="color", help="Draw in red, blue, or green")
         (options, args) = parser.parse_args(argsIn)
 
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         raise Exception(msg)
 
     if len(args) < 1:

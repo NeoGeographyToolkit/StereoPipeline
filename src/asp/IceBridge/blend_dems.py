@@ -243,7 +243,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, options,
                     bestBlend = blendOutput
                     bestVals  = demString
                     bestDiff  = diffPath
-            except Exception, e:
+            except Exception as e:
                 pass
             
             logFiles = glob.glob(outputPrefix + "*" + "-log-" + "*")
@@ -313,7 +313,7 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, options,
                 cmd = "mv " + fireballBlendOutput   + " " + finalFireballOutput
                 print(cmd)
                 asp_system_utils.executeCommand(cmd, finalFireballOutput, suppressOutput, redo)
-            except Exception, e:
+            except Exception as e:
                 pass
             
             # Generate a thumbnail of the final DEM
@@ -401,7 +401,7 @@ def main(argsIn):
                           type=int, help='The number of threads per process.')
         options = parser.parse_args(argsIn)
 
-    except argparse.ArgumentError, msg:
+    except argparse.ArgumentError as msg:
         parser.error(msg)
         
     icebridge_common.switchWorkDir()

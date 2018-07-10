@@ -86,7 +86,7 @@ def main(argsIn):
             return -1
         outputPath = os.path.abspath(args[0])
 
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         raise Exception(msg)
 
     # TODO: Move into a common function!

@@ -177,7 +177,7 @@ def generateFlightSummary(run, options):
     if os.path.exists(packedErrorLog):
         try:
             shutil.copy(packedErrorLog, options.outputFolder)
-        except Exception, e:
+        except Exception as e:
             # In case it complains about copying a file onto itself
             print("Warning: " + str(e))
             
@@ -186,7 +186,7 @@ def generateFlightSummary(run, options):
         camerasInKmlPath = os.path.join(procFolder, 'cameras_in.kml')
         try:
             shutil.copy(camerasInKmlPath, options.outputFolder)
-        except Exception, e:
+        except Exception as e:
             # In case it complains about copying a file onto itself
             print("Warning: " + str(e))
 
@@ -194,7 +194,7 @@ def generateFlightSummary(run, options):
         navCamerasKmlPath = os.path.join(navCameraFolder, 'nav_cameras.kml')
         try:
             shutil.copy(navCamerasKmlPath, options.outputFolder)
-        except Exception, e:
+        except Exception as e:
             # In case it complains about copying a file onto itself
             print("Warning: " + str(e))
         
@@ -239,7 +239,7 @@ def generateFlightSummary(run, options):
                 print("Generating: " + outputPath) # This can be very slow, so print what is going on
                 try:
                     lvis2kml.main(args)
-                except Exception, e:
+                except Exception as e:
                     # Do not let this make our life miserable
                     print("Problem: " + str(e))
        
@@ -420,7 +420,7 @@ def main(argsIn):
 
         options = parser.parse_args(argsIn)
         
-    except argparse.ArgumentError, msg:
+    except argparse.ArgumentError as msg:
         parser.error(msg)
         
     if options.outputFolder is None:

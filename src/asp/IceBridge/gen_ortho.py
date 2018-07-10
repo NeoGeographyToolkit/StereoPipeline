@@ -363,7 +363,7 @@ def main(argsIn):
                           type=int, help='The number of threads per process.')
         options = parser.parse_args(argsIn)
 
-    except argparse.ArgumentError, msg:
+    except argparse.ArgumentError as msg:
         parser.error(msg)
         
     icebridge_common.switchWorkDir()

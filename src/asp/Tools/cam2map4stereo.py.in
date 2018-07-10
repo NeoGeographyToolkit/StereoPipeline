@@ -34,8 +34,8 @@ import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()
 
 def man(option, opt, value, parser):
-    print >>sys.stderr, parser.usage
-    print >>sys.stderr, '''\
+    print (parser.usage, file=sys.stderr)
+    print ('''\
 This program takes similar arguments as the ISIS3 cam2map program,
 but takes two input images.  With no arguments, the program determines
 the minimum overlap of the two images, and the worst common resolution,
@@ -44,7 +44,8 @@ and then map-projects the two images to this identical area and resolution.
 Using the --lat and --lon options allows you to select portions of
 the image, ideal for small initial test runs or cropping out just
 that portion of the image you need.
-'''
+''', file=sys.stderr)
+    
     sys.exit()
 
 class Usage(Exception):
@@ -110,8 +111,8 @@ def camrange( cube, lonGroupName, options ):
         lonDirection = 'PositiveEast'
         if options.map:
             # Read the pertinent values from the map file
-            lonDomainIn    = subprocess.Popen([getkey_path, 'from= '+options.map, "grpname= Mapping", "keyword= LongitudeDomain"   ], stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0].strip()
-            lonDirectionIn = subprocess.Popen([getkey_path, 'from= '+options.map, "grpname= Mapping", "keyword= LongitudeDirection"], stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0].strip()
+            lonDomainIn    = subprocess.Popen([getkey_path, 'from= '+options.map, "grpname= Mapping", "keyword= LongitudeDomain"   ], stdout=subprocess.PIPE,stderr=subprocess.PIPE, universal_newlines=True).communicate()[0].strip()
+            lonDirectionIn = subprocess.Popen([getkey_path, 'from= '+options.map, "grpname= Mapping", "keyword= LongitudeDirection"], stdout=subprocess.PIPE,stderr=subprocess.PIPE, universal_newlines=True).communicate()[0].strip()
             if lonDomainIn:
                 lonDomain = lonDomainIn
             if lonDirectionIn:
@@ -127,14 +128,14 @@ def camrange( cube, lonGroupName, options ):
         fromString     = "from= "+ tmpfile.name
 
         # extract information
-        info.resolution = subprocess.Popen([getkey_path, fromString, "grpname= PixelResolution",      "keyword= Lowest"          ], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.minlat     = subprocess.Popen([getkey_path, fromString, "grpname= UniversalGroundRange", "keyword= MinimumLatitude" ], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.maxlat     = subprocess.Popen([getkey_path, fromString, "grpname= UniversalGroundRange", "keyword= MaximumLatitude" ], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.minlon     = subprocess.Popen([getkey_path, fromString, lonGroupString,                  "keyword= MinimumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.maxlon     = subprocess.Popen([getkey_path, fromString, lonGroupString,                  "keyword= MaximumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.resolution = subprocess.Popen([getkey_path, fromString, "grpname= PixelResolution",      "keyword= Lowest"          ], stdout=subprocess.PIPE, universal_newlines=True).communicate()[0].strip()
+        info.minlat     = subprocess.Popen([getkey_path, fromString, "grpname= UniversalGroundRange", "keyword= MinimumLatitude" ], stdout=subprocess.PIPE, universal_newlines=True).communicate()[0].strip()
+        info.maxlat     = subprocess.Popen([getkey_path, fromString, "grpname= UniversalGroundRange", "keyword= MaximumLatitude" ], stdout=subprocess.PIPE, universal_newlines=True).communicate()[0].strip()
+        info.minlon     = subprocess.Popen([getkey_path, fromString, lonGroupString,                  "keyword= MinimumLongitude"], stdout=subprocess.PIPE, universal_newlines=True).communicate()[0].strip()
+        info.maxlon     = subprocess.Popen([getkey_path, fromString, lonGroupString,                  "keyword= MaximumLongitude"], stdout=subprocess.PIPE, universal_newlines=True).communicate()[0].strip()
 
     except OSError as e:
-        print >>sys.stderr, "Execution failed:", e
+        print ("Execution failed:", e, file=sys.stderr)
         raise e
 
     return info
@@ -258,16 +259,16 @@ def main():
         return 0
 
     except Usage as err:
-        print >>sys.stderr, err.msg
+        print (err.msg, file=sys.stderr)
         # print >>sys.stderr, "for help use --help"
         return 2
 
     except MapExists as e:
-        print >>sys.stderr, 'The file '+ e.msg +' already exists, delete first.'
+        print ('The file '+ e.msg +' already exists, delete first.', file=sys.stderr)
         return 3
 
     # # To more easily debug this program, comment out this catch block.
-    # except Exception, err:
+    # except Exception as err:
     #     sys.stderr.write( str(err) + '\n' )
     #     return 1
 

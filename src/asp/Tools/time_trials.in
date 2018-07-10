@@ -55,7 +55,7 @@ def main():
 
     for i in range(0,options.trials):
         print(" -> trial %i / %i " % (i+1,options.trials))
-        p = subprocess.Popen("( time %s ) 2>&1 | tail -n3 "%args[0] , shell=True, stdout=subprocess.PIPE)
+        p = subprocess.Popen("( time %s ) 2>&1 | tail -n3 "%args[0] , shell=True, stdout=subprocess.PIPE, universal_newlines=True)
         output    = p.stdout.read().strip().split()
         real_time = convert_to_seconds( output[1] )
         user_time = convert_to_seconds( output[3] )

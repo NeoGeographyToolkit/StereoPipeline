@@ -103,7 +103,7 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate,
         # Make sure the timestamp and frame number are in the output file name
         try:
             outputPath = icebridge_common.jpegToImageFile(inputPath, orthoFrameDict[frame])
-        except Exception, e:
+        except Exception as e:
             logger.info(str(e))
             logger.info("Removing bad file: " + inputPath)
             os.system('rm -f ' + inputPath) # will not throw
@@ -141,7 +141,8 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate,
         logger.info(cmd)
 
         # Run command and fetch its output
-        p = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             universal_newlines=True)
         output, error = p.communicate()
         if p.returncode != 0:
             badFiles = True
@@ -406,9 +407,9 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, estimatedCameraPa
         shutil.move(tempFilePath, outputCamFile) # Use the camera file with the most points found
         if os.path.exists(tempMatchPath):
             shutil.move(tempMatchPath, matchPath)
-        print 'Best number of ortho points = ' + str(bestIpCount)
+        print ('Best number of ortho points = ' + str(bestIpCount))
     else:
-        print 'Best number of ortho points = ' + str(numPoints)
+        print ('Best number of ortho points = ' + str(numPoints))
     
     os.system('rm -f ' + tempFilePath ) # Clean up these files
     os.system('rm -f ' + tempMatchPath)

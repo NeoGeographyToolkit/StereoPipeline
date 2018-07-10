@@ -79,7 +79,7 @@ def main(argsIn):
 
         options = parser.parse_args(argsIn)
         
-    except argparse.ArgumentError, msg:
+    except argparse.ArgumentError as msg:
         parser.error(msg)
 
     icebridge_common.switchWorkDir()
@@ -133,7 +133,7 @@ def main(argsIn):
                         print(cmd)
                         try:
                             os.system(cmd)
-                        except Exception, e:
+                        except Exception as e:
                             pass
                     else:
                         print("Could not find " + folderName)

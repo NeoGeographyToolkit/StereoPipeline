@@ -29,7 +29,7 @@ import asp_string_utils
 def stripRgbImageAlphaChannel(inputPath, outputPath):
     """Makes an RGB copy of an RBGA image"""
     cmd = 'gdal_translate ' + inputPath + ' ' + outputPath + ' -b 1 -b 2 -b 3 -co "COMPRESS=LZW" -co "TILED=YES" -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
-    print cmd
+    print (cmd)
     os.system(cmd)
 
 
@@ -43,7 +43,7 @@ def getImageSize(imagePath):
        
     # Use subprocess to suppress the command output
     cmd = ['gdalinfo', imagePath]
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     textOutput, err = p.communicate()
 
     # Extract the size from the text
@@ -75,7 +75,7 @@ def getImageStats(imagePath):
     
     # Call command line tool silently
     cmd = ['gdalinfo', imagePath, '-stats']
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     textOutput, err = p.communicate()
     
     # Statistics are computed seperately for each band
