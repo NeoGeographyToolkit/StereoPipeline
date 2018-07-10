@@ -365,13 +365,13 @@ def main(argsIn):
 
     # Generate a text file that contains the boundaries for each tile
     argumentFilePath = os.path.join(tempFolder, 'argumentList.txt')
-    argumentFile     = file(argumentFilePath, 'w')
-    for tile in tileList:
-        argumentFile.write(str(tile[0]) + '\t' + str(tile[1]) + '\t' + str(tile[2]) + '\t' + str(tile[3]) + '\n')
-    argumentFile.close()
+    with open(argumentFilePath, 'w') as argumentFile:
+        for tile in tileList:
+            argumentFile.write(str(tile[0]) + '\t' + str(tile[1]) + '\t'
+                               + str(tile[2]) + '\t' + str(tile[3]) + '\n')
 
-
-    # Indicate to GNU Parallel that there are multiple tab-seperated variables in the text file we just wrote
+    # Indicate to GNU Parallel that there are multiple tab-seperated
+    # variables in the text file we just wrote
     parallelArgs = ['--colsep', "\\t"]
 
     # Get the number of available nodes and CPUs per node
