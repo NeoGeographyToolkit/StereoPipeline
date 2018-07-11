@@ -299,7 +299,8 @@ def main(argsIn):
             cmd += ['--no-geoheader-info']
         print(" ".join(cmd))
         ans = subprocess.call(cmd)
-        if ans == 0: print("Wrote: " + relOutputPath)
+        if ans == 0:
+            print("Wrote: " + relOutputPath)
         maybe_copy_rpc(options.imagePath, options.outputPath)
         return 0
 
@@ -323,6 +324,10 @@ def main(argsIn):
     widthStart  = projectionInfo.find('width:', startPos)
     heightStart = projectionInfo.find('height:', widthStart)
     heightEnd   = projectionInfo.find(')', heightStart)
+    if startPos < 0:
+        print('Error computing projected area, quitting!')
+        return -1
+
     # Extract values
     fullWidth   = int(projectionInfo[widthStart+7  : heightStart-1])
     fullHeight  = int(projectionInfo[heightStart+8 : heightEnd])
@@ -380,8 +385,7 @@ def main(argsIn):
     # We assume all machines have the same number of CPUs (cores)
     cpusPerNode = asp_system_utils.get_num_cpus()
 
-    # TODO: What is a good number here?
-    processesPerCpu = 2
+    processesPerCpu = 1
 
     # Set the optimal number of processes if the user did not specify
     if not options.numProcesses:
@@ -405,11 +409,12 @@ def main(argsIn):
                      '--pixelStartY', '{2}',
                      '--pixelStopX',  '{3}',
                      '--pixelStopY',  '{4}',
-                     '--threads', '1', # Only use on thread internally, parallel will handle things.
                      '--work-dir', tempFolder,
                      options.demPath,
                      options.imagePath, options.cameraPath,
                      options.outputPath]
+    if '--threads' not in options.extraArgs:
+        commandList = commandList + ['--threads', '2'] # If not specified use a small number of threads per process
     if options.convertTiles:
         commandList = commandList + ['--convert-tiles']
     if options.suppressOutput:
