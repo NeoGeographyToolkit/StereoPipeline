@@ -152,12 +152,13 @@ namespace asp {
     void parse_rational_function_model( xercesc::DOMElement* node ); ///< Pleiades / Astrium
     void parse_perusat_model( xercesc::DOMElement* node ); ///< PeruSat-1
 
-    void parse_bbox( xercesc::DOMElement* node ); ///< Read the valid sensor model bounds
-
   public:
     RPCXML();
     void read_from_file( std::string const& name );
     void parse( xercesc::DOMElement* node ) { parse_rpb( node ); }
+
+    // TODO: Why is this function in this class?
+    void parse_bbox( xercesc::DOMElement* node ); ///< Read the valid sensor model bounds
 
     /// Return a pointer to the loaded RPC model.
     RPCModel* rpc_ptr() const;

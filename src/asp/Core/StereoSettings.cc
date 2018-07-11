@@ -91,6 +91,8 @@ namespace asp {
     // Must initialize this variable as it is used in mapproject
     // to get a camera pointer, and there we don't parse stereo.default
     disable_correct_velocity_aberration = false;
+    correct_atmospheric_refraction = true;
+    
 
     double nan = std::numeric_limits<double>::quiet_NaN();
     nodata_value = nan;
@@ -152,6 +154,8 @@ namespace asp {
        "Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.")
       ("part-of-multiview-run", po::bool_switch(&global.part_of_multiview_run)->default_value(false)->implicit_value(true),
        "If the current run is part of a larger multiview run.")
+      ("correct-atmospheric-refraction", po::bool_switch(&global.correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
+       "Apply the experimental atmospheric refraction for linescan cameras.")
       ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),
        "Set the datum to use with RPC camera models. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).");
   }
@@ -383,11 +387,13 @@ namespace asp {
       ;
   }
 
-  DGDescription::DGDescription() : po::options_description("DG Options") {
+  SensorDescription::SensorDescription() : po::options_description("Sensor Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("disable-correct-velocity-aberration", po::bool_switch(&global.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
-       "Apply the velocity aberration correction for Digital Globe cameras.");
+       "Apply the velocity aberration correction for linescan cameras.");
+      //("correct-atmospheric-refraction", po::bool_switch(&global.correct_atmospheric_refraction)->default_value(false)->implicit_value(false),
+       //"Apply the experimental atmospheric refraction for linescan cameras.");
   }
 
   UndocOptsDescription::UndocOptsDescription() : po::options_description("Undocumented Options") {
@@ -408,7 +414,7 @@ namespace asp {
     cfg_options.add( FilteringDescription()     );
     cfg_options.add( TriangulationDescription() );
     cfg_options.add( GUIDescription()           );
-    cfg_options.add( DGDescription()            );
+    cfg_options.add( SensorDescription()        );
     cfg_options.add( UndocOptsDescription()     );
 
     return cfg_options;

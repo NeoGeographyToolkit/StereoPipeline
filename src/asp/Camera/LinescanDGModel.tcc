@@ -172,6 +172,10 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 		 << e.what() << "\n");
   }
   
+  // Get an estimate of the surface elevation from the corners specified in the file.
+  vw::BBox3 bbox = rpc.get_lon_lat_height_box();
+  double mean_ground_elevation = (bbox.min()[2] + bbox.max()[2]) / 2.0;
+  
   // Convert measurements in millimeters to pixels.
   geo.principal_distance /= geo.detector_pixel_pitch;
   geo.detector_origin    /= geo.detector_pixel_pitch;
@@ -239,7 +243,8 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 					                                vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
 					                                tlc_time_interpolation, img.image_size,
 					                                final_detector_origin,
-					                                geo.principal_distance)
+					                                geo.principal_distance,
+					                                mean_ground_elevation)
 		    );
 } // End function load_dg_camera_model()
 

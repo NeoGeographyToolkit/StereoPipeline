@@ -58,7 +58,7 @@ namespace asp {
   struct FilteringDescription     : public boost::program_options::options_description { FilteringDescription    (); };
   struct TriangulationDescription : public boost::program_options::options_description { TriangulationDescription(); };
   struct GUIDescription           : public boost::program_options::options_description { GUIDescription          (); };
-  struct DGDescription            : public boost::program_options::options_description { DGDescription           (); };
+  struct SensorDescription        : public boost::program_options::options_description { SensorDescription       (); };
   struct UndocOptsDescription     : public boost::program_options::options_description { UndocOptsDescription    (); };
 
   boost::program_options::options_description
@@ -242,8 +242,8 @@ namespace asp {
     bool delete_temporary_files_on_exit;
     bool create_image_pyramids_only;
 
-    // DG Options
     bool disable_correct_velocity_aberration;
+    bool correct_atmospheric_refraction; // TESTING!!!
 
     // Undocumented options. We don't want these exposed to the user.
     vw::BBox2i trans_crop_win;        // Left image crop window in respect to L.tif.

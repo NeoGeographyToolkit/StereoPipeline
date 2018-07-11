@@ -664,6 +664,8 @@ void asp::read_xml( std::string const& filename,
     DOMDocument* xmlDoc = parser->getDocument();
     DOMElement* elementRoot = xmlDoc->getDocumentElement();
 
+    rpc.parse_bbox(elementRoot); // Load the bounding box information.
+
     DOMNodeList* children = elementRoot->getChildNodes();
     for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
       DOMNode* curr_node = children->item(i);
