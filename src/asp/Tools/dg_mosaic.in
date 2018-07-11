@@ -178,10 +178,18 @@ def minyCompare(P, Q):
     return val
 
 def sort_by_miny(imgVec, boxVec):
+
     S = []
     for i in range(len(imgVec)):
         S.append(StrBox(copy.deepcopy(imgVec[i]), copy.deepcopy(boxVec[i])))
-    S.sort(minyCompare)
+
+    # Sorting changed in Python 3
+    if sys.version_info[0] < 3:
+        S.sort(minyCompare)
+    else:
+        from functools import cmp_to_key
+        S.sort(key=cmp_to_key(minyCompare))
+         
     imgVec = []
     for i in range(len(S)):
         imgVec.append(S[i].img_str)
