@@ -480,9 +480,9 @@ struct BaPinholeError {
     VW_ASSERT(m_num_parameters >= 2, ArgumentErr() << "Require at least parameters for camera and point.");
     const double * const camera_ptr = parameters[0];
     const double * const point_ptr  = parameters[1];
-    const double * const focal_ptr  = m_num_parameters >= 3 ? parameters[2] : nullptr;
-    const double * const center_ptr = m_num_parameters >= 4 ? parameters[3] : nullptr;
-    const double * const distortion_ptr = m_num_parameters >= 5 ? parameters[4] : nullptr;
+    const double * const focal_ptr  = m_num_parameters >= 3 ? parameters[2] : NULL;
+    const double * const center_ptr = m_num_parameters >= 4 ? parameters[3] : NULL;
+    const double * const distortion_ptr = m_num_parameters >= 5 ? parameters[4] : NULL;
     return Evaluation(camera_ptr, point_ptr, focal_ptr, center_ptr, distortion_ptr, residuals);
   }
 
@@ -567,9 +567,9 @@ struct BaPinholeError {
     // it before hand to tell the cost function.
     static const int kFocalLengthAndPrincipalPoint = 3;
     int num_parameters = 2;
-    if (num_parameters > 0 && num_parameters <= kFocalLengthAndPrincipalPoint) {
+    if (num_intrinsics > 0 && num_intrinsics <= kFocalLengthAndPrincipalPoint) {
       num_parameters += 2;
-    } else if (num_parameters > kFocalLengthAndPrincipalPoint) {
+    } else if (num_intrinsics > kFocalLengthAndPrincipalPoint) {
       num_parameters += 3;
     }
 
