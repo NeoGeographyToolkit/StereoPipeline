@@ -468,14 +468,26 @@ struct BaReprojectionError {
 /// the camera, normalized by pixel_sigma.
 struct BaPinholeError {
   BaPinholeError(Vector2 const& observation, Vector2 const& pixel_sigma,
-                 BAPinholeModel * const ba_model, size_t icam, size_t ipt):
+                 BAPinholeModel * const ba_model, size_t icam, size_t ipt, int num_parameters):
     m_observation(observation),
     m_pixel_sigma(pixel_sigma),
     m_ba_model(ba_model),
-    m_icam(icam), m_ipt(ipt){}
+    m_icam(icam), m_ipt(ipt),
+    m_num_parameters(num_parameters) {}
 
-  /// Compute residuals of observing this point with these camera parameters
-  bool operator()(const double * const camera,
+  // Adaptor to work with ceres::DynamicCostFunctions.
+  bool operator()(double const * const * parameters, double * residuals) const {
+    VW_ASSERT(m_num_parameters >= 2, ArgumentErr() << "Require at least parameters for camera and point.");
+    const double * const camera_ptr = parameters[0];
+    const double * const point_ptr  = parameters[1];
+    const double * const focal_ptr  = m_num_parameters >= 3 ? parameters[2] : nullptr;
+    const double * const center_ptr = m_num_parameters >= 4 ? parameters[3] : nullptr;
+    const double * const distortion_ptr = m_num_parameters >= 5 ? parameters[4] : nullptr;
+    return Evaluation(camera_ptr, point_ptr, focal_ptr, center_ptr, distortion_ptr, residuals);
+  }
+
+  // Compute residuals of observing this point with these camera parameters
+  bool Evaluation(const double * const camera,
                   const double * const point,
                   const double * const scaled_focal_length,
                   const double * const scaled_optical_center,
@@ -535,38 +547,6 @@ struct BaPinholeError {
     return true;
   }
   
-  /// Overload for when there is no distortion
-  bool operator()(const double * const camera,
-                  const double * const point,
-                  const double * const scaled_focal_length,
-                  const double * const scaled_optical_center,
-                  double       * residuals) const {
-    return this->operator()(camera, point, scaled_focal_length, scaled_optical_center, 0, residuals);
-  }
-  
-  /// Overload for when all intrinsics are in one vector
-  bool operator()(const double * const camera,
-                  const double * const point,
-                  const double * const scaled_intrinsics,
-                  double       * residuals) const {
-    
-    int nf = BAPinholeModel::focal_length_params_n;
-    int nc = BAPinholeModel::optical_center_params_n;
-    return this->operator()(camera, point,
-                            scaled_intrinsics,           // focal length
-                            scaled_intrinsics + nf,      // optical center
-                            scaled_intrinsics + nf + nc, // distortion
-                            residuals);
-  }
-  
-  /// Overload for when intrinsic parameters are not provided.
-  bool operator()(const double * const camera,
-                  const double * const point,
-                  double       * residuals) const {
-    // Just call the other function with a dummy intrinsic vector which will not be used.
-    return this->operator()(camera, point, 0, residuals);
-  }
-
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(Vector2 const& observation,
@@ -582,59 +562,54 @@ struct BaPinholeError {
     const int nc  = BAPinholeModel::optical_center_params_n;
     const int num_intrinsics        = ba_model->num_intrinsic_params();
 
-    // Create a ceres::AutoDiffCostFunction object templated to the
-    // exact problem sizes we need. Notice that if we have more than 3 intrinsics that
-    // means focal length (1 param), optical center (2 params), and the rest are
-    // distortion params.
-    
-    switch(num_intrinsics) {
-    case 0: // This case is different, it does not set an intrinsic size.
-      return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-      // All of the other cases hard code the intrinsic length.
-    case 1:
-      vw_throw(LogicErr() << "bundle_adjust.cc not set up for 1 intrinsic param!");
-    case 2:
-      vw_throw(LogicErr() << "bundle_adjust.cc not set up for 2 intrinsic params!");
-    case 3:
-      return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt))); // no distortion
-      
-    case 4:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 1>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 5:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 2>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 6:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 3>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 7:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 4>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 8:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 5>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 9:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 6>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 10:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 7>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 11:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 8>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 12:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 9>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 13:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 10>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 14:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 11>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 15:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 12>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 16:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 13>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 17:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 14>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 18:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 15>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 19:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 16>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 20:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 17>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    // DynamicNumericDiffCostFunction is a little new. It doesn't tell the cost
+    // function how many parameters are available. So here we are calculating
+    // it before hand to tell the cost function.
+    static const int kFocalLengthAndPrincipalPoint = 3;
+    int num_parameters = 2;
+    if (num_parameters > 0 && num_parameters <= kFocalLengthAndPrincipalPoint) {
+      num_parameters += 2;
+    } else if (num_parameters > kFocalLengthAndPrincipalPoint) {
+      num_parameters += 3;
+    }
 
-    case vw::camera::RPCLensDistortion::num_distortion_params + 3:
-      return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, vw::camera::RPCLensDistortion::num_distortion_params>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-      
-    case vw::camera::RPCLensDistortion5::num_distortion_params + 3:
-      return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, vw::camera::RPCLensDistortion5::num_distortion_params>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    ceres::DynamicNumericDiffCostFunction<BaPinholeError>* cost_function =
+        new ceres::DynamicNumericDiffCostFunction<BaPinholeError>(
+            new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt,
+                               num_parameters));
+    cost_function->SetNumResiduals(nob);
+    cost_function->AddParameterBlock(ncp);
+    cost_function->AddParameterBlock(npp);
 
-    case vw::camera::RPCLensDistortion6::num_distortion_params + 3:
-      return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, vw::camera::RPCLensDistortion6::num_distortion_params>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    if (num_intrinsics == 0) {
+      // This is the special case that we are not solving camera intrinsics.
+      return cost_function;
+    }
 
-    default:
-      vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
-    };
-    return 0;
-  } // End function Create
+    cost_function->AddParameterBlock(nf);
+    cost_function->AddParameterBlock(nc);
+
+    if (num_intrinsics < kFocalLengthAndPrincipalPoint) {
+      vw_throw(LogicErr()
+               << "bundle_adjust.cc not set up for 1 or 2 intrinsics params!");
+    } else if (num_intrinsics == kFocalLengthAndPrincipalPoint) {
+      // Early exit if we want to solve only for focal length and optical
+      // center.
+      return cost_function;
+    }
+
+    // Larger intrinsics also mean we are solving for lens distortion. We
+    // support a variable number of parameters here.
+    cost_function->AddParameterBlock(num_intrinsics -
+                                     kFocalLengthAndPrincipalPoint);
+    return cost_function;
+  }  // End function Create
 
   Vector2 m_observation;
   Vector2 m_pixel_sigma;
   BAPinholeModel * const m_ba_model;
   size_t m_icam, m_ipt;
+  int m_num_parameters;
 };
 
 /// A ceres cost function. Here we float two pinhole camera's
