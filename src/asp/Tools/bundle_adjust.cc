@@ -622,15 +622,35 @@ struct BaPinholeError {
 /// straight into the right image.
 struct BaDispXyzError {
   BaDispXyzError(Vector3 const& reference_xyz,
-                   ImageViewRef<DispPixelT> const& interp_disp, 
-                   BAPinholeModel const& ba_model, size_t left_icam, size_t right_icam):
-    m_reference_xyz(reference_xyz),
-    m_interp_disp(interp_disp),
-    m_ba_model(ba_model),
-    m_left_icam(left_icam), m_right_icam(right_icam){}
+                 ImageViewRef<DispPixelT> const& interp_disp,
+                 BAPinholeModel const& ba_model, size_t left_icam,
+                 size_t right_icam, int num_parameters)
+      : m_reference_xyz(reference_xyz),
+        m_interp_disp(interp_disp),
+        m_ba_model(ba_model),
+        m_left_icam(left_icam),
+        m_right_icam(right_icam),
+        m_num_parameters(num_parameters) {}
+
+  // Adaptor to work with ceres::DynamicCostFunctions.
+  bool operator()(double const* const* parameters, double* residuals) const {
+    VW_ASSERT(m_num_parameters >= 2,
+              ArgumentErr()
+                  << "Require at least parameters for camera and point.");
+    const double* const left_camera_ptr = parameters[0];
+    const double* const right_camera_ptr = parameters[1];
+    const double* const focal_ptr =
+        m_num_parameters >= 3 ? parameters[2] : NULL;
+    const double* const center_ptr =
+        m_num_parameters >= 4 ? parameters[3] : NULL;
+    const double* const distortion_ptr =
+        m_num_parameters >= 5 ? parameters[4] : NULL;
+    return Evaluation(left_camera_ptr, right_camera_ptr, focal_ptr, center_ptr,
+                      distortion_ptr, residuals);
+  }
 
   /// Compute residuals of observing this point with these camera parameters
-  bool operator()(const double * const left_camera,
+  bool Evaluation(const double * const left_camera,
                   const double * const right_camera,
                   const double * const scaled_focal_length,
                   const double * const scaled_optical_center,
@@ -722,102 +742,65 @@ struct BaDispXyzError {
     return true;
   }
 
-  /// Overload for when there is no distortion
-  bool operator()(const double * const left_camera,
-                  const double * const right_camera,
-                  const double * const scaled_focal_length,
-                  const double * const scaled_optical_center,
-                  double       * residuals) const {
-    return this->operator()(left_camera, right_camera, scaled_focal_length,
-                            scaled_optical_center, 0, residuals);
-  }
-  
-  /// Overload for when all intrinsics are in one vector
-  bool operator()(const double * const left_camera,
-                  const double * const right_camera,
-                  const double * const scaled_intrinsics,
-                  double       * residuals) const {
-    int nf = BAPinholeModel::focal_length_params_n;
-    int nc = BAPinholeModel::optical_center_params_n;
-    return this->operator()(left_camera, right_camera,
-                            scaled_intrinsics, scaled_intrinsics + nf,
-                            scaled_intrinsics + nf + nc,
-                            residuals);
-  }
-  
-  /// Overload for when intrinsic parameters are not provided.
-  bool operator()(const double * const left_camera,
-                  const double * const right_camera,
-                  double       * residuals) const {
-    // Just call the other function with a dummy intrinsic vector which will not be used.
-    return this->operator()(left_camera, right_camera, 0, residuals);
-  }
-
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(Vector3 const& reference_xyz,
-				     ImageViewRef<DispPixelT> const& interp_disp,
-                                     BAPinholeModel const& ba_model,
-                                     size_t left_icam,
-                                     size_t right_icam){
-    
-    const int nob = PIXEL_SIZE; // Num observation elements: Column, row
+  static ceres::CostFunction* Create(
+      Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
+      BAPinholeModel const& ba_model, size_t left_icam, size_t right_icam) {
+    const int nob = PIXEL_SIZE;  // Num observation elements: Column, row
     const int ncp = BAPinholeModel::camera_params_n;
     const int nf  = BAPinholeModel::focal_length_params_n;
     const int nc  = BAPinholeModel::optical_center_params_n;
     const int num_intrinsics = ba_model.num_intrinsic_params();
 
-    // Create a ceres::AutoDiffCostFunction object templated to the
-    // exact problem sizes we need. Notice that if we have more than 3 intrinsics that
-    // means focal length (1 param), optical center (2 params), and the rest are
-    // distortion params.
+    // DynamicNumericDiffCostFunction is a little new. It doesn't tell the cost
+    // function how many parameters are available. So here we are calculating
+    // it before hand to tell the cost function.
+    static const int kFocalLengthAndPrincipalPoint = 3;
+    int num_parameters = 2;
+    if (num_intrinsics > 0 && num_intrinsics <= kFocalLengthAndPrincipalPoint) {
+      num_parameters += 2;
+    } else if (num_intrinsics > kFocalLengthAndPrincipalPoint) {
+      num_parameters += 3;
+    }
 
-    // TODO: Use a macro below
-    
-    switch (num_intrinsics) {
-    case 0: // This case is different, it does not set an intrinsic size.
-      return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-      // All of the other cases hard code the intrinsic length.
-    case 1:
-      vw_throw(LogicErr() << "bundle_adjust.cc not set up for 1 intrinsic param!");
-    case 2:
-      vw_throw(LogicErr() << "bundle_adjust.cc not set up for 2 intrinsic params!");
-    case 3: return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam))); // no distortion
-    case 4:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 1>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 5:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 2>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 6:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 3>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 7:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 4>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 8:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 5>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 9:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 6>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 10:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 7>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 11:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 8>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 12:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 9>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 13:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 10>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 14:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 11>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 15:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 12>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 16:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 13>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 17:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 14>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 18:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 15>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 19:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 16>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-    case 20:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, 17>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    ceres::DynamicNumericDiffCostFunction<BaDispXyzError>* cost_function =
+        new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
+            new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam,
+                               right_icam, num_parameters));
+    cost_function->SetNumResiduals(nob);
+    cost_function->AddParameterBlock(ncp);
+    cost_function->AddParameterBlock(ncp);
 
-    case vw::camera::RPCLensDistortion::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion::num_distortion_params>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    if (num_intrinsics == 0) {
+      // This is the special case that we are not solving camera intrinsics.
+      return cost_function;
+    }
 
-    case vw::camera::RPCLensDistortion5::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion5::num_distortion_params>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
-      
-    case vw::camera::RPCLensDistortion6::num_distortion_params+3:  return (new ceres::NumericDiffCostFunction<BaDispXyzError,ceres::CENTRAL, nob, ncp, ncp, nf, nc, vw::camera::RPCLensDistortion6::num_distortion_params>(new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam, right_icam)));
+    cost_function->AddParameterBlock(nf);
+    cost_function->AddParameterBlock(nc);
 
-    default:
-      vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
-    };
-    return 0;
-  } // End function Create
+    if (num_intrinsics < kFocalLengthAndPrincipalPoint) {
+      vw_throw(LogicErr()
+               << "bundle_adjust.cc not set up for 1 or 2 intrinsics params!");
+    } else if (num_intrinsics == kFocalLengthAndPrincipalPoint) {
+      // Early exit if we want to solve only for focal length and optical
+      // center.
+      return cost_function;
+    }
+
+    // Larger intrinsics also mean we are solving for lens distortion. We
+    // support a variable number of parameters here.
+    cost_function->AddParameterBlock(num_intrinsics -
+                                     kFocalLengthAndPrincipalPoint);
+    return cost_function;
+  }  // End function Create
 
   Vector3 m_reference_xyz;
   ImageViewRef<DispPixelT> const& m_interp_disp;
   BAPinholeModel const& m_ba_model;
   size_t m_left_icam, m_right_icam;
-  
+  int m_num_parameters;
 };
 
 // Add residual block for the error using reference xyz
