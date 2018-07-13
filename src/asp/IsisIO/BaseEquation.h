@@ -41,7 +41,7 @@ namespace asp {
     double m_time_offset;
 
     // Update Cache (m_cached_output)
-    virtual void update ( double const& t ) = 0;
+    virtual void update ( double t ) = 0;
 
   public:
     // Constructor
@@ -49,25 +49,25 @@ namespace asp {
     virtual std::string type() const = 0;
 
     //Evaluates the equation at time T
-    vw::Vector3 evaluate( double const& t ) {
+    vw::Vector3 evaluate( double t ) {
       if ( t != m_cached_time )
         update( t );
       return m_cached_output;
     }
-    vw::Vector3 operator()( double const& t ) { return evaluate(t);}
+    vw::Vector3 operator()( double t ) { return evaluate(t);}
 
     // Tells the number of constants defining the equation
     // This is especially vague as it is meant for interaction with a
     // bundle adjuster. BA just wants to roll through the constants
     // and redefine them.
     virtual size_t size() const = 0;
-    virtual double& operator[]( size_t const& n ) = 0;
-    const double& operator[]( size_t const& n ) const {
-      return this->operator[](n);
+    virtual double& operator[]( size_t n ) = 0;
+    const double& operator[]( size_t n ) const {
+      return const_cast<BaseEquation*>(this)->operator[](n);
     }
 
     // Allows us to set the time offset
-    void set_time_offset( double const& offset ) {
+    void set_time_offset( double offset ) {
       m_cached_time = -1;
       m_time_offset = offset;
     }
@@ -76,7 +76,6 @@ namespace asp {
     // FileIO routines
     virtual void write( std::ofstream &f ) = 0;
     virtual void read( std::ifstream &f ) = 0;
-
   };
 
 

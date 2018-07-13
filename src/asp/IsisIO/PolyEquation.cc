@@ -69,7 +69,7 @@ PolyEquation::PolyEquation( int order_x,
 
 // Update
 //-----------------------------------------------
-void PolyEquation::update( double const& t ) {
+void PolyEquation::update( double t ) {
   m_cached_time = t;
   double delta_t = t-m_time_offset;
   Vector<double> powers( m_max_length );
@@ -149,15 +149,15 @@ void PolyEquation::read( std::ifstream& f ) {
 
 // Constant Access
 //-----------------------------------------------
-double& PolyEquation::operator[]( size_t const& n ) {
+double& PolyEquation::operator[]( size_t n ) {
   m_cached_time = -1;
-  if ( n >= m_x_coeff.size()+m_y_coeff.size()+m_z_coeff.size() )
-    vw_throw( ArgumentErr() << "PolyEquation: invalid index.");
-  if ( n < m_x_coeff.size() ) {
+  if (n >= m_x_coeff.size() + m_y_coeff.size() + m_z_coeff.size())
+    vw_throw(ArgumentErr() << "PolyEquation: invalid index.");
+  if (n < m_x_coeff.size()) {
     return m_x_coeff[n];
-  } else if ( n < m_x_coeff.size()+m_y_coeff.size() ) {
-    return m_y_coeff[n-m_x_coeff.size()];
+  } else if (n < m_x_coeff.size() + m_y_coeff.size()) {
+    return m_y_coeff[n - m_x_coeff.size()];
   } else {
-    return m_z_coeff[n-m_x_coeff.size()-m_y_coeff.size()];
+    return m_z_coeff[n - m_x_coeff.size() - m_y_coeff.size()];
   }
 }

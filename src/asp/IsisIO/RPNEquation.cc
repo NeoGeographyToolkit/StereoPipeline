@@ -41,9 +41,9 @@ RPNEquation::RPNEquation() {
   m_cached_time = -1;
   m_time_offset = 0;
 }
-RPNEquation::RPNEquation( std::string x_eq,
-                          std::string y_eq,
-                          std::string z_eq ) {
+RPNEquation::RPNEquation( std::string const& x_eq,
+                          std::string const& y_eq,
+                          std::string const& z_eq ) {
   string_to_eqn( x_eq, m_x_eq, m_x_consts );
   string_to_eqn( y_eq, m_y_eq, m_y_consts );
   string_to_eqn( z_eq, m_z_eq, m_z_consts );
@@ -53,7 +53,7 @@ RPNEquation::RPNEquation( std::string x_eq,
 
 // Update
 //-----------------------------------------------------
-void RPNEquation::update( double const& t ) {
+void RPNEquation::update( double t ) {
   m_cached_time = t;
   double delta_t = t - m_time_offset;
   m_cached_output[0] = evaluate( m_x_eq,
@@ -66,7 +66,7 @@ void RPNEquation::update( double const& t ) {
                                  m_z_consts,
                                  delta_t );
 }
-void RPNEquation::string_to_eqn( std::string& str,
+void RPNEquation::string_to_eqn( std::string const& str,
                                  std::vector<std::string>& commands,
                                  std::vector<double>& consts ) {
   // Breaks a string into the equation format used internally
@@ -92,16 +92,17 @@ void RPNEquation::string_to_eqn( std::string& str,
     }
   }
 }
-double RPNEquation::evaluate( std::vector<std::string>& commands,
+
+double RPNEquation::evaluate( std::vector<std::string> const& commands,
                               std::vector<double>& consts,
-                              double const& t ) {
+                              double t ) {
   // Evaluates an equation in the internal format
   if ( commands.empty() )
     return 0;
   int consts_index = 0;
   std::stack<double> rpn_stack;
   double buffer;
-  for ( std::vector<std::string>::iterator iter = commands.begin();
+  for ( std::vector<std::string>::const_iterator iter = commands.begin();
         iter != commands.end(); ++iter ) {
     if ( *iter == "c" ) {
       rpn_stack.push( consts[consts_index] );
@@ -205,24 +206,27 @@ void RPNEquation::write( std::ofstream &f ) {
     f << "\n";
   }
 }
+
 void RPNEquation::read( std::ifstream &f ) {
   std::string buffer;
   m_cached_time = -1;
 
-  buffer = "";
+  buffer.clear();
   std::getline( f, buffer );
   string_to_eqn( buffer, m_x_eq, m_x_consts );
-  buffer = "";
+
+  buffer.clear();
   std::getline( f, buffer );
   string_to_eqn( buffer, m_y_eq, m_y_consts );
-  buffer = "";
+
+  buffer.clear();
   std::getline( f, buffer );
   string_to_eqn( buffer, m_z_eq, m_z_consts );
 }
 
 // Constant Access
 //-----------------------------------------------------
-double& RPNEquation::operator[]( size_t const& n ) {
+double& RPNEquation::operator[]( size_t n ) {
   m_cached_time = -1;
   if ( n >= m_x_consts.size() + m_y_consts.size()
        + m_z_consts.size() )

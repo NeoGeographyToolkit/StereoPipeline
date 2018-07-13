@@ -31,13 +31,13 @@ namespace asp {
     vw::Vector<double> m_z_coeff;
     vw::uint8 m_max_length; // Maximum order + 1
 
-    void update ( double const& t );
+    void update ( double t );
   public:
     PolyEquation( int order = 0 );
     PolyEquation( int, int, int );
-    PolyEquation( vw::Vector<double>& x,
-                  vw::Vector<double>& y,
-                  vw::Vector<double>& z ) : m_x_coeff(x), m_y_coeff(y), m_z_coeff(z) {
+    PolyEquation(vw::Vector<double> const& x, vw::Vector<double> const& y,
+                 vw::Vector<double> const& z)
+        : m_x_coeff(x), m_y_coeff(y), m_z_coeff(z) {
       m_cached_time = -1;
       m_time_offset = 0;
       if ( x.size() > 254 || y.size() > 254 || z.size() > 254 )
@@ -48,7 +48,7 @@ namespace asp {
     std::string type() const {  return "PolyEquation"; }
 
     size_t size() const { return m_x_coeff.size()+m_y_coeff.size()+m_z_coeff.size(); }
-    double& operator[]( size_t const& n );
+    double& operator[]( size_t n );
 
     void write( std::ofstream &f );
     void read( std::ifstream &f );
