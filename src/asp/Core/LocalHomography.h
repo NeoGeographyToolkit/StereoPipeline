@@ -27,7 +27,7 @@
 
 // Forward declaration
 namespace asp {
-  class ASPGlobalOptions;
+  struct ASPGlobalOptions;
 }
 
 namespace asp {

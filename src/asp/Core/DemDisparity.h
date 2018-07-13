@@ -26,7 +26,7 @@
 
 // Forward declaration
 namespace asp {
-  class ASPGlobalOptions;
+  struct ASPGlobalOptions;
 }
 namespace vw {
   namespace camera {

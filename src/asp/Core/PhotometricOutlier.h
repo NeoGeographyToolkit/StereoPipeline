@@ -28,7 +28,7 @@
 // Forward declaration
 namespace vw{
   namespace cartography{
-    class GdalWriteOptions;
+    struct GdalWriteOptions;
   }
 }
 

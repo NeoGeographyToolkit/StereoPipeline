@@ -47,7 +47,6 @@ namespace stereo {
       float *m_buffer;
       int m_shadeMode;
       float m_currentFlatColor[3];
-      float m_clearColor[4];
       double m_transformNDC[3][2];
       double m_transformViewport[3][2];
       void *m_graphicsState;
