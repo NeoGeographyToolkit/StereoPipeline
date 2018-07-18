@@ -2638,7 +2638,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 	     << opt.shadow_threshold_vec[i] << ' ' << opt.max_valid_image_vals_vec[i] << std::endl;
   }
 
-
   // Initial image exposures, if provided. First read them in a map,
   // as perhaps the initial exposures were created using more images
   // than what we have here. 
@@ -2720,11 +2719,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 	     << "Floating the albedo is ill-posed for just one image without "
              << "the initial DEM constraint or the albedo constraint.\n");
 
-  if (opt.input_images.size() <=1 && opt.float_exposure)
+  if (opt.input_images.size() <= 1 && opt.float_exposure)
     vw_throw(ArgumentErr()
 	     << "Floating the exposure is ill-posed for just one image.\n");
 
-  if (opt.input_images.size() <=1 && opt.float_dem_at_boundary)
+  if (opt.input_images.size() <= 1 && opt.float_dem_at_boundary)
     vw_throw(ArgumentErr()
 	     << "Floating the DEM at the boundary is ill-posed for just one image.\n");
 
@@ -2804,8 +2803,8 @@ void run_sfs_level(// Fixed inputs
   ceres::Problem problem;
   
   // Find the grid sizes in meters. Note that dem heights are in
-  // meters too, so we treat both horizontal and vertical
-  // measurements in same units.
+  // meters too, so we treat both horizontal and vertical measurements
+  // in same units.
   double gridx, gridy;
   compute_grid_sizes_in_meters(dems[0], geo[0], dem_nodata_val, gridx, gridy);
   vw_out() << "grid in x and y in meters: "
