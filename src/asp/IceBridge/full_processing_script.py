@@ -816,6 +816,10 @@ def main(argsIn):
     processedFolder    = icebridge_common.getProcessedFolder(options.outputFolder)
 
     if options.outputCalCamera != "":
+        if options.maxOverlapRatio < 1:
+            raise Exception ("For optimizing intrinsics, must set --max-overlap-ratio to 1, " + \
+                             "to always use consecutive frames.")
+            
         # Prepare to solve for intrinsics. Note that this modifies some things along the way.
         (options, cameraFolder, navCameraFolder, processedFolder) = \
                   solveIntrinsics_Part1(options, jpegFolder, cameraFolder, navCameraFolder,
