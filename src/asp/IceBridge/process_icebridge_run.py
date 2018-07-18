@@ -98,7 +98,8 @@ def processBatch(imageCameraPairs, lidarFolder, referenceDem, skipInterval,
         logger.error('Batch processing failed!\n' + str(e) +
                      traceback.print_exc())
 
-def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAllFramesInRange):
+def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame,
+                    maxOverlapRatio, forceAllFramesInRange):
     '''Find a good image stereo spacing interval that gives us a good
        balance between coverage and baseline width.
        Also detect all frames where this is a large break after the current frame.'''
@@ -181,7 +182,7 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame, forceAl
         
     # Since we are only comparing the image bounding boxes, not their exact corners,
     #  these ratios are only estimates.
-    MAX_RATIO   = 0.85    # Increase skip until we get below this...
+    MAX_RATIO   = maxOverlapRatio # = 0.85    # Increase skip until we get below this...
     MIN_RATIO   = 0.75    # ... but don't go below this value!
     NOTRY_RATIO = 0.0001  # Don't bother with overlap amounts less than this (small on purpose)
 
@@ -324,6 +325,9 @@ def main(argsIn):
         parser.add_option('--image-stereo-interval', dest='imageStereoInterval', default=None,
                           type='int', help='Advance this many frames to get the stereo pair.  Default is auto-calculate')
 
+        parser.add_option('--max-overlap-ratio', dest='maxOverlapRatio', default=0.85,
+                          type='float', help='The maximum ratio of overlap between images to be accepted as part of a stereo pair.')
+
         parser.add_option('--solve-intrinsics', action='store_true', default=False,
                           dest='solve_intr',  
                           help='If to float the intrinsics params.')
@@ -459,6 +463,7 @@ def main(argsIn):
     forceAllFramesInRange = False
     (breaks, largeSkips) = getImageSpacing(options.orthoFolder, availableFrames,
                                            options.startFrame, options.stopFrame,
+                                           options.maxOverlapRatio,
                                            forceAllFramesInRange)
     if options.imageStereoInterval: 
         logger.info('Using manually specified image stereo interval: ' +

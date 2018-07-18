@@ -248,6 +248,7 @@ def runFetchConvert(options, isSouth, cameraFolder, imageFolder, jpegFolder, ort
                                  process_icebridge_run.getImageSpacing(orthoFolder, availableFrames,
                                                                        options.startFrame,
                                                                        options.stopFrame,
+                                                                       options.maxOverlapRatio,
                                                                        forceAllFramesInRange)
         except Exception as e:
             pass
@@ -346,10 +347,10 @@ def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
     # Some care is taken with the --stereo-arguments argument to make sure it is passed correctly.
     processCommand = (('%s %s %s %s --bundle-length %d --fireball-folder %s ' +
                        '--ortho-folder %s --num-processes %d --num-threads %d ' +
-                       '--reference-dem %s')
+                       '--reference-dem %s --max-overlap-ratio %g')
                       % (imageFolder, cameraFolder, lidarFolder, processedFolder,
                          options.bundleLength, fireballFolder, orthoFolder, options.numProcesses,
-                         options.numThreads, refDemPath))
+                         options.numThreads, refDemPath, options.maxOverlapRatio))
     if isSouth:
         processCommand += ' --south'
     if options.startFrame:
@@ -629,6 +630,9 @@ def main(argsIn):
         parser.add_argument('--overlap-limit', dest='overlapLimit', default=2,
                           type=int, help="The number of images to treat as overlapping for " + \
                           "bundle adjustment.")
+        
+        parser.add_argument('--max-overlap-ratio', dest='maxOverlapRatio', default=0.85,
+                          type=float, help='The maximum ratio of overlap between images to be accepted as part of a stereo pair. When floating intrinsics, this will be set to 1, to not upset some bookkeeping.')
         
         parser.add_argument('--stereo-arguments', dest='stereoArgs',
                             # set --min-xcorr-level 0 to do the left-to-right 
