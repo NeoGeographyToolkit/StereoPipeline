@@ -688,10 +688,10 @@ if __name__ == '__main__':
     georef["GeoTransform"] = "".join(georef["GeoTransform"])
 
     # Set the job size by default when using SGM
+    corr_tile_size = int(settings['corr_tile_size'][0])
     if (settings['stereo_algorithm'][0] > '0'):
         # If the user did not manually specify the job size, set it equal
         #  to the correlation tile size.
-        corr_tile_size = int(settings['corr_tile_size'][0])
         if ('--job-size-w' not in sys.argv[1:]) and ('--job-size-h' not in sys.argv[1:]):
             opt.job_size_w = corr_tile_size
             opt.job_size_h = opt.job_size_w
@@ -704,7 +704,10 @@ if __name__ == '__main__':
             if '--job-size-h' in sys.argv[1:] and opt.job_size_h != corr_tile_size:
                 raise Exception('If --stereo-algorithm is not 0, must use the same value ' + \
                       'for --job-size-h and --corr-tile-size.')
-
+    else:
+        if corr_tile_size > opt.job_size_h or corr_tile_size > opt.job_size_w:
+            raise Exception('Cannot use larger --corr-tile-size than ' + \
+                            '--job-size-w and --job-size-h.')
     if opt.tile_id is None:
 
         # We get here when the script is started. The current running
