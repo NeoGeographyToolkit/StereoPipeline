@@ -15,6 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// TODO: Deal with outliers in image intensity!
+// Always use local projection? How about orientations?
 
 /// \file sfs.cc
 
@@ -417,8 +419,7 @@ namespace vw { namespace camera {
       m_exact_camera(exact_camera), m_img_bbox(img_bbox), m_geo(geo),
       m_use_rpc_approximation(use_rpc_approximation),
       m_use_semi_approx(use_semi_approx),
-      m_camera_mutex(camera_mutex), m_model_is_valid(true)
-    {
+      m_camera_mutex(camera_mutex), m_model_is_valid(true){
 
       int big = 1e+8;
       m_uncompValue = Vector2(-big, -big);
@@ -429,7 +430,7 @@ namespace vw { namespace camera {
 	vw_throw( ArgumentErr()
 		  << "ApproxCameraModel: Expecting an unadjusted ISIS camera model.\n");
 
-      //Compute the mean DEM height.
+      // Compute the mean DEM height.
       // We expect all DEM entries to be valid.
       m_mean_ht = 0;
       double num = 0.0;
@@ -976,11 +977,12 @@ struct Options : public vw::cartography::GdalWriteOptions {
     blending_power;
   bool float_albedo, float_exposure, float_cameras, float_all_cameras, model_shadows,
     save_computed_intensity_only,
-    save_dem_with_nodata, use_approx_camera_models, use_rpc_approximation, use_semi_approx, crop_input_images,
-    use_blending_weights,
-    float_dem_at_boundary, fix_dem, float_reflectance_model, query, save_sparingly;
-  double smoothness_weight, init_dem_height, nodata_val, initial_dem_constraint_weight,
-    albedo_constraint_weight, camera_position_step_size, rpc_penalty_weight, unreliable_intensity_threshold;
+    save_dem_with_nodata, use_approx_camera_models, use_rpc_approximation, use_semi_approx,
+    crop_input_images, use_blending_weights, float_dem_at_boundary, fix_dem,
+    float_reflectance_model, query, save_sparingly;
+  double smoothness_weight, integrability_weight, init_dem_height, nodata_val,
+    initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
+    rpc_penalty_weight, unreliable_intensity_threshold;
   vw::BBox2 crop_win;
 
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
@@ -996,7 +998,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
 	    crop_input_images(false), use_blending_weights(false),
             float_dem_at_boundary(false), fix_dem(false),
             float_reflectance_model(false), query(false), save_sparingly(false),
-	    smoothness_weight(0), initial_dem_constraint_weight(0.0),
+	    smoothness_weight(0), integrability_weight(0),
+            initial_dem_constraint_weight(0.0),
 	    albedo_constraint_weight(0.0),
 	    camera_position_step_size(1.0), rpc_penalty_weight(0.0),
             unreliable_intensity_threshold(0.0),
@@ -1043,7 +1046,7 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
 						   double phaseCoeffC1,
 						   double phaseCoeffC2,
 						   double & alpha,
-                                                   const double * coeffs) {
+                                                   const double * reflectance_model_coeffs) {
   double reflectance;
   double L;
 
@@ -1056,7 +1059,6 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
 
   //compute /mu_0 = cosine of the angle between the light direction and the surface normal.
   //sun coordinates relative to the xyz point on the Moon surface
-  //Vector3 sunDirection = -normalize(sunPos-xyz);
   Vector3 sunDirection = normalize(sunPos-xyz);
   double mu_0 = dot_prod(sunDirection, normal);
 
@@ -1089,10 +1091,10 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   //L = exp(-deg_alpha/60.0);
 
   //Alfred McEwen's model
-  double O = coeffs[0]; // 1
-  double A = coeffs[1]; //-0.019;
-  double B = coeffs[2]; // 0.000242;//0.242*1e-3;
-  double C = coeffs[3]; // -0.00000146;//-1.46*1e-6;
+  double O = reflectance_model_coeffs[0]; // 1
+  double A = reflectance_model_coeffs[1]; //-0.019;
+  double B = reflectance_model_coeffs[2]; // 0.000242;//0.242*1e-3;
+  double C = reflectance_model_coeffs[3]; // -0.00000146;//-1.46*1e-6;
 
   L = O + A*deg_alpha + B*deg_alpha*deg_alpha + C*deg_alpha*deg_alpha*deg_alpha;
  
@@ -1157,7 +1159,7 @@ double computeHapkeReflectanceFromNormal(Vector3 const& sunPos,
                                          double phaseCoeffC1,
                                          double phaseCoeffC2,
                                          double & alpha,
-                                         const double * coeffs) {
+                                         const double * reflectance_model_coeffs) {
 
   double len = dot_prod(normal, normal);
   if (abs(len - 1.0) > 1.0e-4){
@@ -1182,11 +1184,12 @@ double computeHapkeReflectanceFromNormal(Vector3 const& sunPos,
   double g = acos(cos_g);  // phase angle in radians
 
   // Hapke params
-  double omega = std::abs(coeffs[0]); // also known as w
-  double b     = std::abs(coeffs[1]);
-  double c     = std::abs(coeffs[2]);
-  double B0    = std::abs(coeffs[3]);    // The older Hapke model lacks the B0 and h terms
-  double h     = std::abs(coeffs[4]);   
+  double omega = std::abs(reflectance_model_coeffs[0]); // also known as w
+  double b     = std::abs(reflectance_model_coeffs[1]);
+  double c     = std::abs(reflectance_model_coeffs[2]);
+  // The older Hapke model lacks the B0 and h terms
+  double B0    = std::abs(reflectance_model_coeffs[3]);
+  double h     = std::abs(reflectance_model_coeffs[4]);   
 
   double J = 1.0; // does not matter, we'll factor out the constant scale as camera exposures anyway
   
@@ -1218,7 +1221,7 @@ double computeCharonReflectanceFromNormal(Vector3 const& sunPos,
 					  double phaseCoeffC1,
 					  double phaseCoeffC2,
 					  double & alpha,
-					  const double * coeffs) {
+					  const double * reflectance_model_coeffs) {
 
   double len = dot_prod(normal, normal);
   if (abs(len - 1.0) > 1.0e-4){
@@ -1238,8 +1241,8 @@ double computeCharonReflectanceFromNormal(Vector3 const& sunPos,
   double mu = dot_prod(viewDirection,normal);
 
   // Charon model params
-  double A       = std::abs(coeffs[0]); // albedo 
-  double f_alpha = std::abs(coeffs[1]); // phase function 
+  double A       = std::abs(reflectance_model_coeffs[0]); // albedo 
+  double f_alpha = std::abs(reflectance_model_coeffs[1]); // phase function 
 
   double reflectance = f_alpha*A*mu_0 / (mu_0 + mu) + (1.0 - A)*mu_0;
   
@@ -1251,13 +1254,13 @@ double computeCharonReflectanceFromNormal(Vector3 const& sunPos,
 }
 
 double computeArbitraryLambertianReflectanceFromNormal(Vector3 const& sunPos,
-                                                    Vector3 const& viewPos,
-                                                    Vector3 const& xyz,
-                                                    Vector3 const& normal,
-                                                    double phaseCoeffC1,
-                                                    double phaseCoeffC2,
-                                                    double & alpha,
-                                                    const double * coeffs) {
+                                                       Vector3 const& viewPos,
+                                                       Vector3 const& xyz,
+                                                       Vector3 const& normal,
+                                                       double phaseCoeffC1,
+                                                       double phaseCoeffC2,
+                                                       double & alpha,
+                                                       const double * reflectance_model_coeffs) {
   double reflectance;
 
   double len = dot_prod(normal, normal);
@@ -1302,23 +1305,23 @@ double computeArbitraryLambertianReflectanceFromNormal(Vector3 const& sunPos,
   //L = exp(-deg_alpha/60.0);
 
   //Alfred McEwen's model
-  double O1 = coeffs[0]; // 1
-  double A1 = coeffs[1]; //-0.019;
-  double B1 = coeffs[2]; // 0.000242;//0.242*1e-3;
-  double C1 = coeffs[3]; // -0.00000146;//-1.46*1e-6;
-  double D1 = coeffs[4]; 
-  double E1 = coeffs[5]; 
-  double F1 = coeffs[6]; 
-  double G1 = coeffs[7]; 
+  double O1 = reflectance_model_coeffs[0]; // 1
+  double A1 = reflectance_model_coeffs[1]; // -0.019;
+  double B1 = reflectance_model_coeffs[2]; // 0.000242;//0.242*1e-3;
+  double C1 = reflectance_model_coeffs[3]; // -0.00000146;//-1.46*1e-6;
+  double D1 = reflectance_model_coeffs[4]; 
+  double E1 = reflectance_model_coeffs[5]; 
+  double F1 = reflectance_model_coeffs[6]; 
+  double G1 = reflectance_model_coeffs[7]; 
 
-  double O2 = coeffs[8]; // 1
-  double A2 = coeffs[9]; //-0.019;
-  double B2 = coeffs[10]; // 0.000242;//0.242*1e-3;
-  double C2 = coeffs[11]; // -0.00000146;//-1.46*1e-6;
-  double D2 = coeffs[12]; 
-  double E2 = coeffs[13]; 
-  double F2 = coeffs[14]; 
-  double G2 = coeffs[15]; 
+  double O2 = reflectance_model_coeffs[8];  // 1
+  double A2 = reflectance_model_coeffs[9];  // -0.019;
+  double B2 = reflectance_model_coeffs[10]; // 0.000242;//0.242*1e-3;
+  double C2 = reflectance_model_coeffs[11]; // -0.00000146;//-1.46*1e-6;
+  double D2 = reflectance_model_coeffs[12]; 
+  double E2 = reflectance_model_coeffs[13]; 
+  double F2 = reflectance_model_coeffs[14]; 
+  double G2 = reflectance_model_coeffs[15]; 
   
   double L1 = O1 + A1*deg_alpha + B1*deg_alpha*deg_alpha + C1*deg_alpha*deg_alpha*deg_alpha;
   double K1 = D1 + E1*deg_alpha + F1*deg_alpha*deg_alpha + G1*deg_alpha*deg_alpha*deg_alpha;
@@ -1365,7 +1368,7 @@ double ComputeReflectance(Vector3 const& cameraPosition,
 			  ModelParams const& input_img_params,
 			  GlobalParams const& global_params,
 			  double & phase_angle,
-                          const double * coeffs) {
+                          const double * reflectance_model_coeffs) {
   double input_img_reflectance;
 
   switch ( global_params.reflectanceType )
@@ -1378,7 +1381,7 @@ double ComputeReflectance(Vector3 const& cameraPosition,
 						      global_params.phaseCoeffC1,
 						      global_params.phaseCoeffC2,
 						      phase_angle, // output
-                                                      coeffs);
+                                                      reflectance_model_coeffs);
       break;
     case ARBITRARY_MODEL:
       input_img_reflectance
@@ -1388,7 +1391,7 @@ double ComputeReflectance(Vector3 const& cameraPosition,
 						      global_params.phaseCoeffC1,
 						      global_params.phaseCoeffC2,
 						      phase_angle, // output
-                                                      coeffs);
+                                                      reflectance_model_coeffs);
       break;
     case HAPKE:
       input_img_reflectance
@@ -1398,7 +1401,7 @@ double ComputeReflectance(Vector3 const& cameraPosition,
                                             global_params.phaseCoeffC1,
                                             global_params.phaseCoeffC2,
                                             phase_angle, // output
-                                            coeffs);
+                                            reflectance_model_coeffs);
       break;
     case CHARON:
       input_img_reflectance
@@ -1408,12 +1411,12 @@ double ComputeReflectance(Vector3 const& cameraPosition,
 					     global_params.phaseCoeffC1,
 					     global_params.phaseCoeffC2,
 					     phase_angle, // output
-					     coeffs);
+					     reflectance_model_coeffs);
       break;
     case LAMBERT:
       input_img_reflectance
 	= computeLambertianReflectanceFromNormal(input_img_params.sunPosition,
-						 xyz,  normal);
+						 xyz, normal);
       break;
 
     default:
@@ -1425,22 +1428,23 @@ double ComputeReflectance(Vector3 const& cameraPosition,
 
 bool computeReflectanceAndIntensity(double left_h, double center_h, double right_h,
 				    double bottom_h, double top_h,
+                                    bool use_pq, double p, double q, // dem partial derivatives
 				    int col, int row,
-				    ImageView<double> const& dem,
+				    ImageView<double>         const& dem,
 				    cartography::GeoReference const& geo,
 				    bool model_shadows,
 				    double max_dem_height,
 				    double gridx, double gridy,
-				    ModelParams const& model_params,
-				    GlobalParams const& global_params,
-				    BBox2i const& crop_box,
-				    MaskedImgT const & image,
-				    DoubleImgT const & blend_weight,
-				    CameraModel const* camera,
-				    PixelMask<double> & reflectance,
-				    PixelMask<double> & intensity,
-				    double            & weight,
-                                    const double * coeffs) {
+				    ModelParams  const & model_params,
+				    GlobalParams const & global_params,
+				    BBox2i       const & crop_box,
+				    MaskedImgT   const & image,
+				    DoubleImgT   const & blend_weight,
+				    CameraModel  const * camera,
+				    PixelMask<double>  & reflectance,
+				    PixelMask<double>  & intensity,
+				    double             & weight,
+                                    const double       * reflectance_model_coeffs) {
 
   // Set output values
   reflectance = 0.0; reflectance.invalidate();
@@ -1493,8 +1497,82 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 #endif
   Vector3 normal = -normalize(cross_prod(dx, dy)); // so normal points up
 
+  //std::cout << std::endl;
+  //std::cout << "old pq "
+  //          << (right_h - left_h)/(2*gridx)  << ' '
+  //          << (top_h - bottom_h)/(2*gridy)  << std::endl;
+  //std::cout << "new pq " << p << ' ' << q << std::endl;
+  
+  if (use_pq) {
+
+    // p is defined as (right_h - left_h)/(2*gridx)
+    // so, also, p = (right_h - center_h)/gridx
+    // Hence, we get the formulas below in terms of p and q.
+
+    //std::cout << "old h " << left_h << ' ' << right_h << ' '
+    //          << bottom_h << ' ' << top_h << std::endl;
+
+    right_h  = center_h + gridx*p;
+    left_h   = center_h - gridx*p;
+    top_h    = center_h + gridy*q;
+    bottom_h = center_h - gridy*q;
+
+    //std::cout << "new h " << left_h << ' ' << right_h << ' '
+    //          << bottom_h << ' ' << top_h << std::endl;
+    
+    // cross product of (1, 0, p) and (0, 1, q) is (-p, -q, 1).
+    //normal = Vector3(-p, -q, 1.0)/sqrt(1.0 + p*p + q*q);
+
+    // The xyz position at the center grid point
+    lonlat = geo.pixel_to_lonlat(Vector2(col, row));
+    h = center_h;
+    lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+    base = geo.datum().geodetic_to_cartesian(lonlat3);
+
+    // The xyz position at the left grid point
+    lonlat = geo.pixel_to_lonlat(Vector2(col-1, row));
+    h = left_h;
+    lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+    left = geo.datum().geodetic_to_cartesian(lonlat3);
+
+    // The xyz position at the right grid point
+    lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
+    h = right_h;
+    lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+    right = geo.datum().geodetic_to_cartesian(lonlat3);
+
+    // The xyz position at the bottom grid point
+    lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
+    h = bottom_h;
+    lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+    bottom = geo.datum().geodetic_to_cartesian(lonlat3);
+
+    // The xyz position at the top grid point
+    lonlat = geo.pixel_to_lonlat(Vector2(col, row-1));
+    h = top_h;
+    lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+    top = geo.datum().geodetic_to_cartesian(lonlat3);
+
+#if 0
+    // two-point normal
+    dx = right - base;
+    dy = bottom - base;
+#else
+    // four-point normal (centered)
+    dx = right - left;
+    dy = bottom - top;
+#endif
+
+    //std::cout << "--old normal" << normal << std::endl;
+    
+    normal = -normalize(cross_prod(dx, dy)); // so normal points up
+    
+    //std::cout << "--new normal " << normal << std::endl;
+    //std::cout << std::endl;
+  }
+  
   // Update the camera position for the given pixel (camera position
-  // is pixel-dependent for for linescan cameras.
+  // is pixel-dependent for linescan cameras.
   ModelParams local_model_params = model_params;
   Vector2 pix;
   Vector3 cameraPosition;
@@ -1517,7 +1595,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   reflectance = ComputeReflectance(cameraPosition,
 				   normal, base, local_model_params,
 				   global_params, phase_angle,
-                                   coeffs);
+                                   reflectance_model_coeffs);
   reflectance.validate();
 
 
@@ -1570,7 +1648,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 }
 
 void computeReflectanceAndIntensity(ImageView<double> const& dem,
-				    cartography::GeoReference const& geo,
+                                    ImageView<Vector2> const& pq,
+                                    cartography::GeoReference const& geo,
 				    bool model_shadows,
 				    double & max_dem_height, // alias
 				    double gridx, double gridy,
@@ -1583,7 +1662,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				    ImageView< PixelMask<double> > & reflectance,
 				    ImageView< PixelMask<double> > & intensity,
 				    ImageView< double            > & weight,
-                                    const double * coeffs) {
+                                    const double * reflectance_model_coeffs) {
 
   // Update max_dem_height
   max_dem_height = -std::numeric_limits<double>::max();
@@ -1610,11 +1689,18 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
     }
   }
 
+  bool use_pq = (pq.cols() > 0 && pq.rows() > 0);
   for (int col = 1; col < dem.cols()-1; col++) {
     for (int row = 1; row < dem.rows()-1; row++) {
-      computeReflectanceAndIntensity(dem(col-1, row), dem(col, row),
-				     dem(col+1, row),
-				     dem(col, row+1), dem(col, row-1),
+      
+      double pval = 0, qval = 0;
+      if (use_pq) {
+        pval = pq(col, row)[0];
+        qval = pq(col, row)[1];
+      }
+      computeReflectanceAndIntensity(dem(col-1, row), dem(col, row), dem(col+1, row),
+                                     dem(col, row+1), dem(col, row-1),
+                                     use_pq, pval, qval,
 				     col, row, dem,  geo,
 				     model_shadows, max_dem_height,
 				     gridx, gridy,
@@ -1622,7 +1708,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				     crop_box, image, blend_weight, camera,
 				     reflectance(col, row), intensity(col, row),
                                      weight(col, row),
-                                     coeffs);
+                                     reflectance_model_coeffs);
     }
   }
 
@@ -1656,6 +1742,7 @@ void interp_image(ImageView<double> const& coarse_image, double scale,
 int                                            g_iter = -1;
 Options                                const * g_opt;
 std::vector< ImageView<double> >             * g_dem;
+std::vector< ImageView<Vector2> >            * g_pq;
 std::vector< ImageView<double> >             * g_albedo;
 std::vector<cartography::GeoReference> const * g_geo;
 GlobalParams                           const * g_global_params;
@@ -1673,7 +1760,7 @@ double                                       * g_gridx;
 double                                       * g_gridy;
 int                                            g_level = -1;
 bool                                           g_final_iter = false;
-double                                       * g_coeffs; 
+double                                       * g_reflectance_model_coeffs; 
 
 // When floating the camera position and orientation, multiply the
 // position variables by this factor times
@@ -1706,13 +1793,13 @@ public:
     std::ofstream mcf(model_coeffs_file.c_str());
     mcf.precision(18);
     for (size_t coeff_iter = 0; coeff_iter < g_num_model_coeffs; coeff_iter++){
-      mcf << g_coeffs[coeff_iter] << " ";
+      mcf << g_reflectance_model_coeffs[coeff_iter] << " ";
     }
     mcf << "\n";
     mcf.close();
 
     vw_out() << "Model coefficients: "; 
-    for (size_t i = 0; i < g_num_model_coeffs; i++) vw_out() << g_coeffs[i] << " ";
+    for (size_t i = 0; i < g_num_model_coeffs; i++) vw_out() << g_reflectance_model_coeffs[i] << " ";
     vw_out() << std::endl;
     
     vw_out() << "cam adj: ";
@@ -1835,7 +1922,8 @@ public:
 	iter_str2 += iter_str;
 	
         // Compute reflectance and intensity with optimized DEM
-        computeReflectanceAndIntensity((*g_dem)[dem_iter], (*g_geo)[dem_iter],
+        computeReflectanceAndIntensity((*g_dem)[dem_iter], (*g_pq)[dem_iter],
+                                       (*g_geo)[dem_iter],
                                        g_opt->model_shadows,
                                        (*g_max_dem_height)[dem_iter],
                                        *g_gridx, *g_gridy,
@@ -1846,7 +1934,7 @@ public:
                                        (*g_blend_weights)[dem_iter][image_iter],
                                        (*g_cameras)[dem_iter][image_iter].get(),
                                        reflectance, intensity, blend_weight, 
-                                       g_coeffs);
+                                       g_reflectance_model_coeffs);
 
         // dem_nodata equals to dem if the image has valid pixels and no shadows
         if (g_opt->save_dem_with_nodata) {
@@ -1965,92 +2053,104 @@ public:
   }
 };
 
-  // See SmoothnessError() for the definitions of bottom, top, etc.
-  template <typename F, typename G>
-  inline bool calc_residual(const F* const exposure,
-                            const G* const left,
-                            const G* const center,
-                            const G* const right,
-                            const G* const bottom,
-                            const G* const top,
-                            const G* const albedo,
-                            const F* const adjustments, // camera adjustments
-                            const G* const coeffs, // Lunar lambertian model coeffs
-                            int m_col, int m_row,
-                            ImageView<double>                 const & m_dem,            // alias
-                            cartography::GeoReference         const & m_geo,            // alias
-                            bool                                      m_model_shadows,
-                            double                                    m_camera_position_step_size,
-                            double                            const & m_max_dem_height, // alias
-                            double                                    m_gridx,
-                            double                                    m_gridy,
-                            GlobalParams                      const & m_global_params,  // alias
-                            ModelParams                       const & m_model_params,   // alias
-                            BBox2i                                    m_crop_box,
-                            MaskedImgT                        const & m_image,          // alias
-                            DoubleImgT                        const & m_blend_weight,   // alias
-                            boost::shared_ptr<CameraModel>    const & m_camera,         // alias
-                            F* residuals) {
-    
-    // Default residuals. Using here 0 rather than some big number tuned out to
-    // work better than the alternative.
-    residuals[0] = F(0.0);
-    try{
+// See SmoothnessError() for the definitions of bottom, top, etc.
+template <typename F, typename G>
+inline bool
+calc_intensity_residual(const F* const exposure,
+                        const G* const left,
+                        const G* const center,
+                        const G* const right,
+                        const G* const bottom,
+                        const G* const top,
+                        bool use_pq,
+                        const G* const pq, // partial derivatives of the dem in x and y
+                        const G* const albedo,
+                        const F* const camera_adjustments,
+                        const G* const reflectance_model_coeffs, 
+                        int m_col, int m_row,
+                        ImageView<double>                 const & m_dem,            // alias
+                        cartography::GeoReference         const & m_geo,            // alias
+                        bool                                      m_model_shadows,
+                        double                                    m_camera_position_step_size,
+                        double                            const & m_max_dem_height, // alias
+                        double                                    m_gridx,
+                        double                                    m_gridy,
+                        GlobalParams                      const & m_global_params,  // alias
+                        ModelParams                       const & m_model_params,   // alias
+                        BBox2i                                    m_crop_box,
+                        MaskedImgT                        const & m_image,          // alias
+                        DoubleImgT                        const & m_blend_weight,   // alias
+                        boost::shared_ptr<CameraModel>    const & m_camera,         // alias
+                        F* residuals) {
+  
+  // Default residuals. Using here 0 rather than some big number tuned out to
+  // work better than the alternative.
+  residuals[0] = F(0.0);
+  try{
 
-      AdjustedCameraModel * adj_cam
-	= dynamic_cast<AdjustedCameraModel*>(m_camera.get());
-      if (adj_cam == NULL)
-	vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
+    AdjustedCameraModel * adj_cam
+      = dynamic_cast<AdjustedCameraModel*>(m_camera.get());
+    if (adj_cam == NULL)
+      vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
 
-      // We create a copy of this camera to avoid issues when using
-      // multiple threads. We copy just the adjustment parameters,
-      // the pointer to the underlying ISIS camera is shared.
-      AdjustedCameraModel adj_cam_copy = *adj_cam;
+    // We create a copy of this camera to avoid issues when using
+    // multiple threads. We copy just the adjustment parameters,
+    // the pointer to the underlying ISIS camera is shared.
+    AdjustedCameraModel adj_cam_copy = *adj_cam;
 
-      // Apply current adjustments to the camera
-      Vector3 axis_angle;
-      Vector3 translation;
-      for (int param_iter = 0; param_iter < 3; param_iter++) {
-	translation[param_iter]
-	  = (g_position_scale_factor*m_camera_position_step_size)*adjustments[param_iter];
-	axis_angle[param_iter] = adjustments[3 + param_iter];
-      }
-      adj_cam_copy.set_translation(translation);
-      adj_cam_copy.set_axis_angle_rotation(axis_angle);
-
-      PixelMask<double> reflectance, intensity;
-      double weight;
-      bool success =
-	computeReflectanceAndIntensity(left[0], center[0], right[0],
-				       bottom[0], top[0],
-				       m_col, m_row,  m_dem, m_geo,
-				       m_model_shadows, m_max_dem_height,
-				       m_gridx, m_gridy,
-				       m_model_params,  m_global_params,
-				       m_crop_box, m_image, m_blend_weight, &adj_cam_copy,
-				       reflectance, intensity, weight, coeffs);
-      
-      if (g_opt->unreliable_intensity_threshold > 0){
-        if (is_valid(intensity) && intensity.child() <= g_opt->unreliable_intensity_threshold &&
-            intensity.child() >= 0) {
-          weight *=
-          pow(intensity.child()/g_opt->unreliable_intensity_threshold, 2.0);
-        }
-      }
-      
-      if (success && is_valid(intensity) && is_valid(reflectance))
-	residuals[0] = weight*(intensity - albedo[0]*exposure[0]*reflectance).child();
-      
-    } catch (const camera::PointToPixelErr& e) {
-      // To be able to handle robustly DEMs that extend beyond the camera,
-      // always return true when we fail to project, but with zero residual.
-      // This needs more study.
-      residuals[0] = F(0.0);
-      return true;
+    // Apply current adjustments to the camera
+    Vector3 axis_angle;
+    Vector3 translation;
+    for (int param_iter = 0; param_iter < 3; param_iter++) {
+      translation[param_iter]
+        = (g_position_scale_factor*m_camera_position_step_size)*camera_adjustments[param_iter];
+      axis_angle[param_iter] = camera_adjustments[3 + param_iter];
     }
+    adj_cam_copy.set_translation(translation);
+    adj_cam_copy.set_axis_angle_rotation(axis_angle);
 
+    PixelMask<double> reflectance, intensity;
+    double weight;
+
+    // Need to be careful not to access an array which does not exist
+    G p = 0, q = 0;
+    if (use_pq) {
+      p = pq[0];
+      q = pq[1];
+    }
+    
+    bool success =
+      computeReflectanceAndIntensity(left[0], center[0], right[0],
+                                     bottom[0], top[0],
+                                     use_pq, p, q,
+                                     m_col, m_row,  m_dem, m_geo,
+                                     m_model_shadows, m_max_dem_height,
+                                     m_gridx, m_gridy,
+                                     m_model_params,  m_global_params,
+                                     m_crop_box, m_image, m_blend_weight, &adj_cam_copy,
+                                     reflectance, intensity, weight, reflectance_model_coeffs);
+      
+    if (g_opt->unreliable_intensity_threshold > 0){
+      if (is_valid(intensity) && intensity.child() <= g_opt->unreliable_intensity_threshold &&
+          intensity.child() >= 0) {
+        weight *=
+          pow(intensity.child()/g_opt->unreliable_intensity_threshold, 2.0);
+      }
+    }
+      
+    if (success && is_valid(intensity) && is_valid(reflectance))
+      residuals[0] = weight*(intensity - albedo[0]*exposure[0]*reflectance).child();
+      
+  } catch (const camera::PointToPixelErr& e) {
+    // To be able to handle robustly DEMs that extend beyond the camera,
+    // always return true when we fail to project, but with zero residual.
+    // This needs more study.
+    residuals[0] = F(0.0);
     return true;
   }
+
+  return true;
+}
 
 // Discrepancy between measured and computed intensity.
 // sum_i | I_i - albedo * exposures[i] * reflectance_i |^2
@@ -2088,27 +2188,32 @@ struct IntensityError {
 		  const F* const bottom,
 		  const F* const top,
 		  const F* const albedo,
-		  const F* const adjustments, // camera adjustments
-		  const F* const coeffs, // Lunar lambertian model coeffs
+		  const F* const camera_adjustments,
+		  const F* const reflectance_model_coeffs,
                   F* residuals) const {
 
-    return calc_residual(exposure, left, center, right, bottom,  top, albedo,
-                         adjustments,  // camera adjustments
-                         coeffs,  // Lunar lambertian model coeffs
-                         m_col, m_row,  
-                         m_dem,  // alias
-                         m_geo,  // alias
-                         m_model_shadows,  
-                         m_camera_position_step_size,  
-                         m_max_dem_height,  // alias
-                         m_gridx, m_gridy,  
-                         m_global_params,  // alias
-                         m_model_params,  // alias
-                         m_crop_box,  
-                         m_image,  // alias
-                         m_blend_weight,  // alias
-                         m_camera,  // alias
-                         residuals);
+    // For this error we do not use p and q, hence just use a placeholder.
+    bool use_pq = false;
+    const F * const pq = NULL;
+    
+    return calc_intensity_residual(exposure, left, center, right, bottom, top,
+                                   use_pq, pq,
+                                   albedo, camera_adjustments,
+                                   reflectance_model_coeffs,
+                                   m_col, m_row,  
+                                   m_dem,  // alias
+                                   m_geo,  // alias
+                                   m_model_shadows,  
+                                   m_camera_position_step_size,  
+                                   m_max_dem_height,  // alias
+                                   m_gridx, m_gridy,  
+                                   m_global_params,   // alias
+                                   m_model_params,    // alias
+                                   m_crop_box,  
+                                   m_image,           // alias
+                                   m_blend_weight,    // alias
+                                   m_camera,          // alias
+                                   residuals);
   }
 
   // Factory to hide the construction of the CostFunction object from
@@ -2157,7 +2262,7 @@ struct IntensityErrorFixedMost {
   IntensityErrorFixedMost(int col, int row,
                           ImageView<double> const& dem,
                           double albedo,
-                          double * coeffs, 
+                          double * reflectance_model_coeffs, 
                           cartography::GeoReference const& geo,
                           bool model_shadows,
                           double camera_position_step_size,
@@ -2170,7 +2275,7 @@ struct IntensityErrorFixedMost {
                           DoubleImgT const& blend_weight,
                           boost::shared_ptr<CameraModel> const& camera):
     m_col(col), m_row(row), m_dem(dem),
-    m_albedo(albedo), m_coeffs(coeffs), 
+    m_albedo(albedo), m_reflectance_model_coeffs(reflectance_model_coeffs), 
     m_geo(geo),
     m_model_shadows(model_shadows),
     m_camera_position_step_size(camera_position_step_size),
@@ -2185,32 +2290,37 @@ struct IntensityErrorFixedMost {
   // See SmoothnessError() for the definitions of bottom, top, etc.
   template <typename F>
   bool operator()(const F* const exposure,
-		  const F* const adjustments, // camera adjustments
+		  const F* const camera_adjustments,
                   F* residuals) const {
 
-    return calc_residual(exposure,
-                         &m_dem(m_col-1, m_row),            // left
-                         &m_dem(m_col, m_row),              // center
-                         &m_dem(m_col+1, m_row),            // right
-                         &m_dem(m_col, m_row+1),            // bottom
-                         &m_dem(m_col, m_row-1),            // top
-                         &m_albedo,
-                         adjustments,  // camera adjustments
-                         m_coeffs,  // Lunar lambertian model coeffs
-                         m_col, m_row,  
-                         m_dem,  // alias
-                         m_geo,  // alias
-                         m_model_shadows,  
-                         m_camera_position_step_size,  
-                         m_max_dem_height,  // alias
-                         m_gridx, m_gridy,  
-                         m_global_params,  // alias
-                         m_model_params,  // alias
-                         m_crop_box,  
-                         m_image,  // alias
-                         m_blend_weight,  // alias
-                         m_camera,  // alias
-                         residuals);
+    // For this error we do not use p and q, hence just use a placeholder.
+    bool use_pq = false;
+    const F * const pq = NULL;
+    
+    return calc_intensity_residual(exposure,
+                                   &m_dem(m_col-1, m_row),            // left
+                                   &m_dem(m_col, m_row),              // center
+                                   &m_dem(m_col+1, m_row),            // right
+                                   &m_dem(m_col, m_row+1),            // bottom
+                                   &m_dem(m_col, m_row-1),            // top
+                                   use_pq, pq,
+                                   &m_albedo,
+                                   camera_adjustments,
+                                   m_reflectance_model_coeffs,
+                                   m_col, m_row,  
+                                   m_dem,  // alias
+                                   m_geo,  // alias
+                                   m_model_shadows,  
+                                   m_camera_position_step_size,  
+                                   m_max_dem_height,  // alias
+                                   m_gridx, m_gridy,  
+                                   m_global_params,  // alias
+                                   m_model_params,  // alias
+                                   m_crop_box,  
+                                   m_image,  // alias
+                                   m_blend_weight,  // alias
+                                   m_camera,  // alias
+                                   residuals);
   }
 
   // Factory to hide the construction of the CostFunction object from
@@ -2218,7 +2328,7 @@ struct IntensityErrorFixedMost {
   static ceres::CostFunction* Create(int col, int row,
 				     ImageView<double> const& dem,
                                      double albedo,
-                                     double * coeffs, 
+                                     double * reflectance_model_coeffs, 
                                      vw::cartography::GeoReference const& geo,
 				     bool model_shadows,
 				     double camera_position_step_size,
@@ -2232,7 +2342,7 @@ struct IntensityErrorFixedMost {
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityErrorFixedMost,
 	    ceres::CENTRAL, 1, 1, 6>
-	    (new IntensityErrorFixedMost(col, row, dem, albedo, coeffs, geo,
+	    (new IntensityErrorFixedMost(col, row, dem, albedo, reflectance_model_coeffs, geo,
 				model_shadows,
 				camera_position_step_size,
 				max_dem_height,
@@ -2244,7 +2354,110 @@ struct IntensityErrorFixedMost {
   int m_col, m_row;
   ImageView<double>                 const & m_dem;            // alias
   double                                    m_albedo;
-  double                                  * m_coeffs; 
+  double                                  * m_reflectance_model_coeffs; 
+  cartography::GeoReference         const & m_geo;            // alias
+  bool                                      m_model_shadows;
+  double                                    m_camera_position_step_size;
+  double                            const & m_max_dem_height; // alias
+  double                                    m_gridx, m_gridy;
+  GlobalParams                      const & m_global_params;  // alias
+  ModelParams                       const & m_model_params;   // alias
+  BBox2i                                    m_crop_box;
+  MaskedImgT                        const & m_image;          // alias
+  DoubleImgT                        const & m_blend_weight;   // alias
+  boost::shared_ptr<CameraModel>    const & m_camera;         // alias
+};
+
+// A variant of the intensity error when we float the partial derviatives
+// in x and in y of the dem, which we call p and q.  
+struct IntensityErrorPQ {
+  IntensityErrorPQ(int col, int row,
+                   ImageView<double> const& dem,
+                   cartography::GeoReference const& geo,
+                   bool model_shadows,
+                   double camera_position_step_size,
+                   double const& max_dem_height, // note: this is an alias
+                   double gridx, double gridy,
+                   GlobalParams const& global_params,
+                   ModelParams const& model_params,
+                   BBox2i const& crop_box,
+                   MaskedImgT const& image,
+                   DoubleImgT const& blend_weight,
+                   boost::shared_ptr<CameraModel> const& camera):
+    m_col(col), m_row(row), m_dem(dem), m_geo(geo),
+    m_model_shadows(model_shadows),
+    m_camera_position_step_size(camera_position_step_size),
+    m_max_dem_height(max_dem_height),
+    m_gridx(gridx), m_gridy(gridy),
+    m_global_params(global_params),
+    m_model_params(model_params),
+    m_crop_box(crop_box),
+    m_image(image), m_blend_weight(blend_weight),
+    m_camera(camera) {}
+  
+  // See SmoothnessError() for the definitions of bottom, top, etc.
+  template <typename F>
+  bool operator()(const F* const exposure,
+		  const F* const left,
+		  const F* const center,
+		  const F* const right,
+		  const F* const bottom,
+		  const F* const top,
+		  const F* const pq,                 // array of length 2 
+		  const F* const albedo,
+		  const F* const camera_adjustments, // array of length 6
+		  const F* const reflectance_model_coeffs,
+                  F* residuals) const {
+
+    bool use_pq = true;
+    return calc_intensity_residual(exposure, left, center, right, bottom, top,
+                                   use_pq, pq,
+                                   albedo, camera_adjustments,
+                                   reflectance_model_coeffs,
+                                   m_col, m_row,  
+                                   m_dem,  // alias
+                                   m_geo,  // alias
+                                   m_model_shadows,  
+                                   m_camera_position_step_size,  
+                                   m_max_dem_height,  // alias
+                                   m_gridx, m_gridy,  
+                                   m_global_params,   // alias
+                                   m_model_params,    // alias
+                                   m_crop_box,  
+                                   m_image,           // alias
+                                   m_blend_weight,    // alias
+                                   m_camera,          // alias
+                                   residuals);
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(int col, int row,
+				     ImageView<double> const& dem,
+				     vw::cartography::GeoReference const& geo,
+				     bool model_shadows,
+				     double camera_position_step_size,
+				     double const& max_dem_height, // alias
+				     double gridx, double gridy,
+				     GlobalParams const& global_params,
+				     ModelParams const& model_params,
+				     BBox2i const& crop_box,
+				     MaskedImgT const& image,
+				     DoubleImgT const& blend_weight,
+				     boost::shared_ptr<CameraModel> const& camera){
+    return (new ceres::NumericDiffCostFunction<IntensityErrorPQ,
+	    ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 2, 1, 6, g_num_model_coeffs>
+	    (new IntensityErrorPQ(col, row, dem, geo,
+                                  model_shadows,
+                                  camera_position_step_size,
+                                  max_dem_height,
+                                  gridx, gridy,
+                                  global_params, model_params,
+                                  crop_box, image, blend_weight, camera)));
+  }
+
+  int m_col, m_row;
+  ImageView<double>                 const & m_dem;            // alias
   cartography::GeoReference         const & m_geo;            // alias
   bool                                      m_model_shadows;
   double                                    m_camera_position_step_size;
@@ -2282,26 +2495,16 @@ struct SmoothnessError {
 		  const T* const left, const T* const center,    const T* const right,
 		  const T* const tl,   const T* const top,       const T* const tr,
 		  T* residuals) const {
-    try{
 
-      // Normalize by grid size seems to make the functional less
-      // sensitive to the actual grid size used.
-      residuals[0] = (left[0] + right[0] - 2*center[0])/m_gridx/m_gridx;   // u_xx
-      residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] )/4.0/m_gridx/m_gridy; // u_xy
-      residuals[2] = residuals[1];                                         // u_yx
-      residuals[3] = (bottom[0] + top[0] - 2*center[0])/m_gridy/m_gridy;   // u_yy
-
-      for (int i = 0; i < 4; i++)
-	residuals[i] *= m_smoothness_weight;
-
-    } catch (const camera::PointToPixelErr& e) {
-      // Failed to compute the residuals
-      residuals[0] = T(1e+20);
-      residuals[1] = T(1e+20);
-      residuals[2] = T(1e+20);
-      residuals[3] = T(1e+20);
-      return false;
-    }
+    // Normalize by grid size seems to make the functional less
+    // sensitive to the actual grid size used.
+    residuals[0] = (left[0] + right[0] - 2*center[0])/m_gridx/m_gridx;   // u_xx
+    residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] )/4.0/m_gridx/m_gridy; // u_xy
+    residuals[2] = residuals[1];                                         // u_yx
+    residuals[3] = (bottom[0] + top[0] - 2*center[0])/m_gridy/m_gridy;   // u_yy
+    
+    for (int i = 0; i < 4; i++)
+      residuals[i] *= m_smoothness_weight;
 
     return true;
   }
@@ -2317,6 +2520,45 @@ struct SmoothnessError {
 
   double m_smoothness_weight, m_gridx, m_gridy;
 };
+
+// The integrability error is the discrepancy between the
+// independently optimized gradients p and q, and the partial
+// derivatives of the dem, here denoted by u.
+// error = integrability_weight * ( (u_x - p)^2 + (u_y - q)^2 )
+
+// See SmoothnessError for the notation below. 
+
+struct IntegrabilityError {
+  IntegrabilityError(double integrability_weight, double gridx, double gridy):
+    m_integrability_weight(integrability_weight),
+    m_gridx(gridx), m_gridy(gridy) {}
+
+  template <typename T>
+  bool operator()(const T* const bottom, const T* const left, const T* const right,
+		  const T* const top, const T* const pq, 
+		  T* residuals) const {
+
+    residuals[0] = (right[0] - left[0])/(2*m_gridx) - pq[0];
+    residuals[1] = (top[0] - bottom[0])/(2*m_gridy) - pq[1];
+    
+    for (int i = 0; i < 2; i++)
+      residuals[i] *= m_integrability_weight;
+    
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double integrability_weight,
+				     double gridx, double gridy){
+    return (new ceres::NumericDiffCostFunction<IntegrabilityError,
+	    ceres::CENTRAL, 2, 1, 1, 1, 1, 2>
+	    (new IntegrabilityError(integrability_weight, gridx, gridy)));
+  }
+
+  double m_integrability_weight, m_gridx, m_gridy;
+};
+
 
 // A cost function that will penalize deviating too much from the original DEM height.
 struct HeightChangeError {
@@ -2417,6 +2659,8 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
     }
   }
 
+  std::cout << "--print here all grid values in x and y" << std::endl;
+  
   // Median grid size
   if (!gridx_vec.empty()) gridx = gridx_vec[gridx_vec.size()/2];
   if (!gridy_vec.empty()) gridy = gridy_vec[gridy_vec.size()/2];
@@ -2460,6 +2704,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Reflectance type (0 = Lambertian, 1 = Lunar-Lambert, 2 = Hapke, 3 = Experimental extension of Lunar-Lambert, 4 = Charon model (a variation of Lunar-Lambert)).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
+    ("integrability-constraint-weight", po::value(&opt.integrability_weight)->default_value(0.0),
+     "Use the integrability constraint from Horn 1990 with this value of its weight.")
     ("initial-dem-constraint-weight", po::value(&opt.initial_dem_constraint_weight)->default_value(0),
      "A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM.")
     ("albedo-constraint-weight", po::value(&opt.albedo_constraint_weight)->default_value(0),
@@ -2591,6 +2837,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.input_images.empty())
   vw_throw( ArgumentErr() << "Missing input images.\n"
 	    << usage << general_options );
+  if (opt.smoothness_weight < 0) 
+    vw_throw(ArgumentErr() << "Expecting a non-negative smoothness weight.\n");
+  if (opt.integrability_weight < 0) 
+    vw_throw(ArgumentErr() << "Expecting a non-negative integrability weight.\n");
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
@@ -2796,7 +3046,7 @@ void run_sfs_level(// Fixed inputs
 		   std::vector< std::vector<boost::shared_ptr<CameraModel> > > & cameras,
 		   std::vector<double> & exposures,
 		   std::vector<double> & adjustments,
-                   std::vector<double> & coeffs){
+                   std::vector<double> & reflectance_model_coeffs){
 
   int num_images = opt.input_images.size();
   int num_dems   = dems.size();
@@ -2842,9 +3092,37 @@ void run_sfs_level(// Fixed inputs
     }
   }
 
+  // We define p and q as the partial derivatives in x in y of the dem.
+  // When using the integrability constraint, they are floated as variables
+  // in their own right, while constrained to not go too far from the DEM.
+  std::vector< ImageView<Vector2> > pq;  
+  pq.resize(num_dems);
+  if (opt.integrability_weight > 0) {
+    for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
+      pq[dem_iter].set_size(dems[dem_iter].cols(), dems[dem_iter].rows());
+
+      for (int col = 1; col < dems[dem_iter].cols()-1; col++) {
+        for (int row = 1; row < dems[dem_iter].rows()-1; row++) {
+          // Need to think more of the below!!!
+          // Note that the top value is dems[dem_iter](col, row-1) and the 
+          //            bottom value is dems[dem_iter](col, row+1).
+          pq[dem_iter](col, row)[0]
+            = (dems[dem_iter](col+1, row) - dems[dem_iter](col-1, row))/(2*gridx);
+          pq[dem_iter](col, row)[1]
+            = (dems[dem_iter](col, row-1) - dems[dem_iter](col, row+1))/(2*gridy);
+        }
+      }
+    }
+  }
+  
   // When albedo, dem, model, are fixed, we will not even set these as variables.
   bool fix_most = (!opt.float_albedo && opt.fix_dem && !opt.float_reflectance_model);
 
+  if (opt.integrability_weight > 0 && fix_most) 
+    vw_throw( ArgumentErr()
+              << "When using the integrability constraint, must float at least "
+              << "the albedo, dem, or reflectance model.\n");
+      
   std::set<int> use_dem, use_albedo; // to avoid a crash in Ceres when a param is fixed but not set
   
   for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
@@ -2862,34 +3140,60 @@ void run_sfs_level(// Fixed inputs
         
           ceres::LossFunction* loss_function_img = NULL;
           if (!fix_most) {
-            ceres::CostFunction* cost_function_img =
-              IntensityError::Create(col, row, dems[dem_iter], geo[dem_iter],
-                                     opt.model_shadows,
-                                     opt.camera_position_step_size,
-                                     max_dem_height[dem_iter],
-                                     gridx, gridy,
-                                     global_params, model_params[image_iter],
-                                     crop_boxes[dem_iter][image_iter],
-                                     masked_images[dem_iter][image_iter],
-                                     blend_weights[dem_iter][image_iter],
-                                     cameras[dem_iter][image_iter]);
-            problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                     &exposures[image_iter],      // exposure
-                                     &dems[dem_iter](col-1, row),            // left
-                                     &dems[dem_iter](col, row),              // center
-                                     &dems[dem_iter](col+1, row),            // right
-                                     &dems[dem_iter](col, row+1),            // bottom
-                                     &dems[dem_iter](col, row-1),            // top
-                                     &albedos[dem_iter](col, row),           // albedo
-                                     &adjustments[6*image_iter],  // camera
-                                     &coeffs[0]);                 // reflectance model coeffs
+            if (opt.integrability_weight == 0){
+              ceres::CostFunction* cost_function_img =
+                IntensityError::Create(col, row, dems[dem_iter], geo[dem_iter],
+                                       opt.model_shadows,
+                                       opt.camera_position_step_size,
+                                       max_dem_height[dem_iter],
+                                       gridx, gridy,
+                                       global_params, model_params[image_iter],
+                                       crop_boxes[dem_iter][image_iter],
+                                       masked_images[dem_iter][image_iter],
+                                       blend_weights[dem_iter][image_iter],
+                                       cameras[dem_iter][image_iter]);
+              problem.AddResidualBlock(cost_function_img, loss_function_img,
+                                       &exposures[image_iter],       // exposure
+                                       &dems[dem_iter](col-1, row),  // left
+                                       &dems[dem_iter](col, row),    // center
+                                       &dems[dem_iter](col+1, row),  // right
+                                       &dems[dem_iter](col, row+1),  // bottom
+                                       &dems[dem_iter](col, row-1),  // top
+                                       &albedos[dem_iter](col, row), // albedo
+                                       &adjustments[6*image_iter],   // camera
+                                       &reflectance_model_coeffs[0]);
+            }else{
+              ceres::CostFunction* cost_function_img =
+                IntensityErrorPQ::Create(col, row, dems[dem_iter], geo[dem_iter],
+                                         opt.model_shadows,
+                                         opt.camera_position_step_size,
+                                         max_dem_height[dem_iter],
+                                         gridx, gridy,
+                                         global_params, model_params[image_iter],
+                                         crop_boxes[dem_iter][image_iter],
+                                         masked_images[dem_iter][image_iter],
+                                         blend_weights[dem_iter][image_iter],
+                                         cameras[dem_iter][image_iter]);
+              problem.AddResidualBlock(cost_function_img, loss_function_img,
+                                       &exposures[image_iter],          // exposure
+                                       &dems[dem_iter](col-1, row),     // left
+                                       &dems[dem_iter](col, row),       // center
+                                       &dems[dem_iter](col+1, row),     // right
+                                       &dems[dem_iter](col, row+1),     // bottom
+                                       &dems[dem_iter](col, row-1),     // top
+                                       &pq[dem_iter](col, row)[0],      // pq
+                                       &albedos[dem_iter](col, row),    // albedo
+                                       &adjustments[6*image_iter],      // camera
+                                       &reflectance_model_coeffs[0]);   // reflectance 
+              
+            }
             use_dem.insert(dem_iter); 
             use_albedo.insert(dem_iter);
           }else{
             ceres::CostFunction* cost_function_img =
               IntensityErrorFixedMost::Create(col, row, dems[dem_iter],
-                                              albedos[dem_iter](col, row), // albedo
-                                              &coeffs[0],                  // reflectance model coeffs
+                                              albedos[dem_iter](col, row), 
+                                              &reflectance_model_coeffs[0],
                                               geo[dem_iter],
                                               opt.model_shadows,
                                               opt.camera_position_step_size,
@@ -2909,17 +3213,34 @@ void run_sfs_level(// Fixed inputs
         } // end iterating over images
 
         if (!fix_most) {
-          // Smoothness penalty
+          // Smoothness penalty. We always add this, even if the weight is 0,
+          // to make Ceres not complain about blocks not being set. 
           ceres::LossFunction* loss_function_sm = NULL;
           ceres::CostFunction* cost_function_sm =
             SmoothnessError::Create(smoothness_weight, gridx, gridy);
           problem.AddResidualBlock(cost_function_sm, loss_function_sm,
-                                   &dems[dem_iter](col-1, row+1), &dems[dem_iter](col, row+1),
-                                   &dems[dem_iter](col+1, row+1),
-                                   &dems[dem_iter](col-1, row  ), &dems[dem_iter](col, row  ),
-                                   &dems[dem_iter](col+1, row  ),
-                                   &dems[dem_iter](col-1, row-1), &dems[dem_iter](col, row-1),
-                                   &dems[dem_iter](col+1, row-1));
+                                   &dems[dem_iter](col-1, row+1),  // bottom left
+                                   &dems[dem_iter](col, row+1),    // bottom 
+                                   &dems[dem_iter](col+1, row+1),  // bottom right
+                                   &dems[dem_iter](col-1, row  ),  // left
+                                   &dems[dem_iter](col, row  ),    // center
+                                   &dems[dem_iter](col+1, row  ),  // right 
+                                   &dems[dem_iter](col-1, row-1),  // top left
+                                   &dems[dem_iter](col, row-1),    // top
+                                   &dems[dem_iter](col+1, row-1)); // top right
+          
+          if (opt.integrability_weight > 0) {
+            ceres::LossFunction* loss_function_int = NULL;
+            ceres::CostFunction* cost_function_int =
+              IntegrabilityError::Create(opt.integrability_weight, gridx, gridy);
+            problem.AddResidualBlock(cost_function_int, loss_function_int,
+                                     &dems[dem_iter](col,   row+1),   // bottom
+                                     &dems[dem_iter](col-1, row),     // left
+                                     &dems[dem_iter](col+1, row),     // right
+                                     &dems[dem_iter](col,   row-1),   // top
+                                     &pq[dem_iter]  (col,   row)[0]); // pq
+          }
+          
           use_dem.insert(dem_iter); 
           
           // Deviation from prescribed height constraint
@@ -3032,7 +3353,7 @@ void run_sfs_level(// Fixed inputs
   // If to float the reflectance model coefficients
   if (!fix_most) {
     if (!opt.float_reflectance_model && num_used > 0) {
-      problem.SetParameterBlockConstant(&coeffs[0]);
+      problem.SetParameterBlockConstant(&reflectance_model_coeffs[0]);
     }
   }
   
@@ -3058,6 +3379,7 @@ void run_sfs_level(// Fixed inputs
   // A bunch of global variables to use in the callback
   g_opt            = &opt;
   g_dem            = &dems;
+  g_pq             = &pq;
   g_albedo         = &albedos;
   g_geo            = &geo;
   g_global_params  = &global_params;
@@ -3148,7 +3470,7 @@ int main(int argc, char* argv[]) {
 		  << "Use the --model-coeffs option." );
       }
     }
-    g_coeffs = &opt.model_coeffs_vec[0];
+    g_reflectance_model_coeffs = &opt.model_coeffs_vec[0];
     
     int num_dems = opt.input_dems.size();
 
@@ -3363,7 +3685,8 @@ int main(int argc, char* argv[]) {
           Stopwatch sw;
           sw.start();
           boost::shared_ptr<CameraModel> apcam
-            (new ApproxCameraModel(adj_cam, exact_cam, img_bbox, dems[0][dem_iter], geos[0][dem_iter],
+            (new ApproxCameraModel(adj_cam, exact_cam, img_bbox, dems[0][dem_iter],
+                                   geos[0][dem_iter],
                                    dem_nodata_val, opt.use_rpc_approximation, opt.use_semi_approx,
                                    opt.rpc_penalty_weight, camera_mutex));
           sw.stop();
@@ -3620,7 +3943,8 @@ int main(int argc, char* argv[]) {
       
 	  ImageView< PixelMask<double> > reflectance, intensity;
 	  ImageView<double> weight;
-	  computeReflectanceAndIntensity(dems[0][dem_iter], geos[0][dem_iter],
+          ImageView<Vector2> pq; // no need for these just for initialization
+          computeReflectanceAndIntensity(dems[0][dem_iter], pq, geos[0][dem_iter],
 					 opt.model_shadows, max_dem_height[dem_iter],
 					 gridx, gridy,
 					 model_params[image_iter],
