@@ -114,9 +114,9 @@ perform radiometric calibration and echo correction. Here are the steps,
 illustrated on the first image:
 \begin{verbatim}  
   lronac2isis from = M139939938LE.IMG     to = M139939938LE.cub
-  spiceinit from   = M139939938LE.cub
-  lronaccal from   = M139939938LE.cub     to = M139939938LE.cal.cub
-  lronacecho from  = M139939938LE.cal.cub to = M139939938LE.cal.echo.cub
+  spiceinit   from = M139939938LE.cub
+  lronaccal   from = M139939938LE.cub     to = M139939938LE.cal.cub
+  lronacecho  from = M139939938LE.cal.cub to = M139939938LE.cal.echo.cub
 \end{verbatim}
 We rename, for simplicity, the obtained four processed datasets to
 A.cub, B.cub, C.cub, and D.cub.
@@ -156,8 +156,9 @@ Then we run \texttt{sfs}:
 
 The smoothness weight is a parameter that needs tuning. If it is too
 small, SfS will return noisy results, if it is too large, too much
-detail will be blurred. Here we used the Lunar Lambertian model. The meaning of the other
-\texttt{sfs} options can be looked up in section \ref{sfs}.
+detail will be blurred. Here we used the Lunar Lambertian model. The
+meaning of the other \texttt{sfs} options can be looked up in section
+\ref{sfs}.
 
 We show the results of running this program in figure
 \ref{fig:sfs1}. The left-most figure is the hill-shaded original DEM,
@@ -587,13 +588,13 @@ on an entire collection of clips covering this area to get the
 adjustments, and then \texttt{parallel\_sfs} can be run as described in
 the previous section. 
 
-  The easier case is when at least the two images in the stereo pair
-  cover the entire terrain. Then, portions of this terrain can be used
-  as an initial guess for each SfS sub-problem (even as the other images
-  used for SfS change), the results can be mosaicked, and the alignment
-  to LOLA can happen just once, after mosaicking. This approach is
-  preferable, if feasible, as alignment to LOLA is more accurate if the
-  terrain to align is larger in extent.
+The easier case is when at least the two images in the stereo pair
+cover the entire terrain. Then, portions of this terrain can be used
+as an initial guess for each SfS sub-problem (even as the other images
+used for SfS change), the results can be mosaicked, and the alignment
+to LOLA can happen just once, after mosaicking. This approach is
+preferable, if feasible, as alignment to LOLA is more accurate if the
+terrain to align is larger in extent.
 
 \item The \texttt{mapproject} program can be used to map-project each image
 onto the resulting SfS DEM (with the camera adjustments solved using
