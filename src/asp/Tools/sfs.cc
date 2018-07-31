@@ -67,6 +67,8 @@ int g_warning_count = 0;
 int g_max_warning_count = 1000;
 const size_t g_num_model_coeffs = 16;
 
+double g_median_height;
+
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
@@ -980,7 +982,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     save_dem_with_nodata, use_approx_camera_models, use_rpc_approximation, use_semi_approx,
     crop_input_images, use_blending_weights, float_dem_at_boundary, fix_dem,
     float_reflectance_model, query, save_sparingly;
-  double smoothness_weight, integrability_weight, init_dem_height, nodata_val,
+  double smoothness_weight, integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
     initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
     rpc_penalty_weight, unreliable_intensity_threshold;
   vw::BBox2 crop_win;
@@ -998,7 +1000,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
 	    crop_input_images(false), use_blending_weights(false),
             float_dem_at_boundary(false), fix_dem(false),
             float_reflectance_model(false), query(false), save_sparingly(false),
-	    smoothness_weight(0), integrability_weight(0),
+	    smoothness_weight(0), integrability_weight(0), smoothness_weight_pq(0),
             initial_dem_constraint_weight(0.0),
 	    albedo_constraint_weight(0.0),
 	    camera_position_step_size(1.0), rpc_penalty_weight(0.0),
@@ -1453,7 +1455,12 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   
   if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
   if (crop_box.empty()) return false;
-    
+
+  // temporary!!!
+  if (use_pq) {
+    center_h = g_median_height;
+  }
+  
   // TODO: Investigate various ways of finding the normal.
 
   // The xyz position at the center grid point
@@ -2471,6 +2478,106 @@ struct IntensityErrorPQ {
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
+// A variant of the intensity error when we float the partial derviatives
+// in x and in y of the dem, which we call p and q.  
+struct IntensityErrorPQ2 {
+  IntensityErrorPQ2(int col, int row,
+                   ImageView<double> const& dem,
+                   cartography::GeoReference const& geo,
+                   bool model_shadows,
+                   double camera_position_step_size,
+                   double const& max_dem_height, // note: this is an alias
+                   double gridx, double gridy,
+                   GlobalParams const& global_params,
+                   ModelParams const& model_params,
+                   BBox2i const& crop_box,
+                   MaskedImgT const& image,
+                   DoubleImgT const& blend_weight,
+                   boost::shared_ptr<CameraModel> const& camera):
+    m_col(col), m_row(row), m_dem(dem), m_geo(geo),
+    m_model_shadows(model_shadows),
+    m_camera_position_step_size(camera_position_step_size),
+    m_max_dem_height(max_dem_height),
+    m_gridx(gridx), m_gridy(gridy),
+    m_global_params(global_params),
+    m_model_params(model_params),
+    m_crop_box(crop_box),
+    m_image(image), m_blend_weight(blend_weight),
+    m_camera(camera) {}
+  
+  // See SmoothnessError() for the definitions of bottom, top, etc.
+  template <typename F>
+  bool operator()(const F* const exposure,
+		  const F* const pq,                 // array of length 2 
+		  const F* const albedo,
+		  const F* const camera_adjustments, // array of length 6
+		  const F* const reflectance_model_coeffs,
+                  F* residuals) const {
+
+    bool use_pq = true;
+
+    F v = 0;
+    return calc_intensity_residual(exposure, &v, &v, &v, &v, &v,
+                                   use_pq, pq,
+                                   albedo, camera_adjustments,
+                                   reflectance_model_coeffs,
+                                   m_col, m_row,  
+                                   m_dem,  // alias
+                                   m_geo,  // alias
+                                   m_model_shadows,  
+                                   m_camera_position_step_size,  
+                                   m_max_dem_height,  // alias
+                                   m_gridx, m_gridy,  
+                                   m_global_params,   // alias
+                                   m_model_params,    // alias
+                                   m_crop_box,  
+                                   m_image,           // alias
+                                   m_blend_weight,    // alias
+                                   m_camera,          // alias
+                                   residuals);
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(int col, int row,
+				     ImageView<double> const& dem,
+				     vw::cartography::GeoReference const& geo,
+				     bool model_shadows,
+				     double camera_position_step_size,
+				     double const& max_dem_height, // alias
+				     double gridx, double gridy,
+				     GlobalParams const& global_params,
+				     ModelParams const& model_params,
+				     BBox2i const& crop_box,
+				     MaskedImgT const& image,
+				     DoubleImgT const& blend_weight,
+				     boost::shared_ptr<CameraModel> const& camera){
+    return (new ceres::NumericDiffCostFunction<IntensityErrorPQ2,
+	    ceres::CENTRAL, 1, 1, 2, 1, 6, g_num_model_coeffs>
+	    (new IntensityErrorPQ2(col, row, dem, geo,
+                                  model_shadows,
+                                  camera_position_step_size,
+                                  max_dem_height,
+                                  gridx, gridy,
+                                  global_params, model_params,
+                                  crop_box, image, blend_weight, camera)));
+  }
+
+  int m_col, m_row;
+  ImageView<double>                 const & m_dem;            // alias
+  cartography::GeoReference         const & m_geo;            // alias
+  bool                                      m_model_shadows;
+  double                                    m_camera_position_step_size;
+  double                            const & m_max_dem_height; // alias
+  double                                    m_gridx, m_gridy;
+  GlobalParams                      const & m_global_params;  // alias
+  ModelParams                       const & m_model_params;   // alias
+  BBox2i                                    m_crop_box;
+  MaskedImgT                        const & m_image;          // alias
+  DoubleImgT                        const & m_blend_weight;   // alias
+  boost::shared_ptr<CameraModel>    const & m_camera;         // alias
+};
+
 // The smoothness error is the sum of squares of
 // the 4 second order partial derivatives, with a weight:
 // error = smoothness_weight * ( u_xx^2 + u_xy^2 + u_yx^2 + u_yy^2 )
@@ -2519,6 +2626,40 @@ struct SmoothnessError {
   }
 
   double m_smoothness_weight, m_gridx, m_gridy;
+};
+
+struct SmoothnessErrorPQ {
+  SmoothnessErrorPQ(double smoothness_weight_pq, double gridx, double gridy):
+    m_smoothness_weight_pq(smoothness_weight_pq),
+    m_gridx(gridx), m_gridy(gridy) {}
+
+  template <typename T>
+  bool operator()(const T* const bottom_pq, const T* const left_pq, const T* const right_pq,
+		  const T* const top_pq, T* residuals) const {
+
+    // Normalize by grid size seems to make the functional less
+    // sensitive to the actual grid size used.
+    residuals[0] = (right_pq[0] - left_pq[0])/(2*m_gridx);   // p_x
+    residuals[1] = (top_pq[0] - bottom_pq[0])/(2*m_gridy);   // p_y
+    residuals[2] = (right_pq[1] - left_pq[1])/(2*m_gridx);   // q_x
+    residuals[3] = (top_pq[1] - bottom_pq[1])/(2*m_gridy);   // q_y
+    
+    for (int i = 0; i < 4; i++)
+      residuals[i] *= m_smoothness_weight_pq;
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double smoothness_weight_pq,
+				     double gridx, double gridy){
+    return (new ceres::NumericDiffCostFunction<SmoothnessErrorPQ,
+	    ceres::CENTRAL, 4, 2, 2, 2, 2>
+	    (new SmoothnessErrorPQ(smoothness_weight_pq, gridx, gridy)));
+  }
+
+  double m_smoothness_weight_pq, m_gridx, m_gridy;
 };
 
 // The integrability error is the discrepancy between the
@@ -2632,6 +2773,9 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
     std::sort(heights.begin(), heights.end());
     median_height = 0.5*(heights[(len-1)/2] + heights[len/2]);
   }
+
+  g_median_height = median_height;
+  std::cout << "--median height is " << g_median_height << std::endl;
   
   // Find the grid sizes by estimating the Euclidean distances
   // between points of a DEM at constant height.
@@ -2706,6 +2850,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A larger value will result in a smoother solution.")
     ("integrability-constraint-weight", po::value(&opt.integrability_weight)->default_value(0.0),
      "Use the integrability constraint from Horn 1990 with this value of its weight.")
+    ("smoothness-weight-pq", po::value(&opt.smoothness_weight_pq)->default_value(0.00),
+     "Smoothness weight for p and q. A larger value will result in a smoother solution.")
     ("initial-dem-constraint-weight", po::value(&opt.initial_dem_constraint_weight)->default_value(0),
      "A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM.")
     ("albedo-constraint-weight", po::value(&opt.albedo_constraint_weight)->default_value(0),
@@ -3164,7 +3310,7 @@ void run_sfs_level(// Fixed inputs
                                        &reflectance_model_coeffs[0]);
             }else{
               ceres::CostFunction* cost_function_img =
-                IntensityErrorPQ::Create(col, row, dems[dem_iter], geo[dem_iter],
+                IntensityErrorPQ2::Create(col, row, dems[dem_iter], geo[dem_iter],
                                          opt.model_shadows,
                                          opt.camera_position_step_size,
                                          max_dem_height[dem_iter],
@@ -3176,11 +3322,6 @@ void run_sfs_level(// Fixed inputs
                                          cameras[dem_iter][image_iter]);
               problem.AddResidualBlock(cost_function_img, loss_function_img,
                                        &exposures[image_iter],          // exposure
-                                       &dems[dem_iter](col-1, row),     // left
-                                       &dems[dem_iter](col, row),       // center
-                                       &dems[dem_iter](col+1, row),     // right
-                                       &dems[dem_iter](col, row+1),     // bottom
-                                       &dems[dem_iter](col, row-1),     // top
                                        &pq[dem_iter](col, row)[0],      // pq
                                        &albedos[dem_iter](col, row),    // albedo
                                        &adjustments[6*image_iter],      // camera
@@ -3239,6 +3380,17 @@ void run_sfs_level(// Fixed inputs
                                      &dems[dem_iter](col+1, row),     // right
                                      &dems[dem_iter](col,   row-1),   // top
                                      &pq[dem_iter]  (col,   row)[0]); // pq
+
+            if (opt.smoothness_weight_pq > 0) {
+              ceres::LossFunction* loss_function_sm_pq = NULL;
+              ceres::CostFunction* cost_function_sm_pq =
+                SmoothnessErrorPQ::Create(opt.smoothness_weight_pq, gridx, gridy);
+              problem.AddResidualBlock(cost_function_sm_pq, loss_function_sm_pq,
+                                       &pq[dem_iter](col, row+1)[0],  // bottom 
+                                       &pq[dem_iter](col-1, row)[0],  // left
+                                       &pq[dem_iter](col+1, row)[0],  // right 
+                                       &pq[dem_iter](col, row-1)[0]); // top
+            }
           }
           
           use_dem.insert(dem_iter); 
