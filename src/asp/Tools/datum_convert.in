@@ -1,0 +1,399 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+'''
+Tool to convert the datum of an image file.
+
+This python script calls a Python script called crs2crs2grid.py which in
+turn calls a Fortran script called htdp.  This generates a grid shift file
+which can then be passed into ASP's c++ datum conversion function.  Some
+datum transforms do not require a grid shift file in which case the 
+grid shift file does not need to be generated.
+
+See the HTDP web page for more information:
+https://github.com/OSGeo/proj.4/wiki/HTDPGrids
+
+Not every combination of datums has been tested so be careful when using this tool!
+'''
+
+import sys, subprocess
+import os, glob, re, shutil, string, time, errno, optparse, math
+
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+from asp_alg_utils import *
+
+import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils, asp_string_utils
+import asp_geo_utils
+asp_system_utils.verify_python_version_is_supported()
+
+# Prepend to system PATH
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+
+# There is a very similar function in mapproject.in, might be nice to have a general function.
+def handleArguments(args):
+    """Split up arguments into required and optional lists which will be passed to subprocess"""
+
+    requiredList = []
+    optionsList  = []
+
+    # Loop through all entries.
+    iterable = iter(range(0, len(args)))
+    for i in iterable:
+        a = args[i]
+        if (i < len(args)-1): # Don't load the next value when we are at the end!
+            n = args[i+1]
+        else:
+            n = '-' # This will just cause us to get out of the loop
+
+        if asp_cmd_utils.isCmdOption(a):      # This is the start of an option.
+            optionsList.append(a)  # Record this entry.
+
+            # The next entry is the start of another option so this one has no values.
+            if asp_cmd_utils.isCmdOption(n):  
+                continue
+
+            optionsList.append(n)  # Otherwise record the next entry as a value.
+            next(iterable)              # Skip the next entry in the loop.
+
+        else: # This is one of the three positional arguments
+            requiredList.append(a)
+
+    # Return the two lists
+    return (requiredList, optionsList)
+
+
+def proj_from_datum(datum_name):
+    '''Generate a proj4 string from a datum name.'''
+    s = '+proj=longlat +datum='+datum_name+' +no_defs'
+    return s
+
+
+def getHtdpCode(proj_string, datum_name):
+    '''Figure out the HTDP code for the given datum information'''
+
+    datum = datum_name
+    if not datum_name:
+        # Get the datum name from the proj string if it was not specified
+        part = re.search('\+datum=[\S]+', proj_string)
+        if part:
+            datum = part.group(0).replace('+datum=','')
+        else:
+            raise Exception('Error, unable to determine datum type from proj string: ' + proj_string)
+
+    datum_clean = datum.upper().replace('_', '') # Get into a consistent format
+
+    print('Found datum name: ' + datum)
+
+    # Now convert the name to the code that the htdp program uses:
+    
+    code_lookup = {'LOLA'     :-4,
+                   'MOLA'     :-3,
+                   'MARS'     :-2,
+                   'NAD27'    :-1, # These types are handled without htdp using built-in grids/info.
+    
+                   'NAD83'    :1,  'NAD83CORS96' :1, 'CORS96'   :1,
+                   'NAD83PA11':2,  'PA11'        :2, 'PACP00'   :2,
+                   'NAD83MA11':3,  'MA11'        :3, 'MARP00'   :3,
+                   'WGS72'    :4,
+                   'WGS84(TRANSIT)' :5, 'WGS84TRANSIT' :5, 'TRANSIT' :5,
+                   'G730'     :6,  'WGS84G730'   :6,
+                   'G873'     :7,  'WGS84G873'   :7,
+                   'G1150'    :8,  'WGS84G1150'  :8,
+                   'G1674'    :9,  'WGS84G1674'  :9,
+                   'G1762'    :10, 'WGS84G1762'  :10, 'WGS84': 10,
+                   'ITRF88'   :12,
+                   'ITRF89'   :13,
+                   'ITRF90'   :14,
+                   'ITRF91'   :15,
+                   'ITRF92'   :16,
+                   'ITRF93'   :17,
+                   'ITRF94'   :18,
+                   'ITRF96'   :19,
+                   'ITRF97'   :20, 'IGS97' :20,
+                   'ITRF2000' :21, 'IGS00' :21,
+                   'ITRF2005' :22, 'IGS05' :22,
+                   'ITRF2008' :23, 'IGS08' :23
+    }
+
+    # Provide some user feedback about datum realization defaults.
+    if datum == 'NAD83':
+        print('Detected datum NAD83, using default realization CORS96.')
+    if datum == 'WGS84':
+        print('Detected datum WGS84, using default realization G1762.')
+
+    try:
+        code = code_lookup[datum_clean]
+    except:
+        raise Exception('Error, unrecognized datum name: ' + datum)
+    return (code, datum) # Helpful to return the name too.
+
+    # For reference, these are the codes accepted by the current Fortran code.
+    temp='''
+     1'  1...NAD_83(2011/CORS96/2007)  (North American plate fixed) '/
+     1'  2...NAD_83(PA11/PACP00)       (Pacific plate fixed) '/
+     1'  3...NAD_83(MA11/MARP00)       (Mariana plate fixed) '/
+     1'                                                   '/
+c    1'  4...WGS_72                              '/
+     1'  5...WGS_84(transit) (NAD_83(2011) used)  15...ITRF91 '/
+     1'  6...WGS_84(G730) (ITRF91 used)           16...ITRF92 '/
+     1'  7...WGS_84(G873) (ITRF94 used)           17...ITRF93 '/
+     1'  8...WGS_84(G1150) (ITRF2000 used)        18...ITRF94 '/
+     1'  9...WGS_84(G1674) (ITRF2008 used)        19...ITRF96 '/
+c    1' 10...PNEOS_90 or NEOS_90  (ITRF90 used)   20...ITRF97 or IGS97'/
+     1' 10...WGS_84(G1762) (IGb08 used)           20...ITRF97 or IGS97'/
+     1' 11...SIO/MIT_92 (ITRF91 used)     21...ITRF2000 or IGS00/IGb00'/
+     1' 12...ITRF88                       22...ITRF2005 or IGS05 '/
+     1' 13...ITRF89                       23...ITRF2008 or IGS08/IGb08'/
+c    1' 14...ITRF90                              '/ )
+     1' 14...ITRF90 or (PNEOS90/NEOS90)          '/ )
+'''
+
+def printFullDatumList():
+    '''Print out all the possible datum names.'''
+    
+    print('\nAccepted input datums:')
+    print('   WGS_1984, TRANSIT, G730, G873, G1150, G1674, G1762,')
+    print('   WGS72, ITRF88, ITRF89, ITRF90, ITRF91, ITRF92, ITRF93,')
+    print('   ITRF94, ITRF96, ITRF97, ITRF2000, ITRF2005, ITRF2008,')
+    print('   NAD83, PA11, MA11, NAD27, D_MARS, MOLA')
+    
+    print('\nAccepted output datums:')
+    print('   WGS_1984, D_MARS, MOLA')
+
+
+def getCppName(datum_name):
+    '''The Cpp function does not accept as many datum names so
+       this function converts into the Cpp equivalent.'''
+
+    datum = datum_name.upper().replace('_', '') # Get into a consistent format
+
+    WGS84_entries = ['WGS84', 'ITRF', 'TRANSIT', 'G730', 'G873', 'G1150', 'G1674', 'G1762']
+    for e in WGS84_entries:
+        if e in datum:
+            return 'WGS84'
+
+    NAD83_entries = ['NAD83', 'CORS96', 'PA11', 'PACP00', 'MA11', 'MARP00']
+    for e in NAD83_entries:
+        if e in datum:
+            return 'NAD83'
+    
+    return datum # This should handle everything else
+
+def createShiftFile(input_proj, lonlat_bounds, options, grid_path):
+    '''Generate a shift file if required.'''
+
+    input_code  = getHtdpCode(input_proj,                options.input_datum_name )
+    output_code = getHtdpCode(options.target_srs_string, options.output_datum_name)
+
+    # In at least some cases the ASP-packaged grid file must be manually specified for it to work!
+    if (input_code[0] == -1) or (output_code[0] == -1): # NAD27
+        if (input_code[1] != 'WGS84') and (output_code[1] != 'WGS84'):
+            raise Exception('NAD27 - only conversion to WGS84 is supported!')
+        return (True, '@conus')
+        
+    if (input_code[0] < 0) or (output_code[0] < 0): # Moon/Mars datums, no grid shift files.
+        return (False, grid_path)
+   
+    # Check for cases where Proj.4 performs the transform without a custom grid shift file.
+    if (input_code[0] < 0) or (output_code[0] < 0):
+        print('Skipping custom grid shift generation, assuming required grid is installed ASP.')
+        return (False, '')
+
+    print('Generating grid shift file...')
+
+    # Get the lonlat boundary that the shift file should be valid in.
+    DEGREE_BUFFER = 1.0
+    min_lon = lonlat_bounds[0] - DEGREE_BUFFER
+    max_lon = lonlat_bounds[1] + DEGREE_BUFFER
+    min_lat = lonlat_bounds[2] - DEGREE_BUFFER
+    max_lat = lonlat_bounds[3] + DEGREE_BUFFER
+
+    # Generate the grid shift file.
+    cmd = ('crs2crs2grid.py -griddef %f %f %f %f %d %d %d %f %d %f -o %s' % 
+            (min_lon, max_lat, max_lon, min_lat,
+            options.grid_size_lon, options.grid_size_lat,
+            input_code [0], options.input_datum_year,
+            output_code[0], options.output_datum_year, grid_path))
+    if options.keep_temp_files:
+        cmd += ' -kwf'
+    asp_system_utils.executeCommand(cmd, suppressOutput=(not options.show_grid_calc))
+    
+    return (True, grid_path)
+
+
+def main(argsIn):
+
+    if not asp_system_utils.checkIfToolExists('htdp'):
+        print("Error: Unable to find required htdp libexec tool!")
+        return -1
+
+    if not asp_system_utils.checkIfToolExists('crs2crs2grid.py'):
+        print("Error: Unable to find required htdp libexec tool!")
+        return -1
+
+    try:
+        try:
+            # Get the help text from the base C++ tool so we can append it to the python help
+            cmd = ['datum_convert_cpp',  '--help']
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            baseHelp, err = p.communicate()
+        except OSError:
+            print("Error: Unable to find required datum_convert_cpp tool!")
+            return -1
+
+        # Extract the version and help text
+        vStart       = baseHelp.find('[ASP')
+        vEnd         = baseHelp.find(']', vStart)+1
+        version      = baseHelp[vStart:vEnd]
+        baseHelpRaw  = baseHelp[vEnd:]
+        baseHelpText = ''
+        
+        # Filter out some lines from the c++ help text that we want to hide from the user.
+        next = False
+        for line in baseHelpRaw.split('\n'):
+            if next:
+                next = False
+                continue
+            if ('-h [ --help ]' in line) or ('--version' in line):
+                continue
+            if ('--input-grid' in line) or ('--output-info-string' in line):
+                next = True
+                continue
+            baseHelpText += line + '\n'
+
+        # Use parser that ignores unknown options
+        usage  = "usage: datum_convert [options] <input_dem> <output_dem>"
+        parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog=baseHelpText)
+
+        # These two options are duplicated in the cpp file but we also want to use them
+        #  in the python script.
+        parser.add_option('--output-datum',  dest='output_datum_name', default='',
+                 help=optparse.SUPPRESS_HELP)
+        parser.add_option('--input-datum',  dest='input_datum_name', default='',
+                 help=optparse.SUPPRESS_HELP)
+        parser.add_option('--t_srs',  dest='target_srs_string', default='',
+                 help=optparse.SUPPRESS_HELP)
+
+        parser.add_option("--input-datum-year", dest="input_datum_year", default='2000.0',
+               help="The year to evaluate the input datum, fractional format.",type="float")
+
+        parser.add_option("--output-datum-year", dest="output_datum_year", default='2000.0',
+               help="The year to evaluate the output datum, fractional format.",type="float")
+
+        parser.add_option("--grid-size-lon", dest="grid_size_lon", default='256',
+               help="Number of posts in longitude direction for grid correction file.",type="float")
+               
+        parser.add_option("--grid-size-lat", dest="grid_size_lat", default='256',
+               help="Number of posts in latitude direction for grid correction file.",type="float")
+
+        parser.add_option("--show-grid-calc", action="store_true", default=False,
+                 dest="show_grid_calc",  help="Display the output of the grid creation step.")
+        parser.add_option("--keep-working-files", action="store_true", default=False,
+                 dest="keep_temp_files",  help="Suppress output of sub-calls.")
+                 
+        parser.add_option("--show-all-datums", action="store_true", default=False,
+                 dest="show_all_datums",  help="Display a list of all recognized datums.")
+
+        # This call handles all the parallel_mapproject specific options.
+        (options, args) = parser.parse_args(argsIn)
+
+        # This will parse all the mapproject options.
+        requiredList, optionsList = handleArguments(args)
+
+        if options.show_all_datums:
+            printFullDatumList()
+            return 0
+
+        # Check the required positional arguments.
+        if len(requiredList) < 2:
+            parser.print_help()
+            parser.error("Missing input/output DEMs.\n" );
+
+        if (not options.output_datum_name) and (not options.target_srs_string):
+            parser.print_help()
+            parser.error("Need to specify --output-datum or --t_srs.\n" );
+
+        options.input_image  = requiredList[0]
+        options.output_image = requiredList[1]
+
+        # Any additional arguments need to be forwarded to the datum_convert_cpp function
+        options.extraArgs = optionsList
+
+    except optparse.OptionError as msg:
+        raise Usage(msg)
+
+    # Get the proj string from the input file
+    input_image_info  = asp_geo_utils.getImageGeoInfo(options.input_image, getStats=False)
+    input_proj_string = input_image_info['proj_string']   
+    lonlat_bounds     = input_image_info['lonlat_bounds']
+
+    print('Input proj string:   ' + input_proj_string)
+    print('Input lonlat bounds: ' + str(lonlat_bounds))
+
+    # Check the options and determine if we need to create a grid shift file
+
+    grid_path = os.path.abspath(options.output_image + '_temp_grid.ct2')
+    (use_grid, grid_path) = createShiftFile(input_proj_string, lonlat_bounds, options, grid_path)
+            
+    print('Converting image datum...')
+
+    cmd = ('datum_convert_cpp %s %s ' % (options.input_image, options.output_image))
+    
+    if use_grid:  # Append the grid command to the input grid.
+        cmd += ' --input-grid "+nadgrids=' + grid_path + '"'
+
+    # Pass along datum information
+    output_info_string = ''
+    if options.input_datum_name:
+        cmd += " --input-datum " + getCppName(options.input_datum_name)
+        
+    if options.output_datum_name:
+        cmd += " --output-datum " + getCppName(options.output_datum_name)
+        output_info_string += 'Name: ' + options.output_datum_name + ', '
+    else:
+        cmd += " --t_srs '" + options.target_srs_string + "'"
+
+    output_info_string += 'Year: ' + str(options.output_datum_year)
+    cmd += ' --output-info-string " ' + output_info_string + '"'
+
+    # Append any remaining arguments, then call the c++ tool.
+    for o in options.extraArgs:
+        cmd += ' ' + o
+    print(cmd)
+    os.system(cmd)
+    
+    print('Conversion complete!')
+    
+    # Cleanup grid files we generated ourself, not ASP-packaged files.
+    if use_grid and (not options.keep_temp_files) and grid_path[0] != '@':
+        print('Removing temporary files...')
+        os.remove(grid_path)
+        
+    print('Finished!')
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

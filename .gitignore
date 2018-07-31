@@ -122,7 +122,6 @@ src/asp/Tools/bundle_adjust
 src/asp/Tools/bundlevis
 src/asp/Tools/camera_calibrate
 src/asp/Tools/camera_solve
-src/asp/Tools/datum_convert
 src/asp/Tools/dem_adjust
 src/asp/Tools/dem_geoid
 src/asp/Tools/dem_mosaic
@@ -179,6 +178,13 @@ src/asp/Tools/add_spot_rpc
 src/asp/Tools/cam2rpc
 src/asp/Tools/camera_footprint
 src/asp/Tools/stereo_blend
+src/asp/Tools/datum_convert_cpp
+src/asp/Tools/parallel_sfs
+
+# Hidden
+/src/asp/Hidden/csv_filter
+/src/asp/Hidden/s2p_fltr
+/src/asp/Hidden/s2p_pprc
 
 # Icebridge
 src/asp/IceBridge/correct_icebridge_l3_dem
@@ -190,10 +196,6 @@ src/asp/IceBridge/ortho2pinhole
 src/asp/IceBridge/pleiades_managerV2.py
 src/asp/IceBridge/qi2txt
 src/asp/IceBridge/test_bundle_adjustment.py
-
-
-
-
 
 # Doc
 docs/book/*aux

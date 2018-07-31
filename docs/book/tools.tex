@@ -1655,12 +1655,27 @@ This tool is used to convert a DEM from one datum to another.  For
 example, a UTM zone 10 DEM with an NAD27 datum can be converted to a UTM
 zone 10 DEM with a WGS84 datum.  This tool does not convert between
 projections, another program such as \texttt{gdalwarp} (included with ASP) or
-ASP's \texttt{dem\_mosaic} should be used for that. \texttt{datum\_convert} performs both
-horizontal and vertical conversion.
+ASP's \texttt{dem\_mosaic} should be used for that. \texttt{datum\_convert} performs
+horizontal conversion; vertical conversion is only provided for the limited case of 
+conversions between datums defined only by the +a and +b terms (such as our 
+D_MARS and MOLA datums).  The tool will try to automatically find
+datum information from the input file but the input datum can be manually specified
+if the information in the file is missing or incorrect.  Be aware that if the 
+\texttt{-\/-keep-bounds} option is not set there may be noticable changes in
+the image data just from re-interpolating to the new projected space grid.  In
+the case of sparsely sampled input images this effect can be much larger than the
+changes resulting from the actual datum transformation.
 
 Intuitively, the input and output DEMs should correspond to the same
 point cloud in 3D space up to the interpolation errors required to
-perform the conversion.
+perform the conversion.  In practice datum conversion is a complex
+task which may need to account for things like shifting tectonic plates 
+over time.  ASP's implementation is based on Proj.4 and the HTDPGrids
+extension (\url{http://opencv.org/}https://github.com/OSGeo/proj.4/wiki/HTDPGrids}).
+Datum support in Proj.4 is not robust even with the extension so if it is 
+critical that you have a very accurate conversion we reccomend that you attempt 
+to verify results obtained using \texttt{datum\_convert} with another conversion method.
+
 
 \medskip
 Usage:\\
@@ -1677,9 +1692,23 @@ Usage:\\
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-help} & Display the help message.\\ \hline
-\texttt{-\/-output-datum \textit{string}} & The datum to convert to. Supported options: WGS\_1984, NAD83, WGS72, and NAD27. \\ \hline
+\texttt{-\/-show-all-datums} & Print out all the datum names which are recognized.\\ \hline
+\texttt{-\/-output-datum \textit{string}} & The datum to convert to. Supported options include: WGS\_1984, NAD83, WGS72, and NAD27. \\ \hline
+\texttt{-\/-input-datum \textit{string}} & Override the datum of the input file.  Supports the same options as --output-datum. \\ \hline
+\texttt{-\/-output-datum-year \textit{default: 2000.0}} & Specify the exact date of the output datum in floating point format ex: 2003.4.\\ \hline
+\texttt{-\/-input-datum-year \textit{default: 2000.0}} & As --output-datum-year, but for the input file.\\ \hline
 \texttt{-\/-t\_srs \textit{string}} & Specify the output datum via the PROJ.4 string. \\ \hline
+\texttt{-\/-keep-bounds} & Don't recompute the projected space boundary.  This can 
+help reduce changes caused by interpolation.\\ \hline
 \texttt{-\/-nodata-value} & The value of no-data pixels, unless specified in the DEM.\\ \hline
+\texttt{-\/-double} & Create float64 instead of float32 output files.\\ \hline
+\texttt{-\/-show-grid-calc} & Don't hide the shift grid creation output.\\ \hline
+\texttt{-\/-debug-mode} & Print the converted lon/lat/alt coordinates for each pixel.
+Only useful for investigating exact change that is happening.\\ \hline
+\texttt{-\/-grid-size-lon} & Specify the number of columns in the grid shift file.\\ \hline
+\texttt{-\/-grid-size-lat} & Specify the number of rows in the grid shift file.\\ \hline
+\texttt{-\/-keep-working-files} & Don't delete intermediate files.\\ \hline
+
 \end{longtable}
 
 

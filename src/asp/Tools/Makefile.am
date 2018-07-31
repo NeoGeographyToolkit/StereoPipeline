@@ -202,9 +202,11 @@ if MAKE_APP_PANSHARP
 endif
 
 if MAKE_APP_DATUM_CONVERT
-  bin_PROGRAMS += datum_convert
-  datum_convert_SOURCES = datum_convert.cc
-  datum_convert_LDADD   = $(APP_DATUM_CONVERT_LIBS)
+  libexec_SCRIPTS += crs2crs2grid.py
+  libexec_PROGRAMS += datum_convert_cpp # C++
+  bin_SCRIPTS += datum_convert     # Python
+  datum_convert_cpp_SOURCES = datum_convert_cpp.cc
+  datum_convert_cpp_LDADD   = $(APP_DATUM_CONVERT_LIBS)
 endif
 
 if MAKE_APP_ASTER2ASP

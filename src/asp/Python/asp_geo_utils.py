@@ -40,6 +40,34 @@ def getGdalInfoTagValue(text, tag):
     except Exception: # Requested tag was not found
         return None
 
+def convertCoordinate(input_srs_string, output_srs_string, x, y):
+    '''Convert a single 2D coordinate between proj.4 coordinate systems.'''
+
+    p = subprocess.Popen(['gdaltransform', '-s_srs', input_srs_string, '-t_srs', output_srs_string],
+                         stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+    text = p.communicate("%f %f" % (x, y))[0]
+    parts = text.split()
+    return (float(parts[0]), float(parts[1]))
+
+def getLonLatProjString(inputString):
+    '''Given a projected proj4 string, get the longlat proj4 string'''
+    
+    if '+proj=longlat' in inputString:
+        return inputString
+    
+    # The output string is longlat projection plus certain allowed proj4 keys.
+    outputString = '+proj=longlat'
+    keywords = ['+datum', '+ellps', '+no_defs', '+a', '+b']
+   
+    parts = inputString.split()
+    for p in parts:
+        for k in keywords:
+            if k in p:
+                outputString += ' ' + p
+                break
+    return outputString
+
+
 # This can take a while if stats are requested
 def getImageGeoInfo(imagePath, getStats=True):
     """Obtains some image geo information from gdalinfo in dictionary format"""
@@ -89,9 +117,16 @@ def getImageGeoInfo(imagePath, getStats=True):
     outputDict['projection'] = 'UNKNOWN'
     if '+proj=eqc' in textOutput:
         outputDict['projection'] = 'EQUIRECTANGULAR'
-    elif '+proj=ster' in textOutput:
+    elif ('+proj=ster' in textOutput) or ('+proj=stere' in textOutput):
         outputDict['projection'] = 'POLAR STEREOGRAPHIC'
-    
+
+    outputDict['lonlat_bounds'] = outputDict['projection_bounds']
+    if '+proj=longlat' not in outputDict['proj_string']:
+        longlatString = getLonLatProjString(outputDict['proj_string'])
+        ul = convertCoordinate(outputDict['proj_string'], longlatString, minX, maxY)
+        br = convertCoordinate(outputDict['proj_string'], longlatString, maxX, minY)
+        outputDict['lonlat_bounds'] = (ul[0], br[0], br[1], ul[1])
+
     # Extract this variable which ASP inserts into its point cloud files
     try:
         pointOffsetLine = asp_string_utils.getLineAfterText(textOutput, 'POINT_OFFSET=') # Tag name must be synced with C++ code

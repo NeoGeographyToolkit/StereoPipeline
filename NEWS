@@ -1,4 +1,4 @@
-*** RELEASE 2.6.X, TBA ***
+*** RELEASE 2.6.1, TBA ***
 
  - New satellites
    * Support Cartosat-1 and Perusat-1 RPC cameras.
@@ -75,6 +75,15 @@
      including via --remove-outliers-params, median filtering, and erosion. 
    * Added the option --orthoimage-hole-fill-extra-len to make hole-filling
      more aggressive by first extrapolating the cloud.
+
+ - datum_convert:
+   * Rewrote the tool to depend on the Proj.4 HTDPGrids grid shift system.
+     This fixed some situations where the tool was not working such as WGS84/NAD83
+     conversions and also added support for datum realizations (versions).
+   * Vertical datum conversion is only supported in simple cases like D_MARS to MOLA.
+   * Even with HTDPGrids, datum support with the Proj.4 library is poor and will
+     hopefully be improved with future releases.  Until then try to get external
+     verification of results obtained with the datum_convert tool.
 
  - wv_correct:
    * Supports WV2 TDI = 32 in reverse scan direction.

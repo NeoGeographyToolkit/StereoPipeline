@@ -294,6 +294,11 @@ not detected.
   the datum. Currently only used to restrict the search range estimate in 
   nadir epipolar alignment cases.
 
+\item[corr-max-levels \textnormal{\small{(\emph{integer})}} (default = 5)] \hfill \\
+
+  The maximum number of additional (lower) resolution levels to use when performing integer correlation.
+  Setting this value to zero just performs correlation at the native resolution.
+
 \item[xcorr-threshold \textnormal{\small{(\emph{integer})}} (default = 2)] \hfill \\
 
   Integer correlation to a limited sense performs a correlation

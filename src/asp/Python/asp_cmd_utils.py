@@ -40,6 +40,8 @@ def isCmdOption(arg):
  
 #==================================================
 # This class implements a variant of OptionParser which ignores unknown options.
+# - TODO: This seems to fail in cases where the start of an unrecognized 
+#         option is the same as a recognized one.
 
 from optparse import (OptionParser,BadOptionError,AmbiguousOptionError)
 

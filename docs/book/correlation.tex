@@ -428,7 +428,7 @@ cost modes can only be used with kernel sizes 3, 5, 7, and 9.  Size 7 is usually
 algorithm.  Set \texttt{xcorr-threshold} to >= 0 to turn it back on.  If you set the
 \texttt{min-xcorr-level} parameter to 1 you can perform cross correlation on the smaller resolution levels
 without spending the time to run it on the largest resolution level.
-\item The median and texture filters in the \texttt{stereo\_fltr} tool.  These filters
+\item The median and texture filters in the \texttt{stereo\_fltr} tool (defaults 3, 11, 0.13).  These filters
 were designed specifically to clean up output from the SGM algorithm and are especially useful in suppressing
 image artifacts in low-texture portions of the image.  A median filter size of 3 and a texture filter size of 11
 are good starts but the best values will depend on your input images. The \texttt{texture-smooth-scale}
