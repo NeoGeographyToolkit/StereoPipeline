@@ -707,7 +707,10 @@ if __name__ == '__main__':
     else:
         if corr_tile_size > opt.job_size_h or corr_tile_size > opt.job_size_w:
             raise Exception('Cannot use larger --corr-tile-size than ' + \
-                            '--job-size-w and --job-size-h.')
+                            '--job-size-w and --job-size-h. Values of these are currently: ' + \
+                            str(corr_tile_size) + ' ' + str(opt.job_size_h) + ' ' + \
+                            str(opt.job_size_w) + '.')
+        
     if opt.tile_id is None:
 
         # We get here when the script is started. The current running
