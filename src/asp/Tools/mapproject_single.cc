@@ -211,7 +211,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     bool has_georef = vw::cartography::read_georeference(dem_georef, opt.dem_file);
     if (!has_georef)
       vw_throw( ArgumentErr() << "There is no georeference information in: "
-                << opt.dem_file << ".\n" );
+                              << opt.dem_file << ".\n" );
+
+    // Make sure the user did not actually pass in an RGB image
+    boost::shared_ptr<DiskImageResource> dem_rsrc = vw::DiskImageResourcePtr(opt.dem_file);
+    ImageFormat dem_fmt = dem_rsrc->format();
+    const int num_input_channels = num_channels(dem_fmt.pixel_format);
+    if (num_input_channels > 2)
+      vw_throw( ArgumentErr() << "Too many channels in: " << opt.dem_file << ".\n" );
+
 
     // Store the datum from the DEM
     asp::stereo_settings().datum = dem_georef.datum().name(); // TODO: Not robust
