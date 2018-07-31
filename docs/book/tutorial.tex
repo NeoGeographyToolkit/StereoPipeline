@@ -1115,6 +1115,11 @@ In both of these approaches, the point clouds could be registered
 to a trusted dataset using \texttt{pc\_align} before creating a combined
 terrain model (section \ref{pc-align-example}).
 
+The advantage of creating separate DEMs and then merging them (after
+alignment) with \texttt{dem\_mosaic}, compared to multivew trianglation,
+is that this approach will not create visible seams, while likely it will
+still increase the accuracy compared to the individual input DEMs.
+
 \subsection{Diagnosing Problems}
 
 Once invoked, \texttt{stereo} proceeds through several stages that are
