@@ -172,16 +172,13 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 		 << ". If you are not using Digital Globe images, you may need to specify the session type, such as -t rpc, -t rpcmaprpc, -t aster, etc.\n"
 		 << e.what() << "\n");
   }
-  
+
   // Get an estimate of the surface elevation from the corners specified in the file.
-  double mean_ground_elevation;
-  try {
-    vw::BBox3 bbox = rpc.get_lon_lat_height_box();
+  // - Not every file has this information, in which case we will just use zero.
+  double mean_ground_elevation = 0;
+  vw::BBox3 bbox = rpc.get_lon_lat_height_box();
+  if (!bbox.empty())
     mean_ground_elevation = (bbox.min()[2] + bbox.max()[2]) / 2.0;
-  } catch( const std::exception& e ) {
-    // Not every file has this information, in which case we will just use zero.
-    mean_ground_elevation = 0;
-  }
   
   // Convert measurements in millimeters to pixels.
   geo.principal_distance /= geo.detector_pixel_pitch;

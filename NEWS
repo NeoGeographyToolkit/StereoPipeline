@@ -8,6 +8,8 @@
      existing such models. 
 
  - New camera models
+    * Added simple atmospheric refraction correction to the
+      DG and SPOT5 camera models. This can be manually disabled.
     * Added support for pinhole camera models where the lens
       distortion is given by an RPC model (rational polynomial
       coefficients), of degrees 4, 5, and 6. Such a model may be more
