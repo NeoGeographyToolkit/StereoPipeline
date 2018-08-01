@@ -702,8 +702,7 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
             isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
             projString = icebridge_common.getEpsgCode(isSouth, asString=True)
             PROJ_STR_WGS84 = 'EPSG:4326'
-            centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY,
-                                                               projString, PROJ_STR_WGS84)
+            (centerLon, centerLat) = asp_geo_utils.convertCoordinate(projString, PROJ_STR_WGS84, centerX, centerY)
         except Exception as e:
             pass
             # Print nothing, comes out too verbose
