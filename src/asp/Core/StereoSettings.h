@@ -243,7 +243,7 @@ namespace asp {
     bool create_image_pyramids_only;
 
     bool disable_correct_velocity_aberration;
-    bool correct_atmospheric_refraction; // TESTING!!!
+    bool disable_correct_atmospheric_refraction;
 
     // Undocumented options. We don't want these exposed to the user.
     vw::BBox2i trans_crop_win;        // Left image crop window in respect to L.tif.

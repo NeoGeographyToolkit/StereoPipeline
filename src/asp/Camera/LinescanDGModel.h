@@ -60,14 +60,16 @@ namespace asp {
 	                  vw::Vector2i  const& image_size,
 	                  vw::Vector2   const& detector_origin,
 	                  double        const  focal_length,
-	                  double        const  mean_ground_elevation=0
-		    ) : vw::camera::LinescanModel(image_size, true), // Always correct velocity aberration
+	                  double        const  mean_ground_elevation=0,
+	                  bool                 correct_velocity=true,
+	                  bool                 correct_atmosphere=true
+		    ) : vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
 		        m_position_func(position), m_velocity_func(velocity),
             m_pose_func(pose),         m_time_func(time),
             m_detector_origin(detector_origin),
-            m_focal_length(focal_length),
-            m_mean_ground_elevation(mean_ground_elevation)
-             {} 
+            m_focal_length(focal_length) {
+          m_mean_surface_elevation = mean_ground_elevation; // Set base class value
+        } 
     virtual ~LinescanDGModel() {}
     virtual std::string type() const { return "LinescanDG"; }
 
@@ -84,106 +86,6 @@ namespace asp {
     
     // Override this implementation with a faster, more specialized implemenation.
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const;
-
-//---------------- TESTING ---------------------------------
-// -> If it works, move the atmosphere code up to VW!
-
-    /// Compute the ray correction for atmospheric refraction using the 
-    ///  Saastamoinen equation.
-    static double saastamoinen_atmosphere_correction(double camera_alt, double ground_alt, double alpha) {
-
-      double H      = camera_alt / 1000.0; // In kilometers
-      double h      = ground_alt / 1000.0; // Height of target point over surface in km
-      double h_diff = H - h;
-      double p1     = (2335.0 / h_diff)*pow(1.0 - 0.02257*h, 5.256);
-      double p2     = pow(0.8540, H-11.0) * (82.2 - 521.0/h_diff);
-      double K      = (p1 - p2) * pow(10.0,-6.0);
-
-      //K = K * 1.55976279684; // TESTING!
-
-      //double tan_alpha   = norm_2(cross_prod(u, cam_to_earth_center_unit)) / dot_prod(cam_to_earth_center_unit,u);
-      double delta_alpha = K * tan(alpha);
-      return delta_alpha;
-    }
-
-    /// Gives a pointing vector in the world coordinates.
-    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const
-{
-
-  try {
-    // Compute local vector from the pixel out of the sensor
-    // - m_detector_origin and m_focal_length have been converted into units of pixels
-    vw::Vector3 local_vec = get_local_pixel_vector(pix);
-    // Put the local vector in world coordinates using the pose information.
-    vw::Vector3 uncorrected_vector = camera_pose(pix).rotate(local_vec);
-
-    if (stereo_settings().correct_atmospheric_refraction)
-    {
-
-      // Correct for atmospheric refraction
-      // - From "Atmospheric Correction and Velocity Aberration for Physical Sensor 
-      //         Modeling of High-Resolution Satellite Images" by Oh and Lee
-
-      // Get some information
-      vw::Vector3 cam_ctr              = camera_center(pix); // ECF camera coords
-      vw::Vector3 cam_ctr_norm         = normalize(cam_ctr);
-      vw::Vector3 cam_to_earth_center_unit = -1.0 * cam_ctr_norm;
-      double  earth_ctr_to_cam     = norm_2(cam_ctr);    // Distance in meters from cam to earth center
-      double  earth_rad            = 6371000.0; // TODO: Vary by location?
-      double  cam_to_earth_surface = earth_ctr_to_cam - earth_rad;
-
-      // Compute angle alpha and correction angle
-      vw::Vector3 u     = normalize(uncorrected_vector);
-      double      alpha = acos(dot_prod(cam_to_earth_center_unit,u)); // Both get angle of normalized vectors.
-
-      // TODO: Test out another correction method!
-      double delta_alpha = saastamoinen_atmosphere_correction(cam_to_earth_surface,
-                                                              m_mean_ground_elevation, alpha);
-
-      // Rotate the vector by delta_alpha
-      
-      vw::Vector3 rotation_axis = normalize(cross_prod(u, cam_to_earth_center_unit));
-      vw::Quaternion<double> refraction_rotation(rotation_axis, delta_alpha);
-      vw::Vector3 u_prime = refraction_rotation.rotate(u);
-      
-      vw::Quaternion<double> inv_rot(rotation_axis, alpha);
-      vw::Vector3 u_inv = inv_rot.rotate(u);
-      /*
-      double  check_delta  = acos(dot_prod(u_prime,u) / (norm_2(u_prime)*norm_2(u)) );
-      if ( (pix[0] > 19117) && (pix[1] > 6043) &&
-           (pix[0] < 19118) && (pix[1] < 6044) ) { 
-
-        std::cout << "pix = " << pix << std::endl;
-        std::cout << "Computed h_diff = "      << h_diff        << std::endl;
-        std::cout << "Computed p1 = "          << p1            << std::endl;
-        std::cout << "Computed p2 = "          << p2            << std::endl;
-        std::cout << "Computed K = "           << K             << std::endl;
-        std::cout << "Computed alpha = "       << alpha         << std::endl;
-        std::cout << "Computed delta_alpha = " << delta_alpha   << std::endl;
-        std::cout << "Computed check = "       << check_delta   << std::endl;  
-        std::cout << "Computed rot axis = "    << rotation_axis << std::endl;
-        std::cout << "Computed u = "           << u             << std::endl;
-        std::cout << "Computed u prime = "     << u_prime       << std::endl;
-        std::cout << "Computed cam_to_earth = " << cam_to_earth_center_unit << std::endl;
-        std::cout << "Computed u inv = "       << u_inv       << std::endl;
-      }*/
-      uncorrected_vector = u_prime;
-    } // End atmosphere correction
-
-    if (!m_correct_velocity_aberration) 
-      return uncorrected_vector;
-    else
-      return apply_velocity_aberration_correction(pix, uncorrected_vector);
-      
-  } catch(const vw::Exception &e) {
-    // Repackage any of our exceptions thrown below this point as a 
-    //  pixel to ray exception that other code will be able to handle.
-    vw_throw(vw::camera::PixelToRayErr() << e.what());
-  }
-
-}
-
-// ------------ TESTING -------------------------------------------------------
 
     // -- These are new functions --
     
@@ -234,9 +136,6 @@ namespace asp {
     /// - Stored internally in pixels.
     vw::Vector2  m_detector_origin; 
     double       m_focal_length;    ///< The focal length, also stored in pixels.
-
-    /// Expected ground elevation in meters, used for atmospheric correction.
-    double m_mean_ground_elevation; 
 
     // Levenberg Marquardt solver for linescan number
     //

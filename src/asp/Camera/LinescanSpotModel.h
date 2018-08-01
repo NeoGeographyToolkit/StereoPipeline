@@ -104,8 +104,10 @@ namespace asp {
 		                vw::camera::LinearTimeInterpolation       const& time,
                     std::vector<std::pair<int, vw::Vector2> > const& look_angles,
 		                vw::Vector2i  const& image_size,
-		                double min_time, double max_time
-		    ) : vw::camera::LinescanModel(image_size, true), // Always correct velocity aberration
+		                double min_time, double max_time,
+	                  bool   correct_velocity=true,
+	                  bool   correct_atmosphere=true
+		    ) : vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
   		      m_position_func(position), m_velocity_func(velocity),
             m_pose_func(pose),         m_time_func(time),
             m_look_angles(look_angles),

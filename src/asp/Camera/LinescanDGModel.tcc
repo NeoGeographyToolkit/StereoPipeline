@@ -19,6 +19,7 @@
 
 #include <vw/Math/EulerAngles.h>
 #include <vw/Camera/CameraSolve.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -173,8 +174,14 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
   }
   
   // Get an estimate of the surface elevation from the corners specified in the file.
-  vw::BBox3 bbox = rpc.get_lon_lat_height_box();
-  double mean_ground_elevation = (bbox.min()[2] + bbox.max()[2]) / 2.0;
+  double mean_ground_elevation;
+  try {
+    vw::BBox3 bbox = rpc.get_lon_lat_height_box();
+    mean_ground_elevation = (bbox.min()[2] + bbox.max()[2]) / 2.0;
+  } catch( const std::exception& e ) {
+    // Not every file has this information, in which case we will just use zero.
+    mean_ground_elevation = 0;
+  }
   
   // Convert measurements in millimeters to pixels.
   geo.principal_distance /= geo.detector_pixel_pitch;
@@ -237,6 +244,8 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
   double edt = eph.time_interval;
   double adt = att.time_interval;
 
+  // This is where we could set the Earth radius if we have that info.
+
   typedef boost::shared_ptr<DGCameraModel> CameraModelPtr;
   return CameraModelPtr(new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec, et0, edt ),
 					                                vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
@@ -244,7 +253,9 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 					                                tlc_time_interpolation, img.image_size,
 					                                final_detector_origin,
 					                                geo.principal_distance,
-					                                mean_ground_elevation)
+					                                mean_ground_elevation,
+					                                !stereo_settings().disable_correct_velocity_aberration,
+					                                !stereo_settings().disable_correct_atmospheric_refraction)
 		    );
 } // End function load_dg_camera_model()
 

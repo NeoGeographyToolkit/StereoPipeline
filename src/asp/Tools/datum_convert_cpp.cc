@@ -114,7 +114,7 @@ public:
       // Rely on our geodetic to GCC transforms.
       Vector3 gcc                 = m_input_georef.datum().geodetic_to_cartesian(input_llh);
       Vector3 output_llh_gccCheck = m_output_georef.datum().cartesian_to_geodetic(gcc);
-      Vector2 output_gcc_pixel    = m_output_georef.lonlat_to_pixel(Vector2(output_llh_gccCheck[0], output_llh_gccCheck[1]));
+      //Vector2 output_gcc_pixel    = m_output_georef.lonlat_to_pixel(Vector2(output_llh_gccCheck[0], output_llh_gccCheck[1]));
       return output_llh_gccCheck[2];
     }
     

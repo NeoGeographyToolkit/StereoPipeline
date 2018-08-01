@@ -15,9 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-#include <asp/Camera/SPOT_XML.h>
 #include <vw/Camera/CameraSolve.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Camera/SPOT_XML.h>
 #include <asp/Camera/LinescanSpotModel.h>
 
 namespace asp {
@@ -248,12 +248,16 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
   
   vw::camera::SLERPPoseInterpolation pose_func(gcc_pose, min_time, time_delta);
 
+  // This is where we could set the Earth radius and mean surface elevation if we have that info.
+
   // Feed everything into a new camera model.
   return boost::shared_ptr<SPOTCameraModel>(new SPOTCameraModel(position_func, velocity_func, 
                                                                 pose_func, time_func, 
                                                                 xml_reader.look_angles,
                                                                 xml_reader.image_size,
-                                                                min_time, max_time));
+                                                                min_time, max_time,
+                                        !stereo_settings().disable_correct_velocity_aberration,
+                                        !stereo_settings().disable_correct_atmospheric_refraction));
 
 } // End function load_spot_camera_model()
 
