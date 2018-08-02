@@ -1599,10 +1599,10 @@ Usage:
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message. \\ \hline
 \texttt{-\/-dem-file \textit{string}} & Intersect with this DEM instead of a datum. \\ \hline
-\texttt{-\/-datum WGS_1984|D_MOON|D_MARS|MOLA} & Use this datum to interpret the heights.\\ \hline
+\texttt{-\/-datum \textit{string}} & Use this datum to interpret the heights.
+Options are: WGS\_1984, D\_MOON, D\_MARS, and MOLA. \\ \hline
 \texttt{-\/-t\_srs} & Specify the GeoReference projection (PROJ.4 string).\\ \hline
-\texttt{-\/-session-type|-t pinhole|nadirpinhole|isis|dg|rpc|spot5|aster} & Select the stereo
-session type to use for processing. Normally this is autodetected. \\ \hline
+\texttt{-\/-session-type|-t} & Select the stereo session type to use for processing. Normally this is autodetected. \\ \hline
 \texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
 adjustment obtained by previously running bundle\_adjust with this
 output prefix. \\ \hline
@@ -1698,7 +1698,7 @@ projections, another program such as \texttt{gdalwarp} (included with ASP) or
 ASP's \texttt{dem\_mosaic} should be used for that. \texttt{datum\_convert} performs
 horizontal conversion; vertical conversion is only provided for the limited case of 
 conversions between datums defined only by the +a and +b terms (such as our 
-D_MARS and MOLA datums).  The tool will try to automatically find
+D\_MARS and MOLA datums).  The tool will try to automatically find
 datum information from the input file but the input datum can be manually specified
 if the information in the file is missing or incorrect.  Be aware that if the 
 \texttt{-\/-keep-bounds} option is not set there may be noticable changes in
@@ -1711,7 +1711,7 @@ point cloud in 3D space up to the interpolation errors required to
 perform the conversion.  In practice datum conversion is a complex
 task which may need to account for things like shifting tectonic plates 
 over time.  ASP's implementation is based on Proj.4 and the HTDPGrids
-extension (\url{http://opencv.org/}https://github.com/OSGeo/proj.4/wiki/HTDPGrids}).
+extension (\url{https://github.com/OSGeo/proj.4/wiki/HTDPGrids}).
 Datum support in Proj.4 is not robust even with the extension so if it is 
 critical that you have a very accurate conversion we reccomend that you attempt 
 to verify results obtained using \texttt{datum\_convert} with another conversion method.
