@@ -148,7 +148,7 @@ def getHtdpCode(proj_string, datum_name):
         code = code_lookup[datum_clean]
     except:
         raise Exception('Error, unrecognized datum name: ' + datum)
-    return (code, datum) # Helpful to return the name too.
+    return (code, datum_clean) # Helpful to return the name too.
 
     # For reference, these are the codes accepted by the current Fortran code.
     temp='''
@@ -239,7 +239,8 @@ def createShiftFile(input_proj, lonlat_bounds, options, grid_path):
             output_code[0], options.output_datum_year, grid_path))
     if options.keep_temp_files:
         cmd += ' -kwf'
-    asp_system_utils.executeCommand(cmd, suppressOutput=(not options.show_grid_calc))
+    asp_system_utils.executeCommand(cmd, suppressOutput=(not options.show_grid_calc),
+                                    outputPath=grid_path)
     
     return (True, grid_path)
 

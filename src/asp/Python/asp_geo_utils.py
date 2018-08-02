@@ -46,12 +46,12 @@ def getGdalInfoTagValue(text, tag):
 def convertCoordinate(input_srs_string, output_srs_string, x, y):
     '''Convert a single 2D coordinate between proj.4 coordinate systems.'''
 
-    cmd = [asp_system_utils.which('gdaltransform'), '-s_srs', projStringIn, '-t_srs', projStringOut]
+    cmd = [asp_system_utils.which('gdaltransform'), '-s_srs', input_srs_string, '-t_srs', output_srs_string]
     try:
         # Fancier way, if installed.
         p = subprocess32.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False,
                                universal_newlines=True)
-        textOutput, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.5 )    
+        text, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.5 )    
     except:
         # Simpler way.
         p = subprocess.Popen(cmd, stdin=subprocess.PIPE,stdout=subprocess.PIPE)
