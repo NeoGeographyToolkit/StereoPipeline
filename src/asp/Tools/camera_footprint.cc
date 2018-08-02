@@ -15,7 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// Compute the footprint of a camera on a DEM
+
+/// Compute the footprint of a camera on a DEM/datum, print it, and optionally
+///  write a KML file.
 
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <vw/FileIO/DiskImageView.h>
@@ -58,7 +60,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("datum",            po::value(&opt.datum_str)->default_value(""),
-     "Use this datum to interpret the heights. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+     "Use this datum to interpret the heights. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters). Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string). Can also be an URL or in WKT format, as in GDAL.")
     ("quick",            po::bool_switch(&opt.quick)->default_value(false),
 	     "Use a faster but less accurate computation.")
@@ -214,7 +216,6 @@ int main( int argc, char *argv[] ) {
       return 0;
 
     // Create the KML file if specified by the user.
-    // - TODO: Create an accurate footprint instead of a bounding box!
     KMLFile kml(opt.output_kml, "footprint");
 
     // Style listing
@@ -227,26 +228,11 @@ int main( int argc, char *argv[] ) {
     kml.append_style( "dot_highlight", "", 1.4,
                       "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
     kml.append_stylemap( "placemark", "dot",
-                         "dot_highlight" );
-
-
-    /*
-      std::vector<Vector2> lonlat[4];
-      std::vector<Vector3> coordinates[4];
-      lonlat[0] = target_georef.point_to_lonlat(footprint_bbox.min());
-      lonlat[1] = target_georef.point_to_lonlat(Vector2(footprint_bbox.max()[0], footprint_bbox.min()[1]);
-      lonlat[2] = target_georef.point_to_lonlat(footprint_bbox.max());
-      lonlat[3] = target_georef.point_to_lonlat(Vector2(footprint_bbox.min()[0], footprint_bbox.max()[1]);
-      for (int i=0; i<4; ++i)
-      coordinates[i] = Vector3(lonlat[i][0], lonlat[i][1], 0);
-      kml.append_line(coordinates);
-    */  
+                         "dot_highlight" ); 
     
     kml.append_line(coords, "intersections", "placemark");
     vw_out() << "Writing: " << opt.output_kml << std::endl; 
     kml.close_kml();
-    
-
     
   } ASP_STANDARD_CATCHES;
 

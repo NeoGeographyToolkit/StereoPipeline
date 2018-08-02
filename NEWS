@@ -6,6 +6,8 @@
  - New tools
    * Added convert_pinhole_model, to convert between various
      existing such models. 
+   * Added camera_footprint as a helpful utility to show where
+     images will project on to the ground.
 
  - New camera models
     * Added simple atmospheric refraction correction to the

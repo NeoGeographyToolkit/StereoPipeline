@@ -1572,6 +1572,46 @@ Green lines drawn between the camera positions indicate a successful interest po
 
 \clearpage
 
+
+\section{camera\_footprint}
+\label{camerafootprint}
+
+The tool \texttt{camera\_footprint} computes what the footprint of in image would be
+if map projected on to a provided datum or DEM and prints it to the screen.  If a KML
+output path is provided it will also create a KML file containing the footprint.  The
+KML will show a box with an X pattern showing the points ASP used to compute the footprint.
+This tool can be useful for debugging camera orientations or getting a quick overview
+of where images are located.
+
+Usage:
+\begin{verbatim}
+  camera_footprint [options] <camera-image> <camera-model>
+\end{verbatim}
+
+\begin{longtable}{|l|p{9.5cm}|}
+\caption{Command-line options for camera\_footprint}
+\label{tbl:camerafootprint}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
+\texttt{-\/-dem-file \textit{string}} & Intersect with this DEM instead of a datum. \\ \hline
+\texttt{-\/-datum WGS_1984|D_MOON|D_MARS|MOLA} & Use this datum to interpret the heights.\\ \hline
+\texttt{-\/-t\_srs} & Specify the GeoReference projection (PROJ.4 string).\\ \hline
+\texttt{-\/-session-type|-t pinhole|nadirpinhole|isis|dg|rpc|spot5|aster} & Select the stereo
+session type to use for processing. Normally this is autodetected. \\ \hline
+\texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
+adjustment obtained by previously running bundle\_adjust with this
+output prefix. \\ \hline
+\texttt{-\/-output-kml \textit{string}} & Write an output KML file at this location. \\ \hline
+\texttt{-\/-quick} & Use a faster but less accurate computation.\\ \hline
+\end{longtable}
+
+\clearpage
+
 \section{cam2map4stereo.py}
 \label{cam2map4stereo}
 
