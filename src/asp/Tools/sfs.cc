@@ -67,8 +67,6 @@ int g_warning_count = 0;
 int g_max_warning_count = 1000;
 const size_t g_num_model_coeffs = 16;
 
-double g_median_height;
-
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
@@ -1456,12 +1454,15 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
   if (crop_box.empty()) return false;
 
-  // temporary!!!
   if (use_pq) {
-    center_h = g_median_height;
+    // p is defined as (right_h - left_h)/(2*gridx)
+    // so, also, p = (right_h - center_h)/gridx
+    // Hence, we get the formulas below in terms of p and q.
+    right_h  = center_h + gridx*p;
+    left_h   = center_h - gridx*p;
+    top_h    = center_h + gridy*q;
+    bottom_h = center_h - gridy*q;
   }
-  
-  // TODO: Investigate various ways of finding the normal.
 
   // The xyz position at the center grid point
   Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
@@ -1493,91 +1494,12 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
   Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
 
-#if 0
-  // two-point normal
-  Vector3 dx = right - base;
-  Vector3 dy = bottom - base;
-#else
   // four-point normal (centered)
   Vector3 dx = right - left;
   Vector3 dy = bottom - top;
-#endif
+
   Vector3 normal = -normalize(cross_prod(dx, dy)); // so normal points up
 
-  //std::cout << std::endl;
-  //std::cout << "old pq "
-  //          << (right_h - left_h)/(2*gridx)  << ' '
-  //          << (top_h - bottom_h)/(2*gridy)  << std::endl;
-  //std::cout << "new pq " << p << ' ' << q << std::endl;
-  
-  if (use_pq) {
-
-    // p is defined as (right_h - left_h)/(2*gridx)
-    // so, also, p = (right_h - center_h)/gridx
-    // Hence, we get the formulas below in terms of p and q.
-
-    //std::cout << "old h " << left_h << ' ' << right_h << ' '
-    //          << bottom_h << ' ' << top_h << std::endl;
-
-    right_h  = center_h + gridx*p;
-    left_h   = center_h - gridx*p;
-    top_h    = center_h + gridy*q;
-    bottom_h = center_h - gridy*q;
-
-    //std::cout << "new h " << left_h << ' ' << right_h << ' '
-    //          << bottom_h << ' ' << top_h << std::endl;
-    
-    // cross product of (1, 0, p) and (0, 1, q) is (-p, -q, 1).
-    //normal = Vector3(-p, -q, 1.0)/sqrt(1.0 + p*p + q*q);
-
-    // The xyz position at the center grid point
-    lonlat = geo.pixel_to_lonlat(Vector2(col, row));
-    h = center_h;
-    lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-    base = geo.datum().geodetic_to_cartesian(lonlat3);
-
-    // The xyz position at the left grid point
-    lonlat = geo.pixel_to_lonlat(Vector2(col-1, row));
-    h = left_h;
-    lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-    left = geo.datum().geodetic_to_cartesian(lonlat3);
-
-    // The xyz position at the right grid point
-    lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
-    h = right_h;
-    lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-    right = geo.datum().geodetic_to_cartesian(lonlat3);
-
-    // The xyz position at the bottom grid point
-    lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
-    h = bottom_h;
-    lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-    bottom = geo.datum().geodetic_to_cartesian(lonlat3);
-
-    // The xyz position at the top grid point
-    lonlat = geo.pixel_to_lonlat(Vector2(col, row-1));
-    h = top_h;
-    lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-    top = geo.datum().geodetic_to_cartesian(lonlat3);
-
-#if 0
-    // two-point normal
-    dx = right - base;
-    dy = bottom - base;
-#else
-    // four-point normal (centered)
-    dx = right - left;
-    dy = bottom - top;
-#endif
-
-    //std::cout << "--old normal" << normal << std::endl;
-    
-    normal = -normalize(cross_prod(dx, dy)); // so normal points up
-    
-    //std::cout << "--new normal " << normal << std::endl;
-    //std::cout << std::endl;
-  }
-  
   // Update the camera position for the given pixel (camera position
   // is pixel-dependent for linescan cameras.
   ModelParams local_model_params = model_params;
@@ -2405,11 +2327,7 @@ struct IntensityErrorPQ {
   // See SmoothnessError() for the definitions of bottom, top, etc.
   template <typename F>
   bool operator()(const F* const exposure,
-		  const F* const left,
-		  const F* const center,
-		  const F* const right,
-		  const F* const bottom,
-		  const F* const top,
+		  const F* const center_h,
 		  const F* const pq,                 // array of length 2 
 		  const F* const albedo,
 		  const F* const camera_adjustments, // array of length 6
@@ -2417,7 +2335,9 @@ struct IntensityErrorPQ {
                   F* residuals) const {
 
     bool use_pq = true;
-    return calc_intensity_residual(exposure, left, center, right, bottom, top,
+
+    F v = 0;
+    return calc_intensity_residual(exposure, &v, center_h, &v, &v, &v,
                                    use_pq, pq,
                                    albedo, camera_adjustments,
                                    reflectance_model_coeffs,
@@ -2453,108 +2373,8 @@ struct IntensityErrorPQ {
 				     DoubleImgT const& blend_weight,
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityErrorPQ,
-	    ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 2, 1, 6, g_num_model_coeffs>
+	    ceres::CENTRAL, 1, 1, 1, 2, 1, 6, g_num_model_coeffs>
 	    (new IntensityErrorPQ(col, row, dem, geo,
-                                  model_shadows,
-                                  camera_position_step_size,
-                                  max_dem_height,
-                                  gridx, gridy,
-                                  global_params, model_params,
-                                  crop_box, image, blend_weight, camera)));
-  }
-
-  int m_col, m_row;
-  ImageView<double>                 const & m_dem;            // alias
-  cartography::GeoReference         const & m_geo;            // alias
-  bool                                      m_model_shadows;
-  double                                    m_camera_position_step_size;
-  double                            const & m_max_dem_height; // alias
-  double                                    m_gridx, m_gridy;
-  GlobalParams                      const & m_global_params;  // alias
-  ModelParams                       const & m_model_params;   // alias
-  BBox2i                                    m_crop_box;
-  MaskedImgT                        const & m_image;          // alias
-  DoubleImgT                        const & m_blend_weight;   // alias
-  boost::shared_ptr<CameraModel>    const & m_camera;         // alias
-};
-
-// A variant of the intensity error when we float the partial derviatives
-// in x and in y of the dem, which we call p and q.  
-struct IntensityErrorPQ2 {
-  IntensityErrorPQ2(int col, int row,
-                   ImageView<double> const& dem,
-                   cartography::GeoReference const& geo,
-                   bool model_shadows,
-                   double camera_position_step_size,
-                   double const& max_dem_height, // note: this is an alias
-                   double gridx, double gridy,
-                   GlobalParams const& global_params,
-                   ModelParams const& model_params,
-                   BBox2i const& crop_box,
-                   MaskedImgT const& image,
-                   DoubleImgT const& blend_weight,
-                   boost::shared_ptr<CameraModel> const& camera):
-    m_col(col), m_row(row), m_dem(dem), m_geo(geo),
-    m_model_shadows(model_shadows),
-    m_camera_position_step_size(camera_position_step_size),
-    m_max_dem_height(max_dem_height),
-    m_gridx(gridx), m_gridy(gridy),
-    m_global_params(global_params),
-    m_model_params(model_params),
-    m_crop_box(crop_box),
-    m_image(image), m_blend_weight(blend_weight),
-    m_camera(camera) {}
-  
-  // See SmoothnessError() for the definitions of bottom, top, etc.
-  template <typename F>
-  bool operator()(const F* const exposure,
-		  const F* const pq,                 // array of length 2 
-		  const F* const albedo,
-		  const F* const camera_adjustments, // array of length 6
-		  const F* const reflectance_model_coeffs,
-                  F* residuals) const {
-
-    bool use_pq = true;
-
-    F v = 0;
-    return calc_intensity_residual(exposure, &v, &v, &v, &v, &v,
-                                   use_pq, pq,
-                                   albedo, camera_adjustments,
-                                   reflectance_model_coeffs,
-                                   m_col, m_row,  
-                                   m_dem,  // alias
-                                   m_geo,  // alias
-                                   m_model_shadows,  
-                                   m_camera_position_step_size,  
-                                   m_max_dem_height,  // alias
-                                   m_gridx, m_gridy,  
-                                   m_global_params,   // alias
-                                   m_model_params,    // alias
-                                   m_crop_box,  
-                                   m_image,           // alias
-                                   m_blend_weight,    // alias
-                                   m_camera,          // alias
-                                   residuals);
-  }
-
-  // Factory to hide the construction of the CostFunction object from
-  // the client code.
-  static ceres::CostFunction* Create(int col, int row,
-				     ImageView<double> const& dem,
-				     vw::cartography::GeoReference const& geo,
-				     bool model_shadows,
-				     double camera_position_step_size,
-				     double const& max_dem_height, // alias
-				     double gridx, double gridy,
-				     GlobalParams const& global_params,
-				     ModelParams const& model_params,
-				     BBox2i const& crop_box,
-				     MaskedImgT const& image,
-				     DoubleImgT const& blend_weight,
-				     boost::shared_ptr<CameraModel> const& camera){
-    return (new ceres::NumericDiffCostFunction<IntensityErrorPQ2,
-	    ceres::CENTRAL, 1, 1, 2, 1, 6, g_num_model_coeffs>
-	    (new IntensityErrorPQ2(col, row, dem, geo,
                                   model_shadows,
                                   camera_position_step_size,
                                   max_dem_height,
@@ -2774,9 +2594,6 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
     median_height = 0.5*(heights[(len-1)/2] + heights[len/2]);
   }
 
-  g_median_height = median_height;
-  std::cout << "--median height is " << g_median_height << std::endl;
-  
   // Find the grid sizes by estimating the Euclidean distances
   // between points of a DEM at constant height.
   std::vector<double> gridx_vec, gridy_vec;
@@ -2803,8 +2620,6 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
     }
   }
 
-  std::cout << "--print here all grid values in x and y" << std::endl;
-  
   // Median grid size
   if (!gridx_vec.empty()) gridx = gridx_vec[gridx_vec.size()/2];
   if (!gridy_vec.empty()) gridy = gridy_vec[gridy_vec.size()/2];
@@ -3310,7 +3125,7 @@ void run_sfs_level(// Fixed inputs
                                        &reflectance_model_coeffs[0]);
             }else{
               ceres::CostFunction* cost_function_img =
-                IntensityErrorPQ2::Create(col, row, dems[dem_iter], geo[dem_iter],
+                IntensityErrorPQ::Create(col, row, dems[dem_iter], geo[dem_iter],
                                          opt.model_shadows,
                                          opt.camera_position_step_size,
                                          max_dem_height[dem_iter],
@@ -3322,6 +3137,7 @@ void run_sfs_level(// Fixed inputs
                                          cameras[dem_iter][image_iter]);
               problem.AddResidualBlock(cost_function_img, loss_function_img,
                                        &exposures[image_iter],          // exposure
+                                       &dems[dem_iter](col, row),       // center
                                        &pq[dem_iter](col, row)[0],      // pq
                                        &albedos[dem_iter](col, row),    // albedo
                                        &adjustments[6*image_iter],      // camera
