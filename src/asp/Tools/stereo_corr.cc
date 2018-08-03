@@ -1099,7 +1099,6 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     vw_out() << "\t--> Detected search range constrained to: " << stereo_settings().search_range << "\n";
   }
 
-
   // Provide the user with some feedback of what we are actually going to use.
   vw_out()   << "\t--------------------------------------------------\n";
   vw_out()   << "\t   Kernel Size:    " << stereo_settings().corr_kernel << endl;
