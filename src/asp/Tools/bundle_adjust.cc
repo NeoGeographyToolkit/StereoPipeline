@@ -3266,7 +3266,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "When having GCP, instead of minimizing the xyz error (computed vs what is in the GCP file), minimize the lon-lat-height error. This way, if the height is not known accurately, in the GCP file the third sigma (corresponding to the height), can be given a bigger weight to reduce its importance.")
 
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
-     "Given map-projected versions of the input images and the DEM mapprojected onto, and IP matches among them, create IP matches among the un-projected images before doing bundle adjustment. Niche and experimental, not for general use. This makes it easy to pick interest points manually. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces.")
+     "Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. The documentation has an example for how to use this.")
     
     ("heights-from-dem",  po::value(&opt.heights_from_dem)->default_value(""),
      "If the cameras have already been bunde-adjusted and rigidly transformed to create a DEM aligned to a known high-quality DEM, in the original triangulated xyz points replace the heights with the ones from this high quality DEM and fix those points. This can be used to refine camera positions and intrinsics and works only for pinhole images. Niche and experimental, not for general use.")

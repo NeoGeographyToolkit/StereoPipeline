@@ -54,7 +54,10 @@
    * Renamed --local-pinhole to --create-pinhole-cameras.
    * Added the parameter --nodata-value to ignore pixels at and below
      a threshold.
-
+   * Added the ability to transfer interest points manually picked in
+     mapprojected images to the the original unprojected images via
+     --mapprojected-data.  
+ 
  - stereo_gui
    * Can view SPOT5 .BIL files.
 
@@ -72,7 +75,7 @@
    * Added the ability to apply a filter to the cloud points in each circular
      neighborhood before gridding. In addition to the current weighted average
      option, it supports min, max, mean, median, stddev, count, nmad,
-     and percentile filters. The --search-radius-factor paramter can
+     and percentile filters. The --search-radius-factor parameter can
      control the neighborhood size.
    * Sped up hole-filling in ortho image generation. If this creates
      more holes than before, it is suggested to relax all outlier filtering,
@@ -110,6 +113,7 @@
    * Bugfix in cam2map4stereo.py when the longitude crosses 180 degrees.
    * Added support for running sparse_disp with your own Python installation.
    * Bugfix for image cropping with epipolar aligned images.
+   * The sfs tool supports the integrability constraint weight from Horn 1990.
    * The software works with both Python 2 and 3. 
 
 *** RELEASE 2.6.0, May 15, 2017 ***

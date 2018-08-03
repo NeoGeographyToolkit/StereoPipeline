@@ -235,7 +235,7 @@ The program can also save a screenshot to disk in the BMP or XPM format.
 and \texttt{stereo}. It can also manually create and delete matches
 (useful in situations when automatic interest point matching is
 unreliable due to large changes in illumination). Interest point matches
-can be created or deleted with the right-mouse click.
+can be created or deleted with the right-mouse click. 
 
 The match file to load can be specified via \texttt{-\/-match-file}.  It
 may also be auto-detected if \texttt{stereo\_gui} was invoked like
@@ -243,7 +243,39 @@ may also be auto-detected if \texttt{stereo\_gui} was invoked like
 images are not map-projected and alignment is homography or affine
 epipolar).
 
-\subsubsection{Create GCP}
+\subsubsection{Creating manual interest point matches using map-projected images}
+\label{mapip}
+
+To make it easier to pick interest point matches in situations when the
+images are very different or taken from very diverse perspectives, it is
+easier to first mapproject them onto a DEM, as then the images look a
+lot more similar. Once interest points are created among the
+map-projected images in the GUI, some functionality can be invoked to
+transfer them to the original images.
+
+Here is an example. Given three images A.tif, B.tif, and C.tif, and a DEM named 
+dem.tif, map-project them onto the DEM, obtaining the images A.map.tif, B.map.tif, and C.map.tif.
+Then one can invoke \texttt{stereo\_gui} as
+\begin{verbatim}
+  stereo_gui A.map.tif B.map.tif C.map.tif run/run
+\end{verbatim}
+pick interest points as above, save them, and quit the GUI. Then one runs:
+
+\begin{verbatim}
+   bundle_adjust A.tif B.tif C.tif <cameras> run/run \
+   --mapprojected-data 'A.map.tif B.map.tif C.map.tif dem.tif' --min-matches 0  
+\end{verbatim}
+which will create match files among the original images and run bundle adjustment.
+
+One can then invoke
+\begin{verbatim}
+  stereo_gui A.tif B.tif C.tif run/run
+\end{verbatim}
+
+and turn on viewing of interest point mathes to study if they were
+``unmapped'' to the right locations.
+
+\subsubsection{Creating GCP}
 \label{bagcp}
 
 \texttt{stereo\_gui} can be used to create
@@ -584,6 +616,10 @@ attempt to find matching interest points between those two cameras.
 
 \texttt{-\/-min-triangulation-angle \textit{double(=0.1)}} &
 The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
+\\ \hline
+
+\texttt{-\/-mapprojected-data \textit{string}} &
+Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. The documentation has an example for how to use this.
 \\ \hline
 
 \texttt{-\/-lambda \textit{double}} & Set the initial value of the LM parameter
@@ -2655,6 +2691,8 @@ Option & Description \\ \hline \hline
 \texttt{-\/-float-dem-at-boundary} & Allow the DEM values at the boundary of the region to also float (not advised).\\ \hline
 \texttt{-\/-fix-dem} & Do not float the DEM at all. Useful when floating the model params.\\ \hline
 \texttt{-\/-float-reflectance-model} & Allow the coefficients of the reflectance model to float (not recommended).\\ \hline
+\texttt{-\/-integrability-constraint-weight arg (=0.0)} & Use the integrability constraint from Horn 1990 with this value of its weight (experimental).\\ \hline
+\texttt{-\/-smoothness-weight-pq (=0.0)} & Smoothness weight for p and q, when the integrability constraint is used. A larger value will result in a smoother solution (experimental).\\ \hline
 \texttt{-\/-query} & Print some info and exit. Invoked from parallel\_sfs.\\ \hline
 \texttt{-\/-camera-position-step-size arg (=1)} & Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).\\ \hline
 \texttt{-\/-threads arg (=0)} & Select the number of processors (threads) to use.\\ \hline

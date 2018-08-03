@@ -3064,12 +3064,11 @@ void run_sfs_level(// Fixed inputs
 
       for (int col = 1; col < dems[dem_iter].cols()-1; col++) {
         for (int row = 1; row < dems[dem_iter].rows()-1; row++) {
-          // Need to think more of the below!!!
           // Note that the top value is dems[dem_iter](col, row-1) and the 
           //            bottom value is dems[dem_iter](col, row+1).
-          pq[dem_iter](col, row)[0]
+          pq[dem_iter](col, row)[0] // same as (right - left)/(2*gridx)
             = (dems[dem_iter](col+1, row) - dems[dem_iter](col-1, row))/(2*gridx);
-          pq[dem_iter](col, row)[1]
+          pq[dem_iter](col, row)[1] // same as (top - bottom)/(2*gridy)
             = (dems[dem_iter](col, row-1) - dems[dem_iter](col, row+1))/(2*gridy);
         }
       }
