@@ -404,18 +404,17 @@ struct BaReprojectionError {
       VW_ASSERT(m_icam < num_cameras, ArgumentErr() << "Out of bounds in the number of cameras.");
       VW_ASSERT(m_ipt  < num_points , ArgumentErr() << "Out of bounds in the number of points." );
 
-      // Copy the input data to structures expected by the BA model
-      typename ModelT::camera_vector_t cam_vec;
-      int cam_len = cam_vec.size();
-      for (int c = 0; c < cam_len; c++)
-        cam_vec[c] = camera[c];
+      // Copy the input data to structures expected by the BA model.
+      typename ModelT::camera_intr_vector_t cam_intr_vec;
+      double * intrinsics = NULL; // part of the interface
+      m_ba_model.concat_extrinsics_intrinsics(camera, intrinsics, cam_intr_vec);
 
       typename ModelT::point_vector_t  point_vec;
       for (size_t p = 0; p < point_vec.size(); p++)
         point_vec[p] = point[p];
 
       // Project the current point into the current camera
-      Vector2 prediction = (*m_ba_model).cam_pixel(m_ipt, m_icam, cam_vec, point_vec);
+      Vector2 prediction = (*m_ba_model).cam_pixel(m_ipt, m_icam, cam_intr_vec, point_vec);
       
       // The error is the difference between the predicted and observed position,
       // normalized by sigma.
@@ -1696,7 +1695,6 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   if (num_intrinsic_params > 0)
     scaled_intrinsics_ptr = &scaled_intrinsics[0];
 
-  
   vw::cartography::GeoReference dem_georef;
   ImageViewRef< PixelMask<double> >  interp_dem;
   if (opt.heights_from_dem != "") {
