@@ -1734,7 +1734,16 @@ projections, another program such as \texttt{gdalwarp} (included with ASP) or
 ASP's \texttt{dem\_mosaic} should be used for that. \texttt{datum\_convert} performs
 horizontal conversion; vertical conversion is only provided for the limited case of 
 conversions between datums defined only by the +a and +b terms (such as our 
-D\_MARS and MOLA datums).  The tool will try to automatically find
+D\_MARS and MOLA datums).  The underlying Proj.4 library does have some support for
+vertical datums (see \url{https://github.com/OSGeo/proj.4/wiki/VerticalDatums}) so
+a motivated user may be able to apply them successfully.  If you do, let us know what
+steps you took so we can add them to the manual!  ASP ships with some vertical datum
+grid files in the ASP/share/proj folder but more can be found on the internet.  Whenever
+you perform datum conversions be careful; the Proj.4 library tends to fail silently by
+performing an identity transform on the input data.  If your output data exactly matches
+your input data this means that something has probably gone wrong.
+
+The tool will try to automatically find
 datum information from the input file but the input datum can be manually specified
 if the information in the file is missing or incorrect.  Be aware that if the 
 \texttt{-\/-keep-bounds} option is not set there may be noticable changes in
