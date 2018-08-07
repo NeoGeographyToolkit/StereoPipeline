@@ -301,21 +301,21 @@ namespace asp {
       IPListIter end_it = start_it;
       std::advance( end_it, ip1_size / number_of_jobs );
       boost::shared_ptr<Task>
-	match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
-					       use_uchar_FLANN, kd_float, kd_uchar,
-					       start_it, end_it,
-					       ip2, cam1, cam2, tx1, tx2, *this,
-					       camera_mutex, output_it ) );
+        match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
+                    use_uchar_FLANN, kd_float, kd_uchar,
+                    start_it, end_it,
+                    ip2, cam1, cam2, tx1, tx2, *this,
+                    camera_mutex, output_it ) );
       matching_queue.add_task( match_task );
       start_it = end_it;
       std::advance( output_it, ip1_size / number_of_jobs );
     }
     boost::shared_ptr<Task>
       match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
-					     use_uchar_FLANN, kd_float, kd_uchar,
-					     start_it, ip1.end(),
-					     ip2, cam1, cam2, tx1, tx2, *this,
-					     camera_mutex, output_it ) );
+                  use_uchar_FLANN, kd_float, kd_uchar,
+                  start_it, ip1.end(),
+                  ip2, cam1, cam2, tx1, tx2, *this,
+                  camera_mutex, output_it ) );
     matching_queue.add_task( match_task );
     matching_queue.join_all(); // Wait for all the jobs to finish.
   }

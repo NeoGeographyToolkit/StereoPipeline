@@ -91,68 +91,13 @@ void write_match_image(std::string const& out_file_name,
   block_write_image( *rsrc, comp, vw::TerminalProgressCallback( "tools.ipmatch", "Writing Debug:" ) );
 }
 
-
-// TODO: This function should live somewhere else!
-template <typename ImageT, typename IPT>
-void write_point_image(std::string const& out_file_name,
-		       vw::ImageViewBase<ImageT> const& image,
-		       IPT const& ip) {
-  vw::vw_out() << "\t    Starting write_match_image " << std::endl;
-
-  // Skip image pairs with no matches.
-  if (ip.empty())
-    return;
-
-  // Work out the scaling to produce the subsampled images. These
-  // values are choosen just allow a reasonable rendering time.
-  float sub_scale  = sqrt(1500.0 * 1500.0 / float(image.impl().cols() * image.impl().rows()));
-	sub_scale /= 2;
-  //if ( sub_scale > 1 )
-    sub_scale = 1;
-
-  vw::ImageView<vw::PixelRGB<vw::uint8> > canvas =
-	//vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image), sub_scale));
-	vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(image);
-
-  vw::vw_out() << "\t    Draw points "<<  std::endl;
-
-  // Draw all the interest points
-  for (typename IPT::const_iterator iter=ip.begin(); iter != ip.end(); ++iter) {
-    vw::Vector2f pt(iter->x, iter->y);
-    pt *= sub_scale;
-
-    // Draw a little square
-    const int RADIUS = 8;
-    std::vector<vw::Vector2i> pts;
-    for (size_t i=0; i<RADIUS; ++i) {
-      pts.push_back(vw::Vector2i(pt[0] - i, pt[1] - i));
-      pts.push_back(vw::Vector2i(pt[0] - i, pt[1] + i));
-      pts.push_back(vw::Vector2i(pt[0] + i, pt[1] - i));
-      pts.push_back(vw::Vector2i(pt[0] + i, pt[1] + i));
-    }
-    for (size_t i=0; i<pts.size(); ++i) {
-      if (pts[i][0] >=0 && pts[i][1] >=0 && pts[i][0] < canvas.cols() && pts[i][1] < canvas.rows())
-        canvas(pts[i][0],pts[i][1]) = vw::PixelRGB<vw::uint8>(255, 0, 0);
-    }
-
-  }
-
-  vw::vw_out() << "\t    Write to disk "  <<std::endl;
-  boost::scoped_ptr<vw::DiskImageResource> rsrc( vw::DiskImageResource::create(out_file_name, canvas.format()) );
-  block_write_image( *rsrc, canvas, vw::TerminalProgressCallback( "tools.ipmatch", "Writing Debug:" ) );
-}
-
-
-
-
-
 namespace asp {
 
 
   // Choose the method used for IP matching
   enum DetectIpMethod { DETECT_IP_METHOD_INTEGRAL = 0,
-			DETECT_IP_METHOD_SIFT     = 1,
-			DETECT_IP_METHOD_ORB      = 2};
+                        DETECT_IP_METHOD_SIFT     = 1,
+                        DETECT_IP_METHOD_ORB      = 2};
 
   /// Takes interest points and then finds the nearest 10 matches
   /// according to their IP descriptiors. It then
@@ -190,19 +135,10 @@ namespace asp {
                                       bool                        & success);
 
     /// Calculate distance between a line of equation ax + by + c = 0
-    static double distance_point_line( vw::Vector3 const& line,
-				       vw::Vector2 const& point );
+    static double distance_point_line( vw::Vector3 const& line, vw::Vector2 const& point );
 
     friend class EpipolarLineMatchTask;
   };
-
-  /// Tool to remove points on or within radius px of nodata pixels.
-  /// Note: A nodata pixel is one for which pixel <= nodata.
-  template <class ImageT>
-  void remove_ip_near_nodata( vw::ImageViewBase<ImageT> const& image,
-                              double nodata,
-                              vw::ip::InterestPointList& ip_list,
-                              int    radius = 1 );
 
   /// Find a rough homography that maps right to left using the camera
   /// and datum information.
@@ -287,17 +223,17 @@ namespace asp {
 
   // Filter IP by ensuring that the triangulated IP are in the given lon-lat-height box
   size_t filter_ip_by_lonlat_and_elevation
-  (vw::camera::CameraModel* left_camera_model,
-   vw::camera::CameraModel* right_camera_model,
-   vw::cartography::Datum const& datum,
-   std::vector<vw::ip::InterestPoint> const& ip1_in,
-   std::vector<vw::ip::InterestPoint> const& ip2_in,
-   vw::TransformRef const& left_tx, vw::TransformRef const& right_tx, 
-   double ip_scale,
-   vw::Vector2 const & elevation_limit,
-   vw::BBox2   const & lon_lat_limit,
-   std::vector<vw::ip::InterestPoint> & ip1_out,
-   std::vector<vw::ip::InterestPoint> & ip2_out);
+            (vw::camera::CameraModel* left_camera_model,
+             vw::camera::CameraModel* right_camera_model,
+             vw::cartography::Datum const& datum,
+             std::vector<vw::ip::InterestPoint> const& ip1_in,
+             std::vector<vw::ip::InterestPoint> const& ip2_in,
+             vw::TransformRef const& left_tx, vw::TransformRef const& right_tx, 
+             double ip_scale,
+             vw::Vector2 const & elevation_limit,
+             vw::BBox2   const & lon_lat_limit,
+             std::vector<vw::ip::InterestPoint> & ip1_out,
+             std::vector<vw::ip::InterestPoint> & ip2_out);
 
   // Outlier removal based on the disparity of interest points.
   // Points with x or y disparity not within the 100-'pct' to 'pct'
@@ -354,51 +290,6 @@ namespace asp {
 // TODO: Move to .tcc file
 
 
-
-  // Tool to remove points on or within 1 px of nodata pixels.
-  // Note: A nodata pixel is one for which pixel <= nodata.
-  template <class ImageT>
-  void remove_ip_near_nodata( vw::ImageViewBase<ImageT> const& image,   double nodata,
-                              vw::ip::InterestPointList      & ip_list, int    radius ){
-
-    using namespace vw;
-    size_t prior_ip = ip_list.size();
-    
-    typedef ImageView<typename ImageT::pixel_type> CropImageT;
-    const int width = 2*radius+1;
-    CropImageT subsection(width,width);   
-    
-    // Get shrunk bounding box
-    BBox2i bound = bounding_box( image.impl() );
-    bound.contract(radius); 
-    // Loop through all the points
-    for ( ip::InterestPointList::iterator ip = ip_list.begin(); ip != ip_list.end(); ++ip ) {
-      
-      // Remove the point if it was too close to the image borders
-      if ( !bound.contains( Vector2i(ip->ix,ip->iy) ) ) {
-        ip = ip_list.erase(ip);
-        ip--;
-        continue;
-      }
-
-      // Remove the point if any invalid pixels are too close to it
-      subsection = crop( image.impl(), ip->ix-radius, ip->iy-radius, width, width );
-      for ( typename CropImageT::iterator pixel = subsection.begin();
-	    pixel != subsection.end(); pixel++ ) {
-        if (*pixel <= nodata) {
-          ip = ip_list.erase(ip);
-          ip--;
-          break;
-        }
-      }
-    }
-    VW_OUT( DebugMessage, "asp" ) << "Removed " << prior_ip - ip_list.size()
-				  << " interest points due to their proximity to nodata values."
-				  << std::endl << "Nodata value used " << nodata << std::endl;
-  } // End function remove_ip_near_nodata
-
-
-
   /// Remove points in/out of a bounding box depending on "remove_outside".
   /// - Returns the number of points removed.
   /// TODO: MOVE THIS FUNCTION!
@@ -449,6 +340,9 @@ namespace asp {
     if (ip_per_tile != 0)
       points_per_tile = ip_per_tile;
 
+    const bool has_nodata1 = !boost::math::isnan(nodata1);
+    const bool has_nodata2 = !boost::math::isnan(nodata2);
+
     vw_out() << "Using " << points_per_tile << " interest points per tile (1024^2 px).\n";
 
     // Load the detection method from stereo_settings.
@@ -472,12 +366,12 @@ namespace asp {
       //  set those pixels to zero.
       
       vw_out() << "\t    Processing left image" << std::endl;
-      if ( boost::math::isnan(nodata1) )
+      if (!has_nodata1)
         ip1 = detect_interest_points( image1.impl(), detector, points_per_tile );
       else
         ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector, points_per_tile );
       vw_out() << "\t    Processing right image" << std::endl;
-      if ( boost::math::isnan(nodata2) )
+      if (!has_nodata2)
         ip2 = detect_interest_points( image2.impl(), detector, points_per_tile );
       else
         ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector, points_per_tile );
@@ -505,12 +399,12 @@ namespace asp {
       // These detectors do accept a mask so use one if applicable.
 
       vw_out() << "\t    Processing left image" << std::endl;
-      if ( boost::math::isnan(nodata1) )
+      if (!has_nodata1)
         ip1 = detect_interest_points( image1.impl(), detector, points_per_tile );
       else
         ip1 = detect_interest_points( create_mask_less_or_equal(image1.impl(),nodata1), detector, points_per_tile );
       vw_out() << "\t    Processing right image" << std::endl;
-      if ( boost::math::isnan(nodata2) )
+      if (!has_nodata2)
         ip2 = detect_interest_points( image2.impl(), detector, points_per_tile );
       else
         ip2 = detect_interest_points( create_mask_less_or_equal(image2.impl(),nodata2), detector, points_per_tile );
@@ -522,8 +416,8 @@ namespace asp {
 
     if (stereo_settings().ip_debug_images) {
       vw_out() << "\t    Writing detected IP debug images. " << std::endl;
-      write_point_image("InterestPointMatching__ip_detect_debug1.tif", image1, ip1);
-      write_point_image("InterestPointMatching__ip_detect_debug2.tif", image2, ip2);
+      write_ip_debug_image("ASP_IP_detect_debug1.tif", image1, ip1, has_nodata1, nodata1);
+      write_ip_debug_image("ASP_IP_detect_debug2.tif", image2, ip2, has_nodata2, nodata2);
     }
 
     sw.start();
@@ -563,11 +457,11 @@ namespace asp {
     if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
       vw_out() << "\t    Building descriptors" << std::endl;
       ip::SGradDescriptorGenerator descriptor;
-      if ( boost::math::isnan(nodata1) )
+      if (!has_nodata1)
         describe_interest_points( image1.impl(), descriptor, ip1 );
       else
         describe_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), descriptor, ip1 );
-      if ( boost::math::isnan(nodata2) )
+      if (!has_nodata2)
         describe_interest_points( image2.impl(), descriptor, ip2 );
       else
         describe_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), descriptor, ip2 );

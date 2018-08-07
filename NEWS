@@ -1,4 +1,4 @@
-*** RELEASE 2.6.1, TBA ***
+*** RELEASE 2.6.1, August X, 2018 ***
 
  - New satellites
    * Support Cartosat-1 and Perusat-1 RPC cameras.
@@ -8,6 +8,12 @@
      existing such models. 
    * Added camera_footprint as a helpful utility to show where
      images will project on to the ground.
+   * Documented and improved the ipfind and ipmatch tools.
+     ipfind is used to detect interest points in input images,
+     either to generate .vwip files for other tools or to 
+     experiment with different IP finding settings.
+     ipmatch matches the IPs contained in .vwip files to
+     create .match files.
 
  - New camera models
     * Added simple atmospheric refraction correction to the
@@ -96,6 +102,7 @@
    * Supports WV2 TDI = 32 in reverse scan direction.
 
  - Misc
+   * We now compile against USGS ISIS version 3.5.2.
    * The tools mapproject, dem_mosaic, dg_mosaic, and wv_correct support
      the --ot option, to round the output pixels to several types of
      integer, reducing storage, but perhaps decreasing accuracy.

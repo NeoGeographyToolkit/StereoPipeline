@@ -2940,6 +2940,95 @@ consecutive pixels to sample. Default: 50. \\ \hline
 
 \end{longtable}
 
+\clearpage
+
+
+\section{ipfind}
+\label{ipfind}
+
+The \texttt{ipfind} tool detects interest points (IPs) in images and writes them out to .vwip files.
+ASP is able to read these files to recover the IPs.  In addition to generating these files, 
+\texttt{ipfind} is a good tool to test out different IP detection settings using the output debug image.
+
+You can pass multiple input images to the tool and they will be processed one after the other.
+
+Usage:
+\begin{verbatim}
+  ipfind [options] <image> ...
+\end{verbatim}
+
+\begin{longtable}{|l|p{9.5cm}|}
+\caption{Command-line options for ipfind}
+\label{tbl:ipfind}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
+\texttt{-\/-interest-operator \textit{string}} & Choose an interest point metric from [IAGD (default), LoG, Harris, OBALoG, Orb, Sift]. \\ \hline
+\texttt{-\/-descriptor-generator \textit{string}} & Choose a descriptor generator from [patch, pca, sgrad, sift, sgrad2, orb]. The sift and orb types cannot be mixed.\\ \hline
+\texttt{-\/-max-points \textit{integer}} & Set the maximum number of IP per tile (default 250). \\ \hline
+\texttt{-\/-gain \textit{float}} & Increasing this number will increase the gain at which interest points are detected. Does not apply to Orb and Sift. (default 1.0). \\ \hline
+\texttt{-\/-single-scale } & Turn off scale-invariant interest point detection.  This option only searches for interest points in the first octave of the scale space. Harris and LoG only. \\ \hline
+\texttt{-\/-no-orientation } & Turn off rotation invariance. \\ \hline
+
+\texttt{-\/-output-folder \textit{string}} & Write output folders to this location. \\ \hline
+\texttt{-\/-debug-image \textit{integer}} & 0 = No debug images (default), 1 = Small debug images, 2 = full size debug images. \\ \hline
+\texttt{-\/-print-ip \textit{integer}} & Print information for this many detected IP.\\ \hline
+\texttt{-\/-per-tile-normalize} & Normalize each processing tile seperately.\\ \hline
+\texttt{-\/-nodata-radius} & Remove IP within this distance of nodata and image boundaries.\\ \hline
+\texttt{-\/-lowe} & Save results in an ASCII text format compatible with the Lowe-SIFT toolchain.\\ \hline
+\texttt{-\/-tile-size} & The tile size used to split up the image.\\ \hline
+\texttt{-\/-num-threads} & Number of simultaneous thread to use for computation.\\ \hline
+\end{longtable}
+
+
+\clearpage
+
+
+
+\section{ipmatch}
+\label{ipmatch}
+
+The \texttt{ipmatch} reads in interest points (IPs) from .vwip files and attempts to match them,
+writing out .match files containing these results.  Other ASP tools can read in these files.
+\texttt{ipmatch} also produces debug images which can be useful.  Note that this tool does not
+implement many of the IP matching steps that are used in \texttt{stereo\_pprc} and \texttt{stereo\_corr}
+since it does not use any sensor model information.
+
+If more than two image/vwip sets are passed in, each possible combination of images will be matched.
+
+Usage:
+\begin{verbatim}
+  ipmatch [options] <image 1> <vwip file 1> <image 2> <vwip file 2> ...
+\end{verbatim}
+
+\begin{longtable}{|l|p{9.5cm}|}
+\caption{Command-line options for ipmatch}
+\label{tbl:ipmatch}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
+\texttt{-\/-output-prefix \textit{string}} & Write output files using this prefix. \\ \hline
+\texttt{-\/-matcher-threshold \textit{float}} & Threshold for the seperation between closest and next closest interest points. Default 0.6\\ \hline
+\texttt{-\/-non-kdtree} & Use a non-KDTree version of the matching algorithm.\\ \hline
+\texttt{-\/-distance-metric \textit{string}} & Distance metric to use.  Choose one of: [L2 (default), Hamming (only for binary types like ORB)]. \\ \hline
+\texttt{-\/-ransac-constraint \textit{string}} & RANSAC constraint type.  Choose one of: [similarity, homography, fundamental, or none]. \\ \hline
+\texttt{-\/-inlier-threshold \textit{float}} & RANSAC inlier threshold. Default 10.\\ \hline
+\texttt{-\/-ransac-iterations \textit{integer}} & Number of RANSAC iterations.  Default 100.\\ \hline
+\texttt{-\/-debug-image|-d} & Set to write out debug images. \\ \hline
+\end{longtable}
+
+
+\clearpage
+
+
 \section{icebridge\_kmz\_to\_csv}
 \label{icebridgekmztocsv}
 
