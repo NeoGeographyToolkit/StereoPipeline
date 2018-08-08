@@ -374,6 +374,14 @@ def fetch_files( url, output_folder, image_type='RED' ):
     
     return image_list
 
+def get_ccd(path):
+    '''Returns the CCD number of a filename.'''
+    
+    filename = os.path.basename(path)
+    parts    = filename.split('_')
+    ccd      = int(parts[3][-1])
+    return ccd
+
 #----------------------------
 
 def main():
@@ -392,7 +400,7 @@ def main():
                               help="Pick back up after spiceinit has happened or jigsaw. This was noproj uses your new camera information")
             parser.add_option("-t", "--threads", dest="threads",
                               help="Number of threads to use.",type="int")
-            parser.add_option("-m", "--match", dest="match",
+            parser.add_option("-m", "--match", dest="match",type="int",
                               help="CCD number of match CCD")
             parser.add_option("-k", "--keep", action="store_false",
                               dest="delete",
@@ -414,11 +422,20 @@ def main():
             # Make sure there is a valid match CCD
             if len(args) % 2 != 0 and not options.resume_no_proj:
                 raise Exception('An even number of input CCD files is required!')
-            numCcds = len(args) / 2
-            if options.match >= numCcds:
-                print ('Warning: match argument is greater than number of input CCDs, forcing it lower!')
-                options.match = numCcds - 1
 
+
+            # Verify that we have both of the specified match CCD's.
+            matchCount = 0
+            for a in args:
+                if get_ccd(a) == options.match:
+                    matchCount += 1
+
+            if matchCount != 2:
+                print ('Error: Found ' + str(matchCount) + ' files for match CCD ' 
+                       + str(options.match) + ' instead of 2.')
+                return -1
+
+            numCcds = len(args) / 2
 
         except optparse.OptionError as msg:
             raise Usage(msg)
