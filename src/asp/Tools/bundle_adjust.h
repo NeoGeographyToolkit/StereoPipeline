@@ -668,8 +668,12 @@ public:
     vw::Vector3   T;
     for (int r = 0; r < 3; r++) 
       T[r] = M(r, 3);
-    double scale = 1.0;
-
+    
+    double scale = pow(det(R), 1.0/3.0);
+    for (size_t r = 0; r < R.rows(); r++)
+      for (size_t c = 0; c < R.cols(); c++)
+	R(r, c) /= scale;
+    
     for (size_t i=0; i< m_cameras.size(); ++i) {
       cam_ptr_t     cam_ptr = m_cameras[i];
       pin_cam_ptr_t pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cam_ptr);
