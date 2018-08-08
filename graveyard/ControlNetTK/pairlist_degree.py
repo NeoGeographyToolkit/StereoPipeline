@@ -49,7 +49,7 @@ def main():
             parser.set_defaults(ext="")
             parser.set_defaults(threads=4)
             parser.add_option("-a", "--angle", dest="angle",
-                              help="Max degree seperation between images.", type="float")
+                              help="Max degree separation between images.", type="float")
             parser.add_option("--iextension", dest="ext",
                               help="Output extension to use.", type="string")
             parser.add_option("-t", "--threads", dest="threads",

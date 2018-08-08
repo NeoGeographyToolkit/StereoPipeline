@@ -299,48 +299,37 @@ struct Options : public vw::cartography::GdalWriteOptions {
              individually_normalize(false), use_llh_error(false){}
 };
 
-// TODO: This update stuff should really be done somewhere else!
-//       Also the comments may be wrong.
-
-// This version does nothing, all camera parameters will start at zero,
-// unless an initial transform is to be applied.
-// - This is for the BundleAdjustmentModel class where the camera parameters
-//   are a rotation/offset that is applied on top of the existing camera model.
+// This is for the BundleAdjustmentModel class where the camera parameters
+// are a rotation/offset that is applied on top of the existing camera model.
+// First read initial adjustments, if any, and apply perhaps a pc_align transform.
 template<class ModelT> void
-update_cnet_and_init_cams(ModelT & ba_model, Options & opt,
-                          ControlNetwork& cnet,
-                          std::vector<double> & cameras_vec,
-                          std::vector<double> & intrinsics_vec){
-
-  if (opt.initial_transform_file != "" && opt.input_prefix != "")
-    vw_throw( ArgumentErr() << "Cannot have both input adjustments and an input transform.\n" );
-
-  // Read the pc_align transform from disk and apply it
-  if (opt.initial_transform_file != "")
-    ba_model.import_transform(opt.initial_transform, cameras_vec);
-
-  // Read the adjustments from a previous run
+init_cams(ModelT & ba_model, Options & opt,
+	  std::vector<double> & cameras_vec,
+	  std::vector<double> & intrinsics_vec){
+  
+  // Read the adjustments from a previous run, if present
   if (opt.input_prefix != "") {
     for (size_t icam = 0; icam < ba_model.num_cameras(); icam++){
       std::string adjust_file = asp::bundle_adjust_file_name(opt.input_prefix,
                                                              opt.image_files[icam],
                                                              opt.camera_files[icam]);
-
       ba_model.read_adjustment(icam, adjust_file, cameras_vec);
     }
   }
-  
+
+  // Read the pc_align transform from disk and apply it on top of the adjustment.
+  if (opt.initial_transform_file != "")
+    ba_model.import_transform(opt.initial_transform, cameras_vec, intrinsics_vec);
+
 }
 
 /// Specialization for pinhole cameras, copy the camera
 ///  parameters from the control network into the vectors.
 template<> void
-update_cnet_and_init_cams<BAPinholeModel>(
-                          BAPinholeModel & ba_model, Options & opt,
-                          ControlNetwork& cnet,
-                          std::vector<double> & cameras_vec,
-                          std::vector<double> & intrinsics_vec){
-
+init_cams<BAPinholeModel>(BAPinholeModel & ba_model, Options & opt,
+					  std::vector<double> & cameras_vec,
+					  std::vector<double> & intrinsics_vec){
+  
   // Set the size of cameras_vec
   const int num_cameras           = ba_model.num_cameras();
   const int num_params_per_camera = BAPinholeModel::camera_params_n;
@@ -350,7 +339,7 @@ update_cnet_and_init_cams<BAPinholeModel>(
 
   // First apply any transform to the pinhole cameras
   if (opt.initial_transform_file != "") 
-    ba_model.import_transform(opt.initial_transform, cameras_vec);
+    ba_model.import_transform(opt.initial_transform, cameras_vec, intrinsics_vec);
   
   // Copy the camera parameters from the model to cameras_vec
   int index = 0;
@@ -407,7 +396,7 @@ struct BaReprojectionError {
       // Copy the input data to structures expected by the BA model.
       typename ModelT::camera_intr_vector_t cam_intr_vec;
       double * intrinsics = NULL; // part of the interface
-      m_ba_model.concat_extrinsics_intrinsics(camera, intrinsics, cam_intr_vec);
+      (*m_ba_model).concat_extrinsics_intrinsics(camera, intrinsics, cam_intr_vec);
 
       typename ModelT::point_vector_t  point_vec;
       for (size_t p = 0; p < point_vec.size(); p++)
@@ -415,7 +404,7 @@ struct BaReprojectionError {
 
       // Project the current point into the current camera
       Vector2 prediction = (*m_ba_model).cam_pixel(m_ipt, m_icam, cam_intr_vec, point_vec);
-      
+
       // The error is the difference between the predicted and observed position,
       // normalized by sigma.
       residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0]; // Input units are pixels
@@ -2284,19 +2273,7 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
   std::vector<double> intrinsics_vec(num_intrinsic_params, 0.0);
 
   // Fill in the camera vectors with their starting values.
-  // TODO: This does not update the cnet anymore!
-  update_cnet_and_init_cams(ba_model, opt, (*opt.cnet), cameras_vec, intrinsics_vec);
-
-  /*
-  // DEBUG
-  std::cout << "Initial camera parameters: ";
-  for (size_t i=0; i<cameras_vec.size(); ++i)
-    std::cout << cameras_vec[i] << "  ";
-  std::cout << "\nInitial intrinsic parameters: ";
-  for (size_t i=0; i<intrinsics_vec.size(); ++i)
-    std::cout << intrinsics_vec[i] << "  ";
-  std::cout << std::endl;
-*/
+  init_cams(ba_model, opt, cameras_vec, intrinsics_vec);
 
   // Points
   std::vector<double> points_vec(num_points*num_point_params, 0.0);
@@ -3178,7 +3155,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
           "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the create-pinhole-cameras option.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix), "Prefix to read initial adjustments from, written by a previous invocation of this program.")
     ("initial-transform", po::value(&opt.initial_transform_file)->default_value(""),
-     "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step.")
+     "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. If --input-adjustments-prefix is specified, the transform gets applied after the adjustments are read.")
     ("fixed-camera-indices",    po::value(&opt.fixed_cameras_indices_str)->default_value(""),
      "A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.")
     ("fix-gcp-xyz",  po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),

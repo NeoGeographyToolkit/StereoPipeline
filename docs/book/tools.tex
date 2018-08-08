@@ -272,7 +272,7 @@ One can then invoke
   stereo_gui A.tif B.tif C.tif run/run
 \end{verbatim}
 
-and turn on viewing of interest point mathes to study if they were
+and turn on viewing of interest point matches to study if they were
 ``unmapped'' to the right locations.
 
 \subsubsection{Creating GCP}
@@ -474,6 +474,14 @@ directly to stereo:
   stereo file1.JPG file2.JPG run_ba/run-file1.tsai run_ba/run-file2.tsai run_stereo/run
 \end{verbatim} 
 
+The \texttt{bundle\_adjust} program can read camera adjustments from a
+previous run, via \texttt{-\/-input-adjustments-prefix
+\textit{string}}. It can also apply to the input cameras a transform as
+output by \texttt{pc\_align}, via \texttt{-\/-initial-transform
+\textit{string}}.  This is useful if a DEM produced by ASP was aligned
+to a ground truth, and it is desired to apply the same alignment to the
+cameras that were used to create that DEM.
+
 \begin{longtable}{|l|p{8.0cm}|}
 \caption{Command-line options for bundle\_adjust}
 \label{tbl:bundleadjust}
@@ -573,7 +581,7 @@ in the input image files to match locations to cameras.\\ \hline
 
 \texttt{-\/-input-adjustments-prefix \textit{string}} & Prefix to read initial adjustments from, written by a previous invocation of this program. \\ \hline
 
-\texttt{-\/-initial-transform \textit{string}} & Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc\_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. \\ \hline
+\texttt{-\/-initial-transform \textit{string}} & Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc\_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. If --input-adjustments-prefix is specified, the transform gets applied after the adjustments are read. \\ \hline
 
 \texttt{-\/-fixed-camera-indices \textit{string}} & A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.
 \\ \hline
@@ -1637,7 +1645,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-dem-file \textit{string}} & Intersect with this DEM instead of a datum. \\ \hline
 \texttt{-\/-datum \textit{string}} & Use this datum to interpret the heights.
 Options are: WGS\_1984, D\_MOON, D\_MARS, and MOLA. \\ \hline
-\texttt{-\/-t\_srs} & Specify the GeoReference projection (PROJ.4 string).\\ \hline
+\texttt{-\/-t\_srs} & Specify the georeference projection (PROJ.4 string).\\ \hline
 \texttt{-\/-session-type|-t} & Select the stereo session type to use for processing. Normally this is autodetected. \\ \hline
 \texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
 adjustment obtained by previously running bundle\_adjust with this
@@ -1738,7 +1746,7 @@ D\_MARS and MOLA datums).  The underlying Proj.4 library does have some support 
 vertical datums (see \url{https://github.com/OSGeo/proj.4/wiki/VerticalDatums}) so
 a motivated user may be able to apply them successfully.  If you do, let us know what
 steps you took so we can add them to the manual!  ASP ships with some vertical datum
-grid files in the ASP/share/proj folder but more can be found on the internet.  Whenever
+grid files in the ASP/share/proj folder but more can be found on the Internet.  Whenever
 you perform datum conversions be careful; the Proj.4 library tends to fail silently by
 performing an identity transform on the input data.  If your output data exactly matches
 your input data this means that something has probably gone wrong.
@@ -1746,7 +1754,7 @@ your input data this means that something has probably gone wrong.
 The tool will try to automatically find
 datum information from the input file but the input datum can be manually specified
 if the information in the file is missing or incorrect.  Be aware that if the 
-\texttt{-\/-keep-bounds} option is not set there may be noticable changes in
+\texttt{-\/-keep-bounds} option is not set there may be noticeable changes in
 the image data just from re-interpolating to the new projected space grid.  In
 the case of sparsely sampled input images this effect can be much larger than the
 changes resulting from the actual datum transformation.
@@ -1758,7 +1766,7 @@ task which may need to account for things like shifting tectonic plates
 over time.  ASP's implementation is based on Proj.4 and the HTDPGrids
 extension (\url{https://github.com/OSGeo/proj.4/wiki/HTDPGrids}).
 Datum support in Proj.4 is not robust even with the extension so if it is 
-critical that you have a very accurate conversion we reccomend that you attempt 
+critical that you have a very accurate conversion we recommend that you attempt 
 to verify results obtained using \texttt{datum\_convert} with another conversion method.
 
 This tool requires the gdal and numpy Python packages to run.  One way to get these is 
@@ -2986,7 +2994,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-output-folder \textit{string}} & Write output folders to this location. \\ \hline
 \texttt{-\/-debug-image \textit{integer}} & 0 = No debug images (default), 1 = Small debug images, 2 = full size debug images. \\ \hline
 \texttt{-\/-print-ip \textit{integer}} & Print information for this many detected IP.\\ \hline
-\texttt{-\/-per-tile-normalize} & Normalize each processing tile seperately.\\ \hline
+\texttt{-\/-per-tile-normalize} & Normalize each processing tile separately.\\ \hline
 \texttt{-\/-nodata-radius} & Remove IP within this distance of nodata and image boundaries.\\ \hline
 \texttt{-\/-lowe} & Save results in an ASCII text format compatible with the Lowe-SIFT toolchain.\\ \hline
 \texttt{-\/-tile-size} & The tile size used to split up the image.\\ \hline
@@ -3025,7 +3033,7 @@ Usage:
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message. \\ \hline
 \texttt{-\/-output-prefix \textit{string}} & Write output files using this prefix. \\ \hline
-\texttt{-\/-matcher-threshold \textit{float}} & Threshold for the seperation between closest and next closest interest points. Default 0.6\\ \hline
+\texttt{-\/-matcher-threshold \textit{float}} & Threshold for the separation between closest and next closest interest points. Default 0.6\\ \hline
 \texttt{-\/-non-kdtree} & Use a non-KDTree version of the matching algorithm.\\ \hline
 \texttt{-\/-distance-metric \textit{string}} & Distance metric to use.  Choose one of: [L2 (default), Hamming (only for binary types like ORB)]. \\ \hline
 \texttt{-\/-ransac-constraint \textit{string}} & RANSAC constraint type.  Choose one of: [similarity, homography, fundamental, or none]. \\ \hline

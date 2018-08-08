@@ -52,12 +52,14 @@
      to penalize large rotation and translation changes.
    * Added the option --fixed-camera-indices to keep some cameras
      fixed while optimizing others. 
+   * Can read the adjustments from a previous invocation of this
+     program via --input-adjustments-prefix.
    * Can read each of pc_align's output transforms and apply it
      to the input cameras via --initial-transform, to be able to 
      bring the cameras in the same coordinate system as the aligned
-     terrain.
-   * Can read the adjustments from a previous invocation of this
-     program via --input-adjustments-prefix.
+     terrain. If --input-adjustments-prefix is specified as well,
+     the input adjustments are read first, and the pc_align 
+     transform is applied on top.
    * Renamed --local-pinhole to --create-pinhole-cameras.
    * Added the parameter --nodata-value to ignore pixels at and below
      a threshold.

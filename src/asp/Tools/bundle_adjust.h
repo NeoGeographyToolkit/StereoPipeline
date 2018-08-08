@@ -283,18 +283,38 @@ public:
     }
   }
 
-  // Given a transform with origin at the planet center, apply it to
-  // the adjustments, and save it in the adjustments vector.
+  // Given a transform with origin at the planet center, like output
+  // by pc_align, read the adjustments form cameras_vec, apply this
+  // transform on top of them, and write the adjustments back to this
+  // vector.
   void import_transform(vw::Matrix4x4 const& M,
-                       std::vector<double> & cameras_vec){
+			std::vector<double> & cameras_vec,
+			std::vector<double> & intrinsics_vec){
 
-    for ( unsigned j = 0; j < m_cam_vec.size(); j++ ) {
-      
-      vw::camera::AdjustedCameraModel cam(m_cameras[j]);
+    for (unsigned j = 0; j < m_cam_vec.size(); j++) {
+
+      // Copy the adjustments from cameras_vec to structures expected by the BA model.
+      camera_intr_vector_t cam_intr_vec;
+      double * intrinsics = NULL;
+      if (!intrinsics_vec.empty()) 
+	intrinsics = &intrinsics_vec[0];
+      double * camera = &cameras_vec[camera_params_n*j];
+      concat_extrinsics_intrinsics(camera, intrinsics, cam_intr_vec);
+
+      // Create the adjusted camera model
+      vw::Vector3 position_correction;
+      vw::Quat    pose_correction;
+      parse_camera_parameters(cam_intr_vec, position_correction, pose_correction);
+      vw::camera::AdjustedCameraModel cam(m_cameras[j],
+					  position_correction,
+					  pose_correction);
+
+      // Apply the transform
       cam.apply_transform(M);
 
-      vw::Vector3 position_correction = cam.translation();
-      vw::Quat    pose_correction     = cam.rotation();
+      // Copy back the adjustments to cameras_vec.
+      position_correction = cam.translation();
+      pose_correction     = cam.rotation();   
       pack_camera_params_base(*this, &cameras_vec[camera_params_n*j],
                               position_correction, pose_correction);
     }
@@ -641,7 +661,8 @@ public:
   // it is enough to keep this internal, and it will be fetched from
   // the model when need be.
   void import_transform(vw::Matrix4x4 const& M,
-                       std::vector<double> & cameras_vec){
+			std::vector<double> & cameras_vec,
+			std::vector<double> & intrinsics_vec){
 
     vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
     vw::Vector3   T;
