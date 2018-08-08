@@ -873,7 +873,8 @@ namespace vw { namespace gui {
 
       // Don't show files the user wants hidden
       string fileName = m_images[i].name;
-      if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
+      if (m_filesToHide.find(fileName) != m_filesToHide.end())
+        continue;
 
       // The portion of the image in the current view. 
       BBox2 world_box = m_current_view; 
@@ -882,7 +883,8 @@ namespace vw { namespace gui {
 
       // This is a bugfix for the case when the world boxes 
       // of images do not overlap.
-      if (world_box.empty()) continue;
+      if (world_box.empty())
+        continue;
 
       // See where it fits on the screen
       BBox2i screen_box;
@@ -1037,12 +1039,19 @@ namespace vw { namespace gui {
         highlight_last = true;
     }
 
+    // Needed for image2word
+    size_t trans_image_id = m_image_id;
+    if (trans_image_id >= m_world2image_geotransforms.size()) // TODO: Cleaner way to determine this?
+      trans_image_id = 0;
+
     // For each IP...
     for (size_t ip_iter = 0; ip_iter < ip.size(); ip_iter++) {
       // Generate the pixel coord of the point
       double x = ip[ip_iter].x;
       double y = ip[ip_iter].y;
-      Vector2 P = world2screen(Vector2(x, y));
+      
+      Vector2 world = image2world(Vector2(x, y), trans_image_id);
+      Vector2 P = world2screen(world);
       QPoint Q(P.x(), P.y());
 
       // Skip the point if none of the valid regions contain it
@@ -2704,8 +2713,8 @@ namespace vw { namespace gui {
       if (!m_selectionRectangles[it].contains(P)) {
         curr_rects.push_back(m_selectionRectangles[it]);
       }else{
-	QRect R = bbox2qrect(world2screen(m_selectionRectangles[it]));
-	updateRubberBand(R); // mark that later we should redraw this polygonal line
+        QRect R = bbox2qrect(world2screen(m_selectionRectangles[it]));
+        updateRubberBand(R); // mark that later we should redraw this polygonal line
       }
     }
     m_selectionRectangles = curr_rects;
@@ -2737,10 +2746,10 @@ namespace vw { namespace gui {
       QTableWidgetItem *item = filesTable->item(i, 0);
 
       if (image_box.empty()) {
-	item->setCheckState(Qt::Unchecked);
-	m_filesToHide.insert(fileName);
+        item->setCheckState(Qt::Unchecked);
+        m_filesToHide.insert(fileName);
       }else{
-	item->setCheckState(Qt::Checked);
+        item->setCheckState(Qt::Checked);
       }	
       
     }
