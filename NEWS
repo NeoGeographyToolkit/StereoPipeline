@@ -1,3 +1,18 @@
+*** RELEASE 2.6.x ***
+
+ - pc_align
+   * When pc_align is initialized via --initial-transform or
+    --initial-ned-translation, the translation vector is now computed
+    starting from the source points before any of these initial
+    transforms are applied, rather than after. The end point of this
+    vector is still the source points after alignment to the
+    reference. This is consistent with the alignment transform output
+    by the tool, which also is from the source points before any
+    initial alignment and to the reference points.
+
+   * The translation vector was expressed incorrectly in the
+     North-East-Down coordinate system, that is now fixed.
+
 *** RELEASE 2.6.1, August 9, 2018 ***
 
  - New satellites

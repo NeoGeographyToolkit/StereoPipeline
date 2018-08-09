@@ -366,9 +366,10 @@ PointMatcher<RealT>::Matrix apply_shift(PointMatcher<RealT>::Matrix const& T,
   return T2;
 }
 
-
-
-void calc_translation_vec(DP const& source, DP const& trans_source,
+// Compute the translation vector from the source points (before any initial alignment
+// applied to them), and the source points after alignment.   
+void calc_translation_vec(PointMatcher<RealT>::Matrix const& initT,
+			  DP const& source, DP const& trans_source,
                           vw::Vector3 & shift, // from planet center to current origin
                           vw::cartography::Datum const& datum,
                           vw::Vector3 & source_ctr_vec,
@@ -377,11 +378,19 @@ void calc_translation_vec(DP const& source, DP const& trans_source,
                           vw::Vector3 & trans_ned,
                           vw::Vector3 & trans_llh){
 
+  // The center of gravity of the source points (after the initial transform is applied to them)
   Eigen::VectorXd source_ctr
     = source.features.rowwise().sum() / source.features.cols();
+
+  // Undo the initial transform, if any 
+  PointMatcher<RealT>::Matrix invInitT = initT.inverse();
+  source_ctr = invInitT*source_ctr;
+
+  // The center of gravity of the source points after aligning to the reference cloud
   Eigen::VectorXd trans_source_ctr
     = trans_source.features.rowwise().sum() / trans_source.features.cols();
 
+  // Copy to VW's vectors
   vw::Vector3 trans_source_ctr_vec;
   for (int row = 0; row < DIM; row++){
     source_ctr_vec[row]       = source_ctr(row, 0);
@@ -399,14 +408,18 @@ void calc_translation_vec(DP const& source, DP const& trans_source,
   trans_llh = trans_source_ctr_llh - source_ctr_llh;
 
   vw::Matrix3x3 M = datum.lonlat_to_ned_matrix(subvector(source_ctr_llh, 0, 2));
-  trans_ned = M*trans_xyz;
+  trans_ned = inverse(M)*trans_xyz;
 }
 
+// Calculate the maximum displacement from the source points (after
+// any initial transform is applied to them) to the source points
+// after alignment with the reference.
 void calc_max_displacment(DP const& source, DP const& trans_source){
 
   double max_obtained_disp = 0.0;
   int numPts = source.features.cols();
   for(int col = 0; col < numPts; col++){
+      
     vw::Vector3 s, t;
     for (int row = 0; row < DIM; row++){
       s[row] = source.features(row, col);

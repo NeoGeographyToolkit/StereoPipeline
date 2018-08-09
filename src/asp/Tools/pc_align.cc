@@ -1286,8 +1286,8 @@ int main( int argc, char *argv[] ) {
     calc_max_displacment(source_point_cloud, trans_source_point_cloud);
     Vector3 source_ctr_vec, source_ctr_llh;
     Vector3 trans_xyz, trans_ned, trans_llh;
-    calc_translation_vec(source_point_cloud, trans_source_point_cloud, shift, geo.datum(),
-                         source_ctr_vec, source_ctr_llh,
+    calc_translation_vec(initT, source_point_cloud, trans_source_point_cloud, shift,
+			 geo.datum(), source_ctr_vec, source_ctr_llh,
                          trans_xyz, trans_ned, trans_llh);
 
     // For each point, compute the distance to the nearest reference point.

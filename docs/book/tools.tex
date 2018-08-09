@@ -1884,7 +1884,11 @@ be set to something large but still reasonable, as the tool is able to
 throw away a certain number of unmatched outliers. At the end of
 alignment, \texttt{pc\_align} will display the {\it observed} maximum
 displacement, a multiple of which can be used to seed the tool in a
-subsequent run.
+subsequent run. If an initial transform is applied to the source cloud
+(section \ref{prevtrans}), the outliers are thrown out \textit{after} this
+operation. The observed maximum displacement is also between the source
+points with this transform applied and the source points after alignment
+to the reference.
 
 The user can choose how many points to pick from the reference and
 source point clouds to perform the alignment. The amount of memory and
@@ -1952,34 +1956,16 @@ specified via the \texttt{-\/-datum} option, or by setting
 
 The transform obtained by \texttt{pc\_align} is output to a text file as
 a $4\times 4$ matrix with the upper-left $3\times 3$ submatrix being the
-rotation (and potentially also a scale, per section \ref{align-method}) and
-the top three elements of the right-most column being the
+rotation (and potentially also a scale, per section \ref{align-method})
+and the top three elements of the right-most column being the
 translation. This transform, if applied to the source point cloud, will
 bring it in alignment with the reference point cloud. The transform
 assumes the 3D Cartesian coordinate system with the origin at the planet
-center. This matrix can be supplied back to the tool as an initial guess
-(section \ref{prevtrans}). The inverse transform is saved to a file as
-well.
+center (known as ECEF). This matrix can be supplied back to the tool as
+an initial guess (section \ref{prevtrans}). The inverse transform is
+saved to a file as well.
 
-The \texttt{pc\_align} program outputs the translation component of this
-transform, defined as the vector from the centroid of the original
-source points to the centroid of the transformed source points. This
-translation component is displayed in three ways (a) Cartesian
-coordinates with the origin at the planet center, (b) Local
-North-East-Down coordinates at the centroid of the original source
-points, and (c) Latitude-Longitude-Height differences between the two
-centroids. If the effect of the transform is small (e.g., the points
-moved by at most several hundred meters) then the representation in the
-form (b) above is most amenable to interpretation as it is in respect
-to cardinal directions and height above ground if standing at a point on
-the planet surface.
-
-The full transform itself, with its origin at the center of the planet,
-can result in large movements on the planet surface even for small angles
-of rotation. Because of this it may be difficult to interpret both its rotation
-and translation components.
-
-\subsection{Applying a previous transform}
+\subsection{Applying an initial transform}
 \label{prevtrans}
 
 The transform output by \texttt{pc\_align} can be supplied back to the
@@ -1991,11 +1977,46 @@ first finding the alignment transform over a smaller, more reliable
 region (e.g., over rock, excluding moving ice), then extending it over the entire
 available dataset.
 
+Alternatively, one can apply to the source cloud an initial shift,
+expressed in the North-East-Down coordinate system at the centroid of
+the source points, before the alignment algorithm is invoked. Hence, if
+it is desired to move the source cloud North by 5 m, East by 10 m, and
+down by 15 m relative to the point on planet surface which is the
+centroid of the source points, one can
+invoke \texttt{pc\_align} with \texttt{-\/-initial-ned-translation '5 10
+15'} (notice the quotes).
+
+If an initial transform is used, the alignment transform output by the
+program will be from the source points \textit{before} the initial transform,
+hence the output alignment transform will incorporate the initial transform.
+
+\subsection{Interpreting the transform}
+
+The alignment transform, with its origin at the center of the planet,
+can result in large movements on the planet surface even for small
+angles of rotation. Because of this it may be difficult to interpret
+both its rotation and translation components.
+
+The \texttt{pc\_align} program outputs the translation component of this
+transform, defined as the vector from the centroid of the original
+source points (before any initial transform applied to them) to the
+centroid of the source points with the computed alignment transform
+applied to them. This translation component is displayed in three ways
+(a) Cartesian coordinates with the origin at the planet center, (b)
+Local North-East-Down coordinates at the centroid of the source points
+(before any initial transform), and (c) Latitude-Longitude-Height
+differences between the two centroids. If the effect of the transform is
+small (e.g., the points moved by at most several hundred meters) then
+the representation in the form (b) above is most amenable to
+interpretation as it is in respect to cardinal directions and height
+above ground if standing at a point on the planet surface.
+
 \subsection{Error metrics and outliers}
 
 The tool outputs to CSV files the lists of errors together with their
-locations in the source point cloud, before and after the alignment of
-source points, where an error is defined as the distance from a source
+locations in the source point cloud, before the alignment of the source
+points (but after applying any initial transform), and also after the alignment
+computed by the tool. An error is defined as the distance from a source
 point used in alignment to the closest reference point. The format of
 output CSV files is the same as of input CSV files, or as given by
 \texttt{-\/-csv-format}, although any columns of extraneous data in the
