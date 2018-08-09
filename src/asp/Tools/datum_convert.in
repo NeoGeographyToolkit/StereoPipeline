@@ -49,6 +49,9 @@ import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils, asp_str
 import asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
+# Try this up front so the user gets a good error message if it is missing
+from osgeo import gdal
+
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
@@ -241,7 +244,9 @@ def createShiftFile(input_proj, lonlat_bounds, options, grid_path):
         cmd += ' -kwf'
     asp_system_utils.executeCommand(cmd, suppressOutput=(not options.show_grid_calc),
                                     outputPath=grid_path)
-    
+    if not os.path.exists(grid_path):
+        raise Exception('Failed to create grid shift file, run with --show-grid-calc to see error.')
+        
     return (True, grid_path)
 
 
