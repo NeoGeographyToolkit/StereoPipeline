@@ -57,7 +57,8 @@
    * Can read each of pc_align's output transforms and apply it
      to the input cameras via --initial-transform, to be able to 
      bring the cameras in the same coordinate system as the aligned
-     terrain. If --input-adjustments-prefix is specified as well,
+     terrain (the initial transform can have a rotation, translation,
+     and scale). If --input-adjustments-prefix is specified as well,
      the input adjustments are read first, and the pc_align 
      transform is applied on top.
    * Renamed --local-pinhole to --create-pinhole-cameras.
