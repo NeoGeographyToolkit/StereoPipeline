@@ -1205,6 +1205,13 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
                         const size_t num_cameras,
                         Options const& opt) {
 
+  std::string output_path = output_prefix + "_point_log.csv";
+
+  if (opt.datum.name() == UNSPECIFIED_DATUM) {
+    vw_out(WarningMessage) << "No datum specified, can't write file: " << output_path << std::endl;
+    return;
+  }
+
   // Mean residual, and how many times that residual is seen
   std::vector<double> mean_residuals;
   std::vector<int>  num_point_observations;
@@ -1214,7 +1221,6 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
 				mean_residuals, num_point_observations);
   
   // Open the output file and write the header
-  std::string output_path = output_prefix + "_point_log.csv";
   vw_out() << "Writing: " << output_path << std::endl;
   
   std::ofstream file;
@@ -1535,7 +1541,7 @@ int update_outliers(ControlNetwork                  & cnet,
 
   int num_new_outliers     = new_outliers.size() - outlier_xyz.size();
   int num_remaining_points = num_points - new_outliers.size();
-  vw_out() << "Removed " << num_new_outliers << " outliers, now have "
+  vw_out() << "Removed " << num_new_outliers << " outliers by reprojection error, now have "
            << num_remaining_points << " points remaining.\n";
 
   // Overwrite the outliers
@@ -1544,6 +1550,81 @@ int update_outliers(ControlNetwork                  & cnet,
   return num_new_outliers;
 }
 
+/// Remove the outliers flagged earlier
+void remove_outliers(ControlNetwork const& cnet, std::set<int> & outlier_xyz,
+		     Options const& opt, size_t num_cameras){
+
+  // Work on individual image pairs
+  typedef std::map< std::pair<int, int>, std::string>::const_iterator match_type;
+  for (match_type match_it = opt.match_files.begin(); match_it != opt.match_files.end();
+       match_it++){
+
+    std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+      
+    std::pair<int, int> cam_pair   = match_it->first;
+    std::string         match_file = match_it->second;
+    size_t left_cam  = cam_pair.first;
+    size_t right_cam = cam_pair.second;
+
+    // Iterate over the control network, and, for each control point,
+    // look only at the measure for left_cam and right_cam
+    int ipt = -1;
+    for ( ControlNetwork::const_iterator iter = cnet.begin();
+	  iter != cnet.end(); ++iter ) {
+
+      ipt++; // control point index
+
+      // Skip gcp
+      if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
+	continue;
+      }
+        
+      bool has_left = true, has_right = false;
+      ip::InterestPoint lip, rip;
+      for ( ControlPoint::const_iterator measure = (*iter).begin();
+	    measure != (*iter).end(); ++measure ) {
+	if (measure->image_id() == left_cam) {
+	  has_left = true;
+	  lip = ip::InterestPoint( measure->position()[0], measure->position()[1],
+				   measure->sigma()[0] );
+	}else if (measure->image_id() == right_cam) {
+	  has_right = true;
+	  rip = ip::InterestPoint( measure->position()[0], measure->position()[1],
+				   measure->sigma()[0] );
+	}
+      }
+
+      // Keep only ip for these two images
+      if (!has_left || !has_right) continue;
+
+      if (outlier_xyz.find(ipt) != outlier_xyz.end())
+	continue; // skip outliers
+
+      left_ip.push_back(lip);
+      right_ip.push_back(rip);        
+    }
+    
+    // Filter by disparity
+    asp::filter_ip_by_disparity(opt.remove_outliers_by_disp_params[0],
+				opt.remove_outliers_by_disp_params[1],
+				left_ip, right_ip);
+      
+    if ( num_cameras == 2 ){
+      // TODO: Move this into the IP finding code!
+      // Compute the coverage fraction
+      Vector2i right_image_size = file_image_size(opt.image_files[1]);
+      int right_ip_width = right_image_size[0]*
+	static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
+      Vector2i ip_size(right_ip_width, right_image_size[1]);
+      double ip_coverage = calc_ip_coverage_fraction(right_ip, ip_size);
+      // Careful with the line below, it gets used in process_icebridge_batch.py.
+      vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << "\n";
+    }
+      
+    vw_out() << "Writing: " << match_file << std::endl;
+    ip::write_binary_match_file(match_file, left_ip, right_ip);
+  }  
+}
 
 // TODO: Move this somewhere else?
 /// Create a KML file containing the positions of the given points.
@@ -2162,88 +2243,9 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
                       cam_residual_counts,  
                       num_gcp_residuals, reference_vec, problem);
 
-  // Create a match file with clean points.
-  // TODO: Make this a function.
-  // TODO: Create this for every pair of images.
-  if (opt.num_ba_passes > 1 && num_new_outliers > 0) {
-
-    vw_out() << "Building clean IP list...\n";
-
-    for (std::map< std::pair<int, int>, std::string>::iterator match_it = opt.match_files.begin();
-	 match_it != opt.match_files.end(); match_it++){
-
-      std::vector<vw::ip::InterestPoint> left_ip, right_ip;
-      
-      std::pair<int, int> cam_pair   = match_it->first;
-      std::string         match_file = match_it->second;
-      size_t left_cam  = cam_pair.first;
-      size_t right_cam = cam_pair.second;
-
-      // Iterate over the control network, and, for each control point,
-      // look only at the measure for left_cam and right_cam
-      int ipt = -1;
-      for ( ControlNetwork::const_iterator iter = cnet.begin();
-	    iter != cnet.end(); ++iter ) {
-
-	ipt++; // control point index
-
-        // Skip gcp
-        if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
-          continue;
-        }
-        
-	bool has_left = true, has_right = false;
-        ip::InterestPoint lip, rip;
-	for ( ControlPoint::const_iterator measure = (*iter).begin();
-	      measure != (*iter).end(); ++measure ) {
-	  if (measure->image_id() == left_cam) {
-	    has_left = true;
-            lip = ip::InterestPoint( measure->position()[0], measure->position()[1],
-                                         measure->sigma()[0] );
-	  }else if (measure->image_id() == right_cam) {
-	    has_right = true;
-            rip = ip::InterestPoint( measure->position()[0], measure->position()[1],
-                                          measure->sigma()[0] );
-	  }
-	}
-
-	// Keep only ip for these two images
-	if (!has_left || !has_right) continue;
-
-	if (outlier_xyz.find(ipt) != outlier_xyz.end())
-          continue; // skip outliers
-
-        left_ip.push_back(lip);
-        right_ip.push_back(rip);        
-      }
-    
-      // Book-keeping, a given left ip and right ip must correspond to same xyz
-      if (left_ip.size() != right_ip.size()) 
-        vw_throw(ArgumentErr() << "Book-keeping error 1 in bundle adjustment.\n");
-      
-      // Filter by disparity, but only for two cameras. 
-      asp::filter_ip_by_disparity(opt.remove_outliers_by_disp_params[0],
-				  opt.remove_outliers_by_disp_params[1],
-				  left_ip, right_ip);
-      
-      if ( num_cameras == 2 ){
-        // TODO: Move this into the IP finding code!
-        // Compute the coverage fraction
-        Vector2i right_image_size = file_image_size(opt.image_files[1]);
-        int right_ip_width = right_image_size[0]*
-          static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
-        Vector2i ip_size(right_ip_width, right_image_size[1]);
-        double ip_coverage = calc_ip_coverage_fraction(right_ip, ip_size);
-        // Careful with the line below, it gets used in process_icebridge_batch.py.
-        vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << "\n";
-      }
-      
-      //std::string match_file = opt.out_prefix  + "-clean.match";
-      vw_out() << "Writing: " << match_file << std::endl;
-      ip::write_binary_match_file(match_file, left_ip, right_ip);
-    }
-    
-  } // End outlier update case
+  // Remove flagged outliers and overwrite the match files.
+  if (opt.num_ba_passes > 1 && num_new_outliers > 0) 
+    remove_outliers(cnet, outlier_xyz, opt, num_cameras);
       
   return num_new_outliers;
 }

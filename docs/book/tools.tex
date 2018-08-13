@@ -446,8 +446,10 @@ Example (for ISIS):
 Example (for Digital Globe Earth data, using ground control points):
 \begin{verbatim}
   bundle_adjust file1.tif file2.tif file1.xml file2.xml gcp_file.gcp \
-    --datum WGS_1984 -o run_ba/run
+    --datum WGS_1984 -o run_ba/run --num-passes 2
 \end{verbatim}
+Here, we invoked the tool with two passes, which also enables removal of outliers
+by reprojection error and disparity (the options below have more detail).
 
 Example (for generic pinhole camera data, using estimated camera positions):
 \begin{verbatim}
@@ -481,9 +483,80 @@ output by \texttt{pc\_align}, via \texttt{-\/-initial-transform
 \textit{string}}.  This is useful if a DEM produced by ASP was aligned
 to a ground truth, and it is desired to apply the same alignment to the
 cameras that were used to create that DEM. The initial transform can have
-a rotation, translation, and scale. 
+a rotation, translation, and scale, and it is applied after the input
+adjustments are read, if those are present. 
 
-\begin{longtable}{|l|p{8.0cm}|}
+If the \texttt{-\/-datum} option is specified, \texttt{bundle\_adjust}
+will write the mean absolute residuals (reprojection errors) for each
+triangulated point, before and after optimization. The files are named
+\begin{verbatim}
+  {output-prefix}-initial_residuals_no_loss_function_pointmap_point_log.csv
+\end{verbatim}
+and
+\begin{verbatim}
+  {output-prefix}-final_residuals_no_loss_function_pointmap_point_log.csv
+\end{verbatim}
+(there are also versions of these files incorporating the Ceres loss function,
+which attenuates large residuals, those have in their names \texttt{loss}
+rather than \texttt{no\_loss}). Such files can be inspected to see at which pixels
+the residual error is large. One can also invoke \texttt{point2dem} with the 
+\texttt{-\/-csv-format} option to grid these files for visualization in the GUI.
+Here is a sample file:
+
+\begin{verbatim}
+# lon, lat, height_above_datum, mean_residual, num_observations
+-55.1169093561696002, -69.3430771656333178, 4.82452381754674064, 0.114133363354161105, 2
+\end{verbatim}
+
+The field \texttt{num\_observations} counts how many images each point
+gets projected into.
+
+\subsection{Ground control points}
+
+A number of plain-text files containing ground control points (GCP) can be
+passed as inputs to \texttt{bundle\_adjust}.
+
+These can either be created by hand, or using \texttt{stereo\_gui}
+(section \ref{bagcp}).
+
+A GCP file must end with a .gcp extension, and contain one ground
+control point per line. Each line must have the following fields:
+\begin{itemize}
+\item ground control point id (integer)
+\item latitude (in degrees)
+\item longitude (in degrees)
+\item height above datum (in meters), with the datum itself specified separately
+\item $x, y, z$ standard deviations (three positive floating point
+  numbers, smaller values suggest more reliable measurements)
+\end{itemize}
+
+On the same line, for each image in which the ground control point is
+visible there should be:
+
+\begin{itemize}
+\item image file name
+\item column index in image (float)
+\item row index in image (float)
+\item column and row standard deviations (two positive floating point
+  numbers, smaller values suggest more reliable measurements)
+\end{itemize}
+
+The fields can be separated by spaces or commas. Here is a sample representation
+of a ground control point measurement:
+
+\begin{verbatim}
+5 23.7 160.1 427.1 1.0 1.0 1.0 image1.tif 124.5 19.7 1.0 1.0 image2.tif 254.3 73.9 1.0 1.0
+\end{verbatim}
+
+When the \texttt{-\/-use-lon-lat-height-gcp-error} flag is used, the
+three standard deviations are interpreted as applying not to $x, y, z$
+but to latitude, longitude, and height above datum (in this
+order). Hence, if the latitude and longitude are known accurately, while
+the height less so, the third standard deviation can be set to something
+larger.
+
+%\begin{longtable}{|l|p{8.0cm}|}
+\begin{longtable}{|p{8cm}|p{9cm}|}
 \caption{Command-line options for bundle\_adjust}
 \label{tbl:bundleadjust}
 \endfirsthead
@@ -575,11 +648,6 @@ Pixels with values less than or equal to this number are treated as no-data. Thi
 \texttt{-\/-create-pinhole-cameras} & If the input cameras are of the pinhole type, apply the adjustments directly to the cameras, rather than saving them separately as .adjust files. 
 \\ \hline
 
-\texttt{-\/-camera-positions \textit{filename}} & CSV file containing estimated positions of each camera.
-Only used with the create-pinhole-cameras setting to initialize global camera coordinates. If used,
-the csv-format setting must also be set.  The "file" field is searched for strings that are found
-in the input image files to match locations to cameras.\\ \hline
-
 \texttt{-\/-input-adjustments-prefix \textit{string}} & Prefix to read initial adjustments from, written by a previous invocation of this program. \\ \hline
 
 \texttt{-\/-initial-transform \textit{string}} & Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc\_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. If --input-adjustments-prefix is specified, the transform gets applied after the adjustments are read. \\ \hline
@@ -589,9 +657,26 @@ in the input image files to match locations to cameras.\\ \hline
 
 \texttt{-\/-fix-gcp-xyz} & If the GCP are highly accurate, use this option to not float them during the optimization.\\ \hline
 
+
+\texttt{-\/-use-lon-lat-height-gcp-error} & When having GCP, interpret the three standard deviations in the GCP file as applying not to x, y, and z, but rather to latitude, longitude, and height.\\ \hline
+
 \texttt{-\/-solve-intrinsics} & Optimize intrinsic camera parameters. Only used for pinhole cameras.\\ \hline
 
 \texttt{-\/-intrinsics-to-float arg} & If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal\_length, optical\_center, distortion\_params.\\ \hline
+
+\texttt{-\/-min-triangulation-angle \textit{double(=0.1)}} &
+The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
+\\ \hline
+
+\texttt{-\/-num-passes \textit{integer(=1)}} &
+How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using -\/-remove-outliers-params and -\/-remove-outliers-by-disparity-params, and re-optimization will take place. The match files will be overwritten with the outliers removed. Residual files with the outliers removed will be written to disk.
+\\ \hline
+
+\texttt{-\/-remove-outliers-params \textit{'pct factor err1 err2'}} &
+Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.\\ \hline
+
+\texttt{-\/-remove-outliers-by-disparity-params \textit{pct factor}} &
+Outlier removal based on the disparity of interest points (difference between right and left pixel), when more than one bundle adjustment pass is used. For example, the 10\% and 90\% percentiles of disparity are computed, and this interval is made three times bigger. Interest points whose disparity fall outside the expanded interval are removed as outliers. Instead of the default 90 and 3 one can specify pct and factor, without quotes.\\ \hline
 
 \texttt{-\/-reference-terrain arg} & An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras. See section \ref{floatingintrinsics}. \\ \hline
 
@@ -617,14 +702,17 @@ measured from planet center.\\ \hline
 interpret the entries in input CSV files, if those files contain Easting
 and Northing fields. \\ \hline
 
+\texttt{-\/-save-cnet-as-csv} & Save the initial control network containing all interest points in the format used by ground control points, so it can be inspected. \\ \hline
+
+\texttt{-\/-camera-positions \textit{filename}} & CSV file containing estimated positions of each camera.
+Only used with the create-pinhole-cameras setting to initialize global camera coordinates. If used,
+the csv-format setting must also be set.  The "file" field is searched for strings that are found
+in the input image files to match locations to cameras.\\ \hline
+
 \texttt{-\/-position-filter-dist \textit{double(=-1.0)}} &
 If estimated camera positions are used, this option can be used to set a threshold distance in meters
 between the cameras.  If any pair of cameras is farther apart than this distance, the tool will not
 attempt to find matching interest points between those two cameras.
-\\ \hline
-
-\texttt{-\/-min-triangulation-angle \textit{double(=0.1)}} &
-The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
 \\ \hline
 
 \texttt{-\/-mapprojected-data \textit{string}} &
@@ -640,48 +728,6 @@ lambda (ignored for the Ceres solver).\\ \hline
 get increasingly more verbose output. \\ \hline
 \end{longtable}
 
-The \texttt{bundle\_adjust} program will save the obtained adjustments
-(rotation and translation) for each camera in plain text files whose
-names start with the specified output prefix. This prefix can then be
-passed to \texttt{stereo} via the option
-\texttt{-\/-bundle-adjust-prefix}.
-
-\subsection{Ground control points}
-
-A number of plain-text files containing ground control points (GCP) can be
-passed as inputs to \texttt{bundle\_adjust}.
-
-These can either be created by hand, or using \texttt{stereo\_gui}
-(section \ref{bagcp}).
-
-A GCP file must end with a .gcp extension, and contain one ground
-control point per line. Each line must have the following fields:
-\begin{itemize}
-\item ground control point id (integer)
-\item latitude (in degrees)
-\item longitude (in degrees)
-\item height above datum (in meters), with the datum itself specified separately
-\item $x, y, z$ standard deviations (three positive floating point
-  numbers, smaller values suggest more reliable measurements)
-\end{itemize}
-
-On the same line, for each image in which the ground control point is
-visible there should be:
-
-\begin{itemize}
-\item image file name
-\item column index in image (float)
-\item row index in image (float)
-\item column and row standard deviations (two positive floating point
-  numbers, smaller values suggest more reliable measurements)
-\end{itemize}
-
-The fields can be separated by spaces or commas. Here is a sample representation
-of a ground control point measurement:
-
-\begin{verbatim}
-5 23.7 160.1 427.1 1.0 1.0 1.0 image1.tif 124.5 19.7 1.0 1.0 image2.tif 254.3 73.9 1.0 1.0
-\end{verbatim}
 
 \section{point2dem}
 \label{point2dem}

@@ -1,19 +1,4 @@
-*** RELEASE 2.6.x ***
-
- - pc_align
-   * When pc_align is initialized via --initial-transform or
-    --initial-ned-translation, the translation vector is now computed
-    starting from the source points before any of these initial
-    transforms are applied, rather than after. The end point of this
-    vector is still the source points after alignment to the
-    reference. This is consistent with the alignment transform output
-    by the tool, which also is from the source points before any
-    initial alignment and to the reference points.
-
-   * The translation vector was expressed incorrectly in the
-     North-East-Down coordinate system, that is now fixed.
-
-*** RELEASE 2.6.1, August 9, 2018 ***
+*** RELEASE 2.6.1, August 13, 2018 ***
 
  - New satellites
    * Support Cartosat-1 and Perusat-1 RPC cameras.
@@ -82,7 +67,24 @@
    * Added the ability to transfer interest points manually picked in
      mapprojected images to the the original unprojected images via
      --mapprojected-data.  
- 
+   * Added the flag --use-lon-lat-height-gcp-error. Then, if using
+     GCP, the three standard deviations are interpretted as applying
+     not to x, y, z but to latitude, longitude, and height above
+     datum (in this order). Hence, if the latitude and longitude are
+     known accurately, while the height less so, the third standard
+     deviation can be set to something much larger.
+   * Added the ability to do multiple passes of bundle adjustment,
+     removing outliers at each pass based on reprojection error and
+     disparity (difference of pixel value between images). This
+     works for any number of cameras. Match files are updated with
+     outliers removed. Controlled via --num-passes,
+     --remove-outliers-params and --remove-outliers-by-disparity-params.
+   * Added the option --save-cnet-as-csv, to save the control
+     network containing all interest points in the format used by
+     ground control points, so it can be inspected.
+   * If --datum is specified, bundle_adjust will save to disk
+     the reprojection errors before and after optimization. 
+
  - stereo_gui
    * Can view SPOT5 .BIL files.
 
@@ -91,6 +93,16 @@
      specified as a North-East-Down vector, to be used to correct known
      gross offsets before proceeding with alignment. The option is
      --initial-ned-translation.
+   * When pc_align is initialized via --initial-transform or
+    --initial-ned-translation, the translation vector is now computed
+    starting from the source points before any of these initial
+    transforms are applied, rather than after. The end point of this
+    vector is still the source points after alignment to the
+    reference. This is consistent with the alignment transform output
+    by the tool, which also is from the source points before any
+    initial alignment and to the reference points.
+   * The translation vector was expressed incorrectly in the
+     North-East-Down coordinate system, that is now fixed.
 
  - dem_mosaic
    * If the -o option value is specified as filename.tif, all mosaic will be
