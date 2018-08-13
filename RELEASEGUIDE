@@ -51,19 +51,19 @@ The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
 
 10.) Commit and tag the release in the ASP repo. Example: 
 
-  git tag v2.6.0 
+  git tag v2.6.1 
 
 Push the tags to the remote server with: 
 
- git push origin v2.6.0 # commit to your branch
- git push god    v2.6.0 # commit to main branch
+ git push origin v2.6.1 # commit to your branch
+ git push god    v2.6.1 # commit to main branch
 
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with:
 
-  git tag -d v2.6.0
-  git push origin :refs/tags/v2.6.0
-  git push god    :refs/tags/v2.6.0
+  git tag -d v2.6.1
+  git push origin :refs/tags/v2.6.1
+  git push god    :refs/tags/v2.6.1
 
 11.) Copy the new builds to the release area at
 /byss/docroot/stereopipeline/binaries. Also copy the documentation
