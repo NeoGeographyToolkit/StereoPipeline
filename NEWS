@@ -1,3 +1,13 @@
+*** RELEASE 2.6.2, Upcoming ***
+
+ - pc_align
+   * Added a new approach to finding an initial transform between
+     clouds, when they are DEMs, that may be more robust to large
+     scale or translation changes, or to noise. It is based on
+     hillshading the DEMs and finding interest point matches among
+     them, which are then used to find the transform. Can be invoked
+     with --initial-transform-from-hillshading.
+ 
 *** RELEASE 2.6.1, August 13, 2018 ***
 
  - New satellites
@@ -68,7 +78,7 @@
      mapprojected images to the the original unprojected images via
      --mapprojected-data.  
    * Added the flag --use-lon-lat-height-gcp-error. Then, if using
-     GCP, the three standard deviations are interpretted as applying
+     GCP, the three standard deviations are interpreted as applying
      not to x, y, z but to latitude, longitude, and height above
      datum (in this order). Hence, if the latitude and longitude are
      known accurately, while the height less so, the third standard
@@ -120,7 +130,7 @@
    * Added the option --orthoimage-hole-fill-extra-len to make hole-filling
      more aggressive by first extrapolating the cloud.
 
- - datum_convert:
+ - datum_convert
    * Rewrote the tool to depend on the Proj.4 HTDPGrids grid shift system.
      This fixed some situations where the tool was not working such as WGS84/NAD83
      conversions and also added support for datum realizations (versions).
@@ -129,7 +139,7 @@
      hopefully be improved with future releases.  Until then try to get external
      verification of results obtained with the datum_convert tool.
 
- - wv_correct:
+ - wv_correct
    * Supports WV2 TDI = 32 in reverse scan direction.
 
  - Misc

@@ -152,8 +152,7 @@ void calc_translation_vec(DP const& source, DP const& trans_source,
                           vw::Vector3 & trans_llh);
 
 /// Calculate max distance between any two points of two point clouds.
-void calc_max_displacment(DP const& source, DP const& trans_source);
-
+double calc_max_displacment(DP const& source, DP const& trans_source);
 
 /// Apply a transformation matrix to a Vector3 in homogenous coordinates
 vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 const& P);

@@ -1887,14 +1887,11 @@ Compress using laszip. \\ \hline
 \section{pc\_align}
 \label{pcalign}
 
-This tool can be used to align two point clouds using Point-to-Plane,
-Point-to-Point, or Similarity-Point-to-Point Iterative Closest Point
-(ICP). (The latter method handles a scale as part of the
-alignment transform, not just a rigid transformation.) As an alternative
-to ICP, it can use least squares (with outlier handling) to find the
-transform, if the reference cloud is a DEM. It uses the
-\texttt{libpointmatcher} library~\cite{Pomerleau12comp}
-(\url{https://github.com/ethz-asl/libpointmatcher}).
+This tool can be used to align two point clouds. The algorithms used are
+one of several flavors of Iterative Closest Point (ICP), based on
+the \texttt{libpointmatcher} library~\cite{Pomerleau12comp}
+(\url{https://github.com/ethz-asl/libpointmatcher}), feature-based alignment,
+and alignment using least squares. 
 
 \medskip
 Usage:
@@ -1945,14 +1942,15 @@ judiciously chosen regions may improve the accuracy and/or run-time.
 \subsection{Alignment method}
 \label{align-method}
 
-Normally Point-to-Plane ICP is more accurate than Point-to-Point, but
-the latter can be good enough if the input point clouds have small
-alignment errors and it is faster and uses less memory as well.  The
-tool also accepts an option named \texttt{-\/-highest-accuracy} which
-will compute the normals for Point-to-Plane ICP at all points rather
-than about a tenth of them. This option is not necessary most of the
-time, but may result in better alignment at the expense of using more
-memory and processing time.
+The default alignment method is Point-to-Plane ICP, which may be more
+robust to large translations than Point-to-Point ICP, though the latter
+can be good enough if the input point clouds have small alignment errors
+and it is faster and uses less memory as well.  The tool also accepts an
+option named \texttt{-\/-highest-accuracy} which will compute the
+normals for Point-to-Plane ICP at all points rather than about a tenth
+of them. This option is not necessary most of the time, but may result
+in better alignment at the expense of using more memory and processing
+time.
 
 The default alignment transform is rigid, that is, a combination of
 rotation and translation. With Point-to-Point ICP, it is also possible
@@ -1961,8 +1959,24 @@ transform}). It is suggested this approach be used only when a scale
 change is expected. It can be turned on by setting
 \texttt{-\/-alignment-method similarity-point-to-point}. 
 
-As an alternative to ICP, least squares (with outlier handling using a
-robust cost function) can be used to find the transform, if the
+For very large scale difference or translation among the two clouds,
+both of these algorithms may fail. If the clouds are DEMs, one may
+specify the flag \texttt{-\/-initial-transform-from-hillshading} which
+will hillshade the two DEMs, find interest point matches among them, and
+use that to compute an initial rotation + translation + scale transform
+between the clouds (section \ref{prevtrans}), after which the earlier
+algorithms will be applied to refine the transform. This functionality
+is implemented with ASP's \texttt{hillshade}, \texttt{ipfind}, and
+\texttt{ipmatch} tools, and \texttt{pc\_align} has options to pass flags
+to these programs, such as to increase the number interest points being
+found, if the defaults are not sufficient. If the two clouds look too
+different for interest point matching to work, they perhaps can be
+re-gridded to use the same (coarser) grid, as described in section
+\ref{regrid}, to obtain the initial transform which can then be
+applied to the original clouds.
+ 
+Another option is to use least squares (with outlier handling using a
+robust cost function) to find the transform, if the
 reference cloud is a DEM. For this, one should specify the alignment
 method as \texttt{least-squares} or \texttt{similarity-least-squares}
 (the latter also solves for scale). This method is somewhat
@@ -1999,6 +2013,7 @@ specified via the \texttt{-\/-datum} option, or by setting
 \texttt{-\/-semi-major-axis} and \texttt{-\/-semi-minor-axis}.
 
 \subsection{The alignment transform}
+\label{alignmenttransform}
 
 The transform obtained by \texttt{pc\_align} is output to a text file as
 a $4\times 4$ matrix with the upper-left $3\times 3$ submatrix being the
@@ -2020,7 +2035,7 @@ with the same or different clouds. If it is desired to simply apply this
 transform to the clouds without further work, one can specify
 \texttt{-\/-num-iterations 0}.  This may be useful, for example, in
 first finding the alignment transform over a smaller, more reliable
-region (e.g., over rock, excluding moving ice), then extending it over the entire
+region (e.g., over rock, excluding moving ice), then applying it over the entire
 available dataset.
 
 Alternatively, one can apply to the source cloud an initial shift,
@@ -2035,6 +2050,10 @@ invoke \texttt{pc\_align} with \texttt{-\/-initial-ned-translation '5 10
 If an initial transform is used, the alignment transform output by the
 program will be from the source points \textit{before} the initial transform,
 hence the output alignment transform will incorporate the initial transform.
+
+If a good initial alignment is found, it is suggested to use a smaller
+value for \texttt{-\/-max-displacement}, as the clouds will already be 
+mostly on top of each other after the initial transform is applied.
 
 \subsection{Interpreting the transform}
 
@@ -2056,6 +2075,14 @@ small (e.g., the points moved by at most several hundred meters) then
 the representation in the form (b) above is most amenable to
 interpretation as it is in respect to cardinal directions and height
 above ground if standing at a point on the planet surface.
+
+This program prints to screen the Euler angles of the rotation
+transform, and also the axis of rotation and the angle measured against that
+axis. It can be convenient to interpret the rotation as being around the
+center of gravity of the reference cloud, even though it was computed as
+a rotation around the planet center, since changing the point around
+which a rigid transform is applied will only affect its translation
+component, which is relative to that point, but not the rotation matrix.
 
 \subsection{Error metrics and outliers}
 
@@ -2112,14 +2139,32 @@ used instead, either on its own, or as an initial guess for the
 automatic alignment transform. For that, the input point clouds should
 be first converted to DEMs using \texttt{point2dem}, unless in that
 format already. Then, \texttt{stereo\_gui} can be invoked to create
-point correspondences (interest point matches) from the reference to the
-source DEM. Once these correspondences are saved to a match file,
-\texttt{pc\_align} can be called with the reference and source DEMs and
-the \texttt{-\/-match-file} option.  This will compute and save to disk
-a rotation + translation + scale transform.  A subsequent invocation of
-\texttt{pc\_align}, either with the original clouds or the DEM created
-from them, can use this transform as an initial guess (section
-\ref{prevtrans}).
+manual point correspondences (interest point matches) from the reference
+to the source DEM (hence they should be displayed in the GUI in this
+order, from left to right, and one can hillshade them to see features
+better). Once the match file is saved to disk, it can be passed to
+\texttt{pc\_align} via the \texttt{-\/-match-file} option, which will
+compute an initial rotation + translation + scale transform before
+continuing with alignment. This transform can also be used for non-DEM
+clouds once it is found using DEMs obtained from those clouds.
+
+In effect, this approach is along the same lines as the
+\texttt{-\/-initial-transform-from-hillshading} option, but with the
+user creating a match file, rather than it being done automatically.
+
+\subsection{Creating a point cloud from a DEM}
+\label{regrid}
+
+Given a DEM, if one invokes \texttt{pc\_align} as follows:
+
+\begin{verbatim}
+ pc_align dem.tif dem.tif --max-displacement -1 --num-iterations 0 \
+    --save-transformed-source-points -o run/run
+\end{verbatim}
+
+this will create a point cloud out of the DEM. This cloud can then be
+re-gridded using \texttt{point2dem} at a lower resolution or with a 
+different projection. 
 
 \subsection{Troubleshooting}
 
@@ -2144,19 +2189,15 @@ significantly improve alignment accuracy.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display the help message.\\ \hline
-\texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to
-use. 0 means use the default as set by OpenMP. Only some parts of the algorithm are multi-threaded.\\ \hline
-\texttt{-\/-initial-transform \textit{string}} &
-The file containing the transform to be used as an
-initial guess. It can come from a previous run of the tool. \\ \hline
 \texttt{-\/-num-iterations \textit{default: 1000}} &  Maximum number of iterations. \\ \hline
-\texttt{-\/-diff-rotation-error \textit{default: $10^{-8}$}} & Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees. \\ \hline
-\texttt{-\/-diff-translation-error \textit{default: $10^{-3}$}} & Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters. \\ \hline
+
 \texttt{-\/-max-displacement \textit{float}} & Maximum expected
 displacement of source points as result of alignment, in meters (after
 the initial guess transform is applied to the source points). Used
 for removing gross outliers in the source (movable) point cloud.\\ \hline
+
+\texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
+
 \texttt{-\/-outlier-ratio \textit{default: 0.75}} &  Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed). \\ \hline
 \texttt{-\/-max-num-reference-points \textit{default: $10^8$}} &
 Maximum number of (randomly picked) reference points to use. \\ \hline
@@ -2184,22 +2225,41 @@ measured from planet center. \\ \hline
 interpret the entries in input CSV files, if those files contain Easting
 and Northing fields.  \\ \hline
 
-\texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
 \texttt{-\/-compute-translation-only} & Compute the transform from source to reference point cloud as a translation only (no rotation). \\ \hline
 \texttt{-\/-save-transformed-source-points} & Apply the obtained transform to the source points so they match the reference points and save them. \\ \hline
 \texttt{ -\/-save-inv-transformed-reference-points} & Apply the inverse of the obtained transform to the reference points so they match the source points and save them.
 \\ \hline
 
+\texttt{-\/-initial-transform \textit{string}} &
+The file containing the transform to be used as an
+initial guess. It can come from a previous run of the tool. \\ \hline
+
 \texttt{-\/-initial-ned-translation} \textit{string} &  Initialize the alignment transform based on a translation with this vector in the local North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas. \\ \hline
 
-\texttt{-\/-no-dem-distances} & For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud (the text above has more detailed information). \\ \hline
+\texttt{ -\/-initial-transform-from-hillshading} & If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial rotation + translation + scale transform to apply to the source cloud before proceeding with alignment.
+\\ \hline
+
+\texttt{-\/-hillshade-options} & Options to pass to the \texttt{hillshade} program when computing the transform from hillshading. Default: \texttt{-\/-azimuth 300 -\/-elevation 20}. \\ \hline
+
+\texttt{-\/-ipfind-options} & Options to pass to the \texttt{ipfind} program when computing the transform from hillshading. Default: \texttt{-\/-ip-per-image 500000 -\/-interest-operator sift -\/-descriptor-generator sift}. \\ \hline
+
+\texttt{-\/-ipmatch-options} & Options to pass to the \texttt{ipmatch} program when computing the transform from hillshading. Default: \texttt{-\/-inlier-threshold 100 -\/-ransac-constraint similarity}. \\ \hline
 
 \texttt{-\/-match-file} & Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo\_gui). \\ \hline
+
+\texttt{-\/-diff-rotation-error \textit{default: $10^{-8}$}} & Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees. \\ \hline
+\texttt{-\/-diff-translation-error \textit{default: $10^{-3}$}} & Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters. \\ \hline
+
+\texttt{-\/-no-dem-distances} & For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud (the text above has more detailed information). \\ \hline
 
 \texttt{-\/-config-file \textit{file.yaml}} & This is an advanced
 option. Read the alignment parameters from a configuration file, in the
 format expected by libpointmatcher, over-riding the command-line options.\\ \hline
 
+\texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to
+use. 0 means use the default as set by OpenMP. Only some parts of the algorithm are multi-threaded.\\ \hline
+
+\texttt{-\/-help|-h} & Display the help message.\\ \hline
 \end{longtable}
 
 \section{pc\_merge}
@@ -3032,14 +3092,17 @@ consecutive pixels to sample. Default: 50. \\ \hline
 \label{ipfind}
 
 The \texttt{ipfind} tool detects interest points (IPs) in images and writes them out to .vwip files.
-ASP is able to read these files to recover the IPs.  In addition to generating these files, 
-\texttt{ipfind} is a good tool to test out different IP detection settings using the output debug image.
+ASP is able to read these files to recover the IPs.  
 
-You can pass multiple input images to the tool and they will be processed one after the other.
+This tool is useful in testing out different IP detection settings and visualizing them (using the option \texttt{-\/-debug-image}).
+
+One can pass multiple input images to the tool and they will be processed one after another.
+
+This program works in conjunction with \texttt{ipmatch} (section \ref{ipmatch}) to match interest points across images.
 
 Usage:
 \begin{verbatim}
-  ipfind [options] <image> ...
+  ipfind [options] <images>
 \end{verbatim}
 
 \begin{longtable}{|l|p{9.5cm}|}
@@ -3050,28 +3113,27 @@ Usage:
 \endfoot
 \endlastfoot
 \hline
-Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display the help message. \\ \hline
-\texttt{-\/-interest-operator \textit{string}} & Choose an interest point metric from [IAGD (default), LoG, Harris, OBALoG, Orb, Sift]. \\ \hline
-\texttt{-\/-descriptor-generator \textit{string}} & Choose a descriptor generator from [patch, pca, sgrad, sift, sgrad2, orb]. The sift and orb types cannot be mixed.\\ \hline
-\texttt{-\/-max-points \textit{integer}} & Set the maximum number of IP per tile (default 250). \\ \hline
-\texttt{-\/-gain \textit{float}} & Increasing this number will increase the gain at which interest points are detected. Does not apply to Orb and Sift. (default 1.0). \\ \hline
-\texttt{-\/-single-scale } & Turn off scale-invariant interest point detection.  This option only searches for interest points in the first octave of the scale space. Harris and LoG only. \\ \hline
-\texttt{-\/-no-orientation } & Turn off rotation invariance. \\ \hline
-
-\texttt{-\/-output-folder \textit{string}} & Write output folders to this location. \\ \hline
-\texttt{-\/-debug-image \textit{integer}} & 0 = No debug images (default), 1 = Small debug images, 2 = full size debug images. \\ \hline
-\texttt{-\/-print-ip \textit{integer}} & Print information for this many detected IP.\\ \hline
-\texttt{-\/-per-tile-normalize} & Normalize each processing tile separately.\\ \hline
-\texttt{-\/-nodata-radius} & Remove IP within this distance of nodata and image boundaries.\\ \hline
-\texttt{-\/-lowe} & Save results in an ASCII text format compatible with the Lowe-SIFT toolchain.\\ \hline
-\texttt{-\/-tile-size} & The tile size used to split up the image.\\ \hline
-\texttt{-\/-num-threads} & Number of simultaneous thread to use for computation.\\ \hline
+Option & Description \\ \hline \hline
+\texttt{-\/-interest-operator \textit{string} (=sift) } & Choose an interest point detector from: sift (default), orb, OBALoG, LoG, Harris, IAGD.\\ \hline
+\texttt{-\/-descriptor-generator \textit{string} (=sift) } & Choose a descriptor generator from: sift (default), orb, sgrad, sgrad2, patch, pca. Some descriptors work only with certain interest point operators.\\ \hline
+\texttt{-\/-ip-per-image \textit{integer}} & Set the maximum number of IP to find in the whole image. If not specified, use instead --ip-per-tile.\\ \hline
+\texttt{-t | -\/-tile-size  \textit{integer}  } & The tile size for processing interest points. Useful when working with large images. Default: 256.\\ \hline
+\texttt{-\/-ip-per-tile \textit{integer} (=250) } & Set the maximum number of IP to find in each tile. Default: 250.\\ \hline
+\texttt{-g | -\/-gain  \textit{float} (=1) } & Increasing this number will increase the gain at which interest points are detected. Default: 1.\\ \hline
+\texttt{-\/-single-scale  } & Turn off scale-invariant interest point detection. This option only searches for interest points in the first octave of the scale space. Harris and LoG only.\\ \hline
+\texttt{-\/-no-orientation  } & Turn off rotational invariance.\\ \hline
+\texttt{-\/-normalize  } & Normalize the input. Use for images that have non-standard values such as ISIS cube files.\\ \hline
+\texttt{-\/-per-tile-normalize  } & Individually normalize each processing tile.\\ \hline
+\texttt{-\/-nodata-radius \textit{integer} (=1) } & Don't detect IP within this many pixels of image borders or nodata. Default: 1.\\ \hline
+\texttt{-\/-output-folder \textit{string}  } & Write output files to this location.\\ \hline
+\texttt{-\/-num-threads \textit{integer} (=0) } & Set the number of threads for interest point detection. If set to 0 (default), use the visionworkbench default number of threads.\\ \hline
+\texttt{-h | -\/-help   } & Display this help message.\\ \hline
+\texttt{-d | -\/-debug-image  \textit{integer} (=0) } & Write out a low-resolution or full-resolution debug image with interest points on it if the value of this flag is respectively 1 or 2. Default: 0 (do nothing).\\ \hline
+\texttt{-\/-print-ip \textit{integer} (=0) } & Print information for this many detected IP. Default: 0.\\ \hline
+\texttt{-\/-lowe  } & Save the interest points in an ASCII data format that is compatible with the Lowe-SIFT toolchain.\\ \hline
 \end{longtable}
 
-
 \clearpage
-
 
 
 \section{ipmatch}

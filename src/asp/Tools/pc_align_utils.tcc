@@ -414,7 +414,7 @@ void calc_translation_vec(PointMatcher<RealT>::Matrix const& initT,
 // Calculate the maximum displacement from the source points (after
 // any initial transform is applied to them) to the source points
 // after alignment with the reference.
-void calc_max_displacment(DP const& source, DP const& trans_source){
+double calc_max_displacment(DP const& source, DP const& trans_source){
 
   double max_obtained_disp = 0.0;
   int numPts = source.features.cols();
@@ -428,8 +428,7 @@ void calc_max_displacment(DP const& source, DP const& trans_source){
     max_obtained_disp = std::max(max_obtained_disp, norm_2(s - t));
   }
 
-  vw::vw_out() << "Maximum displacement of source points: "
-           << max_obtained_disp << " m" << std::endl;
+  return max_obtained_disp;
 }
 
 

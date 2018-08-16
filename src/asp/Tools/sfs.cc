@@ -39,6 +39,7 @@
 #include <vw/Core/Stopwatch.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <vw/Core/CmdUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Core/BundleAdjustUtils.h>
@@ -48,7 +49,6 @@
 #include <ceres/loss_function.h>
 #include <iostream>
 #include <stdexcept>
-#include <stdio.h>
 #include <string>
 #include<sys/types.h>
 
@@ -797,26 +797,6 @@ namespace vw { namespace camera {
   };
 }}
 
-// Execute a command and capture its output
-// TODO: Move this to a better place.
-std::string exec_cmd(const char* cmd) {
-    char buffer[128];
-    std::string result = "";
-    FILE* pipe = popen(cmd, "r");
-    if (!pipe) throw std::runtime_error("popen() failed!");
-    try {
-        while (!feof(pipe)) {
-            if (fgets(buffer, 128, pipe) != NULL)
-                result += buffer;
-        }
-    } catch (...) {
-        pclose(pipe);
-        throw;
-    }
-    pclose(pipe);
-    return result;
-}
-
 // Get the memory usage for the given process.
 void callTop() {
 
@@ -825,7 +805,7 @@ void callTop() {
   os << pid;
   
   std::string cmd = "top -b -n 1 | grep -i 'sfs ' | grep -i '" + os.str() + " '";
-  std::string ans = exec_cmd(cmd.c_str());
+  std::string ans = vw::exec_cmd(cmd.c_str());
   vw_out() << "Memory usage: " << cmd << " " << ans << std::endl;
 }
 

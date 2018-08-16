@@ -54,6 +54,7 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Core/CmdUtils.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
@@ -90,7 +91,8 @@ const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the larg
 struct Options : public vw::cartography::GdalWriteOptions {
   // Input
   string reference, source, init_transform_file, alignment_method, config_file,
-    datum, csv_format_str, csv_proj4_str, match_file;
+    datum, csv_format_str, csv_proj4_str, match_file, hillshade_options,
+    ipfind_options, ipmatch_options;
   PointMatcher<RealT>::Matrix init_transform;
   int    num_iter,
          max_num_reference_points,
@@ -101,7 +103,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
          outlier_ratio,
          semi_major,
          semi_minor;
-  bool   compute_translation_only,
+  bool   compute_translation_only, use_hillshading,
          dont_use_dem_distances,
          save_trans_source,
          save_trans_ref,
@@ -160,13 +162,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
      "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.")
 
-    ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
-                                 "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
     ("initial-ned-translation", po::value(&opt.initial_ned_translation)->default_value(""),
                                  "Initialize the alignment transform based on a translation with this vector in the local North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas.")
 
-    ("match-file", po::value(&opt.match_file)->default_value(""),
-     "Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo_gui).")
+    ("initial-transform-from-hillshading", po::bool_switch(&opt.use_hillshading)->default_value(false)->implicit_value(true), "If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial rotation + translation + scale transform to apply to the source cloud before proceeding with alignment.")
+    ("hillshade-options", po::value(&opt.hillshade_options)->default_value("--azimuth 300 --elevation 20"), "Options to pass to the hillshade program when computing the transform from hillshading.")
+    ("ipfind-options", po::value(&opt.ipfind_options)->default_value("--ip-per-image 500000 --interest-operator sift --descriptor-generator sift"), "Options to pass to the ipfind program when computing the transform from hillshading.")
+    ("ipmatch-options", po::value(&opt.ipmatch_options)->default_value("--inlier-threshold 100 --ransac-constraint similarity"), "Options to pass to the ipmatch program when computing the transform from hillshading.")
+    ("match-file", po::value(&opt.match_file)->default_value(""), "Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences from the reference to the source (obtained for example using stereo_gui).")
+
+    ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
+                                 "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
+
     ("config-file",              po::value(&opt.config_file)->default_value(""),
      "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.");
 
@@ -198,17 +205,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.out_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix.\n" << usage << general_options );
 
-  // There is no need to use max-displacement with custom tie points.
-  if (opt.match_file != "")
-    opt.max_disp = -1.0;
-
   if ( opt.max_disp == 0.0 )
-    vw_throw( ArgumentErr() << "The max-displacement option was not set. Use -1 if it is desired not to use it.\n"
-                            << usage << general_options );
+    vw_throw( ArgumentErr() << "The max-displacement option was not set. "
+              << "Use -1 if it is desired not to use it.\n" << usage << general_options );
 
   if ( opt.num_iter < 0 )
     vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n"
-                            << usage << general_options );
+              << usage << general_options );
 
   if ( (opt.semi_major != 0 && opt.semi_minor == 0) ||
        (opt.semi_minor != 0 && opt.semi_major == 0)
@@ -230,6 +233,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             << usage << general_options );
   }
 
+  if (opt.use_hillshading && opt.match_file != "") {
+    vw_throw( ArgumentErr() << "Cannot specify --match-file when using hillshading, "
+              << "as then a match file will be generated automatically.\n" );
+  }
+  
+  if (opt.initial_ned_translation != "" && opt.init_transform_file != "")
+    vw_throw( ArgumentErr()
+              << "Cannot specify an initial transform both from a file and as a NED vector.\n");
+
+  if ( (opt.use_hillshading || opt.match_file != "") &&
+       ( opt.initial_ned_translation != "" || opt.init_transform_file != "") ) {
+    vw_throw( ArgumentErr() << "Cannot both specify an initial transform "
+              << "and expect one to be computed automatically.\n");
+  }
+  
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -899,30 +917,109 @@ std::string alignment_method_fallback(std::string const& alignment_method){
     return "point-to-plane";
   return alignment_method;
 }
+
+// Find the full path to a program in a given search directory. If not there,
+// find it using the system PATH.
+std::string program_path(std::string const& prog_name, fs::path const& search_dir){
+
+  fs::path full_path = search_dir / fs::path(prog_name);
+  if (fs::exists(full_path)) {
+    // This is for the release build
+  }else{
+    // This is for the local build
+    full_path = vw::find_executable_in_path(prog_name);
+    if (!fs::exists(full_path)) {
+      vw_throw( ArgumentErr() << "Cannot find the program: " << prog_name << ".\n" );
+    }
+  }
   
+  return full_path.string();
+}
+                         
+// Hillshade the reference and source DEMs, and use them to find
+// interest point matches among the hillshaded images.  These will be
+// used later to find a rotation + translation + scale transform.
+std::string find_matches_from_hillshading(Options & opt, std::string const& curr_exec_path){
 
-// Compute a manual transform based on tie points (interest point matches).
-void manual_transform(Options & opt){
-
+  // First, this works only for DEMs
   if (asp::get_cloud_type(opt.reference) != "DEM" ||
       asp::get_cloud_type(opt.source) != "DEM" )
+    vw_throw( ArgumentErr() << "Cannot find an initial transform using hillshading "
+              << "unless both point clouds are DEMs. Use point2dem to first create "
+              << "DEMs from the input point clouds. Then this transform can be used "
+              << "with the original clouds.\n" );
+
+  // Find the needed executables
+  fs::path search_dir = fs::path(curr_exec_path).parent_path();
+  if (search_dir.filename() == ".libs")
+    search_dir = search_dir.parent_path(); // strip .libs
+  std::string hillshade_path = program_path("hillshade", search_dir);
+  std::string ipfind_path = program_path("ipfind", search_dir);
+  std::string ipmatch_path = program_path("ipmatch", search_dir);
+
+  // Hillshade the reference
+  std::string ref_hillshade = opt.out_prefix + "-reference_hillshade.tif";
+  std::string cmd = hillshade_path + " " + opt.hillshade_options + " "
+    + opt.reference + " -o " + ref_hillshade;
+  vw_out() << cmd << std::endl;
+  std::string ans = vw::exec_cmd(cmd.c_str());
+  vw_out() << ans << std::endl;
+  
+  // Hillshade the source
+  std::string source_hillshade = opt.out_prefix + "-source_hillshade.tif";
+  cmd = hillshade_path + " " + opt.hillshade_options + " "
+    + opt.source + " -o " + source_hillshade;
+  vw_out() << cmd << std::endl;
+  ans = vw::exec_cmd(cmd.c_str());
+  vw_out() << ans << std::endl;
+
+  // IP find
+  cmd = ipfind_path + " " + opt.ipfind_options + " " + ref_hillshade + " " + source_hillshade;
+  vw_out() << cmd << std::endl;
+  ans = vw::exec_cmd(cmd.c_str());
+  vw_out() << ans << std::endl;
+
+  // IP match
+  std::string ref_ip    = fs::path(ref_hillshade).replace_extension(".vwip").string();
+  std::string source_ip = fs::path(source_hillshade).replace_extension(".vwip").string();
+
+  std::string match_file_prefix = opt.out_prefix + "-reference__source";
+  cmd = ipmatch_path + " " + opt.ipmatch_options + " "
+    + ref_hillshade + " " + ref_ip + " " + source_hillshade + " " + source_ip + " -o "
+    + match_file_prefix;
+  vw_out() << cmd << std::endl;
+  ans = vw::exec_cmd(cmd.c_str());
+  vw_out() << ans << std::endl;
+
+  std::string match_file = match_file_prefix + ".match";
+  
+  return match_file;
+}
+
+// Compute an initial source to reference transform based on tie points (interest point matches).
+PointMatcher<RealT>::Matrix initial_transform_from_match_file(std::string const& ref_file,
+                                                              std::string const& source_file,
+                                                              std::string const& match_file){
+
+  if (asp::get_cloud_type(ref_file) != "DEM" ||
+      asp::get_cloud_type(source_file) != "DEM" )
     vw_throw( ArgumentErr() << "The alignment transform computation based on manually chosen point matches only works for DEMs. Use point2dem to first create DEMs from the input point clouds.\n" );
 
   vector<vw::ip::InterestPoint> ref_ip, source_ip;
-  vw_out() << "Reading match file: " << opt.match_file << "\n";
-  vw::ip::read_binary_match_file(opt.match_file, ref_ip, source_ip);
+  vw_out() << "Reading match file: " << match_file << "\n";
+  vw::ip::read_binary_match_file(match_file, ref_ip, source_ip);
 
-  DiskImageView<float> ref(opt.reference);
+  DiskImageView<float> ref(ref_file);
   vw::cartography::GeoReference ref_geo;
-  bool has_ref_geo = vw::cartography::read_georeference(ref_geo, opt.reference);
+  bool has_ref_geo = vw::cartography::read_georeference(ref_geo, ref_file);
   double ref_nodata = -std::numeric_limits<double>::max();
-  vw::read_nodata_val(opt.reference, ref_nodata);
+  vw::read_nodata_val(ref_file, ref_nodata);
 
-  DiskImageView<float> source(opt.source);
+  DiskImageView<float> source(source_file);
   vw::cartography::GeoReference source_geo;
-  bool has_source_geo = vw::cartography::read_georeference(source_geo, opt.source);
+  bool has_source_geo = vw::cartography::read_georeference(source_geo, source_file);
   double source_nodata = -std::numeric_limits<double>::max();
-  vw::read_nodata_val(opt.source, source_nodata);
+  vw::read_nodata_val(source_file, source_nodata);
 
   if (!has_ref_geo || !has_source_geo)
     vw_throw( ArgumentErr() << "One of the inputs is not a valid DEM.\n" );
@@ -988,12 +1085,7 @@ void manual_transform(Options & opt){
 
   vw_out() << "Computed manual transform from source to reference:\n" << globalT << std::endl;
 
-  // Save the transform to disk
-  save_transforms(opt, globalT);
-
-  vw_out() << "The transform file can be passed back to "
-	   << "pc_align as an initial guess via --initial-transform. "
-	   << "To have pc_align not further refine this transform, invoke it with 0 iterations.\n";
+  return globalT;
 }
 
 void apply_transform_to_cloud(PointMatcher<RealT>::Matrix const& T, DP & point_cloud){
@@ -1032,8 +1124,18 @@ int main( int argc, char *argv[] ) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
+    // Use hillshading to create a match file
+    if (opt.use_hillshading)
+      opt.match_file = find_matches_from_hillshading(opt, argv[0]);
+    
+    // Create a transform based on a match file, either automatically generated, or
+    // user-made (normally with stereo_gui).
+    if (opt.match_file != "") 
+      opt.init_transform = initial_transform_from_match_file(opt.reference, opt.source,
+                                                             opt.match_file);
+    
 // TODO: Enable on OSX when clang supports OpenMP!
 #if (defined(ASP_OSX_BUILD) && ASP_OSX_BUILD==1)
 #else
@@ -1048,12 +1150,6 @@ int main( int argc, char *argv[] ) {
     // Try to read the georeference/datum info
     GeoReference geo;
     read_georef(opt, csv_conv, geo);
-
-    // Create a manual transform based on user-picked correspondences among clouds
-    if (opt.match_file != "") {
-      manual_transform(opt);
-      return 0;
-    }
 
     // We will use ref_box to bound the source points, and vice-versa.
     // Decide how many samples to pick to estimate these boxes.
@@ -1173,17 +1269,11 @@ int main( int argc, char *argv[] ) {
     if (opt.verbose)
       vw_out() << "Data shifted internally by subtracting: " << shift << std::endl;
 
-
     // See if to apply an initial north-east-down translation
-    if (opt.initial_ned_translation != "") {
-      if (opt.init_transform_file != "")
-        vw_throw( ArgumentErr()
-                  << "Cannot specify an initial transform both from file and as a NED vector.\n");
-
+    if (opt.initial_ned_translation != "") 
       opt.init_transform = ned_to_caresian_transform(geo.datum(),
                                                      opt.initial_ned_translation, 
                                                      shift);
-    }
     
     // The point clouds are shifted, so shift the initial transform as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
@@ -1283,7 +1373,7 @@ int main( int argc, char *argv[] ) {
     apply_transform_to_cloud(T, trans_source_point_cloud);
 
     // Calculate by how much points move as result of T
-    calc_max_displacment(source_point_cloud, trans_source_point_cloud);
+    double max_obtained_disp = calc_max_displacment(source_point_cloud, trans_source_point_cloud);
     Vector3 source_ctr_vec, source_ctr_llh;
     Vector3 trans_xyz, trans_ned, trans_llh;
     calc_translation_vec(initT, source_point_cloud, trans_source_point_cloud, shift,
@@ -1319,7 +1409,11 @@ int main( int argc, char *argv[] ) {
              << trans_ned << std::endl;
     vw_out() << "Translation vector magnitude (meters): " << norm_2(trans_xyz)
              << std::endl;
-    if (opt.max_disp > 0 && opt.max_disp < norm_2(trans_xyz)) {
+    vw::vw_out() << "Maximum displacement of points between the source "
+                 << "cloud with any initial transform applied to it and the "
+                 << "source cloud after alignment to the reference: " 
+                 << max_obtained_disp << " m" << std::endl;
+    if (opt.max_disp > 0 && opt.max_disp < max_obtained_disp) {
       vw_out() << "Warning: The input --max-displacement value is smaller than the "
                << "final observed displacement. It may be advised to increase the former "
                << "and rerun the tool.\n";
