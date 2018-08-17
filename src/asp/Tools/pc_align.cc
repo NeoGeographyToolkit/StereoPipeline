@@ -167,7 +167,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
     ("initial-transform-from-hillshading", po::bool_switch(&opt.use_hillshading)->default_value(false)->implicit_value(true), "If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial rotation + translation + scale transform to apply to the source cloud before proceeding with alignment.")
     ("hillshade-options", po::value(&opt.hillshade_options)->default_value("--azimuth 300 --elevation 20"), "Options to pass to the hillshade program when computing the transform from hillshading.")
-    ("ipfind-options", po::value(&opt.ipfind_options)->default_value("--ip-per-image 500000 --interest-operator sift --descriptor-generator sift"), "Options to pass to the ipfind program when computing the transform from hillshading.")
+    ("ipfind-options", po::value(&opt.ipfind_options)->default_value("--ip-per-image 1000000 --interest-operator sift --descriptor-generator sift"), "Options to pass to the ipfind program when computing the transform from hillshading.")
     ("ipmatch-options", po::value(&opt.ipmatch_options)->default_value("--inlier-threshold 100 --ransac-constraint similarity"), "Options to pass to the ipmatch program when computing the transform from hillshading.")
     ("match-file", po::value(&opt.match_file)->default_value(""), "Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences from the reference to the source (obtained for example using stereo_gui).")
 
