@@ -1075,15 +1075,17 @@ PointMatcher<RealT>::Matrix initial_transform_from_match_file(std::string const&
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
+  bool filter_outliers = true;
   asp::find_3D_affine_transform(points_src, points_ref,
-                                rotation, translation, scale);
+                                rotation, translation, scale, filter_outliers);
 
   // Convert to pc_align transform format.
   PointMatcher<RealT>::Matrix globalT = Eigen::MatrixXd::Identity(DIM+1, DIM+1);
   globalT.block(0, 0, DIM, DIM) = vw_matrix3_to_eigen(rotation*scale);
   globalT.block(0, DIM, DIM, 1) = vw_vector3_to_eigen(translation);
 
-  vw_out() << "Computed manual transform from source to reference:\n" << globalT << std::endl;
+  vw_out() << "Transform computed from source to reference using a match file:\n"
+           << globalT << std::endl;
 
   return globalT;
 }
