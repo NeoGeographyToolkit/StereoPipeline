@@ -33,7 +33,7 @@
 #include <asp/Core/InterestPointMatching.h>
 
 #include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/Sessions/StereoSessionPinhole.h> // TODO: temporary
+//#include <asp/Sessions/StereoSessionPinhole.h> // TODO: temporary
 
 #include <map>
 #include <utility>
@@ -69,7 +69,7 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
   init_disk_transform(DISKTRANSFORM_TYPE);
 
 }
-
+/*
 // For non map projected inputs, keep the same default function as the base class.  Otherwise throw!
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
@@ -97,12 +97,12 @@ ip_matching(std::string  const& input_file1,
                                       nodata1, nodata2,
                                       match_filename, cam1, cam2);
 }
-
+*/
 
 
 //==========================================================================
 
-
+/*
 /// Checks the DEM and loads the RPC camera models
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
@@ -134,11 +134,9 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
   std::string l_adj_prefix, r_adj_prefix;
   {
     std::string adj_key = "BUNDLE_ADJUST_PREFIX";
-    boost::shared_ptr<vw::DiskImageResource> l_rsrc
-      (new vw::DiskImageResourceGDAL(m_left_image_file));
+    boost::shared_ptr<vw::DiskImageResource> l_rsrc(new vw::DiskImageResourceGDAL(m_left_image_file ));
+    boost::shared_ptr<vw::DiskImageResource> r_rsrc(new vw::DiskImageResourceGDAL(m_right_image_file));
     vw::cartography::read_header_string(*l_rsrc.get(), adj_key, l_adj_prefix);
-    boost::shared_ptr<vw::DiskImageResource> r_rsrc
-      (new vw::DiskImageResourceGDAL(m_right_image_file));
     vw::cartography::read_header_string(*r_rsrc.get(), adj_key, r_adj_prefix);
   }
 
@@ -148,16 +146,14 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
   stereo_settings().bundle_adjust_prefix = "";
   if ( (l_adj_prefix != "" && l_adj_prefix != "NONE") )
     stereo_settings().bundle_adjust_prefix = l_adj_prefix;
-  m_left_map_proj_model
-    = load_camera_model(model_type_to_load,
-                        m_left_image_file,  m_left_camera_file );
+  m_left_map_proj_model = load_camera_model(model_type_to_load,
+                                            m_left_image_file,  m_left_camera_file );
 
   stereo_settings().bundle_adjust_prefix = "";
   if (r_adj_prefix != "" && r_adj_prefix != "NONE")
     stereo_settings().bundle_adjust_prefix = r_adj_prefix;
-  m_right_map_proj_model
-    = load_camera_model(model_type_to_load,
-                        m_right_image_file, m_right_camera_file);
+  m_right_map_proj_model = load_camera_model(model_type_to_load,
+                                             m_right_image_file, m_right_camera_file);
 
   // Go back to the original bundle-adjust prefix now that we have
   // loaded the models used in map-projection.
@@ -170,36 +166,15 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
   // Double check that we can read the DEM and that it has cartographic information.
   VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM." );
   if (!boost::filesystem::exists(m_input_dem))
-    vw_throw( ArgumentErr() << "StereoSessionConcrete: DEM \"" << m_input_dem
-              << "\" does not exist." );
+    vw_throw( ArgumentErr() << "StereoSessionConcrete: DEM \"" << m_input_dem << "\" does not exist." );
 
   vw_out() << "Done loading the camera models used in map-projection\n";
 
 }
-
+*/
 // Code for reading different camera models
 
-// TODO: Move this function somewhere else!
-/// Computes a Map2CamTrans given a DEM, image, and a sensor model.
-inline cartography::Map2CamTrans
-getTransformFromMapProject(const std::string &input_dem_path,
-                           const std::string &img_file_path,
-                           boost::shared_ptr<vw::camera::CameraModel> map_proj_model_ptr) {
-
-  // Read in data necessary for the Map2CamTrans object
-  cartography::GeoReference dem_georef, image_georef;
-  if (!read_georeference(dem_georef, input_dem_path))
-    vw_throw( ArgumentErr() << "The DEM \"" << input_dem_path << "\" lacks georeferencing information.");
-  if (!read_georeference(image_georef, img_file_path))
-    vw_throw( ArgumentErr() << "The image \"" << img_file_path << "\" lacks georeferencing information.");
-
-  bool call_from_mapproject = false;
-  DiskImageView<float> img(img_file_path);
-  return cartography::Map2CamTrans(map_proj_model_ptr.get(),
-                                   image_georef, dem_georef, input_dem_path,
-                                   Vector2(img.cols(), img.rows()),
-                                   call_from_mapproject);
-}
+/*
 
 // Redirect to the correct function depending on the template parameters
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -276,171 +251,6 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
 
 }
 
-//------------------------------------------------------------------------------
-// Code for handling disk-to-sensor transform
-
-
-// Return the left and right map-projected images. These are the same
-// as the input images unless it is desired to use cropped images.
-inline std::string left_mapproj(std::string const& left_image,
-                                std::string const& out_prefix){
-  if ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)){
-    return out_prefix + "-L-cropped.tif";
-  }
-  return left_image;
-}
-inline std::string right_mapproj(std::string const& right_image,
-                                      std::string const& out_prefix){
-  if ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ){
-    return out_prefix + "-R-cropped.tif";
-  }
-  return right_image;
-}
-
-
-// Redirect to the appropriate function
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left() const {
-  return tx_left(Int2Type<DISKTRANSFORM_TYPE>());
-}
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right() const {
-  return tx_right(Int2Type<DISKTRANSFORM_TYPE>());
-}
-// All the specific transform functions are after here
-
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MATRIX>) const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  if ( stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-L.exr" );
-  }
-  return tx_type( tx );
-}
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX>) const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  if ( stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-R.exr" );
-  }
-  return tx_type( tx );
-}
-
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT>) const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  return tx_type( tx );
-}
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT>) const {
-  if ( stereo_settings().alignment_method == "homography" ) {
-    Matrix<double> align_matrix;
-    read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
-    return tx_type( align_matrix );
-  }
-  return tx_type( math::identity_matrix<3>() );
-}
-
-
-//TODO: Consolidate all these map projected functions which are identical
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC>) const {
-  return getTransformFromMapProject(m_input_dem,
-                                    left_mapproj(m_left_image_file, m_out_prefix),
-                                    m_left_map_proj_model);
-}
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC>) const {
-  return getTransformFromMapProject(m_input_dem,
-                                    right_mapproj(m_right_image_file, m_out_prefix),
-                                    m_right_map_proj_model);
-}
-
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>) const {
-  return getTransformFromMapProject(m_input_dem,
-                                    left_mapproj(m_left_image_file, m_out_prefix),
-                                    m_left_map_proj_model);
-}
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>) const {
-  return getTransformFromMapProject(m_input_dem,
-                                    right_mapproj(m_right_image_file, m_out_prefix),
-                                    m_right_map_proj_model);
-}
-
-
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const {
-  return getTransformFromMapProject(m_input_dem,
-                                    left_mapproj(m_left_image_file, m_out_prefix),
-                                    m_left_map_proj_model);
-}
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const {
-  return getTransformFromMapProject(m_input_dem,
-                                    right_mapproj(m_right_image_file, m_out_prefix),
-                                    m_right_map_proj_model);
-}
-
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5>) const {
-  return getTransformFromMapProject(m_input_dem,
-                                    left_mapproj(m_left_image_file, m_out_prefix),
-                                    m_left_map_proj_model);
-}
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5>) const {
-  return getTransformFromMapProject(m_input_dem,
-                                    right_mapproj(m_right_image_file, m_out_prefix),
-                                    m_right_map_proj_model);
-}
-
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ASTER>) const {
-  return getTransformFromMapProject(m_input_dem,
-                                    left_mapproj(m_left_image_file, m_out_prefix),
-                                    m_left_map_proj_model);
-}
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ASTER>) const {
-  return getTransformFromMapProject(m_input_dem,
-                                    right_mapproj(m_right_image_file, m_out_prefix),
-                                    m_right_map_proj_model);
-}
+*/
 
 } // End namespace asp

@@ -23,7 +23,7 @@
 #ifndef __STEREO_SESSION_SPOT_H__
 #define __STEREO_SESSION_SPOT_H__
 
-#include <asp/Sessions/StereoSessionConcrete.h>
+#include <asp/Sessions/StereoSession.h>
 #include <vw/Stereo/StereoModel.h>
 
 #include <asp/Core/StereoSettings.h>
@@ -38,8 +38,7 @@ namespace asp {
   /// - Unfortunately there is a lot of duplicate code here!
   ///   It will require some Session refactoring to clean it up.
   /// - Map projected SPOT5 images are not supported.
-  class StereoSessionSpot : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX,   
-                                                         STEREOMODEL_TYPE_SPOT5> {
+  class StereoSessionSpot : public StereoSession {
 
   public:
     StereoSessionSpot(){}
@@ -52,32 +51,37 @@ namespace asp {
     /// Pre file is a pair of images.            ( ImageView<PixelT> )
     /// Post file is a pair of grayscale images. ( ImageView<PixelGray<float> > )
     virtual void pre_preprocessing_hook(bool adjust_left_image_size,
-					std::string const& left_input_file,
-					std::string const& right_input_file,
-					std::string      & left_output_file,
-					std::string      & right_output_file);
+                                        std::string const& left_input_file,
+                                        std::string const& right_input_file,
+                                        std::string      & left_output_file,
+                                        std::string      & right_output_file);
 
     /// Override the base class implementation, SPOT5 images never have georef.
     virtual vw::cartography::GeoReference get_georef();
 
     /// Specialization of shared_preprocessing_hook currently required for this class.
-    bool unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & options,
-			                               std::string const             & left_input_file,
-			                               std::string const             & right_input_file,
-			                               std::string                   & left_output_file,
-			                               std::string                   & right_output_file,
-			                               std::string                   & left_cropped_file,
-			                               std::string                   & right_cropped_file,
-			                               float                         & left_nodata_value,
-			                               float                         & right_nodata_value,
-			                               bool                          & has_left_georef,
-			                               bool                          & has_right_georef,
-			                               vw::cartography::GeoReference & left_georef,
-			                               vw::cartography::GeoReference & right_georef);
+    bool unshared_preprocessing_hook(vw::cartography::GdalWriteOptions  & options,
+                                     std::string const             & left_input_file,
+                                     std::string const             & right_input_file,
+                                     std::string                   & left_output_file,
+                                     std::string                   & right_output_file,
+                                     std::string                   & left_cropped_file,
+                                     std::string                   & right_cropped_file,
+                                     float                         & left_nodata_value,
+                                     float                         & right_nodata_value,
+                                     bool                          & has_left_georef,
+                                     bool                          & has_right_georef,
+                                     vw::cartography::GeoReference & left_georef,
+                                     vw::cartography::GeoReference & right_georef);
 
     /// Simple factory function
     static StereoSession* construct() { return new StereoSessionSpot; }
-   
+
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) const;
   };
 
 

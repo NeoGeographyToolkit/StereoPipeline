@@ -67,7 +67,12 @@ namespace asp {
     return georef;
   }
 
+  boost::shared_ptr<vw::camera::CameraModel>  StereoSessionSpot::load_camera_model
+    (std::string const& image_file, std::string const& camera_file, Vector2 pixel_offset) const{
 
+    return load_adjusted_model(m_camera_loader.load_spot5_camera_model(camera_file),
+                              image_file, camera_file, pixel_offset);
+  }
 
   void StereoSessionSpot::
   pre_preprocessing_hook(bool adjust_left_image_size,
@@ -145,11 +150,11 @@ namespace asp {
       boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
       this->camera_models(left_cam, right_cam); // Fetch the camera models.
       this->ip_matching(left_cropped_file,   right_cropped_file,
-			bounding_box(left_orig_image).size(),
-			left_stats, right_stats,
-			stereo_settings().ip_per_tile,
-			left_nodata_value, right_nodata_value, match_filename,
-			left_cam.get(),    right_cam.get() );
+                        bounding_box(left_orig_image).size(),
+                        left_stats, right_stats,
+                        stereo_settings().ip_per_tile,
+                        left_nodata_value, right_nodata_value, match_filename,
+                        left_cam.get(),    right_cam.get() );
 
       // Load the interest points results from the file we just wrote.
       std::vector<ip::InterestPoint> left_ip, right_ip;
@@ -207,9 +212,9 @@ namespace asp {
 
     // Apply our normalization options.
     normalize_images(stereo_settings().force_use_entire_range,
-		     stereo_settings().individually_normalize,
-		     false, // Use std stretch
-		     left_stats, right_stats, Limg, Rimg);
+                     stereo_settings().individually_normalize,
+                     false, // Use std stretch
+                     left_stats, right_stats, Limg, Rimg);
 
     // The output no-data value must be < 0 as we scale the images to [0, 1].
     bool  has_nodata    = true;
@@ -330,11 +335,11 @@ unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & opt
 
     vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
     block_write_gdal_image(left_cropped_file,
-			   crop(left_orig_image, left_win),
-			   has_left_georef, crop(left_georef, left_win),
-			   has_nodata, left_nodata_value,
-			   options,
-			   TerminalProgressCallback("asp", "\t:  "));
+                           crop(left_orig_image, left_win),
+                           has_left_georef, crop(left_georef, left_win),
+                           has_nodata, left_nodata_value,
+                           options,
+                           TerminalProgressCallback("asp", "\t:  "));
   }
   if (crop_right) {
     // Crop the images, will use them from now on. Crop the georef as well, if available.
@@ -350,12 +355,12 @@ unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & opt
 
     vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
     block_write_gdal_image(right_cropped_file,
-			   crop(right_orig_image, right_win),
-			   has_right_georef,
-			   crop(right_georef, right_win),
-			   has_nodata, right_nodata_value,
-			   options,
-			   TerminalProgressCallback("asp", "\t:  "));
+                           crop(right_orig_image, right_win),
+                           has_right_georef,
+                           crop(right_georef, right_win),
+                           has_nodata, right_nodata_value,
+                           options,
+                           TerminalProgressCallback("asp", "\t:  "));
   }
 
 

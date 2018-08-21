@@ -22,7 +22,7 @@
 #ifndef __STEREO_SESSION_ISIS_H__
 #define __STEREO_SESSION_ISIS_H__
 
-#include <asp/Sessions/StereoSessionConcrete.h>
+#include <asp/Sessions/StereoSession.h>
 #include <vw/Stereo/StereoModel.h>
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
@@ -143,11 +143,10 @@ namespace asp {
 
 
   /// Derived StereoSession class for ISIS images.
-  template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE>
-  class StereoSessionIsisBase : public StereoSessionConcrete<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE_ISIS> {
+  class StereoSessionIsis : public StereoSession {
   public:
-    StereoSessionIsisBase() {}
-    virtual ~StereoSessionIsisBase() {}
+    StereoSessionIsis() {}
+    virtual ~StereoSessionIsis() {}
 
     virtual std::string name() const { return "isis"; }
 
@@ -176,22 +175,16 @@ namespace asp {
     pre_pointcloud_hook(std::string const& input_file);
 
     /// Simple factory function.
-    static StereoSession* construct() { return new StereoSessionIsisBase<DISKTRANSFORM_TYPE>; }
-
-  };
-
-
-  // TODO: Why is this class split up?  Why is it not shared with the map projected version?
-  /// Final implementation
-  class StereoSessionIsis : public StereoSessionIsisBase<DISKTRANSFORM_TYPE_MATRIX>  {
-  public:
-    StereoSessionIsis(){};
-    virtual ~StereoSessionIsis(){};
-
-    virtual std::string name() const { return "isis"; }
-
     static StereoSession* construct() { return new StereoSessionIsis; }
+
+    
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) const;
   };
+
 
 } // end namespace asp
 

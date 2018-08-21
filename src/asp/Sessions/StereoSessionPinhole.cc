@@ -49,6 +49,17 @@ using namespace vw::camera;
 //       Why does the Pinhole Session need to use something different?
 
 
+boost::shared_ptr<vw::camera::CameraModel>
+asp::StereoSessionPinhole::load_camera_model
+  (std::string const& image_file, std::string const& camera_file, Vector2 pixel_offset) const{
+
+  return asp::load_adj_pinhole_model(image_file, camera_file,
+                                     m_left_image_file,  m_right_image_file,
+                                     m_left_camera_file, m_right_camera_file,
+                                     m_input_dem);
+}
+
+
 
 // Helper function for determining image alignment.
 vw::Matrix3x3
@@ -115,16 +126,17 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   vw::cartography::GeoReference left_georef, right_georef;
   bool exit_early =
     StereoSession::shared_preprocessing_hook(options,
-					     left_input_file,   right_input_file,
-					     left_output_file,  right_output_file,
-					     left_cropped_file, right_cropped_file,
-					     left_nodata_value, right_nodata_value,
-					     has_left_georef,   has_right_georef,
-					     left_georef,       right_georef);
-  if (exit_early) return;
+                                             left_input_file,   right_input_file,
+                                             left_output_file,  right_output_file,
+                                             left_cropped_file, right_cropped_file,
+                                             left_nodata_value, right_nodata_value,
+                                             has_left_georef,   has_right_georef,
+                                             left_georef,       right_georef);
+  if (exit_early)
+    return;
 
   // Load the cropped images
-  DiskImageView<float> left_disk_image(left_cropped_file),
+  DiskImageView<float> left_disk_image (left_cropped_file ),
                        right_disk_image(right_cropped_file);
 
   ImageViewRef< PixelMask<float> > left_masked_image
@@ -183,12 +195,13 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
                                       left_cam, right_cam,
                                       left_masked_image, right_masked_image,
                                       Limg, Rimg, ext_nodata);
-    }                                    
+    }
 
   } else if ( stereo_settings().alignment_method == "homography" ) {
 
     vw_out() << "\t--> Performing homography alignment\n";
 
+    // We only apply a homography to the left image in the pinhole case
     DiskImageView<float> left_orig_image(left_input_file);
     Matrix<double> align_matrix
       = determine_image_align(m_out_prefix,
@@ -242,8 +255,8 @@ namespace asp {
 
 void asp::StereoSessionPinhole::get_unaligned_camera_models(
                                  boost::shared_ptr<vw::camera::CameraModel> &left_cam,
-                                 boost::shared_ptr<vw::camera::CameraModel> &right_cam) {
-                                 
+                                 boost::shared_ptr<vw::camera::CameraModel> &right_cam) const{
+
   // Retrieve the pixel offset (if any) to cropped images
   vw::Vector2 left_pixel_offset  = camera_pixel_offset(m_input_dem, m_left_image_file,
                                                        m_right_image_file, m_left_image_file);
@@ -254,10 +267,10 @@ void asp::StereoSessionPinhole::get_unaligned_camera_models(
   left_cam  = load_adjusted_model(vw::camera::load_pinhole_camera_model(m_left_camera_file),
                                   m_left_image_file, m_left_camera_file, left_pixel_offset);
   right_cam = load_adjusted_model(vw::camera::load_pinhole_camera_model(m_right_camera_file),
-                                  m_right_image_file, m_right_camera_file, right_pixel_offset);                                 
+                                  m_right_image_file, m_right_camera_file, right_pixel_offset);
 }
 
-// TODO: Should this function incorporate alignment at all ??????
+
 boost::shared_ptr<vw::camera::CameraModel>
 load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
                        std::string const& left_image_file,  std::string const& right_image_file,
@@ -337,18 +350,10 @@ load_adj_pinhole_model(std::string const& image_file,       std::string const& c
 
 } // end namespace asp
 
-boost::shared_ptr<vw::camera::CameraModel>
-asp::StereoSessionPinhole::camera_model(std::string const& image_file,
-                                        std::string const& camera_file) {
-  return asp::load_adj_pinhole_model(image_file, camera_file,
-                                m_left_image_file, m_right_image_file,
-                                m_left_camera_file, m_right_camera_file,
-                                m_input_dem);  
-}
 
 
 void asp::StereoSessionPinhole::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                              boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+                                              boost::shared_ptr<vw::camera::CameraModel> &cam2) const{
   vw::Vector2i left_out_size, right_out_size;
   load_camera_models(cam1, cam2, left_out_size, right_out_size);
 }
@@ -358,7 +363,7 @@ void asp::StereoSessionPinhole::camera_models(boost::shared_ptr<vw::camera::Came
 void asp::StereoSessionPinhole::load_camera_models(
                    boost::shared_ptr<vw::camera::CameraModel> &left_cam,
                    boost::shared_ptr<vw::camera::CameraModel> &right_cam,
-                   Vector2i &left_out_size, Vector2i &right_out_size) {
+                   Vector2i &left_out_size, Vector2i &right_out_size) const{
 
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
   if ( (stereo_settings().alignment_method != "epipolar") ||
@@ -399,27 +404,33 @@ void asp::StereoSessionPinhole::load_camera_models(
   right_cam = epipolar_right_pin;
 }
 
+asp::StereoSession::tx_type asp::StereoSessionPinhole::tx_left() const{
+  if (stereo_settings().alignment_method != "epipolar")
+    return tx_identity();
 
-asp::StereoSessionPinhole::tx_type
-asp::StereoSessionPinhole::tx_left() const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  return tx_type( tx );
+  // For epipolar things are more complicated
+  tx_type tx_l, tx_r;
+  tx_left_and_right(tx_l, tx_r);
+  return tx_l;
 }
-asp::StereoSessionPinhole::tx_type
-asp::StereoSessionPinhole::tx_right() const {
-  if ( stereo_settings().alignment_method == "homography" ) {
-    Matrix<double> align_matrix;
-    read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
-    return tx_type( align_matrix );
+
+asp::StereoSession::tx_type asp::StereoSessionPinhole::tx_right() const{
+  if (stereo_settings().alignment_method != "epipolar")
+    return tx_right_homography();
+
+  // For epipolar things are more complicated
+  tx_type tx_l, tx_r;
+  tx_left_and_right(tx_l, tx_r);
+  return tx_r;
+}
+
+void asp::StereoSessionPinhole::tx_left_and_right(tx_type &tx_l, tx_type &tx_r) const{
+  
+  if (stereo_settings().alignment_method != "epipolar") {
+    tx_l = tx_left();
+    tx_r = tx_right();
+    return;
   }
-  return tx_type( math::identity_matrix<3>() );
-}
-
-// TODO: Need tx_left to return a pointer, and then the logic of the function below
-// needs to be incorporated into tx_left(). This because for epipolar alignment
-// the camera transform type is not a homography transform.
-void asp::StereoSessionPinhole::pinhole_cam_trans(asp::PinholeCamTrans & left_trans,
-                                                  asp::PinholeCamTrans & right_trans){
 
   // Load the epipolar aligned camera models
   boost::shared_ptr<camera::CameraModel> left_aligned_model, right_aligned_model;
@@ -430,8 +441,8 @@ void asp::StereoSessionPinhole::pinhole_cam_trans(asp::PinholeCamTrans & left_tr
 
   // Set up transform objects
   typedef vw::camera::PinholeModel PinModel;
-  left_trans = asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*left_input_model )), *dynamic_cast<PinModel*>(&(*left_aligned_model )));
+  tx_l = tx_type(new asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*left_input_model )), *dynamic_cast<PinModel*>(&(*left_aligned_model))));
 
-  right_trans = asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*right_input_model )), *dynamic_cast<PinModel*>(&(*right_aligned_model )));
-
+  tx_r = tx_type(new asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*right_input_model )), *dynamic_cast<PinModel*>(&(*right_aligned_model))));
 }
+

@@ -314,15 +314,9 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
 
   vw_out() << "Applying epipolar adjustment to input IP match file...\n";
 
-  // Need to cast the session pointer to Pinhole type to access the function we need.
-  StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
-  if (pinPtr == NULL) 
-    vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
-  // Must initialize below the two cameras to something to respect the constructor.
-  asp::PinholeCamTrans trans_left = asp::PinholeCamTrans(vw::camera::PinholeModel(),
-                                                         vw::camera::PinholeModel());
-  asp::PinholeCamTrans trans_right = trans_left;
-  pinPtr->pinhole_cam_trans(trans_left, trans_right);
+  // Get the transforms from the input image pixels to the epipolar aligned image pixels
+  StereoSession::tx_type trans_left, trans_right;
+  opt.session->tx_left_and_right(trans_left, trans_right);
 
   // Apply the transforms to all the IP we found
   for ( size_t i = 0; i < ip_left.size(); i++ ) {
@@ -330,8 +324,8 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
     Vector2 ip_in_left (ip_left [i].x, ip_left [i].y);
     Vector2 ip_in_right(ip_right[i].x, ip_right[i].y);
 
-    Vector2 ip_out_left  = trans_left.forward(ip_in_left);
-    Vector2 ip_out_right = trans_right.forward(ip_in_right);
+    Vector2 ip_out_left  = trans_left->forward(ip_in_left);
+    Vector2 ip_out_right = trans_right->forward(ip_in_right);
 
     ip_left [i].x = ip_out_left [0]; // Store transformed points
     ip_left [i].y = ip_out_left [1];

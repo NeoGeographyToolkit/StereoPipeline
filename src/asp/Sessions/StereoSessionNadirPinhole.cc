@@ -220,25 +220,14 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
 
 }
 
-asp::StereoSessionNadirPinhole::tx_type
-asp::StereoSessionNadirPinhole::tx_left() const {
-  if ( (stereo_settings().alignment_method == "homography"    ) ||
-       (stereo_settings().alignment_method == "affineepipolar")   ) {
-    Matrix<double> align_matrix;
-    read_matrix( align_matrix, m_out_prefix + "-align-L.exr" );
-    return tx_type( align_matrix );
-  }
-  return tx_type( math::identity_matrix<3>() );
-}
-asp::StereoSessionNadirPinhole::tx_type
-asp::StereoSessionNadirPinhole::tx_right() const {
-  if ( (stereo_settings().alignment_method == "homography"    ) ||
-       (stereo_settings().alignment_method == "affineepipolar")   ) {
-    Matrix<double> align_matrix;
-    read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
-    return tx_type( align_matrix );
-  }
-  return tx_type( math::identity_matrix<3>() );
+asp::StereoSession::tx_type asp::StereoSessionNadirPinhole::tx_left() {
+  if (stereo_settings().alignment_method != "epipolar")
+    return tx_left_homography();
+
+  // For epipolar things are more complicated
+  tx_type tx_l, tx_r;
+  pinhole_cam_trans(tx_l, tx_r);
+  return tx_l;
 }
 
 

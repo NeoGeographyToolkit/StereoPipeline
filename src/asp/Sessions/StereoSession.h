@@ -24,7 +24,9 @@
 
 #include <vw/Image/ImageViewBase.h>
 #include <vw/Image/ImageViewRef.h>
+#include <vw/Image/Transform.h>
 #include <vw/Camera/CameraModel.h>
+#include <asp/Sessions/CameraModelLoader.h>
 
 #include <vw/Math/Functors.h>
 #include <vw/Math/Geometry.h>
@@ -148,6 +150,8 @@ namespace asp {
     std::string m_left_camera_file, m_right_camera_file;
     std::string m_out_prefix, m_input_dem;
 
+  private:
+    /// General init function.
     virtual void initialize (vw::cartography::GdalWriteOptions const& options,
                              std::string const& left_image_file,
                              std::string const& right_image_file,
@@ -155,6 +159,9 @@ namespace asp {
                              std::string const& right_camera_file,
                              std::string const& out_prefix,
                              std::string const& input_dem);
+
+    /// Handles init required for map projected session types.
+    void init_disk_transform();
 
   public:
     virtual ~StereoSession() {}
@@ -164,26 +171,28 @@ namespace asp {
 
     // The next set of functions describe characteristics of the derived session class.
     // - These could be made in to some sort of static constant if needed.
-    virtual bool uses_map_projected_inputs() const {return false;}
-    virtual bool requires_input_dem       () const {return false;}
-    virtual bool supports_image_alignment () const {return true; }
+    virtual bool isMapProjected() const { return false; } // TODO: Delete?
+    virtual bool uses_map_projected_inputs() const {return isMapProjected();}
+    virtual bool uses_rpc_map_projection  () const {return isMapProjected();} // Set to false if using another type
+    virtual bool requires_input_dem       () const {return isMapProjected();}
+    virtual bool supports_image_alignment () const {return !isMapProjected(); }
     virtual bool is_nadir_facing          () const {return true; }
-
 
 
     /// Helper function that retrieves both cameras.
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                               boost::shared_ptr<vw::camera::CameraModel> &cam2);
+                               boost::shared_ptr<vw::camera::CameraModel> &cam2) const;
 
+    /// ???
     /// This function will be over-written for ASTER
     virtual void main_or_rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                           boost::shared_ptr<vw::camera::CameraModel> &cam2);
-    
-    // TODO: What exactly distinguises this function???
+                                           boost::shared_ptr<vw::camera::CameraModel> &cam2) const;
+
+
     /// Method that produces a Camera Model from input files.
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model(std::string const& image_file,
-                 std::string const& camera_file = "") = 0;
+                 std::string const& camera_file = "") const;
 
     /// Method to help determine what session we actually have
     virtual std::string name() const = 0;
@@ -215,9 +224,18 @@ namespace asp {
 
     // All Stereo Session children must define the following which are not defined in the the parent:
     //   typedef VWStereoModel stereo_model_type;
-    //   typedef VWTransform   tx_type; ///< Transform from image coordinates on disk to original untransformed image pixels.
-    //   tx_type tx_left (void) const;  // For the left and right cameras
-    //   tx_type tx_right(void) const;
+    
+    /// Transform from image coordinates on disk to original untransformed image pixels.
+    typedef boost::shared_ptr<vw::Transform> tx_type;
+
+    virtual tx_type tx_left () const {return tx_left_homography ();} // Default implementation
+    virtual tx_type tx_right() const {return tx_right_homography();}
+
+    /// Get both image transforms at once
+    virtual void tx_left_and_right(tx_type &tx_l, tx_type &tx_r) const {
+      tx_l = tx_left();
+      tx_r = tx_right();
+    }
 
     // All of the "hook" functions below have default implementations that just copy the inputs to the outputs!
 
@@ -287,6 +305,34 @@ namespace asp {
                                    bool                              & has_right_georef,
                                    vw::cartography::GeoReference     & left_georef,
                                    vw::cartography::GeoReference     & right_georef);
+
+  protected:
+    // These are all the currently supported transformation types
+    tx_type tx_identity        () const; // Not left or right specific
+    tx_type tx_left_homography () const;
+    tx_type tx_right_homography() const;
+    tx_type tx_left_map_trans  () const;
+    tx_type tx_right_map_trans () const;
+
+
+    /// Object to help with camera model loading, mostly used by derived classes.
+    CameraModelLoader m_camera_loader;
+
+    /// Storage for the camera models used to map project the input images.
+    /// - Not used in non map-projected sessions.
+    boost::shared_ptr<vw::camera::CameraModel> m_left_map_proj_model, m_right_map_proj_model;
+
+    /// Function to load a specific type of camera model with a pixel offset.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) const = 0;
+
+    /// Load an RPC camera model with a pixel offset
+    /// - We define it here so it can be used for reading RPC map projection models and also
+    ///   so it does not get duplicated in derived RPC sessions.
+    boost::shared_ptr<vw::camera::CameraModel> load_rpc_camera_model(std::string const& image_file, 
+                                                                     std::string const& camera_file,
+                                                                     vw::Vector2 pixel_offset) const;
   };
 
 // TODO: Move this function!

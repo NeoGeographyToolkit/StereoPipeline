@@ -83,7 +83,7 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
       lonlatheight.z() = dem_height;
       Vector3 xyz = datum.geodetic_to_cartesian( lonlatheight );
       EXPECT_VECTOR_NEAR( left_xml.rpc_ptr()->point_to_pixel( xyz ),
-                          left_tx.reverse( Vector2(i,j) ), 1e-1 );
+                          left_tx->reverse( Vector2(i,j) ), 1e-1 );
     }
   }
 
@@ -95,7 +95,7 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
       lonlatheight.z() = dem_height;
       Vector3 xyz = datum.geodetic_to_cartesian( lonlatheight );
       EXPECT_VECTOR_NEAR( right_xml.rpc_ptr()->point_to_pixel( xyz ),
-                          right_tx.reverse( Vector2(i,j) ), 1e-1 );
+                          right_tx->reverse( Vector2(i,j) ), 1e-1 );
     }
   }
 }

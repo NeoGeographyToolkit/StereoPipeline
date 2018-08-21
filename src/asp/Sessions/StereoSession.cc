@@ -27,6 +27,7 @@
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Cartography/Map2CamTrans.h>
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
@@ -48,12 +49,12 @@ namespace asp {
 
   // Pass over all the string variables we use
   void StereoSession::initialize( vw::cartography::GdalWriteOptions const& options,
-				  std::string const& left_image_file,
-				  std::string const& right_image_file,
-				  std::string const& left_camera_file,
-				  std::string const& right_camera_file,
-				  std::string const& out_prefix,
-				  std::string const& input_dem) {
+                                  std::string const& left_image_file,
+                                  std::string const& right_image_file,
+                                  std::string const& left_camera_file,
+                                  std::string const& right_camera_file,
+                                  std::string const& out_prefix,
+                                  std::string const& input_dem) {
     m_options           = options;
     m_left_image_file   = left_image_file;
     m_right_image_file  = right_image_file;
@@ -61,19 +62,95 @@ namespace asp {
     m_right_camera_file = right_camera_file;
     m_out_prefix        = out_prefix;
     m_input_dem         = input_dem;
+    
+    // Do any other initalization steps needed
+    init_disk_transform();
   }
+
+
+  void StereoSession::init_disk_transform() {
+
+    if (!isMapProjected()) // Nothing to do for non map-projected types.
+      return;
+
+    vw_out() << "Loading the camera models that were used in map-projection\n";
+
+    // Back up the bundle-adjust prefix that should be used only with the
+    // original camera model, not with the model used in mapprojection
+    // (e.g., the original camera model could have been DG, but in
+    // map-projection we could have used RPC).
+    std::string ba_pref_bk = stereo_settings().bundle_adjust_prefix;
+
+    // Load the models used in map-projection. If map-projection was
+    // done with adjusted models, apply those adjustments.
+
+    std::string l_adj_prefix, r_adj_prefix;
+    {
+      std::string adj_key = "BUNDLE_ADJUST_PREFIX";
+      // We only read our own map projections which are written in GDAL format
+      boost::shared_ptr<vw::DiskImageResource> l_rsrc(new vw::DiskImageResourceGDAL(m_left_image_file ));
+      boost::shared_ptr<vw::DiskImageResource> r_rsrc(new vw::DiskImageResourceGDAL(m_right_image_file));
+      vw::cartography::read_header_string(*l_rsrc.get(), adj_key, l_adj_prefix);
+      vw::cartography::read_header_string(*r_rsrc.get(), adj_key, r_adj_prefix);
+    }
+
+    // TODO: Verify that the DEM encoded in the map-projected image above
+    // is the same as m_input_dem used below.
+
+    // When loading camera models from the image files, we either use the sensor model for
+    // the current session type or else the RPC model which is often used as an approximation.
+
+    const Vector2 zero_pixel_offset(0,0);
+    stereo_settings().bundle_adjust_prefix = "";
+    if ( (l_adj_prefix != "" && l_adj_prefix != "NONE") )
+      stereo_settings().bundle_adjust_prefix = l_adj_prefix;
+    if (uses_rpc_map_projection())
+      m_left_map_proj_model = load_rpc_camera_model(m_left_image_file,  m_left_camera_file, zero_pixel_offset);
+    else // Use the native model
+      m_left_map_proj_model = load_camera_model(m_left_image_file,  m_left_camera_file, zero_pixel_offset);
+
+    stereo_settings().bundle_adjust_prefix = "";
+    if (r_adj_prefix != "" && r_adj_prefix != "NONE")
+      stereo_settings().bundle_adjust_prefix = r_adj_prefix;
+    if (uses_rpc_map_projection())
+      m_right_map_proj_model = load_rpc_camera_model(m_right_image_file, m_right_camera_file, zero_pixel_offset);
+    else // Use the native model
+      m_right_map_proj_model = load_camera_model(m_right_image_file, m_right_camera_file, zero_pixel_offset);
+
+    // Go back to the original bundle-adjust prefix now that we have
+    // loaded the models used in map-projection.
+    stereo_settings().bundle_adjust_prefix = ba_pref_bk;
+
+    VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
+              ArgumentErr() << "StereoSessionConcrete: Unable to locate map "
+              << "projection camera model inside input files!" );
+
+    // Double check that we can read the DEM and that it has cartographic information.
+    VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM." );
+    if (!boost::filesystem::exists(m_input_dem))
+      vw_throw( ArgumentErr() << "StereoSessionConcrete: DEM \"" << m_input_dem << "\" does not exist." );
+
+    vw_out() << "Done loading the camera models used in map-projection\n";
+  }
+  
 
   // A default IP matching implementation that derived classes can use
   bool StereoSession::ip_matching(std::string const& input_file1,
-				  std::string const& input_file2,
-				  vw::Vector2 const& uncropped_image_size,
-				  Vector6f    const& stats1,
-				  Vector6f    const& stats2,
-				  int ip_per_tile,
-				  float nodata1, float nodata2,
-				  std::string const& match_filename,
-				  vw::camera::CameraModel* cam1,
-				  vw::camera::CameraModel* cam2){
+                                  std::string const& input_file2,
+                                  vw::Vector2 const& uncropped_image_size,
+                                  Vector6f    const& stats1,
+                                  Vector6f    const& stats2,
+                                  int ip_per_tile,
+                                  float nodata1, float nodata2,
+                                  std::string const& match_filename,
+                                  vw::camera::CameraModel* cam1,
+                                  vw::camera::CameraModel* cam2){
+
+    if (uses_map_projected_inputs()) {
+      vw_throw( vw::ArgumentErr() << "StereoSession: IP matching is not implemented for map-projected images since we do not align them!");
+      return false;
+    }
+
 
     bool crop_left  = ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
@@ -232,7 +309,7 @@ namespace asp {
       georef.set_geographic();
 
       boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
-									  m_left_camera_file);
+                                                                          m_left_camera_file);
       bool use_sphere_for_isis = true;       // Spherical datum for non-Earth, as done usually
       georef.set_datum(this->get_datum(cam.get(), use_sphere_for_isis));
     }
@@ -242,17 +319,43 @@ namespace asp {
 
   // Default implementation of this function.  Derived classes will probably override this.
   void StereoSession::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                    boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+                                    boost::shared_ptr<vw::camera::CameraModel> &cam2) const{
     cam1 = camera_model(m_left_image_file,  m_left_camera_file);
     cam2 = camera_model(m_right_image_file, m_right_camera_file);
   }
 
   // This function will be over-written for ASTER
   void StereoSession::main_or_rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                                boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+                                                boost::shared_ptr<vw::camera::CameraModel> &cam2) const{
     this->camera_models(cam1, cam2);
   }
 
+
+  
+
+  
+
+boost::shared_ptr<vw::camera::CameraModel>
+StereoSession::camera_model(std::string const& image_file, std::string const& camera_file) const{
+  
+  vw_out() << "Loading camera model: " << image_file << ' ' << camera_file << "\n";
+
+  // Retrieve the pixel offset (if any) to cropped images
+  vw::Vector2 pixel_offset = asp::camera_pixel_offset(m_input_dem,
+                                                 m_left_image_file,
+                                                 m_right_image_file,
+                                                 image_file);
+  
+  if (camera_file == "") // No camera file provided, use the image file.
+    return load_camera_model(image_file, image_file, pixel_offset);
+  else // Camera file provided
+    return load_camera_model(image_file, camera_file, pixel_offset);
+}
+
+  
+  
+  
+  
   // Processing Hooks. The default is to do nothing.
   void StereoSession::pre_preprocessing_hook(bool adjust_left_image_size,
 					     std::string const& input_file1,
@@ -419,11 +522,11 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
 
     vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
     block_write_gdal_image(left_cropped_file,
-			   crop(left_orig_image, left_win),
-			   has_left_georef, crop(left_georef, left_win),
-			   has_nodata, left_nodata_value,
-			   options,
-			   TerminalProgressCallback("asp", "\t:  "));
+                           crop(left_orig_image, left_win),
+                           has_left_georef, crop(left_georef, left_win),
+                           has_nodata, left_nodata_value,
+                           options,
+                           TerminalProgressCallback("asp", "\t:  "));
   }
   if (crop_right) {
     // Crop the image, will use them from now on. Crop the georef as well, if available.
@@ -438,12 +541,12 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
 
     vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
     block_write_gdal_image(right_cropped_file,
-			   crop(right_orig_image, right_win),
-			   has_right_georef,
-			   crop(right_georef, right_win),
-			   has_nodata, right_nodata_value,
-			   options,
-			   TerminalProgressCallback("asp", "\t:  "));
+                           crop(right_orig_image, right_win),
+                           has_right_georef,
+                           crop(right_georef, right_win),
+                           has_nodata, right_nodata_value,
+                           options,
+                           TerminalProgressCallback("asp", "\t:  "));
   }
 
 
@@ -452,7 +555,7 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
   has_right_georef = read_georeference(right_georef, right_cropped_file);
   if ( stereo_settings().alignment_method != "none") {
     // If any alignment at all happens, the georef will be messed up.
-    has_left_georef = false;
+    has_left_georef  = false;
     has_right_georef = false;
   }
 
@@ -510,6 +613,124 @@ vw::Vector2 camera_pixel_offset(std::string const& input_dem,
 
   return Vector2();
 }
+
+
+
+
+
+//------------------------------------------------------------------------------
+// Code for handling disk-to-sensor transform
+
+
+// TODO: Move this function somewhere else!
+/// Computes a Map2CamTrans given a DEM, image, and a sensor model.
+inline cartography::Map2CamTrans*
+getTransformFromMapProject(const std::string &input_dem_path,
+                           const std::string &img_file_path,
+                           boost::shared_ptr<vw::camera::CameraModel> map_proj_model_ptr) {
+
+  // Read in data necessary for the Map2CamTrans object
+  cartography::GeoReference dem_georef, image_georef;
+  if (!read_georeference(dem_georef, input_dem_path))
+    vw_throw( ArgumentErr() << "The DEM \"" << input_dem_path << "\" lacks georeferencing information.");
+  if (!read_georeference(image_georef, img_file_path))
+    vw_throw( ArgumentErr() << "The image \"" << img_file_path << "\" lacks georeferencing information.");
+
+  bool call_from_mapproject = false;
+  DiskImageView<float> img(img_file_path);
+  return new cartography::Map2CamTrans(map_proj_model_ptr.get(),
+                                   image_georef, dem_georef, input_dem_path,
+                                   Vector2(img.cols(), img.rows()),
+                                   call_from_mapproject);
+}
+
+
+// Return the left and right map-projected images. These are the same
+// as the input images unless it is desired to use cropped images.
+inline std::string left_mapproj(std::string const& left_image,
+                                std::string const& out_prefix){
+  if ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)){
+    return out_prefix + "-L-cropped.tif";
+  }
+  return left_image;
+}
+inline std::string right_mapproj(std::string const& right_image,
+                                      std::string const& out_prefix){
+  if ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ){
+    return out_prefix + "-R-cropped.tif";
+  }
+  return right_image;
+}
+
+
+typename StereoSession::tx_type
+StereoSession::tx_left_homography() const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  if ( stereo_settings().alignment_method == "homography" ||
+       stereo_settings().alignment_method == "affineepipolar" ) {
+    read_matrix( tx, m_out_prefix + "-align-L.exr" );
+  }
+  return tx_type( new vw::HomographyTransform(tx) );
+}
+
+typename StereoSession::tx_type
+StereoSession::tx_right_homography() const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  if ( stereo_settings().alignment_method == "homography" ||
+       stereo_settings().alignment_method == "affineepipolar" ) {
+    read_matrix( tx, m_out_prefix + "-align-R.exr" );
+  }
+  return tx_type( new vw::HomographyTransform(tx) );
+}
+
+typename StereoSession::tx_type
+StereoSession::tx_identity() const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  return tx_type( new vw::HomographyTransform(tx) );
+}
+
+
+typename StereoSession::tx_type
+StereoSession::tx_left_map_trans() const {
+  return tx_type(getTransformFromMapProject(m_input_dem,
+                                    left_mapproj(m_left_image_file, m_out_prefix),
+                                    m_left_map_proj_model));
+}
+typename StereoSession::tx_type
+StereoSession::tx_right_map_trans() const {
+  return tx_type(getTransformFromMapProject(m_input_dem,
+                                    right_mapproj(m_right_image_file, m_out_prefix),
+                                    m_right_map_proj_model));
+}
+
+
+boost::shared_ptr<vw::camera::CameraModel> StereoSession::load_rpc_camera_model(std::string const& image_file, 
+                                                                                std::string const& camera_file,
+                                                                                Vector2 pixel_offset) const{
+  std::string err1, err2;
+  try {
+    if (camera_file != ""){
+      return load_adjusted_model(m_camera_loader.load_rpc_camera_model(camera_file),
+                                image_file, camera_file, pixel_offset);
+    }
+  }
+  catch(std::exception const& e1) {
+    err1 = e1.what();
+  }
+  try {
+    return load_adjusted_model(m_camera_loader.load_rpc_camera_model(image_file),
+                              image_file, camera_file, pixel_offset);
+  }
+  catch(std::exception const& e2) {
+    err2 = e2.what();
+  }
+  // Raise a custom exception if both failed
+  vw_throw(ArgumentErr() << "Unable to load RPC model from either:\n" << image_file
+          << "\nor:\n" << camera_file << "\n"
+          << err1 << "\n" << err2 << "\n");
+} // End function load_rpc_camera_model
+
+
 
 // If we have adjusted camera models, load them.
 boost::shared_ptr<vw::camera::CameraModel>
@@ -596,8 +817,8 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
 
   // Create VW adjusted camera model object with the info we loaded
   return boost::shared_ptr<camera::CameraModel>(new vw::camera::AdjustedCameraModel
-						(cam, position_correction[0],
-						 pose_correction[0], pixel_offset));
+                                                (cam, position_correction[0],
+                                                 pose_correction[0], pixel_offset));
 }
 
 } // End namespace asp

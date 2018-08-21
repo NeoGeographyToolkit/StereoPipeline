@@ -31,13 +31,15 @@
 namespace asp {
 
   typedef vw::camera::CameraTransform<vw::camera::PinholeModel, vw::camera::PinholeModel> PinholeCamTrans;
-  
+
  class StereoSessionPinhole: public StereoSession {
   public:
     StereoSessionPinhole() {}
     virtual ~StereoSessionPinhole() {}
 
     virtual std::string name() const { return "pinhole"; }
+
+    virtual bool is_nadir_facing() const {return false;}
 
     // Stage 1: Preprocessing
     //
@@ -51,50 +53,38 @@ namespace asp {
 
     static StereoSession* construct() { return new StereoSessionPinhole; }
 
-    /// TODO: How is this supposed to work???
-    virtual boost::shared_ptr<vw::camera::CameraModel>
-    camera_model(std::string const& image_file,
-                 std::string const& camera_file = "");
 
     /// Override this function to make sure it properly generates the
     ///  aligned camera models.
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                               boost::shared_ptr<vw::camera::CameraModel> &cam2);
+                               boost::shared_ptr<vw::camera::CameraModel> &cam2) const;
 
     /// Specialized function to load both camera models and find their output sizes
     void load_camera_models(boost::shared_ptr<vw::camera::CameraModel> &left_cam,
                             boost::shared_ptr<vw::camera::CameraModel> &right_cam,
-                            vw::Vector2i &left_out_size, vw::Vector2i &right_out_size);
+                            vw::Vector2i &left_out_size, vw::Vector2i &right_out_size) const;
 
     /// Return the input camera models with no alignment applied.
     /// - This only matters in the epipolar alignment case, where the normal camera model
     ///   functions return the aligned camera models.
     void get_unaligned_camera_models(boost::shared_ptr<vw::camera::CameraModel> &left_cam,
-                                     boost::shared_ptr<vw::camera::CameraModel> &right_cam);
+                                     boost::shared_ptr<vw::camera::CameraModel> &right_cam) const;
 
     /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
     /// - For reversing our arithmetic applied in preprocessing.
-    typedef vw::HomographyTransform tx_type;
-    tx_type tx_left () const;
-    tx_type tx_right() const;
+    virtual tx_type tx_left () const;
+    virtual tx_type tx_right() const;
 
+    /// Get both image transforms at once
+    virtual void tx_left_and_right(tx_type &tx_l, tx_type &tx_r) const;
+    
    typedef vw::stereo::StereoModel stereo_model_type;
 
-   static bool isMapProjected() { return false; }
-
-   // TODO: Need tx_left to return a pointer, and then the logic of the function below
-   // needs to be incorporated into tx_left(). This because for epipolar alignment
-   // the camera transform type is not a homography transform.
-   void pinhole_cam_trans(PinholeCamTrans & left_trans, PinholeCamTrans & right_trans);
-   
-   // TODO: Clean these up!
-
-   // Override the base class functions according to the class paramaters
-   virtual bool uses_map_projected_inputs() const {return  isMapProjected();}
-   virtual bool requires_input_dem       () const {return  isMapProjected();}
-   virtual bool supports_image_alignment () const {return !isMapProjected();}
-   virtual bool is_nadir_facing          () const {return false;}
-
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) const;
  private:
     /// Helper function for determining image alignment.
     /// - Only used in pre_preprocessing_hook()
@@ -107,10 +97,10 @@ namespace asp {
                                          float nodata1, float nodata2);
  };
 
-  /// TODO: What is this function supposed to do?
+  /// Pinhole camera model loading function which handles the case of epipolar alignment.
   boost::shared_ptr<vw::camera::CameraModel>
-  load_adj_pinhole_model(std::string const& image_file, std::string const& camera_file,
-                         std::string const& left_image_file, std::string const& right_image_file,
+  load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
+                         std::string const& left_image_file,  std::string const& right_image_file,
                          std::string const& left_camera_file, std::string const& right_camera_file,
                          std::string const& input_dem);
 

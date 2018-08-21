@@ -24,22 +24,37 @@
 #ifndef __STEREO_SESSION_DGMAPRPC_H__
 #define __STEREO_SESSION_DGMAPRPC_H__
 
-#include <asp/Sessions/StereoSessionConcrete.h>
+#include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionGdal.h>
+#include <asp/Sessions/StereoSessionPinhole.h>
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Image/Transform.h>
 
 namespace asp {
  
+  /// Parent class for all map projected types
+  /// - All map projected types inherit from the Gdal session.
+  class StereoSessionMapProj : public StereoSessionGdal  {
+  public:
+    StereoSessionMapProj(){};
+    virtual ~StereoSessionMapProj(){};
     
+    virtual std::string name() const = 0;
+    virtual bool isMapProjected() { return true; } // TODO: Delete?
+
+    virtual tx_type tx_left () const {return tx_left_map_trans ();}
+    virtual tx_type tx_right() const {return tx_right_map_trans();}
+  };
+  
+  
   /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the DG sensor model.
-  class StereoSessionDGMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC, STEREOMODEL_TYPE_DG>  {
+  class StereoSessionDGMapRPC : public StereoSessionMapProj  {
   public:
     StereoSessionDGMapRPC(){};
     virtual ~StereoSessionDGMapRPC(){};
 
     virtual std::string name() const { return "dgmaprpc"; }
-    virtual bool        uses_map_projected_inputs() const {return true;}
+    virtual bool isMapProjected() { return true; } // TODO: Delete?
 
     static StereoSession* construct() { return new StereoSessionDGMapRPC; }
   };
@@ -47,71 +62,115 @@ namespace asp {
 
 
   /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the RPC sensor model.
-  class StereoSessionRPCMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC, STEREOMODEL_TYPE_RPC>  {
+  class StereoSessionRPCMapRPC : public StereoSessionMapProj  {
   public:
     StereoSessionRPCMapRPC(){};
     virtual ~StereoSessionRPCMapRPC(){};
 
     virtual std::string name() const { return "rpcmaprpc"; }
-    virtual bool        uses_map_projected_inputs() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionRPCMapRPC; }
+    
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset){
+    return load_rpc_camera_model(image_file, camera_file, pixel_offset);
+  }
+  
   };
 
 
-  // TODO: Clean things up so there are not ISIS and PINHOLE classes that are not actually used by these classes!
-
-
   /// Specialization of the StereoSessionGDAL class to use (ISIS) map-projected inputs with the ISIS sensor model.
-  class StereoSessionIsisMapIsis : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS, STEREOMODEL_TYPE_ISIS>  {
+  class StereoSessionIsisMapIsis : public StereoSessionMapProj  {
   public:
     StereoSessionIsisMapIsis(){
       // Supporting this option (or anything else ISIS specific) requires more class refactoring!
       if (stereo_settings().mask_flatfield)
-        vw_throw( NoImplErr() << "StereoSessionIsisMapIsis does not support mask_flatfield" );
+        vw::vw_throw( vw::NoImplErr() << "StereoSessionIsisMapIsis does not support mask_flatfield" );
     };
     virtual ~StereoSessionIsisMapIsis(){};
 
     virtual std::string name() const { return "isismapisis"; }
-    virtual bool        uses_map_projected_inputs() const {return true;}
+    virtual bool uses_rpc_map_projection() const {return false;}
 
     static StereoSession* construct() { return new StereoSessionIsisMapIsis; }
+    
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) {
+      return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+    
   };
 
   /// Specialization of the StereoSessionGDAL class to use (PINHOLE) map-projected inputs with the PINHOLE sensor model.
-  class StereoSessionPinholeMapPinhole : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE, STEREOMODEL_TYPE_PINHOLE>{
+  class StereoSessionPinholeMapPinhole : public StereoSessionMapProj{
   public:
     StereoSessionPinholeMapPinhole() {}
     virtual ~StereoSessionPinholeMapPinhole() {}
 
     virtual std::string name() const { return "pinholemappinhole"; }
-    virtual bool        uses_map_projected_inputs() const {return true;}
+    virtual bool uses_rpc_map_projection() const {return false;}
 
     static StereoSession* construct() { return new StereoSessionPinholeMapPinhole; }
+    
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) {
+      return asp::load_adj_pinhole_model(image_file, camera_file,
+                                         m_left_image_file, m_right_image_file,
+                                         m_left_camera_file, m_right_camera_file,
+                                         m_input_dem);
+    }
   };
 
   /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the SPOT5 sensor model.
-  class StereoSessionSpot5MapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC, STEREOMODEL_TYPE_SPOT5>  {
+  class StereoSessionSpot5MapRPC : public StereoSessionMapProj  {
   public:
     StereoSessionSpot5MapRPC(){};
     virtual ~StereoSessionSpot5MapRPC(){};
 
     virtual std::string name() const { return "spot5maprpc"; }
-    virtual bool        uses_map_projected_inputs() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionSpot5MapRPC; }
+    
+   protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) {
+      return load_adjusted_model(m_camera_loader.load_spot5_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+    
   };
 
   /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the ASTER sensor model.
-  class StereoSessionASTERMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC, STEREOMODEL_TYPE_ASTER>  {
+  class StereoSessionASTERMapRPC : public StereoSessionMapProj  {
   public:
     StereoSessionASTERMapRPC(){};
     virtual ~StereoSessionASTERMapRPC(){};
 
     virtual std::string name() const { return "astermaprpc"; }
-    virtual bool        uses_map_projected_inputs() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionASTERMapRPC; }
+    
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) {
+      return load_adjusted_model(m_camera_loader.load_ASTER_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+    
   };
 
 }

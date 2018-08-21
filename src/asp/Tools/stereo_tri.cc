@@ -46,9 +46,11 @@ using namespace vw;
 using namespace asp;
 using namespace std;
 
+typedef typename StereoSession::tx_type TXT;
+
 /// The main class for taking in a set of disparities and returning a point cloud via joint triangulation.
-template <class DisparityImageT, class TXT, class StereoModelT>
-class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, TXT, StereoModelT> >
+template <class DisparityImageT, class StereoModelT>
+class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, StereoModelT> >
 {
   vector<DisparityImageT> m_disparity_maps;
   vector<TXT>  m_transforms; // e.g., map-projection or homography to undo
@@ -93,12 +95,12 @@ public:
     // For each input image, de-warp the pixel in to the native camera coordinates
     int num_disp = m_disparity_maps.size();
     vector<Vector2> pixVec(num_disp + 1);
-    pixVec[0] = m_transforms[0].reverse(Vector2(i,j)); // De-warp "left" pixel
+    pixVec[0] = m_transforms[0]->reverse(Vector2(i,j)); // De-warp "left" pixel
     for (int c = 0; c < num_disp; c++){
       Vector2 pix;
       DPixelT disp = m_disparity_maps[c](i,j,p); // Disparity value at this pixel
       if (is_valid(disp)) // De-warp the "right" pixel
-        pix = m_transforms[c+1].reverse( Vector2(i,j) + stereo::DispHelper(disp) );
+        pix = m_transforms[c+1]->reverse( Vector2(i,j) + stereo::DispHelper(disp) );
       else // Insert flag values
         pix = Vector2(std::numeric_limits<double>::quiet_NaN(),
                       std::numeric_limits<double>::quiet_NaN());
@@ -113,7 +115,7 @@ public:
     return result; // Contains location and error vector
   }
 
-  typedef StereoTXAndErrorView<ImageViewRef<DPixelT>, TXT, StereoModelT> prerasterize_type;
+  typedef StereoTXAndErrorView<ImageViewRef<DPixelT>, StereoModelT> prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
     return PreRasterHelper( bbox, m_transforms );
   }
@@ -151,7 +153,7 @@ private:
     // transforms so we are not having a race condition with setting
     // the cache in both transforms while the other threads want to do the same.
     vector<T> transforms_copy = transforms;
-    transforms_copy[0].reverse_bbox(bbox); // As a side effect this call makes transforms_copy create a local cache we want later
+    transforms_copy[0]->reverse_bbox(bbox); // As a side effect this call makes transforms_copy create a local cache we want later
 
     if (transforms_copy.size() != m_disparity_maps.size() + 1){
       vw_throw( ArgumentErr() << "In multi-view triangulation, "
@@ -176,7 +178,7 @@ private:
       right_bbox.max() += disparity_range.size();
 
       // Also cache the data for subsequent transforms
-      transforms_copy[p+1].reverse_bbox(right_bbox); // As a side effect this call makes transforms_copy create a local cache we want later
+      transforms_copy[p+1]->reverse_bbox(right_bbox); // As a side effect this call makes transforms_copy create a local cache we want later
     }
 
     return prerasterize_type(disparity_cropviews, transforms_copy, m_stereo_model, m_is_map_projected);
@@ -185,19 +187,19 @@ private:
 }; // End class StereoTXAndErrorView
 
 /// Just a wrapper function for StereoTXAndErrorView view construction
-template <class DisparityT, class TXT, class StereoModelT>
-StereoTXAndErrorView<DisparityT, TXT, StereoModelT>
+template <class DisparityT, class StereoModelT>
+StereoTXAndErrorView<DisparityT, StereoModelT>
 stereo_error_triangulate( vector<DisparityT> const& disparities,
                           vector<TXT>        const& transforms,
                           StereoModelT       const& model,
                           bool is_map_projected ) {
 
-  typedef StereoTXAndErrorView<DisparityT, TXT, StereoModelT> result_type;
+  typedef StereoTXAndErrorView<DisparityT, StereoModelT> result_type;
   return result_type( disparities, transforms, model, is_map_projected );
 }
 
 // Take a given disparity and make it between the original unaligned images
-template <class DisparityT, class TXT>
+template <class DisparityT>
 void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
                                vector<DisparityT> const& disparities,
                                vector<TXT>        const& transforms,
@@ -210,24 +212,6 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
   // Transforms to compensate for alignment
   TXT left_trans  = transforms[0];
   TXT right_trans = transforms[1];
-
-  // Since all our code is templated, and for pinhole cameras
-  // there can be more than one type of transform, and there is no base
-  // pointer for all transforms, need to do this kludge.
-  bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
-                              ( opt_vec[0].session->name() == "pinhole" ||
-                                opt_vec[0].session->name() == "nadirpinhole") );
-
-  // Must initialize below the two cameras to something to respect the constructor.
-  asp::PinholeCamTrans left_trans2 = asp::PinholeCamTrans(vw::camera::PinholeModel(),
-                                                          vw::camera::PinholeModel());
-  asp::PinholeCamTrans right_trans2 = left_trans2;
-  if (usePinholeEpipolar) {
-    StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt_vec[0].session.get());
-    if (pinPtr == NULL) 
-      vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
-    pinPtr->pinhole_cam_trans(left_trans2, right_trans2);
-  }
 
   std::string left_file  = opt_vec[0].in_file1;
   std::string right_file = opt_vec[0].in_file2;
@@ -261,15 +245,9 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
         continue;
 
       // De-warp left and right pixels to be in the camera coordinate system
-      Vector2 left_pix, right_pix;
-      if (!usePinholeEpipolar) {
-        left_pix  = left_trans.reverse ( Vector2(col, row) );
-        right_pix = right_trans.reverse( Vector2(col, row) + stereo::DispHelper(dpix) );
-      }else{
-        left_pix  = left_trans2.reverse ( Vector2(col, row) );
-        right_pix = right_trans2.reverse( Vector2(col, row) + stereo::DispHelper(dpix) );
-      }
-      Vector2 dir = right_pix - left_pix; // disparity value
+      Vector2 left_pix  = left_trans->reverse ( Vector2(col, row) );
+      Vector2 right_pix = right_trans->reverse( Vector2(col, row) + stereo::DispHelper(dpix) );
+      Vector2 dir       = right_pix - left_pix; // disparity value
 
       // This averaging is useful in filling tiny holes and avoiding staircasing.
       // TODO: Use some weights. The closer contribution should have more weight.
@@ -306,9 +284,9 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
   bool   has_nodata      = false;
   double nodata          = -32768.0;
   vw::cartography::block_write_gdal_image(disp_file, unaligned_disp,
-					  has_left_georef, left_georef,
-					  has_nodata, nodata, opt_vec[0],
-					  TerminalProgressCallback("asp", "\t--> Undist disp:") );
+                                          has_left_georef, left_georef,
+                                          has_nodata, nodata, opt_vec[0],
+                                          TerminalProgressCallback("asp", "\t--> Undist disp:") );
 }
 
 /// Bin the disparities, and from each bin get a disparity value.
@@ -317,7 +295,7 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
 /// When gen_triplets is true, and there are many overlapping images,
 /// try hard to have many IP with the property that each such IP is seen
 /// in more than two images. This helps with bundle adjustment.
-template <class DisparityT, class TXT>
+template <class DisparityT>
 void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
                                vector<DisparityT> const& disparities,
                                vector<TXT>        const& transforms,
@@ -334,24 +312,6 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
   TXT left_trans  = transforms[0];
   TXT right_trans = transforms[1];
 
-  // Since all our code is templated, and for pinhole cameras
-  // there can be more than one type of transform, and there is no base
-  // pointer for all transforms, need to do this kludge.
-  bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
-                              ( opt_vec[0].session->name() == "pinhole" ||
-                                opt_vec[0].session->name() == "nadirpinhole") );
-
-  // Must initialize below the two cameras to something to respect the constructor.
-  asp::PinholeCamTrans left_trans2 = asp::PinholeCamTrans(vw::camera::PinholeModel(),
-                                                          vw::camera::PinholeModel());
-  asp::PinholeCamTrans right_trans2 = left_trans2;
-  if (usePinholeEpipolar) {
-    StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt_vec[0].session.get());
-    if (pinPtr == NULL) 
-      vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
-    pinPtr->pinhole_cam_trans(left_trans2, right_trans2);
-  }
-  
   std::vector<vw::ip::InterestPoint> left_ip, right_ip;
 
   if (!gen_triplets) {
@@ -387,14 +347,8 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
           continue;
 
         // De-warp left and right pixels to be in the camera coordinate system
-        Vector2 left_pix, right_pix;
-        if (!usePinholeEpipolar) {
-          left_pix  = left_trans.reverse ( Vector2(posx, posy) );
-          right_pix = right_trans.reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
-        }else{
-          left_pix  = left_trans2.reverse ( Vector2(posx, posy) );
-          right_pix = right_trans2.reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
-        }
+        Vector2 left_pix  = left_trans->reverse ( Vector2(posx, posy) );
+        Vector2 right_pix = right_trans->reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
 
         left_ip.push_back(ip::InterestPoint(left_pix.x(), left_pix.y()));
         right_ip.push_back(ip::InterestPoint(right_pix.x(), right_pix.y()));
@@ -454,25 +408,14 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
 
           // Make the left pixel go to the disparity domain. Find the corresponding
           // right pixel. And make that one go to the right image domain.
-          if (!usePinholeEpipolar) {
-            trans_left_pix = round(left_trans.forward(left_pix));
-            if (trans_left_pix[0] < 0 || trans_left_pix[0] >= disp.cols()) continue;
-            if (trans_left_pix[1] < 0 || trans_left_pix[1] >= disp.rows()) continue;
-            DispPixelT dpix = disp(trans_left_pix[0], trans_left_pix[1]);
-            if (!is_valid(dpix))
-              continue;
-            trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
-            right_pix = right_trans.reverse(trans_right_pix);
-          }else{
-            trans_left_pix = round(left_trans2.forward(left_pix));
-            if (trans_left_pix[0] < 0 || trans_left_pix[0] >= disp.cols()) continue;
-            if (trans_left_pix[1] < 0 || trans_left_pix[1] >= disp.rows()) continue;
-            DispPixelT dpix = disp(trans_left_pix[0], trans_left_pix[1]);
-            if (!is_valid(dpix))
-              continue;
-            trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
-            right_pix = right_trans2.reverse(trans_right_pix);
-          }
+          trans_left_pix = round(left_trans->forward(left_pix));
+          if (trans_left_pix[0] < 0 || trans_left_pix[0] >= disp.cols()) continue;
+          if (trans_left_pix[1] < 0 || trans_left_pix[1] >= disp.rows()) continue;
+          DispPixelT dpix = disp(trans_left_pix[0], trans_left_pix[1]);
+          if (!is_valid(dpix))
+            continue;
+          trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
+          right_pix = right_trans->reverse(trans_right_pix);
 
           // Add this ip unless found already. This is clumsy, but we
           // can't use a set since there is no ordering for pairs.
@@ -524,9 +467,9 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
           
           // Compute the left and right pixels. 
           if (!usePinholeEpipolar) {
-            left_pix        = left_trans.reverse(trans_left_pix);
+            left_pix        = left_trans->reverse(trans_left_pix);
             trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
-            right_pix       = right_trans.reverse(trans_right_pix);
+            right_pix       = right_trans->reverse(trans_right_pix);
           }else{
             left_pix        = left_trans2.reverse(trans_left_pix);
             trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
@@ -805,8 +748,8 @@ void stereo_triangulation( string          const& output_prefix,
     }
 
     std::string match_file = ip::match_filename(output_prefix + "-disp",
-						opt_vec[0].in_file1, 
-						opt_vec[0].in_file2);
+                                                opt_vec[0].in_file1, 
+                                                opt_vec[0].in_file2);
 
     // Pull matches from disparity. Highly experimental.
 
@@ -842,8 +785,8 @@ void stereo_triangulation( string          const& output_prefix,
       if (opt_vec[0].session->name() == "isis" || opt_vec[0].session->name() == "isismapisis")
         num_threads = 1;
       asp::jitter_adjust(image_files, camera_files, cameras,
-			 output_prefix, opt_vec[0].session->name(),
-			 match_file,  num_threads);
+                         output_prefix, opt_vec[0].session->name(),
+                         match_file,  num_threads);
       //asp::ccd_adjust(image_files, camera_files, cameras, output_prefix,
       //                match_file,  num_threads);
     }
