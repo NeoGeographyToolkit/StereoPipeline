@@ -376,7 +376,8 @@ void calc_translation_vec(PointMatcher<RealT>::Matrix const& initT,
                           vw::Vector3 & source_ctr_llh,
                           vw::Vector3 & trans_xyz,
                           vw::Vector3 & trans_ned,
-                          vw::Vector3 & trans_llh){
+                          vw::Vector3 & trans_llh,
+                          vw::Matrix3x3 & NED2ECEF){
 
   // The center of gravity of the source points (after the initial transform is applied to them)
   Eigen::VectorXd source_ctr
@@ -407,8 +408,10 @@ void calc_translation_vec(PointMatcher<RealT>::Matrix const& initT,
   vw::Vector3 trans_source_ctr_llh = datum.cartesian_to_geodetic(trans_source_ctr_vec);
   trans_llh = trans_source_ctr_llh - source_ctr_llh;
 
-  vw::Matrix3x3 M = datum.lonlat_to_ned_matrix(subvector(source_ctr_llh, 0, 2));
-  trans_ned = inverse(M)*trans_xyz;
+  // The matrix to go from the NED coordinate system to the ECEF coordinate system
+  NED2ECEF = datum.lonlat_to_ned_matrix(subvector(source_ctr_llh, 0, 2));
+  
+  trans_ned = inverse(NED2ECEF)*trans_xyz;
 }
 
 // Calculate the maximum displacement from the source points (after

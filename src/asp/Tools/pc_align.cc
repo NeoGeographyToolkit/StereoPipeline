@@ -1378,9 +1378,10 @@ int main( int argc, char *argv[] ) {
     double max_obtained_disp = calc_max_displacment(source_point_cloud, trans_source_point_cloud);
     Vector3 source_ctr_vec, source_ctr_llh;
     Vector3 trans_xyz, trans_ned, trans_llh;
+    vw::Matrix3x3 NED2ECEF;
     calc_translation_vec(initT, source_point_cloud, trans_source_point_cloud, shift,
 			 geo.datum(), source_ctr_vec, source_ctr_llh,
-                         trans_xyz, trans_ned, trans_llh);
+                         trans_xyz, trans_ned, trans_llh, NED2ECEF);
 
     // For each point, compute the distance to the nearest reference point.
     PointMatcher<RealT>::Matrix end_errors;
@@ -1440,13 +1441,18 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Scale - 1 = " << (scale-1.0) << std::endl;
     }
     
+    Matrix3x3 rot_NED = inverse(NED2ECEF) * rot * NED2ECEF;
+   
     Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
+    Vector3 euler_angles_NED = math::rotation_matrix_to_euler_xyz(rot_NED) * 180/M_PI;
     Vector3 axis_angles = math::matrix_to_axis_angle(rot) * 180/M_PI;
     vw_out() << "Euler angles (degrees): " << euler_angles  << endl;
+    vw_out() << "Euler angles (North-East-Down, degrees): " << euler_angles_NED  << endl;
     vw_out() << "Axis of rotation and angle (degrees): "
              << axis_angles/norm_2(axis_angles) << ' '
              << norm_2(axis_angles) << endl;
 
+    
     Stopwatch sw5;
     sw5.start();
     save_transforms(opt, globalT);

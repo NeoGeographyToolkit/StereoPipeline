@@ -7,6 +7,9 @@
      hillshading the DEMs and finding interest point matches among
      them, which are then used to find the transform. Can be invoked
      with --initial-transform-from-hillshading.
+   * Added the expression of the Euler angles in the North-East-Down
+     coordinate system around the center of gravity of the source
+     cloud.
  
 *** RELEASE 2.6.1, August 13, 2018 ***
 
