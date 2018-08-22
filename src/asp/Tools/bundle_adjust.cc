@@ -1559,6 +1559,7 @@ void remove_outliers(ControlNetwork const& cnet, std::set<int> & outlier_xyz,
   for (match_type match_it = opt.match_files.begin(); match_it != opt.match_files.end();
        match_it++){
 
+    // IP from the control network, for which we flagged outliers
     std::vector<vw::ip::InterestPoint> left_ip, right_ip;
       
     std::pair<int, int> cam_pair   = match_it->first;
@@ -1566,6 +1567,17 @@ void remove_outliers(ControlNetwork const& cnet, std::set<int> & outlier_xyz,
     size_t left_cam  = cam_pair.first;
     size_t right_cam = cam_pair.second;
 
+    // Read the original IP, to ensure later we write to disk only
+    // the subset of the IP from the control network which
+    // are part of these original ones. 
+    std::vector<ip::InterestPoint> orig_left_ip, orig_right_ip;
+    ip::read_binary_match_file(match_file, orig_left_ip, orig_right_ip);
+    std::map< std::pair<double, double>, std::pair<double, double> > lookup;
+    for (size_t ip_iter = 0; ip_iter < orig_left_ip.size(); ip_iter++) {
+      lookup [ std::pair<double, double>(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y) ]
+        =  std::pair<double, double>(orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y);
+    }
+        
     // Iterate over the control network, and, for each control point,
     // look only at the measure for left_cam and right_cam
     int ipt = -1;
@@ -1600,6 +1612,12 @@ void remove_outliers(ControlNetwork const& cnet, std::set<int> & outlier_xyz,
       if (outlier_xyz.find(ipt) != outlier_xyz.end())
 	continue; // skip outliers
 
+      // Only add ip that were there originally
+      std::pair<double, double> left(lip.x, lip.y);
+      std::pair<double, double> right(rip.x, rip.y);
+      if (lookup.find(left) == lookup.end() || lookup[left] != right)
+        continue;
+      
       left_ip.push_back(lip);
       right_ip.push_back(rip);        
     }
