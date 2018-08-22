@@ -342,46 +342,6 @@ generally well with all MOC-NA pairs. Just set \texttt{alignment-method}
 to \texttt{none} when using map-projected imagery. If the images are not
 map-projected, use \texttt{homography} or \texttt{affineepipolar}.
 
-% \section{HRSC}
-
-% Explain about p12 vs n12, etc.
-
-% http://hrscview.fu-berlin.de/cgi-bin/ion-p?page=entry2.ion 
-
-% Select the HRSC Archive DTM resolution map.
-
-% Or get them from PDS
-
-
-% wget http://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v3/mexhrs_1001/data/0068/h0068_0009_s12.img
-% wget http://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v3/mexhrs_1001/data/0068/h0068_0009_s22.img
-
-% Another pair we have tested ASP with was:  h5124_0009_p12.img and h5124_0009_p22.img
-
-% hrsc2isis from=h5124_0009_p12.img to=h5124_0009_p12.cub
-% hrsc2isis from=h5124_0009_p22.img to=h5124_0009_p22.cub
-% spiceinit from=h5124_0009_p12.cub ckpredicted=true
-% spiceinit from=h5124_0009_p22.cub ckpredicted=true
-
-% ASP unfortunately could not do an HRSC session entirely in auto so I had to manually pick a search range. You'll have to play with the numbers a bit as they change for every observation. Here's my settings file:
-
-% Code: [Select]
-% DO_INTERESTPOINT_ALIGNMENT 0
-% INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
-% DO_EPIPOLAR_ALIGNMENT 0
-
-% FORCE_USE_ENTIRE_RANGE 1
-% DO_INDIVIDUAL_NORMALIZATION 0
-
-% PREPROCESSING_FILTER_MODE 2
-% SLOG_KERNEL_WIDTH 1.5
-
-% COST_MODE 0
-% COST_BLUR 0
-
-% H_KERNEL 17
-% V_KERNEL 17
-
 \section{Mars Exploration Rovers}\label{mer:example}
 
 The Mars Exploration Rovers (MER) have several cameras on board
@@ -581,6 +541,65 @@ works generally well with all Apollo pairs. Just set
 \texttt{affineepipolar}.
 
 %% \pagebreak
+
+
+\section{Mars Express High Resolution Stereo Camera (HRSC)}
+
+The HRSC camera on the Mars Express satellite is a complicated system,
+consisting of multiple channels pointed in different directions plus
+another super resolution channel.  The best option to create DEMs is to
+use the two dedicated stereo channels.  These are pointed ahead of and
+behind the nadir channel and collect a stereo observation in a single 
+pass of the satellite.  Data can be downloaded from the Planetary Data
+System (PDS) \url{http://pds-geosciences.wustl.edu/missions/mars_express/hrsc.htm}
+or you can use the online graphical tool located at
+\url{http://hrscview.fu-berlin.de/cgi-bin/ion-p?page=entry2.ion}.
+Since each observation contains both stereo channels you only need one
+to create a DEM!
+
+HRSC data is organized into categories.  Level 2 is radiometrically corrected,
+level 3 is corrected and map projected on to MOLA, and level 4 is corrected
+and map projected on to a DEM created from the HRSC data.  You should use the
+level 2 data for creating DEMs with ASP.  If you would like to download one
+of the already created DEMs it may be easiest to use the aeroid referenced version
+(.da4 extension) since that is consistent with MOLA.
+
+\subsection{Frame 1995}
+
+\begin{verbatim}
+http://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v3/mexhrs_1001/data/1995/h1995_0000_s12.img
+http://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v3/mexhrs_1001/data/1995/h1995_0000_s22.img
+\end{verbatim}
+
+\subsubsection*{Commands}
+
+You may need to download the HRSC kernel files in case using \texttt{web=true} with
+\texttt{spiceinit} does not work.  You will also probably need to include the 
+\texttt{ckpredicted=true} flag with \texttt{spiceinit}.  HRSC images are large
+and may have compression artifacts so you should experiment on a small region
+to make sure your stereo parameters are working well.  For this frame, the MGM
+stereo algorithm performed better than block matching with subpixel mode 3.
+
+\begin{verbatim}
+  ISIS 3> hrsc2isis from=h1995_0000_s12.img to=h1995_0000_s12.cub
+  ISIS 3> hrsc2isis from=h1995_0000_s22.img to=h1995_0000_s22.cub
+  ISIS 3> spiceinit from=h1995_0000_s12.cub ckpredicted=true
+  ISIS 3> spiceinit from=h1995_0000_s22.cub ckpredicted=true
+  ISIS 3> stereo h1995_0000_s12.cub  h1995_0000_s22.cub --stereo-algorithm 2 --cost-mode 3 mgm/out
+\end{verbatim}
+
+\begin{figure}[h!]
+\centering
+  \subfigure[{\tt Cropped input}]{\includegraphics[width=2in]{images/examples/hrsc/hrsc_L.png}}
+  \hfil
+  \subfigure[{\tt Block matching with subpixel mode 3}]{\includegraphics[width=2in]{images/examples/hrsc/hrsc_bm.png}}
+  \hfil
+  \subfigure[{\tt MGM algorithm with cost mode 3}]{\includegraphics[width=2in]{images/examples/hrsc/hrsc_mgm.png}}
+\caption{Sample outputs from a cropped region of HRSC frame 1995}
+\label{fig:hrsc_example}
+\end{figure}
+
+
 
 %% \section{MESSENGER MDIS}
 
