@@ -1957,33 +1957,38 @@ rotation and translation. With Point-to-Point ICP, it is also possible
 to solve for a scale change (to obtain a so-called \texttt{similarity
 transform}). It is suggested this approach be used only when a scale
 change is expected. It can be turned on by setting
-\texttt{-\/-alignment-method similarity-point-to-point}. 
+\texttt{-\/-alignment-method similarity-point-to-point}. (This method
+works best if an initial alignment is first performed with, for example,
+the Point-to-Plane approach, to determine the rotation and translation
+part of the transform, and then that one can be used as an initial guess
+in order to solve for the scale as well.)
 
 For very large scale difference or translation among the two clouds,
 both of these algorithms may fail. If the clouds are DEMs, one may
-specify the flag \texttt{-\/-initial-transform-from-hillshading} which
-will hillshade the two DEMs, find interest point matches among them, and
-use that to compute an initial rotation + translation + scale transform
-between the clouds (section \ref{prevtrans}), after which the earlier
-algorithms will be applied to refine the transform. This functionality
-is implemented with ASP's \texttt{hillshade}, \texttt{ipfind}, and
-\texttt{ipmatch} tools, and \texttt{pc\_align} has options to pass flags
-to these programs, such as to increase the number interest points being
-found, if the defaults are not sufficient. If the two clouds look too
-different for interest point matching to work, they perhaps can be
-re-gridded to use the same (coarser) grid, as described in section
-\ref{regrid}, to obtain the initial transform which can then be
-applied to the original clouds.
+specify the option \texttt{-\/-initial-transform-from-hillshading
+\textit{string}} which will hillshade the two DEMs, find interest point
+matches among them, and use that to compute an initial transform between
+the clouds (section \ref{prevtrans}), which may or may not contain
+scale, after which the earlier algorithms will be applied to refine the
+transform. This functionality is implemented with ASP's
+\texttt{hillshade}, \texttt{ipfind}, and \texttt{ipmatch} tools, and
+\texttt{pc\_align} has options to pass flags to these programs, such as
+to increase the number interest points being found, if the defaults are
+not sufficient. If the two clouds look too different for interest point
+matching to work, they perhaps can be re-gridded to use the same
+(coarser) grid, as described in section \ref{regrid}, to obtain the
+initial transform which can then be applied to the original clouds.
  
 Another option is to use least squares (with outlier handling using a
-robust cost function) to find the transform, if the
-reference cloud is a DEM. For this, one should specify the alignment
-method as \texttt{least-squares} or \texttt{similarity-least-squares}
-(the latter also solves for scale). This method is somewhat
-experimental. It is suggested that the input clouds be very close or
-otherwise the \texttt{-\/-initial-transform} option be used, for the
-method to converge. Also, fewer iterations than the default may be
-needed.
+robust cost function) to find the transform, if the reference cloud is a
+DEM. For this, one should specify the alignment method as
+\texttt{least-squares} or \texttt{similarity-least-squares} (the latter
+also solves for scale). It is
+suggested that the input clouds be very close or otherwise the
+\texttt{-\/-initial-transform} option be used, for the method to
+converge, and use perhaps on the order of 10-20
+iterations and a smaller value for \texttt{-\/-max-num-source-points}
+(perhaps a few thousand) for this approach to converge reasonably fast.
 
 \subsection{File formats}
 
@@ -2134,23 +2139,19 @@ fine-tune the stopping criteria.
 \subsection{Manual alignment}
 
 If automatic alignment fails, for example, if the clouds are too
-different, or they differ by a scale factor, manual alignment can be
-used instead, either on its own, or as an initial guess for the
-automatic alignment transform. For that, the input point clouds should
-be first converted to DEMs using \texttt{point2dem}, unless in that
-format already. Then, \texttt{stereo\_gui} can be invoked to create
-manual point correspondences (interest point matches) from the reference
-to the source DEM (hence they should be displayed in the GUI in this
-order, from left to right, and one can hillshade them to see features
-better). Once the match file is saved to disk, it can be passed to
-\texttt{pc\_align} via the \texttt{-\/-match-file} option, which will
-compute an initial rotation + translation + scale transform before
-continuing with alignment. This transform can also be used for non-DEM
-clouds once it is found using DEMs obtained from those clouds.
-
-In effect, this approach is along the same lines as the
-\texttt{-\/-initial-transform-from-hillshading} option, but with the
-user creating a match file, rather than it being done automatically.
+different, or they differ by a scale factor, a manual alignment can be
+computed as an initial guess transform (and one can stop there if
+\texttt{pc\_align} is invoked with 0 iterations). For that, the input
+point clouds should be first converted to DEMs using \texttt{point2dem},
+unless in that format already. Then, \texttt{stereo\_gui} can be called
+to create manual point correspondences (interest point matches) from the
+reference to the source DEM (hence they should be displayed in the GUI
+in this order, from left to right, and one can hillshade them to see
+features better). Once the match file is saved to disk, it can be passed
+to \texttt{pc\_align} via the \texttt{-\/-match-file} option, which will
+compute an initial transform before continuing with alignment. This
+transform can also be used for non-DEM clouds once it is found using
+DEMs obtained from those clouds.
 
 \subsection{Creating a point cloud from a DEM}
 \label{regrid}
@@ -2234,9 +2235,9 @@ and Northing fields.  \\ \hline
 The file containing the transform to be used as an
 initial guess. It can come from a previous run of the tool. \\ \hline
 
-\texttt{-\/-initial-ned-translation} \textit{string} &  Initialize the alignment transform based on a translation with this vector in the local North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas. \\ \hline
+\texttt{-\/-initial-ned-translation \textit{string}} &  Initialize the alignment transform based on a translation with this vector in the local North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas. \\ \hline
 
-\texttt{ -\/-initial-transform-from-hillshading} & If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial rotation + translation + scale transform to apply to the source cloud before proceeding with alignment.
+\texttt{ -\/-initial-transform-from-hillshading \textit{string}} & If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial transform to apply to the source cloud before proceeding with alignment. Specify here the type of transform, as one of: 'similarity' (rotation + translation + scale), 'rigid' (rotation + translation) or 'translation'.
 \\ \hline
 
 \texttt{-\/-hillshade-options} & Options to pass to the \texttt{hillshade} program when computing the transform from hillshading. Default: \texttt{-\/-azimuth 300 -\/-elevation 20}. \\ \hline
@@ -2245,7 +2246,7 @@ initial guess. It can come from a previous run of the tool. \\ \hline
 
 \texttt{-\/-ipmatch-options} & Options to pass to the \texttt{ipmatch} program when computing the transform from hillshading. Default: \texttt{-\/-inlier-threshold 100 -\/-ransac-constraint similarity}. \\ \hline
 
-\texttt{-\/-match-file} & Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo\_gui). \\ \hline
+\texttt{-\/-match-file} & Compute an initial transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo\_gui).  The type of transform can be set via \texttt{-\/-initial-transform-from-hillshading \textit{string}}.\\ \hline
 
 \texttt{-\/-diff-rotation-error \textit{default: $10^{-8}$}} & Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees. \\ \hline
 \texttt{-\/-diff-translation-error \textit{default: $10^{-3}$}} & Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters. \\ \hline
@@ -2616,7 +2617,7 @@ Projection Options\\ \hline
 \section{geodiff}
 \label{geodiff}
 
-The \texttt{geodiff} program takes as input two DEMs (or a DEM and a CSV file, with the latter in the same format as used for \texttt{pc\_align} and \texttt{point2dem}), and subtracts the second from the first. The grid used is the one from the first DEM, so the second one is interpolated into it (when one file is a CSV, the grid from the second one, the DEM, is used). The tool can also take the absolute difference of the two DEMs.
+The \texttt{geodiff} program takes as input two DEMs (or a DEM and a CSV file, with the latter in the same format as used for \texttt{pc\_align} and \texttt{point2dem}), and subtracts the second from the first. The grid used is the one from the first DEM, so the second one is interpolated into it (when one file is a CSV, the grid from the other one, the DEM, is used). The tool can also take the absolute difference of the two DEMs.
 
 It is important to note that the tool is very sensitive to the order of
 the two DEMs, due to the fact that the grid comes from the first

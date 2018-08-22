@@ -35,17 +35,18 @@ using namespace pdal::filters;
 namespace asp{
 
 
-  void find_3D_affine_transform(vw::Matrix<double>     const& in_vec, 
-                                vw::Matrix<double>     const& out_vec,
-                                vw::Matrix<double,3,3> & rotation,
-                                vw::Vector<double,3>   & translation,
-                                double                 & scale,
-				bool filter_outliers) {
+  void find_3D_affine_transform(vw::Matrix<double> const & in_vec, 
+                                vw::Matrix<double> const & out_vec,
+                                vw::Matrix<double,3,3>   & rotation,
+                                vw::Vector<double,3>     & translation,
+                                double                   & scale,
+                                std::string      const   & transform_type,
+				bool                       filter_outliers) {
 
     std::vector<bool> is_outlier;
     if (!filter_outliers) {
-      find_3D_affine_transform_aux(in_vec, out_vec, rotation, translation, scale, is_outlier,
-				   filter_outliers);
+      find_3D_affine_transform_aux(in_vec, out_vec, rotation, translation, scale,
+                                   transform_type, filter_outliers, is_outlier);
       return;
     }
 
@@ -72,7 +73,7 @@ namespace asp{
     for (int attempt = 0; attempt < num_attempts; attempt++) {
       
       find_3D_affine_transform_aux(in_vec, out_vec,  rotation, translation,
-				   scale, is_outlier, filter_outliers);
+				   scale, transform_type, filter_outliers, is_outlier);
 
       for (int col = 0; col < num_pts; col++) {
 	Vector3 src, ref;
@@ -106,14 +107,20 @@ namespace asp{
     
   }
   
-  void find_3D_affine_transform_aux(vw::Matrix<double>     const& in_vec, 
-				    vw::Matrix<double>     const& out_vec,
-				    vw::Matrix<double,3,3> & rotation,
-				    vw::Vector<double,3>   & translation,
-				    double                 & scale,
-				    std::vector<bool>      & is_outlier,
-				    bool filter_outliers) {
-    
+  void find_3D_affine_transform_aux(vw::Matrix<double> const & in_vec, 
+				    vw::Matrix<double> const & out_vec,
+				    vw::Matrix<double,3,3>   & rotation,
+				    vw::Vector<double,3>     & translation,
+				    double                   & scale,
+                                    std::string      const   & transform_type,
+				    bool                       filter_outliers,
+				    std::vector<bool>        & is_outlier) {
+
+    if (transform_type != "similarity" && transform_type != "rigid" &&
+        transform_type != "translation") {
+      vw_throw( vw::ArgumentErr() << "find_3D_affine_transform_aux: Expecting to compute a "
+                << "transform which is either similarity, or rigid, or translation." );
+    }
     
     // Make copies that we can modify inline
     vw::Matrix<double> in  = in_vec; 
@@ -134,37 +141,39 @@ namespace asp{
 
     // First find the scale, by finding the ratio of sums of some distances,
     // then bring the datasets to the same scale.
-    double dist_in = 0, dist_out = 0;
-    for (size_t col = 0; col < in.cols() - 1; col++) {
-
-      if (filter_outliers && is_outlier[col]) continue;
-
-      size_t next_col = col + 1;
-      if (filter_outliers) {
-	// Find the next column that is not an outlier
-	bool success = false;
-	while (next_col < in.cols()){
-	  if (!is_outlier[next_col]) {
-	    success = true;
-	    break;
-	  }
-	  next_col++;
-	}
-	if (!success) continue;
+    if (transform_type == "similarity") {
+      double dist_in = 0, dist_out = 0;
+      for (size_t col = 0; col < in.cols() - 1; col++) {
+        
+        if (filter_outliers && is_outlier[col]) continue;
+        
+        size_t next_col = col + 1;
+        if (filter_outliers) {
+          // Find the next column that is not an outlier
+          bool success = false;
+          while (next_col < in.cols()){
+            if (!is_outlier[next_col]) {
+              success = true;
+              break;
+            }
+            next_col++;
+          }
+          if (!success) continue;
+        }
+        
+        ColView inCol1 (in,  col), inCol2 (in,  next_col);
+        ColView outCol1(out, col), outCol2(out, next_col);
+        dist_in  += vw::math::norm_2(inCol2  - inCol1 );
+        dist_out += vw::math::norm_2(outCol2 - outCol1);
       }
       
-      ColView inCol1 (in,  col), inCol2 (in,  next_col);
-      ColView outCol1(out, col), outCol2(out, next_col);
-      dist_in  += vw::math::norm_2(inCol2  - inCol1 );
-      dist_out += vw::math::norm_2(outCol2 - outCol1);
+      if (dist_in <= 0 || dist_out <= 0)
+        return;
+
+      scale = dist_out/dist_in;
+      out /= scale;
     }
     
-    if (dist_in <= 0 || dist_out <= 0)
-      return;
-
-    scale = dist_out/dist_in;
-    out /= scale;
-
     // Find the centroids then shift to the origin
     vw::Vector3 in_ctr;
     vw::Vector3 out_ctr;
@@ -216,27 +225,28 @@ namespace asp{
       in.set_size(in.rows(), good_col);
       out.set_size(out.rows(), good_col);
     }
+
+
+    if (transform_type != "translation") {
+      // SVD
+      vw::Matrix<double> cov = in * vw::math::transpose(out);
+      vw::Matrix<float> U, VT;
+      vw::Vector<float> s;
+      vw::math::svd(cov, U, s, VT);
+      
+      // Find the rotation
+      double d = vw::math::det(vw::math::transpose(VT) * vw::math::transpose(U));
+      if (d > 0)
+        d = 1.0;
+      else
+        d = -1.0;
+      vw::Matrix3x3 I;
+      I.set_identity();
+      I(2, 2) = d;
+      rotation = vw::math::transpose(VT) * I * vw::math::transpose(U);
+    }
     
-    // SVD
-    vw::Matrix<double> cov = in * vw::math::transpose(out);
-    vw::Matrix<float> U, VT;
-    vw::Vector<float> s;
-    vw::math::svd(cov, U, s, VT);
-
-    // Find the rotation
-    double d = vw::math::det(vw::math::transpose(VT) * vw::math::transpose(U));
-    if (d > 0)
-      d = 1.0;
-    else
-      d = -1.0;
-    vw::Matrix3x3 I;
-    I.set_identity();
-    I(2, 2) = d;
-    vw::Matrix3x3 R = vw::math::transpose(VT) * I * vw::math::transpose(U);
-
-    // The final transform
-    rotation    = R;
-    translation = scale*(out_ctr - R*in_ctr);
+    translation = scale*(out_ctr - rotation*in_ctr);
     return;
   }
 

@@ -103,19 +103,19 @@ struct Options : public vw::cartography::GdalWriteOptions {
          outlier_ratio,
          semi_major,
          semi_minor;
-  bool   compute_translation_only, use_hillshading,
+  bool   compute_translation_only,
          dont_use_dem_distances,
          save_trans_source,
          save_trans_ref,
          highest_accuracy,
          verbose;
-  std::string initial_ned_translation;
+  std::string initial_ned_translation, hillshading_transform;
   
   // Output
   string out_prefix;
 
   Options() : max_disp(-1.0), verbose(true){}
-
+  
   /// Return true if the reference file is a DEM file and this option is not disabled
   bool use_dem_distances() const { return ( (asp::get_cloud_type(this->reference) == "DEM") && !dont_use_dem_distances); }
 };
@@ -165,7 +165,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("initial-ned-translation", po::value(&opt.initial_ned_translation)->default_value(""),
                                  "Initialize the alignment transform based on a translation with this vector in the local North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas.")
 
-    ("initial-transform-from-hillshading", po::bool_switch(&opt.use_hillshading)->default_value(false)->implicit_value(true), "If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial rotation + translation + scale transform to apply to the source cloud before proceeding with alignment.")
+    ("initial-transform-from-hillshading", po::value(&opt.hillshading_transform)->default_value(""), "If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial transform to apply to the source cloud before proceeding with alignment. Specify here the type of transform, as one of: 'similarity' (rotation + translation + scale), 'rigid' (rotation + translation) or 'translation'.")
     ("hillshade-options", po::value(&opt.hillshade_options)->default_value("--azimuth 300 --elevation 20"), "Options to pass to the hillshade program when computing the transform from hillshading.")
     ("ipfind-options", po::value(&opt.ipfind_options)->default_value("--ip-per-image 1000000 --interest-operator sift --descriptor-generator sift"), "Options to pass to the ipfind program when computing the transform from hillshading.")
     ("ipmatch-options", po::value(&opt.ipmatch_options)->default_value("--inlier-threshold 100 --ransac-constraint similarity"), "Options to pass to the ipmatch program when computing the transform from hillshading.")
@@ -233,21 +233,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             << usage << general_options );
   }
 
-  if (opt.use_hillshading && opt.match_file != "") {
-    vw_throw( ArgumentErr() << "Cannot specify --match-file when using hillshading, "
-              << "as then a match file will be generated automatically.\n" );
-  }
-  
   if (opt.initial_ned_translation != "" && opt.init_transform_file != "")
     vw_throw( ArgumentErr()
               << "Cannot specify an initial transform both from a file and as a NED vector.\n");
 
-  if ( (opt.use_hillshading || opt.match_file != "") &&
+  if ( (opt.hillshading_transform != "" || opt.match_file != "") &&
        ( opt.initial_ned_translation != "" || opt.init_transform_file != "") ) {
     vw_throw( ArgumentErr() << "Cannot both specify an initial transform "
               << "and expect one to be computed automatically.\n");
   }
-  
+
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -997,10 +992,12 @@ std::string find_matches_from_hillshading(Options & opt, std::string const& curr
 }
 
 // Compute an initial source to reference transform based on tie points (interest point matches).
-PointMatcher<RealT>::Matrix initial_transform_from_match_file(std::string const& ref_file,
-                                                              std::string const& source_file,
-                                                              std::string const& match_file){
-
+PointMatcher<RealT>::Matrix
+initial_transform_from_match_file(std::string const& ref_file,
+                                  std::string const& source_file,
+                                  std::string const& match_file,
+                                  std::string const& hillshading_transform){
+  
   if (asp::get_cloud_type(ref_file) != "DEM" ||
       asp::get_cloud_type(source_file) != "DEM" )
     vw_throw( ArgumentErr() << "The alignment transform computation based on manually chosen point matches only works for DEMs. Use point2dem to first create DEMs from the input point clouds.\n" );
@@ -1077,7 +1074,9 @@ PointMatcher<RealT>::Matrix initial_transform_from_match_file(std::string const&
   double        scale;
   bool filter_outliers = true;
   asp::find_3D_affine_transform(points_src, points_ref,
-                                rotation, translation, scale, filter_outliers);
+                                rotation, translation, scale,
+                                hillshading_transform,
+                                filter_outliers);
 
   // Convert to pc_align transform format.
   PointMatcher<RealT>::Matrix globalT = Eigen::MatrixXd::Identity(DIM+1, DIM+1);
@@ -1129,14 +1128,18 @@ int main( int argc, char *argv[] ) {
     handle_arguments(argc, argv, opt);
 
     // Use hillshading to create a match file
-    if (opt.use_hillshading)
+    if (opt.hillshading_transform != "" && opt.match_file == "")
       opt.match_file = find_matches_from_hillshading(opt, argv[0]);
     
     // Create a transform based on a match file, either automatically generated, or
     // user-made (normally with stereo_gui).
-    if (opt.match_file != "") 
+    if (opt.match_file != "") {
+      if (opt.hillshading_transform == "") 
+        opt.hillshading_transform = "similarity";
       opt.init_transform = initial_transform_from_match_file(opt.reference, opt.source,
-                                                             opt.match_file);
+                                                             opt.match_file,
+                                                             opt.hillshading_transform);
+    }
     
 // TODO: Enable on OSX when clang supports OpenMP!
 #if (defined(ASP_OSX_BUILD) && ASP_OSX_BUILD==1)
@@ -1399,8 +1402,7 @@ int main( int argc, char *argv[] ) {
     PointMatcher<RealT>::Matrix globalT = apply_shift(combinedT, -shift);
 
     // Print statistics
-    vw_out() << "Alignment transform (rotation + translation, "
-             << "origin is planet center):" << endl << globalT << endl;
+    vw_out() << "Alignment transform (origin is planet center):" << endl << globalT << endl;
     vw_out() << "Centroid of source points (Cartesian, meters): " << source_ctr_vec << std::endl;
     // Swap lat and lon, as we want to print lat first
     std::swap(source_ctr_llh[0], source_ctr_llh[1]);
@@ -1432,14 +1434,11 @@ int main( int argc, char *argv[] ) {
       for (int c = 0; c < DIM; c++)
         rot(r, c) = globalT(r, c);
 
-    if (opt.alignment_method == "similarity-point-to-point" ||
-	opt.alignment_method == "similarity-least-squares"){
-      double scale = pow(det(rot), 1.0/3.0);
-      for (int r = 0; r < DIM; r++)
-        for (int c = 0; c < DIM; c++)
-          rot(r, c) /= scale;
-      vw_out() << "Scale - 1 = " << (scale-1.0) << std::endl;
-    }
+    double scale = pow(det(rot), 1.0/3.0);
+    for (int r = 0; r < DIM; r++)
+      for (int c = 0; c < DIM; c++)
+        rot(r, c) /= scale;
+    vw_out() << "Transform scale - 1 = " << (scale-1.0) << std::endl;
     
     Matrix3x3 rot_NED = inverse(NED2ECEF) * rot * NED2ECEF;
    

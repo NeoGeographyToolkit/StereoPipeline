@@ -6,10 +6,15 @@
      scale or translation changes, or to noise. It is based on
      hillshading the DEMs and finding interest point matches among
      them, which are then used to find the transform. Can be invoked
-     with --initial-transform-from-hillshading.
+     with --initial-transform-from-hillshading <transform type>.
+     Supported transforms are: 'similarity' (rotation + translation +
+     scale), 'rigid' (rotation + translation) and 'translation'.
    * Added the expression of the Euler angles in the North-East-Down
      coordinate system around the center of gravity of the source
      cloud.
+
+ - bundle_adjust
+   * Bug fix in outlier filtering for n images.
  
 *** RELEASE 2.6.1, August 13, 2018 ***
 
