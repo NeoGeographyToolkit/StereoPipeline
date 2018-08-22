@@ -1764,11 +1764,8 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
 
   vw::cartography::GeoReference dem_georef;
   ImageViewRef< PixelMask<double> >  interp_dem;
-  if (opt.heights_from_dem != "") {
-    if (!opt.create_pinhole) 
-      vw_throw( ArgumentErr() << "When using a high quality DEM, must use the --create-pinhole-cameras option.\n");
+  if (opt.heights_from_dem != "") 
     create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
-  }
   
   // Add the various cost functions the solver will optimize over.
   std::vector<size_t> cam_residual_counts(num_cameras);
@@ -3263,7 +3260,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. The documentation has an example for how to use this.")
     
     ("heights-from-dem",  po::value(&opt.heights_from_dem)->default_value(""),
-     "If the cameras have already been bunde-adjusted and rigidly transformed to create a DEM aligned to a known high-quality DEM, in the original triangulated xyz points replace the heights with the ones from this high quality DEM and fix those points. This can be used to refine camera positions and intrinsics and works only for pinhole images. Niche and experimental, not for general use.")
+     "If the cameras have already been bunde-adjusted and rigidly transformed to create a DEM aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this high quality DEM and fix those points. This can be used to refine camera positions and intrinsics. Niche and experimental, not for general use.")
     ("gcp-data",  po::value(&opt.gcp_data)->default_value(""),
      "Given map-projected versions of the input images and the DEM mapprojected onto, create GCP so that during bundle adjustment the original unprojected images are adjusted to mapproject where desired onto the DEM. Niche and experimental, not for general use.")
     ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
