@@ -332,10 +332,10 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
     vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << endl;
     read_vector(left_stats,  left_stats_file );
     read_vector(right_stats, right_stats_file);
-    normalize_images(stereo_settings().force_use_entire_range,
-                     stereo_settings().individually_normalize,
-                     false, // Use std stretch
-                     left_stats, right_stats, Limg, Rimg);
+    StereoSession::normalize_images(stereo_settings().force_use_entire_range,
+                                    stereo_settings().individually_normalize,
+                                    false, // Use std stretch
+                                    left_stats, right_stats, Limg, Rimg);
     left_image  = apply_mask(Limg);
     right_image = apply_mask(Rimg);
   }

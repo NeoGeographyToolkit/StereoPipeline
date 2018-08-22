@@ -3649,8 +3649,8 @@ int main(int argc, char* argv[]) {
             = create_mask_less_or_equal(image1_view,  nodata1);
           ImageViewRef< PixelMask<float> > masked_image2
             = create_mask_less_or_equal(image2_view, nodata2);
-          vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(masked_image1, image1_path);
-          vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(masked_image2, image2_path);
+          vw::Vector<vw::float32,6> image1_stats = asp::StereoSession::gather_stats(masked_image1, image1_path);
+          vw::Vector<vw::float32,6> image2_stats = asp::StereoSession::gather_stats(masked_image2, image2_path);
 
           session->ip_matching(image1_path, image2_path,
                                Vector2(masked_image1.cols(), masked_image1.rows()),

@@ -40,7 +40,7 @@ namespace asp {
     virtual ~StereoSessionMapProj(){};
     
     virtual std::string name() const = 0;
-    virtual bool isMapProjected() { return true; } // TODO: Delete?
+    virtual bool isMapProjected() const { return true; } // TODO: Delete?
 
     virtual tx_type tx_left () const {return tx_left_map_trans ();}
     virtual tx_type tx_right() const {return tx_right_map_trans();}
@@ -54,7 +54,6 @@ namespace asp {
     virtual ~StereoSessionDGMapRPC(){};
 
     virtual std::string name() const { return "dgmaprpc"; }
-    virtual bool isMapProjected() { return true; } // TODO: Delete?
 
     static StereoSession* construct() { return new StereoSessionDGMapRPC; }
   };
@@ -124,10 +123,10 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
                                                                          std::string const& camera_file,
                                                                          vw::Vector2 pixel_offset) {
-      return asp::load_adj_pinhole_model(image_file, camera_file,
-                                         m_left_image_file, m_right_image_file,
-                                         m_left_camera_file, m_right_camera_file,
-                                         m_input_dem);
+      return StereoSessionPinhole::load_adj_pinhole_model(image_file, camera_file,
+                                                          m_left_image_file, m_right_image_file,
+                                                          m_left_camera_file, m_right_camera_file,
+                                                          m_input_dem);
     }
   };
 

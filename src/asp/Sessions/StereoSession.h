@@ -26,114 +26,16 @@
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/Transform.h>
 #include <vw/Camera/CameraModel.h>
-#include <asp/Sessions/CameraModelLoader.h>
-
-#include <vw/Math/Functors.h>
-#include <vw/Math/Geometry.h>
+#include <vw/Stereo/StereoModel.h>
 
 #include <boost/shared_ptr.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Sessions/CameraModelLoader.h>
 
 namespace asp {
 
   typedef vw::Vector<vw::float32,6> Vector6f;
-
-  //TODO: Move this function!
-  /// Compute the min, max, mean, and standard deviation of an image object and write them to a log.
-  /// - "tag" is only used to make the log messages more descriptive.
-  template <class ViewT>
-  Vector6f gather_stats( vw::ImageViewBase<ViewT> const& view_base, std::string const& tag) {
-    using namespace vw;
-    vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + "\n";
-    ViewT image = view_base.impl();
-
-    // Compute statistics at a reduced resolution
-    int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
-
-    ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
-    for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
-			       stat_scale ),
-		    accumulator );
-    Vector6f result;
-    result[0] = accumulator.quantile(0); // Min
-    result[1] = accumulator.quantile(1); // Max
-    result[2] = accumulator.approximate_mean();
-    result[3] = accumulator.approximate_stddev();
-    result[4] = accumulator.quantile(0.02); // Percentile values
-    result[5] = accumulator.quantile(0.98);
-
-    vw_out(InfoMessage) << "\t  " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
-					     << " mean: " << result[2] << " std_dev: "  << result[3] << " ]\n";
-    return result;
-  }
-
-  //TODO: Move this function!
-  /// Normalize the intensity of two grayscale images based on input statistics
-  template<class ImageT>
-  void normalize_images(bool force_use_entire_range,
-                        bool individually_normalize,
-                        bool use_percentile_stretch,
-                        Vector6f const& left_stats,
-                        Vector6f const& right_stats,
-                        ImageT & Limg, ImageT & Rimg){
-
-    // These arguments must contain: (min, max, mean, std)
-    VW_ASSERT(left_stats.size() == 6 && right_stats.size() == 6,
-		  vw::ArgumentErr() << "Expecting a vector of size 6 in normalize_images()\n");
-
-    // If the input stats don't contain the stddev, must use the entire range version.
-    // - This should only happen when normalizing ISIS images for ip_matching purposes.
-    if ((left_stats[3] == 0) || (right_stats[3] == 0))
-      force_use_entire_range = true;
-
-    if ( force_use_entire_range ) { // Stretch between the min and max values
-      if ( individually_normalize ) {
-        vw::vw_out() << "\t--> Individually normalize images to their respective min max\n";
-        Limg = normalize( Limg, left_stats [0], left_stats [1], 0.0, 1.0 );
-        Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
-      } else { // Normalize using the same stats
-        float low = std::min(left_stats[0], right_stats[0]);
-        float hi  = std::max(left_stats[1], right_stats[1]);
-        vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-        Limg = normalize( Limg, low, hi, 0.0, 1.0 );
-        Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
-      }
-    } else { // Don't force the entire range
-      double left_min, left_max, right_min, right_max;
-      if (use_percentile_stretch) {
-        // Percentile stretch
-        left_min  = left_stats [4];
-        left_max  = left_stats [5];
-        right_min = right_stats[4];
-        right_max = right_stats[5];
-      } else {
-        // Two standard deviation stretch
-        left_min  = left_stats [2] - 2*left_stats [3];
-        left_max  = left_stats [2] + 2*left_stats [3];
-        right_min = right_stats[2] - 2*right_stats[3];
-        right_max = right_stats[2] + 2*right_stats[3];
-      }
-
-      // The images are normalized so most pixels fall into this range,
-      // but the data is not clamped so some pixels can fall outside this range.
-      if ( individually_normalize > 0 ) {
-        vw::vw_out() << "\t--> Individually normalize images\n";
-        Limg = normalize( Limg, left_min,  left_max,  0.0, 1.0 );
-        Rimg = normalize( Rimg, right_min, right_max, 0.0, 1.0 );
-      } else { // Normalize using the same stats
-        float low = std::min(left_min, right_min);
-        float hi  = std::max(left_max, right_max);
-        vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-        Limg = normalize( Limg, low, hi, 0.0, 1.0 );
-        Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
-      }
-    }
-    return;
-  }
-
-
 
   // Forward declare this class for constructing StereoSession objects
   class StereoSessionFactory;
@@ -144,30 +46,21 @@ namespace asp {
   ///   * Custom code needed for correlation, filtering, and triangulation.
   class StereoSession {
     friend class StereoSessionFactory; // Needed so the factory can call initialize()
-  protected:
-    vw::cartography::GdalWriteOptions m_options;
-    std::string m_left_image_file,  m_right_image_file;
-    std::string m_left_camera_file, m_right_camera_file;
-    std::string m_out_prefix, m_input_dem;
-
-  private:
-    /// General init function.
-    virtual void initialize (vw::cartography::GdalWriteOptions const& options,
-                             std::string const& left_image_file,
-                             std::string const& right_image_file,
-                             std::string const& left_camera_file,
-                             std::string const& right_camera_file,
-                             std::string const& out_prefix,
-                             std::string const& input_dem);
-
-    /// Handles init required for map projected session types.
-    void init_disk_transform();
 
   public:
     virtual ~StereoSession() {}
 
     /// Simple typedef of a factory function that creates a StereoSession instance
     typedef StereoSession* (*construct_func)();
+
+    /// General init function.
+    void initialize (vw::cartography::GdalWriteOptions const& options,
+                     std::string const& left_image_file,
+                     std::string const& right_image_file,
+                     std::string const& left_camera_file,
+                     std::string const& right_camera_file,
+                     std::string const& out_prefix,
+                     std::string const& input_dem);
 
     // The next set of functions describe characteristics of the derived session class.
     // - These could be made in to some sort of static constant if needed.
@@ -209,6 +102,37 @@ namespace asp {
                      vw::camera::CameraModel* cam1,
                      vw::camera::CameraModel* cam2);
 
+    /// Compute the min, max, mean, and standard deviation of an image object and write them to a log.
+    /// - "tag" is only used to make the log messages more descriptive.
+    template <class ViewT> static inline
+    Vector6f gather_stats( vw::ImageViewBase<ViewT> const& view_base, std::string const& tag);
+
+    /// Normalize the intensity of two grayscale images based on input statistics
+    template<class ImageT> static inline
+    void normalize_images(bool force_use_entire_range,
+                          bool individually_normalize,
+                          bool use_percentile_stretch,
+                          Vector6f const& left_stats,
+                          Vector6f const& right_stats,
+                          ImageT & Limg, ImageT & Rimg);
+
+    // If both left-image-crop-win and right-image-crop win are specified,
+    // we crop the images to these boxes, and hence the need to keep
+    // the upper-left corners of the crop windows to handle the cameras correctly.
+    static vw::Vector2 camera_pixel_offset(std::string const& input_dem,
+                                           std::string const& left_image_file,
+                                           std::string const& right_image_file,
+                                           std::string const& curr_image_file);
+
+    // If we have adjusted camera models, load them. The adjustment
+    // may be in the rotation matrix, camera center, or pixel offset.
+    static boost::shared_ptr<vw::camera::CameraModel>
+    load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
+                        std::string const& image_file,
+                        std::string const& camera_file,
+                        vw::Vector2 const& pixel_offset);
+
+
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
                                              bool use_sphere_for_isis) const {
@@ -224,7 +148,8 @@ namespace asp {
 
     // All Stereo Session children must define the following which are not defined in the the parent:
     //   typedef VWStereoModel stereo_model_type;
-    
+    typedef vw::stereo::StereoModel stereo_model_type; // Currently this is the only option!
+
     /// Transform from image coordinates on disk to original untransformed image pixels.
     typedef boost::shared_ptr<vw::Transform> tx_type;
 
@@ -289,6 +214,27 @@ namespace asp {
                            float & left_nodata_value,
                            float & right_nodata_value);
 
+  protected: // Variables
+
+    vw::cartography::GdalWriteOptions m_options;
+    std::string m_left_image_file,  m_right_image_file;
+    std::string m_left_camera_file, m_right_camera_file;
+    std::string m_out_prefix, m_input_dem;
+
+    /// Object to help with camera model loading, mostly used by derived classes.
+    CameraModelLoader m_camera_loader;
+
+    /// Storage for the camera models used to map project the input images.
+    /// - Not used in non map-projected sessions.
+    boost::shared_ptr<vw::camera::CameraModel> m_left_map_proj_model, m_right_map_proj_model;
+
+  private:
+
+    /// Handles init required for map projected session types.
+    void init_disk_transform();
+
+  protected:
+
     // Factor out here all functionality shared among the preprocessing hooks
     // for various sessions. Return 'true' if we encounter cached images
     // and don't need to go through the motions again.
@@ -306,21 +252,12 @@ namespace asp {
                                    vw::cartography::GeoReference     & left_georef,
                                    vw::cartography::GeoReference     & right_georef);
 
-  protected:
     // These are all the currently supported transformation types
     tx_type tx_identity        () const; // Not left or right specific
     tx_type tx_left_homography () const;
     tx_type tx_right_homography() const;
     tx_type tx_left_map_trans  () const;
     tx_type tx_right_map_trans () const;
-
-
-    /// Object to help with camera model loading, mostly used by derived classes.
-    CameraModelLoader m_camera_loader;
-
-    /// Storage for the camera models used to map project the input images.
-    /// - Not used in non map-projected sessions.
-    boost::shared_ptr<vw::camera::CameraModel> m_left_map_proj_model, m_right_map_proj_model;
 
     /// Function to load a specific type of camera model with a pixel offset.
     virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
@@ -335,23 +272,97 @@ namespace asp {
                                                                      vw::Vector2 pixel_offset) const;
   };
 
-// TODO: Move this function!
-// If both left-image-crop-win and right-image-crop win are specified,
-// we crop the images to these boxes, and hence the need to keep
-// the upper-left corners of the crop windows to handle the cameras correctly.
-vw::Vector2 camera_pixel_offset(std::string const& input_dem,
-                                std::string const& left_image_file,
-                                std::string const& right_image_file,
-                                std::string const& curr_image_file);
+// ===========================================================================
+// --- Template function definitions ---
 
-// TODO: Move this function!
-// If we have adjusted camera models, load them. The adjustment
-// may be in the rotation matrix, camera center, or pixel offset.
-boost::shared_ptr<vw::camera::CameraModel>
-load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                    std::string const& image_file,
-                    std::string const& camera_file,
-                    vw::Vector2 const& pixel_offset);
+template <class ViewT>
+Vector6f StereoSession::gather_stats( vw::ImageViewBase<ViewT> const& view_base, std::string const& tag) {
+  using namespace vw;
+  vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + "\n";
+  ViewT image = view_base.impl();
+
+  // Compute statistics at a reduced resolution
+  int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
+
+  ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
+  for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
+            stat_scale ),
+      accumulator );
+  Vector6f result;
+  result[0] = accumulator.quantile(0); // Min
+  result[1] = accumulator.quantile(1); // Max
+  result[2] = accumulator.approximate_mean();
+  result[3] = accumulator.approximate_stddev();
+  result[4] = accumulator.quantile(0.02); // Percentile values
+  result[5] = accumulator.quantile(0.98);
+
+  vw_out(InfoMessage) << "\t  " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
+              << " mean: " << result[2] << " std_dev: "  << result[3] << " ]\n";
+  return result;
+}
+
+
+template<class ImageT>
+void StereoSession::normalize_images(bool force_use_entire_range,
+                                     bool individually_normalize,
+                                     bool use_percentile_stretch,
+                                     Vector6f const& left_stats,
+                                     Vector6f const& right_stats,
+                                     ImageT & Limg, ImageT & Rimg){
+
+  // These arguments must contain: (min, max, mean, std)
+  VW_ASSERT(left_stats.size() == 6 && right_stats.size() == 6,
+    vw::ArgumentErr() << "Expecting a vector of size 6 in normalize_images()\n");
+
+  // If the input stats don't contain the stddev, must use the entire range version.
+  // - This should only happen when normalizing ISIS images for ip_matching purposes.
+  if ((left_stats[3] == 0) || (right_stats[3] == 0))
+    force_use_entire_range = true;
+
+  if ( force_use_entire_range ) { // Stretch between the min and max values
+    if ( individually_normalize ) {
+      vw::vw_out() << "\t--> Individually normalize images to their respective min max\n";
+      Limg = normalize( Limg, left_stats [0], left_stats [1], 0.0, 1.0 );
+      Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
+    } else { // Normalize using the same stats
+      float low = std::min(left_stats[0], right_stats[0]);
+      float hi  = std::max(left_stats[1], right_stats[1]);
+      vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+      Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+      Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
+    }
+  } else { // Don't force the entire range
+    double left_min, left_max, right_min, right_max;
+    if (use_percentile_stretch) {
+      // Percentile stretch
+      left_min  = left_stats [4];
+      left_max  = left_stats [5];
+      right_min = right_stats[4];
+      right_max = right_stats[5];
+    } else {
+      // Two standard deviation stretch
+      left_min  = left_stats [2] - 2*left_stats [3];
+      left_max  = left_stats [2] + 2*left_stats [3];
+      right_min = right_stats[2] - 2*right_stats[3];
+      right_max = right_stats[2] + 2*right_stats[3];
+    }
+
+    // The images are normalized so most pixels fall into this range,
+    // but the data is not clamped so some pixels can fall outside this range.
+    if ( individually_normalize > 0 ) {
+      vw::vw_out() << "\t--> Individually normalize images\n";
+      Limg = normalize( Limg, left_min,  left_max,  0.0, 1.0 );
+      Rimg = normalize( Rimg, right_min, right_max, 0.0, 1.0 );
+    } else { // Normalize using the same stats
+      float low = std::min(left_min, right_min);
+      float hi  = std::max(left_max, right_max);
+      vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+      Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+      Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
+    }
+  }
+  return;
+}
 
 } // end namespace asp
 

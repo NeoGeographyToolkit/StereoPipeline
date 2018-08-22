@@ -464,17 +464,12 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
           DispPixelT dpix = disp_copy(trans_left_pix[0], trans_left_pix[1]);
           if (!is_valid(dpix))
             continue;
-          
+
           // Compute the left and right pixels. 
-          if (!usePinholeEpipolar) {
-            left_pix        = left_trans->reverse(trans_left_pix);
-            trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
-            right_pix       = right_trans->reverse(trans_right_pix);
-          }else{
-            left_pix        = left_trans2.reverse(trans_left_pix);
-            trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
-            right_pix       = right_trans2.reverse(trans_right_pix);
-          }
+          left_pix        = left_trans->reverse(trans_left_pix);
+          trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
+          right_pix       = right_trans->reverse(trans_right_pix);
+
 
           // If the right pixel is a multiple of the bin size, keep
           // it.
@@ -677,9 +672,9 @@ void stereo_triangulation( string          const& output_prefix,
   typedef          ImageViewRef<PixelMask<Vector2f> >  PVImageT;
   typedef typename SessionT::stereo_model_type         StereoModelT;
 
-  const bool is_map_projected = SessionT::isMapProjected();
-
   try { // Outer try/catch
+
+    const bool is_map_projected = opt_vec[0].session->isMapProjected();
 
     // Collect the images, cameras, and transforms. The left image is
     // the same in all n-1 stereo pairs forming the n images multiview

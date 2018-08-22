@@ -21,7 +21,8 @@
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
-#include <vw/Image/ImageViewRef.h>
+#include <vw/Math/Functors.h>
+#include <vw/Math/Geometry.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/Image/PixelTypeInfo.h>
 #include <vw/FileIO/DiskImageResource.h>
@@ -29,12 +30,12 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/Map2CamTrans.h>
 
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/Common.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/AdjustedLinescanDGModel.h>
+
+#include <boost/filesystem/operations.hpp>
 
 #include <map>
 #include <utility>
@@ -46,6 +47,7 @@ using namespace vw;
 
 
 namespace asp {
+
 
   // Pass over all the string variables we use
   void StereoSession::initialize( vw::cartography::GdalWriteOptions const& options,
@@ -104,6 +106,7 @@ namespace asp {
     stereo_settings().bundle_adjust_prefix = "";
     if ( (l_adj_prefix != "" && l_adj_prefix != "NONE") )
       stereo_settings().bundle_adjust_prefix = l_adj_prefix;
+
     if (uses_rpc_map_projection())
       m_left_map_proj_model = load_rpc_camera_model(m_left_image_file,  m_left_camera_file, zero_pixel_offset);
     else // Use the native model
@@ -122,13 +125,13 @@ namespace asp {
     stereo_settings().bundle_adjust_prefix = ba_pref_bk;
 
     VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
-              ArgumentErr() << "StereoSessionConcrete: Unable to locate map "
+              ArgumentErr() << "StereoSession: Unable to locate map "
               << "projection camera model inside input files!" );
 
     // Double check that we can read the DEM and that it has cartographic information.
-    VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM." );
+    VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSession: Require input DEM." );
     if (!boost::filesystem::exists(m_input_dem))
-      vw_throw( ArgumentErr() << "StereoSessionConcrete: DEM \"" << m_input_dem << "\" does not exist." );
+      vw_throw( ArgumentErr() << "StereoSession: DEM \"" << m_input_dem << "\" does not exist." );
 
     vw_out() << "Done loading the camera models used in map-projection\n";
   }
@@ -227,7 +230,7 @@ namespace asp {
           //vw_out() << "New datum: " << datum << std::endl;
         }
       } // End RPC case
-      
+
       // A smaller value here makes IP more unique, but also fewer. 
       double ip_uniqueness_thresh = stereo_settings().ip_uniqueness_thresh;
 
@@ -261,7 +264,7 @@ namespace asp {
       // Run a simpler purely image based matching function
       double ip_inlier_factor = stereo_settings().ip_inlier_factor;
       int    inlier_threshold = round(ip_inlier_factor*150.0); // by default this is 10.
-      
+
       // HACK: If the otherwise unused epipolar threshold is set, use it as
       //       the inlier threshold.
       if (stereo_settings().epipolar_threshold > 0)
@@ -331,17 +334,13 @@ namespace asp {
   }
 
 
-  
-
-  
-
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSession::camera_model(std::string const& image_file, std::string const& camera_file) const{
   
   vw_out() << "Loading camera model: " << image_file << ' ' << camera_file << "\n";
 
   // Retrieve the pixel offset (if any) to cropped images
-  vw::Vector2 pixel_offset = asp::camera_pixel_offset(m_input_dem,
+  vw::Vector2 pixel_offset = camera_pixel_offset(m_input_dem,
                                                  m_left_image_file,
                                                  m_right_image_file,
                                                  image_file);
@@ -352,48 +351,45 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
     return load_camera_model(image_file, camera_file, pixel_offset);
 }
 
-  
-  
-  
-  
+
   // Processing Hooks. The default is to do nothing.
   void StereoSession::pre_preprocessing_hook(bool adjust_left_image_size,
-					     std::string const& input_file1,
-					     std::string const& input_file2,
-					     std::string      & output_file1,
-					     std::string      & output_file2) {
+                                             std::string const& input_file1,
+                                             std::string const& input_file2,
+                                             std::string      & output_file1,
+                                             std::string      & output_file2) {
     output_file1 = input_file1;
     output_file2 = input_file2;
   }
 
   void StereoSession::post_preprocessing_hook(std::string const& input_file1,
-					      std::string const& input_file2,
-					      std::string &output_file1,
-					      std::string &output_file2) {
+                                              std::string const& input_file2,
+                                              std::string &output_file1,
+                                              std::string &output_file2) {
     output_file1 = input_file1;
     output_file2 = input_file2;
   }
 
   void StereoSession::pre_correlation_hook(std::string const& input_file1,
-					   std::string const& input_file2,
-					   std::string      & output_file1,
-					   std::string      & output_file2) {
+                                           std::string const& input_file2,
+                                           std::string      & output_file1,
+                                           std::string      & output_file2) {
     output_file1 = input_file1;
     output_file2 = input_file2;
   }
 
   void StereoSession::post_correlation_hook(std::string const& input_file,
-					    std::string      & output_file) {
+                                            std::string      & output_file) {
     output_file = input_file;
   }
 
   void StereoSession::pre_filtering_hook(std::string const& input_file,
-					 std::string      & output_file) {
+                                         std::string      & output_file) {
     output_file = input_file;
   }
 
   void StereoSession::post_filtering_hook(std::string const& input_file,
-					  std::string      & output_file) {
+                                          std::string      & output_file) {
     output_file = input_file;
   }
 
@@ -403,16 +399,16 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   }
 
   void StereoSession::post_pointcloud_hook(std::string const& input_file,
-					   std::string      & output_file) {
+                                           std::string      & output_file) {
     output_file = input_file;
   }
 
 
 
   void StereoSession::get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
-					boost::shared_ptr<vw::DiskImageResource> right_rsrc,
-					float & left_nodata_value,
-					float & right_nodata_value){
+                                        boost::shared_ptr<vw::DiskImageResource> right_rsrc,
+                                        float & left_nodata_value,
+                                        float & right_nodata_value){
 
     // The no-data value read from options overrides the value present in the image files.
     left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
@@ -424,9 +420,11 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
     if (!std::isnan(opt_nodata)){
 
       if ( opt_nodata < left_nodata_value )
-	vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than the no-data value of left image. This may not be what was intended.\n";
+        vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than"
+                               << " the no-data value of left image. This may not be what was intended.\n";
       if ( opt_nodata < right_nodata_value )
-	vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than the no-data value of right image. This may not be what was intended.\n";
+        vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than"
+                               << " the no-data value of right image. This may not be what was intended.\n";
 
       left_nodata_value  = opt_nodata;
       right_nodata_value = opt_nodata;
@@ -436,19 +434,19 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   }
 
 bool StereoSession::
-shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & options,
-                          std::string const             & left_input_file,
-                          std::string const             & right_input_file,
-                          std::string                   & left_output_file,
-                          std::string                   & right_output_file,
-                          std::string                   & left_cropped_file,
-                          std::string                   & right_cropped_file,
-                          float                         & left_nodata_value,
-                          float                         & right_nodata_value,
-                          bool                          & has_left_georef,
-                          bool                          & has_right_georef,
-                          vw::cartography::GeoReference & left_georef,
-                          vw::cartography::GeoReference & right_georef){
+shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
+                          std::string const                 & left_input_file,
+                          std::string const                 & right_input_file,
+                          std::string                       & left_output_file,
+                          std::string                       & right_output_file,
+                          std::string                       & left_cropped_file,
+                          std::string                       & right_cropped_file,
+                          float                             & left_nodata_value,
+                          float                             & right_nodata_value,
+                          bool                              & has_left_georef,
+                          bool                              & has_right_georef,
+                          vw::cartography::GeoReference     & left_georef,
+                          vw::cartography::GeoReference     & right_georef){
 
   {
     // Retrieve nodata values and let the handles go out of scope right away.
@@ -459,8 +457,8 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
     boost::shared_ptr<DiskImageResource>
       left_rsrc (DiskImageResourcePtr(left_input_file )),
       right_rsrc(DiskImageResourcePtr(right_input_file));
-    this->get_nodata_values(left_rsrc, right_rsrc,
-			    left_nodata_value, right_nodata_value);
+    this->get_nodata_values(left_rsrc,         right_rsrc,
+                            left_nodata_value, right_nodata_value);
   }
 
   // Set output file paths
@@ -580,51 +578,13 @@ void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop, vw::BBox2
 }
 
 
-// TODO: Find a better place for these functions!
-
-// If both left-image-crop-win and right-image-crop win are specified,
-// we crop the images to these boxes, and hence the need to keep
-// the upper-left corners of the crop windows to handle the cameras correctly.
-vw::Vector2 camera_pixel_offset(std::string const& input_dem,
-                                std::string const& left_image_file,
-                                std::string const& right_image_file,
-                                std::string const& curr_image_file){
-  
-  // For map-projected images we don't apply a pixel offset.
-  // When we need to do stereo on cropped images, we just
-  // crop the images together with their georeferences.
-  if (input_dem != "")
-    return Vector2();
-
-  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-  vw::Vector2 left_pixel_offset, right_pixel_offset;
-  if (crop_left ) left_pixel_offset  = stereo_settings().left_image_crop_win.min();
-  if (crop_right) right_pixel_offset = stereo_settings().right_image_crop_win.min();
-  
-  if (curr_image_file == left_image_file)
-    return left_pixel_offset;
-  else if (curr_image_file == right_image_file)
-    return right_pixel_offset;
-  else
-    // If the image files were not specified, no offset and no error.
-    if ((left_image_file != "") || (right_image_file != ""))
-      vw_throw(ArgumentErr() << "Supplied image file does not match left or right image file.");
-
-  return Vector2();
-}
-
-
-
-
-
 //------------------------------------------------------------------------------
 // Code for handling disk-to-sensor transform
 
 
 // TODO: Move this function somewhere else!
 /// Computes a Map2CamTrans given a DEM, image, and a sensor model.
-inline cartography::Map2CamTrans*
+inline StereoSession::tx_type
 getTransformFromMapProject(const std::string &input_dem_path,
                            const std::string &img_file_path,
                            boost::shared_ptr<vw::camera::CameraModel> map_proj_model_ptr) {
@@ -638,10 +598,10 @@ getTransformFromMapProject(const std::string &input_dem_path,
 
   bool call_from_mapproject = false;
   DiskImageView<float> img(img_file_path);
-  return new cartography::Map2CamTrans(map_proj_model_ptr.get(),
+  return StereoSession::tx_type(new cartography::Map2CamTrans(map_proj_model_ptr.get(),
                                    image_georef, dem_georef, input_dem_path,
                                    Vector2(img.cols(), img.rows()),
-                                   call_from_mapproject);
+                                   call_from_mapproject));
 }
 
 
@@ -692,21 +652,24 @@ StereoSession::tx_identity() const {
 
 typename StereoSession::tx_type
 StereoSession::tx_left_map_trans() const {
-  return tx_type(getTransformFromMapProject(m_input_dem,
-                                    left_mapproj(m_left_image_file, m_out_prefix),
-                                    m_left_map_proj_model));
+  std::string left_map_proj_image = left_mapproj(m_left_image_file, m_out_prefix);
+  if (!m_left_map_proj_model)
+    vw_throw( ArgumentErr() << "Map projection model not loaded for image " << left_map_proj_image);
+  return getTransformFromMapProject(m_input_dem, left_map_proj_image, m_left_map_proj_model);
 }
 typename StereoSession::tx_type
 StereoSession::tx_right_map_trans() const {
-  return tx_type(getTransformFromMapProject(m_input_dem,
-                                    right_mapproj(m_right_image_file, m_out_prefix),
-                                    m_right_map_proj_model));
+  std::string right_map_proj_image = right_mapproj(m_right_image_file, m_out_prefix);
+  if (!m_right_map_proj_model)
+    vw_throw( ArgumentErr() << "Map projection model not loaded for image " << right_map_proj_image);
+  return getTransformFromMapProject(m_input_dem, right_map_proj_image, m_right_map_proj_model);
 }
 
 
-boost::shared_ptr<vw::camera::CameraModel> StereoSession::load_rpc_camera_model(std::string const& image_file, 
-                                                                                std::string const& camera_file,
-                                                                                Vector2 pixel_offset) const{
+boost::shared_ptr<vw::camera::CameraModel> 
+StereoSession::load_rpc_camera_model(std::string const& image_file, 
+                                     std::string const& camera_file,
+                                     Vector2 pixel_offset) const{
   std::string err1, err2;
   try {
     if (camera_file != ""){
@@ -731,13 +694,40 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSession::load_rpc_camera_model(
 } // End function load_rpc_camera_model
 
 
+vw::Vector2 StereoSession::camera_pixel_offset(std::string const& input_dem,
+                                               std::string const& left_image_file,
+                                               std::string const& right_image_file,
+                                               std::string const& curr_image_file){
+  // For map-projected images we don't apply a pixel offset.
+  // When we need to do stereo on cropped images, we just
+  // crop the images together with their georeferences.
+  if (input_dem != "")
+    return Vector2();
 
-// If we have adjusted camera models, load them.
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  vw::Vector2 left_pixel_offset, right_pixel_offset;
+  if (crop_left ) left_pixel_offset  = stereo_settings().left_image_crop_win.min();
+  if (crop_right) right_pixel_offset = stereo_settings().right_image_crop_win.min();
+  
+  if (curr_image_file == left_image_file)
+    return left_pixel_offset;
+  else if (curr_image_file == right_image_file)
+    return right_pixel_offset;
+  else
+    // If the image files were not specified, no offset and no error.
+    if ((left_image_file != "") || (right_image_file != ""))
+      vw_throw(ArgumentErr() << "Supplied image file does not match left or right image file.");
+
+  return Vector2();
+}
+
+
 boost::shared_ptr<vw::camera::CameraModel>
-load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-		    std::string const& image_file,
-		    std::string const& camera_file,
-		    vw::Vector2 const& pixel_offset){
+StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
+                                   std::string const& image_file,
+                                   std::string const& camera_file,
+                                   vw::Vector2 const& pixel_offset){
 
   // Any tool using adjusted camera models must pre-populate the
   // prefix at which to find them.
@@ -783,15 +773,15 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
         // Create the adjusted DG model
         boost::shared_ptr<camera::CameraModel> adj_dg_cam
           (new AdjustedLinescanDGModel(cam,
-		                 stereo_settings().piecewise_adjustment_interp_type,
-		                 adjustment_bounds, position_correction,
-		                 pose_correction, image_size));
+                                       stereo_settings().piecewise_adjustment_interp_type,
+                                       adjustment_bounds, position_correction,
+                                       pose_correction, image_size));
 
         // Apply the pixel offset and pose corrections. So this a second adjustment
         // on top of the first.
         boost::shared_ptr<camera::CameraModel> adj_dg_cam2
           (new vw::camera::AdjustedCameraModel(adj_dg_cam, Vector3(),
-			                 Quat(math::identity_matrix<3>()), pixel_offset));
+                                               Quat(math::identity_matrix<3>()), pixel_offset));
 
         return adj_dg_cam2;
       }else{
@@ -801,18 +791,18 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
                                                stereo_settings().piecewise_adjustment_interp_type,
                                                adjustment_bounds, position_correction,
                                                pose_correction, image_size));
-         
+
          // Apply the pixel offset and pose corrections. So this a second adjustment
          // on top of the first.
          boost::shared_ptr<camera::CameraModel> adj_generic_cam2
            (new vw::camera::AdjustedCameraModel(adj_generic_cam, Vector3(),
                                                 Quat(math::identity_matrix<3>()), pixel_offset));
-         
+
          return adj_generic_cam2;
       }
-       
+
     } // End case for piecewise DG adjustment
-    
+
   } // End case for parsing bundle adjustment file
 
   // Create VW adjusted camera model object with the info we loaded

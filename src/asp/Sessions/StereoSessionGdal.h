@@ -62,25 +62,18 @@ namespace asp {
     /// Function to load a camera model of the particular type.
     virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
                                                                          std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) const;
+                                                                         vw::Vector2 pixel_offset) const {
+    return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
+                               image_file, camera_file, pixel_offset);
+  }
   };
 
   /// StereoSession implementation for Digital Globe images.
   typedef StereoSessionGdal StereoSessionDG;
 
 
-// Function definitions
+//-------- Function definitions --------------------------------
 
-  
-  boost::shared_ptr<vw::camera::CameraModel>
-  StereoSessionGdal::load_camera_model
-      (std::string const& image_file, std::string const& camera_file, vw::Vector2 pixel_offset) const{
-
-    return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
-                              image_file, camera_file, pixel_offset);
-  }
-  
-  
   inline void StereoSessionGdal::
   pre_preprocessing_hook(bool adjust_left_image_size,
                          std::string const& left_input_file,

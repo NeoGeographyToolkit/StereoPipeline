@@ -53,10 +53,10 @@ boost::shared_ptr<vw::camera::CameraModel>
 asp::StereoSessionPinhole::load_camera_model
   (std::string const& image_file, std::string const& camera_file, Vector2 pixel_offset) const{
 
-  return asp::load_adj_pinhole_model(image_file, camera_file,
-                                     m_left_image_file,  m_right_image_file,
-                                     m_left_camera_file, m_right_camera_file,
-                                     m_input_dem);
+  return load_adj_pinhole_model(image_file, camera_file,
+                                m_left_image_file,  m_right_image_file,
+                                m_left_camera_file, m_right_camera_file,
+                                m_input_dem);
 }
 
 
@@ -253,7 +253,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
 namespace asp {
 
 
-void asp::StereoSessionPinhole::get_unaligned_camera_models(
+void StereoSessionPinhole::get_unaligned_camera_models(
                                  boost::shared_ptr<vw::camera::CameraModel> &left_cam,
                                  boost::shared_ptr<vw::camera::CameraModel> &right_cam) const{
 
@@ -272,10 +272,10 @@ void asp::StereoSessionPinhole::get_unaligned_camera_models(
 
 
 boost::shared_ptr<vw::camera::CameraModel>
-load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
-                       std::string const& left_image_file,  std::string const& right_image_file,
-                       std::string const& left_camera_file, std::string const& right_camera_file,
-                       std::string const& input_dem){
+StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
+                                             std::string const& left_image_file,  std::string const& right_image_file,
+                                             std::string const& left_camera_file, std::string const& right_camera_file,
+                                             std::string const& input_dem){
 
   // Unfortunately the pinhole case is more complicated since the left and right files are inter-dependent.
 

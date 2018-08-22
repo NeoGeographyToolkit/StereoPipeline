@@ -23,7 +23,7 @@
 if MAKE_MODULE_SESSIONS
 
 include_HEADERS = StereoSession.h StereoSessionFactory.h StereoSessionFactory.tcc \
-                  StereoSessionConcrete.h CameraModelLoader.h                     \
+                  CameraModelLoader.h                     \
       StereoSessionPinhole.h StereoSessionNadirPinhole.h                          \
                   StereoSessionRPC.h StereoSessionGdal.h StereoSessionDGMapRPC.h    \
                   StereoSessionSpot.h StereoSessionASTER.h

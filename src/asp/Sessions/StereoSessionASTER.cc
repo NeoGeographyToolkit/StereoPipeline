@@ -22,6 +22,7 @@
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/Transform.h>
+#include <vw/Camera/CameraModel.h>
 
 //#include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
@@ -36,6 +37,7 @@
 #include <algorithm>
 
 using namespace vw;
+using namespace vw::camera;
 using namespace asp;
 
 

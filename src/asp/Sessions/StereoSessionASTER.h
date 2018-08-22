@@ -24,11 +24,6 @@
 #define __STEREO_SESSION_ASTER_H__
 
 #include <asp/Sessions/StereoSessionGdal.h>
-#include <vw/Stereo/StereoModel.h>
-
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/InterestPointMatching.h>
-#include <asp/Core/AffineEpipolar.h>
 
 namespace asp {
 
@@ -53,7 +48,7 @@ protected:
   /// Function to load a camera model of the particular type.
   virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
                                                                        std::string const& camera_file,
-                                                                       Vector2 pixel_offset) const;
+                                                                       vw::Vector2 pixel_offset) const;
 };
   
 

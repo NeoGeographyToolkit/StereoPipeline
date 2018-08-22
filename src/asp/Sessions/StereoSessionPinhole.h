@@ -70,6 +70,14 @@ namespace asp {
     void get_unaligned_camera_models(boost::shared_ptr<vw::camera::CameraModel> &left_cam,
                                      boost::shared_ptr<vw::camera::CameraModel> &right_cam) const;
 
+
+    /// Pinhole camera model loading function which handles the case of epipolar alignment.
+    static boost::shared_ptr<vw::camera::CameraModel>
+    load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
+                          std::string const& left_image_file,  std::string const& right_image_file,
+                          std::string const& left_camera_file, std::string const& right_camera_file,
+                          std::string const& input_dem);
+
     /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
     /// - For reversing our arithmetic applied in preprocessing.
     virtual tx_type tx_left () const;
@@ -78,7 +86,7 @@ namespace asp {
     /// Get both image transforms at once
     virtual void tx_left_and_right(tx_type &tx_l, tx_type &tx_r) const;
     
-   typedef vw::stereo::StereoModel stereo_model_type;
+   //typedef vw::stereo::StereoModel stereo_model_type;
 
   protected:
     /// Function to load a camera model of the particular type.
@@ -96,13 +104,6 @@ namespace asp {
                                          Vector6f const& stats2,
                                          float nodata1, float nodata2);
  };
-
-  /// Pinhole camera model loading function which handles the case of epipolar alignment.
-  boost::shared_ptr<vw::camera::CameraModel>
-  load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
-                         std::string const& left_image_file,  std::string const& right_image_file,
-                         std::string const& left_camera_file, std::string const& right_camera_file,
-                         std::string const& input_dem);
 
 }
 
