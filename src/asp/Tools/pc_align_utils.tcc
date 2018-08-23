@@ -48,12 +48,6 @@
 
 namespace asp {
 
-void apply_transform_to_cloud(PointMatcher<RealT>::Matrix const& T, DoubleMatrix & point_cloud){
-  for (int col = 0; col < point_cloud.cols(); col++) {
-    point_cloud.col(col) = T*point_cloud.col(col);
-  }
-}
-
 template<typename T>
 typename PointMatcher<T>::DataPoints::Labels form_labels(int dim){
 
@@ -180,18 +174,17 @@ void load_las(std::string const& file_name,
 
 // Load xyz points from disk into a matrix with 4 columns. Last column is just ones.
 void load_cloud(std::string const& file_name,
-                int num_points_to_load,
-                vw::BBox2 const& lonlat_box,
-                bool calc_shift,
-                vw::Vector3 & shift,
-                vw::cartography::GeoReference const& geo,
-                CsvConv const& csv_conv,
-                PointMatcher<RealT>::Matrix const& initTrans,  
-                bool   & is_lola_rdr_format,
-                double & mean_longitude,
-                bool verbose,
-                DoubleMatrix & data){
-  
+               int num_points_to_load,
+               vw::BBox2 const& lonlat_box,
+               bool calc_shift,
+               vw::Vector3 & shift,
+               vw::cartography::GeoReference const& geo,
+               CsvConv const& csv_conv,
+               bool   & is_lola_rdr_format,
+               double & mean_longitude,
+               bool verbose,
+               DoubleMatrix & data){
+
   if (verbose)
     vw::vw_out() << "Reading: " << file_name << std::endl;
 
@@ -218,10 +211,6 @@ void load_cloud(std::string const& file_name,
   }else
     vw_throw( vw::ArgumentErr() << "Unknown file type: " << file_name << "\n" );
 
-
-  if (initTrans != PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1)) 
-    apply_transform_to_cloud(initTrans, data);
-  
   if (verbose)
     vw::vw_out() << "Loaded points: " << data.cols() << std::endl;
 
@@ -229,24 +218,23 @@ void load_cloud(std::string const& file_name,
 
 // Load xyz points from disk in libpointmatcher's format.
 void load_cloud(std::string const& file_name,
-                int num_points_to_load,
-                vw::BBox2 const& lonlat_box,
-                bool calc_shift,
-                vw::Vector3 & shift,
-                vw::cartography::GeoReference const& geo,
-                CsvConv const& csv_conv,
-                PointMatcher<RealT>::Matrix const& initTrans,
-                bool   & is_lola_rdr_format,
-                double & mean_longitude,
-                bool verbose,
-                typename PointMatcher<RealT>::DataPoints & data){
+               int num_points_to_load,
+               vw::BBox2 const& lonlat_box,
+               bool calc_shift,
+               vw::Vector3 & shift,
+               vw::cartography::GeoReference const& geo,
+               CsvConv const& csv_conv,
+               bool   & is_lola_rdr_format,
+               double & mean_longitude,
+               bool verbose,
+               typename PointMatcher<RealT>::DataPoints & data){
   
   data.featureLabels = form_labels<RealT>(DIM);
   PointMatcherSupport::validateFile(file_name);
 
   load_cloud(file_name, num_points_to_load,  lonlat_box,  calc_shift,  
-             shift,  geo,  csv_conv,  initTrans, is_lola_rdr_format,  mean_longitude,  
-             verbose,  data.features);
+	    shift,  geo,  csv_conv,  is_lola_rdr_format,  mean_longitude,  
+	    verbose,  data.features);
   
 }
   
@@ -254,11 +242,10 @@ void load_cloud(std::string const& file_name,
 // on max displacement (which is in meters). This is used to throw
 // away points in the other cloud which are not within this box.
 vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
-                                    int num_sample_pts,
-                                    CsvConv const& csv_conv,
-                                    PointMatcher<RealT>::Matrix const& initTrans,
-                                    std::string const& file_name,
-                                    double max_disp){
+                                int num_sample_pts,
+                                CsvConv const& csv_conv,
+                                std::string const& file_name,
+                                double max_disp){
 
   // If the user does not want to use the max-displacement parameter,
   // or if there is no datum to use to convert to/from lon/lat,
@@ -272,14 +259,14 @@ vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   double mean_longitude = 0.0; // to convert back from xyz to lonlat
   bool verbose = false;
   bool calc_shift = false; // won't shift the points
-  vw::Vector3 shift(0, 0, 0);
+  vw::Vector3 shift = vw::Vector3(0, 0, 0);
   vw::BBox2 dummy_box;
   bool is_lola_rdr_format;
   // Load a sample of points, hopefully enough to estimate the box
   // reliably.
   load_cloud(file_name, num_sample_pts, dummy_box,
-	     calc_shift, shift, geo, csv_conv, initTrans, is_lola_rdr_format,
-             mean_longitude, verbose, points);
+	     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+	     mean_longitude, verbose, points);
   
   // Bias the xyz points in several directions by max_disp, then
   // convert to lon-lat and grow the box. This is a rough
@@ -586,10 +573,9 @@ void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
     bool        is_lola_rdr_format;
     double      mean_longitude;
     DP          point_cloud;
-    PointMatcher<RealT>::Matrix initTrans = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
     load_cloud(input_file, std::numeric_limits<int>::max(),
 	       empty_box, calc_shift, shift,
-	       geo, csv_conv, initTrans, is_lola_rdr_format,
+	       geo, csv_conv, is_lola_rdr_format,
 	       mean_longitude, verbose, point_cloud);
 
     std::ofstream outfile( output_file.c_str() );

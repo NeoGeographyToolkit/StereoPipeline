@@ -2235,7 +2235,7 @@ and Northing fields.  \\ \hline
 The file containing the transform to be used as an
 initial guess. It can come from a previous run of the tool. \\ \hline
 
-\texttt{-\/-initial-ned-translation \textit{string}} &  Initialize the alignment transform based on a translation with this vector in the local North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas. \\ \hline
+\texttt{-\/-initial-ned-translation \textit{string}} &  Initialize the alignment transform based on a translation with this vector in the North-East-Down coordinate system around the centroid of the reference points. Specify it in quotes, separated by spaces or commas. \\ \hline
 
 \texttt{ -\/-initial-transform-from-hillshading \textit{string}} & If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial transform to apply to the source cloud before proceeding with alignment. Specify here the type of transform, as one of: 'similarity' (rotation + translation + scale), 'rigid' (rotation + translation) or 'translation'.
 \\ \hline

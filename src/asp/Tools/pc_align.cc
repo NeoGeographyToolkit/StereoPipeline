@@ -80,7 +80,7 @@ using namespace std;
 using namespace vw::cartography;
 using namespace asp;
 
-typedef double RealT; // Do not use float here, as it will cause big errors in some parts
+typedef double RealT; // We will use doubles in libpointmatcher.
 typedef PointMatcher<RealT> PM;
 typedef PM::DataPoints DP;
 using namespace PointMatcherSupport;
@@ -163,7 +163,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.")
 
     ("initial-ned-translation", po::value(&opt.initial_ned_translation)->default_value(""),
-                                 "Initialize the alignment transform based on a translation with this vector in the local North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas.")
+                                 "Initialize the alignment transform based on a translation with this vector in the North-East-Down coordinate system around the centroid of the reference points. Specify it in quotes, separated by spaces or commas.")
 
     ("initial-transform-from-hillshading", po::value(&opt.hillshading_transform)->default_value(""), "If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial transform to apply to the source cloud before proceeding with alignment. Specify here the type of transform, as one of: 'similarity' (rotation + translation + scale), 'rigid' (rotation + translation) or 'translation'.")
     ("hillshade-options", po::value(&opt.hillshade_options)->default_value("--azimuth 300 --elevation 20"), "Options to pass to the hillshade program when computing the transform from hillshading.")
@@ -1089,6 +1089,13 @@ initial_transform_from_match_file(std::string const& ref_file,
   return globalT;
 }
 
+void apply_transform_to_cloud(PointMatcher<RealT>::Matrix const& T, DP & point_cloud){
+  for (int col = 0; col < point_cloud.features.cols(); col++) {
+    point_cloud.features.col(col) = T*point_cloud.features.col(col);
+  }
+}
+
+
 // Convert a north-east-down vector at a given location to a vector in reference
 // to the center of the Earth and create a translation matrix from that vector. 
 PointMatcher<RealT>::Matrix ned_to_caresian_transform(vw::cartography::Datum const& datum,
@@ -1162,12 +1169,10 @@ int main( int argc, char *argv[] ) {
     vw_out() << "Computing the intersection of the bounding boxes "
              << "of the reference and source points." << endl;
     BBox2 ref_box, source_box;
-    
-    PointMatcher<RealT>::Matrix Identity = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
     ref_box    = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
-                                           Identity, opt.reference, opt.max_disp);
+                                           opt.reference, opt.max_disp);
     source_box = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
-                                            opt.init_transform, opt.source, opt.max_disp);
+                                           opt.source,    opt.max_disp);
 
     // When boxes are huge, it is hard to do the optimization of intersecting
     // them, as they may differ not by 0 or 360, but by 180. Better do nothing
@@ -1216,8 +1221,8 @@ int main( int argc, char *argv[] ) {
     // centroid of the first one to bring them closer to origin.
 
     // Load the subsampled reference point cloud.
-    Vector3 shift(0, 0, 0);
-    bool   calc_shift = false; // load the points in the ECEF coordinate system
+    Vector3 shift;
+    bool   calc_shift = true; // Shift points so the first point is (0,0,0)
     bool   is_lola_rdr_format = false;   // may get overwritten
     double mean_ref_longitude    = 0.0;  // may get overwritten
     double mean_source_longitude = 0.0;  // may get overwritten
@@ -1226,41 +1231,46 @@ int main( int argc, char *argv[] ) {
     DP ref_point_cloud;
     load_cloud(opt.reference, opt.max_num_reference_points,
                source_box, // source box is used to bound reference
-               calc_shift, shift, geo, csv_conv, Identity, is_lola_rdr_format,
+               calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                mean_ref_longitude, opt.verbose, ref_point_cloud);
     sw1.stop();
     if (opt.verbose)
       vw_out() << "Loading the reference point cloud took "
                << sw1.elapsed_seconds() << " [s]" << endl;
+    //ref_point_cloud.save(outputBaseFile + "_ref.vtk");
 
     // Load the subsampled source point cloud. If the user wants
     // to filter gross outliers in the source points based on
     // max_disp, load a lot more points than asked, filter based on
     // max_disp, then resample to the number desired by the user.
-    // Apply any initial transform upon loading
     int num_source_pts = opt.max_num_source_points;
     if (opt.max_disp > 0.0)
       num_source_pts = max(num_source_pts, 50000000);
+    calc_shift = false; // Use the same shift used for the reference point cloud
     Stopwatch sw2;
     sw2.start();
     DP source_point_cloud;
     load_cloud(opt.source, num_source_pts,
-               ref_box, // ref box is used to bound source
-               calc_shift, shift, geo, csv_conv,  opt.init_transform, is_lola_rdr_format,  
-               mean_source_longitude, opt.verbose, source_point_cloud);
+	      ref_box, // ref box is used to bound source
+	      calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+	      mean_source_longitude, opt.verbose, source_point_cloud);
     sw2.stop();
     if (opt.verbose)
       vw_out() << "Loading the source point cloud took "
                << sw2.elapsed_seconds() << " [s]" << endl;
 
-    // Shift the points by the centroid of the reference points. Record the centroid
-    // in the 'shift' variable. 
+    // So far we shifted by first point in reference point cloud to reduce
+    // the magnitude of all loaded points. Now that we have loaded all
+    // points, shift one more time, to place the centroid of the
+    // reference at the origin.
+    // Note: If this code is ever converting to using floats,
+    // the operation below needs to be re-implemented to be accurate.
     int numRefPts = ref_point_cloud.features.cols();
     Eigen::VectorXd meanRef = ref_point_cloud.features.rowwise().sum() / numRefPts;
     ref_point_cloud.features.topRows(DIM).colwise()    -= meanRef.head(DIM);
     source_point_cloud.features.topRows(DIM).colwise() -= meanRef.head(DIM);
     for (int row = 0; row < DIM; row++)
-      shift[row] += meanRef(row);
+      shift[row] += meanRef(row); // Update the shift variable as well as the points
     if (opt.verbose)
       vw_out() << "Data shifted internally by subtracting: " << shift << std::endl;
 
@@ -1298,11 +1308,10 @@ int main( int argc, char *argv[] ) {
 		    opt.highest_accuracy, false /*opt.verbose*/);
     sw3.stop();
     if (opt.verbose)
-      vw_out() << "Reference point cloud processing took "
-               << sw3.elapsed_seconds() << " [s]" << endl;
+      vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " [s]" << endl;
 
     // Apply the initial guess transform to the source point cloud.
-    //apply_transform_to_cloud(initT, source_point_cloud.features);
+    apply_transform_to_cloud(initT, source_point_cloud);
     
     PointMatcher<RealT>::Matrix beg_errors;
     if (opt.max_disp > 0.0){
@@ -1366,7 +1375,7 @@ int main( int argc, char *argv[] ) {
 
     // Transform the source to make it close to reference.
     DP trans_source_point_cloud(source_point_cloud);
-    apply_transform_to_cloud(T, trans_source_point_cloud.features);
+    apply_transform_to_cloud(T, trans_source_point_cloud);
 
     // Calculate by how much points move as result of T
     double max_obtained_disp = calc_max_displacment(source_point_cloud, trans_source_point_cloud);

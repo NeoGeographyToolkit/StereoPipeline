@@ -90,31 +90,27 @@ std::string UNSPECIFIED_DATUM = "unspecified_datum";
 template<typename T>
 typename PointMatcher<T>::DataPoints::Labels form_labels(int dim);
 
-void apply_transform_to_cloud(PointMatcher<RealT>::Matrix const& T, DoubleMatrix & point_cloud);
-  
 // Load xyz points from disk into a matrix with 4 columns. Last column is just ones.
 void load_cloud(std::string const& file_name,
-                int num_points_to_load,
-                vw::BBox2 const& lonlat_box,
-                bool calc_shift,
-                vw::Vector3 & shift,
-                vw::cartography::GeoReference const& geo,
-                CsvConv const& csv_conv,
-                PointMatcher<RealT>::Matrix const& initTrans,
-                bool & is_lola_rdr_format,
-                double & mean_longitude,
-                bool verbose,
-                DoubleMatrix & data);
-  
+               int num_points_to_load,
+               vw::BBox2 const& lonlat_box,
+               bool calc_shift,
+               vw::Vector3 & shift,
+               vw::cartography::GeoReference const& geo,
+               CsvConv const& csv_conv,
+               bool & is_lola_rdr_format,
+               double & mean_longitude,
+               bool verbose,
+               DoubleMatrix & data);
+
 /// Load a file from disk and convert to libpointmatcher's format
 void load_cloud(std::string const& file_name,
-                int num_points_to_load,
-                vw::BBox2 const& lonlat_box,
-                bool calc_shift,
+		int num_points_to_load,
+		vw::BBox2 const& lonlat_box,
+		bool calc_shift,
 		vw::Vector3 & shift,
 		vw::cartography::GeoReference const& geo,
 		CsvConv const& csv_conv,
-                PointMatcher<RealT>::Matrix const& initTrans,
 		bool   & is_lola_rdr_format,
 		double & mean_longitude,
 		bool verbose,
@@ -124,11 +120,10 @@ void load_cloud(std::string const& file_name,
 /// on max displacement (which is in meters). This is used to throw
 /// away points in the other cloud which are not within this box.
 vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
-                                    int num_sample_pts,
-                                    CsvConv const& csv_conv,
-                                    PointMatcher<RealT>::Matrix const& initTrans,
-                                    std::string const& file_name,
-                                    double max_disp);
+                                int num_sample_pts,
+                                CsvConv const& csv_conv,
+                                std::string const& file_name,
+                                double max_disp);
 
 /// Compute the mean value of an std::vector out to a length
 double calc_mean(std::vector<double> const& errs, int len);
