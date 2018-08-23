@@ -220,14 +220,4 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
 
 }
 
-asp::StereoSession::tx_type asp::StereoSessionNadirPinhole::tx_left() const {
-  if (stereo_settings().alignment_method != "epipolar")
-    return tx_left_homography();
-
-  // For epipolar things are more complicated
-  tx_type tx_l, tx_r;
-  tx_left_and_right(tx_l, tx_r);
-  return tx_l;
-}
-
 

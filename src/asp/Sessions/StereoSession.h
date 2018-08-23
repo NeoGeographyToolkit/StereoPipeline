@@ -156,12 +156,6 @@ namespace asp {
     virtual tx_type tx_left () const {return tx_left_homography ();} // Default implementation
     virtual tx_type tx_right() const {return tx_right_homography();}
 
-    /// Get both image transforms at once
-    virtual void tx_left_and_right(tx_type &tx_l, tx_type &tx_r) const {
-      tx_l = tx_left();
-      tx_r = tx_right();
-    }
-
     // All of the "hook" functions below have default implementations that just copy the inputs to the outputs!
 
 

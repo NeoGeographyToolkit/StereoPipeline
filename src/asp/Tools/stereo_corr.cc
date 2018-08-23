@@ -315,8 +315,12 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
   vw_out() << "Applying epipolar adjustment to input IP match file...\n";
 
   // Get the transforms from the input image pixels to the epipolar aligned image pixels
+  // - Need to cast the session pointer to Pinhole type to access the function we need.
+  StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
+  if (pinPtr == NULL) 
+    vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
   StereoSession::tx_type trans_left, trans_right;
-  opt.session->tx_left_and_right(trans_left, trans_right);
+  pinPtr->pinhole_cam_trans(trans_left, trans_right);
 
   // Apply the transforms to all the IP we found
   for ( size_t i = 0; i < ip_left.size(); i++ ) {

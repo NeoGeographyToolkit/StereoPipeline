@@ -63,9 +63,9 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
                                                                          std::string const& camera_file,
                                                                          vw::Vector2 pixel_offset) const {
-    return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
-                               image_file, camera_file, pixel_offset);
-  }
+      return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
   };
 
   /// StereoSession implementation for Digital Globe images.

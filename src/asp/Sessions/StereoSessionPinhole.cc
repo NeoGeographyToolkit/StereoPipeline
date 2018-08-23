@@ -404,33 +404,23 @@ void asp::StereoSessionPinhole::load_camera_models(
   right_cam = epipolar_right_pin;
 }
 
-asp::StereoSession::tx_type asp::StereoSessionPinhole::tx_left() const{
-  if (stereo_settings().alignment_method != "epipolar")
-    return tx_identity();
-
-  // For epipolar things are more complicated
-  tx_type tx_l, tx_r;
-  tx_left_and_right(tx_l, tx_r);
-  return tx_l;
+asp::StereoSessionPinhole::tx_type
+asp::StereoSessionPinhole::tx_left() const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  return tx_type( new vw::HomographyTransform(tx) );
 }
-
-asp::StereoSession::tx_type asp::StereoSessionPinhole::tx_right() const{
-  if (stereo_settings().alignment_method != "epipolar")
-    return tx_right_homography();
-
-  // For epipolar things are more complicated
-  tx_type tx_l, tx_r;
-  tx_left_and_right(tx_l, tx_r);
-  return tx_r;
-}
-
-void asp::StereoSessionPinhole::tx_left_and_right(tx_type &tx_l, tx_type &tx_r) const{
-  
-  if (stereo_settings().alignment_method != "epipolar") {
-    tx_l = tx_left();
-    tx_r = tx_right();
-    return;
+asp::StereoSessionPinhole::tx_type
+asp::StereoSessionPinhole::tx_right() const {
+  if ( stereo_settings().alignment_method == "homography" ) {
+    Matrix<double> align_matrix;
+    read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
+    return tx_type( new vw::HomographyTransform(align_matrix) );
   }
+  return tx_type( new vw::HomographyTransform(math::identity_matrix<3>()) );
+}
+
+void asp::StereoSessionPinhole::pinhole_cam_trans(tx_type & left_trans,
+                                                  tx_type & right_trans){
 
   // Load the epipolar aligned camera models
   boost::shared_ptr<camera::CameraModel> left_aligned_model, right_aligned_model;
@@ -439,10 +429,16 @@ void asp::StereoSessionPinhole::tx_left_and_right(tx_type &tx_l, tx_type &tx_r) 
   boost::shared_ptr<camera::CameraModel> left_input_model, right_input_model;
   this->get_unaligned_camera_models(left_input_model, right_input_model);
 
-  // Set up transform objects
+  // Check the type, CAHV* type models are not supported!
   typedef vw::camera::PinholeModel PinModel;
-  tx_l = tx_type(new asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*left_input_model )), *dynamic_cast<PinModel*>(&(*left_aligned_model))));
+  PinModel* left_in_ptr = dynamic_cast<PinModel*>(&(*left_input_model));
+  if (!left_in_ptr)
+    vw_throw( NoImplErr() << "StereoSessionPinhole::pinhole_cam_trans is only implemented for PinholeModel classes!\n" );
 
-  tx_r = tx_type(new asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*right_input_model )), *dynamic_cast<PinModel*>(&(*right_aligned_model))));
+  // Set up transform objects
+  left_trans.reset (new asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*left_input_model   )),
+                                             *dynamic_cast<PinModel*>(&(*left_aligned_model )) ));
+  right_trans.reset(new asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*right_input_model  )),
+                                             *dynamic_cast<PinModel*>(&(*right_aligned_model)) ));
 }
 

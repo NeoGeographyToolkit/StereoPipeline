@@ -222,6 +222,16 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
   TXT left_trans  = transforms[0];
   TXT right_trans = transforms[1];
 
+  bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
+                              ( opt_vec[0].session->name() == "pinhole" ||
+                                opt_vec[0].session->name() == "nadirpinhole") );
+  if (usePinholeEpipolar) {
+    StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt_vec[0].session.get());
+    if (pinPtr == NULL) 
+      vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
+    pinPtr->pinhole_cam_trans(left_trans, right_trans);
+  }
+
   std::string left_file  = opt_vec[0].in_file1;
   std::string right_file = opt_vec[0].in_file2;
   std::string prefix     = opt_vec[0].out_prefix;
@@ -320,6 +330,16 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
   // Transforms to compensate for alignment
   TXT left_trans  = transforms[0];
   TXT right_trans = transforms[1];
+
+  bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
+                              ( opt_vec[0].session->name() == "pinhole" ||
+                                opt_vec[0].session->name() == "nadirpinhole") );
+  if (usePinholeEpipolar) {
+    StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt_vec[0].session.get());
+    if (pinPtr == NULL) 
+      vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
+    pinPtr->pinhole_cam_trans(left_trans, right_trans);
+  }
 
   std::vector<vw::ip::InterestPoint> left_ip, right_ip;
 
@@ -760,7 +780,7 @@ void stereo_triangulation( string          const& output_prefix,
     if (stereo_settings().num_matches_from_disparity > 0 && 
         stereo_settings().num_matches_from_disp_triplets > 0) {
       vw_throw( ArgumentErr() << "Cannot have both --num-matches-from-disparity and  "
-                << "--num-matches-from-disp-triplets.\n" );
+                              << "--num-matches-from-disp-triplets.\n" );
     }
 
     if (stereo_settings().num_matches_from_disparity > 0) {

@@ -47,10 +47,9 @@ namespace asp {
 
     virtual bool is_nadir_facing          () const {return true;}
 
-    /// Left image homography alignment is different in the nadir case.
-    virtual tx_type tx_left () const;
-
-
+    // Unlike non-nadir pinhole, this follows the default method.
+    virtual tx_type tx_left () const {return tx_left_homography ();}
+    virtual tx_type tx_right() const {return tx_right_homography();}
   };
 
 }

@@ -74,7 +74,7 @@ namespace asp {
     /// Function to load a camera model of the particular type.
     virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
                                                                          std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset){
+                                                                         vw::Vector2 pixel_offset) const {
     return load_rpc_camera_model(image_file, camera_file, pixel_offset);
   }
   
@@ -100,7 +100,7 @@ namespace asp {
     /// Function to load a camera model of the particular type.
     virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
                                                                          std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) {
+                                                                         vw::Vector2 pixel_offset) const {
       return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
                                  image_file, camera_file, pixel_offset);
     }
@@ -122,7 +122,7 @@ namespace asp {
     /// Function to load a camera model of the particular type.
     virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
                                                                          std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) {
+                                                                         vw::Vector2 pixel_offset) const {
       return StereoSessionPinhole::load_adj_pinhole_model(image_file, camera_file,
                                                           m_left_image_file, m_right_image_file,
                                                           m_left_camera_file, m_right_camera_file,
@@ -144,7 +144,7 @@ namespace asp {
     /// Function to load a camera model of the particular type.
     virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
                                                                          std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) {
+                                                                         vw::Vector2 pixel_offset) const {
       return load_adjusted_model(m_camera_loader.load_spot5_camera_model(camera_file),
                                  image_file, camera_file, pixel_offset);
     }
@@ -165,7 +165,7 @@ namespace asp {
     /// Function to load a camera model of the particular type.
     virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
                                                                          std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) {
+                                                                         vw::Vector2 pixel_offset) const {
       return load_adjusted_model(m_camera_loader.load_ASTER_camera_model(camera_file),
                                  image_file, camera_file, pixel_offset);
     }

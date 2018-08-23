@@ -31,6 +31,7 @@
 namespace asp {
 
   typedef vw::camera::CameraTransform<vw::camera::PinholeModel, vw::camera::PinholeModel> PinholeCamTrans;
+  typedef boost::shared_ptr<PinholeCamTrans> PinholeCamTransPtr;
 
  class StereoSessionPinhole: public StereoSession {
   public:
@@ -73,18 +74,21 @@ namespace asp {
 
     /// Pinhole camera model loading function which handles the case of epipolar alignment.
     static boost::shared_ptr<vw::camera::CameraModel>
-    load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
-                          std::string const& left_image_file,  std::string const& right_image_file,
-                          std::string const& left_camera_file, std::string const& right_camera_file,
-                          std::string const& input_dem);
+    load_adj_pinhole_model(std::string const& image_file,      std::string const& camera_file,
+                           std::string const& left_image_file,  std::string const& right_image_file,
+                           std::string const& left_camera_file, std::string const& right_camera_file,
+                           std::string const& input_dem);
 
-    /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
-    /// - For reversing our arithmetic applied in preprocessing.
+    /// Transforms from the aligned image coordinates back to coordinates in the camera models.
+    /// - Note that for epipolar aligned images these return identity transforms since the 
+    ///   epipolar aligned images are consisted with the (new epipolar) camera models returned
+    ///   from this class.
     virtual tx_type tx_left () const;
     virtual tx_type tx_right() const;
 
-    /// Get both image transforms at once
-    virtual void tx_left_and_right(tx_type &tx_l, tx_type &tx_r) const;
+    /// Get the transforms from the unaligned input images to the epipolar aligned images.
+    /// - CAHV* type models are not currently supported!
+    void pinhole_cam_trans(tx_type & left_trans, tx_type & right_trans);
     
    //typedef vw::stereo::StereoModel stereo_model_type;
 
