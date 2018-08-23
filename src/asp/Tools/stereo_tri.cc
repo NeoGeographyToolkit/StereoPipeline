@@ -152,7 +152,16 @@ private:
     // we were using a TransformView. Copies are made of the
     // transforms so we are not having a race condition with setting
     // the cache in both transforms while the other threads want to do the same.
-    vector<T> transforms_copy = transforms;
+    // - Without some sort of duplication function in the transform base class we need
+    //   to manually copy the Map2CamTrans type which is pretty hacky.
+    vector<T> transforms_copy(transforms.size());
+    for (size_t i=0; i<transforms.size(); ++i) {
+      vw::cartography::Map2CamTrans* t_ptr 
+          = dynamic_cast<vw::cartography::Map2CamTrans*>(transforms[i].get());
+      if (!t_ptr)
+        vw_throw( NoImplErr() << "Need to support new map projection transform in stereo_tri!");
+      transforms_copy[i].reset(new vw::cartography::Map2CamTrans(*t_ptr));
+    }
     transforms_copy[0]->reverse_bbox(bbox); // As a side effect this call makes transforms_copy create a local cache we want later
 
     if (transforms_copy.size() != m_disparity_maps.size() + 1){
