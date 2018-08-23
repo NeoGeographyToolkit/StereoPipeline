@@ -265,7 +265,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                vw::BBox2 & trans_out_box){
 
   // Initialize
-  out_box = vw::BBox2();
+  out_box       = vw::BBox2();
   trans_out_box = vw::BBox2();
     
   // If the user does not want to use the max-displacement parameter,
@@ -277,59 +277,78 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   PointMatcherSupport::validateFile(file_name);
   PointMatcher<RealT>::DataPoints points;
 
-  double mean_longitude = 0.0; // to convert back from xyz to lonlat
-  bool verbose = false;
-  bool calc_shift = false; // won't shift the points
-  vw::Vector3 shift = vw::Vector3(0, 0, 0);
-  vw::BBox2 dummy_box;
-  bool is_lola_rdr_format;
-  // Load a sample of points, hopefully enough to estimate the box
-  // reliably.
+  double      mean_longitude = 0.0; // to convert back from xyz to lonlat
+  bool        verbose        = false;
+  bool        calc_shift     = false; // won't shift the points
+  vw::Vector3 shift          = vw::Vector3(0, 0, 0);
+  vw::BBox2   dummy_box;
+  bool        is_lola_rdr_format;
+  // Load a sample of points, hopefully enough to estimate the box reliably.
   load_cloud(file_name, num_sample_pts, dummy_box,
-	     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-	     mean_longitude, verbose, points);
+             calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+             mean_longitude, verbose, points);
 
   bool has_transform = (transform != PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1));
-  
-  // Bias the xyz points in several directions by max_disp, then
-  // convert to lon-lat and grow the box. This is a rough
-  // overestimate, but should be good enough.
-  for (int col = 0; col < points.features.cols(); col++){
 
-    vw::Vector3 p;
-    for (int row = 0; row < DIM; row++) p[row] = points.features(row, col);
+  // For the first point, figure out how much shift in lonlat a small
+  //  shift in XYZ produces.  We will use this to expand out from the
+  //  test points when computing the bounding box.
+  vw::Vector3 p1;
+  vw::BBox2   box1, box1_trans;
+  for (int row = 0; row < DIM; row++)
+    p1[row] = points.features(row, 0);
 
-    if (has_transform) {
-      vw::Vector3 q = apply_transform_to_vec(transform, p);
-      vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
-      llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
-      trans_out_box.grow(subvector(llh, 0, 2));
-    }
-    
-    for (int x = -1; x <= 1; x += 2){
-      for (int y = -1; y <= 1; y += 2){
-        for (int z = -1; z <= 1; z += 2){
-          vw::Vector3 q = p + vw::Vector3(x, y, z)*max_disp;
-          vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
-          llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
-          out_box.grow(subvector(llh, 0, 2));
+  for (int x = -1; x <= 1; x += 2){
+    for (int y = -1; y <= 1; y += 2){
+      for (int z = -1; z <= 1; z += 2){
+        vw::Vector3 q   = p1 + vw::Vector3(x, y, z)*max_disp;
+        vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
+        llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
+        box1.grow(subvector(llh, 0, 2));
 
-          if (has_transform) {
-            q = apply_transform_to_vec(transform, q);
-            vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
-            llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
-            trans_out_box.grow(subvector(llh, 0, 2));
-          }
-          
+        // Do the same thing in transformed coordinates
+        if (has_transform) {
+          vw::Vector3 qT   = apply_transform_to_vec(transform, p);
+          vw::Vector3 llhT = geo.datum().cartesian_to_geodetic(qT);
+          llhT[0] += 360.0*round((mean_longitude - llhT[0])/360.0); // 360 deg adjust
+          box1_trans.grow(subvector(llhT, 0, 2));
         }
       }
     }
   }
+  const double EXPANSION_MARGIN = 1.05; // Pad the size a little bit just to be safe.
+  const double rad_lon  = EXPANSION_MARGIN * box1.width       () / 2.0;
+  const double rad_lat  = EXPANSION_MARGIN * box1.height      () / 2.0;
+  const double rad_lonT = EXPANSION_MARGIN * box1_trans.width () / 2.0;
+  const double rad_latT = EXPANSION_MARGIN * box1_trans.height() / 2.0;
 
+  // Make a box around each point the size of the box we computed earlier and 
+  //  keep growing the output bounding box.
+  
+  for (int col = 0; col < points.features.cols(); col++){
+    vw::Vector3 p;
+    for (int row = 0; row < DIM; row++)
+      p[row] = points.features(row, col);
+
+    vw::Vector3 q   = p;
+    vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
+    llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
+    vw::BBox2 b(llh[0]-rad_lon, llh[1]-rad_lat, width, height);
+    out_box.grow(b);
+
+    // Do the same thing in transformed coordinates
+    if (has_transform) {
+      vw::Vector3 qT   = apply_transform_to_vec(transform, p);
+      vw::Vector3 llhT = geo.datum().cartesian_to_geodetic(qT);
+      llhT[0] += 360.0*round((mean_longitude - llhT[0])/360.0); // 360 deg adjust
+      vw::BBox2 bT(llhT[0]-rad_lonT, llhT[1]-rad_latT, 2*rad_lonT, 2*rad_latT);
+      trans_out_box.grow(bT);
+    }
+  }
+  
   if (!has_transform)
     trans_out_box = out_box;
-  
-  return;
+  return
 }
 
 // Sometime the box we computed with cartesian_to_geodetic is offset

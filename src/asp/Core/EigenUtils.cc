@@ -348,10 +348,10 @@ void load_csv(std::string const& file_name,
                  DoubleMatrix & data){
 
   int num_total_points = load_csv_aux(file_name, num_points_to_load,
-				      lonlat_box,
-				      calc_shift, shift,
-				      geo, csv_conv, is_lola_rdr_format,
-				      mean_longitude, verbose, data);
+                                      lonlat_box,
+                                      calc_shift, shift,
+                                      geo, csv_conv, is_lola_rdr_format,
+                                      mean_longitude, verbose, data);
   
   int num_loaded_points = data.cols();
   if (!lonlat_box.empty()                    &&
@@ -360,10 +360,10 @@ void load_csv(std::string const& file_name,
     // We loaded too few points. Just load them all, as CSV files are
     // not too large, we will drop extraneous points later.
     load_csv_aux(file_name, num_total_points, lonlat_box,
-		 calc_shift, shift,
-		 geo, csv_conv, is_lola_rdr_format,
-		 mean_longitude,
-		 false, // Skip repeating same messages
+                 calc_shift, shift,
+                 geo, csv_conv, is_lola_rdr_format,
+                 mean_longitude,
+                 false, // Skip repeating same messages
                  data);
   }
   
@@ -435,7 +435,8 @@ void load_dem_pixel_type(std::string const& file_name,
       if (r > load_ratio)
         continue;
 
-      if ( dem(i, j) == nodata || std::isnan(dem(i, j)) || std::isinf(dem(i, j)) )
+      DemPixelType h = dem(i, j);
+      if ( h == nodata || std::isnan(h) || std::isinf(h) )
         continue;
       
       vw::Vector2 lonlat = dem_geo.pixel_to_lonlat( vw::Vector2(i,j) );
@@ -444,7 +445,7 @@ void load_dem_pixel_type(std::string const& file_name,
       if (!lonlat_box.empty() && !lonlat_box.contains(lonlat))
         continue;
 
-      vw::Vector3 llh( lonlat.x(), lonlat.y(), dem(i,j) );
+      vw::Vector3 llh( lonlat.x(), lonlat.y(), h );
       vw::Vector3 xyz = dem_geo.datum().geodetic_to_cartesian( llh );
       if ( xyz == vw::Vector3() || !(xyz == xyz) )
         continue; // invalid and NaN check
@@ -489,19 +490,19 @@ void load_dem(std::string const& file_name,
                                 verbose, data);
   }else{
     load_dem_pixel_type<float>(file_name,  
-			       num_points_to_load, lonlat_box,  
-			       calc_shift, shift,  
-			       verbose, data);
+                               num_points_to_load, lonlat_box,  
+                               calc_shift, shift,  
+                               verbose, data);
   }
 }
 
 vw::int64 load_pc_aux(std::string const& file_name,
-		      int num_points_to_load,
-		      vw::BBox2 const& lonlat_box,
-		      bool calc_shift,
-		      vw::Vector3 & shift,
-		      vw::cartography::GeoReference const& geo,
-		      bool verbose, DoubleMatrix & data){
+                      int num_points_to_load,
+                      vw::BBox2 const& lonlat_box,
+                      bool calc_shift,
+                      vw::Vector3 & shift,
+                      vw::cartography::GeoReference const& geo,
+                      bool verbose, DoubleMatrix & data){
 
   data.conservativeResize(DIM+1, num_points_to_load);
 

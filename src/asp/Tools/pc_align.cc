@@ -1243,7 +1243,8 @@ int main( int argc, char *argv[] ) {
     
     // Compute GDC bounding box of the source and reference clouds.
     vw_out() << "Computing the intersection of the bounding boxes "
-             << "of the reference and source points." << endl;
+             << "of the reference and source points using " 
+             << num_sample_pts << " sample points.\n";
     BBox2 ref_box, source_box, trans_ref_box, trans_source_box;
 
     PointMatcher<RealT>::Matrix inv_init_trans = opt.init_transform.inverse();
@@ -1253,6 +1254,7 @@ int main( int argc, char *argv[] ) {
     calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                               opt.source, opt.max_disp, opt.init_transform,
                               source_box, trans_source_box);
+
 
     // When boxes are huge, it is hard to do the optimization of intersecting
     // them, as they may differ not by 0 or 360, but by 180. Better do nothing

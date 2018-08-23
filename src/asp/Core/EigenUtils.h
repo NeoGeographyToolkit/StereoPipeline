@@ -50,15 +50,15 @@ void random_pc_subsample(int m, DoubleMatrix& points);
   
 // Load a csv file, perhaps sub-sampling it along the way
 void load_csv(std::string const& file_name,
-	      int num_points_to_load,
-	      vw::BBox2 const& lonlat_box,
-	      bool calc_shift,
-	      vw::Vector3 & shift,
-	      vw::cartography::GeoReference const& geo,
-	      CsvConv const& csv_conv,
-	      bool & is_lola_rdr_format,
-	      double & mean_longitude, bool verbose,
-	      DoubleMatrix & data);
+              int num_points_to_load,
+              vw::BBox2 const& lonlat_box,
+              bool calc_shift,
+              vw::Vector3 & shift,
+              vw::cartography::GeoReference const& geo,
+              CsvConv const& csv_conv,
+              bool & is_lola_rdr_format,
+              double & mean_longitude, bool verbose,
+              DoubleMatrix & data);
   
 // Load a DEM, perhaps subsampling it along the way
 void load_dem(std::string const& file_name,
