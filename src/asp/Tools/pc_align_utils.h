@@ -119,12 +119,16 @@ void load_cloud(std::string const& file_name,
 /// Calculate the lon-lat bounding box of the points and bias it based
 /// on max displacement (which is in meters). This is used to throw
 /// away points in the other cloud which are not within this box.
-vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
-                                int num_sample_pts,
-                                CsvConv const& csv_conv,
-                                std::string const& file_name,
-                                double max_disp);
-
+/// Return a version of it with given transform applied to it
+void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
+                               int num_sample_pts,
+                               CsvConv const& csv_conv,
+                               std::string const& file_name,
+                               double max_disp,
+                               PointMatcher<RealT>::Matrix const transform,
+                               vw::BBox2 & out_box, 
+                               vw::BBox2 & trans_out_box);
+  
 /// Compute the mean value of an std::vector out to a length
 double calc_mean(std::vector<double> const& errs, int len);
 

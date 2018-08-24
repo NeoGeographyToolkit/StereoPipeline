@@ -12,6 +12,8 @@
    * Added the expression of the Euler angles in the North-East-Down
      coordinate system around the center of gravity of the source
      cloud.
+   * Bugfix: intersection of bounding boxes of the clouds takes
+     into account the initial transform applied to the source points.
 
  - bundle_adjust
    * Bug fix in outlier filtering for n images.

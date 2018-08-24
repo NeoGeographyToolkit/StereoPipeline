@@ -237,21 +237,42 @@ void load_cloud(std::string const& file_name,
 	    verbose,  data.features);
   
 }
-  
+
+// Apply a rotation + translation transform to a vector3
+vw::Vector3 apply_transform_to_vec(PointMatcher<RealT>::Matrix const transform,
+                                   vw::Vector3 const& p){
+  Eigen::Vector4d P;
+  for (size_t it = 0; it < 3; it++) P[it] = p[it];
+  P[3] = 1;
+  P = transform * P;
+  vw::Vector3 q;
+  for (size_t it = 0; it < 3; it++) q[it] = P[it];
+  return q;
+}
+                              
 // Calculate the lon-lat bounding box of the points and bias it based
 // on max displacement (which is in meters). This is used to throw
 // away points in the other cloud which are not within this box.
-vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
-                                int num_sample_pts,
-                                CsvConv const& csv_conv,
-                                std::string const& file_name,
-                                double max_disp){
+// Handle the situation when there is an initial transform applied
+// to the source points.
+void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
+                               int num_sample_pts,
+                               CsvConv const& csv_conv,
+                               std::string const& file_name,
+                               double max_disp,
+                               PointMatcher<RealT>::Matrix const transform,
+                               vw::BBox2 & out_box, 
+                               vw::BBox2 & trans_out_box){
 
+  // Initialize
+  out_box = vw::BBox2();
+  trans_out_box = vw::BBox2();
+    
   // If the user does not want to use the max-displacement parameter,
   // or if there is no datum to use to convert to/from lon/lat,
   // there is not much we can do.
   if (max_disp < 0.0 || geo.datum().name() == UNSPECIFIED_DATUM)
-    return vw::BBox2();
+    return;
 
   PointMatcherSupport::validateFile(file_name);
   PointMatcher<RealT>::DataPoints points;
@@ -267,28 +288,48 @@ vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   load_cloud(file_name, num_sample_pts, dummy_box,
 	     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
 	     mean_longitude, verbose, points);
+
+  bool has_transform = (transform != PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1));
   
   // Bias the xyz points in several directions by max_disp, then
   // convert to lon-lat and grow the box. This is a rough
   // overestimate, but should be good enough.
-  vw::BBox2 box;
   for (int col = 0; col < points.features.cols(); col++){
+
     vw::Vector3 p;
     for (int row = 0; row < DIM; row++) p[row] = points.features(row, col);
 
+    if (has_transform) {
+      vw::Vector3 q = apply_transform_to_vec(transform, p);
+      vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
+      llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
+      trans_out_box.grow(subvector(llh, 0, 2));
+    }
+    
     for (int x = -1; x <= 1; x += 2){
       for (int y = -1; y <= 1; y += 2){
         for (int z = -1; z <= 1; z += 2){
           vw::Vector3 q = p + vw::Vector3(x, y, z)*max_disp;
           vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
           llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
-          box.grow(subvector(llh, 0, 2));
+          out_box.grow(subvector(llh, 0, 2));
+
+          if (has_transform) {
+            q = apply_transform_to_vec(transform, q);
+            vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
+            llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
+            trans_out_box.grow(subvector(llh, 0, 2));
+          }
+          
         }
       }
     }
   }
 
-  return box;
+  if (!has_transform)
+    trans_out_box = out_box;
+  
+  return;
 }
 
 // Sometime the box we computed with cartesian_to_geodetic is offset

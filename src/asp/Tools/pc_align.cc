@@ -1118,6 +1118,74 @@ PointMatcher<RealT>::Matrix ned_to_caresian_transform(vw::cartography::Datum con
   return T;
 }
 
+// Estimate the centroid of the reference points
+vw::Vector3 estimate_ref_cloud_centroid(vw::cartography::GeoReference const& geo,
+                                        CsvConv const& csv_conv,
+                                        std::string const& file_name){
+  Stopwatch sw;
+  sw.start();
+  
+  PointMatcherSupport::validateFile(file_name);
+  PointMatcher<RealT>::DataPoints points;
+
+  double mean_longitude = 0.0; // to convert back from xyz to lonlat
+  bool verbose = false;
+  bool calc_shift = false; // won't shift the points
+  vw::Vector3 shift = vw::Vector3(0, 0, 0);
+  vw::BBox2 dummy_box;
+  bool is_lola_rdr_format;
+  // Load a sample of points, hopefully enough to estimate the centroid
+  // reliably.
+  int num_sample_pts = 1000000;
+  load_cloud(file_name, num_sample_pts, dummy_box,
+	     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+	     mean_longitude, verbose, points);
+
+
+  int numRefPts = points.features.cols();
+  Eigen::VectorXd meanRef = points.features.rowwise().sum() / numRefPts;
+  
+  vw::Vector3 centroid;
+  for (int it = 0; it < 3; it++)
+    centroid[it] = meanRef[it];
+  
+  sw.stop();
+  vw_out() << "Centroid estimation took " << sw.elapsed_seconds() << " [s]" << endl;
+
+  return centroid;
+}
+
+// Intersect the reference and source boxes, making sure to handle well the potential
+// 360 degree offset among the two.
+void adjust_and_intersect_ref_source_boxes(BBox2 & ref_box, BBox2 & source_box,
+                                           std::string const& reference,
+                                           std::string const& source){
+
+  double lon_offset = 0.0;
+  
+  // Compute the longitude offset
+  double source_mean_lon = (source_box.min().x() + source_box.max().x())/2.0;
+  double ref_mean_lon    = (ref_box.min().x()    + ref_box.max().x()   )/2.0;
+  lon_offset = source_mean_lon - ref_mean_lon;
+  lon_offset = 360.0*round(lon_offset/360.0);
+
+  // Move the ref box in the domain of the source box
+  ref_box += Vector2(lon_offset, 0);
+
+  // Intersect them, as pc_align will operate on their common area
+  ref_box.crop(source_box);
+  source_box.crop(ref_box);
+
+  // Move back the ref box to its domain
+  ref_box -= Vector2(lon_offset, 0);
+  
+  // Extra adjustments. These are needed since pixel_to_lonlat and
+  // cartesian_to_geodetic can disagree by 360 degress. Adjust ref
+  // to source and vice-versa.
+  adjust_lonlat_bbox(reference, ref_box);
+  adjust_lonlat_bbox(source, source_box);
+}
+
 int main( int argc, char *argv[] ) {
 
   // Mandatory line for Eigen
@@ -1127,20 +1195,6 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments(argc, argv, opt);
 
-    // Use hillshading to create a match file
-    if (opt.hillshading_transform != "" && opt.match_file == "")
-      opt.match_file = find_matches_from_hillshading(opt, argv[0]);
-    
-    // Create a transform based on a match file, either automatically generated, or
-    // user-made (normally with stereo_gui).
-    if (opt.match_file != "") {
-      if (opt.hillshading_transform == "") 
-        opt.hillshading_transform = "similarity";
-      opt.init_transform = initial_transform_from_match_file(opt.reference, opt.source,
-                                                             opt.match_file,
-                                                             opt.hillshading_transform);
-    }
-    
 // TODO: Enable on OSX when clang supports OpenMP!
 #if (defined(ASP_OSX_BUILD) && ASP_OSX_BUILD==1)
 #else
@@ -1156,6 +1210,28 @@ int main( int argc, char *argv[] ) {
     GeoReference geo;
     read_georef(opt, csv_conv, geo);
 
+    // Use hillshading to create a match file
+    if (opt.hillshading_transform != "" && opt.match_file == "")
+      opt.match_file = find_matches_from_hillshading(opt, argv[0]);
+    
+    // Create a transform based on a match file, either automatically generated, or
+    // user-made (normally with stereo_gui).
+    if (opt.match_file != "") {
+      if (opt.hillshading_transform == "") 
+        opt.hillshading_transform = "similarity";
+      opt.init_transform = initial_transform_from_match_file(opt.reference, opt.source,
+                                                             opt.match_file,
+                                                             opt.hillshading_transform);
+    }
+
+    // See if to apply an initial north-east-down translation
+    if (opt.initial_ned_translation != "") {
+      vw::Vector3 centroid = estimate_ref_cloud_centroid(geo, csv_conv, opt.reference);
+      opt.init_transform = ned_to_caresian_transform(geo.datum(),
+                                                     opt.initial_ned_translation, 
+                                                     centroid);
+    }
+
     // We will use ref_box to bound the source points, and vice-versa.
     // Decide how many samples to pick to estimate these boxes.
     Stopwatch sw0;
@@ -1165,14 +1241,18 @@ int main( int argc, char *argv[] ) {
                                            opt.max_num_reference_points)/4);
     num_sample_pts = std::min(9000000, num_sample_pts); // avoid being slow
     
-    // Compute GDC bounding box of the source and reference clouds
+    // Compute GDC bounding box of the source and reference clouds.
     vw_out() << "Computing the intersection of the bounding boxes "
              << "of the reference and source points." << endl;
-    BBox2 ref_box, source_box;
-    ref_box    = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
-                                           opt.reference, opt.max_disp);
-    source_box = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
-                                           opt.source,    opt.max_disp);
+    BBox2 ref_box, source_box, trans_ref_box, trans_source_box;
+
+    PointMatcher<RealT>::Matrix inv_init_trans = opt.init_transform.inverse();
+    calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
+                              opt.reference, opt.max_disp, inv_init_trans,
+                              ref_box, trans_ref_box);
+    calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
+                              opt.source, opt.max_disp, opt.init_transform,
+                              source_box, trans_source_box);
 
     // When boxes are huge, it is hard to do the optimization of intersecting
     // them, as they may differ not by 0 or 360, but by 180. Better do nothing
@@ -1189,32 +1269,14 @@ int main( int argc, char *argv[] ) {
     vw_out() << "Reference box: " << ref_box << std::endl;
     vw_out() << "Source box:    " << source_box << std::endl;
 
-    // If ref points are offset by 360 degrees in longitude in respect
-    // to source points, adjust the ref box to be aligned with the
-    // source points, and vice versa.  Note that we will use the ref
-    // box to bound the source points, and vice-versa.
-    double lon_offset = 0.0;
-    if (!ref_box.empty() && !source_box.empty()){
-      // Compute the longitude offset
-      double source_mean_lon = (source_box.min().x() + source_box.max().x())/2.0;
-      double ref_mean_lon    = (ref_box.min().x()    + ref_box.max().x()   )/2.0;
-      lon_offset = source_mean_lon - ref_mean_lon;
-      lon_offset = 360.0*round(lon_offset/360.0);
-      // Apply to both bounding boxes
-      ref_box    += Vector2(lon_offset, 0);
-      // Intersect them, as pc_align will operate on their common area
-      ref_box.crop(source_box);
-      source_box.crop(ref_box); // common area
-      source_box -= Vector2(lon_offset, 0);
-
-      // Extra adjustments. These are needed since pixel_to_lonlat and
-      // cartesian_to_geodetic can disagree by 360 degress. Adjust ref
-      // to source and vice-versa.
-      adjust_lonlat_bbox(opt.reference, source_box);
-      adjust_lonlat_bbox(opt.source, ref_box);
+    if (!ref_box.empty() && !source_box.empty()) {
+      adjust_and_intersect_ref_source_boxes(ref_box, trans_source_box, opt.reference, opt.source);
+      adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box, opt.reference, opt.source);
     }
+    
     sw0.stop();
-    vw_out() << "Intersection:  " << ref_box << std::endl;
+    vw_out() << "Intersection reference box:  " << ref_box    << std::endl;
+    vw_out() << "Intersection source    box:  " << source_box << std::endl;
     vw_out() << "Intersection of bounding boxes took " << sw0.elapsed_seconds() << " [s]" << endl;
 
     // Load the point clouds. We will shift both point clouds by the
@@ -1229,8 +1291,7 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw1;
     sw1.start();
     DP ref_point_cloud;
-    load_cloud(opt.reference, opt.max_num_reference_points,
-               source_box, // source box is used to bound reference
+    load_cloud(opt.reference, opt.max_num_reference_points, ref_box,
                calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                mean_ref_longitude, opt.verbose, ref_point_cloud);
     sw1.stop();
@@ -1250,8 +1311,7 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw2;
     sw2.start();
     DP source_point_cloud;
-    load_cloud(opt.source, num_source_pts,
-	      ref_box, // ref box is used to bound source
+    load_cloud(opt.source, num_source_pts, source_box, 
 	      calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
 	      mean_source_longitude, opt.verbose, source_point_cloud);
     sw2.stop();
@@ -1274,12 +1334,6 @@ int main( int argc, char *argv[] ) {
     if (opt.verbose)
       vw_out() << "Data shifted internally by subtracting: " << shift << std::endl;
 
-    // See if to apply an initial north-east-down translation
-    if (opt.initial_ned_translation != "") 
-      opt.init_transform = ned_to_caresian_transform(geo.datum(),
-                                                     opt.initial_ned_translation, 
-                                                     shift);
-    
     // The point clouds are shifted, so shift the initial transform as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
 
