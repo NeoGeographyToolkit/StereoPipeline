@@ -612,7 +612,7 @@ void MainWindow::viewAsTiles(){
 // we must set m_matches_exist to true.
 void MainWindow::turnOnViewMatches(){
   m_matches_exist = true;
-  m_view_matches = true;
+  m_view_matches  = true;
   m_viewMatches_action->setChecked(m_view_matches);
   MainWindow::viewMatches();
 }
@@ -670,12 +670,12 @@ void MainWindow::viewMatches(){
     m_matches_exist = true;
     m_matches.clear();
     m_matches.resize(m_image_files.size());
-    
+
     // First try to read them from gcp
     if (stereo_settings().gcp_file != "") {
 
       using namespace vw::ba;
-      
+
       ControlNetwork cnet("gcp");
       std::vector<std::string> gcp_files; gcp_files.push_back(stereo_settings().gcp_file);
       vw::cartography::Datum datum; // the actual datum does not matter here
@@ -683,93 +683,94 @@ void MainWindow::viewMatches(){
 
       CameraRelationNetwork<JFeature> crn;
       crn.read_controlnetwork(cnet);
-  
+
       typedef CameraNode<JFeature>::iterator crn_iter;
       if (crn.size() != m_image_files.size()) {
-	popUp("The number of images in the control network does not agree with the number of images to view.");
-	return;
-      }
-      
-      for ( size_t icam = 0; icam < crn.size(); icam++ ) {
-	for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
-	  Vector2 observation = (**fiter).m_location;
-	  vw::ip::InterestPoint ip(observation.x(), observation.y());
-	  m_matches[icam].push_back(ip);
-	}
+        popUp("The number of images in the control network does not agree with the number of images to view.");
+        return;
       }
 
       for ( size_t icam = 0; icam < crn.size(); icam++ ) {
-	if (m_matches[0].size() != m_matches[icam].size()) {
-	  popUp("Each GCP must be represented as a pixel in each image.");
-	  m_matches.clear();
-	  m_matches.resize(m_image_files.size());
-	  return;
-	}
+        for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
+          Vector2 observation = (**fiter).m_location;
+          vw::ip::InterestPoint ip(observation.x(), observation.y());
+          m_matches[icam].push_back(ip);
+        }
       }
-      
+
+      for ( size_t icam = 0; icam < crn.size(); icam++ ) {
+        if (m_matches[0].size() != m_matches[icam].size()) {
+          popUp("Each GCP must be represented as a pixel in each image.");
+          m_matches.clear();
+          m_matches.resize(m_image_files.size());
+          return;
+        }
+      }
+
     }else{
-      
+
       // If no match file was specified by now, ask the user for the output prefix.
       if (m_match_file == "")
-	if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
+        if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
 
       int num_matches = -1;
 
       for (int i = 0; i < int(m_image_files.size())-1; i++) {
-	int j = i + 1; // read the matches between image i and image i + 1
+        int j = i + 1; // read the matches between image i and image i + 1
 
-	// If the match file was not specified, look it up.
-	std::string match_file = m_match_file;
-	if (match_file == "")
-	  match_file = vw::ip::match_filename(m_output_prefix, m_image_files[i], m_image_files[j]);
-      
-	// Look for the match file in the default location, and if it
-	// does not appear prompt the user or a path.
-	std::vector<vw::ip::InterestPoint> left, right;
-	try {
-	  ip::read_binary_match_file(match_file, left, right);
-	}catch(...){
-	  try {
-	    match_file = fileDialog("Manually select the match file...", m_output_prefix);
-          
-	    // If we have just two images, save this match file as the
-	    // default. For more than two, it gets complicated.
-	    if (m_image_files.size() == 2)
-	      m_match_file = match_file;
-          
-	  }catch(...){
-	    popUp("Manually selected file failed to load. Cannot view matches.");
-	  }
-	}
+        // If the match file was not specified, look it up.
+        std::string match_file = m_match_file;
+        if (match_file == "")
+          match_file = vw::ip::match_filename(m_output_prefix, m_image_files[i], m_image_files[j]);
 
-	// Second attempt. TODO: This logic is confusing.
-	try {
+        // Look for the match file in the default location, and if it
+        // does not appear prompt the user or a path.
+        std::vector<vw::ip::InterestPoint> left, right;
+        try {
+          ip::read_binary_match_file(match_file, left, right);
+        }catch(...){
+          try {
+            match_file = fileDialog("Manually select the match file...", m_output_prefix);
 
-	  if (match_file != "") {
-	    vw_out() << "Loading " << match_file << std::endl;
-	    ip::read_binary_match_file(match_file, left, right);
-	  }
-        
-	  if (i == 0) m_matches[i] = left;
+            // If we have just two images, save this match file as the
+            // default. For more than two, it gets complicated.
+            if (m_image_files.size() == 2)
+              m_match_file = match_file;
 
-	  m_matches[j] = right;
-        
-	  if (num_matches < 0)
-	    num_matches = left.size();
-        
-	  if (num_matches != int(right.size())){
-	    popUp(std::string("Not all images have the same number of interest points."));
-	    return;
-	  }
-        
-	}catch(...){
-	  popUp("Could not read matches file: " + match_file);
-	  return;
-	}
+          }catch(...){
+            popUp("Manually selected file failed to load. Cannot view matches.");
+          }
+        }
+
+        // Second attempt. TODO: This logic is confusing.
+        try {
+
+          if (match_file != "") {
+            vw_out() << "Loading " << match_file << std::endl;
+            ip::read_binary_match_file(match_file, left, right);
+          }
+
+          if (i == 0)
+            m_matches[i] = left;
+
+          m_matches[j] = right;
+
+          if (num_matches < 0)
+            num_matches = left.size();
+
+          if (num_matches != int(right.size())){
+            popUp(std::string("Not all images have the same number of interest points."));
+            return;
+          }
+
+        }catch(...){
+          popUp("Could not read matches file: " + match_file);
+          return;
+        }
       }
 
     }
-    
+
     if (m_matches.empty() || m_matches[0].empty()) {
       popUp("Could not load any matches.");
       return;

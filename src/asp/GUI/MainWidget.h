@@ -111,9 +111,9 @@ namespace vw { namespace gui {
 
     void setShadowThreshMode(bool turnOn) { m_shadow_thresh_calc_mode = turnOn;}
     void plotProfile(std::vector<imageData> const& images,
-		     std::vector<double> const& profileX, 
-		     std::vector<double> const& profileY);
-    
+                     std::vector<double> const& profileX, 
+                     std::vector<double> const& profileY);
+  
     void drawOneVertex(int x0, int y0, QColor color, int lineWidth,
                        int drawVertIndex, QPainter &paint);
     
@@ -132,18 +132,18 @@ namespace vw { namespace gui {
 
     std::set<int> & indicesWithAction() { return m_indicesWithAction; }
 
-    void setThreshold(double thresh); ///< Set the shadow threshold 
+    void   setThreshold(double thresh); ///< Set the shadow threshold 
     double getThreshold();            ///< Get the shadow threshold
 
-    void setZoomAllToSameRegion(bool zoom_all_to_same_region);
+    void  setZoomAllToSameRegion(bool zoom_all_to_same_region);
     vw::BBox2 current_view();
-    void zoomToRegion (vw::BBox2 const& region);
-    bool hillshadeMode() const;
+    void  zoomToRegion (vw::BBox2 const& region);
+    bool  hillshadeMode() const;
     std::vector<bool> hillshadeModeVec() const {return m_hillshade_mode;}
-    void setHillshadeMode(bool hillshade_mode);
+    void  setHillshadeMode(bool hillshade_mode);
     BBox2 firstImagePixelBox() const;
     BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
-    void setWorldBox(vw::BBox2 const& box);
+    void  setWorldBox(vw::BBox2 const& box);
 
     signals:
     void turnOnViewMatchesSignal();
@@ -208,13 +208,13 @@ public slots:
     class ProfilePlotter : public QwtPlot {
     public:
       ProfilePlotter(MainWidget * parent): QwtPlot(NULL),
-					   m_parent(parent) {}
+                                           m_parent(parent) {}
       ~ProfilePlotter() {}
       
     private:
       void closeEvent(QCloseEvent *){
         // Signal to the parent that the window got closed.
-	// Turn off profiling.
+        // Turn off profiling.
         bool profile_mode = false;
         m_parent->setProfileMode(profile_mode);
       }
@@ -313,6 +313,7 @@ public slots:
     QMenu  * m_ContextMenu;
     QAction* m_addMatchPoint;
     QAction* m_deleteMatchPoint;
+    QAction* m_moveMatchPoint;
     QAction* m_toggleHillshade;
     QAction* m_setThreshold;
     QAction* m_setHillshadeParams;
@@ -343,10 +344,11 @@ public slots:
     std::set<int> m_indicesWithAction;
     
     bool m_view_matches; ///< Control if IP's are drawn
+    int  m_editMatchPointVecIndex;
 
-    bool m_zoom_all_to_same_region; // if all widgets are forced to zoom to same region
+    bool   m_zoom_all_to_same_region; // if all widgets are forced to zoom to same region
     bool & m_allowMultipleSelections; // alias, this is controlled from MainWindow for all widgets
-    bool m_can_emit_zoom_all_signal; 
+    bool   m_can_emit_zoom_all_signal; 
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);
@@ -354,17 +356,20 @@ public slots:
     /// - Called internally by drawImage
     void drawInterestPoints(QPainter* paint, std::list<BBox2i> const& valid_regions);
 
-    vw::Vector2 world2screen(vw::Vector2 const& p) const;
-    vw::Vector2 screen2world(vw::Vector2 const& pix) const;
-    BBox2       world2screen(BBox2 const& R) const;
-    BBox2       screen2world(BBox2 const& R) const;
-    Vector2     world2image(Vector2 const& P, int imageIndex) const;
-    Vector2     image2world(Vector2 const& P, int imageIndex) const;
-    BBox2       world2image(BBox2 const& R, int imageIndex) const;
-    BBox2       image2world(BBox2 const& R, int imageIndex) const;
-    vw::Vector2 world2projpoint(vw::Vector2 P, int imageIndex) const;
-    vw::Vector2 projpoint2world(vw::Vector2 P, int imageIndex) const;
-    vw::BBox2   expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
+    /// Return the value of imageIndex to be passed in to the functions below
+    int     getTransformImageIndex() const;
+
+    Vector2 world2screen   (Vector2 const  p  ) const;
+    Vector2 screen2world   (Vector2 const  pix) const;
+    BBox2   world2screen   (BBox2   const& R  ) const;
+    BBox2   screen2world   (BBox2   const& R  ) const;
+    Vector2 world2image    (Vector2 const  P, int imageIndex) const;
+    Vector2 image2world    (Vector2 const  P, int imageIndex) const;
+    BBox2   world2image    (BBox2   const& R, int imageIndex) const;
+    BBox2   image2world    (BBox2   const& R, int imageIndex) const;
+    Vector2 world2projpoint(Vector2 const  P, int imageIndex) const;
+    Vector2 projpoint2world(Vector2 const  P, int imageIndex) const;
+    BBox2   expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
 
     void updateCurrentMousePosition();
     void updateRubberBand(QRect & R);
@@ -373,6 +378,11 @@ public slots:
     void showImage(std::string const& image_name);
     void bringImageOnTop(int image_index);
     void pushImageToBottom(int image_index);
+
+    /// Return the index of the nearest match point to the given pixel.
+    /// - Returns -1 if no match was found.
+    /// - If distLimit is set, return -1 if best match distance is over the limit.
+    int findNearestMatchPoint(vw::Vector2 P, double distLimit=-1) const;
 
     // For polygon drawing
     bool m_polyEditMode;
@@ -388,8 +398,8 @@ public slots:
     QColor m_backgroundColor;
     
     double pixelToWorldDist(double pd);
-    void appendToPolyVec(const vw::geometry::dPoly & P);
-    void addPolyVert(double px, double py);
+    void   appendToPolyVec(const vw::geometry::dPoly & P);
+    void   addPolyVert(double px, double py);
     
   };
   
