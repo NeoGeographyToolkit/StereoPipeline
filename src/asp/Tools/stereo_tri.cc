@@ -694,10 +694,10 @@ namespace asp{
 }
 
 /// Main triangulation function
-template <class SessionT>
 void stereo_triangulation( string          const& output_prefix,
                            vector<ASPGlobalOptions> const& opt_vec ) {
 
+  typedef          StereoSession                       SessionT;
   typedef          ImageViewRef<PixelMask<Vector2f> >  PVImageT;
   typedef typename SessionT::stereo_model_type         StereoModelT;
 
@@ -716,7 +716,8 @@ void stereo_triangulation( string          const& output_prefix,
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt_vec[p].session->camera_models(camera_model1, camera_model2);
 
-      boost::shared_ptr<SessionT> sPtr = boost::dynamic_pointer_cast<SessionT>(opt_vec[p].session);
+      //boost::shared_ptr<SessionT> sPtr = boost::dynamic_pointer_cast<SessionT>(opt_vec[p].session);
+      boost::shared_ptr<SessionT> sPtr = opt_vec[p].session;
 
       if (p == 0){ // The first image is the "left" image for all pairs.
         image_files.push_back(opt_vec[p].in_file1);
@@ -917,7 +918,7 @@ void stereo_triangulation( string          const& output_prefix,
 
 int main( int argc, char* argv[] ) {
 
-  try {
+  //try {
     xercesc::XMLPlatformUtils::Initialize();
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 4 --> TRIANGULATION \n";
@@ -957,33 +958,12 @@ int main( int argc, char* argv[] ) {
     // Internal Processes
     //---------------------------------------------------------
 
-   // TODO: De-template these classes!
-
-#define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \
-      stereo_triangulation<T>(output_prefix, opt_vec); }
-
-    INSTANTIATE(StereoSessionPinhole,           "pinhole"           );
-    INSTANTIATE(StereoSessionNadirPinhole,      "nadirpinhole"      );
-    INSTANTIATE(StereoSessionRPC,               "rpc"               );
-    INSTANTIATE(StereoSessionDG,                "dg"                );
-    INSTANTIATE(StereoSessionDGMapRPC,          "dgmaprpc"          );
-    INSTANTIATE(StereoSessionRPCMapRPC,         "rpcmaprpc"         );
-    INSTANTIATE(StereoSessionPinholeMapPinhole, "pinholemappinhole" );
-    INSTANTIATE(StereoSessionSpot,              "spot5"             );
-    INSTANTIATE(StereoSessionSpot5MapRPC,       "spot5maprpc"       );
-    INSTANTIATE(StereoSessionASTER,             "aster"             );
-    INSTANTIATE(StereoSessionASTERMapRPC,       "astermaprpc"       );
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    INSTANTIATE(StereoSessionIsis,         "isis"                   );
-    INSTANTIATE(StereoSessionIsisMapIsis,  "isismapisis"            );
-#endif
-
-#undef INSTANTIATE
+    stereo_triangulation(output_prefix, opt_vec);
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : TRIANGULATION FINISHED \n";
 
     xercesc::XMLPlatformUtils::Terminate();
-  } ASP_STANDARD_CATCHES;
+  //} ASP_STANDARD_CATCHES;
 
   return 0;
 }
