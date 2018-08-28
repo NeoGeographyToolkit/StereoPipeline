@@ -35,8 +35,7 @@ using namespace vw::gui;
 #include <vw/Image/Statistics.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/InterestPoint/InterestData.h>
-#include <vw/BundleAdjustment/ControlNetworkLoader.h>
-#include <vw/InterestPoint/Matcher.h>
+#include <vw/InterestPoint/Matcher.h> // Needed for vw::ip::match_filename
 #include <boost/filesystem/path.hpp>
 
 #include <sstream>
@@ -117,7 +116,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
     popUp("Cannot specify both --match-file and --gcp-file at the same time.");
     m_view_matches = false;
     stereo_settings().match_file = "";
-    stereo_settings().gcp_file = "";
+    stereo_settings().gcp_file   = "";
   }
 
   // If a gcp file was passed in, we will interpret those as matches
@@ -132,13 +131,13 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
       stereo_settings().match_file = "";
     }else{
       m_view_matches = true;
-      m_match_file = stereo_settings().match_file;
+      m_match_file   = stereo_settings().match_file;
     }
   }
   
-  m_matches_exist = false;
-  m_matches.clear();
-  m_matches.resize(m_image_files.size());
+  m_matches_exist          = false;
+  m_editMatchPointVecIndex = -1;
+  m_matchlist.resize(m_image_files.size());
 
   // By default, show the images in one row
   if (m_grid_cols <= 0)
@@ -234,7 +233,8 @@ void MainWindow::createLayout() {
                                          m_opt,
                                          image_id, m_output_prefix,
                                          m_image_files, base_image_file,
-                                         m_matches, m_chooseFiles,
+                                         m_matchlist, m_editMatchPointVecIndex,
+                                         m_chooseFiles,
                                          m_use_georef, m_hillshade_vec, m_view_matches,
                                          zoom_all_to_same_region,
 					 m_allowMultipleSelections);
@@ -260,7 +260,7 @@ void MainWindow::createLayout() {
                                            m_opt,
                                            image_id, m_output_prefix,
                                            local_images, base_image_file,
-                                           m_matches,
+                                           m_matchlist, m_editMatchPointVecIndex,
                                            m_chooseFiles,
                                            m_use_georef, local_hillshade, m_view_matches,
                                            zoom_all_to_same_region,
@@ -286,11 +286,11 @@ void MainWindow::createLayout() {
 
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
-    connect(m_widgets[i], SIGNAL(turnOnViewMatchesSignal()), this, SLOT(turnOnViewMatches()));
-    connect(m_widgets[i], SIGNAL(turnOffViewMatchesSignal()), this, SLOT(turnOffViewMatches()));
-    connect(m_widgets[i], SIGNAL(removeImageAndRefreshSignal()), this, SLOT(deleteImageFromWidget()));
-    connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()), this, SLOT(uncheckProfileModeCheckbox()));
-    connect(m_widgets[i], SIGNAL(uncheckPolyEditModeCheckbox()), this, SLOT(uncheckPolyEditModeCheckbox()));
+    connect(m_widgets[i], SIGNAL(turnOnViewMatchesSignal    ()),  this, SLOT(turnOnViewMatches          ()));
+    connect(m_widgets[i], SIGNAL(turnOffViewMatchesSignal   ()),  this, SLOT(turnOffViewMatches         ()));
+    connect(m_widgets[i], SIGNAL(removeImageAndRefreshSignal()),  this, SLOT(deleteImageFromWidget      ()));
+    connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox ()),  this, SLOT(uncheckProfileModeCheckbox ()));
+    connect(m_widgets[i], SIGNAL(uncheckPolyEditModeCheckbox()),  this, SLOT(uncheckPolyEditModeCheckbox()));
     connect(m_widgets[i], SIGNAL(zoomAllToSameRegionSignal(int)), this, SLOT(zoomAllToSameRegionAction(int)));
   }
   QWidget *container = new QWidget(centralWidget);
@@ -602,9 +602,9 @@ void MainWindow::viewAsTiles(){
   if (!ans)
     return;
 
-  m_grid_cols = std::max(atoi(gridColsStr.c_str()), 1);
+  m_grid_cols     = std::max(atoi(gridColsStr.c_str()), 1);
   m_view_type_old = m_view_type; // back this up
-  m_view_type = VIEW_AS_TILES_ON_GRID;
+  m_view_type     = VIEW_AS_TILES_ON_GRID;
   createLayout();
 }
 
@@ -631,16 +631,17 @@ void MainWindow::turnOffViewMatches(){
 // Delete an image from the widget based on the index we query from the widget
 void MainWindow::deleteImageFromWidget(){
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (!m_widgets[i]) continue;
+    if (!m_widgets[i])
+      continue;
     std::set<int> & indicesWithAction = m_widgets[i]->indicesWithAction(); // alias
-    if (indicesWithAction.empty()) continue;
+    if (indicesWithAction.empty())
+      continue;
     int index = *indicesWithAction.begin();
 
     if (index >= 0 && index < (int)m_image_files.size() ) 
       m_image_files.erase(m_image_files.begin() + index);
 
-    if (index >= 0 && index < (int)m_matches.size() ) 
-      m_matches.erase(m_matches.begin() + index);
+    m_matchlist.deletePointsForImage(index);
 
     if (m_hillshade_vec.size() == m_widgets.size() &&
         index >= 0 && index < (int)m_hillshade_vec.size() ) 
@@ -655,6 +656,7 @@ void MainWindow::deleteImageFromWidget(){
   createLayout();
 }
 
+
 // Show or hide matches depending on the value of m_viewMatches.  We
 // assume first ip in first image mananages first ip in all other
 // images. We allow ip without matches in other images, that can be
@@ -664,190 +666,137 @@ void MainWindow::viewMatches(){
 
   m_view_matches = m_viewMatches_action->isChecked();
 
+  // TODO: REPLACE MATCH LOADING!!!!!!!!!!!
+  
   // We will load the matches just once, as we later will add/delete matches manually.
-  if (!m_matches_exist && (!m_matches.empty()) && m_matches[0].empty() && m_view_matches) {
+  if ((m_matchlist.getNumPoints() == 0) && m_view_matches) {
 
+    const size_t num_images = m_image_files.size();
     m_matches_exist = true;
-    m_matches.clear();
-    m_matches.resize(m_image_files.size());
+    m_matchlist.resize(num_images);
 
     // First try to read them from gcp
     if (stereo_settings().gcp_file != "") {
 
-      using namespace vw::ba;
+      m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, m_image_files);
+      return;
 
-      ControlNetwork cnet("gcp");
-      std::vector<std::string> gcp_files; gcp_files.push_back(stereo_settings().gcp_file);
-      vw::cartography::Datum datum; // the actual datum does not matter here
-      add_ground_control_points(cnet, m_image_files, gcp_files, datum);
-
-      CameraRelationNetwork<JFeature> crn;
-      crn.read_controlnetwork(cnet);
-
-      typedef CameraNode<JFeature>::iterator crn_iter;
-      if (crn.size() != m_image_files.size()) {
-        popUp("The number of images in the control network does not agree with the number of images to view.");
-        return;
-      }
-
-      for ( size_t icam = 0; icam < crn.size(); icam++ ) {
-        for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
-          Vector2 observation = (**fiter).m_location;
-          vw::ip::InterestPoint ip(observation.x(), observation.y());
-          m_matches[icam].push_back(ip);
-        }
-      }
-
-      for ( size_t icam = 0; icam < crn.size(); icam++ ) {
-        if (m_matches[0].size() != m_matches[icam].size()) {
-          popUp("Each GCP must be represented as a pixel in each image.");
-          m_matches.clear();
-          m_matches.resize(m_image_files.size());
-          return;
-        }
-      }
-
-    }else{
+    }else{ // End GCP case
 
       // If no match file was specified by now, ask the user for the output prefix.
-      if (m_match_file == "")
-        if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
+      if (m_match_file == "") {
+        if (!supplyOutputPrefixIfNeeded(this, m_output_prefix))
+          return;
+      }
 
-      int num_matches = -1;
+      std::string trial_match;
+      int leftIndex;
+      std::vector<std::string> matchFiles (num_images-1);
+      std::vector<size_t     > leftIndices(num_images-1);
+      std::vector<vw::ip::InterestPoint> left, right; // Just temp variables
+      for (size_t i = 1; i < num_images; i++) {
 
-      for (int i = 0; i < int(m_image_files.size())-1; i++) {
-        int j = i + 1; // read the matches between image i and image i + 1
-
-        // If the match file was not specified, look it up.
-        std::string match_file = m_match_file;
-        if (match_file == "")
-          match_file = vw::ip::match_filename(m_output_prefix, m_image_files[i], m_image_files[j]);
+        // Handle user provided match file for two images.
+        if ((m_match_file != "") && (num_images == 2)){
+          matchFiles [0] = m_match_file;
+          leftIndices[0] = 0;
+          break;
+        }
 
         // Look for the match file in the default location, and if it
         // does not appear prompt the user or a path.
-        std::vector<vw::ip::InterestPoint> left, right;
+
+        vw_out() << "Looking for match file for image index " << i << std::endl;
+
+        // Look in default location 1, match from previous file to this file.
         try {
-          ip::read_binary_match_file(match_file, left, right);
+          trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[i-1], m_image_files[i]);
+          leftIndex   = i-1;
+          vw_out() << "     - Trying location " << trial_match << std::endl;
+          ip::read_binary_match_file(trial_match, left, right);
+
         }catch(...){
+          // Look in default location 2, match from first file to this file.
           try {
-            match_file = fileDialog("Manually select the match file...", m_output_prefix);
-
-            // If we have just two images, save this match file as the
-            // default. For more than two, it gets complicated.
-            if (m_image_files.size() == 2)
-              m_match_file = match_file;
-
+            trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[0], m_image_files[i]);
+            leftIndex   = 0;
+            vw_out() << "     - Trying location " << trial_match << std::endl;
+            ip::read_binary_match_file(trial_match, left, right);
           }catch(...){
-            popUp("Manually selected file failed to load. Cannot view matches.");
+            // Default locations failed, ask the user for the location.
+            try {
+              trial_match = fileDialog("Manually select the match file...", m_output_prefix);
+              ip::read_binary_match_file(trial_match, left, right);
+              leftIndex = 0;
+              if (i > 1) {
+                // With multiple images we also need to ask which image the matches are in relation to!
+                std::string tempStr;
+                bool ans = getStringFromGui(this, "Index of matching image",
+                                            "Index of matching image", "",
+                                            tempStr);
+                leftIndex = atoi(tempStr.c_str());
+                if (!ans || (leftIndex < 0) || (leftIndex >= (int)i)) {
+                  popUp("Invalid index entered!");
+                  return;
+                }
+              }
+            }catch(...){
+              popUp("Manually selected file failed to load. Cannot view matches.");
+              return;
+            }
           }
         }
-
-        // Second attempt. TODO: This logic is confusing.
-        try {
-
-          if (match_file != "") {
-            vw_out() << "Loading " << match_file << std::endl;
-            ip::read_binary_match_file(match_file, left, right);
-          }
-
-          if (i == 0)
-            m_matches[i] = left;
-
-          m_matches[j] = right;
-
-          if (num_matches < 0)
-            num_matches = left.size();
-
-          if (num_matches != int(right.size())){
-            popUp(std::string("Not all images have the same number of interest points."));
-            return;
-          }
-
-        }catch(...){
-          popUp("Could not read matches file: " + match_file);
-          return;
-        }
-      }
-
+        // If we made it to here we found a valid match file!
+        matchFiles [i-1] = trial_match;
+        leftIndices[i-1] = leftIndex;
+      } // End loop looking for match files
+      m_matchlist.loadPointsFromMatchFiles(matchFiles, leftIndices);
     }
 
-    if (m_matches.empty() || m_matches[0].empty()) {
+    if (m_matchlist.getNumPoints() == 0) {
       popUp("Could not load any matches.");
       return;
     }
-  }
-  
+  } // End case where we tried to load the matches
+
+  // Set all the matches to be visible.
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) m_widgets[i]->viewMatches(m_view_matches);
+    if (m_widgets[i])
+      m_widgets[i]->viewMatches(m_view_matches);
   }
 
   // Turn on m_matches_exist even if we did not always actually
-  // read them from disk. That is because we sometimes create them in
-  // the GUI.
+  // read them from disk. That is because we sometimes create them in the GUI.
   if (m_view_matches)
     m_matches_exist = true;
 }
 
 void MainWindow::saveMatches(){
 
-  if (m_match_file == "")
-    if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
-
-  // Sanity checks
-  if (m_image_files.size() != m_matches.size()) {
-    popUp("The number of sets of interest points does not agree with the number of images.");
-    return;
-  }
-  for (int i = 0; i < int(m_matches.size()); i++) {
-    if (m_matches[0].size() != m_matches[i].size()) {
-      popUp("Cannot save matches. Must have the same number of matches in each image.");
+  if (m_match_file == "") {
+    if (!supplyOutputPrefixIfNeeded(this, m_output_prefix))
       return;
-    }
   }
 
-  for (int i = 0; i < int(m_image_files.size()); i++) {
-
-    // Save both i to j matches and j to i matches if there are more than two images.
-    // This is useful for SfS, though it is a bit of a hack.
-    int beg = i + 1;
-    if (m_image_files.size() > 2) 
-      beg = 0;
-    
-    for (int j = beg; j < int(m_image_files.size()); j++) {
-
-      if (i == j) continue; // don't save i <-> i matches
-
-      std::string match_file = m_match_file;
-      if (match_file == "")
-        match_file = vw::ip::match_filename(m_output_prefix, m_image_files[i], m_image_files[j]);
-      try {
-        vw_out() << "Writing: " << match_file << std::endl;
-        ip::write_binary_match_file(match_file, m_matches[i], m_matches[j]);
-      }catch(...){
-        popUp("Failed to save match file: " + match_file);
-      }
-    }
-  }
-
+  m_matchlist.savePointsToDisk(m_output_prefix, m_image_files, m_match_file);
   m_matches_exist = true;
 }
 
 
 void MainWindow::writeGroundControlPoints() {
 
-  // Make sure the IP matches are ready
-  for (size_t i = 0; i < m_matches.size(); i++) {
-    if (m_matches[0].size() != m_matches[i].size()) {
-      return popUp("Cannot save matches. Must have the same number of matches in each image.");
-    }
+  if (!m_matchlist.allPointsValid()) {
+    popUp("Cannot save matches, at least one point is missing or not valid.");
+    return;
   }
-  const size_t num_ips    = m_matches[0].size();
+  
   const size_t num_images = m_image_files.size();
+  const size_t num_ips    = m_matchlist.getNumPoints();
   const size_t num_images_to_save = num_images - 1; // Don't record pixels from the last image.
 
   vw_out() << "Trying to save GCPs with " << num_images << " images and " << num_ips << " ips.\n";
 
-  if (num_images != m_matches.size())
+  if (num_images != m_matchlist.getNumImages())
     return popUp("Cannot save matches. Image and match vectors are unequal!");
   if (num_ips < 1)
     return popUp("Cannot save matches. No matches been created!");
@@ -916,7 +865,7 @@ void MainWindow::writeGroundControlPoints() {
   for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
 
     // Compute the GDC coordinate of the point
-    ip::InterestPoint ip = m_matches[GEOREF_INDEX][p];
+    ip::InterestPoint ip = m_matchlist.getPoint(GEOREF_INDEX, p);
     Vector2 lonlat    = georef_image.pixel_to_lonlat(Vector2(ip.x, ip.y));
     Vector2 dem_pixel = georef_dem.lonlat_to_pixel(lonlat);
     PixelMask<float> mask_height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
@@ -938,7 +887,7 @@ void MainWindow::writeGroundControlPoints() {
     // Write the per-image information
     for (size_t i = 0; i < num_images_to_save; i++) {
       // Add this IP to the current line
-      ip::InterestPoint ip = m_matches[i][p];
+      ip::InterestPoint ip = m_matchlist.getPoint(i, p);
       output_handle << ", " << m_image_files[i];
       output_handle << ", " << ip.x << ", " << ip.y; // IP location in image
       output_handle << ", " << 1 << ", " << 1; // Sigma values
@@ -970,8 +919,8 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
   if (!m_widgets[1]->get_crop_win(right_win))
     return;
 
-  int left_x = left_win.x();
-  int left_y = left_win.y();
+  int left_x  = left_win.x();
+  int left_y  = left_win.y();
   int left_wx = left_win.width();
   int left_wy = left_win.height();
 

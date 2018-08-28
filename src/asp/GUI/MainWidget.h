@@ -92,11 +92,12 @@ namespace vw { namespace gui {
                std::string& output_prefix,
                std::vector<std::string> const& image_files,
                std::string const& base_image_file,
-               std::vector<std::vector<ip::InterestPoint> > & matches,
+               MatchList & matches,
+               int &editMatchPointVecIndex,
                chooseFilesDlg * chooseFiles, bool use_georef,
                std::vector<bool> const& hillshade, bool view_matches, bool zoom_all_to_same_region,
-	       bool & allowMultipleSelections // alias
-	       );
+               bool & allowMultipleSelections // alias
+              );
     virtual ~MainWidget();
 
     bool get_crop_win(QRect & win);
@@ -106,25 +107,25 @@ namespace vw { namespace gui {
     virtual QSize sizeHint () const { return QSize(500,500); }
 
     // Image Manipulation Methods
-    void zoom(double scale);
-    void viewMatches(bool hide);
+    void zoom       (double scale);
+    void viewMatches(bool   hide);
 
     void setShadowThreshMode(bool turnOn) { m_shadow_thresh_calc_mode = turnOn;}
     void plotProfile(std::vector<imageData> const& images,
                      std::vector<double> const& profileX, 
                      std::vector<double> const& profileY);
-  
+
     void drawOneVertex(int x0, int y0, QColor color, int lineWidth,
                        int drawVertIndex, QPainter &paint);
-    
+
     void plotDPoly(bool plotPoints, bool plotEdges,
                    bool plotFilled, bool showIndices, int lineWidth,
                    int drawVertIndex, // 0 is a good choice here
                    QColor const& color,
                    QPainter &paint,
                    vw::geometry::dPoly currPoly // Make a local copy on purpose
-                   );
-    
+                  );
+
     //void plotProfilePolyLine(QStylePainter & paint,
     void plotProfilePolyLine(QPainter & paint,
                              std::vector<double> const& profileX, 
@@ -146,49 +147,49 @@ namespace vw { namespace gui {
     void  setWorldBox(vw::BBox2 const& box);
 
     signals:
-    void turnOnViewMatchesSignal();
-    void turnOffViewMatchesSignal();
+    void turnOnViewMatchesSignal    ();
+    void turnOffViewMatchesSignal   ();
     void removeImageAndRefreshSignal();
-    void uncheckProfileModeCheckbox();
+    void uncheckProfileModeCheckbox ();
     void uncheckPolyEditModeCheckbox();
-    void zoomAllToSameRegionSignal(int);
+    void zoomAllToSameRegionSignal  (int);
     
 public slots:
     void sizeToFit();
-    void showFilesChosenByUser(int rowClicked, int columnClicked);
+    void showFilesChosenByUser (int rowClicked, int columnClicked);
     void zoomToImageInTableCell(int rowClicked, int columnClicked);
-    void toggleAllOnOff();
+    void toggleAllOnOff    ();
     void customMenuRequested(QPoint pos);
     void viewUnthreshImages();
-    void viewThreshImages();
+    void viewThreshImages  ();
     void viewHillshadedImages(bool hillshade_mode);
 
-    void addMatchPoint();           ///< Add a new interest point (from right click menu)
-    void deleteMatchPoint();        ///< Delete an interest point (from right click menu)
-    void setThreshold();            ///< Set change shadow threshold (from right click menu)
-    void setHillshadeParams();      ///< Set the azimuth and elevation for hillshaded images.
-    void toggleHillshade();         ///< Turn on/off hillshading per image (from right click menu)
-    void refreshHillshade();        ///< We modified m_hillshade_mode. Update the display.
-    void bringImageOnTopSlot();     ///< Show this image on top of other images.
-    void pushImageToBottomSlot();   ///< Show all other images on top of this
-    void zoomToImage();             ///< Zoom to have this image in full view.
-    void deleteImage();             ///< Delete an image from the gui and refresh
+    void addMatchPoint          (); ///< Add a new interest point (from right click menu)
+    void deleteMatchPoint       (); ///< Delete an interest point (from right click menu)
+    void setThreshold           (); ///< Set change shadow threshold (from right click menu)
+    void setHillshadeParams     (); ///< Set the azimuth and elevation for hillshaded images.
+    void toggleHillshade        (); ///< Turn on/off hillshading per image (from right click menu)
+    void refreshHillshade       (); ///< We modified m_hillshade_mode. Update the display.
+    void bringImageOnTopSlot    (); ///< Show this image on top of other images.
+    void pushImageToBottomSlot  (); ///< Show all other images on top of this
+    void zoomToImage            (); ///< Zoom to have this image in full view.
+    void deleteImage            (); ///< Delete an image from the gui and refresh
     void allowMultipleSelections(); ///< Allow the user to select multiple regions
-    void deleteSelection();         ///< Delete an area selected with the mouse at current point
-    void hideImagesNotInRegion();   ///< Hide images not intersecting a given region 
-    void saveVectorLayer();         ///< Delete current vector layer
-    void setProfileMode(bool profile_mode); ///< Turn on and off the 1D profile tool
+    void deleteSelection        (); ///< Delete an area selected with the mouse at current point
+    void hideImagesNotInRegion  (); ///< Hide images not intersecting a given region 
+    void saveVectorLayer        (); ///< Delete current vector layer
+    void setProfileMode (bool profile_mode); ///< Turn on and off the 1D profile tool
     void setPolyEditMode(bool polyEditMode); ///< Turn on and off the vector layer drawing
-    void deleteVertex();            ///< Delete a vertex from a vector layer
-    void deleteVertices();          ///< Delete poly vertices in selected region
-    void insertVertex();            ///< Insert an intermediate vertex at right-click
-    void mergePolys();              ///< Merge existing polygons
-    void saveScreenshot();          ///< Save a screenshot of the current imagery
+    void deleteVertex           (); ///< Delete a vertex from a vector layer
+    void deleteVertices         (); ///< Delete poly vertices in selected region
+    void insertVertex           (); ///< Insert an intermediate vertex at right-click
+    void mergePolys             (); ///< Merge existing polygons
+    void saveScreenshot         (); ///< Save a screenshot of the current imagery
 
   protected:
 
     // Setup
-    bool eventFilter (QObject *obj, QEvent *E);
+    bool eventFilter(QObject *obj, QEvent *E);
     void resizeEvent(QResizeEvent*);
 
     // Event handlers
@@ -198,9 +199,9 @@ public slots:
     void mouseMoveEvent       (QMouseEvent *event);
     void mouseDoubleClickEvent(QMouseEvent *event);
     void wheelEvent           (QWheelEvent *event);
-    void enterEvent           (QEvent *event);
-    void leaveEvent           (QEvent *event);
-    void keyPressEvent        (QKeyEvent *event);
+    void enterEvent           (QEvent      *event);
+    void leaveEvent           (QEvent      *event);
+    void keyPressEvent        (QKeyEvent   *event);
     void contextMenuEvent     (QContextMenuEvent *event);
 
   private:
@@ -210,7 +211,7 @@ public slots:
       ProfilePlotter(MainWidget * parent): QwtPlot(NULL),
                                            m_parent(parent) {}
       ~ProfilePlotter() {}
-      
+
     private:
       void closeEvent(QCloseEvent *){
         // Signal to the parent that the window got closed.
@@ -218,28 +219,29 @@ public slots:
         bool profile_mode = false;
         m_parent->setProfileMode(profile_mode);
       }
-      
-      MainWidget * m_parent;    
+
+      MainWidget * m_parent;
     };
-    
+
     vw::cartography::GdalWriteOptions m_opt;
 
     /// Handle to parent GUI panel used to select which of the multiple "owned"
     ///  images should be currently displayed.
     /// - Null if there is only one image.
     chooseFilesDlg  *     m_chooseFilesDlg;
-    std::set<std::string> m_filesToHide; ///< Files that are currently not being displayed.
-    std::vector<int> m_filesOrder;       ///< The order the images are drawn in.
+    std::set<std::string> m_filesToHide;    ///< Files that are currently not being displayed.
+    std::vector<int>      m_filesOrder;     ///< The order the images are drawn in.
 
     const int m_image_id; ///< An ID number assigned to this widget when it is created
     std::string & m_output_prefix; // alias
     std::vector<std::string> m_image_files;
     std::vector<bool> m_hillshade_mode;
     double m_hillshade_azimuth, m_hillshade_elevation;
-    
-    /// A set of matching interest points for each image.
+
+    /// Structure to keep track of all interest point matches.
     /// - Note that this is an alias wrapping an object passed in through the constructor.
-    std::vector<std::vector<vw::ip::InterestPoint> > & m_matches;
+    MatchList &m_matchlist;
+    int       &m_editMatchPointVecIndex; ///< Point being edited
 
     bool m_use_georef;
 
@@ -344,7 +346,6 @@ public slots:
     std::set<int> m_indicesWithAction;
     
     bool m_view_matches; ///< Control if IP's are drawn
-    int  m_editMatchPointVecIndex;
 
     bool   m_zoom_all_to_same_region; // if all widgets are forced to zoom to same region
     bool & m_allowMultipleSelections; // alias, this is controlled from MainWindow for all widgets
@@ -375,22 +376,18 @@ public slots:
     void updateRubberBand(QRect & R);
     void refreshPixmap();
     void maybeGenHillshade();
-    void showImage(std::string const& image_name);
-    void bringImageOnTop(int image_index);
+    void showImage        (std::string const& image_name);
+    void bringImageOnTop  (int image_index);
     void pushImageToBottom(int image_index);
 
-    /// Return the index of the nearest match point to the given pixel.
-    /// - Returns -1 if no match was found.
-    /// - If distLimit is set, return -1 if best match distance is over the limit.
-    int findNearestMatchPoint(vw::Vector2 P, double distLimit=-1) const;
 
     // For polygon drawing
-    bool m_polyEditMode;
+    bool        m_polyEditMode;
     std::vector<vw::geometry::dPoly> m_polyVec;
-    int m_polyVecIndex; // which of the current images owns the poly vector layer
+    int         m_polyVecIndex; // which of the current images owns the poly vector layer
     vw::Vector2 m_startPix; // The first poly vertex being drawn in world coords
     std::vector<double> m_currPolyX, m_currPolyY;
-    int m_editPolyVecIndex, m_editIndexInCurrPoly, m_editVertIndexInCurrPoly; 
+    int         m_editPolyVecIndex, m_editIndexInCurrPoly, m_editVertIndexInCurrPoly; 
     
     // Points closer than this are in some situations considered equal
     int m_pixelTol;
@@ -398,8 +395,8 @@ public slots:
     QColor m_backgroundColor;
     
     double pixelToWorldDist(double pd);
-    void   appendToPolyVec(const vw::geometry::dPoly & P);
-    void   addPolyVert(double px, double py);
+    void   appendToPolyVec (vw::geometry::dPoly const& P);
+    void   addPolyVert     (double px, double py);
     
   };
   

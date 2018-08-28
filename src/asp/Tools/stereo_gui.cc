@@ -100,7 +100,7 @@ public:
 
 int main(int argc, char** argv) {
 
-  try {
+  //try {
     xercesc::XMLPlatformUtils::Initialize();
     stereo_register_sessions();
 
@@ -160,16 +160,16 @@ int main(int argc, char** argv) {
                 is_image = false;
               }else if (asp::has_shp_extension(image)) {
                 // See if this is a shape file
-		vw_out() << "Reading shapefile: " << image << std::endl;
-		is_image = true; // will load it in the same struct as for images
-	      }else{
-		vw_out() << "Not a valid image: " << image << ".\n";
-		if (!fs::exists(image)) {
-		  vw_out() << "Using this as the output prefix.\n";
-		  output_prefix = image;
-		}
-	      }
-	    }
+                vw_out() << "Reading shapefile: " << image << std::endl;
+                is_image = true; // will load it in the same struct as for images
+                    }else{
+                vw_out() << "Not a valid image: " << image << ".\n";
+                if (!fs::exists(image)) {
+                  vw_out() << "Using this as the output prefix.\n";
+                  output_prefix = image;
+                }
+              }
+            }
           }
           if (is_image)
             images.push_back(image);
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
     app.exec();
     
     xercesc::XMLPlatformUtils::Terminate();
-  } ASP_STANDARD_CATCHES;
+  //} ASP_STANDARD_CATCHES;
 
   return 0;
 }

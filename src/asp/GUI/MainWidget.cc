@@ -171,13 +171,16 @@ namespace vw { namespace gui {
                          std::string & output_prefix,
                          std::vector<std::string> const& image_files,
                          std::string const& base_image_file,
-                         std::vector<std::vector<vw::ip::InterestPoint> > & matches,
+                         MatchList & matches,
+                         int &editMatchPointVecIndex,
                          chooseFilesDlg * chooseFiles,
                          bool use_georef, std::vector<bool> const& hillshade, bool view_matches,
                          bool zoom_all_to_same_region, bool & allowMultipleSelections)
     : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
       m_image_id(image_id), m_output_prefix(output_prefix),
-      m_image_files(image_files), m_matches(matches),  m_use_georef(use_georef),
+      m_image_files(image_files), 
+      m_matchlist(matches),  m_editMatchPointVecIndex(editMatchPointVecIndex),
+      m_use_georef(use_georef),
       m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region),
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
       m_polyEditMode(false), m_polyVecIndex(0),
@@ -1010,7 +1013,7 @@ namespace vw { namespace gui {
     } // End loop through input images
 
     // Call another function to handle drawing the interest points
-    if ((static_cast<size_t>(m_image_id) < m_matches.size()) && m_view_matches) {
+    if ((static_cast<size_t>(m_image_id) < m_matchlist.getNumImages()) && m_view_matches) {
       drawInterestPoints(paint, screen_box_list);
     }
 
@@ -1026,16 +1029,15 @@ namespace vw { namespace gui {
 
     // Convert the input rects to QRect format
     std::list<QRect> qrect_list;
-    for (std::list<BBox2i>::const_iterator i=valid_regions.begin(); i!=valid_regions.end(); ++i)
+    for (std::list<BBox2i>::const_iterator i=valid_regions.begin(); i!=valid_regions.end(); ++i){
       qrect_list.push_back(QRect(i->min().x(), i->min().y(),
                                  i->width(),   i->height()));
+    }
 
     paint->setPen(ipColor);
     paint->setBrush(Qt::NoBrush);
 
-    std::vector<vw::ip::InterestPoint> & ip = m_matches[m_image_id]; // IP's for this image
-
-    if (m_images.size() != 1 && !ip.empty()) {
+    if ((m_images.size() != 1) && m_matchlist.getNumPoints() > 0) {
       // In order to be able to see matches, each image must be in its own widget.
       // So, if the current widget has more than an image, they are stacked on top
       // of each other, and then we just can't show IP.
@@ -1045,23 +1047,19 @@ namespace vw { namespace gui {
 
     // If this point is currently being edited by the user, highlight it.
     // - Here we check to see if it has not been placed in all images yet.
-    bool highlight_last = false;
-    for (size_t h = 0; h < m_matches.size(); h++) {
-      if (ip.size() > m_matches[h].size())
-        highlight_last = true;
-    }
+    size_t lastImage = m_matchlist.getNumImages()-1;
+    bool highlight_last =
+      (m_matchlist.getNumPoints(m_image_id) > m_matchlist.getNumPoints(lastImage));
 
     // Needed for image2word
     size_t trans_image_id = getTransformImageIndex();
 
     // For each IP...
-    for (size_t ip_iter = 0; ip_iter < ip.size(); ip_iter++) {
+    for (size_t ip_iter = 0; ip_iter < m_matchlist.getNumPoints(m_image_id); ip_iter++) {
       // Generate the pixel coord of the point
-      double x = ip[ip_iter].x;
-      double y = ip[ip_iter].y;
-      
-      Vector2 world = image2world(Vector2(x, y), trans_image_id);
-      Vector2 P = world2screen(world);
+      Vector2 pt    = m_matchlist.getPointCoord(m_image_id, ip_iter);
+      Vector2 world = MainWidget::image2world(pt, static_cast<int>(trans_image_id));
+      Vector2 P     = world2screen(world);
       QPoint Q(P.x(), P.y());
 
       // Skip the point if none of the valid regions contain it
@@ -1075,7 +1073,8 @@ namespace vw { namespace gui {
       if (!safe)
         continue;
 
-      if (highlight_last && (ip_iter == ip.size()-1)) // Highlighting the last point
+      // Highlighting the last point
+      if (highlight_last && (ip_iter == m_matchlist.getNumPoints(m_image_id)-1)) 
         paint->setPen(ipAddHighlightColor);
 
       if (static_cast<int>(ip_iter) == m_editMatchPointVecIndex)
@@ -1167,10 +1166,10 @@ namespace vw { namespace gui {
     QPainter paint(this);
     paint.drawPixmap(0, 0, m_pixmap);
 
-    QColor rubberBandColor = QColor("yellow");
-    QColor cropWinColor = QColor("red");
-    std::string polyColorStr = "green";
-    QColor polyColor = QColor(polyColorStr.c_str());
+    QColor      rubberBandColor = QColor("yellow");
+    QColor      cropWinColor    = QColor("red");
+    std::string polyColorStr    = "green";
+    QColor      polyColor       = QColor(polyColorStr.c_str());
 
     // We will color the rubberband in the crop win color if we are
     // in crop win mode.
@@ -1199,10 +1198,10 @@ namespace vw { namespace gui {
       paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
     }
     
-    bool plotPoints = false, plotEdges = true, plotFilled = false;
-    int drawVertIndex = 0, lineWidth = 1;
-    bool isPolyClosed = false;
-    std::string layer = "";
+    bool plotPoints    = false, plotEdges = true, plotFilled = false;
+    int  drawVertIndex = 0, lineWidth = 1;
+    bool isPolyClosed  = false;
+    std::string layer  = "";
     
     // Plot the polygonal line which we are profiling
     if (m_profileMode) {
@@ -1467,7 +1466,7 @@ namespace vw { namespace gui {
     return norm_2(p-q);
   }
   
-  void MainWidget::appendToPolyVec(const vw::geometry::dPoly & P){
+  void MainWidget::appendToPolyVec(vw::geometry::dPoly const& P){
     
     // Append the new polygon to the list of polygons. If we have several
     // clips already, append it to the last clip. If we have no clips,
@@ -2007,11 +2006,9 @@ namespace vw { namespace gui {
 
       // Find the match point we want to move
       const double DISTANCE_LIMIT = 70;
-      m_editMatchPointVecIndex = findNearestMatchPoint(P, DISTANCE_LIMIT);
-      std::cout << "Editing IP index " << m_editMatchPointVecIndex << std::endl;
+      m_editMatchPointVecIndex = m_matchlist.findNearestMatchPoint(m_image_id, P, DISTANCE_LIMIT);
 
-      refreshPixmap(); // Need to change the point color
-      // TODO: How to redraw the other windows too so we see the tied points?
+      emit turnOnViewMatchesSignal(); // Update IP draw color
     } // End match point update case
 
     // If the user is currently editing polygons...
@@ -2039,8 +2036,6 @@ namespace vw { namespace gui {
                             m_editVertIndexInCurrPoly,
                             min_x, min_y, min_dist
                             );
-      std::cout << "Editing poly index " << m_editPolyVecIndex << std::endl;
-      std::cout << "  IN " << m_polyVecIndex << std::endl;
 
       // This will redraw just the polygons, not the pixmap
       update();
@@ -2110,32 +2105,22 @@ namespace vw { namespace gui {
     m_cropWinMode = ( (event->buttons  () & Qt::LeftButton) &&
                       (event->modifiers() & Qt::ControlModifier) );
 
-    // TODO: Update IP position!
-
     // If the user is editing match points
     if (!m_polyEditMode && m_moveMatchPoint->isChecked() && !m_cropWinMode){
 
       // Error checking
-      if ( (m_image_id >= (int)m_matches.size()) || (m_image_id < 0) ||
-           (m_editMatchPointVecIndex < 0) ||
-           (m_editMatchPointVecIndex >= (int)(m_matches[m_image_id].size())) )
+      if ( (m_image_id < 0) || (m_editMatchPointVecIndex < 0) ||
+           (!m_matchlist.pointExists(m_image_id, m_editMatchPointVecIndex)) )
         return;
 
       size_t  trans_image_id = getTransformImageIndex();
       Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
       P = world2image(P, trans_image_id);
 
-      std::cout << "Original match point location = " 
-                << m_matches[m_image_id][m_editMatchPointVecIndex].x << ", "
-                << m_matches[m_image_id][m_editMatchPointVecIndex].y << std::endl;
-      std::cout << "New match point location = " << P << std::endl;
-
       // Update the IP location
-      m_matches[m_image_id][m_editMatchPointVecIndex].x = P.x();
-      m_matches[m_image_id][m_editMatchPointVecIndex].y = P.y();
+      m_matchlist.setPointPosition(m_image_id, m_editMatchPointVecIndex, P.x(), P.y());
 
-      refreshPixmap(); // Need to redraw everything
-
+      emit turnOnViewMatchesSignal(); // Update IP draw color
       return;
     } // End polygon editing
 
@@ -2155,11 +2140,8 @@ namespace vw { namespace gui {
       m_polyVec[m_editPolyVecIndex].changeVertexValue(m_editIndexInCurrPoly,
                                                       m_editVertIndexInCurrPoly,
                                                       P.x(), P.y());
-      std::cout << "New vertex location = " << P << std::endl;
-
       // This will redraw just the polygons, not the pixmap
       update();
-
       return;
     } // End polygon editing
 
@@ -2216,15 +2198,10 @@ namespace vw { namespace gui {
     if (m_images.empty())
       return;
 
-    std::cout << "mouseRelX = " << mouseRelX << std::endl;
-    std::cout << "mouseRelY = " << mouseRelY << std::endl;
-    std::cout << "xdist = " << std::abs(m_mousePrsX - mouseRelX) << std::endl;
-    std::cout << "ydist = " << std::abs(m_mousePrsY - mouseRelY) << std::endl;
-
     // If a point was being moved, reset the ID and color.
     if (m_editMatchPointVecIndex >= 0) {
       m_editMatchPointVecIndex = -1;
-      refreshPixmap(); // Reset the point color
+      emit turnOnViewMatchesSignal(); // Update IP draw color
     }
 
     // If the mouse was released close to where it was pressed
@@ -2694,33 +2671,10 @@ namespace vw { namespace gui {
     refreshPixmap();
   }
 
-  int MainWidget::findNearestMatchPoint(vw::Vector2 P, double distLimit) const {
-    if (m_image_id < 0)
-      return -1;
-
-    double min_dist  = std::numeric_limits<double>::max();
-    if (distLimit > 0)
-      min_dist = distLimit;
-    int    min_index = -1;
-    std::vector<vw::ip::InterestPoint> & ip = m_matches[m_image_id]; // alias
-    std::cout << "P = " << P << std::endl;
-    for (size_t ip_iter = 0; ip_iter < ip.size(); ip_iter++) {
-      Vector2 Q(ip[ip_iter].x, ip[ip_iter].y);
-      double curr_dist = norm_2(Q-P);
-      std::cout << "Q = " << Q << std::endl;
-      std::cout << "curr_dist = " << curr_dist << std::endl;
-      std::cout << "min_dist = " << min_dist << std::endl;
-      if (curr_dist < min_dist) {
-        min_dist  = curr_dist;
-        min_index = ip_iter;
-      }
-    }
-    return min_index;
-  }
   
   void MainWidget::addMatchPoint(){
 
-    if (m_image_id >= (int)m_matches.size()) {
+    if (m_image_id >= static_cast<int>(m_matchlist.getNumImages())) {
       popUp("Number of existing matches is corrupted. Cannot add matches.");
       return;
     }
@@ -2730,24 +2684,13 @@ namespace vw { namespace gui {
       return;
     }
 
-    // We will start with an interest point in the left-most image,
-    // and add matches to it in the other images.
-    // At any time, an image to the left must have no fewer ip than
-    // images on the right. Upon saving, all images must
-    // have the same number of interest points.
-    size_t curr_pts = m_matches[m_image_id].size(); // # Pts from current image
-    bool is_good = true;
-    for (int i = 0; i < m_image_id; i++) { // Look through lower-id images
-      if (m_matches[i].size() < curr_pts+1) {
-        is_good = false;
-      }
-    }
-    // Check all higher-id images, they should have the same # Pts as this one.
-    for (int i = m_image_id+1; i < (int)m_matches.size(); i++) {
-      if (m_matches[i].size() > curr_pts) {
-        is_good = false;
-      }
-    }
+    // Convert mouse coords to world coords then image coords.
+    size_t  trans_image_id = getTransformImageIndex();
+    Vector2 world_coord    = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
+    Vector2 P              = world2image(world_coord, trans_image_id);
+
+    // Try to add the new IP.
+    bool is_good = m_matchlist.addPoint(m_image_id, ip::InterestPoint(P.x(), P.y()));
 
     if (!is_good) {
       popUp(std::string("Add matches by adding a point in the left-most ")
@@ -2755,12 +2698,6 @@ namespace vw { namespace gui {
             + "Cannot add this match.");
       return;
     }
-
-    // Convert mouse coords to world coords then image coords, then add a new IP to the list for this image.
-    size_t  trans_image_id = getTransformImageIndex();
-    Vector2 world_coord    = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-    Vector2 P              = world2image(world_coord, trans_image_id);
-    m_matches[m_image_id].push_back(ip::InterestPoint(P.x(), P.y()));
 
     bool view_matches = true;
     viewMatches(view_matches);
@@ -2772,42 +2709,33 @@ namespace vw { namespace gui {
   // We cannot delete match points unless all images have the same number of them.
   void MainWidget::deleteMatchPoint(){
 
-    if (m_matches.empty() || m_matches[0].empty()){
-      popUp("No matches to delete.");
-      return;
-    }
-
-    // Sanity checks
-    for (int i = 0; i < int(m_matches.size()); i++) {
-      if (m_matches[0].size() != m_matches[i].size()) {
-        popUp("Cannot delete matches. Must have the same number of matches in each image.");
-        return;
-      }
-    }
-    if (m_image_id >= (int)m_matches.size()) {
-      popUp("Number of existing matches is corrupted. Cannot delete matches.");
-      return;
-    }
-
     if (m_images.size() != 1) {
       popUp("Must have just one image in each window to delete matches.");
       return;
     }
 
-    // Delete the closest match to this point.
+    if (m_matchlist.getNumPoints() == 0){
+      popUp("No matches to delete.");
+      return;
+    }
+
+    // Find the closest match to this point.
     size_t trans_image_id = getTransformImageIndex();
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
     P = world2image(P, trans_image_id);
     const double DISTANCE_LIMIT = 70;
-    int min_index = findNearestMatchPoint(P, DISTANCE_LIMIT);
-    if (min_index >= 0) {
-      for (size_t vec_iter = 0; vec_iter < m_matches.size(); vec_iter++) {
-        m_matches[vec_iter].erase(m_matches[vec_iter].begin() + min_index);
-      }
+    int min_index = m_matchlist.findNearestMatchPoint(m_image_id, P, DISTANCE_LIMIT);
+    if (min_index < 0) {
+      popUp("Did not find a nearby match to delete.");
+      return;
     }
-
-    // Must refresh the matches in all the images, not just this one
-    emit turnOnViewMatchesSignal();
+    
+    bool result = m_matchlist.deletePointAcrossImages(min_index);
+    
+    if (result) {
+      // Must refresh the matches in all the images, not just this one
+      emit turnOnViewMatchesSignal();
+    }
   }
 
   // Delete the selections that contain the current point

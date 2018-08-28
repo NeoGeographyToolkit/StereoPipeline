@@ -32,6 +32,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/InterestPoint/InterestData.h>
 #include <asp/Core/Common.h>
+#include <asp/GUI/GuiUtilities.h>
 
 // Forward declarations
 class QAction;
@@ -62,37 +63,37 @@ namespace vw { namespace gui {
     virtual ~MainWindow() {}
 
   private slots:
-    void forceQuit(); // Ensure the program shuts down.
-    void sizeToFit();
-    void viewSingleWindow();
-    void viewSideBySide();
-    void viewAsTiles();
-    void turnOnViewMatches();
-    void turnOffViewMatches();
-    void deleteImageFromWidget();
+    void forceQuit                  (); // Ensure the program shuts down.
+    void sizeToFit                  ();
+    void viewSingleWindow           ();
+    void viewSideBySide             ();
+    void viewAsTiles                ();
+    void turnOnViewMatches          ();
+    void turnOffViewMatches         ();
+    void deleteImageFromWidget      ();
     void zoomAllToSameRegionAction(int widget_id);
-    void viewMatches();
-    void addDelMatches();
-    void saveMatches();
-    void writeGroundControlPoints(); ///< Write a ground control point file for bundle_adjust
-    void save_screenshot();
-    void select_region();
-    void run_stereo();
-    void run_parallel_stereo();
-    void shadowThresholdCalc();
-    void shadowThresholdGetSet();
-    void viewThreshImages();
-    void viewUnthreshImages();
-    void viewHillshadedImages();
-    void viewGeoreferencedImages();
-    void viewOverlayedImages();
-    void setZoomAllToSameRegion();
+    void viewMatches                ();
+    void addDelMatches              ();
+    void saveMatches                ();
+    void writeGroundControlPoints   (); ///< Write a ground control point file for bundle_adjust
+    void save_screenshot            ();
+    void select_region              ();
+    void run_stereo                 ();
+    void run_parallel_stereo        ();
+    void shadowThresholdCalc        ();
+    void shadowThresholdGetSet      ();
+    void viewThreshImages           ();
+    void viewUnthreshImages         ();
+    void viewHillshadedImages       ();
+    void viewGeoreferencedImages    ();
+    void viewOverlayedImages        ();
+    void setZoomAllToSameRegion     ();
     void setZoomAllToSameRegionAux(bool do_zoom);
-    void profileMode();
-    void polyEditMode();
-    void uncheckProfileModeCheckbox();
+    void profileMode                ();
+    void polyEditMode               ();
+    void uncheckProfileModeCheckbox ();
     void uncheckPolyEditModeCheckbox();
-    void about();
+    void about                      ();
 
   protected:
     void keyPressEvent(QKeyEvent *event);
@@ -101,14 +102,18 @@ namespace vw { namespace gui {
 
     void run_stereo_or_parallel_stereo(std::string const& cmd);
 
+    /// Go through m_matches and retain only IPs detected in the first image.
+    /// - If require_all is set, only keep IPs detected in all images.
+    size_t consolidate_matches(bool require_all = true);
+
     void createLayout();
-    void createMenus();
+    void createMenus ();
 
     // Event handlers
     void resizeEvent(QResizeEvent *);
-    void closeEvent (QCloseEvent *);
+    void closeEvent (QCloseEvent  *);
 
-    vw::cartography::GdalWriteOptions          m_opt;
+    vw::cartography::GdalWriteOptions m_opt;
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid
     std::vector<MainWidget*>  m_widgets;     ///< One of these for each seperate image pane.
@@ -162,13 +167,11 @@ namespace vw { namespace gui {
     // deleteImageFromWidget() is invoked. That includes m_image_files and m_matches.
     
     std::vector<std::string>  m_image_files; ///< Loaded image files
+    
+    /// Structure to keep track of all interest point matches.
+    MatchList m_matchlist;
+    int       m_editMatchPointVecIndex; ///< Point being edited
 
-    /// A set of interest points for each input image
-    /// - There is always one set of matched interest points shared among all images.
-    /// - The only way the counts can differ is if the user is in the process of manually
-    ///   adding an interest point to the images.
-    /// - The length of the outer vector is equal to the number of MainWidget objects
-    std::vector<std::vector<vw::ip::InterestPoint> > m_matches;
    };
 
 }} // namespace vw::gui
