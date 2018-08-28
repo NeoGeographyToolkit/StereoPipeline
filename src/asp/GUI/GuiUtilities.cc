@@ -1074,6 +1074,11 @@ bool MatchList::isPointValid(size_t image, size_t point) const {
   return m_valid_matches[image][point];
 }
 
+void MatchList::setPointValid(size_t image, size_t point, bool newValue) {
+  throwIfNoPoint(image, point);
+  m_valid_matches[image][point] = newValue;
+}
+
 void MatchList::setPointPosition(size_t image, size_t point, float x, float y) {
   throwIfNoPoint(image, point);
   m_matches[image][point].x = x;
@@ -1225,6 +1230,15 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
     std::string match_file = matchFiles [i-1];
     size_t      j         = leftIndices[i-1];
 
+    // Init to all false matches for this image.
+    m_matches      [i].resize(num_ip);
+    m_valid_matches[i].resize(num_ip);
+    for (size_t v=0; v<num_ip; ++v) {
+      m_matches      [i][v].x = v*10;  // TODO: Better way to spread these IP?
+      m_matches      [i][v].y = v*10;
+      m_valid_matches[i][v] = false;
+    }
+
     std::vector<vw::ip::InterestPoint> left, right;
     try {
       std::cout << "For image index " << i
@@ -1232,7 +1246,8 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
                 << ", matching to index " << j << std::endl;
       ip::read_binary_match_file(match_file, left, right);
     }catch(...){
-      return false;
+      vw_out() << "IP load failed, leaving default invalid IP\n";
+      continue;
     }
 
     if (i == 1) { // The first case is easy
@@ -1245,15 +1260,6 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
       continue;
     }
 
-    // Init to all false matches for this image.
-    m_matches      [i].resize(num_ip);
-    m_valid_matches[i].resize(num_ip);
-    for (size_t v=0; v<num_ip; ++v) {
-      m_matches      [i][v].x = v*10;  // TODO: Better way to spread these IP?
-      m_matches      [i][v].y = v*10;
-      m_valid_matches[i][v] = false;
-    }
-    
     // For other cases, we need to isolate the same IP in the left image!
     // Loop through the ip in the "left" image
     size_t count = 0;
@@ -1289,8 +1295,10 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
 bool MatchList::savePointsToDisk(std::string const& prefix,
                                  std::vector<std::string> const& imageNames,
                                  std::string const& match_file) const {
-  if (!allPointsValid() || (imageNames.size() != m_matches.size()))
+  if (!allPointsValid() || (imageNames.size() != m_matches.size())) {
+    popUp("Cannot write match files, not all points are valid.");
     return false;
+  }
 
   const size_t num_image_files = imageNames.size();
 

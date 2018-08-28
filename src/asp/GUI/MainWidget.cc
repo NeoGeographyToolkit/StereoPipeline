@@ -1023,9 +1023,11 @@ namespace vw { namespace gui {
 
   void MainWidget::drawInterestPoints(QPainter* paint, std::list<BBox2i> const& valid_regions) {
 
-    QColor ipColor              = QColor("red"   ); // Hard coded interest point color
-    QColor ipAddHighlightColor  = QColor("green" ); // Highlight colors for various actions
-    QColor ipMoveHighlightColor = QColor("purple");
+    // Highlight colors for various actions
+    QColor ipColor              = QColor(255,  0,  0); // Red
+    QColor ipInvalidColor       = QColor(255,163, 26); // Orange
+    QColor ipAddHighlightColor  = QColor( 64,255,  0); // Green
+    QColor ipMoveHighlightColor = QColor(255,  0,255); // Magenta
 
     // Convert the input rects to QRect format
     std::list<QRect> qrect_list;
@@ -1034,7 +1036,6 @@ namespace vw { namespace gui {
                                  i->width(),   i->height()));
     }
 
-    paint->setPen(ipColor);
     paint->setBrush(Qt::NoBrush);
 
     if ((m_images.size() != 1) && m_matchlist.getNumPoints() > 0) {
@@ -1073,6 +1074,11 @@ namespace vw { namespace gui {
       if (!safe)
         continue;
 
+      paint->setPen(ipColor); // The default IP color
+
+      if (!m_matchlist.isPointValid(m_image_id, ip_iter))
+        paint->setPen(ipInvalidColor);
+
       // Highlighting the last point
       if (highlight_last && (ip_iter == m_matchlist.getNumPoints(m_image_id)-1)) 
         paint->setPen(ipAddHighlightColor);
@@ -1081,8 +1087,6 @@ namespace vw { namespace gui {
         paint->setPen(ipMoveHighlightColor);
 
       paint->drawEllipse(Q, 2, 2); // Draw the point!
-
-      paint->setPen(ipColor); // Return to the default color
 
     } // End loop through points
   } // End function drawInterestPoints
@@ -2199,7 +2203,9 @@ namespace vw { namespace gui {
       return;
 
     // If a point was being moved, reset the ID and color.
+    // - Points that are moved are also set to valid.
     if (m_editMatchPointVecIndex >= 0) {
+      m_matchlist.setPointValid(m_image_id, m_editMatchPointVecIndex, true);
       m_editMatchPointVecIndex = -1;
       emit turnOnViewMatchesSignal(); // Update IP draw color
     }

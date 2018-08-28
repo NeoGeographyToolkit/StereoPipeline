@@ -689,8 +689,8 @@ void MainWindow::viewMatches(){
           return;
       }
 
-      std::string trial_match;
-      int leftIndex;
+      std::string trial_match="";
+      int leftIndex=0;
       std::vector<std::string> matchFiles (num_images-1);
       std::vector<size_t     > leftIndices(num_images-1);
       std::vector<vw::ip::InterestPoint> left, right; // Just temp variables
@@ -741,8 +741,8 @@ void MainWindow::viewMatches(){
                 }
               }
             }catch(...){
-              popUp("Manually selected file failed to load. Cannot view matches.");
-              return;
+              //popUp("Manually selected file failed to load, not loading matches for this file.");
+              vw_out() << "Manually selected file failed to load, not loading matches for this file.\n";
             }
           }
         }

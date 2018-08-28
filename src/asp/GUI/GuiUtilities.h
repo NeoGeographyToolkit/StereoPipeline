@@ -346,6 +346,9 @@ namespace vw { namespace gui {
     /// Return true if a point is valid.
     bool isPointValid(size_t image, size_t point) const;
 
+    /// Set the validity of a point.
+    void setPointValid(size_t image, size_t point, bool newValue=true);
+
     /// Change the position of an interest point.
     void setPointPosition(size_t image, size_t point, float x, float y);
 

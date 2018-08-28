@@ -17,7 +17,11 @@
 
  - bundle_adjust
    * Bug fix in outlier filtering for n images.
- 
+
+ -stereo_gui
+   * Added the ability to manually reposition interest points.
+   * Can now load non-synchronous .match files.
+
 *** RELEASE 2.6.1, August 13, 2018 ***
 
  - New satellites
