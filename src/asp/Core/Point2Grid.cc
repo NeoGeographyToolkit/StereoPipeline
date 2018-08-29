@@ -15,9 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// Given a set of xyz points, create an xy grid. For every node in the
-// grid, combine all points within given radius of the grid point and
-// calculate a single z value at the grid point.
+
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/FundamentalTypes.h>
@@ -94,7 +92,7 @@ void Point2Grid::Clear(const float value) {
   // For these we need to keep all values (in fact, for stddev we could get away with less,
   // but it is not worth trying so hard).
   if (m_filter == f_median || m_filter == f_stddev ||
-      m_filter == f_nmad || m_filter == f_percentile) {
+      m_filter == f_nmad   || m_filter == f_percentile) {
     m_vals.set_size(m_width, m_height);
   }
   
@@ -112,20 +110,23 @@ void Point2Grid::AddPoint(double x, double y, double z){
   for (int ix = minx; ix <= maxx; ix++){
     for (int iy = miny; iy <= maxy; iy++){
       
-      double gx = m_x0 + ix*m_grid_size;
-      double gy = m_y0 + iy*m_grid_size;
+      double gx   = m_x0 + ix*m_grid_size;
+      double gy   = m_y0 + iy*m_grid_size;
       double dist = sqrt( (x-gx)*(x-gx) + (y-gy)*(y-gy) );
       if ( dist > m_radius ) continue;
 
       if (m_filter == f_weighted_average) {
         double wt = m_sampled_gauss[(int)round(dist/m_dx)];
-        if (wt <= 0) continue;
-        if (m_weights(ix, iy) == 0) m_buffer(ix, iy) = 0.0; // set to 0 before incrementing below
+        if (wt <= 0)
+          continue;
+        if (m_weights(ix, iy) == 0)
+          m_buffer(ix, iy) = 0.0; // set to 0 before incrementing below
         m_buffer(ix, iy)  += z*wt;
         m_weights(ix, iy) += wt;
 
       }else if (m_filter == f_mean){
-        if (m_weights(ix, iy) == 0) m_buffer(ix, iy) = 0.0; // set to 0 before incrementing below
+        if (m_weights(ix, iy) == 0)
+          m_buffer(ix, iy) = 0.0; // set to 0 before incrementing below
         m_buffer(ix, iy)  += z;
         m_weights(ix, iy) += 1;
         

@@ -18,6 +18,9 @@
  - bundle_adjust
    * Bug fix in outlier filtering for n images.
 
+ - dem_mosaic
+   * Added normalized median absolute deviation (NMAD) output option.
+
  -stereo_gui
    * Added the ability to manually reposition interest points.
    * Can now load non-synchronous .match files.

@@ -313,7 +313,7 @@ std::string processed_proj4(std::string const& srs){
   // subtle ways, such as an extra space, etc. For that reason, must
   // parse and process any srs string before comparing it with another string.
   GeoReference georef;
-  bool have_user_datum = false;
+  bool  have_user_datum = false;
   Datum user_datum;
   asp::set_srs_string(srs, have_user_datum, user_datum, georef);
   return georef.overall_proj4_str();
@@ -326,25 +326,27 @@ struct Options : vw::cartography::GdalWriteOptions {
   bool   has_out_nodata;
   double out_nodata_value;
   int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, block_size, save_dem_weight;
-  double  weights_exp, weights_blur_sigma, dem_blur_sigma;
+  double weights_exp, weights_blur_sigma, dem_blur_sigma;
   double nodata_threshold;
-  bool   first, last, min, max, block_max, mean, stddev, median, count, save_index_map, use_centerline_weights, first_dem_as_reference, propagate_nodata;
+  bool   first, last, min, max, block_max, mean, stddev, median, nmad, count, save_index_map, use_centerline_weights, first_dem_as_reference, propagate_nodata;
   std::set<int> tile_list;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
-	     erode_len(0), priority_blending_len(0), extra_crop_len(0),
-	     hole_fill_len(0), block_size(0), save_dem_weight(-1), 
-	     weights_exp(0), weights_blur_sigma(0.0), dem_blur_sigma(0.0),
-	     nodata_threshold(std::numeric_limits<double>::quiet_NaN()),
-	     first(false), last(false), min(false), max(false), block_max(false),
-	     mean(false), stddev(false), median(false), count(false), save_index_map(false),
-	     use_centerline_weights(false), first_dem_as_reference(false), projwin(BBox2()) {}
+             erode_len(0), priority_blending_len(0), extra_crop_len(0),
+             hole_fill_len(0), block_size(0), save_dem_weight(-1), 
+             weights_exp(0), weights_blur_sigma(0.0), dem_blur_sigma(0.0),
+             nodata_threshold(std::numeric_limits<double>::quiet_NaN()),
+             first(false), last(false), min(false), max(false), block_max(false),
+             mean(false), stddev(false), median(false), nmad(false),
+             count(false), save_index_map(false),
+             use_centerline_weights(false), first_dem_as_reference(false), projwin(BBox2()) {}
 };
 
 /// Return the number of no-blending options selected.
 int no_blend(Options const& opt){
   return int(opt.first) + int(opt.last) + int(opt.min) + int(opt.max)
-    + int(opt.mean) + int(opt.stddev) + int(opt.median) + int(opt.count) + int(opt.block_max);
+    + int(opt.mean) + int(opt.stddev) + int(opt.median)
+    + int(opt.nmad) + int(opt.count) + int(opt.block_max);
 }
 
 std::string tile_suffix(Options const& opt){
@@ -357,6 +359,7 @@ std::string tile_suffix(Options const& opt){
   if (opt.mean     ) ans = "-mean";
   if (opt.stddev   ) ans = "-stddev";
   if (opt.median   ) ans = "-median";
+  if (opt.nmad     ) ans = "-nmad";
   if (opt.count    ) ans = "-count";
   if (opt.save_index_map)       ans += "-index-map";
   if (opt.save_dem_weight >= 0) ans += "-weight-dem-index-" + stringify(opt.save_dem_weight);
@@ -465,10 +468,10 @@ public:
     bool noblend = (no_blend(m_opt) > 0);
 
     // A vector of images the size of the output tile.
-    // - Used for median and stddev calculation.
+    // - Used for median, nmad, and stddev calculation.
     std::vector< ImageView<double> > tile_vec, weight_vec;
     std::vector< std::string > dem_vec;
-    if (m_opt.median) // Store each input separately
+    if (m_opt.median || m_opt.nmad) // Store each input separately
       tile_vec.reserve(m_imgMgr.size());
     if (m_opt.stddev) { // Need one working image
       tile_vec.push_back(ImageView<double>(bbox.width(), bbox.height()));
@@ -535,7 +538,7 @@ public:
       if (in_box.width() <= 1 || in_box.height() <= 1)
         continue; // No overlap with this tile, skip to the next DEM.
 
-      if (m_opt.median || m_opt.priority_blending_len > 0 || m_opt.block_max){
+      if (m_opt.median || m_opt.nmad || m_opt.priority_blending_len > 0 || m_opt.block_max){
         // Must use a blank tile each time
         fill( tile, m_opt.out_nodata_value );
         fill( weights, 0.0 );
@@ -760,7 +763,7 @@ public:
 
           // Initialize the tile if not done already.
           // Init to zero not needed with some types.
-          if (!m_opt.stddev && !m_opt.median && !m_opt.min && !m_opt.max &&
+          if (!m_opt.stddev && !m_opt.median && !m_opt.nmad && !m_opt.min && !m_opt.max &&
               m_opt.priority_blending_len <= 0){
             if ( is_nodata ){
               tile   (c, r) = 0;
@@ -773,8 +776,8 @@ public:
                m_opt.last                                         ||
                ( m_opt.min && ( val < tile(c, r) || is_nodata ) ) ||
                ( m_opt.max && ( val > tile(c, r) || is_nodata ) ) ||
-               m_opt.median || m_opt.priority_blending_len > 0    ||
-                     m_opt.block_max){
+               m_opt.median || m_opt.nmad || 
+               m_opt.priority_blending_len > 0   || m_opt.block_max){
             // --> Conditions where we replace the current value
             tile   (c, r) = val;
             weights(c, r) = wt;
@@ -782,13 +785,13 @@ public:
             // In these cases, the saved weight will be 1 or 0, since either
             // a given DEM gives it all, or nothing at all.
             if (m_opt.save_dem_weight >= 0 && (m_opt.first || m_opt.last ||
-					              m_opt.min || m_opt.max))
+                                               m_opt.min   || m_opt.max))
               saved_weight(c, r) = (m_opt.save_dem_weight == dem_iter);
 
             // In these cases, the saved weight will be 1 or 0, since either
             // a given DEM gives it all, or nothing at all.
             if (m_opt.save_index_map && (m_opt.first || m_opt.last ||
-				         m_opt.min || m_opt.max))
+                                         m_opt.min   || m_opt.max))
               index_map(c, r) = dem_iter;
 
           }else if (m_opt.mean){ // Mean --> Accumulate the value
@@ -822,7 +825,7 @@ public:
       // For the median option, keep a copy of the output tile for each input DEM!
       // Also do it for max per block.
       // - This will be memory intensive. 
-      if (m_opt.median || m_opt.block_max) {
+      if (m_opt.median || m_opt.nmad || m_opt.block_max) {
         tile_vec.push_back(copy(tile));
         dem_vec.push_back(dem_name);
       }
@@ -865,8 +868,8 @@ public:
       } // End col loop
     } // End stddev case
 
-    // For the median operation
-    if (m_opt.median){
+    // For the median and nmad operations
+    if (m_opt.median || m_opt.nmad){
       // Init output pixels to nodata
       fill( tile, m_opt.out_nodata_value );
       vector<double> vals(tile_vec.size());
@@ -882,11 +885,14 @@ public:
             vals.push_back(tile_ref(c, r));
           }
           if (!vals.empty()){
-            tile(c, r) = math::destructive_median(vals);
+            if (m_opt.median)
+              tile(c, r) = math::destructive_median(vals);
+            else
+              tile(c, r) = math::destructive_nmad(vals);
           }
         }// End row loop
       } // End col loop
-    } // End median case
+    } // End median/nmad case
 
     // For max per block, find the sum of values in each DEM
     if (m_opt.block_max) {
@@ -1025,18 +1031,18 @@ public:
     if (m_opt.dem_blur_sigma > 0.0) {
       int kernel_size = vw::compute_kernel_size(m_opt.dem_blur_sigma);
       tile = apply_mask(gaussian_filter(fill_nodata_with_avg
-					(create_mask(tile, m_opt.out_nodata_value),
-					 kernel_size),
-					m_opt.dem_blur_sigma),
-			m_opt.out_nodata_value);
+                                        (create_mask(tile, m_opt.out_nodata_value),
+                                          kernel_size),
+                                        m_opt.dem_blur_sigma),
+                                    m_opt.out_nodata_value);
     }
     
     // Fill holes
     if (m_opt.hole_fill_len > 0){
       tile = apply_mask(vw::fill_holes_grass
-			   (create_mask(tile, m_opt.out_nodata_value),
-			    m_opt.hole_fill_len),
-			m_opt.out_nodata_value);
+                            (create_mask(tile, m_opt.out_nodata_value),
+                            m_opt.hole_fill_len),
+                        m_opt.out_nodata_value);
     }
 
     // Save the weight instead
@@ -1091,8 +1097,8 @@ public:
     // the size of the entire output image. So far we operated
     // on doubles, here we cast to RealT.
     return prerasterize_type(pixel_cast<RealT>(tile),
-			     -bbox.min().x(), -bbox.min().y(),
-			     cols(), rows() );
+                             -bbox.min().x(), -bbox.min().y(),
+                             cols(), rows() );
   }
 
   template <class DestT>
@@ -1107,10 +1113,10 @@ public:
 /// - dem_proj_bboxes and dem_pixel_bboxes are the locations of
 ///   each input DEM in the output DEM in projected and pixel coordinates.
 void load_dem_bounding_boxes(Options       const& opt,
-			     GeoReference  const& mosaic_georef,
-			     BBox2              & mosaic_bbox, // Projected coordinates
-			     std::vector<BBox2> & dem_proj_bboxes,
-			     std::vector<BBox2i> & dem_pixel_bboxes) {
+                             GeoReference  const& mosaic_georef,
+                             BBox2              & mosaic_bbox, // Projected coordinates
+                             std::vector<BBox2> & dem_proj_bboxes,
+                             std::vector<BBox2i> & dem_pixel_bboxes) {
 
   vw_out() << "Determining the bounding boxes of the input DEMs.\n";
 
@@ -1235,6 +1241,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	   "Find the standard deviation of the DEM values.")
     ("median",  po::bool_switch(&opt.median)->default_value(false),
 	   "Find the median DEM value (this can be memory-intensive, fewer threads are suggested).")
+    ("nmad",  po::bool_switch(&opt.nmad)->default_value(false),
+	   "Find the normalized median absolute deviation DEM value (this can be memory-intensive, fewer threads are suggested).")
     ("count",   po::bool_switch(&opt.count)->default_value(false),
      "Each pixel is set to the number of valid DEM heights at that pixel.")
     ("block-max", po::bool_switch(&opt.block_max)->default_value(false),
@@ -1280,28 +1288,28 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
-			     positional, positional_desc, usage,
-			     allow_unregistered, unregistered );
+                             positional, positional_desc, usage,
+                             allow_unregistered, unregistered );
 
   // Error checking
   if (opt.out_prefix == "")
     vw_throw(ArgumentErr() << "No output prefix was specified.\n"
-			   << usage << general_options );
+                           << usage << general_options );
   if (opt.num_threads == 0)
     vw_throw(ArgumentErr() << "The number of threads must be set and positive.\n"
-			   << usage << general_options );
+                           << usage << general_options );
   if (opt.erode_len < 0)
     vw_throw(ArgumentErr() << "The erode length must not be negative.\n"
-			   << usage << general_options );
+                           << usage << general_options );
   if (opt.extra_crop_len < 0)
     vw_throw(ArgumentErr() << "The blending length must not be negative.\n"
-			   << usage << general_options );
+                           << usage << general_options );
   if (opt.hole_fill_len < 0)
     vw_throw(ArgumentErr() << "The hole fill length must not be negative.\n"
-			   << usage << general_options );
+                           << usage << general_options );
   if (opt.tile_size <= 0)
     vw_throw(ArgumentErr() << "The size of a tile in pixels must be positive.\n"
-			   << usage << general_options );
+                           << usage << general_options );
 
   if (opt.priority_blending_len < 0)
     vw_throw(ArgumentErr() << "The priority blending length must not be negative.\n"
@@ -1314,7 +1322,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   int noblend = no_blend(opt);
   if (noblend > 1)
     vw_throw(ArgumentErr() << "At most one of the options --first, --last, "
-	     << "--min, --max, -mean, --stddev, --median, --count can be specified.\n"
+	     << "--min, --max, -mean, --stddev, --median, --nmad, --count can be specified.\n"
 	     << usage << general_options );
 
   if (opt.geo_tile_size < 0)
@@ -1480,7 +1488,8 @@ int main( int argc, char *argv[] ) {
         vw_throw(ArgumentErr()
                  << "Cannot change the projection, spacing, or output box, if the first DEM "
                  << "is to be used as reference.\n");
-      if (opt.first || opt.last || opt.min || opt.max || opt.mean || opt.median || opt.stddev ||
+      if (opt.first  || opt.last || opt.min    || opt.max || opt.mean || 
+          opt.median || opt.nmad || opt.stddev ||
           opt.priority_blending_len > 0 || //opt.save_dem_weight >= 0 ||
           !boost::math::isnan(opt.nodata_threshold)) {
         vw_throw(ArgumentErr()
