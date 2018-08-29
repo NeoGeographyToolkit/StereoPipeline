@@ -308,7 +308,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
 
         // Do the same thing in transformed coordinates
         if (has_transform) {
-          vw::Vector3 qT   = apply_transform_to_vec(transform, p);
+          vw::Vector3 qT   = apply_transform_to_vec(transform, q);
           vw::Vector3 llhT = geo.datum().cartesian_to_geodetic(qT);
           llhT[0] += 360.0*round((mean_longitude - llhT[0])/360.0); // 360 deg adjust
           box1_trans.grow(subvector(llhT, 0, 2));
@@ -333,12 +333,12 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
     vw::Vector3 q   = p;
     vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
     llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
-    vw::BBox2 b(llh[0]-rad_lon, llh[1]-rad_lat, width, height);
+    vw::BBox2 b(llh[0]-rad_lon, llh[1]-rad_lat, rad_lon*2, 2*rad_lat);
     out_box.grow(b);
 
     // Do the same thing in transformed coordinates
     if (has_transform) {
-      vw::Vector3 qT   = apply_transform_to_vec(transform, p);
+      vw::Vector3 qT   = apply_transform_to_vec(transform, q);
       vw::Vector3 llhT = geo.datum().cartesian_to_geodetic(qT);
       llhT[0] += 360.0*round((mean_longitude - llhT[0])/360.0); // 360 deg adjust
       vw::BBox2 bT(llhT[0]-rad_lonT, llhT[1]-rad_latT, 2*rad_lonT, 2*rad_latT);
@@ -348,7 +348,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   
   if (!has_transform)
     trans_out_box = out_box;
-  return
+  return;
 }
 
 // Sometime the box we computed with cartesian_to_geodetic is offset
