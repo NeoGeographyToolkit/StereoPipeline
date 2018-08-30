@@ -2690,6 +2690,18 @@ int main(int argc, char* argv[]) {
                                                            opt.out_prefix
                                                            ));
 
+      // Try to pull the datum from the cameras
+      if (opt.datum.name() == UNSPECIFIED_DATUM) {
+        try {
+          bool use_sphere_for_isis = false;
+          opt.datum = session->get_datum(session->camera_model(opt.image_files [i],
+                                                               opt.camera_files[i]).get(),
+                                         use_sphere_for_isis);
+          opt.datum_str = opt.datum.name();
+          vw_out() << "Using datum: " << opt.datum << std::endl;
+        }catch(...){}
+      }
+      
       opt.camera_models.push_back(session->camera_model(opt.image_files [i],
                                                         opt.camera_files[i]));
       if (opt.approximate_pinhole_intrinsics) {
