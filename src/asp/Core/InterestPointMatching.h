@@ -359,12 +359,12 @@ namespace asp {
           <vw::ip::OBALoGInterestOperator>::IP_DEFAULT_SCALES;
       else
         vw_out() << "Using " << num_scales << " scales in OBALoG interest point detection.\n";
-      
+
       vw::ip::IntegralAutoGainDetector detector( points_per_tile, num_scales );
-      
+
       // This detector can't handle a mask so if there is nodata just
       //  set those pixels to zero.
-      
+
       vw_out() << "\t    Processing left image" << std::endl;
       if (!has_nodata1)
         ip1 = detect_interest_points( image1.impl(), detector, points_per_tile );
@@ -432,7 +432,7 @@ namespace asp {
 
     sw.stop();
     vw_out(DebugMessage,"asp") << "Remove IP elapsed time: "
-			       << sw.elapsed_seconds() << " s." << std::endl;
+                               << sw.elapsed_seconds() << " s." << std::endl;
 
     // Filter out IP from the opposite sides of the two images.
     // - Would be better to just pass an ROI into the IP detector!

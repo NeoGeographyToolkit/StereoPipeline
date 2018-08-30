@@ -35,6 +35,25 @@
 
 namespace asp {
 
+  // TODO: Move this function!
+  /// Return true if the first file exists and is newer than all of the other files.
+  /// - Also returns false if any files are missing.
+  inline bool is_latest_timestamp(std::string              const& test_file, 
+                             std::vector<std::string> const& other_files) {
+    if (!boost::filesystem::exists(test_file))
+      return false;
+    std::time_t test_time = boost::filesystem::last_write_time(test_file);
+    for (size_t i=0; i<other_files.size(); ++i) {
+      if (!boost::filesystem::exists(other_files[i]))
+        return false;
+      std::time_t t = boost::filesystem::last_write_time(other_files[i]);
+      if (test_time < t)
+        return false;
+    }
+    return true;
+  }
+  
+
   typedef vw::Vector<vw::float32,6> Vector6f;
 
   // Forward declare this class for constructing StereoSession objects

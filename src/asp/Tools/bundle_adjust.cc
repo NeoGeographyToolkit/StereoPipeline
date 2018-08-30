@@ -1619,20 +1619,20 @@ void remove_outliers(ControlNetwork const& cnet, std::set<int> & outlier_xyz,
         continue;
       
       left_ip.push_back(lip);
-      right_ip.push_back(rip);        
+      right_ip.push_back(rip);
     }
     
     // Filter by disparity
     asp::filter_ip_by_disparity(opt.remove_outliers_by_disp_params[0],
-				opt.remove_outliers_by_disp_params[1],
-				left_ip, right_ip);
+                                opt.remove_outliers_by_disp_params[1],
+                                left_ip, right_ip);
       
     if ( num_cameras == 2 ){
       // TODO: Move this into the IP finding code!
       // Compute the coverage fraction
       Vector2i right_image_size = file_image_size(opt.image_files[1]);
       int right_ip_width = right_image_size[0]*
-	static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
+          static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
       Vector2i ip_size(right_ip_width, right_image_size[1]);
       double ip_coverage = calc_ip_coverage_fraction(right_ip, ip_size);
       // Careful with the line below, it gets used in process_icebridge_batch.py.
@@ -1641,7 +1641,7 @@ void remove_outliers(ControlNetwork const& cnet, std::set<int> & outlier_xyz,
       
     vw_out() << "Writing: " << match_file << std::endl;
     ip::write_binary_match_file(match_file, left_ip, right_ip);
-  }  
+  }
 }
 
 // TODO: Move this somewhere else?
@@ -3619,11 +3619,19 @@ int main(int argc, char* argv[]) {
       
         // Load both images into a new StereoSession object and use it to find interest points.
         // - The points are written to a file on disk.
-        std::string camera1_path = opt.camera_files[i];
-        std::string camera2_path = opt.camera_files[j];        
+        std::string camera1_path   = opt.camera_files[i];
+        std::string camera2_path   = opt.camera_files[j];
         std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
         opt.match_files[ std::pair<int, int>(i, j) ] = match_filename;
-        if (fs::exists(match_filename)) {
+
+        std::vector<std::string> in_file_list;
+        in_file_list.push_back(image1_path );
+        in_file_list.push_back(image2_path );
+        in_file_list.push_back(camera1_path);
+        in_file_list.push_back(camera2_path);
+        bool inputs_changed = (!asp::is_latest_timestamp(match_filename, in_file_list));
+
+        if (!inputs_changed) {
           vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
           ++num_pairs_matched;
           continue;
@@ -3660,9 +3668,10 @@ int main(int argc, char* argv[]) {
                                nodata1, nodata2, match_filename,
                                opt.camera_models[i].get(),
                                opt.camera_models[j].get());
-        
+
         // TODO: Move this into the IP finding code!
         // Compute the coverage fraction
+        // - 
         std::vector<ip::InterestPoint> ip1, ip2;
         ip::read_binary_match_file(match_filename, ip1, ip2);       
         int right_ip_width = rsrc1->cols()*
@@ -3670,8 +3679,8 @@ int main(int argc, char* argv[]) {
         Vector2i ip_size(right_ip_width, rsrc1->rows());
         double ip_coverage = calc_ip_coverage_fraction(ip2, ip_size);
         vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
-          
-                               
+
+
           ++num_pairs_matched;
         } catch ( const std::exception& e ){
           vw_out() << "Could not find interest points between images "

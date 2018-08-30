@@ -154,12 +154,18 @@ namespace asp {
       return false;
     }
 
-
     bool crop_left  = ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
+    std::vector<std::string> check_files;
+    check_files.push_back(input_file1);
+    check_files.push_back(input_file2);
+    check_files.push_back(m_left_camera_file );
+    check_files.push_back(m_right_camera_file);
+    bool rebuild = (!is_latest_timestamp(match_filename, check_files));
+
     // If we crop the images we must always create new matching files
-    if (!crop_left && !crop_right && boost::filesystem::exists(match_filename)) {
+    if (!crop_left && !crop_right && !rebuild) {
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       return true;
     }
@@ -484,13 +490,20 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
   bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
-  // If the output files already exist, and we don't crop both left
-  // and right images, then there is nothing to do here.
+  // If the output files already exist and are newer than the input files,
+  // and we don't crop both left and right images, then there is nothing to do here.
   // Note: Must make sure all outputs are initialized before we
   // get to this part where we exit early.
-  if ( boost::filesystem::exists(left_output_file)  &&
-       boost::filesystem::exists(right_output_file) &&
-       (!crop_left) && (!crop_right)) {
+  
+  std::vector<std::string> check_files;
+  check_files.push_back(left_input_file    );
+  check_files.push_back(right_input_file   );
+  check_files.push_back(m_left_camera_file );
+  check_files.push_back(m_right_camera_file);
+  bool rebuild = (!is_latest_timestamp(left_output_file, check_files ) ||
+                  !is_latest_timestamp(right_output_file, check_files)  );
+
+  if ( !rebuild && !crop_left && !crop_right) {
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
       DiskImageView<PixelGray<float32> > out_left (left_output_file );

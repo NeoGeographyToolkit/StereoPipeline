@@ -379,7 +379,6 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   const std::string left_image_path_sub   = opt.out_prefix+"-L_sub.tif";
   const std::string right_image_path_sub  = opt.out_prefix+"-R_sub.tif";
 
-  // TODO: Just call the right function everywhere rather than computing its result by hand.
   const std::string full_match_file       = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
   const std::string sub_match_file        = opt.out_prefix + "-L_sub__R_sub.match";
   const std::string aligned_match_file    = opt.out_prefix + "-L__R.match";
@@ -389,10 +388,16 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   // be an incorrect one. At this stage we know exactly the files that
   // need processing. Check if the desired file exists, and read that
   // one, or create it if missing.
+
+  // Make sure the match file is newer than these files
+  std::vector<std::string> in_file_list;
+  in_file_list.push_back(left_image_path_full);
+  in_file_list.push_back(right_image_path_full);
   
+
   // Try the full match file first
-  if (fs::exists(full_match_file)) {
-    vw_out() << "IP file found: " << full_match_file << std::endl;
+  if (fs::exists(full_match_file) && is_latest_timestamp(full_match_file, in_file_list)) {
+    vw_out() << "Cached IP match file found: " << full_match_file << std::endl;
     match_filename = full_match_file;
     return 1.0;
   }
@@ -405,16 +410,14 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   std::string name2 = strip_path(opt.out_prefix, opt.in_file2).substr(0, max_len);
 
   // Next try the cropped match file names which will be at full scale.
-  // TODO: This is unnecessary. Just call the right function to find
-  // the match file.
   std::vector<std::string> match_names;
   match_names.push_back(opt.out_prefix + "-L-cropped__R-cropped.match");
   match_names.push_back(opt.out_prefix + "-"+name1+"__R-cropped.match");
   match_names.push_back(opt.out_prefix + "-L-cropped__"+name2+".match");
   match_names.push_back(aligned_match_file);
   for (size_t i=0; i<match_names.size(); ++i) {
-    if (fs::exists(match_names[i])) {
-      vw_out() << "IP file found: " << match_names[i] << std::endl;
+    if (fs::exists(match_names[i]) && is_latest_timestamp(match_names[i], in_file_list)) {
+      vw_out() << "Cached IP match file found: " << match_names[i] << std::endl;
       match_filename = match_names[i];
       return 1.0;
     }
@@ -434,17 +437,17 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   if (!use_full_size) {
     left_image_path  = left_image_path_sub;
     right_image_path = right_image_path_sub;
-    
+
     ip_scale = sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-L_sub.tif" )),
                               Vector2(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
                sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-R_sub.tif" )),
                               Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
     ip_scale /= 4.0f;
     match_filename = sub_match_file; // If not using full size we should expect this file
-    
+
     // Check for the file.
-    if (fs::exists(sub_match_file)) {
-      vw_out() << "IP file found: " << sub_match_file << std::endl;
+    if (fs::exists(sub_match_file) && is_latest_timestamp(sub_match_file, in_file_list)) {
+      vw_out() << "Cached IP match file found: " << sub_match_file << std::endl;
       return ip_scale;
     }
   }
@@ -622,12 +625,12 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   // Filter out IPs which fall outside the specified elevation and lonlat range
   // TODO: Don't do this with cropped input images!!!!!
   size_t num_left = asp::filter_ip_by_lonlat_and_elevation(left_camera_model.get(),
-							   right_camera_model.get(),
-							   datum, in_ip1, in_ip2,
-							   left_tx, right_tx, ip_scale,
-							   stereo_settings().elevation_limit,
-							   stereo_settings().lon_lat_limit,
-							   matched_ip1, matched_ip2);
+                                                           right_camera_model.get(),
+                                                           datum, in_ip1, in_ip2,
+                                                           left_tx, right_tx, ip_scale,
+                                                           stereo_settings().elevation_limit,
+                                                           stereo_settings().lon_lat_limit,
+                                                           matched_ip1, matched_ip2);
 
   // If the user set this, filter by disparity of ip.
   // TODO: This kind of logic is present below one more time, at
@@ -770,7 +773,6 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     //   Cases where either input image is cropped, in which case the IP name is different.
     // Everything else should gather IP's all the time during stereo_pprc.
     // - TODO: When inputs are cropped, use the cropped IP!
-    
 
     // Compute new IP and write them to disk.
     // - If IP are already on disk this function will load them instead.
@@ -781,8 +783,7 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
 
     // This function applies filtering to find good points
     stereo_settings().search_range = approximate_search_range(opt, ip_scale, match_filename);
-  
- 
+
     vw_out() << "\t--> Detected search range: " << stereo_settings().search_range << "\n";
   } // End of case where we had to calculate the search range
 
@@ -806,9 +807,19 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     // be computed anew each time.
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-    bool rebuild    = crop_left || crop_right;
-
+    
     string sub_disp_file = opt.out_prefix+"-D_sub.tif";
+    
+    // Also need to rebuild if the inputs changed after the mask files were produced.
+    std::vector<std::string> in_file_list;
+    in_file_list.push_back(opt.in_file1 );
+    in_file_list.push_back(opt.in_file2 );
+    in_file_list.push_back(opt.cam_file1);
+    in_file_list.push_back(opt.cam_file2);
+    bool inputs_changed = (!is_latest_timestamp(sub_disp_file,  in_file_list));
+
+    bool rebuild = crop_left || crop_right || inputs_changed;
+
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
       DiskImageView<PixelMask<Vector2f> > test(sub_disp_file);
@@ -928,7 +939,7 @@ public:
 
       // The low-res version of bbox
       BBox2i seed_bbox( elem_quot(bbox.min(), m_upscale_factor),
-			                  elem_quot(bbox.max(), m_upscale_factor) );
+                        elem_quot(bbox.max(), m_upscale_factor) );
       seed_bbox.expand(1);
       seed_bbox.crop( m_seed_bbox );
       // Get the disparity range in d_sub corresponding to this tile.
@@ -942,11 +953,11 @@ public:
         lowres_hom = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
         local_search_range = stereo::get_disparity_range
           (transform_disparities(do_round, seed_bbox,
-			     lowres_hom, disparity_in_box));
+           lowres_hom, disparity_in_box));
       }
 
       bool has_sub_disp_spread = ( m_sub_disp_spread.cols() != 0 &&
-			                             m_sub_disp_spread.rows() != 0 );
+                                   m_sub_disp_spread.rows() != 0 );
       // Sanity check: If m_sub_disp_spread was provided, it better have the same size as sub_disp.
       if ( has_sub_disp_spread &&
            m_sub_disp_spread.cols() != m_sub_disp.cols() &&
@@ -983,9 +994,9 @@ public:
         ImageViewRef< PixelMask<InputPixelType> >
           right_trans_masked_img
           = transform (copy_mask( m_right_image.impl(),
-			          create_mask(m_right_mask.impl()) ),
-	               HomographyTransform(fullres_hom),
-	               m_left_image.impl().cols(), m_left_image.impl().rows());
+                       create_mask(m_right_mask.impl()) ),
+                         HomographyTransform(fullres_hom),
+                         m_left_image.impl().cols(), m_left_image.impl().rows());
         right_trans_img  = apply_mask(right_trans_masked_img);
         right_trans_mask = channel_cast_rescale<uint8>(select_channel(right_trans_masked_img, 1));
       } //endif use_local_homography
@@ -1202,17 +1213,17 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     ImageView<PixelMask<Vector2f> > result = fullres_disparity;
     opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),ASPGlobalOptions::rfne_tile_size());
     vw::cartography::block_write_gdal_image(d_file, result,
-			        has_left_georef, left_georef,
-			        has_nodata, nodata, opt,
-			        TerminalProgressCallback("asp", "\t--> Correlation :") );
-			        
+                                            has_left_georef, left_georef,
+                                            has_nodata, nodata, opt,
+                                            TerminalProgressCallback("asp", "\t--> Correlation :") );
+
   } else {
     // Otherwise cast back to integer results to save on storage space.
     vw::cartography::block_write_gdal_image(d_file, 
               pixel_cast<PixelMask<Vector2i> >(fullres_disparity),
-			        has_left_georef, left_georef,
-			        has_nodata, nodata, opt,
-			        TerminalProgressCallback("asp", "\t--> Correlation :") );
+              has_left_georef, left_georef,
+              has_nodata, nodata, opt,
+              TerminalProgressCallback("asp", "\t--> Correlation :") );
   }
 
   vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED \n";
@@ -1230,7 +1241,7 @@ int main(int argc, char* argv[]) {
     vector<ASPGlobalOptions> opt_vec;
     string output_prefix;
     asp::parse_multiview(argc, argv, CorrelationDescription(),
-			 verbose, output_prefix, opt_vec);
+                         verbose, output_prefix, opt_vec);
     ASPGlobalOptions opt = opt_vec[0];
 
     // Leave the number of parallel block threads equal to the default unless we

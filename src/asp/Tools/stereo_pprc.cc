@@ -106,7 +106,7 @@ void create_sym_links(string const& left_input_file,
     right_rel_in = fs::path(right_input_file);
   }
 
-  string left_rel_out = fs::path(left_output_file).filename().string();
+  string left_rel_out  = fs::path(left_output_file ).filename().string();
   string right_rel_out = fs::path(right_output_file).filename().string();
 
   string cmd;
@@ -157,7 +157,17 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
   string left_mask_file  = opt.out_prefix+"-lMask.tif";
   string right_mask_file = opt.out_prefix+"-rMask.tif";
-  bool rebuild = crop_left || crop_right;
+  
+  // Also need to rebuild if the inputs changed after the mask files were produced.
+  std::vector<std::string> in_file_list;
+  in_file_list.push_back(opt.in_file1);
+  in_file_list.push_back(opt.in_file2);
+  in_file_list.push_back(opt.cam_file1);
+  in_file_list.push_back(opt.cam_file2);
+  bool inputs_changed = (!is_latest_timestamp(left_mask_file,  in_file_list ) ||
+                         !is_latest_timestamp(right_mask_file, in_file_list)  );
+
+  bool rebuild = crop_left || crop_right || inputs_changed;
   try {
     // If files do not exist, create them. Also if they exist
     // but are invalid. The second check gives an ugly verbose
@@ -180,11 +190,11 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   }
 
   cartography::GeoReference left_georef, right_georef;
-  bool has_left_georef  = read_georeference(left_georef,  left_image_file);
+  bool has_left_georef  = read_georeference(left_georef,  left_image_file );
   bool has_right_georef = read_georeference(right_georef, right_image_file);
 
   // The output no-data value must be < 0 as the images are scaled to around [0, 1].
-  bool has_nodata = true;
+  bool  has_nodata    = true;
   float output_nodata = -32768.0;
 
 
@@ -353,7 +363,6 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     sw.stop();
     vw_out(DebugMessage,"asp") << "Mask creation elapsed time: "
                                << sw.elapsed_seconds() << " s." << endl;
-
   } // End creating masks
 
 
@@ -362,8 +371,13 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   string lmsub = opt.out_prefix+"-lMask_sub.tif";
   string rmsub = opt.out_prefix+"-rMask_sub.tif";
 
+  inputs_changed = (!is_latest_timestamp(lsub,  in_file_list ) ||
+                    !is_latest_timestamp(rsub,  in_file_list)  ||
+                    !is_latest_timestamp(lmsub, in_file_list ) ||
+                    !is_latest_timestamp(rmsub, in_file_list )  );
+
   // We must always redo the subsampling if we are allowed to crop the images
-  rebuild = crop_left || crop_right;
+  rebuild = crop_left || crop_right || inputs_changed;
 
   try {
     // First try to see if the subsampled images exist.
@@ -386,8 +400,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     // Produce subsampled images, these will be used later for auto
     // search range detection.
     double s = 1500.0;
-    float sub_scale = sqrt(s * s / (float(left_image.cols ()) * float(left_image.rows ())))
-                    + sqrt(s * s / (float(right_image.cols()) * float(right_image.rows())));
+    float  sub_scale = sqrt(s * s / (float(left_image.cols ()) * float(left_image.rows ())))
+                     + sqrt(s * s / (float(right_image.cols()) * float(right_image.rows())));
     sub_scale /= 2;
     if ( sub_scale > 0.6 ) // ???
       sub_scale = 0.6;
@@ -398,7 +412,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     // memory during subsampling) Also tile size must be a power of 2
     // and greater than or equal to 64 px.
     uint32 sub_threads = vw_settings().default_num_threads() + 1;
-    uint32 tile_power = 0;
+    uint32 tile_power  = 0;
     while (tile_power < 6 && sub_threads > 1) {
       sub_threads--;
       tile_power = boost::numeric_cast<uint32>( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));

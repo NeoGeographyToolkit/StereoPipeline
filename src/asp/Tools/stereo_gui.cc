@@ -100,7 +100,7 @@ public:
 
 int main(int argc, char** argv) {
 
-  //try {
+  try {
     xercesc::XMLPlatformUtils::Initialize();
     stereo_register_sessions();
 
@@ -150,9 +150,9 @@ int main(int argc, char** argv) {
           std::string image = all_images[i];
           bool is_image = false;
           try {
-	    DiskImageView<float> tmp(image);
-	    is_image = true;
-    	  }catch(std::exception & e){
+            DiskImageView<float> tmp(image);
+            is_image = true;
+          }catch(std::exception & e){
             if (!image.empty() && image[0] != '-') {
               if (get_extension(image) == ".match") {
                 // See if this is a match file
@@ -176,7 +176,7 @@ int main(int argc, char** argv) {
         }
       }catch (std::exception& e2){
         vw_throw(ArgumentErr() << "Use either the stereo or the image viewer interface.\n"
-                 << "stereo error: " << e.what() << "\n"
+                 << "stereo error: " << e.what()  << "\n"
                  << "viewer error: " << e2.what() << "\n");
       }
 
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
     app.exec();
     
     xercesc::XMLPlatformUtils::Terminate();
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }
