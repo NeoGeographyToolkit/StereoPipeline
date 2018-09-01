@@ -393,8 +393,10 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   std::vector<std::string> in_file_list;
   in_file_list.push_back(opt.in_file1 );
   in_file_list.push_back(opt.in_file2 );
-  in_file_list.push_back(opt.cam_file1);
-  in_file_list.push_back(opt.cam_file2);
+  if (fs::exists(opt.cam_file1))
+    in_file_list.push_back(opt.cam_file1);
+  if (fs::exists(opt.cam_file2))
+    in_file_list.push_back(opt.cam_file2);
 
   // Try the full match file first
   if (fs::exists(full_match_file) && is_latest_timestamp(full_match_file, in_file_list)) {
