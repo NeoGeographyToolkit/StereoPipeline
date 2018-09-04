@@ -23,10 +23,8 @@
 
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <vw/FileIO/DiskImageView.h>
-#include <vw/Math.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Camera/PinholeModel.h>
-#include <vw/Image.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <asp/Core/Common.h>

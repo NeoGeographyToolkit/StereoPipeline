@@ -20,7 +20,6 @@
 ///
 
 #include <boost/core/null_deleter.hpp>
-#include <vw/InterestPoint.h>
 #include <vw/Camera/CameraTransform.h>
 #include <vw/Camera/PinholeModel.h>
 #include <boost/accumulators/accumulators.hpp>

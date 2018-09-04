@@ -25,7 +25,6 @@
 #include <vw/Image/Manipulation.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
-#include <vw/InterestPoint.h>
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>

@@ -28,10 +28,7 @@ extern "C" {
                             double* flon, double* flat, double* val);
 }
 
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Cartography.h>
-#include <vw/Math.h>
+#include <vw/Image/Interpolation.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 
@@ -187,7 +184,8 @@ string get_geoid_full_path(string geoid_file){
 #define STR_EXPAND(tok) #tok
 #define STR_QUOTE(tok) STR_EXPAND(tok)
   string full_path = string(STR_QUOTE(GEOID_PATH)) + "/" + geoid_file;
-  if (fs::exists(full_path)) return full_path;
+  if (fs::exists(full_path))
+    return full_path;
 
   // 2. Using the ASP_DATA path.
   char * asp_data = getenv("ASP_DATA");

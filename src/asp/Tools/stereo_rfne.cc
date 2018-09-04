@@ -25,6 +25,8 @@
 #include <vw/Stereo/SubpixelView.h>
 #include <vw/Stereo/EMSubpixelCorrelatorView.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/FileIO/DiskImageResource.h>
+#include <vw/FileIO/DiskImageResourceOpenEXR.h>
 #include <asp/Core/LocalHomography.h>
 #include <asp/Sessions/StereoSession.h>
 #include <xercesc/util/PlatformUtils.hpp>

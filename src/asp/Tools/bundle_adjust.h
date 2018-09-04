@@ -23,13 +23,18 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/foreach.hpp>
 
+#include <vw/BundleAdjustment/ModelBase.h>
+#include <vw/BundleAdjustment/CameraRelation.h>
+#include <vw/BundleAdjustment/ControlNetworkLoader.h>
+#include <vw/BundleAdjustment/AdjustSparse.h>
+#include <vw/BundleAdjustment/AdjustRobustSparse.h>
+#include <vw/BundleAdjustment/AdjustRobustRef.h>
 #include <vw/Camera/CAHVORModel.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>
-#include <vw/BundleAdjustment.h>
 #include <vw/Cartography/Datum.h>
-#include <vw/Math.h>
 
 #include <stdlib.h>
 #include <iostream>

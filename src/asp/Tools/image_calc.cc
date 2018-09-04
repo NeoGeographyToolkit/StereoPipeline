@@ -34,7 +34,6 @@
 #include <vw/Image/Statistics.h>
 #include <vw/Image/Filter.h>
 #include <vw/FileIO/DiskImageView.h>
-#include <vw/Cartography.h>
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>

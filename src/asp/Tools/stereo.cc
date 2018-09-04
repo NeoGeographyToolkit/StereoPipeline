@@ -19,7 +19,7 @@
 /// \file stereo.cc
 ///
 
-#include <vw/Cartography.h>
+#include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Stereo/StereoView.h>
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>

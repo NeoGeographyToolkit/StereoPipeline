@@ -22,6 +22,7 @@
 #include <vw/Image/BlobIndex.h>
 #include <vw/Image/InpaintView.h>
 #include <vw/Image/WindowAlgorithms.h>
+#include <vw/Image/UtilityViews.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Math/Functors.h>

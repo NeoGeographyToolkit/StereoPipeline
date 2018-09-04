@@ -24,13 +24,9 @@
 /************************************************************************
  *     File: orbitviz.cc
  ************************************************************************/
-#include <vw/Core.h>
-#include <vw/Math.h>
 #include <vw/FileIO/KML.h>
 #include <vw/FileIO/FileUtils.h>
-#include <vw/Camera.h>
-#include <vw/Cartography.h>
-
+#include <vw/Camera/PinholeModel.h>
 
 #include <iomanip>
 

@@ -33,9 +33,7 @@
 // http://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XL-1-W5/249/2015/isprsarchives-XL-1-W5-249-2015.pdf
 
 #include <vw/FileIO/DiskImageView.h>
-#include <vw/Math.h>
 #include <vw/Core/StringUtils.h>
-#include <vw/Image.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <asp/Core/Common.h>

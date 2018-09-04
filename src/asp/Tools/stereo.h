@@ -24,10 +24,6 @@
 
 #include <boost/algorithm/string.hpp>
 
-#include <vw/Core.h>
-#include <vw/Image.h>
-#include <vw/Math.h>
-#include <vw/FileIO.h>
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/MedianFilter.h>

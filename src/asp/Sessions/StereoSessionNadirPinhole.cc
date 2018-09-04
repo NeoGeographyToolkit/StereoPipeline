@@ -23,7 +23,7 @@
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/StereoSessionNadirPinhole.h>
 
-#include <vw/Camera.h>
+#include <vw/Camera/CameraModel.h>
 #include <vw/Image/Transform.h>
 #include <vw/Camera/CameraUtilities.h>
 

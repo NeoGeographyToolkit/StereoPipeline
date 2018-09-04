@@ -20,6 +20,8 @@
 ///
 
 #include <vw/Core/ProgressCallback.h>
+#include <vw/Math/BBox.h>
+#include <vw/Math/Statistics.h>
 #include <asp/Tools/bundlevis.h>
 
 #include <boost/foreach.hpp>

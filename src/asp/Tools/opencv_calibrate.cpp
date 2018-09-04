@@ -3,9 +3,9 @@
 #include "opencv2/calib3d/calib3d.hpp"
 //#include "opencv2/highgui/highgui.hpp"
 
-#include <vw/Core.h>
-#include <vw/FileIO.h>
-#include <vw/Image.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/ImageIO.h>
+#include <vw/FileIO/DiskImageResource.h>
 
 #include <cctype>
 #include <stdio.h>

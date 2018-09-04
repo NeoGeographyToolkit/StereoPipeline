@@ -18,10 +18,7 @@
 /// \file tif_mosaic.cc
 ///
 
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Cartography.h>
-#include <vw/Math.h>
+
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Algorithms2.h>
 

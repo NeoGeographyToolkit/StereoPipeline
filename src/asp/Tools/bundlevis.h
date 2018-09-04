@@ -57,7 +57,7 @@ namespace po = boost::program_options;
 
 //VisionWorkbench
 #include <vw/BundleAdjustment/ControlNetwork.h>
-#include <vw/Math.h>
+
 
 // PointIter, the lowest quantum of points
 class PointIter : public osg::Referenced {

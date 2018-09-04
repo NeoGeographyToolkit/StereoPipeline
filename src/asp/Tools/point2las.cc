@@ -29,9 +29,6 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/PointUtils.h>
 
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Math.h>
 #include <vw/Cartography/PointImageManipulation.h>
 
 using namespace vw;

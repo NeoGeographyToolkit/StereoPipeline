@@ -21,6 +21,8 @@
 
 #include <vw/FileIO/KML.h>
 #include <vw/Camera/CameraUtilities.h>
+#include <vw/BundleAdjustment/BundleAdjustReport.h>
+#include <vw/BundleAdjustment/AdjustRef.h>
 #include <asp/Core/Macros.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -133,70 +135,6 @@ bool comp_ip_row(IpPair const& a, IpPair const& b) {
   if (a.first.y == b.first.y)
     return a.first.x < b.first.x;
   return a.first.y < b.first.y;
-}
-
-/// Filter IP points by how reasonably the disparity can change along rows
-size_t filter_ip_sides(std::vector<ip::InterestPoint> const& ip1_in,
-                       std::vector<ip::InterestPoint> const& ip2_in,
-                       std::vector<ip::InterestPoint>      & ip1_out,
-                       std::vector<ip::InterestPoint>      & ip2_out,
-                       int image_width1, int image_width2,
-                       int side_percentage = 20) {
-
-  const size_t num_pairs_in = ip1_in.size();
-  /*
-  // Create list of IP pairs sorted by column 1 (low to high)
-  std::vector<IpPair> ip_pairs_in(num_pairs_in);
-  for (size_t i=0; i<num_pairs_in; ++i) {
-    ip_pairs_in[i].first  = ip1_in[i];
-    ip_pairs_in[i].second = ip2_in[i];
-  }
-  std::sort(ip_pairs_in.begin(), ip_pairs_in.end(), comp_ip_col);
-
-  // Get disparities for each pair
-  std::vector<double> dx(num_pairs_in);
-  for (size_t i=0; i<num_pairs_in; ++i) {
-    dx[i] = ip_pairs_in[i].second.x - ip_pairs_in[i].first.x;
-    std::cout << dx[i] << std::endl;
-  }
-  */
-  
-  // TODO: Automatically calculate what counts as the "side"
-  // Filter out IP too close to the sides
-  
-  double crop_percent = static_cast<double>(side_percentage) / 100.0;
-  vw_out() << "Removing IP within " << crop_percent << " percent of the outer left/right sides of the images.\n";
-  int crop_size1 = image_width1 * crop_percent;
-  int crop_size2 = image_width1 * crop_percent;
-  
-  ip1_out.clear();
-  ip2_out.clear();
-  double kept_mean = 0, reject_mean = 0;
-  for (size_t i=0; i<num_pairs_in; ++i) {
-    bool   keep = ((ip1_in[i].x >= crop_size1) && ((image_width2 - ip2_in[i].x) > crop_size2));
-    double disp = ip2_in[i].x - ip1_in[i].x;
-    if (keep) {
-      ip1_out.push_back(ip1_in[i]);
-      ip2_out.push_back(ip2_in[i]);
-      kept_mean += disp;
-    }
-    else {
-      reject_mean += disp;
-    }
-  }
-  size_t num_left     = ip1_out.size();
-  size_t num_rejected = num_pairs_in - num_left;
-  
-  if (num_left > 0) {
-    kept_mean /= static_cast<double>(num_left);
-    vw_out() << "Mean disparity of points kept by side disparity = " << kept_mean << std::endl;
-  }
-  if (num_rejected > 0) {
-    reject_mean /= static_cast<double>(num_rejected);
-    vw_out() << "Mean disparity of points rejected by side disparity = " << reject_mean << std::endl;
-  }
-  
-  return num_left;
 }
 
 double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,

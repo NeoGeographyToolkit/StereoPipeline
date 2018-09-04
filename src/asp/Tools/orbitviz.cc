@@ -22,11 +22,8 @@
 /************************************************************************
  *     File: orbitviz.cc
  ************************************************************************/
-#include <vw/Core.h>
-#include <vw/Math.h>
+
 #include <vw/FileIO/KML.h>
-#include <vw/Camera.h>
-#include <vw/Cartography.h>
 #include <vw/InterestPoint/InterestData.h>
 
 #include <asp/Core/Macros.h>

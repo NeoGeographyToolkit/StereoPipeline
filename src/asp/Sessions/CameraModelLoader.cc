@@ -19,7 +19,6 @@
 /// \file CameraModelLoader.cc
 ///
 
-#include <vw/Camera.h>
 #include <vw/Camera/Extrinsics.h>
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/Exception.h>

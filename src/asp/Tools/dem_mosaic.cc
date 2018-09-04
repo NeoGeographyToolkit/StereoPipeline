@@ -41,13 +41,11 @@
 #include <limits>
 #include <algorithm>
 
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Cartography.h>
-#include <vw/Math.h>
 #include <vw/FileIO/DiskImageManager.h>
 #include <vw/Image/InpaintView.h>
 #include <vw/Image/Algorithms2.h>
+#include <vw/Image/Filter.h>
+#include <vw/Cartography/GeoTransform.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 

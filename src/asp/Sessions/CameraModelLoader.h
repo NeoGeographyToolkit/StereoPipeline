@@ -23,7 +23,7 @@
 #define __STEREO_SESSION_CAMERAMODELLOADER_H__
 
 
-#include <vw/Camera.h>
+#include <vw/Camera/CameraModel.h>
 
 namespace asp {
 

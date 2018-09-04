@@ -22,7 +22,6 @@
 #include <QApplication>
 #include <QWidget>
 
-#include <vw/InterestPoint.h>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
 #include <vw/Stereo/PreFilter.h>

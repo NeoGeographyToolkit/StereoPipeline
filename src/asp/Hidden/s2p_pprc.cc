@@ -21,8 +21,6 @@
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/FileIO/DiskImageView.h>
-#include <vw/Math.h>
-#include <vw/Image.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/PointImageManipulation.h>

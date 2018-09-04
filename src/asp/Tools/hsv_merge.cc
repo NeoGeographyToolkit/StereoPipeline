@@ -24,8 +24,6 @@ namespace po = boost::program_options;
 #include <boost/filesystem/path.hpp>
 namespace fs = boost::filesystem;
 
-#include <vw/Image.h>
-#include <vw/FileIO.h>
 #include <vw/Cartography/GeoReference.h>
 
 using namespace vw;

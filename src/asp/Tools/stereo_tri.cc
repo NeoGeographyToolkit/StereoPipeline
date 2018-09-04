@@ -19,7 +19,6 @@
 /// \file stereo_tri.cc
 ///
 
-#include <vw/Cartography.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
 #include <vw/Stereo/DisparityMap.h>

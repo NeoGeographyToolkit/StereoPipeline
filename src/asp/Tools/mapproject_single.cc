@@ -23,11 +23,11 @@
 /// It should create an RBG output for RGB input,
 /// and same for RGBA.
 
-#include <vw/Core.h>
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Cartography.h>
+#include <vw/Cartography/Map2CamTrans.h>
+#include <vw/Cartography/PointImageManipulation.h>
+#include <vw/Cartography/CameraBBox.h>
 #include <vw/Image/Algorithms2.h>
+#include <vw/Image/Filter.h>
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>

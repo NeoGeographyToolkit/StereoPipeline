@@ -17,10 +17,10 @@
 
 
 #include <asp/Core/PointUtils.h>
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Cartography.h>
-#include <vw/Math.h>
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/Cartography/GeoTransform.h>
+#include <vw/Cartography/PointImageManipulation.h>
+
 
 using std::endl;
 using std::string;

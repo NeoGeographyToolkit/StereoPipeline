@@ -31,8 +31,6 @@
 
 #include <stdlib.h>
 
-#include <vw/FileIO.h>
-#include <vw/Image.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Core/Macros.h>

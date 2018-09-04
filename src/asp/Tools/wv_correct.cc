@@ -28,11 +28,9 @@
 // subpixel offsets. We use tabulated values for the offsets and their
 // locations to undo them.
 
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Cartography.h>
-#include <vw/Math.h>
 #include <vw/Image/Algorithms2.h>
+#include <vw/Image/Interpolation.h>
+#include <vw/Image/Filter.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Camera/RPC_XML.h>

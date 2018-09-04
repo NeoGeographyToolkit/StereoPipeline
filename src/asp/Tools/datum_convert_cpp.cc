@@ -20,10 +20,7 @@
 ///
 
 
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Cartography.h>
-#include <vw/Math.h>
+#include <vw/Cartography/GeoTransform.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/PointUtils.h>

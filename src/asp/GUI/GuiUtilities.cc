@@ -27,8 +27,8 @@
 #include <QtWidgets>
 #include <ogrsf_frmts.h>
 
-#include <vw/Image.h>
-#include <vw/FileIO.h>
+
+
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Cartography/GeoTransform.h>
