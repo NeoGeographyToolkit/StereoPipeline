@@ -631,33 +631,33 @@ struct BaDispXyzError {
       
       // Project the current point into the current camera
       Vector2 left_prediction = m_ba_model.cam_pixel(0, m_left_icam,
-						      left_cam_intr_vec, point_vec);
+                                                     left_cam_intr_vec, point_vec);
       Vector2 right_prediction = m_ba_model.cam_pixel(0, m_right_icam,
-						       right_cam_intr_vec, point_vec);
+                                                      right_cam_intr_vec, point_vec);
 
       bool good_ans = true;
       if (left_prediction[0] < 0 || left_prediction[0] > m_interp_disp.cols()-1 ||
-	  left_prediction[1] < 0 || left_prediction[1] > m_interp_disp.rows()-1) {
-	good_ans = false;
+          left_prediction[1] < 0 || left_prediction[1] > m_interp_disp.rows()-1) {
+        good_ans = false;
       }else{
 
         DispPixelT dispPix = m_interp_disp(left_prediction[0], left_prediction[1]);
         if (!is_valid(dispPix)) {
-	  good_ans = false;
-	}else{
-	  Vector2 right_prediction_from_disp = left_prediction + dispPix.child();
-	  residuals[0] = right_prediction_from_disp[0] - right_prediction [0];
-	  residuals[1] = right_prediction_from_disp[1] - right_prediction [1];
-	}
+          good_ans = false;
+        }else{
+          Vector2 right_prediction_from_disp = left_prediction + dispPix.child();
+          residuals[0] = right_prediction_from_disp[0] - right_prediction [0];
+          residuals[1] = right_prediction_from_disp[1] - right_prediction [1];
+        }
       }
 
       // TODO: Think more of what to do below. The hope is that the robust cost
       // function will take care of big residuals graciously.
       if (!good_ans) {
-	// Failed to find the residuals
-	residuals[0] = g_max_disp_error;
-	residuals[1] = g_max_disp_error;
-	return true;
+        // Failed to find the residuals
+        residuals[0] = g_max_disp_error;
+        residuals[1] = g_max_disp_error;
+        return true;
       }
 
     } catch (const camera::PointToPixelErr& e) {
@@ -1083,14 +1083,14 @@ void add_residual_block<BAPinholeModel>
 
 /// Compute residual map by averaging all the reprojection error at a given point
 void compute_mean_residuals_at_xyz(CameraRelationNetwork<JFeature> & crn,
-				   std::vector<double> const& residuals,
-				   const size_t num_points,
-				   std::set<int>  const& outlier_xyz,
-				   const size_t num_cameras,
-				   // outputs
-				   std::vector<double> & mean_residuals,
-				   std::vector<int>  & num_point_observations
-				   ) {
+                                   std::vector<double> const& residuals,
+                                   const size_t num_points,
+                                   std::set<int>  const& outlier_xyz,
+                                   const size_t num_cameras,
+                                   // outputs
+                                   std::vector<double> & mean_residuals,
+                                   std::vector<int>  & num_point_observations
+                                   ) {
 
   mean_residuals.resize(num_points);
   num_point_observations.resize(num_points);
@@ -1138,7 +1138,7 @@ void compute_mean_residuals_at_xyz(CameraRelationNetwork<JFeature> & crn,
 void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<JFeature> & crn,
                         std::vector<double> const& residuals,
                         const double *points, const size_t num_points,
-			std::set<int>  const& outlier_xyz,
+                        std::set<int>  const& outlier_xyz,
                         const size_t num_point_params, 
                         const size_t num_cameras,
                         Options const& opt) {
@@ -1186,15 +1186,15 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
 
 /// Compute the residuals
 void compute_residuals(bool apply_loss_function,
-		       Options const& opt, size_t num_cameras,
-		       size_t num_camera_params, size_t num_point_params,
-		       std::vector<size_t> const& cam_residual_counts,
-		       size_t num_gcp_residuals, 
-                       std::vector<vw::Vector3> const& reference_vec,
-		       CameraRelationNetwork<JFeature> & crn,
-		       ceres::Problem &problem,
-		       std::vector<double> & residuals // output
-		       ) {
+                       Options const& opt, size_t num_cameras,
+                       size_t num_camera_params, size_t num_point_params,
+                       std::vector<size_t> const& cam_residual_counts,
+                       size_t num_gcp_residuals, 
+                                   std::vector<vw::Vector3> const& reference_vec,
+                       CameraRelationNetwork<JFeature> & crn,
+                       ceres::Problem &problem,
+                       std::vector<double> & residuals // output
+                       ) {
   
   // TODO: Associate residuals with cameras!
   // Generate some additional diagnostic info
@@ -1220,28 +1220,28 @@ void compute_residuals(bool apply_loss_function,
   
   if (num_expected_residuals != num_residuals)
     vw_throw( LogicErr() << "Expected " << num_expected_residuals
-	      << " residuals but instead got " << num_residuals);
+                         << " residuals but instead got " << num_residuals);
 
 }
 
 /// Write log files describing all residual errors. The order of data stored
 /// in residuals must mirror perfectly the way residuals were created. 
 void write_residual_logs(std::string const& residual_prefix, bool apply_loss_function,
-			 Options const& opt, size_t num_cameras,
-			 size_t num_camera_params, size_t num_point_params,
-			 std::vector<size_t> const& cam_residual_counts,
-			 size_t num_gcp_residuals, 
-                         std::vector<vw::Vector3> const& reference_vec,
-			 CameraRelationNetwork<JFeature> & crn,
-			 const double *points, const size_t num_points,
-			 std::set<int>  const& outlier_xyz,
-			 ceres::Problem &problem) {
+                         Options const& opt, size_t num_cameras,
+                         size_t num_camera_params, size_t num_point_params,
+                         std::vector<size_t> const& cam_residual_counts,
+                         size_t num_gcp_residuals, 
+                                           std::vector<vw::Vector3> const& reference_vec,
+                         CameraRelationNetwork<JFeature> & crn,
+                         const double *points, const size_t num_points,
+                         std::set<int>  const& outlier_xyz,
+                         ceres::Problem &problem) {
   
   std::vector<double> residuals;
   compute_residuals(apply_loss_function, opt, num_cameras, num_camera_params, num_point_params,  
-		    cam_residual_counts,  num_gcp_residuals, reference_vec, crn, problem,  
-		    residuals // output
-		    );
+                    cam_residual_counts,  num_gcp_residuals, reference_vec, crn, problem,  
+                    residuals // output
+                    );
     
   const size_t num_residuals = residuals.size();
   
@@ -1294,7 +1294,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     // Write line for the summary file
     mean_residual /= static_cast<double>(num_this_cam_residuals);
     residual_file << opt.camera_files[c] << ", " << mean_residual << ", "
-		  << num_this_cam_residuals << std::endl;
+                  << num_this_cam_residuals << std::endl;
   }
   residual_file_raw_pixels.close();
   
@@ -1342,7 +1342,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
       mean_residual_rot /= static_cast<double>(part_size);
     
       residual_file << opt.camera_files[c] << ", " << mean_residual_pos << ", "
-		    << mean_residual_rot << std::endl;
+                    << mean_residual_rot << std::endl;
       residual_file_raw_cams << std::endl;
     }
   }
@@ -1365,13 +1365,12 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   }
   
   if (index != num_residuals)
-    vw_throw( LogicErr() << "Have " << num_residuals << " residuals but iterated through "
-	      << index);
+    vw_throw( LogicErr() << "Have " << num_residuals << " residuals but iterated through " << index);
 
   // Generate the location based files
   std::string map_prefix = residual_prefix + "_pointmap";
   write_residual_map(map_prefix, crn, residuals, points, num_points, outlier_xyz,
-		     num_point_params, num_cameras, opt);
+                     num_point_params, num_cameras, opt);
 
 } // End function write_residual_logs
 
@@ -1490,7 +1489,7 @@ int update_outliers(ControlNetwork                  & cnet,
 
 /// Remove the outliers flagged earlier
 void remove_outliers(ControlNetwork const& cnet, std::set<int> & outlier_xyz,
-		     Options const& opt, size_t num_cameras){
+                     Options const& opt, size_t num_cameras){
 
   // Work on individual image pairs
   typedef std::map< std::pair<int, int>, std::string>::const_iterator match_type;
@@ -1520,35 +1519,35 @@ void remove_outliers(ControlNetwork const& cnet, std::set<int> & outlier_xyz,
     // look only at the measure for left_cam and right_cam
     int ipt = -1;
     for ( ControlNetwork::const_iterator iter = cnet.begin();
-	  iter != cnet.end(); ++iter ) {
+      iter != cnet.end(); ++iter ) {
 
       ipt++; // control point index
 
       // Skip gcp
       if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
-	continue;
+        continue;
       }
         
       bool has_left = true, has_right = false;
       ip::InterestPoint lip, rip;
       for ( ControlPoint::const_iterator measure = (*iter).begin();
-	    measure != (*iter).end(); ++measure ) {
-	if (measure->image_id() == left_cam) {
-	  has_left = true;
-	  lip = ip::InterestPoint( measure->position()[0], measure->position()[1],
-				   measure->sigma()[0] );
-	}else if (measure->image_id() == right_cam) {
-	  has_right = true;
-	  rip = ip::InterestPoint( measure->position()[0], measure->position()[1],
-				   measure->sigma()[0] );
-	}
+            measure != (*iter).end(); ++measure ) {
+        if (measure->image_id() == left_cam) {
+          has_left = true;
+          lip = ip::InterestPoint( measure->position()[0], measure->position()[1],
+                                   measure->sigma()[0] );
+        }else if (measure->image_id() == right_cam) {
+          has_right = true;
+          rip = ip::InterestPoint( measure->position()[0], measure->position()[1],
+                                   measure->sigma()[0] );
+        }
       }
 
       // Keep only ip for these two images
       if (!has_left || !has_right) continue;
 
       if (outlier_xyz.find(ipt) != outlier_xyz.end())
-	continue; // skip outliers
+        continue; // skip outliers
 
       // Only add ip that were there originally
       std::pair<double, double> left(lip.x, lip.y);
@@ -1588,7 +1587,7 @@ void remove_outliers(ControlNetwork const& cnet, std::set<int> & outlier_xyz,
 /// - Only every skip'th point is recorded to the file.
 void record_points_to_kml(const std::string &kml_path, const cartography::Datum& datum,
                           const double *points, const size_t num_points,
-			  std::set<int>  const& outlier_xyz,
+                          std::set<int>  const& outlier_xyz,
                           size_t skip=100, const std::string name="points",
                           const std::string icon="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png") {
 
@@ -1752,7 +1751,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
 
       // Fix this camera if requested
       if (opt.fixed_cameras_indices.find(icam) != opt.fixed_cameras_indices.end()) 
-	problem.SetParameterBlockConstant(camera);
+        problem.SetParameterBlockConstant(camera);
             
       if (opt.heights_from_dem != "") {
         // For non-GCP points, copy the heights for xyz points from the DEM.
@@ -1923,12 +1922,12 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       
     else if (file_type == "CSV")
       asp::load_csv(opt.reference_terrain,  opt.max_num_reference_points,
-		    lonlat_box, calc_shift, shift, geo,  
-		    csv_conv, is_lola_rdr_format, mean_longitude, verbose,  
-		    data);
+                    lonlat_box, calc_shift, shift, geo,  
+                    csv_conv, is_lola_rdr_format, mean_longitude, verbose,  
+                    data);
     else
       vw_throw( ArgumentErr() << "Unsupported file: " << opt.reference_terrain << " of type" <<
-		file_type << ".\n");
+    file_type << ".\n");
     
     // TODO: Disparities can be large, but if small it is better to
     // read them in memory.
@@ -1956,7 +1955,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     int num_cols = data.cols();
     //double inc_amount = 1.0/double(pos_records.size());
     double inc_amount = 1.0/double(num_cols);
-				   
+
     reference_vec.clear();
     for (int data_col = 0; data_col < num_cols; data_col++) {
 
@@ -1970,11 +1969,11 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
       // Let's hope there is no 360 degree offset when computing
       // the longitude. 
       if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
-	vw::Vector3 llh = geo.datum().cartesian_to_geodetic(reference_xyz);
-	vw::Vector2 ll = subvector(llh, 0, 2);
-	if (!asp::stereo_settings().lon_lat_limit.contains(ll)) {
-	  continue;
-	}
+        vw::Vector3 llh = geo.datum().cartesian_to_geodetic(reference_xyz);
+        vw::Vector2 ll = subvector(llh, 0, 2);
+        if (!asp::stereo_settings().lon_lat_limit.contains(ll)) {
+          continue;
+        }
       }
 
       bool good_point = true;
@@ -2008,31 +2007,33 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
           continue;
         }
 
-	// Check if the current point projects in the camera
+        // Check if the current point projects in the camera
         if (!image_boxes[icam].contains(prediction)) {
           good_point = false;
           continue;
-	}
+        }
 
         if (icam%2 == 0) {
           left_pred = prediction;
-	  // Record where we projected in the left camera, and then switch to the right camera
+          // Record where we projected in the left camera, and then switch to the right camera
           continue;
         }
 
-	if (icam%2 != 1)
-	  vw_throw(ArgumentErr() << "Expecting an odd camera here.\n");
+        if (icam%2 != 1)
+          vw_throw(ArgumentErr() << "Expecting an odd camera here.\n");
 
         right_pred = prediction;
         
         // Check for out of range, etc
-	if (!good_point) continue;
+        if (!good_point)
+          continue;
         if (left_pred != left_pred) continue; // nan check
         if (left_pred[0] < 0 || left_pred[0] > interp_disp[icam/2].cols() - 1 ) continue;
         if (left_pred[1] < 0 || left_pred[1] > interp_disp[icam/2].rows() - 1 ) continue;
 
         DispPixelT dispPix = interp_disp[icam/2](left_pred[0], left_pred[1]);
-        if (!is_valid(dispPix)) continue;
+        if (!is_valid(dispPix))
+          continue;
           
         Vector2 right_pix = left_pred + dispPix.child();
         if (!image_boxes[icam].contains(right_pix)) 
@@ -2043,7 +2044,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
           continue;
         }
         
-	reference_vec.push_back(reference_xyz);
+        reference_vec.push_back(reference_xyz);
 
         ceres::LossFunction* loss_function = get_loss_function(opt);
         
@@ -2088,7 +2089,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
 
       
     record_points_to_kml(point_kml_path, opt.datum, points, num_points, outlier_xyz,
-		         kmlPointSkip, "initial_points",
+                         kmlPointSkip, "initial_points",
                         "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png");
   }
 
@@ -2161,7 +2162,7 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
 
   point_kml_path = opt.out_prefix + "-final_points.kml";
   record_points_to_kml(point_kml_path, opt.datum, points, num_points, outlier_xyz,
-		       kmlPointSkip, "final_points",
+                       kmlPointSkip, "final_points",
                        "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
 
   // Print stats for optimized gcp
@@ -2563,7 +2564,7 @@ void check_gcp_dists(Options const &opt) {
 /// each input camera.
 /// - If no match is found, the coordinate is (0,0,0)
 int load_estimated_camera_positions(Options &opt,
-                                       std::vector<Vector3> & estimated_camera_gcc) {
+                                    std::vector<Vector3> & estimated_camera_gcc) {
   estimated_camera_gcc.clear();
   if (opt.camera_position_file == "")
     return 0;
@@ -2639,7 +2640,7 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
   const int MIN_NUM_MATCHES = 3;
   if (num_matches_found < MIN_NUM_MATCHES)
     vw_throw( ArgumentErr() << "At least " << MIN_NUM_MATCHES 
-	      << " camera position matches are required to initialize sensor models!\n" );
+              << " camera position matches are required to initialize sensor models!\n" );
   
   // Populate matrices containing the current and known camera positions.
   vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);
@@ -2875,7 +2876,7 @@ void create_matches_from_mapprojected_images(Options const& opt){
       }
       
       std::string match_filename = ip::match_filename(opt.out_prefix,
-						      map_files[i], map_files[j]);
+                                                      map_files[i], map_files[j]);
       if (!fs::exists(match_filename)) {
         vw_out() << "Missing: " << match_filename << "\n";
         continue;
@@ -2895,7 +2896,8 @@ void create_matches_from_mapprojected_images(Options const& opt){
         if (dem_pix1[0] < 0 || dem_pix1[0] >= interp_dem.cols() - 1) continue;
         if (dem_pix1[1] < 0 || dem_pix1[1] >= interp_dem.rows() - 1) continue;
         PixelMask<double> dem_val1 = interp_dem(dem_pix1[0], dem_pix1[1]);
-        if (!is_valid(dem_val1)) continue;
+        if (!is_valid(dem_val1))
+          continue;
         Vector3 llh1(ll1[0], ll1[1], dem_val1.child());
         Vector3 xyz1 = dem_georef.datum().geodetic_to_cartesian(llh1);
         Vector2 cam_pix1;
@@ -2910,7 +2912,8 @@ void create_matches_from_mapprojected_images(Options const& opt){
         if (dem_pix2[0] < 0 || dem_pix2[0] >= interp_dem.cols() - 1) continue;
         if (dem_pix2[1] < 0 || dem_pix2[1] >= interp_dem.rows() - 1) continue;
         PixelMask<double> dem_val2 = interp_dem(dem_pix2[0], dem_pix2[1]);
-        if (!is_valid(dem_val2)) continue;
+        if (!is_valid(dem_val2))
+          continue;
         Vector3 llh2(ll2[0], ll2[1], dem_val2.child());
         Vector3 xyz2 = dem_georef.datum().geodetic_to_cartesian(llh2);
         Vector2 cam_pix2;
@@ -3067,8 +3070,8 @@ void create_gcp_from_mapprojected_images(Options const& opt){
   for (int i = 0; i < num_images; i++) {
     for (int j = i; j < num_images; j++) { // write also for i, i. Useful for only 1 image.
 
-      std::string image1_path  = opt.image_files[i];
-      std::string image2_path  = opt.image_files[j];
+      std::string image1_path    = opt.image_files[i];
+      std::string image2_path    = opt.image_files[j];
       std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
       
       vw_out() << "Writing: " << match_filename << std::endl;
@@ -3239,8 +3242,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   std::vector<std::string> inputs = opt.image_files;
   bool ensure_equal_sizes = true;
   asp::separate_images_from_cameras(inputs,
-				    opt.image_files, opt.camera_files, // outputs
-				    ensure_equal_sizes); 
+                                    opt.image_files, opt.camera_files, // outputs
+                                    ensure_equal_sizes); 
   
   // TODO: Check for duplicates in opt.image_files!
 
@@ -3261,7 +3264,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.overlap_list_file != "") {
     if (!fs::exists(opt.overlap_list_file))
       vw_throw( ArgumentErr() << "The overlap list does not exist.\n" << usage
-		<< general_options );
+                              << general_options );
     opt.overlap_list.clear();
     std::string image1, image2;
     std::ifstream ifs(opt.overlap_list_file.c_str());
@@ -3323,20 +3326,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Ensure good order
   if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
     if ( asp::stereo_settings().lon_lat_limit.min().y() >
-	 asp::stereo_settings().lon_lat_limit.max().y() ) 
+         asp::stereo_settings().lon_lat_limit.max().y() ) 
       std::swap( asp::stereo_settings().lon_lat_limit.min().y(),
-		 asp::stereo_settings().lon_lat_limit.max().y() );
+                 asp::stereo_settings().lon_lat_limit.max().y() );
     if ( asp::stereo_settings().lon_lat_limit.min().x() >
-	 asp::stereo_settings().lon_lat_limit.max().x() ) 
+         asp::stereo_settings().lon_lat_limit.max().x() ) 
       std::swap( asp::stereo_settings().lon_lat_limit.min().x(),
-		 asp::stereo_settings().lon_lat_limit.max().x() );
+                 asp::stereo_settings().lon_lat_limit.max().x() );
       
   }
   
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
     vw_throw( ArgumentErr() << "When using a camera position file, the csv-format "
-	      << "option must be set.\n"
-	      << usage << general_options );
+                            << "option must be set.\n" << usage << general_options );
   
   // Try to infer the datum, if possible, from the images. For
   // example, Cartosat-1 has that info in the Tif file.
@@ -3353,7 +3355,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   if (opt.stereo_session_string == "rpc" && opt.datum_str == "")
     vw_throw( ArgumentErr() << "When the session type is RPC, the datum must be specified.\n"
-              << usage << general_options );       
+                            << usage << general_options );       
        
   if (opt.datum_str != ""){
     // If the user set the datum, use it.
@@ -3370,13 +3372,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }else{ // Datum not specified
     if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() )
       vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
-                << "the datum must be specified.\n" << usage << general_options );
+                              << "the datum must be specified.\n" << usage << general_options );
   }
   
 
   if ( opt.out_prefix.empty() )
-    vw_throw( ArgumentErr() << "Missing output prefix.\n"
-              << usage << general_options  );
+    vw_throw( ArgumentErr() << "Missing output prefix.\n" << usage << general_options  );
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
@@ -3386,7 +3387,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // Parse the intrinsics to float in a vector
   if (opt.intrinsics_to_float_str != "" && !opt.solve_intrinsics) {
-    vw_throw( ArgumentErr() << "To be able to float only certain intrinsics, the option --solve-intrinsics must be on.\n" );
+    vw_throw( ArgumentErr() 
+              << "To be able to float only certain intrinsics, the option --solve-intrinsics must be on.\n" );
   }
 
   opt.intrinsics_to_float.clear();
@@ -3429,8 +3431,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     while (is >> val) {
       opt.fixed_cameras_indices.insert(val);
       if (val < 0 || val >= (int)opt.image_files.size()) 
-	vw_throw( vw::IOErr() << "The camera index to keep fixed " << val
-		  << " is out of bounds.\n" );
+        vw_throw( vw::IOErr() << "The camera index to keep fixed " << val
+                              << " is out of bounds.\n" );
     }
   }
 }
