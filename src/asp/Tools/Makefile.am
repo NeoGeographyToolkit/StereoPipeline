@@ -67,7 +67,7 @@ if MAKE_APP_BUNDLE_ADJUST
   libexec_PROGRAMS += opencv_imagelist_creator
   libexec_PROGRAMS += opencv_calibrate 
   bin_SCRIPTS      += camera_calibrate camera_solve
-  bundle_adjust_SOURCES            = bundle_adjust.cc bundle_adjust.h
+  bundle_adjust_SOURCES            = bundle_adjust.cc bundle_adjust.h bundle_adjust_cost_functions.h
   opencv_imagelist_creator_SOURCES = opencv_imagelist_creator.cpp
   opencv_calibrate_SOURCES         = opencv_calibrate.cpp
   bundle_adjust_LDADD            = $(APP_BUNDLE_ADJUST_LIBS)
