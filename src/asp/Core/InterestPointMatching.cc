@@ -808,12 +808,99 @@ namespace asp {
     right_ip.resize(good_it);
 
   }
-  
+
+  size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
+                         std::vector<ip::InterestPoint> const& ip2_in,
+                         std::vector<ip::InterestPoint>      & ip1_out,
+                         std::vector<ip::InterestPoint>      & ip2_out,
+                         int inlier_threshold) {
+
+    std::vector<size_t> indices;
+    try {
+    
+      std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(ip1_in),
+                           ransac_ip2 = iplist_to_vectorlist(ip2_in);
+    
+      typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
+      const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
+      const int    NUM_ITERATIONS         = 100;
+      RansacT ransac( math::HomographyFittingFunctor(),
+                      math::InterestPointErrorMetric(), NUM_ITERATIONS,
+                      inlier_threshold,
+                      MIN_NUM_OUTPUT_INLIERS, true
+                    );
+      Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
+      vw_out() << "\t--> Homography: " << H << "\n";
+      indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
+    } catch (const math::RANSACErr& e ) {
+      vw_out() << "RANSAC Failed: " << e.what() << "\n";
+      return false;
+    }
+
+    // Assemble the remaining interest points
+    const size_t num_left = indices.size();
+    std::vector<ip::InterestPoint> final_ip1, final_ip2;
+    ip1_out.resize(num_left);
+    ip2_out.resize(num_left);
+    for (size_t i=0; i<num_left; ++i) {
+      size_t index = indices[i];
+      ip1_out[i] = ip1_in[index];
+      ip2_out[i] = ip2_in[index];
+    }
+
+    return num_left;
+  }
+
+  double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
+                                   Vector2i const& image_size, int tile_size,
+                                   int min_ip_per_tile) {
+
+    if (tile_size < 1)
+      vw_throw(LogicErr() << "calc_ip_coverage_fraction: tile size is " << tile_size);
+
+    // Generate a grid of ROIs covering the entire image
+    BBox2i full_bbox(Vector2i(0,0), image_size);
+    bool include_partials = false;
+    std::vector<BBox2i> rois;
+    rois = subdivide_bbox(full_bbox, tile_size, tile_size, include_partials);
+    const size_t num_rois = rois.size();
+    if (num_rois == 0)
+      return 0; // Cannot have any coverage in the degenerate case!
+    
+    // Pack all IP into a list for speed
+    std::list<Vector2i> ip_list;
+    for (size_t i=0; i<ip.size(); ++i) {
+      ip_list.push_back(Vector2i(ip[i].x, ip[i].y));
+    }
+    
+    size_t num_filled_rois = 0;
+    for (size_t i=0; i<num_rois; ++i) { // Loop through ROIs
+      int ip_in_roi = 0;
+      
+      // Check if each point is in this ROI
+      std::list<Vector2i>::iterator iter;
+      for (iter=ip_list.begin(); iter!=ip_list.end(); ++iter) {
+        
+        // If the IP is in the ROI, remove it from the IP list so it
+        // does not get searched again.
+        if (rois[i].contains(*iter)) {
+          iter = ip_list.erase(iter);
+          ++ip_in_roi;
+          --iter;
+        }
+      } // End IP loop
+      if (ip_in_roi > min_ip_per_tile)
+        ++num_filled_rois;
+    }// End ROI loop
+
+    return static_cast<double>(num_filled_rois) / static_cast<double>(num_rois);
+  }
+
   // Do IP matching, return, the best translation+scale fitting functor.
   vw::Matrix<double> translation_ip_matching(vw::ImageView<float> const& image1,
-                                              vw::ImageView<float> const& image2,
-                                              int ip_per_tile,
-                                              double nodata1, double nodata2) {
+                                             vw::ImageView<float> const& image2,
+                                             int ip_per_tile,
+                                             double nodata1, double nodata2) {
 
     using namespace vw;
 

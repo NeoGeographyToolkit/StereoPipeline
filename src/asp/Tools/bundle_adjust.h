@@ -175,8 +175,8 @@ public:
   /// point, return the location of point_i on imager j in pixel coordinates.
   /// - The model parameters in this case are adjustment parameters for AdjustedCameraModel
   vw::Vector2 cam_pixel(unsigned /*i*/, unsigned j,
-			                  camera_vector_t const& cam_j,
-			                  point_vector_t  const& point_i) const {
+                        camera_vector_t const& cam_j,
+                        point_vector_t  const& point_i) const {
     vw::Vector3 position_correction;
     vw::Quat    pose_correction;
     parse_camera_parameters(cam_j, position_correction, pose_correction);
@@ -293,8 +293,8 @@ public:
   // transform on top of them, and write the adjustments back to this
   // vector.
   void import_transform(vw::Matrix4x4 const& M,
-			std::vector<double> & cameras_vec,
-			std::vector<double> & intrinsics_vec){
+                        std::vector<double> & cameras_vec,
+                        std::vector<double> & intrinsics_vec){
 
     for (unsigned j = 0; j < m_cam_vec.size(); j++) {
 
@@ -302,7 +302,7 @@ public:
       camera_intr_vector_t cam_intr_vec;
       double * intrinsics = NULL;
       if (!intrinsics_vec.empty()) 
-	intrinsics = &intrinsics_vec[0];
+        intrinsics = &intrinsics_vec[0];
       double * camera = &cameras_vec[camera_params_n*j];
       concat_extrinsics_intrinsics(camera, intrinsics, cam_intr_vec);
 
@@ -310,9 +310,7 @@ public:
       vw::Vector3 position_correction;
       vw::Quat    pose_correction;
       parse_camera_parameters(cam_intr_vec, position_correction, pose_correction);
-      vw::camera::AdjustedCameraModel cam(m_cameras[j],
-					  position_correction,
-					  pose_correction);
+      vw::camera::AdjustedCameraModel cam(m_cameras[j], position_correction, pose_correction);
 
       // Apply the transform
       cam.apply_transform(M);
@@ -612,8 +610,8 @@ public:
   /// image, and the 'm_point_vec' vector (3D point location) for the i'th
   /// point, return the location of point_i on imager j in pixel coordinates.
   vw::Vector2 cam_pixel(unsigned /*i*/, unsigned j,
-			camera_intr_vector_t const& cam_j,
-			point_vector_t       const& point_i) const {
+                        camera_intr_vector_t const& cam_j,
+                        point_vector_t       const& point_i) const {
 
     try {
       vw::camera::PinholeModel model = params_to_model(cam_j);
@@ -636,8 +634,8 @@ public:
   /// Write complete camera models to disk as opposed to adjustment files
   /// - If a lens distortion model is provided, use it in all output files.
   void write_camera_models(std::vector<std::string> const& cam_files,
-			   bool has_datum, vw::cartography::Datum & datum,
-			   vw::camera::LensDistortion const* input_ld=0){
+                           bool has_datum, vw::cartography::Datum & datum,
+                           vw::camera::LensDistortion const* input_ld=0){
 
     VW_ASSERT(cam_files.size() == m_cam_vec.size(),
                   vw::ArgumentErr() << "Must have as many camera files as cameras.\n");
@@ -655,7 +653,7 @@ public:
         vw::vw_out() << "Camera center for " << cam_files[icam] << ": "
                      << datum.cartesian_to_geodetic(model.camera_center())
                      << " (longitude, latitude, height above datum(m))\n\n";
-	
+
       }
     }
 
@@ -666,8 +664,8 @@ public:
   // it is enough to keep this internal, and it will be fetched from
   // the model when need be.
   void import_transform(vw::Matrix4x4 const& M,
-			std::vector<double> & cameras_vec,
-			std::vector<double> & intrinsics_vec){
+                        std::vector<double> & cameras_vec,
+                        std::vector<double> & intrinsics_vec){
 
     vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
     vw::Vector3   T;
@@ -677,7 +675,7 @@ public:
     double scale = pow(det(R), 1.0/3.0);
     for (size_t r = 0; r < R.rows(); r++)
       for (size_t c = 0; c < R.cols(); c++)
-	R(r, c) /= scale;
+        R(r, c) /= scale;
     
     for (size_t i=0; i< m_cameras.size(); ++i) {
       cam_ptr_t     cam_ptr = m_cameras[i];

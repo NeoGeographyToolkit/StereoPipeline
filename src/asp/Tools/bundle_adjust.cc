@@ -76,114 +76,6 @@ double g_max_disp_error = -1;
 
 typedef PixelMask< Vector<float, 2> > DispPixelT;
 
-
-//==================================================================================
-// IP filtering functions -> Move them somewhere else once they are settled
-
-/// Filter IP points by how reasonably the disparity can change along rows
-size_t filter_ip_homog(std::vector<ip::InterestPoint> const& ip1_in,
-                       std::vector<ip::InterestPoint> const& ip2_in,
-                       std::vector<ip::InterestPoint>      & ip1_out,
-                       std::vector<ip::InterestPoint>      & ip2_out,
-                       int inlier_threshold = 1) {
-
-  std::vector<size_t> indices;
-  try {
-  
-    std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(ip1_in),
-                         ransac_ip2 = iplist_to_vectorlist(ip2_in);
-  
-    typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
-    const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
-    const int    NUM_ITERATIONS         = 100;
-    RansacT ransac( math::HomographyFittingFunctor(),
-                    math::InterestPointErrorMetric(), NUM_ITERATIONS,
-                    inlier_threshold,
-                    MIN_NUM_OUTPUT_INLIERS, true
-                  );
-    Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
-    vw_out() << "\t--> Homography: " << H << "\n";
-    indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
-  } catch (const math::RANSACErr& e ) {
-    vw_out() << "RANSAC Failed: " << e.what() << "\n";
-    return false;
-  }
-
-  // Assemble the remaining interest points
-  const size_t num_left = indices.size();
-  std::vector<ip::InterestPoint> final_ip1, final_ip2;
-  ip1_out.resize(num_left);
-  ip2_out.resize(num_left);
-  for (size_t i=0; i<num_left; ++i) {
-    size_t index = indices[i];
-    ip1_out[i] = ip1_in[index];
-    ip2_out[i] = ip2_in[index];
-  }
-
-  return num_left;
-}
-
-// IP pair sorting functions
-typedef std::pair<ip::InterestPoint, ip::InterestPoint> IpPair;
-
-bool comp_ip_col(IpPair const& a, IpPair const& b) {
-  if (a.first.x == b.first.x)
-    return a.first.y < b.first.y;
-  return a.first.x < b.first.x;
-}
-bool comp_ip_row(IpPair const& a, IpPair const& b) {
-  if (a.first.y == b.first.y)
-    return a.first.x < b.first.x;
-  return a.first.y < b.first.y;
-}
-
-double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
-                                 Vector2i const& image_size, int tile_size=1024) {
-
-  if (tile_size < 1)
-    vw_throw(LogicErr() << "calc_ip_coverage_fraction: tile size is " << tile_size);
-
-  // Generate a grid of ROIs covering the entire image
-  BBox2i full_bbox(Vector2i(0,0), image_size);
-  bool include_partials = false;
-  std::vector<BBox2i> rois;
-  rois = subdivide_bbox(full_bbox, tile_size, tile_size, include_partials);
-  const size_t num_rois = rois.size();
-  if (num_rois == 0)
-    return 0; // Cannot have any coverage in the degenerate case!
-  
-  // Pack all IP into a list for speed
-  std::list<Vector2i> ip_list;
-  for (size_t i=0; i<ip.size(); ++i) {
-    ip_list.push_back(Vector2i(ip[i].x, ip[i].y));
-  }
-  
-  // Count up the pecentage of ROIs which have at least this many IP.
-  const int MIN_ROI_IP = 2;
-  
-  size_t num_filled_rois = 0;
-  for (size_t i=0; i<num_rois; ++i) { // Loop through ROIs
-    int ip_in_roi = 0;
-    
-    // Check if each point is in this ROI
-    std::list<Vector2i>::iterator iter;
-    for (iter=ip_list.begin(); iter!=ip_list.end(); ++iter) {
-      
-      // If the IP is in the ROI, remove it from the IP list so it
-      // does not get searched again.
-      if (rois[i].contains(*iter)) {
-        iter = ip_list.erase(iter);
-        ++ip_in_roi;
-        --iter;
-      }
-    } // End IP loop
-    if (ip_in_roi > MIN_ROI_IP)
-      ++num_filled_rois;
-  }// End ROI loop
-
-  return static_cast<double>(num_filled_rois) / static_cast<double>(num_rois);
-}
-
 //==================================================================================
 
 
@@ -243,8 +135,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
 // First read initial adjustments, if any, and apply perhaps a pc_align transform.
 template<class ModelT> void
 init_cams(ModelT & ba_model, Options & opt,
-	  std::vector<double> & cameras_vec,
-	  std::vector<double> & intrinsics_vec){
+          std::vector<double> & cameras_vec,
+          std::vector<double> & intrinsics_vec){
   
   // Read the adjustments from a previous run, if present
   if (opt.input_prefix != "") {
@@ -266,8 +158,8 @@ init_cams(ModelT & ba_model, Options & opt,
 ///  parameters from the control network into the vectors.
 template<> void
 init_cams<BAPinholeModel>(BAPinholeModel & ba_model, Options & opt,
-					  std::vector<double> & cameras_vec,
-					  std::vector<double> & intrinsics_vec){
+                          std::vector<double> & cameras_vec,
+                          std::vector<double> & intrinsics_vec){
   
   // Set the size of cameras_vec
   const int num_cameras           = ba_model.num_cameras();
@@ -1155,8 +1047,8 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
   std::vector<int>  num_point_observations;
   
   compute_mean_residuals_at_xyz(crn,  residuals,  num_points, outlier_xyz,  num_cameras,
-				// outputs
-				mean_residuals, num_point_observations);
+                                // outputs
+                                mean_residuals, num_point_observations);
   
   // Open the output file and write the header
   vw_out() << "Writing: " << output_path << std::endl;
@@ -1571,7 +1463,7 @@ void remove_outliers(ControlNetwork const& cnet, std::set<int> & outlier_xyz,
       int right_ip_width = right_image_size[0]*
           static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
       Vector2i ip_size(right_ip_width, right_image_size[1]);
-      double ip_coverage = calc_ip_coverage_fraction(right_ip, ip_size);
+      double ip_coverage = asp::calc_ip_coverage_fraction(right_ip, ip_size);
       // Careful with the line below, it gets used in process_icebridge_batch.py.
       vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << "\n";
     }
@@ -3609,15 +3501,13 @@ int main(int argc, char* argv[]) {
                                opt.camera_models[i].get(),
                                opt.camera_models[j].get());
 
-        // TODO: Move this into the IP finding code!
         // Compute the coverage fraction
-        // - 
         std::vector<ip::InterestPoint> ip1, ip2;
         ip::read_binary_match_file(match_filename, ip1, ip2);       
         int right_ip_width = rsrc1->cols()*
                               static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
         Vector2i ip_size(right_ip_width, rsrc1->rows());
-        double ip_coverage = calc_ip_coverage_fraction(ip2, ip_size);
+        double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);
         vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
 
 

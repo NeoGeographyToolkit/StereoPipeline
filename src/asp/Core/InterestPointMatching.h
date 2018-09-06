@@ -243,7 +243,22 @@ namespace asp {
                               double factor, // for example, 3.0
                               std::vector<vw::ip::InterestPoint> & left_ip,
                               std::vector<vw::ip::InterestPoint> & right_ip);
-                              
+
+  /// Filter IP points by how reasonably the disparity can change along rows
+  /// - Returns the number of points remaining after filtering.
+  size_t filter_ip_homog(std::vector<vw::ip::InterestPoint> const& ip1_in,
+                         std::vector<vw::ip::InterestPoint> const& ip2_in,
+                         std::vector<vw::ip::InterestPoint>      & ip1_out,
+                         std::vector<vw::ip::InterestPoint>      & ip2_out,
+                         int inlier_threshold = 1);
+
+  /// Estimate the "spread" of IP coverage in an image.
+  /// - Returns a value between 0 and 1.
+  /// - Breaks the image into tiles and checks how many tiles have at least N IP.
+  double calc_ip_coverage_fraction(std::vector<vw::ip::InterestPoint> const& ip,
+                                   vw::Vector2i const& image_size, int tile_size=1024,
+                                   int min_ip_per_tile=2);
+
   /// Smart IP matching that uses clustering on triangulation and
   /// datum information to determine inliers.
   ///
@@ -532,6 +547,7 @@ namespace asp {
     vw_out() << "\n\t    Matched points: " << matched_ip1.size() << std::endl;
   }
 
+
   // Homography IP matching
   //
   // This applies only the homography constraint. Not the best...
@@ -553,32 +569,12 @@ namespace asp {
                      nodata1, nodata2 );
     if ( matched_ip1.size() == 0 || matched_ip2.size() == 0 )
       return false;
-    std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1),
-                         ransac_ip2 = iplist_to_vectorlist(matched_ip2);
-    std::vector<size_t> indices;
-    try {
-      typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
-      const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
-      const int    NUM_ITERATIONS         = 100;
-      RansacT ransac( math::HomographyFittingFunctor(),
-                      math::InterestPointErrorMetric(), NUM_ITERATIONS,
-                      inlier_threshold,
-                      MIN_NUM_OUTPUT_INLIERS, true
-                    );
-      Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
-      vw_out() << "\t--> Homography: " << H << "\n";
-      indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
-    } catch (const math::RANSACErr& e ) {
-      vw_out() << "RANSAC Failed: " << e.what() << "\n";
-      return false;
-    }
-
+      
     std::vector<ip::InterestPoint> final_ip1, final_ip2;
-    BOOST_FOREACH( size_t& index, indices ) {
-      final_ip1.push_back(matched_ip1[index]);
-      final_ip2.push_back(matched_ip2[index]);
-    }
-
+    size_t num_left = filter_ip_homog(matched_ip1, matched_ip2, final_ip1, final_ip2,
+                                      inlier_threshold);
+    if (num_left == 0)
+      return false;
 
     if (stereo_settings().ip_debug_images) {
       vw_out() << "\t    Writing post-homography IP match debug image.\n";
@@ -598,20 +594,20 @@ namespace asp {
   // the images that that camera data doesn't know about. (ie scaling).
   template <class Image1T, class Image2T>
   bool ip_matching_no_align( bool single_threaded_camera,
-                    vw::camera::CameraModel* cam1,
-                    vw::camera::CameraModel* cam2,
-                    vw::ImageViewBase<Image1T> const& image1,
-                    vw::ImageViewBase<Image2T> const& image2,
-                    int ip_per_tile,
-                    vw::cartography::Datum const& datum,
-                    std::string const& output_name,
-                    double epipolar_threshold,
-                    double uniqueness_threshold,
-                    double nodata1,
-                    double nodata2,
-                    vw::TransformRef const& left_tx,
-                    vw::TransformRef const& right_tx,
-                    bool transform_to_original_coord) {
+                             vw::camera::CameraModel* cam1,
+                             vw::camera::CameraModel* cam2,
+                             vw::ImageViewBase<Image1T> const& image1,
+                             vw::ImageViewBase<Image2T> const& image2,
+                             int ip_per_tile,
+                             vw::cartography::Datum const& datum,
+                             std::string const& output_name,
+                             double epipolar_threshold,
+                             double uniqueness_threshold,
+                             double nodata1,
+                             double nodata2,
+                             vw::TransformRef const& left_tx,
+                             vw::TransformRef const& right_tx,
+                             bool transform_to_original_coord) {
     using namespace vw;
 
     // Detect interest points
