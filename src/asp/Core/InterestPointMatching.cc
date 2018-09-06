@@ -49,10 +49,10 @@ namespace asp {
   }
 
   Vector3 EpipolarLinePointMatcher::epipolar_line( Vector2 const& feature,
-						   cartography::Datum const& datum,
-						   camera::CameraModel* cam_ip,
-						   camera::CameraModel* cam_obj,
-						   bool & success) {
+                                                   cartography::Datum const& datum,
+                                                   camera::CameraModel* cam_ip,
+                                                   camera::CameraModel* cam_obj,
+                                                   bool & success) {
     success = true;
 
     // Watch out for errors thrown when projecting into the camera
@@ -106,10 +106,10 @@ namespace asp {
   }
 
   double EpipolarLinePointMatcher::distance_point_line( Vector3 const& line,
-							Vector2 const& point ) {
+                                                        Vector2 const& point ) {
     return fabs( line.x() * point.x() +
-		 line.y() * point.y() +
-		 line.z() ) /
+                 line.y() * point.y() +
+                 line.z() ) /
       norm_2( subvector( line, 0, 2 ) );
   }
 
@@ -129,19 +129,19 @@ namespace asp {
     std::vector<size_t>::iterator   m_output;
   public:
     EpipolarLineMatchTask( bool single_threaded_camera,
-			   bool use_uchar_tree,
-			   math::FLANNTree<float        >& tree_float,
-			   math::FLANNTree<unsigned char>& tree_uchar,
-			   ip::InterestPointList::const_iterator start,
-			   ip::InterestPointList::const_iterator end,
-			   ip::InterestPointList const& ip2,
-			   camera::CameraModel* cam1,
-			   camera::CameraModel* cam2,
-			   TransformRef const& tx1,
-			   TransformRef const& tx2,
-			   EpipolarLinePointMatcher const& matcher,
-			   Mutex& camera_mutex,
-			   std::vector<size_t>::iterator output ) :
+                           bool use_uchar_tree,
+                           math::FLANNTree<float        >& tree_float,
+                           math::FLANNTree<unsigned char>& tree_uchar,
+                           ip::InterestPointList::const_iterator start,
+                           ip::InterestPointList::const_iterator end,
+                           ip::InterestPointList const& ip2,
+                           camera::CameraModel* cam1,
+                           camera::CameraModel* cam2,
+                           TransformRef const& tx1,
+                           TransformRef const& tx2,
+                           EpipolarLinePointMatcher const& matcher,
+                           Mutex& camera_mutex,
+                           std::vector<size_t>::iterator output ) :
       m_single_threaded_camera(single_threaded_camera),
       m_use_uchar_tree(use_uchar_tree), m_tree_float(tree_float), m_tree_uchar(tree_uchar),
       m_start(start), m_end(end), m_ip_other(ip2),
@@ -241,13 +241,13 @@ namespace asp {
   }; // End class EpipolarLineMatchTask -------------------
 
   void EpipolarLinePointMatcher::operator()( ip::InterestPointList const& ip1,
-					     ip::InterestPointList const& ip2,
-					     DetectIpMethod  ip_detect_method,
-					     camera::CameraModel        * cam1,
-					     camera::CameraModel        * cam2,
-					     TransformRef          const& tx1,
-					     TransformRef          const& tx2,
-					     std::vector<size_t>        & output_indices ) const {
+                                             ip::InterestPointList const& ip2,
+                                             DetectIpMethod  ip_detect_method,
+                                             camera::CameraModel        * cam1,
+                                             camera::CameraModel        * cam2,
+                                             TransformRef          const& tx1,
+                                             TransformRef          const& tx2,
+                                             std::vector<size_t>        & output_indices ) const {
     typedef ip::InterestPointList::const_iterator IPListIter;
 
     Timer total_time("Total elapsed time", DebugMessage, "interest_point");
@@ -324,10 +324,10 @@ namespace asp {
 //---------------------------------------------------------------------------------------
 
   void check_homography_matrix(Matrix<double>       const& H,
-			       std::vector<Vector3> const& left_points,
-			       std::vector<Vector3> const& right_points,
-			       std::vector<size_t>  const& indices
-			       ){
+                               std::vector<Vector3> const& left_points,
+                               std::vector<Vector3> const& right_points,
+                               std::vector<size_t>  const& indices
+                               ){
 
     // Sanity checks. If these fail, most likely the two images are too different
     // for stereo to succeed.
@@ -354,9 +354,9 @@ namespace asp {
   // the pixels in the two camera images.
   Matrix<double>
   rough_homography_fit( camera::CameraModel* cam1,
-			camera::CameraModel* cam2,
-			BBox2i const& box1, BBox2i const& box2,
-			cartography::Datum const& datum ) {
+                        camera::CameraModel* cam2,
+                        BBox2i const& box1, BBox2i const& box2,
+                        cartography::Datum const& datum ) {
 
     // Bounce several points off the datum and fit an affine.
     std::vector<Vector3> left_points, right_points;
@@ -373,7 +373,7 @@ namespace asp {
       for ( int j = 0; j < num; j++ ) {
         try {
           Vector2 l( double(box1.width()  - 1) * i / (num-1.0),
-	             double(box1.height() - 1) * j / (num-1.0) );
+                     double(box1.height() - 1) * j / (num-1.0) );
 
           Vector3 intersection = cartography::datum_intersection( datum, cam1, l );
           if ( intersection == Vector3() )
@@ -390,7 +390,7 @@ namespace asp {
 
         try {
           Vector2 r( double(box2.width()  - 1) * i / (num-1.0),
-	             double(box2.height() - 1) * j / (num-1.0) );
+                     double(box2.height() - 1) * j / (num-1.0) );
 
           Vector3 intersection = cartography::datum_intersection( datum, cam2, r );
           if ( intersection == Vector3() )
@@ -417,10 +417,10 @@ namespace asp {
     typedef math::HomographyFittingFunctor hfit_func;
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
       ransac( hfit_func(), math::InterestPointErrorMetric(),
-	      100, // num iterations
-	      norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor), // inlier threshold
-	      left_points.size()/2 // min output inliers
-	      );
+              100, // num iterations
+              norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor), // inlier threshold
+              left_points.size()/2 // min output inliers
+              );
     Matrix<double> H = ransac( right_points, left_points );
     std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
     check_homography_matrix(H, left_points, right_points, indices);
@@ -434,26 +434,26 @@ namespace asp {
 
   Vector2i
   homography_rectification( bool adjust_left_image_size,
-			    Vector2i const& left_size,
-			    Vector2i const& right_size,
-			    std::vector<ip::InterestPoint> const& left_ip,
-			    std::vector<ip::InterestPoint> const& right_ip,
-			    vw::Matrix<double>& left_matrix,
-			    vw::Matrix<double>& right_matrix ) {
+                            Vector2i const& left_size,
+                            Vector2i const& right_size,
+                            std::vector<ip::InterestPoint> const& left_ip,
+                            std::vector<ip::InterestPoint> const& right_ip,
+                            vw::Matrix<double>& left_matrix,
+                            vw::Matrix<double>& right_matrix ) {
     // Reformat the interest points for RANSAC
     std::vector<Vector3>  right_copy = iplist_to_vectorlist(right_ip),
-			  left_copy  = iplist_to_vectorlist(left_ip);
+                          left_copy  = iplist_to_vectorlist(left_ip);
 
     double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
     
     // Use RANSAC to determine a good homography transform between the images
     math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric>
       ransac( math::HomographyFittingFunctor(),
-	      math::InterestPointErrorMetric(),
-	      100, // num iter
+              math::InterestPointErrorMetric(),
+              100, // num iter
               norm_2(Vector2(left_size.x(),left_size.y())) * (1.5*thresh_factor), // inlier thresh
-	      left_copy.size()*2/3 // min output inliers
-	      );
+              left_copy.size()*2/3 // min output inliers
+            );
     Matrix<double> H = ransac(right_copy, left_copy);
     std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
     check_homography_matrix(H, left_copy, right_copy, indices);
@@ -530,7 +530,7 @@ namespace asp {
       count++;
     }
     VW_ASSERT( count == valid_indices.size(),
-	       vw::MathErr() << "tri_ip_filtering: Programmer error. Count indices not aligned." );
+               vw::MathErr() << "tri_ip_filtering: Programmer error. Count indices not aligned." );
 
     typedef std::vector<std::pair<Vector<double>, Vector<double> > > ClusterT;
     const size_t NUM_CLUSTERS = 2;
@@ -604,7 +604,7 @@ namespace asp {
       error_idx++;
     }
     VW_ASSERT( prior_valid_size == error_idx,
-	       vw::MathErr() << "tri_ip_filtering: Programmer error. Indices don't seem to be aligned." );
+               vw::MathErr() << "tri_ip_filtering: Programmer error. Indices don't seem to be aligned." );
 
     vw_out() << "\t      Removed " << outlier_count << " points in triangulation filtering.\n";
     return (!valid_indices.empty());
@@ -612,8 +612,8 @@ namespace asp {
 
   bool
   stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
-		       std::vector<vw::ip::InterestPoint> const& ip2,
-		       std::list<size_t>& valid_indices ) {
+                       std::vector<vw::ip::InterestPoint> const& ip2,
+                       std::list<size_t>& valid_indices ) {
     const int NUM_STD_FILTER = 4;
     // 4 stddev filtering. Deletes any disparity measurement that is 4
     // stddev away from the measurements of it's local neighbors. We
@@ -631,7 +631,7 @@ namespace asp {
         locations1( count, 1 ) = ip1[index].y;
         reverse_lookup  [ count ] = index;
         disparity_vector[ count ] = Vector2(ip2[index].x,ip2[index].y) -
-			            Vector2(ip1[index].x,ip1[index].y);
+                                    Vector2(ip1[index].x,ip1[index].y);
         count++;
       }
       math::FLANNTree<float> tree1;
@@ -644,45 +644,45 @@ namespace asp {
         Vector<double> distance;
         const int NUM_INDICES_TO_GET = 11;
         tree1.knn_search( select_row( locations1, i ),
-		          indices, distance, NUM_INDICES_TO_GET );
+                          indices, distance, NUM_INDICES_TO_GET );
 
-	      // Bugfix: If there are too few inputs, in rare occasions
-	      // some of the outputs are invalid. Not always. Could not
-	      // figure this out in reasonable time, the logic is somewhere
-	      // deep inside FLANN. Just discard the bad results.
-	      std::vector<int> good_indices;
-	      for (size_t j = 0; j < indices.size(); j++) {
-	        if ((indices[j] < 0) || (indices[j] >= (int)disparity_vector.size()))
+        // Bugfix: If there are too few inputs, in rare occasions
+        // some of the outputs are invalid. Not always. Could not
+        // figure this out in reasonable time, the logic is somewhere
+        // deep inside FLANN. Just discard the bad results.
+        std::vector<int> good_indices;
+        for (size_t j = 0; j < indices.size(); j++) {
+          if ((indices[j] < 0) || (indices[j] >= (int)disparity_vector.size()))
                   continue;
-	        good_indices.push_back(indices[j]);
-	      }
+          good_indices.push_back(indices[j]);
+        }
 
-	      // Make an average of the disparities around us and not our own measurement
-	      Vector2 sum;
-	      for ( size_t j = 1; j < good_indices.size(); j++ ) {
-	        sum += disparity_vector[ good_indices[j] ];
-	      }
-	      sum = normalize( sum );
+        // Make an average of the disparities around us and not our own measurement
+        Vector2 sum;
+        for ( size_t j = 1; j < good_indices.size(); j++ ) {
+          sum += disparity_vector[ good_indices[j] ];
+        }
+        sum = normalize( sum );
 
-	      // Project all disparities along the new gradient
-	      Vector<double> projections( good_indices.size() );
-	      for ( size_t j = 0; j < good_indices.size(); j++ ) {
-	        projections[j] = dot_prod( disparity_vector[good_indices[j]], sum );
-	      }
-	      double mean   = 0;
-	      double stddev = 0;
-	      for ( size_t j = 1; j < good_indices.size(); j++ ) {
-	        mean += projections[j];
-	        stddev += projections[j]*projections[j];
-	      }
-	      mean /= good_indices.size() - 1;
-	      stddev = sqrt( stddev / ( good_indices.size() - 1 ) - mean*mean );
+        // Project all disparities along the new gradient
+        Vector<double> projections( good_indices.size() );
+        for ( size_t j = 0; j < good_indices.size(); j++ ) {
+          projections[j] = dot_prod( disparity_vector[good_indices[j]], sum );
+        }
+        double mean   = 0;
+        double stddev = 0;
+        for ( size_t j = 1; j < good_indices.size(); j++ ) {
+          mean += projections[j];
+          stddev += projections[j]*projections[j];
+        }
+        mean /= good_indices.size() - 1;
+        stddev = sqrt( stddev / ( good_indices.size() - 1 ) - mean*mean );
 
-	      double std_distance = fabs(projections[0]-mean)/stddev;
-	      if ( std_distance > worse_index.first ) {
-	        worse_index.first = std_distance;
-	        worse_index.second = i;
-	      }
+        double std_distance = fabs(projections[0]-mean)/stddev;
+        if ( std_distance > worse_index.first ) {
+          worse_index.first = std_distance;
+          worse_index.second = i;
+        }
       } // End loop through valid indices
       if ( worse_index.first > NUM_STD_FILTER ) {
         std::list<size_t>::iterator it = valid_indices.begin();
@@ -723,11 +723,11 @@ namespace asp {
 
     if (elevation_limit[0] < elevation_limit[1]) 
       vw_out() << "\t    * Applying elevation restriction: " << elevation_limit[0]
-	       << " to " << elevation_limit[1] << ".\n";
+               << " to " << elevation_limit[1] << ".\n";
 
     if (!lon_lat_limit.empty()) 
       vw_out() << "\t    * Applying lon-lat restriction: " << lon_lat_limit.min()
-	       << " to " << lon_lat_limit.max() << ".\n";
+               << " to " << lon_lat_limit.max() << ".\n";
     
     // Init output vectors
     ip1_out.clear();
@@ -754,14 +754,14 @@ namespace asp {
 
       Vector3 llh = datum.cartesian_to_geodetic(pt);
       if ( (elevation_limit[0] < elevation_limit[1]) && 
-	   ( (llh[2] < elevation_limit[0]) || (llh[2] > elevation_limit[1]) ) ) {
+           ( (llh[2] < elevation_limit[0]) || (llh[2] > elevation_limit[1]) ) ) {
         //vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
         continue;
       }
       
       Vector2 lon_lat = subvector(llh, 0, 2);
       if ( (!lon_lat_limit.empty()) && (!lon_lat_limit.contains(lon_lat)) ) {
-	continue; 
+        continue; 
       }
       
       //vw_out() << "Keeping IP diff: " << p2 - p1 << " with llh " << llh << std::endl;

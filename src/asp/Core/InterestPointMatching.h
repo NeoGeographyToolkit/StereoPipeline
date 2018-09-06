@@ -38,10 +38,10 @@
 // TODO: This function should live somewhere else!  It was pulled from vw->tools->ipmatch.cc
 template <typename Image1T, typename Image2T>
 void write_match_image(std::string const& out_file_name,
-		       vw::ImageViewBase<Image1T> const& image1,
-		       vw::ImageViewBase<Image2T> const& image2,
-		       std::vector<vw::ip::InterestPoint> const& matched_ip1,
-		       std::vector<vw::ip::InterestPoint> const& matched_ip2) {
+                       vw::ImageViewBase<Image1T> const& image1,
+                       vw::ImageViewBase<Image2T> const& image2,
+                       std::vector<vw::ip::InterestPoint> const& matched_ip1,
+                       std::vector<vw::ip::InterestPoint> const& matched_ip2) {
   vw::vw_out() << "\t    Starting write_match_image " << std::endl;
 
   // Skip image pairs with no matches.
@@ -51,8 +51,8 @@ void write_match_image(std::string const& out_file_name,
   // Work out the scaling to produce the subsampled images. These
   // values are choosen just allow a reasonable rendering time.
   float sub_scale  = sqrt(1500.0 * 1500.0 / float(image1.impl().cols() * image1.impl().rows()));
-	sub_scale += sqrt(1500.0 * 1500.0 / float(image2.impl().cols() * image2.impl().rows()));
-	sub_scale /= 2;
+        sub_scale += sqrt(1500.0 * 1500.0 / float(image2.impl().cols() * image2.impl().rows()));
+        sub_scale /= 2;
   //if ( sub_scale > 1 )
     sub_scale = 1;
 
@@ -170,35 +170,35 @@ namespace asp {
   template <class Image1T, class Image2T>
   void detect_ip( vw::ip::InterestPointList& ip1, 
                   vw::ip::InterestPointList& ip2,  
-		  vw::ImageViewBase<Image1T> const& image1,
-		  vw::ImageViewBase<Image2T> const& image2,
-		  int ip_per_tile,
-		  double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-		  double nodata2 = std::numeric_limits<double>::quiet_NaN() );
+                  vw::ImageViewBase<Image1T> const& image1,
+                  vw::ImageViewBase<Image2T> const& image2,
+                  int ip_per_tile,
+                  double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                  double nodata2 = std::numeric_limits<double>::quiet_NaN() );
 
   /// Detect and Match Interest Points
   ///
   /// This is not meant to be used directly. Please use ip_matching
   template <class Image1T, class Image2T>
   void detect_match_ip( std::vector<vw::ip::InterestPoint>& matched_ip1,
-			std::vector<vw::ip::InterestPoint>& matched_ip2,
-			vw::ImageViewBase<Image1T> const& image1,
-			vw::ImageViewBase<Image2T> const& image2,
-			int ip_per_tile,
-			double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-			double nodata2 = std::numeric_limits<double>::quiet_NaN() );
+                        std::vector<vw::ip::InterestPoint>& matched_ip2,
+                        vw::ImageViewBase<Image1T> const& image1,
+                        vw::ImageViewBase<Image2T> const& image2,
+                        int ip_per_tile,
+                        double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                        double nodata2 = std::numeric_limits<double>::quiet_NaN() );
 
   /// Homography IP matching
   ///
   /// This applies only the homography constraint. Not the best...
   template <class Image1T, class Image2T>
   bool homography_ip_matching( vw::ImageViewBase<Image1T> const& image1,
-			       vw::ImageViewBase<Image2T> const& image2,
-			       int ip_per_tile,
-			       std::string const& output_name,
-			       int inlier_threshold=10,
-			       double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-			       double nodata2 = std::numeric_limits<double>::quiet_NaN() );
+                               vw::ImageViewBase<Image2T> const& image2,
+                               int ip_per_tile,
+                               std::string const& output_name,
+                               int inlier_threshold=10,
+                               double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                               double nodata2 = std::numeric_limits<double>::quiet_NaN() );
 
   /// IP matching that uses clustering on triangulation error to
   /// determine inliers.  Check output this filter can fail.
@@ -207,19 +207,19 @@ namespace asp {
   /// something to start with.
   bool
   tri_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
-		    std::vector<vw::ip::InterestPoint> const& ip2,
-		    vw::camera::CameraModel* cam1,
-		    vw::camera::CameraModel* cam2,
-		    std::list<size_t>& valid_indices,
-		    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
-		    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
+                    std::vector<vw::ip::InterestPoint> const& ip2,
+                    vw::camera::CameraModel* cam1,
+                    vw::camera::CameraModel* cam2,
+                    std::list<size_t>& valid_indices,
+                    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
+                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
 
   /// 4 stddev filtering. Deletes any disparity measurement that is 4
   /// stddev away from the measurements of it's local neighbors. We
   /// kill off worse offender one at a time until everyone is compliant.
   bool stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
-			    std::vector<vw::ip::InterestPoint> const& ip2,
-			    std::list<size_t>& valid_indices );
+                            std::vector<vw::ip::InterestPoint> const& ip2,
+                            std::list<size_t>& valid_indices );
 
   // Filter IP by ensuring that the triangulated IP are in the given lon-lat-height box
   size_t filter_ip_by_lonlat_and_elevation
@@ -251,39 +251,39 @@ namespace asp {
   /// the images that that camera data doesn't know about. (ie scaling).
   template <class Image1T, class Image2T>
   bool ip_matching_no_align( bool single_threaded_camera,
-		    vw::camera::CameraModel* cam1,
-		    vw::camera::CameraModel* cam2,
-		    vw::ImageViewBase<Image1T> const& image1,
-		    vw::ImageViewBase<Image2T> const& image2,
-		    int ip_per_tile,
-		    vw::cartography::Datum const& datum,
-		    std::string const& output_name,
-		    double epipolar_threshold,
-		    double uniqueness_threshold,
-		    double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-		    double nodata2 = std::numeric_limits<double>::quiet_NaN(),
-		    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
-		    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
-		    bool transform_to_original_coord = true );
+                             vw::camera::CameraModel* cam1,
+                             vw::camera::CameraModel* cam2,
+                             vw::ImageViewBase<Image1T> const& image1,
+                             vw::ImageViewBase<Image2T> const& image2,
+                             int ip_per_tile,
+                             vw::cartography::Datum const& datum,
+                             std::string const& output_name,
+                             double epipolar_threshold,
+                             double uniqueness_threshold,
+                             double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                             double nodata2 = std::numeric_limits<double>::quiet_NaN(),
+                             vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
+                             vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
+                             bool transform_to_original_coord = true );
 
   /// Calls ip matching above but with an additional step where we
   /// apply a homography to make right image like left image. This is
   /// useful so that both images have similar scale and similar affine qualities.
   template <class Image1T, class Image2T>
   bool ip_matching_w_alignment( bool single_threaded_camera,
-				vw::camera::CameraModel* cam1,
-				vw::camera::CameraModel* cam2,
-				vw::ImageViewBase<Image1T> const& image1,
-				vw::ImageViewBase<Image2T> const& image2,
-				int ip_per_tile,
-				vw::cartography::Datum const& datum,
-				std::string const& output_name,
-				double epipolar_threshold,
-				double uniqueness_threshold,
-				double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-				double nodata2 = std::numeric_limits<double>::quiet_NaN(),
-				vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
-				vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
+                                vw::camera::CameraModel* cam1,
+                                vw::camera::CameraModel* cam2,
+                                vw::ImageViewBase<Image1T> const& image1,
+                                vw::ImageViewBase<Image2T> const& image2,
+                                int ip_per_tile,
+                                vw::cartography::Datum const& datum,
+                                std::string const& output_name,
+                                double epipolar_threshold,
+                                double uniqueness_threshold,
+                                double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                                double nodata2 = std::numeric_limits<double>::quiet_NaN(),
+                                vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
+                                vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
 
 // ==============================================================================================
 // Function definitions
@@ -294,7 +294,7 @@ namespace asp {
   /// - Returns the number of points removed.
   /// TODO: MOVE THIS FUNCTION!
   inline size_t remove_ip_bbox(vw::BBox2i const& roi, vw::ip::InterestPointList & ip_list,
-                        bool remove_outside){
+                               bool remove_outside){
     // Loop through all the points
     size_t num_removed = 0;
     vw::ip::InterestPointList::iterator ip;
@@ -690,7 +690,7 @@ namespace asp {
     }
     if (!stereo_settings().disable_tri_filtering) {
       if (!tri_ip_filtering( matched_ip1, matched_ip2,
-			     cam1, cam2, good_indices, left_tx, right_tx ) ){
+                             cam1, cam2, good_indices, left_tx, right_tx ) ){
         vw_out() << "No interest points left after triangulation filtering." << std::endl;
         return false;
       }
@@ -768,19 +768,19 @@ namespace asp {
 
   template <class Image1T, class Image2T>
   bool ip_matching_w_alignment( bool single_threaded_camera,
-				vw::camera::CameraModel* cam1,
-				vw::camera::CameraModel* cam2,
-				vw::ImageViewBase<Image1T> const& image1,
-				vw::ImageViewBase<Image2T> const& image2,
-				int ip_per_tile,
-				vw::cartography::Datum const& datum,
-				std::string const& output_name,
-				double epipolar_threshold,
-				double uniqueness_threshold,
-				double nodata1,
-				double nodata2,
-				vw::TransformRef const& left_tx,
-				vw::TransformRef const& right_tx ) {
+                                vw::camera::CameraModel* cam1,
+                                vw::camera::CameraModel* cam2,
+                                vw::ImageViewBase<Image1T> const& image1,
+                                vw::ImageViewBase<Image2T> const& image2,
+                                int ip_per_tile,
+                                vw::cartography::Datum const& datum,
+                                std::string const& output_name,
+                                double epipolar_threshold,
+                                double uniqueness_threshold,
+                                double nodata1,
+                                double nodata2,
+                                vw::TransformRef const& left_tx,
+                                vw::TransformRef const& right_tx ) {
 
     using namespace vw;
 
@@ -808,13 +808,13 @@ namespace asp {
     { // Check to see if this rough homography works
       HomographyTransform func( rough_homography );
       VW_ASSERT( box1.intersects( func.forward_bbox( box2 ) ),
-		 LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed. Examine your images, or consider using the option --skip-rough-homography.\n" );
+      LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed. Examine your images, or consider using the option --skip-rough-homography.\n" );
     }
 
     TransformRef tx( compose(right_tx, HomographyTransform(rough_homography)) );
     BBox2i raster_box = tx.forward_bbox( right_tx.reverse_bbox(box2) );
     tx = TransformRef(compose(TranslateTransform(-raster_box.min()),
-			                right_tx, HomographyTransform(rough_homography)));
+                              right_tx, HomographyTransform(rough_homography)));
     raster_box -= Vector2i(raster_box.min());
 
 
@@ -824,13 +824,13 @@ namespace asp {
     //   and stop them from being masked out.
     bool inlier =
       ip_matching_no_align( single_threaded_camera,
-		   cam1, cam2, image1.impl(),
-		   crop(transform(image2.impl(), compose(tx, inverse(right_tx)),
-				  ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
-				  NearestPixelInterpolation()), raster_box),
-		   ip_per_tile,
-		   datum, output_name, epipolar_threshold, uniqueness_threshold,
-		   nodata1, nodata2, left_tx, tx );
+                            cam1, cam2, image1.impl(),
+                            crop(transform(image2.impl(), compose(tx, inverse(right_tx)),
+                            ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
+                            NearestPixelInterpolation()), raster_box),
+                            ip_per_tile,
+                            datum, output_name, epipolar_threshold, uniqueness_threshold,
+                            nodata1, nodata2, left_tx, tx );
     if (!inlier)
       return inlier;
 
