@@ -73,15 +73,15 @@ void popUp(std::string msg){
 }
 
 bool getStringFromGui(QWidget * parent,
-		      std::string title, std::string description,
-		      std::string inputStr,
-		      std::string & outputStr){ // output
+                      std::string title, std::string description,
+                      std::string inputStr,
+                      std::string & outputStr){ // output
   outputStr = "";
 
   bool ok = false;
   QString text = QInputDialog::getText(parent, title.c_str(), description.c_str(),
-				       QLineEdit::Normal, inputStr.c_str(),
-				       &ok);
+                                       QLineEdit::Normal, inputStr.c_str(),
+                                       &ok);
 
   if (ok) outputStr = text.toStdString();
 
@@ -93,10 +93,10 @@ bool supplyOutputPrefixIfNeeded(QWidget * parent, std::string & output_prefix){
   if (output_prefix != "") return true;
 
   bool ans = getStringFromGui(parent,
-			      "Enter the output prefix to use for the interest point match file.",
-			      "Enter the output prefix to use for the interest point match file.",
-			      "",
-				output_prefix);
+                              "Enter the output prefix to use for the interest point match file.",
+                              "Enter the output prefix to use for the interest point match file.",
+                              "",
+                              output_prefix);
 
   if (ans)
     vw::create_out_dir(output_prefix);
@@ -144,6 +144,7 @@ bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
   std::string suffix = oss.str();
 
   output_file = vw::mosaic::filename_from_suffix1(input_file, suffix);
+  bool align_light_to_georef = false;
   try {
     DiskImageView<float> input(input_file);
     try{
@@ -152,7 +153,7 @@ bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
       if (will_write){
         vw_out() << "Writing: " << output_file << std::endl;
         vw::do_multitype_hillshade(input_file, output_file, azimuth, elevation, scale,
-                                   nodata_val, blur_sigma);
+                                   nodata_val, blur_sigma, align_light_to_georef);
       }
     }catch(...){
       // Failed to write, presumably because we have no write access.
@@ -164,7 +165,7 @@ bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
       if (will_write){
         vw_out() << "Writing: " << output_file << std::endl;
         vw::do_multitype_hillshade(input_file,  output_file, azimuth, elevation, scale,
-                                   nodata_val, blur_sigma);
+                                   nodata_val, blur_sigma, align_light_to_georef);
       }
     }
   } catch (const Exception& e) {
@@ -225,7 +226,7 @@ void toOGR(vw::geometry::dPoly const& poly, OGRPolygon & P){
 
     if (R.getNumPoints() >= 4 ){
       if (P.addRing(&R) != OGRERR_NONE )
-	vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
+        vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
     }
   }
   
@@ -233,7 +234,7 @@ void toOGR(vw::geometry::dPoly const& poly, OGRPolygon & P){
   
   
 void fromOGR(OGRPolygon *poPolygon, std::string const& poly_color,
-	     std::string const& layer_str, vw::geometry::dPoly & poly){
+             std::string const& layer_str, vw::geometry::dPoly & poly){
 
   bool isPolyClosed = true; // only closed polygons are supported
   
@@ -283,14 +284,14 @@ void fromOGR(OGRPolygon *poPolygon, std::string const& poly_color,
     }
     
     poly.appendPolygon(len, vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
-		       isPolyClosed, poly_color, layer_str);
+                       isPolyClosed, poly_color, layer_str);
     
   }
 }
 
 void fromOGR(OGRMultiPolygon *poMultiPolygon, std::string const& poly_color,
-	     std::string const& layer_str, std::vector<vw::geometry::dPoly> & polyVec,
-	     bool append){
+             std::string const& layer_str, std::vector<vw::geometry::dPoly> & polyVec,
+             bool append){
 
 
   if (!append) polyVec.clear();
@@ -330,7 +331,7 @@ void fromOGR(OGRGeometry *poGeometry, std::string const& poly_color,
     vw::geometry::dPoly poly;
     bool isPolyClosed = true; // only closed polygons are supported
     poly.setPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
-		    isPolyClosed, poly_color, layer_str);
+                    isPolyClosed, poly_color, layer_str);
     polyVec.push_back(poly);
     
   } else if (wkbFlatten(poGeometry->getGeometryType()) == wkbMultiPolygon){
@@ -366,7 +367,7 @@ void mergePolys(std::vector<vw::geometry::dPoly> & polyVec){
     if (poly_color == ""){
       std::vector<std::string> colors = polyVec[vecIter].get_colors();
       if (!colors.empty()) 
-	poly_color = colors[0];
+        poly_color = colors[0];
     }
       
     if (layer_str == "") {
@@ -395,7 +396,7 @@ void mergePolys(std::vector<vw::geometry::dPoly> & polyVec){
 
       OGRPolygon * P = new OGRPolygon;
       if (P->addRing(&R) != OGRERR_NONE )
-	vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
+        vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
 
       ogr_polys.push_back(P);
     }
@@ -436,7 +437,7 @@ void mergePolys(std::vector<vw::geometry::dPoly> & polyVec){
 
       // Keep the pointer to the new geometry
       if (merged_geom != NULL)
-	OGRGeometryFactory::destroyGeometry(merged_geom);
+        OGRGeometryFactory::destroyGeometry(merged_geom);
       merged_geom = local_merged;
     }    
 
@@ -487,12 +488,12 @@ void read_shapefile(std::string const& file,
 	poLayer->GetLayerDefn()->GetGeomFieldDefn(iGeom);
       OGRSpatialReference* poSRS = poGFldDefn->GetSpatialRef();
       if( poSRS == NULL )
-	pszWKT = CPLStrdup( "(unknown)" );
+        pszWKT = CPLStrdup( "(unknown)" );
       else {
-	has_geo = true;
-	poSRS->exportToPrettyWkt( &pszWKT );
-	// Stop at the first geom
-	break;
+        has_geo = true;
+        poSRS->exportToPrettyWkt( &pszWKT );
+        // Stop at the first geom
+        break;
       }
     }
   }else{
