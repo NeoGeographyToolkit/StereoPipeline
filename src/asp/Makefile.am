@@ -21,17 +21,14 @@
 #########################################
 
 core_subdirs = Core
-core_headers = Core.h
 
 camera_subdirs = Camera
 
 sessions_subdirs = Sessions
 
 isisio_subdirs = IsisIO
-isisio_headers = IsisIO.h
 
 spiceio_subdirs = SpiceIO
-spiceio_headers = SpiceIO.h
 
 gui_subdirs = GUI
 python_subdirs = Python
@@ -40,8 +37,7 @@ wv_correct_subdirs = WVCorrect
 icebridge_subdirs = IceBridge
 hidden_subdirs = Hidden
 
-include_HEADERS = $(core_headers) $(spiceio_headers)            \
-	  $(isisio_headers) asp_config.h
+include_HEADERS = asp_config.h
 
 SUBDIRS = $(core_subdirs) $(spiceio_subdirs) $(isisio_subdirs) \
 	  $(camera_subdirs) $(sessions_subdirs) $(gui_subdirs) $(python_subdirs) \
