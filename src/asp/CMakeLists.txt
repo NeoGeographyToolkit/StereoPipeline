@@ -71,7 +71,7 @@ endif()
 foreach(n ${VW_LIBNAMES})
   set(f lib${n}${ext})
   set(VISIONWORKBENCH_LIBRARIES ${VISIONWORKBENCH_LIBRARIES} ${f})
-endforeach(f)
+endforeach(n)
 
 include_directories(${VISIONWORKBENCH_INCLUDE_DIR})
 link_directories(${VISIONWORKBENCH_LIBRARY_DIR})
@@ -106,7 +106,6 @@ if(Boost_FOUND)
     #link_directories(${Boost_LIBRARY_DIRS})
     set(ASP_HAVE_PKG_BOOST 1)
 endif(Boost_FOUND)
-message("--------------------------------------------------------------")
 
 
 message("--------------------------------------------------------------")
@@ -203,16 +202,6 @@ find_external_library(OPENSCENEGRAPH "" "${OPENSCENEGRAPH_LIB_NAMES}" REQUIRED)
 #find_external_library(Z "" "libz" NOT_REQUIRED)
 #find_external_library(GDAL "" "libgdal" NOT_REQUIRED)
 #find_external_library(PROJ4 "" "libproj" NOT_REQUIRED)
-
-
-# Needed?
-#find_package(OpenMP)
-#if(OPENMP_FOUND)
-#  message("Found OPENMP")
-#  SET( CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}" )
-#  SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}" )
-#endif()
-
 
 set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_core        opencv_shape
