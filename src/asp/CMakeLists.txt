@@ -7,15 +7,17 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}" )
 #===============================================================================
 # Configuration options
 
-
 # --- Directory paths ---
 set(BINARYBUILDER_INSTALL_DIR "" CACHE FILEPATH "Path to Binary Builder installation directory")
 set(VISIONWORKBENCH_INSTALL_DIR "" CACHE FILEPATH "Path to Binary Builder installation directory")
 
-
-if(NOT ${BINARYBUILDER_INSTALL_DIR})
+if("${BINARYBUILDER_INSTALL_DIR}" STREQUAL "")
   message(SEND_ERROR "You need to set BINARYBUILDER_INSTALL_DIR: ${BINARYBUILDER_INSTALL_DIR}")
 endif()
+
+# Look for libraries in both of these BB locations.
+link_directories(${BINARYBUILDER_INSTALL_DIR}/lib)
+link_directories(${BINARYBUILDER_INSTALL_DIR}/lib64)
 
 # If VW path is provided, use that instead of the BB install dir.
 if (${VISIONWORKBENCH_INSTALL_DIR} STREQUAL "")
@@ -45,19 +47,30 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 #==================================================================================
 # Find dependencies
 
-#TODO: Replace with FindVisionWorkbench module
+set(REQUIRED     True )
+set(NOT_REQUIRED False)
+
+#TODO: Replace with FindVisionWorkbench module?
 # Set up VisionWorkbench
 message("--------------------------------------------------------------")
 message(" Vision Workbench installation directory: ${VISIONWORKBENCH_INSTALL_DIR}")
 set(VISIONWORKBENCH_INCLUDE_DIR ${VISIONWORKBENCH_INSTALL_DIR}/include)
 set(VISIONWORKBENCH_LIBRARY_DIR ${VISIONWORKBENCH_INSTALL_DIR}/lib)
+set(ASP_HAVE_PACKAGE_VW 1)
 
-# TODO: Just list these manually?
-file(GLOB TEMP "${VISIONWORKBENCH_INSTALL_DIR}/lib/libvw*.so")
 set(VISIONWORKBENCH_LIBRARIES)
-foreach(f ${TEMP})
-  get_filename_component(FILENAME ${f} NAME)
-  set(VISIONWORKBENCH_LIBRARIES ${VISIONWORKBENCH_LIBRARIES} ${FILENAME})
+set(VW_LIBNAMES VwBundleAdjustment  VwCore      VwImage          VwMosaic
+                VwCamera            VwFileIO    VwInterestPoint  VwStereo
+                VwCartography       VwGeometry  VwMath)
+
+set(ext ".so")
+if (APPLE)
+  set(ext ".dylib")
+endif()
+
+foreach(n ${VW_LIBNAMES})
+  set(f lib${n}${ext})
+  set(VISIONWORKBENCH_LIBRARIES ${VISIONWORKBENCH_LIBRARIES} ${f})
 endforeach(f)
 
 include_directories(${VISIONWORKBENCH_INCLUDE_DIR})
@@ -91,6 +104,7 @@ if(Boost_FOUND)
     #include_directories(${Boost_INCLUDE_DIRS})
     link_directories(${Boost_LIBRARY_DIR})
     #link_directories(${Boost_LIBRARY_DIRS})
+    set(ASP_HAVE_PKG_BOOST 1)
 endif(Boost_FOUND)
 message("--------------------------------------------------------------")
 
@@ -98,6 +112,7 @@ message("--------------------------------------------------------------")
 message("--------------------------------------------------------------")
 message("Searching for QT...")
 # TODO: Make sure this finds the correct install!
+# QT is complicated to use and should go through find_package
 set (QT_QMAKE_EXECUTABLE  ${BASESYSTEM_INSTALL_DIR}/bin/qmake)
 set (QT_MOC_EXECUTABLE    ${BASESYSTEM_INSTALL_DIR}/bin/moc)
 set (QT_RCC_EXECUTABLE    ${BASESYSTEM_INSTALL_DIR}/bin/rcc)
@@ -107,13 +122,27 @@ set(REQUIRED_QT_LIBS QtConcurrent QtCore QtGui QtNetwork QtSql
                      QtSvg QtWidgets QtXml QtXmlPatterns QtPrintSupport
                      QtTest QtPositioning QtQml QtQuick QtOpenGL
                      QtMultimedia QtMultimediaWidgets QtDBus)
-find_package(Qt5 5.6.3 REQUIRED ${REQUIRED_QT_LIBS})
+                     
+#find_package(Qt5 5.6.3 REQUIRED ${REQUIRED_QT_LIBS})
+
+set(REQUIRED_QT_COMPONENTS  Core                Concurrent
+                            Gui                 Multimedia
+                            MultimediaWidgets   Network
+                            OpenGL              PrintSupport
+                            Qml                 Quick
+                            Script              ScriptTools
+                            Sql                 Svg
+                            Test                Widgets
+                            Xml                 XmlPatterns)
+find_package(Qt5 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
 
 if(Qt5_FOUND)
-    include(${QT_USE_FILE}) # Required after using QT find command
-    message("QT include dirs  " ${QT_INCLUDES})
+    # TODO: What exactly do we need to do here?
+    
+    #message("QT_USE_FILE = ${QT_USE_FILE}")
+    #include(${QT_USE_FILE}) # Required after using QT find command
+    #message("QT include dirs  " ${QT_INCLUDES})
 
-    # TODO: Fix!
     ## By default only QtCore and QtGui modules are enabled
     ## other modules must be enabled like this:
     #SET( QT_USE_QT3SUPPORT TRUE )   
@@ -123,73 +152,57 @@ if(Qt5_FOUND)
     # code (CMAKE_BINARY_DIR holds a path to the build directory, while
     # INCLUDE_DIRECTORIES() works just like INCLUDEPATH from qmake)
     INCLUDE_DIRECTORIES( ${CMAKE_BINARY_DIR} )
-
+    set (ASP_HAVE_PKG_QT 1)
+    message("QT found!")
 endif(Qt5_FOUND)
 message("--------------------------------------------------------------")
 
-# Get ISIS libraries
-set(ISIS_FOUND)
-set(ISIS_LIBRARIES ${BASESYSTEM_INSTALL_DIR}/lib/libisis3.so)
-set(ISIS_INCLUDE_DIRS ${BASESYSTEM_INSTALL_DIR}/include)
-
-# Get NAIF includes (Needed for reading/writing SPICE data)
-set(NAIF_FOUND True)
-set(NAIF_INCLUDE_DIRS ${BASESYSTEM_INSTALL_DIR}/include/naif/)
-include_directories("${NAIF_INCLUDE_DIRS}")
-
-set(PROTOBUF_FOUND)
-set(PROTOBUF_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include)
-set(PROTOBUF_LIBRARY     ${BASESYSTEM_INSTALL_DIR}/lib/libprotobuf.so)
-include_directories(${PROTOBUF_INCLUDE_DIR})
-
-#find_package(Protobuf REQUIRED)
-#if(PROTOBUF_FOUND)
-#  message("Found PROTOBUF " ${PROTOBUF_LIBRARY})
-#endif()
-
-
-set(EIGEN_FOUND)
-set(EIGEN_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include/eigen3)
-#set(EIGEN_LIBRARY     ${BASESYSTEM_INSTALL_DIR}/lib/libprotobuf.so)
-include_directories(${EIGEN_INCLUDE_DIR})
-
-
-set(LIBPOINTMATCHER_FOUND)
-set(LIBPOINTMATCHER_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include/)
-set(LIBPOINTMATCHER_LIBRARY     ${BASESYSTEM_INSTALL_DIR}/lib/libpointmatcher.so)
-include_directories(${LIBPOINTMATCHER_INCLUDE_DIR})
-
-set(LIBLAS_FOUND)
-set(LIBLAS_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include/)
-set(LIBLAS_LIBRARY     ${BASESYSTEM_INSTALL_DIR}/lib/liblas.so)
-include_directories(${LIBLAS_INCLUDE_DIR})
-
-# Look for more required packages
-set(LAPACK_FOUND)
-set(LAPACK_LIBRARIES   ${BASESYSTEM_INSTALL_DIR}/lib/liblapack.so
-                       ${BASESYSTEM_INSTALL_DIR}/lib/libblas.so)
-set(LAPACK_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include/)
-
-set(OPENSCENEGRAPH_LIB_NAMES osgAnimation.so osgDB.so osgFX.so osgGA.so osgManipulator.so
-                             osgParticle.so osgPresentation.so osgShadow.so osgSim.so 
-                             osg osgTerrain.so osgText.so osgUtil.so osgViewer.so osgVolume.so osgWidget.so)
-find_external_library(OPENSCENEGRAPH "" "${OPENSCENEGRAPH_LIB_NAMES}" REQUIRED)
-                                     
-if(OPENSCENEGRAPH_FOUND)
-  message("Found OpenSceneGraph " ${OPENSCENEGRAPH_LIBRARIES})
-  message("Include dirs: " ${OPENSCENEGRAPH_INCLUDE_DIRS})
-  include_directories("${OPENSCENEGRAPH_INCLUDE_DIRS}")
+find_package(OpenMP)
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
+
+find_external_library(NAIF "naif" "" REQUIRED)
+find_external_library(SPICE "" "cspice" REQUIRED)
+find_external_library(GEOID "" "egm2008" REQUIRED)
+find_external_library(XERCESC "" "xerces-c" REQUIRED)
+find_external_library(PROTOBUF "" "protobuf" REQUIRED)
+find_external_library(EMBREE "" "embree" REQUIRED)
+find_external_library(EIGEN "eigen3" "" REQUIRED)
+find_external_library(CERES "ceres" "ceres" REQUIRED)
+find_external_library(LIBPOINTMATCHER "" "pointmatcher" REQUIRED)
+find_external_library(LIBLAS "" "las" REQUIRED)
+find_external_library(LASZIP "laszip" "laszip" REQUIRED)
+find_external_library(LAPACK "" "lapack;blas" REQUIRED)
+find_external_library(GFLAGS "gflags" "gflags" REQUIRED)
+find_external_library(GLOG "glog" "glog" REQUIRED)
+
+find_external_library(ISIS "" "isis3" REQUIRED)
+
+set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
+                  pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
+                  pcl_registration pcl_sample_consensus pcl_search pcl_segmentation
+                  pcl_stereo pcl_surface pcl_tracking)
+find_external_library(PCL "pcl" "${PCL_LIB_NAMES}" REQUIRED)
+
+
+set(OPENSCENEGRAPH_LIB_NAMES osgAnimation osgDB osgFX osgGA osgManipulator
+                             osgParticle osgPresentation osgShadow osgSim 
+                             osg osgTerrain osgText osgUtil osgViewer osgVolume osgWidget)
+find_external_library(OPENSCENEGRAPH "" "${OPENSCENEGRAPH_LIB_NAMES}" REQUIRED)
+
 # TODO: Which do we actually need!
-#find_external_library(FLANN "" "libflann_cpp.so" NOT_REQUIRED)
-#find_external_library(JPEG "" "libjpeg.so" NOT_REQUIRED)
-#find_external_library(PNG "" "libpng.so;libpng16.so" NOT_REQUIRED)
-#find_external_library(TIFF "" "libtiff.so" NOT_REQUIRED)
-#find_external_library(OPENEXR "OpenEXR" "libIlmImf.so;libIlmThread.so" NOT_REQUIRED)
-#find_external_library(Z "" "libz.so" NOT_REQUIRED)
-#find_external_library(GDAL "" "libgdal.so" NOT_REQUIRED)
-#find_external_library(PROJ4 "" "libproj.so" NOT_REQUIRED)
+#find_external_library(FLANN "" "libflann_cpp" NOT_REQUIRED)
+#find_external_library(JPEG "" "libjpeg" NOT_REQUIRED)
+#find_external_library(PNG "" "libpng;libpng16" NOT_REQUIRED)
+#find_external_library(TIFF "" "libtiff" NOT_REQUIRED)
+#find_external_library(OPENEXR "OpenEXR" "libIlmImf;libIlmThread" NOT_REQUIRED)
+#find_external_library(Z "" "libz" NOT_REQUIRED)
+#find_external_library(GDAL "" "libgdal" NOT_REQUIRED)
+#find_external_library(PROJ4 "" "libproj" NOT_REQUIRED)
 
 
 # Needed?
@@ -201,19 +214,26 @@ endif()
 #endif()
 
 
-set(OPENCV_LIB_NAMES libopencv_calib3d.so     libopencv_reg.so
-                     libopencv_core.so        libopencv_shape.so
-                     libopencv_features2d.so  libopencv_stitching.so
-                     libopencv_flann.so       libopencv_superres.so
-                     libopencv_hdf.so         libopencv_surface_matching.so
-                     libopencv_highgui.so     libopencv_videoio.so
-                     libopencv_imgcodecs.so   libopencv_video.so
-                     libopencv_imgproc.so     libopencv_xfeatures2d.so
-                     libopencv_ml.so          libopencv_ximgproc.so
-                     libopencv_objdetect.so   libopencv_xobjdetect.so
-                     libopencv_photo.so       libopencv_xphoto.so)
+set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
+                     opencv_core        opencv_shape
+                     opencv_features2d  opencv_stitching
+                     opencv_flann       opencv_superres
+                     opencv_hdf         opencv_surface_matching
+                     opencv_highgui     opencv_videoio
+                     opencv_imgcodecs   opencv_video
+                     opencv_imgproc     opencv_xfeatures2d
+                     opencv_ml          opencv_ximgproc
+                     opencv_objdetect   opencv_xobjdetect
+                     opencv_photo       opencv_xphoto)
 find_external_library(OPENCV "" "${OPENCV_LIB_NAMES}" NOT_REQUIRED)
 
+# For convenience, list the many libraries that ISIS depends on.
+set(ISIS_3RD_PARTY_LIBS ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES})
+
+message("--------------------------------------------------------------")
+
+# Now that we have found all our external dependencies, generate a config.h file
+include("GenerateConfig.cmake")
 
 #TODO: Needed?
 #set(HAVE_PKG_HDF)
@@ -232,12 +252,12 @@ message("--------------------------------------------------------------")
 #endforeach()
 #message("--------------------------------------------------------------")
 
-# TODO: Remove these files!
-# Add all the header files at the top level to the install command
-get_all_source_files("." MAIN_HEADER_FILES)
-foreach(f ${MAIN_HEADER_FILES})
-  INSTALL(FILES ${f} DESTINATION include/asp)
-endforeach()
+# TODO: Do we need these?
+## Add all the header files at the top level to the install command
+#get_all_source_files("." MAIN_HEADER_FILES)
+#foreach(f ${MAIN_HEADER_FILES})
+#  INSTALL(FILES ${f} DESTINATION include/asp)
+#endforeach()
 
 #=========================================================================
 # Define each of the libaries
@@ -245,33 +265,34 @@ endforeach()
 # --- ASP_CORE ------------------------------------------------------------
 get_all_source_files( "Core"       ASP_CORE_SRC_FILES)
 get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
-set(ASP_CORE_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES})
+set(ASP_CORE_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${LAPACK_LIBRARIES}
+                              ${OPENCV_LIBRARIES} ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES})
 
 # --- ASP_SPICEIO ------------------------------------------------------------
 get_all_source_files( "SpiceIO"       ASP_SPICEIO_SRC_FILES)
 get_all_source_files( "SpiceIO/tests" ASP_SPICEIO_TEST_FILES)
-set(ASP_SPICEIO_LIB_DEPENDENCIES AspCore)
+set(ASP_SPICEIO_LIB_DEPENDENCIES aspCore ${SPICE_LIBRARIES})
 
 # --- ASP_ISISIO ------------------------------------------------------------
 get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
 get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
-set(ASP_ISISIO_LIB_DEPENDENCIES AspCore)
+set(ASP_ISISIO_LIB_DEPENDENCIES aspCore ${ISIS_LIBRARIES} ${ISIS_3RD_PARTY_LIBS} Qt5::Core)
 
 # --- ASP_CAMERA ------------------------------------------------------------
-get_all_source_files( "Core"       ASP_CAMERA_SRC_FILES)
-get_all_source_files( "Core/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES AspCore)
+get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
+get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
+set(ASP_CAMERA_LIB_DEPENDENCIES aspCore ${XERCES_LIBRARIES})
 
 # --- ASP_SESSIONS ------------------------------------------------------------
 ## This code is more complicated and is specified in the lower level file
-get_all_source_files( "Sessions"       ASP_MPI_SRC_FILES)
-get_all_source_files( "Sessions/tests" ASP_MPI_TEST_FILES)
-set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspIsisIO AspCamera)
+get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
+get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
+set(ASP_SESSIONS_LIB_DEPENDENCIES aspCore aspIsisIO aspCamera)
 
 # --- ASP_GUI ------------------------------------------------------------
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
-set(ASP_GUI_LIB_DEPENDENCIES AspCore)
+set(ASP_GUI_LIB_DEPENDENCIES aspCore Qt5::Gui Qt5::Widgets)
 
 #=========================================================================
 
@@ -279,17 +300,30 @@ set(ASP_GUI_LIB_DEPENDENCIES AspCore)
 set(FULL_LIBRARY_LIST
   ${LAPACK_LIBRARIES} 
   ${JPEG_LIBRARIES} 
-  ${GDAL_LIBRARY}
-  ${PROJ4_LIBRARY}
+  ${GDAL_LIBRARIES}
+  ${PROJ4_LIBRARIES}
   ${VISIONWORKBENCH_LIBRARIES}
   ${ISIS_LIBRARIES}
-    AspCore
-    AspCamera
-    AspIsisIO
-    AspSpiceIO
-    AspSessions
-    AspGUI
-	${Boost_LIBRARIES} 
+  ${LAPACK_LIBRARIES}
+  ${OPENCV_LIBRARIES}
+  ${LIBLAS_LIBRARIES}
+  ${LASZIP_LIBRARIES}
+  ${XERCES_LIBRARIES}
+  ${CERES_LIBRARIES}
+  ${LIBPOINTMATCHER_LIBRARIES}
+  ${GFLAGS_LIBRARIES}
+  ${GLOG_LIBRARIES}
+  ${Boost_LIBRARIES}
+  ${GEOID_LIBRARIES}
+  Qt5::Core
+  Qt5::Gui
+  Qt5::Widgets
+  aspCore
+  aspCamera
+  aspIsisIO
+  aspSpiceIO
+  aspSessions
+  aspGUI
 )
 
 
@@ -298,7 +332,6 @@ set(FULL_LIBRARY_LIST
 
 add_subdirectory(Core)
 add_subdirectory(IsisIO)
-add_subdirectory(Sessions)
 add_subdirectory(SpiceIO)
 add_subdirectory(Camera)
 add_subdirectory(Sessions)

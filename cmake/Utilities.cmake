@@ -1,14 +1,15 @@
 
 # This file contains functions used in other parts of the project.
 
-
 # Obtains a file list with all the files in a directory properly formatted
 function( get_all_source_files relativePath outputFileList)
 
   # Load all matching files into TEMP
   file(GLOB TEMP
       "${CMAKE_CURRENT_SOURCE_DIR}/${relativePath}/*.h"
+      "${CMAKE_CURRENT_SOURCE_DIR}/${relativePath}/*.hpp"
       "${CMAKE_CURRENT_SOURCE_DIR}/${relativePath}/*.cc"
+      "${CMAKE_CURRENT_SOURCE_DIR}/${relativePath}/*.cpp"
       "${CMAKE_CURRENT_SOURCE_DIR}/${relativePath}/*.cxx"      
       "${CMAKE_CURRENT_SOURCE_DIR}/${relativePath}/*.tcc"
   )
@@ -27,17 +28,33 @@ function(find_external_library name bbIncludeFolder libNameList required)
   set(FOUND_NAME "${name}_FOUND")
   set(LIB_NAME   "${name}_LIBRARIES")
   set(INC_NAME   "${name}_INCLUDE_DIR")
-  set(VW_NAME    "VW_HAVE_PKG_${name}")
+  set(ASP_NAME    "ASP_HAVE_PKG_${name}") # TODO: Remove VW/ASP name!
 
   # Look in the BB directory if it was provided, otherwise
   #  make halfhearted attempt to find the dependency.
   if(BINARYBUILDER_INSTALL_DIR)
     set(${FOUND_NAME} 1)
 
+    set(ext ".so")
+    if (APPLE)
+      set(ext ".dylib")
+    endif()
+
     # Add each lib file that was provided.
     set(${${LIB_NAME}} "")
     foreach(lib ${libNameList})
-      set(${LIB_NAME}   ${${LIB_NAME}} ${BINARYBUILDER_INSTALL_DIR}/lib/${lib})
+      set(FULL_NAME "lib${lib}${ext}")
+      set(FULL_PATH "${BINARYBUILDER_INSTALL_DIR}/lib/${FULL_NAME}")
+      if (NOT EXISTS ${FULL_PATH})
+        set(FULL_PATH "${BINARYBUILDER_INSTALL_DIR}/lib64/${FULL_NAME}")
+        if (NOT EXISTS ${FULL_PATH})
+          message("Missing library file: ${FULL_NAME}")
+          set(${FOUND_NAME} 0)
+          continue()
+        endif()
+      endif()
+      set(${LIB_NAME}  ${${LIB_NAME}} ${FULL_NAME})
+      
     endforeach()
     
     set(${INC_NAME}   ${BINARYBUILDER_INSTALL_DIR}/include/${bbIncludeFolder})
@@ -47,7 +64,7 @@ function(find_external_library name bbIncludeFolder libNameList required)
   endif()
   # Check and display our results
   if(${FOUND_NAME})
-    set(${VW_NAME} 1)
+    set(${ASP_NAME} 1)
     message("-- Found ${name} at " ${${INC_NAME}})
     include_directories("${${INC_NAME}}")
   else()
@@ -62,7 +79,7 @@ function(find_external_library name bbIncludeFolder libNameList required)
   set(${FOUND_NAME} ${${FOUND_NAME}} PARENT_SCOPE)
   set(${LIB_NAME}   ${${LIB_NAME}}   PARENT_SCOPE)
   set(${INC_NAME}   ${${INC_NAME}}   PARENT_SCOPE)
-  set(${VW_NAME}    ${${VW_NAME}}    PARENT_SCOPE)
+  set(${ASP_NAME}   ${${ASP_NAME}}   PARENT_SCOPE)
 
 endfunction(find_external_library)
 
@@ -111,7 +128,7 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
   add_library(${libName} SHARED ${fileList})
 
   set_target_properties(${libName} PROPERTIES LINKER_LANGUAGE CXX)   
-  #message("For ${libName}, linking DEPS: ${dependencyList}")
+  message("For ${libName}, linking DEPS: ${dependencyList}")
   target_link_libraries(${libName} "${dependencyList}")
 
   # All libraries share the same precompiled header.

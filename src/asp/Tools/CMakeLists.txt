@@ -37,7 +37,7 @@ add_executable(bundle_adjust bundle_adjust.cc bundle_adjust_cost_functions.h)
 target_link_libraries(bundle_adjust ${FULL_LIBRARY_LIST}) 
 install(TARGETS bundle_adjust DESTINATION bin)
 
-add_executable(opencv_imagelist_creator opencv_imagelist_creator.cc) 
+add_executable(opencv_imagelist_creator opencv_imagelist_creator.cpp) 
 target_link_libraries(opencv_imagelist_creator ${FULL_LIBRARY_LIST}) 
 install(TARGETS opencv_imagelist_creator DESTINATION libexec)
 
@@ -59,9 +59,9 @@ add_executable(disparitydebug disparitydebug.cc)
 target_link_libraries(disparitydebug ${FULL_LIBRARY_LIST}) 
 install(TARGETS disparitydebug DESTINATION bin)
 
-add_executable(datum_convert datum_convert.cc) 
-target_link_libraries(datum_convert ${FULL_LIBRARY_LIST}) 
-install(TARGETS datum_convert DESTINATION bin)
+add_executable(datum_convert_cpp datum_convert_cpp.cc) 
+target_link_libraries(datum_convert_cpp ${FULL_LIBRARY_LIST}) 
+install(TARGETS datum_convert_cpp DESTINATION bin)
 
 add_executable(geodiff geodiff.cc) 
 target_link_libraries(geodiff ${FULL_LIBRARY_LIST}) 
@@ -70,10 +70,6 @@ install(TARGETS geodiff DESTINATION bin)
 add_executable(hsv_merge hsv_merge.cc) 
 target_link_libraries(hsv_merge ${FULL_LIBRARY_LIST}) 
 install(TARGETS hsv_merge DESTINATION bin)
-
-add_executable(isis_adjust isis_adjust.cc) 
-target_link_libraries(isis_adjust ${FULL_LIBRARY_LIST}) 
-install(TARGETS isis_adjust DESTINATION bin)
 
 add_executable(lronacjitreg lronacjitreg.cc) 
 target_link_libraries(lronacjitreg ${FULL_LIBRARY_LIST}) 
@@ -91,11 +87,7 @@ add_executable(orbitviz orbitviz.cc)
 target_link_libraries(orbitviz ${FULL_LIBRARY_LIST}) 
 install(TARGETS orbitviz DESTINATION bin)
 
-add_executable(orthoproject orthoproject.cc) 
-target_link_libraries(orthoproject ${FULL_LIBRARY_LIST}) 
-install(TARGETS orthoproject DESTINATION bin)
-
-add_executable(pc_align pc_align.cc pc_align_utils.h) 
+add_executable(pc_align pc_align.cc pc_align_utils.h pc_align_utils.tcc) 
 target_link_libraries(pc_align ${FULL_LIBRARY_LIST} ${LIBPOINTMATCHER_LIBRARY}) 
 install(TARGETS pc_align DESTINATION bin)
 
@@ -151,7 +143,7 @@ add_executable(stereo_parse stereo_parse.cc stereo.h stereo.cc)
 target_link_libraries(stereo_parse ${FULL_LIBRARY_LIST}) 
 install(TARGETS stereo_parse DESTINATION libexec)
 
-add_executable(stereo_pprc stmereo_pprc.cc stereo.h stereo.cc) 
+add_executable(stereo_pprc stereo_pprc.cc stereo.h stereo.cc) 
 target_link_libraries(stereo_pprc ${FULL_LIBRARY_LIST}) 
 install(TARGETS stereo_pprc DESTINATION bin)
 
@@ -159,7 +151,7 @@ add_executable(stereo_rfne stereo_rfne.cc stereo.h stereo.cc)
 target_link_libraries(stereo_rfne ${FULL_LIBRARY_LIST}) 
 install(TARGETS stereo_rfne DESTINATION bin)
 
-add_executable(stereo_tri stereo_tri.cc stereo.h stereo.cc) 
+add_executable(stereo_tri stereo_tri.cc stereo.h stereo.cc jitter_adjust.cc jitter_adjust.h) 
 target_link_libraries(stereo_tri ${FULL_LIBRARY_LIST}) 
 install(TARGETS stereo_tri DESTINATION bin)
 

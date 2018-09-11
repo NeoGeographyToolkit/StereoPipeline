@@ -6,7 +6,7 @@ include(Utilities) # Contains functions
 
 project (StereoPipeline)
 
-set(PACKAGE_VERSION "1.0") # TODO: Automatically set this!
+set(PACKAGE_VERSION "2.6.1")
 set(PACKAGE_NAME "Stereo Pipeline")
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 set(PACKAGE_BUGREPORT "scott.t.mcmichael@nasa.gov")

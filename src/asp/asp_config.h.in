@@ -1,0 +1,575 @@
+/* src/asp/asp_config.h.in.  Used by CMake to generate asp_config.h.  */
+
+/* The version of Boost with which the software built. */
+#define ASP_BOOST_VERSION @Boost_VERSION@
+
+/* does the compiler support function __attribute__((deprecated))? */
+#cmakedefine COMPILER_HAS_ATTRIBUTE_DEPRECATED
+
+/* does the compiler support function __attribute__((noreturn))? */
+#cmakedefine COMPILER_HAS_ATTRIBUTE_NORETURN
+
+/* enable the C++ exception mechanism */
+#cmakedefine ENABLE_EXCEPTIONS 1
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#cmakedefine HAVE_DLFCN_H 1
+
+/* Define to 1 if you have the `getpid' function. */
+#cmakedefine HAVE_GETPID 1
+
+/* Define to 1 if you have the `getpwuid' function. */
+#cmakedefine HAVE_GETPWUID 1
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#cmakedefine HAVE_INTTYPES_H 1
+
+/* Define to 1 if you have the <memory.h> header file. */
+#cmakedefine HAVE_MEMORY_H 1
+
+/* Define to 1 if the ADD_SPOT_RPC app is available. */
+//#cmakedefine ASP_HAVE_PKG_ADD_SPOT_RPC
+
+/* Define to 1 if the AMD package is available. */
+#cmakedefine ASP_HAVE_PKG_AMD 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_APPLE_GL 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_APPLE_LAPACK 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_APPLE_QMAKE_QT 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_APPLE_QWT 1
+
+/* Define to 1 if the ARBITRARY_QT package is available. */
+#cmakedefine ASP_HAVE_PKG_ARBITRARY_QT 1
+
+/* Define to 1 if the ASTER2ASP app is available. */
+//#cmakedefine ASP_HAVE_PKG_ASTER2ASP
+
+/* Define to 1 if the BOOST package is available. */
+#cmakedefine ASP_HAVE_PKG_BOOST 1
+
+/* Define to 1 if the BOOST_DATETIME package is available. */
+//#cmakedefine ASP_HAVE_PKG_BOOST_DATETIME
+
+/* Define to 1 if the BOOST_FILESYSTEM package is available. */
+//#cmakedefine ASP_HAVE_PKG_BOOST_FILESYSTEM
+
+/* Define to 1 if the BOOST_GRAPH package is available. */
+//#cmakedefine ASP_HAVE_PKG_BOOST_GRAPH
+
+/* Define to 1 if the BOOST_IOSTREAMS package is available. */
+//#cmakedefine ASP_HAVE_PKG_BOOST_IOSTREAMS
+
+/* Define to 1 if the pkg package is available */
+//#cmakedefine ASP_HAVE_PKG_BOOST_MOST
+
+/* Define to 1 if the BOOST_MPI package is available. */
+//#cmakedefine ASP_HAVE_PKG_BOOST_MPI
+
+/* Define to 1 if the BOOST_PROGRAM_OPTIONS package is available. */
+//#cmakedefine ASP_HAVE_PKG_BOOST_PROGRAM_OPTIONS
+
+/* Define to 1 if the BOOST_REGEX package is available. */
+//#cmakedefine ASP_HAVE_PKG_BOOST_REGEX
+
+/* Define to 1 if the BOOST_SERIALIZATION package is available. */
+//#cmakedefine ASP_HAVE_PKG_BOOST_SERIALIZATION
+
+/* Define to 1 if the BOOST_SYSTEM package is available. */
+//#cmakedefine ASP_HAVE_PKG_BOOST_SYSTEM
+
+/* Define to 1 if the BOOST_THREAD package is available. */
+//#cmakedefine ASP_HAVE_PKG_BOOST_THREAD
+
+/* Define to 1 if the BUNDLEVIS app is available. */
+//#cmakedefine ASP_HAVE_PKG_BUNDLEVIS
+
+/* Define to 1 if the BUNDLE_ADJUST app is available. */
+//#cmakedefine ASP_HAVE_PKG_BUNDLE_ADJUST
+
+/* Define to 1 if the CAM2RPC app is available. */
+//#cmakedefine ASP_HAVE_PKG_CAM2RPC
+
+/* Define to 1 if the CAMERA module is available. */
+//#cmakedefine ASP_HAVE_PKG_CAMERA
+
+/* Define to 1 if the CAMERA_FOOTPRINT app is available. */
+//#cmakedefine ASP_HAVE_PKG_CAMERA_FOOTPRINT
+
+/* Define to 1 if the CERES package is available. */
+#cmakedefine ASP_HAVE_PKG_CERES
+
+/* Define to 1 if the CHOLMOD package is available. */
+#cmakedefine ASP_HAVE_PKG_CHOLMOD 1
+
+/* Define to 1 if the CLAPACK package is available. */
+#cmakedefine ASP_HAVE_PKG_CLAPACK 1
+
+/* Define to 1 if the COLAMD package is available. */
+#cmakedefine ASP_HAVE_PKG_COLAMD 1
+
+/* Define to 1 if the CORE module is available. */
+//#cmakedefine ASP_HAVE_PKG_CORE
+
+/* Define to 1 if the CSV_FILTER app is available. */
+//#cmakedefine ASP_HAVE_PKG_CSV_FILTER
+
+/* Define to 1 if the CURL package is available. */
+#cmakedefine ASP_HAVE_PKG_CURL 1
+
+/* Define to 1 if the DATUM_CONVERT app is available. */
+//#cmakedefine ASP_HAVE_PKG_DATUM_CONVERT
+
+/* Define to 1 if the DEMPROFILE app is available. */
+//#cmakedefine ASP_HAVE_PKG_DEMPROFILE
+
+/* Define to 1 if the DEM_GEOID app is available. */
+//#cmakedefine ASP_HAVE_PKG_DEM_GEOID
+
+/* Define to 1 if the DEM_MOSAIC app is available. */
+//#cmakedefine ASP_HAVE_PKG_DEM_MOSAIC
+
+/* Define to 1 if the DISPARITYDEBUG app is available. */
+//#cmakedefine ASP_HAVE_PKG_DISPARITYDEBUG
+
+/* Define to 1 if the DISP_AVG app is available. */
+//#cmakedefine ASP_HAVE_PKG_DISP_AVG
+
+/* Define to 1 if the EIGEN package is available. */
+#cmakedefine ASP_HAVE_PKG_EIGEN
+
+/* Define to 1 if the FLANN package is available. */
+#cmakedefine ASP_HAVE_PKG_FLANN 1
+
+/* Define to 1 if the FLAPACK package is available. */
+#cmakedefine ASP_HAVE_PKG_FLAPACK 1
+
+/* Define to 1 if the GDAL package is available. */
+#cmakedefine ASP_HAVE_PKG_GDAL 1
+
+/* Define to 1 if the GEODIFF app is available. */
+//#cmakedefine ASP_HAVE_PKG_GEODIFF
+
+/* Define to 1 if the GEOID package is available. */
+#cmakedefine ASP_HAVE_PKG_GEOID 1
+
+/* Define to 1 if the GEOS package is available. */
+#cmakedefine ASP_HAVE_PKG_GEOS 1
+
+/* Define to 1 if the GEOTIFF package is available. */
+#cmakedefine ASP_HAVE_PKG_GEOTIFF 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_GL 1
+
+/* Define to 1 if the GLOG package is available. */
+#cmakedefine ASP_HAVE_PKG_GLOG 1
+
+/* Define to 1 if the GOOGLE_PROFILER package is available. */
+////]]#cmakedefine ASP_HAVE_PKG_GOOGLE_PROFILER
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_GSL 1
+
+/* Define to 1 if the GSL_HASBLAS package is available. */
+#cmakedefine ASP_HAVE_PKG_GSL_HASBLAS 1
+
+/* Define to 1 if the GSL_NEEDBLAS package is available. */
+#cmakedefine ASP_HAVE_PKG_GSL_NEEDBLAS 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_GUESS_QT 1
+
+/* Define to 1 if the GUI module is available. */
+#cmakedefine ASP_HAVE_PKG_GUI 1
+
+/* Define to 1 if the HDF5 package is available. */
+#cmakedefine ASP_HAVE_PKG_HDF5 1
+
+/* Define to 1 if the HSVMERGE app is available. */
+//#cmakedefine ASP_HAVE_PKG_HSVMERGE
+
+/* Define to 1 if the ICEBRIDGE app is available. */
+//#cmakedefine ASP_HAVE_PKG_ICEBRIDGE
+
+/* Define to 1 if the ILMBASE package is available. */
+#cmakedefine ASP_HAVE_PKG_ILMBASE 1
+
+/* Define to 1 if the IMAGE_CALC app is available. */
+//#cmakedefine ASP_HAVE_PKG_IMAGE_CALC
+
+/* Define to 1 if the INTEL_LAPACK package is available. */
+#cmakedefine ASP_HAVE_PKG_INTEL_LAPACK 1
+
+/* Define to 1 if the ISIS package is available. */
+#cmakedefine ASP_HAVE_PKG_ISIS 1
+
+/* Define to 1 if the ISIS3RDPARTY package is available. */
+#cmakedefine ASP_HAVE_PKG_ISIS3RDPARTY 1
+
+/* Define to 1 if the ISISIO module is available. */
+//#cmakedefine ASP_HAVE_PKG_ISISIO 1
+
+/* Define to 1 if the JP2 package is available. */
+#cmakedefine ASP_HAVE_PKG_JP2 1
+
+/* Define to 1 if the JPEG package is available. */
+#cmakedefine ASP_HAVE_PKG_JPEG 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_KAKADU 1
+
+/* Define to 1 if the KAKADU_63_JOIN package is available. */
+//#cmakedefine ASP_HAVE_PKG_KAKADU_63_JOIN 1
+
+/* Define to 1 if the KAKADU_SPLIT package is available. */
+//#cmakedefine ASP_HAVE_PKG_KAKADU_SPLIT 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_LAPACK 1
+
+/* Define to 1 if the LASZIP package is available. */
+#cmakedefine ASP_HAVE_PKG_LASZIP 1
+
+/* Define to 1 if the LIBLAS package is available. */
+#cmakedefine ASP_HAVE_PKG_LIBLAS 1
+
+/* Define to 1 if the LIBNABO package is available. */
+#cmakedefine ASP_HAVE_PKG_LIBNABO 1
+
+/* Define to 1 if the LIBPOINTMATCHER package is available. */
+#cmakedefine ASP_HAVE_PKG_LIBPOINTMATCHER 1
+
+/* Define to 1 if the LINUX_GL package is available. */
+#cmakedefine ASP_HAVE_PKG_LINUX_GL 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_LINUX_QMAKE_QT 1
+
+/* Define to 1 if the LRONACJITREG app is available. */
+//#cmakedefine ASP_HAVE_PKG_LRONACJITREG
+
+/* Define to 1 if the M package is available. */
+#cmakedefine ASP_HAVE_PKG_M 1
+
+/* Define to 1 if the MAPPROJECT app is available. */
+//#cmakedefine ASP_HAVE_PKG_MAPPROJECT
+
+/* Define to 1 if the MER2CAMERA app is available. */
+//#cmakedefine ASP_HAVE_PKG_MER2CAMERA
+
+/* Define to 1 if the OPENCV package is available. */
+#cmakedefine ASP_HAVE_PKG_OPENCV 1
+
+/* Define to 1 if the OPENEXR package is available. */
+#cmakedefine ASP_HAVE_PKG_OPENEXR 1
+
+/* Define to 1 if the OPENSCENEGRAPH package is available. */
+#cmakedefine ASP_HAVE_PKG_OPENSCENEGRAPH 1
+
+/* Define to 1 if the OPEN_MPI package is available. */
+#cmakedefine ASP_HAVE_PKG_OPEN_MPI 1
+
+/* Define to 1 if the ORBITVIZ app is available. */
+//#cmakedefine ASP_HAVE_PKG_ORBITVIZ
+
+/* Define to 1 if the ORTHO2PINHOLE app is available. */
+//#cmakedefine ASP_HAVE_PKG_ORTHO2PINHOLE
+
+/* Define to 1 if the ORTHOPROJECT app is available. */
+//#cmakedefine ASP_HAVE_PKG_ORTHOPROJECT
+
+/* Define to 1 if the PANSHARP app is available. */
+//#cmakedefine ASP_HAVE_PKG_PANSHARP
+
+/* Define to 1 if the PCL package is available. */
+#cmakedefine ASP_HAVE_PKG_PCL 1
+
+/* Define to 1 if the PC_ALIGN app is available. */
+//#cmakedefine ASP_HAVE_PKG_PC_ALIGN
+
+/* Define to 1 if the PC_MERGE app is available. */
+//#cmakedefine ASP_HAVE_PKG_PC_MERGE
+
+/* Define to 1 if the PLAIN_QWT package is available. */
+#cmakedefine ASP_HAVE_PKG_PLAIN_QWT 1
+
+/* Define to 1 if the PNG package is available. */
+#cmakedefine ASP_HAVE_PKG_PNG 1
+
+/* Define to 1 if the POINT2DEM app is available. */
+//#cmakedefine ASP_HAVE_PKG_POINT2DEM
+
+/* Define to 1 if the POINT2LAS app is available. */
+//#cmakedefine ASP_HAVE_PKG_POINT2LAS
+
+/* Define to 1 if the POINT2MESH app is available. */
+//#cmakedefine ASP_HAVE_PKG_POINT2MESH
+
+/* Define to 1 if the PROJ4 package is available. */
+#cmakedefine ASP_HAVE_PKG_PROJ4 1
+
+/* Define to 1 if the PROTOBUF package is available. */
+#cmakedefine ASP_HAVE_PKG_PROTOBUF 1
+
+/* Define to 1 if the PTHREADS package is available. */
+#cmakedefine ASP_HAVE_PKG_PTHREADS 1
+
+/* Define to 1 if the PYTHON module is available. */
+#cmakedefine ASP_HAVE_PKG_PYTHON 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_QT 1
+
+/* Define to 1 if the QT_GUESS_BASE package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_GUESS_BASE 1
+
+/* Define to 1 if the QT_GUESS_CORE package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_GUESS_CORE 1
+
+/* Define to 1 if the QT_GUESS_GUI package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_GUESS_GUI
+
+/* Define to 1 if the QT_GUESS_NETWORK package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_GUESS_NETWORK
+
+/* Define to 1 if the QT_GUESS_OPENGL package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_GUESS_OPENGL
+
+/* Define to 1 if the QT_GUESS_SQL package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_GUESS_SQL
+
+/* Define to 1 if the QT_QMAKE package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_QMAKE
+
+/* Define to 1 if the QT_QMAKE_GUI package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_QMAKE_GUI
+
+/* Define to 1 if the QT_QMAKE_NETWORK package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_QMAKE_NETWORK
+
+/* Define to 1 if the QT_QMAKE_OPENGL package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_QMAKE_OPENGL
+
+/* Define to 1 if the QT_QMAKE_SQL package is available. */
+//#cmakedefine ASP_HAVE_PKG_QT_QMAKE_SQL
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_QWT 1
+
+/* Define to 1 if the RPC_GEN app is available. */
+//#cmakedefine ASP_HAVE_PKG_RPC_GEN
+
+/* Define to 1 if the S2P_FLTR app is available. */
+//#cmakedefine ASP_HAVE_PKG_S2P_FLTR
+
+/* Define to 1 if the S2P_PPRC app is available. */
+//#cmakedefine ASP_HAVE_PKG_S2P_PPRC
+
+/* Define to 1 if the SESSIONS module is available. */
+//#cmakedefine ASP_HAVE_PKG_SESSIONS
+
+/* Define to 1 if the SFS app is available. */
+//#cmakedefine ASP_HAVE_PKG_SFS
+
+/* Define to 1 if the SLAPACK package is available. */
+#cmakedefine ASP_HAVE_PKG_SLAPACK 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_SPICE 1
+
+/* Define to 1 if the SPICEIO module is available. */
+//#cmakedefine ASP_HAVE_PKG_SPICEIO
+
+/* Define to 1 if the SPICE_SUBDIR package is available. */
+#cmakedefine ASP_HAVE_PKG_SPICE_SUBDIR 1
+
+/* Define to 1 if the SPICE_TOP package is available. */
+#cmakedefine ASP_HAVE_PKG_SPICE_TOP 1
+
+/* Define to 1 if the STANDALONE_BLAS package is available. */
+#cmakedefine ASP_HAVE_PKG_STANDALONE_BLAS 1
+
+/* Define to 1 if the STANDALONE_F2C package is available. */
+#cmakedefine ASP_HAVE_PKG_STANDALONE_F2C 1
+
+/* Define to 1 if the STANDALONE_FBLAS package is available. */
+#cmakedefine ASP_HAVE_PKG_STANDALONE_FBLAS 1
+
+/* Define to 1 if the STANDALONE_FLAPACK package is available. */
+#cmakedefine ASP_HAVE_PKG_STANDALONE_FLAPACK 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_STANDALONE_FLAPACK_FBLAS 1
+
+/* Define to 1 if the STANDALONE_LAPACK package is available. */
+#cmakedefine ASP_HAVE_PKG_STANDALONE_LAPACK 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_STANDALONE_LAPACK_AND_BLAS 1
+
+/* Define to 1 if the STEREO app is available. */
+//#cmakedefine ASP_HAVE_PKG_STEREO
+
+/* Define to 1 if the STEREO_GUI app is available. */
+//#cmakedefine ASP_HAVE_PKG_STEREO_GUI
+
+/* Define to 1 if the STEREO_TRI app is available. */
+//#cmakedefine ASP_HAVE_PKG_STEREO_TRI
+
+/* Define to 1 if the SUFFX_QWT package is available. */
+#cmakedefine ASP_HAVE_PKG_SUFFX_QWT 1
+
+/* Define to 1 if the SUITESPARSE package is available. */
+#cmakedefine ASP_HAVE_PKG_SUITESPARSE 1
+
+/* Define to 1 if the pkg package is available */
+#cmakedefine ASP_HAVE_PKG_SUPERLU 1
+
+/* Define to 1 if the SUPERLU_PLAIN package is available. */
+#cmakedefine ASP_HAVE_PKG_SUPERLU_PLAIN 1
+
+/* Define to 1 if the SUPERLU_STATIC package is available. */
+#cmakedefine ASP_HAVE_PKG_SUPERLU_STATIC 1
+
+/* Define to 1 if the SUPERLU_VER_30 package is available. */
+#cmakedefine ASP_HAVE_PKG_SUPERLU_VER_30 1
+
+/* Define to 1 if the TCMALLOC package is available. */
+#cmakedefine ASP_HAVE_PKG_TCMALLOC 1
+
+/* Define to 1 if the THREADS package is available. */
+#cmakedefine ASP_HAVE_PKG_THREADS 1
+
+/* Define to 1 if the TIFF package is available. */
+#cmakedefine ASP_HAVE_PKG_TIFF 1
+
+/* Define to 1 if the TIF_MOSAIC app is available. */
+//#cmakedefine ASP_HAVE_PKG_TIF_MOSAIC
+
+/* Define to 1 if the VW package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW
+
+/* Define to 1 if the pkg package is available */
+//#cmakedefine ASP_HAVE_PKG_VW_ALL
+
+/* Define to 1 if the VW_BUNDLEADJUSTMENT package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_BUNDLEADJUSTMENT
+
+/* Define to 1 if the VW_CAMERA package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_CAMERA
+
+/* Define to 1 if the VW_CARTOGRAPHY package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_CARTOGRAPHY
+
+/* Define to 1 if the VW_CORE package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_CORE
+
+/* Define to 1 if the VW_FILEIO package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_FILEIO
+
+/* Define to 1 if the VW_GEOMETRY package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_GEOMETRY
+
+/* Define to 1 if the VW_IMAGE package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_IMAGE
+
+/* Define to 1 if the VW_INTEREST_POINT package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_INTEREST_POINT
+
+/* Define to 1 if the VW_MATH package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_MATH
+
+/* Define to 1 if the VW_MOSAIC package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_MOSAIC
+
+/* Define to 1 if the VW_STEREO package is available. */
+//#cmakedefine ASP_HAVE_PKG_VW_STEREO
+
+/* Define to 1 if the WV_CORRECT app is available. */
+//#cmakedefine ASP_HAVE_PKG_WV_CORRECT
+
+/* Define to 1 if the X11 package is available. */
+#cmakedefine ASP_HAVE_PKG_X11 1
+
+/* Define to 1 if the XERCESC package is available. */
+#cmakedefine ASP_HAVE_PKG_XERCESC 1
+
+/* Define to 1 if the Z package is available. */
+#cmakedefine ASP_HAVE_PKG_Z 1
+
+/* Define to 1 if you have the <pwd.h> header file. */
+#cmakedefine HAVE_PWD_H 1
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#cmakedefine HAVE_STDINT_H 1
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#cmakedefine HAVE_STDLIB_H 1
+
+/* Define to 1 if you have the <strings.h> header file. */
+#cmakedefine HAVE_STRINGS_H 1
+
+/* Define to 1 if you have the <string.h> header file. */
+#cmakedefine HAVE_STRING_H 1
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#cmakedefine HAVE_SYS_STAT_H 1
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#cmakedefine HAVE_SYS_TYPES_H 1
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#cmakedefine HAVE_UNISTD_H 1
+
+/* The version of ISIS that this software was built against. */
+#cmakedefine ISIS_VERSION
+
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+//#cmakedefine LT_OBJDIR
+
+/* set the default number of processing threads for multi-threaded operations
+   */
+#cmakedefine NUM_THREADS
+
+/* Building on OSX? */
+#cmakedefine OSX_BUILD
+
+/* Name of package */
+#define ASP_PACKAGE StereoPipeline
+
+/* Define to the address where bug reports for this package should be sent. */
+#define ASP_PACKAGE_BUGREPORT "@PACKAGE_BUGREPORT@"
+
+/* Define to the full name of this package. */
+#define ASP_PACKAGE_NAME "@PACKAGE_NAME@"
+
+/* Define to the full name and version of this package. */
+#define ASP_PACKAGE_STRING "@PACKAGE_STRING@"
+
+/* Define to the one symbol short name of this package. */
+#define ASP_PACKAGE_TARNAME StereoPipeline
+
+/* Define to the version of this package. */
+#define ASP_PACKAGE_VERSION "@PACKAGE_VERSION@"
+
+/* Define to 1 if you have the ANSI C header files. */
+#cmakedefine STDC_HEADERS 1
+
+/* Version number of package */
+#define ASP_VERSION "@PACKAGE_VERSION@"
+
+// Check to make sure the user is using the same version of Boost
+// headers that the software was built with.
+#include <boost/version.hpp>
+#if BOOST_VERSION != ASP_BOOST_VERSION
+#error You are using a different version of Boost than you used to build _!
+#endif
+
