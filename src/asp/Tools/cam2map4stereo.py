@@ -144,7 +144,7 @@ def camrange( cube, lonGroupName, options ):
 def main():
     try:
         try:
-            usage = "usage: cam2map4stereo.py [--help][--manual][--map mapfile][--pixres CAMERA|MAP|MPP|PPD][--resolution float][--interp NN|BI|CC][--lat min:max][--lon min:max][--prefix string] [--suffix string] image1.cub image2.cub\n  [ASP [@]ASP_VERSION[@]]"
+            usage = "usage: cam2map4stereo.py [--help][--manual][--map mapfile][--pixres CAMERA|MAP|MPP|PPD][--resolution float][--interp NN|BI|CC][--lat min:max][--lon min:max][--prefix string] [--suffix string] image1.cub image2.cub\n" + get_asp_version()
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(dryrun=False)
             parser.set_defaults(pixres='MPP')

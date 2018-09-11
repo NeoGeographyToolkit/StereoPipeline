@@ -128,7 +128,7 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
   add_library(${libName} SHARED ${fileList})
 
   set_target_properties(${libName} PROPERTIES LINKER_LANGUAGE CXX)   
-  message("For ${libName}, linking DEPS: ${dependencyList}")
+  #message("For ${libName}, linking DEPS: ${dependencyList}")
   target_link_libraries(${libName} "${dependencyList}")
 
   # All libraries share the same precompiled header.

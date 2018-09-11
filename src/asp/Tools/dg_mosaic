@@ -33,6 +33,7 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
 from asp_system_utils import * # must be after the path is altered above
+from stereo_utils import get_asp_version
 verify_python_version_is_supported()
 
 # Prepend to system PATH
@@ -621,9 +622,7 @@ def main():
 
     try:
         try:
-            usage = '''dg_mosaic [--help] <all ntf or tif files that make up the observation>
-
-  [ASP [@]ASP_VERSION[@]]'''
+            usage = '''dg_mosaic [--help] <all ntf or tif files that make up the observation>\n' + get_asp_version()
 
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(dryrun=False)

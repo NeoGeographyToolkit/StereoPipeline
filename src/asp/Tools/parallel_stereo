@@ -547,9 +547,7 @@ if __name__ == '__main__':
         Extensions are automaticaly added to the output files.
         Camera model arguments may be optional for some stereo
         session types (e.g. isis). Stereo parameters should be
-        set in the stereo.default file.
-
-  [ASP [@]ASP_VERSION[@]]'''
+        set in the stereo.default file.\n''' + get_asp_version()
 
     # What makes this program different from stereo.in is that it
     # tries to treat ASP as a multi-process system instead of a

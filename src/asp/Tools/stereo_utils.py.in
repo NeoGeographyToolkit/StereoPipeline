@@ -36,7 +36,7 @@ asp_system_utils.verify_python_version_is_supported()
 
 def get_asp_version():
     '''Returns the current ASP version number'''
-    return "[ASP [@]ASP_VERSION[@]]"
+    return "[ASP @ASP_VERSION@]"
 
 class Step:
     # The ids of individual stereo steps

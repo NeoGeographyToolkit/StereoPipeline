@@ -6,7 +6,14 @@
 
 #TODO: Turn them off when components are not present
 
-
+# Convert stereo_utils.py.in to stereo_utils.py with variable substitution.
+# - Currently we only insert the version number, but this is the place to
+#   insert other CMake variables into Python scripts.
+message("CMAKE_CURRENT_SOURCE_DIR = ${CMAKE_CURRENT_SOURCE_DIR}")
+set(ASP_VERSION ${PACKAGE_VERSION})
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/stereo_utils.py.in 
+               ${CMAKE_CURRENT_SOURCE_DIR}/stereo_utils.py)
+message("DONE")
 
 # Install all of the python files.
 set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
