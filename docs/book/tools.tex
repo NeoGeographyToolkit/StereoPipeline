@@ -744,7 +744,7 @@ Given map-projected versions of the input images, the DEM they were mapprojected
 \texttt{-\/-lambda \textit{double}} & Set the initial value of the LM parameter
 lambda (ignored for the Ceres solver).\\ \hline
 
-\texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use the default defined in the program or in the .vwrc file.\\ \hline
+\texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use the default defined in the program or in the .vwrc file. Note that when using more than one thread and the Ceres option the results will vary slightly each time the tool is run. \\ \hline
 
 \texttt{-\/-report-level|-r \textit{integer=(10)}} & Use a value >= 20 to
 get increasingly more verbose output. \\ \hline

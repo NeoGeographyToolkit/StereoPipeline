@@ -17,6 +17,9 @@
 
  - bundle_adjust
    * Bug fix in outlier filtering for n images.
+   * Updated Ceres version from 1.11 to 1.14. When optimizing with 
+     multiple threads, results now vary slightly from run to run.
+     Results from single threaded runs are deterministic.
 
  - dem_mosaic
    * Added normalized median absolute deviation (NMAD) output option.
