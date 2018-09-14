@@ -32,6 +32,10 @@ foreach(p ${PYTHON_LIBS})
   INSTALL(FILES ${p}  DESTINATION libexec)
 endforeach()
 
+# Shorthand for a common set of libraries.
+set(SOLVER_LIBRARIES  ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
+
+
 # Does anything use this header?
 ## Install common header
 #INSTALL(FILES "stereo.h" DESTINATION include/asp/Tools)
@@ -41,7 +45,7 @@ target_link_libraries(aster2asp aspSessions)
 install(TARGETS aster2asp DESTINATION bin)
 
 add_executable(bundle_adjust bundle_adjust.cc bundle_adjust_cost_functions.h) 
-target_link_libraries(bundle_adjust aspSessions ${CERES_LIBRARIES})
+target_link_libraries(bundle_adjust aspSessions ${SOLVER_LIBRARIES})
 install(TARGETS bundle_adjust DESTINATION bin)
 
 add_executable(opencv_imagelist_creator opencv_imagelist_creator.cpp) 
@@ -95,7 +99,7 @@ target_link_libraries(orbitviz aspSessions)
 install(TARGETS orbitviz DESTINATION bin)
 
 add_executable(pc_align pc_align.cc pc_align_utils.h pc_align_utils.tcc)
-target_link_libraries(pc_align aspSessions ${CERES_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIES} )
+target_link_libraries(pc_align aspSessions ${SOLVER_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIES} )
 install(TARGETS pc_align DESTINATION bin)
 
 add_executable(pansharp pansharp.cc)
@@ -127,7 +131,7 @@ target_link_libraries(rpc_gen aspSessions)
 install(TARGETS rpc_gen DESTINATION libexec)
 
 add_executable(sfs sfs.cc)
-target_link_libraries(sfs aspSessions ${CERES_LIBRARIES})
+target_link_libraries(sfs aspSessions ${SOLVER_LIBRARIES} )
 install(TARGETS sfs DESTINATION bin)
 
 add_executable(stereo_blend stereo_blend.cc stereo.h stereo.cc)
@@ -159,7 +163,7 @@ target_link_libraries(stereo_rfne aspSessions)
 install(TARGETS stereo_rfne DESTINATION bin)
 
 add_executable(stereo_tri stereo_tri.cc stereo.h stereo.cc jitter_adjust.cc jitter_adjust.h) 
-target_link_libraries(stereo_tri aspSessions ${CERES_LIBRARIES})
+target_link_libraries(stereo_tri aspSessions ${SOLVER_LIBRARIES})
 install(TARGETS stereo_tri DESTINATION bin)
 
 add_executable(tif_mosaic tif_mosaic.cc) 

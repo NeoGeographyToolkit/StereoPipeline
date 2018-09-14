@@ -44,6 +44,26 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
+
+# Use CCache if it is available.
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+  message("Using ccache tool...")
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+endif(CCACHE_FOUND)
+
+
+if (UNIX AND NOT APPLE)
+  execute_process(COMMAND ${CMAKE_C_COMPILER} -fuse-ld=gold -Wl,--version ERROR_QUIET OUTPUT_VARIABLE ld_version)
+  if ("${ld_version}" MATCHES "GNU gold")
+    message("Using gold linker...")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=gold -Wl,--disable-new-dtags")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=gold -Wl,--disable-new-dtags")
+  endif()
+endif()
+
+
 #==================================================================================
 # Find dependencies
 
@@ -156,6 +176,8 @@ if(Qt5_FOUND)
 endif(Qt5_FOUND)
 message("--------------------------------------------------------------")
 
+find_external_library(QWT "" "qwt" REQUIRED)
+
 find_package(OpenMP)
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -163,9 +185,10 @@ if (OPENMP_FOUND)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-
 find_external_library(NAIF "naif" "" REQUIRED)
 find_external_library(SPICE "" "cspice" REQUIRED)
+find_external_library(PROJ4 "" "proj"      NOT_REQUIRED)
+find_external_library(GDAL  "" "gdal"      NOT_REQUIRED)
 find_external_library(GEOID "" "egm2008" REQUIRED)
 find_external_library(XERCESC "" "xerces-c" REQUIRED)
 find_external_library(PROTOBUF "" "protobuf" REQUIRED)
@@ -254,7 +277,8 @@ message("--------------------------------------------------------------")
 # --- ASP_CORE ------------------------------------------------------------
 get_all_source_files( "Core"       ASP_CORE_SRC_FILES)
 get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
-set(ASP_CORE_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${LAPACK_LIBRARIES}
+set(ASP_CORE_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${Boost_LIBRARIES} ${LAPACK_LIBRARIES}
+                              ${GDAL_LIBRARIES}
                               ${OPENCV_LIBRARIES} ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES})
 
 # --- ASP_SPICEIO ------------------------------------------------------------
@@ -281,7 +305,7 @@ set(ASP_SESSIONS_LIB_DEPENDENCIES aspCore aspIsisIO aspCamera)
 # --- ASP_GUI ------------------------------------------------------------
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
-set(ASP_GUI_LIB_DEPENDENCIES aspCore Qt5::Gui Qt5::Widgets)
+set(ASP_GUI_LIB_DEPENDENCIES aspCore Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
 
 
 #=========================================================================
