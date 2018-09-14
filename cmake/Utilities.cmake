@@ -163,7 +163,7 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
 
     # Link test executable against current library, gtest, and gtest_main
     #target_link_libraries(${executableName} gtest "${libName}" ${GTEST_BOTH_LIBRARIES})
-    target_link_libraries(${executableName} gtest gtest_main ${FULL_LIBRARY_LIST})
+    target_link_libraries(${executableName} gtest gtest_main ${dependencyList} ${libName})
 
 
     # These variables need to be set for each test directory

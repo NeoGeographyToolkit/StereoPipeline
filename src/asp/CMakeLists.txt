@@ -270,7 +270,7 @@ set(ASP_ISISIO_LIB_DEPENDENCIES aspCore ${ISIS_LIBRARIES} ${ISIS_3RD_PARTY_LIBS}
 # --- ASP_CAMERA ------------------------------------------------------------
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES aspCore ${XERCES_LIBRARIES})
+set(ASP_CAMERA_LIB_DEPENDENCIES aspCore ${XERCESC_LIBRARIES})
 
 # --- ASP_SESSIONS ------------------------------------------------------------
 ## This code is more complicated and is specified in the lower level file
@@ -282,38 +282,6 @@ set(ASP_SESSIONS_LIB_DEPENDENCIES aspCore aspIsisIO aspCamera)
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
 set(ASP_GUI_LIB_DEPENDENCIES aspCore Qt5::Gui Qt5::Widgets)
-
-#=========================================================================
-
-# TODO: Don't just use this for all tools
-set(FULL_LIBRARY_LIST
-  ${LAPACK_LIBRARIES} 
-  ${JPEG_LIBRARIES} 
-  ${GDAL_LIBRARIES}
-  ${PROJ4_LIBRARIES}
-  ${VISIONWORKBENCH_LIBRARIES}
-  ${ISIS_LIBRARIES}
-  ${LAPACK_LIBRARIES}
-  ${OPENCV_LIBRARIES}
-  ${LIBLAS_LIBRARIES}
-  ${LASZIP_LIBRARIES}
-  ${XERCES_LIBRARIES}
-  ${CERES_LIBRARIES}
-  ${LIBPOINTMATCHER_LIBRARIES}
-  ${GFLAGS_LIBRARIES}
-  ${GLOG_LIBRARIES}
-  ${Boost_LIBRARIES}
-  ${GEOID_LIBRARIES}
-  Qt5::Core
-  Qt5::Gui
-  Qt5::Widgets
-  aspCore
-  aspCamera
-  aspIsisIO
-  aspSpiceIO
-  aspSessions
-  aspGUI
-)
 
 
 #=========================================================================
