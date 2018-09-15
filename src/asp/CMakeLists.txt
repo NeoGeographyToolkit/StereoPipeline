@@ -19,6 +19,8 @@ endif()
 link_directories(${BINARYBUILDER_INSTALL_DIR}/lib)
 link_directories(${BINARYBUILDER_INSTALL_DIR}/lib64)
 
+message("BINARYBUILDER_INSTALL_DIR/lib = ${BINARYBUILDER_INSTALL_DIR}/lib")
+
 # If VW path is provided, use that instead of the BB install dir.
 if (${VISIONWORKBENCH_INSTALL_DIR} STREQUAL "")
   set(VISIONWORKBENCH_INSTALL_DIR ${BINARYBUILDER_INSTALL_DIR})
@@ -26,9 +28,9 @@ endif()
 
 
 # Add BB folders to CMAKE paths
-set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "${BINARYBUILDER_INSTALL_DIR}")
-set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "${BINARYBUILDER_INSTALL_DIR}")
-
+set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${BINARYBUILDER_INSTALL_DIR})
+set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${BINARYBUILDER_INSTALL_DIR})
+SET(CMAKE_PREFIX_PATH  ${CMAKE_PREFIX_PATH}  ${BINARYBUILDER_INSTALL_DIR})
 
 
 # Libraries use paths like "asp/blah/blah.h" so we just need to add this one include path
@@ -132,17 +134,14 @@ message("--------------------------------------------------------------")
 message("Searching for QT...")
 # TODO: Make sure this finds the correct install!
 # QT is complicated to use and should go through find_package
-set (QT_QMAKE_EXECUTABLE  ${BASESYSTEM_INSTALL_DIR}/bin/qmake)
-set (QT_MOC_EXECUTABLE    ${BASESYSTEM_INSTALL_DIR}/bin/moc)
-set (QT_RCC_EXECUTABLE    ${BASESYSTEM_INSTALL_DIR}/bin/rcc)
-set (QT_UIC_EXECUTABLE    ${BASESYSTEM_INSTALL_DIR}/bin/uic)
-#SET(CMAKE_PREFIX_PATH ${BASESYSTEM_INSTALL_DIR} ${CMAKE_PREFIX_PATH}) 
+set(QT_QMAKE_EXECUTABLE  ${BINARYBUILDER_INSTALL_DIR}/bin/qmake)
+set(QT_MOC_EXECUTABLE    ${BINARYBUILDER_INSTALL_DIR}/bin/moc)
+set(QT_RCC_EXECUTABLE    ${BINARYBUILDER_INSTALL_DIR}/bin/rcc)
+set(QT_UIC_EXECUTABLE    ${BINARYBUILDER_INSTALL_DIR}/bin/uic)
 set(REQUIRED_QT_LIBS QtConcurrent QtCore QtGui QtNetwork QtSql
                      QtSvg QtWidgets QtXml QtXmlPatterns QtPrintSupport
                      QtTest QtPositioning QtQml QtQuick QtOpenGL
                      QtMultimedia QtMultimediaWidgets QtDBus)
-                     
-#find_package(Qt5 5.6.3 REQUIRED ${REQUIRED_QT_LIBS})
 
 set(REQUIRED_QT_COMPONENTS  Core                Concurrent
                             Gui                 Multimedia
@@ -153,10 +152,11 @@ set(REQUIRED_QT_COMPONENTS  Core                Concurrent
                             Sql                 Svg
                             Test                Widgets
                             Xml                 XmlPatterns)
-find_package(Qt5 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
+find_package(Qt5 5.6.3 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
 
 if(Qt5_FOUND)
     # TODO: What exactly do we need to do here?
+    
     
     #message("QT_USE_FILE = ${QT_USE_FILE}")
     #include(${QT_USE_FILE}) # Required after using QT find command
@@ -172,7 +172,7 @@ if(Qt5_FOUND)
     # INCLUDE_DIRECTORIES() works just like INCLUDEPATH from qmake)
     INCLUDE_DIRECTORIES( ${CMAKE_BINARY_DIR} )
     set (ASP_HAVE_PKG_QT 1)
-    message("QT found!")
+    message("QT found: ${Qt5Core_INCLUDE_DIRS}")
 endif(Qt5_FOUND)
 message("--------------------------------------------------------------")
 
@@ -278,7 +278,7 @@ message("--------------------------------------------------------------")
 get_all_source_files( "Core"       ASP_CORE_SRC_FILES)
 get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
 set(ASP_CORE_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${Boost_LIBRARIES} ${LAPACK_LIBRARIES}
-                              ${GDAL_LIBRARIES}
+                              ${GDAL_LIBRARIES} ${PROJ4_LIBRARIES}
                               ${OPENCV_LIBRARIES} ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES})
 
 # --- ASP_SPICEIO ------------------------------------------------------------

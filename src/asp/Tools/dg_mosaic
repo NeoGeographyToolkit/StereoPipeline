@@ -622,7 +622,7 @@ def main():
 
     try:
         try:
-            usage = '''dg_mosaic [--help] <all ntf or tif files that make up the observation>\n' + get_asp_version()
+            usage = 'dg_mosaic [--help] <all ntf or tif files that make up the observation>\n' + get_asp_version()
 
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(dryrun=False)
