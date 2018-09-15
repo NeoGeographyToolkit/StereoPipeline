@@ -250,11 +250,9 @@ all_scripts = $(bin_SCRIPTS)
 all_scripts += $(libexec_SCRIPTS)
 CLEANFILES = $(all_scripts)
 
-# $@ = target file name
-# $< = name of first prerequisite
-# %  = matches any non-empty substring
-$(all_scripts): %: %.in
-	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
+# Replace the tag in the lone remaining *.in file.
+stereo_utils.py: stereo_utils.py.in
+	sed 's#\@ASP_VERSION\@#$(VERSION)#g' < $(srcdir)/$< > $@
 	chmod +x $@
 
 
