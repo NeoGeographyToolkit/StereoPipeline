@@ -31,17 +31,17 @@ if MAKE_APP_STEREO
   bin_PROGRAMS     += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_blend
   libexec_PROGRAMS += stereo_parse
   stereo_corr_LDADD       = $(APP_STEREO_LIBS)
-  stereo_corr_SOURCES     = stereo_corr.cc stereo.cc
+  stereo_corr_SOURCES     = stereo_corr.cc stereo.cc stereo.h
   stereo_fltr_LDADD       = $(APP_STEREO_LIBS)
-  stereo_fltr_SOURCES     = stereo_fltr.cc stereo.cc
+  stereo_fltr_SOURCES     = stereo_fltr.cc stereo.cc stereo.h
   stereo_parse_LDADD      = $(APP_STEREO_LIBS)
-  stereo_parse_SOURCES    = stereo_parse.cc stereo.cc
+  stereo_parse_SOURCES    = stereo_parse.cc stereo.cc stereo.h
   stereo_pprc_LDADD       = $(APP_STEREO_LIBS)
-  stereo_pprc_SOURCES     = stereo_pprc.cc stereo.cc
+  stereo_pprc_SOURCES     = stereo_pprc.cc stereo.cc stereo.h
   stereo_rfne_LDADD       = $(APP_STEREO_LIBS)
-  stereo_rfne_SOURCES     = stereo_rfne.cc stereo.cc
+  stereo_rfne_SOURCES     = stereo_rfne.cc stereo.cc stereo.h
   stereo_blend_LDADD      = $(APP_STEREO_LIBS)
-  stereo_blend_SOURCES    = stereo_blend.cc stereo.cc
+  stereo_blend_SOURCES    = stereo_blend.cc stereo.cc stereo.h
   # bin_PROGRAMS += extract_camera_positions
   # extract_camera_positions_SOURCES = extract_camera_positions.cc
   # extract_camera_positions_LDADD   = $(APP_STEREO_LIBS)
@@ -52,13 +52,13 @@ if MAKE_APP_STEREO_TRI
   bin_PROGRAMS        += stereo_tri
   stereo_tri_LDADD     = $(APP_STEREO_TRI_LIBS)
   stereo_tri_SOURCES   = stereo_tri.cc stereo.cc jitter_adjust.h jitter_adjust.cc \
-                         ccd_adjust.h ccd_adjust.cc
+                         ccd_adjust.h ccd_adjust.cc stereo.h
 endif
 
 # The stereo_gui app is separate as it also depends on Qt
 if MAKE_APP_STEREO_GUI
   bin_PROGRAMS += stereo_gui
-  stereo_gui_SOURCES = stereo_gui.cc stereo.cc
+  stereo_gui_SOURCES = stereo_gui.cc stereo.cc stereo.h
   stereo_gui_LDADD = $(APP_STEREO_GUI_LIBS)
 endif
 
@@ -254,6 +254,11 @@ CLEANFILES = $(all_scripts)
 stereo_utils.py: stereo_utils.py.in
 	sed 's#\@ASP_VERSION\@#$(VERSION)#g' < $(srcdir)/$< > $@
 	chmod +x $@
+
+stereo: stereo.in
+	sed 's#\@ASP_VERSION\@#$(VERSION)#g' < $(srcdir)/$< > $@
+	chmod +x $@
+
 
 
 ##############################################################################
