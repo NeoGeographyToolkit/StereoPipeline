@@ -20,7 +20,7 @@ endif()
 #link_directories(${BINARYBUILDER_INSTALL_DIR}/lib64)
 
 # If VW path is provided, use that instead of the BB install dir.
-if (${VISIONWORKBENCH_INSTALL_DIR} STREQUAL "")
+if (NOT VISIONWORKBENCH_INSTALL_DIR)
   set(VISIONWORKBENCH_INSTALL_DIR ${BINARYBUILDER_INSTALL_DIR})
 endif()
 
@@ -191,7 +191,18 @@ if (OPENMP_FOUND)
 endif()
 
 # Dependencies for VW
-find_external_library(LAPACK "" "lapack;blas" REQUIRED)
+
+if (APPLE) # Use the system version
+  find_package(LAPACK)
+  find_package(BLAS)
+else() # Use our BB compiled version
+  find_external_library(LAPACK "" "lapack;blas" REQUIRED)
+endif()
+if(LAPACK_FOUND)
+  set(VW_HAVE_PKG_FLAPACK 1) # --> This specifies that it is a Fortran derived version
+                             #      How to check this if the user provides Fortran?
+endif()
+
 find_external_library(FLANN "" "flann_cpp" REQUIRED)
 find_external_library(Z "" "z" REQUIRED)
 find_external_library(PROJ4 "" "proj"      REQUIRED)
@@ -213,7 +224,6 @@ find_external_library(CERES "ceres" "ceres" REQUIRED)
 find_external_library(LIBPOINTMATCHER "" "pointmatcher" REQUIRED)
 find_external_library(LIBLAS "" "las" REQUIRED)
 find_external_library(LASZIP "laszip" "laszip" REQUIRED)
-find_external_library(LAPACK "" "lapack;blas" REQUIRED)
 find_external_library(GFLAGS "gflags" "gflags" REQUIRED)
 find_external_library(GLOG "glog" "glog" REQUIRED)
 
