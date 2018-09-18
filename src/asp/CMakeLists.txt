@@ -49,6 +49,9 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
+if (APPLE)
+  set(ASP_OSX_BUILD 1)
+endif()
 
 # Use CCache if it is available.
 find_program(CCACHE_FOUND ccache)
@@ -224,7 +227,7 @@ find_external_library(PCL "pcl" "${PCL_LIB_NAMES}" REQUIRED)
 
 
 set(OPENSCENEGRAPH_LIB_NAMES osgAnimation osgDB osgFX osgGA osgManipulator
-                             osgParticle osgPresentation osgShadow osgSim 
+                             osgParticle osgPresentation osgShadow osgSim OpenThreads
                              osg osgTerrain osgText osgUtil osgViewer osgVolume osgWidget)
 find_external_library(OPENSCENEGRAPH "" "${OPENSCENEGRAPH_LIB_NAMES}" REQUIRED)
 

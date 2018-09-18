@@ -15,7 +15,7 @@ set(PACKAGE_BUGREPORT "scott.t.mcmichael@nasa.gov")
 
 # Set the install path if not specified by the user.
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-    set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install" CACHE PATH "default install path" FORCE )
+  set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install" CACHE PATH "default install path" FORCE )
 endif()
 message("Cmake install directory set to: ${CMAKE_INSTALL_PREFIX}")
 
@@ -41,7 +41,8 @@ add_library(gtest      ../thirdparty/gtest/src/gtest-all.cc)
 add_library(gtest_main ../thirdparty/gtest/src/gtest_main.cc)
 target_link_libraries(gtest_main gtest) 
 
-
+target_compile_definitions(gtest PRIVATE GTEST_USE_OWN_TR1_TUPLE=1)
+target_compile_definitions(gtest_main PRIVATE GTEST_USE_OWN_TR1_TUPLE=1)
 
 
 # Add all of our code

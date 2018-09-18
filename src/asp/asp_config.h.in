@@ -540,7 +540,7 @@
 #cmakedefine NUM_THREADS
 
 /* Building on OSX? */
-#cmakedefine OSX_BUILD
+#cmakedefine ASP_OSX_BUILD 1
 
 /* Name of package */
 #define ASP_PACKAGE StereoPipeline

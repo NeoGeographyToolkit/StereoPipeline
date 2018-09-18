@@ -166,10 +166,14 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
     #message("For ${executableName}, linking DEPS: ${dependencyList};${libName}")
     target_link_libraries(${executableName} gtest gtest_main ${dependencyList};${libName})
 
+    target_compile_definitions(${executableName} PRIVATE GTEST_USE_OWN_TR1_TUPLE=1)
+    target_compile_definitions(${executableName} PRIVATE "TEST_OBJDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
+    target_compile_definitions(${executableName} PRIVATE "TEST_SRCDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
+
 
     # These variables need to be set for each test directory
-    set_property (TARGET ${executableName} APPEND PROPERTY COMPILE_DEFINITIONS "TEST_OBJDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
-    set_property (TARGET ${executableName} APPEND PROPERTY COMPILE_DEFINITIONS "TEST_SRCDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
+    #set_property (TARGET ${executableName} APPEND PROPERTY COMPILE_DEFINITIONS "TEST_OBJDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
+    #set_property (TARGET ${executableName} APPEND PROPERTY COMPILE_DEFINITIONS "TEST_SRCDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
 
     add_test(${executableName} ${executableName}) 
     add_to_custom_test_target(${executableName})  # Add to the verbose test make target.
