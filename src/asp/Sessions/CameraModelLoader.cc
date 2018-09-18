@@ -118,5 +118,14 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_camera_m
   vw::vw_throw( vw::NoImplErr() << "\nCannot load ISIS files because ISIS was not enabled in the build!.\n");
 
 } // End function load_isis_camera_model()
-
+/*
+// Load a CSM camera file
+boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_csm_camera_model(std::string const& path) const
+{
+  // Use the class method, then pack in a base class pointer.
+  boost::shared_ptr<camera::CsmModel> cam_ptr(new camera::CsmModel());
+  cam_ptr->load_model(path);
+  return CameraModelPtr(cam_ptr);
+}
+*/
 } // end namespace asp

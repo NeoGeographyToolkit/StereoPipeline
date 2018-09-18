@@ -13,6 +13,11 @@ set(ASP_VERSION ${PACKAGE_VERSION})
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/stereo_utils.py.in 
                ${CMAKE_CURRENT_SOURCE_DIR}/stereo_utils.py)
 
+# Not actually changing things here, this is just done
+#  to keep compatibility with the Autotools code.
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/stereo.in 
+               ${CMAKE_CURRENT_SOURCE_DIR}/stereo)
+
 # Install all of the python files.
 set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
                  lronac2mosaic.py     #merge_orbitviz.py

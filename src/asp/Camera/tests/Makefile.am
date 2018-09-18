@@ -24,9 +24,10 @@ if MAKE_MODULE_CAMERA
 
 TestRPCStereoModel_SOURCES  = TestRPCStereoModel.cxx
 TestDGCameraModel_SOURCES  = TestDGCameraModel.cxx
+TestCsmCameraModel_SOURCES  = TestCsmCameraModel.cxx
 TestSpotCameraModel_SOURCES  = TestSpotCameraModel.cxx
 
-TESTS = TestDGCameraModel TestRPCStereoModel TestSpotCameraModel
+TESTS = TestCsmCameraModel TestDGCameraModel TestRPCStereoModel TestSpotCameraModel
 
 endif
 

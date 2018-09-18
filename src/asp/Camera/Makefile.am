@@ -26,12 +26,12 @@ include_HEADERS = RPCModel.h RPCModelGen.h RPCStereoModel.h                   \
 		  LinescanDGModel.h  LinescanDGModel.tcc                      \
                   LinescanSpotModel.h LinescanASTERModel.h                    \
                   AdjustedLinescanDGModel.h RPC_XML.h                          \
-                  SPOT_XML.h ASTER_XML.h XMLBase.h 
+                  SPOT_XML.h ASTER_XML.h XMLBase.h CsmModel.h
 
 libaspCamera_la_SOURCES = RPCModel.cc XMLBase.cc RPC_XML.cc                    \
                           SPOT_XML.cc ASTER_XML.cc                            \
                           RPCStereoModel.cc RPCModelGen.cc                    \
-                          LinescanSpotModel.cc LinescanASTERModel.cc
+                          LinescanSpotModel.cc LinescanASTERModel.cc CsmModel.cc
 
 libaspCamera_la_LIBADD = @MODULE_CAMERA_LIBS@
 
