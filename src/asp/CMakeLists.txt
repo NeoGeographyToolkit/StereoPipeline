@@ -16,10 +16,8 @@ if("${BINARYBUILDER_INSTALL_DIR}" STREQUAL "")
 endif()
 
 # Look for libraries in both of these BB locations.
-link_directories(${BINARYBUILDER_INSTALL_DIR}/lib)
-link_directories(${BINARYBUILDER_INSTALL_DIR}/lib64)
-
-message("BINARYBUILDER_INSTALL_DIR/lib = ${BINARYBUILDER_INSTALL_DIR}/lib")
+#link_directories(${BINARYBUILDER_INSTALL_DIR}/lib)
+#link_directories(${BINARYBUILDER_INSTALL_DIR}/lib64)
 
 # If VW path is provided, use that instead of the BB install dir.
 if (${VISIONWORKBENCH_INSTALL_DIR} STREQUAL "")
@@ -39,6 +37,11 @@ include_directories( ../ )
 # --- Custom options ---
 option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 
+#SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+#SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+#SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+
 # --- Fixed options ---
 set(Boost_USE_STATIC_LIBS   OFF)
 set(Boost_USE_MULTITHREADED ON )
@@ -50,9 +53,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 # Use CCache if it is available.
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
-  message("Using ccache tool...")
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+  #message("Using ccache tool...")
+  #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+  #set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif(CCACHE_FOUND)
 
 
@@ -91,12 +94,12 @@ if (APPLE)
 endif()
 
 foreach(n ${VW_LIBNAMES})
-  set(f lib${n}${ext})
+  set(f ${VISIONWORKBENCH_LIBRARY_DIR}/lib${n}${ext})
   set(VISIONWORKBENCH_LIBRARIES ${VISIONWORKBENCH_LIBRARIES} ${f})
 endforeach(n)
 
 include_directories(${VISIONWORKBENCH_INCLUDE_DIR})
-link_directories(${VISIONWORKBENCH_LIBRARY_DIR})
+#link_directories(${VISIONWORKBENCH_LIBRARY_DIR})
 
 
 message("--------------------------------------------------------------")
@@ -124,7 +127,7 @@ if(Boost_FOUND)
     message("---Boost libraries   = ${Boost_LIBRARIES}")
     include_directories(${Boost_INCLUDE_DIR})
     #include_directories(${Boost_INCLUDE_DIRS})
-    link_directories(${Boost_LIBRARY_DIR})
+    #link_directories(${Boost_LIBRARY_DIR})
     #link_directories(${Boost_LIBRARY_DIRS})
     set(ASP_HAVE_PKG_BOOST 1)
 endif(Boost_FOUND)
@@ -155,8 +158,7 @@ set(REQUIRED_QT_COMPONENTS  Core                Concurrent
 find_package(Qt5 5.6.3 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
 
 if(Qt5_FOUND)
-    # TODO: What exactly do we need to do here?
-    
+    set(CMAKE_AUTOMOC ON) # TODO: This produces a lot of extra MOC files we don't need!
     
     #message("QT_USE_FILE = ${QT_USE_FILE}")
     #include(${QT_USE_FILE}) # Required after using QT find command
@@ -185,10 +187,20 @@ if (OPENMP_FOUND)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
+# Dependencies for VW
+find_external_library(LAPACK "" "lapack;blas" REQUIRED)
+find_external_library(FLANN "" "flann_cpp" REQUIRED)
+find_external_library(Z "" "z" REQUIRED)
+find_external_library(PROJ4 "" "proj"      REQUIRED)
+
+find_external_library(GDAL  "" "gdal"      REQUIRED)
+set(ILMBASE_LIB_NAMES Half Iex Imath IlmThread)
+find_external_library(ILMBASE "" "${ILMBASE_LIB_NAMES}" REQUIRED)
+find_external_library(OPENEXR "OpenEXR" "IlmImf;IlmThread" REQUIRED)
+
+# Dependencies for ASP and ISIS
 find_external_library(NAIF "naif" "" REQUIRED)
 find_external_library(SPICE "" "cspice" REQUIRED)
-find_external_library(PROJ4 "" "proj"      NOT_REQUIRED)
-find_external_library(GDAL  "" "gdal"      NOT_REQUIRED)
 find_external_library(GEOID "" "egm2008" REQUIRED)
 find_external_library(XERCESC "" "xerces-c" REQUIRED)
 find_external_library(PROTOBUF "" "protobuf" REQUIRED)
@@ -217,14 +229,10 @@ set(OPENSCENEGRAPH_LIB_NAMES osgAnimation osgDB osgFX osgGA osgManipulator
 find_external_library(OPENSCENEGRAPH "" "${OPENSCENEGRAPH_LIB_NAMES}" REQUIRED)
 
 # TODO: Which do we actually need!
-#find_external_library(FLANN "" "libflann_cpp" NOT_REQUIRED)
-#find_external_library(JPEG "" "libjpeg" NOT_REQUIRED)
-#find_external_library(PNG "" "libpng;libpng16" NOT_REQUIRED)
-#find_external_library(TIFF "" "libtiff" NOT_REQUIRED)
-#find_external_library(OPENEXR "OpenEXR" "libIlmImf;libIlmThread" NOT_REQUIRED)
-#find_external_library(Z "" "libz" NOT_REQUIRED)
-#find_external_library(GDAL "" "libgdal" NOT_REQUIRED)
-#find_external_library(PROJ4 "" "libproj" NOT_REQUIRED)
+#find_external_library(JPEG "" "jpeg" NOT_REQUIRED)
+#find_external_library(PNG "" "png;png16" NOT_REQUIRED)
+#find_external_library(TIFF "" "tiff" NOT_REQUIRED)
+
 
 set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_core        opencv_shape
@@ -239,8 +247,11 @@ set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_photo       opencv_xphoto)
 find_external_library(OPENCV "" "${OPENCV_LIB_NAMES}" NOT_REQUIRED)
 
-# For convenience, list the many libraries that ISIS depends on.
-set(ISIS_3RD_PARTY_LIBS ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES})
+# For convenience, list some libraries that VW and ISIS depend on.
+set(VW_3RD_PARTY_LIBS   ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} ${OPENEXR_LIBRARIES}
+                        ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  ${PROJ4_LIBRARIES}
+                        ${FLANN_LIBRARIES} ${LAPACK_LIBRARIES})
+set(ISIS_3RD_PARTY_LIBS Qt5::Core  ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} ${QWT_LIBRARIES})
 
 message("--------------------------------------------------------------")
 
@@ -265,11 +276,11 @@ message("--------------------------------------------------------------")
 #message("--------------------------------------------------------------")
 
 # TODO: Do we need these?
-## Add all the header files at the top level to the install command
-#get_all_source_files("." MAIN_HEADER_FILES)
-#foreach(f ${MAIN_HEADER_FILES})
-#  INSTALL(FILES ${f} DESTINATION include/asp)
-#endforeach()
+# Add all the header files at the top level to the install command
+get_all_source_files("." MAIN_HEADER_FILES)
+foreach(f ${MAIN_HEADER_FILES})
+  INSTALL(FILES ${f} DESTINATION include/asp)
+endforeach()
 
 #=========================================================================
 # Define each of the libaries
@@ -277,9 +288,7 @@ message("--------------------------------------------------------------")
 # --- ASP_CORE ------------------------------------------------------------
 get_all_source_files( "Core"       ASP_CORE_SRC_FILES)
 get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
-set(ASP_CORE_LIB_DEPENDENCIES ${VISIONWORKBENCH_LIBRARIES} ${Boost_LIBRARIES} ${LAPACK_LIBRARIES}
-                              ${GDAL_LIBRARIES} ${PROJ4_LIBRARIES}
-                              ${OPENCV_LIBRARIES} ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES})
+set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES} ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES})
 
 # --- ASP_SPICEIO ------------------------------------------------------------
 get_all_source_files( "SpiceIO"       ASP_SPICEIO_SRC_FILES)
@@ -289,7 +298,8 @@ set(ASP_SPICEIO_LIB_DEPENDENCIES aspCore ${SPICE_LIBRARIES})
 # --- ASP_ISISIO ------------------------------------------------------------
 get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
 get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
-set(ASP_ISISIO_LIB_DEPENDENCIES aspCore ${ISIS_LIBRARIES} ${ISIS_3RD_PARTY_LIBS} Qt5::Core)
+set(ASP_ISISIO_LIB_DEPENDENCIES  aspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
+                                 ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
 
 # --- ASP_CAMERA ------------------------------------------------------------
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
@@ -300,20 +310,20 @@ set(ASP_CAMERA_LIB_DEPENDENCIES aspCore ${XERCESC_LIBRARIES})
 ## This code is more complicated and is specified in the lower level file
 get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
 get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
-set(ASP_SESSIONS_LIB_DEPENDENCIES aspCore aspIsisIO aspCamera)
+set(ASP_SESSIONS_LIB_DEPENDENCIES aspCore aspSpiceIO aspIsisIO aspCamera)
 
 # --- ASP_GUI ------------------------------------------------------------
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
-set(ASP_GUI_LIB_DEPENDENCIES aspCore Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
+set(ASP_GUI_LIB_DEPENDENCIES aspCore Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
 
 
 #=========================================================================
 # Add all of the library subdirectories
 
 add_subdirectory(Core)
-add_subdirectory(IsisIO)
 add_subdirectory(SpiceIO)
+add_subdirectory(IsisIO)
 add_subdirectory(Camera)
 add_subdirectory(Sessions)
 add_subdirectory(GUI)

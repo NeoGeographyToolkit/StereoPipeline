@@ -53,7 +53,7 @@ function(find_external_library name bbIncludeFolder libNameList required)
           continue()
         endif()
       endif()
-      set(${LIB_NAME}  ${${LIB_NAME}} ${FULL_NAME})
+      set(${LIB_NAME}  ${${LIB_NAME}} ${FULL_PATH})
       
     endforeach()
     
@@ -128,7 +128,7 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
   add_library(${libName} SHARED ${fileList})
 
   set_target_properties(${libName} PROPERTIES LINKER_LANGUAGE CXX)   
-  #message("For ${libName}, linking DEPS: ${dependencyList}")
+  message("For ${libName}, linking DEPS: ${dependencyList}")
   target_link_libraries(${libName} "${dependencyList}")
 
   # All libraries share the same precompiled header.
@@ -163,7 +163,8 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
 
     # Link test executable against current library, gtest, and gtest_main
     #target_link_libraries(${executableName} gtest "${libName}" ${GTEST_BOTH_LIBRARIES})
-    target_link_libraries(${executableName} gtest gtest_main ${dependencyList} ${libName})
+    #message("For ${executableName}, linking DEPS: ${dependencyList};${libName}")
+    target_link_libraries(${executableName} gtest gtest_main ${dependencyList};${libName})
 
 
     # These variables need to be set for each test directory
