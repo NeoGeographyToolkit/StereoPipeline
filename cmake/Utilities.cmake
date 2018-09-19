@@ -129,7 +129,7 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
 
   set_target_properties(${libName} PROPERTIES LINKER_LANGUAGE CXX)   
   message("For ${libName}, linking DEPS: ${dependencyList}")
-  target_link_libraries(${libName} "${dependencyList}")
+  target_link_libraries(${libName} ${dependencyList})
 
   # All libraries share the same precompiled header.
   #add_precompiled_header_to_target(${libName})
@@ -164,7 +164,7 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
     # Link test executable against current library, gtest, and gtest_main
     #target_link_libraries(${executableName} gtest "${libName}" ${GTEST_BOTH_LIBRARIES})
     #message("For ${executableName}, linking DEPS: ${dependencyList};${libName}")
-    target_link_libraries(${executableName} gtest gtest_main ${dependencyList};${libName})
+    target_link_libraries(${executableName} gtest gtest_main ${dependencyList} ${libName})
 
     target_compile_definitions(${executableName} PRIVATE GTEST_USE_OWN_TR1_TUPLE=1)
     target_compile_definitions(${executableName} PRIVATE "TEST_OBJDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")

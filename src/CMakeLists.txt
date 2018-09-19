@@ -1,6 +1,21 @@
 
 include(Utilities) # Contains functions
 
+
+# Verify that we have a new enough compiler.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9.1")
+    message(FATAL_ERROR "GCC version >= 4.9.1 is required!")
+  endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.1.0")
+    message(FATAL_ERROR "Clang version >= 8.1.0 is required!")
+  endif()
+else()
+  message(FATAL_ERROR "Unknown compiler: ${CMAKE_CXX_COMPILER_ID}")
+endif()
+
+
 #===============================================================================
 # Project information
 
