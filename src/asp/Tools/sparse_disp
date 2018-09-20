@@ -76,89 +76,89 @@ def prevpow2(i):
 
 class im_subset:
     def __init__(self, c0, r0, Nc, Nr, source, user_nodata, pad_val=0, Bands=(1,2,3)):
-        self.source=source
-        self.c0=c0
-        self.r0=r0
-        self.Nc=Nc
-        self.Nr=Nr
-        self.z=[]
+        self.source = source
+        self.c0 = c0
+        self.r0 = r0
+        self.Nc = Nc
+        self.Nr = Nr
+        self.z  = []
         # if the level is zero, this is a copy of a file, if it's >0, it's a copy of a copy of a file
-        self.level=0
-        self.Bands=Bands
-        self.pad_val=pad_val
+        self.level = 0
+        self.Bands = Bands
+        self.pad_val = pad_val
         # get the nodata value from the source
         if hasattr(self.source, 'level'):
             self.level=self.source.level+1
             if user_nodata is not None:
                 self.noData = user_nodata
             else:
-                self.noData=self.source.noData
+                self.noData = self.source.noData
         else:
             band=self.source.GetRasterBand(self.Bands[0])
             if user_nodata is not None:
                 self.noData = user_nodata
             else:
-                self.noData=band.GetNoDataValue()
+                self.noData = band.GetNoDataValue()
             if self.noData is None:
-                self.noData=0.0
+                self.noData = 0.0
 
     def setBounds(self, c0, r0, Nc, Nr, update=0):
-        self.c0=np.int(c0)
-        self.r0=np.int(r0)
-        self.Nc=np.int(Nc)
-        self.Nr=np.int(Nr)
+        self.c0 = np.int(c0)
+        self.r0 = np.int(r0)
+        self.Nc = np.int(Nc)
+        self.Nr = np.int(Nr)
         if update > 0:
             self.copySubsetFrom(pad_val=self.pad_val)
 
     def copySubsetFrom(self, pad_val=0):
         if hasattr(self.source, 'level'):  # copy data from another subset
             self.z = np.zeros((self.source.z.shape[0], self.Nr, self.Nc), self.source.z.dtype) + pad_val
-            (sr0, sr1, dr0, dr1, vr)=match_range(self.source.r0, self.source.Nr, self.r0, self.Nr)
-            (sc0, sc1, dc0, dc1, vc)=match_range(self.source.c0, self.source.Nc, self.c0, self.Nc)
+            (sr0, sr1, dr0, dr1, vr) = match_range(self.source.r0, self.source.Nr, self.r0, self.Nr)
+            (sc0, sc1, dc0, dc1, vc) = match_range(self.source.c0, self.source.Nc, self.c0, self.Nc)
             if (vr & vc):
                 self.z[:, dr0:dr1, dc0:dc1]=self.source.z[:,sr0:sr1, sc0:sc1]
             self.level=self.source.level+1
         else:  # read data from a file
-            band=self.source.GetRasterBand(self.Bands[0])
-            src_NB=self.source.RasterCount
-            dt=gdal.GetDataTypeName(band.DataType)
-            self.z=np.zeros((src_NB, self.Nr, self.Nc), dt)+pad_val
-            (sr0, sr1, dr0, dr1, vr)=match_range(0, band.YSize, self.r0, self.Nr)
-            (sc0, sc1, dc0, dc1, vc)=match_range(0, band.XSize, self.c0, self.Nc)
+            band   = self.source.GetRasterBand(self.Bands[0])
+            src_NB = self.source.RasterCount
+            dt     = gdal.GetDataTypeName(band.DataType)
+            self.z = np.zeros((src_NB, self.Nr, self.Nc), dt)+pad_val
+            (sr0, sr1, dr0, dr1, vr) = match_range(0, band.YSize, self.r0, self.Nr)
+            (sc0, sc1, dc0, dc1, vc) = match_range(0, band.XSize, self.c0, self.Nc)
             if (vr & vc):
                 self.z[:, dr0:dr1, dc0:dc1]=self.source.ReadAsArray(int(sc0),  int(sr0), int(sc1-sc0), int(sr1-sr0))
             self.level=0
 
     def trim_from_edges(self, x_trim, y_trim):
-        self.z=self.z[:, y_trim[0]:-y_trim[1], x_trim[0]:-x_trim[1]]
-        self.r0=self.r0+y_trim[0]
-        self.c0=self.c0+x_trim[0]
-        self.Nr=self.Nr-np.sum(y_trim)
-        self.Nc=self.Nc-np.sum(x_trim)
+        self.z  = self.z[:, y_trim[0]:-y_trim[1], x_trim[0]:-x_trim[1]]
+        self.r0 = self.r0+y_trim[0]
+        self.c0 = self.c0+x_trim[0]
+        self.Nr = self.Nr-np.sum(y_trim)
+        self.Nc = self.Nc-np.sum(x_trim)
 
     def writeSubsetTo(self, bands, target):
         if hasattr(target, 'level') and target.level > 0:
-            (sr0, sr1, dr0, dr1, vr)=match_range(target.source.r0, target.source.Nr, self.r0, self.Nr)
-            (sc0, sc1, dc0, dc1, vc)=match_range(target.source.c0, target.source.Nc, self.c0, self.Nc)
+            (sr0, sr1, dr0, dr1, vr) = match_range(target.source.r0, target.source.Nr, self.r0, self.Nr)
+            (sc0, sc1, dc0, dc1, vc) = match_range(target.source.c0, target.source.Nc, self.c0, self.Nc)
             if (vr & vc):
                 for b in bands:
                     target.source.z[b,sr0:sr1, sc0:sc1]=self.z[b, dr0:dr1, dc0:dc1]
         else:
             band=target.source.GetRasterBand(1)
-            (sr0, sr1, dr0, dr1, vr)=match_range(0, band.YSize, self.r0, self.Nr)
-            (sc0, sc1, dc0, dc1, vc)=match_range(0, band.XSize, self.c0, self.Nc)
+            (sr0, sr1, dr0, dr1, vr) = match_range(0, band.YSize, self.r0, self.Nr)
+            (sc0, sc1, dc0, dc1, vc) = match_range(0, band.XSize, self.c0, self.Nc)
             if (vr & vc):
                 for bb in (bands):
                     band=target.source.GetRasterBand(int(bb))
                     band.WriteArray( self.z[bb-1, dr0:dr1, dc0:dc1], int(sc0), int(sr0))
 
 def match_range(s0, ns, d0, nd):
-    i0 = max(s0, d0)
-    i1 = min(s0+ns, d0+nd)
-    si0=max(0, i0-s0)
-    si1=min(ns, i1-s0)
-    di0=max(0, i0-d0)
-    di1=min(nd,i1-d0)
+    i0  = max(s0, d0)
+    i1  = min(s0+ns, d0+nd)
+    si0 = max(0, i0-s0)
+    si1 = min(ns, i1-s0)
+    di0 = max(0, i0-d0)
+    di1 = min(nd,i1-d0)
     any_valid=(di1>di0) & (si1 > si0)
     return (si0, si1, di0, di1, any_valid)
 
@@ -167,31 +167,10 @@ def match_range(s0, ns, d0, nd):
 # module if available. Otherwise use the normal scipy fftpack ones
 # instead (~2-3x slower!).
 try:
-    import pyFFTW
-    # measure == True for self-optimisation of repeat Fourier transforms of
-    # similarly-shaped arrays
-    def fftn(A,shape=None):
-            if shape != None:
-                    A = _checkffttype(A)
-                    A = procrustes(A,target=shape,side='after',padval=0)
-            return pyFFTW.fftn(A,measure=True)
-    def ifftn(B,shape=None):
-            if shape != None:
-                    B = _checkffttype(B)
-                    B = procrustes(B,target=shape,side='after',padval=0)
-            return pyFFTW.ifftn(B,measure=True)
-    def _checkffttype(C):
-            # make sure input arrays are typed correctly for FFTW
-            if C.dtype == 'complex256':
-                    # the only incompatible complex type --> complex64
-                    C = np.complex128(C)
-            elif C.dtype not in ['float32','float64','complex64','complex128']:
-                    # any other incompatible type --> float64
-                    C = np.float64(C)
-            return C
+    from pyfftw.interfaces.scipy_fftpack import fftn, ifftn
 
 except ImportError:
-    print("Module 'pyFFTW' (FFTW Python bindings) could not be imported.\n"\
+    print("Module 'pyfftw' (FFTW Python bindings) could not be imported.\n"\
           "To install it, try running 'easy_install anfft' from the terminal.\n"\
           "Falling back on the slower 'fftpack' module for ND Fourier transforms.")
     from scipy.fftpack import fftn, ifftn
