@@ -22,9 +22,18 @@ endif()
 project (StereoPipeline)
 
 set(PACKAGE_VERSION "2.6.1")
-set(PACKAGE_NAME "Stereo Pipeline")
+set(PACKAGE_NAME "NASA Ames Stereo Pipeline")
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 set(PACKAGE_BUGREPORT "scott.t.mcmichael@nasa.gov")
+
+
+# Fetch the Git hash and store in ASP_COMMIT_ID
+execute_process(
+  COMMAND git log -1 --format=%h
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE ASP_COMMIT_ID
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 
 #===============================================================================
 

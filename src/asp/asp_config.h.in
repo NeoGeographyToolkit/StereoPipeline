@@ -573,3 +573,4 @@
 #error You are using a different version of Boost than you used to build _!
 #endif
 
+#define ASP_COMMIT_ID "@ASP_COMMIT_ID@"
