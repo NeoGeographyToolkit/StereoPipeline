@@ -38,7 +38,8 @@ enable_testing() # Needed for unit tests to work
 
 
 # Add command to build the instructions pdf file
-# - TODO: This will need more work!
+configure_file(${CMAKE_SOURCE_DIR}/docs/book/asp_book.tex.in 
+               ${CMAKE_SOURCE_DIR}/docs/book/asp_book.tex)
 add_custom_target(workbook pdflatex asp_book.tex
                   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/docs/book")
 

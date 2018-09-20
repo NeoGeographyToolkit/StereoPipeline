@@ -42,4 +42,4 @@ include $(GMKFILE)
 
 # Paste in the ASP version into the text
 asp_book.tex: asp_book.tex.in
-	sed 's/\[@\]ASP_VERSION\[@\]/$(ASP_VERSION)/g' < $< > $@
+	sed 's/@ASP_VERSION@/$(ASP_VERSION)/g' < $< > $@

@@ -87,7 +87,7 @@
 
 \title{{\Huge The Ames Stereo Pipeline:}\\NASA's Open Source Automated Stereogrammetry Software\\
 {\em A part of the NASA NeoGeography Toolkit}\\
-Version [@]ASP_VERSION[@]}
+Version @ASP_VERSION@}
 
 \author{
 Intelligent Robotics Group\\
