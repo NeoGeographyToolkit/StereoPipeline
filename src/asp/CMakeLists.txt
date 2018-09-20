@@ -49,6 +49,8 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
+set(ASP_HAVE_PKG_ICEBRIDGE 1)
+
 if (APPLE)
   set(ASP_OSX_BUILD 1)
 endif()
@@ -227,7 +229,12 @@ find_external_library(LASZIP "laszip" "laszip" REQUIRED)
 find_external_library(GFLAGS "gflags" "gflags" REQUIRED)
 find_external_library(GLOG "glog" "glog" REQUIRED)
 
-find_external_library(ISIS "" "isis3" REQUIRED)
+find_external_library(ISIS "" "isis3" NOT_REQUIRED)
+
+if(ASP_HAVE_PKG_ISIS)
+  set(ASP_HAVE_PKG_ISISIO 1)
+  set(ASP_ISIS_VERSION "3.5.2") # TODO: Autodetect
+endif()
 
 set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
                   pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
@@ -336,7 +343,9 @@ set(ASP_GUI_LIB_DEPENDENCIES aspCore Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRA
 
 add_subdirectory(Core)
 add_subdirectory(SpiceIO)
-add_subdirectory(IsisIO)
+if(ASP_HAVE_PKG_ISISIO)
+  add_subdirectory(IsisIO)
+endif()
 add_subdirectory(Camera)
 add_subdirectory(Sessions)
 add_subdirectory(GUI)

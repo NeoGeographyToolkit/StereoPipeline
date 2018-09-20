@@ -29,7 +29,9 @@ set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
 set(PYTHON_LIBS crs2crs2grid.py stereo_utils.py)
 
 foreach(p ${PYTHON_TOOLS})
-  INSTALL(FILES ${p}  DESTINATION bin)
+  INSTALL(FILES ${p}
+          PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_EXECUTE GROUP_READ WORLD_EXECUTE
+          DESTINATION bin)
 endforeach()
 foreach(p ${PYTHON_LIBS})
   INSTALL(FILES ${p}  DESTINATION libexec)

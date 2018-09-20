@@ -142,7 +142,7 @@
 //#cmakedefine ASP_HAVE_PKG_DISP_AVG
 
 /* Define to 1 if the EIGEN package is available. */
-#cmakedefine ASP_HAVE_PKG_EIGEN
+#cmakedefine ASP_HAVE_PKG_EIGEN 1
 
 /* Define to 1 if the FLANN package is available. */
 #cmakedefine ASP_HAVE_PKG_FLANN 1
@@ -214,7 +214,7 @@
 #cmakedefine ASP_HAVE_PKG_ISIS3RDPARTY 1
 
 /* Define to 1 if the ISISIO module is available. */
-//#cmakedefine ASP_HAVE_PKG_ISISIO 1
+#cmakedefine ASP_HAVE_PKG_ISISIO 1
 
 /* Define to 1 if the JP2 package is available. */
 #cmakedefine ASP_HAVE_PKG_JP2 1
@@ -529,7 +529,7 @@
 #cmakedefine HAVE_UNISTD_H 1
 
 /* The version of ISIS that this software was built against. */
-#cmakedefine ISIS_VERSION
+#define ASP_ISIS_VERSION "@ASP_ISIS_VERSION@"
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
