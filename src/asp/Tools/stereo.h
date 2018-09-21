@@ -59,6 +59,11 @@ enum { PREPROCESSING = 0,
 // Allows FileIO to correctly read/write these pixel types
 namespace asp {
 
+  /// Load the D_sub file in a consistent format.
+  /// - Returns false if the file does not exist.
+  bool load_sub_disp_image(std::string const& sub_disp_path,
+                           vw::ImageViewRef<vw::PixelMask<vw::Vector2f> > &sub_disp);
+
   /// Transform the crop window to be in reference to L.tif
   vw::BBox2i transformed_crop_win(ASPGlobalOptions const& opt);
 

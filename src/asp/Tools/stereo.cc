@@ -39,6 +39,23 @@ using namespace std;
 
 namespace asp {
 
+  bool load_sub_disp_image(std::string const& sub_disp_path,
+                           ImageViewRef<PixelMask<Vector2f> > &sub_disp) {
+    if (!boost::filesystem::exists(sub_disp_path))
+      return false;
+
+    // Check the data type of the file.
+    boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(sub_disp_path));
+    ChannelTypeEnum disp_data_type = rsrc->channel_type();
+
+    if (disp_data_type == VW_CHANNEL_INT32) // Cast the integer file to float
+     sub_disp = pixel_cast<PixelMask<Vector2f> >(
+                      DiskImageView< PixelMask<Vector2i> >(sub_disp_path));
+    else // File on disk is float
+      sub_disp = DiskImageView< PixelMask<Vector2f> >(sub_disp_path);
+    return true;
+  }
+
   // Transform the crop window to be in reference to L.tif
   BBox2i transformed_crop_win(ASPGlobalOptions const& opt){
 

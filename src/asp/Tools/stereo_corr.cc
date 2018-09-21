@@ -69,7 +69,6 @@ SemiGlobalMatcher::SgmSubpixelMode get_sgm_subpixel_mode() {
   };
 }
 
-
 // Read the search range from D_sub, and scale it to the full image
 void read_search_range_from_dsub(ASPGlobalOptions & opt){
 
@@ -83,20 +82,20 @@ void read_search_range_from_dsub(ASPGlobalOptions & opt){
   DiskImageView<PixelGray<float> > left_sub ( opt.out_prefix+"-L_sub.tif" ),
                                    right_sub( opt.out_prefix+"-R_sub.tif" );
 
-  Vector2 downsample_scale( double(left_sub.cols()) / double(Lmask.cols()),
-                            double(left_sub.rows()) / double(Lmask.rows()) );
-
   std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
-  if (!fs::exists(d_sub_file))
-    return;
 
-  ImageView<PixelMask<Vector2f> > sub_disp;
-  read_image(sub_disp, d_sub_file);
+  ImageViewRef<PixelMask<Vector2f> > sub_disp;
+  if (!load_sub_disp_image(d_sub_file, sub_disp))
+    return; // File not found
+
+  Vector2 upsample_scale( double(Lmask.cols()) / double(sub_disp.cols()) ,
+                          double(Lmask.rows()) / double(sub_disp.rows()) );
+
   BBox2i search_range = stereo::get_disparity_range( sub_disp );
-  search_range.min() = floor(elem_quot(search_range.min(),downsample_scale));
-  search_range.max() = ceil (elem_quot(search_range.max(),downsample_scale));
+  search_range.min() = floor(elem_prod(search_range.min(),upsample_scale));
+  search_range.max() = ceil (elem_prod(search_range.max(),upsample_scale));
   stereo_settings().search_range = search_range;
-  
+
   vw_out() << "\t--> Read search range from D_sub: " << search_range << "\n";
 }
 
@@ -945,7 +944,7 @@ public:
       seed_bbox.expand(1);
       seed_bbox.crop( m_seed_bbox );
       // Get the disparity range in d_sub corresponding to this tile.
-      VW_OUT(DebugMessage, "stereo") << "Getting disparity range for : " << seed_bbox << "\n";
+      VW_OUT(DebugMessage, "stereo") << "\nGetting disparity range for : " << seed_bbox << "\n";
       DispSeedImageType disparity_in_box = crop( m_sub_disp, seed_bbox );
 
       if (!use_local_homography){
@@ -1008,7 +1007,7 @@ public:
       // m_sub_disp is integer-valued, and perhaps the search
       // range was supposed to be a fraction of integer bigger.
       local_search_range.expand(1);
-      
+
       // Scale the search range to full-resolution
       local_search_range.min() = floor(elem_prod(local_search_range.min(),m_upscale_factor));
       local_search_range.max() = ceil (elem_prod(local_search_range.max(),m_upscale_factor));
@@ -1021,9 +1020,9 @@ public:
       }
 
       VW_OUT(DebugMessage, "stereo") << "SeededCorrelatorView("
-				     << bbox << ") local search range "
-				     << local_search_range << " vs "
-				     << stereo_settings().search_range << "\n";
+                                     << bbox << ") local search range "
+                                     << local_search_range << " vs "
+                                     << stereo_settings().search_range << "\n";
 
     } else{ // seed mode == 0
       local_search_range = stereo_settings().search_range;
@@ -1133,7 +1132,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   std::string spread_file = opt.out_prefix+"-D_sub_spread.tif";
   
   if ( stereo_settings().seed_mode > 0 )
-    sub_disp = DiskImageView<PixelMask<Vector2f> >(dsub_file);
+    load_sub_disp_image(dsub_file, sub_disp); // TODO: What if file is missing?
   ImageViewRef<PixelMask<Vector2i> > sub_disp_spread;
   if ( stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3 ){
     // D_sub_spread is mandatory for seed_mode 2 and 3.

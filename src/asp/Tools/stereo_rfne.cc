@@ -308,7 +308,8 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
     
     if ( stereo_settings().seed_mode > 0 &&
          stereo_settings().use_local_homography ){
-      sub_disp = DiskImageView<PixelMask<Vector2f> >(opt.out_prefix+"-D_sub.tif");
+      if (!load_sub_disp_image(opt.out_prefix+"-D_sub.tif", sub_disp))
+        vw_throw( ArgumentErr() << "D_sub file does not exist, cannot use local homography.\n");
 
       string local_hom_file = opt.out_prefix + "-local_hom.txt";
       read_local_homographies(local_hom_file, local_hom);
