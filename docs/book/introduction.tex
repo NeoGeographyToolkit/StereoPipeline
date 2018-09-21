@@ -3,11 +3,11 @@
 \acresetall
 
 The \acsu{NASA} \ac{ASP} is a suite of free and open source automated
-geodesy and stereogrammetry tools designed for processing stereo imagery
+geodesy and stereogrammetry tools designed for processing stereo images
 captured from satellites (around Earth and other planets), robotic
-rovers, aerial cameras, and historical imagery, with and without
+rovers, aerial cameras, and historical images, with and without
 accurate camera pose information. It produces cartographic products,
-including digital elevation models (DEMs), ortho-projected imagery, 3D
+including digital elevation models (DEMs), ortho-projected images, 3D
 models, and bundle-adjusted networks of cameras. ASP's data products are
 suitable for science analysis, mission planning, and public outreach.
 
@@ -47,7 +47,7 @@ applications.  In particular, long-range mission planning requires
 detailed knowledge of planetary topography, and high resolution
 topography is often derived from stereo pairs captured from orbit.
 Orbital mapping satellites are sent as precursors to planetary bodies
-in advance of landers and rovers.  They return a wealth of imagery and
+in advance of landers and rovers.  They return a wealth of images and
 other data that helps mission planners and scientists identify areas
 worthy of more detailed study. Topographic information often plays a
 central role in this planning and analysis process.
@@ -73,7 +73,7 @@ applying recent advances in computer vision, we have
 created an {\em automated} process that is capable of generating high
 quality \acp{DEM} with minimal human intervention.  Users of the Stereo
 Pipeline can expect to spend some time picking a handful of settings
-when they first start processing a new type of imagery, but once this
+when they first start processing a new type of image, but once this
 is done, the Stereo Pipeline can be used to process tens, hundreds, or
 even thousands of stereo pairs without further adjustment.  With the
 release of this software, we hope to encourage the adoption of this
@@ -134,13 +134,13 @@ This distinction is important only if compiling this software.
 
 \subsection{The USGS Integrated Software for Imagers and Spectrometers}
 
-For processing non-terrestrial NASA satellite imagery, Stereo Pipeline
+For processing non-terrestrial NASA satellite images, Stereo Pipeline
 must be installed alongside a copy of \ac{USGS} \ac{ISIS}. \ac{ISIS} is
 however not required for processing Digital Globe images of Earth.
 
 \ac{ISIS} is widely used in the planetary science community
-for processing raw spacecraft imagery into high level data products of
-scientific interest such as map-projected and mosaicked imagery
+for processing raw spacecraft images into high level data products of
+scientific interest such as map-projected and mosaicked images
 \cite{2004LPI....35.2039A, 1997LPI....28..387G, ISIS_website}.  We
 chose \ac{ISIS} because (1) it is widely adopted by the planetary
 science community, (2) it contains the authoritative collection of
@@ -244,8 +244,14 @@ typing on a second line in your terminal.
 
 \section{Referencing the Ames Stereo Pipeline in Your Work}
 
-A recent peer-reviewed paper on using ASP (for Earth imagery) that 
-may be cited in your work is:
+In general, please use this reference for the Ames Stereo Pipeline:
+
+\begin{description}
+		\item Beyer, Ross A., Oleg Alexandrov, and Scott McMichael. 2018. The Ames Stereo Pipeline: NASA's open source software for deriving and processing terrain data. \textit{Earth and Space Science}, \textbf{5}. \href{https://doi.org/10.1029/2018EA000409}.
+\end{description}
+
+If you are using ASP for application to Earth images, or need a reference which details the quality 
+of output, then we suggest also referencing:
 
 \begin{description}
 \item Shean, D. E., O. Alexandrov, Z. Moratto, B. E. Smith, I. R. Joughin, C. C. Porter, Morin, P. J. 2016.  An automated, open-source pipeline for mass production of digital elevation models (DEMs) from very high-resolution commercial stereo satellite imagery. 
@@ -253,33 +259,34 @@ may be cited in your work is:
 \textbf{116}.
 \end{description}
 
-Other publications which detail applications to non-terrestrial planetary bodies are:
-
-\begin{description}
-\item Moratto, Z. M., M. J. Broxton, R. A. Beyer, M. Lundy, and K. Husmann.
-2010. Ames Stereo Pipeline, NASA's Open Source Automated Stereogrammetry
-Software. \textit{Lunar and Planetary Science Conference} \textbf{41},
-abstract \#2364.
-\href{http://adsabs.harvard.edu/abs/2010LPI....41.2364M}{[ADS Abstract]}.
-
-\item Broxton, M. J. and L. J. Edwards. 2008. The Ames Stereo Pipeline:
-Automated 3D Surface Reconstruction from Orbital Imagery. \textit{Lunar
-and Planetary Science Conference} \textbf{39}, abstract \#2419.
-\href{http://adsabs.harvard.edu/abs/2008LPI....39.2419B}{[ADS Abstract]}.
-\end{description}
+%With the new E&SS paper, we don't need these LPSC abstracts, but I apparently can't bring myself to delete them.
+% Other publications which detail applications to non-terrestrial planetary bodies are:
+% 
+% \begin{description}
+% \item Moratto, Z. M., M. J. Broxton, R. A. Beyer, M. Lundy, and K. Husmann.
+% 2010. Ames Stereo Pipeline, NASA's Open Source Automated Stereogrammetry
+% Software. \textit{Lunar and Planetary Science Conference} \textbf{41},
+% abstract \#2364.
+% \href{http://adsabs.harvard.edu/abs/2010LPI....41.2364M}{[ADS Abstract]}.
+% 
+% \item Broxton, M. J. and L. J. Edwards. 2008. The Ames Stereo Pipeline:
+% Automated 3D Surface Reconstruction from Orbital Imagery. \textit{Lunar
+% and Planetary Science Conference} \textbf{39}, abstract \#2419.
+% \href{http://adsabs.harvard.edu/abs/2008LPI....39.2419B}{[ADS Abstract]}.
+% \end{description}
 
 In addition to using the references above, in order to help you
 better cite the specific version of ASP that you are using in a work, as of ASP version 2.6.0,
 we have started using \href{https://zenodo.org}{Zenodo} to create digital object identifiers (DOIs)
-for each ASP release.  For example, the DOI for version 2.6.0 is 10.5281/zenodo.581187, and you can
+for each ASP release.  For example, the DOI for version 2.6.1 is 10.5281/zenodo.1345235, and you can
 cite it like this:
 
 \begin{description}
-\item Beyer, Ross A., Oleg Alexandrov, and Scott McMichael. 2017. NeoGeographyToolkit/StereoPipeline: Ames Stereo Pipeline 2.6.0. [Data set]. \textit{Zenodo}. \href{http://doi.org/10.5281/zenodo.581187}{DOI: 10.5281/zenodo.581187}.
+\item Beyer, Ross A., Oleg Alexandrov, and Scott McMichael. 2018. NeoGeographyToolkit/StereoPipeline: Ames Stereo Pipeline version 2.6.1. \textit{Zenodo}. \href{http://doi.org/10.5281/zenodo.1345235}{DOI: 10.5281/zenodo.1345235}.
 \end{description}
 
 Of course, every new release of ASP will have its own unique DOI,
-and this link should point to the
+and this link should always point to the
 \href{https://zenodo.org/badge/latestdoi/714891}{latest DOI} for
 ASP.
 
@@ -291,11 +298,14 @@ work in this document, in Appendix \ref{ch:papersusingasp}.
 Ames Stereo Pipeline is a {\bf research} product. There may be bugs or
 incomplete features. We reserve the ability to change the API and
 command line options of the tools we provide. Although we hope you will
-find this release helpful, you may use it at your own risk. Please check
+find this release helpful, you use it at your own risk. Please check
 each release's {\bf NEWS} file to see a summary of our recent changes.
 
 While we are confident that the algorithms used by this software are
-robust, they have not been systematically tested or rigorously
-compared to other methods in the peer-reviewed literature. We {\it
-strongly recommend} that you consult us first before publishing
-any results based on the cartographic products produced by this software.
+robust, the Ames Stereo Pipeline has a lot of adjustable parameters, and 
+even experienced operators can produce poor results.  We {\it
+strongly recommend} that if you have any concerns about the products that
+you (or others) create with this software, please just get in contact with us.
+We can help you figure out either how to make the product better, or help you
+accurately describe the limitations of the data or the data products, so that 
+you can use it to confidently make new and wonderful discoveries.
