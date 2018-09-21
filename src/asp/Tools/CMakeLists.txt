@@ -65,11 +65,9 @@ add_executable(dem_geoid dem_geoid.cc)
 target_link_libraries(dem_geoid aspCore ${GEOID_LIBRARIES})
 install(TARGETS dem_geoid DESTINATION bin)
 
-
 add_executable(camera_footprint camera_footprint.cc)
 target_link_libraries(camera_footprint aspSessions)
 install(TARGETS camera_footprint DESTINATION bin)
-
 
 add_executable(disparitydebug disparitydebug.cc)
 target_link_libraries(disparitydebug aspCore)
@@ -170,6 +168,10 @@ install(TARGETS stereo_rfne DESTINATION bin)
 add_executable(stereo_tri stereo_tri.cc stereo.h stereo.cc jitter_adjust.cc jitter_adjust.h) 
 target_link_libraries(stereo_tri aspSessions ${SOLVER_LIBRARIES})
 install(TARGETS stereo_tri DESTINATION bin)
+
+add_executable(dem_mosaic dem_mosaic.cc) 
+target_link_libraries(dem_mosaic aspCore)
+install(TARGETS dem_mosaic DESTINATION bin)
 
 add_executable(tif_mosaic tif_mosaic.cc) 
 target_link_libraries(tif_mosaic aspCore)

@@ -870,7 +870,7 @@ public:
     if (m_opt.median || m_opt.nmad){
       // Init output pixels to nodata
       fill( tile, m_opt.out_nodata_value );
-      vector<double> vals(tile_vec.size());
+      vector<double> vals, vals_all(tile_vec.size());
       // Iterate through all pixels
       for (int c = 0; c < bbox.width(); c++){
         for (int r = 0; r < bbox.height(); r++){
@@ -878,16 +878,32 @@ public:
           vals.clear();
           for (int i = 0; i < (int)tile_vec.size(); i++){
             ImageView<double> & tile_ref = tile_vec[i];
-            if ( tile_ref(c, r) == m_opt.out_nodata_value )
+            double this_val = tile_ref(c, r);
+            vals_all[i] = this_val; // Record the original order.
+            if (this_val == m_opt.out_nodata_value)
               continue;
-            vals.push_back(tile_ref(c, r));
+            vals.push_back(this_val);
           }
-          if (!vals.empty()){
-            if (m_opt.median)
-              tile(c, r) = math::destructive_median(vals);
-            else
-              tile(c, r) = math::destructive_nmad(vals);
+          if (vals.empty())
+            continue;
+          if (m_opt.median)
+            tile(c, r) = math::destructive_median(vals);
+          else
+            tile(c, r) = math::destructive_nmad(vals);
+
+          if (!m_opt.save_index_map)
+            continue;
+          // Record the index of the image that is closest to the median value,
+          //   in case the median is two values averaged together.
+          double min_dist = std::numeric_limits<double>::max();
+          for (size_t m=0; m<vals_all.size(); ++m) {
+            double dist = fabs(vals_all[m] - tile(c, r));
+            if (dist < min_dist) {
+              index_map(c, r) = m;
+              min_dist = dist;
+            }
           }
+          
         }// End row loop
       } // End col loop
     } // End median/nmad case
@@ -1246,7 +1262,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("block-max", po::bool_switch(&opt.block_max)->default_value(false),
      "For each block of size --block-size, keep the DEM with the largest sum of values in the block.")
     ("georef-tile-size",    po::value<double>(&opt.geo_tile_size),
-	   "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
+     "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<double>(&opt.out_nodata_value),
      "No-data value to use on output. Default: use the one from the first DEM to be mosaicked.")
     ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.")
@@ -1261,7 +1277,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("nodata-threshold", po::value(&opt.nodata_threshold)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Values no larger than this number will be interpreted as no-data.")
     ("propagate-nodata", po::bool_switch(&opt.propagate_nodata)->default_value(false),
-	   "Set a pixel to nodata if any input DEM is also nodata at that location.")
+     "Set a pixel to nodata if any input DEM is also nodata at that location.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).")
     ("block-size",      po::value<int>(&opt.block_size)->default_value(0),
@@ -1273,9 +1289,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("this-dem-as-reference", po::value(&opt.this_dem_as_reference)->default_value(""),
      "The output DEM will have the same size, grid, and georeference as this one, but it will not be used in the mosaic.")
     ("save-index-map",   po::bool_switch(&opt.save_index_map)->default_value(false),
-     "For each output pixel, save the index of the input DEM it came from (applicable only for --first, --last, --min, and --max). A text file with the index assigned to each input DEM is saved as well.")
+     "For each output pixel, save the index of the input DEM it came from (applicable only for --first, --last, --min, --max, --median, and --nmad). A text file with the index assigned to each input DEM is saved as well.")
     ("threads",             po::value<int>(&opt.num_threads)->default_value(4),
-	   "Number of threads to use.")
+     "Number of threads to use.")
     ("help,h", "Display this help message.");
 
   po::options_description positional("");
@@ -1311,7 +1327,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if (opt.priority_blending_len < 0)
     vw_throw(ArgumentErr() << "The priority blending length must not be negative.\n"
-			   << usage << general_options );
+                           << usage << general_options );
 
   // If priority blending is used, need to adjust extra_crop_len accordingly
   opt.extra_crop_len = std::max(opt.extra_crop_len, 3*opt.priority_blending_len);
@@ -1320,17 +1336,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   int noblend = no_blend(opt);
   if (noblend > 1)
     vw_throw(ArgumentErr() << "At most one of the options --first, --last, "
-	     << "--min, --max, -mean, --stddev, --median, --nmad, --count can be specified.\n"
-	     << usage << general_options );
+         << "--min, --max, -mean, --stddev, --median, --nmad, --count can be specified.\n"
+         << usage << general_options );
 
   if (opt.geo_tile_size < 0)
     vw_throw(ArgumentErr() << "The size of a tile in georeferenced units must not be negative.\n"
-			   << usage << general_options );
+                           << usage << general_options );
 
   if (noblend && opt.priority_blending_len > 0) {
     vw_throw(ArgumentErr()
-	     << "Priority blending cannot happen if any of the statistics DEMs are computed.\n"
-	     << usage << general_options );
+       << "Priority blending cannot happen if any of the statistics DEMs are computed.\n"
+       << usage << general_options );
   }
 
   if (opt.priority_blending_len > 0 && opt.weights_exp == 2) {
@@ -1340,22 +1356,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   if (noblend && !opt.first && !opt.last && !opt.min && !opt.max && !opt.mean
       && opt.save_dem_weight >= 0) {
-    vw_throw(ArgumentErr()
-	     << "Cannot save the weights unless blending is on or one of "
-	     << "--first, --last, --min, --max, --mean is invoked.\n"
-	     << usage << general_options );
+    vw_throw(ArgumentErr() << "Cannot save the weights unless blending is on or one of "
+                           << "--first, --last, --min, --max, --mean is invoked.\n"
+                           << usage << general_options );
   }
 
-  if (opt.save_index_map && !opt.first && !opt.last && !opt.min && !opt.max)
-    vw_throw(ArgumentErr()
-	     << "Cannot save an index map unless one of "
-	     << "--first, --last, --min, --max is invoked.\n"
-	     << usage << general_options );
+  if (opt.save_index_map && !opt.first && !opt.last &&
+                            !opt.min && !opt.max && !opt.median && !opt.nmad)
+    vw_throw(ArgumentErr() << "Cannot save an index map unless one of "
+                           << "--first, --last, --min, --max, --median, --nmad is invoked.\n"
+                           << usage << general_options );
 
   if (opt.save_dem_weight >= 0 && opt.save_index_map)
     vw_throw(ArgumentErr()
-	     << "Cannot save both the index map and the DEM weights at the same time.\n"
-	     << usage << general_options );
+       << "Cannot save both the index map and the DEM weights at the same time.\n"
+       << usage << general_options );
 
   // For compatibility with the GDAL tools, allow the min and max to be reversed.
   if (opt.projwin != BBox2()) {
@@ -1367,11 +1382,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   if (opt.weights_blur_sigma < 0.0)
     vw_throw(ArgumentErr() << "The standard deviation used for blurring must be non-negative.\n"
-			   << usage << general_options );
+                           << usage << general_options );
 
   if (opt.weights_exp <= 0)
     vw_throw(ArgumentErr() << "The weights exponent must be positive.\n"
-			   << usage << general_options );
+                           << usage << general_options );
 
   // Read the DEMs
   if (opt.dem_list_file != ""){ // Get them from a list
