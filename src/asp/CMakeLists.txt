@@ -163,8 +163,7 @@ set(REQUIRED_QT_COMPONENTS  Core                Concurrent
 find_package(Qt5 5.6.3 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
 
 if(Qt5_FOUND)
-    set(CMAKE_AUTOMOC ON) # TODO: This produces a lot of extra MOC files we don't need!
-    
+
     #message("QT_USE_FILE = ${QT_USE_FILE}")
     #include(${QT_USE_FILE}) # Required after using QT find command
     #message("QT include dirs  " ${QT_INCLUDES})
