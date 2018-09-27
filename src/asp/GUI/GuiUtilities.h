@@ -424,8 +424,10 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
     }
 
     // These bounds may contain outliers, so correct for that
-    min_val = std::max(min_val, bounds[0]);
-    max_val = std::min(max_val, bounds[1]);
+    if (bounds[0] != bounds[1]) {
+      min_val = std::max(min_val, bounds[0]);
+      max_val = std::min(max_val, bounds[1]);
+    }
 
     // A safety measure
     if (min_val >= max_val)
