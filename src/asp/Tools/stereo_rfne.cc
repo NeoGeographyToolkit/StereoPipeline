@@ -22,6 +22,7 @@
 #include <asp/Tools/stereo.h>
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CostFunctions.h>
+#include <vw/Stereo/ParabolaSubpixelView.h>
 #include <vw/Stereo/SubpixelView.h>
 #include <vw/Stereo/EMSubpixelCorrelatorView.h>
 #include <vw/Stereo/DisparityMap.h>
