@@ -2381,6 +2381,44 @@ Options & Description \\ \hline \hline
 use. 0 means use the default defined in the program or in the .vwrc file. \\ \hline
 \end{longtable}
 
+
+
+\section{hiedr2mosaic.py}
+\label{hiedr2mosaic.py}
+
+Assemble a collection of HiRISE EDR files into a single image.  This runs the sequence of ISIS preprocessing
+commands, followed by hijitreg, to assemble the input images into a single output image.  You can either download
+the input files yourself and pass them all in or specify a download folder and pass in only a URL such as
+\url{http://hirise-pds.lpl.arizona.edu/PDS/EDR/ESP/ORB_029400_029499/ESP_029421_2300/}.  If you use a URL,
+the program will attempt to download all of the HiRISE images found at that location and then run the processing
+script.  See the "Mars Reconnaissance Orbiter HiRISE" section in the examples chapter for a more 
+detailed explanation.
+
+\medskip
+
+Usage:\\
+\hspace*{2em}\texttt{hiedr2mosaic.py [options] <input files OR a url>}
+
+\medskip
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for hiedr2mosaic.py}
+\label{tbl:hiedr2mosaic}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-manual} & Display the help message.\\ \hline
+\texttt{-\/-match|-m} & The CCD number passed as the match argument to noproj (default 5). .\\ \hline
+\texttt{-\/-stop-at-no-proj} & Stops processing after the noproj steps are complete. \\ \hline
+\texttt{-\/-resume-at-no-proj} & Restarts processing using the results from 'stop-at-no-proj. \\ \hline
+\texttt{-\/-download-folder} & Download input files to this folder.  Must pass in a URL instead of files. \\ \hline
+\texttt{-\/-threads|-t} & Specify the number of threads to use.\\ \hline
+\texttt{-\/-keep|-k} & Keep all intermediate files.\\ \hline
+\end{longtable}
+
 \section{lronac2mosaic.py}
 \label{lronac2mosaic}
 

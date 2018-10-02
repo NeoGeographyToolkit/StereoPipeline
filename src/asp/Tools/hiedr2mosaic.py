@@ -401,7 +401,7 @@ def main():
             parser.add_option("-t", "--threads", dest="threads",
                               help="Number of threads to use.",type="int")
             parser.add_option("-m", "--match", dest="match",type="int",
-                              help="CCD number of match CCD")
+                              help="CCD number of match CCD, passed as the match argument to noproj (default 5).")
             parser.add_option("-k", "--keep", action="store_false",
                               dest="delete",
                               help="Will not delete intermediate files.")
