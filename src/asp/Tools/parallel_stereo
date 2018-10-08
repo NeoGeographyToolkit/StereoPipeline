@@ -848,7 +848,7 @@ if __name__ == '__main__':
             # First compute jitter correction (optional). Done just once per run.
             if '--image-lines-per-piecewise-adjustment' in args:
                 tmp_args = args[:] # deep copy
-                tmp_args.extend('--compute-piecewise-adjustments-only')
+                tmp_args.extend(['--compute-piecewise-adjustments-only'])
                 single_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
                 # And don't do it again
                 args.extend(['--skip-computing-piecewise-adjustments'])
