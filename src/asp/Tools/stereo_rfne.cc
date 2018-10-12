@@ -49,16 +49,14 @@ refine_disparity(Image1T const& left_image,
   PrefilterModeType prefilter_mode = 
     static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
 
-  if ((stereo_settings().subpixel_mode == 0) || (stereo_settings().subpixel_mode > 5)) {
+  if ((stereo_settings().subpixel_mode == 0) || 
+      (stereo_settings().subpixel_mode > 6 )   ) {
     // Do nothing (includes SGM specific subpixel modes)
     if (verbose)
       vw_out() << "\t--> Skipping subpixel mode.\n";
   }
-  if (stereo_settings().subpixel_mode == 1) {
-    // Parabola
-    
+  else {
     if (verbose) {
-      vw_out() << "\t--> Using parabola subpixel mode.\n";
       if (stereo_settings().pre_filter_mode == 2)
         vw_out() << "\t--> Using LOG pre-processing filter with "
                  << stereo_settings().slogW << " sigma blur.\n";
@@ -67,8 +65,14 @@ refine_disparity(Image1T const& left_image,
                  << stereo_settings().slogW << " sigma blur.\n";
       else
         vw_out() << "\t--> NO preprocessing" << endl;
-    } 
-    
+    }
+  }
+  
+  if (stereo_settings().subpixel_mode == 1) {
+    // Parabola
+    if (verbose)
+      vw_out() << "\t--> Using parabola subpixel mode.\n";
+
     refined_disp = parabola_subpixel( integer_disp,
                                       left_image, right_image,
                                       prefilter_mode, stereo_settings().slogW,
@@ -77,11 +81,9 @@ refine_disparity(Image1T const& left_image,
   } // End parabola cases
   if (stereo_settings().subpixel_mode == 2) {
     // Bayes EM
-    if (verbose){
+    if (verbose)
       vw_out() << "\t--> Using affine adaptive subpixel mode\n";
-      vw_out() << "\t--> Forcing use of LOG filter with "
-               << stereo_settings().slogW << " sigma blur.\n";
-    }
+
     refined_disp =
       bayes_em_subpixel( integer_disp,
                          left_image, right_image,
@@ -92,11 +94,9 @@ refine_disparity(Image1T const& left_image,
   } // End Bayes EM cases
   if (stereo_settings().subpixel_mode == 3) {
     // Fast affine
-    if (verbose){
+    if (verbose)
       vw_out() << "\t--> Using affine subpixel mode\n";
-      vw_out() << "\t--> Forcing use of LOG filter with "
-               << stereo_settings().slogW << " sigma blur.\n";
-    }
+
     refined_disp =
       affine_subpixel( integer_disp,
                        left_image, right_image,
@@ -106,12 +106,27 @@ refine_disparity(Image1T const& left_image,
 
   } // End Fast affine cases
   if (stereo_settings().subpixel_mode == 4) {
-    // Lucas-Kanade
-    if (verbose){
-      vw_out() << "\t--> Using Lucas-Kanade subpixel mode\n";
-      vw_out() << "\t--> Forcing use of LOG filter with "
-               << stereo_settings().slogW << " sigma blur.\n";
+    // Phase Correlation
+    if (verbose) {
+      vw_out() << "\t--> Using Phase Correlation subpixel mode\n";
+      vw_out() << "\t--> Forcing subpixel pyramid levels to zero\n";
     }
+    // So far phase correlation has worked poorly with multiple levels.
+    stereo_settings().subpixel_max_levels = 0;
+
+    refined_disp =
+      phase_subpixel( integer_disp,
+                      left_image, right_image,
+                      prefilter_mode, stereo_settings().slogW,
+                      stereo_settings().subpixel_kernel,
+                      stereo_settings().subpixel_max_levels );
+
+  } // End Lucas-Kanade cases
+  if (stereo_settings().subpixel_mode == 5) {
+    // Lucas-Kanade
+    if (verbose)
+      vw_out() << "\t--> Using Lucas-Kanade subpixel mode\n";
+
     refined_disp =
       lk_subpixel( integer_disp,
                    left_image, right_image,
@@ -120,7 +135,7 @@ refine_disparity(Image1T const& left_image,
                    stereo_settings().subpixel_max_levels );
 
   } // End Lucas-Kanade cases
-  if (stereo_settings().subpixel_mode == 5) {
+  if (stereo_settings().subpixel_mode == 6) {
     // Affine and Bayes subpixel refinement always use the LogPreprocessingFilter...
     if (verbose){
       vw_out() << "\t--> Using EM Subpixel mode "

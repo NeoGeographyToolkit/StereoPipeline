@@ -420,7 +420,7 @@ should be sufficient in most cases.
 
 \begin{description}
 
-\item[subpixel-mode \textnormal{\small{(= 0-5)}} (default = 1)] \hfill \\
+\item[subpixel-mode \textnormal{\small{(\emph{integer})}} (default = 1)] \hfill \\
   This parameter selects the subpixel correlation method. Parabola subpixel
   is very fast but will produce results that are only slightly more accurate
    than those produced by the initialization step. Bayes EM (mode 2)
@@ -431,7 +431,7 @@ should be sufficient in most cases.
   little noise, the affine method (subpixel mode 3) may produce results
   equivalent to Bayes EM in a shorter time.
   
-  Subpixel modes 4 and 5 are experimental.  Modes 6 and up are only used to
+  Subpixel modes 4, 5, and 6 are experimental.  Modes 7-12 and up are only used to
   override the default subpixel method used when performing SGM or MGM 
   correlation.  The default subpixel method for SGM/MGM is a custom 
   algorithm that should work well but the Cosine algorithm also works well.
@@ -441,14 +441,15 @@ should be sufficient in most cases.
     \item[1 - parabola fitting ]
     \item[2 - affine adaptive window, Bayes EM weighting ]
     \item[3 - affine window ]
-    \item[4 - Lucas-Kanade method (experimental)]
-    \item[5 - affine adaptive window, Bayes EM with Gamma Noise Distribution (experimental) ]
-    \item[6 - SGM linear ]
-    \item[7 - SGM Poly4 ]
-    \item[8 - SGM Cosine ]
-    \item[9 - SGM Parabola ]
-    \item[10 - SGM None ]
-    \item[10 - SGM Blend ]
+    \item[4 - phase correlation (experimental) ]
+    \item[5 - Lucas-Kanade method (experimental)]
+    \item[6 - affine adaptive window, Bayes EM with Gamma Noise Distribution (experimental) ]
+    \item[7 - SGM None ]
+    \item[8 - SGM linear ]
+    \item[9 - SGM Poly4 ]
+    \item[10 - SGM Cosine ]
+    \item[11 - SGM Parabola ]
+    \item[12 - SGM Blend ]
   \end{description}
 
   For a visual comparison of the quality of these subpixel modes,

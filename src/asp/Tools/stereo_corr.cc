@@ -59,12 +59,12 @@ stereo::CostFunctionType get_cost_mode_value() {
 SemiGlobalMatcher::SgmSubpixelMode get_sgm_subpixel_mode() {
 
   switch(stereo_settings().subpixel_mode) {
-    case  6: return SemiGlobalMatcher::SUBPIXEL_LINEAR;
-    case  7: return SemiGlobalMatcher::SUBPIXEL_POLY4;
-    case  8: return SemiGlobalMatcher::SUBPIXEL_COSINE;
-    case  9: return SemiGlobalMatcher::SUBPIXEL_PARABOLA;
-    case 10: return SemiGlobalMatcher::SUBPIXEL_NONE;
-    case 11: return SemiGlobalMatcher::SUBPIXEL_LC_BLEND;
+    case  7: return SemiGlobalMatcher::SUBPIXEL_NONE;
+    case  8: return SemiGlobalMatcher::SUBPIXEL_LINEAR;
+    case  9: return SemiGlobalMatcher::SUBPIXEL_POLY4;
+    case 10: return SemiGlobalMatcher::SUBPIXEL_COSINE;
+    case 11: return SemiGlobalMatcher::SUBPIXEL_PARABOLA;
+    case 12: return SemiGlobalMatcher::SUBPIXEL_LC_BLEND;
     default: return SemiGlobalMatcher::SUBPIXEL_LC_BLEND;
   };
 }

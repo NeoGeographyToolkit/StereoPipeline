@@ -245,7 +245,7 @@ namespace asp {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("subpixel-mode",       po::value(&global.subpixel_mode)->default_value(1),
-  "Subpixel algorithm. [0 None, 1 Parabola, 2 Bayes EM, 3 Affine, 4 LK, 5 Bayes EM w/gamma, 6 SGM Linear, 7 SGM Poly4, 8 SGM Cos, 9 SGM Parabola 10 SGM None 11 SGM Blend]")
+  "Subpixel algorithm. [0 None, 1 Parabola, 2 Bayes EM, 3 Affine, 4 Phase Correlation 5 LK, 6 Bayes EM w/gamma, 7 SGM None 8 SGM Linear, 9 SGM Poly4, 10 SGM Cos, 11 SGM Parabola 12 SGM Blend]")
       ("subpixel-kernel",     po::value(&global.subpixel_kernel)->default_value(Vector2i(35,35), "35 35"),
                               "Kernel size used for subpixel method.")
       ("disable-h-subpixel",  po::bool_switch(&global.disable_h_subpixel)->default_value(false)->implicit_value(true),
