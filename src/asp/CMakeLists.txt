@@ -227,6 +227,8 @@ find_external_library(LIBLAS "" "las" REQUIRED)
 find_external_library(LASZIP "laszip" "laszip" REQUIRED)
 find_external_library(GFLAGS "gflags" "gflags" REQUIRED)
 find_external_library(GLOG "glog" "glog" REQUIRED)
+find_external_library(ARMADILLO "" "armadillo" REQUIRED)
+
 
 find_external_library(ISIS "" "isis3" NOT_REQUIRED)
 
@@ -270,7 +272,7 @@ find_external_library(OPENCV "" "${OPENCV_LIB_NAMES}" NOT_REQUIRED)
 set(VW_3RD_PARTY_LIBS   ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} ${OPENEXR_LIBRARIES}
                         ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  ${PROJ4_LIBRARIES}
                         ${FLANN_LIBRARIES} ${LAPACK_LIBRARIES})
-set(ISIS_3RD_PARTY_LIBS Qt5::Core  ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} ${QWT_LIBRARIES})
+set(ISIS_3RD_PARTY_LIBS Qt5::Core  ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES})
 
 message("--------------------------------------------------------------")
 
