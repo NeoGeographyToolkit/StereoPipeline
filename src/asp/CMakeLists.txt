@@ -37,10 +37,11 @@ include_directories( ../ )
 # --- Custom options ---
 option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 
-SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
-SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+# Use full length RPATHS in the installed files
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
+# Make sure installed files can find installed libraries
+SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_PREFIX}/lib)
 
 # --- Fixed options ---
 set(Boost_USE_STATIC_LIBS   OFF)
@@ -140,16 +141,11 @@ endif(Boost_FOUND)
 
 message("--------------------------------------------------------------")
 message("Searching for QT...")
-# TODO: Make sure this finds the correct install!
 # QT is complicated to use and should go through find_package
 set(QT_QMAKE_EXECUTABLE  ${BINARYBUILDER_INSTALL_DIR}/bin/qmake)
 set(QT_MOC_EXECUTABLE    ${BINARYBUILDER_INSTALL_DIR}/bin/moc)
 set(QT_RCC_EXECUTABLE    ${BINARYBUILDER_INSTALL_DIR}/bin/rcc)
 set(QT_UIC_EXECUTABLE    ${BINARYBUILDER_INSTALL_DIR}/bin/uic)
-set(REQUIRED_QT_LIBS QtConcurrent QtCore QtGui QtNetwork QtSql
-                     QtSvg QtWidgets QtXml QtXmlPatterns QtPrintSupport
-                     QtTest QtPositioning QtQml QtQuick QtOpenGL
-                     QtMultimedia QtMultimediaWidgets QtDBus)
 
 set(REQUIRED_QT_COMPONENTS  Core                Concurrent
                             Gui                 Multimedia
