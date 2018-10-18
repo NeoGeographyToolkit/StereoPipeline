@@ -317,6 +317,14 @@ used to find the positions on the ground, which in turn are used to find
 the heights for the GCPs from the DEM. The selected interest points from
 the reference image are not saved to the GCP file.
 
+\subsubsection{Polygon editing}
+
+\texttt{stereo\_gui} is able to draw and edit polygonal shapes on top of georeferenced images, and load/save them as shape files (*.shp).
+This functionality can ba accessed by turning on polygon editing from the \textit{Vector Layer} menu, and then right-clicking with the mouse
+to acess the various functions. Subsequently, one can use \texttt{gdal\_rasterize} to keep or exclude the portion of a given image/DEM that is within
+or outside the selected polygon. 
+
+
 \subsubsection{Shadow threshold}
 \texttt{stereo\_gui} can be used to find the shadow threshold for each
 of a given set of images (useful for shape-from-shading (chapter \ref{ch:sfs}).
@@ -3124,10 +3132,16 @@ lens distortion (chapter \ref{chapter:pinholemodels}), which is a model
 with many more coefficients, and later its coefficients can be optimized
 using bundle adjustment to refine the distortion coefficients (section \ref{floatingintrinsics}). 
 
-
 Usage:
 \begin{verbatim}
-  > convert_pinhole_model [options] <input image> <input camera> -o <output camera>
+  convert_pinhole_model [options] <input image> <input camera> -o <output camera>
+\end{verbatim}
+
+Example (convert a camera model to the RPC type):
+
+\begin{verbatim}
+  convert_pinhole_model input.jpg input.tsai --output-type RPC --sample-spacing 50 \
+   -o output_rpc.tsai
 \end{verbatim}
 
 \begin{longtable}{|l|p{7.5cm}|}
