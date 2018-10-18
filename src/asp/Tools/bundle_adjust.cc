@@ -358,6 +358,7 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
   std::ofstream file;
   file.open(output_path.c_str()); file.precision(18);
   file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";
+  file << "# " << opt.datum << std::endl;
   
   // Now write all the points to the file
   for (size_t i = 0; i < num_points; ++i) {
