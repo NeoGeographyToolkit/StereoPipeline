@@ -451,6 +451,36 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
            << ", 75%: " << a75 << ", 100%: " << a100 << endl;
 }
 
+/// Write the output points as xyz values in binary, to be used by
+/// https://github.com/IntelVCL/FastGlobalRegistration
+
+void dump_bin(string const& file, DP const & data){
+
+  vw_out() << "Writing: "   << data.features.cols()
+           << " points to " << file << std::endl;
+
+  FILE* fid = fopen(file.c_str(), "wb");
+  int nV = data.features.cols(),
+    nDim = 3; // tmp!
+  fwrite(&nV, sizeof(int), 1, fid);
+  fwrite(&nDim, sizeof(int), 1, fid);
+  for (int c = 0; c < data.features.cols(); c++){
+    float xyz[3];
+    for (int r = 0; r < 3; r++) xyz[r] = data.features(r, c);
+    fwrite(xyz, sizeof(float), 3, fid);
+
+    fwrite(xyz, sizeof(float), 3, fid); // tmp!
+
+    if (c < 10) {
+      std::cout.precision(18); 
+      std::cout << xyz[0] << ' ' << xyz[1] << ' ' << xyz[2] << std::endl;
+    }
+    
+  }
+  fclose(fid);
+  
+}
+
 
 /// Write the output points in lon_lat_height format
 void dump_llh(string const& file, Datum const& datum,
