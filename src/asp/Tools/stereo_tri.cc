@@ -768,6 +768,10 @@ void stereo_triangulation( string          const& output_prefix,
     
     // Pull matches from disparity. Highly experimental. 
     if (stereo_settings().unalign_disparity) {
+      const bool is_map_projected = opt_vec[0].session->isMapProjected();
+      if (is_map_projected) 
+	vw_throw( ArgumentErr() << "Cannot unalign "
+		  << "the disparity for mapprojected images.\n" );
       unalign_disparity(opt_vec, disparity_maps, transforms, unalign_disp);
     }
 
