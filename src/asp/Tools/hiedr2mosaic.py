@@ -406,7 +406,7 @@ def main():
                               dest="delete",
                               help="Will not delete intermediate files.")
             parser.add_option("--download-folder", dest="download_folder", default=None,
-                              help="Download files to this folder.  Instead of passing IMG file list, pass in the url of the page to download the files from.")
+                              help="Download files to this folder. Hence the second argument to this is the URL of the page to download the files from.")
 
             (options, args) = parser.parse_args()
 
