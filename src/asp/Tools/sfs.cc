@@ -66,6 +66,7 @@ int g_num_locks = 0;
 int g_warning_count = 0;
 int g_max_warning_count = 1000;
 const size_t g_num_model_coeffs = 16;
+const size_t g_max_num_haze_coeffs = 6; // see nonlin_reflectance()
 
 using namespace vw;
 using namespace vw::camera;
@@ -949,18 +950,18 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string shadow_thresholds, max_valid_image_vals, skip_images_str, image_exposure_prefix,
     model_coeffs_prefix, model_coeffs, image_haze_prefix;
   std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
-  std::vector<double> image_exposures_vec, image_haze_vec;
+  std::vector<double> image_exposures_vec;
+  std::vector< std::vector<double> > image_haze_vec;
   std::vector<double> model_coeffs_vec;
   std::vector< std::set<int> > skip_images;
 
-  int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels, blending_dist,
-    blending_power;
+  int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels,
+    blending_dist, blending_power, num_haze_coeffs;
   bool float_albedo, float_exposure, float_cameras, float_all_cameras, model_shadows,
     save_computed_intensity_only,
     save_dem_with_nodata, use_approx_camera_models, use_rpc_approximation, use_semi_approx,
-    crop_input_images, use_blending_weights, float_dem_at_boundary, fix_dem,
-    float_reflectance_model, float_sun_position, query, save_sparingly,
-    model_haze, float_haze;
+    crop_input_images, use_blending_weights, float_dem_at_boundary, boundary_fix, fix_dem,
+    float_reflectance_model, float_sun_position, query, save_sparingly, float_haze;
   double smoothness_weight, integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
     initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
     rpc_penalty_weight, rpc_max_error, unreliable_intensity_threshold;
@@ -968,6 +969,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
 
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
 	    coarse_levels(0), blending_dist(10), blending_power(2),
+            num_haze_coeffs(0),
             float_albedo(false), float_exposure(false), float_cameras(false),
             float_all_cameras(false),
 	    model_shadows(false), 
@@ -977,9 +979,9 @@ struct Options : public vw::cartography::GdalWriteOptions {
 	    use_rpc_approximation(false),
             use_semi_approx(false),
 	    crop_input_images(false), use_blending_weights(false),
-            float_dem_at_boundary(false), fix_dem(false),
+            float_dem_at_boundary(false), boundary_fix(false), fix_dem(false),
             float_reflectance_model(false), float_sun_position(false),
-            query(false), save_sparingly(false), model_haze(false), float_haze(false),
+            query(false), save_sparingly(false), float_haze(false),
 	    smoothness_weight(0), integrability_weight(0), smoothness_weight_pq(0),
             initial_dem_constraint_weight(0.0),
 	    albedo_constraint_weight(0.0),
@@ -1002,6 +1004,23 @@ struct ModelParams {
   ~ModelParams(){}
 };
 
+// Make the reflectance nonlinear using a rational function
+double nonlin_reflectance(double reflectance, double exposure,
+                          double const* haze, int num_haze_coeffs){
+
+  double r = reflectance; // for short
+  if (num_haze_coeffs == 0) return exposure*r;
+  if (num_haze_coeffs == 1) return exposure*r + haze[0];
+  if (num_haze_coeffs == 2) return (exposure*r + haze[0])/(haze[1]*r + 1);
+  if (num_haze_coeffs == 3) return (haze[2]*r*r + exposure*r + haze[0])/(haze[1]*r + 1);
+  if (num_haze_coeffs == 4) return (haze[2]*r*r + exposure*r + haze[0])/(haze[3]*r*r + haze[1]*r + 1);
+  if (num_haze_coeffs == 5) return (haze[4]*r*r*r + haze[2]*r*r + exposure*r + haze[0])/(haze[3]*r*r + haze[1]*r + 1);
+  if (num_haze_coeffs == 6) return (haze[4]*r*r*r + haze[2]*r*r + exposure*r + haze[0])/(haze[5]*r*r*r + haze[3]*r*r + haze[1]*r + 1);
+    
+  vw_throw(ArgumentErr() << "Invalid value for the number of haze coefficients.\n");
+  return 0;
+}
+                          
 enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HAPKE, ARBITRARY_MODEL, CHARON};
 
 // computes the Lambertian reflectance model (cosine of the light
@@ -1678,7 +1697,7 @@ std::vector< std::vector<boost::shared_ptr<CameraModel> > > * g_cameras;
 double                                       * g_dem_nodata_val;
 float                                        * g_img_nodata_val;
 std::vector<double>                          * g_exposures;
-std::vector<double>                          * g_haze;
+std::vector< std::vector<double> >           * g_haze;
 std::vector<double>                          * g_adjustments;
 std::vector<double>                          * g_sun_positions;
 std::vector<double>                          * g_max_dem_height;
@@ -1713,13 +1732,18 @@ public:
       exf << g_opt->input_images[image_iter] << " " << (*g_exposures)[image_iter] << "\n";
     exf.close();
 
-    if (g_opt->model_haze) {
+    if (g_opt->num_haze_coeffs > 0) {
       std::string haze_file = haze_file_name(g_opt->out_prefix);
       vw_out() << "Writing: " << haze_file << std::endl;
       std::ofstream hzf(haze_file.c_str());
       hzf.precision(18);
-      for (size_t image_iter = 0; image_iter < (*g_haze).size(); image_iter++)
-        hzf << g_opt->input_images[image_iter] << " " << (*g_haze)[image_iter] << "\n";
+      for (size_t image_iter = 0; image_iter < (*g_haze).size(); image_iter++) {
+        hzf << g_opt->input_images[image_iter];
+        for (size_t hiter = 0; hiter < (*g_haze)[image_iter].size(); hiter++) {
+          hzf << " " << (*g_haze)[image_iter][hiter];
+        }
+        hzf << "\n";
+      }
       hzf.close();
     }
     
@@ -1897,7 +1921,8 @@ public:
           for (int row = 0; row < comp_intensity.rows(); row++) {
             comp_intensity(col, row)
               = (*g_albedo)[dem_iter](col, row) *
-              ( (*g_exposures)[image_iter] * reflectance(col, row) + (*g_haze)[image_iter] );
+              nonlin_reflectance(reflectance(col, row), (*g_exposures)[image_iter],
+                                 &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs);
           }
         }
 
@@ -1943,7 +1968,8 @@ public:
               measured_albedo(col, row) = 1;
             else
               measured_albedo(col, row) = intensity(col, row) /
-                ( reflectance(col, row)*(*g_exposures)[image_iter] + (*g_haze)[image_iter] );
+                nonlin_reflectance(reflectance(col, row), (*g_exposures)[image_iter],
+                                   &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs);
           }
         }
 	std::string out_albedo_file = iter_str2 + "-meas-albedo.tif";
@@ -1964,10 +1990,14 @@ public:
         vw_out() << "Exposure for image " << image_iter << ": "
                  << (*g_exposures)[image_iter] << std::endl;
 
-        if (g_opt->model_haze) 
-          vw_out() << "Haze for image " << image_iter << ": "
-                   << (*g_haze)[image_iter] << std::endl;
-    
+        if (g_opt->num_haze_coeffs > 0) {
+          vw_out() << "Haze for image " << image_iter << ":";
+          for (size_t hiter = 0; hiter < (*g_haze)[image_iter].size(); hiter++) {
+            vw_out() << " " << (*g_haze)[image_iter][hiter];
+          }
+          vw_out() << std::endl;
+        }
+        
 #if 0
         // Dump the points in shadow
         ImageView<float> shadow; // don't use int, scaled weirdly by ASP on reading
@@ -2090,8 +2120,9 @@ calc_intensity_residual(const F* const exposure,
     }
       
     if (success && is_valid(intensity) && is_valid(reflectance))
-      residuals[0] = weight*( intensity - albedo[0]*( exposure[0]*reflectance + haze[0] ) ).child();
-      
+      residuals[0] = weight*( intensity - albedo[0]*nonlin_reflectance(reflectance.child(), exposure[0], haze, g_opt->num_haze_coeffs) );
+    
+
   } catch (const camera::PointToPixelErr& e) {
     // To be able to handle robustly DEMs that extend beyond the camera,
     // always return true when we fail to project, but with zero residual.
@@ -2104,7 +2135,7 @@ calc_intensity_residual(const F* const exposure,
 }
 
 // Discrepancy between measured and computed intensity.
-// sum_i | I_i - albedo * ( exposures[i] * reflectance_i + haze[i] ) |^2
+// sum_i | I_i - albedo * nonlin_reflectance(reflectance_i, exposures[i], haze, num_haze_coeffs) |^2
 struct IntensityError {
   IntensityError(int col, int row,
 		 ImageView<double> const& dem,
@@ -2191,7 +2222,7 @@ struct IntensityError {
                                      double * sun_position, 
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityError,
-	    ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 6, g_num_model_coeffs>
+	    ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs, 1, 1, 1, 1, 1, 1, 6, g_num_model_coeffs>
 	    (new IntensityError(col, row, dem, geo,
 				model_shadows,
 				camera_position_step_size,
@@ -2304,7 +2335,7 @@ struct IntensityErrorFixedMost {
 				     DoubleImgT const& blend_weight,
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityErrorFixedMost,
-	    ceres::CENTRAL, 1, 1, 1, 6, 3>
+	    ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs, 6, 3>
 	    (new IntensityErrorFixedMost(col, row, dem, albedo, reflectance_model_coeffs, geo,
 				model_shadows,
 				camera_position_step_size,
@@ -2410,7 +2441,7 @@ struct IntensityErrorPQ {
 				     DoubleImgT const& blend_weight,
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityErrorPQ,
-	    ceres::CENTRAL, 1, 1, 1, 1, 2, 1, 6, 3, g_num_model_coeffs>
+	    ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs, 1, 2, 1, 6, 3, g_num_model_coeffs>
 	    (new IntensityErrorPQ(col, row, dem, geo,
                                   model_shadows,
                                   camera_position_step_size,
@@ -2759,12 +2790,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use this prefix to optionally read model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
     ("model-coeffs", po::value(&opt.model_coeffs)->default_value(""),
      "Use the model coefficients specified as a list of numbers in quotes. Lunar-Lambertian: O, A, B, C, e.g., '1 0.019 0.000242 -0.00000146'. Hapke: omega, b, c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.")
-    ("model-haze",   po::bool_switch(&opt.model_haze)->default_value(false)->implicit_value(true),
-     "Model the atmospheric haze, as a value to be subtracted from the intensity (for Mars).")
     ("float-haze",   po::bool_switch(&opt.float_haze)->default_value(false)->implicit_value(true),
      "Float the haze coefficients as part of the optimization, if haze is modeled.")
     ("haze-prefix", po::value(&opt.image_haze_prefix)->default_value(""),
      "Use this prefix to read the haze values (filename is <prefix>-haze.txt).")
+    ("num-haze-coeffs", po::value(&opt.num_haze_coeffs)->default_value(0),
+     "This determines how non-linear the reflectance is. Values are from 0 to 6.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
     ("crop-win", po::value(&opt.crop_win)->default_value(BBox2i(0, 0, 0, 0), "startx starty stopx stopy"),
@@ -2773,6 +2804,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use this as the DEM no-data value, over-riding what is in the initial guess DEM.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
      "Allow the DEM values at the boundary of the region to also float (not advised).")
+    ("boundary-fix",   po::bool_switch(&opt.boundary_fix)->default_value(false)->implicit_value(true),
+     "An attempt to let the DEM float at the boundary.")
     ("fix-dem",   po::bool_switch(&opt.fix_dem)->default_value(false)->implicit_value(true),
      "Do not float the DEM at all. Useful when floating the model params.")
     ("float-reflectance-model",   po::bool_switch(&opt.float_reflectance_model)->default_value(false)->implicit_value(true),
@@ -2853,11 +2886,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.float_sun_position)
     vw_throw(ArgumentErr() << "Floating sun positions is currently disabled.\n");
   
-  if ( opt.float_haze && (!opt.model_haze) ) 
-    vw_throw(ArgumentErr() << "Haze cannot be floated unless modeled.\n");
-  if ( opt.image_haze_prefix != ""  && (!opt.model_haze)  )
-    vw_throw(ArgumentErr() << "Haze cannot be read unless modeled.\n");
-  
+  if ( opt.float_haze && opt.num_haze_coeffs == 0 ) 
+    vw_throw(ArgumentErr() << "Haze cannot be floated unless there is at least one haze coefficient.\n");
+  if ( opt.image_haze_prefix != "" && opt.num_haze_coeffs == 0  )
+    vw_throw(ArgumentErr() << "Haze cannot be read unless there is at least one haze coefficient.\n");
+
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -2937,33 +2970,59 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Initial image haze, if provided. First read them in a map,
   // as perhaps the initial haze were created using more images
   // than what we have here. 
-  if (opt.model_haze) {
+  if (opt.num_haze_coeffs > 0) {
     std::string haze_file = haze_file_name(opt.image_haze_prefix);
     opt.image_haze_vec.clear();
-    std::map<std::string, double> img2haze;
+    std::map< std::string, std::vector<double> > img2haze;
     std::ifstream ish(haze_file.c_str());
     int haze_count = 0;
-    while (ish >> name >> dval){
-      img2haze[name] = dval;
+    while(1){
+      std::string line;
+      std::getline(ish, line);
+      std::istringstream hstream(line);
+      if (! (hstream >> name) ) break;
+      std::vector<double> haze_vec;
+      while (hstream >> dval)
+        haze_vec.push_back(dval);
+      if (haze_vec.empty()) break;
       haze_count++;
+
+      // Pad the haze vec
+      while (haze_vec.size() < g_max_num_haze_coeffs) haze_vec.push_back(0);
+      
+      img2haze[name] = haze_vec;
+
+      // All haze coefficients beyond the first num_haze_coeffs must
+      // be zero, as that means we are reading results written with
+      // different number of haze coeffs.
+      for (size_t hiter = opt.num_haze_coeffs; hiter < g_max_num_haze_coeffs; hiter++) {
+        if (haze_vec[hiter] != 0) 
+          vw_throw(ArgumentErr() 
+                   << "Found unexpected non-zero haze coefficient: " << haze_vec[hiter] << ".\n");
+      }
+      
     }
     ish.close();
     if (opt.image_haze_prefix != "" && haze_count == 0) 
           vw_throw(ArgumentErr()
                    << "Could not find the haze file: " << haze_file << ".\n");
+
     
     if (haze_count > 0) {
       vw_out() << "Using haze from: " << haze_file << std::endl;
       for (size_t i = 0; i < opt.input_images.size(); i++) {
         std::string img = opt.input_images[i];
-        std::map<std::string, double>::iterator it = img2haze.find(img);
+        std::map< std::string, std::vector<double> >::iterator it = img2haze.find(img);
         if (it == img2haze.end()) {
           vw_throw(ArgumentErr()
                    << "Could not find the haze for image: " << img << ".\n");
         }
-        double haze_val = it->second;
-        vw_out() << "Haze for " << img << ": " << haze_val << std::endl;
-        opt.image_haze_vec.push_back(haze_val);
+        std::vector<double> haze_vec = it->second;
+        vw_out() << "Haze for " << img << ":";
+        for (size_t hiter = 0; hiter < haze_vec.size(); hiter++) 
+          vw_out() << " " << haze_vec[hiter];
+        vw_out() << std::endl;
+        opt.image_haze_vec.push_back(haze_vec);
       }
     }
   }
@@ -2987,6 +3046,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     while (ism >> dval)
       opt.model_coeffs_vec.push_back(dval);
     ism.close();
+    if ( opt.model_coeffs_vec.empty()) {
+      vw_throw(ArgumentErr() << "Could not read model coefficients from: " << model_coeffs_file << ".\n");
+    }
   }
 
   if (!opt.model_coeffs_vec.empty()) {
@@ -3019,7 +3081,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 	     << "Floating the albedo is ill-posed for just one image without "
              << "the initial DEM constraint or the albedo constraint.\n");
 
-  if (opt.input_images.size() <= 1 && opt.float_exposure)
+  if (opt.input_images.size() <= 1 && opt.float_exposure && opt.initial_dem_constraint_weight <= 0)
     vw_throw(ArgumentErr()
 	     << "Floating the exposure is ill-posed for just one image.\n");
 
@@ -3027,6 +3089,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr()
 	     << "Floating the DEM at the boundary is ill-posed for just one image.\n");
 
+  if (opt.boundary_fix && opt.integrability_weight == 0) {
+    vw_throw(ArgumentErr()
+	     << "The boundary fix only works with the integrability constraint.\n");
+  }
+  
   // Start with given images to skip. Later, for each dem clip, we may
   // skip more, if those images do not overlap with the clip.
   int num_dems = opt.input_dems.size();
@@ -3069,7 +3136,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw( ArgumentErr()
 		<< "Expecting the exposures to be computed and passed in.\n" );
     
-    if (opt.model_haze && opt.image_haze_vec.empty())
+    if (opt.num_haze_coeffs > 0 && opt.image_haze_vec.empty())
       vw_throw( ArgumentErr()
 		<< "Expecting the haze to be computed and passed in.\n" );
   }
@@ -3099,7 +3166,7 @@ void run_sfs_level(// Fixed inputs
 		   std::vector< ImageView<double> > & albedos,
 		   std::vector< std::vector<boost::shared_ptr<CameraModel> > > & cameras,
 		   std::vector<double> & exposures,
-		   std::vector<double> & haze,
+		   std::vector< std::vector<double> > & haze,
 		   std::vector<double> & sun_positions,
 		   std::vector<double> & adjustments,
                    std::vector<double> & reflectance_model_coeffs){
@@ -3173,18 +3240,16 @@ void run_sfs_level(// Fixed inputs
   // When albedo, dem, model, are fixed, we will not even set these as variables.
   bool fix_most = (!opt.float_albedo && opt.fix_dem && !opt.float_reflectance_model);
 
-  if (opt.integrability_weight > 0 && fix_most) 
-    vw_throw( ArgumentErr()
-              << "When using the integrability constraint, must float at least "
-              << "the albedo, dem, or reflectance model.\n");
-      
   std::set<int> use_dem, use_albedo; // to avoid a crash in Ceres when a param is fixed but not set
   
   for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
-    
+
+    int bd = 1;
+    if (opt.boundary_fix) bd = 0;
+      
     // Add a residual block for every grid point not at the boundary
-    for (int col = 1; col < dems[dem_iter].cols()-1; col++) {
-      for (int row = 1; row < dems[dem_iter].rows()-1; row++) {
+    for (int col = bd; col < dems[dem_iter].cols()-bd; col++) {
+      for (int row = bd; row < dems[dem_iter].rows()-bd; row++) {
 
         // Intensity error for each image
         for (int image_iter = 0; image_iter < num_images; image_iter++) {
@@ -3194,10 +3259,36 @@ void run_sfs_level(// Fixed inputs
           }
         
           ceres::LossFunction* loss_function_img = NULL;
-          if (!fix_most) {
-            if (opt.integrability_weight == 0){
-              ceres::CostFunction* cost_function_img =
-                IntensityError::Create(col, row, dems[dem_iter], geo[dem_iter],
+          if (opt.integrability_weight == 0){
+            ceres::CostFunction* cost_function_img =
+              IntensityError::Create(col, row, dems[dem_iter], geo[dem_iter],
+                                     opt.model_shadows,
+                                     opt.camera_position_step_size,
+                                     max_dem_height[dem_iter],
+                                     gridx, gridy,
+                                     global_params, model_params[image_iter],
+                                     crop_boxes[dem_iter][image_iter],
+                                     masked_images[dem_iter][image_iter],
+                                     blend_weights[dem_iter][image_iter],
+                                     &sun_positions[3*image_iter], // sun positions
+                                     cameras[dem_iter][image_iter]);
+            problem.AddResidualBlock(cost_function_img, loss_function_img,
+                                     &exposures[image_iter],       // exposure
+                                     &haze[image_iter][0],         // haze
+                                     &dems[dem_iter](col-1, row),  // left
+                                     &dems[dem_iter](col, row),    // center
+                                     &dems[dem_iter](col+1, row),  // right
+                                     &dems[dem_iter](col, row+1),  // bottom
+                                     &dems[dem_iter](col, row-1),  // top
+                                     &albedos[dem_iter](col, row), // albedo
+                                     &adjustments[6*image_iter],   // camera
+                                     //&sun_positions[3*image_iter], // sun positions
+                                     &reflectance_model_coeffs[0]);
+            use_dem.insert(dem_iter); 
+            use_albedo.insert(dem_iter);
+          } else if (!fix_most) {
+            ceres::CostFunction* cost_function_img =
+              IntensityErrorPQ::Create(col, row, dems[dem_iter], geo[dem_iter],
                                        opt.model_shadows,
                                        opt.camera_position_step_size,
                                        max_dem_height[dem_iter],
@@ -3206,45 +3297,21 @@ void run_sfs_level(// Fixed inputs
                                        crop_boxes[dem_iter][image_iter],
                                        masked_images[dem_iter][image_iter],
                                        blend_weights[dem_iter][image_iter],
-                                       &sun_positions[3*image_iter], // sun positions
                                        cameras[dem_iter][image_iter]);
-              problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                       &exposures[image_iter],       // exposure
-                                       &haze[image_iter],            // haze
-                                       &dems[dem_iter](col-1, row),  // left
-                                       &dems[dem_iter](col, row),    // center
-                                       &dems[dem_iter](col+1, row),  // right
-                                       &dems[dem_iter](col, row+1),  // bottom
-                                       &dems[dem_iter](col, row-1),  // top
-                                       &albedos[dem_iter](col, row), // albedo
-                                       &adjustments[6*image_iter],   // camera
-                                       //&sun_positions[3*image_iter], // sun positions
-                                       &reflectance_model_coeffs[0]);
-            }else{
-              ceres::CostFunction* cost_function_img =
-                IntensityErrorPQ::Create(col, row, dems[dem_iter], geo[dem_iter],
-                                         opt.model_shadows,
-                                         opt.camera_position_step_size,
-                                         max_dem_height[dem_iter],
-                                         gridx, gridy,
-                                         global_params, model_params[image_iter],
-                                         crop_boxes[dem_iter][image_iter],
-                                         masked_images[dem_iter][image_iter],
-                                         blend_weights[dem_iter][image_iter],
-                                         cameras[dem_iter][image_iter]);
-              problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                       &exposures[image_iter],          // exposure
-                                       &haze[image_iter],               // haze
-                                       &dems[dem_iter](col, row),       // center
-                                       &pq[dem_iter](col, row)[0],      // pq
-                                       &albedos[dem_iter](col, row),    // albedo
-                                       &adjustments[6*image_iter],      // camera
-                                       &sun_positions[3*image_iter],    // sun positions
-                                       &reflectance_model_coeffs[0]);   // reflectance 
-              
-            }
+            problem.AddResidualBlock(cost_function_img, loss_function_img,
+                                     &exposures[image_iter],          // exposure
+                                     &haze[image_iter][0],            // haze
+                                     &dems[dem_iter](col, row),       // center
+                                     &pq[dem_iter](col, row)[0],      // pq
+                                     &albedos[dem_iter](col, row),    // albedo
+                                     &adjustments[6*image_iter],      // camera
+                                     &sun_positions[3*image_iter],    // sun positions
+                                     &reflectance_model_coeffs[0]);   // reflectance 
+            
+            
             use_dem.insert(dem_iter); 
             use_albedo.insert(dem_iter);
+            
           }else{
             ceres::CostFunction* cost_function_img =
               IntensityErrorFixedMost::Create(col, row, dems[dem_iter],
@@ -3262,15 +3329,19 @@ void run_sfs_level(// Fixed inputs
                                               cameras[dem_iter][image_iter]);
             problem.AddResidualBlock(cost_function_img, loss_function_img,
                                      &exposures[image_iter],      // exposure
-                                     &haze[image_iter],           // haze
+                                     &haze[image_iter][0],        // haze
                                      &adjustments[6*image_iter],  // camera
                                      &sun_positions[3*image_iter] // sun positions
                                      );
             
           }
+          
         } // end iterating over images
-
-        if (!fix_most) {
+        
+        if (!fix_most &&
+            col > 0 && col < dems[dem_iter].cols()-1 &&
+            row > 0 && row < dems[dem_iter].rows()-1 ) {
+       
           // Smoothness penalty. We always add this, even if the weight is 0,
           // to make Ceres not complain about blocks not being set. 
           ceres::LossFunction* loss_function_sm = NULL;
@@ -3399,7 +3470,7 @@ void run_sfs_level(// Fixed inputs
   }
   if (!opt.float_haze){
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
-      if (use_image[image_iter]) problem.SetParameterBlockConstant(&haze[image_iter]);
+      if (use_image[image_iter]) problem.SetParameterBlockConstant(&haze[image_iter][0]);
     }
   }
   
@@ -4014,7 +4085,8 @@ int main(int argc, char* argv[]) {
       }
     }
     
-    // We have intensity = albedo * (reflectance*exposure + haze).
+    // We have intensity = albedo * double nonlin_reflectance(reflectance,
+    // exposure, haze, num_haze_coeffs)
     // Assume that haze is 0 to start with. Find the exposure as
     // mean(intensity)/mean(reflectance)/albedo. Use this to compute an
     // initial exposure and decide based on that which images to
@@ -4087,24 +4159,32 @@ int main(int argc, char* argv[]) {
     // Initialize the haze as 0.
     if ( (!opt.image_haze_vec.empty()) && (int)opt.image_haze_vec.size() != num_images )
       vw_throw(ArgumentErr() << "Expecting as many haze values as images.\n");
-    if (opt.image_haze_vec.empty()) 
-      for (int image_iter = 0; image_iter < num_images; image_iter++)
-        opt.image_haze_vec.push_back(0);
+    if (opt.image_haze_vec.empty()) {
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        // Pad the haze vec
+        std::vector<double> haze_vec;
+        while (haze_vec.size() < g_max_num_haze_coeffs) haze_vec.push_back(0);
+        opt.image_haze_vec.push_back(haze_vec);
+      }
+    }
     
     for (size_t image_iter = 0; image_iter < opt.image_exposures_vec.size(); image_iter++) {
       vw_out() << "Image exposure for " << opt.input_images[image_iter] << ' '
                << opt.image_exposures_vec[image_iter] << std::endl;
     }
 
-    if (opt.model_haze) {
+    if (opt.num_haze_coeffs > 0) {
       for (size_t image_iter = 0; image_iter < opt.image_haze_vec.size(); image_iter++) {
-        vw_out() << "Image haze for " << opt.input_images[image_iter] << ' '
-                 << opt.image_haze_vec[image_iter] << std::endl;
+        vw_out() << "Image haze for " << opt.input_images[image_iter] << ':';
+        for (size_t hiter = 0; hiter < opt.image_haze_vec[image_iter].size(); hiter++) {
+          vw_out() << " " << opt.image_haze_vec[image_iter][hiter];
+        }
+        vw_out() << "\n";
       }
     }
     
-    g_exposures = &opt.image_exposures_vec;
-    g_haze = &opt.image_haze_vec;
+    g_exposures     = &opt.image_exposures_vec;
+    g_haze          = &opt.image_haze_vec;
     g_sun_positions = &sun_positions;
     
     // For images that we don't use, wipe the cameras and all other
