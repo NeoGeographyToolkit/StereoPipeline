@@ -24,10 +24,12 @@
  - dem_mosaic
    * Added normalized median absolute deviation (NMAD) output option.
 
- -stereo_gui
+ - stereo_gui
    * Added the ability to manually reposition interest points.
    * Can now load non-synchronous .match files.
-
+   * Added basic functionality for drawing/editing polygons on top 
+     of georeferenced images. 
+ 
 *** RELEASE 2.6.1, August 13, 2018 ***
 
  - New satellites
