@@ -503,8 +503,18 @@ public:
     if (m_opt.save_index_map) {
       index_map = ImageView<double>(bbox.width(), bbox.height());
       fill(index_map, m_opt.out_nodata_value);
-    }
 
+      // Sanity check: the output no-data value must not equal to
+      // any of the indices in the map, as then the two cannot be
+      // distinguished.
+      for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++){
+        if (dem_iter == m_opt.out_nodata_value) 
+          vw_throw(ArgumentErr() << "Cannot have the output no-data value equal to "
+                   << m_opt.out_nodata_value
+                   << " as this is one of the indices being saved in the index map.\n");
+      }
+    }
+    
     ImageView<double> first_dem;
     ImageView<double> local_wts_orig;
     
@@ -1066,7 +1076,6 @@ public:
     // Save the index map instead
     if (m_opt.save_index_map)
       tile = index_map;
-
 
     // How many valid pixels are there in the tile
     long long int num_valid_in_tile = 0;
