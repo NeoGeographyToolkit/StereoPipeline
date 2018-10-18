@@ -301,9 +301,20 @@ second images, third and fourth, etc., invoke the above logic for each
 pair, that is, run stereo, alignment to the ground truth, dense interest
 point generation, and transforming the cameras using the alignment
 transform matrix.  Then, a directory can be created in which one can
-copy the transformed cameras from these runs and the dense interest
-point files, and run bundle adjustment with intrinsics optimization
-jointly for all cameras.
+copy the dense interest point files, and run bundle adjustment with intrinsics optimization
+jointly for all cameras. Hence, one should use a command as follows
+(the example here is for 4 images):
+
+\begin{verbatim}
+  bundle_adjust -t nadirpinhole --create-pinhole-cameras                                  \
+    --solve-intrinsics  --camera-weight 100                                               \
+    img1.tif img2.tif img3.tif img4.tif                                                   \
+    run_align_12/run-img1.tsai run_align12/run-img2.tsai                                  \
+    run_align_34/run-img3.tsai run_align34/run-img4.tsai                                  \
+    --reference-terrain lidar.csv                                                         \
+    --disparity-list 'run_stereo12/run-unaligned-D.tif run_stereo34/run-unaligned-D.tif'  \
+    --max-disp-error 10 --max-num-reference-points 1000000 -o run_ba_intr_lidar/run
+\end{verbatim}
 
 This methodology suggests that the tool must be invoked with an even
 number of images, and there should exist a generated unaligned disparity
@@ -325,6 +336,8 @@ to convert the current camera models to ones with the distortion given by ration
 coefficients (RPC) (chapter \ref{chapter:pinholemodels}). An RPC model has a lot more
 coefficients to optimize, hence a better fit can be found (though we noticed situations 
 in which it was still not expressive enough, but still better than simpler models). 
+
+An example showing how to convert a camera model to RPC is given in section \ref{convertpinholemodel}.
 
 \section{Bundle adjustment using ISIS}
 
