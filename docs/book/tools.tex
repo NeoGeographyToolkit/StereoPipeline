@@ -321,7 +321,7 @@ the reference image are not saved to the GCP file.
 
 \texttt{stereo\_gui} is able to draw and edit polygonal shapes on top of georeferenced images, and load/save them as shape files (*.shp).
 This functionality can ba accessed by turning on polygon editing from the \textit{Vector Layer} menu, and then right-clicking with the mouse
-to acess the various functions. Subsequently, one can use \texttt{gdal\_rasterize} to keep or exclude the portion of a given image/DEM that is within
+to access the various functions. Subsequently, one can use \texttt{gdal\_rasterize} to keep or exclude the portion of a given image/DEM that is within
 or outside the selected polygon. 
 
 
@@ -2017,7 +2017,7 @@ initial transform which can then be applied to the original clouds.
  
 A non-ICP algorithm supported by ASP is Fast Global Registration,
 accessible with \texttt{-\/-alignment-method fgr}, and customizable
-using the \texttt{-\/-fgr-options} field (see the table below for more detail).
+using the \texttt{-\/-fgr-options} field (see the table below for more details).
 This one is being advertised as less sensitive to outliers, hence
 it should give good results with a larger value of the maximum displacement.  
 
@@ -2290,7 +2290,7 @@ initial guess. It can come from a previous run of the tool. \\ \hline
 
 \texttt{-\/-match-file} & Compute an initial transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo\_gui).  The type of transform can be set via \texttt{-\/-initial-transform-from-hillshading \textit{string}}.\\ \hline
 
-\texttt{-\/-fgr-options} & Options to pass to the Fast Global Registration algorithm, if used. Default: 'div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000'. \\ \hline
+\texttt{-\/-fgr-options} & Options to pass to the Fast Global Registration algorithm, if used. Default: 'div\_factor: 1.4 use\_absolute\_scale: 0 max\_corr\_dist: 0.025 iteration\_number: 100 tuple\_scale: 0.95 tuple\_max\_cnt: 10000'. \\ \hline
 
 \texttt{-\/-diff-rotation-error \textit{default: $10^{-8}$}} & Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees. \\ \hline
 \texttt{-\/-diff-translation-error \textit{default: $10^{-3}$}} & Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters. \\ \hline
