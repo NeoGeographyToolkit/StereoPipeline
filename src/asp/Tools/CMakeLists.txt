@@ -102,7 +102,8 @@ target_link_libraries(orbitviz aspSessions)
 install(TARGETS orbitviz DESTINATION bin)
 
 add_executable(pc_align pc_align.cc pc_align_utils.h pc_align_utils.tcc)
-target_link_libraries(pc_align aspSessions ${SOLVER_LIBRARIES} ${LIBPOINTMATCHER_LIBRARIES} )
+target_link_libraries(pc_align aspSessions ${SOLVER_LIBRARIES} 
+  ${LIBPOINTMATCHER_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} )
 install(TARGETS pc_align DESTINATION bin)
 
 add_executable(pansharp pansharp.cc)

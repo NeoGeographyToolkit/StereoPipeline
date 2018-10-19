@@ -21,6 +21,8 @@
 // Francois Pomerleau and Stephane Magnenat, ASL, ETHZ, Switzerland
 // You can contact the authors at <f dot pomerleau at gmail dot com> and
 // <stephane at magnenat dot net>
+// Alternatively, FGR is used, under the MIT license
+// https://github.com/IntelVCL/FastGlobalRegistration
 
 // All rights reserved.
 
@@ -64,6 +66,7 @@
 #include <cstring>
 
 #include <pointmatcher/PointMatcher.h>
+#include <FastGlobalRegistration/app.h>
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 
@@ -91,7 +94,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   // Input
   string reference, source, init_transform_file, alignment_method, config_file,
     datum, csv_format_str, csv_proj4_str, match_file, hillshade_options,
-    ipfind_options, ipmatch_options;
+    ipfind_options, ipmatch_options, fgr_options;
   PointMatcher<RealT>::Matrix init_transform;
   int    num_iter,
          max_num_reference_points,
@@ -140,7 +143,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-source-points",    po::value(&opt.max_num_source_points)->default_value(100000),
                                  "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("alignment-method",         po::value(&opt.alignment_method)->default_value("point-to-plane"),
-                                 "The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point, least-squares, similarity-least-squares]")
+                                 "The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point, fgr, least-squares, similarity-least-squares]")
     ("highest-accuracy",         po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
                                  "Compute with highest accuracy for point-to-plane (can be much slower).")
     ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
@@ -169,6 +172,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("ipfind-options", po::value(&opt.ipfind_options)->default_value("--ip-per-image 1000000 --interest-operator sift --descriptor-generator sift"), "Options to pass to the ipfind program when computing the transform from hillshading.")
     ("ipmatch-options", po::value(&opt.ipmatch_options)->default_value("--inlier-threshold 100 --ransac-constraint similarity"), "Options to pass to the ipmatch program when computing the transform from hillshading.")
     ("match-file", po::value(&opt.match_file)->default_value(""), "Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences from the reference to the source (obtained for example using stereo_gui).")
+
+    ("fgr-options", po::value(&opt.fgr_options)->default_value("div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000"), "Options to pass to the Fast Global Registration algorithm, if used.")
 
     ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
                                  "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
@@ -273,14 +278,23 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.alignment_method != "point-to-plane"            &&
       opt.alignment_method != "point-to-point"            &&
       opt.alignment_method != "similarity-point-to-point" &&
+      opt.alignment_method != "fgr"                       &&
       opt.alignment_method != "least-squares"             &&
       opt.alignment_method != "similarity-least-squares"
       )
     vw_throw( ArgumentErr() << "Only the following alignment methods are supported: "
 	      << "point-to-plane, point-to-point, similarity-point-to-point, "
-	      << "least-squares, and similarity-least-squares.\n"
+	      << "fgr, least-squares, and similarity-least-squares.\n"
 	      << usage << general_options );
 
+  if (opt.alignment_method != "point-to-plane"            &&
+      opt.alignment_method != "point-to-point"            &&
+      opt.alignment_method != "similarity-point-to-point" &&
+      opt.compute_translation_only) {
+    vw_throw( ArgumentErr() << "The option --compute-translation-only is only applicable to point-to-plane, point-to-point, and similarity-point-to-point alignment.\n"
+	      << usage << general_options );
+  }
+  
   if ( (opt.alignment_method == "least-squares" ||
 	opt.alignment_method == "similarity-least-squares")
        && asp::get_cloud_type(opt.reference) != "DEM")
@@ -451,9 +465,18 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
            << ", 75%: " << a75 << ", 100%: " << a100 << endl;
 }
 
+/// Extracts the full GCC coordinate of a single point from a LibPointMatcher point cloud.
+/// - The shift converts from the normalized coordinate to the actual GCC coordinate.
+/// - No bounds checking is performed on the point index.
+Vector3 get_cloud_gcc_coord(DP const& point_cloud, vw::Vector3 const& shift, int index) {
+  Vector3 gcc_coord;
+  for (int row = 0; row < DIM; ++row)
+     gcc_coord[row] = point_cloud.features(row, index) + shift[row];
+  return gcc_coord;
+}
+
 /// Write the output points as xyz values in binary, to be used by
 /// https://github.com/IntelVCL/FastGlobalRegistration
-
 void dump_bin(string const& file, DP const & data){
 
   vw_out() << "Writing: "   << data.features.cols()
@@ -469,36 +492,32 @@ void dump_bin(string const& file, DP const & data){
     for (int r = 0; r < 3; r++) xyz[r] = data.features(r, c);
     fwrite(xyz, sizeof(float), 3, fid);
 
-    fwrite(xyz, sizeof(float), 3, fid); // tmp!
-
-    if (c < 10) {
-      std::cout.precision(18); 
-      std::cout << xyz[0] << ' ' << xyz[1] << ' ' << xyz[2] << std::endl;
-    }
+    // That code needs features
+    fwrite(xyz, sizeof(float), 3, fid);
     
   }
   fclose(fid);
   
 }
 
+// Save a cloud to disk for debugging
+void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
+                            Vector3 const& shift,
+                            string const& output_file){
 
-/// Write the output points in lon_lat_height format
-void dump_llh(string const& file, Datum const& datum,
-              DP const & data, Vector3 const& shift){
+  int numPts = point_cloud.features.cols();
 
-  vw_out() << "Writing: "   << data.features.cols()
-           << " points to " << file << std::endl;
+  vw_out() << "Writing: " << numPts << " to " << output_file << endl;
+  ofstream outfile( output_file.c_str() );
+  outfile.precision(18);
 
-  ofstream fs(file.c_str());
-  fs.precision(20);
-  for (int c = 0; c < data.features.cols(); c++){
-    Vector3 xyz;
-    for (int r = 0; r < data.features.rows() - 1; r++)
-      xyz[r] = data.features(r, c) + shift[r];
-    Vector3 llh = datum.cartesian_to_geodetic(xyz);
-    fs << llh[0] << ' ' << llh[1] << ' ' << llh[2] << endl;
+  for(int col = 0; col < numPts; col++){
+    Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
+
+    Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
+    outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << endl;
   }
-  fs.close();
+  outfile.close();
 }
 
 /// Save the transform and its inverse.
@@ -520,18 +539,6 @@ void save_transforms(Options const& opt,
   itf << invT << endl;
   itf.close();
 }
-
-
-/// Extracts the full GCC coordinate of a single point from a LibPointMatcher point cloud.
-/// - The shift converts from the normalized coordinate to the actual GCC coordinate.
-/// - No bounds checking is performed on the point index.
-Vector3 get_cloud_gcc_coord(DP const& point_cloud, vw::Vector3 const& shift, int index) {
-  Vector3 gcc_coord;
-  for (int row = 0; row < DIM; ++row)
-     gcc_coord[row] = point_cloud.features(row, index) + shift[row];
-  return gcc_coord;
-}
-
 
 /// Save the lon, lat, radius/height, and error. Use a format
 /// consistent with the input CSV format.
@@ -591,26 +598,6 @@ void save_errors(DP const& point_cloud,
   outfile.close();
 }
 
-
-
-void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
-                            Vector3 const& shift,
-                            string const& output_file){
-
-  int numPts = point_cloud.features.cols();
-
-  vw_out() << "Writing: " << output_file << endl;
-  ofstream outfile( output_file.c_str() );
-  outfile.precision(16);
-
-  for(int col = 0; col < numPts; col++){
-    Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
-
-    Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
-    outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << endl;
-  }
-}
-
 /// Like PM::ICP::filterGrossOutliersAndCalcErrors, except comparing to a DEM instead.
 /// - The point cloud is in GCC coordinates with point_cloud_shift subtracted from each point.
 /// - The output is put in the "errors" vector for each point.
@@ -661,6 +648,115 @@ void extract_rotation_translation(F       * transform,
   rotation = axis_angle_to_quaternion(axis_angle);
 }
 
+// Convert a point clould to the format expected by FGR
+void export_to_fgr(DP const & data, fgr::Points& pts, fgr::Feature & feat){
+
+  pts.clear();
+  feat.clear();
+  for (int c = 0; c < data.features.cols(); c++){
+
+    Eigen::Vector3f pts_v;
+    for (int r = 0; r < 3; r++) pts_v[r] = data.features(r, c);
+
+    pts.push_back(pts_v);
+
+    // fgr expects features in addition to points. This works well enough,
+    // but need to get to the bottom of whether they are necessary.
+    feat.push_back(pts_v); 
+  }
+  
+}
+
+// Parse a string like:
+// div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000
+void parse_fgr_options(std::string const & options,
+                       double            & div_factor,
+                       bool              & use_absolute_scale,
+                       double            & max_corr_dist,
+                       int               & iteration_number,
+                       float             & tuple_scale,
+                       int               & tuple_max_cnt){
+
+  // Initialize the outputs
+  div_factor         = -1;
+  use_absolute_scale = false;
+  max_corr_dist      = -1;
+  iteration_number   = -1;
+  tuple_scale        = -1;
+  tuple_max_cnt      = -1;
+
+  std::istringstream is(options);
+  std::string name, val;
+  while( is >> name >> val){
+    if (name.find("div_factor") != std::string::npos)
+      div_factor = atof(val.c_str());
+    if (name.find("use_absolute_scale") != std::string::npos)
+      use_absolute_scale = atof(val.c_str());
+    if (name.find("max_corr_dist") != std::string::npos)
+      max_corr_dist = atof(val.c_str());
+    if (name.find("iteration_number") != std::string::npos)
+      iteration_number = atof(val.c_str());
+    if (name.find("tuple_scale") != std::string::npos)
+      tuple_scale = atof(val.c_str());
+    if (name.find("tuple_max_cnt") != std::string::npos)
+      tuple_max_cnt = atof(val.c_str());
+  }
+  
+  // Sanity check
+  if (div_factor <= 0 || max_corr_dist < 0 || iteration_number < 0 || tuple_scale <= 0 ||
+      tuple_max_cnt <= 0) {
+    vw_throw( ArgumentErr() << "Could not parse correctly --fgr-options.");
+  }
+}
+  
+/// Compute alignment using FGR
+PointMatcher<RealT>::Matrix
+fgr_alignment(DP const & source_point_cloud, DP const & ref_point_cloud, Options const& opt) {
+
+  // Parse the options and initialize the FGR object
+  double  div_factor; 
+  bool    use_absolute_scale;
+  double  max_corr_dist;
+  int     iteration_number;
+  float   tuple_scale;
+  int     tuple_max_cnt;
+  parse_fgr_options(opt.fgr_options,  
+                    div_factor, use_absolute_scale, max_corr_dist, iteration_number,  
+                    tuple_scale, tuple_max_cnt);
+  fgr::CApp app(div_factor, use_absolute_scale, max_corr_dist, iteration_number,  
+                tuple_scale, tuple_max_cnt);
+
+  // Intermediate data
+  fgr::Points pts;
+  fgr::Feature feat;
+
+  // Pass the reference cloud to FGR
+  export_to_fgr(ref_point_cloud, pts, feat);
+  app.LoadFeature(pts, feat);
+
+  // Pass the source cloud to FGR
+  export_to_fgr(source_point_cloud, pts, feat);
+  app.LoadFeature(pts, feat);
+
+  // Perform alignment
+  app.NormalizePoints();
+  app.AdvancedMatching();
+  app.OptimizePairwise(true);
+  Eigen::Matrix4f S = app.GetOutputTrans();
+
+  // Export the transform
+  PointMatcher<RealT>::Matrix T = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
+  if (T.cols() != S.cols() || T.rows() != S.rows()) 
+    vw_throw( LogicErr() << "Error: size mis-match in FGR.\n");
+  for (int row = 0; row < T.rows(); row++) {
+    for (int col = 0; col < T.cols(); col++) {
+      T(row, col) = S(row, col);
+    }
+  }
+
+  return T;
+}
+  
 // Discrepancy between a 3D point with the rotation to be solved
 // applied to it, and its projection straight down onto the DEM. Used
 // with the least squares method of finding the best transform between
@@ -716,7 +812,7 @@ struct PointToDemError {
 
 /// Compute alignment using least squares
 PointMatcher<RealT>::Matrix
-least_squares_alignment(DP & source_point_cloud, // Should not be modified
+least_squares_alignment(DP const& source_point_cloud, // Should not be modified
 			vw::Vector3 const& point_cloud_shift,
 			vw::cartography::GeoReference        const& dem_georef,
 			vw::ImageViewRef< PixelMask<float> > const& dem_ref,
@@ -767,7 +863,7 @@ least_squares_alignment(DP & source_point_cloud, // Should not be modified
   Quat rotation;
   Vector3 translation;
   extract_rotation_translation(&transform[0], rotation, translation);
-  Matrix<double,3,3> rot_matrix = rotation.rotation_matrix();
+  vw::Matrix<double,3,3> rot_matrix = rotation.rotation_matrix();
   
   PointMatcher<RealT>::Matrix T = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
   for (int row = 0; row < DIM; row++){
@@ -937,7 +1033,8 @@ Eigen::Vector3d vw_vector3_to_eigen(vw::Vector3 const& vw_vector) {
 
 // Need this to placate libpointmatcher.
 std::string alignment_method_fallback(std::string const& alignment_method){
-  if (alignment_method == "least-squares" || alignment_method == "similarity-least-squares") 
+  if (alignment_method == "least-squares" || alignment_method == "similarity-least-squares" ||
+      alignment_method == "fgr") 
     return "point-to-plane";
   return alignment_method;
 }
@@ -1409,8 +1506,9 @@ int main( int argc, char *argv[] ) {
     vw_out() << "Reducing number of source points to "
              << source_point_cloud.features.cols() << endl;
 
-    //dump_llh("ref.csv", datum, ref_point_cloud,    shift);
-    //dump_llh("src.csv", datum, source, shift);
+    // Write the point cloud to disk for debugging
+    //debug_save_point_cloud(ref_point_cloud, geo, shift, "ref.csv");
+    //dump_bin("ref.bin", ref_point_cloud);
 
     elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
                                               shift, dem_georef, reference_dem_ref,
@@ -1442,17 +1540,23 @@ int main( int argc, char *argv[] ) {
     // We bypass calling ICP if the user explicitely asks for 0 iterations.
     PointMatcher<RealT>::Matrix T = Id;
     if (opt.num_iter > 0){
-      if (opt.alignment_method != "least-squares" &&
-	  opt.alignment_method != "similarity-least-squares") {
-	T = icp(source_point_cloud, ref_point_cloud, Id,
+      if (opt.alignment_method == "fgr") {
+        T = fgr_alignment(source_point_cloud, ref_point_cloud, opt);
+      } else if (opt.alignment_method == "point-to-plane" ||
+                 opt.alignment_method == "point-to-point" ||
+                 opt.alignment_method == "similarity-point-to-point") {
+        // Use libpointmatcher
+        T = icp(source_point_cloud, ref_point_cloud, Id,
 		opt.compute_translation_only);
 	vw_out() << "Match ratio: "
 		 << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
-      }else{
+      }else if (opt.alignment_method == "least-squares" ||
+                opt.alignment_method == "similarity-least-squares"){
+        /// Compute alignment using least squares
 	T = least_squares_alignment(source_point_cloud, shift,
 				    dem_georef, reference_dem_ref, opt);
-      }
-      
+      }else
+        vw_throw( ArgumentErr() << "Unknown alignment method: " << opt.alignment_method);
     }
     sw4.stop();
     if (opt.verbose)

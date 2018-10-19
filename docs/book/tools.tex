@@ -1924,7 +1924,9 @@ Compress using laszip. \\ \hline
 This tool can be used to align two point clouds. The algorithms used are
 one of several flavors of Iterative Closest Point (ICP), based on
 the \texttt{libpointmatcher} library~\cite{Pomerleau12comp}
-(\url{https://github.com/ethz-asl/libpointmatcher}), feature-based alignment,
+(\url{https://github.com/ethz-asl/libpointmatcher}), 
+the Fast Global Registration algorithm (\url{https://github.com/IntelVCL/FastGlobalRegistration}),
+feature-based alignment (terrains are hillshaded and matches are found among them),
 and alignment using least squares. 
 
 \medskip
@@ -2013,6 +2015,12 @@ matching to work, they perhaps can be re-gridded to use the same
 (coarser) grid, as described in section \ref{regrid}, to obtain the
 initial transform which can then be applied to the original clouds.
  
+A non-ICP algorithm supported by ASP is Fast Global Registration,
+accessible with \texttt{-\/-alignment-method fgr}, and customizable
+using the \texttt{-\/-fgr-options} field (see the table below for more detail).
+This one is being advertised as less sensitive to outliers, hence
+it should give good results with a larger value of the maximum displacement.  
+
 Another option is to use least squares (with outlier handling using a
 robust cost function) to find the transform, if the reference cloud is a
 DEM. For this, one should specify the alignment method as
@@ -2237,7 +2245,7 @@ for removing gross outliers in the source (movable) point cloud.\\ \hline
 \texttt{-\/-max-num-reference-points \textit{default: $10^8$}} &
 Maximum number of (randomly picked) reference points to use. \\ \hline
 \texttt{-\/-max-num-source-points \textit{default: $10^5$}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
-\texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point, least-squares, similarity-least-squares]\\ \hline
+\texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point, fgr, least-squares, similarity-least-squares]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
 
 \texttt{-\/-datum \textit{string}} & Use this datum for CSV files. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), and Moon (=D\_MOON). \\ \hline
@@ -2281,6 +2289,8 @@ initial guess. It can come from a previous run of the tool. \\ \hline
 \texttt{-\/-ipmatch-options} & Options to pass to the \texttt{ipmatch} program when computing the transform from hillshading. Default: \texttt{-\/-inlier-threshold 100 -\/-ransac-constraint similarity}. \\ \hline
 
 \texttt{-\/-match-file} & Compute an initial transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo\_gui).  The type of transform can be set via \texttt{-\/-initial-transform-from-hillshading \textit{string}}.\\ \hline
+
+\texttt{-\/-fgr-options} & Options to pass to the Fast Global Registration algorithm, if used. Default: 'div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000'. \\ \hline
 
 \texttt{-\/-diff-rotation-error \textit{default: $10^{-8}$}} & Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees. \\ \hline
 \texttt{-\/-diff-translation-error \textit{default: $10^{-3}$}} & Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters. \\ \hline

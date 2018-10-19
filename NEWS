@@ -14,6 +14,9 @@
      cloud.
    * Bugfix: intersection of bounding boxes of the clouds takes
      into account the initial transform applied to the source points.
+   * Added a new alignment algorithm, based on 
+     https://github.com/IntelVCL/FastGlobalRegistration
+     It can be invoked with --alignment-method fgr. 
 
  - bundle_adjust
    * Bug fix in outlier filtering for n images.
