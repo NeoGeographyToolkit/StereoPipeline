@@ -40,11 +40,12 @@ def get_asp_version():
 
 class Step:
     # The ids of individual stereo steps
-    pprc = 0
-    corr = 1
-    rfne = 2
-    fltr = 3
-    tri  = 4
+    pprc  = 0
+    corr  = 1
+    blend = 2
+    rfne  = 3
+    fltr  = 4
+    tri   = 5
 
 # Utilities to ensure that the Python parser does not garble negative
 # values such as '-365' into '-3'.

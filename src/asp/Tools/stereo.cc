@@ -510,6 +510,7 @@ namespace asp {
 
     bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
     if (using_sgm) {
+      // TODO: Allow other subpixel modes with SGM!
       if (stereo_settings().subpixel_mode < 6) {
         vw_out() << "SGM subpixel mode not specified, using the default subpixel method.\n";
         stereo_settings().subpixel_mode = 0; // Make sure stereo_rfne does not do anything

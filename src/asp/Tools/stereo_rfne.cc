@@ -298,7 +298,7 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
 
   ImageViewRef<PixelGray<float>    > left_image, right_image;
   ImageViewRef<uint8               > left_mask,  right_mask;
-  ImageViewRef<PixelMask<Vector2f> > integer_disp;
+  ImageViewRef<PixelMask<Vector2f> > input_disp;
   ImageViewRef<PixelMask<Vector2f> > sub_disp;
   ImageView<Matrix3x3> local_hom;
   string left_image_file  = opt.out_prefix+"-L.tif";
@@ -313,15 +313,22 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
     right_mask   = DiskImageView<uint8>(right_mask_file);
 
     // Read the correct type of correlation file (float for SGM/MGM, otherwise integer)
-    std::string disp_file = opt.out_prefix + "-D.tif";
-    boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(disp_file));
-    ChannelTypeEnum disp_data_type = rsrc->channel_type();
-    if (disp_data_type == VW_CHANNEL_INT32)
-      integer_disp = pixel_cast<PixelMask<Vector2f> >(
-                      DiskImageView< PixelMask<Vector2i> >(disp_file));
-    else // File on disk is float
-      integer_disp = DiskImageView< PixelMask<Vector2f> >(disp_file);
-    
+    std::string disp_file  = opt.out_prefix + "-D.tif";
+    std::string blend_file = opt.out_prefix + "-B.tif";
+
+    if (stereo_settings().subpix_from_blend) { // Read the stereo_blend output file
+      input_disp = DiskImageView< PixelMask<Vector2f> >(blend_file);
+    } else {
+      // Read the stereo_corr output file
+      boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(disp_file));
+      ChannelTypeEnum disp_data_type = rsrc->channel_type();
+      if (disp_data_type == VW_CHANNEL_INT32)
+        input_disp = pixel_cast<PixelMask<Vector2f> >(
+                        DiskImageView< PixelMask<Vector2i> >(disp_file));
+      else // File on disk is float
+        input_disp = DiskImageView< PixelMask<Vector2f> >(disp_file);
+    }
+
     if ( stereo_settings().seed_mode > 0 &&
          stereo_settings().use_local_homography ){
       if (!load_sub_disp_image(opt.out_prefix+"-D_sub.tif", sub_disp))
@@ -369,7 +376,7 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
 
   ImageViewRef< PixelMask<Vector2f> > refined_disp
     = crop(per_tile_rfne(left_image, right_image, right_mask,
-                    integer_disp, sub_disp, local_hom, opt), 
+                         input_disp, sub_disp, local_hom, opt), 
            stereo_settings().trans_crop_win);
   
   cartography::GeoReference left_georef;

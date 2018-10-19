@@ -166,6 +166,7 @@ namespace asp {
     bool   stereo_debug;              // Write stereo debug images and messages
 
     // Subpixel Options
+    bool subpix_from_blend;           // Read from -B.tif instead of -D.tif
     vw::uint16 subpixel_mode;         // 0 = none
                                       // 1 = parabola fitting
                                       // 2 = affine, bayes weighting

@@ -386,7 +386,7 @@ tile_blend( DispImageType const& input_image,
   centerline_weights(input_image, main_weights, output_bbox);
 
   if (debug) {
-    write_image("main_image.tif", output_image);
+    write_image("main_image.tif",   output_image);
     write_image("main_weights.tif", main_weights);
   }
 
@@ -416,7 +416,7 @@ tile_blend( DispImageType const& input_image,
       load_image_and_weights(opt.tile_paths[i], tile_rois[i], images[i], weights[i]);
       
       if (debug) {
-        write_image("tile_image_"+position_string(i)+".tif", images[i]);
+        write_image("tile_image_"  +position_string(i)+".tif", images [i]);
         write_image("tile_weights_"+position_string(i)+".tif", weights[i]);
       }
       
@@ -429,11 +429,7 @@ tile_blend( DispImageType const& input_image,
 
   }
 
-  vw_out() << "Premultiply...\n";
-
   output_image *= main_weights;
-  
-  vw_out() << "Performing blending...\n";
 
   // Blend in the neighbors one section at a time.
   for (size_t i=0; i<NUM_NEIGHBORS; ++i) {
@@ -445,8 +441,6 @@ tile_blend( DispImageType const& input_image,
                       validate_mask(images[i]), weights[i],   tile_rois[i]);
   }
 
-  vw_out() << "Postmultiply...\n";
-  
   // Normalize the main image values to account for the applied weighting.
   // Careful with zero weights. 
   for (int col = 0; col < output_image.cols(); col++) {
@@ -593,9 +587,11 @@ void stereo_blending( ASPGlobalOptions const& opt ) {
 
   DispImageType output = tile_blend(integer_disp, blend_options);
 
-  string rd_file = opt.out_prefix + "-RD.tif";
-  vw_out() << "Writing: " << rd_file << "\n";
-  vw::cartography::block_write_gdal_image(rd_file, output,
+  string out_file = opt.out_prefix + "-B.tif";
+  if (stereo_settings().subpixel_mode > 6 ) // No further subpixel refinement, skip to the -RD output.
+    out_file = opt.out_prefix + "-RD.tif";
+  vw_out() << "Writing: " << out_file << "\n";
+  vw::cartography::block_write_gdal_image(out_file, output,
                                           has_left_georef, left_georef,
                                           has_nodata, nodata, opt,
                                           TerminalProgressCallback("asp", "\t--> Blending :") );
@@ -605,8 +601,7 @@ int main(int argc, char* argv[]) {
 
   try {
 
-    vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : Stage 2 --> BLENDING \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> BLENDING \n";
 
     stereo_register_sessions();
 
@@ -626,8 +621,7 @@ int main(int argc, char* argv[]) {
     //---------------------------------------------------------
     stereo_blending( opt );
 
-    vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : BLENDING FINISHED \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : BLENDING FINISHED \n";
 
   } ASP_STANDARD_CATCHES;
 

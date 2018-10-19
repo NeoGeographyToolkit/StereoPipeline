@@ -486,7 +486,7 @@ def parallel_run(prog, args, settings, tiles, **kw):
             if (settings['stereo_algorithm'][0] != '0') and (prog == 'stereo_corr'):
                 collar_size = int(settings['collar_size'][0])
                 tile.add_collar(collar_size)
-                
+
                 # Also increase the processing block size for the tile so we process
                 #  the entire tile in one go.
                 curr_tile_size = int(settings['corr_tile_size'][0])
@@ -495,7 +495,7 @@ def parallel_run(prog, args, settings, tiles, **kw):
             # Set up the call string
             call = [binpath]
             call.extend(args)
-            
+
             if opt.threads_multi is not None:
                 wipe_option(call, '--threads', 1)
                 call.extend(['--threads', str(opt.threads_multi)])
@@ -640,6 +640,9 @@ if __name__ == '__main__':
 
     args.extend(['--stereo-file', opt.stereo_file])
 
+    # Check if we are doing SGM instead of block match processing
+    using_sgm = (settings['stereo_algorithm'][0] != '0')
+
     if opt.tile_id is None:
         # When the script is started, set some options from the
         # environment which we will pass to the scripts we spawn
@@ -708,7 +711,7 @@ if __name__ == '__main__':
                             '--job-size-w and --job-size-h. Values of these are currently: ' + \
                             str(corr_tile_size) + ' ' + str(opt.job_size_h) + ' ' + \
                             str(opt.job_size_w) + '.')
-        
+
     if opt.tile_id is None:
 
         # We get here when the script is started. The current running
@@ -721,7 +724,7 @@ if __name__ == '__main__':
         wipe_option(self_args, '-e', 1)
         wipe_option(self_args, '--entry-point', 1)
         wipe_option(self_args, '--stop-point', 1)
-        
+
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1:
 
@@ -733,7 +736,7 @@ if __name__ == '__main__':
             opt2var = {}
             for x in p._get_all_options()[1:]:
                 opt2var[x.get_opt_string()] = x.dest
-            
+
             # Find the options used by parallel_stereo which are not
             # passed to the stereo executables. This is a bit fragile.
             extra_args = []
@@ -748,25 +751,25 @@ if __name__ == '__main__':
                 if len(arg) >= 2 and arg[0] == '-' and arg[1] != '-':
                     # We expect two dashes
                     raise Exception('Not implemented, failed to parse: ' + arg)
-                
+
                 if not arg in opt2var.keys():
                     # Does not start with dash
                     continue 
 
                 var = opt2var[arg]
-                
+
                 if option_dict[var] is None:
                     # This option was not specified
                     continue
-                
+
                 if isinstance(option_dict[var], bool):
                     # This is a bool flag, append it with no value
                     extra_args.append(arg)
                     continue
 
-                if     isinstance(option_dict[var], int)         or \
-                       isinstance(option_dict[var], float)       or \
-                       isinstance(option_dict[var], basestring):
+                if (isinstance(option_dict[var], int)    or
+                    isinstance(option_dict[var], float)  or
+                    isinstance(option_dict[var], basestring)):
                     # For int, float, and string, append together with value
                     extra_args.append(arg)
                     extra_args.append(str(option_dict[var]))
@@ -783,14 +786,14 @@ if __name__ == '__main__':
                 sys.exit(0)
             else:
                 # We will arrive here after this script invokes itself
-                # for multivew.  Set up the directories and run
-                # Step.tri.
+                # for multivew.  Set up the directories and run Step.tri.
                 create_symlinks_for_multiview(settings, opt)
 
         # Preprocessing
         step = Step.pprc
         if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ): sys.exit()
+            if ( opt.stop_point <= step ):
+                sys.exit()
             single_run('stereo_pprc', args, msg='%d: Preprocessing' % step)
             create_subproject_dirs( settings ) # symlink L.tif, etc
             # Now the left is defined. Regather the settings
@@ -801,7 +804,8 @@ if __name__ == '__main__':
         # Correlation.
         step = Step.corr
         if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ): sys.exit()
+            if ( opt.stop_point <= step ):
+                sys.exit()
 
             # Do low-res correlation, this happens just once.
             calc_lowres_disp(args, opt, sep)
@@ -825,17 +829,37 @@ if __name__ == '__main__':
                       contract_tiles = (settings['stereo_algorithm'][0] != '0'))
             create_subproject_dirs( settings ) # symlink D.tif
 
-        # Refinement or blending (for SGM)
+        # Blending (only for SGM/MGM)
+        if using_sgm:
+            step = Step.blend
+            if ( opt.entry_point <= step ):
+                if ( opt.stop_point <= step ):
+                    sys.exit()
+                create_subproject_dirs( settings )
+                spawn_to_nodes(step, settings, self_args)
+
+
+        # Refinement
         step = Step.rfne
         if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ): sys.exit()
-            create_subproject_dirs( settings )
-            spawn_to_nodes(step, settings, self_args)
+            if ( opt.stop_point <= step ):
+                sys.exit()
+            skip_rfne = False
+            # If we used SGM/MGM, need to read from the blend file.
+            if using_sgm:
+                self_args.extend(['--subpix-from-blend'])
+                if (('subpixel-mode' in self_args) and 
+                    (self_args['subpixel-mode'] > 6)):
+                    skip_rfne = True # Already did subpixel as part of SGM in the stereo_corr step.
+            if not skip_rfne:
+                create_subproject_dirs( settings )
+                spawn_to_nodes(step, settings, self_args)
 
         # Filtering
         step = Step.fltr
         if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ): sys.exit()
+            if ( opt.stop_point <= step ):
+                sys.exit()
             build_vrt(settings, georef, "-RD.tif", "-RD.tif")
             single_run('stereo_fltr', args, msg='%d: Filtering' % step)
             create_subproject_dirs( settings ) # symlink F.tif
@@ -843,7 +867,8 @@ if __name__ == '__main__':
         # Triangulation
         step = Step.tri
         if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ): sys.exit()
+            if ( opt.stop_point <= step ):
+                sys.exit()
 
             # First compute jitter correction (optional). Done just once per run.
             if '--image-lines-per-piecewise-adjustment' in args:
@@ -868,6 +893,7 @@ if __name__ == '__main__':
             spawn_to_nodes(step, settings, self_args)
             build_vrt(settings, georef, "-PC.tif", "-PC.tif") # mosaic
 
+            # End main process case
     else:
 
         # This process was spawned by GNU Parallel with a given
@@ -878,26 +904,27 @@ if __name__ == '__main__':
         try:
 
             # The list of tiles
-            tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
+            tiles     = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
             num_tiles = len(tiles)
             min_index = opt.tile_id
             max_index = opt.tile_id + 1
-            tiles = tiles[min_index:max_index]
+            tiles     = tiles[min_index:max_index]
 
             if ( opt.entry_point == Step.corr ):
                 parallel_run('stereo_corr', args, settings, tiles,
                              msg='%d: Correlation' % opt.entry_point)
-            
+
+            if ( opt.entry_point == Step.blend ):
+                parallel_run('stereo_blend', args, settings, tiles,
+                                 msg='%d: Blending' % opt.entry_point)
+
             if ( opt.entry_point == Step.rfne ):
                 # For the SGM based algorithms, refinement is not needed and
                 #  instead we need to do a blend step.
-                if (settings['stereo_algorithm'][0] == '0'):
-                    parallel_run('stereo_rfne', args, settings, tiles,
-                                 msg='%d: Refinement' % opt.entry_point)
-                else: # SGM
-                    parallel_run('stereo_blend', args, settings, tiles,
-                                 msg='%d: Blending' % opt.entry_point)
-                             
+                parallel_run('stereo_rfne', args, settings, tiles,
+                              msg='%d: Refinement' % opt.entry_point)
+
+
             if ( opt.entry_point == Step.tri ):
                 parallel_run('stereo_tri', args, settings, tiles,
                              msg='%d: Triangulation' % opt.entry_point)
