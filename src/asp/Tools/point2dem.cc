@@ -95,18 +95,18 @@ struct Options : vw::cartography::GdalWriteOptions {
 
   // Defaults that the user doesn't need to see.
   Options() : nodata_value(-std::numeric_limits<float>::max()),
-	      semi_major(0), semi_minor(0), fsaa(1),
-	      dem_hole_fill_len(0), ortho_hole_fill_len(0), ortho_hole_fill_extra_len(0),
-	      remove_outliers_with_pct(true), max_valid_triangulation_error(0),
-	      erode_len(0), search_radius_factor(0), sigma_factor(0),
-	      default_grid_size_multiplier(1.0), use_surface_sampling(false),
-	      has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999){}
+      semi_major(0), semi_minor(0), fsaa(1),
+      dem_hole_fill_len(0), ortho_hole_fill_len(0), ortho_hole_fill_extra_len(0),
+      remove_outliers_with_pct(true), max_valid_triangulation_error(0),
+      erode_len(0), search_radius_factor(0), sigma_factor(0),
+      default_grid_size_multiplier(1.0), use_surface_sampling(false),
+      has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999){}
 };
 
 void parse_input_clouds_textures(std::vector<std::string> const& files,
-				 std::string const& usage,
-				 po::options_description const& general_options,
-				 Options& opt ) {
+                                 std::string const& usage,
+                                 po::options_description const& general_options,
+                                 Options& opt ) {
 
   // The files will be input point clouds, and if opt.do_ortho is
   // true, also texture files. If texture files are present, there
@@ -116,13 +116,13 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
   int num = files.size();
   if (num == 0)
     vw_throw( ArgumentErr() << "Missing input point clouds.\n"
-	      << usage << general_options );
+                            << usage << general_options );
 
   // Ensure there were no unrecognized options
   for (int i = 0; i < num; i++){
     if (!files[i].empty() && files[i][0] == '-'){
       vw_throw( ArgumentErr() << "Unrecognized option: " << files[i] << ".\n"
-		<< usage << general_options );
+                              << usage << general_options );
     }
   }
 
@@ -136,11 +136,11 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
   if (opt.do_ortho){
     if (num <= 1)
       vw_throw( ArgumentErr() << "Missing input texture files.\n"
-		<< usage << general_options );
+                              << usage << general_options );
     if (num%2 != 0)
       vw_throw( ArgumentErr()
-		<< "There must be as many texture files as input point clouds.\n"
-		<< usage << general_options );
+                << "There must be as many texture files as input point clouds.\n"
+                << usage << general_options );
   }
 
   // Separate the input point clouds from the textures
@@ -164,14 +164,13 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
   for (int i = 0; i < (int)files.size(); i++)
     opt.has_las_or_csv_or_pcd = opt.has_las_or_csv_or_pcd || asp::is_las_or_csv_or_pcd(files[i]);
   if (opt.has_las_or_csv_or_pcd && opt.do_ortho)
-    vw_throw( ArgumentErr() << "Cannot create orthoimages if "
-	      << "point clouds are LAS or CSV.\n" );
+    vw_throw( ArgumentErr() << "Cannot create orthoimages if " << "point clouds are LAS or CSV.\n" );
 
   if (opt.do_ortho){
 
     if (opt.pointcloud_files.size() != opt.texture_files.size())
       vw_throw( ArgumentErr() << "There must be as many input point clouds "
-		<< "as texture files to be able to create orthoimages.\n");
+                              << "as texture files to be able to create orthoimages.\n");
 
     for (int i = 0; i < (int)opt.pointcloud_files.size(); i++){
       // Here we ignore that a point cloud file may have many channels.
@@ -180,10 +179,9 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
       DiskImageView<float> cloud(opt.pointcloud_files[i]);
       DiskImageView<float> texture(opt.texture_files[i]);
       if ( cloud.cols() != texture.cols() || cloud.rows() != texture.rows() ){
-	vw_throw( ArgumentErr() << "Point cloud " << opt.pointcloud_files[i]
-		  << " and texture file " << opt.texture_files[i]
-		  << " do not have the same dimensions.\n");
-
+        vw_throw( ArgumentErr() << "Point cloud " << opt.pointcloud_files[i]
+                                << " and texture file " << opt.texture_files[i]
+                                << " do not have the same dimensions.\n");
       }
     }
   }
@@ -210,7 +208,7 @@ void las_or_csv_or_pcd_to_tifs(Options& opt,
       continue;
     if (opt.csv_format_str == "")
       vw_throw(ArgumentErr() << "CSV files were passed in, but the "
-			     << "CSV format string was not set.\n");
+                             << "CSV format string was not set.\n");
   }
 
   // Extract georef info from PC or las files.
@@ -293,13 +291,11 @@ void las_or_csv_or_pcd_to_tifs(Options& opt,
 
     // TODO: This if statement should not be needed, the function should handle it!
     // Perform the actual conversion to a tif file
-    if (asp::is_las(in_file)) {
-      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size,
-			     &opt, pc_georef, csv_conv);
-    } else { // CSV
-      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size,
-			     &opt, csv_georef, csv_conv);
-    }
+    if (asp::is_las(in_file))
+      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size, &opt, pc_georef, csv_conv);
+    else // CSV
+      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size, &opt, csv_georef, csv_conv);
+
     opt.pointcloud_files[i] = out_file; // so we can use it instead of the las file
     tmp_tifs.push_back(out_file); // so we can wipe it later
   }
@@ -431,35 +427,33 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
-			     positional, positional_desc, usage,
-			     allow_unregistered, unregistered );
+                             positional, positional_desc, usage,
+                             allow_unregistered, unregistered );
 
   if (vm.count("input-files") == 0)
-    vw_throw( ArgumentErr() << "Missing input point clouds.\n"
-			    << usage << general_options );
+    vw_throw( ArgumentErr() << "Missing input point clouds.\n" << usage << general_options );
   std::vector<std::string> input_files = vm["input-files"].as< std::vector<std::string> >();
   parse_input_clouds_textures(input_files, usage, general_options, opt);
 
   if (opt.median_filter_params[0] < 0 || opt.median_filter_params[1] < 0){
     vw_throw( ArgumentErr() << "The parameters for median-based filtering "
-			    << "must be non-negative.\n"
-			    << usage << general_options );
+                            << "must be non-negative.\n" << usage << general_options );
   }
 
   if (opt.has_las_or_csv_or_pcd && opt.median_filter_params[0] > 0 &&
       opt.median_filter_params[1] > 0){
     vw_throw( ArgumentErr() << "Median-based filtering cannot handle CSV or LAS files.\n"
-			    << usage << general_options );
+                            << usage << general_options );
   }
 
   if (opt.erode_len < 0){
     vw_throw( ArgumentErr() << "Erode length must be non-negative.\n"
-			    << usage << general_options );
+                            << usage << general_options );
   }
 
   if ( (dem_spacing1.size() > 0) && (dem_spacing2.size() > 0) ){
     vw_throw( ArgumentErr() << "The DEM spacing was specified twice.\n"
-			    << usage << general_options );
+                            << usage << general_options );
   }
 
   // Consolidate the dem_spacing and tr parameters
@@ -475,8 +469,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   for (size_t i=0; i<opt.dem_spacing.size(); ++i) {
     if (opt.dem_spacing[i] < 0.0){
       // Note: Zero spacing means we'll set it internally.
-      vw_throw( ArgumentErr() << "The DEM spacing must be non-negative.\n"
-			      << usage << general_options );
+      vw_throw( ArgumentErr() << "The DEM spacing must be non-negative.\n" << usage << general_options );
     }
     if (opt.dem_spacing[i] > 0)
       spacing_provided = true;
@@ -484,7 +477,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if (opt.has_las_or_csv_or_pcd && !spacing_provided){
     vw_throw( ArgumentErr() << "When inputs are LAS or CSV files, the "
-			    << "output DEM resolution must be set.\n" );
+                            << "output DEM resolution must be set.\n" );
   }
 
   if ( opt.out_prefix.empty() )
@@ -492,33 +485,30 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if (opt.use_surface_sampling){
     vw_out(WarningMessage) << "The --use-surface-sampling option invokes the old algorithm and "
-			   << "is obsolete, it will be removed in future versions.\n";
+                           << "is obsolete, it will be removed in future versions.\n";
   }
 
   if (opt.use_surface_sampling && opt.filter != "weighted_average")
     vw_throw( ArgumentErr() << "Cannot use surface "
-              << "sampling with any filter of point cloud points.\n" );
-    
+                            << "sampling with any filter of point cloud points.\n" );
+
   if (opt.use_surface_sampling && opt.has_las_or_csv_or_pcd)
-    vw_throw( ArgumentErr() << "Cannot use surface "
-			    << "sampling with LAS or CSV files.\n" );
+    vw_throw( ArgumentErr() << "Cannot use surface " << "sampling with LAS or CSV files.\n" );
 
   if (opt.fsaa != 1 && !opt.use_surface_sampling){
-    vw_throw( ArgumentErr() << "The --fsaa option is obsolete. It can be used only with the --use-surface-sampling option which invokes the old algorithm.\n" << usage << general_options );
+    vw_throw( ArgumentErr() << "The --fsaa option is obsolete. It can be used only with the "
+              << "--use-surface-sampling option which invokes the old algorithm.\n" << usage << general_options );
   }
 
   if (opt.dem_hole_fill_len < 0)
-    vw_throw( ArgumentErr() << "The value of "
-			    << "--dem-hole-fill-len must be non-negative.\n");
+    vw_throw( ArgumentErr() << "The value of --dem-hole-fill-len must be non-negative.\n");
   if (opt.ortho_hole_fill_len < 0)
-    vw_throw( ArgumentErr() << "The value of "
-			    << "--orthoimage-hole-fill-len must be non-negative.\n");
+    vw_throw( ArgumentErr() << "The value of --orthoimage-hole-fill-len must be non-negative.\n");
   if (opt.ortho_hole_fill_extra_len < 0)
-    vw_throw( ArgumentErr() << "The value of "
-			    << "--orthoimage-hole-fill-extra-len must be non-negative.\n");
+    vw_throw( ArgumentErr() << "The value of --orthoimage-hole-fill-extra-len must be non-negative.\n");
   if ( !opt.do_ortho && opt.ortho_hole_fill_len > 0) {
     vw_throw( ArgumentErr() << "The value of --orthoimage-hole-fill-len"
-			    << " is positive, but orthoimage generation was not requested.\n");
+                            << " is positive, but orthoimage generation was not requested.\n");
   }
 
   if (opt.ortho_hole_fill_len > 0) {
@@ -533,11 +523,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     if (opt.remove_outliers_params[0] < 100)
       vw_out(WarningMessage) << "Removing outliers using a percentile filter may interfere "
                              << "with filling holes in ortho images.\n";
-    
+  }
 
-      }
-
-  
   double pct = opt.remove_outliers_params[0], factor = opt.remove_outliers_params[1];
   if (pct <= 0 || pct > 100 || factor <= 0.0){
     vw_throw( ArgumentErr()
@@ -554,8 +541,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Correct that here.
   if ( opt.target_projwin != BBox2() ) {
     if ( opt.target_projwin.min().y() > opt.target_projwin.max().y() ) {
-      std::swap( opt.target_projwin.min().y(),
-		 opt.target_projwin.max().y() );
+      std::swap( opt.target_projwin.min().y(), opt.target_projwin.max().y() );
     }
     vw_out() << "Cropping to " << opt.target_projwin << " pt. " << std::endl;
   }
@@ -564,7 +550,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.csv_proj4_str.empty() && !opt.target_srs_string.empty()) {
     opt.csv_proj4_str = opt.target_srs_string;
   }
-  
+
   // If the user specified a PROJ.4 string to use to interpret the
   // input in CSV files, use the same string to create output DEMs,
   // unless the user explicitly sets the output PROJ.4 string.
@@ -573,7 +559,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              << "Will use it for output as well.\n";
     opt.target_srs_string = opt.csv_proj4_str;
   }
-  
+
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -717,7 +703,7 @@ namespace asp{
     std::string tag = "";
     if (opt.filter != "weighted_average")
       tag = "-" + opt.filter; 
-    
+
     std::string output_file = opt.out_prefix + tag + "-" + imgName
       + "." + opt.output_file_type;
     vw_out() << "Writing: " << output_file << "\n";
@@ -747,9 +733,9 @@ namespace asp{
     typedef ProceduralPixelAccessor<CombinedView> pixel_accessor;
 
     CombinedView(double nodata_value,
-		 ImageViewBase<ImageT> const& image1,
-		 ImageViewBase<ImageT> const& image2,
-		 ImageViewBase<ImageT> const& image3):
+                 ImageViewBase<ImageT> const& image1,
+                 ImageViewBase<ImageT> const& image2,
+                 ImageViewBase<ImageT> const& image3):
       m_nodata_value(nodata_value),
       m_image1( image1.impl() ),
       m_image2( image2.impl() ),
@@ -777,10 +763,10 @@ namespace asp{
 
     inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
       return prerasterize_type(m_nodata_value,
-			       m_image1.prerasterize(bbox),
-			       m_image2.prerasterize(bbox),
-			       m_image3.prerasterize(bbox)
-			       );
+                               m_image1.prerasterize(bbox),
+                               m_image2.prerasterize(bbox),
+                               m_image3.prerasterize(bbox)
+                              );
     }
     template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
       vw::rasterize( prerasterize(bbox), dest, bbox );
@@ -789,14 +775,14 @@ namespace asp{
   };
   template <class ImageT>
   CombinedView<ImageT> combine_channels(double nodata_value,
-					ImageViewBase<ImageT> const& image1,
-					ImageViewBase<ImageT> const& image2,
-					ImageViewBase<ImageT> const& image3){
+                                        ImageViewBase<ImageT> const& image1,
+                                        ImageViewBase<ImageT> const& image2,
+                                        ImageViewBase<ImageT> const& image3){
     VW_ASSERT(image1.impl().cols() == image2.impl().cols() &&
-	      image2.impl().cols() == image3.impl().cols() &&
-	      image1.impl().rows() == image2.impl().rows() &&
-	      image2.impl().rows() == image3.impl().rows(),
-	      ArgumentErr() << "Expecting the error channels to have the same size.");
+              image2.impl().cols() == image3.impl().cols() &&
+              image1.impl().rows() == image2.impl().rows() &&
+              image2.impl().rows() == image3.impl().rows(),
+              ArgumentErr() << "Expecting the error channels to have the same size.");
 
     return CombinedView<ImageT>(nodata_value, image1.impl(), image2.impl(), image3.impl());
   }
@@ -857,7 +843,7 @@ namespace asp{
     void operator()( accum_type const& value ) {
       // Don't add zero errors, those most likely came from invalid points
       if (value > 0)
-	m_vals.push_back(value);
+        m_vals.push_back(value);
     }
 
     int size(){
@@ -892,19 +878,17 @@ namespace asp{
 
     // Read the error channels from the point clouds, and take their norm
 
-    VW_ASSERT(pc_files.size() >= 1,
-	      ArgumentErr() << "Expecting at least one file.\n");
+    VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
 
     const int beg_ech = 3; // errors start at this channel
     const int num_ech = num_ch - beg_ech; // number of error channels
     ImageViewRef< Vector<double, num_ch> > point_disk_image
       = asp::form_point_cloud_composite<Vector<double, num_ch> >(pc_files,
-				  asp::OrthoRasterizerView::max_subblock_size());
+          asp::OrthoRasterizerView::max_subblock_size());
     ImageViewRef< Vector<double, num_ech> > error_channels =
       select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
 
-    return per_pixel_filter(error_channels,
-			    asp::VectorNorm< Vector<double, num_ech> >());
+    return per_pixel_filter(error_channels, asp::VectorNorm< Vector<double, num_ech> >());
   }
 
   int num_channels(std::vector<std::string> const& pc_files){
@@ -915,8 +899,7 @@ namespace asp{
     // This will be used to flag that we cannot reliable extract the
     // error channels, which start at channel 4.
 
-    VW_ASSERT(pc_files.size() >= 1,
-	      ArgumentErr() << "Expecting at least one file.\n");
+    VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
 
     int num_channels0 = get_num_channels(pc_files[0]);
     int min_num_channels = num_channels0;
@@ -989,7 +972,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
 
   // Write out the DEM. We've set the texture to be the height.
   Vector2 tile_size(vw_settings().default_tile_size(),
-		    vw_settings().default_tile_size());
+                    vw_settings().default_tile_size());
   if ( !opt.no_dem ){
     Stopwatch sw2;
     sw2.start();
@@ -1016,7 +999,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
       vw_throw( ArgumentErr()
                 << "Requested DEM size is too large, max allowed output size is "
                 << opt.max_output_size << " pixels.\n" );
-    
+
     asp::save_image(opt, dem, georef, hole_fill_len, "DEM");
     sw2.stop();
     vw_out(DebugMessage,"asp") << "DEM render time: " << sw2.elapsed_seconds() << ".\n";
@@ -1041,11 +1024,10 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
       ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
       rasterizer.set_texture( error_channel );
       rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
-      save_image(opt,
-		 asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
-						     opt.rounding_error,
-						     opt.nodata_value),
-		 georef, hole_fill_len, "IntersectionErr");
+      save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
+                                                          opt.rounding_error,
+                                                          opt.nodata_value),
+                 georef, hole_fill_len, "IntersectionErr");
     }else if (num_channels == 6){
       // The error is a 3D vector. Convert it to NED coordinate system, and rasterize it.
       ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
@@ -1059,48 +1041,44 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
         rasterized[ch_index] =
           block_cache(rasterizer_fsaa, tile_size, opt.num_threads);
       }
-      save_image(opt,
-		 asp::round_image_pixels_skip_nodata
-		 (asp::combine_channels
-		  (opt.nodata_value,
-		   rasterized[0], rasterized[1], rasterized[2]),
-		  opt.rounding_error, opt.nodata_value),
-		 georef, hole_fill_len, "IntersectionErr");
+      save_image(opt, asp::round_image_pixels_skip_nodata
+                              (asp::combine_channels(opt.nodata_value, rasterized[0], 
+                                                     rasterized[1], rasterized[2]),
+                               opt.rounding_error, opt.nodata_value),
+                 georef, hole_fill_len, "IntersectionErr");
     }else{
       // Note: We don't throw here. We still would like to write the
       // DRG (below) even if we can't write the error image.
       vw_out() << "The point cloud files must have an equal number of channels which "
-	       << "must be 4 or 6 to be able to process the intersection error.\n";
+               << "must be 4 or 6 to be able to process the intersection error.\n";
     }
   }
 
   // Write out a normalized version of the DEM, if requested (for debugging)
   if (opt.do_normalize) {
     int hole_fill_len = 0;
-    DiskImageView< PixelGray<float> >
-      dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
-    asp::save_image(opt,
-	       apply_mask
-	       (channel_cast<uint8>
-		(normalize(create_mask(dem_image,opt.nodata_value),
-			   rasterizer.bounding_box().min().z(),
-			   rasterizer.bounding_box().max().z(),
-			   0, 255))),
-	       georef, hole_fill_len, "DEM-normalized");
+    DiskImageView< PixelGray<float> > dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
+    asp::save_image(opt, apply_mask(channel_cast<uint8>(normalize(create_mask(dem_image,opt.nodata_value),
+                                                                  rasterizer.bounding_box().min().z(),
+                                                                  rasterizer.bounding_box().max().z(),
+                                                                  0, 255)
+                                                       )
+                                   ),
+                    georef, hole_fill_len, "DEM-normalized");
   }
 
   // Write DRG if the user requested and provided a texture file.
   // This must be at the end, as we may be messing with the point
   // image in irreversible ways.
   if (opt.do_ortho) {
-    
+
     Stopwatch sw3;
     sw3.start();
     ImageViewRef< PixelGray<float> > texture
       = asp::form_point_cloud_composite< PixelGray<float> >
       (opt.texture_files, asp::OrthoRasterizerView::max_subblock_size());
     rasterizer.set_texture(texture);
-    
+
     if (opt.ortho_hole_fill_len > 0) {
 
       // Need to convert the hole fill length from output image pixels
@@ -1139,7 +1117,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
                                        vw::Vector2(big_block_size, big_block_size),
                                        opt.num_threads);
       }
-      
+
       // Fill the holes
       point_image_mask =vw::fill_holes_grass(point_image_mask, hole_fill_len);
 
@@ -1210,7 +1188,7 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
   // Call the function for each dem spacing
   for (size_t i = 0; i < opt.dem_spacing.size(); i++) {
     double this_spacing = opt.dem_spacing[i];
-    
+
     // Required second init step for each spacing
     rasterizer.initialize_spacing(this_spacing);
 
@@ -1292,7 +1270,7 @@ int main( int argc, char *argv[] ) {
     // Generate a merged xyz point cloud consisting of all inputs
     // - By now, each input exists in xyz tif format.
     ImageViewRef<Vector3> point_image = asp::form_point_cloud_composite<Vector3>(opt.pointcloud_files,
-						  asp::OrthoRasterizerView::max_subblock_size());
+                                          asp::OrthoRasterizerView::max_subblock_size());
 
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
@@ -1300,7 +1278,7 @@ int main( int argc, char *argv[] ) {
                << "      Angles: " << opt.phi_rot << "   "
                << opt.omega_rot << "  " << opt.kappa_rot << "\n";
       point_image = asp::point_transform(point_image,
-					 math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
+                      math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
     }
     // Estimate the maximum value of the error channel in case we would
     // like to remove outliers. This not the cuttoff triangulation error,
@@ -1329,27 +1307,26 @@ int main( int argc, char *argv[] ) {
         for (int count = 7; count <= 18; count++){
 
           double sample = (1 << count);
-          int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
-				               point_image.rows()))/sample);
+          int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(), point_image.rows()))/sample);
           if (subsample_amt < 1 ) subsample_amt = 1;
 
           Stopwatch sw2;
           sw2.start();
           PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
           for_each_pixel( subsample(error_image, subsample_amt),
-	            error_accum,
-	            TerminalProgressCallback
-	            ("asp","Triangulation error range estimation: ") );
+                          error_accum,
+                          TerminalProgressCallback
+                          ("asp","Triangulation error range estimation: ") );
           if (error_accum.size() > 0){
             success = true;
             estim_max_error = error_accum.value(opt.remove_outliers_params);
           }
           sw2.stop();
           vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
-		               << sw2.elapsed_seconds() << std::endl;
+                                     << sw2.elapsed_seconds() << std::endl;
           if (success || subsample_amt == 1) break;
           vw_out() << "Failed to estimate the triangulation range. Check if your cloud is valid. "
-             << "Trying again with finer sampling.\n";
+                   << "Trying again with finer sampling.\n";
         }
       }
     }
@@ -1359,13 +1336,13 @@ int main( int argc, char *argv[] ) {
     // negative x value (think in ECEF coordinates) then we should
     // be using [0,360].
     double avg_lon = asp::find_avg_lon(point_image);
-    
+
     // TODO: Do we need the recenter code now that we have this?
     // TODO: Modify other code so we don't have to handle this one special case!
     // Forcing the georef object outside its comfort zone is not safe for all projections!
     if (output_georef.overall_proj4_str().find("+proj=aea") == std::string::npos)
       output_georef.set_lon_center(avg_lon < 100);
-    
+
     // We trade off readability here to avoid ImageViewRef dereferences
     if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.lon_offset
@@ -1374,10 +1351,9 @@ int main( int argc, char *argv[] ) {
         (geodetic_to_point  // GDC to XYZ
             (asp::point_image_offset  // Add user coordinate offset
               (asp::recenter_longitude(cartesian_to_geodetic(point_image,output_georef), // XYZ to GDC, then normalize longitude
-			               avg_lon),
-           Vector3(opt.lon_offset,
-	           opt.lat_offset,
-	           opt.height_offset)),
+                                       avg_lon),
+               Vector3(opt.lon_offset, opt.lat_offset, opt.height_offset)
+              ),
              output_georef),
          opt, output_georef, error_image, estim_max_error);
     } else {
