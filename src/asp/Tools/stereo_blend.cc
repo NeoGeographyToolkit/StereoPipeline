@@ -158,8 +158,6 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
   int top_offset   = (top_edge  ) ? 0 : buffer_size;
   int right_offset = image_width  - left_offset - roi_width;
   int bot_offset   = image_height - top_offset  - roi_height;
-  vw_out() << "Offsets: " << left_offset << ' ' << right_offset << ' '
-           << top_offset << ' ' << bot_offset << std::endl;
   
   if (right_offset < 0 || bot_offset < 0) 
     vw_throw( ArgumentErr() << "Something is wrong with the current tile geometry.\n" );

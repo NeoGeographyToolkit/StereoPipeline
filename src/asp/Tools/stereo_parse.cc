@@ -121,6 +121,7 @@ int main( int argc, char* argv[] ) {
     vw_out() << "tri_tile_size,"  << ASPGlobalOptions::tri_tile_size()  << endl;
 
     vw_out() << "stereo_algorithm," << stereo_settings().stereo_algorithm << endl;
+    vw_out() << "subpixel_mode," << stereo_settings().subpixel_mode << endl;
     if (stereo_settings().stereo_algorithm == 0)
       vw_out() << "collar_size," << 0 << endl;
     else

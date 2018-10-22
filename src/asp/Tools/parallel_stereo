@@ -193,32 +193,37 @@ def create_symlinks_for_multiview(settings, opt):
     tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
     for s in sorted(settings.keys()):
         m = re.match('multiview_command', s)
-        if not m: continue
+        if not m:
+            continue
         local_settings=run_and_parse_output( "stereo_parse", settings[s][1:],
                                              sep, opt.verbose )
         local_prefix = local_settings['out_prefix'][0]
         m = re.match('^(.*?)-pair(\d+)\/', local_prefix)
-        if not m: continue
+        if not m:
+            continue
         base_prefix = m.group(1)
-        index = str(m.group(2))
+        index       = str(m.group(2))
         for tile in tiles:
             tile_str = tile.name_str()
             src_pref = tile_dir(base_prefix + '-pair' + index + '/' + index, tile) + '/' + tile_str
-            dst_dir = tile_dir(base_prefix, tile) + '/' + tile_str + '-pair' + index
+            dst_dir  = tile_dir(base_prefix, tile) + '/' + tile_str + '-pair' + index
             mkdir_p(dst_dir)
 
             dst_pref = dst_dir + '/' + index
             files = glob.glob(src_pref + '*')
             for f in files:
                 m = re.match(skip_symlink_expr, f)
-                if m: continue # won't sym link certain patterns
+                if m:
+                    continue # won't sym link certain patterns
                 m = re.match('^' + src_pref + '(.*?)$', f)
-                if not m: continue
+                if not m:
+                    continue
                 suff    = m.group(1)
                 src_f   = src_pref + suff
                 dst_f   = dst_pref + suff
                 rel_src = os.path.relpath(src_f, dst_dir)
-                if os.path.lexists(dst_f): continue
+                if os.path.lexists(dst_f):
+                    continue
                 os.symlink(rel_src, dst_f)
 
 def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
@@ -576,10 +581,10 @@ if __name__ == '__main__':
                  help='Correlation seed strategy. See stereo_corr for options.',
                  type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
-                 help='Stereo Pipeline entry point (an integer from 0-4).',
+                 help='Stereo Pipeline entry point (an integer from 0-5).',
                  type='int')
-    p.add_option('--stop-point',           dest='stop_point',  default=5,
-                 help='Stereo Pipeline stop point (an integer from 1-5).',
+    p.add_option('--stop-point',           dest='stop_point',  default=6,
+                 help='Stereo Pipeline stop point (an integer from 1-6).',
                  type='int')
     p.add_option('--job-size-w',           dest='job_size_w',  default=2048,
                  help='Pixel width of input image tile for a single process.',
@@ -640,9 +645,6 @@ if __name__ == '__main__':
 
     args.extend(['--stereo-file', opt.stereo_file])
 
-    # Check if we are doing SGM instead of block match processing
-    using_sgm = (settings['stereo_algorithm'][0] != '0')
-
     if opt.tile_id is None:
         # When the script is started, set some options from the
         # environment which we will pass to the scripts we spawn
@@ -674,8 +676,11 @@ if __name__ == '__main__':
     sep = ","
     settings = run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
 
+    # Check if we are doing SGM instead of block match processing
+    using_sgm = (settings['stereo_algorithm'][0] != '0')
+
     # By default use 8 threads for MGM 
-    if (settings['stereo_algorithm'][0] > '0') and opt.threads_multi is None:
+    if using_sgm and opt.threads_multi is None:
         opt.threads_multi = 8
 
     num_nodes = get_num_nodes(opt.nodes_list)
@@ -817,8 +822,6 @@ if __name__ == '__main__':
             self_args.extend(['--skip-low-res-disparity-comp'])
             spawn_to_nodes(step, settings, self_args)
 
-            # TODO: Fix settings so we don't need [0]!
-
             # Bugfix: When doing refinement for a given tile, we must see
             # the result of correlation for all tiles. To achieve that,
             # rename all correlation tiles to something else,
@@ -826,8 +829,10 @@ if __name__ == '__main__':
             # that vrt from all tile directories.
             rename_files( settings, "-D.tif", "-Dnosym.tif" )
             build_vrt(settings, georef, "-D.tif", "-Dnosym.tif", 
-                      contract_tiles = (settings['stereo_algorithm'][0] != '0'))
+                      contract_tiles = using_sgm)
             create_subproject_dirs( settings ) # symlink D.tif
+
+        skip_refine_step = (int(settings['subpixel_mode'][0]) > 6)
 
         # Blending (only for SGM/MGM)
         if using_sgm:
@@ -837,6 +842,13 @@ if __name__ == '__main__':
                     sys.exit()
                 create_subproject_dirs( settings )
                 spawn_to_nodes(step, settings, self_args)
+                
+                if not skip_refine_step:
+                    # Do the same trick as after stereo_corr
+                    rename_files( settings, "-B.tif", "-Bnosym.tif" )
+                    build_vrt(settings, georef, "-B.tif", "-Bnosym.tif", 
+                              contract_tiles = False)
+                    create_subproject_dirs( settings ) # symlink B.tif
 
 
         # Refinement
@@ -844,14 +856,10 @@ if __name__ == '__main__':
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ):
                 sys.exit()
-            skip_rfne = False
             # If we used SGM/MGM, need to read from the blend file.
             if using_sgm:
                 self_args.extend(['--subpix-from-blend'])
-                if (('subpixel-mode' in self_args) and 
-                    (self_args['subpixel-mode'] > 6)):
-                    skip_rfne = True # Already did subpixel as part of SGM in the stereo_corr step.
-            if not skip_rfne:
+            if not skip_refine_step:
                 create_subproject_dirs( settings )
                 spawn_to_nodes(step, settings, self_args)
 
@@ -919,11 +927,8 @@ if __name__ == '__main__':
                                  msg='%d: Blending' % opt.entry_point)
 
             if ( opt.entry_point == Step.rfne ):
-                # For the SGM based algorithms, refinement is not needed and
-                #  instead we need to do a blend step.
                 parallel_run('stereo_rfne', args, settings, tiles,
                               msg='%d: Refinement' % opt.entry_point)
-
 
             if ( opt.entry_point == Step.tri ):
                 parallel_run('stereo_tri', args, settings, tiles,

@@ -1,5 +1,11 @@
 *** RELEASE 2.6.2, Upcoming ***
 
+ - stereo_rfne
+   * Added the option to run a non-SGM subpixel option after
+     running SGM/MGM.
+   * Added the phase correlation subpixel option. This is a fourier
+     transform based method.
+
  - pc_align
    * Added a new approach to finding an initial transform between
      clouds, when they are DEMs, that may be more robust to large

@@ -436,11 +436,11 @@ parameter will have to be adjusted to taste, but a range of 0.13 to 0.15 is typi
 values are enabled by default and must be manually disabled.  If your images have good texture throughout
 it may be best to disable these filters.
 \item The \texttt{prefilter-mode} setting is ignored when using SGM.
-\item The \texttt{subpixel-mode} setting is ignored when using SGM unless it is set to
-one of the "SGM" modes, 6 through 10.  You can try these modes, particularly the cosine algorithm,
-but the default subpixel algorithm should work well.  The SGM performs parabola subpixel interpolation as part of
-the \texttt{stereo\_corr} step and does no work in the \texttt{stereo\_rfne} module.  This means that
+\item The \texttt{subpixel-mode} If not set or set to values 7-12 SGM will perform subpixel interpolation
+during the stereo correlation step and will not do additional work in the stereo refinement step. This means that
 after dealing with the long SGM processing time you do not need to follow it up with a slow subpixel option!
+If desired, you can specify modes 1-4 to force those subpixel operations to be performed after the default
+SGM subpixel method.
 \end{itemize}
 
 % Would be nice to improve this figure
@@ -479,7 +479,7 @@ Once disparity map initialization is complete, every pixel in the
 disparity map will either have an estimated disparity value, or it
 will be marked as invalid.  All valid pixels are then adjusted in the
 sub-pixel refinement stage based on the \texttt{subpixel-mode}
-setting. % Subpixel refinement is not additive step.
+setting.
 
 The first mode is parabola-fitting sub-pixel refinement
 (\texttt{subpixel-mode 1}).  This technique fits a 2D parabola to
@@ -571,6 +571,12 @@ the simple affine correlator.  This is essentially the Bayes EM mode
 with the noise correction features removed in order to decrease the
 required run time.  In data sets with little noise this mode can yield
 results similar to Bayes EM mode in approximately one fifth the time.
+
+A different option is Phase Correlation, \texttt{subpixel-mode 4},
+which implements the algorithm from \cite{guizar2008efficient}.
+It is slow and does not work well on slopes but since the algorithm
+is very different it might perform in situations where the other 
+algorithms are not working well.
 
 \section{Triangulation}
 

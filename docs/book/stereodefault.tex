@@ -429,19 +429,30 @@ should be sufficient in most cases.
   ``draft mode.'' When the results are looking good with parabola subpixel,
   then they  will look even better with subpixel mode 2.  For inputs with
   little noise, the affine method (subpixel mode 3) may produce results
-  equivalent to Bayes EM in a shorter time.
+  equivalent to Bayes EM in a shorter time.  Phase correlation (subpixel 
+  mode 4) is uses a frequency domain technique.  It is slow and is best 
+  may not produce better results than mode 2 but it may work well in 
+  some situations with flat terrain.
   
-  Subpixel modes 4, 5, and 6 are experimental.  Modes 7-12 and up are only used to
-  override the default subpixel method used when performing SGM or MGM 
-  correlation.  The default subpixel method for SGM/MGM is a custom 
-  algorithm that should work well but the Cosine algorithm also works well.
+  Subpixel modes 5 and 6 are experimental.  Modes 7-12 are only 
+  used as part of SGM/MGM correlation.  These are much faster than subpixel
+  modes 2-4 and if selected (with SGM/MGM) will be the only subpixel mode 
+  performed.  They interpolate between the SGM/MGM integer results and
+  should produce reasonable values.  The default blend method for SGM/MGM
+  is a custom algorithm that should work well but the you may find that one
+  of the other options is better for your data.
+  
+  Subpixel modes 1-4 can be used in conjunction with SGM/MGM.  In this case
+  subpixel mode 12 will be used first, followed by the selected subpixel mode.
+  Depending on your data this may produce better results than using just the
+  SGM/MGM only methods.  You may get bad artifacts combining mode 1 with SGM/MGM.
 
   \begin{description}
     \item[0 - no subpixel refinement]
     \item[1 - parabola fitting ]
     \item[2 - affine adaptive window, Bayes EM weighting ]
     \item[3 - affine window ]
-    \item[4 - phase correlation (experimental) ]
+    \item[4 - phase correlation ]
     \item[5 - Lucas-Kanade method (experimental)]
     \item[6 - affine adaptive window, Bayes EM with Gamma Noise Distribution (experimental) ]
     \item[7 - SGM None ]
