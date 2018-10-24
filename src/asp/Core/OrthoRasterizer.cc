@@ -52,7 +52,7 @@ namespace asp{
   };
 
   void dump_image(std::string const& prefix, BBox2i const& box,
-		  ImageViewRef<Vector3> const& I){
+                  ImageViewRef<Vector3> const& I){
 
     //Crop the image to the given box and save to a file.
 
@@ -117,14 +117,14 @@ namespace asp{
 
   public:
     SubBlockBoundaryTask( ImageViewRef<Vector3> const& view,
-			  int sub_block_size,
-			  BBox2i const& image_bbox,
-			  BBox3       & global_bbox, 
-			  std::vector<BBoxPair>& boundaries,
-			  ImageViewRef<double> const& error_image, double estim_max_error,
-			  std::vector<double> & errors_hist,
-			  double max_valid_triangulation_error,
-			  Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
+                          int sub_block_size,
+                          BBox2i const& image_bbox,
+                          BBox3       & global_bbox, 
+                          std::vector<BBoxPair>& boundaries,
+                          ImageViewRef<double> const& error_image, double estim_max_error,
+                          std::vector<double> & errors_hist,
+                          double max_valid_triangulation_error,
+                          Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
       m_view(view.impl()), m_sub_block_size(sub_block_size),
       m_image_bbox(image_bbox),
       m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
@@ -160,12 +160,14 @@ namespace asp{
             crop( local_error, blocks[i] - m_image_bbox.min() );
           for (int col = 0; col < local_image2.cols(); col++){
             for (int row = 0; row < local_image2.rows(); row++){
-              if (boost::math::isnan(local_image2(col, row).z())) continue;
-              if (local_error2(col, row) > m_max_valid_triangulation_error) continue;
+              if (boost::math::isnan(local_image2(col, row).z()))
+                continue;
+              if (local_error2(col, row) > m_max_valid_triangulation_error)
+                continue;
               pts_bdbox.grow(local_image2(col, row));
             }
           }
-	      }
+        }
 
         if ( pts_bdbox.min().x() <= pts_bdbox.max().x() &&
              pts_bdbox.min().y() <= pts_bdbox.max().y() ) {
@@ -184,7 +186,7 @@ namespace asp{
         if (remove_outliers_with_pct){
           ErrorHistAccumulator error_accum(local_hist, m_estim_max_error);
           for_each_pixel( crop( local_error, blocks[i] - m_image_bbox.min() ),
-		          error_accum );
+                          error_accum );
 
         }
 
@@ -212,17 +214,18 @@ namespace asp{
 
 
   void remove_outliers(ImageView<Vector3> & image, ImageViewRef<double> const& errors,
-		       double error_cutoff, BBox2i const& box){
+                       double error_cutoff, BBox2i const& box){
 
     // Mask as NaN points above triangulation error
-    if (error_cutoff < 0) return; // nothing to do
+    if (error_cutoff < 0)
+      return; // nothing to do
 
     double nan = std::numeric_limits<double>::quiet_NaN();
     ImageView<float> error_copy = crop(errors, box);
 
     VW_ASSERT(image.cols() == error_copy.cols() &&
-	      image.rows() == error_copy.rows(),
-	      ArgumentErr() << "Size mis-match in remove_outliers().");
+              image.rows() == error_copy.rows(),
+              ArgumentErr() << "Size mis-match in remove_outliers().");
 
     for (int col = 0; col < image.cols(); col++){
       for (int row = 0; row < image.rows(); row++){
@@ -238,12 +241,12 @@ namespace asp{
 
     // If the point cloud height at the current point differs by more
     // than the given threshold from the median of heights in the
-    // window of given size centered at the point, remove it as an
-    // outlier.
+    // window of given size centered at the point, remove it as an outlier.
 
-    int half = median_filter_params[0]/2; // half window size
+    int    half   = median_filter_params[0]/2; // half window size
     double thresh = median_filter_params[1];
-    if (half <= 0 || thresh <= 0) return;
+    if (half <= 0 || thresh <= 0)
+      return;
 
     int nc = image.cols(), nr = image.rows(); // shorten
     double nan = std::numeric_limits<double>::quiet_NaN();
@@ -259,7 +262,8 @@ namespace asp{
         std::vector<double> vals;
         for (int c = std::max(col-half, 0); c <= std::min(col+half, nc-1); c++){
           for (int r = std::max(row-half, 0); r <= std::min(row+half, nr-1); r++){
-            if (boost::math::isnan(image(c, r).z())) continue;
+            if (boost::math::isnan(image(c, r).z()))
+              continue;
             vals.push_back(image(c, r).z());
           }
         }
@@ -496,8 +500,8 @@ namespace asp{
         // wrong.  This code should be an average of the values in the
         // [25%, 75%] range.
         // TODO: Integrate with the logic for mapproject.
-	// TODO: The default spacing should be 4x times this.
-	// https://github.com/NeoGeographyToolkit/StereoPipeline/issues/173
+        // TODO: The default spacing should be 4x times this.
+        // https://github.com/NeoGeographyToolkit/StereoPipeline/issues/173
         m_default_spacing_x = vx[(int)(0.5*len)];
         m_default_spacing_y = vy[(int)(0.5*len)];
       }
@@ -523,7 +527,7 @@ namespace asp{
       // The formula below is not so good, its output depends strongly
       // on how many rows and columns are in the point cloud.
       m_default_spacing = std::max(bbox_width, bbox_height) / std::max(input_image_width,
-						                       input_image_height);
+                                                                       input_image_height);
     }else{
       // We choose the coarsest of the two spacings
       m_default_spacing = std::max(m_default_spacing_x, m_default_spacing_y);
@@ -627,7 +631,7 @@ namespace asp{
     std::valarray<float> vertices(10), intensities(5);
 
     if (m_use_surface_sampling){
-      static const int NUM_COLOR_COMPONENTS = 1;  // We only need gray scale
+      static const int NUM_COLOR_COMPONENTS  = 1;  // We only need gray scale
       static const int NUM_VERTEX_COMPONENTS = 2; // DEMs are 2D
       renderer.Clear(min_val);
       renderer.SetVertexPointer(NUM_VERTEX_COMPONENTS, &vertices[0]);
@@ -664,6 +668,7 @@ namespace asp{
 
     if ( blocks_map.empty() ){
 
+      // TODO: Don't include these pixels in the total?
       { // Lock and update the total number of invalid pixels in this tile.
         vw::Mutex::Lock lock(*m_count_mutex);
         (*m_num_invalid_pixels) += bbox.width()*bbox.height();

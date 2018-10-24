@@ -739,9 +739,10 @@ void stereo_triangulation( string          const& output_prefix,
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(),0,0);
     try{
       if ( stereo_settings().universe_center == "camera" ) {
-        if (opt_vec[0].session->name() == "rpc")
+        if (opt_vec[0].session->name() == "rpc") {
           vw_throw(InputErr() << "Stereo with RPC cameras cannot "
-                   << "have the camera as the universe center.\n");
+                              << "have the camera as the universe center.\n");
+        }
 
         universe_radius_func = stereo::UniverseRadiusFunc(cameras[0]->camera_center(Vector2()),
                                                           stereo_settings().near_universe_radius,
@@ -770,8 +771,7 @@ void stereo_triangulation( string          const& output_prefix,
     if (stereo_settings().unalign_disparity) {
       const bool is_map_projected = opt_vec[0].session->isMapProjected();
       if (is_map_projected) 
-	vw_throw( ArgumentErr() << "Cannot unalign "
-		  << "the disparity for mapprojected images.\n" );
+        vw_throw( ArgumentErr() << "Cannot unalign the disparity for mapprojected images.\n" );
       unalign_disparity(opt_vec, disparity_maps, transforms, unalign_disp);
     }
 

@@ -88,7 +88,7 @@ namespace asp{
 
     /// Constructor.  You must call initialize_spacing before using the object!!
     OrthoRasterizerView(ImageViewRef<Vector3> point_image,
-                        ImageViewRef<double> texture,
+                        ImageViewRef<double > texture,
                         double  search_radius_factor,
                         double  sigma_factor,
                         bool    use_surface_sampling,
@@ -103,7 +103,7 @@ namespace asp{
                         int     erode_len,
                         bool    has_las_or_csv,
                         std::string const& filter,
-			double default_grid_size_multiplier,
+                        double  default_grid_size_multiplier,
                         size_t  *num_invalid_pixels,
                         vw::Mutex *count_mutex,
                         const ProgressCallback& progress);

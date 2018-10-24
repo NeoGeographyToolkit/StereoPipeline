@@ -192,8 +192,8 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 /// to make the spatial data more localized, to improve performance.
 /// - We will later wipe these temporary tifs.
 void las_or_csv_or_pcd_to_tifs(Options& opt,
-			cartography::Datum const& datum,
-			std::vector<std::string> & tmp_tifs){
+                        cartography::Datum const& datum,
+                        std::vector<std::string> & tmp_tifs){
 
   if (!opt.has_las_or_csv_or_pcd)
     return;
@@ -331,7 +331,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("y-offset",       po::value(&opt.lat_offset )->default_value(0),    "Add a horizontal offset to the DEM.")
     ("z-offset",       po::value(&opt.height_offset )->default_value(0),    "Add a vertical offset to the DEM.")
     ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),
-	 "Set the order of an Euler angle rotation applied to the 3D points prior to DEM rasterization.")
+         "Set the order of an Euler angle rotation applied to the 3D points prior to DEM rasterization.")
     ("phi-rotation",   po::value(&opt.phi_rot  )->default_value(0),"Set a rotation angle phi.")
     ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),"Set a rotation angle omega.")
     ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),"Set a rotation angle kappa.");
@@ -342,7 +342,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("t_projwin",     po::value(&opt.target_projwin),
      "The output DEM will have corners with these georeferenced coordinates.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
-	     "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). Multiple spacings can be set (in quotes) to generate multiple output files. This is the same as the --tr option.")
+             "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). Multiple spacings can be set (in quotes) to generate multiple output files. This is the same as the --tr option.")
     ("tr",            po::value(&dem_spacing2)->default_value(""), "This is identical to the --dem-spacing option.")
     ("datum",                    po::value(&opt.datum),
      "Set the datum. This will override the datum from the input images and also --t_srs, --semi-major-axis, and --semi-minor-axis. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
@@ -368,38 +368,38 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("General Options");
   general_options.add_options()
     ("nodata-value",      po::value(&opt.nodata_value)->default_value(-std::numeric_limits<float>::max()),
-	     "Set the nodata value.")
+             "Set the nodata value.")
     ("use-alpha",         po::bool_switch(&opt.has_alpha)->default_value(false),
-	     "Create images that have an alpha channel.")
+             "Create images that have an alpha channel.")
     ("normalized,n",      po::bool_switch(&opt.do_normalize)->default_value(false),
-	     "Also write a normalized version of the DEM (for debugging).")
+             "Also write a normalized version of the DEM (for debugging).")
     ("orthoimage",        po::bool_switch(&opt.do_ortho)->default_value(false),
-	     "Write an orthoimage based on the texture files passed in as inputs (after the point clouds).")
+             "Write an orthoimage based on the texture files passed in as inputs (after the point clouds).")
     ("output-prefix,o",   po::value(&opt.out_prefix),                             "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
     ("errorimage",        po::bool_switch(&opt.do_error)->default_value(false),   "Write an additional image whose values represent the triangulation ray intersection error in meters (the closest distance between the rays emanating from the two cameras corresponding to the same point on the ground).")
     ("dem-hole-fill-len", po::value(&opt.dem_hole_fill_len)->default_value(0),    "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
     ("orthoimage-hole-fill-len",      po::value(&opt.ortho_hole_fill_len)->default_value(0),
-	    "Maximum dimensions of a hole in the output orthoimage to fill in, in pixels.")
+            "Maximum dimensions of a hole in the output orthoimage to fill in, in pixels.")
     ("orthoimage-hole-fill-extra-len",      po::value(&opt.ortho_hole_fill_extra_len)->default_value(0),
-	    "This value, in pixels, will make orthoimage hole filling more aggressive by first extrapolating the point cloud. A small value is suggested to avoid artifacts. Hole-filling also works better when less strict with outlier removal, such as in --remove-outliers-params, etc.")
+            "This value, in pixels, will make orthoimage hole filling more aggressive by first extrapolating the point cloud. A small value is suggested to avoid artifacts. Hole-filling also works better when less strict with outlier removal, such as in --remove-outliers-params, etc.")
     ("remove-outliers",               po::bool_switch(&opt.remove_outliers_with_pct)->default_value(true),
-	    "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
+            "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
     ("remove-outliers-params",        po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
-	    "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
+            "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0),
-	    "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
+            "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
     ("max-output-size",          po::value(&opt.max_output_size)->default_value(Vector2(9999999, 9999999)),
-	    "Don't write the output DEM if it is calculated to be this size or greater.")
+            "Don't write the output DEM if it is calculated to be this size or greater.")
     ("median-filter-params",          po::value(&opt.median_filter_params)->default_value(Vector2(0, 0),
-	    "window_size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier. Use for example 11 and 40.0.")
+            "window_size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier. Use for example 11 and 40.0.")
     ("erode-length",   po::value<int>(&opt.erode_len)->default_value(0),
-	    "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
+            "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
     ("csv-format",     po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files, if those files contain Easting and Northing fields. If not specified, --t_srs will be used.")
     ("filter",      po::value(&opt.filter)->default_value("weighted_average"), "The filter to apply to the heights of the cloud points within a given circular neighborhood when gridding (its radius is controlled via --search-radius-factor). Options: weighted_average (default), min, max, mean, median, stddev, count (number of points), nmad (= 1.4826 * median(abs(X - median(X)))), n-pct (where n is a real value between 0 and 100, for example, 80-pct, meaning, 80th percentile). Except for the default, the name of the filter will be added to the obtained DEM file name, e.g., output-min-DEM.tif.")
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
-	    "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
+            "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
      "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
     ("gaussian-sigma-factor", po::value(&opt.sigma_factor)->default_value(0.0),
@@ -677,7 +677,7 @@ namespace asp{
   UnaryPerPixelView<ImageT, ErrorToNED>
   inline error_to_NED( ImageViewBase<ImageT> const& image, GeoReference const& georef ) {
     return UnaryPerPixelView<ImageT, ErrorToNED>( image.impl(),
-						  ErrorToNED(georef) );
+                                                  ErrorToNED(georef) );
   }
 
   /// Write an image to disk while handling some common options.
@@ -1308,7 +1308,8 @@ int main( int argc, char *argv[] ) {
 
           double sample = (1 << count);
           int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(), point_image.rows()))/sample);
-          if (subsample_amt < 1 ) subsample_amt = 1;
+          if (subsample_amt < 1 )
+            subsample_amt = 1;
 
           Stopwatch sw2;
           sw2.start();
@@ -1344,6 +1345,8 @@ int main( int argc, char *argv[] ) {
       output_georef.set_lon_center(avg_lon < 100);
 
     // We trade off readability here to avoid ImageViewRef dereferences
+    // - The cartesian_to_geodetic call converts invalid (0,0,0,0) points to NaN,
+    //   which is checked for in the OrthoRasterizer class.
     if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.lon_offset
                << " " << opt.lat_offset << " " << opt.height_offset << "\n";
