@@ -63,9 +63,9 @@ Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
 \texttt{-\/-session-type|-t \textit{string} } & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension. Options: pinhole isis dg rpc spot5 aster pinholemappinhole isismapisis dgmaprpc rpcmaprpc astermaprpc. \\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use.\\ \hline
-\texttt{-\/-entry-point|-e integer(=0 to 4)} & Stereo Pipeline entry
+\texttt{-\/-entry-point|-e integer(=0 to 5)} & Stereo Pipeline entry
 point (start at this stage). \\ \hline
-\texttt{-\/-stop-point|-e integer(=1 to 5)} & Stereo Pipeline stop point (stop at the stage {\it right before} this value). \\ \hline
+\texttt{-\/-stop-point|-e integer(=1 to 6)} & Stereo Pipeline stop point (stop at the stage {\it right before} this value). \\ \hline
 \texttt{-\/-corr-seed-mode integer(=0 to 3)} & Correlation seed strategy (section \ref{corr_section}). \\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
@@ -94,14 +94,17 @@ writes out the pre-aligned images and the image masks.
 
 Stage 1 (Disparity Map Initialization) performs pyramid correlation and builds a rough disparity map that is used to seed the sub-pixel refinement phase.
 
-Stage 2 (Sub-pixel Refinement) performs sub-pixel correlation that
+Stage 2 (Blend) blend the borders of adjacent tiles.  Only needed for parallel stereo
+with the SGM/MGM algorithms.  Skipped otherwise.
+
+Stage 3 (Sub-pixel Refinement) performs sub-pixel correlation that
 refines the disparity map.
 
-Stage 3 (Outlier Rejection and Hole Filling) performs filtering of the
+Stage 4 (Outlier Rejection and Hole Filling) performs filtering of the
 disparity map and (optionally) fills in holes using an inpainting
 algorithm.  This phase also creates a ``good pixel'' map.
 
-Stage 4 (Triangulation) generates a 3D point cloud from the disparity
+Stage 5 (Triangulation) generates a 3D point cloud from the disparity
 map.
 
 \subsection{Decomposition of Stereo}
@@ -116,18 +119,20 @@ Stage 0 (Preprocessing) calls \texttt{stereo\_pprc}. Multi-threaded.
 Stage 1 (Disparity Map Initialization) calls
 \texttt{stereo\_corr}. Multi-threaded.
 
-Stage 2 (Sub-pixel Refinement) class \texttt{stereo\_rfne}. Multi-threaded.
+Stage 2 (Blend) class \texttt{stereo\_blend}. Multi-threaded.
 
-Stage 3 (Outlier Rejection and Hole Filling) calls
+Stage 3 (Sub-pixel Refinement) class \texttt{stereo\_rfne}. Multi-threaded.
+
+Stage 4 (Outlier Rejection and Hole Filling) calls
 \texttt{stereo\_fltr}. Multi-threaded.
 
-Stage 4 (Triangulation) calls \texttt{stereo\_tri}. Multi-threaded,
+Stage 5 (Triangulation) calls \texttt{stereo\_tri}. Multi-threaded,
 except for ISIS input data.
 
 All of the sub-programs have the same interface as
 \texttt{stereo}. Users processing a large number of stereo pairs on a
 cluster may find it advantageous to call these executables in their own
-manner. An example would be to run stages 0-3 in order for each stereo
+manner. An example would be to run stages 0-4 in order for each stereo
 pair. Then run several sessions of \texttt{stereo\_tri} since it is
 single-threaded for ISIS.
 
@@ -396,9 +401,10 @@ variable. For example, on NASA's Pleiades Supercomputer, which uses the
 Portable Batch System (PBS), the list of nodes can be retrieved as
 \$PBS\_NODEFILE.
 
-It is important to note that when invoking this tool only stages 1, 2,
-and 4 of stereo (section \ref{stereo_dec}) are spread over multiple
-machines, with stages 0 and 3 using just one node, as they require
+It is important to note that when invoking this tool only the correlation, 
+blending, subpixel refinement, and triangulation stages of stereo 
+(section \ref{stereo_dec}) are spread over multiple machines, with 
+the preprocessing and filtering stages using just one node, as they require
 global knowledge of the data. In addition, not all stages of stereo
 benefit equally from parallelization. Most likely to gain are stages 1
 and 2 (correlation and refinement) which are the most computationally

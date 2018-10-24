@@ -53,9 +53,9 @@ if __name__ == '__main__':
     p.add_option('--corr-seed-mode',    dest='seed_mode', default=None,
                  help='Correlation seed strategy. See stereo_corr for options.', type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
-                 help='Pipeline entry point (an integer from 0-4)', type='int')
-    p.add_option('--stop-point',           dest='stop_point',  default=5,
-                 help='Stereo Pipeline stop point (an integer from 1-5).',
+                 help='Pipeline entry point (an integer from 0-5)', type='int')
+    p.add_option('--stop-point',           dest='stop_point',  default=6,
+                 help='Stereo Pipeline stop point (an integer from 1-6).',
                  type='int')
     p.add_option('--sparse-disp-options', dest='sparse_disp_options',
                  help='Options to pass directly to sparse_disp.')
