@@ -357,7 +357,7 @@ def packAndSendOrthos(run, logger):
     os.chdir(cwd)
     logger.info('Finished sending ortho images to lfe.')
 
-def packAndSendSummaryFolder(run, folder, logger):
+def packAndSendSummaryFolder(run, folder, logger, backupToL2=False):
     '''Archive the summary folder in case we want to look at it later'''
     
     logger.info('Archiving summary folder for run ' + str(run))
@@ -411,19 +411,19 @@ def packAndSendSummaryFolder(run, folder, logger):
 
     logger.info('Finished sending summary to lfe.')
 
-    if icebridge_common.getUser() != 'oalexan1':
+    if backupToL2:
         # Wipe the copy on lunokhod
         l2Path   = os.path.join(L_SUMMARY_FOLDER, fileName)
         cmd      = "ssh " + LUNOKHOD + "  'rm -f "+ stripHost(l2Path) +"' 2>/dev/null"
         logger.info(cmd)
         os.system(cmd)
-        
+
         # Make target directory on lunokhod
         cmd = "ssh  " + LUNOKHOD + " 'mkdir -p " + os.path.dirname(stripHost(l2Path)) + \
               "' 2>/dev/null"
         logger.info(cmd)
         os.system(cmd)
-        
+
         # Send a copy of the file to Lunokhod for convenience
         cmd = 'scp ' + fileName + ' ' + l2Path + ' 2>/dev/null'
         logger.info(cmd)

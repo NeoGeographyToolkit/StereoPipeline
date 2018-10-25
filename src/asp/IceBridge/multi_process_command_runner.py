@@ -57,11 +57,11 @@ def main(argsIn):
                       
         parser = argparse.ArgumentParser(usage=usage)
 
-        # Data selection optios
+        # Data selection options
         parser.add_argument('--start-frame', dest='startFrame', type=int,
                             default=icebridge_common.getSmallestFrame(),
                             help="Frame to start with.  Leave this and stop-frame blank to " + \
-                            "process all frames.")
+                            "process all frames.  Set both to None to blindly run all commands.")
         
         parser.add_argument('--stop-frame', dest='stopFrame', type=int,
                             default=icebridge_common.getLargestFrame(),
@@ -119,6 +119,12 @@ def main(argsIn):
         if line == "":
             continue
 
+        # If the frame range is turned off, just run the commands as-is.
+        if (options.startFrame == None and options.stopFrame == None):
+            # Add the command to the task pool
+            taskHandles.append(pool.apply_async(runCommand, (line,)))
+            continue
+        
         (begFrame, endFrame) = icebridge_common.getFrameRangeFromBatchFolder(line)
         
         # Check line indices
@@ -140,7 +146,7 @@ def main(argsIn):
                 else:
                     print("Will skip frame: " + str(begFrame))
                     continue
-                
+
             # Add the command to the task pool
             taskHandles.append(pool.apply_async(runCommand, (line,)))
 
