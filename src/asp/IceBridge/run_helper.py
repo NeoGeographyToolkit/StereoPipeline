@@ -71,6 +71,10 @@ class RunHelper():
         '''Return a name in SSYYMMDD format'''
         return self.site + self.yyyymmdd[2:]
 
+    def yyyy_mm_dd(self):
+        '''Return the date in the format YYYY_MM_DD'''
+        return self.yyyymmdd[0:4] +'_'+ self.yyyymmdd[4:6] +'_'+ self.yyyymmdd[6:8]
+
     # TODO: Add version numbers to these in a way that is easily handled!
     def getInputTarName(self):
         '''Return the file name used to tar up the downloaded input data'''

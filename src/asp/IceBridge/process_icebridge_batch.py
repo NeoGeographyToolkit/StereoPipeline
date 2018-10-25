@@ -130,7 +130,7 @@ def robustPcAlign(options, outputPrefix, lidarFile, lidarDemPath,
        with enough lidar points used in the comparison'''
 
     # Displacements are still since an initial vertical shift is applied
-    DISPLACEMENTS        = [4, 6, 10, 25
+    DISPLACEMENTS        = [2, 5, 10, 25, 50
                             #, 50, 100, 200
                             ] # TODO: Increase these numbers for land flights!
     ERR_HEADER_SIZE      = 3
@@ -1329,7 +1329,9 @@ def doWork(options, args, logger):
                 numVals += 1
             except:
                 logger.warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
-                
+     
+        if numVals == 0:
+            raise Exception('Failed to compute GSD for any camera!')
         meanGsd = meanGsd / numVals            
         options.demResolution = icebridge_common.gsdToDemRes(meanGsd)
 

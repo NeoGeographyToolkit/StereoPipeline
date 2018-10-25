@@ -215,6 +215,14 @@ def jpegToImageFile(jpegFile, orthoFile):
 
     return outputPath
 
+def makeJpegFileName(run, frame):
+    '''Generate a file name like: 2016_07_19_00015.JPG'''
+    return ('%s_%05d.JPG' % (run.yyyy_mm_dd(), frame))
+
+def makeLabelFileName(run, frame):
+    '''Generate a file name like: 2016_07_19_00015_classified.h5'''
+    return ('%s_%05d_classified.h5' % (run.yyyy_mm_dd(), frame))
+
 def projectionBoundsFile(folder):
     return os.path.join(folder, 'projection_bounds.csv')
 
@@ -848,7 +856,7 @@ def getCameraFileName(imageFileName):
     return imageFileName.replace('.tif', '.tsai')
 
 # This function works for raw images, camera tsai files, orthoimages,
-# DEMs, lvis, atm1, and atm2 files.
+# DEMs, lvis, OSSP label files, atm1, and atm2 files.
 def getFrameNumberFromFilename(filename):
 
     # Match 2009_10_16_<several digits>.JPG
@@ -874,6 +882,10 @@ def getFrameNumberFromFilename(filename):
     # Match ILATM1B_20091016_193033.atm4cT3.qi
     # or    ILATM1B_20160713_195419.ATM5BT5.h5
     m = re.match("^.*?ILATM\w+\_\d+\_(\d+)\.\w+\.(h5|qi)", filename, re.IGNORECASE)
+    if m: return int(m.group(1))
+
+    # Match 2016_07_19_00008_classified.h5
+    m = re.match("^.*?\d+\_\d+\_\d+\_(\d+)_classified\.h5", filename, re.IGNORECASE)
     if m: return int(m.group(1))
 
     raise Exception('Could not parse: ' + filename)
@@ -1257,7 +1269,7 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
         try:
             returnMinAndSecOnly = False
             lidarDateTime = parseDateTimeStrings(vals[0], vals[1], useTimeFix, returnMinAndSecOnly)
-            #lidarDateTime = lidarDateTime - datetime.timedelta(hours=1) # Manual hack for flights with bad lidar times!
+            #lidarDateTime = lidarDateTime + datetime.timedelta(hours=2, minutes=3, seconds=42) # Manual hack for flights with bad lidar times!
         except Exception as e:
             raise Exception('Failed to parse datetime for lidar file: ' + lidarPath + '\n' +
                             'Error is: ' + str(e))

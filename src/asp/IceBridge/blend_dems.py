@@ -425,6 +425,7 @@ def main(argsIn):
     (out, err, status) = asp_system_utils.executeCommand(['uname', '-a'],
                                                          suppressOutput = True)
     logger.info("Running on machine: " + out)
+    logger.info(str(argsIn))
     
     processFolder = os.path.join(options.outputFolder, 'processed')
     

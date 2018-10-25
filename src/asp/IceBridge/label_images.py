@@ -16,25 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# For each DEM, blend it, within its footprint, with neighboring DEMs.
-# That is to say, make several mosaics. First the DEM alone. Then
-# blended with the one on the right. Then also with the one on the
-# left. Then with second on the right. Then with second on the left.
-# Keep the result with the lowest mean error to lidar.
-
-# It creates files of the form:
-# processed/batch_2489_2490_2/out-blend-DEM.tif 
-# processed/batch_2489_2490_2/out-blend-DEM-diff.csv
-
-# Operate in the range [startFrame, stopFrame) so does not include the
-# last one.
-
-# See usage below.
-
-# TODO: Find a better way of picking DEMs to blend. For example,
-# include only those which decrease the mean error. Then compare
-# if this approach gives lower error than the current way
-# which keeps on adding DEMs left and right. 
+# Wrapper Script for the OSSP machine learning based labelling tool.
 
 import os, sys, argparse, datetime, time, subprocess, logging, multiprocessing, re, glob
 import traceback
@@ -77,11 +59,12 @@ def label_images(inputFolder, outputFolder, minFrame, maxFrame, trainingPath, nu
 
     # Run the label tool
 
-    toolPath = asp_system_utils.which('batch_process_mp.py')
+    #toolPath = asp_system_utils.which('batch_process_mp.py')
+    toolPath = 'python ~/repo/OSSP/ossp_process.py'
     
     NO_SPLITTING = 1 # Plenty of RAM to load these images
     
-    cmd = ('%s %s --output_dir %s --min_frame %d --max_frame %d srgb %s --splits %d --parallel %d' % 
+    cmd = ('%s %s --verbose --output_dir %s --min_frame %d --max_frame %d srgb %s --splits %d --parallel %d' % 
            (toolPath, inputFolder, outputFolder, minFrame, maxFrame, trainingPath, NO_SPLITTING, numProcesses))
     print cmd
     os.system(cmd)
