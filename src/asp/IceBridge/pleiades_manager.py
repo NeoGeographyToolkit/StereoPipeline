@@ -130,7 +130,7 @@ def getLabelTrainingPath(userName):
     '''Path to the OSSP label training file'''
 
     if userName == 'smcmich1':
-        return '/u/smcmich1/repo/OSSP/training_datasets/icebridge_v1_training_data.h5'
+        return '/u/smcmich1/repo/OSSP/training_datasets/icebridge_v3_training_data.h5'
     if userName == 'oalexan1':
         raise Exception('Need to set the label training path!')
 
@@ -138,7 +138,7 @@ def getEmailAddress(userName):
     '''Return the email address to use for a user'''
     
     if userName == 'smcmich1':
-        return 'scott.t.mcmichael@nasa.gov'
+        return 'scott.mcmichael@gmail.com'
     if userName == 'oalexan1':
         return 'oleg.alexandrov@nasa.gov'
 
@@ -298,6 +298,8 @@ def runConversion(run, options, conversionAttempt, logger):
     
         if options.simpleCameras:
             cmd += ' --simple-cameras'
+        else: # Nav is probably bad, use ortho2pinhole only.
+            cmd += ' --no-nav'
         if options.skipValidate or options.parallelValidate:
             cmd += ' --skip-validate'
         if options.cameraMounting:
@@ -329,6 +331,8 @@ def runConversion(run, options, conversionAttempt, logger):
         args += ' --no-nav'
     if options.simpleCameras:       # This option greatly decreases the conversion run time
         args += ' --simple-cameras' 
+    else: # Nav is probably bad, use ortho2pinhole only.
+        args += ' --no-nav'
     if options.manyip:
         args += ' --many-ip'
     if options.noOrthoConvert:
@@ -529,6 +533,7 @@ def filterBatchJobFile(run, batchListPath, logger):
     # Make sure each batch produced the aligned DEM file
     #batchOutputName = 'out-blend-DEM.tif'
     batchOutputName = 'out-align-DEM.tif'
+    #batchOutputName = 'out-ortho.tif'
     
     fIn = open(batchListPath, 'r')
     fOut = open(newBatchPath, 'w')
@@ -693,6 +698,7 @@ def launchJobs(run, mode, options, logger):
     return (baseName, jobNames, jobIDs)
 
 def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
+    '''Check how many of the specified file type we produced'''
 
     numNominal  = 0
     numProduced = 0
@@ -714,7 +720,7 @@ def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
                 # This is necessary. For the last valid frame, there is never a DEM.
                 continue
             
-            targetPath   = os.path.join(outputFolder, batchOutputName)
+            targetPath  = os.path.join(outputFolder, batchOutputName)
             numNominal += 1
             if os.path.exists(targetPath):
                 numProduced += 1
@@ -724,7 +730,35 @@ def checkResultsForType(run, options, batchListPath, batchOutputName, logger):
                     logger.error('Check output folder position in batch log file!')
 
     return (numNominal, numProduced)
-    
+
+def checkLabelResults(run, options, logger):
+    '''Get a count of the label files produced in a frame range.'''
+    numNominal  = 0
+    numProduced = 0
+
+    (minFrame, maxFrame) = run.getFrameRange()
+
+    labelFolder = run.getLabelFolder()
+    jpegFolder  = run.getJpegFolder()
+
+    for frame in range(minFrame, maxFrame+1):
+        labelFile  = icebridge_common.makeLabelFileName(run, frame)
+        jpegFile   = icebridge_common.makeJpegFileName(run, frame)
+        targetPath = os.path.join(labelFolder, labelFile)
+        jpegPath   = os.path.join(jpegFolder,  jpegFile )
+
+        numNominal += 1
+        if os.path.exists(targetPath):
+            numProduced += 1
+        else:
+            if os.path.exists(jpegPath):
+                logger.info('Did not find: ' + targetPath)
+            else:
+                logger.info('Jpeg missing for file: ' + targetPath)
+                       
+    return (numNominal, numProduced)
+
+
 def checkResults(run, options, logger, batchListPath):
     
     logger.info("Checking the results.")
@@ -768,11 +802,17 @@ def checkResults(run, options, logger, batchListPath):
                                                                 icebridge_common.orthoFileName(),
                                                                 logger)
 
+    # Produced labels
+    (numNominalLabels, numProducedLabels) = checkLabelResults(run, options, logger)
+
+
     resultText = ""
     resultText += ('Created %d out of %d output DEMs. ' % 
                    (numProducedDems, numNominalDems))
     resultText += ('Created %d out of %d output ortho images. ' % 
                    (numProducedOrthos, numNominalOrthos))
+    resultText += ('Created %d out of %d output label files. ' %
+                   (numProducedLabels, numNominalLabels))
     resultText += ('Detected %d errors. ' % 
                    (errorCount))
 
@@ -833,11 +873,16 @@ def checkResults(run, options, logger, batchListPath):
 
     logger.info(resultText)
     
+    labelsWereSuccess = (numProducedLabels == numNominalLabels)
+
     runWasSuccess = False
     if (numProducedDems == numNominalDems) and \
            (numProducedOrthos == numNominalOrthos) and \
            (errorCount == 0):
         runWasSuccess =  True
+
+    if options.generateLabels: # Labels are probably run by themselves.
+        runWasSuccess = labelsWereSuccess
         
     return (runWasSuccess, resultText)
 
@@ -1060,18 +1105,6 @@ def main(argsIn):
         raise Exception("From machine " + host + " can only launch on: " + " ".join(PFE_NODES)) 
     if 'mfe' in host and options.nodeType != 'wes':
         raise Exception("From machine " + host + " can only launch on: wes")
-    
-    #ALL_RUN_LIST       = os.path.join(options.baseDir, 'full_run_list.txt')
-    #SKIP_RUN_LIST      = os.path.join(options.baseDir, 'run_skip_list.txt')
-    #COMPLETED_RUN_LIST = os.path.join(options.baseDir, 'completed_run_list.txt')
-
-    # TODO: Uncomment when processing more than one run!
-    # Get the list of runs to process
-    #logger.info('Reading run lists...')
-    #allRuns  = readRunList(ALL_RUN_LIST, options)
-    #skipRuns = readRunList(SKIP_RUN_LIST, options)
-    #doneRuns = readRunList(COMPLETED_RUN_LIST, options)
-    #runList  = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
     if options.unpackDir is None:
         options.unpackDir = os.path.join(options.baseDir, 'data')
@@ -1105,12 +1138,8 @@ def main(argsIn):
   
     if True:
 
-        # WARNNING: Below we tweak options.startFrame and options.stopFrame.
+        # WARNING: Below we tweak options.startFrame and options.stopFrame.
         # If a loop over runs is implemeneted, things will break!
-
-        # TODO: Put this in a try/except block so it keeps going on error
-
-        # TODO: Prefetch the next run while waiting on this run!
 
         if not options.skipFetch:
             # Obtain the data for a run if it is not already done
@@ -1180,7 +1209,9 @@ def main(argsIn):
         labelJobNames = None
         if options.generateLabels:
             (baseName, labelJobNames, labelJobIds) = launchJobs(run, 'label', options, logger)
-            # Go ahead and launch the other jobs while these are in the queue
+            ## Go ahead and launch the other jobs while these are in the queue
+            # Not running in parallel anymore, so just wait here.
+            pbs_functions.waitForJobCompletion(labelJobIds, logger, baseName)
 
         if not options.skipBlend:
             start_time()
@@ -1194,8 +1225,8 @@ def main(argsIn):
             pbs_functions.waitForJobCompletion(jobIDs, logger, baseName)
             stop_time("orthogen", logger)
 
-        if labelJobNames: # Now wait for any label jobs to finish.
-            pbs_functions.waitForJobCompletion(labelJobIds, logger, baseName)
+        #if labelJobNames: # Now wait for any label jobs to finish.
+        #    pbs_functions.waitForJobCompletion(labelJobIds, logger, baseName)
 
         runWasSuccess = True
         resultText = 'Summary skipped'
@@ -1291,7 +1322,7 @@ def main(argsIn):
             logger.info("Will delete: " + processedFolder)
             os.system("rm -rf " + processedFolder)
             
-        if options.wipeAll:
+        if options.wipeAll and runWasSuccess:
             outFolder = run.getFolder()
             logger.info("Will delete: " + outFolder)
             os.system("rm -rf " + outFolder)
