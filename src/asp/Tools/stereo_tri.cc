@@ -921,7 +921,7 @@ void stereo_triangulation( string          const& output_prefix,
 
 int main( int argc, char* argv[] ) {
 
-  //try {
+  try {
     xercesc::XMLPlatformUtils::Initialize();
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 4 --> TRIANGULATION \n";
@@ -966,7 +966,7 @@ int main( int argc, char* argv[] ) {
     vw_out() << "\n[ " << current_posix_time_string() << " ] : TRIANGULATION FINISHED \n";
 
     xercesc::XMLPlatformUtils::Terminate();
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

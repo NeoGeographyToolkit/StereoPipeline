@@ -38,7 +38,11 @@
    * Can now load non-synchronous .match files.
    * Added basic functionality for drawing/editing polygons on top 
      of georeferenced images. 
- 
+
+ - New tools
+   * Added the coverage_fraction tool to provide a coverage estimate
+     of the results of a stereo call. 
+
 *** RELEASE 2.6.1, August 13, 2018 ***
 
  - New satellites

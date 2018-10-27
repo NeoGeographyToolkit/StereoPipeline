@@ -69,6 +69,10 @@ add_executable(camera_footprint camera_footprint.cc)
 target_link_libraries(camera_footprint aspSessions)
 install(TARGETS camera_footprint DESTINATION bin)
 
+add_executable(coverage_fraction coverage_fraction.cc)
+target_link_libraries(coverage_fraction aspCore)
+install(TARGETS coverage_fraction DESTINATION bin)
+
 add_executable(disparitydebug disparitydebug.cc)
 target_link_libraries(disparitydebug aspCore)
 install(TARGETS disparitydebug DESTINATION bin)
