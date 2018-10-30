@@ -384,7 +384,7 @@ def get_ccd(path):
     match = re.match("^.*?_RED(\d)_\d", filename )
     if not match:
         raise Exception('Could not extract the CCD number from: ' + filename)
-    ccd     = int(match.group(1))
+    ccd = int(match.group(1))
     return ccd
 
 #----------------------------
