@@ -46,8 +46,34 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <pointmatcher/PointMatcher.h>
+
 namespace asp {
 
+/// Read a 4x4 rotation + translation + scale transform from disk
+void read_transform(Eigen::MatrixXd & T, std::string const& transFile){
+
+  T = Eigen::MatrixXd::Zero(4, 4);
+    
+  vw::vw_out() << "Reading: " << transFile << std::endl;
+  std::ifstream is(transFile.c_str());
+  for (int row = 0; row < T.rows(); row++){
+    for (int col = 0; col < T.cols(); col++){
+      double a;
+      if (! (is >> a) )
+        vw_throw( vw::IOErr() << "Failed to read initial transform from: "
+                  << transFile << "\n" );
+      T(row, col) = a;
+    }
+  }
+  
+  if (T(3, 3) != 1) {
+    vw_throw( vw::ArgumentErr()
+              << "The initial transform must have a 1 in the lower-right corner.\n");
+  }
+  
+}
+  
 template<typename T>
 typename PointMatcher<T>::DataPoints::Labels form_labels(int dim){
 
@@ -96,7 +122,7 @@ vw::int64 load_las_aux(std::string const& file_name,
 
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
   int hundred = 100;
-  int spacing = num_total_points/hundred;
+  vw::int64 spacing = std::max(num_total_points/hundred, vw::int64(1));
   double inc_amount = 1.0 / hundred;
   if (verbose) tpc.report_progress(0);
 
@@ -592,7 +618,7 @@ void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
 
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
     int hundred = 100;
-    int spacing = num_total_points/hundred;
+    vw::int64 spacing = std::max(num_total_points/hundred, vw::int64(1));
     double inc_amount = 1.0 / hundred;
     vw::int64 count = 0;
     while (reader.ReadNextPoint()){
@@ -661,7 +687,7 @@ void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
     int numPts = point_cloud.features.cols();
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
     int hundred = 100;
-    int spacing = numPts/hundred;
+    int spacing = std::max(numPts/hundred, 1);
     double inc_amount = 1.0 / hundred;
     for (int col = 0; col < numPts; col++){
 
@@ -751,6 +777,129 @@ bool interp_dem_height(vw::ImageViewRef< vw::PixelMask<float> > const& dem,
 
   dem_height = v.child();
   return true;
+}
+
+/// Try to read the georef/datum info, need it to read CSV files.
+void read_georef(std::vector<std::string> const& clouds,
+                 std::string const& datum_str,
+                 std::string const& csv_proj4_str, 
+                 double semi_major_axis,
+                 double semi_minor_axis,
+                 std::string & csv_format_str,
+                 asp::CsvConv& csv_conv, vw::cartography::GeoReference& geo){
+
+  // Use an initialized datum for the georef, so later we can check
+  // if we manage to populate it.
+  {
+    vw::cartography::Datum datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
+              "Reference Meridian", 1, 1, 0);
+    geo.set_datum(datum);
+  }
+
+  bool is_good = false;
+
+  // First, get the datum from the DEM if available.
+  std::string dem_file = "";
+  for (size_t it = 0; it < clouds.size(); it++) {
+    if ( asp::get_cloud_type(clouds[it]) == "DEM" )
+      dem_file = clouds[it];
+    break;
+  }
+  if (dem_file != ""){
+    vw::cartography::GeoReference local_geo;
+    bool have_georef = vw::cartography::read_georeference(local_geo, dem_file);
+    if (!have_georef)
+      vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_file << " does not have a georeference.\n");
+    geo = local_geo;
+    vw::vw_out() << "Detected datum from " << dem_file << ":\n" << geo.datum() << std::endl;
+    is_good = true;
+  }
+
+  // Then, try to set it from the pc file if available.
+  // Either one, or both or neither of the pc files may have a georef.
+  std::string pc_file = "";
+  for (size_t it = 0; it < clouds.size(); it++) {
+    if ( asp::get_cloud_type(clouds[it]) == "PC" ){
+      vw::cartography::GeoReference local_geo;
+      if (vw::cartography::read_georeference(local_geo, clouds[it])){
+        pc_file = clouds[it];
+        geo = local_geo;
+        vw::vw_out() << "Detected datum from " << pc_file << ":\n" << geo.datum() << std::endl;
+        is_good = true;
+        break;
+      }
+    }
+  }
+  
+  // Then, try to set it from the las file if available.
+  // Either one, or both or neither of the las files may have a georef.
+  std::string las_file = "";
+  for (size_t it = 0; it < clouds.size(); it++) {
+    if ( asp::get_cloud_type(clouds[it]) == "LAS" ){
+      vw::cartography::GeoReference local_geo;
+      if (asp::georef_from_las(clouds[it], local_geo)){
+        las_file = clouds[it];
+        geo = local_geo;
+        vw::vw_out() << "Detected datum from " << las_file << ":\n" << geo.datum() << std::endl;
+        is_good = true;
+      }
+    }
+  }
+  
+  // We should have read in the datum from an input file, but check to see if
+  //  we should override it with input parameters.
+
+  if (datum_str != ""){
+    // If the user set the datum, use it.
+    vw::cartography::Datum datum;
+    datum.set_well_known_datum(datum_str);
+    geo.set_datum(datum);
+    is_good = true;
+  }else if (semi_major_axis > 0 && semi_minor_axis > 0){
+    // Otherwise, if the user set the semi-axes, use that.
+    vw::cartography::Datum datum("User Specified Datum", "User Specified Spheroid",
+                                 "Reference Meridian",
+                                 semi_major_axis, semi_minor_axis, 0.0);
+    geo.set_datum(datum);
+    is_good = true;
+  }
+
+  // This must be the last as it has priority. Use user's csv_proj4 string,
+  // to add info to the georef.
+  if (csv_conv.parse_georef(geo)) {
+    is_good = true;
+  }
+
+  if (is_good)
+    vw::vw_out() << "Will use datum (for CSV files): " << geo.datum() << std::endl;
+
+  // A lot of care is needed below.
+  if (!is_good  && (csv_format_str == "" || csv_conv.get_format() != asp::CsvConv::XYZ) ){
+    // There is no DEM/LAS to read the datum from, and the user either
+    // did not specify the CSV format (then we set it to lat, lon,
+    // height), or it is specified as containing lat, lon, rather than xyz.
+    bool has_csv = false;
+    for (size_t it = 0; it < clouds.size(); it++) 
+      has_csv = has_csv || ( asp::get_cloud_type(clouds[it]) == "CSV" );
+    if (has_csv){
+      // We are in trouble, will not be able to convert input lat, lon, to xyz.
+      vw::vw_throw( vw::ArgumentErr() << "Cannot detect the datum. "
+                    << "Please specify it via --csv-proj4 or --datum or "
+                    << "--semi-major-axis and --semi-minor-axis.\n" );
+    }else{
+      // The inputs have no georef. Will have to write xyz.
+      vw::vw_out() << "No datum specified. Will write output CSV files "
+                   << "in the x,y,z format." << std::endl;
+      csv_format_str = "1:x 2:y 3:z";
+      csv_conv.parse_csv_format(csv_format_str, csv_proj4_str);
+      is_good = true;
+    }
+  }
+
+  if (!is_good)
+    vw::vw_throw( vw::InputErr() << "Datum is required and could not be set.\n");
+
+  return;
 }
 
 }

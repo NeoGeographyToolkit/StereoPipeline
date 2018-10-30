@@ -34,7 +34,6 @@ using namespace pdal::filters;
 
 namespace asp{
 
-
   void find_3D_affine_transform(vw::Matrix<double> const & in_vec, 
                                 vw::Matrix<double> const & out_vec,
                                 vw::Matrix<double,3,3>   & rotation,

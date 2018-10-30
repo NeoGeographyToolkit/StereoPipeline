@@ -1,4 +1,6 @@
 *** RELEASE 2.6.2, Upcoming ***
+ 
+ - Added a new tool, n_align, to jointly align n clouds. 
 
  - stereo_rfne
    * Added the option to run a non-SGM subpixel option after
@@ -22,7 +24,12 @@
      into account the initial transform applied to the source points.
    * Added a new alignment algorithm, based on 
      https://github.com/IntelVCL/FastGlobalRegistration
-     It can be invoked with --alignment-method fgr. 
+     It can be invoked with --alignment-method fgr. It can perform
+     better than ICP when the clouds are close enough to each
+     other but there is a large number of outliers, when it can
+     function with very large --max-displacement. It does worse if the
+     clouds need a big shift to align.
+          
 
  - bundle_adjust
    * Bug fix in outlier filtering for n images.

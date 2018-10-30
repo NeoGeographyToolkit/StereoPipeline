@@ -29,8 +29,6 @@
 // software, https://github.com/IntelVCL/FastGlobalRegistration which
 // is released under the MIT License (MIT).  
 
-// TODO: Implement the error metrics!
-
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -100,11 +98,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("save-transformed-clouds", po::bool_switch(&opt.save_transformed_clouds)->default_value(false)->implicit_value(true),
      "Apply the obtained alignment transforms to the input clouds and save them.")
     ("initial-transforms-prefix", po::value(&opt.in_prefix)->default_value(""),
-     "The prefix of the transforms to be used as an initial guess. The naming convention is the same as for the transforms written on output.")
+     "The prefix of the transforms to be used as initial guesses. The naming convention is the same as for the transforms written on output.")
     ("initial-transforms", po::value(&opt.in_transforms)->default_value(""),
      "Specify the initial transforms as a list of files separated by spaces and in quotes, that is, as 'trans1.txt ... trans_n.txt'.")
     ("align-to-first-cloud", po::bool_switch(&opt.align_to_first_cloud)->default_value(false)->implicit_value(true),
-     "Align the other clouds to the first one.");
+     "Align the other clouds to the first one, rather than to their common centroid.");
     
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -320,6 +318,18 @@ void read_transforms(std::vector<Eigen::MatrixXd> & transVec,
   }
 }
 
+/// Read the transforms from a list. We assume we know their numbers.
+void read_transforms_from_list(std::vector<Eigen::MatrixXd> & transVec,
+                               std::string const& transform_list){
+  std::istringstream is(transform_list);
+  for (size_t it = 0; it < transVec.size(); it++) {
+    std::string transFile;
+    if ( !(is >> transFile) )
+      vw_throw( ArgumentErr() << "Cannot parse enough transform files from: " << transform_list);
+    read_transform(transVec[it], transFile);
+  }
+}
+
 int main(int argc, char *argv[]){
 
   Options opt;
@@ -376,20 +386,21 @@ int main(int argc, char *argv[]){
       
     }
     
-    std::cout << "--shift is " << shift << std::endl;
-  
     // Read the clouds
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
       //read_cloud(opt.cloud_files[cloudIter], clouds[cloudIter], shifts[cloudIter]);
       sort_and_make_unqiue(clouds[cloudIter]);
     }
 
-    // Apply any initial transform
-    if (opt.in_prefix != "") {
-      read_transforms(transVec, opt.in_prefix);
-      for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
+    // Apply any initial transform, either using a prefix or an explicit list
+    if (opt.in_prefix != "" || opt.in_transforms != "") {
+      if (opt.in_prefix != "") 
+        read_transforms(transVec, opt.in_prefix);
+      else if (opt.in_transforms != "")
+        read_transforms_from_list(transVec, opt.in_transforms);
+      
+      for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) 
         apply_transform_to_cloud(clouds[cloudIter], transVec[cloudIter]);
-      }
     }
 
     // Build the trees
@@ -401,11 +412,18 @@ int main(int argc, char *argv[]){
       Trees.push_back(tree);
     }
 
+    // Mean error from the centroid cloud points to all matching
+    // points in all clouds.  We don't use the mean square error like
+    // the Matlab code, which had bugs in how it was computed anyway.
+    double initError = -1, finalError = -1; 
+
     int step = 0; // Starting step
     // int step = 1; // original incorrect logic in the Matlab code
-
     while (step < opt.num_iter){
 
+      bool firstStep = (step == 0);
+      bool lastStep  = (step == opt.num_iter - 1);
+      
       std::vector<int> modelSpan(numClouds+1);
       int numOfPoints = 0;
       for (int it = 0; it < numClouds; it++) {
@@ -545,7 +563,8 @@ int main(int argc, char *argv[]){
           p[0] = ctr[0]; p[1] = ctr[1]; p[2] = ctr[2];
           dst.push_back(p);
 
-	  errBefore += norm_2(curr-ctr);
+	  errBefore += norm_2(curr - ctr);
+
 	  numErrors++;
         }
 	
@@ -569,16 +588,19 @@ int main(int argc, char *argv[]){
           if (pointIter < 0) continue;
           vw::Vector3 curr = clouds[cloudIter][pointIter];
           vw::Vector3 ctr  = centroid[row];
-	  errAfter += norm_2(curr-ctr);
+	  errAfter += norm_2(curr - ctr);
         }
 
-	errBefore /= numErrors;
-	errAfter /= numErrors;
-
-	std::cout << "error change: " << errBefore << ' ' << errAfter << std::endl;
-	
       }
-    
+
+      errBefore /= numErrors;
+      errAfter /= numErrors;
+
+      if (firstStep) 
+        initError = errBefore;
+      if (lastStep)
+        finalError = errAfter;
+      
       step++;
     } // End of iterations refining the tranforms
 
@@ -589,9 +611,14 @@ int main(int argc, char *argv[]){
     }
   
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++)
-      vw_out() << "Final transform:\n" << transVec[cloudIter] << std::endl;
+      vw_out() << "Final transform for cloud: " << cloudIter << ":\n"
+               << transVec[cloudIter] << std::endl;
     save_transforms(transVec, opt.out_prefix);
 
+    vw_out() << "Mean of pairwise distances from each cloud to the centroid cloud:\n";
+    vw_out() << "Before alignment: " << initError  << std::endl;
+    vw_out() << "After alignment:  " << finalError << std::endl;
+    
     if (opt.save_transformed_clouds) {
       for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
         std::ostringstream os;

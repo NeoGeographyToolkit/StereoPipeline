@@ -590,4 +590,51 @@ void load_pc(std::string const& file_name,
 
 }
 
+// Compute a rigid transform between n point correspondences.
+// There exists another version of this using vw matrices
+// in PointUtils.h called find_3D_affine_transform().  
+void computeRigidTransform(const std::vector<Eigen::Vector3d>& src,
+                           const std::vector<Eigen::Vector3d>& dst,
+                           Eigen::Matrix3d & rot, Eigen::Vector3d & trans){
+
+  // Initialize the outputs
+  rot   = Eigen::Matrix3d::Zero(3, 3);
+  trans = Eigen::Vector3d::Zero(3, 1);
+    
+  assert(src.size() == dst.size());
+  int pairSize = src.size();
+  Eigen::Vector3d center_src(0, 0, 0), center_dst(0, 0, 0);
+  for (int i=0; i<pairSize; ++i){
+    center_src += src[i];
+    center_dst += dst[i];
+  }
+  center_src /= (double)pairSize;
+  center_dst /= (double)pairSize;
+  
+  Eigen::MatrixXd S(pairSize, 3), D(pairSize, 3);
+  for (int i=0; i<pairSize; ++i){
+    for (int j=0; j<3; ++j)
+      S(i, j) = src[i][j] - center_src[j];
+    for (int j=0; j<3; ++j)
+      D(i, j) = dst[i][j] - center_dst[j];
+  }
+  Eigen::MatrixXd Dt = D.transpose();
+  Eigen::Matrix3d H = Dt*S;
+  Eigen::Matrix3d W, U, V;
+  
+  Eigen::JacobiSVD<Eigen::MatrixXd> svd;
+  Eigen::MatrixXd H_(3, 3);
+  for (int i=0; i<3; ++i) for (int j=0; j<3; ++j) H_(i, j) = H(i, j);
+  svd.compute(H_, Eigen::ComputeThinU | Eigen::ComputeThinV );
+  if (!svd.computeU() || !svd.computeV()) {
+    // Nothing to do, return the identity transform
+    return;
+  }
+
+  Eigen::Matrix3d Vt = svd.matrixV().transpose();
+
+  rot   = svd.matrixU()*Vt;
+  trans = center_dst - rot*center_src;	
+}
+  
 }

@@ -68,7 +68,7 @@ namespace asp {
 				    bool                       filter_outliers,
 				    std::vector<bool>        & is_outlier
 				    );
-  
+
   class BaseOptions;
 
   /// A Data structure which converts from CSV to Cartesian and vice-versa.

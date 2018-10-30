@@ -21,7 +21,7 @@
 // Francois Pomerleau and Stephane Magnenat, ASL, ETHZ, Switzerland
 // You can contact the authors at <f dot pomerleau at gmail dot com> and
 // <stephane at magnenat dot net>
-// Alternatively, FGR is used, under the MIT license
+// This tool also uses the Fast Global Registration software, under the MIT license
 // https://github.com/IntelVCL/FastGlobalRegistration
 
 // All rights reserved.
@@ -48,6 +48,14 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <limits>
+#include <cstring>
+
+#include <ceres/ceres.h>
+#include <ceres/loss_function.h>
+#include <FastGlobalRegistration/app.h>
+#include <liblas/liblas.hpp>
+
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/EulerAngles.h>
 #include <vw/FileIO/DiskImageView.h>
@@ -60,16 +68,6 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h>
-#include <liblas/liblas.hpp>
-
-#include <limits>
-#include <cstring>
-
-#include <pointmatcher/PointMatcher.h>
-#include <FastGlobalRegistration/app.h>
-#include <ceres/ceres.h>
-#include <ceres/loss_function.h>
-
 #include <asp/Tools/pc_align_utils.h>
 
 #include <boost/filesystem.hpp>
@@ -103,8 +101,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
          diff_rotation_err,
          max_disp,
          outlier_ratio,
-         semi_major,
-         semi_minor;
+         semi_major_axis,
+         semi_minor_axis;
   bool   compute_translation_only,
          dont_use_dem_distances,
          save_trans_source,
@@ -121,7 +119,6 @@ struct Options : public vw::cartography::GdalWriteOptions {
   /// Return true if the reference file is a DEM file and this option is not disabled
   bool use_dem_distances() const { return ( (asp::get_cloud_type(this->reference) == "DEM") && !dont_use_dem_distances); }
 };
-
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
@@ -151,9 +148,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("datum",                    po::value(&opt.datum)->default_value(""),
                                  "Use this datum for CSV files instead of auto-detecting it. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-    ("semi-major-axis",          po::value(&opt.semi_major)->default_value(0),
+    ("semi-major-axis",          po::value(&opt.semi_major_axis)->default_value(0),
                                  "Explicitly set the datum semi-major axis in meters.")
-    ("semi-minor-axis",          po::value(&opt.semi_minor)->default_value(0),
+    ("semi-minor-axis",          po::value(&opt.semi_minor_axis)->default_value(0),
                                  "Explicitly set the datum semi-minor axis in meters.")
     ("output-prefix,o",          po::value(&opt.out_prefix)->default_value("run/run"),
                                  "Specify the output prefix.")
@@ -217,21 +214,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n"
               << usage << general_options );
 
-  if ( (opt.semi_major != 0 && opt.semi_minor == 0) ||
-       (opt.semi_minor != 0 && opt.semi_major == 0)
-       ){
+  if ( (opt.semi_major_axis != 0 && opt.semi_minor_axis == 0) ||
+       (opt.semi_minor_axis != 0 && opt.semi_major_axis == 0) ){
 
     vw_throw( ArgumentErr() << "One of the semi-major or semi-minor axes"
               << " was specified, but not the other one.\n"
               << usage << general_options );
   }
 
-  if (opt.semi_major < 0 || opt.semi_minor < 0){
+  if (opt.semi_major_axis < 0 || opt.semi_minor_axis < 0){
     vw_throw( ArgumentErr() << "The semi-major and semi-minor axes cannot "
                             << "be negative.\n" << usage << general_options );
   }
 
-  if (opt.datum != "" && opt.semi_major != 0 && opt.semi_minor != 0 ){
+  if (opt.datum != "" && opt.semi_major_axis != 0 && opt.semi_minor_axis != 0 ){
     vw_throw( ArgumentErr() << "Both the datum string and datum semi-axes were "
                             << "specified. At most one needs to be set.\n"
                             << usage << general_options );
@@ -256,23 +252,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Read the initial transform
   opt.init_transform = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
   if (opt.init_transform_file != ""){
-    validateFile(opt.init_transform_file);
-    PointMatcher<RealT>::Matrix T;
-    ifstream is(opt.init_transform_file.c_str());
-    for (int row = 0; row < DIM + 1; row++){
-      for (int col = 0; col < DIM + 1; col++){
-        double a;
-        if (! (is >> a) )
-          vw_throw( vw::IOErr() << "Failed to read initial transform from: "
-                                << opt.init_transform_file << "\n" );
-        opt.init_transform(row, col) = a;
-      }
-    }
+    asp::read_transform(opt.init_transform, opt.init_transform_file);
     vw_out() << "Initial guess transform:\n" << opt.init_transform << endl;
-
-    if (opt.init_transform(DIM, DIM) != 1) {
-      vw_throw( ArgumentErr() << "The initial transform must have a 1 in the lower-right corner.\n");
-    }
   }
 
   if (opt.alignment_method != "point-to-plane"            &&
@@ -301,134 +282,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr()
 	      << "Least squares alignment can be used only when the "
 	      << "reference cloud is a DEM.\n" );
-}
-
-/// Try to read the georef/datum info, need it to read CSV files.
-void read_georef(Options& opt, asp::CsvConv& csv_conv, GeoReference& geo){
-
-  // Use an initialized datum for the georef, so later we can check
-  // if we manage to populate it.
-  {
-    Datum datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
-              "Reference Meridian", 1, 1, 0);
-    geo.set_datum(datum);
-  }
-
-  bool is_good = false;
-
-  // First, get the datum from the DEM if available.
-  string dem_file = "";
-  if ( asp::get_cloud_type(opt.reference) == "DEM" )
-    dem_file = opt.reference;
-  else if ( asp::get_cloud_type(opt.source) == "DEM" )
-    dem_file = opt.source;
-  if (dem_file != ""){
-    GeoReference local_geo;
-    bool have_georef = cartography::read_georeference(local_geo, dem_file);
-    if (!have_georef)
-      vw_throw(ArgumentErr() << "DEM: " << dem_file << " does not have a georeference.\n");
-    geo = local_geo;
-    vw_out() << "Detected datum from " << dem_file << ":\n" << geo.datum() << std::endl;
-    is_good = true;
-  }
-
-  // Then, try to set it from the pc file if available.
-  // Either one, or both or neither of the pc files may have a georef.
-  string pc_file = "";
-  if ( asp::get_cloud_type(opt.reference) == "PC" ){
-    GeoReference local_geo;
-    if (cartography::read_georeference(local_geo, opt.reference)){
-      pc_file = opt.reference;
-      geo = local_geo;
-      vw_out() << "Detected datum from " << pc_file << ":\n" << geo.datum() << std::endl;
-      is_good = true;
-    }
-  }
-  if ( asp::get_cloud_type(opt.source) == "PC" ){
-    GeoReference local_geo;
-    if (cartography::read_georeference(local_geo, opt.source)){
-      pc_file = opt.source;
-      geo = local_geo;
-      vw_out() << "Detected datum from " << pc_file << ":\n" << geo.datum() << std::endl;
-      is_good = true;
-    }
-  }
-
-  // Then, try to set it from the las file if available.
-  // Either one, or both or neither of the las files may have a georef.
-  string las_file = "";
-  if ( asp::get_cloud_type(opt.reference) == "LAS" ){
-    GeoReference local_geo;
-    if (asp::georef_from_las(opt.reference, local_geo)){
-      las_file = opt.reference;
-      geo = local_geo;
-      vw_out() << "Detected datum from " << las_file << ":\n" << geo.datum() << std::endl;
-      is_good = true;
-    }
-  }
-  if ( asp::get_cloud_type(opt.source) == "LAS" ){
-    GeoReference local_geo;
-    if (asp::georef_from_las(opt.source, local_geo)){
-      las_file = opt.source;
-      geo = local_geo;
-      vw_out() << "Detected datum from " << las_file << ":\n" << geo.datum() << std::endl;
-      is_good = true;
-    }
-  }
-
-  // We should have read in the datum from an input file, but check to see if
-  //  we should override it with input parameters.
-
-  if (opt.datum != ""){
-    // If the user set the datum, use it.
-    Datum datum;
-    datum.set_well_known_datum(opt.datum);
-    geo.set_datum(datum);
-    is_good = true;
-  }else if (opt.semi_major > 0 && opt.semi_minor > 0){
-    // Otherwise, if the user set the semi-axes, use that.
-    Datum datum = Datum("User Specified Datum", "User Specified Spheroid",
-                        "Reference Meridian",
-                        opt.semi_major, opt.semi_minor, 0.0);
-    geo.set_datum(datum);
-    is_good = true;
-  }
-
-  // This must be the last as it has priority. Use user's csv_proj4 string,
-  // to add info to the georef.
-  if (csv_conv.parse_georef(geo)) {
-    is_good = true;
-  }
-
-  if (is_good)
-    vw_out() << "Will use datum (for CSV files): " << geo.datum() << std::endl;
-
-  // A lot of care is needed below.
-  if (!is_good  && (opt.csv_format_str == "" || csv_conv.get_format() != asp::CsvConv::XYZ) ){
-    // There is no DEM/LAS to read the datum from, and the user either
-    // did not specify the CSV format (then we set it to lat, lon,
-    // height), or it is specified as containing lat, lon, rather than xyz.
-    bool has_csv = ( asp::get_cloud_type(opt.reference) == "CSV" ) ||
-                   ( asp::get_cloud_type(opt.source   ) == "CSV" );
-    if (has_csv){
-      // We are in trouble, will not be able to convert input lat, lon, to xyz.
-      vw_throw( ArgumentErr() << "Cannot detect the datum. "
-                              << "Please specify it via --csv-proj4 or --datum or "
-                              << "--semi-major-axis and --semi-minor-axis.\n" );
-    }else{
-      // The inputs have no georef. Will have to write xyz.
-      vw_out() << "No datum specified. Will write output CSV files "
-               << "in the x,y,z format." << std::endl;
-      opt.csv_format_str = "1:x 2:y 3:z";
-      csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
-      is_good = true;
-    }
-  }
-
-  if (!is_good)
-    vw::vw_throw( vw::InputErr() << "Datum is required and could not be set.\n");
-
-  return;
 }
 
 /// Compute output statistics for pc_align
@@ -1334,8 +1187,13 @@ int main( int argc, char *argv[] ) {
 
     // Try to read the georeference/datum info
     GeoReference geo;
-    read_georef(opt, csv_conv, geo);
-
+    std::vector<std::string> clouds;
+    clouds.push_back(opt.reference);
+    clouds.push_back(opt.source);
+    read_georef(clouds, opt.datum, opt.csv_proj4_str,  
+                opt.semi_major_axis, opt.semi_minor_axis,  
+                opt.csv_format_str,  csv_conv, geo);
+    
     // Use hillshading to create a match file
     if (opt.hillshading_transform != "" && opt.match_file == "")
       opt.match_file = find_matches_from_hillshading(opt, argv[0]);
@@ -1380,7 +1238,6 @@ int main( int argc, char *argv[] ) {
     calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                               opt.source, opt.max_disp, opt.init_transform,
                               source_box, trans_source_box);
-
 
     // When boxes are huge, it is hard to do the optimization of intersecting
     // them, as they may differ not by 0 or 360, but by 180. Better do nothing

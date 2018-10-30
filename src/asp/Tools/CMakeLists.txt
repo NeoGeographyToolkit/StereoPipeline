@@ -110,6 +110,11 @@ target_link_libraries(pc_align aspSessions ${SOLVER_LIBRARIES}
   ${LIBPOINTMATCHER_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} )
 install(TARGETS pc_align DESTINATION bin)
 
+add_executable(n_align n_align.cc pc_align_utils.h pc_align_utils.tcc)
+target_link_libraries(n_align aspSessions ${SOLVER_LIBRARIES} 
+  ${LIBPOINTMATCHER_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} )
+install(TARGETS n_align DESTINATION bin)
+
 add_executable(pansharp pansharp.cc)
 target_link_libraries(pansharp aspSessions)
 install(TARGETS pansharp DESTINATION libexec)

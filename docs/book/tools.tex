@@ -325,7 +325,7 @@ the reference image are not saved to the GCP file.
 \subsubsection{Polygon editing}
 
 \texttt{stereo\_gui} is able to draw and edit polygonal shapes on top of georeferenced images, and load/save them as shape files (*.shp).
-This functionality can ba accessed by turning on polygon editing from the \textit{Vector Layer} menu, and then right-clicking with the mouse
+This functionality can be accessed by turning on polygon editing from the \textit{Vector Layer} menu, and then right-clicking with the mouse
 to access the various functions. Subsequently, one can use \texttt{gdal\_rasterize} to keep or exclude the portion of a given image/DEM that is within
 or outside the selected polygon. 
 
@@ -1927,13 +1927,21 @@ Compress using laszip. \\ \hline
 \section{pc\_align}
 \label{pcalign}
 
-This tool can be used to align two point clouds. The algorithms used are
-one of several flavors of Iterative Closest Point (ICP), based on
+This tool can be used to align two point clouds. The algorithms employed are
+one of the several flavors of Iterative Closest Point (ICP), based on
 the \texttt{libpointmatcher} library~\cite{Pomerleau12comp}
-(\url{https://github.com/ethz-asl/libpointmatcher}), 
-the Fast Global Registration algorithm (\url{https://github.com/IntelVCL/FastGlobalRegistration}),
-feature-based alignment (terrains are hillshaded and matches are found among them),
-and alignment using least squares. 
+\begin{center}
+\url{https://github.com/ethz-asl/libpointmatcher}
+\end{center} 
+It also implements the Fast Global Registration algorithm 
+\begin{center}
+\url{https://github.com/IntelVCL/FastGlobalRegistration}
+\end{center}
+In addition, it supports feature-based alignment (terrains are
+hillshaded and interest point matches are found among them), and alignment using least
+squares. It can handle a scale change in addition to rotations and
+translations. For joint alignment of more than two clouds, the related
+tool \texttt{n\_align} can be used (section \ref{nalign}).
 
 \medskip
 Usage:
@@ -2021,9 +2029,14 @@ matching to work, they perhaps can be re-gridded to use the same
 (coarser) grid, as described in section \ref{regrid}, to obtain the
 initial transform which can then be applied to the original clouds.
  
-A non-ICP algorithm supported by ASP is Fast Global Registration,
+A non-ICP algorithm supported by ASP is \textit{Fast Global Registration},
 accessible with \texttt{-\/-alignment-method fgr}, and customizable
 using the \texttt{-\/-fgr-options} field (see the table below for more details).
+This approach can perform better than ICP when the clouds are close enough to each
+other but there is a large number of outliers, since it does a cross-check, so it can
+function with very large \texttt{-\/-max-displacement}. It does worse if the
+clouds need a big shift to align.
+
 This one is being advertised as less sensitive to outliers, hence
 it should give good results with a larger value of the maximum displacement.  
 
@@ -2313,6 +2326,81 @@ use. 0 means use the default as set by OpenMP. Only some parts of the algorithm 
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
 \end{longtable}
 
+\section{n\_align}
+\label{nalign}
+
+This tool can be used to jointly align a set of two or more point clouds, hence it extends
+the functionality of \texttt{pc\_align} (section \ref{pcalign}). It implements the 
+ICP flavor from \cite{toldo2010global}, more exactly, 
+the MATLAB algorithm at
+\begin{center}
+\url{https://searchcode.com/file/13619767/Code/matlab/GlobalProcrustesICP/globalProcrustes.m}
+\end{center}
+
+It is hoped that joint alignment will give
+less biased results than pairwise alignment for the clouds.  
+
+\medskip
+Usage:
+\begin{verbatim}
+  n_align <cloud files> -o <output prefix>
+\end{verbatim}
+
+Even for two clouds this algorithm is not the same as the ones that are
+part of \texttt{pc\_align}. This algorithm is expected to be more
+robust to outliers than the regular ICP in \texttt{pc\_align} since it
+uses a cross-check. Yet, it may not handle a large translation
+difference between the clouds as well. In that case, given a set of
+clouds, one can first use \texttt{pc\_align} to align all other clouds
+to the first one, then invoke this algorithm for joint alignment while
+passing the obtained alignment transforms as an argument to this tool,
+to be used as initial guesses. The option to use for this, as shown
+below for simplicity for three clouds, is:
+
+\begin{verbatim}
+  --initial-transforms 'identity.txt run_12/run-transform.txt run_13/run-transform.txt'
+\end{verbatim}
+
+where the file 'identity.txt' contains the $4 \times 4$ identity matrix (the transform 
+from the first cloud to itself), and 'run\_12/run' is the output prefix for \texttt{pc\_align}
+when invoked on the first and second clouds, etc. The final transforms output by this tool
+will incorporate the initial guesses.  
+
+This tool should be less sensitive than \texttt{pc\_align} to the order of the clouds 
+since any two of them are compared against each other. The number of iterations and number
+of input points used will dramatically affect its performance, and likely the accuracy. 
+Cropping all clouds to the same region is likely to to improve both run-time and the results. 
+ 
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for n\_align}
+\label{tbl:nalign}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-\/-num-iterations arg (=1000) } & Maximum number of iterations.\\ \hline
+\texttt{-\/-max-num-points arg (=100000000) } & Maximum number of (randomly picked) points from each cloud to use.\\ \hline
+\texttt{-\/-csv-format arg  } & Specify the format of input CSV files as a list of entries column\_index:column\_type (indices start from 1). Examples: '1:x 2:y 3:z', '2:file 5:lon 6:lat 7:radius\_m', '3:lat 2:lon 1:height\_above\_datum 5:file', '1:easting 2:northing 3:height\_above\_datum' (need to set --csv-proj4). Can also use radius\_km for column\_type.\\ \hline
+\texttt{-\/-csv-proj4 arg  } & The PROJ.4 string to use to interpret the entries in input CSV files.\\ \hline
+\texttt{-\/-datum arg  } & Use this datum for CSV files instead of auto-detecting it. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON).\\ \hline
+\texttt{-\/-semi-major-axis arg (=0) } & Explicitly set the datum semi-major axis in meters.\\ \hline
+\texttt{-\/-semi-minor-axis arg (=0) } & Explicitly set the datum semi-minor axis in meters.\\ \hline
+\texttt{-o | -\/-output-prefix  arg  } & Specify the output prefix. The computed alignment transforms and, if desired, the transformed clouds, will be saved to names starting with this prefix.\\ \hline
+\texttt{-\/-save-transformed-clouds  } & Apply the obtained alignment transforms to the input clouds and save them.\\ \hline
+\texttt{-\/-initial-transforms-prefix arg  } & The prefix of the transforms to be used as initial guesses. The naming convention is the same as for the transforms written on output.\\ \hline
+\texttt{-\/-initial-transforms arg  } & Specify the initial transforms as a list of files separated by spaces and in quotes, that is, as 'trans1.txt ... trans\_n.txt'.\\ \hline
+\texttt{-\/-align-to-first-cloud  } & Align the other clouds to the first one, rather than to their common centroid.\\ \hline
+\texttt{-\/-threads arg (=0) } & Select the number of processors (threads) to use.\\ \hline
+\texttt{-\/-tile-size arg (=256, 256) } & Image tile size used for multi-threaded processing.\\ \hline
+\texttt{-\/-no-bigtiff  } & Tell GDAL to not create bigtiffs.\\ \hline
+\texttt{-\/-tif-compress arg (=LZW) } & TIFF Compression method. [None, LZW, Deflate, Packbits]\\ \hline
+\texttt{-v | -\/-version   } & Display the version of software.\\ \hline
+\texttt{-h | -\/-help   } & Display this help message.\\ \hline
+\end{longtable}
+
 \section{pc\_merge}
 \label{pcmerge}
 
@@ -2421,7 +2509,7 @@ detailed explanation.
 \medskip
 
 Usage:\\
-\hspace*{2em}\texttt{hiedr2mosaic.py [options] <input files OR a url>}
+\hspace*{2em}\texttt{hiedr2mosaic.py [options] <input files OR a URL>}
 
 \medskip
 
