@@ -378,8 +378,13 @@ def get_ccd(path):
     '''Returns the CCD number of a filename.'''
     
     filename = os.path.basename(path)
-    parts    = filename.split('_')
-    ccd      = int(parts[3][-1])
+
+    # Out of 'ESP_023957_1755/ESP_023957_1755_RED5_1.IMG', pull '_RED5_1',
+    # and extract the number 5.
+    match = re.match("^.*?_RED(\d)_\d", filename )
+    if not match:
+        raise Exception('Could not extract the CCD number from: ' + filename)
+    ccd     = int(match.group(1))
     return ccd
 
 #----------------------------
@@ -423,17 +428,18 @@ def main():
             if len(args) % 2 != 0 and not options.resume_no_proj:
                 raise Exception('An even number of input CCD files is required!')
 
-
             # Verify that we have both of the specified match CCD's.
-            matchCount = 0
-            for a in args:
-                if get_ccd(a) == options.match:
-                    matchCount += 1
-
-            if matchCount != 2:
-                print ('Error: Found ' + str(matchCount) + ' files for match CCD ' 
-                       + str(options.match) + ' instead of 2.')
-                return -1
+            # This is applicable only when we start with initial IMG files.
+            if not options.resume_no_proj:            
+                matchCount = 0
+                for a in args:
+                    if get_ccd(a) == options.match:
+                        matchCount += 1
+                        
+                if matchCount != 2:
+                    print ('Error: Found ' + str(matchCount) + ' files for match CCD ' 
+                           + str(options.match) + ' instead of 2.')
+                    return -1
 
             numCcds = len(args) / 2
 
