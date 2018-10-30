@@ -80,7 +80,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("num-iterations",           po::value(&opt.num_iter)->default_value(1000),
+    ("num-iterations",           po::value(&opt.num_iter)->default_value(100),
      "Maximum number of iterations.")
     ("max-num-points", po::value(&opt.max_num_points)->default_value(100000000),
      "Maximum number of (randomly picked) points from each cloud to use.")
@@ -376,6 +376,8 @@ int main(int argc, char *argv[]){
                mean_ref_longitude, verbose, in_cloud);
     convert_cloud(in_cloud, clouds[0]);
     
+    vw_out() << "Data shifted internally by subtracting: " << shift << std::endl;
+    
     calc_shift = false; // We will use the same shift from here on
       
     for (int cloudIter = 1; cloudIter < numClouds; cloudIter++) {
@@ -383,7 +385,6 @@ int main(int argc, char *argv[]){
                  calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                  mean_ref_longitude, verbose, in_cloud);
       convert_cloud(in_cloud, clouds[cloudIter]);
-      
     }
     
     // Read the clouds
@@ -392,17 +393,26 @@ int main(int argc, char *argv[]){
       sort_and_make_unqiue(clouds[cloudIter]);
     }
 
-    // Apply any initial transform, either using a prefix or an explicit list
+    // Read any initial transforms, either using a prefix or an explicit list
+    bool has_init_transform = false;
     if (opt.in_prefix != "" || opt.in_transforms != "") {
+      has_init_transform = true;
       if (opt.in_prefix != "") 
         read_transforms(transVec, opt.in_prefix);
       else if (opt.in_transforms != "")
         read_transforms_from_list(transVec, opt.in_transforms);
       
+      // The point clouds are shifted, so shift the initial transforms as well.
+      for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) 
+        transVec[cloudIter] = apply_shift(transVec[cloudIter], shift);
+    }
+
+    // Apply the initial transforms to the clouds
+    if (has_init_transform) {
       for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) 
         apply_transform_to_cloud(clouds[cloudIter], transVec[cloudIter]);
     }
-
+    
     // Build the trees
     std::vector< boost::shared_ptr<KDTree_double> > Trees;
     for (int it = 0; it < numClouds; it++) {
@@ -416,6 +426,13 @@ int main(int argc, char *argv[]){
     // points in all clouds.  We don't use the mean square error like
     // the Matlab code, which had bugs in how it was computed anyway.
     double initError = -1, finalError = -1; 
+
+    Stopwatch sw1;
+    sw1.start();
+
+    vw::TerminalProgressCallback tpc("asp", "Performing alignment\t--> ");
+    double inc_amount = 1.0 / std::max(opt.num_iter, 1); 
+    tpc.report_progress(0);
 
     int step = 0; // Starting step
     // int step = 1; // original incorrect logic in the Matlab code
@@ -600,16 +617,28 @@ int main(int argc, char *argv[]){
         initError = errBefore;
       if (lastStep)
         finalError = errAfter;
+
+      tpc.report_incremental_progress(inc_amount);
       
       step++;
-    } // End of iterations refining the tranforms
+    } // End of iterations refining the transforms
 
+    tpc.report_finished();
+
+    sw1.stop();
+    vw_out() << "Alignment took " << sw1.elapsed_seconds() << " [s]" << endl;
+    
     if (opt.align_to_first_cloud) {
+      // Make the first transform be the identity
       for (int cloudIter = 1; cloudIter < numClouds; cloudIter++) 
         transVec[cloudIter] = transVec[0].inverse() * transVec[cloudIter];
       transVec[0] = Eigen::MatrixXd::Identity(4, 4);
     }
   
+    // Undo the shift when the clouds were read
+    for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) 
+      transVec[cloudIter] = apply_shift(transVec[cloudIter], -shift);
+    
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++)
       vw_out() << "Final transform for cloud: " << cloudIter << ":\n"
                << transVec[cloudIter] << std::endl;
