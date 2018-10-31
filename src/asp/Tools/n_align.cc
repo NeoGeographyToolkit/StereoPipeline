@@ -68,8 +68,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   // Input
   string in_prefix, in_transforms, datum, csv_format_str, csv_proj4_str; 
   int    num_iter, max_num_points;
-  double semi_major_axis, semi_minor_axis;
-  bool   save_transformed_clouds, align_to_first_cloud;
+  double semi_major_axis, semi_minor_axis, rel_error_tol;
+  bool   save_transformed_clouds, align_to_first_cloud, verbose;
   std::vector<std::string> cloud_files;
   // Output
   string out_prefix;
@@ -82,7 +82,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("num-iterations",           po::value(&opt.num_iter)->default_value(100),
      "Maximum number of iterations.")
-    ("max-num-points", po::value(&opt.max_num_points)->default_value(100000000),
+    ("max-num-points", po::value(&opt.max_num_points)->default_value(1000000),
      "Maximum number of (randomly picked) points from each cloud to use.")
     ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",                po::value(&opt.csv_proj4_str)->default_value(""),
@@ -101,8 +101,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "The prefix of the transforms to be used as initial guesses. The naming convention is the same as for the transforms written on output.")
     ("initial-transforms", po::value(&opt.in_transforms)->default_value(""),
      "Specify the initial transforms as a list of files separated by spaces and in quotes, that is, as 'trans1.txt ... trans_n.txt'.")
+    ("relative-error-tolerance", po::value(&opt.rel_error_tol)->default_value(1e-10),
+     "Stop when the change in the error divided by the error itself is less than this.")
     ("align-to-first-cloud", po::bool_switch(&opt.align_to_first_cloud)->default_value(false)->implicit_value(true),
-     "Align the other clouds to the first one, rather than to their common centroid.");
+     "Align the other clouds to the first one, rather than to their common centroid.")
+    ("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
+     "Print the alignment error after each iteration.");
     
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -422,18 +426,26 @@ int main(int argc, char *argv[]){
       Trees.push_back(tree);
     }
 
+    std::string errCaption = std::string("Computing the error, defined as the mean of ") +
+      "pairwise distances from each cloud to the centroid cloud.\n";
+    if (opt.verbose) vw_out() << errCaption;
+
     // Mean error from the centroid cloud points to all matching
     // points in all clouds.  We don't use the mean square error like
     // the Matlab code, which had bugs in how it was computed anyway.
-    double initError = -1, finalError = -1; 
+    double initError = -1, errAfter = -1, prevError = -1; 
 
     Stopwatch sw1;
     sw1.start();
 
     vw::TerminalProgressCallback tpc("asp", "Performing alignment\t--> ");
-    double inc_amount = 1.0 / std::max(opt.num_iter, 1); 
-    tpc.report_progress(0);
+    double inc_amount = 1.0 / std::max(opt.num_iter, 1);
 
+    // Don't display the progress in verbose mode, as then it interferes with
+    // printing of errors.
+    if (!opt.verbose)
+      tpc.report_progress(0);
+    
     int step = 0; // Starting step
     // int step = 1; // original incorrect logic in the Matlab code
     while (step < opt.num_iter){
@@ -556,7 +568,8 @@ int main(int argc, char *argv[]){
         centroid[row] = pt;
       }
 
-      double errBefore = 0, errAfter = 0;
+      double errBefore = 0;
+      errAfter = 0;
       int numErrors = 0;
       
       // Find the transform from each cloud to the centroid, and apply it to each cloud
@@ -613,21 +626,45 @@ int main(int argc, char *argv[]){
       errBefore /= numErrors;
       errAfter /= numErrors;
 
-      if (firstStep) 
+      if (firstStep) {
         initError = errBefore;
-      if (lastStep)
-        finalError = errAfter;
+        if (opt.verbose) {
+          vw_out() << "Error before alignment: " << initError  << std::endl;
+        }
+      }
+      
+      if (opt.verbose) 
+        vw_out() << "Error at iteration " << step << ": " << errAfter << "\n";
+      else
+        tpc.report_incremental_progress(inc_amount);
 
-      tpc.report_incremental_progress(inc_amount);
+      if (!firstStep) {
+        if (errAfter > 0 && std::abs(errAfter - prevError)/errAfter < opt.rel_error_tol) {
+          break;
+        }
+      }
+      
+      prevError = errAfter;
       
       step++;
     } // End of iterations refining the transforms
 
-    tpc.report_finished();
-
-    sw1.stop();
-    vw_out() << "Alignment took " << sw1.elapsed_seconds() << " [s]" << endl;
+    if (!verbose) {
+      tpc.report_finished();
+    }
     
+    sw1.stop();
+    
+    if (!opt.verbose) {
+      vw_out() << "\n" << errCaption;
+      vw_out() << "Error before alignment: " << initError  << std::endl;
+    }
+    vw_out() << "Error after alignment:  " << errAfter << std::endl;
+    
+    vw_out() << "Performed: " << step + 1 << " iterations.\n";
+
+    vw_out() << "\nAlignment took " << sw1.elapsed_seconds() << " [s]" << endl;
+
     if (opt.align_to_first_cloud) {
       // Make the first transform be the identity
       for (int cloudIter = 1; cloudIter < numClouds; cloudIter++) 
@@ -644,10 +681,6 @@ int main(int argc, char *argv[]){
                << transVec[cloudIter] << std::endl;
     save_transforms(transVec, opt.out_prefix);
 
-    vw_out() << "Mean of pairwise distances from each cloud to the centroid cloud:\n";
-    vw_out() << "Before alignment: " << initError  << std::endl;
-    vw_out() << "After alignment:  " << finalError << std::endl;
-    
     if (opt.save_transformed_clouds) {
       for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
         std::ostringstream os;

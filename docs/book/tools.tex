@@ -2382,7 +2382,7 @@ Cropping all clouds to the same region is likely to to improve both run-time and
 \hline
 Option & Description \\ \hline \hline
 \texttt{-\/-num-iterations arg (=100) } & Maximum number of iterations.\\ \hline
-\texttt{-\/-max-num-points arg (=100000000) } & Maximum number of (randomly picked) points from each cloud to use.\\ \hline
+\texttt{-\/-max-num-points arg (=1000000) } & Maximum number of (randomly picked) points from each cloud to use.\\ \hline
 \texttt{-\/-csv-format arg  } & Specify the format of input CSV files as a list of entries column\_index:column\_type (indices start from 1). Examples: '1:x 2:y 3:z', '2:file 5:lon 6:lat 7:radius\_m', '3:lat 2:lon 1:height\_above\_datum 5:file', '1:easting 2:northing 3:height\_above\_datum' (need to set --csv-proj4). Can also use radius\_km for column\_type.\\ \hline
 \texttt{-\/-csv-proj4 arg  } & The PROJ.4 string to use to interpret the entries in input CSV files.\\ \hline
 \texttt{-\/-datum arg  } & Use this datum for CSV files instead of auto-detecting it. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON).\\ \hline
@@ -2392,7 +2392,9 @@ Option & Description \\ \hline \hline
 \texttt{-\/-save-transformed-clouds  } & Apply the obtained alignment transforms to the input clouds and save them.\\ \hline
 \texttt{-\/-initial-transforms-prefix arg  } & The prefix of the transforms to be used as initial guesses. The naming convention is the same as for the transforms written on output.\\ \hline
 \texttt{-\/-initial-transforms arg  } & Specify the initial transforms as a list of files separated by spaces and in quotes, that is, as 'trans1.txt ... trans\_n.txt'.\\ \hline
+\texttt{-\/-relative-error-tolerance (=1e-10) } & Stop when the change in the error divided by the error itself is less than this.\\ \hline
 \texttt{-\/-align-to-first-cloud  } & Align the other clouds to the first one, rather than to their common centroid.\\ \hline
+\texttt{-v | -\/-verbose   } & Print the alignment error after each iteration.\\ \hline
 \texttt{-\/-threads arg (=0) } & Select the number of processors (threads) to use.\\ \hline
 \texttt{-\/-tile-size arg (=256, 256) } & Image tile size used for multi-threaded processing.\\ \hline
 \texttt{-\/-no-bigtiff  } & Tell GDAL to not create bigtiffs.\\ \hline
