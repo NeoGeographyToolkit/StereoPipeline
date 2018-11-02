@@ -189,6 +189,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( !vm.count("dem") || !vm.count("camera-image") || !vm.count("camera-model") )
     vw_throw( ArgumentErr() << usage << general_options );
 
+  // If exactly three files were passed in, the last one must be the output file and the image file
+  // must contain the camera model.
+  if ( !vm.count("output-image") && vm.count("camera-model") ) {
+    opt.output_file = opt.camera_file;
+    opt.camera_file = "";
+  }
+
   // We support map-projecting using the DG camera model, however, these images
   // cannot be used later to do stereo, as that process expects the images
   // to be map-projected using the RPC model.
@@ -661,17 +668,6 @@ int main( int argc, char* argv[] ) {
                          opt.dem_file,
                          false) ); // Do not allow promotion from normal to map projected session
     
-    // If the session was above auto-guessed as isis, adjust for the fact
-    // that the isis .cub file also has camera info.
-    if ((session->name() == "isis" || session->name() == "isismapisis")
-          && opt.output_file.empty() ){
-      // The user did not provide an output file. Then the camera
-      // information is contained within the image file and what is in
-      // the camera file is actually the output file.
-      opt.output_file = opt.camera_file;
-      opt.camera_file = opt.image_file;
-    }
-
     if ( opt.output_file.empty() )
       vw_throw( ArgumentErr() << "Missing output filename.\n" );
 
@@ -717,12 +713,14 @@ int main( int argc, char* argv[] ) {
       // Use the camera center to determine whether to center the fake DEM on 0 or 180.
       Vector3 llr_camera_loc =
         cartography::XYZtoLonLatRadEstimateFunctor::apply( camera_model->camera_center(Vector2()) );
-      if ( llr_camera_loc[0] < 0 ) 
-        llr_camera_loc[0] += 360;
+      float lonstart = 0;
+      if ((llr_camera_loc[0] < 0) && (llr_camera_loc[0] > -180))
+        lonstart = -180;
       dem_georef = GeoReference(Datum(datum_name),
-                                Matrix3x3(1, 0, (llr_camera_loc[0] < 90 ||
-                                                 llr_camera_loc[0] > 270) ? -180 : 0,
-                                          0, -1, 90, 0, 0, 1) );
+                                Matrix3x3(1,  0, lonstart,
+                                          0, -1, 90,
+                                          0,  0,  1) );
+
       dem = constant_view(PixelMask<float>(opt.datum_offset), 360, 180 );
       vw_out() << "\t--> Using flat datum \"" << datum_name << "\" as elevation model.\n";
     }
