@@ -65,7 +65,7 @@ SemiGlobalMatcher::SgmSubpixelMode get_sgm_subpixel_mode() {
     case 10: return SemiGlobalMatcher::SUBPIXEL_COSINE;
     case 11: return SemiGlobalMatcher::SUBPIXEL_PARABOLA;
     case 12: return SemiGlobalMatcher::SUBPIXEL_LC_BLEND;
-    default: return SemiGlobalMatcher::SUBPIXEL_LC_BLEND;
+    default: return SemiGlobalMatcher::SUBPIXEL_NONE; // This includes stereo_rfne subpixel modes
   };
 }
 

@@ -498,6 +498,7 @@ namespace asp {
     
     // Replace normal default values with these when SGM is enabled.
     // - TODO: Move these somewhere easier to find!
+    const int SGM_DEFAULT_SUBPIXEL_MODE        = 12; // Blend
     const int SGM_DEFAULT_COST_MODE            = 4;
     const int SGM_DEFAULT_KERNELSIZE           = 5;
     const int SGM_DEFAULT_XCORR_THRESHOLD      = -1;
@@ -510,10 +511,9 @@ namespace asp {
 
     bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
     if (using_sgm) {
-      // TODO: Allow other subpixel modes with SGM!
       if (vm["subpixel-mode"].defaulted()) {
         vw_out() << "Subpixel mode not specified, using the default SGM subpixel method.\n";
-        stereo_settings().subpixel_mode = 0; // Make sure stereo_rfne does not do anything
+        stereo_settings().subpixel_mode = SGM_DEFAULT_SUBPIXEL_MODE;
       }
       
       // If these parameters were not specified by the user, override the normal default values.
