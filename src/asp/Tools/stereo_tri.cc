@@ -209,10 +209,10 @@ stereo_error_triangulate( vector<DisparityT> const& disparities,
 // Take a given disparity and make it between the original unaligned images
 template <class DisparityT>
 void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
-                               vector<DisparityT> const& disparities,
-                               vector<TXT>        const& transforms,
-                               std::string        const& disp_file) {
-
+                       vector<DisparityT> const& disparities,
+                       vector<TXT>        const& transforms,
+                       std::string        const& disp_file) {
+  
   VW_ASSERT( disparities.size() == 1 && transforms.size() == 2,
                vw::ArgumentErr() << "Expecting two images and one disparity.\n" );
   DisparityT const& disp = disparities[0]; // pull the disparity
@@ -231,24 +231,49 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
     pinPtr->pinhole_cam_trans(left_trans, right_trans);
   }
 
-  std::string left_file  = opt_vec[0].in_file1;
-  std::string right_file = opt_vec[0].in_file2;
-  std::string prefix     = opt_vec[0].out_prefix;
-
   typedef typename DisparityT::pixel_type DispPixelT;
 
-  DiskImageView<float> left_img(left_file);
-  ImageView<DispPixelT> unaligned_disp(left_img.cols(), left_img.rows());
-  ImageView<int> count(left_img.cols(), left_img.rows());
-  for (int col = 0; col < left_img.cols(); col++) {
-    for (int row = 0; row < left_img.rows(); row++) {
+  // Find the number of rows and columns in the unaligned disparity
+  int num_cols = 0, num_rows = 0;
+  const bool is_map_projected = opt_vec[0].session->isMapProjected();
+  if (!is_map_projected) {
+    // The left image passed as input is the original
+    // unprojected/unaligned one, hence use its size.
+    std::string left_file  = opt_vec[0].in_file1;
+    DiskImageView<float> left_img(left_file);
+    num_cols = left_img.cols();
+    num_rows = left_img.rows();
+  }else{
+
+    BBox2i img_box; 
+    for (int col = 0; col < disp.cols(); col++) {
+      for (int row = 0; row < disp.rows(); row++) {
+        
+        DispPixelT dpix = disp(col, row);
+        if (!is_valid(dpix))
+          continue;
+
+        // De-warp (unalign) the left pixel
+        Vector2 left_pix  = left_trans->reverse ( Vector2(col, row) );
+        img_box.grow(left_pix);
+      }
+    }
+    num_cols = img_box.max().x();
+    num_rows = img_box.max().y();
+  }
+
+  vw_out() << "Unaligned disparity size: " << num_cols << ' ' << num_rows << std::endl;
+  ImageView<DispPixelT> unaligned_disp(num_cols, num_rows);
+  ImageView<int> count(num_cols, num_rows);
+  for (int col = 0; col < num_cols; col++) {
+    for (int row = 0; row < num_rows; row++) {
       unaligned_disp(col, row) = DispPixelT();
       unaligned_disp(col, row).invalidate();
       count(col, row) = 0; 
     }
   }
   
-  vw_out() << "Unwarping the disparity.\n";
+  vw_out() << "Unaligning the disparity.\n";
   
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
   double inc_amount = 1.0 / double(disp.cols());
@@ -273,8 +298,8 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
         for (int irow = -1; irow <= 1; irow++) {
           int lcol = round(left_pix[0]) + icol;
           int lrow = round(left_pix[1]) + irow;
-          if (lcol < 0 || lcol >= left_img.cols())  continue;
-          if (lrow < 0 || lrow >= left_img.rows())  continue;
+          if (lcol < 0 || lcol >= num_cols)  continue;
+          if (lrow < 0 || lrow >= num_rows)  continue;
           if (!is_valid(unaligned_disp(lcol, lrow))) unaligned_disp(lcol, lrow).validate();
           unaligned_disp(lcol, lrow).child() += dir;
           count(lcol, lrow)++;
@@ -763,24 +788,19 @@ void stereo_triangulation( string          const& output_prefix,
       disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
     }
 
-    std::string unalign_disp = asp::unwarped_disp_file(output_prefix,
-                                                       opt_vec[0].in_file1, 
-                                                       opt_vec[0].in_file2);
-    
-    // Pull matches from disparity. Highly experimental. 
+    // Create a disparity map with between the original unalinged images 
     if (stereo_settings().unalign_disparity) {
-      const bool is_map_projected = opt_vec[0].session->isMapProjected();
-      if (is_map_projected) 
-        vw_throw( ArgumentErr() << "Cannot unalign the disparity for mapprojected images.\n" );
+      std::string unalign_disp = asp::unwarped_disp_file(output_prefix,
+                                                         opt_vec[0].in_file1, 
+                                                         opt_vec[0].in_file2);
       unalign_disparity(opt_vec, disparity_maps, transforms, unalign_disp);
     }
-
+    
     std::string match_file = ip::match_filename(output_prefix + "-disp",
                                                 opt_vec[0].in_file1, 
                                                 opt_vec[0].in_file2);
 
     // Pull matches from disparity. Highly experimental.
-
     if (stereo_settings().num_matches_from_disparity > 0 && 
         stereo_settings().num_matches_from_disp_triplets > 0) {
       vw_throw( ArgumentErr() << "Cannot have both --num-matches-from-disparity and  "
@@ -824,13 +844,6 @@ void stereo_triangulation( string          const& output_prefix,
       return;
     }
 
-    // Need this off for oib
-    //if (stereo_settings().unalign_disparity || stereo_settings().num_matches_from_disparity > 0 ||
-    //    stereo_settings().num_matches_from_disp_triplets > 0){
-    //  vw_out() << "Add-on functionality finished. Will not triangulate.\n";
-    //  return;
-    //}
-    
     // Reload the cameras, loading the piecewise corrections for jitter.
     if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
 
