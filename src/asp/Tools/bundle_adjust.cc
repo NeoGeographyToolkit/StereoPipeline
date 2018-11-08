@@ -385,7 +385,7 @@ void compute_residuals(bool apply_loss_function,
                        size_t num_camera_params, size_t num_point_params,
                        std::vector<size_t> const& cam_residual_counts,
                        size_t num_gcp_residuals, 
-                                   std::vector<vw::Vector3> const& reference_vec,
+                       std::vector<vw::Vector3> const& reference_vec,
                        CameraRelationNetwork<JFeature> & crn,
                        ceres::Problem &problem,
                        std::vector<double> & residuals // output
@@ -426,7 +426,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
                          size_t num_camera_params, size_t num_point_params,
                          std::vector<size_t> const& cam_residual_counts,
                          size_t num_gcp_residuals, 
-                                           std::vector<vw::Vector3> const& reference_vec,
+                         std::vector<vw::Vector3> const& reference_vec,
                          CameraRelationNetwork<JFeature> & crn,
                          const double *points, const size_t num_points,
                          std::set<int>  const& outlier_xyz,
@@ -1061,9 +1061,8 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
   // form left to right image and known ground truth reference terrain.
   // This was only tested for local pinhole cameras.
   // Disparity must be created with stereo -e 3 with the
-  // options --enable-fill-holes --unalign-disparity.
-  // This will work with an even number of images/cameras.
-  // For images 2*i and 2*i+1 there must be one disparity.
+  // option --unalign-disparity. If there are n images,
+  // there must be n-1 disparities, from each image to the next.
   // The doc has more info in the bundle_adjust chapter.
   std::vector< ImageView<DispPixelT> > disp_vec;
   std::vector< ImageViewRef<DispPixelT> > interp_disp; 
@@ -1081,9 +1080,6 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     if (opt.disparity_list == "") 
       vw_throw( ArgumentErr() << "When using a reference terrain, must specify a list "
                 << "of disparities.\n");
-    if (num_cameras%2 != 0) 
-      vw_throw( ArgumentErr() << "A reference terrain can only be used with an even number "
-                << "of cameras.\n");
     if (opt.max_disp_error <= 0) 
       vw_throw( ArgumentErr() << "Must specify --max-disp-error in pixels as a positive value.\n");
 
@@ -1129,13 +1125,18 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
     std::istringstream is(opt.disparity_list);
     std::string disp_file;
     while (is >> disp_file) {
-      vw_out() << "Reading: " << disp_file << std::endl;
-      disp_vec.push_back(copy(DiskImageView<DispPixelT>(disp_file)));
+      if (disp_file != "none") {
+        vw_out() << "Reading: " << disp_file << std::endl;
+        disp_vec.push_back(copy(DiskImageView<DispPixelT>(disp_file)));
+      }else{
+        // Read in an empty disparity
+        disp_vec.push_back(ImageView<DispPixelT>());
+      }
       interp_disp.push_back(interpolate(disp_vec.back(),
                                         BilinearInterpolation(), ConstantEdgeExtension()));
     }
-    if (2*int(disp_vec.size()) != num_cameras)
-      vw_throw( ArgumentErr() << "Expecting one disparity for each pair of images.\n");
+    if (int(disp_vec.size()) != num_cameras - 1)
+      vw_throw( ArgumentErr() << "Expecting one less disparity than there are cameras.\n");
     
     std::vector<vw::BBox2i> image_boxes;
     for ( int icam = 0; icam < num_cameras; icam++){
@@ -1171,70 +1172,62 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
         }
       }
 
-      bool good_point = true;
-      Vector2 left_pred;
+      Vector2 left_pred, right_pred;
 
       // Iterate over the cameras, add a residual for each point and each camera pair.
-      // Camera 0 is paired with camera 1, camera 2 with camera 3, etc. 
-      for ( int icam = 0; icam < num_cameras; icam++ ) {
+      for (int icam = 0; icam < num_cameras - 1; icam++) {
 
-        if (icam%2 == 0) {
-          // Reset this for every pair of images
-          good_point = true; 
-        }
-
-        if (!good_point) continue; 
-          
         // Get pointers to the camera and point coordinates
-        double * camera = cameras + icam * num_camera_params;
+        double * left_camera = cameras + icam * num_camera_params;
         double * point  = &reference_xyz[0];
 
         // Project the current point into the current camera
         typename ModelT::camera_intr_vector_t cam_intr_vec;
         typename ModelT::point_vector_t       point_vec;
-        ba_model.concat_extrinsics_intrinsics(camera, intrinsics, cam_intr_vec);
+        ba_model.concat_extrinsics_intrinsics(left_camera, intrinsics, cam_intr_vec);
         for (size_t p = 0; p < point_vec.size(); p++) point_vec[p] = point[p];
-        Vector2 prediction, right_pred;
         try {
-          prediction = ba_model.cam_pixel(0, icam, cam_intr_vec, point_vec);
+          left_pred = ba_model.cam_pixel(0, icam, cam_intr_vec, point_vec);
         }catch(std::exception const& e){
-          good_point = false;
           continue;
         }
-
         // Check if the current point projects in the camera
-        if (!image_boxes[icam].contains(prediction)) {
-          good_point = false;
+        if (!image_boxes[icam].contains(left_pred)) {
           continue;
         }
 
-        if (icam%2 == 0) {
-          left_pred = prediction;
-          // Record where we projected in the left camera, and then switch to the right camera
+        // Do the same for the right camera
+        double * right_camera = cameras + (icam+1) * num_camera_params;
+        ba_model.concat_extrinsics_intrinsics(right_camera, intrinsics, cam_intr_vec);
+        for (size_t p = 0; p < point_vec.size(); p++) point_vec[p] = point[p];
+        try {
+          right_pred = ba_model.cam_pixel(0, icam + 1, cam_intr_vec, point_vec);
+        }catch(std::exception const& e){
           continue;
         }
-
-        if (icam%2 != 1)
-          vw_throw(ArgumentErr() << "Expecting an odd camera here.\n");
-
-        right_pred = prediction;
+        // Check if the current point projects in the camera
+        if (!image_boxes[icam+1].contains(right_pred)) {
+          continue;
+        }
         
         // Check for out of range, etc
-        if (!good_point)
-          continue;
         if (left_pred != left_pred) continue; // nan check
-        if (left_pred[0] < 0 || left_pred[0] > interp_disp[icam/2].cols() - 1 ) continue;
-        if (left_pred[1] < 0 || left_pred[1] > interp_disp[icam/2].rows() - 1 ) continue;
+        if (left_pred[0] < 0 || left_pred[0] > interp_disp[icam].cols() - 1) continue;
+        if (left_pred[1] < 0 || left_pred[1] > interp_disp[icam].rows() - 1) continue;
 
-        DispPixelT dispPix = interp_disp[icam/2](left_pred[0], left_pred[1]);
+        if (right_pred != right_pred) continue; // nan check
+        if (right_pred[0] < 0) continue;
+        if (right_pred[1] < 0) continue;
+
+        DispPixelT dispPix = interp_disp[icam](left_pred[0], left_pred[1]);
         if (!is_valid(dispPix))
           continue;
           
         Vector2 right_pix = left_pred + dispPix.child();
-        if (!image_boxes[icam].contains(right_pix)) 
+        if (!image_boxes[icam+1].contains(right_pix)) 
           continue;
 
-        if (right_pred != right_pred || norm_2(right_pix - right_pred) > opt.max_disp_error) {
+        if (right_pix != right_pix || norm_2(right_pix - right_pred) > opt.max_disp_error) {
           // Ignore pixels which are too far from where they should be before optimization
           continue;
         }
@@ -1244,10 +1237,9 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
         ceres::LossFunction* loss_function = get_loss_function(opt);
         
         // Call function to select the appropriate Ceres residual block to add.
-        add_residual_block(reference_xyz, interp_disp[icam/2], ba_model,
-                           icam-1, icam, // left icam and right icam
-                           cameras + (icam-1) * num_camera_params, // left cam
-                           cameras + icam * num_camera_params, // right cam
+        add_residual_block(reference_xyz, interp_disp[icam], ba_model,
+                           icam, icam+1, // left icam and right icam
+                           left_camera, right_camera, 
                            scaled_intrinsics_ptr,
                            opt.intrinsics_to_float,
                            loss_function, problem);
@@ -2319,7 +2311,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) points from the reference terrain to use.")
     ("disparity-list",        po::value(&opt.disparity_list)->default_value(""),
-                                 "The disparity files, one for each camera pair, to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two cameras, second for the next two cameras, etc.")
+                                 "The unaligned disparity files to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two images, second is for the second and third images, etc. If an image pair has no disparity file, use 'none'.")
     ("max-disp-error",             po::value(&opt.max_disp_error)->default_value(-1),
      "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),

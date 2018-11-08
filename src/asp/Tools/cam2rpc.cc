@@ -184,10 +184,12 @@ int main( int argc, char *argv[] ) {
                         opt.dem_file,
                         false) ); // Do not allow promotion from normal to map projected session
     
-    // If the session was above auto-guessed as isis, adjust for the fact
+    // If the session was passed in or guessed isis or rpc, adjust for the fact
     // that the isis .cub file also has camera info.
-    if ((session->name() == "isis" || session->name() == "isismapisis")
-          && opt.output_rpc.empty() ){
+    if ( opt.output_rpc.empty() &&
+         ((session->name() == "isis"         ||
+           session->name() == "isismapisis") ||
+          session->name()  == "rpc") ){
       // The user did not provide an output file. Then the camera
       // information is contained within the image file and what is in
       // the camera file is actually the output file.

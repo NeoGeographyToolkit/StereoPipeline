@@ -111,16 +111,16 @@ coordinates via the formula
 \[ y(undistorted) = \frac{P_2(x, y)}{Q_2(x, y)} \]
 
 The functions in the numerator and denominator are polynomials in $x$
-and $y$ with certain coefficients to be determined. The degree of
+and $y$ with certain coefficients. The degree of
 polynomials is 4. ASP also supports the similarly named RPC5 and RPC6
 models, when the degree is 5 and 6 respectively.
 
 RPC distortion models can be generated as approximations to other pre-existing
 models with the tool \texttt{convert\_pinhole\_model} (section \ref{convertpinholemodel}).
 
-This tool also creates polynomials to speed up the reverse operation, of
-going from undistorted to distorted pixels, and those polynomial coefficients are
-also saved as part of the model.
+This tool also creates RPC to speed up the reverse operation, of going
+from undistorted to distorted pixels, and those polynomial coefficients
+are also saved as part of the model.
 
 \end{itemize}
 

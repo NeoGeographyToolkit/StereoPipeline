@@ -437,6 +437,9 @@ def solveIntrinsics_Part1(options, jpegFolder, cameraFolder, navCameraFolder, pr
     rpcCalibFile = rpcCalibFile.replace(".tsai", "_INIT_RPC.tsai")
     logger.info("Will approximate camera model " + defaultCalibFile + " with " + \
                 options.outputModelType + " model " + rpcCalibFile)
+    if not os.path.exists(defaultCalibFile):
+        raise Exception('Cannot find file: ' + defaultCalibFile)
+    
     os.system("mkdir -p " + os.path.dirname(rpcCalibFile))
     cmd = "convert_pinhole_model --input-file " + firstImage + ' --camera-file '   +  \
           defaultCalibFile + ' --output-type ' + options.outputModelType           +  \
@@ -484,7 +487,6 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
     # Collect pc_align-ed cameras, unaligned disparities, and dense match files
     images = []
     cameras = []
-    dispFiles = []
     for it in range(numFiles/2):
         begFrame = options.startFrame + 2*it
         endFrame = begFrame + 1
@@ -509,14 +511,8 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
         images.append(img0);  images.append(img1)
         cameras.append(cam0); cameras.append(cam1)
 
-        # Unaligned disparity
-        stereoFolder = os.path.join(thisOutputFolder, 'stereo_pair_'+str(0))
-        currDispFiles = glob.glob(os.path.join(stereoFolder, '*unaligned-D.tif'))
-        if len(currDispFiles) != 1:
-            raise Exception("Expecting a single unaligned disparity file in " + stereoFolder)
-        dispFiles.append(currDispFiles[0])
-        
-    # Match files
+    # Match files and disp files
+    dispFiles = []
     matchFiles = []
     for it in range(numFiles-1):
         begFrame = options.startFrame + it
@@ -529,6 +525,11 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
         if len(currMatchFiles) != 1:
             raise Exception("Expecting a single dense match file in " + stereoFolder)
         matchFiles.append(currMatchFiles[0])
+
+        currDispFiles = glob.glob(os.path.join(stereoFolder, '*unaligned-D.tif'))
+        if len(currDispFiles) != 1:
+            raise Exception("Expecting a single unaligned disparity file in " + stereoFolder)
+        dispFiles.append(currDispFiles[0])
 
     # Create output directory for bundle adjustment and copy there the match files
     baDir = os.path.join(processedFolder, "bundle_intrinsics")
@@ -547,7 +548,7 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
             ' --reference-terrain ' + lidarFile + \
             ' --disparity-list "' + " ".join(dispFiles) + '"' + \
             ' --datum wgs84 -t nadirpinhole --create-pinhole-cameras --robust-threshold 2' + \
-            ' --camera-weight 1 --solve-intrinsics --csv-format ' + lidarCsvFormatString + \
+            ' --camera-weight 0 --solve-intrinsics --csv-format ' + lidarCsvFormatString + \
             ' --overlap-limit 1 --max-disp-error 10 --max-iterations 100 ' + \
             ' --parameter-tolerance 1e-12 -o ' + baPrefix
     logger.info(cmd)

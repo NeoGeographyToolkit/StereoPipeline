@@ -719,7 +719,7 @@ Outlier removal based on the disparity of interest points (difference between ri
 \texttt{-\/-max-num-reference-points} \\
 \texttt{\textit{integer(=100000000)}}   & Maximum number of (randomly picked) points from the reference terrain to use.\\ \hline
 
-\texttt{-\/-disparity-list arg} & The disparity files, one for each camera pair, to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two cameras, second for the next two cameras, etc. \\ \hline
+\texttt{-\/-disparity-list arg} & The unaligned disparity files to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two images, second is for the second and third images, etc. If an image pair has no disparity file, use 'none'. \\ \hline
 
 \texttt{-\/-max-disp-error \textit{double(=-1)}} & When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.\\ \hline
 
@@ -2346,6 +2346,8 @@ Usage:
   n_align <cloud files> -o <output prefix>
 \end{verbatim}
 
+This tool supports the same types of data on input and output as \texttt{pc\_align}. 
+
 Even for two clouds this algorithm is not the same as the ones that are
 part of \texttt{pc\_align}. This algorithm is expected to be more
 robust to outliers than the regular ICP in \texttt{pc\_align} since it
@@ -3235,8 +3237,13 @@ from the former to the latter models can be very convenient for performance reas
 
 Also, this tool can be used to convert a pinhole model to one with RPC
 lens distortion (chapter \ref{chapter:pinholemodels}), which is a model
-with many more coefficients, and later its coefficients can be optimized
-using bundle adjustment to refine the distortion coefficients (section \ref{floatingintrinsics}). 
+where distortion is expressed as a ratio of polynomials. The RPC lens
+distortion model has the advantage that both the forward and reverse
+distortion calculation are approximated using RPC, hence both of these
+operations are fast, which can provide a large speedup when running
+stereo and bundle adjustment. (This model also has many coefficients,
+which can help with solving for the unknown distortion, per section
+\ref{floatingintrinsics}.)
 
 Usage:
 \begin{verbatim}
