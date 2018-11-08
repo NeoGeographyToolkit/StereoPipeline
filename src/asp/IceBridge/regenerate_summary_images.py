@@ -20,7 +20,7 @@
 #  DEM and ORTHO browse images replaced.
 
 import os, sys, argparse, datetime, time, subprocess, logging, multiprocessing
-
+import traceback
 import os.path as P
 
 # The path to the ASP python files and tools
@@ -134,21 +134,23 @@ def submitBatchJobs(commandFileList, options, pbsLogFolder, run, logger):
     jobIDs = []
     for commandFile in commandFileList:
 
-        jobName    = ('%s%05d%s' % ('RS', index, baseName) )
+        jobName = ('%s%05d%s' % ('RS', index, baseName) )
 
         # Specify the range of lines in the file we want this node to execute
-        args = ('--command-file-path %s --start-frame None --stop-frame None --num-processes %d' % \
+        args = ('--command-file-path %s --start-frame -1 --stop-frame -1 --num-processes %d' % \
                 (commandFile, numProcesses))
 
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting summary regen job: ' + scriptPath + ' ' + args)
 
+        BATCH_PBS_QUEUE = 'normal'
         jobID = pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, maxHours, logger,
                                         options.minutesInDevelQueue,
                                         GROUP_ID,
-                                        options.nodeType, '/usr/bin/python2.7',
+                                        options.nodeType, '~/repo/python_env/bin/python',
                                         scriptPath + ' ' + args, logPrefix)
         jobIDs.append(jobID)
+        index += 1
 
     # Waiting on these jobs happens outside this function
     return (baseName, jobIDs)
@@ -163,6 +165,9 @@ def checkRequiredTools():
 
 def fetchTarball(louPath, localPath):
     '''Retrieve and unpack the desired tarball file from Lou'''
+
+    if os.path.exists(localPath):
+        return # Currently not checking that everything is there!
 
     cmd = 'shiftc --wait -d -r --verify --extract-tar lfe:' + louPath + ' ' + localPath
     print cmd
@@ -181,17 +186,61 @@ def getSummaryFileCommand(inFile, outFile, isOrtho):
        # Hillshade then downsample.
        tempPath = outFile + '_temp.tif'
        cmd = 'hillshade ' + inFile +' -o ' + tempPath
-       cmd += ('&& gdal_translate '+ tempPath +' '+ outFile+
+       cmd += (' && gdal_translate '+ tempPath +' '+ outFile+
               ' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"')
        cmd += ' && rm ' + tempPath
 
-    return cmd
+   return cmd
 
+def descendIfNeeded(folder):
+    '''If the input folder contains only a single folder, return
+       that contained folder.  Otherwise return the input folder.'''
+
+    files = os.listdir(folder)
+    if (len(files) == 1) and os.path.isdir(os.path.join(folder,files[0])):
+        return os.path.join(folder, files[0])
+    else:
+        return folder
+
+# TODO: Move to a shared file!
+def getUnpackedFiles(folder):
+    '''Find all the DEM or ORTHO files unpacked from their tarball.'''
+
+    # Dig down through the initial unpack folder
+    top_folder = descendIfNeeded(folder)
+
+    # Dig down through a subsequent unpack folder
+    possible_directories = ['tarAssembly', 'processed', 'camera', 'summary']
+    file_dir   = []
+    for d in possible_directories:
+        test_dir = os.path.join(top_folder, d)
+        if os.path.exists(test_dir):
+            file_dir = test_dir
+            break
+        test_dir = os.path.join(top_folder, d)
+        if os.path.exists(test_dir):
+            file_dir = test_dir
+            break
+
+    # Handle case where each file is buried in a subfolder
+    final_files = []
+    file_list = os.listdir(file_dir)
+    for f in file_list:
+        full_path = os.path.join(file_dir, f)
+        if os.path.isdir(full_path):
+            subfiles = os.listdir(full_path)
+            final_files.append(os.path.join(full_path, subfiles[0]))
+        else:
+            final_files.append(full_path)
+
+    return final_files
 
 def getMissingSummaryFiles(folder, summaryFolder, isOrtho):
     '''Return a list of input/output pairs of missing summary files.'''
 
-    inFiles      = os.listdir(folder)
+    print 'Looking for missing summary files for folder: ' + folder
+
+    inFiles      = getUnpackedFiles(folder)
     summaryFiles = os.listdir(summaryFolder)
 
     # Handle DEM and ORTHO browse images separately.
@@ -210,7 +259,6 @@ def getMissingSummaryFiles(folder, summaryFolder, isOrtho):
         frame = int(parts[1])
         summaryFrames[frame] = c
 
-
     # See if any input files are missing their summary frame
     missingSummaryList = []
     for f in inFiles:
@@ -219,26 +267,30 @@ def getMissingSummaryFiles(folder, summaryFolder, isOrtho):
         if ext != '.tif':
             continue
 
-        # TODO: Fix this!
-        parts = os.path.basename(f).split('_')
-        print parts
-        raise Exception('DEBUG')
-        frame = int(parts[3])
+        # TODO: This may break later!
+        fname = os.path.basename(f)
+        if fname[0] == 'F':
+            parts      = fname.split('_')
+            frameStart = int(parts[1])
+            frameEnd   = int(parts[2])
+        else: # AN_20141116/processed/batch_05962_05963_2/out-ortho.tif
+            parts = os.path.dirname(f).split('_')
+            frameStart = int(parts[-3])
+            frameEnd   = int(parts[-2])
 
         try:
-            summary = summaryFrames[frame]
-            continue
-        except KeyError:
+            summary = summaryFrames[frameStart]
+            continue # Summary file already exists.
 
-            # TODO: Fix this!
+        except KeyError:
             # Get the desired summary file name
             if isOrtho:
-                summaryName = f.replace('.tif', '.jpg')
+                summaryName = ('ortho_%05d_%05d_browse.tif' % (frameStart, frameEnd))
             else: # DEM
-                summaryName = f.replace('.tif', '_browse.tif')
+                summaryName = ('dem_%05d_%05d_browse.tif' % (frameStart, frameEnd))
+
             summaryPath = os.path.join(summaryFolder, summaryName)
-            inputPath   = os.path.join(folder, f)
-            missingSummaryList.append((inputPath, summaryPath))
+            missingSummaryList.append((f, summaryPath))
 
     return missingSummaryList
 
@@ -246,6 +298,9 @@ def writeCommandFiles(missingDemFiles, missingOrthoFiles, outputPrefix, chunkSiz
     '''Generate conversion commands for each missing summary file and
        divide them up into files of a fixed length.  Returns the list of
        command files that were written.'''
+
+    if (not missingDemFiles) and (not missingOrthoFiles):
+        return []
 
     # Open the first file
     fileCounter = 0
@@ -257,10 +312,7 @@ def writeCommandFiles(missingDemFiles, missingOrthoFiles, outputPrefix, chunkSiz
 
     # Add all the DEM commands
     for p in missingDemFiles:
-        # Generate command, then write to file.
-        cmd = getSummaryFileCommand(p[0], p[1], isOrtho=False)
-        handle.write(cmd + '\n')
-        cmdCounter += 1
+
         # If the file is too large, start a new file.
         if cmdCounter >= chunkSize:
             fileCounter += 1
@@ -270,11 +322,14 @@ def writeCommandFiles(missingDemFiles, missingOrthoFiles, outputPrefix, chunkSiz
             handle  = open(fname, 'w')
             commandFiles.append(fname)
 
-    # Add all the ORTHO commands
-    for p in missingOrthoFiles:
-        cmd = getSummaryFileCommand(p[0], p[1], isOrtho=True)
+        # Generate command, then write to file.
+        cmd = getSummaryFileCommand(p[0], p[1], isOrtho=False)
         handle.write(cmd + '\n')
         cmdCounter += 1
+ 
+    # Add all the ORTHO commands
+    for p in missingOrthoFiles:
+
         if cmdCounter >= chunkSize:
             fileCounter += 1
             cmdCounter = 0
@@ -282,6 +337,11 @@ def writeCommandFiles(missingDemFiles, missingOrthoFiles, outputPrefix, chunkSiz
             fname   = outputPrefix + str(fileCounter) + '.txt'
             handle  = open(fname, 'w')
             commandFiles.append(fname)
+
+        cmd = getSummaryFileCommand(p[0], p[1], isOrtho=True)
+        handle.write(cmd + '\n')
+        cmdCounter += 1
+
     handle.close()
 
     print 'Created ' + str(len(commandFiles)) + ' command files.'
@@ -332,6 +392,9 @@ def main(argsIn):
     if 'mfe' in host and options.nodeType != 'wes':
         raise Exception("From machine " + host + " can only launch on: wes")
 
+    # Make sure our paths will work when called from PBS
+    options.unpackDir = os.path.abspath(options.unpackDir)
+
     os.system('mkdir -p ' + options.unpackDir)
 
     # Figure out the run name
@@ -376,25 +439,22 @@ def main(argsIn):
       
         # Fetch and extract the tarball files from Lou
         
-        demTarballName      = os.path.basename(options.demTarball    )
-        orthoTarballName    = os.path.basename(options.orthoTarball  )
-        summaryTarballName  = os.path.basename(options.summaryTarball)
-        localDemTarball     = os.path.join(runFolder, demTarballName    )
-        localOrthoTarball   = os.path.join(runFolder, orthoTarballName  )
-        localSummaryTarball = os.path.join(runFolder, summaryTarballName)
-        localDemFolder     = 'TODO'
-        localOrthoFolder   = 'TODO'
-        localSummaryFolder = 'TODO'
+        #demTarballName      = os.path.basename(options.demTarball    )
+        #orthoTarballName    = os.path.basename(options.orthoTarball  )
+        #summaryTarballName  = os.path.basename(options.summaryTarball)
+        localDemFolder     = os.path.join(runFolder, 'dems'   )
+        localOrthoFolder   = os.path.join(runFolder, 'orthos' )
+        localSummaryFolder = os.path.join(runFolder, 'summary')
 
+        print 'Fetching and unpacking tarballs...'
+        fetchTarball(options.demTarball,     localDemFolder)
+        fetchTarball(options.orthoTarball,   localOrthoFolder)
+        fetchTarball(options.summaryTarball, localSummaryFolder)
 
-        # TODO: Verify where the files go!
-        fetchTarball(options.demTarball,     localDemTarball)
-        raise Exception('DEBUG')
-        fetchTarball(options.orthoTarball,   localOrthoTarball)
-        fetchTarball(options.summaryTarball, localSummaryTarball)
+        # If the summary tarball unpacked to []/summary/summary,
+        #  work with the lower level folder from now on.
+        localSummaryFolder = descendIfNeeded(localSummaryFolder)
 
-        
-        
         # Make a list of all input files that are missing their summary file, and
         #  the desired output path for that file.
         missingDemFiles   = getMissingSummaryFiles(localDemFolder,   localSummaryFolder, isOrtho=False)
@@ -402,14 +462,14 @@ def main(argsIn):
 
         # Divide this list into chunks and for each chunk generate a file containing all of
         #  the gdal_translate commands that need to be executed.
-
+        print 'Writing command files...'
         commandFileLength = getParallelParams(options.nodeType)[2]
         commandFilePrefix = os.path.join(runFolder, 'convert_commands_')
+        print 'Clearing existing command files.'
+        os.system('rm ' + commandFilePrefix + '*')
         commandFileList   = writeCommandFiles(missingDemFiles, missingOrthoFiles,
                                               commandFilePrefix, commandFileLength)
-
-        raise Exception('DEBUG')
-
+        #raise Exception('DEBUG')
 
         # Get the location to store the logs
         pbsLogFolder = run.getPbsLogFolder()
@@ -430,7 +490,7 @@ def main(argsIn):
         newMissingOrthoFiles = getMissingSummaryFiles(localOrthoFolder, localSummaryFolder, isOrtho=True )
 
         resultText = ('After regeneration, missing %d DEM summaries and %d ORTHO summaries' 
-                      % (len(newMissingDemFiles), len(newMissingOrthoFiles))
+                      % (len(newMissingDemFiles), len(newMissingOrthoFiles)))
         logger.info(resultText)
 
         runWasSuccess = ((not newMissingDemFiles) and (not newMissingOrthoFiles))
@@ -439,12 +499,12 @@ def main(argsIn):
 
         if runWasSuccess and (not options.skipArchiveSummary):
             start_time()
-            archive_functions.packAndSendSummaryFolder(run, summaryFolder, logger)
+            archive_functions.packAndSendSummaryFolder(run, localSummaryFolder, logger)
             stop_time("archive summary", logger)
 
 
     except Exception as e:
-        resultText = 'Caught exception: ' + str(e)
+        resultText = 'Caught exception: ' + str(e) + '\n' + traceback.format_exc()
         runWasSuccess = False
 
     # Send a summary email.
@@ -455,10 +515,11 @@ def main(argsIn):
     else:
         sendEmail(emailAddress, '"OIB summary regen failed', resultText)
 
-    if options.wipeProcessed:
-        processedFolder = run.getProcessFolder()
-        logger.info("Will delete: " + processedFolder)
-        os.system("rm -rf " + processedFolder)
+    # TODO: Add automated delete command!
+    #if options.wipeProcessed:
+    #    processedFolder = run.getProcessFolder()
+    #    logger.info("Will delete: " + processedFolder)
+    #    os.system("rm -rf " + processedFolder)
 
     logger.info('==== regenerate_summary_images script has finished for run: ' + str(run) + ' ====')
 

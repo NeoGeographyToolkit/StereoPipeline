@@ -519,8 +519,8 @@ def packAndSendLabels(run, logger):
     cwd = os.getcwd()
     os.chdir(run.parentFolder)
     
-    runFolder = str(run)   
-    relRunFolder = os.path.join(runFolder, os.path.basename(run.getLabelFolder)) 
+    runFolder = str(run)
+    relRunFolder = os.path.join(runFolder, os.path.basename(run.getLabelFolder())) 
     fileName = run.getLabelTarName()
     lfePath  = os.path.join(REMOTE_LABEL_FOLDER, fileName)
     

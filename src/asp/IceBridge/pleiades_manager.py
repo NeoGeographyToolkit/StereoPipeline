@@ -116,10 +116,10 @@ def getParallelParams(nodeType, task):
 
     # TODO: All guesses!
     if task == 'label':
-        if nodeType == 'san': return (16, 1, 350, 6)
-        if nodeType == 'ivy': return (30, 1, 400, 5)
-        if nodeType == 'bro': return (28, 1, 500, 4)
-        if nodeType == 'wes': return (12, 1, 200, 4)
+        if nodeType == 'san': return (3,  1, 350, 6)
+        if nodeType == 'ivy': return (6, 1, 400, 5)
+        if nodeType == 'bro': return (12, 1, 500, 4)
+        if nodeType == 'wes': return (3, 1, 200, 4)
 
 
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
