@@ -20,6 +20,7 @@
 
 #include <vw/Math/Vector.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
+#include <vw/FileIO/FileUtils.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <asp/Camera/RPCModel.h>
@@ -67,6 +68,12 @@ namespace asp {
   }
 
   RPCModel::RPCModel( std::string const& filename ) {
+    std::string ext = get_extension(filename);
+    if (ext == ".rpb") {
+      load_rpb_file(filename);
+      return;
+    }
+    
     boost::scoped_ptr<DiskImageResourceGDAL> s_ptr( new DiskImageResourceGDAL(filename) );
     initialize( s_ptr.get() );
   }
@@ -95,6 +102,92 @@ namespace asp {
     m_lonlatheight_offset(lonlatheight_offset),
     m_lonlatheight_scale(lonlatheight_scale) {}
     
+
+  void RPCModel::load_rpb_file( std::string const& filename) {
+    //vw_out() << "Reading RPC model from RPB file, defaulting to WGS84 datum.\n";
+    m_datum.set_well_known_datum("WGS84");
+    std::ifstream f(filename.c_str());
+    
+    std::string line;
+    std::vector<std::string> tokens;
+    bool lineNumCoeffs = false,
+         lineDenCoeffs = false,
+         sampNumCoeffs = false,
+         sampDenCoeffs = false;
+    int coeff_index = 0;
+
+    // Read through each line in the file    
+    while (std::getline(f, line)) {
+      
+      try {
+        // Break up the line
+        boost::split( tokens, line, boost::is_any_of("=,;") );
+      
+        // Parse keywords
+        if (line.find("lineOffset") != std::string::npos)
+          m_xy_offset[1] = atof(tokens[1].c_str());
+        if (line.find("sampOffset") != std::string::npos)
+          m_xy_offset[0] = atof(tokens[1].c_str());
+        if (line.find("latOffset") != std::string::npos)
+          m_lonlatheight_offset[1] = atof(tokens[1].c_str());
+        if (line.find("longOffset") != std::string::npos)
+          m_lonlatheight_offset[0] = atof(tokens[1].c_str());
+        if (line.find("heightOffset") != std::string::npos)
+          m_lonlatheight_offset[2] = atof(tokens[1].c_str());
+        if (line.find("lineScale") != std::string::npos)
+          m_xy_scale[1] = atof(tokens[1].c_str());
+        if (line.find("sampScale") != std::string::npos)
+          m_xy_scale[0] = atof(tokens[1].c_str());        
+        if (line.find("latScale") != std::string::npos)
+          m_lonlatheight_scale[1] = atof(tokens[1].c_str());
+        if (line.find("longScale") != std::string::npos)
+          m_lonlatheight_scale[0] = atof(tokens[1].c_str());
+        if (line.find("heightScale") != std::string::npos)
+          m_lonlatheight_scale[2] = atof(tokens[1].c_str());
+
+        // Handle the RPC coefficients.
+        if (lineNumCoeffs) {
+          m_line_num_coeff[coeff_index] = atof(tokens[0].c_str());
+          ++coeff_index;
+        }
+        if (lineDenCoeffs) {
+          m_line_den_coeff[coeff_index] = atof(tokens[0].c_str());
+          ++coeff_index;
+        }
+        if (sampNumCoeffs) {
+          m_sample_num_coeff[coeff_index] = atof(tokens[0].c_str());
+          ++coeff_index;
+        }
+        if (sampDenCoeffs) {
+          m_sample_den_coeff[coeff_index] = atof(tokens[0].c_str());
+          ++coeff_index;
+        }
+
+        // Start of a coefficient sequence
+        if (line.find("lineNumCoef") != std::string::npos)
+          lineNumCoeffs = true;
+        if (line.find("lineDenCoef") != std::string::npos)
+          lineDenCoeffs = true;
+        if (line.find("sampNumCoef") != std::string::npos)
+          sampNumCoeffs = true;
+        if (line.find("sampDenCoef") != std::string::npos)
+          sampDenCoeffs = true;        
+      
+        // Done reading a coefficient sequence.
+        if (line.find(")") != std::string::npos) {
+          lineNumCoeffs = false;
+          lineDenCoeffs = false;
+          sampNumCoeffs = false;
+          sampDenCoeffs = false;
+          coeff_index = 0;
+        }
+      } catch(...) {
+        vw_throw( ArgumentErr() << "Error reading file " << filename
+                                << ", line = "  << line);
+      }
+    } // End loop through lines.
+    f.close();
+  }
 
   // All of these implementations are largely inspired by the GDAL
   // code. We don't use the GDAL code unfortunately because they don't

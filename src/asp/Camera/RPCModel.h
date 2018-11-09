@@ -56,7 +56,9 @@ namespace asp {
 
     typedef vw::Vector<double,20> CoeffVec;
 
+    /// Construct from a GDAL image or an .RPB file.
     RPCModel( std::string const& filename );
+    
     RPCModel( vw::DiskImageResourceGDAL* resource );
     RPCModel( vw::cartography::Datum const& datum,
               CoeffVec    const& line_num_coeff,
@@ -70,6 +72,9 @@ namespace asp {
 
     virtual std::string type() const { return "RPC"; }
     virtual ~RPCModel() {}
+
+    /// Populate this object from a .RPB file.
+    void load_rpb_file( std::string const& filename);
 
     // Standard Access Methods. The concept of camera_center does not
     // apply well to RPC, we just return an arbitrary point on the ray.
@@ -136,7 +141,6 @@ namespace asp {
     vw::Vector3 m_lonlatheight_scale;
 
     void initialize( vw::DiskImageResourceGDAL* resource );
-
   };
 
   std::ostream& operator<<(std::ostream& os, const RPCModel& rpc);

@@ -50,7 +50,7 @@ namespace fs = boost::filesystem;
 bool asp::has_cam_extension( std::string const& input ) {
   std::string ext = get_extension(input);
   if ( has_pinhole_extension(input) ||
-      ext == ".cub" || ext == ".xml" || ext == ".dim" )
+      ext == ".cub" || ext == ".xml" || ext == ".dim" || ext == ".rpb" )
     return true;
   return false;
 }
