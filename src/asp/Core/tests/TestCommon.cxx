@@ -22,6 +22,21 @@
 using namespace vw;
 using namespace asp;
 
+TEST( Common, separate_images_from_cameras_rpb ) {
+
+  std::vector<std::string> inputs, images, cameras;
+  bool ensure_equal_sizes = true;
+
+  inputs.push_back("1220996672.27391028_sc00110_c1_PAN.tiff");
+  inputs.push_back("1220996702.11131644_sc00110_c1_PAN.tiff");
+  inputs.push_back("1220996672.27391028_sc00110_c1_PAN.RPB");
+  inputs.push_back("1220996702.11131644_sc00110_c1_PAN.RPB");
+
+  EXPECT_NO_THROW(separate_images_from_cameras(inputs, images, cameras, ensure_equal_sizes));
+  EXPECT_EQ(2, images.size ());
+  EXPECT_EQ(2, cameras.size());
+}
+
 TEST( Common, StereoMultiCmdCheck ) {
 
   // Init a georef, the numbers are pretty arbitrary, it just must be valid

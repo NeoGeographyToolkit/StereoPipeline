@@ -120,9 +120,9 @@ asp::get_files_with_ext( std::vector<std::string>& files, std::string const& ext
 // Given a list of images/cameras, put the images and the cameras
 // in separate vectors.
 void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
-				       std::vector<std::string>      & images,
+                                       std::vector<std::string>      & images,
                                        std::vector<std::string>      & cameras,
-				       bool ensure_equal_sizes){
+                                       bool ensure_equal_sizes){
 
   // There are N images and possibly N camera paths.
   // There are several situations:
