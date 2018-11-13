@@ -302,280 +302,6 @@ struct BaPinholeError {
   int m_num_parameters;
 };
 
-/// A ceres cost function. Here we float two pinhole camera's
-/// intrinsic and extrinsic parameters. We take as input a reference
-/// xyz point and a disparity from left to right image. The
-/// error metric is the following: The reference xyz point is projected in the
-/// left image. It is mapped via the disparity to the right
-/// image. There, the residual error is the difference between that
-/// pixel and the pixel obtained by projecting the xyz point
-/// straight into the right image.
-struct BaDispXyzError {
-  BaDispXyzError(Vector3 const& reference_xyz,
-                 ImageViewRef<DispPixelT> const& interp_disp,
-                 BAPinholeModel const& ba_model, size_t left_icam,
-                 size_t right_icam, int num_parameters)
-      : m_reference_xyz(reference_xyz),
-        m_interp_disp(interp_disp),
-        m_ba_model(ba_model),
-        m_left_icam(left_icam),
-        m_right_icam(right_icam),
-        m_num_parameters(num_parameters) {}
-
-  // Adaptor to work with ceres::DynamicCostFunctions.
-  bool operator()(double const* const* parameters, double* residuals) const {
-    VW_ASSERT(m_num_parameters >= 2,
-              ArgumentErr()
-                  << "Require at least parameters for camera and point.");
-    const double* const left_camera_ptr = parameters[0];
-    const double* const right_camera_ptr = parameters[1];
-    const double* const focal_ptr =
-        m_num_parameters >= 3 ? parameters[2] : NULL;
-    const double* const center_ptr =
-        m_num_parameters >= 4 ? parameters[3] : NULL;
-    const double* const distortion_ptr =
-        m_num_parameters >= 5 ? parameters[4] : NULL;
-    return Evaluation(left_camera_ptr, right_camera_ptr, focal_ptr, center_ptr,
-                      distortion_ptr, residuals);
-  }
-
-  /// Compute residuals of observing this point with these camera parameters
-  bool Evaluation(const double * const left_camera,
-                  const double * const right_camera,
-                  const double * const scaled_focal_length,
-                  const double * const scaled_optical_center,
-                  const double * const scaled_distortion_intrinsics,
-                  double       * residuals) const {
-    try{
-      int num_cameras = m_ba_model.num_cameras();
-      VW_ASSERT(int(m_left_icam) < num_cameras, ArgumentErr()
-                << "Out of bounds in the number of cameras");
-      VW_ASSERT(int(m_right_icam) < num_cameras, ArgumentErr()
-                << "Out of bounds in the number of cameras");
-      
-      // Copy the input data to structures expected by the BA model
-      BAPinholeModel::camera_intr_vector_t left_cam_intr_vec, right_cam_intr_vec;
-      BAPinholeModel::point_vector_t       point_vec;
-
-      m_ba_model.concat_extrinsics_intrinsics(left_camera,
-                                              scaled_focal_length,
-                                              scaled_optical_center,
-                                              scaled_distortion_intrinsics,
-                                              left_cam_intr_vec);
-      m_ba_model.concat_extrinsics_intrinsics(right_camera,
-                                              scaled_focal_length, scaled_optical_center,
-                                              scaled_distortion_intrinsics,
-                                              right_cam_intr_vec);
-      
-      VW_ASSERT(m_reference_xyz.size() == point_vec.size(), ArgumentErr()
-                << "Inconsistency in point size.");
-            
-      for (size_t p = 0; p < point_vec.size(); p++)
-        point_vec[p] = m_reference_xyz[p];
-
-      // Original intrinsics
-      BAPinholeModel::intrinsic_vector_t orig_intrinsics = m_ba_model.get_intrinsics();
-      size_t ncp = BAPinholeModel::camera_params_n;
-
-      if (!m_ba_model.are_intrinsics_constant()) {
-        if (orig_intrinsics.size() + ncp != left_cam_intr_vec.size()) 
-          vw_throw(LogicErr() << "Wrong number of intrinsics!");
-      }else{
-        if (ncp != left_cam_intr_vec.size()) 
-          vw_throw(LogicErr() << "Wrong number of intrinsics!");
-      }
-      
-      // So far we had scaled intrinsics, very close to 1. Multiply them
-      // by the original intrinsics, to get the actual intrinsics. 
-      for (size_t intrIter = ncp; intrIter < left_cam_intr_vec.size(); intrIter++) {
-        left_cam_intr_vec[intrIter]  *= orig_intrinsics[intrIter - ncp];
-        right_cam_intr_vec[intrIter] *= orig_intrinsics[intrIter - ncp];
-      }
-      
-      // Project the current point into the current camera
-      Vector2 left_prediction = m_ba_model.cam_pixel(0, m_left_icam,
-                                                     left_cam_intr_vec, point_vec);
-      Vector2 right_prediction = m_ba_model.cam_pixel(0, m_right_icam,
-                                                      right_cam_intr_vec, point_vec);
-
-      bool good_ans = true;
-      if (left_prediction[0] < 0 || left_prediction[0] > m_interp_disp.cols()-1 ||
-          left_prediction[1] < 0 || left_prediction[1] > m_interp_disp.rows()-1) {
-        good_ans = false;
-      }else{
-
-        DispPixelT dispPix = m_interp_disp(left_prediction[0], left_prediction[1]);
-        if (!is_valid(dispPix)) {
-          good_ans = false;
-        }else{
-          Vector2 right_prediction_from_disp = left_prediction + dispPix.child();
-          residuals[0] = right_prediction_from_disp[0] - right_prediction [0];
-          residuals[1] = right_prediction_from_disp[1] - right_prediction [1];
-        }
-      }
-
-      // TODO: Think more of what to do below. The hope is that the robust cost
-      // function will take care of big residuals graciously.
-      if (!good_ans) {
-        // Failed to find the residuals
-        residuals[0] = g_max_disp_error;
-        residuals[1] = g_max_disp_error;
-        return true;
-      }
-
-    } catch (const camera::PointToPixelErr& e) {
-      // Failed to project into the camera
-      residuals[0] = g_max_disp_error;
-      residuals[1] = g_max_disp_error;
-      return true;
-    }
-    return true;
-  }
-
-  // Factory to hide the construction of the CostFunction object from
-  // the client code.
-  static ceres::CostFunction* Create(
-      Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
-      BAPinholeModel const& ba_model, size_t left_icam, size_t right_icam) {
-    const int nob = PIXEL_SIZE;  // Num observation elements: Column, row
-    const int ncp = BAPinholeModel::camera_params_n;
-    const int nf  = BAPinholeModel::focal_length_params_n;
-    const int nc  = BAPinholeModel::optical_center_params_n;
-    const int num_intrinsics = ba_model.num_intrinsic_params();
-
-    // DynamicNumericDiffCostFunction is a little new. It doesn't tell the cost
-    // function how many parameters are available. So here we are calculating
-    // it before hand to tell the cost function.
-    static const int kFocalLengthAndPrincipalPoint = 3;
-    int num_parameters = 2;
-    if (num_intrinsics > 0 && num_intrinsics <= kFocalLengthAndPrincipalPoint) {
-      num_parameters += 2;
-    } else if (num_intrinsics > kFocalLengthAndPrincipalPoint) {
-      num_parameters += 3;
-    }
-
-    ceres::DynamicNumericDiffCostFunction<BaDispXyzError>* cost_function =
-        new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
-            new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam,
-                               right_icam, num_parameters));
-    cost_function->SetNumResiduals(nob);
-    cost_function->AddParameterBlock(ncp);
-    cost_function->AddParameterBlock(ncp);
-
-    if (num_intrinsics == 0) {
-      // This is the special case that we are not solving camera intrinsics.
-      return cost_function;
-    }
-
-    cost_function->AddParameterBlock(nf);
-    cost_function->AddParameterBlock(nc);
-
-    if (num_intrinsics < kFocalLengthAndPrincipalPoint) {
-      vw_throw(LogicErr()
-               << "bundle_adjust.cc not set up for 1 or 2 intrinsics params!");
-    } else if (num_intrinsics == kFocalLengthAndPrincipalPoint) {
-      // Early exit if we want to solve only for focal length and optical
-      // center.
-      return cost_function;
-    }
-
-    // Larger intrinsics also mean we are solving for lens distortion. We
-    // support a variable number of parameters here.
-    cost_function->AddParameterBlock(num_intrinsics -
-                                     kFocalLengthAndPrincipalPoint);
-    return cost_function;
-  }  // End function Create
-
-  Vector3 m_reference_xyz;
-  ImageViewRef<DispPixelT> const& m_interp_disp;
-  BAPinholeModel const& m_ba_model;
-  size_t m_left_icam, m_right_icam;
-  int m_num_parameters;
-};
-
-// Add residual block for the error using reference xyz
-// This one does nothing, as the functionality is implemented only for pinhole models
-template<class ModelT>
-void add_residual_block(Vector3 const& reference_xyz,
-                        ImageViewRef<DispPixelT> const& interp_disp, 
-                        ModelT & ba_model,
-                        size_t left_icam, size_t right_icam,
-                        double * left_camera, double * right_camera,
-                        double * scaled_intrinsics,
-                        std::set<std::string> const& intrinsics_to_float,
-                        ceres::LossFunction* loss_function,
-                        ceres::Problem & problem){
-}
-
-// Add residual block for the error using reference xyz for pinhole
-template<>
-void add_residual_block<BAPinholeModel>(Vector3 const& reference_xyz,
-                                        ImageViewRef<DispPixelT> const& interp_disp, 
-                                        BAPinholeModel & ba_model,
-                                        size_t left_icam, size_t right_icam,
-                                        double * left_camera, double * right_camera,
-                                        double * scaled_intrinsics,
-                                        std::set<std::string> const& intrinsics_to_float,
-                                        ceres::LossFunction* loss_function,
-                                        ceres::Problem & problem){
-
-  ceres::CostFunction* cost_function =
-    BaDispXyzError::Create(reference_xyz, interp_disp, ba_model, left_icam, right_icam);
-
-    // If the intrinsics are constant, do not even include them in the optimization
-  if (ba_model.are_intrinsics_constant()) {
-    problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera);
-  } else {
-
-    // We will float some or more of the intrinsics
-
-    int nf = BAPinholeModel::focal_length_params_n;
-    int nc = BAPinholeModel::optical_center_params_n;
-
-    const int num_distortion_params = ba_model.num_distortion_params();
-    if (num_distortion_params == 0) 
-      problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera,
-                               scaled_intrinsics,          // focal length
-                               scaled_intrinsics + nf      // optical center
-                               );
-    else{
-      problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera,
-                               scaled_intrinsics,          // focal length      (1 param)
-                               scaled_intrinsics + nf,     // optical center    (2 params)
-                               scaled_intrinsics + nf + nc // distortion params (all else)
-                               );
-    }
-    
-    // See if to float only certain intrinsics
-    if (!intrinsics_to_float.empty()) {
-
-      if (intrinsics_to_float.find("focal_length") == intrinsics_to_float.end()) {
-        //vw_out() << "Will not float focal length.\n";
-        problem.SetParameterBlockConstant(scaled_intrinsics);
-      }else{
-        //vw_out() << "Will float focal length.\n";
-      }
-
-      if (intrinsics_to_float.find("optical_center") == intrinsics_to_float.end()) {
-        //vw_out() << "Will not float optical center.\n";
-        problem.SetParameterBlockConstant(scaled_intrinsics + nf);
-      }else{
-        //vw_out() << "Will float optical center.\n";
-      }
-
-      if (intrinsics_to_float.find("distortion_params") == intrinsics_to_float.end()) {
-        //vw_out() << "Will not float distortion parameters.\n";
-        if (num_distortion_params > 0)
-          problem.SetParameterBlockConstant(scaled_intrinsics + nf + nc);
-      }else{
-        //vw_out() << "Will float distortion parameters.\n";
-      }
-      
-    } 
-    
-  } // end dealing with intrinsics
-  
-}
 
 /// A ceres cost function. The residual is the difference between the
 /// observed 3D point and the current (floating) 3D point, normalized by
@@ -733,5 +459,196 @@ struct RotTransError {
   CamVecT m_orig_cam;
   double m_rotation_weight, m_translation_weight;
 };
+
+
+/// A ceres cost function. Here we float two pinhole camera's
+/// intrinsic and extrinsic parameters. We take as input a reference
+/// xyz point and a disparity from left to right image. The
+/// error metric is the following: The reference xyz point is projected in the
+/// left image. It is mapped via the disparity to the right
+/// image. There, the residual error is the difference between that
+/// pixel and the pixel obtained by projecting the xyz point
+/// straight into the right image.
+struct BaDispXyzError {
+  BaDispXyzError(Vector3 const& reference_xyz,
+                 ImageViewRef<DispPixelT> const& interp_disp,
+                 BAPinholeModel const& ba_model, size_t left_icam,
+                 size_t right_icam, int num_parameters)
+      : m_reference_xyz(reference_xyz),
+        m_interp_disp(interp_disp),
+        m_ba_model(ba_model),
+        m_left_icam(left_icam),
+        m_right_icam(right_icam),
+        m_num_parameters(num_parameters) {}
+
+  // Adaptor to work with ceres::DynamicCostFunctions.
+  bool operator()(double const* const* parameters, double* residuals) const {
+    VW_ASSERT(m_num_parameters >= 2,
+              ArgumentErr()
+                  << "Require at least parameters for camera and point.");
+    const double* const left_camera_ptr  = parameters[0];
+    const double* const right_camera_ptr = parameters[1];
+    const double* const focal_ptr =
+        m_num_parameters >= 3 ? parameters[2] : NULL;
+    const double* const center_ptr =
+        m_num_parameters >= 4 ? parameters[3] : NULL;
+    const double* const distortion_ptr =
+        m_num_parameters >= 5 ? parameters[4] : NULL;
+    return Evaluation(left_camera_ptr, right_camera_ptr, focal_ptr, center_ptr,
+                      distortion_ptr, residuals);
+  }
+
+  /// Compute residuals of observing this point with these camera parameters
+  bool Evaluation(const double * const left_camera,
+                  const double * const right_camera,
+                  const double * const scaled_focal_length,
+                  const double * const scaled_optical_center,
+                  const double * const scaled_distortion_intrinsics,
+                  double       * residuals) const {
+    try{
+      int num_cameras = m_ba_model.num_cameras();
+      VW_ASSERT(int(m_left_icam) < num_cameras, ArgumentErr()
+                << "Out of bounds in the number of cameras");
+      VW_ASSERT(int(m_right_icam) < num_cameras, ArgumentErr()
+                << "Out of bounds in the number of cameras");
+      
+      // Copy the input data to structures expected by the BA model
+      BAPinholeModel::camera_intr_vector_t left_cam_intr_vec, right_cam_intr_vec;
+      BAPinholeModel::point_vector_t       point_vec;
+
+      m_ba_model.concat_extrinsics_intrinsics(left_camera,
+                                              scaled_focal_length,
+                                              scaled_optical_center,
+                                              scaled_distortion_intrinsics,
+                                              left_cam_intr_vec);
+      m_ba_model.concat_extrinsics_intrinsics(right_camera,
+                                              scaled_focal_length, scaled_optical_center,
+                                              scaled_distortion_intrinsics,
+                                              right_cam_intr_vec);
+      
+      VW_ASSERT(m_reference_xyz.size() == point_vec.size(), ArgumentErr()
+                << "Inconsistency in point size.");
+            
+      for (size_t p = 0; p < point_vec.size(); p++)
+        point_vec[p] = m_reference_xyz[p];
+
+      // Original intrinsics
+      BAPinholeModel::intrinsic_vector_t orig_intrinsics = m_ba_model.get_intrinsics();
+      size_t ncp = BAPinholeModel::camera_params_n;
+
+      if (!m_ba_model.are_intrinsics_constant()) {
+        if (orig_intrinsics.size() + ncp != left_cam_intr_vec.size()) 
+          vw_throw(LogicErr() << "Wrong number of intrinsics!");
+      }else{
+        if (ncp != left_cam_intr_vec.size()) 
+          vw_throw(LogicErr() << "Wrong number of intrinsics!");
+      }
+      
+      // So far we had scaled intrinsics, very close to 1. Multiply them
+      // by the original intrinsics, to get the actual intrinsics. 
+      for (size_t intrIter = ncp; intrIter < left_cam_intr_vec.size(); intrIter++) {
+        left_cam_intr_vec[intrIter]  *= orig_intrinsics[intrIter - ncp];
+        right_cam_intr_vec[intrIter] *= orig_intrinsics[intrIter - ncp];
+      }
+      
+      // Project the current point into the current camera
+      Vector2 left_prediction = m_ba_model.cam_pixel(0, m_left_icam,
+                                                     left_cam_intr_vec, point_vec);
+      Vector2 right_prediction = m_ba_model.cam_pixel(0, m_right_icam,
+                                                      right_cam_intr_vec, point_vec);
+
+      bool good_ans = true;
+      if (!m_interp_disp.pixel_in_bounds(left_prediction)) {
+        good_ans = false;
+      }else{
+        DispPixelT dispPix = m_interp_disp(left_prediction[0], left_prediction[1]);
+        if (!is_valid(dispPix)) {
+          good_ans = false;
+        }else{
+          Vector2 right_prediction_from_disp = left_prediction + dispPix.child();
+          residuals[0] = right_prediction_from_disp[0] - right_prediction [0];
+          residuals[1] = right_prediction_from_disp[1] - right_prediction [1];
+        }
+      }
+
+      // TODO: Think more of what to do below. The hope is that the robust cost
+      // function will take care of big residuals graciously.
+      if (!good_ans) {
+        // Failed to find the residuals
+        residuals[0] = g_max_disp_error;
+        residuals[1] = g_max_disp_error;
+        return true;
+      }
+
+    } catch (const camera::PointToPixelErr& e) {
+      // Failed to project into the camera
+      residuals[0] = g_max_disp_error;
+      residuals[1] = g_max_disp_error;
+      return true;
+    }
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(
+      Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
+      BAPinholeModel const& ba_model, size_t left_icam, size_t right_icam) {
+    const int nob = PIXEL_SIZE;  // Num observation elements: Column, row
+    const int ncp = BAPinholeModel::camera_params_n;
+    const int nf  = BAPinholeModel::focal_length_params_n;
+    const int nc  = BAPinholeModel::optical_center_params_n;
+    const int num_intrinsics = ba_model.num_intrinsic_params();
+
+    // DynamicNumericDiffCostFunction is a little new. It doesn't tell the cost
+    // function how many parameters are available. So here we are calculating
+    // it before hand to tell the cost function.
+    static const int kFocalLengthAndPrincipalPoint = 3;
+    int num_parameters = 2;
+    if (num_intrinsics > 0 && num_intrinsics <= kFocalLengthAndPrincipalPoint) {
+      num_parameters += 2;
+    } else if (num_intrinsics > kFocalLengthAndPrincipalPoint) {
+      num_parameters += 3;
+    }
+
+    ceres::DynamicNumericDiffCostFunction<BaDispXyzError>* cost_function =
+        new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
+            new BaDispXyzError(reference_xyz, interp_disp, ba_model, left_icam,
+                               right_icam, num_parameters));
+    cost_function->SetNumResiduals(nob);
+    cost_function->AddParameterBlock(ncp);
+    cost_function->AddParameterBlock(ncp);
+
+    if (num_intrinsics == 0) {
+      // This is the special case that we are not solving camera intrinsics.
+      return cost_function;
+    }
+
+    cost_function->AddParameterBlock(nf);
+    cost_function->AddParameterBlock(nc);
+
+    if (num_intrinsics < kFocalLengthAndPrincipalPoint) {
+      vw_throw(LogicErr()
+               << "bundle_adjust.cc not set up for 1 or 2 intrinsics params!");
+    } else if (num_intrinsics == kFocalLengthAndPrincipalPoint) {
+      // Early exit if we want to solve only for focal length and optical
+      // center.
+      return cost_function;
+    }
+
+    // Larger intrinsics also mean we are solving for lens distortion. We
+    // support a variable number of parameters here.
+    cost_function->AddParameterBlock(num_intrinsics -
+                                     kFocalLengthAndPrincipalPoint);
+    return cost_function;
+  }  // End function Create
+
+  Vector3 m_reference_xyz;
+  ImageViewRef<DispPixelT> const& m_interp_disp;
+  BAPinholeModel const& m_ba_model;
+  size_t m_left_icam, m_right_icam;
+  int m_num_parameters;
+};
+
 
 #endif // __ASP_TOOLS_BUNDLEADJUST_COST_FUNCTIONS_H__

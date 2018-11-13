@@ -1160,10 +1160,11 @@ bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
   resize(num_images);
 
   ControlNetwork cnet("gcp");
+  cnet.get_image_list() = imageNames;
   std::vector<std::string> gcp_files;
   gcp_files.push_back(gcpPath);
   vw::cartography::Datum datum; // the actual datum does not matter here
-  add_ground_control_points(cnet, imageNames, gcp_files, datum);
+  add_ground_control_points(cnet, gcp_files, datum);
 
   CameraRelationNetwork<JFeature> crn;
   crn.read_controlnetwork(cnet);

@@ -27,6 +27,7 @@
 
 #include <vw/BundleAdjustment/ModelBase.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
+#include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/BundleAdjustment/AdjustSparse.h>
 #include <vw/BundleAdjustment/AdjustRobustSparse.h>
@@ -35,6 +36,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>
 #include <vw/Cartography/Datum.h>
+#include <vw/FileIO/KML.h>
 
 #include <stdlib.h>
 #include <iostream>
@@ -42,6 +44,214 @@
 #include <asp/Core/BundleAdjustUtils.h>
 
 // TODO: Move these classes to another file so they can be cleaned up properly!
+
+std::string UNSPECIFIED_DATUM = "unspecified_datum";
+
+/// Class to store parameters as they are being bundle adjusted.
+class BAParamStorage {
+public:
+
+  BAParamStorage(int num_points, int num_cameras,
+                 int params_per_point, int params_per_camera,
+                 int num_intrinsic_params)
+    : m_points_vec        (num_points *params_per_point,  0),
+      m_cameras_vec       (num_cameras*params_per_camera, 0),
+      m_intrinsics_vec    (num_intrinsic_params, 0),
+      m_outlier_points_vec(num_points, false),
+      m_num_points        (num_points),
+      m_num_cameras       (num_cameras),
+      m_params_per_point  (params_per_point),
+      m_params_per_camera (params_per_camera)
+  { }
+
+  // Copy constructor
+  BAParamStorage(BAParamStorage const& other)
+    : m_points_vec        (other.m_points_vec.size()        ),
+      m_cameras_vec       (other.m_cameras_vec.size()       ),
+      m_intrinsics_vec    (other.m_intrinsics_vec.size()    ),
+      m_outlier_points_vec(other.m_outlier_points_vec.size()),
+      m_num_points        (other.m_num_points),
+      m_num_cameras       (other.m_num_cameras),
+      m_params_per_point  (other.m_params_per_point),
+      m_params_per_camera (other.m_params_per_camera) {
+    copy_points    (other);
+    copy_cameras   (other);
+    copy_intrinsics(other);
+    copy_outliers  (other);
+  }
+
+  // When using the copy functions, the sizes must match!
+
+  /// Copy one set of values from another instance.
+  void copy_points(BAParamStorage const& other) {
+    for (size_t i=0; i<m_points_vec.size(); ++i)
+      m_points_vec[i] = other.m_points_vec[i];
+  }
+  void copy_cameras(BAParamStorage const& other) {
+    for (size_t i=0; i<m_cameras_vec.size(); ++i)
+      m_cameras_vec[i] = other.m_cameras_vec[i];
+  }
+  void copy_intrinsics(BAParamStorage const& other) {
+    for (size_t i=0; i<m_intrinsics_vec.size(); ++i)
+      m_intrinsics_vec[i] = other.m_intrinsics_vec[i];
+  }
+  void copy_outliers(BAParamStorage const& other) {
+    for (size_t i=0; i<m_outlier_points_vec.size(); ++i)
+      m_outlier_points_vec[i] = other.m_outlier_points_vec[i];
+  }
+  
+  
+  int num_points       () const {return m_num_points; }
+  int num_cameras      () const {return m_num_cameras;}
+  int num_intrinsics   () const {return m_intrinsics_vec.size();}
+  int params_per_point () const {return m_params_per_point;}
+  int params_per_camera() const {return m_params_per_camera;}
+
+  std::vector<double> & get_point_vector() {
+    return m_points_vec;
+  }
+  std::vector<double> & get_camera_vector() {
+    return m_cameras_vec;
+  }
+  std::vector<double> & get_intrinsics_vector() {
+    return m_intrinsics_vec;
+  }
+  
+  double* get_point_ptr(int point_index) {
+    return &(m_points_vec[point_index*m_params_per_point]);
+  }
+  double const* get_point_ptr(int point_index) const {
+    return &(m_points_vec[point_index*m_params_per_point]);
+  }
+  
+  double* get_camera_ptr(int cam_index) {
+    return &(m_cameras_vec[cam_index*m_params_per_camera]);
+  }
+  double const* get_camera_ptr(int cam_index) const {
+    return &(m_cameras_vec[cam_index*m_params_per_camera]);
+  }
+
+  /// Return the start of the intrinsics vector, or null pointer if there are none.
+  double* get_intrinsics_ptr() {
+    if (m_intrinsics_vec.empty())
+      return 0;
+    return &(m_intrinsics_vec[0]);
+  }
+  double const* get_intrinsics_ptr() const {
+    if (m_intrinsics_vec.empty())
+      return 0;
+    return &(m_intrinsics_vec[0]);
+  }
+  
+  void set_point_outlier(int point_index, bool status) {
+    m_outlier_points_vec[point_index] = status;
+  }
+  bool get_point_outlier(int point_index) const {
+    return m_outlier_points_vec[point_index];
+  }
+
+  /// Return the number of points flagged as outliers.
+  int get_num_outliers() const {
+    int count = 0;
+    for (size_t i=0; i<m_num_points; ++i) {
+      if (m_outlier_points_vec[i])
+        ++count;
+    }
+    return count;
+  }
+  
+  /// Get the values for a point
+  vw::Vector3 get_point(int point_index)  const{
+    double const* ptr = get_point_ptr(point_index);
+    vw::Vector3 pt;
+    for (int i=0; i<3; ++i)
+      pt[i] = ptr[i];
+    return pt;
+  }
+  
+  /// Update the values for a point
+  void set_point(int point_index, vw::Vector3 const& pt) {
+    double* ptr = get_point_ptr(point_index);
+    for (int i=0; i<3; ++i)
+      ptr[i] = pt[i];
+  }
+
+  /// Print stats for optimized ground control points.
+  void print_gcp_stats(vw::ba::ControlNetwork const& cnet,
+                       vw::cartography::Datum const& d) {
+    vw::vw_out() << "input_gcp optimized_gcp diff\n";
+    for (int ipt = 0; ipt < num_points(); ipt++){
+      if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
+        continue;
+      if (get_point_outlier(ipt))
+        continue; // skip outliers
+
+      vw::Vector3 input_gcp = cnet[ipt].position();
+      vw::Vector3 opt_gcp   = get_point(ipt);
+
+      input_gcp = d.cartesian_to_geodetic(input_gcp);
+      opt_gcp   = d.cartesian_to_geodetic(opt_gcp  );
+
+      vw::vw_out() << "xyz: " << input_gcp << ' ' << opt_gcp << ' '
+                   << input_gcp - opt_gcp << std::endl;
+      vw::vw_out() << "llh: " << input_gcp << ' ' << opt_gcp << ' '
+                   << input_gcp - opt_gcp << std::endl;
+    }
+  }
+
+  /// Create a KML file containing the positions of the given points.
+  /// - Points are stored as x,y,z in the points vector up to num_points.
+  /// - Only every skip'th point is recorded to the file.
+  void record_points_to_kml(const std::string &kml_path,
+                            const vw::cartography::Datum& datum,
+                            size_t skip=100, const std::string name="points",
+                            const std::string icon="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png") {
+
+    if (datum.name() == UNSPECIFIED_DATUM) {
+      vw::vw_out(vw::WarningMessage) << "No datum specified, can't write file: " << kml_path << std::endl;
+      return;
+    }
+
+    // Open the file
+    vw::KMLFile kml(kml_path, name);
+
+    // Set up a simple point icon with no labels
+    const bool hide_labels = true;
+    kml.append_style( "point", "", 1.0, icon, hide_labels);
+    kml.append_style( "point_highlight", "", 1.1, icon, hide_labels);
+    kml.append_stylemap( "point_placemark", "point",
+                        "point_highlight");
+
+    // Loop through the points
+    const bool extrude = true;
+    for (size_t i=0; i<num_points(); i+=skip) {
+
+      if (get_point_outlier(i))
+        continue; // skip outliers
+
+      // Convert the point to GDC coords
+      vw::Vector3 xyz         = get_point(i);
+      vw::Vector3 lon_lat_alt = datum.cartesian_to_geodetic(xyz);
+
+      // Add this to the output file
+      kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
+                            "", "", "point_placemark",
+                            lon_lat_alt[2], extrude );
+    }
+    kml.close_kml();
+  }
+
+
+private:
+
+  int m_num_points, m_num_cameras, m_params_per_point, m_params_per_camera;
+  
+  // Raw data storage
+  std::vector<double> m_points_vec, m_cameras_vec, m_intrinsics_vec;
+  std::vector<bool> m_outlier_points_vec;
+  
+}; // End class BAParamStorage
+
 
 // Copy adjustments to an array, first translation, and then rotation.
 // The array is expected to have size 6.
@@ -61,7 +271,7 @@ void pack_camera_params_base(ModelT const& model,
     cam[i] = position_correction[i];
     cam[i + ModelT::camera_params_n/2] = pose_vec[i];
   }
-}
+} // End function pack_camera_params_base
 
 // Bundle adjustment functor
 class BundleAdjustmentModel:
@@ -288,10 +498,9 @@ public:
     }
   }
 
-  // Given a transform with origin at the planet center, like output
-  // by pc_align, read the adjustments form cameras_vec, apply this
-  // transform on top of them, and write the adjustments back to this
-  // vector.
+  /// Given a transform with origin at the planet center, like output
+  /// by pc_align, read the adjustments form cameras_vec, apply this
+  /// transform on top of them, and write the adjustments back to this vector.
   void import_transform(vw::Matrix4x4 const& M,
                         std::vector<double> & cameras_vec,
                         std::vector<double> & intrinsics_vec){
@@ -657,7 +866,7 @@ public:
       }
     }
 
-  }
+  } // End function write_camera_models
 
   // Given a transform with origin at the planet center, apply it to
   // the pinhole cameras. We do not export the result to cameras_vec,
@@ -688,7 +897,7 @@ public:
       params_from_model(*pin_ptr, m_cam_vec[i]);
     }
     
-  }
+  } // End function import_transform
   
 }; // End class BAPinholeModel
 
