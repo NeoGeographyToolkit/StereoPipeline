@@ -61,7 +61,7 @@ def main(argsIn):
         parser.add_argument('--start-frame', dest='startFrame', type=int,
                             default=icebridge_common.getSmallestFrame(),
                             help="Frame to start with.  Leave this and stop-frame blank to " + \
-                            "process all frames.  Set both to None to blindly run all commands.")
+                            "process all frames.  Set both to -1 to blindly run all commands.")
         
         parser.add_argument('--stop-frame', dest='stopFrame', type=int,
                             default=icebridge_common.getLargestFrame(),
@@ -120,7 +120,7 @@ def main(argsIn):
             continue
 
         # If the frame range is turned off, just run the commands as-is.
-        if (options.startFrame == None and options.stopFrame == None):
+        if (options.startFrame < 0 and options.stopFrame < 0):
             # Add the command to the task pool
             taskHandles.append(pool.apply_async(runCommand, (line,)))
             continue

@@ -59,7 +59,7 @@ BLEND_PBS_QUEUE    = 'normal'
 ORTHOGEN_PBS_QUEUE = 'normal'
 LABEL_PBS_QUEUE = 'normal'
 
-GROUP_ID = 's1827'
+GROUP_ID = 's2022'
 
 g_start_time = -1
 g_stop_time  = -1

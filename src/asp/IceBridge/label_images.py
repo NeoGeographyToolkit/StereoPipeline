@@ -59,7 +59,6 @@ def label_images(inputFolder, outputFolder, minFrame, maxFrame, trainingPath, nu
 
     # Run the label tool
 
-    #toolPath = asp_system_utils.which('batch_process_mp.py')
     toolPath = 'python ~/repo/OSSP/ossp_process.py'
     
     NO_SPLITTING = 1 # Plenty of RAM to load these images
@@ -122,8 +121,30 @@ def main(argsIn):
     outputFolder = icebridge_common.getLabelFolder(options.outputFolder)
     
     # Do the work
-    label_images(inputFolder, outputFolder, options.startFrame, options.stopFrame, 
-                 options.trainingPath, options.numProcesses)
+    #label_images(inputFolder, outputFolder, options.startFrame, options.stopFrame, 
+    #             options.trainingPath, options.numProcesses)
+
+    # Set up a processing tool to handle the frames, this will be more efficient
+    #  than using the built-in mulithreading support.
+    pool = multiprocessing.Pool(options.numProcesses)
+    taskHandles = []
+
+    for i in range(options.startFrame, options.stopFrame+1):
+
+        # Run on a single frame with one thread.
+        #label_images(inputFolder, outputFolder, options.startFrame, options.stopFrame, 
+        #             options.trainingPath, options.numProcesses)
+        taskHandles.append(pool.apply_async(label_images, (inputFolder, outputFolder, i, i, 
+                                                           options.trainingPath, 1)))
+
+    # Wait for all the tasks to complete
+    print('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
+    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive=False)
+
+    # All tasks should be finished, clean up the processing pool
+    icebridge_common.stopTaskPool(pool)
+    print('Jobs finished.')
+
 
     
 # Run main function if file used from shell
