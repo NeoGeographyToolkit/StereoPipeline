@@ -1480,13 +1480,6 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
       param_storage.copy_intrinsics(orig_parameters);
     }
     
-    // Camera extrinsics and intrinsics
-    // TODO: Use here vecPtr()
-    double* cameras    = &cameras_vec[0];
-    double* points     = &points_vec[0];
-    double* intrinsics = NULL;
-    if (num_intrinsic_params > 0) intrinsics = &intrinsics_vec[0];
-    
     bool last_pass = (pass == opt.num_ba_passes - 1);
     bool convergence_reached = true;
     int num_new_outliers = do_ba_ceres_one_pass(ba_model, opt, crn, (pass==0), last_pass,
