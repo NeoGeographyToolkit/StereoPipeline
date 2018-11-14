@@ -909,7 +909,7 @@ bool update_point_from_dem(double* point, cartography::GeoReference const& dem_g
 /// and store them in the vectors.  Return the number loaded.
 int load_reference_disparities(std::string const& disp_list_filename,
                                std::vector< ImageView   <DispPixelT> > &disp_vec,
-                               std::vector< ImageViewRef<DispPixelT> > interp_disp) {
+                               std::vector< ImageViewRef<DispPixelT> > &interp_disp) {
   // TODO: Disparities can be large, but if small it is better to
   // read them in memory.
   std::istringstream is(disp_list_filename);
