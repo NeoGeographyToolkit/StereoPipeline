@@ -31,7 +31,7 @@ timeStr = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
 cmdArgv = fullCmd.split(' ')
 cmdShort = os.path.splitext(os.path.basename(cmdArgv[0]))[0]
 logFname = '%s/%s_%s.txt' % (logDir, timeStr, cmdShort)
-print >>sys.stderr, '%s: logging to %s' % (sys.argv[0], logFname)
+print('%s: logging to %s' % (sys.argv[0], logFname), file=sys.stderr)
 
 # open log
 if not os.path.exists(logDir):
@@ -47,7 +47,7 @@ os.dup2(logFile.fileno(), 1)
 os.dup2(logFile.fileno(), 2)
 
 quotedArgs = ['"%s"' % arg for arg in cmdArgv]
-print >>sys.stderr, '%s: running: %s' % (sys.argv[0], ' '.join(quotedArgs))
+print('%s: running: %s' % (sys.argv[0], ' '.join(quotedArgs)), file=sys.stderr)
 
 # run desired command
 os.execvp(cmdArgv[0], cmdArgv)

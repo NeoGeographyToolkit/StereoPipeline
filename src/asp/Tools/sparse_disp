@@ -26,10 +26,9 @@
 # there is high resolution detail such as ice and snow patterns but no low
 # resolution detail.
 
-
 import sys, optparse, subprocess, re, os, math, time, datetime
 def die(msg, code=-1):
-    print >>sys.stderr, msg
+    print(msg, file=sys.stderr)
     sys.exit(code)
 
 # The path to the ASP python files
