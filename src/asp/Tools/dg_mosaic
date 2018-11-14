@@ -562,7 +562,7 @@ def run_cmd( cmd, options ):
         raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
 
 def die(msg, code=-1):
-    print >>sys.stderr, msg
+    print(msg, file=sys.stderr)
     sys.exit(code)
 
 def scale_xml_element(elem, scale):
@@ -1073,7 +1073,7 @@ def main():
                 run_cmd( cmd, options )
 
     except Usage as err:
-        print >>sys.stderr, err.msg
+        print(err.msg, file=sys.stderr)
         return 2
 
 if __name__ == "__main__":

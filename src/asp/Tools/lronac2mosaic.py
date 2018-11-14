@@ -33,8 +33,8 @@ job_pool = [];
 outputFolder = ""
 
 def man(option, opt, value, parser):
-    print >>sys.stderr, parser.usage
-    print >>sys.stderr, '''\
+    print(parser.usage, file=sys.stderr)
+    print('''\
 This program operates on LRO (.IMG) files, and performs the
 following ISIS 3 operations:
  * Converts to ISIS format (lronac2isis)
@@ -46,6 +46,7 @@ following ISIS 3 operations:
  * Mosaics individual CCDs into one unified image file (handmos)
  * Normalizes the mosaic (cubenorm)
 '''
+    file=sys.stderr)
 
     sys.exit()
 
@@ -491,7 +492,7 @@ def main():
         return 0
 
     except Usage as err:
-        print >>sys.stderr, err.msg
+        print(err.msg, file=sys.stderr)
         return 2
 
     # To more easily debug this program, comment out this catch block.

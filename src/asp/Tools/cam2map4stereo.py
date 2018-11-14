@@ -17,7 +17,6 @@
 # __END_LICENSE__
 
 
-from __future__ import print_function
 import os, optparse, subprocess, sys, tempfile
 
 # The path to the ASP python files.
@@ -261,7 +260,6 @@ def main():
 
     except Usage as err:
         print (err.msg, file=sys.stderr)
-        # print >>sys.stderr, "for help use --help"
         return 2
 
     except MapExists as e:
