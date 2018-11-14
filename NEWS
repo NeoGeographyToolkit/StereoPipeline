@@ -5,7 +5,7 @@
  - stereo_rfne
    * Added the option to run a non-SGM subpixel option after
      running SGM/MGM.
-   * Added the phase correlation subpixel option. This is a fourier
+   * Added the phase correlation subpixel option. This is a Fourier
      transform based method.
 
  - pc_align
@@ -29,9 +29,15 @@
      other but there is a large number of outliers, when it can
      function with very large --max-displacement. It does worse if the
      clouds need a big shift to align.
-          
 
  - bundle_adjust
+   * It can now very well simultaneously solve for both intrinsics and
+     all extrinics of n camera images if underlying ground truth
+     terrain in the form of a DEM or LIDAR point cloud is
+     present. After this bundle adjustment, pairwise stereo and DEM
+     creation, the DEMs are well-aligned to the ground truth.
+   * Added the flag --reference-terrain-weight which, when increased,
+     helps align better camera images to a given reference terrain. 
    * Bug fix in outlier filtering for n images.
    * Updated Ceres version from 1.11 to 1.14. When optimizing with 
      multiple threads, results now vary slightly from run to run.
@@ -44,7 +50,8 @@
    * Added the ability to manually reposition interest points.
    * Can now load non-synchronous .match files.
    * Added basic functionality for drawing/editing polygons on top 
-     of georeferenced images. 
+     of georeferenced images or DEMs. Those shapes can be saved, and
+     then used to cut out portions of images.
 
  - New tools
    * Added the coverage_fraction tool to provide a coverage estimate

@@ -723,6 +723,8 @@ Outlier removal based on the disparity of interest points (difference between ri
 
 \texttt{-\/-max-disp-error \textit{double(=-1)}} & When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.\\ \hline
 
+\texttt{-\/-reference-terrain-weight \textit{double(=1)}} & How much weight to give to the cost function terms involving the reference terrain. \\ \hline
+
 \texttt{-\/-csv-format \textit{string}} & Specify the format of input
 CSV files as a list of entries column\_index:column\_type (indices start
 from 1). Examples: '1:x 2:y 3:z 4:file' (a Cartesian coordinate system with

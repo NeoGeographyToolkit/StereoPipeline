@@ -63,8 +63,8 @@ typedef PixelMask< Vector<float, 2> > DispPixelT;
 int g_ba_num_errors = 0;
 Mutex g_ba_mutex;
 
-// TODO: Pass this properly
-double g_max_disp_error = -1;
+// TODO: Pass these properly
+double g_max_disp_error = -1.0, g_reference_terrain_weight = 1.0;
 
 //=========================================================================
 // Cost functions for Ceres
@@ -566,8 +566,10 @@ struct BaDispXyzError {
           good_ans = false;
         }else{
           Vector2 right_prediction_from_disp = left_prediction + dispPix.child();
-          residuals[0] = right_prediction_from_disp[0] - right_prediction [0];
-          residuals[1] = right_prediction_from_disp[1] - right_prediction [1];
+          residuals[0] = right_prediction_from_disp[0] - right_prediction[0];
+          residuals[1] = right_prediction_from_disp[1] - right_prediction[1];
+          for (size_t it = 0; it < 2; it++) 
+            residuals[it] *= g_reference_terrain_weight;
         }
       }
 
@@ -575,15 +577,15 @@ struct BaDispXyzError {
       // function will take care of big residuals graciously.
       if (!good_ans) {
         // Failed to find the residuals
-        residuals[0] = g_max_disp_error;
-        residuals[1] = g_max_disp_error;
+        for (size_t it = 0; it < 2; it++) 
+          residuals[it] = g_max_disp_error * g_reference_terrain_weight;
         return true;
       }
 
     } catch (const camera::PointToPixelErr& e) {
       // Failed to project into the camera
-      residuals[0] = g_max_disp_error;
-      residuals[1] = g_max_disp_error;
+      for (size_t it = 0; it < 2; it++) 
+        residuals[it] = g_max_disp_error * g_reference_terrain_weight;
       return true;
     }
     return true;

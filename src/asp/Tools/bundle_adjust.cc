@@ -73,7 +73,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   cartography::Datum datum;
   int    ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
-  double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error;
+  double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error,
+    reference_terrain_weight;
   bool   skip_rough_homography, individually_normalize, use_llh_error, save_cnet_as_csv;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
   vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
@@ -509,11 +510,10 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
                     );
     
   const size_t num_residuals = residuals.size();
-  
-  const std::string residual_path            = residual_prefix + "_averages.txt";
-  const std::string residual_raw_pixels_path = residual_prefix + "_raw_pixels.txt";
-  const std::string residual_raw_gcp_path    = residual_prefix + "_raw_gcp.txt";
-  const std::string residual_raw_cams_path   = residual_prefix + "_raw_cameras.txt";
+  const std::string residual_path               = residual_prefix + "_averages.txt";
+  const std::string residual_raw_pixels_path    = residual_prefix + "_raw_pixels.txt";
+  const std::string residual_raw_gcp_path       = residual_prefix + "_raw_gcp.txt";
+  const std::string residual_raw_cams_path      = residual_prefix + "_raw_cameras.txt";
   const std::string residual_reference_xyz_path = residual_prefix + "_reference_terrain.txt";
 
   // Write a report on residual errors
@@ -622,8 +622,14 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 
       Vector3 llh = opt.datum.cartesian_to_geodetic(reference_vec[i]);
       double err = norm_2(Vector2(residuals[index], residuals[index + 1]));
+
+      // Divide back the residual by the multiplier weight
+      if (opt.reference_terrain_weight > 0) 
+        err /= opt.reference_terrain_weight;
+      
       index += PIXEL_SIZE;
-      residual_file_reference_xyz << llh[0] << ", " << llh[1] << ", " << llh[2] << ", " << err << "\n";
+      residual_file_reference_xyz << llh[0] << ", " << llh[1] << ", " << llh[2] << ", "
+                                  << err << "\n";
       residual_file << i << ", " << err << "\n";
       
     }
@@ -936,7 +942,8 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
                          bool                  first_pass,
                          bool                  last_pass,
                          BAParamStorage      & param_storage, 
-                         BAParamStorage const& orig_parameters){
+                         BAParamStorage const& orig_parameters,
+                         bool                & convergence_reached){
 
   ceres::Problem problem;
 
@@ -944,6 +951,8 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
   const int num_cameras = ba_model.num_cameras();
   const int num_points  = ba_model.num_points();
   const int num_intrinsic_params = param_storage.num_intrinsics();
+  
+  convergence_reached = true;
   
   // Add the cost function component for difference of pixel observations
   // - Reduce error by making pixel projection consistent with observations.
@@ -1146,8 +1155,13 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
                 << "of disparities.\n");
     if (opt.max_disp_error <= 0) 
       vw_throw( ArgumentErr() << "Must specify --max-disp-error in pixels as a positive value.\n");
+    if (opt.reference_terrain_weight < 0) 
+      vw_throw( ArgumentErr()
+                << "The value of --reference-terrain-weight must be non-negative.\n");
 
+    // TODO: Pass these properly
     g_max_disp_error = opt.max_disp_error;
+    g_reference_terrain_weight = opt.reference_terrain_weight;
     
     // Set up a GeoReference object using the datum
     vw::cartography::GeoReference geo;
@@ -1369,6 +1383,7 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
   if (summary.termination_type == ceres::NO_CONVERGENCE){
     // Print a clarifying message, so the user does not think that the algorithm failed.
     vw_out() << "Found a valid solution, but did not reach the actual minimum." << std::endl;
+    convergence_reached = false;
   }
 
   // Multiply the original intrinsics by the scaled optimized values
@@ -1464,13 +1479,23 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
       param_storage.copy_cameras   (orig_parameters);
       param_storage.copy_intrinsics(orig_parameters);
     }
-
+    
+    // Camera extrinsics and intrinsics
+    // TODO: Use here vecPtr()
+    double* cameras    = &cameras_vec[0];
+    double* points     = &points_vec[0];
+    double* intrinsics = NULL;
+    if (num_intrinsic_params > 0) intrinsics = &intrinsics_vec[0];
+    
     bool last_pass = (pass == opt.num_ba_passes - 1);
+    bool convergence_reached = true;
     int num_new_outliers = do_ba_ceres_one_pass(ba_model, opt, crn, (pass==0), last_pass,
-                                                param_storage, orig_parameters);
+                                                param_storage, orig_parameters,
+                                                convergence_reached);
 
-    if (!last_pass && num_new_outliers == 0) {
-      vw_out() << "No new outliers removed. No more passes are needed.\n";
+    if (!last_pass && num_new_outliers == 0 && convergence_reached) {
+      vw_out() << "No new outliers removed, and the algorithm converged. "
+               << "No more passes are needed.\n";
       break;
     }
 
@@ -2056,11 +2081,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("reference-terrain", po::value(&opt.reference_terrain)->default_value(""),
             "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras.")
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
-            "Maximum number of (randomly picked) points from the reference terrain to use.")
+     "Maximum number of (randomly picked) points from the reference terrain to use.")
     ("disparity-list",           po::value(&opt.disparity_list)->default_value(""),
-            "The unaligned disparity files to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two images, second is for the second and third images, etc. If an image pair has no disparity file, use 'none'.")
+     "The unaligned disparity files to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two images, second is for the second and third images, etc. If an image pair has no disparity file, use 'none'.")
     ("max-disp-error",           po::value(&opt.max_disp_error)->default_value(-1),
-            "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
+     "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
+    ("reference-terrain-weight", po::value(&opt.reference_terrain_weight)->default_value(1.0),
+     "How much weight to give to the cost function terms involving the reference terrain.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
             "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),

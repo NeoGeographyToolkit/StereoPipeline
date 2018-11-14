@@ -246,7 +246,6 @@ namespace vw { namespace gui {
     int32 rows  () const { return m_rows;  }
     int32 planes() const { return m_num_channels; }
 
-
     /// Return the element at this location (at the lowest level) cast to double.
     /// - Only works for single channel pyramids!
     double get_value_as_double( int32 x, int32 y) const;

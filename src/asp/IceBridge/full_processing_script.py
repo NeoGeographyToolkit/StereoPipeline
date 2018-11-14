@@ -544,13 +544,17 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
         os.system(cmd)
 
     # The bundle adjustment
+    solveIntr = ""
+    if not options.skipSolvingIntrinsics:
+        solveIntr = " --solve-intrinsics "
+        
     cmd = "bundle_adjust " + " ".join(images) + " " +  " ".join(cameras) + \
             ' --reference-terrain ' + lidarFile + \
             ' --disparity-list "' + " ".join(dispFiles) + '"' + \
             ' --datum wgs84 -t nadirpinhole --create-pinhole-cameras --robust-threshold 2' + \
-            ' --camera-weight 0 --solve-intrinsics --csv-format ' + lidarCsvFormatString + \
-            ' --overlap-limit 1 --max-disp-error 10 --max-iterations 100 ' + \
-            ' --parameter-tolerance 1e-12 -o ' + baPrefix
+            ' --camera-weight 0  --csv-format ' + lidarCsvFormatString + \
+            ' --overlap-limit 1 --max-disp-error 50 --max-iterations 100 ' + \
+            solveIntr + ' --parameter-tolerance 1e-12 -o ' + baPrefix
     logger.info(cmd)
     os.system(cmd)
 
@@ -666,6 +670,12 @@ def main(argsIn):
 
         parser.add_argument("--output-model-type",  dest="outputModelType", default="RPC",
                             help="Generate a distortion model of type RPC, RPC5, or RPC6.")
+
+        parser.add_argument("--skip-solving-intrinsics", action="store_true",
+                            dest="skipSolvingIntrinsics", default=False,
+                            help="When jointly solving for all extrinsics and intrinsics, " + \
+                            "keep the intrinsics fixed.")
+        
         parser.add_argument("--reference-dem-folder",  dest="refDemFolder", default=None,
                           help="The folder containing DEMs that created orthoimages.")
 
