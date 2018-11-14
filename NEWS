@@ -31,8 +31,8 @@
      clouds need a big shift to align.
 
  - bundle_adjust
-   * It can now very well simultaneously solve for both intrinsics and
-     all extrinics of n camera images if underlying ground truth
+   * Improvements in solving simultaneously for both intrinsics and
+     extrinsics of n camera images if underlying ground truth
      terrain in the form of a DEM or LIDAR point cloud is
      present. After this bundle adjustment, pairwise stereo and DEM
      creation, the DEMs are well-aligned to the ground truth.
