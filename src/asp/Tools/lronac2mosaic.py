@@ -45,8 +45,7 @@ following ISIS 3 operations:
  * Performs jitter analysis (lrojitreg)
  * Mosaics individual CCDs into one unified image file (handmos)
  * Normalizes the mosaic (cubenorm)
-'''
-    file=sys.stderr)
+''', file=sys.stderr)
 
     sys.exit()
 
