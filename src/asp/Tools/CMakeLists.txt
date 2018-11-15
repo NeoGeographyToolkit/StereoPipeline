@@ -49,8 +49,10 @@ add_executable(aster2asp aster2asp.cc)
 target_link_libraries(aster2asp AspSessions)
 install(TARGETS aster2asp DESTINATION bin)
 
-add_executable(bundle_adjust bundle_adjust.cc bundle_adjust_cost_functions.h) 
+add_executable(bundle_adjust bundle_adjust.cc bundle_adjust_cost_functions.h
+                             bundle_adjust_misc_functions.h)
 target_link_libraries(bundle_adjust AspSessions ${SOLVER_LIBRARIES})
+
 install(TARGETS bundle_adjust DESTINATION bin)
 
 add_executable(opencv_calibrate opencv_calibrate.cpp) 
