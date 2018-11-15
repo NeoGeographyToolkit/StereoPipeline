@@ -20,6 +20,7 @@
 # which are combined into the mosaic. May improve accuracy
 # that way. This change would need very careful testing.
 
+from __future__ import print_function
 import os, sys, string, subprocess, math, re, optparse, time, copy, tempfile
 
 from datetime import datetime, timedelta

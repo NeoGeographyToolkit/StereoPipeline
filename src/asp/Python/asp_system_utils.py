@@ -21,6 +21,7 @@
 General system related utilities
 """
 
+from __future__ import print_function
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, signal
 import os.path as P
 import asp_string_utils, asp_cmd_utils

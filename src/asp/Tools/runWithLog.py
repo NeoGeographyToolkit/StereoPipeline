@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-
+from __future__ import print_function
 import sys
 import datetime
 import os

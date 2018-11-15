@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-
+from __future__ import print_function
 import os, optparse, subprocess, sys, tempfile
 
 # The path to the ASP python files.

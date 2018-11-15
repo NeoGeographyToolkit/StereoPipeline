@@ -17,7 +17,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-
+from __future__ import print_function
 import os, glob, optparse, re, shutil, subprocess, sys, string, time
 
 libexecpath = os.path.abspath(sys.path[0] + '/../libexec')
