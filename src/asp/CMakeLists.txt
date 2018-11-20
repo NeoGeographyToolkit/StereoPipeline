@@ -10,6 +10,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}" )
 # --- Directory paths ---
 set(BINARYBUILDER_INSTALL_DIR "" CACHE FILEPATH "Path to Binary Builder installation directory")
 set(VISIONWORKBENCH_INSTALL_DIR "" CACHE FILEPATH "Path to Binary Builder installation directory")
+set(ASP_ENABLE_SSE "1" CACHE BOOL "Allow SSE optimizations.")
+
 
 if("${BINARYBUILDER_INSTALL_DIR}" STREQUAL "")
   message(SEND_ERROR "You need to set BINARYBUILDER_INSTALL_DIR: ${BINARYBUILDER_INSTALL_DIR}")
@@ -47,6 +49,13 @@ SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_PREFIX}/lib)
 set(Boost_USE_STATIC_LIBS   OFF)
 set(Boost_USE_MULTITHREADED ON )
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+
+if (ASP_ENABLE_SSE)
+else() # If disabled, set up for compatibility with older systems.
+  set(CXXFLAGS "${CXXFLAGS} -mno-sse4.1")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mno-sse4.1")
+endif()
+
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -311,29 +320,29 @@ set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES} 
 # --- ASP_SPICEIO ------------------------------------------------------------
 get_all_source_files( "SpiceIO"       ASP_SPICEIO_SRC_FILES)
 get_all_source_files( "SpiceIO/tests" ASP_SPICEIO_TEST_FILES)
-set(ASP_SPICEIO_LIB_DEPENDENCIES aspCore ${SPICE_LIBRARIES})
+set(ASP_SPICEIO_LIB_DEPENDENCIES AspCore ${SPICE_LIBRARIES})
 
 # --- ASP_ISISIO ------------------------------------------------------------
 get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
 get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
-set(ASP_ISISIO_LIB_DEPENDENCIES  aspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
+set(ASP_ISISIO_LIB_DEPENDENCIES  AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
                                  ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
 
 # --- ASP_CAMERA ------------------------------------------------------------
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES aspCore ${XERCESC_LIBRARIES})
+set(ASP_CAMERA_LIB_DEPENDENCIES AspCore ${XERCESC_LIBRARIES})
 
 # --- ASP_SESSIONS ------------------------------------------------------------
 ## This code is more complicated and is specified in the lower level file
 get_all_source_files( "Sessions"       ASP_SESSIONS_SRC_FILES)
 get_all_source_files( "Sessions/tests" ASP_SESSIONS_TEST_FILES)
-set(ASP_SESSIONS_LIB_DEPENDENCIES aspCore aspSpiceIO aspIsisIO aspCamera)
+set(ASP_SESSIONS_LIB_DEPENDENCIES AspCore AspSpiceIO AspIsisIO AspCamera)
 
 # --- ASP_GUI ------------------------------------------------------------
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
-set(ASP_GUI_LIB_DEPENDENCIES aspCore Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
+set(ASP_GUI_LIB_DEPENDENCIES AspCore Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
 
 
 #=========================================================================
