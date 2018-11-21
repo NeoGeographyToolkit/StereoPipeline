@@ -35,22 +35,90 @@ using namespace vw::ba;
 
 //==================================================================================
 
+std::string UNSPECIFIED_DATUM = "unspecified_datum";
+
+/// Structure to fully describe how the intrinsics are being handled.
+/// - Currently only pinhole cameras suppert intrinsics in bundle_adjust.
+struct IntrinsicOptions {
+  bool center_constant;
+  bool center_shared;
+  bool focus_constant;
+  bool focus_shared;
+  bool distortion_constant;
+  bool distortion_shared;
+
+  IntrinsicOptions() : center_constant    (true), center_shared    (true),
+                       focus_constant     (true), focus_shared     (true),
+                       distortion_constant(true), distortion_shared(true)
+  {}
+};
+
 /// Class to store parameters as they are being bundle adjusted.
+/// - Currently only supports either one camera or all unique cameras.
 class BAParamStorage {
+
+  static const int PARAMS_PER_POINT  = 3;
+  static const int NUM_CAMERA_PARAMS = 6; // Position and pose.
+  // These two are only for pinhole cameras.
+  static const int NUM_CENTER_PARAMS = 2; // TODO: Share info with other classes!
+  static const int NUM_FOCUS_PARAMS  = 1;
+
 public:
 
   BAParamStorage(int num_points, int num_cameras,
-                 int params_per_point, int params_per_camera,
-                 int num_intrinsic_params)
-    : m_points_vec        (num_points *params_per_point,  0),
-      m_cameras_vec       (num_cameras*params_per_camera, 0),
-      m_intrinsics_vec    (num_intrinsic_params, 0),
-      m_outlier_points_vec(num_points, false),
-      m_num_points        (num_points),
+                 // Parameters below here only apply to pinhole models.
+                 bool using_intrinsics=false,
+                 int num_distortion_params=0,
+                 IntrinsicOptions  intrin_opts=IntrinsicOptions()
+                )
+    : m_num_points        (num_points),
       m_num_cameras       (num_cameras),
-      m_params_per_point  (params_per_point),
-      m_params_per_camera (params_per_camera)
-  { }
+      m_params_per_point  (PARAMS_PER_POINT),
+      m_num_pose_params   (NUM_CAMERA_PARAMS),
+      m_num_shared_intrinsics    (0),
+      m_num_intrinsics_per_camera(0),
+      m_focus_offset(0),
+      m_distortion_offset(0),
+      m_intrin_options    (intrin_opts),
+      m_points_vec        (num_points *PARAMS_PER_POINT,  0),
+      m_cameras_vec       (num_cameras*NUM_CAMERA_PARAMS, 0),
+      m_intrinsics_vec    (0),
+      m_outlier_points_vec(num_points, false) {
+
+        if (!using_intrinsics)
+          return; // If we are not using intrinsics, nothing else to do.
+
+        // Calculate how many values are stored per-camera, and
+        //  what the offset is to a particular intrinsic value.
+        // - The start of the array is always an entry for each intrinsic in case
+        //   it is shared.
+        if (!intrin_opts.center_shared)
+          m_num_intrinsics_per_camera += NUM_CENTER_PARAMS;
+        if (intrin_opts.focus_shared)
+          m_focus_offset = NUM_CENTER_PARAMS;
+        else {
+          m_num_intrinsics_per_camera += NUM_FOCUS_PARAMS;
+          if (!intrin_opts.center_shared)
+            m_focus_offset = NUM_CENTER_PARAMS;
+        }
+        if (intrin_opts.distortion_shared)
+          m_distortion_offset = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS;
+        else {
+          m_num_intrinsics_per_camera += num_distortion_params;
+          if (!intrin_opts.center_shared)
+            m_distortion_offset += NUM_CENTER_PARAMS;
+          if (!intrin_opts.center_shared)
+            m_distortion_offset += NUM_FOCUS_PARAMS;
+        }
+
+        // For simplicity, we always set this to the same size even
+        //  if none of the parameters are shared.
+        m_num_shared_intrinsics = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS
+                                  + num_distortion_params;
+
+        m_intrinsics_vec.resize(m_num_shared_intrinsics +
+                                num_cameras*m_num_intrinsics_per_camera);
+      }
 
   // Copy constructor
   BAParamStorage(BAParamStorage const& other)
@@ -61,11 +129,17 @@ public:
       m_num_points        (other.m_num_points),
       m_num_cameras       (other.m_num_cameras),
       m_params_per_point  (other.m_params_per_point),
-      m_params_per_camera (other.m_params_per_camera) {
+      m_num_pose_params (other.m_num_pose_params) {
     copy_points    (other);
     copy_cameras   (other);
     copy_intrinsics(other);
     copy_outliers  (other);
+  }
+
+  // Set all camera position and pose values to zero.
+  void clear_cameras() {
+    for (int i=0; i < m_cameras_vec.size(); ++i)
+      m_cameras_vec[i] = 0.0;
   }
 
   // When using the copy functions, the sizes must match!
@@ -90,9 +164,9 @@ public:
 
   int num_points       () const {return m_num_points; }
   int num_cameras      () const {return m_num_cameras;}
-  int num_intrinsics   () const {return m_intrinsics_vec.size();}
+  int num_intrinsics   () const {return m_num_shared_intrinsics;} // Per camera
   int params_per_point () const {return m_params_per_point;}
-  int params_per_camera() const {return m_params_per_camera;}
+  int params_per_camera() const {return m_num_pose_params;}
 
   std::vector<double> & get_point_vector() {
     return m_points_vec;
@@ -112,23 +186,40 @@ public:
   }
   
   double* get_camera_ptr(int cam_index) {
-    return &(m_cameras_vec[cam_index*m_params_per_camera]);
+    return &(m_cameras_vec[cam_index*m_num_pose_params]);
   }
   double const* get_camera_ptr(int cam_index) const {
-    return &(m_cameras_vec[cam_index*m_params_per_camera]);
+    return &(m_cameras_vec[cam_index*m_num_pose_params]);
   }
 
-  /// Return the start of the intrinsics vector, or null pointer if there are none.
-  double* get_intrinsics_ptr() {
-    if (m_intrinsics_vec.empty())
-      return 0;
-    return &(m_intrinsics_vec[0]);
+  // ------- These functions are only needed for pinhole cameras ------
+  double* get_intrinsic_center_ptr(int cam_index) {
+    if (m_intrinsics_vec.empty()) return 0;
+    return &(m_intrinsics_vec[get_center_offset(cam_index)]);
   }
-  double const* get_intrinsics_ptr() const {
-    if (m_intrinsics_vec.empty())
-      return 0;
-    return &(m_intrinsics_vec[0]);
+  double const* get_intrinsic_center_ptr(int cam_index) const {
+    if (m_intrinsics_vec.empty()) return 0;
+    return &(m_intrinsics_vec[get_center_offset(cam_index)]);
   }
+  
+  double* get_intrinsic_focus_ptr(int cam_index) {
+    if (m_intrinsics_vec.empty()) return 0;
+    return &(m_intrinsics_vec[get_focus_offset(cam_index)]);
+  }
+  double const* get_intrinsic_focus_ptr(int cam_index) const{
+    if (m_intrinsics_vec.empty()) return 0;
+    return &(m_intrinsics_vec[get_focus_offset(cam_index)]);
+  }
+
+  double* get_intrinsic_distortion_ptr(int cam_index) {
+    if (m_intrinsics_vec.empty()) return 0;
+    return &(m_intrinsics_vec[get_distortion_offset(cam_index)]);
+  }
+  double const* get_intrinsic_distortion_ptr(int cam_index) const{
+    if (m_intrinsics_vec.empty()) return 0;
+    return &(m_intrinsics_vec[get_distortion_offset(cam_index)]);
+  }
+  // ------- End pinhole camera functions ------
   
   void set_point_outlier(int point_index, bool status) {
     m_outlier_points_vec[point_index] = status;
@@ -229,18 +320,210 @@ public:
   }
 
 
-private:
+private: // Variables
 
-  int m_num_points, m_num_cameras, m_params_per_point, m_params_per_camera;
+  int m_num_points, m_num_cameras, m_params_per_point, m_num_pose_params;
+  
+  // m_intrinsics_vec starts out with m_num_shared_intrinsics values which are
+  //  shared between all cameras, followed by the per-camera intrinsics for each camera.
+  int m_num_shared_intrinsics, m_num_intrinsics_per_camera;
+  
+  // These store the offset to the focus or distortion data from the start of
+  //  either the shared parameters at the start of m_intrinsics_vec or from
+  //  the block of intrinsics data for the specified camera.
+  int m_focus_offset, m_distortion_offset;
+  
+  IntrinsicOptions m_intrin_options;
   
   // Raw data storage
   std::vector<double> m_points_vec, m_cameras_vec, m_intrinsics_vec;
   std::vector<bool> m_outlier_points_vec;
-  
+
+private: // Functions
+
+  /// Compute the offset in m_intrinsics_vec to the requested data.
+  size_t get_center_offset(int cam_index) const {
+    if (m_intrin_options.center_shared)
+      return 0;
+    else
+      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera;
+  }
+  size_t get_focus_offset(int cam_index) const {
+    if (m_intrin_options.focus_shared)
+      return m_focus_offset;
+    else
+      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_focus_offset;
+  }
+  size_t get_distortion_offset(int cam_index) const {
+    if (m_intrin_options.distortion_shared)
+      return m_distortion_offset;
+    else
+      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_distortion_offset;
+  }
 }; // End class BAParamStorage
 
 
 //==================================================================================
+
+/// Simple class to manage position/rotation information.
+/// - This is the data type stored in pc_align output files,
+///   bundle adjustment files, and the position of pinhole cameras.
+class CameraAdjustment {
+public:
+
+  // Constructors
+  CameraAdjustment() {}
+  CameraAdjustment(double const* array) {read_from_array(array); }
+
+  // Data access
+  vw::Vector3 position() const { return m_position_data; }
+  vw::Quat    pose    () const { return m_pose_data;     }
+  
+  /// Populate from a six element array.
+  void read_from_array(double const* array) {
+    m_position_data = vw::Vector3(array[0], array[1], array[2]);
+    m_pose_data     = vw::math::axis_angle_to_quaternion(Vector3(array[3], array[4], array[5]));
+  }
+
+  /// Populate from an AdjustedCameraModel
+  void copy_from_adjusted_camera(vw::camera::AdjustedCameraModel const& adj_cam) {
+    m_position_data = adj_cam.translation();
+    m_pose_data     = adj_cam.rotation();
+  }
+
+  /// Populate from a PinholeModel
+  void copy_from_pinhole(vw::camera::PinholeModel const& pin_cam) {
+    m_position_data = pin_cam.camera_center();
+    m_pose_data     = pin_cam.camera_pose();
+  }
+
+  /// Populate from an adjustment file on disk.
+  void read_from_adjust_file(std::string const& filename) {
+    
+    // Vectors, but we only use the first position.
+    std::vector<vw::Vector3> position_correction;
+    std::vector<vw::Quat   > pose_correction;
+
+    // Not used, just for the api
+    bool piecewise_adjustments;
+    vw::Vector2 adjustment_bounds;
+    std::string session;
+
+    vw::vw_out() << "Reading adjusted camera model: " << filename << std::endl;
+    asp::read_adjustments(filename, piecewise_adjustments,
+                          adjustment_bounds, position_correction, pose_correction,
+                          session);
+    m_position_data = position_correction[0];
+    m_pose_data     = pose_correction    [0];
+  }
+  
+  /// Pack the data to a six element array.
+  void pack_to_array(double* array) const {
+    vw::Vector3 pose_vec = m_pose_data.axis_angle();
+    const int VEC_SIZE = 3;
+    for (size_t i = 0; i < VEC_SIZE; i++) {
+      array[i           ] = m_position_data[i];
+      array[i + VEC_SIZE] = pose_vec[i];
+    }
+  }
+  
+private:
+  vw::Vector3 m_position_data;
+  vw::Quat    m_pose_data;
+
+}; // End class CameraAdjustment
+
+
+// TODO: Class function?
+/// Given a transform with origin at the planet center, like output
+/// by pc_align, read the adjustments from cameras_vec, apply this
+/// transform on top of them, and write the adjustments back to the vector.
+/// - Works for pinhole and non-pinhole case.
+void apply_transform_to_cameras(vw::Matrix4x4 const& M, BAParamStorage &param_storage){
+
+  for (unsigned j = 0; j < param_storage.num_cameras(); j++) {
+
+    // Load the current position/pose of this camera.
+    double* cam_ptr = param_storage.get_camera_ptr(j);
+    CameraAdjustment cam_adjust(cam_ptr);
+
+    // Create the adjusted camera model with a dummy camera.
+    vw::camera::AdjustedCameraModel cam(boost::shared_ptr<vw::camera::PinholeModel>(),
+                                        cam_adjust.position(), cam_adjust.pose());
+    // Apply the transform
+    cam.apply_transform(M);
+
+    // Copy back the adjustments to the camera array.
+    cam_adjust.copy_from_adjusted_camera(cam);
+    cam_adjust.pack_to_array(cam_ptr);
+  }
+} // end function apply_transform_to_cameras
+
+// TODO: Move to a class?
+/// Packs info from a pinhole camera into the provided arrays.
+/// - It is up to the caller to make sure the arrays are properly sized.
+void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
+                            int camera_index,
+                            BAParamStorage & param_storage) {
+
+  double* pos_pose_ptr   = param_storage.get_camera_ptr(camera_index);
+  double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
+  double* focus_ptr      = param_storage.get_intrinsic_focus_ptr     (camera_index);
+  double* distortion_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
+
+  // Handle position and pose
+  CameraAdjustment pos_pose_info;
+  pos_pose_info.copy_from_pinhole(camera);
+  pos_pose_info.pack_to_array(pos_pose_ptr);
+
+  // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
+
+  // Center point and focal length
+  center_ptr[0] = 1.0; //camera.point_offset()[0];
+  center_ptr[1] = 1.0; //camera.point_offset()[1];
+  focus_ptr [0] = 1.0; //camera.focal_length()[0];
+
+  // Pack the lens distortion parameters.
+  for (size_t i=0; i<param_storage.num_intrinsics(); ++i)
+    distortion_ptr[i] = 1.0; //lens[i];
+}
+
+/// Modify an existing pinhole model in-place using the stored parameters.
+/// - Since the stored parameters are multipliers, be careful calling this
+///   more than once!
+void populate_pinhole_from_arrays(int camera_index,
+                                  BAParamStorage const& param_storage,
+                                  vw::camera::PinholeModel & camera) {
+
+  double const* pos_pose_ptr   = param_storage.get_camera_ptr(camera_index);
+  double const* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
+  double const* focus_ptr      = param_storage.get_intrinsic_focus_ptr     (camera_index);
+  double const* distortion_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
+
+  // Update position and pose
+  CameraAdjustment pos_pose_info(pos_pose_ptr);
+  camera.set_camera_center(pos_pose_info.position());
+  camera.set_camera_pose  (pos_pose_info.pose    ());
+
+  // All intrinsic parameters are stored as multipliers!
+
+  // Update the lens distortion parameters.
+  boost::shared_ptr<LensDistortion> distortion = camera.lens_distortion()->copy();
+  vw::Vector<double> lens = distortion->distortion_parameters();
+  for (size_t i=0; i<lens.size(); ++i)
+    lens[i] *= distortion_ptr[i];
+  distortion->set_distortion_parameters(lens);
+  camera.set_lens_distortion(distortion.get());
+
+  // Update the center and focus
+  Vector2 old_center = camera.point_offset();
+  Vector2 old_focus  = camera.focal_length();
+  camera.set_focal_length(Vector2(center_ptr[0]*old_center[0],
+                                  center_ptr[1]*old_center[1]), false);
+  double new_focus = old_focus[0]*focus_ptr[0];
+  camera.set_point_offset(Vector2(new_focus,new_focus), true); // Recompute internals.
+}
+
 
 
 /// Load a DEM from disk to use for interpolation.
@@ -286,6 +569,7 @@ bool update_point_from_dem(double* point, cartography::GeoReference const& dem_g
 
 /// Load all of the reference disparities specified in the input text file
 /// and store them in the vectors.  Return the number loaded.
+template <class DispPixelT>
 int load_reference_disparities(std::string const& disp_list_filename,
                                std::vector< ImageView   <DispPixelT> > &disp_vec,
                                std::vector< ImageViewRef<DispPixelT> > interp_disp) {

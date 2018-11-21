@@ -32,7 +32,6 @@
 
 #include <asp/Tools/bundle_adjust.h>
 #include <asp/Tools/bundle_adjust_cost_functions.h> // Ceres included in this file.
-#include <asp/Tools/bundle_adjust_misc_functions.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -256,63 +255,71 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 /// This is for the BundleAdjustmentModel class where the camera parameters
 /// are a rotation/offset that is applied on top of the existing camera model.
 /// First read initial adjustments, if any, and apply perhaps a pc_align transform.
-template<class ModelT> void
-init_cams(ModelT & ba_model, Options & opt, BAParamStorage & param_storage){
+void init_cams(Options & opt, BAParamStorage & param_storage){
+
+  // Initialize all of the camera adjustments to zero.
+  param_storage.clear_cameras();
 
   // Read the adjustments from a previous run, if present
   if (opt.input_prefix != "") {
-    for (size_t icam = 0; icam < ba_model.num_cameras(); icam++){
+    for (size_t icam = 0; icam < param_storage.num_cameras(); icam++){
       std::string adjust_file = asp::bundle_adjust_file_name(opt.input_prefix,
                                                              opt.image_files[icam],
                                                              opt.camera_files[icam]);
-      ba_model.read_adjustment(icam, adjust_file, param_storage.get_camera_vector());
+      double * cam_ptr = param_storage.get_camera_ptr(icam);
+      CameraAdjustment adjustment;
+      adjustment.read_from_adjust_file(adjust_file);
+      adjustment.pack_to_array(cam_ptr);
     }
   }
 
-  // Read the pc_align transform from disk and apply it on top of the adjustment.
-  if (opt.initial_transform_file != "")
-    ba_model.import_transform(opt.initial_transform, param_storage.get_camera_vector(),
-                              param_storage.get_intrinsics_vector());
+  // Apply any initial transform to the pinhole cameras
+  if (opt.initial_transform_file != "") {
+    apply_transform_to_cameras(opt.initial_transform, param_storage);
+  }
 }
 
-/// Specialization for pinhole cameras, copy the camera
-///  parameters from the control network into the vectors.
-template<> void
-init_cams<BAPinholeModel>(BAPinholeModel & ba_model, Options & opt,
-                          BAParamStorage & param_storage){
-  // Set the size of cameras_vec
-  const int num_cameras           = ba_model.num_cameras();
-  const int num_params_per_camera = BAPinholeModel::camera_params_n;
-  const int num_camera_params     = num_cameras * num_params_per_camera;
-  const int num_intrinsic_params  = ba_model.num_intrinsic_params();
+/// Specialization for pinhole cameras.
+void init_cams_pinhole(Options & opt, BAParamStorage & param_storage){
 
-  std::vector<double> & cameras_vec    = param_storage.get_camera_vector();
-  std::vector<double> & intrinsics_vec = param_storage.get_intrinsics_vector();
-
-  // First apply any transform to the pinhole cameras
-  if (opt.initial_transform_file != "") 
-    ba_model.import_transform(opt.initial_transform, cameras_vec, intrinsics_vec);
-
-  // Copy the camera parameters from the model to cameras_vec
-  int index = 0;
-  for (int i=0; i < num_cameras; ++i) {
-    // Note that the inner loop stops before it gets to the intrinsic parameters
-    BAPinholeModel::camera_intr_vector_t cam_vec;
-    ba_model.get_cam_params(i, cam_vec);
-    for (int p=0; p<num_params_per_camera; ++p) {
-      cameras_vec[index] = cam_vec[p];
-      ++index;
-    } // End loop through camera parameters
+  // Copy the camera parameters from the models to param_storage
+  for (int i=0; i < param_storage.num_cameras(); ++i) {
+    PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[i].get());
+    pack_pinhole_to_arrays(*pin_ptr, i, param_storage);
   } // End loop through cameras
 
-  // Get the intrinsics vector which is shared across all cameras.
-  BAPinholeModel::camera_intr_vector_t cam_vec;
-  ba_model.get_cam_params(0, cam_vec); // Just pull from the first camera
-  for (int i=0; i < num_intrinsic_params; ++i) {
-    intrinsics_vec[i] = cam_vec[num_params_per_camera+i];
-  }
+  // Apply any initial transform to the pinhole cameras
+  if (opt.initial_transform_file != "") 
+    apply_transform_to_cameras(opt.initial_transform, param_storage);
 
   return;
+}
+
+/// Write a pinhole camera file to disk.
+void write_pinhole_output_file(Options const& opt, int icam,
+                               BAParamStorage const& param_storage) {
+
+  // Get the output file path
+  std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                      opt.image_files [icam],
+                                                      opt.camera_files[icam]);
+  cam_file = fs::path(cam_file).replace_extension("tsai").string();
+
+  // Get the final camera model
+  vw::camera::PinholeModel* pin_ptr
+    = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
+  populate_pinhole_from_arrays(icam, param_storage, *pin_ptr);
+
+  vw::vw_out() << "Writing: " << cam_file << std::endl;
+  pin_ptr->write(cam_file);
+  vw::vw_out() << "Writing output model: " << *pin_ptr << std::endl;
+
+  bool has_datum = (opt.datum.name() != UNSPECIFIED_DATUM);
+  if (has_datum) {
+    vw::vw_out() << "Camera center for " << cam_file << ": "
+                  << opt.datum.cartesian_to_geodetic(pin_ptr->camera_center())
+                  << " (longitude, latitude, height above datum(m))\n\n";
+  }
 }
 
 //=========================================================================
@@ -336,150 +343,107 @@ ceres::LossFunction* get_loss_function(Options const& opt ){
 }
 
 
-// Add residual block without floating intrinsics for the reprojection error
-template<class ModelT>
-void add_reprojection_residual_block(ModelT & ba_model,
-                                     Vector2 const& observation, Vector2 const& pixel_sigma,
-                                     size_t icam, size_t ipt,
-                                     double * camera, double * point, double * scaled_intrinsics,
-                                     std::set<std::string> const& intrinsics_to_float,
-                                     ceres::LossFunction* loss_function,
+// Wrapper for the AdjustedCameraBundleModel type
+void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& pixel_sigma,
+                                     int point_index, int camera_index,
+                                     BAParamStorage & param_storage,
+                                     Options const& opt,
                                      ceres::Problem & problem){
 
-  ceres::CostFunction* cost_function =
-    BaReprojectionError<ModelT>::Create(observation, pixel_sigma,
-                                        &ba_model, icam, ipt);
-  problem.AddResidualBlock(cost_function, loss_function, camera, point);
-}
+  ceres::LossFunction* loss_function = get_loss_function(opt);
 
-// Add residual block for the reprojection error, optionally floating the intrinsics
-template<>
-void add_reprojection_residual_block<BAPinholeModel>
-                  (BAPinholeModel & ba_model,
-                   Vector2 const& observation, Vector2 const& pixel_sigma,
-                   size_t icam, size_t ipt,
-                   double * camera, double * point, double * scaled_intrinsics,
-                   std::set<std::string> const& intrinsics_to_float,
-                   ceres::LossFunction* loss_function,
-                   ceres::Problem & problem){
-  // If the intrinsics are constant use the default method above
-  if (ba_model.are_intrinsics_constant()) {
+  boost::shared_ptr<CameraModel> camera_model = opt.camera_models[camera_index];
+
+  double* camera = param_storage.get_camera_ptr(camera_index);
+  double* point  = param_storage.get_point_ptr (point_index );
+
+  if (opt.create_pinhole) {
+
+    double* center     = param_storage.get_intrinsic_center_ptr    (camera_index);
+    double* focus      = param_storage.get_intrinsic_focus_ptr     (camera_index);
+    double* distortion = param_storage.get_intrinsic_distortion_ptr(camera_index);
+
+    boost::shared_ptr<PinholeModel> pinhole_model = 
+      boost::dynamic_pointer_cast<vw::camera::PinholeModel>(camera_model);
+    if (pinhole_model.get() == 0)
+      vw::vw_throw( vw::ArgumentErr() << "Tried to add pinhole block with non-pinhole camera!");
+    boost::shared_ptr<CeresBundleModelBase> wrapper(new PinholeBundleModel(pinhole_model));
     ceres::CostFunction* cost_function =
-      BaReprojectionError<BAPinholeModel>::Create(observation, pixel_sigma,
-                                                  &ba_model, icam, ipt);
-    problem.AddResidualBlock(cost_function, loss_function, camera, point);
+      BaReprojectionError::Create(observation, pixel_sigma, wrapper);
+    problem.AddResidualBlock(cost_function, loss_function, point, camera, 
+                            center, focus, distortion);
+
+    // If we don't want to solve for something, just tell Ceres not to adjust the values.
+    if (opt.intrinisc_options.center_constant)
+      problem.SetParameterBlockConstant(center);
+    if (opt.intrinisc_options.focus_constant)
+      problem.SetParameterBlockConstant(focus);
+    if (opt.intrinisc_options.distortion_constant)
+      problem.SetParameterBlockConstant(distortion);
+
+  } else { // Non-pinhole case.
+
+    boost::shared_ptr<CeresBundleModelBase> wrapper(new AdjustedCameraBundleModel(camera_model));
+    ceres::CostFunction* cost_function =
+      BaReprojectionError::Create(observation, pixel_sigma, wrapper);
+    problem.AddResidualBlock(cost_function, loss_function, point, camera);
   }
-  else {
-    // Use a special cost function using intrinsics
-    // - We always "depend" on the full set of possible intrinsics, but
-    //   if we are not currently solving for them we flag them as constant below.
 
-    ceres::CostFunction* cost_function =
-      BaPinholeError::Create(observation, pixel_sigma, &ba_model, icam, ipt);
-
-    int nf = BAPinholeModel::focal_length_params_n;
-    int nc = BAPinholeModel::optical_center_params_n;
-
-    const int num_distortion_params = ba_model.num_distortion_params();
-    if (num_distortion_params == 0) 
-      problem.AddResidualBlock(cost_function, loss_function, camera, point,
-                               scaled_intrinsics,          // focal length
-                               scaled_intrinsics + nf      // optical center
-                               );
-    else{
-      problem.AddResidualBlock(cost_function, loss_function, camera, point,
-                               scaled_intrinsics,          // focal length      (1 param)
-                               scaled_intrinsics + nf,     // optical center    (2 params)
-                               scaled_intrinsics + nf + nc // distortion params (all else)
-                               );
-    }
-    // See if to float only certain intrinsics
-    if (!intrinsics_to_float.empty()) {
-
-      if (intrinsics_to_float.find("focal_length") == intrinsics_to_float.end())
-        problem.SetParameterBlockConstant(scaled_intrinsics);
-
-      if (intrinsics_to_float.find("optical_center") == intrinsics_to_float.end())
-        problem.SetParameterBlockConstant(scaled_intrinsics + nf);
-
-      if (intrinsics_to_float.find("distortion_params") == intrinsics_to_float.end()) {
-        if (num_distortion_params > 0)
-          problem.SetParameterBlockConstant(scaled_intrinsics + nf + nc);
-      }
-    }
-  } // end dealing with intrinsics
+  // Fix this camera if requested
+  if (opt.fixed_cameras_indices.find(camera_index) != opt.fixed_cameras_indices.end()) 
+    problem.SetParameterBlockConstant(param_storage.get_camera_ptr(camera_index));
 }
 
-
-// Add residual block for the error using reference xyz
-// This one does nothing, as the functionality is implemented only for pinhole models
-template<class ModelT>
+/// Add residual block for the error using reference xyz.
 void add_disparity_residual_block(Vector3 const& reference_xyz,
-                        ImageViewRef<DispPixelT> const& interp_disp, 
-                        ModelT & ba_model,
-                        size_t left_icam, size_t right_icam,
-                        double * left_camera, double * right_camera,
-                        double * scaled_intrinsics,
-                        std::set<std::string> const& intrinsics_to_float,
-                        ceres::LossFunction* loss_function,
-                        ceres::Problem & problem){
-}
+                                  ImageViewRef<DispPixelT> const& interp_disp, 
+                                  int left_cam_index, int right_cam_index,
+                                  BAParamStorage & param_storage,
+                                  Options const& opt,
+                                  ceres::Problem & problem){
 
-// Add residual block for the error using reference xyz for pinhole
-template<>
-void add_disparity_residual_block<BAPinholeModel>(Vector3 const& reference_xyz,
-                                        ImageViewRef<DispPixelT> const& interp_disp, 
-                                        BAPinholeModel & ba_model,
-                                        size_t left_icam, size_t right_icam,
-                                        double * left_camera, double * right_camera,
-                                        double * scaled_intrinsics,
-                                        std::set<std::string> const& intrinsics_to_float,
-                                        ceres::LossFunction* loss_function,
-                                        ceres::Problem & problem){
+  ceres::LossFunction* loss_function = get_loss_function(opt);
 
-  ceres::CostFunction* cost_function =
-    BaDispXyzError::Create(reference_xyz, interp_disp, ba_model, left_icam, right_icam);
+  boost::shared_ptr<CameraModel> left_camera_model  = opt.camera_models[left_cam_index ];
+  boost::shared_ptr<CameraModel> right_camera_model = opt.camera_models[right_cam_index];
 
-    // If the intrinsics are constant, do not even include them in the optimization
-  if (ba_model.are_intrinsics_constant()) {
+  double* left_camera  = param_storage.get_camera_ptr(left_cam_index);
+  double* right_camera = param_storage.get_camera_ptr(right_cam_index);
+
+  if (opt.create_pinhole) {
+
+    boost::shared_ptr<PinholeModel> left_pinhole_model = 
+      boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_camera_model);
+    boost::shared_ptr<PinholeModel> right_pinhole_model = 
+      boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_camera_model);
+
+    double* left_center      = param_storage.get_intrinsic_center_ptr    (left_cam_index );
+    double* left_focus       = param_storage.get_intrinsic_focus_ptr     (left_cam_index );
+    double* left_distortion  = param_storage.get_intrinsic_distortion_ptr(left_cam_index );
+    double* right_center     = param_storage.get_intrinsic_center_ptr    (right_cam_index);
+    double* right_focus      = param_storage.get_intrinsic_focus_ptr     (right_cam_index);
+    double* right_distortion = param_storage.get_intrinsic_distortion_ptr(right_cam_index);
+
+    boost::shared_ptr<CeresBundleModelBase> left_wrapper (new PinholeBundleModel(left_pinhole_model ));
+    boost::shared_ptr<CeresBundleModelBase> right_wrapper(new PinholeBundleModel(right_pinhole_model));
+    ceres::CostFunction* cost_function =
+      BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper);
+
+    problem.AddResidualBlock(cost_function, loss_function,
+                            left_camera,  left_center,  left_focus,  left_distortion,
+                            right_camera, right_center, right_focus, right_distortion);
+
+  } else { // Non-pinhole case
+
+    boost::shared_ptr<CeresBundleModelBase> left_wrapper (new AdjustedCameraBundleModel(left_camera_model ));
+    boost::shared_ptr<CeresBundleModelBase> right_wrapper(new AdjustedCameraBundleModel(right_camera_model));
+    ceres::CostFunction* cost_function =
+      BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper);
+
     problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera);
-  } else {
+  }
 
-    // We will float some or more of the intrinsics
-
-    int nf = BAPinholeModel::focal_length_params_n;
-    int nc = BAPinholeModel::optical_center_params_n;
-
-    const int num_distortion_params = ba_model.num_distortion_params();
-    if (num_distortion_params == 0) 
-      problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera,
-                               scaled_intrinsics,          // focal length
-                               scaled_intrinsics + nf      // optical center
-                               );
-    else{
-      problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera,
-                               scaled_intrinsics,          // focal length      (1 param)
-                               scaled_intrinsics + nf,     // optical center    (2 params)
-                               scaled_intrinsics + nf + nc // distortion params (all else)
-                               );
-    }
-    
-    // See if to float only certain intrinsics
-    if (!intrinsics_to_float.empty()) {
-
-      if (intrinsics_to_float.find("focal_length") == intrinsics_to_float.end())
-        problem.SetParameterBlockConstant(scaled_intrinsics);
-
-      if (intrinsics_to_float.find("optical_center") == intrinsics_to_float.end())
-        problem.SetParameterBlockConstant(scaled_intrinsics + nf);
-
-      if (intrinsics_to_float.find("distortion_params") == intrinsics_to_float.end()) {
-        if (num_distortion_params > 0)
-          problem.SetParameterBlockConstant(scaled_intrinsics + nf + nc);
-      }
-    } // Done floating certain intrinsics
-    
-  } // end dealing with intrinsics
+  
   
 }
 
@@ -1001,9 +965,7 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
 // End outlier functions
 // ----------------------------------------------------------------
 
-template <class ModelT>
-int do_ba_ceres_one_pass(ModelT              & ba_model,
-                         Options             & opt,
+int do_ba_ceres_one_pass(Options             & opt,
                          CRNJ                & crn,
                          bool                  first_pass,
                          bool                  last_pass,
@@ -1014,10 +976,9 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
   ceres::Problem problem;
 
   ControlNetwork & cnet = *opt.cnet;
-  const int num_cameras = ba_model.num_cameras();
-  const int num_points  = ba_model.num_points();
-  const int num_intrinsic_params = param_storage.num_intrinsics();
-  
+  const int num_cameras = param_storage.num_cameras();
+  const int num_points  = param_storage.num_points();
+
   convergence_reached = true;
   
   // Add the cost function component for difference of pixel observations
@@ -1029,18 +990,13 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
     if (param_storage.get_point_outlier(i))
       count_map[i] = 0; // skip outliers
     else
-      count_map[i] = cnet[i].size();
+      count_map[i] = cnet[i].size(); // Get number of observations of this point.
   }
 
   // We will optimize multipliers of the intrinsics. This way
   // each intrinsic changes by a scale specific to it.
-  // TODO: If an intrinsic starts as 0, it will then stay as 0 which is not good.
-  std::vector<double> scaled_intrinsics(num_intrinsic_params);
-  for (int intrIter = 0; intrIter < num_intrinsic_params; intrIter++)
-    scaled_intrinsics[intrIter] = 1.0;
-  double * scaled_intrinsics_ptr = NULL;
-  if (num_intrinsic_params > 0)
-    scaled_intrinsics_ptr = &scaled_intrinsics[0];
+  // TODO: If an intrinsic starts as 0, it will then stay as 0 which is not good!
+
 
   vw::cartography::GeoReference dem_georef;
   ImageViewRef< PixelMask<double> >  interp_dem;
@@ -1087,23 +1043,17 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
         double delta = pow(count_map[ipt] - 1.0, p);
         pixel_sigma /= delta;
       }
-      
-      ceres::LossFunction* loss_function = get_loss_function(opt);
 
-      // Call function to select the appropriate Ceres residual block to add.
-      add_reprojection_residual_block(ba_model, observation, pixel_sigma, icam, ipt,
-                                      camera, point, scaled_intrinsics_ptr, opt.intrinsics_to_float,
-                                      loss_function, problem);
-
-      // Fix this camera if requested
-      if (opt.fixed_cameras_indices.find(icam) != opt.fixed_cameras_indices.end()) 
-        problem.SetParameterBlockConstant(camera);
+      // Call function to add the appropriate Ceres residual block.
+      add_reprojection_residual_block(observation, pixel_sigma, ipt, icam,
+                                      param_storage, opt, problem);
 
       if (opt.heights_from_dem != "") {
         // For non-GCP points, copy the heights for xyz points from the DEM.
         // Fix the obtained xyz points as they are considered reliable
         // and we should have the cameras and intrinsics params to conform to these.
         if (cnet[ipt].type() != ControlPoint::GroundControlPoint){
+          double* point = param_storage.get_point_ptr(ipt);
           update_point_from_dem(point, dem_georef, interp_dem);
           problem.SetParameterBlockConstant(point);
         }
@@ -1138,7 +1088,7 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
       std::swap(llh_sigma[0], llh_sigma[1]);
       cost_function = LLHError::Create(observation, llh_sigma, opt.datum);
     }
-    
+
     // Don't use the same loss function as for pixels since that one discounts
     //  outliers and the cameras should never be discounted.
     ceres::LossFunction* loss_function = new ceres::TrivialLoss();
@@ -1157,12 +1107,8 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
 
     for (int icam = 0; icam < num_cameras; icam++){
 
-      typename ModelT::camera_vector_t orig_cam;
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
-      for (int q = 0; q < param_storage.params_per_camera(); q++)
-        orig_cam[q] = orig_cam_ptr[q];
-
-      ceres::CostFunction* cost_function = CamError<ModelT>::Create(orig_cam, opt.camera_weight);
+      ceres::CostFunction* cost_function = CamError::Create(orig_cam_ptr, opt.camera_weight);
 
       // Don't use the same loss function as for pixels since that one discounts
       //  outliers and the cameras should never be discounted.
@@ -1180,13 +1126,9 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
 
     for (int icam = 0; icam < num_cameras; icam++){
 
-      typename ModelT::camera_vector_t orig_cam;
       double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
-      for (int q = 0; q < param_storage.params_per_camera(); q++)
-        orig_cam[q] = orig_cam_ptr[q];
-
       ceres::CostFunction* cost_function
-        = RotTransError<ModelT>::Create(orig_cam, opt.rotation_weight, opt.translation_weight);
+        = RotTransError::Create(orig_cam_ptr, opt.rotation_weight, opt.translation_weight);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
 
       double * camera  = param_storage.get_camera_ptr(icam);
@@ -1205,7 +1147,6 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
   std::vector< ImageView   <DispPixelT> > disp_vec;
   std::vector< ImageViewRef<DispPixelT> > interp_disp; 
   std::vector< vw::Vector3              > reference_vec;
-  double * intrinsics = param_storage.get_intrinsics_ptr();
   if (opt.create_pinhole && opt.reference_terrain != "") {
 
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
@@ -1218,15 +1159,14 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
       vw_throw( ArgumentErr() << "When using a reference terrain, must specify the datum.\n");
     if (opt.disparity_list == "") 
       vw_throw( ArgumentErr() << "When using a reference terrain, must specify a list "
-                << "of disparities.\n");
+                              << "of disparities.\n");
     if (opt.max_disp_error <= 0) 
       vw_throw( ArgumentErr() << "Must specify --max-disp-error in pixels as a positive value.\n");
     if (opt.reference_terrain_weight < 0) 
-      vw_throw( ArgumentErr()
-                << "The value of --reference-terrain-weight must be non-negative.\n");
+      vw_throw( ArgumentErr() << "The value of --reference-terrain-weight must be non-negative.\n");
 
     // TODO: Pass these properly
-    g_max_disp_error = opt.max_disp_error;
+    g_max_disp_error           = opt.max_disp_error;
     g_reference_terrain_weight = opt.reference_terrain_weight;
     
     // Set up a GeoReference object using the datum
@@ -1295,7 +1235,7 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
       // the longitude. 
       if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
         vw::Vector3 llh = geo.datum().cartesian_to_geodetic(reference_xyz);
-        vw::Vector2 ll = subvector(llh, 0, 2);
+        vw::Vector2 ll  = subvector(llh, 0, 2);
         if (!asp::stereo_settings().lon_lat_limit.contains(ll)) {
           continue;
         }
@@ -1306,55 +1246,34 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
       // Iterate over the cameras, add a residual for each point and each camera pair.
       for (int icam = 0; icam < num_cameras - 1; icam++) {
 
-        // Get pointers to the camera and point coordinates
-        double * left_camera = param_storage.get_camera_ptr(icam);
-        double * point       = &reference_xyz[0];
+        boost::shared_ptr<CameraModel> left_camera  = opt.camera_models[icam  ];
+        boost::shared_ptr<CameraModel> right_camera = opt.camera_models[icam+1];
 
-        // Project the current point into the current camera
-        typename ModelT::camera_intr_vector_t cam_intr_vec;
-        typename ModelT::point_vector_t       point_vec;
-        ba_model.concat_extrinsics_intrinsics(left_camera, intrinsics, cam_intr_vec);
-        for (size_t p = 0; p < point_vec.size(); p++) point_vec[p] = point[p];
         try {
-          left_pred = ba_model.cam_pixel(0, icam, cam_intr_vec, point_vec);
-        }catch(std::exception const& e){
-          continue;
-        }
-        // Check if the current point projects in the camera
-        if (!image_boxes[icam].contains(left_pred)) {
-          continue;
+          left_pred  = left_camera->point_to_pixel (reference_xyz);
+          right_pred = right_camera->point_to_pixel(reference_xyz);
+        } catch (const camera::PointToPixelErr& e) {
+          continue; // Skip point if there is a projection issue.
         }
 
-        // Do the same for the right camera
-        double * right_camera = param_storage.get_camera_ptr(icam+1);
-        ba_model.concat_extrinsics_intrinsics(right_camera, intrinsics, cam_intr_vec);
-        for (size_t p = 0; p < point_vec.size(); p++) point_vec[p] = point[p];
-        try {
-          right_pred = ba_model.cam_pixel(0, icam + 1, cam_intr_vec, point_vec);
-        }catch(std::exception const& e){
-          continue;
-        }
-        // Check if the current point projects in the camera
-        if (!image_boxes[icam+1].contains(right_pred)) {
-          continue;
-        }
+        if ( (left_pred != left_pred) || (right_pred != right_pred) )
+          continue; // nan check
 
-        // Check for out of range, etc
-        if (left_pred != left_pred) continue; // nan check
-        if (left_pred[0] < 0 || left_pred[0] > interp_disp[icam].cols() - 1) continue;
-        if (left_pred[1] < 0 || left_pred[1] > interp_disp[icam].rows() - 1) continue;
-
-        if (right_pred != right_pred) continue; // nan check
-        if (right_pred[0] < 0) continue;
-        if (right_pred[1] < 0) continue;
-
+        if (!interp_disp[icam].pixel_in_bounds(left_pred))
+          continue; // Interp check
         DispPixelT dispPix = interp_disp[icam](left_pred[0], left_pred[1]);
         if (!is_valid(dispPix))
           continue;
 
+        // Check if the current point projects in the cameras
+        if ( !image_boxes[icam  ].contains(left_pred ) || 
+             !image_boxes[icam+1].contains(right_pred)   ) {
+          continue;
+        }
+
         Vector2 right_pix = left_pred + dispPix.child();
         if (!image_boxes[icam+1].contains(right_pix)) 
-          continue;
+          continue; // Check offset location too
 
         if (right_pix != right_pix || norm_2(right_pix - right_pred) > opt.max_disp_error) {
           // Ignore pixels which are too far from where they should be before optimization
@@ -1363,15 +1282,10 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
 
         reference_vec.push_back(reference_xyz);
 
-        ceres::LossFunction* loss_function = get_loss_function(opt);
-
         // Call function to select the appropriate Ceres residual block to add.
-        add_disparity_residual_block(reference_xyz, interp_disp[icam], ba_model,
+        add_disparity_residual_block(reference_xyz, interp_disp[icam],
                                      icam, icam+1, // left icam and right icam
-                                     left_camera, right_camera, 
-                                     scaled_intrinsics_ptr,
-                                     opt.intrinsics_to_float,
-                                     loss_function, problem);
+                                     param_storage, opt, problem);
       }
       tpc.report_incremental_progress( inc_amount );
     }
@@ -1452,29 +1366,20 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
     convergence_reached = false;
   }
 
-  // Multiply the original intrinsics by the scaled optimized values
-  for (int intrIter = 0; intrIter < num_intrinsic_params; intrIter++)
-    intrinsics[intrIter] = intrinsics[intrIter] * scaled_intrinsics_ptr[intrIter];
+  if (last_pass) {
+    vw_out() << "Writing final condition log files..." << std::endl;
+    residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
+    write_residual_logs(residual_prefix, true,  opt, param_storage, cam_residual_counts,
+                        num_gcp_residuals, reference_vec, crn, problem);
+    residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
+    write_residual_logs(residual_prefix, false, opt, param_storage, cam_residual_counts,
+                        num_gcp_residuals, reference_vec, crn, problem);
 
-  if (opt.create_pinhole && opt.solve_intrinsics) {
-    vw_out() << "Final scaled intrinsics:\n";
-    for (int intrIter = 0; intrIter < num_intrinsic_params; intrIter++) 
-      vw_out() << scaled_intrinsics[intrIter] << " ";
-    vw_out() << std::endl;
+    point_kml_path = opt.out_prefix + "-final_points.kml";
+    param_storage.record_points_to_kml(point_kml_path, opt.datum,
+                        kmlPointSkip, "final_points",
+                        "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
   }
-  
-  vw_out() << "Writing final condition log files..." << std::endl;
-  residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
-  write_residual_logs(residual_prefix, true,  opt, param_storage, cam_residual_counts,
-                      num_gcp_residuals, reference_vec, crn, problem);
-  residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
-  write_residual_logs(residual_prefix, false, opt, param_storage, cam_residual_counts,
-                      num_gcp_residuals, reference_vec, crn, problem);
-
-  point_kml_path = opt.out_prefix + "-final_points.kml";
-  param_storage.record_points_to_kml(point_kml_path, opt.datum,
-                       kmlPointSkip, "final_points",
-                       "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
 
   if (num_gcp > 0)
     param_storage.print_gcp_stats(cnet, opt.datum);
@@ -1494,43 +1399,43 @@ int do_ba_ceres_one_pass(ModelT              & ba_model,
   return num_new_outliers;
 }
 
-/// Use Ceres to do bundle adjustment. The camera and point variables
-/// are stored in arrays.  The projection of point into camera is
-/// accomplished by interfacing with the bundle adjustment model. In
-/// the future this class can be bypassed.
-template <class ModelT>
-void do_ba_ceres(ModelT & ba_model, Options & opt ){
+/// Use Ceres to do bundle adjustment.
+void do_ba_ceres(Options & opt){
 
-  ControlNetwork & cnet = *(ba_model.control_network().get());
+  ControlNetwork & cnet = *(opt.cnet.get());
 
-  const int num_camera_params    = ModelT::camera_params_n;
-  const int num_point_params     = ModelT::point_params_n;
-  const int num_intrinsic_params = ba_model.num_intrinsic_params();
-  const int num_points           = ba_model.num_points();
-  const int num_cameras          = ba_model.num_cameras();
+  const int num_points  = cnet.size();
+  const int num_cameras = opt.image_files.size();
 
-  // The camera adjustment and point variables concatenated into
-  // vectors. The camera adjustments start as 0. The points come from the network. 
-  BAParamStorage param_storage(num_points,       num_cameras,
-                               num_point_params, num_camera_params,
-                               num_intrinsic_params);
+  // Create the storage arrays for the variables we will adjust.
+  int num_lens_distortion_params = 0;
+  if (opt.create_pinhole) {
+    boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
+            boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models[0]);
+    num_lens_distortion_params = pinhole_ptr->lens_distortion()->distortion_parameters().size();
+  }
+  BAParamStorage param_storage(num_points, num_cameras,
+                               opt.create_pinhole,
+                               num_lens_distortion_params, // Must be the same for each pinhole camera.
+                               opt.intrinisc_options);
 
-  // Fill in the camera vectors with their starting values.
-  init_cams(ba_model, opt, param_storage);
-
-  // Fill in the point vector with the starting values.
+  // Fill in the point vector with the starting values, this is easy.
   for (int ipt = 0; ipt < num_points; ipt++)
     param_storage.set_point(ipt, cnet[ipt].position());
 
+  // Fill in the camera and intrinsic parameters.
+  if (opt.create_pinhole)
+    init_cams_pinhole(opt, param_storage);
+  else
+    init_cams(opt, param_storage);
+
   // The camera positions and orientations before we float them
+  // - This includes modifications from any initial transforms that were specified.
   BAParamStorage orig_parameters(param_storage);
 
   // TODO: Possible to avoid using CRNs?
   CRNJ crn;
   crn.read_controlnetwork(cnet);
-
-  // We will keep here the outliers
-  std::set<int> outlier_xyz;
 
   if (opt.num_ba_passes <= 0)
     vw_throw(ArgumentErr() << "Error: Expecting at least one bundle adjust pass.\n");
@@ -1538,19 +1443,19 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
   for (int pass = 0; pass < opt.num_ba_passes; pass++) {
 
     if (opt.num_ba_passes > 1) {
+      // Go back to the original inputs to optimize, but keep our outlier list.
       vw_out() << "Bundle adjust pass: " << pass << std::endl;
-      // Go back to the original inputs to optimize, sans the outliers. Note that we
-      // copy values, to not disturb the pointer of each vector.
       param_storage.copy_points    (orig_parameters);
       param_storage.copy_cameras   (orig_parameters);
       param_storage.copy_intrinsics(orig_parameters);
     }
-    
+
+    // Do another pass of bundle adjustment.
     bool last_pass = (pass == opt.num_ba_passes - 1);
     bool convergence_reached = true;
-    int num_new_outliers = do_ba_ceres_one_pass(ba_model, opt, crn, (pass==0), last_pass,
-                                                param_storage, orig_parameters,
-                                                convergence_reached);
+    int  num_new_outliers    = do_ba_ceres_one_pass(opt, crn, (pass==0), last_pass,
+                                                    param_storage, orig_parameters,
+                                                    convergence_reached);
 
     if (!last_pass && num_new_outliers == 0 && convergence_reached) {
       vw_out() << "No new outliers removed, and the algorithm converged. "
@@ -1564,17 +1469,24 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
       // This is needed to not break functionality when only gcp are passed as inputs.
       vw_throw(ArgumentErr() << "Error: Too few points remain after filtering!.\n");
     }
-  }
+  } // End loop through passes
 
-  // Copy the latest version of the optimized intrinsic variables back
-  // into the the separate parameter vectors in ba_model, right after
-  // the already updated extrinsic parameters.
-  typename ModelT::camera_intr_vector_t concat;
+  // Write the results to disk.
   for (int icam = 0; icam < num_cameras; icam++){
-    ba_model.concat_extrinsics_intrinsics(param_storage.get_camera_ptr(icam),
-                                          param_storage.get_intrinsics_ptr(), concat);
-    ba_model.set_cam_params(icam, concat);
-  }
+
+    if (opt.create_pinhole) {
+      write_pinhole_output_file(opt, icam, param_storage);
+
+    } else {
+        std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                              opt.image_files[icam],
+                                                              opt.camera_files[icam]);
+        vw_out() << "Writing: " << adjust_file << std::endl;
+
+        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+        asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
+    }
+  } // End loop through cameras
 
 } // end do_ba_ceres
 
@@ -2232,41 +2144,8 @@ int main(int argc, char* argv[]) {
       check_gcp_dists(opt.camera_models, opt.cnet);
     }
 
-    if (opt.create_pinhole == false) {
-      BundleAdjustmentModel ba_model(opt.camera_models, opt.cnet);
-
-      do_ba_ceres<BundleAdjustmentModel>(ba_model, opt);
-
-      // Save the models to disk.
-      for (size_t icam = 0; icam < ba_model.num_cameras(); icam++){
-        std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                              opt.image_files[icam],
-                                                              opt.camera_files[icam]);
-        vw_out() << "Writing: " << adjust_file << std::endl;
-        ba_model.write_adjustment(icam, adjust_file);
-      }
-    } else {
-      // Use for local pinhole models, could also be used for other pinhole models.
-      BAPinholeModel ba_model(opt.camera_models, opt.cnet, opt.solve_intrinsics);
-
-      // Create new camera models from scratch
-      do_ba_ceres<BAPinholeModel>(ba_model, opt);
-
-      // Save the camera models to disk
-      std::vector<std::string> cam_files;
-      for (int icam = 0; icam < (int)opt.camera_models.size(); icam++){
-        std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                            opt.image_files[icam],
-                                                            opt.camera_files[icam]);
-        cam_file = fs::path(cam_file).replace_extension("tsai").string();
-        cam_files.push_back(cam_file);
-      }
-
-      // If we approximated the lens distortions re-insert the original value here.
-      bool has_datum = (opt.datum.name() != UNSPECIFIED_DATUM);
-      ba_model.write_camera_models(cam_files, has_datum, opt.datum, input_lens_distortion.get());
-
-    } // End BAPinhole case
+    // All the work happens here!  It also writes out the results.
+    do_ba_ceres(opt);
 
     xercesc::XMLPlatformUtils::Terminate();
 

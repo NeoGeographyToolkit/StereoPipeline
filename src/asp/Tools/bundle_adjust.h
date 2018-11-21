@@ -43,9 +43,12 @@
 
 #include <asp/Core/BundleAdjustUtils.h>
 
-// TODO: Move these classes to another file so they can be cleaned up properly!
+#include <asp/Tools/bundle_adjust_misc_functions.h>
 
-std::string UNSPECIFIED_DATUM = "unspecified_datum";
+
+//================================================================================
+
+
 
 
 // Copy adjustments to an array, first translation, and then rotation.
@@ -67,6 +70,7 @@ void pack_camera_params_base(ModelT const& model,
     cam[i + ModelT::camera_params_n/2] = pose_vec[i];
   }
 } // End function pack_camera_params_base
+
 
 // Bundle adjustment functor
 class BundleAdjustmentModel:
@@ -323,7 +327,7 @@ public:
       pack_camera_params_base(*this, &cameras_vec[camera_params_n*j],
                               position_correction, pose_correction);
     }
-  }
+  } // end function import_transform
   
 }; // End class BundleAdjustmentModel
 
@@ -331,7 +335,7 @@ public:
 //==========================================================================
 
 // Final goal: Share camera center or not, share intrinsics or not.
-
+/*
 
 // --> Need to stop using ModelBase, have variable parameter lengths!
 /// Model to be used to float all parameters of a pinhole model.  There
@@ -614,7 +618,7 @@ public:
   /// Given the 'cam_vec' vector (camera model parameters) for the j'th
   /// image, and the 'm_point_vec' vector (3D point location) for the i'th
   /// point, return the location of point_i on imager j in pixel coordinates.
-  vw::Vector2 cam_pixel(unsigned /*i*/, unsigned j,
+  vw::Vector2 cam_pixel(unsigned i, unsigned j,
                         camera_intr_vector_t const& cam_j,
                         point_vector_t       const& point_i) const {
 
@@ -695,6 +699,8 @@ public:
   
 }; // End class BAPinholeModel
 
+*/
+
 
 /// The big bag of parameters needed by bundle_adjust.cc
 struct Options : public vw::cartography::GdalWriteOptions {
@@ -732,6 +738,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   vw::Matrix4x4 initial_transform;
   std::string   fixed_cameras_indices_str;
   std::set<int> fixed_cameras_indices;
+  IntrinsicOptions intrinisc_options;
   std::map< std::pair<int, int>, std::string> match_files;
   
   // Make sure all values are initialized, even though they will be
