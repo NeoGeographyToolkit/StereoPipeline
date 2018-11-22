@@ -122,14 +122,19 @@ public:
 
   // Copy constructor
   BAParamStorage(BAParamStorage const& other)
-    : m_points_vec        (other.m_points_vec.size()        ),
-      m_cameras_vec       (other.m_cameras_vec.size()       ),
-      m_intrinsics_vec    (other.m_intrinsics_vec.size()    ),
-      m_outlier_points_vec(other.m_outlier_points_vec.size()),
-      m_num_points        (other.m_num_points),
+    : m_num_points        (other.m_num_points),
       m_num_cameras       (other.m_num_cameras),
       m_params_per_point  (other.m_params_per_point),
-      m_num_pose_params (other.m_num_pose_params) {
+      m_num_pose_params   (other.m_num_pose_params),
+      m_num_shared_intrinsics    (other.m_num_shared_intrinsics),
+      m_num_intrinsics_per_camera(other.m_num_intrinsics_per_camera),
+      m_focus_offset      (other.m_focus_offset),
+      m_distortion_offset (other.m_distortion_offset),
+      m_intrin_options    (other.m_intrin_options),
+      m_points_vec        (other.m_points_vec.size()        ),
+      m_cameras_vec       (other.m_cameras_vec.size()       ),
+      m_intrinsics_vec    (other.m_intrinsics_vec.size()    ),
+      m_outlier_points_vec(other.m_outlier_points_vec.size()){
     copy_points    (other);
     copy_cameras   (other);
     copy_intrinsics(other);
@@ -164,7 +169,7 @@ public:
 
   int num_points       () const {return m_num_points; }
   int num_cameras      () const {return m_num_cameras;}
-  int num_intrinsics   () const {return m_num_shared_intrinsics;} // Per camera
+  int num_intrinsics   () const {return m_num_intrinsics_per_camera;} // Per camera
   int params_per_point () const {return m_params_per_point;}
   int params_per_camera() const {return m_num_pose_params;}
 
@@ -466,7 +471,7 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
                             BAParamStorage & param_storage) {
 
-  double* pos_pose_ptr   = param_storage.get_camera_ptr(camera_index);
+  double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
   double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
   double* focus_ptr      = param_storage.get_intrinsic_focus_ptr     (camera_index);
   double* distortion_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
@@ -484,8 +489,9 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
   focus_ptr [0] = 1.0; //camera.focal_length()[0];
 
   // Pack the lens distortion parameters.
-  for (size_t i=0; i<param_storage.num_intrinsics(); ++i)
-    distortion_ptr[i] = 1.0; //lens[i];
+  vw::Vector<double> lens = camera.lens_distortion()->distortion_parameters();
+  for (size_t i=0; i<lens.size(); ++i)
+    distortion_ptr[i] = 1.0;
 }
 
 /// Modify an existing pinhole model in-place using the stored parameters.
@@ -512,16 +518,17 @@ void populate_pinhole_from_arrays(int camera_index,
   vw::Vector<double> lens = distortion->distortion_parameters();
   for (size_t i=0; i<lens.size(); ++i)
     lens[i] *= distortion_ptr[i];
+
   distortion->set_distortion_parameters(lens);
   camera.set_lens_distortion(distortion.get());
 
   // Update the center and focus
   Vector2 old_center = camera.point_offset();
   Vector2 old_focus  = camera.focal_length();
-  camera.set_focal_length(Vector2(center_ptr[0]*old_center[0],
+  camera.set_point_offset(Vector2(center_ptr[0]*old_center[0],
                                   center_ptr[1]*old_center[1]), false);
   double new_focus = old_focus[0]*focus_ptr[0];
-  camera.set_point_offset(Vector2(new_focus,new_focus), true); // Recompute internals.
+  camera.set_focal_length(Vector2(new_focus,new_focus), true); // Recompute internals.
 }
 
 

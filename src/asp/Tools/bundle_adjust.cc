@@ -31,7 +31,6 @@
 #include <asp/Core/EigenUtils.h>
 
 #include <asp/Tools/bundle_adjust.h>
-#include <asp/Tools/bundle_adjust_cost_functions.h> // Ceres included in this file.
 
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -46,302 +45,7 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 typedef CameraRelationNetwork<JFeature> CRNJ;
 
-//==================================================================================
-// Mapprojected image functions.
-
-/// If the user map-projected the images and created matches by hand
-/// (this is useful when the illumination conditions are too different,
-/// and automated matching fails), project those matching ip back
-/// into the cameras, creating matches between the raw images
-/// that then bundle_adjust can use.
-/// - The output matches are written to file.
-void create_matches_from_mapprojected_images(Options const& opt){
-  
-  std::istringstream is(opt.mapprojected_data);
-  std::vector<std::string> map_files;
-  std::string file;
-  while (is >> file){
-    map_files.push_back(file); 
-  }
-  std::string dem_file = map_files.back();
-  map_files.erase(map_files.end() - 1);
-
-  if ( opt.camera_models.size() != map_files.size()) 
-    vw_throw(ArgumentErr() << "Error: Expecting as many input cameras as map-projected images.\n");
-
-  vw::cartography::GeoReference dem_georef;
-  ImageViewRef< PixelMask<double> > interp_dem;
-  create_interp_dem(dem_file, dem_georef, interp_dem);
-
-  for (size_t i = 0; i < map_files.size(); i++) {
-    for (size_t j = i+1; j < map_files.size(); j++) {
-
-      vw::cartography::GeoReference georef1, georef2;
-      vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
-      bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
-      bool is_good2 = vw::cartography::read_georeference(georef2, map_files[j]);
-      if (!is_good1 || !is_good2) {
-        vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
-      }
-
-      std::string match_filename = ip::match_filename(opt.out_prefix,
-                                                      map_files[i], map_files[j]);
-      if (!fs::exists(match_filename)) {
-        vw_out() << "Missing: " << match_filename << "\n";
-        continue;
-      }
-      vw_out() << "Reading: " << match_filename << std::endl;
-      std::vector<ip::InterestPoint> ip1,     ip2;
-      std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
-      ip::read_binary_match_file( match_filename, ip1, ip2 );
-
-      // Undo the map-projection
-      for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
-
-        // TODO: Does the logic here fail if P1 succeeds but P2 fails???
-        vw::ip::InterestPoint P1 = ip1[ip_iter];
-        vw::ip::InterestPoint P2 = ip2[ip_iter];
-        if (!projected_ip_to_raw_ip(P1, interp_dem, opt.camera_models[i], georef1, dem_georef))
-          continue;
-        if (!projected_ip_to_raw_ip(P2, interp_dem, opt.camera_models[j], georef2, dem_georef))
-          continue;
-
-        ip1_cam.push_back(P1);
-        ip2_cam.push_back(P2);
-      }
-
-      // TODO: There is a problem if the number of matches changes!!!
-      vw_out() << "Saving " << ip1_cam.size() << " matches.\n";
-      std::string image1_path  = opt.image_files[i];
-      std::string image2_path  = opt.image_files[j];
-      match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
-
-      vw_out() << "Writing: " << match_filename << std::endl;
-      ip::write_binary_match_file(match_filename, ip1_cam, ip2_cam);
-
-    }
-  }
-} // End function create_matches_from_mapprojected_images
-
-/// If the user map-projected the images and created matches by hand
-/// from each map-projected image to the DEM it was map-projected onto,
-/// project those matches back into the camera image, and create gcp
-/// tying each camera image match to its desired location on the DEM.
-void create_gcp_from_mapprojected_images(Options const& opt){
-
-  // Read the map-projected images and the dem
-  std::istringstream is(opt.gcp_data);
-  std::vector<std::string> image_files;
-  std::string file;
-  while (is >> file){
-    image_files.push_back(file); 
-  }
-  std::string dem_file = image_files.back();
-  image_files.erase(image_files.end() - 1); // wipe the dem from the list
-
-  vw::cartography::GeoReference dem_georef;
-  ImageViewRef< PixelMask<double> > interp_dem;
-  create_interp_dem(dem_file, dem_georef, interp_dem);
-
-  int num_images = image_files.size();
-  std::vector<std::vector<vw::ip::InterestPoint> > matches;
-  std::vector<vw::cartography::GeoReference> img_georefs;
-  matches.resize(num_images + 1); // the last match will be for the DEM
-
-  // Read the matches and georefs
-  for (int i = 0; i < num_images; i++) {
-
-    vw::cartography::GeoReference img_georef;
-    vw_out() << "Reading georef from " << image_files[i]  << std::endl;
-    bool is_good_img = vw::cartography::read_georeference(img_georef, image_files[i]);
-    if (!is_good_img) {
-      vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
-    }
-    img_georefs.push_back(img_georef);
-
-    std::string match_filename = ip::match_filename(opt.out_prefix,
-                                                    image_files[i], dem_file);
-    if (!fs::exists(match_filename)) 
-      vw_throw(ArgumentErr() << "Missing: " << match_filename << ".\n");
-
-    vw_out() << "Reading: " << match_filename << std::endl;
-    std::vector<ip::InterestPoint> ip1, ip2;
-    ip::read_binary_match_file( match_filename, ip1, ip2 );
-
-    if (matches[num_images].size() > 0 && matches[num_images].size() != ip2.size()) {
-      vw_throw(ArgumentErr() << "All match files must have the same number of IP.\n");
-    }
-    matches[i]          = ip1;
-    matches[num_images] = ip2;
-  }
-
-  std::vector<std::vector<vw::ip::InterestPoint> > cam_matches = matches;
-
-  std::string gcp_file;
-  for (int i = 0; i < num_images; i++) {
-    gcp_file += fs::basename(opt.image_files[i]);
-    if (i < num_images - 1) gcp_file += "__"; 
-  }
-  gcp_file = opt.out_prefix + "-" + gcp_file + ".gcp";
-
-  vw_out() << "Writing: " << gcp_file << std::endl;
-  std::ofstream output_handle(gcp_file.c_str());
-
-  int num_ips = matches[0].size();
-  int pts_count = 0;
-  for (int p = 0; p < num_ips; p++) { // Loop through IPs
-
-    // Compute the GDC coordinate of the point
-    ip::InterestPoint dem_ip = matches[num_images][p];
-    Vector2 dem_pixel(dem_ip.x, dem_ip.y);
-    Vector2 lonlat = dem_georef.pixel_to_lonlat(dem_pixel);
-
-    if (!interp_dem.pixel_in_bounds(dem_pixel)) {
-      vw_out() << "Skipping pixel outside of DEM: " << dem_pixel << std::endl;
-      continue;
-    }
-
-    PixelMask<float> mask_height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
-    if (!is_valid(mask_height)) continue;
-
-    Vector3 llh(lonlat[0], lonlat[1], mask_height.child());
-    //Vector3 dem_xyz = dem_georef.datum().geodetic_to_cartesian(llh);
-
-    // The ground control point ID
-    output_handle << pts_count;
-    // Lat, lon, height
-    output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << mask_height.child();
-    // Sigma values
-    output_handle << ", " << 1 << ", " << 1 << ", " << 1;
-
-    // Write the per-image information
-    for (int i = 0; i < num_images; i++) {
-
-      // Take the ip in the map-projected image, and back-project it into the camera
-      ip::InterestPoint ip = matches[i][p];
-      if (!projected_ip_to_raw_ip(ip, interp_dem, opt.camera_models[i], img_georefs[i], dem_georef))
-          continue;
-
-      // TODO: Here we can have a book-keeping problem!
-      cam_matches[i][p] = ip;
-
-      output_handle << ", " << opt.image_files[i];
-      output_handle << ", " << ip.x << ", " << ip.y; // IP location in image
-      output_handle << ", " << 1 << ", " << 1; // Sigma values
-    } // End loop through IP sets
-    output_handle << std::endl; // Finish the line
-    pts_count++;
-
-  } // End loop through IPs
-  output_handle.close();
-
-  // Write out match files for each pair of images.
-  for (int i = 0; i < num_images; i++) {
-    for (int j = i; j < num_images; j++) { // write also for i, i. Useful for only 1 image.
-      std::string image1_path    = opt.image_files[i];
-      std::string image2_path    = opt.image_files[j];
-      std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
-
-      vw_out() << "Writing: " << match_filename << std::endl;
-      ip::write_binary_match_file(match_filename, cam_matches[i], cam_matches[j]);
-    }
-  }
-
-}
-
-//----------------------------------------------------------------------------------------
-
-
-/// This is for the BundleAdjustmentModel class where the camera parameters
-/// are a rotation/offset that is applied on top of the existing camera model.
-/// First read initial adjustments, if any, and apply perhaps a pc_align transform.
-void init_cams(Options & opt, BAParamStorage & param_storage){
-
-  // Initialize all of the camera adjustments to zero.
-  param_storage.clear_cameras();
-
-  // Read the adjustments from a previous run, if present
-  if (opt.input_prefix != "") {
-    for (size_t icam = 0; icam < param_storage.num_cameras(); icam++){
-      std::string adjust_file = asp::bundle_adjust_file_name(opt.input_prefix,
-                                                             opt.image_files[icam],
-                                                             opt.camera_files[icam]);
-      double * cam_ptr = param_storage.get_camera_ptr(icam);
-      CameraAdjustment adjustment;
-      adjustment.read_from_adjust_file(adjust_file);
-      adjustment.pack_to_array(cam_ptr);
-    }
-  }
-
-  // Apply any initial transform to the pinhole cameras
-  if (opt.initial_transform_file != "") {
-    apply_transform_to_cameras(opt.initial_transform, param_storage);
-  }
-}
-
-/// Specialization for pinhole cameras.
-void init_cams_pinhole(Options & opt, BAParamStorage & param_storage){
-
-  // Copy the camera parameters from the models to param_storage
-  for (int i=0; i < param_storage.num_cameras(); ++i) {
-    PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[i].get());
-    pack_pinhole_to_arrays(*pin_ptr, i, param_storage);
-  } // End loop through cameras
-
-  // Apply any initial transform to the pinhole cameras
-  if (opt.initial_transform_file != "") 
-    apply_transform_to_cameras(opt.initial_transform, param_storage);
-
-  return;
-}
-
-/// Write a pinhole camera file to disk.
-void write_pinhole_output_file(Options const& opt, int icam,
-                               BAParamStorage const& param_storage) {
-
-  // Get the output file path
-  std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                      opt.image_files [icam],
-                                                      opt.camera_files[icam]);
-  cam_file = fs::path(cam_file).replace_extension("tsai").string();
-
-  // Get the final camera model
-  vw::camera::PinholeModel* pin_ptr
-    = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
-  populate_pinhole_from_arrays(icam, param_storage, *pin_ptr);
-
-  vw::vw_out() << "Writing: " << cam_file << std::endl;
-  pin_ptr->write(cam_file);
-  vw::vw_out() << "Writing output model: " << *pin_ptr << std::endl;
-
-  bool has_datum = (opt.datum.name() != UNSPECIFIED_DATUM);
-  if (has_datum) {
-    vw::vw_out() << "Camera center for " << cam_file << ": "
-                  << opt.datum.cartesian_to_geodetic(pin_ptr->camera_center())
-                  << " (longitude, latitude, height above datum(m))\n\n";
-  }
-}
-
 //=========================================================================
-
-/// From the input options select the correct Ceres loss function.
-ceres::LossFunction* get_loss_function(Options const& opt ){
-  double th = opt.robust_threshold;
-  ceres::LossFunction* loss_function;
-  if      ( opt.cost_function == "l2"     )
-    loss_function = NULL;
-  else if ( opt.cost_function == "huber"  )
-    loss_function = new ceres::HuberLoss(th);
-  else if ( opt.cost_function == "cauchy" )
-    loss_function = new ceres::CauchyLoss(th);
-  else if ( opt.cost_function == "l1"     )
-    loss_function = new ceres::SoftLOneLoss(th);
-  else{
-    vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function << ".\n" );
-  }
-  return loss_function;
-}
-
 
 // Wrapper for the AdjustedCameraBundleModel type
 void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& pixel_sigma,
@@ -383,6 +87,13 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
 
   } else { // Non-pinhole case.
 
+    //std::cout << "Adding non-pinhole camera " << camera 
+    //          << ", point =  " << point << std::endl;
+    //std::cout << "observation = " << observation << std::endl;
+    //std::cout << "pixel_sigma = " << pixel_sigma << std::endl;
+    //std::cout << "position    = " << camera_model->camera_center(Vector2(0,0)) << std::endl;
+    //std::cout << "pose        = " << camera_model->camera_pose(Vector2(0,0)) << std::endl;
+    
     boost::shared_ptr<CeresBundleModelBase> wrapper(new AdjustedCameraBundleModel(camera_model));
     ceres::CostFunction* cost_function =
       BaReprojectionError::Create(observation, pixel_sigma, wrapper);
@@ -443,9 +154,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
     problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera);
   }
 
-  
-  
-}
+} // End function add_disparity_residual_block
 
 
 //----------------------------------------------------------------
@@ -1136,6 +845,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
   }
 
+  // TODO: Why pinhole only?
   // TODO: Can we split out this giant section?
   // Add a cost function meant to tie up to known disparity
   // form left to right image and known ground truth reference terrain.
@@ -1547,7 +1257,8 @@ int load_estimated_camera_positions(Options &opt,
 
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
-  double nan = std::numeric_limits<double>::quiet_NaN();
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  std::string intrinsics_to_float_str, intrinsics_to_share_str;
   po::options_description general_options("");
   general_options.add_options()
 //     ("cnet,c", po::value(&opt.cnet_file),
@@ -1563,7 +1274,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
             "If it reduces computation time, approximate the lens distortion model.")
     ("solve-intrinsics",    po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
             "Optimize intrinsic camera parameters.  Only used for pinhole cameras.")
-    ("intrinsics-to-float", po::value(&opt.intrinsics_to_float_str)->default_value(""),
+    ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
+            "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
+    ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
             "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
             "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the create-pinhole-cameras option.")
@@ -1719,7 +1432,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( opt.image_files.empty() )
     vw_throw( ArgumentErr() << "Missing input image files.\n"
-              << usage << general_options );
+                            << usage << general_options );
 
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
     vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and the overlap list.\n" << usage << general_options );
@@ -1747,15 +1460,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   if ( opt.camera_weight < 0.0 )
     vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage
-              << general_options );
+                            << general_options );
 
   if ( opt.rotation_weight < 0.0 )
     vw_throw( ArgumentErr() << "The rotation weight must be non-negative.\n" << usage
-              << general_options );
+                            << general_options );
 
   if ( opt.translation_weight < 0.0 )
     vw_throw( ArgumentErr() << "The translation weight must be non-negative.\n" << usage
-              << general_options );
+                            << general_options );
 
 
   if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
@@ -1840,18 +1553,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
-  // Parse the intrinsics to float in a vector
-  if (opt.intrinsics_to_float_str != "" && !opt.solve_intrinsics) {
-    vw_throw( ArgumentErr() 
-              << "To be able to float only certain intrinsics, the option --solve-intrinsics must be on.\n" );
-  }
+  opt.load_intrinsics_options(intrinsics_to_float_str, intrinsics_to_share_str);
 
-  opt.intrinsics_to_float.clear();
-  std::istringstream is(opt.intrinsics_to_float_str);
-  std::string val;
-  while (is >> val) 
-    opt.intrinsics_to_float.insert(val);
-  
   opt.save_iteration = vm.count("save-iteration-data");
   boost::to_lower( opt.cost_function );
 
@@ -1889,7 +1592,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main(int argc, char* argv[]) {
 
   Options opt;
-  try {
+  //try {
     xercesc::XMLPlatformUtils::Initialize();
 
     handle_arguments( argc, argv, opt );
@@ -2149,5 +1852,5 @@ int main(int argc, char* argv[]) {
 
     xercesc::XMLPlatformUtils::Terminate();
 
-  } ASP_STANDARD_CATCHES;
+  //} ASP_STANDARD_CATCHES;
 }

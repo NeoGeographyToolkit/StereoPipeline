@@ -44,663 +44,12 @@
 #include <asp/Core/BundleAdjustUtils.h>
 
 #include <asp/Tools/bundle_adjust_misc_functions.h>
+#include <asp/Tools/bundle_adjust_cost_functions.h> // Ceres included in this file.
 
-
-//================================================================================
-
-
-
-
-// Copy adjustments to an array, first translation, and then rotation.
-// The array is expected to have size 6.
-template <class ModelT>
-void pack_camera_params_base(ModelT const& model, 
-                             double * cam,
-                             vw::Vector3 const& position_correction,
-                             vw::Quat    const& pose_correction) {
-
-  if (ModelT::camera_params_n != 6) 
-    vw::vw_throw( vw::ArgumentErr() 
-                  << "Expecting 6 rotation + translation parameters.\n" );
-  
-  vw::Vector3 pose_vec = pose_correction.axis_angle();
-
-  for (size_t i = 0; i < ModelT::camera_params_n/2; i++) {
-    cam[i] = position_correction[i];
-    cam[i + ModelT::camera_params_n/2] = pose_vec[i];
-  }
-} // End function pack_camera_params_base
-
-
-// Bundle adjustment functor
-class BundleAdjustmentModel:
-  public vw::ba::ModelBase<BundleAdjustmentModel, 6, 3> {
-
-public:
-  typedef vw::Vector<double,camera_params_n>         camera_vector_t;
-  typedef vw::Vector<double,point_params_n >         point_vector_t;
-  typedef boost::shared_ptr<vw::camera::CameraModel> cam_ptr_t;
-  // No intrinsic params with this class
-  typedef vw::Vector<double,0> intrinsic_vector_t;
-  typedef vw::Vector<double,camera_params_n+0> camera_intr_vector_t;
-private:
-  std::vector<cam_ptr_t>                    m_cameras;
-  boost::shared_ptr<vw::ba::ControlNetwork> m_network;
-
-  std::vector<camera_intr_vector_t> m_cam_vec;
-  std::vector<point_vector_t      > m_point_vec;
-  std::vector<camera_vector_t     > m_cam_target_vec;
-  std::vector<point_vector_t      > m_point_target_vec;
-  int m_num_pixel_observations;
-
-public:
-  BundleAdjustmentModel(std::vector<cam_ptr_t> const& cameras,
-                        boost::shared_ptr<vw::ba::ControlNetwork> network) :
-    m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()),
-    m_point_vec(network->size()), m_cam_target_vec(cameras.size()),
-    m_point_target_vec(network->size()) {
-
-    // Compute the number of observations from the bundle.
-    m_num_pixel_observations = 0;
-    for (unsigned i = 0; i < network->size(); ++i)
-      m_num_pixel_observations += (*network)[i].size();
-
-    // Set up the point vectors, storing the initial values.
-    // The camera vectors however just start out zero.
-    for (unsigned i = 0; i < network->size(); ++i) {
-      m_point_vec[i] = (*m_network)[i].position();
-      m_point_target_vec[i] = m_point_vec[i];
-    }
-  }
-
-  int num_intrinsic_params() const {return 0;}
-
-  // Return a reference to the camera and point parameters.
-  camera_vector_t cam_params  (int j) const { return m_cam_vec[j];   }
-  point_vector_t  point_params(int i) const { return m_point_vec[i]; }
-  
-  void set_cam_params  (int j, camera_intr_vector_t const& cam_j  ) { m_cam_vec  [j] = cam_j;   }
-  void set_point_params(int i, point_vector_t       const& point_i) { m_point_vec[i] = point_i; }
-
-  // Return the initial parameters
-  camera_vector_t cam_target  (int j) const { return m_cam_target_vec[j];   }
-  point_vector_t  point_target(int i) const { return m_point_target_vec[i]; }
-
-  unsigned num_cameras()            const { return m_cam_vec.size();         }
-  unsigned num_points ()            const { return m_point_vec.size();       }
-  unsigned num_pixel_observations() const { return m_num_pixel_observations; }
-
-
-  /// Copy both extrinsics and intrinsics into a presized parameter vector.
-  void concat_extrinsics_intrinsics(const double* const extrinsics,
-                                    const double* const intrinsics,
-                                    camera_intr_vector_t & concat) const{
-    for (size_t c = 0; c < camera_params_n; c++)
-      concat[c] = extrinsics[c];
-  }
-
-  /// Grab the extrinsic camera parameters from the parameter vector
-  void parse_camera_parameters(camera_vector_t const& cam_j,
-                               vw::Vector3 &position_correction,
-                               vw::Quat    &pose_correction) const {
-    position_correction = subvector(cam_j, 0, camera_params_n/2);
-    pose_correction     = axis_angle_to_quaternion( subvector(cam_j,
-                                                              camera_params_n/2,
-                                                              camera_params_n/2) );
-  }
-
-  /// Copy the extrinsic camera parameters into the parameter vector
-  void pack_camera_params(camera_vector_t & cam_j,
-                         vw::Vector3 const& position_correction,
-                          vw::Quat    const& pose_correction) {
-    pack_camera_params_base(*this, &cam_j[0], position_correction, pose_correction);
-  }
-
-  /// Return the covariance of the camera parameters for camera j.
-  inline vw::Matrix<double,camera_params_n,camera_params_n>
-  cam_inverse_covariance ( unsigned /*j*/ ) const {
-    vw::Matrix<double,camera_params_n,camera_params_n> result;
-    result(0,0) = 1/100.0; // TODO: What are these numbers?
-    result(1,1) = 1/100.0;
-    result(2,2) = 1/100.0;
-    result(3,3) = 1/1e-1;
-    result(4,4) = 1/1e-1;
-    result(5,5) = 1/1e-1;
-    return result;
-  }
-
-  /// Return the covariance of the point parameters for point i.
-  inline vw::Matrix<double,point_params_n,point_params_n>
-  point_inverse_covariance ( unsigned /*i*/ ) const {
-    vw::Matrix<double,point_params_n,point_params_n> result;
-    result(0,0) = 1/20; // TODO: What are these numbers?
-    result(1,1) = 1/20;
-    result(2,2) = 1/20;
-    return result;
-  }
-
-  /// Given the camera model parameters for the j'th
-  /// image, and the 3D point location for the i'th
-  /// point, return the location of point_i on imager j in pixel coordinates.
-  /// - The model parameters in this case are adjustment parameters for AdjustedCameraModel
-  vw::Vector2 cam_pixel(unsigned /*i*/, unsigned j,
-                        camera_vector_t const& cam_j,
-                        point_vector_t  const& point_i) const {
-    vw::Vector3 position_correction;
-    vw::Quat    pose_correction;
-    parse_camera_parameters(cam_j, position_correction, pose_correction);
-    vw::camera::AdjustedCameraModel cam(m_cameras[j],
-                                        position_correction,
-                                        pose_correction);
-    try {
-      return cam.point_to_pixel(point_i);
-    }
-    catch(...) { // If the camera parameters were bad, return a garbage pixel instead of crashing
-      return vw::Vector2(-999999,-999999);
-    }
-  }
-
-  /// Read the adjusted camera at the given index from disk
-  void read_adjustment(int j, std::string const& filename,
-                       std::vector<double> & cameras_vec) const {
-    
-    std::vector<vw::Vector3> position_correction;
-    std::vector<vw::Quat   > pose_correction;
-    
-    // not used, just for the api
-    bool piecewise_adjustments;
-    vw::Vector2 adjustment_bounds;
-    std::string session;
-    
-    vw::vw_out() << "Reading adjusted camera model: " << filename << std::endl;
-    asp::read_adjustments(filename, piecewise_adjustments,
-                          adjustment_bounds, position_correction, pose_correction,
-                          session);
-    
-    pack_camera_params_base(*this, &cameras_vec[camera_params_n*j], // output 
-                            position_correction[0], pose_correction[0]);
-  }
-  
-  /// Write the adjusted camera at the given index to disk
-  void write_adjustment(int j, std::string const& filename) const {
-    vw::Vector3 position_correction;
-    vw::Quat pose_correction;
-    parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
-    asp::write_adjustments(filename, position_correction, pose_correction);
-  }
-
-  /// Get a vector containing all of the adjusted camera models
-  std::vector<cam_ptr_t> adjusted_cameras() const {
-    std::vector<cam_ptr_t> result(m_cameras.size());
-    for (unsigned j = 0; j < result.size(); ++j) {
-      vw::Vector3 position_correction;
-      vw::Quat pose_correction;
-      parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
-      result[j] = cam_ptr_t( new vw::camera::AdjustedCameraModel( m_cameras[j], position_correction, 
-                                                                                pose_correction ) );
-    }
-    return result;
-  }
-
-  inline double image_compare( vw::Vector2 const& meas,
-                               vw::Vector2 const& obj ) {
-    return norm_2( meas - obj );
-  }
-
-  inline double position_compare( camera_vector_t const& meas,
-                                  camera_vector_t const& obj ) {
-    return norm_2( subvector(meas,0,camera_params_n/2) - subvector(obj,0,camera_params_n/2) );
-  }
-
-  inline double pose_compare( camera_vector_t const& meas,
-                              camera_vector_t const& obj ) {
-    return norm_2( subvector(meas,camera_params_n/2, camera_params_n/2)
-                   - subvector(obj,camera_params_n/2,camera_params_n/2) );
-  }
-
-  inline double gcp_compare( point_vector_t const& meas,
-                             point_vector_t const& obj ) {
-    return norm_2(meas - obj);
-  }
-
-  // Give access to the control network
-  boost::shared_ptr<vw::ba::ControlNetwork> control_network() const {
-    return m_network;
-  }
-
-  void bundlevis_cameras_append(std::string const& filename) const {
-    std::ofstream ostr(filename.c_str(),std::ios::app);
-    for ( unsigned j = 0; j < m_cam_vec.size(); j++ ) {
-      vw::Vector3 position_correction;
-      vw::Quat pose_correction;
-      parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
-      vw::camera::AdjustedCameraModel cam(m_cameras[j],
-                                          position_correction,
-                                          pose_correction);
-      vw::Vector3 position = cam.camera_center( vw::Vector2() );
-      vw::Quat pose = cam.camera_pose( vw::Vector2() );
-      ostr << std::setprecision(18) << j << "\t" << position[0] << "\t"
-           << position[1] << "\t" << position[2] << "\t";
-      ostr << pose[0] << "\t" << pose[1] << "\t"
-           << pose[2] << "\t" << pose[3] << "\n";
-    }
-  }
-
-  void bundlevis_points_append(std::string const& filename) const {
-    std::ofstream ostr(filename.c_str(),std::ios::app);
-    unsigned i = 0;
-    BOOST_FOREACH( point_vector_t const& p, m_point_vec ) {
-      ostr << i++ << std::setprecision(18) << "\t" << p[0] << "\t"
-           << p[1] << "\t" << p[2] << "\n";
-    }
-  }
-
-  /// Given a transform with origin at the planet center, like output
-  /// by pc_align, read the adjustments form cameras_vec, apply this
-  /// transform on top of them, and write the adjustments back to this vector.
-  void import_transform(vw::Matrix4x4 const& M,
-                        std::vector<double> & cameras_vec,
-                        std::vector<double> & intrinsics_vec){
-
-    for (unsigned j = 0; j < m_cam_vec.size(); j++) {
-
-      // Copy the adjustments from cameras_vec to structures expected by the BA model.
-      camera_intr_vector_t cam_intr_vec;
-      double * intrinsics = NULL;
-      if (!intrinsics_vec.empty()) 
-        intrinsics = &intrinsics_vec[0];
-      double * camera = &cameras_vec[camera_params_n*j];
-      concat_extrinsics_intrinsics(camera, intrinsics, cam_intr_vec);
-
-      // Create the adjusted camera model
-      vw::Vector3 position_correction;
-      vw::Quat    pose_correction;
-      parse_camera_parameters(cam_intr_vec, position_correction, pose_correction);
-      vw::camera::AdjustedCameraModel cam(m_cameras[j], position_correction, pose_correction);
-
-      // Apply the transform
-      cam.apply_transform(M);
-
-      // Copy back the adjustments to cameras_vec.
-      position_correction = cam.translation();
-      pose_correction     = cam.rotation();   
-      pack_camera_params_base(*this, &cameras_vec[camera_params_n*j],
-                              position_correction, pose_correction);
-    }
-  } // end function import_transform
-  
-}; // End class BundleAdjustmentModel
+// This file contains the bundle adjust options and some other needed functions.
 
 
 //==========================================================================
-
-// Final goal: Share camera center or not, share intrinsics or not.
-/*
-
-// --> Need to stop using ModelBase, have variable parameter lengths!
-/// Model to be used to float all parameters of a pinhole model.  There
-/// are 6 camera parameters, corresponding to: camera center (3), and
-/// camera orientation (3). It can optionally solve for the intrinsic 
-/// parameters including the lens distortion parameters.
-class BAPinholeModel  : public vw::ba::ModelBase<BAPinholeModel, 6, 3> {
-
-public: // Definitions
-
-  typedef vw::Vector<double,camera_params_n>          camera_vector_t;
-  typedef vw::Vector<double,point_params_n >          point_vector_t;
-  typedef boost::shared_ptr<vw::camera::PinholeModel> pin_cam_ptr_t;
-  typedef boost::shared_ptr<vw::camera::CameraModel>  cam_ptr_t;
-  
-  typedef vw::Vector<double> intrinsic_vector_t;   ///< Vector containing intrinsic parameters
-  typedef vw::Vector<double> camera_intr_vector_t; ///< Vector containing all parameters
-    
-private: // Variables
-
-  std::vector<cam_ptr_t>                    m_cameras; ///< Input camera models, barely used.
-  boost::shared_ptr<vw::ba::ControlNetwork> m_network; ///< Little used control network pointer
-  std::vector<camera_intr_vector_t>         m_cam_vec; ///< Vector of param vectors for each camera
-  intrinsic_vector_t                        m_shared_intrinsics; ///< Record shared intrinsic values
-  boost::shared_ptr<vw::camera::LensDistortion>  m_shared_lens_distortion; ///< Copy of input lens distortion object
-  int    m_num_intrinsics;   ///< Number of intrinsic parameters which can be solve for.
-  bool   m_solve_intrinsics; ///< If true, include intrinisic parameters in the solution.
-  double m_pixel_pitch;      ///< This pinhole intrinsic param is always kept constant.
-
-public:
-  /// Contructor requires a list of input pinhole models
-  /// - Set constant_intrinsics if you do not want them changed
-  BAPinholeModel(std::vector<cam_ptr_t> const& cameras,
-                 boost::shared_ptr<vw::ba::ControlNetwork> network,
-                 bool solve_intrinsics) :
-    m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()),
-    m_num_intrinsics(0), m_solve_intrinsics(solve_intrinsics){
-
-    // Must check that all cameras have same intrinsics
-    {
-      intrinsic_vector_t intrinsics_0;
-      const pin_cam_ptr_t pinhole_ptr_0 =
-        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(m_cameras[0]);
-      intrinsic_params_from_model(*pinhole_ptr_0, intrinsics_0);
-      for (size_t i = 1; i < m_cameras.size(); i++) {
-        intrinsic_vector_t intrinsics_i;
-        const pin_cam_ptr_t pinhole_ptr_i =
-          boost::dynamic_pointer_cast<vw::camera::PinholeModel>(m_cameras[i]);
-        intrinsic_params_from_model(*pinhole_ptr_i, intrinsics_i);
-        for (size_t j = 0; j < intrinsics_0.size(); j++) {
-          if (intrinsics_0[j] != intrinsics_i[j]) {
-            vw::vw_throw( vw::ArgumentErr() 
-                          << "When using --create-pinhole-cameras, all cameras "
-                          << "must have the same intrinsics.\n" );
-          }
-        }
-      }
-    }
-
-    // Copy the (shared) intrinsic values from the first camera
-    intrinsic_params_from_first_model(m_shared_intrinsics);
-    m_num_intrinsics = m_shared_intrinsics.size();
-
-    // Make a copy of the lens distortion model object
-    // - If we are not changing intrinsic parameters, we can just re-use this.
-    // - Otherwise we use it as a makeshift factory.
-    const pin_cam_ptr_t pinhole_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cameras[0]);
-    m_shared_lens_distortion = pinhole_ptr->lens_distortion()->copy();
-    m_pixel_pitch = pinhole_ptr->pixel_pitch(); // Record this, it is kept constant.
-  
-    // Copy all of the input camera model information to the internal 
-    //  camera parameters vector
-    // - The input cameras must all be pinhole models or this will fail.
-    for (unsigned int i=0; i<num_cameras(); ++i) {
-      cam_ptr_t     cam_ptr = cameras[i];
-      pin_cam_ptr_t pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cam_ptr);
-      if (!pin_ptr)
-        vw::vw_throw( vw::ArgumentErr() << "Non-pinhole camera passed to BAPinholeModel constructor!\n" );
-      params_from_model(*pin_ptr, m_cam_vec[i]);
-      std::cout << "BAPinhole input model: " << *pin_ptr << std::endl;
-      std::cout << "Set up BAPinhole model params: " << m_cam_vec[i] << std::endl;
-    }
-  
-  } // End constructor
-
-  /// Note that this call is the "external facing" number of intrinsic parameters, 
-  ///  ie the number we are solving for.  If you need the actual number being used
-  ///  internally, use the private member variable instead.
-  int num_intrinsic_params() const {
-    if (!m_solve_intrinsics)
-      return 0;
-    return m_num_intrinsics;
-  }
-  int num_distortion_params() const {
-    if (!m_solve_intrinsics)
-      return 0;
-    int nf = BAPinholeModel::focal_length_params_n;
-    int nc = BAPinholeModel::optical_center_params_n;
-    return num_intrinsic_params() - nf - nc;
-  }
-  
-  bool are_intrinsics_constant() const { return !m_solve_intrinsics; }
-  
-
-  unsigned num_cameras() const { return m_cameras.size();  }
-  unsigned num_points () const { return m_network->size(); }
-
-  void set_cam_params(int j, camera_intr_vector_t const& cam_j)       { m_cam_vec[j] = cam_j;       }
-  void get_cam_params(int j, camera_intr_vector_t      & cam_j) const { cam_j        = m_cam_vec[j];}
-
-  intrinsic_vector_t get_intrinsics() const { return m_shared_intrinsics;}
-
-  /// Copy both extrinsics and intrinsics into a presized parameter vector.
-  void concat_extrinsics_intrinsics(const double* const extrinsics,
-                                    const double* const intrinsics,
-                                    camera_intr_vector_t & concat) const{
-    const size_t intr_len = num_intrinsic_params();
-    concat.set_size(camera_params_n+intr_len);
-    for (size_t c = 0; c < camera_params_n; c++)
-      concat[c] = extrinsics[c];
-    for (size_t i = 0; i < intr_len; i++)
-      concat[camera_params_n + i] = intrinsics[i];
-  }
-
-  /// Copy both extrinsics and intrinsics into a presized parameter vector.
-  /// Here the focal length and optical center are passed separately
-  /// from the distortion parameters.
-  void concat_extrinsics_intrinsics(const double* const extrinsics,
-                                    const double* const focal_length,
-                                    const double* const optical_center,
-                                    const double* const distortion_intrinsics,
-                                    camera_intr_vector_t & concat) const{
-
-    const size_t intr_len = num_intrinsic_params();
-    concat.set_size(camera_params_n+intr_len);
-    for (size_t c = 0; c < camera_params_n; c++)
-      concat[c] = extrinsics[c];
-
-    if (intr_len > 0) {
-      // This check is necessary. Sometimes the intrinsics are present, but we
-      // are not optimizing them, then the arrays above will just go
-      // out of bounds without the check.
-      
-      const size_t num_lens_params = num_distortion_params();
-      
-      for (size_t i = 0; i < focal_length_params_n; i++)
-        concat[camera_params_n + i] = focal_length[i];
-      
-      for (size_t i = 0; i < optical_center_params_n; i++)
-        concat[camera_params_n + focal_length_params_n + i] = optical_center[i];
-      
-      for (size_t i = 0; i < num_lens_params; i++)
-        concat[camera_params_n + focal_length_params_n + optical_center_params_n + i]
-            = distortion_intrinsics[i];
-      
-    }
-  }
-
-  /// Grab and set up the camera parameters from the parameter vector
-  void parse_camera_parameters(camera_intr_vector_t const& cam_j,
-                               vw::Vector3 &position_correction,
-                               vw::Quat    &pose_correction,
-                               intrinsic_vector_t &intrinsics) const {
-    position_correction = subvector(cam_j, 0, camera_params_n/2);
-    pose_correction     = axis_angle_to_quaternion( subvector(cam_j,
-                                                              camera_params_n/2,
-                                                              camera_params_n/2) );
-    if (!are_intrinsics_constant())
-      intrinsics = subvector(cam_j,camera_params_n, num_intrinsic_params());
-    else
-      intrinsics = intrinsic_vector_t();
-  }
-
-  /// Copy all camera parameters into the parameter vector
-  void pack_camera_params(camera_intr_vector_t & cam_j,
-                         vw::Vector3        const& position,
-                         vw::Quat           const& pose,
-                         intrinsic_vector_t const& intrinsics) const{
-    const size_t num_intrinsics = num_intrinsic_params();
-    cam_j.set_size(camera_params_n + num_intrinsics);
-
-    pack_camera_params_base(*this, &cam_j[0], position, pose);
-
-    if (!are_intrinsics_constant())
-      subvector(cam_j, camera_params_n, num_intrinsics) = intrinsics;
-  }
-
-  /// Return the i'th camera model using the current parameters
-  vw::camera::PinholeModel get_camera_model(int icam) {
-    camera_intr_vector_t params = m_cam_vec[icam];
-    return params_to_model(params);
-  }
-
-  /// Obtain a lens distortion model given the intrinsics vector
-  /// - This safely ignores the non-distortion intrinsic parameters.
-  boost::shared_ptr<vw::camera::LensDistortion> 
-      get_lens_distortion_model(intrinsic_vector_t const& intrinsics) const{
-    // In constant case, always use existing model.
-    if (are_intrinsics_constant()) 
-      return m_shared_lens_distortion;
-    // Otherwise, make a copy of the stored lens model and then change the parameters.
-    boost::shared_ptr<vw::camera::LensDistortion> output = m_shared_lens_distortion->copy();
-
-    const size_t num_lens_params = num_distortion_params();
-    
-    vw::Vector<double> lens_params(num_lens_params);
-    lens_params = subvector(intrinsics,nonlens_intrinsics_n, num_lens_params);
-    output->set_distortion_parameters(lens_params);
-    return output;
-  }
-
-  /// Generate a pinhole camera model given input parametrs
-  vw::camera::PinholeModel params_to_model(camera_intr_vector_t const& cam_vec) const{
-
-    // Unpack the parameters and reconstitute as useful objects
-    vw::Vector3 position;
-    vw::Quat    pose;
-    intrinsic_vector_t intrinsics;
-    parse_camera_parameters(cam_vec, position, pose, intrinsics);
-    
-    if (are_intrinsics_constant()) // If true, intrinsics still needs to be set.
-      intrinsics = m_shared_intrinsics;
-
-    boost::shared_ptr<vw::camera::LensDistortion> lens_model = 
-      get_lens_distortion_model(intrinsics);
-
-    // Make a new PinholeModel object with a copy of the shared distortion model
-    return vw::camera::PinholeModel(position,
-                                    pose.rotation_matrix(),
-                                    intrinsics[0], intrinsics[0], // focal lengths
-                                    intrinsics[1], intrinsics[2], // pixel offsets
-                                    *(lens_model.get()), m_pixel_pitch);
-
-  }
-
-
-  // Pull intrinsic params from the first model
-  void intrinsic_params_from_first_model(intrinsic_vector_t & intrinsics) const{
-    const pin_cam_ptr_t pinhole_ptr =
-      boost::dynamic_pointer_cast<vw::camera::PinholeModel>(m_cameras[0]);
-    intrinsic_params_from_model(*pinhole_ptr, intrinsics);
-  }
-
-  /// Extract all of the intrinsic parameters only from a model
-  /// - Currently we pull them all out, but we never look at most of them again.
-  void intrinsic_params_from_model(const vw::camera::PinholeModel & model,
-                                         intrinsic_vector_t       & intrinsics) const{
-
-    // Get the lens distortion parameters and allocate the output vector
-    vw::Vector<double> lens_distortion_params = model.lens_distortion()->distortion_parameters();
-    const size_t num_lens_params = lens_distortion_params.size();
-    intrinsics.set_size(num_lens_params + nonlens_intrinsics_n);
-    
-    // Get the parameters that are the same for all pinhole cameras
-    vw::Vector2 fl = model.focal_length();
-    vw::Vector2 po = model.point_offset();
-    intrinsics[0] = fl[0];
-    intrinsics[1] = po[0];
-    intrinsics[2] = po[1];
-    
-    // Copy the lens distortion parameters
-    for (size_t i=0; i<num_lens_params; ++i)
-      intrinsics[i+nonlens_intrinsics_n] = lens_distortion_params[i];
-  }
-
-  /// Extract the camera parameter vector from a pinhole model
-  void params_from_model(const vw::camera::PinholeModel & model,
-                               camera_intr_vector_t     & cam_vec) const{
-
-    vw::Vector3 position = model.camera_center();
-    vw::Quat    pose     = model.camera_pose();
-    
-    intrinsic_vector_t intrinsics;
-    intrinsic_params_from_model(model, intrinsics);
-
-    // Set all of the values
-    pack_camera_params(cam_vec, position, pose, intrinsics);
-  }
-
-  /// Given the 'cam_vec' vector (camera model parameters) for the j'th
-  /// image, and the 'm_point_vec' vector (3D point location) for the i'th
-  /// point, return the location of point_i on imager j in pixel coordinates.
-  vw::Vector2 cam_pixel(unsigned i, unsigned j,
-                        camera_intr_vector_t const& cam_j,
-                        point_vector_t       const& point_i) const {
-
-    // TODO: Let the higher level code catch this exception?
-    try {
-      vw::camera::PinholeModel model = params_to_model(cam_j);
-      return model.point_to_pixel(point_i);
-    }
-    catch(std::exception const& e) { // If the camera parameters were bad, return a garbage pixel instead of crashing
-      return vw::Vector2(-999999,-999999);
-    }
-    
-  }
-
-  /// Give access to the control network
-  boost::shared_ptr<vw::ba::ControlNetwork> control_network() const {
-    return m_network;
-  }
-
-  /// Write complete camera models to disk as opposed to adjustment files
-  /// - If a lens distortion model is provided, use it in all output files.
-  void write_camera_models(std::vector<std::string> const& cam_files,
-                           bool has_datum, vw::cartography::Datum & datum,
-                           vw::camera::LensDistortion const* input_ld=0){
-
-    VW_ASSERT(cam_files.size() == m_cam_vec.size(),
-                  vw::ArgumentErr() << "Must have as many camera files as cameras.\n");
-
-    for (int icam = 0; icam < (int)cam_files.size(); icam++){
-      vw::vw_out() << "Writing: " << cam_files[icam] << std::endl;
-      vw::camera::PinholeModel model = get_camera_model(icam);
-      if (input_ld)
-        model.set_lens_distortion(*input_ld);
-      model.write(cam_files[icam]);
-      //std::cout << "Writing BAPinhole model params: " << m_cam_vec[icam] << std::endl;
-      vw::vw_out() << "Writing output model: " << model << std::endl;
-
-      if (has_datum) {
-        vw::vw_out() << "Camera center for " << cam_files[icam] << ": "
-                     << datum.cartesian_to_geodetic(model.camera_center())
-                     << " (longitude, latitude, height above datum(m))\n\n";
-
-      }
-    }
-
-  } // End function write_camera_models
-
-  // Given a transform with origin at the planet center, apply it to
-  // the pinhole cameras. We do not export the result to cameras_vec,
-  // it is enough to keep this internal, and it will be fetched from
-  // the model when need be.
-  void import_transform(vw::Matrix4x4 const& M,
-                        std::vector<double> & cameras_vec,
-                        std::vector<double> & intrinsics_vec){
-
-    vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
-    vw::Vector3   T;
-    for (int r = 0; r < 3; r++) 
-      T[r] = M(r, 3);
-    
-    double scale = pow(det(R), 1.0/3.0);
-    for (size_t r = 0; r < R.rows(); r++)
-      for (size_t c = 0; c < R.cols(); c++)
-        R(r, c) /= scale;
-    
-    for (size_t i=0; i< m_cameras.size(); ++i) {
-      cam_ptr_t     cam_ptr = m_cameras[i];
-      pin_cam_ptr_t pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cam_ptr);
-      if (!pin_ptr)
-        vw::vw_throw( vw::ArgumentErr() 
-                      << "Non-pinhole camera inside BAPinholeModel class!\n" );
-
-      pin_ptr->apply_transform(R, T, scale);
-      params_from_model(*pin_ptr, m_cam_vec[i]);
-    }
-    
-  } // End function import_transform
-  
-}; // End class BAPinholeModel
-
-*/
-
 
 /// The big bag of parameters needed by bundle_adjust.cc
 struct Options : public vw::cartography::GdalWriteOptions {
@@ -715,7 +64,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
          fix_gcp_xyz, solve_intrinsics,
          disable_tri_filtering, ip_normalize_tiles, ip_debug_images;
   std::string datum_str, camera_position_file, initial_transform_file,
-    csv_format_str, csv_proj4_str, reference_terrain, disparity_list, intrinsics_to_float_str,
+    csv_format_str, csv_proj4_str, reference_terrain, disparity_list,
     heights_from_dem;
   double semi_major, semi_minor, position_filter_dist;
   int    num_ba_passes, max_num_reference_points;
@@ -732,7 +81,6 @@ struct Options : public vw::cartography::GdalWriteOptions {
   bool   skip_rough_homography, individually_normalize, use_llh_error, save_cnet_as_csv;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
   vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
-  std::set<std::string> intrinsics_to_float;
   std::string           overlap_list_file;
   std::set< std::pair<std::string, std::string> > overlap_list;
   vw::Matrix4x4 initial_transform;
@@ -788,7 +136,367 @@ struct Options : public vw::cartography::GdalWriteOptions {
       }
     }
   }
-};
+
+  /// For each option, the string must include a subset of the entries:
+  ///  "focal_length, optical_center, distortion_params"
+  void load_intrinsics_options(std::string const& intrinsics_to_float_str,
+                               std::string const& intrinsics_to_share_str) {
+
+    // Float everything unless a list was provided.
+    intrinisc_options.focus_constant      = true;
+    intrinisc_options.center_constant     = true;
+    intrinisc_options.distortion_constant = true;
+    intrinisc_options.focus_shared        = true;
+    intrinisc_options.center_shared       = true;
+    intrinisc_options.distortion_shared   = true;
+
+    if (  ((intrinsics_to_float_str != "") || (intrinsics_to_share_str != "")) 
+        && !solve_intrinsics) {
+      vw_throw( ArgumentErr() << "To be able to specify only certain intrinsics, "
+                              << "the option --solve-intrinsics must be on.\n" );
+    }
+
+    if (!solve_intrinsics)
+      return;
+
+    intrinisc_options.focus_constant      = false; // Default: solve everything!
+    intrinisc_options.center_constant     = false;
+    intrinisc_options.distortion_constant = false;
+
+    if (intrinsics_to_float_str != "") {
+      intrinisc_options.focus_constant      = true;
+      intrinisc_options.center_constant     = true;
+      intrinisc_options.distortion_constant = true;
+    }
+    if (intrinsics_to_share_str != "") {
+      intrinisc_options.focus_shared      = false;
+      intrinisc_options.center_shared     = false;
+      intrinisc_options.distortion_shared = false;
+    }
+
+    std::istringstream is(intrinsics_to_float_str);
+    std::string val;
+    while (is >> val) {
+      if (val == "focal_length")
+        intrinisc_options.focus_constant = false;
+      if (val == "optical_center")
+        intrinisc_options.center_constant = false;
+      if (val == "distortion_params")
+        intrinisc_options.distortion_constant = false;
+    }
+    std::istringstream is2(intrinsics_to_share_str);
+    while (is2 >> val) {
+      if (val == "focal_length")
+        intrinisc_options.focus_shared = true;
+      if (val == "optical_center")
+        intrinisc_options.center_shared = true;
+      if (val == "distortion_params")
+        intrinisc_options.distortion_shared = true;
+    }
+
+  } // End function load_intrinsics_options
+
+}; // End class Options
+
+
+//==================================================================================
+// Mapprojected image functions.
+
+/// If the user map-projected the images and created matches by hand
+/// (this is useful when the illumination conditions are too different,
+/// and automated matching fails), project those matching ip back
+/// into the cameras, creating matches between the raw images
+/// that then bundle_adjust can use.
+/// - The output matches are written to file.
+void create_matches_from_mapprojected_images(Options const& opt){
+  
+  std::istringstream is(opt.mapprojected_data);
+  std::vector<std::string> map_files;
+  std::string file;
+  while (is >> file){
+    map_files.push_back(file); 
+  }
+  std::string dem_file = map_files.back();
+  map_files.erase(map_files.end() - 1);
+
+  if ( opt.camera_models.size() != map_files.size()) 
+    vw_throw(ArgumentErr() << "Error: Expecting as many input cameras as map-projected images.\n");
+
+  vw::cartography::GeoReference dem_georef;
+  ImageViewRef< PixelMask<double> > interp_dem;
+  create_interp_dem(dem_file, dem_georef, interp_dem);
+
+  for (size_t i = 0; i < map_files.size(); i++) {
+    for (size_t j = i+1; j < map_files.size(); j++) {
+
+      vw::cartography::GeoReference georef1, georef2;
+      vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
+      bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
+      bool is_good2 = vw::cartography::read_georeference(georef2, map_files[j]);
+      if (!is_good1 || !is_good2) {
+        vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
+      }
+
+      std::string match_filename = ip::match_filename(opt.out_prefix,
+                                                      map_files[i], map_files[j]);
+      if (!boost::filesystem::exists(match_filename)) {
+        vw_out() << "Missing: " << match_filename << "\n";
+        continue;
+      }
+      vw_out() << "Reading: " << match_filename << std::endl;
+      std::vector<ip::InterestPoint> ip1,     ip2;
+      std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
+      ip::read_binary_match_file( match_filename, ip1, ip2 );
+
+      // Undo the map-projection
+      for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
+
+        // TODO: Does the logic here fail if P1 succeeds but P2 fails???
+        vw::ip::InterestPoint P1 = ip1[ip_iter];
+        vw::ip::InterestPoint P2 = ip2[ip_iter];
+        if (!projected_ip_to_raw_ip(P1, interp_dem, opt.camera_models[i], georef1, dem_georef))
+          continue;
+        if (!projected_ip_to_raw_ip(P2, interp_dem, opt.camera_models[j], georef2, dem_georef))
+          continue;
+
+        ip1_cam.push_back(P1);
+        ip2_cam.push_back(P2);
+      }
+
+      // TODO: There is a problem if the number of matches changes!!!
+      vw_out() << "Saving " << ip1_cam.size() << " matches.\n";
+      std::string image1_path  = opt.image_files[i];
+      std::string image2_path  = opt.image_files[j];
+      match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
+
+      vw_out() << "Writing: " << match_filename << std::endl;
+      ip::write_binary_match_file(match_filename, ip1_cam, ip2_cam);
+
+    }
+  }
+} // End function create_matches_from_mapprojected_images
+
+/// If the user map-projected the images and created matches by hand
+/// from each map-projected image to the DEM it was map-projected onto,
+/// project those matches back into the camera image, and create gcp
+/// tying each camera image match to its desired location on the DEM.
+void create_gcp_from_mapprojected_images(Options const& opt){
+
+  // Read the map-projected images and the dem
+  std::istringstream is(opt.gcp_data);
+  std::vector<std::string> image_files;
+  std::string file;
+  while (is >> file){
+    image_files.push_back(file); 
+  }
+  std::string dem_file = image_files.back();
+  image_files.erase(image_files.end() - 1); // wipe the dem from the list
+
+  vw::cartography::GeoReference dem_georef;
+  ImageViewRef< PixelMask<double> > interp_dem;
+  create_interp_dem(dem_file, dem_georef, interp_dem);
+
+  int num_images = image_files.size();
+  std::vector<std::vector<vw::ip::InterestPoint> > matches;
+  std::vector<vw::cartography::GeoReference> img_georefs;
+  matches.resize(num_images + 1); // the last match will be for the DEM
+
+  // Read the matches and georefs
+  for (int i = 0; i < num_images; i++) {
+
+    vw::cartography::GeoReference img_georef;
+    vw_out() << "Reading georef from " << image_files[i]  << std::endl;
+    bool is_good_img = vw::cartography::read_georeference(img_georef, image_files[i]);
+    if (!is_good_img) {
+      vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
+    }
+    img_georefs.push_back(img_georef);
+
+    std::string match_filename = ip::match_filename(opt.out_prefix,
+                                                    image_files[i], dem_file);
+    if (!boost::filesystem::exists(match_filename)) 
+      vw_throw(ArgumentErr() << "Missing: " << match_filename << ".\n");
+
+    vw_out() << "Reading: " << match_filename << std::endl;
+    std::vector<ip::InterestPoint> ip1, ip2;
+    ip::read_binary_match_file( match_filename, ip1, ip2 );
+
+    if (matches[num_images].size() > 0 && matches[num_images].size() != ip2.size()) {
+      vw_throw(ArgumentErr() << "All match files must have the same number of IP.\n");
+    }
+    matches[i]          = ip1;
+    matches[num_images] = ip2;
+  }
+
+  std::vector<std::vector<vw::ip::InterestPoint> > cam_matches = matches;
+
+  std::string gcp_file;
+  for (int i = 0; i < num_images; i++) {
+    gcp_file += boost::filesystem::basename(opt.image_files[i]);
+    if (i < num_images - 1) gcp_file += "__"; 
+  }
+  gcp_file = opt.out_prefix + "-" + gcp_file + ".gcp";
+
+  vw_out() << "Writing: " << gcp_file << std::endl;
+  std::ofstream output_handle(gcp_file.c_str());
+
+  int num_ips = matches[0].size();
+  int pts_count = 0;
+  for (int p = 0; p < num_ips; p++) { // Loop through IPs
+
+    // Compute the GDC coordinate of the point
+    ip::InterestPoint dem_ip = matches[num_images][p];
+    Vector2 dem_pixel(dem_ip.x, dem_ip.y);
+    Vector2 lonlat = dem_georef.pixel_to_lonlat(dem_pixel);
+
+    if (!interp_dem.pixel_in_bounds(dem_pixel)) {
+      vw_out() << "Skipping pixel outside of DEM: " << dem_pixel << std::endl;
+      continue;
+    }
+
+    PixelMask<float> mask_height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
+    if (!is_valid(mask_height)) continue;
+
+    Vector3 llh(lonlat[0], lonlat[1], mask_height.child());
+    //Vector3 dem_xyz = dem_georef.datum().geodetic_to_cartesian(llh);
+
+    // The ground control point ID
+    output_handle << pts_count;
+    // Lat, lon, height
+    output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << mask_height.child();
+    // Sigma values
+    output_handle << ", " << 1 << ", " << 1 << ", " << 1;
+
+    // Write the per-image information
+    for (int i = 0; i < num_images; i++) {
+
+      // Take the ip in the map-projected image, and back-project it into the camera
+      ip::InterestPoint ip = matches[i][p];
+      if (!projected_ip_to_raw_ip(ip, interp_dem, opt.camera_models[i], img_georefs[i], dem_georef))
+          continue;
+
+      // TODO: Here we can have a book-keeping problem!
+      cam_matches[i][p] = ip;
+
+      output_handle << ", " << opt.image_files[i];
+      output_handle << ", " << ip.x << ", " << ip.y; // IP location in image
+      output_handle << ", " << 1 << ", " << 1; // Sigma values
+    } // End loop through IP sets
+    output_handle << std::endl; // Finish the line
+    pts_count++;
+
+  } // End loop through IPs
+  output_handle.close();
+
+  // Write out match files for each pair of images.
+  for (int i = 0; i < num_images; i++) {
+    for (int j = i; j < num_images; j++) { // write also for i, i. Useful for only 1 image.
+      std::string image1_path    = opt.image_files[i];
+      std::string image2_path    = opt.image_files[j];
+      std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
+
+      vw_out() << "Writing: " << match_filename << std::endl;
+      ip::write_binary_match_file(match_filename, cam_matches[i], cam_matches[j]);
+    }
+  }
+
+}
+
+// End map projection functions
+//===============================================================================
+
+
+
+/// This is for the BundleAdjustmentModel class where the camera parameters
+/// are a rotation/offset that is applied on top of the existing camera model.
+/// First read initial adjustments, if any, and apply perhaps a pc_align transform.
+void init_cams(Options & opt, BAParamStorage & param_storage){
+
+  // Initialize all of the camera adjustments to zero.
+  param_storage.clear_cameras();
+
+  // Read the adjustments from a previous run, if present
+  if (opt.input_prefix != "") {
+    for (size_t icam = 0; icam < param_storage.num_cameras(); icam++){
+      std::string adjust_file = asp::bundle_adjust_file_name(opt.input_prefix,
+                                                             opt.image_files[icam],
+                                                             opt.camera_files[icam]);
+      double * cam_ptr = param_storage.get_camera_ptr(icam);
+      CameraAdjustment adjustment;
+      adjustment.read_from_adjust_file(adjust_file);
+      adjustment.pack_to_array(cam_ptr);
+    }
+  }
+
+  // Apply any initial transform to the pinhole cameras
+  if (opt.initial_transform_file != "") {
+    apply_transform_to_cameras(opt.initial_transform, param_storage);
+  }
+}
+
+/// Specialization for pinhole cameras.
+void init_cams_pinhole(Options & opt, BAParamStorage & param_storage){
+
+  // Copy the camera parameters from the models to param_storage
+  for (int i=0; i < param_storage.num_cameras(); ++i) {
+    PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[i].get());
+    vw::vw_out() << "Loading input model: " << *pin_ptr << std::endl;
+    pack_pinhole_to_arrays(*pin_ptr, i, param_storage);
+  } // End loop through cameras
+
+  // Apply any initial transform to the pinhole cameras
+  if (opt.initial_transform_file != "") 
+    apply_transform_to_cameras(opt.initial_transform, param_storage);
+
+  return;
+}
+
+/// Write a pinhole camera file to disk.
+void write_pinhole_output_file(Options const& opt, int icam,
+                               BAParamStorage const& param_storage) {
+
+  // Get the output file path
+  std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                      opt.image_files [icam],
+                                                      opt.camera_files[icam]);
+  cam_file = boost::filesystem::path(cam_file).replace_extension("tsai").string();
+
+  // Get the final camera model
+  vw::camera::PinholeModel* pin_ptr
+    = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
+  populate_pinhole_from_arrays(icam, param_storage, *pin_ptr);
+
+  vw::vw_out() << "Writing: " << cam_file << std::endl;
+  pin_ptr->write(cam_file);
+  vw::vw_out() << "Writing output model: " << *pin_ptr << std::endl;
+
+  bool has_datum = (opt.datum.name() != UNSPECIFIED_DATUM);
+  if (has_datum) {
+    vw::vw_out() << "Camera center for " << cam_file << ": "
+                  << opt.datum.cartesian_to_geodetic(pin_ptr->camera_center())
+                  << " (longitude, latitude, height above datum(m))\n\n";
+  }
+}
+
+
+/// From the input options select the correct Ceres loss function.
+ceres::LossFunction* get_loss_function(Options const& opt ){
+  double th = opt.robust_threshold;
+  ceres::LossFunction* loss_function;
+  if      ( opt.cost_function == "l2"     )
+    loss_function = NULL;
+  else if ( opt.cost_function == "huber"  )
+    loss_function = new ceres::HuberLoss(th);
+  else if ( opt.cost_function == "cauchy" )
+    loss_function = new ceres::CauchyLoss(th);
+  else if ( opt.cost_function == "l1"     )
+    loss_function = new ceres::SoftLOneLoss(th);
+  else{
+    vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function << ".\n" );
+  }
+  return loss_function;
+}
+
 
 
 #endif // __ASP_TOOLS_BUNDLEADJUST_H__
