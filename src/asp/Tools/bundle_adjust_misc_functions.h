@@ -453,8 +453,8 @@ void apply_transform_to_cameras(vw::Matrix4x4 const& M, BAParamStorage &param_st
     CameraAdjustment cam_adjust(cam_ptr);
 
     // Create the adjusted camera model with a dummy camera.
-    vw::camera::AdjustedCameraModel cam(boost::shared_ptr<vw::camera::PinholeModel>(),
-                                        cam_adjust.position(), cam_adjust.pose());
+    boost::shared_ptr<vw::camera::PinholeModel> dummy(new vw::camera::PinholeModel);
+    vw::camera::AdjustedCameraModel cam(dummy, cam_adjust.position(), cam_adjust.pose());
     // Apply the transform
     cam.apply_transform(M);
 
@@ -579,7 +579,7 @@ bool update_point_from_dem(double* point, cartography::GeoReference const& dem_g
 template <class DispPixelT>
 int load_reference_disparities(std::string const& disp_list_filename,
                                std::vector< ImageView   <DispPixelT> > &disp_vec,
-                               std::vector< ImageViewRef<DispPixelT> > interp_disp) {
+                               std::vector< ImageViewRef<DispPixelT> > &interp_disp) {
   // TODO: Disparities can be large, but if small it is better to
   // read them in memory.
   std::istringstream is(disp_list_filename);

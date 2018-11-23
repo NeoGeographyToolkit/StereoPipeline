@@ -431,13 +431,14 @@ struct BaDispXyzError {
     // The residual size is always the same.
     cost_function->SetNumResiduals(NUM_RESIDUALS);
 
-    // Add all of the blocks for each camera
+    // Add all of the blocks for each camera, except for the first (point)
+    // block which is provided at creation time.
     std::vector<int> block_sizes = left_camera_wrapper->get_block_sizes();
-    for (size_t i=0; i<block_sizes.size(); ++i) {
+    for (size_t i=1; i<block_sizes.size(); ++i) {
       cost_function->AddParameterBlock(block_sizes[i]);
     }
     block_sizes = right_camera_wrapper->get_block_sizes();
-    for (size_t i=0; i<block_sizes.size(); ++i) {
+    for (size_t i=1; i<block_sizes.size(); ++i) {
       cost_function->AddParameterBlock(block_sizes[i]);
     }
     return cost_function;

@@ -140,6 +140,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
     ceres::CostFunction* cost_function =
       BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper);
 
+// TODO: Not legal to pass in duplicate parameter blocks (shared intrinsics!!!)
     problem.AddResidualBlock(cost_function, loss_function,
                             left_camera,  left_center,  left_focus,  left_distortion,
                             right_camera, right_center, right_focus, right_distortion);
@@ -971,6 +972,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 
         if (!interp_disp[icam].pixel_in_bounds(left_pred))
           continue; // Interp check
+
         DispPixelT dispPix = interp_disp[icam](left_pred[0], left_pred[1]);
         if (!is_valid(dispPix))
           continue;
@@ -1123,6 +1125,13 @@ void do_ba_ceres(Options & opt){
     boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
             boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models[0]);
     num_lens_distortion_params = pinhole_ptr->lens_distortion()->distortion_parameters().size();
+    if (num_lens_distortion_params < 1) {
+      // For the case where the camera has zero distortion parameters, use one dummy parameter
+      //  just so we don't have to change the parameter block logic later on.
+      num_lens_distortion_params = 1;
+      opt.intrinisc_options.distortion_constant = true;
+      opt.intrinisc_options.distortion_shared   = true;
+    }
   }
   BAParamStorage param_storage(num_points, num_cameras,
                                opt.create_pinhole,
