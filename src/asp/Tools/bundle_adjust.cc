@@ -118,8 +118,12 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
   boost::shared_ptr<CameraModel> left_camera_model  = opt.camera_models[left_cam_index ];
   boost::shared_ptr<CameraModel> right_camera_model = opt.camera_models[right_cam_index];
 
-  double* left_camera  = param_storage.get_camera_ptr(left_cam_index);
-  double* right_camera = param_storage.get_camera_ptr(right_cam_index);
+  // Get the list of residual pointers that will be passed to ceres.
+  std::vector<double*> residual_ptrs;
+  BaDispXyzError::get_residual_pointers(param_storage,
+                                        left_cam_index, right_cam_index,
+                                        opt.create_pinhole, opt.intrinisc_options,
+                                        residual_ptrs);
 
   if (opt.create_pinhole) {
 
@@ -128,31 +132,23 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
     boost::shared_ptr<PinholeModel> right_pinhole_model = 
       boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_camera_model);
 
-    double* left_center      = param_storage.get_intrinsic_center_ptr    (left_cam_index );
-    double* left_focus       = param_storage.get_intrinsic_focus_ptr     (left_cam_index );
-    double* left_distortion  = param_storage.get_intrinsic_distortion_ptr(left_cam_index );
-    double* right_center     = param_storage.get_intrinsic_center_ptr    (right_cam_index);
-    double* right_focus      = param_storage.get_intrinsic_focus_ptr     (right_cam_index);
-    double* right_distortion = param_storage.get_intrinsic_distortion_ptr(right_cam_index);
-
     boost::shared_ptr<CeresBundleModelBase> left_wrapper (new PinholeBundleModel(left_pinhole_model ));
     boost::shared_ptr<CeresBundleModelBase> right_wrapper(new PinholeBundleModel(right_pinhole_model));
     ceres::CostFunction* cost_function =
-      BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper);
+      BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
+                             opt.create_pinhole, opt.intrinisc_options);
 
-// TODO: Not legal to pass in duplicate parameter blocks (shared intrinsics!!!)
-    problem.AddResidualBlock(cost_function, loss_function,
-                            left_camera,  left_center,  left_focus,  left_distortion,
-                            right_camera, right_center, right_focus, right_distortion);
+    problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
 
   } else { // Non-pinhole case
 
     boost::shared_ptr<CeresBundleModelBase> left_wrapper (new AdjustedCameraBundleModel(left_camera_model ));
     boost::shared_ptr<CeresBundleModelBase> right_wrapper(new AdjustedCameraBundleModel(right_camera_model));
     ceres::CostFunction* cost_function =
-      BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper);
+      BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
+                             opt.create_pinhole, opt.intrinisc_options);
 
-    problem.AddResidualBlock(cost_function, loss_function, left_camera, right_camera);
+    problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
   }
 
 } // End function add_disparity_residual_block

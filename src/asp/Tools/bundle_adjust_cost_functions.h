@@ -99,12 +99,13 @@ public:
     result[1] = num_pose_params();
     return result;
   }
-  
+
   /// Read in all of the parameters and generate an output pixel observation.
   /// - Throws if the point does not project in to the camera.
   virtual vw::Vector2 evaluate(std::vector<double const*> const param_blocks) const = 0;
   
 }; // End class CeresBundleModelBase
+
 
 
 /// Simple wrapper for the vw::camera::AdjustedCameraModel class with a 
@@ -344,35 +345,25 @@ struct BaDispXyzError {
   BaDispXyzError(Vector3 const& reference_xyz,
                  ImageViewRef<DispPixelT> const& interp_disp,
                  boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
-                 boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper)
+                 boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
+                 bool is_pinhole, // Would like to remove these!
+                 IntrinsicOptions intrin_opt)
       : m_reference_xyz(reference_xyz),
         m_interp_disp  (interp_disp  ),
         m_num_left_param_blocks (left_camera_wrapper->num_parameter_blocks ()),
         m_num_right_param_blocks(right_camera_wrapper->num_parameter_blocks()),
-        m_left_camera_wrapper (left_camera_wrapper ),
-        m_right_camera_wrapper(right_camera_wrapper) {}
+        m_left_camera_wrapper   (left_camera_wrapper ),
+        m_right_camera_wrapper  (right_camera_wrapper),
+        m_is_pinhole(is_pinhole),
+        m_intrin_opt(intrin_opt)   {}
 
   // Adaptor to work with ceres::DynamicCostFunctions.
   bool operator()(double const* const* parameters, double* residuals) const {
 
     try{
       // Split apart the input parameter blocks and hand them to the camera wrappers.
-      std::vector<double const*> left_param_blocks (m_num_left_param_blocks );
-      std::vector<double const*> right_param_blocks(m_num_right_param_blocks);
-
-      double const* raw_point = &(m_reference_xyz[0]);
-      left_param_blocks [0] = raw_point; // The first input is always the point param block.
-      right_param_blocks[0] = raw_point;
-
-      int index = 0;
-      for (size_t i=1; i<m_num_left_param_blocks; ++i) {
-        left_param_blocks[i] = parameters[index];
-        ++index;
-      }
-      for (size_t i=1; i<m_num_right_param_blocks; ++i) {
-        right_param_blocks[i] = parameters[index];
-        ++index;
-      }
+      std::vector<double const*> left_param_blocks, right_param_blocks;
+      unpack_residual_pointers(parameters, left_param_blocks, right_param_blocks);
 
       // Get pixel projection in both cameras.
       Vector2 left_prediction  = m_left_camera_wrapper->evaluate (left_param_blocks );
@@ -414,19 +405,103 @@ struct BaDispXyzError {
   }
 
 
+  // TODO: Should this logic live somewhere else?
+  /// Create the list of residual pointers for pinhole images.
+  /// - Extra logic is needed to avoid duplicate pointers.
+  static void get_residual_pointers(BAParamStorage &param_storage,
+                                    int left_cam_index, int right_cam_index,
+                                    bool is_pinhole,
+                                    IntrinsicOptions const& intrin_opt,
+                                    std::vector<double*> &residual_ptrs) {
+   
+    double* left_camera  = param_storage.get_camera_ptr(left_cam_index );
+    double* right_camera = param_storage.get_camera_ptr(right_cam_index);
+    if (is_pinhole) {
+      double* left_center      = param_storage.get_intrinsic_center_ptr    (left_cam_index );
+      double* left_focus       = param_storage.get_intrinsic_focus_ptr     (left_cam_index );
+      double* left_distortion  = param_storage.get_intrinsic_distortion_ptr(left_cam_index );
+      double* right_center     = param_storage.get_intrinsic_center_ptr    (right_cam_index);
+      double* right_focus      = param_storage.get_intrinsic_focus_ptr     (right_cam_index);
+      double* right_distortion = param_storage.get_intrinsic_distortion_ptr(right_cam_index);
+
+      residual_ptrs.clear();
+      residual_ptrs.push_back(left_camera    );
+      residual_ptrs.push_back(left_center    );
+      residual_ptrs.push_back(left_focus     );
+      residual_ptrs.push_back(left_distortion);
+      residual_ptrs.push_back(right_camera   );
+      if (!intrin_opt.center_shared    ) residual_ptrs.push_back(right_center   );
+      if (!intrin_opt.focus_shared     ) residual_ptrs.push_back(right_focus    );
+      if (!intrin_opt.distortion_shared) residual_ptrs.push_back(left_distortion);
+    }
+    else { // This handles the generic camera case.
+      residual_ptrs.clear();
+      residual_ptrs.push_back(left_camera );
+      residual_ptrs.push_back(right_camera);
+    }
+    return;
+  }
+  
+  void unpack_residual_pointers(double const* const* parameters,
+                                std::vector<double const*> & left_param_blocks,
+                                std::vector<double const*> & right_param_blocks) const {
+    
+    left_param_blocks.resize (m_num_left_param_blocks );
+    right_param_blocks.resize(m_num_right_param_blocks);
+
+    double const* raw_point = &(m_reference_xyz[0]);
+    left_param_blocks [0] = raw_point; // The first input is always the point param block.
+    right_param_blocks[0] = raw_point;
+
+    int index = 0;
+    for (size_t i=1; i<m_num_left_param_blocks; ++i) {
+      left_param_blocks[i] = parameters[index];
+      ++index;
+    }
+    if (!m_is_pinhole) {
+      // Unpack everything from the right block in order.
+      for (size_t i=1; i<m_num_right_param_blocks; ++i) {
+        right_param_blocks[i] = parameters[index];
+        ++index;
+      }
+    } else { // Pinhole case, handle shared intrinsics.
+      if (m_intrin_opt.center_shared)
+        right_param_blocks[1] = left_param_blocks[1];
+      else {
+        right_param_blocks[1] = parameters[index];
+        ++index;
+      }
+      if (m_intrin_opt.focus_shared)
+        right_param_blocks[2] = left_param_blocks[1];
+      else {
+        right_param_blocks[2] = parameters[index];
+        ++index;
+      }
+      if (m_intrin_opt.distortion_shared)
+        right_param_blocks[3] = left_param_blocks[1];
+      else {
+        right_param_blocks[3] = parameters[index];
+        ++index;
+      }
+    }
+  }
+
+
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(
       Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
       boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
-      boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper) {
+      boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
+      bool is_pinhole, IntrinsicOptions intrin_opt = IntrinsicOptions()) {
 
     const int NUM_RESIDUALS = 2;
 
     ceres::DynamicNumericDiffCostFunction<BaDispXyzError>* cost_function =
         new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
             new BaDispXyzError(reference_xyz, interp_disp, 
-                               left_camera_wrapper, right_camera_wrapper));
+                               left_camera_wrapper, right_camera_wrapper,
+                               is_pinhole, intrin_opt));
 
     // The residual size is always the same.
     cost_function->SetNumResiduals(NUM_RESIDUALS);
@@ -438,8 +513,14 @@ struct BaDispXyzError {
       cost_function->AddParameterBlock(block_sizes[i]);
     }
     block_sizes = right_camera_wrapper->get_block_sizes();
-    for (size_t i=1; i<block_sizes.size(); ++i) {
-      cost_function->AddParameterBlock(block_sizes[i]);
+    if (!is_pinhole) {
+      for (size_t i=1; i<block_sizes.size(); ++i) {
+        cost_function->AddParameterBlock(block_sizes[i]);
+      }
+    } else { // Pinhole handling
+      if (!intrin_opt.center_shared    ) cost_function->AddParameterBlock(block_sizes[1]);
+      if (!intrin_opt.focus_shared     ) cost_function->AddParameterBlock(block_sizes[2]);
+      if (!intrin_opt.distortion_shared) cost_function->AddParameterBlock(block_sizes[3]);
     }
     return cost_function;
   }  // End function Create
@@ -450,6 +531,10 @@ struct BaDispXyzError {
   // TODO: Make constant!
   boost::shared_ptr<CeresBundleModelBase> m_left_camera_wrapper;
   boost::shared_ptr<CeresBundleModelBase> m_right_camera_wrapper;
+
+  // Would like to not have these two!
+  bool m_is_pinhole;
+  IntrinsicOptions m_intrin_opt;
 };
 
 
