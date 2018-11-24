@@ -439,6 +439,7 @@ struct BaDispXyzError {
       residual_ptrs.push_back(left_camera );
       residual_ptrs.push_back(right_camera);
     }
+
     return;
   }
   
@@ -465,25 +466,27 @@ struct BaDispXyzError {
         ++index;
       }
     } else { // Pinhole case, handle shared intrinsics.
+      right_param_blocks[1] = parameters[index]; // Pose and position
+      ++index;
       if (m_intrin_opt.center_shared)
-        right_param_blocks[1] = left_param_blocks[1];
-      else {
-        right_param_blocks[1] = parameters[index];
-        ++index;
-      }
-      if (m_intrin_opt.focus_shared)
-        right_param_blocks[2] = left_param_blocks[1];
+        right_param_blocks[2] = left_param_blocks[2];
       else {
         right_param_blocks[2] = parameters[index];
         ++index;
       }
-      if (m_intrin_opt.distortion_shared)
-        right_param_blocks[3] = left_param_blocks[1];
+      if (m_intrin_opt.focus_shared)
+        right_param_blocks[3] = left_param_blocks[3];
       else {
         right_param_blocks[3] = parameters[index];
         ++index;
       }
-    }
+      if (m_intrin_opt.distortion_shared)
+        right_param_blocks[4] = left_param_blocks[4];
+      else {
+        right_param_blocks[4] = parameters[index];
+        ++index;
+      }
+    } // End pinhole case
   }
 
 
@@ -518,9 +521,12 @@ struct BaDispXyzError {
         cost_function->AddParameterBlock(block_sizes[i]);
       }
     } else { // Pinhole handling
-      if (!intrin_opt.center_shared    ) cost_function->AddParameterBlock(block_sizes[1]);
-      if (!intrin_opt.focus_shared     ) cost_function->AddParameterBlock(block_sizes[2]);
-      if (!intrin_opt.distortion_shared) cost_function->AddParameterBlock(block_sizes[3]);
+      if (block_sizes.size() != 5)
+        vw_throw(LogicErr() << "Error: Pinhole camera model parameter number error!");
+      cost_function->AddParameterBlock(block_sizes[1]); // The camera position/pose
+      if (!intrin_opt.center_shared    ) cost_function->AddParameterBlock(block_sizes[2]);
+      if (!intrin_opt.focus_shared     ) cost_function->AddParameterBlock(block_sizes[3]);
+      if (!intrin_opt.distortion_shared) cost_function->AddParameterBlock(block_sizes[4]);
     }
     return cost_function;
   }  // End function Create
@@ -702,3 +708,4 @@ private:
 
 
 #endif // __ASP_TOOLS_BUNDLEADJUST_COST_FUNCTIONS_H__
+
