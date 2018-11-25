@@ -262,6 +262,7 @@ public:
   /// Print stats for optimized ground control points.
   void print_gcp_stats(vw::ba::ControlNetwork const& cnet,
                        vw::cartography::Datum const& d) {
+    vw::vw_out() << "Ground control point results:\n";
     vw::vw_out() << "input_gcp optimized_gcp diff\n";
     for (int ipt = 0; ipt < num_points(); ipt++){
       if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
@@ -777,20 +778,21 @@ bool init_pinhole_model_with_gcp(boost::shared_ptr<ControlNetwork> const& cnet_p
       ControlPoint cp_new = cnet[ipt];
       // Making minimum_angle below big may throw away valid points at this stage // really???
       double minimum_angle = 0;
-      vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle);
-      if (cp_new.position() != Vector3() && cnet[ipt].position() != Vector3())
+      double err = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle);
+      if ((cp_new.position() != Vector3()) && (cnet[ipt].position() != Vector3()) && (err > 0))
         ++num_good_gcp; // Only count points that triangulate
       else {
-        vw_out() << "Discarding GCP: " << cnet[ipt] << "\n" << cp_new << std::endl;
+        vw_out() << "Discarding GCP: " << cnet[ipt]; // Built in endl
       }
-    }
+    } // End good GCP counting
     
     // Update the number of GCP that we are using
     const int MIN_NUM_GOOD_GCP = 3;
     if (num_good_gcp < MIN_NUM_GOOD_GCP) {
       vw_out() << "Num GCP       = " << num_gcp         << std::endl;
       vw_out() << "Num valid GCP = " << num_good_gcp    << std::endl;
-      vw_throw( ArgumentErr() << "Not enough valid GCPs for affine initalization!\n" );
+      vw_throw( ArgumentErr() << "Not enough valid GCPs for affine transform pinhole initalization!"
+                              << " You may need to use --disable-pinhole-gcp-init\n" );
     }
 
     vw::Matrix<double> points_in(3, num_good_gcp), points_out(3, num_good_gcp);

@@ -61,7 +61,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     translation_weight, overlap_exponent, robust_threshold, parameter_tolerance;
   int    report_level, min_matches, max_iterations, overlap_limit;
   bool   save_iteration, create_pinhole, approximate_pinhole_intrinsics,
-         fix_gcp_xyz, solve_intrinsics,
+         disable_pinhole_gcp_init, fix_gcp_xyz, solve_intrinsics,
          disable_tri_filtering, ip_normalize_tiles, ip_debug_images;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, reference_terrain, disparity_list,

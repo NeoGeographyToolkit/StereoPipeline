@@ -31,6 +31,8 @@
      clouds need a big shift to align.
 
  - bundle_adjust
+   * Added the option to share or not share selected intrinsic parameters
+     between pinhole cameras when optimizing intrinsics.
    * Improvements in solving simultaneously for both intrinsics and
      extrinsics of n camera images if underlying ground truth
      terrain in the form of a DEM or LIDAR point cloud is

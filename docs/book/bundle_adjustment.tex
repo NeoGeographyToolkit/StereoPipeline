@@ -139,6 +139,11 @@ the same time may result in a non-convex problem which may lead to a
 suboptimal local minimum. Then, we will jointly optimize the intrinsics
 and extrinsics. 
 
+Note that when solving for intrinsics, \texttt{bundle\_adjust} will by default
+optimize all intrinsic parameters and will share them across all cameras (which must
+be the same type).  You can control this behavior with the 
+\texttt{-\/-intrinsics-to-float} and \texttt{-\/-intrinsics-to-share} parameters.
+
 Hence, the first invocation of camera optimization should be like:
 
 \begin{verbatim}

@@ -842,7 +842,6 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
   }
 
-  // TODO: Why pinhole only?
   // TODO: Can we split out this giant section?
   // Add a cost function meant to tie up to known disparity
   // form left to right image and known ground truth reference terrain.
@@ -854,7 +853,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::vector< ImageView   <DispPixelT> > disp_vec;
   std::vector< ImageViewRef<DispPixelT> > interp_disp; 
   std::vector< vw::Vector3              > reference_vec;
-  if (opt.create_pinhole && opt.reference_terrain != "") {
+  if (opt.reference_terrain != "") {
 
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
 
@@ -1285,6 +1284,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
             "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
             "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the create-pinhole-cameras option.")
+    ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
+            "Don't try to initialize the positions of pinhole cameras based on input GCPs.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
             "Prefix to read initial adjustments from, written by a previous invocation of this program.")
     ("initial-transform",   po::value(&opt.initial_transform_file)->default_value(""),
@@ -1832,9 +1833,10 @@ int main(int argc, char* argv[]) {
 
     // If camera positions were provided for local inputs, align to them.
     const bool have_est_camera_positions = (opt.camera_position_file != "");
-    if (opt.create_pinhole && have_est_camera_positions)
+    if (opt.create_pinhole && have_est_camera_positions) {
       init_pinhole_model_with_camera_positions(opt.cnet, opt.camera_models,
                                                opt.image_files, estimated_camera_gcc);
+    }
 
     // If we have GPC's for pinhole cameras, try to do a simple affine
     // initialization of the camera parameters.
@@ -1845,7 +1847,8 @@ int main(int argc, char* argv[]) {
     //   Otherwise we could init the adjustment values.
     if (opt.gcp_files.size() > 0) {
 
-      if (opt.create_pinhole && !have_est_camera_positions)
+      if (opt.create_pinhole && !have_est_camera_positions &&
+          !opt.disable_pinhole_gcp_init)
         init_pinhole_model_with_gcp(opt.cnet, opt.camera_models);
 
       // Issue a warning if the GCPs are far away from the camera coords

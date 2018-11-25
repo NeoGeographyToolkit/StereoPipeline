@@ -700,6 +700,8 @@ Pixels with values less than or equal to this number are treated as no-data. Thi
 
 \texttt{-\/-intrinsics-to-float arg} & If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal\_length, optical\_center, distortion\_params.\\ \hline
 
+\texttt{-\/-intrinsics-to-share arg} & If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal\_length, optical\_center, distortion\_params.\\ \hline
+
 \texttt{-\/-min-triangulation-angle \textit{double(=0.1)}} &
 The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
 \\ \hline
@@ -746,6 +748,10 @@ and Northing fields. \\ \hline
 Only used with the create-pinhole-cameras setting to initialize global camera coordinates. If used,
 the csv-format setting must also be set.  The "file" field is searched for strings that are found
 in the input image files to match locations to cameras.\\ \hline
+
+\texttt{-\/-disable-pinhole-gcp-init} & Don't try to initialize pinhole camera coordinates using
+provided GCP coordinates.  Set this if you only have one image per GCP or if the pinhole
+initialization process is not producing good results. \\ \hline
 
 \texttt{-\/-position-filter-dist \textit{double(=-1.0)}} &
 If estimated camera positions are used, this option can be used to set a threshold distance in meters
