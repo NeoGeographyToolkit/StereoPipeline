@@ -416,6 +416,7 @@ struct BaDispXyzError {
    
     double* left_camera  = param_storage.get_camera_ptr(left_cam_index );
     double* right_camera = param_storage.get_camera_ptr(right_cam_index);
+    residual_ptrs.clear();
     if (is_pinhole) {
       double* left_center      = param_storage.get_intrinsic_center_ptr    (left_cam_index );
       double* left_focus       = param_storage.get_intrinsic_focus_ptr     (left_cam_index );
@@ -424,18 +425,16 @@ struct BaDispXyzError {
       double* right_focus      = param_storage.get_intrinsic_focus_ptr     (right_cam_index);
       double* right_distortion = param_storage.get_intrinsic_distortion_ptr(right_cam_index);
 
-      residual_ptrs.clear();
       residual_ptrs.push_back(left_camera    );
       residual_ptrs.push_back(left_center    );
       residual_ptrs.push_back(left_focus     );
       residual_ptrs.push_back(left_distortion);
       residual_ptrs.push_back(right_camera   );
-      if (!intrin_opt.center_shared    ) residual_ptrs.push_back(right_center   );
-      if (!intrin_opt.focus_shared     ) residual_ptrs.push_back(right_focus    );
-      if (!intrin_opt.distortion_shared) residual_ptrs.push_back(left_distortion);
+      if (!intrin_opt.center_shared    ) residual_ptrs.push_back(right_center    );
+      if (!intrin_opt.focus_shared     ) residual_ptrs.push_back(right_focus     );
+      if (!intrin_opt.distortion_shared) residual_ptrs.push_back(right_distortion);
     }
     else { // This handles the generic camera case.
-      residual_ptrs.clear();
       residual_ptrs.push_back(left_camera );
       residual_ptrs.push_back(right_camera);
     }
