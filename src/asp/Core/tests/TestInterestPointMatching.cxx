@@ -31,8 +31,7 @@ TEST( InterestPointMatching, DatumIntersection ) {
   camera::PinholeModel model( Vector3(-414653.934175,-2305310.05912,-6759174.5439),
                               Quat(-0.0794638597818,-0.0396316037899,-0.40945443655,-0.907998840691).rotation_matrix(),
                               1.65e6, 1.65e6, 17500, 17500,
-                              Vector3(1,0,0), Vector3(0,1,0), Vector3(0,0,1),
-                              camera::NullLensDistortion() );
+                              Vector3(1,0,0), Vector3(0,1,0), Vector3(0,0,1));
 
   // Project back a forth against a flattened sphere
   cartography::Datum datum("WGS84");
