@@ -1281,7 +1281,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
             "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
-            "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
+            "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
             "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the create-pinhole-cameras option.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
@@ -1674,7 +1674,7 @@ int main(int argc, char* argv[]) {
       create_gcp_from_mapprojected_images(opt);
       return 0;
     }
-    
+
     // Create the match points.
     // Iterate through each pair of input images
 
@@ -1684,7 +1684,9 @@ int main(int argc, char* argv[]) {
     const bool got_est_cam_positions =
       (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
 
+    // Find interest points between all of the image pairs.
     int num_pairs_matched = 0;
+
     for (int i = 0; i < num_images; i++){
       for (int j = i+1; j <= std::min(num_images-1, i+opt.overlap_limit); j++){
 
@@ -1719,12 +1721,8 @@ int main(int argc, char* argv[]) {
         std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
         opt.match_files[ std::pair<int, int>(i, j) ] = match_filename;
 
-        std::vector<std::string> in_file_list;
-        in_file_list.push_back(image1_path );
-        in_file_list.push_back(image2_path );
-        in_file_list.push_back(camera1_path);
-        in_file_list.push_back(camera2_path);
-        bool inputs_changed = (!asp::is_latest_timestamp(match_filename, in_file_list));
+        bool inputs_changed = (!asp::is_latest_timestamp(match_filename, image1_path,  image2_path,
+                                                                         camera1_path, camera2_path));
 
         if (!inputs_changed) {
           vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
@@ -1752,8 +1750,11 @@ int main(int argc, char* argv[]) {
             = create_mask_less_or_equal(image1_view,  nodata1);
           ImageViewRef< PixelMask<float> > masked_image2
             = create_mask_less_or_equal(image2_view, nodata2);
-          vw::Vector<vw::float32,6> image1_stats = asp::StereoSession::gather_stats(masked_image1, image1_path);
-          vw::Vector<vw::float32,6> image2_stats = asp::StereoSession::gather_stats(masked_image2, image2_path);
+
+          // Use caching function call to compute the image statistics.
+          vw::Vector<vw::float32,6> image1_stats, image2_stats;
+          get_image_stats(image1_path, masked_image1, opt.out_prefix, image1_stats);
+          get_image_stats(image2_path, masked_image2, opt.out_prefix, image2_stats);
 
           session->ip_matching(image1_path, image2_path,
                                Vector2(masked_image1.cols(), masked_image1.rows()),

@@ -438,7 +438,6 @@ struct BaDispXyzError {
       residual_ptrs.push_back(left_camera );
       residual_ptrs.push_back(right_camera);
     }
-
     return;
   }
   
@@ -515,6 +514,7 @@ struct BaDispXyzError {
       cost_function->AddParameterBlock(block_sizes[i]);
     }
     block_sizes = right_camera_wrapper->get_block_sizes();
+    std::cout << "block_sizes.size() = " << block_sizes.size() << std::endl;
     if (!is_pinhole) {
       for (size_t i=1; i<block_sizes.size(); ++i) {
         cost_function->AddParameterBlock(block_sizes[i]);

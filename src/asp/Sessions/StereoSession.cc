@@ -157,12 +157,8 @@ namespace asp {
     bool crop_left  = ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
-    std::vector<std::string> check_files;
-    check_files.push_back(input_file1);
-    check_files.push_back(input_file2);
-    check_files.push_back(m_left_camera_file );
-    check_files.push_back(m_right_camera_file);
-    bool rebuild = (!is_latest_timestamp(match_filename, check_files));
+    bool rebuild = (!is_latest_timestamp(match_filename, input_file1, input_file2,
+                                         m_left_camera_file, m_right_camera_file));
 
     // If we crop the images we must always create new matching files
     if (!crop_left && !crop_right && !rebuild) {

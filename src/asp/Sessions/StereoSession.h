@@ -30,29 +30,11 @@
 
 #include <boost/shared_ptr.hpp>
 #include <asp/Core/Common.h>
+#include <asp/Core/FileUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/CameraModelLoader.h>
 
 namespace asp {
-
-  // TODO: Move this function!
-  /// Return true if the first file exists and is newer than all of the other files.
-  /// - Also returns false if any files are missing.
-  inline bool is_latest_timestamp(std::string              const& test_file, 
-                             std::vector<std::string> const& other_files) {
-    if (!boost::filesystem::exists(test_file))
-      return false;
-    std::time_t test_time = boost::filesystem::last_write_time(test_file);
-    for (size_t i=0; i<other_files.size(); ++i) {
-      if (!boost::filesystem::exists(other_files[i]))
-        return false;
-      std::time_t t = boost::filesystem::last_write_time(other_files[i]);
-      if (test_time < t)
-        return false;
-    }
-    return true;
-  }
-  
 
   typedef vw::Vector<vw::float32,6> Vector6f;
 
@@ -295,12 +277,24 @@ Vector6f StereoSession::gather_stats( vw::ImageViewBase<ViewT> const& view_base,
   ViewT image = view_base.impl();
 
   // Compute statistics at a reduced resolution
-  int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
+  float num_pixels = float(image.cols())*float(image.rows());
+  int  stat_scale  = int(ceil(sqrt(num_pixels / 1000000)));
 
+  // TODO: Run this in parallel with BlockImageOperator?
+  
+  /*
   ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
   for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
-            stat_scale ),
-      accumulator );
+                             stat_scale ),
+                  accumulator );
+  */
+  // Compute the CDF in parallel.
+  Vector2i block_size(256,256);
+  int buffer_size = num_pixels / stat_scale;
+  std::cout << "Running CDF with buffer size " << buffer_size << std::endl;
+  vw::math::CDFAccumulator<float> accumulator(buffer_size);
+  block_cdf_computation(image, accumulator, stat_scale, block_size);
+  
   Vector6f result;
   result[0] = accumulator.quantile(0); // Min
   result[1] = accumulator.quantile(1); // Max

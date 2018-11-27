@@ -17,13 +17,27 @@
 
 #ifndef __CORE_FILE_UTILS_H__
 #define __CORE_FILE_UTILS_H__
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+
 #include <vw/Math/Vector.h>
 
 namespace asp {
+
+  /// Return true if the first file exists and is newer than all of the other files.
+  /// - Also returns false if any files are missing.
+  bool is_latest_timestamp(std::string              const& test_file, 
+                           std::vector<std::string> const& other_files);
+  // Convenience wrappers.
+  bool is_latest_timestamp(std::string const& test_file, std::string const& f1);
+  bool is_latest_timestamp(std::string const& test_file, 
+                           std::string const& f1, std::string const& f2);
+  bool is_latest_timestamp(std::string const& test_file, 
+                           std::string const& f1, std::string const& f2,
+                           std::string const& f3, std::string const& f4);
 
   void read_1d_points(std::string const& file, std::vector<double> & points);
   void read_2d_points(std::string const& file, std::vector<vw::Vector2> & points);
@@ -35,7 +49,7 @@ namespace asp {
   // matrix. Hence we get a matrix of vectors.
   template<class StreamT, class VectorT>
   void read_matrix_from_stream(std::string const & file,
-			       StreamT & str, std::vector< std::vector<VectorT> > & mat){
+                               StreamT & str, std::vector< std::vector<VectorT> > & mat){
     mat.clear();
     bool first_row = true;
     int max_len = 2048;
@@ -43,45 +57,45 @@ namespace asp {
     int num_cols = 0;
     std::vector<VectorT> row;
     while (str.getline(line, 2048)){
-      
+
       // An empty line or one starting with a space is a separator
       if ( (line[0] == '\0' || line[0] == ' ') && !row.empty()) {
 
-	if (first_row) {
-	  num_cols = row.size();
-	  first_row = false;
+        if (first_row) {
+          num_cols = row.size();
+          first_row = false;
 
-	}
-	
-	if (num_cols != int(row.size())) {
-	  vw::vw_throw( vw::ArgumentErr()
-			<< "Failed parsing a matrix from: " << file
-			<< ". Not all rows have the same size.\n" );
-	}
-	
-	mat.push_back(row);
-	
-	row.clear();       // reset
-	continue;
+        }
+
+        if (num_cols != int(row.size())) {
+          vw::vw_throw( vw::ArgumentErr()
+                        << "Failed parsing a matrix from: " << file
+                        << ". Not all rows have the same size.\n" );
+        }
+
+        mat.push_back(row);
+
+        row.clear();       // reset
+        continue;
       }
-      
+
       if (line[0] == '\0' || line[0] == ' ') continue;
-	
+
       // Read elements
       std::istringstream is(line);
       VectorT v;
       for (size_t p = 0; p < v.size(); p++) {
-	if (! (is >> v[p]) ){
-	  vw::vw_throw( vw::ArgumentErr() << "Failed parsing " << v.size()
-			<< " elements from line " << std::string(line)
-			<< " in file " << file << "\n"
-			);
-	}
+        if (! (is >> v[p]) ){
+          vw::vw_throw( vw::ArgumentErr() << "Failed parsing " << v.size()
+                        << " elements from line " << std::string(line)
+                        << " in file " << file << "\n"
+                        );
+        }
       }
-      
+
       row.push_back(v);
     }
-    
+
     // last row
     if (!row.empty()) 
       mat.push_back(row);
@@ -90,14 +104,14 @@ namespace asp {
 
   template<class VectorT>
   void read_matrix_from_file(std::string const & file,
-			     std::vector< std::vector<VectorT> > & mat){
+                             std::vector< std::vector<VectorT> > & mat){
     std::ifstream ifs(file.c_str());
     read_matrix_from_stream(file, ifs, mat);
   }
   
   template<class VectorT>
   void read_matrix_from_string(std::string const & str,
-			       std::vector< std::vector<VectorT> > & mat){
+                               std::vector< std::vector<VectorT> > & mat){
     std::istringstream ifs(str);
     read_matrix_from_stream(str, ifs, mat);
   }

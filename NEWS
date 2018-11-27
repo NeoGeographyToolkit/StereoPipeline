@@ -31,6 +31,7 @@
      clouds need a big shift to align.
 
  - bundle_adjust
+   * Removed the non-Ceres bundle adjustment options.
    * Added the option to share or not share selected intrinsic parameters
      between pinhole cameras when optimizing intrinsics.
    * Improvements in solving simultaneously for both intrinsics and

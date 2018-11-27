@@ -812,12 +812,8 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     string sub_disp_file = opt.out_prefix+"-D_sub.tif";
     
     // Also need to rebuild if the inputs changed after the mask files were produced.
-    std::vector<std::string> in_file_list;
-    in_file_list.push_back(opt.in_file1 );
-    in_file_list.push_back(opt.in_file2 );
-    in_file_list.push_back(opt.cam_file1);
-    in_file_list.push_back(opt.cam_file2);
-    bool inputs_changed = (!is_latest_timestamp(sub_disp_file,  in_file_list));
+    bool inputs_changed = (!is_latest_timestamp(sub_disp_file, opt.in_file1,  opt.in_file2,
+                                                               opt.cam_file1, opt.cam_file2));
 
     bool rebuild = crop_left || crop_right || inputs_changed;
 
