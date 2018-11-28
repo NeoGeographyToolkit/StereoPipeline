@@ -1767,7 +1767,7 @@ int main(int argc, char* argv[]) {
 
         // Compute the coverage fraction
         std::vector<ip::InterestPoint> ip1, ip2;
-        ip::read_binary_match_file(match_filename, ip1, ip2);       
+        ip::read_binary_match_file(match_filename, ip1, ip2);
         int right_ip_width = rsrc1->cols()*
                               static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
         Vector2i ip_size(right_ip_width, rsrc1->rows());

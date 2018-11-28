@@ -289,9 +289,9 @@ Vector6f StereoSession::gather_stats( vw::ImageViewBase<ViewT> const& view_base,
                   accumulator );
   */
   // Compute the CDF in parallel.
+  // - Set the buffer size larger to reduce the number of internal CDFAccumulator update() calls.
+  int buffer_size = 500000; // TODO: If this gets too large the CDFAccumulator class fails!
   Vector2i block_size(256,256);
-  int buffer_size = num_pixels / stat_scale;
-  std::cout << "Running CDF with buffer size " << buffer_size << std::endl;
   vw::math::CDFAccumulator<float> accumulator(buffer_size);
   block_cdf_computation(image, accumulator, stat_scale, block_size);
   
