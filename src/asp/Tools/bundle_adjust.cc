@@ -1621,9 +1621,6 @@ int main(int argc, char* argv[]) {
       vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
     }
 
-
-    boost::shared_ptr<LensDistortion> input_lens_distortion;
-    
     // Create the stereo session. This will attempt to identify the session type.
     // Read in the camera model and image info for the input images.
     for (int i = 0; i < num_images; i++){
@@ -1655,8 +1652,6 @@ int main(int argc, char* argv[]) {
       if (opt.approximate_pinhole_intrinsics) {
         boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
                 boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models.back());
-        if (i == 0) // Record a copy of the input lens distortion
-          input_lens_distortion = pinhole_ptr->lens_distortion()->copy();
         // Replace lens distortion with fast approximation
         vw::camera::update_pinhole_for_fast_point2pixel<TsaiLensDistortion, 
             TsaiLensDistortion::num_distortion_params>(*(pinhole_ptr.get()),

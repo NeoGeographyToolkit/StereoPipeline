@@ -278,7 +278,7 @@ Vector6f StereoSession::gather_stats( vw::ImageViewBase<ViewT> const& view_base,
 
   // Compute statistics at a reduced resolution
   float num_pixels = float(image.cols())*float(image.rows());
-  int  stat_scale  = int(ceil(sqrt(num_pixels / 1000000)));
+  int   stat_scale = int(ceil(sqrt(num_pixels / 1000000)));
 
   // TODO: Run this in parallel with BlockImageOperator?
   
@@ -290,7 +290,7 @@ Vector6f StereoSession::gather_stats( vw::ImageViewBase<ViewT> const& view_base,
   */
   // Compute the CDF in parallel.
   // - Set the buffer size larger to reduce the number of internal CDFAccumulator update() calls.
-  int buffer_size = 500000; // TODO: If this gets too large the CDFAccumulator class fails!
+  int buffer_size = 100000; // TODO: If this gets too large the CDFAccumulator class fails!
   Vector2i block_size(256,256);
   vw::math::CDFAccumulator<float> accumulator(buffer_size);
   block_cdf_computation(image, accumulator, stat_scale, block_size);
