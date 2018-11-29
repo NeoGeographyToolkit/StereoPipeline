@@ -1733,8 +1733,8 @@ int main(int argc, char* argv[]) {
         SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
                                                              image1_path,  image2_path,
                                                              camera1_path, camera2_path,
-                                                             opt.out_prefix
-                                                             ));
+                                                             opt.out_prefix));
+
         session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
         try{
           // IP matching may not succeed for all pairs
@@ -1760,15 +1760,14 @@ int main(int argc, char* argv[]) {
                                opt.camera_models[i].get(),
                                opt.camera_models[j].get());
 
-        // Compute the coverage fraction
-        std::vector<ip::InterestPoint> ip1, ip2;
-        ip::read_binary_match_file(match_filename, ip1, ip2);
-        int right_ip_width = rsrc1->cols()*
-                              static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
-        Vector2i ip_size(right_ip_width, rsrc1->rows());
-        double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);
-        vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
-
+          // Compute the coverage fraction
+          std::vector<ip::InterestPoint> ip1, ip2;
+          ip::read_binary_match_file(match_filename, ip1, ip2);
+          int right_ip_width = rsrc1->cols()*
+                                static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
+          Vector2i ip_size(right_ip_width, rsrc1->rows());
+          double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);
+          vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
 
           ++num_pairs_matched;
         } catch ( const std::exception& e ){
