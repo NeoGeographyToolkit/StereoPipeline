@@ -56,12 +56,21 @@ def escape_vals(vals):
         if p:
             vals[index] = escapeStr + val
     return vals
+
 def unescape_vals(vals):
     for index, val in enumerate(vals):
         p = re.match("^" + escapeStr + "(-.*?)$", val)
         if p:
             vals[index] = p.group(1)
     return vals
+
+def clean_args(args):
+    '''Fix various problems that can happen in the input args'''
+    args = unescape_vals(args)
+    argsout = []
+    for arg in args:
+        argsout.append(arg.replace('//','/'))
+    return argsout
 
 # Custom option parser that will ignore unknown options
 class PassThroughOptionParser(optparse.OptionParser):
