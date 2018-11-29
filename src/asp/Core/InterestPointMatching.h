@@ -122,8 +122,6 @@ namespace asp {
                      DetectIpMethod  ip_detect_method,
                      vw::camera::CameraModel        * cam1,
                      vw::camera::CameraModel        * cam2,
-                     vw::TransformRef          const& tx1,
-                     vw::TransformRef          const& tx2,
                      std::vector<size_t>            & output_indices ) const;
 
     /// Work out an epipolar line from interest point. Returns the
@@ -210,9 +208,7 @@ namespace asp {
                     std::vector<vw::ip::InterestPoint> const& ip2,
                     vw::camera::CameraModel* cam1,
                     vw::camera::CameraModel* cam2,
-                    std::list<size_t>& valid_indices,
-                    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
-                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
+                    std::list<size_t>& valid_indices);
 
   /// 4 stddev filtering. Deletes any disparity measurement that is 4
   /// stddev away from the measurements of it's local neighbors. We
@@ -228,7 +224,6 @@ namespace asp {
              vw::cartography::Datum const& datum,
              std::vector<vw::ip::InterestPoint> const& ip1_in,
              std::vector<vw::ip::InterestPoint> const& ip2_in,
-             vw::TransformRef const& left_tx, vw::TransformRef const& right_tx, 
              double ip_scale,
              vw::Vector2 const & elevation_limit,
              vw::BBox2   const & lon_lat_limit,
@@ -278,8 +273,7 @@ namespace asp {
                              double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                              double nodata2 = std::numeric_limits<double>::quiet_NaN(),
                              vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
-                             vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
-                             bool transform_to_original_coord = true );
+                             vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)));
 
   /// Calls ip matching above but with an additional step where we
   /// apply a homography to make right image like left image. This is
@@ -606,8 +600,7 @@ namespace asp {
                              double nodata1,
                              double nodata2,
                              vw::TransformRef const& left_tx,
-                             vw::TransformRef const& right_tx,
-                             bool transform_to_original_coord) {
+                             vw::TransformRef const& right_tx) {
     using namespace vw;
 
     // Detect interest points
@@ -620,6 +613,27 @@ namespace asp {
       return false;
     }
 
+    // Factor the transforms out of the interest points
+    //std::vector<ip::InterestPoint> no_transform_ip1(ip1.size()),
+    //                               no_transform_ip2(ip2.size());
+    ip::InterestPointList::iterator ip_it;
+    for (ip_it = ip1.begin(); ip_it != ip1.end(); ++ip_it) {
+      Vector2 pt(ip_it->x, ip_it->y);
+      pt = left_tx.reverse(pt);
+      ip_it->ix = ip_it->x = pt.x();
+      ip_it->iy = ip_it->y = pt.y();
+    }
+    for (ip_it = ip2.begin(); ip_it != ip2.end(); ++ip_it) {
+      Vector2 pt(ip_it->x, ip_it->y);
+      pt = right_tx.reverse(pt);
+      ip_it->ix = ip_it->x = pt.x();
+      ip_it->iy = ip_it->y = pt.y();
+    }
+    vw::TransformRef identity_tx = vw::TransformRef(vw::TranslateTransform(0,0)); // TODO
+    
+    // TODO: Factor out IP finding from this function, do not accept a transform!
+    //       - Then we can record the raw IP to disk for repeat matching.
+
     // Match interest points forward/backward .. constraining on epipolar line
     DetectIpMethod detect_method = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
     std::vector<size_t> forward_match, backward_match;
@@ -631,10 +645,10 @@ namespace asp {
     EpipolarLinePointMatcher matcher(single_threaded_camera,
                                      uniqueness_threshold, epipolar_threshold, datum );
     vw_out() << "\t    Matching Forward" << std::endl;
-    matcher( ip1, ip2, detect_method, cam1, cam2, left_tx, right_tx, forward_match );
+    matcher( ip1, ip2, detect_method, cam1, cam2, forward_match );
     vw_out() << "\t    ---> Obtained " << forward_match.size() << " matches." << std::endl;
     vw_out() << "\t    Matching Backward" << std::endl;
-    matcher( ip2, ip1, detect_method, cam2, cam1, right_tx, left_tx, backward_match );
+    matcher( ip2, ip1, detect_method, cam2, cam1, backward_match );
     vw_out() << "\t    ---> Obtained " << backward_match.size() << " matches." << std::endl;
 
     // Perform circle consistency check
@@ -672,6 +686,7 @@ namespace asp {
     }
 
     if (stereo_settings().ip_debug_images) {
+      // TODO: This should use the non-transform-corrected IP!
       vw_out() << "\t    Writing IP match debug image prior to geometric filtering.\n";
       write_match_image("InterestPointMatching__ip_matching_debug.tif",
                         image1, image2, matched_ip1, matched_ip2);
@@ -686,7 +701,7 @@ namespace asp {
     }
     if (!stereo_settings().disable_tri_filtering) {
       if (!tri_ip_filtering( matched_ip1, matched_ip2,
-                             cam1, cam2, good_indices, left_tx, right_tx ) ){
+                             cam1, cam2, good_indices) ){
         vw_out() << "No interest points left after triangulation filtering." << std::endl;
         return false;
       }
@@ -704,8 +719,7 @@ namespace asp {
     size_t w_index = 0;
     BOOST_FOREACH( size_t index, good_indices ) {
       Vector2 l( matched_ip1[index].x, matched_ip1[index].y );
-      if ( transform_to_original_coord )
-        l = left_tx.reverse( l );
+      //l = left_tx.reverse( l );
       matched_ip1[index].ix = matched_ip1[index].x = l.x();
       matched_ip1[index].iy = matched_ip1[index].y = l.y();
       buffer[w_index] = matched_ip1[index];
@@ -717,8 +731,7 @@ namespace asp {
     w_index = 0;
     BOOST_FOREACH( size_t index, good_indices ) {
       Vector2 r( matched_ip2[index].x, matched_ip2[index].y );
-      if ( transform_to_original_coord )
-        r = right_tx.reverse( r );
+      //r = right_tx.reverse( r );
       matched_ip2[index].ix = matched_ip2[index].x = r.x();
       matched_ip2[index].iy = matched_ip2[index].y = r.y();
       buffer[w_index] = matched_ip2[index];
@@ -730,19 +743,10 @@ namespace asp {
     if (stereo_settings().elevation_limit[0] < stereo_settings().elevation_limit[1] ||
         !stereo_settings().lon_lat_limit.empty()) {
 
-      vw::TransformRef local_left_tx  = vw::TransformRef(vw::TranslateTransform(0,0));
-      vw::TransformRef local_right_tx = vw::TransformRef(vw::TranslateTransform(0,0));
-      if (!transform_to_original_coord) {
-        // The transform to original coords was not applied, need to take it into account.
-        local_left_tx  = left_tx;
-        local_right_tx = right_tx;
-      }
-
       std::vector<ip::InterestPoint> matched_ip1_out, matched_ip2_out;
       double ip_scale = 1.0; // left_tx and right_tx already have any scale info
-      filter_ip_by_lonlat_and_elevation(cam1, cam2,  
-                                        datum,  matched_ip1, matched_ip2, 
-                                        local_left_tx, local_right_tx,  ip_scale,  
+      filter_ip_by_lonlat_and_elevation(cam1, cam2,
+                                        datum,  matched_ip1, matched_ip2, ip_scale,  
                                         stereo_settings().elevation_limit,  
                                         stereo_settings().lon_lat_limit,  
                                         matched_ip1_out, matched_ip2_out);
@@ -828,7 +832,7 @@ namespace asp {
                             datum, output_name, epipolar_threshold, uniqueness_threshold,
                             nodata1, nodata2, left_tx, tx );
     if (!inlier)
-      return inlier;
+      return false;
 
     // For some reason ip_matching writes its points to file instead
     // of returning them, so read them from disk.

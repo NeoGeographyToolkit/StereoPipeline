@@ -123,7 +123,6 @@ namespace asp {
     IPListIter                      m_start, m_end;
     ip::InterestPointList const&    m_ip_other;
     camera::CameraModel            *m_cam1, *m_cam2;
-    TransformRef                    m_tx1, m_tx2;
     EpipolarLinePointMatcher const& m_matcher;
     Mutex&                          m_camera_mutex;
     std::vector<size_t>::iterator   m_output;
@@ -137,15 +136,13 @@ namespace asp {
                            ip::InterestPointList const& ip2,
                            camera::CameraModel* cam1,
                            camera::CameraModel* cam2,
-                           TransformRef const& tx1,
-                           TransformRef const& tx2,
                            EpipolarLinePointMatcher const& matcher,
                            Mutex& camera_mutex,
                            std::vector<size_t>::iterator output ) :
       m_single_threaded_camera(single_threaded_camera),
       m_use_uchar_tree(use_uchar_tree), m_tree_float(tree_float), m_tree_uchar(tree_uchar),
       m_start(start), m_end(end), m_ip_other(ip2),
-      m_cam1(cam1), m_cam2(cam2), m_tx1(tx1), m_tx2(tx2),
+      m_cam1(cam1), m_cam2(cam2),
       m_matcher( matcher ), m_camera_mutex(camera_mutex), m_output(output) {}
 
     void operator()() {
@@ -155,7 +152,7 @@ namespace asp {
       Vector<double> distances(NUM_MATCHES_TO_FIND);
 
       for ( IPListIter ip = m_start; ip != m_end; ip++ ) {
-        Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
+        Vector2 ip_org_coord = Vector2( ip->x, ip->y );
         Vector3 line_eq;
 
         // Find the equation that describes the epipolar line
@@ -207,7 +204,7 @@ namespace asp {
           std::advance( ip2_it, indices[i] );
 
           if (found_epipolar){
-            Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
+            Vector2 ip2_org_coord = Vector2( ip2_it->x, ip2_it->y );
             double  line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
             if ( line_distance < large_epipolar_threshold ) {
               if ( line_distance < small_epipolar_threshold )
@@ -245,8 +242,6 @@ namespace asp {
                                              DetectIpMethod  ip_detect_method,
                                              camera::CameraModel        * cam1,
                                              camera::CameraModel        * cam2,
-                                             TransformRef          const& tx1,
-                                             TransformRef          const& tx2,
                                              std::vector<size_t>        & output_indices ) const {
     typedef ip::InterestPointList::const_iterator IPListIter;
 
@@ -304,7 +299,7 @@ namespace asp {
         match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
                     use_uchar_FLANN, kd_float, kd_uchar,
                     start_it, end_it,
-                    ip2, cam1, cam2, tx1, tx2, *this,
+                    ip2, cam1, cam2, *this,
                     camera_mutex, output_it ) );
       matching_queue.add_task( match_task );
       start_it = end_it;
@@ -314,7 +309,7 @@ namespace asp {
       match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
                   use_uchar_FLANN, kd_float, kd_uchar,
                   start_it, ip1.end(),
-                  ip2, cam1, cam2, tx1, tx2, *this,
+                  ip2, cam1, cam2, *this,
                   camera_mutex, output_it ) );
     matching_queue.add_task( match_task );
     matching_queue.join_all(); // Wait for all the jobs to finish.
@@ -505,9 +500,7 @@ namespace asp {
                     std::vector<ip::InterestPoint> const& matched_ip2,
                     vw::camera::CameraModel* cam1,
                     vw::camera::CameraModel* cam2,
-                    std::list<size_t>& valid_indices,
-                    vw::TransformRef const& left_tx,
-                    vw::TransformRef const& right_tx ) {
+                    std::list<size_t>& valid_indices ) {
     typedef std::vector<double> ArrayT;
     ArrayT error_samples( valid_indices.size() );
 
@@ -518,15 +511,12 @@ namespace asp {
     size_t count = 0;
     const double HIGH_ERROR = 9999999;
     BOOST_FOREACH( size_t i, valid_indices ) {
-      model( left_tx.reverse (Vector2(matched_ip1[i].x, matched_ip1[i].y)),
-             right_tx.reverse(Vector2(matched_ip2[i].x, matched_ip2[i].y)), error_samples[count] );
+      model( Vector2(matched_ip1[i].x, matched_ip1[i].y),
+             Vector2(matched_ip2[i].x, matched_ip2[i].y), error_samples[count] );
       // The call returns exactly zero error to indicate a failed ray intersection
       //  so replace it in those cases with a very high error
       if (error_samples[count] == 0)
         error_samples[count] = HIGH_ERROR;
-      //vw_out() << "error_samples["<< count <<"] = " << error_samples[count] << std::endl;
-      //vw_out() << "diff = " << Vector2(matched_ip1[i].x, matched_ip1[i].y) - 
-      //                         Vector2(matched_ip2[i].x, matched_ip2[i].y)                                
       count++;
     }
     VW_ASSERT( count == valid_indices.size(),
@@ -547,9 +537,6 @@ namespace asp {
     // Determine if we just wrote nothing but outliers (the variance
     // on triangulation is too high).
     if ( error_clusters.front().second[0] > 1e6 ) {
-      //vw_out() << "DEBUG Dumping error samples:" << std::endl;
-      //for (size_t i=0; i<error_samples.size(); ++i)
-      //  vw_out() << matched_ip1[i].x << ", " << matched_ip1[i].y << ", " << error_samples[i] << std::endl;
 
       vw_out() << "\t    Unable to find inlier cluster, keeping best 70% of points.\n";
 
@@ -706,7 +693,6 @@ namespace asp {
    vw::cartography::Datum        const& datum,
    std::vector<vw::ip::InterestPoint> const& ip1_in,
    std::vector<vw::ip::InterestPoint> const& ip2_in,
-   vw::TransformRef const& left_tx, vw::TransformRef const& right_tx, 
    double ip_scale,
    vw::Vector2 const & elevation_limit,
    vw::BBox2   const & lon_lat_limit,
@@ -748,8 +734,8 @@ namespace asp {
 
       // We must not both apply a transform and a scale at the same time
       // as these are meant to do the same thing in different circumstances.
-      Vector2 p1 = left_tx.reverse (Vector2(ip1_in[i].x, ip1_in[i].y));
-      Vector2 p2 = right_tx.reverse(Vector2(ip2_in[i].x, ip2_in[i].y));
+      Vector2 p1 = Vector2(ip1_in[i].x, ip1_in[i].y);
+      Vector2 p2 = Vector2(ip2_in[i].x, ip2_in[i].y);
       Vector3 pt  = model(p1/ip_scale, p2/ip_scale, error);
 
       Vector3 llh = datum.cartesian_to_geodetic(pt);
@@ -830,7 +816,7 @@ namespace asp {
                       MIN_NUM_OUTPUT_INLIERS, true
                     );
       Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
-      vw_out() << "\t--> Homography: " << H << "\n";
+      //vw_out() << "\t--> Homography: " << H << "\n";
       indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
     } catch (const math::RANSACErr& e ) {
       vw_out() << "RANSAC Failed: " << e.what() << "\n";

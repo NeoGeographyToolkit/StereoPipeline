@@ -252,7 +252,7 @@ namespace asp {
                              ip_per_tile,
                              datum, match_filename,
                              epipolar_threshold, ip_uniqueness_thresh,
-                             nodata1, nodata2);              
+                             nodata1, nodata2);
       }
       else {
         inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,

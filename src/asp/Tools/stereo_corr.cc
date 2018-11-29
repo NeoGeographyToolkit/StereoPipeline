@@ -619,16 +619,12 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   opt.session->camera_models(left_camera_model, right_camera_model);
   cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
 
-  // We already corrected for align matrix, so transforms should be identity here.
-  vw::TransformRef left_tx  = vw::TransformRef(vw::TranslateTransform(0,0));
-  vw::TransformRef right_tx = vw::TransformRef(vw::TranslateTransform(0,0));
 
   // Filter out IPs which fall outside the specified elevation and lonlat range
   // TODO: Don't do this with cropped input images!!!!!
   size_t num_left = asp::filter_ip_by_lonlat_and_elevation(left_camera_model.get(),
                                                            right_camera_model.get(),
-                                                           datum, in_ip1, in_ip2,
-                                                           left_tx, right_tx, ip_scale,
+                                                           datum, in_ip1, in_ip2, ip_scale,
                                                            stereo_settings().elevation_limit,
                                                            stereo_settings().lon_lat_limit,
                                                            matched_ip1, matched_ip2);
