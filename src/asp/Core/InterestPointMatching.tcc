@@ -49,7 +49,7 @@ void detect_ip( vw::ip::InterestPointList& ip,
 
   // If a valid file_path was provided, just try to read in the IP's from that file.
   if ((file_path != "") && (boost::filesystem::exists(file_path))) {
-    vw_out() << "Reading interest points from file: " << file_path << std::endl;
+    vw_out() << "\t    Reading interest points from file: " << file_path << std::endl;
     ip = ip::read_binary_ip_file_list(file_path);
     vw_out() << "\t    Found interest points: " << ip.size() << std::endl;
     return;
@@ -72,7 +72,7 @@ void detect_ip( vw::ip::InterestPointList& ip,
 
   const bool has_nodata = !boost::math::isnan(nodata);
 
-  vw_out() << "Using " << points_per_tile << " interest points per tile (1024^2 px).\n";
+  vw_out() << "\t    Using " << points_per_tile << " interest points per tile (1024^2 px).\n";
 
   // Load the detection method from stereo_settings.
   // - This relies on a direct match in the enum integer value.
@@ -87,7 +87,7 @@ void detect_ip( vw::ip::InterestPointList& ip,
       num_scales = vw::ip::IntegralInterestPointDetector
         <vw::ip::OBALoGInterestOperator>::IP_DEFAULT_SCALES;
     else
-      vw_out() << "Using " << num_scales << " scales in OBALoG interest point detection.\n";
+      vw_out() << "\t    Using " << num_scales << " scales in OBALoG interest point detection.\n";
 
     vw::ip::IntegralAutoGainDetector detector( points_per_tile, num_scales );
 
@@ -114,7 +114,7 @@ void detect_ip( vw::ip::InterestPointList& ip,
     if (stereo_settings().ip_normalize_tiles)
       opencv_normalize = true;
     if (opencv_normalize)
-      vw_out() << "Using per-tile image normalization for IP detection...\n";
+      vw_out() << "\t    Using per-tile image normalization for IP detection...\n";
 
     bool build_opencv_descriptors = true;
     vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, points_per_tile);
@@ -156,7 +156,7 @@ void detect_ip( vw::ip::InterestPointList& ip,
 
   // If a file path was provided, record the IP to disk.
   if (file_path != "") {
-    vw_out() << "Recording interest points to file: " << file_path << std::endl;
+    vw_out() << "\t    Recording interest points to file: " << file_path << std::endl;
     ip::write_binary_ip_file(file_path, ip);
   }
 }
@@ -293,8 +293,8 @@ bool epipolar_ip_matching( bool single_threaded_camera,
   std::vector<size_t> forward_match, backward_match;
   vw_out() << "\t--> Matching interest points" << std::endl;
 
-  vw_out() << "Uniqueness threshold: " << uniqueness_threshold << "\n";
-  vw_out() << "Inlier threshold:     " << epipolar_threshold   << "\n";
+  vw_out() << "\t    Uniqueness threshold: " << uniqueness_threshold << "\n";
+  vw_out() << "\t    Inlier threshold:     " << epipolar_threshold   << "\n";
   
   EpipolarLinePointMatcher matcher(single_threaded_camera,
                                     uniqueness_threshold, epipolar_threshold, datum );

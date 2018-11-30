@@ -305,7 +305,7 @@ Vector6f StereoSession::gather_stats( vw::ImageViewBase<ViewT> const& view_base,
   result[4] = accumulator.quantile(0.02); // Percentile values
   result[5] = accumulator.quantile(0.98);
 
-  vw_out(InfoMessage) << "\t  " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
+  vw_out(InfoMessage) << "\t    " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
               << " mean: " << result[2] << " std_dev: "  << result[3] << " ]\n";
   return result;
 }

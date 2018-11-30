@@ -900,7 +900,7 @@ void get_image_stats(std::string const& image_path,
   // Otherwise compute the statistics and record it to disk.
   stats = asp::StereoSession::gather_stats(masked_image, image_path);
 
-  vw_out() << "Writing stats file: " << stats_file << std::endl;
+  vw_out() << "\t    Writing stats file: " << stats_file << std::endl;
   Vector<float32> stats2 = stats;  // cast
   write_vector(stats_file, stats2);
 

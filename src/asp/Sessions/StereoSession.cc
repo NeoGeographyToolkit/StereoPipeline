@@ -151,6 +151,8 @@ namespace asp {
                                   std::string const  left_ip_file,
                                   std::string const  right_ip_file){
 
+    vw_out() << "\t--> Matching interest points...\n";
+
     if (uses_map_projected_inputs()) {
       vw_throw( vw::ArgumentErr() << "StereoSession: IP matching is not implemented for map-projected images since we do not align them!");
       return false;
@@ -245,8 +247,8 @@ namespace asp {
       double epipolar_threshold = norm_2(uncropped_image_size)/15;
       if (stereo_settings().epipolar_threshold > 0)
         epipolar_threshold = stereo_settings().epipolar_threshold;
-      vw_out() << "Using epipolar threshold = " << epipolar_threshold << std::endl;
-      vw_out() << "IP uniqueness threshold     = " << ip_uniqueness_thresh  << std::endl;
+      vw_out() << "\t    Using epipolar threshold = " << epipolar_threshold << std::endl;
+      vw_out() << "\t    IP uniqueness threshold     = " << ip_uniqueness_thresh  << std::endl;
 
       if (stereo_settings().skip_rough_homography) {
         inlier = ip_matching_no_align(single_threaded_camera, cam1, cam2,
