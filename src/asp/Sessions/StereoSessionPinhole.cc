@@ -73,7 +73,11 @@ asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
   namespace fs = boost::filesystem;
   using namespace vw;
 
-  std::string match_filename = ip::match_filename(out_prefix, input_file1, input_file2);
+  std::string match_filename    = ip::match_filename(out_prefix, input_file1, input_file2);
+  std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, input_file1);
+  std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, input_file2);
+      
+      
   vw::camera::CameraModel* null_camera_model = 0;
   this->ip_matching(input_file1, input_file2,
                     uncropped_image_size,
@@ -81,7 +85,7 @@ asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
                     stereo_settings().ip_per_tile,
                     nodata1, nodata2,
                     null_camera_model, null_camera_model,
-                    match_filename, "", "" // TODO: Use IP files?
+                    match_filename, left_ip_filename, right_ip_filename
                    );
 
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;

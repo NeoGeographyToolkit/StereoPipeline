@@ -461,11 +461,14 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path )),
                                        right_rsrc(DiskImageResourcePtr(right_image_path));
 
+  std::string left_ip_filename  = ip::ip_filename(opt.out_prefix, left_image_path );
+  std::string right_ip_filename = ip::ip_filename(opt.out_prefix, right_image_path);
+
   // Read the no-data values written to disk previously when
   // the normalized left and right sub-images were created.
   float left_nodata_value  = numeric_limits<float>::quiet_NaN();
   float right_nodata_value = numeric_limits<float>::quiet_NaN();
-  if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read();
+  if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read ();
   if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
   
   // These images should be small enough to fit in memory
@@ -503,7 +506,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
                                    datum, epipolar_threshold,
                                    stereo_settings().ip_uniqueness_thresh,
                                    match_filename,
-                                   "", "", // TODO: Do we want to record IP files?
+                                   left_ip_filename, right_ip_filename,
                                    left_nodata_value, right_nodata_value);
   } // End nadir epipolar full image case
   else {
@@ -514,11 +517,11 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
     // This range is extra large to handle elevation differences.
     const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
-    
+
     success = asp::homography_ip_matching(left_image, right_image,
                                           stereo_settings().ip_per_tile,
                                           inlier_threshold, match_filename,
-                                          "", "", // TODO: Do we want to record IP files?
+                                          left_ip_filename, right_ip_filename,
                                           left_nodata_value, right_nodata_value);
   }
 

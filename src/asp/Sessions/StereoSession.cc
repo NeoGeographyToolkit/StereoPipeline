@@ -265,7 +265,7 @@ namespace asp {
                                          ip_per_tile,
                                          datum, match_filename,
                                          epipolar_threshold, ip_uniqueness_thresh,
-                                         nodata1, nodata2);
+                                         left_ip_file, nodata1, nodata2);
       }
     } else { // Not nadir facing
       // Run a simpler purely image based matching function

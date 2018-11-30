@@ -196,9 +196,10 @@ bool detect_ip_aligned_pair( vw::camera::CameraModel* cam1,
                              vw::ImageViewBase<Image2T> const& image2,
                              int ip_per_tile,
                              vw::cartography::Datum const& datum,
-                             vw::ip::InterestPointList& ip1, 
-                             vw::ip::InterestPointList& ip2,  
+                             vw::ip::InterestPointList& ip1,
+                             vw::ip::InterestPointList& ip2,
                              vw::Matrix<double> &rough_homography,
+                             std::string const left_file_path,
                              double nodata1,
                              double nodata2) {
 
@@ -250,7 +251,7 @@ bool detect_ip_aligned_pair( vw::camera::CameraModel* cam1,
                                      ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
                                      NearestPixelInterpolation()),
                            raster_box),
-                      ip_per_tile, "", "", // Don't use IP files with alignment.
+                      ip_per_tile, left_file_path, "", // Don't record IP from transformed images.
                       nodata1, nodata2)) {
     vw_out() << "Unable to detect interest points." << std::endl;
     return false;
@@ -568,6 +569,7 @@ bool ip_matching_w_alignment( bool single_threaded_camera,
                               std::string const& output_name,
                               double epipolar_threshold,
                               double uniqueness_threshold,
+                              std::string const left_file_path,
                               double nodata1,
                               double nodata2) {
 
@@ -579,7 +581,8 @@ bool ip_matching_w_alignment( bool single_threaded_camera,
   vw::ip::InterestPointList ip1, ip2;
   Matrix<double> rough_homography;
   detect_ip_aligned_pair(cam1, cam2, image1.impl(), image2.impl(),
-                         ip_per_tile, datum, ip1, ip2, rough_homography, nodata1, nodata2);
+                         ip_per_tile, datum, ip1, ip2, rough_homography, 
+                         left_file_path, nodata1, nodata2);
 
 
   // Match the detected IPs which are in the original image coordinates.

@@ -137,9 +137,10 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
       right_size = file_image_size(right_cropped_file);
     
     // Define the file name containing IP match information.
-    std::string match_filename = ip::match_filename(this->m_out_prefix,
-                                                    left_cropped_file,
-                                                    right_cropped_file);
+    std::string match_filename    = ip::match_filename(this->m_out_prefix,
+                                                       left_cropped_file, right_cropped_file);
+    std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file );
+    std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
     
     DiskImageView<float> left_orig_image(left_input_file);
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
@@ -150,7 +151,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                       stereo_settings().ip_per_tile,
                       left_nodata_value, right_nodata_value,
                       left_cam.get(), right_cam.get(),
-                      match_filename, "", "" // TODO: Use IP files?
+                      match_filename, left_ip_filename, right_ip_filename
                      );
 
     std::vector<ip::InterestPoint> left_ip, right_ip;

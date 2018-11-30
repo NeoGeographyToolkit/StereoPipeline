@@ -324,9 +324,10 @@ pre_preprocessing_hook(bool adjust_left_image_size,
        stereo_settings().alignment_method == "affineepipolar" ) {
 
     // Define the file name containing IP match information.
-    std::string match_filename = ip::match_filename(this->m_out_prefix,
-                                                    left_cropped_file,
-                                                    right_cropped_file);
+    std::string match_filename    = ip::match_filename(this->m_out_prefix,
+                                                       left_cropped_file, right_cropped_file);
+    std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file );
+    std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
 
     // Find matching interest points between the two input images
     DiskImageView<float> left_orig_image(left_input_file);
@@ -338,7 +339,7 @@ pre_preprocessing_hook(bool adjust_left_image_size,
                       stereo_settings().ip_per_tile,
                       left_nodata_value, right_nodata_value,
                       left_cam.get(),    right_cam.get(),
-                      match_filename, "", "" // TODO: Use IP files?
+                      match_filename, left_ip_filename, right_ip_filename
                      );
     // Read in the interest point data we just wrote to disk
     std::vector<ip::InterestPoint> left_ip, right_ip;

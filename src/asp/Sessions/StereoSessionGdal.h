@@ -121,9 +121,10 @@ namespace asp {
     if ( stereo_settings().alignment_method == "homography" ||
          stereo_settings().alignment_method == "affineepipolar" ) {
       // Define the file name containing IP match information.
-      std::string match_filename = ip::match_filename(this->m_out_prefix,
-                                                      left_cropped_file,
-                                                      right_cropped_file);
+      std::string match_filename    = ip::match_filename(this->m_out_prefix,
+                                                         left_cropped_file, right_cropped_file);
+      std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file );
+      std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
 
       // Detect matching interest points between the left and right input images.
       // - The output is written directly to file!
@@ -137,7 +138,7 @@ namespace asp {
                         stereo_settings().ip_per_tile,
                         left_nodata_value, right_nodata_value,
                         left_cam.get(),    right_cam.get(),
-                        match_filename, "", "" // TODO: Use IP files?
+                        match_filename, left_ip_filename, right_ip_filename
                        );
 
       // Load the interest points results from the file we just wrote.

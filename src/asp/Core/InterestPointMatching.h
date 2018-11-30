@@ -135,6 +135,7 @@ namespace asp {
   /// Calls ip matching above but with an additional step where we
   /// apply a homography to make right image like left image. This is
   /// useful so that both images have similar scale and similar affine qualities.
+  /// - Only the left image will use an IP file since the right image is modified.
   template <class Image1T, class Image2T>
   bool ip_matching_w_alignment( bool single_threaded_camera,
                                 vw::camera::CameraModel* cam1,
@@ -146,6 +147,7 @@ namespace asp {
                                 std::string const& output_name,
                                 double epipolar_threshold,
                                 double uniqueness_threshold,
+                                std::string const left_file_path ="",
                                 double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                                 double nodata2 = std::numeric_limits<double>::quiet_NaN());
 
@@ -299,6 +301,7 @@ namespace asp {
                                vw::ip::InterestPointList& ip1,   // Output IP.
                                vw::ip::InterestPointList& ip2,  
                                vw::Matrix<double> &rough_homography, // The homography that was used.
+                               std::string const left_file_path ="",
                                double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                                double nodata2 = std::numeric_limits<double>::quiet_NaN());
 
