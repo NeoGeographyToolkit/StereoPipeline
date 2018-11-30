@@ -500,8 +500,10 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
                                    left_camera_model.get(), right_camera_model.get(),
                                    left_image, right_image,
                                    stereo_settings().ip_per_tile,
-                                   datum, match_filename, epipolar_threshold,
+                                   datum, epipolar_threshold,
                                    stereo_settings().ip_uniqueness_thresh,
+                                   match_filename,
+                                   "", "", // TODO: Do we want to record IP files?
                                    left_nodata_value, right_nodata_value);
   } // End nadir epipolar full image case
   else {
@@ -515,7 +517,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     
     success = asp::homography_ip_matching(left_image, right_image,
                                           stereo_settings().ip_per_tile,
-                                          match_filename, inlier_threshold,
+                                          inlier_threshold, match_filename,
+                                          "", "", // TODO: Do we want to record IP files?
                                           left_nodata_value, right_nodata_value);
   }
 

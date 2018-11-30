@@ -148,8 +148,10 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                       bounding_box(left_orig_image).size(),
                       left_stats, right_stats,
                       stereo_settings().ip_per_tile,
-                      left_nodata_value, right_nodata_value, match_filename,
-                      left_cam.get(), right_cam.get() );
+                      left_nodata_value, right_nodata_value,
+                      left_cam.get(), right_cam.get(),
+                      match_filename, "", "" // TODO: Use IP files?
+                     );
 
     std::vector<ip::InterestPoint> left_ip, right_ip;
     ip::read_binary_match_file( match_filename, left_ip, right_ip  );

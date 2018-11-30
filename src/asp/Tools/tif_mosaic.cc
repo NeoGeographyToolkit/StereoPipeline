@@ -101,6 +101,7 @@ void fix_seams_using_ip(std::vector<ImageData> & img_data){
     int ip_per_tile = 0; // auto-determination
     Matrix3x3 T = asp::translation_ip_matching(crop0, crop1,
                                                ip_per_tile,
+                                               "", "", // TODO: Use IP files?
                                                img_data[img_index].nodata_value,
                                                img_data[img_index+1].nodata_value);
     T = inverse(T); // originally it was going from image1 to image0

@@ -495,6 +495,31 @@ namespace asp {
     return Vector2i( output_bbox.width(), output_bbox.height() );
   }
 
+  
+  void side_ip_filtering(vw::ip::InterestPointList& ip1, 
+                         vw::ip::InterestPointList& ip2,  
+                         vw::BBox2i const& bbox1, vw::BBox2i const& bbox2) {
+      
+    // Filter out IP from the opposite sides of the two images.
+    // - Would be better to just pass an ROI into the IP detector!
+    if (stereo_settings().ip_edge_buffer_percent <= 0)
+      return;
+      
+    // Figure out removal bboxes
+    double percent  = static_cast<double>(stereo_settings().ip_edge_buffer_percent)/100.0;
+    int   width_left  = floor(static_cast<double>(bbox1.width()) * percent);
+    int   width_right = floor(static_cast<double>(bbox2.width()) * percent);
+    BBox2 bbox_left (width_left, 0, bbox1.width()-width_left,  bbox1.height());
+    BBox2 bbox_right(0,          0, bbox2.width()-width_right, bbox2.height());
+    bool  remove_outside = true;
+    
+    // Remove the points
+    size_t num_removed_left  = remove_ip_bbox(bbox_left,  ip1, remove_outside);
+    size_t num_removed_right = remove_ip_bbox(bbox_right, ip2, remove_outside);
+    vw_out() << "Removed: " << num_removed_left << " points from the left side of the left image and "
+              << num_removed_right << " points from the right side of the right image.\n";
+  } // End side IP filtering
+  
   bool
   tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
                     std::vector<ip::InterestPoint> const& matched_ip2,
@@ -886,13 +911,15 @@ namespace asp {
   vw::Matrix<double> translation_ip_matching(vw::ImageView<float> const& image1,
                                              vw::ImageView<float> const& image2,
                                              int ip_per_tile,
+                                             std::string const  left_file_path,
+                                             std::string const  right_file_path,
                                              double nodata1, double nodata2) {
 
     using namespace vw;
 
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
     detect_match_ip(matched_ip1, matched_ip2, image1,  image2, ip_per_tile,
-                    nodata1, nodata2);
+                    left_file_path, right_file_path, nodata1, nodata2);
 
     std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
     std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);

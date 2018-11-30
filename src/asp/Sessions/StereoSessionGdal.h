@@ -135,8 +135,10 @@ namespace asp {
                         bounding_box(left_orig_image).size(),
                         left_stats, right_stats,
                         stereo_settings().ip_per_tile,
-                        left_nodata_value, right_nodata_value, match_filename,
-                        left_cam.get(),    right_cam.get() );
+                        left_nodata_value, right_nodata_value,
+                        left_cam.get(),    right_cam.get(),
+                        match_filename, "", "" // TODO: Use IP files?
+                       );
 
       // Load the interest points results from the file we just wrote.
       std::vector<ip::InterestPoint> left_ip, right_ip;

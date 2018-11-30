@@ -80,8 +80,9 @@ asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
                     stats1, stats2,
                     stereo_settings().ip_per_tile,
                     nodata1, nodata2,
-                    match_filename,
-                    null_camera_model, null_camera_model);
+                    null_camera_model, null_camera_model,
+                    match_filename, "", "" // TODO: Use IP files?
+                   );
 
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   read_binary_match_file( match_filename,

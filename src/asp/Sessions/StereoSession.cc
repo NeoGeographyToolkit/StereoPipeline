@@ -145,9 +145,11 @@ namespace asp {
                                   Vector6f    const& stats2,
                                   int ip_per_tile,
                                   float nodata1, float nodata2,
-                                  std::string const& match_filename,
                                   vw::camera::CameraModel* cam1,
-                                  vw::camera::CameraModel* cam2){
+                                  vw::camera::CameraModel* cam2,
+                                  std::string const& match_filename,
+                                  std::string const  left_ip_file,
+                                  std::string const  right_ip_file){
 
     if (uses_map_projected_inputs()) {
       vw_throw( vw::ArgumentErr() << "StereoSession: IP matching is not implemented for map-projected images since we do not align them!");
@@ -248,11 +250,12 @@ namespace asp {
 
       if (stereo_settings().skip_rough_homography) {
         inlier = ip_matching_no_align(single_threaded_camera, cam1, cam2,
-                             image1_norm, image2_norm,
-                             ip_per_tile,
-                             datum, match_filename,
-                             epipolar_threshold, ip_uniqueness_thresh,
-                             nodata1, nodata2);
+                                      image1_norm, image2_norm,
+                                      ip_per_tile, datum,
+                                      epipolar_threshold, ip_uniqueness_thresh,
+                                      match_filename,
+                                      left_ip_file, right_ip_file,
+                                      nodata1, nodata2);
       }
       else {
         inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
@@ -274,8 +277,9 @@ namespace asp {
 
       inlier = homography_ip_matching( image1_norm, image2_norm,
                                        ip_per_tile,
-                                       match_filename,
                                        inlier_threshold,
+                                       match_filename,
+                                       left_ip_file, right_ip_file,
                                        nodata1, nodata2);
     }
     if (!inlier) {

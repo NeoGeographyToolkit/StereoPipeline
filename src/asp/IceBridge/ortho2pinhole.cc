@@ -438,7 +438,8 @@ void load_camera_and_find_ip(Options const& opt,
                          image1_stats,
                          image2_stats,
                          opt.ip_per_tile,
-                         nodata1, nodata2, match_filename, cam.get(), cam.get()
+                         nodata1, nodata2, cam.get(), cam.get(),
+                         match_filename, "", ""
                         );
   } catch ( const std::exception& e ){
     vw_throw( ArgumentErr()

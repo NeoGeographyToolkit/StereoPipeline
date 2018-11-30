@@ -1714,6 +1714,8 @@ int main(int argc, char* argv[]) {
         std::string camera1_path   = opt.camera_files[i];
         std::string camera2_path   = opt.camera_files[j];
         std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
+        std::string ip_file1       = ip::ip_filename(opt.out_prefix, image1_path);
+        std::string ip_file2       = ip::ip_filename(opt.out_prefix, image2_path);
         opt.match_files[ std::pair<int, int>(i, j) ] = match_filename;
 
         bool inputs_changed = (!asp::is_latest_timestamp(match_filename, image1_path,  image2_path,
@@ -1751,14 +1753,17 @@ int main(int argc, char* argv[]) {
           get_image_stats(image1_path, masked_image1, opt.out_prefix, image1_stats);
           get_image_stats(image2_path, masked_image2, opt.out_prefix, image2_stats);
 
+          // The match files are always cached, the IP files are cached for
+          //  certain IP matching options.
           session->ip_matching(image1_path, image2_path,
                                Vector2(masked_image1.cols(), masked_image1.rows()),
-                               image1_stats,
-                               image2_stats,
+                               image1_stats, image2_stats,
                                opt.ip_per_tile,
-                               nodata1, nodata2, match_filename,
+                               nodata1, nodata2,
                                opt.camera_models[i].get(),
-                               opt.camera_models[j].get());
+                               opt.camera_models[j].get(),
+                               match_filename, ip_file1, ip_file2
+                              );
 
           // Compute the coverage fraction
           std::vector<ip::InterestPoint> ip1, ip2;
