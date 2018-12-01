@@ -42,7 +42,7 @@
 #include <iostream>
 
 #include <asp/Core/BundleAdjustUtils.h>
-
+#include <asp/Camera/RPC_XML.h>
 #include <asp/Tools/bundle_adjust_misc_functions.h>
 #include <asp/Tools/bundle_adjust_cost_functions.h> // Ceres included in this file.
 
@@ -197,7 +197,6 @@ struct Options : public vw::cartography::GdalWriteOptions {
   } // End function load_intrinsics_options
 
 }; // End class Options
-
 
 //==================================================================================
 // Mapprojected image functions.
@@ -497,6 +496,73 @@ ceres::LossFunction* get_loss_function(Options const& opt ){
   return loss_function;
 }
 
+/// Attempt to automatically create the overlap list file estimated
+///  footprints for each of the input images.
+/// - Currently this only supports cameras with Worldview style XML files.
+void auto_build_overlap_list(Options &opt, double lonlat_buffer) {
 
+  typedef std::pair<std::string, std::string> StringPair;
+
+  const size_t num_images = opt.camera_files.size();
+  opt.overlap_list.clear();
+
+  vw_out() << "Attempting to automatically estimate image overlaps...\n";
+  int  num_overlaps = 0;
+  bool read_success = false;
+
+  // Loop through all image pairs
+  for (size_t i=0; i<num_images-1; ++i) {
+
+    // Try to get the lonlat bounds for this image
+    std::vector<vw::Vector2> pixel_corners_i, lonlat_corners_i;
+    try {
+      read_success = asp::read_WV_XML_corners(opt.camera_files[i], pixel_corners_i, lonlat_corners_i);
+    } catch(...) {
+      read_success = false;
+    }
+    if (!read_success) {
+      vw_throw( ArgumentErr() << "Unable to get corner estimate from file: "
+                              << opt.camera_files[i] << ".\n" );
+    }
+
+    vw::BBox2 bbox_i; // Convert to BBox
+    for (size_t p=0; p<lonlat_corners_i.size(); ++p)
+      bbox_i.grow(lonlat_corners_i[p]);
+    bbox_i.expand(lonlat_buffer); // Only expand this bounding box by the buffer.
+
+    for (size_t j=i+1; j<num_images; ++j) {
+
+      std::vector<vw::Vector2> pixel_corners_j, lonlat_corners_j;
+      try {
+        read_success = asp::read_WV_XML_corners(opt.camera_files[j], pixel_corners_j, lonlat_corners_j);
+      } catch(...) {
+        read_success = false;
+      }
+      if (!read_success) {
+        vw_throw( ArgumentErr() << "Unable to get corner estimate from file: "
+                                << opt.camera_files[j] << ".\n" );
+      }
+
+      vw::BBox2 bbox_j; // Convert to BBox
+      for (size_t p=0; p<lonlat_corners_j.size(); ++p)
+        bbox_j.grow(lonlat_corners_j[p]);
+
+      // Record the files if the bboxes overlap
+      // - TODO: Use polygon intersection instead of bounding boxes!
+      if (bbox_i.intersects(bbox_j)) {
+        vw_out() << "Predicted overlap between images " << opt.image_files[i]
+                 << " and " << opt.image_files[j] << std::endl;
+        opt.overlap_list.insert(StringPair(opt.image_files[i], opt.image_files[j]));
+        opt.overlap_list.insert(StringPair(opt.image_files[j], opt.image_files[i]));
+        ++num_overlaps;
+      }
+    } // End inner loop through cameras
+  } // End outer loop through cameras
+
+  if (num_overlaps == 0)
+    vw_throw( ArgumentErr() << "Failed to automatically detect any overlapping images!" );
+
+  vw_out() << "Will try to match at " << num_overlaps << " detected overlaps\n.";
+} // End function auto_build_overlap_list
 
 #endif // __ASP_TOOLS_BUNDLEADJUST_H__

@@ -1263,6 +1263,7 @@ int load_estimated_camera_positions(Options &opt,
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str;
+  float auto_overlap_buffer;
   po::options_description general_options("");
   general_options.add_options()
 //     ("cnet,c", po::value(&opt.cnet_file),
@@ -1359,6 +1360,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
             "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
     ("overlap-list",         po::value(&opt.overlap_list_file)->default_value(""),
             "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
+    ("auto-overlap-buffer",  po::value(&auto_overlap_buffer)->default_value(-1),
+            "Try to automatically guess which images overlap with the provided buffer in lonlat degrees.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
             "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("rotation-weight",      po::value(&opt.rotation_weight)->default_value(0.0),
@@ -1462,6 +1465,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       opt.overlap_list.insert(std::pair<std::string, std::string>(image2, image1));
     }
     ifs.close();
+  } else {
+    if (!vm["auto-overlap-buffer"].defaulted())
+      auto_build_overlap_list(opt, auto_overlap_buffer);
   }
   
   if ( opt.camera_weight < 0.0 )

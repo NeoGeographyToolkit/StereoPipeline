@@ -1,6 +1,8 @@
 *** RELEASE 2.6.2, Upcoming ***
  
  - Added a new tool, n_align, to jointly align n clouds. 
+ - stereo tools and bundle_adjust will now cache image statistics
+   and interest points to files on disk.
 
  - stereo_rfne
    * Added the option to run a non-SGM subpixel option after
@@ -31,6 +33,8 @@
      clouds need a big shift to align.
 
  - bundle_adjust
+   * Added option to automatically guess overlapping images from
+     Worldview style XML camera files.
    * Removed the non-Ceres bundle adjustment options.
    * Added the option to share or not share selected intrinsic parameters
      between pinhole cameras when optimizing intrinsics.

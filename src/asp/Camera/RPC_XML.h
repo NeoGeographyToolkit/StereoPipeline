@@ -179,6 +179,7 @@ namespace asp {
 
   /// Function to extract the four corners from the first band
   ///  of a Worldview XML file.
+  /// - The order is [TOP_LEFT, TOP_RIGHT, BOT_RIGHT, BOT_LEFT]
   bool read_WV_XML_corners(std::string const& xml_path,
                            std::vector<vw::Vector2> &pixel_corners,
                            std::vector<vw::Vector2> &lonlat_corners);
