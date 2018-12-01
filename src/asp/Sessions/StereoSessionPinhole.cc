@@ -149,8 +149,10 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   ImageViewRef< PixelMask<float> > right_masked_image
     = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
-  Vector6f left_stats  = gather_stats(left_masked_image,  "left" );
-  Vector6f right_stats = gather_stats(right_masked_image, "right");
+  Vector6f left_stats  = gather_stats(left_masked_image,  "left",
+                                      this->m_out_prefix, left_cropped_file);
+  Vector6f right_stats = gather_stats(right_masked_image, "right",
+                                      this->m_out_prefix, right_cropped_file);
 
   // Use no-data in interpolation and edge extension.
   PixelMask<float> nodata_pix(0);

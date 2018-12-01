@@ -514,8 +514,10 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       = copy_mask(left_image, create_mask(left_mask));
     ImageViewRef< PixelMask< PixelGray<float> > > right_masked_image
       = copy_mask(right_image, create_mask(right_mask));
-    Vector6f left_stats       = StereoSession::gather_stats(left_masked_image,  "left" );
-    Vector6f right_stats      = StereoSession::gather_stats(right_masked_image, "right");
+    Vector6f left_stats       = StereoSession::gather_stats(left_masked_image,  "left",
+                                                            opt.out_prefix, left_image_file);
+    Vector6f right_stats      = StereoSession::gather_stats(right_masked_image, "right",
+                                                            opt.out_prefix, right_image_file);
     string   left_stats_file  = opt.out_prefix + "-lStats.tif";
     string   right_stats_file = opt.out_prefix + "-rStats.tif";
 

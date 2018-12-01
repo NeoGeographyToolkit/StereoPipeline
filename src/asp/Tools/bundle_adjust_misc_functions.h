@@ -879,29 +879,4 @@ bool projected_ip_to_raw_ip(ip::InterestPoint &P,
   return true;
 }
 
-/// Compute image statistics and cache them to file.
-void get_image_stats(std::string const& image_path,
-                     ImageViewRef< PixelMask<float> > const& masked_image,
-                     std::string const& output_prefix,
-                     vw::Vector<vw::float32,6> &stats) {
 
-  // Check if this stats file was computed after any image modifications.
-  const std::string stats_file = output_prefix + '-' +
-                                 boost::filesystem::path(image_path).stem().string() + "-stats.tif";
-
-  if (asp::is_latest_timestamp(stats_file, image_path)) {
-    vw_out(InfoMessage) << "\t--> Reading statistics from file " + stats_file << std::endl;
-    Vector<float32> stats2;
-    read_vector(stats2, stats_file); // Just fetch the stats from the file on disk.
-    stats = stats2;
-    return;
-  }
-
-  // Otherwise compute the statistics and record it to disk.
-  stats = asp::StereoSession::gather_stats(masked_image, image_path);
-
-  vw_out() << "\t    Writing stats file: " << stats_file << std::endl;
-  Vector<float32> stats2 = stats;  // cast
-  write_vector(stats_file, stats2);
-
-}

@@ -130,8 +130,10 @@ namespace asp {
       = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
     // Compute input image statistics
-    Vector6f left_stats  = gather_stats(left_masked_image,  "left" );
-    Vector6f right_stats = gather_stats(right_masked_image, "right");
+    Vector6f left_stats  = gather_stats(left_masked_image,  "left",
+                                        this->m_out_prefix, left_cropped_file);
+    Vector6f right_stats = gather_stats(right_masked_image, "right",
+                                        this->m_out_prefix, right_cropped_file);
 
     ImageViewRef< PixelMask<float> > Limg, Rimg;
     std::string lcase_file = boost::to_lower_copy(this->m_left_camera_file);

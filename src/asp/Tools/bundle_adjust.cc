@@ -1750,8 +1750,8 @@ int main(int argc, char* argv[]) {
 
           // Use caching function call to compute the image statistics.
           vw::Vector<vw::float32,6> image1_stats, image2_stats;
-          get_image_stats(image1_path, masked_image1, opt.out_prefix, image1_stats);
-          get_image_stats(image2_path, masked_image2, opt.out_prefix, image2_stats);
+          image1_stats = asp::StereoSession::gather_stats(masked_image1, image1_path, opt.out_prefix, image1_path);
+          image2_stats = asp::StereoSession::gather_stats(masked_image2, image2_path, opt.out_prefix, image2_path);
 
           // The match files are always cached, the IP files are cached for
           //  certain IP matching options.
