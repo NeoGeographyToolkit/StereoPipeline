@@ -707,6 +707,10 @@ Pixels with values less than or equal to this number are treated as no-data. Thi
 The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
 \\ \hline
 
+\texttt{-\/-ip-triangulation-max-error \textit{double}} &
+When matching IP, filter out any pairs with a triangulation error higher than this.
+\\ \hline
+
 \texttt{-\/-num-passes \textit{integer(=1)}} &
 How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using -\/-remove-outliers-params and -\/-remove-outliers-by-disparity-params, and re-optimization will take place. The match files will be overwritten with the outliers removed. Residual files with the outliers removed will be written to disk.
 \\ \hline

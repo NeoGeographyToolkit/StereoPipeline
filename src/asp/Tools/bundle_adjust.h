@@ -58,7 +58,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
     cost_function, mapprojected_data, gcp_data;
   int    ip_per_tile, ip_edge_buffer_percent;
   double min_triangulation_angle, lambda, camera_weight, rotation_weight, 
-    translation_weight, overlap_exponent, robust_threshold, parameter_tolerance;
+    translation_weight, overlap_exponent, robust_threshold, parameter_tolerance,
+    ip_triangulation_max_error;
   int    report_level, min_matches, max_iterations, overlap_limit;
   bool   save_iteration, create_pinhole, approximate_pinhole_intrinsics,
          disable_pinhole_gcp_init, fix_gcp_xyz, solve_intrinsics,
@@ -105,21 +106,22 @@ struct Options : public vw::cartography::GdalWriteOptions {
 
   /// Duplicate info to asp settings where it needs to go.
   void copy_to_asp_settings() const{
-    asp::stereo_settings().ip_matching_method      = ip_detect_method;
-    asp::stereo_settings().epipolar_threshold      = epipolar_threshold;
-    asp::stereo_settings().ip_inlier_factor        = ip_inlier_factor;
-    asp::stereo_settings().ip_uniqueness_thresh    = ip_uniqueness_thresh;
-    asp::stereo_settings().num_scales              = num_scales;
-    asp::stereo_settings().nodata_value            = nodata_value;
-    asp::stereo_settings().skip_rough_homography   = skip_rough_homography;
-    asp::stereo_settings().elevation_limit         = elevation_limit;
-    asp::stereo_settings().lon_lat_limit           = lon_lat_limit;
-    asp::stereo_settings().individually_normalize  = individually_normalize;
-    asp::stereo_settings().min_triangulation_angle = min_triangulation_angle;
-    asp::stereo_settings().disable_tri_filtering   = disable_tri_filtering;
-    asp::stereo_settings().ip_edge_buffer_percent  = ip_edge_buffer_percent;
-    asp::stereo_settings().ip_debug_images         = ip_debug_images;
-    asp::stereo_settings().ip_normalize_tiles      = ip_normalize_tiles;
+    asp::stereo_settings().ip_matching_method         = ip_detect_method;
+    asp::stereo_settings().epipolar_threshold         = epipolar_threshold;
+    asp::stereo_settings().ip_inlier_factor           = ip_inlier_factor;
+    asp::stereo_settings().ip_uniqueness_thresh       = ip_uniqueness_thresh;
+    asp::stereo_settings().num_scales                 = num_scales;
+    asp::stereo_settings().nodata_value               = nodata_value;
+    asp::stereo_settings().skip_rough_homography      = skip_rough_homography;
+    asp::stereo_settings().elevation_limit            = elevation_limit;
+    asp::stereo_settings().lon_lat_limit              = lon_lat_limit;
+    asp::stereo_settings().individually_normalize     = individually_normalize;
+    asp::stereo_settings().min_triangulation_angle    = min_triangulation_angle;
+    asp::stereo_settings().ip_triangulation_max_error = ip_triangulation_max_error;
+    asp::stereo_settings().disable_tri_filtering      = disable_tri_filtering;
+    asp::stereo_settings().ip_edge_buffer_percent     = ip_edge_buffer_percent;
+    asp::stereo_settings().ip_debug_images            = ip_debug_images;
+    asp::stereo_settings().ip_normalize_tiles         = ip_normalize_tiles;
   }
   
   /// Ensure that no camera files have duplicate names.  This will cause the output files

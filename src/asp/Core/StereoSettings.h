@@ -99,6 +99,7 @@ namespace asp {
     double epipolar_threshold;              /// Max distance from epipolar line to search for IP matches.
     double ip_inlier_factor;                /// General scaling factor for IP finding, a larger value allows more IPs to match.
     double ip_uniqueness_thresh;            /// Min percentage distance between closest and second closest IP descriptors.
+    double ip_triangulation_max_error;      ///< Remove IP matches with triangulation error higher than this.
     bool   disable_tri_filtering;           ///< Turn of tri-ip filtering.
     vw::Vector2 remove_outliers_by_disp_params; /// Remove outliers based on disparity of ip.
     

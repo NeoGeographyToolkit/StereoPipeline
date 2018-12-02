@@ -130,6 +130,8 @@ namespace asp {
        " A higher factor will result in more interest points, but perhaps also more outliers.")
       ("ip-uniqueness-threshold",          po::value(&global.ip_uniqueness_thresh)->default_value(0.7),
        "Min percentage distance between closest and second closest IP descriptors, a larger value allows more IP matches.")
+      ("ip-triangulation-max-error", po::value(&global.ip_triangulation_max_error)->default_value(-1),
+       "When matching IP, filter out any pairs with a triangulation error higher than this.")
       ("disable-tri-ip-filter",     po::value(&global.disable_tri_filtering)->default_value(false)->implicit_value(true),
        "Turn off the tri-ip filtering step.")
       ("remove-outliers-by-disparity-params",  po::value(&global.remove_outliers_by_disp_params)->default_value(Vector2(100.0,3.0), "pct factor"),

@@ -574,6 +574,10 @@ namespace asp {
       double cutoff_value = 0;
       if (last_good_index < sorted_error.size())
         cutoff_value = sorted_error[last_good_index];
+      // The maximum triangulation error still applies!
+      if ((asp::stereo_settings().ip_triangulation_max_error > 0) && 
+          (cutoff_value > asp::stereo_settings().ip_triangulation_max_error))
+        cutoff_value = asp::stereo_settings().ip_triangulation_max_error;
 
       // Treat all points below the new cutoff_value as inliers
       std::list<size_t> filtered_indices;
@@ -597,16 +601,18 @@ namespace asp {
     const double escalar2 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.back().second[0] );
     const double escalar3 = 1.0 / (2 * error_clusters.front().second[0] ); // inside exp of normal eq
     const double escalar4 = 1.0 / (2 * error_clusters.back().second[0] );
-    size_t error_idx = 0;
+    size_t error_idx        = 0;
     size_t prior_valid_size = valid_indices.size();
-    size_t outlier_count = 0;
+    size_t outlier_count    = 0;
     for ( std::list<size_t>::iterator i = valid_indices.begin(); i != valid_indices.end(); i++ ) {
       double err_diff_front = error_samples[error_idx]-error_clusters.front().first[0];
-      double err_diff_back  = error_samples[error_idx]-error_clusters.back().first[0];
+      double err_diff_back  = error_samples[error_idx]-error_clusters.back ().first[0];
 
-      if (!((escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
-            (escalar2 * exp( (-err_diff_back  * err_diff_back ) * escalar4 ) ) ||
-          error_samples[error_idx] < error_clusters.front().first[0]) ) {
+      if ( !((escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
+             (escalar2 * exp( (-err_diff_back  * err_diff_back ) * escalar4 ) ) ||
+              error_samples[error_idx] < error_clusters.front().first[0]          ) ||
+           ( (asp::stereo_settings().ip_triangulation_max_error > 0) &&
+             (error_samples[error_idx] > asp::stereo_settings().ip_triangulation_max_error) ) ) {
         // It's an outlier!
         //vw_out() << "Removing error_samples["<< error_idx <<"] = " << error_samples[error_idx] << std::endl;
         i = valid_indices.erase(i);

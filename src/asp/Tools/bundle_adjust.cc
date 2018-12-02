@@ -1376,6 +1376,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
             "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("num-passes",           po::value(&opt.num_ba_passes)->default_value(1),
             "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params and --remove-outliers-by-disparity-params, and re-optimization will take place. The match files will be overwritten with the outliers removed. Residual files with the outliers removed will be written to disk.")
+    ("ip-triangulation-max-error",  po::value(&opt.ip_triangulation_max_error)->default_value(-1),
+            "When matching IP, filter out any pairs with a triangulation error higher than this.")
     ("remove-outliers-params", 
             po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
             "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.")
