@@ -1355,7 +1355,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-iterations",       po::value(&opt.max_iterations)->default_value(1000),
             "Set the maximum number of iterations.")
     ("parameter-tolerance",  po::value(&opt.parameter_tolerance)->default_value(1e-8),
-            "Making this smaller will result in more iterations.")
+     "Stop when the relative error in the variables being optimized is less than this.")
     ("overlap-limit",        po::value(&opt.overlap_limit)->default_value(0),
             "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
     ("overlap-list",         po::value(&opt.overlap_list_file)->default_value(""),

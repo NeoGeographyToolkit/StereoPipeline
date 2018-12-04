@@ -49,6 +49,8 @@
    * Updated Ceres version from 1.11 to 1.14. When optimizing with 
      multiple threads, results now vary slightly from run to run.
      Results from single threaded runs are deterministic.
+   * Added a new --parameter-tolerance option. Stop when the relative
+     error in the variables being optimized is less than this.
 
  - dem_mosaic
    * Added normalized median absolute deviation (NMAD) output option.
