@@ -316,7 +316,6 @@ struct BaReprojectionError {
     // The camera wrapper knows all of the block sizes to add.
     std::vector<int> block_sizes = camera_wrapper->get_block_sizes();
     for (size_t i=0; i<block_sizes.size(); ++i) {
-      //std::cout << "Adding parameter block with size = " << block_sizes[i] << std::endl;
       cost_function->AddParameterBlock(block_sizes[i]);
     }
     return cost_function;
@@ -514,7 +513,6 @@ struct BaDispXyzError {
       cost_function->AddParameterBlock(block_sizes[i]);
     }
     block_sizes = right_camera_wrapper->get_block_sizes();
-    std::cout << "block_sizes.size() = " << block_sizes.size() << std::endl;
     if (!is_pinhole) {
       for (size_t i=1; i<block_sizes.size(); ++i) {
         cost_function->AddParameterBlock(block_sizes[i]);

@@ -87,13 +87,6 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
 
   } else { // Non-pinhole case.
 
-    //std::cout << "Adding non-pinhole camera " << camera 
-    //          << ", point =  " << point << std::endl;
-    //std::cout << "observation = " << observation << std::endl;
-    //std::cout << "pixel_sigma = " << pixel_sigma << std::endl;
-    //std::cout << "position    = " << camera_model->camera_center(Vector2(0,0)) << std::endl;
-    //std::cout << "pose        = " << camera_model->camera_pose(Vector2(0,0)) << std::endl;
-    
     boost::shared_ptr<CeresBundleModelBase> wrapper(new AdjustedCameraBundleModel(camera_model));
     ceres::CostFunction* cost_function =
       BaReprojectionError::Create(observation, pixel_sigma, wrapper);

@@ -108,7 +108,7 @@ public:
           m_num_intrinsics_per_camera += num_distortion_params;
           if (!intrin_opts.center_shared)
             m_distortion_offset += NUM_CENTER_PARAMS;
-          if (!intrin_opts.center_shared)
+          if (!intrin_opts.focus_shared)
             m_distortion_offset += NUM_FOCUS_PARAMS;
         }
 
