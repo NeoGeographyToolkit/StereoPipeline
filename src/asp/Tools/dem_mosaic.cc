@@ -321,7 +321,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   string dem_list_file, out_prefix, target_srs_string, output_type, tile_list_str, this_dem_as_reference;
   vector<string> dem_files;
   double tr, geo_tile_size;
-  bool   has_out_nodata;
+  bool   has_out_nodata, force_projwin;
   double out_nodata_value;
   int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, block_size, save_dem_weight;
   double weights_exp, weights_blur_sigma, dem_blur_sigma;
@@ -329,7 +329,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   bool   first, last, min, max, block_max, mean, stddev, median, nmad, count, save_index_map, use_centerline_weights, first_dem_as_reference, propagate_nodata;
   std::set<int> tile_list;
   BBox2 projwin;
-  Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
+  Options(): tr(0), geo_tile_size(0), has_out_nodata(false), force_projwin(false), tile_index(-1),
              erode_len(0), priority_blending_len(0), extra_crop_len(0),
              hole_fill_len(0), block_size(0), save_dem_weight(-1), 
              weights_exp(0), weights_blur_sigma(0.0), dem_blur_sigma(0.0),
@@ -1297,6 +1297,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "The output DEM will have the same size, grid, and georeference as the first one, with the other DEMs blended within its perimeter.")
     ("this-dem-as-reference", po::value(&opt.this_dem_as_reference)->default_value(""),
      "The output DEM will have the same size, grid, and georeference as this one, but it will not be used in the mosaic.")
+    ("force-projwin", po::bool_switch(&opt.force_projwin)->default_value(false),
+     "Make the output mosaic fill precisely the specified projwin, by padding it if necessary and aligning the output grid to the region.")
     ("save-index-map",   po::bool_switch(&opt.save_index_map)->default_value(false),
      "For each output pixel, save the index of the input DEM it came from (applicable only for --first, --last, --min, --max, --median, and --nmad). A text file with the index assigned to each input DEM is saved as well.")
     ("threads",             po::value<int>(&opt.num_threads)->default_value(4),
@@ -1591,6 +1593,8 @@ int main( int argc, char *argv[] ) {
       // Crop the proj boxes as well
       for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++)
         dem_proj_bboxes[dem_iter].crop(opt.projwin);
+      if (opt.force_projwin) 
+        mosaic_bbox = opt.projwin;
     }
     
     // First-guess pixel box
