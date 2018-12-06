@@ -51,9 +51,15 @@
      Results from single threaded runs are deterministic.
    * Added a new --parameter-tolerance option. Stop when the relative
      error in the variables being optimized is less than this.
+   * Documented the ability to create a roughly positioned 
+     pinhole camera model from an image if its intrinsics and the 
+     longitude and latitude (and optinonally height) of its corners
+     (or some other pixels) are known.
 
  - dem_mosaic
    * Added normalized median absolute deviation (NMAD) output option.
+   * Added the option --force-projwin to create a mosaic filling
+     precisely the desired box specified via --t_projwin.
 
  - stereo_gui
    * Added the ability to manually reposition interest points.

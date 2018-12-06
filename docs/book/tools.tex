@@ -300,18 +300,18 @@ and turn on viewing of interest point matches to study if they were
 \subsubsection{Creating GCP}
 \label{bagcp}
 
-\texttt{stereo\_gui} can be used to create
-ground control point (GCP) files for \texttt{bundle\_adjust}. It is
-assumed that the user has two or more images and corresponding cameras
-that need adjustment. It is also assumed that there exists an additional
-reference image, possible from another source, that is georeferenced,
-and a reference DEM from which one can infer xyz coordinates. All these
-images, but not the cameras or the reference DEM, should be loaded in the
-GUI, with the reference georeferenced image being the last. For each
-output ground control point, there must be an interest point in each of 
-the images. These points can be added or modified manually using 
-the right-click menu, but you can also try to automatically detect them
-and load the .match files as described in the earlier section on creating
+\texttt{stereo\_gui} can be used to create ground control point (GCP)
+files for \texttt{bundle\_adjust} (section \ref{bagcp}). It is assumed
+that the user has two or more images and corresponding cameras that need
+adjustment. It is also assumed that there exists an additional reference
+image, possible from another source, that is georeferenced, and a
+reference DEM from which one can infer xyz coordinates. All these
+images, but not the cameras or the reference DEM, should be loaded in
+the GUI, with the reference georeferenced image being the last. For each
+output ground control point, there must be an interest point in each of
+the images. These points can be added or modified manually using the
+right-click menu, but you can also try to automatically detect them and
+load the .match files as described in the earlier section on creating
 interest points.
 
 When you are finished creating interest points, use the "IP matches"->"Write GCP
@@ -547,7 +547,8 @@ Here is a sample file:
 The field \texttt{num\_observations} counts how many images each point
 gets projected into.
 
-\subsection{Ground control points}
+\subsection{Ground Control Points}
+\label{bagcp}
 
 A number of plain-text files containing ground control points (GCP) can be
 passed as inputs to \texttt{bundle\_adjust}.
@@ -1331,6 +1332,10 @@ Crop the DEMs this far from the current tile (measured in pixels) before blendin
 \\ \hline
 
 \texttt{-\/-nodata-threshold \textit{float}} & Values no larger than this number will be interpreted as no-data.\\ \hline
+
+\texttt{-\/-force-projwin}
+& Make the output mosaic fill precisely the specified projwin, by padding it if necessary and aligning the output grid to the region.
+\\ \hline
 
 \texttt{-\/-block-size arg (=0)} & To be used with -\/-max-per-block.\\ \hline
 

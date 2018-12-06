@@ -780,7 +780,14 @@ bool init_pinhole_model_with_gcp(boost::shared_ptr<ControlNetwork> const& cnet_p
       // Making minimum_angle below big may throw away valid points at this stage // really???
       double minimum_angle = 0;
       double err = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle);
-      if ((cp_new.position() != Vector3()) && (cnet[ipt].position() != Vector3()) && (err > 0))
+      if ((cp_new.position() != Vector3()) && (cnet[ipt].position() != Vector3()) &&
+          // Note that if there is only one camera, we allow
+          // for triangulation to return a half-baked answer,
+          // as then there is nothing we can do. We need this
+          // answer, as imperfect as it is, to create initial
+          // camera models from GCP.
+          (err > 0 || camera_models.size() == 1)
+          )
         ++num_good_gcp; // Only count points that triangulate
       else {
         vw_out() << "Discarding GCP: " << cnet[ipt]; // Built in endl
