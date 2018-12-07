@@ -197,6 +197,10 @@ add_executable(dem_mosaic dem_mosaic.cc)
 target_link_libraries(dem_mosaic AspCore)
 install(TARGETS dem_mosaic DESTINATION bin)
 
+add_executable(image_mosaic image_mosaic.cc) 
+target_link_libraries(image_mosaic AspCore)
+install(TARGETS image_mosaic DESTINATION bin)
+
 add_executable(tif_mosaic tif_mosaic.cc) 
 target_link_libraries(tif_mosaic AspCore)
 install(TARGETS tif_mosaic DESTINATION libexec)

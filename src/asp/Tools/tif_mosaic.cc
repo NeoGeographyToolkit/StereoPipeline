@@ -31,25 +31,27 @@ namespace po = boost::program_options;
 
 #include <limits>
 
-
+/// Simple class to store image info and compute the associated transfrom.
 struct ImageData{
   std::string src_file;
-  int band;
+  int    band;
   ImageViewRef<float> src_img;
-  BBox2 src_box, dst_box;
+  BBox2  src_box, dst_box;
   double nodata_value;
   AffineTransform transform; // Transform from src_box to dst_box.
 
   ImageData(std::string const& src_file_in, int band_in,
             BBox2 const& src_box_in, BBox2 const& dst_box_in,
             bool has_input_nodata_value, double input_nodata_value
-            ):
+           ):
     src_file(src_file_in), band(band_in), src_box(src_box_in), dst_box(dst_box_in),
     nodata_value(0.0),
+    // Compute the transform from the input bbox to the output bbox
     transform(AffineTransform(Matrix2x2(dst_box.width()/src_box.width(),0,
                                         0,dst_box.height()/src_box.height()),
                               dst_box.min() - src_box.min())) {
 
+    // Extract the desired band
     int num_bands = get_num_channels(src_file);
     if (num_bands == 1){
       src_img = DiskImageView<float>(src_file);
@@ -67,15 +69,16 @@ struct ImageData{
     // user-provided nodata-value if given.
     DiskImageResourceGDAL in_rsrc(src_file);
     if ( in_rsrc.has_nodata_read() ) nodata_value = in_rsrc.nodata_read();
-    if (has_input_nodata_value) nodata_value = input_nodata_value;
+    if ( has_input_nodata_value    ) nodata_value = input_nodata_value;
 
   }
-};
+}; // End class ImageData
 
-// Fix seams by finding interest point matches and adjusting the
-// transforms so that they map points from one image on top of
-// matches from another image. We count on the fact
-// that each image overlaps with the next one.
+/// Fix seams by finding interest point matches and adjusting the
+/// transforms so that they map points from one image on top of
+/// matches from another image. We count on the fact
+/// that each image overlaps with the next one.
+/// - Uses a translation+scale transform.
 void fix_seams_using_ip(std::vector<ImageData> & img_data){
 
   for (int img_index = 0; img_index < int(img_data.size())-1; img_index++) {
@@ -136,20 +139,19 @@ void fix_seams_using_ip(std::vector<ImageData> & img_data){
     // Update the dst box.
     // TODO: forward_bbox() always give results as an int box. Must revisit this using
     // a float box!
-    img_data[img_index+1].dst_box
-      = img_data[img_index+1].transform.forward_bbox(img_data[img_index+1].src_box);
+    img_data[img_index+1].dst_box = img_data[img_index+1].transform.forward_bbox(img_data[img_index+1].src_box);
   }
-}
+} // End function fix_seams_using_ip
 
+
+/// Extract the tif files to mosaic, their dimensions, and for each
+/// of them the location to mosaic to in the output image.  The input
+/// is comma-separated.
 void parseImgData(std::string data, int band,
                   bool has_input_nodata_value, double input_nodata_value,
                   bool fix_seams,
                   int& dst_cols, int& dst_rows,
                   std::vector<ImageData> & img_data){
-
-  // Extract the tif files to mosaic, their dimensions, and for each
-  // of them the location to mosaic to in the output image.  The input
-  // is comma-separated.
 
   dst_cols = 0; dst_rows = 0;
   img_data.clear();
@@ -189,25 +191,22 @@ void parseImgData(std::string data, int band,
                                  has_input_nodata_value, input_nodata_value));
   }
 
+  // Option to adjust position info using image data.
   if (fix_seams)
     fix_seams_using_ip(img_data);
 
-  for (int k = (int)img_data.size()-1; k >= 0; k--){
+  // Later images will be on top of earlier images. For that
+  // reason, reduce each image to the part it does not overlap with later images.
+  for (int k = (int)img_data.size()-1; k >= 0; k--){ // Go down from last image to first
 
-    for (int l = k - 1; l >= 0; l--){
+    for (int l = k - 1; l >= 0; l--){ // Go down all images before (below) this one
 
-      // Later images will be on top of earlier images. For that
-      // reason, reduce each image to the part it does not overlap
-      // with later images.
-      img_data[l].dst_box.max().y() =
-        std::min( img_data[l].dst_box.max().y(),
-                  img_data[k].dst_box.min().y() );
+      img_data[l].dst_box.max().y() = std::min( img_data[l].dst_box.max().y(),
+                                                img_data[k].dst_box.min().y() );
 
-      // Make sure min of box is <= max of box after the above
-      // adjustment.
-      img_data[l].dst_box.min().y() =
-        std::min( img_data[l].dst_box.min().y(),
-                  img_data[l].dst_box.max().y() );
+      // Make sure min of box is <= max of box after the above adjustment.
+      img_data[l].dst_box.min().y() = std::min( img_data[l].dst_box.min().y(),
+                                                img_data[l].dst_box.max().y() );
     }
 
     // Adjust the source box as well. Expand the box slightly before
@@ -229,11 +228,12 @@ void parseImgData(std::string data, int band,
   }
 #endif
 
-}
+} // End function parseImgData
 
-// A class to mosaic and rescale images using bilinear interpolation.
 
+/// A class to mosaic and rescale images using bilinear interpolation.
 class TifMosaicView: public ImageViewBase<TifMosaicView>{
+private:
   int m_dst_cols, m_dst_rows;
   std::vector<ImageData> m_img_data;
   double m_scale;
@@ -247,7 +247,7 @@ public:
     m_img_data(img_data), m_scale(scale),
     m_output_nodata_value(output_nodata_value){}
 
-  typedef float pixel_type;
+  typedef float      pixel_type;
   typedef pixel_type result_type;
   typedef PixelMask<float> masked_pixel_type;
   typedef ProceduralPixelAccessor<TifMosaicView> pixel_accessor;
@@ -315,6 +315,8 @@ public:
     // -- or --
     // Since we have no rotations, we can assume whole lines will come
     // from a single image
+    
+    // Loop through the output image tile
     for (int row = 0; row < bbox.height(); row++){
       for (int col = 0; col < bbox.width(); col++){
 
@@ -345,13 +347,13 @@ public:
 
     return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
                              cols(), rows() );
-  }
+  } // End function prerasterize
 
   template <class DestT>
   inline void rasterize(DestT const& dest, BBox2i bbox) const {
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
-};
+}; // End class TifMosaicView
 
 struct Options : vw::cartography::GdalWriteOptions {
   std::string img_data, output_image, output_type;
@@ -404,7 +406,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.percent > 100.0 || opt.percent <= 0.0 )
     vw_throw( ArgumentErr() << "The percent amount must be between 0% and 100%.\n"
                             << usage << general_options );
-
 }
 
 int main( int argc, char *argv[] ) {
@@ -413,10 +414,12 @@ int main( int argc, char *argv[] ) {
 
   try {
 
+    // Find command line options
     handle_arguments( argc, argv, opt );
 
     double scale = opt.percent/100.0;
 
+    // Parse the information passed on the command line.
     int dst_cols, dst_rows;
     std::vector<ImageData> img_data;
     parseImgData(opt.img_data, opt.band,
@@ -432,11 +435,14 @@ int main( int argc, char *argv[] ) {
     if (opt.has_output_nodata_value)
       output_nodata_value = opt.output_nodata_value;
 
+    // Set up our output image object
     vw_out() << "Writing: " << opt.output_image << std::endl;
     TerminalProgressCallback tpc("asp", "\t    Mosaic:");
     ImageViewRef<float> out_img = TifMosaicView(dst_cols, dst_rows,
                                                 img_data, scale,
                                                 output_nodata_value);
+    
+    // Write to disk using the specified output data type.
     if (opt.output_type == "Float32") 
       vw::cartography::block_write_gdal_image(opt.output_image, out_img,
                                               output_nodata_value, opt, tpc);
