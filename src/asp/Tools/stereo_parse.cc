@@ -126,6 +126,7 @@ int main( int argc, char* argv[] ) {
       vw_out() << "collar_size," << 0 << endl;
     else
       vw_out() << "collar_size," << stereo_settings().sgm_collar_size << endl;
+    vw_out() << "corr_memory_limit_mb," << stereo_settings().corr_memory_limit_mb << endl;
 
     // This block of code should be in its own executable but I am
     // reluctant to create one just for it. This functionality will be
