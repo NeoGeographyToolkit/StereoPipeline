@@ -33,7 +33,7 @@
 using namespace vw;
 namespace po = boost::program_options;
 
-
+/*
 //TODO: REMOVE!
   template<class T>
   std::string num2str(T num){
@@ -41,8 +41,8 @@ namespace po = boost::program_options;
     S << num;
     return S.str();
   }
+*/
 
-  
 /// GDAL block write sizes must be a multiple to 16 so if the input value is
 ///  not a multiple of 16 increase it until it is.
 int fix_tile_multiple(int &size) {
@@ -50,106 +50,6 @@ int fix_tile_multiple(int &size) {
   if (size % TILE_MULTIPLE != 0)
     size = ((size / TILE_MULTIPLE) + 1) * TILE_MULTIPLE;
 }
-  
-  
-// TODO: How do the other versions work??
-// TODO: There are now three versions of this that need to be consolidated!!!
-template<class ImageT>
-void centerline_weights3(ImageT const& img, ImageView<double> & weights,
-                         double hole_fill_value=0, double border_fill_value=-1, 
-                         BBox2i roi=BBox2i()){
-
-  int numRows = img.rows();
-  int numCols = img.cols();
-
-  // Arrays to be returned out of this function
-  std::vector<double> hCenterLine  (numRows, 0);
-  std::vector<double> hMaxDistArray(numRows, 0);
-  std::vector<double> vCenterLine  (numCols, 0);
-  std::vector<double> vMaxDistArray(numCols, 0);
-
-  std::vector<int> minValInRow(numRows, 0);
-  std::vector<int> maxValInRow(numRows, 0);
-  std::vector<int> minValInCol(numCols, 0);
-  std::vector<int> maxValInCol(numCols, 0);
-
-  for (int k = 0; k < numRows; k++){
-    minValInRow[k] = numCols;
-    maxValInRow[k] = 0;
-  }
-  for (int col = 0; col < numCols; col++){
-    minValInCol[col] = numRows;
-    maxValInCol[col] = 0;
-  }
-
-  // Note that we do just a single pass through the image to compute
-  // both the horizontal and vertical min/max values.
-  for (int row = 0 ; row < numRows; row++) {
-    for (int col = 0; col < numCols; col++) {
-
-      if ( !is_valid(img(col,row)) ) continue;
-      
-      // Record the first and last valid column in each row
-      if (col < minValInRow[row]) minValInRow[row] = col;
-      if (col > maxValInRow[row]) maxValInRow[row] = col;
-      
-      // Record the first and last valid row in each column
-      if (row < minValInCol[col]) minValInCol[col] = row;
-      if (row > maxValInCol[col]) maxValInCol[col] = row;   
-    }
-  }
-  
-  // For each row, record central column and the column width
-  for (int row = 0; row < numRows; row++) {
-    hCenterLine   [row] = (minValInRow[row] + maxValInRow[row])/2.0;
-    hMaxDistArray [row] =  maxValInRow[row] - minValInRow[row];
-    if (hMaxDistArray[row] < 0){
-      hMaxDistArray[row]=0;
-    }
-  }
-
-  // For each row, record central column and the column width
-  for (int col = 0 ; col < numCols; col++) {
-    vCenterLine   [col] = (minValInCol[col] + maxValInCol[col])/2.0;
-    vMaxDistArray [col] =  maxValInCol[col] - minValInCol[col];
-    if (vMaxDistArray[col] < 0){
-      vMaxDistArray[col]=0;
-    }
-  }
-
-  BBox2i output_bbox = roi;
-  if (roi.empty())
-    output_bbox = bounding_box(img);
-
-  // Compute the weighting for each pixel in the image
-  weights.set_size(output_bbox.width(), output_bbox.height());
-  fill(weights, 0);
-  
-  for (int row = output_bbox.min().y(); row < output_bbox.max().y(); row++){
-    for (int col = output_bbox.min().x(); col < output_bbox.max().x(); col++){
-      bool inner_row = ((row >= minValInCol[col]) && (row <= maxValInCol[col]));
-      bool inner_col = ((col >= minValInRow[row]) && (col <= maxValInRow[row]));
-      bool inner_pixel = inner_row && inner_col;
-      Vector2 pix(col, row);
-      double new_weight = 0; // Invalid pixels usually get zero weight
-      if (is_valid(img(col,row))) {
-        double weight_h = compute_line_weights(pix, true,  hCenterLine, hMaxDistArray);
-        double weight_v = compute_line_weights(pix, false, vCenterLine, vMaxDistArray);
-        new_weight = std::min(weight_h, weight_v);
-      }
-      else { // Invalid pixel
-        if (inner_pixel)
-          new_weight = hole_fill_value;
-        else // Border pixel
-          new_weight = border_fill_value;
-      }
-      weights(col-output_bbox.min().x(), row-output_bbox.min().y()) = new_weight;
-      
-    }
-  }
-
-} // End function weights_from_centerline
-
 
 
 struct Options : vw::cartography::GdalWriteOptions {
@@ -513,7 +413,9 @@ public:
                                       expanded_intersect);
       ImageView<double> input_weights;
       //  = grassfire(notnodata(apply_mask(trans_input,0), 0));
-      centerline_weights3(trans_input, input_weights);
+      bool fill_holes  = false; // Don't fill holes
+      bool min_weights = true;  // This option works better with the applied cutoffs
+      centerline_weights(trans_input, input_weights, BBox2i(), fill_holes, min_weights);
       
       double dist = std::min(intersect.height(), intersect.width()) / 2.0;
       double denom = dist + m_blend_radius;
