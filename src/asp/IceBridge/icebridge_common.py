@@ -131,6 +131,9 @@ def getNavCameraFolder(outputFolder):
 def getLabelFolder(outputFolder):
     return os.path.join(outputFolder, 'labeled')
 
+def getLabelOrthoFolder(outputFolder):
+    return os.path.join(outputFolder, 'label_ortho')
+
 def getConvertedLidarIndexFile(lidarFolder):
     return os.path.join(lidarFolder, 'converted_lidar_index.csv')
 
@@ -222,6 +225,10 @@ def makeJpegFileName(run, frame):
 def makeLabelFileName(run, frame):
     '''Generate a file name like: 2016_07_19_00015_classified.h5'''
     return ('%s_%05d_classified.h5' % (run.yyyy_mm_dd(), frame))
+
+def makeLabelOrthoFileName(run, frame):
+    '''Generate a file name like: 2016_07_19_00015_classified_ortho.tif'''
+    return ('%s_%05d_classified_ortho.tif' % (run.yyyy_mm_dd(), frame))
 
 def projectionBoundsFile(folder):
     return os.path.join(folder, 'projection_bounds.csv')

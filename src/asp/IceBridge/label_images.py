@@ -49,30 +49,81 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath      + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
-# TODO: Should this be run per-frame or as a single multi-frame call?
-# - Is it using enough threads?
 
-def label_images(inputFolder, outputFolder, minFrame, maxFrame, trainingPath, numProcesses):
-    '''Apply the labeling algorithm to a single image.'''
 
-    # Format the input path
+def get_label_and_camera(labelFolder, cameraFolder, frame):
+    '''Get the label file and the camera file for a given frame'''
+
+    # Get a list of all the input files
+    allImageFiles  = getTifs(labelFolder)
+    allCameraFiles = getByExtension(cameraFolder, '.tsai')
+
+    # Keep only the images and cameras within the given range
+    imageFile = None
+    for image in allImageFiles:
+        thisFrame = getFrameNumberFromFilename(image)
+        if thisFrame != frame:
+            continue
+        imageFile = image
+        break
+
+    cameraFile = None
+    for camera in allCameraFiles:
+        thisFrame = getFrameNumberFromFilename(camera)
+        if thisFrame != frame:
+            continue
+        cameraFile = camera
+        break
+
+    return (image, camera)
+
+
+
+def label_images(outputFolder, frameNum, trainingPath, site):
+    '''Apply the labeling algorithm to a single image, then map project the result.'''
+
+    # Get required paths
+    inputFolder  = icebridge_common.getJpegFolder      (options.outputFolder)
+    cameraFolder = icebridge_common.getCameraFolder    (options.outputFolder)
+    labelFolder  = icebridge_common.getLabelFolder     (options.outputFolder)
+    orthoFolder  = icebridge_common.getLabelOrthoFolder(options.outputFolder)
 
     # Run the label tool
 
     toolPath = 'python ~/repo/OSSP/ossp_process.py'
-    
+
     NO_SPLITTING = 1 # Plenty of RAM to load these images
-    
-    cmd = ('%s %s --verbose --output_dir %s --min_frame %d --max_frame %d srgb %s --splits %d --parallel %d' % 
-           (toolPath, inputFolder, outputFolder, minFrame, maxFrame, trainingPath, NO_SPLITTING, numProcesses))
+    ONE_PROCESS  = 1
+
+    cmd = ('%s %s --output_dir %s --min_frame %d --max_frame %d srgb %s --splits %d --parallel %d' % 
+           (toolPath, inputFolder, labelFolder, frameNum, trainingPath, NO_SPLITTING, ONE_PROCESS))
     print cmd
     os.system(cmd)
-            
+
+    # Also generate the map projected version of the image
+
+    # Figure out the camera and output path
+    (labelPath, cameraPath) = get_label_and_camera(labelFolder, cameraFolder, frameNum)
+    fname       = os.path.basename(labelPath).replace('classified', 'classified_ortho')
+    mapProjPath = os.path.join(orthoFolder, fname)
+
+    # Set map projection parameters
+    toolPath = 'mapproject' # TODO: Locate
+    isSouth  = (site == 'AN')
+    srs      = projString = icebridge_common.getEpsgCode(isSouth, asString=True)
+    demPath  = 'WGS84' # Map project on to a flat surface
+
+    # Mapproject
+    cmd = ('%s %s %s %s %s -t nadirpinhole -t_srs %s' % 
+           (toolPath, demPath, labelPath, cameraPath, mapProjPath srs))
+    print cmd
+    os.system(cmd)
+
 def main(argsIn):
 
     try:
-        usage = '''label_image.py <options>'''
-                      
+        usage = '''label_images.py <options>'''
+
         parser = argparse.ArgumentParser(usage=usage)
 
         parser.add_argument("--yyyymmdd",  dest="yyyymmdd", required=True,
@@ -91,16 +142,15 @@ def main(argsIn):
         parser.add_argument('--stop-frame', dest='stopFrame', type=int,
                           default=icebridge_common.getLargestFrame(),
                           help='Frame to stop on. This frame will also be processed.')
-                          
-                          
+
         parser.add_argument("--training",  dest="trainingPath", required=True,
                           help="Path to the training file.")
-                          
+
         parser.add_argument('--num-processes', dest='numProcesses', default=8,
                           type=int, help='The number of simultaneous processes to run.')
         parser.add_argument('--num-threads', dest='numThreads', default=1,
                           type=int, help='IGNORED.')
-                         
+
         options = parser.parse_args(argsIn)
 
     except argparse.ArgumentError as msg:
@@ -114,15 +164,6 @@ def main(argsIn):
     if options.outputFolder is None:
         options.outputFolder = icebridge_common.outputFolder(options.site, options.yyyymmdd)
 
-    # Input is raw jpeg files.
-    inputFolder = icebridge_common.getJpegFolder(options.outputFolder)
-
-    # Write all tool output to this folder.
-    outputFolder = icebridge_common.getLabelFolder(options.outputFolder)
-    
-    # Do the work
-    #label_images(inputFolder, outputFolder, options.startFrame, options.stopFrame, 
-    #             options.trainingPath, options.numProcesses)
 
     # Set up a processing tool to handle the frames, this will be more efficient
     #  than using the built-in mulithreading support.
@@ -132,10 +173,8 @@ def main(argsIn):
     for i in range(options.startFrame, options.stopFrame+1):
 
         # Run on a single frame with one thread.
-        #label_images(inputFolder, outputFolder, options.startFrame, options.stopFrame, 
-        #             options.trainingPath, options.numProcesses)
-        taskHandles.append(pool.apply_async(label_images, (inputFolder, outputFolder, i, i, 
-                                                           options.trainingPath, 1)))
+        taskHandles.append(pool.apply_async(label_images, (options.outputFolder, 
+                                                           i, options.trainingPath, options.site)))
 
     # Wait for all the tasks to complete
     print('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
@@ -146,7 +185,6 @@ def main(argsIn):
     print('Jobs finished.')
 
 
-    
 # Run main function if file used from shell
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

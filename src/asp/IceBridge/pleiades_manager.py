@@ -735,28 +735,37 @@ def checkLabelResults(run, options, logger):
     '''Get a count of the label files produced in a frame range.'''
     numNominal  = 0
     numProduced = 0
+    numOrtho    = 0
 
     (minFrame, maxFrame) = run.getFrameRange()
 
     labelFolder = run.getLabelFolder()
+    orthoFolder = run.getLabelOrthoFolder()
     jpegFolder  = run.getJpegFolder()
 
     for frame in range(minFrame, maxFrame+1):
-        labelFile  = icebridge_common.makeLabelFileName(run, frame)
-        jpegFile   = icebridge_common.makeJpegFileName(run, frame)
-        targetPath = os.path.join(labelFolder, labelFile)
-        jpegPath   = os.path.join(jpegFolder,  jpegFile )
+        labelFile  = icebridge_common.makeLabelFileName     (run, frame)
+        orthoFile  = icebridge_common.makeLabelOrthoFileName(run, frame)
+        jpegFile   = icebridge_common.makeJpegFileName      (run, frame)
+        labelPath = os.path.join(labelFolder, labelFile)
+        orthoPath = os.path.join(orthoFolder, orthoFile)
+        jpegPath  = os.path.join(jpegFolder,  jpegFile )
 
         numNominal += 1
-        if os.path.exists(targetPath):
+        if os.path.exists(labelPath):
             numProduced += 1
+
+            if os.path.exists(orthoPath): # Won't exist if the label doesn't
+                numOrtho += 1
+            else:
+                logger.info('Did not find: ' + orthoPath)
         else:
             if os.path.exists(jpegPath):
-                logger.info('Did not find: ' + targetPath)
+                logger.info('Did not find: ' + labelPath)
             else:
-                logger.info('Jpeg missing for file: ' + targetPath)
-                       
-    return (numNominal, numProduced)
+                logger.info('Jpeg missing for file: ' + labelPath)
+
+    return (numNominal, numProduced, numOrtho)
 
 
 def checkResults(run, options, logger, batchListPath):
@@ -803,7 +812,7 @@ def checkResults(run, options, logger, batchListPath):
                                                                 logger)
 
     # Produced labels
-    (numNominalLabels, numProducedLabels) = checkLabelResults(run, options, logger)
+    (numNominalLabels, numProducedLabels, numLabelOrthos) = checkLabelResults(run, options, logger)
 
 
     resultText = ""
@@ -813,6 +822,8 @@ def checkResults(run, options, logger, batchListPath):
                    (numProducedOrthos, numNominalOrthos))
     resultText += ('Created %d out of %d output label files. ' %
                    (numProducedLabels, numNominalLabels))
+    resultText += ('Created %d out of %d output label ortho files. ' %
+                   (numLabelOrthos, numNominalLabels))
     resultText += ('Detected %d errors. ' % 
                    (errorCount))
 
@@ -922,7 +933,7 @@ def main(argsIn):
 
         parser.add_argument("--site",  dest="site", required=True,
                             help="Name of the location of the images (AN, GR, or AL)")
-                            
+
         parser.add_argument("--node-type",  dest="nodeType", default='ivy',
                             help="Node type to use (wes[mfe], san, ivy, has, bro)")
 
@@ -935,11 +946,11 @@ def main(argsIn):
                             default=icebridge_common.getSmallestFrame(),
                             help="Frame to start with.  Leave this and stop-frame blank to " + \
                             "process all frames.")
-        
+
         parser.add_argument('--stop-frame', dest='stopFrame', type=int,
                             default=icebridge_common.getLargestFrame(),
                             help='Frame to stop on.')
-        
+
         parser.add_argument("--camera-calibration-folder",  dest="inputCalFolder", default=None,
                           help="The folder containing camera calibration.")
         parser.add_argument("--input-calibration-camera",  dest="inputCalCamera", default="",
@@ -1152,10 +1163,10 @@ def main(argsIn):
         pbsLogFolder = run.getPbsLogFolder()
         logger.info("Storing logs in: " + pbsLogFolder)
         os.system('mkdir -p ' + pbsLogFolder)
-    
+
         # Narrow the frame range. Note that if we really are at the last
         # existing frame, we increment 1, to make sure we never miss anything.
-        
+
         (minFrame, maxFrame) = run.getFrameRange()
         if options.startFrame < minFrame:
             options.startFrame = minFrame
@@ -1163,13 +1174,13 @@ def main(argsIn):
             options.stopFrame = maxFrame + 1 # see above
         logger.info('Detected frame range: ' + str((options.startFrame, options.stopFrame)))
 
-        if not options.skipConvert:                   
+        if not options.skipConvert:
             # Run initial camera generation
             start_time()
             conversionAttempt = 0
             runConversion(run, options, conversionAttempt, logger)
             stop_time("convert", logger)
-            
+
         # I see no reason to exit early
         #if options.skipProcess and options.skipBlend and options.skipReport and \
         #       (not options.recomputeBatches) and options.skipArchiveCameras:
@@ -1201,7 +1212,7 @@ def main(argsIn):
 
             # Wait for all the jobs to finish
             logger.info('Waiting for job completion of run ' + str(run))
-            
+
             pbs_functions.waitForJobCompletion(jobIDs, logger, baseName)
             logger.info('All jobs finished for run '+str(run))
             stop_time("dem creation", logger)
@@ -1218,7 +1229,7 @@ def main(argsIn):
             (baseName, jobNames, jobIDs) = launchJobs(run, 'blend', options, logger)
             pbs_functions.waitForJobCompletion(jobIDs, logger, baseName)
             stop_time("blend", logger)
-        
+
         if not options.skipOrthoGen:
             start_time()
             (baseName, jobNames, jobIDs) = launchJobs(run, 'orthogen', options, logger)
