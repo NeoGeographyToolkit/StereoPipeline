@@ -53,7 +53,7 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 PBS_QUEUE   = 'normal'
 
-GROUP_ID = 's1827'
+GROUP_ID = 's2022'
 
 g_start_time = -1
 g_stop_time  = -1
@@ -354,24 +354,34 @@ def main(argsIn):
         usage = '''usage: regenerate_summary_images.py <options> '''
         parser = argparse.ArgumentParser(usage=usage)
 
-        parser.add_argument("--dem-tarball",  dest="demTarball", default=os.getcwd(),
+        parser.add_argument("--data-folder",  dest="dataFolder",
                             help="Where all the inputs and outputs are stored.")
 
-        parser.add_argument("--ortho-tarball",  dest="orthoTarball", default=None,
-                            help="Where to unpack the data.")
+        parser.add_argument("--work-folder",  dest="workFolder",
+                            help="Where working files are stored.")
 
-        parser.add_argument("--summary-tarball",  dest="summaryTarball", default=None,
-                            help="Where to unpack the data.")
+        parser.add_argument("--site",  dest="site", help="Site code.")
 
-        parser.add_argument("--unpack-dir",  dest="unpackDir", default=None,
-                            help="Where to unpack the data.")
+        parser.add_argument("--yyyymmdd",  dest="yyyymmdd", help="Date.")
+
+        #parser.add_argument("--dem-tarball",  dest="demTarball", default=os.getcwd(),
+        #                    help="Where all the inputs and outputs are stored.")
+
+        #parser.add_argument("--ortho-tarball",  dest="orthoTarball", default=None,
+        #                    help="Where to unpack the data.")
+
+        #parser.add_argument("--summary-tarball",  dest="summaryTarball", default=None,
+        #                    help="Where to unpack the data.")
+
+        #parser.add_argument("--unpack-dir",  dest="unpackDir", default=None,
+        #                    help="Where to unpack the data.")
 
         parser.add_argument("--node-type",  dest="nodeType", default='san',
                             help="Node type to use (wes[mfe], san, ivy, has, bro)")
 
-        parser.add_argument("--skip-archive-summary", action="store_true",
-                            dest="skipArchiveSummary", default=False,
-                            help="Skip archiving the summary.")
+        #parser.add_argument("--skip-archive-summary", action="store_true",
+        #                    dest="skipArchiveSummary", default=False,
+        #                    help="Skip archiving the summary.")
 
         # Debug option
         parser.add_argument('--minutes-in-devel-queue', dest='minutesInDevelQueue', type=int,
@@ -393,23 +403,14 @@ def main(argsIn):
         raise Exception("From machine " + host + " can only launch on: wes")
 
     # Make sure our paths will work when called from PBS
-    options.unpackDir = os.path.abspath(options.unpackDir)
+    options.dataFolder= os.path.abspath(options.dataFolder)
 
-    os.system('mkdir -p ' + options.unpackDir)
-
-    # Figure out the run name
-    parts = options.summaryTarball.split('_')
-    if 'GR' in parts:
-        index = parts.index('GR')
-    else:
-        index = parts.index('AN')
-    site     = parts[index  ]
-    yyyymmdd = parts[index+1]
+    #os.system('mkdir -p ' + options.unpackDir)
 
     # TODO: Check folders!
-    run = run_helper.RunHelper(site, yyyymmdd, options.unpackDir)
+    run = run_helper.RunHelper(options.site, options.yyyymmdd, options.workFolder)
 
-    runFolder = os.path.join(options.unpackDir, str(run))
+    runFolder = os.path.join(options.workFolder, str(run))
     os.system('mkdir -p ' + runFolder)
 
     logFolder = os.path.join(runFolder, 'logs')
@@ -438,27 +439,45 @@ def main(argsIn):
     try:
       
         # Fetch and extract the tarball files from Lou
-        
-        #demTarballName      = os.path.basename(options.demTarball    )
-        #orthoTarballName    = os.path.basename(options.orthoTarball  )
-        #summaryTarballName  = os.path.basename(options.summaryTarball)
-        localDemFolder     = os.path.join(runFolder, 'dems'   )
-        localOrthoFolder   = os.path.join(runFolder, 'orthos' )
-        localSummaryFolder = os.path.join(runFolder, 'summary')
 
-        print 'Fetching and unpacking tarballs...'
-        fetchTarball(options.demTarball,     localDemFolder)
-        fetchTarball(options.orthoTarball,   localOrthoFolder)
-        fetchTarball(options.summaryTarball, localSummaryFolder)
+        localDemFolder     = os.path.join(options.dataFolder, run.name()+'_dems')
+        localOrthoFolder   = os.path.join(options.dataFolder, run.name()+'_orthos')
+        demSummaryFolder   = os.path.join(options.dataFolder, run.name()+'_dem_summaries')
+        orthoSummaryFolder = os.path.join(options.dataFolder, run.name()+'_ortho_summaries')
+
+        missingDemFiles   = []
+        missingOrthoFiles = []
+        for f in os.listdir(localDemFolder):
+            if 'temp' in f:
+                raise Exception('Bad file: ' + f)
+            if ('IODEM3' in f) and (f[-4:] == '.tif'):
+                inputPath  = os.path.join(localDemFolder, f)
+                outputPath = os.path.join(demSummaryFolder, f.replace('DEM.tif', 'DEM_browse.tif'))
+                if not os.path.exists(outputPath):
+                    missingDemFiles.append((inputPath, outputPath))
+
+        for f in os.listdir(localOrthoFolder):
+            if 'temp' in f:
+                raise Exception('Bad file: ' + f)
+            if ('IODIM3' in f) and (f[-4:] == '.tif'):
+                inputPath  = os.path.join(localOrthoFolder, f)
+                outputPath = os.path.join(orthoSummaryFolder, f.replace('ORTHO.tif', 'ORTHO.jpg'))
+                if not os.path.exists(outputPath):
+                    missingOrthoFiles.append((inputPath, outputPath))
+
+        #print 'Fetching and unpacking tarballs...'
+        #fetchTarball(options.demTarball,     localDemFolder)
+        #fetchTarball(options.orthoTarball,   localOrthoFolder)
+        #fetchTarball(options.summaryTarball, localSummaryFolder)
 
         # If the summary tarball unpacked to []/summary/summary,
         #  work with the lower level folder from now on.
-        localSummaryFolder = descendIfNeeded(localSummaryFolder)
+        #localSummaryFolder = descendIfNeeded(localSummaryFolder)
 
         # Make a list of all input files that are missing their summary file, and
         #  the desired output path for that file.
-        missingDemFiles   = getMissingSummaryFiles(localDemFolder,   localSummaryFolder, isOrtho=False)
-        missingOrthoFiles = getMissingSummaryFiles(localOrthoFolder, localSummaryFolder, isOrtho=True )
+        #missingDemFiles   = getMissingSummaryFiles(localDemFolder,   localSummaryFolder, isOrtho=False)
+        #missingOrthoFiles = getMissingSummaryFiles(localOrthoFolder, localSummaryFolder, isOrtho=True )
 
         # Divide this list into chunks and for each chunk generate a file containing all of
         #  the gdal_translate commands that need to be executed.
@@ -486,21 +505,30 @@ def main(argsIn):
 
         # Check that we now have all of the summary files.
         # - Both of these should now be empty.
-        newMissingDemFiles   = getMissingSummaryFiles(localDemFolder,   localSummaryFolder, isOrtho=False)
-        newMissingOrthoFiles = getMissingSummaryFiles(localOrthoFolder, localSummaryFolder, isOrtho=True )
+        #newMissingDemFiles   = getMissingSummaryFiles(localDemFolder,   demSummaryFolder, isOrtho=False)
+        #newMissingOrthoFiles = getMissingSummaryFiles(localOrthoFolder, orthoSummaryFolder, isOrtho=True )
+        numDemsMissing   = 0
+        numOrthosMissing = 0
+        for pair in missingDemFiles:
+            if not os.path.exists(pair[1]):
+                numDemsMissing += 1
+        for pair in missingOrthoFiles:
+            if not os.path.exists(pair[1]):
+                numOrthosMissing += 1
+
 
         resultText = ('After regeneration, missing %d DEM summaries and %d ORTHO summaries' 
-                      % (len(newMissingDemFiles), len(newMissingOrthoFiles)))
+                      % (numDemsMissing, numOrthosMissing))
         logger.info(resultText)
 
-        runWasSuccess = ((not newMissingDemFiles) and (not newMissingOrthoFiles))
+        runWasSuccess = ((numDemsMissing == 0) and (numOrthosMissing == 0))
 
         # If successful, create a new tarball and send it to Lou.
 
-        if runWasSuccess and (not options.skipArchiveSummary):
-            start_time()
-            archive_functions.packAndSendSummaryFolder(run, localSummaryFolder, logger)
-            stop_time("archive summary", logger)
+        #if runWasSuccess and (not options.skipArchiveSummary):
+        #    start_time()
+        #    archive_functions.packAndSendSummaryFolder(run, localSummaryFolder, logger)
+        #    stop_time("archive summary", logger)
 
 
     except Exception as e:
@@ -527,3 +555,4 @@ def main(argsIn):
 # Run main function if file used from shell
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
+
