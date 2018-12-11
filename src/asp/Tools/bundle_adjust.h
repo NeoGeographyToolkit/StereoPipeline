@@ -179,6 +179,11 @@ struct Options : public vw::cartography::GdalWriteOptions {
     std::istringstream is(intrinsics_to_float_str);
     std::string val;
     while (is >> val) {
+
+      if (val != "focal_length" && val != "optical_center" && val != "distortion_params") {
+        vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to float: " << val << ".\n");
+      }
+      
       if (val == "focal_length")
         intrinisc_options.focus_constant = false;
       if (val == "optical_center")
