@@ -71,6 +71,9 @@
  - New tools
    * Added the coverage_fraction tool to provide a coverage estimate
      of the results of a stereo call. 
+   * Added the image_mosaic tool which merges together images based on
+     interest point matches.  Can be used to stitch together Corona
+     scanned images.
 
 *** RELEASE 2.6.1, August 13, 2018 ***
 

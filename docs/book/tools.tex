@@ -1353,6 +1353,65 @@ file with the index assigned to each input DEM is saved as well.\\ \hline
 
 \clearpage
 
+
+\section{image\_mosaic}
+\label{imagemosaic}
+
+The program \texttt{image\_mosaic} aligns multiple input images into a single
+output image.  Currently it only supports a horizontal sequence of images such
+as scanned Corona images.
+
+Usage:
+\begin{verbatim}
+  image_mosaic [options] <images> -o output_file_path [options]
+\end{verbatim}
+
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for image\_mosaic}
+\label{tbl:demmosaic}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\
+\hline \hline
+\texttt{-\/-t\_orientation \textit{string(=horizontal)} } &
+Specify the image layout.  Currently only supports horizontal.
+\\ \hline
+\texttt{-\/-help|-h} & Display the help message.\\ \hline
+\texttt{-o | -\/-output-image  \textit{string} } &
+Specify the output file path.  Required.
+\\ \hline
+\texttt{-\/-overlap-width \textit{integer(=2000)} }  &
+The width of the expected overlap region in the images, in pixels.
+\\ \hline
+\texttt{-\/-blend-radius \textit{integer(=0)} }  &
+The width in pixels over which blending is performed.  Default is calculated 
+based on the overlap width.
+\\ \hline
+\texttt{-\/-band \textit{integer(=0)} }  &
+Specify a band to use for multi-channel images.
+\\ \hline
+\texttt{-\/-ot  \textit{string(=Float32)} } &
+Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.
+\\ \hline
+\texttt{-\/-input-nodata-value \textit{double}  } &
+Override the input nodata value.
+\\ \hline
+\texttt{-\/-output-nodata-value \textit{double}  } &
+Specify the output nodata value.
+\\ \hline
+\texttt{-\/-tile-size \textit{integer(=256, 256)} } &
+The size of image tiles used for processing.  The amount of image blending is limited by
+the tile size, so this will be increased automatically if it is too small for the overlap width.
+\\ \hline
+\end{longtable}
+
+\clearpage
+
+
 \section{dem\_geoid}
 \label{demgeoid}
 
