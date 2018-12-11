@@ -439,7 +439,9 @@ void calc_target_geom(// Inputs
     cam_box = opt.target_projwin;
     if ( cam_box.min().y() > cam_box.max().y() )
       std::swap( cam_box.min().y(), cam_box.max().y() );
-    cam_box.max().x() -= current_resolution; //TODO: What are these adjustments?
+    // The adjustments below are possibly to make the maximum
+    // non-exclusive.
+    cam_box.max().x() -= current_resolution; 
     cam_box.min().y() += current_resolution;
   }
 
