@@ -86,7 +86,6 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
       problem.SetParameterBlockConstant(distortion);
 
   } else { // Non-pinhole case.
-
     boost::shared_ptr<CeresBundleModelBase> wrapper(new AdjustedCameraBundleModel(camera_model));
     ceres::CostFunction* cost_function =
       BaReprojectionError::Create(observation, pixel_sigma, wrapper);
@@ -1107,6 +1106,12 @@ void do_ba_ceres(Options & opt){
   const int num_points  = cnet.size();
   const int num_cameras = opt.image_files.size();
 
+  // This is important to prevent a crash later
+  if (num_points == 0) {
+    vw_out() << "No points to optimize (GCP or otherwise). Cannot continue.\n";
+    return;
+  }
+  
   // Create the storage arrays for the variables we will adjust.
   int num_lens_distortion_params = 0;
   if (opt.create_pinhole) {
@@ -1123,7 +1128,8 @@ void do_ba_ceres(Options & opt){
   }
   BAParamStorage param_storage(num_points, num_cameras,
                                opt.create_pinhole,
-                               num_lens_distortion_params, // Must be the same for each pinhole camera.
+                               // Must be the same for each pinhole camera
+                               num_lens_distortion_params, 
                                opt.intrinisc_options);
 
   // Fill in the point vector with the starting values, this is easy.
@@ -1599,7 +1605,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main(int argc, char* argv[]) {
 
   Options opt;
-  //try {
+  try {
     xercesc::XMLPlatformUtils::Initialize();
 
     handle_arguments( argc, argv, opt );
@@ -1861,5 +1867,5 @@ int main(int argc, char* argv[]) {
 
     xercesc::XMLPlatformUtils::Terminate();
 
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 }
