@@ -30,6 +30,8 @@ namespace asp{
       return false;
     std::time_t test_time = boost::filesystem::last_write_time(test_file);
     for (size_t i=0; i<other_files.size(); ++i) {
+      if (other_files[i] == "") // Ignore blank files that were passed in.
+        continue;
       if (!boost::filesystem::exists(other_files[i]))
         return false;
       std::time_t t = boost::filesystem::last_write_time(other_files[i]);

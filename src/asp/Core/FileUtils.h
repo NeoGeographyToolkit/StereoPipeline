@@ -29,6 +29,7 @@ namespace asp {
 
   /// Return true if the first file exists and is newer than all of the other files.
   /// - Also returns false if any files are missing.
+  /// - If a blank "" file is passed in it is ignored.
   bool is_latest_timestamp(std::string              const& test_file, 
                            std::vector<std::string> const& other_files);
   // Convenience wrappers.
