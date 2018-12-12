@@ -49,13 +49,11 @@ TEST(OpticalBarModel, CreateCamera) {
   double   scan_rate_radians  = 192 * M_PI/180;
   Vector3  initial_position(gcc);
   Vector3  initial_orientation(angles);
-  Vector3  velocity(0,0,0); // Test no movement case
-  Vector3  angular_velocity(0,0,0);
-  
+  double   velocity = 7800;
+
   OpticalBarModel* raw_ptr = new OpticalBarModel(image_size, center_offset_pixels, pixel_size,
                                                  focal_length, scan_angle_radians, scan_rate_radians,
-                                                 initial_position, initial_orientation,
-                                                 velocity, angular_velocity);
+                                                 initial_position, initial_orientation, velocity);
 
   // Basic file I/O
   OpticalBarModel cpy;

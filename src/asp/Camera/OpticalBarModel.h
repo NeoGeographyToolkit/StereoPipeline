@@ -51,8 +51,7 @@ namespace camera {
                     double   scan_rate_radians,
                     vw::Vector3  initial_position,
                     vw::Vector3  initial_orientation,
-                    vw::Vector3  velocity,
-                    vw::Vector3  angular_velocity) :
+                    double  velocity) :
         m_image_size          (image_size),
         m_center_offset_pixels(center_offset_pixels),
         m_pixel_size          (pixel_size),
@@ -62,7 +61,6 @@ namespace camera {
         m_initial_position    (initial_position),
         m_initial_orientation (initial_orientation),
         m_velocity            (velocity),
-        m_angular_velocity    (angular_velocity),
         m_correct_velocity_aberration(true),
         m_correct_atmospheric_refraction(true){
 
@@ -112,6 +110,9 @@ namespace camera {
     
     vw::Vector3 pixel_to_vector_uncorrected(vw::Vector2 const& pixel) const;
     
+    /// Returns the velocity in the GCC frame, not the sensor frame.
+    vw::Vector3 get_velocity(vw::Vector2 const& pixel) const;
+    
     /// Compute the time since start of scan for a given pixel.
     double pixel_to_time_delta(vw::Vector2 const& pixel) const;
 
@@ -139,12 +140,10 @@ namespace camera {
     /// The angular velocity of the scanner.
     /// - The Corona scan rate is nominally 192 degrees/second
     double m_scan_rate_radians;
-    
-    // These 12 parameters describe the path of the sensor during the image collection.
+
     vw::Vector3 m_initial_position;
-    vw::Vector3 m_initial_orientation;
-    vw::Vector3 m_velocity;
-    vw::Vector3 m_angular_velocity; // TODO: Can probably be kept at (0,0,0)
+    vw::Vector3 m_initial_orientation; // TODO: Record as matrix
+    double  m_velocity; /// Velocity in the sensor Y axis only.
 
     // These are used for ray corrections.
     double m_mean_earth_radius;

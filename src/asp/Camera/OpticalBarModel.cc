@@ -41,24 +41,31 @@ double OpticalBarModel::pixel_to_time_delta(Vector2 const& pix) const {
 
   // Since the camera sweeps a scan through columns, use that to
   //  determine the fraction of the way it is through the image.
-  double scan_fraction = pix[0] / m_image_size[0];
+  double scan_fraction = pix[0] / m_image_size[0]; // TODO: Add 0.5 pixels?
   double time_delta    = scan_fraction * scan_time;
   return time_delta;
 }
 
+Vector3 OpticalBarModel::get_velocity(vw::Vector2 const& pixel) const {
+  
+  // TODO: For speed, store the pose*velocity vector.
+  // Convert the velocity from sensor coords to GCC coords
+  Matrix3x3 pose = transpose(camera_pose(pixel).rotation_matrix());
+
+  return pose*Vector3(0,m_velocity,0);
+}
 
 Vector3 OpticalBarModel::camera_center(Vector2 const& pix) const {
   // We model with a constant velocity.
   double dt = pixel_to_time_delta(pix);
-  return m_initial_position + m_velocity*dt;
+
+  return m_initial_position + dt*get_velocity(pix);
 }
 
 
 Quat OpticalBarModel::camera_pose(Vector2 const& pix) const {
-  // We model with a constant rate of change of the angles.
-  double  dt     = pixel_to_time_delta(pix);
-  Vector3 angles = m_initial_orientation + m_angular_velocity*dt;
-  return axis_angle_to_quaternion(angles);
+  // Camera pose is treated as constant for the duration of a scan.
+  return axis_angle_to_quaternion(m_initial_orientation);
 }
 
 Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const {
@@ -73,20 +80,18 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
   // Distance from the camera center to the ground.
   double H = norm_2(cam_center) - m_mean_surface_elevation;
 
-  // The velocity is assumed to be parallel to the ground.
-  double V = norm_2(m_velocity);
-
   // Distortion caused by compensation for the satellite's forward motion during the image.
   // - The film was actually translated underneath the lens to compensate for the motion.
-  double image_motion_compensation = ((-m_focal_length * V) / (H*m_scan_rate_radians)) * sin(alpha);
+  double image_motion_compensation = ((-m_focal_length * m_velocity) / (H*m_scan_rate_radians))
+                                     * sin(alpha);
   
-  Matrix3x3 M_inv = inverse(cam_pose).rotation_matrix();
+  Matrix3x3 M_inv = transpose(cam_pose.rotation_matrix());
   
   Vector3 r(m_focal_length * sin(alpha),
             sensor_plane_pos[1] + image_motion_compensation,
             -m_focal_length * cos(alpha));
   
-  Vector3 result = M_inv * r;
+  Vector3 result = M_inv * r; // == scale(gcc_point - cam_center)
   
   return result;
 }
@@ -103,7 +108,7 @@ Vector3 OpticalBarModel::pixel_to_vector(Vector2 const& pixel) const {
     if (!m_correct_velocity_aberration) 
       return output_vector;
     else
-      return apply_velocity_aberration_correction(cam_ctr, m_velocity,
+      return apply_velocity_aberration_correction(cam_ctr, get_velocity(pixel),
                                                   m_mean_earth_radius, output_vector);
 
   } catch(const vw::Exception &e) {
@@ -214,19 +219,11 @@ void OpticalBarModel::read(std::string const& filename) {
   }
 
   std::getline(cam_file, line);
-  if (!cam_file.good() || sscanf(line.c_str(),"dC = %lf %lf %lf", 
-        &m_velocity(0), &m_velocity(1), &m_velocity(2)) != 3) {
+  if (!cam_file.good() || sscanf(line.c_str(),"velocity = %lf", &m_velocity) != 1) {
     cam_file.close();
     vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the velocity\n" );
   }
 
-  std::getline(cam_file, line);
-  if (!cam_file.good() || sscanf(line.c_str(),"dR = %lf %lf %lf", 
-        &m_angular_velocity(0), &m_angular_velocity(1), &m_angular_velocity(2)) != 3) {
-    cam_file.close();
-    vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the angular velocity\n" );
-  }
-  
   std::getline(cam_file, line);
   if (!cam_file.good() || sscanf(line.c_str(),"mean_earth_radius = %lf", &m_mean_earth_radius) != 1) {
     cam_file.close();
@@ -275,12 +272,7 @@ void OpticalBarModel::write(std::string const& filename) const {
   cam_file << "iR = " << m_initial_orientation[0] << " "
                       << m_initial_orientation[1] << " "
                       << m_initial_orientation[2] << "\n";
-  cam_file << "dC = " << m_velocity[0] << " "
-                      << m_velocity[1] << " "
-                      << m_velocity[2] << "\n";
-  cam_file << "dR = " << m_angular_velocity[0] << " "
-                      << m_angular_velocity[1] << " "
-                      << m_angular_velocity[2] << "\n";
+  cam_file << "velocity = " << m_velocity << "\n";
   cam_file << "mean_earth_radius = "      << m_mean_earth_radius      << "\n";
   cam_file << "mean_surface_elevation = " << m_mean_surface_elevation << "\n";
 
@@ -300,7 +292,6 @@ std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model)
   os << " Initial position:       " << camera_model.m_initial_position       << "\n";
   os << " Initial pose:           " << camera_model.m_initial_orientation    << "\n";
   os << " Velocity:               " << camera_model.m_velocity               << "\n";
-  os << " Angular velocity:       " << camera_model.m_angular_velocity       << "\n";
   os << " Mean earth radius:      " << camera_model.m_mean_earth_radius      << "\n";
   os << " Mean surface elevation: " << camera_model.m_mean_surface_elevation << "\n";
 
