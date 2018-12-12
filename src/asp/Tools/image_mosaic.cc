@@ -610,8 +610,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main( int argc, char *argv[] ) {
 
   Options opt;
-
-  //try {
+  
+  try {
 
     // Find command line options
     handle_arguments( argc, argv, opt );
@@ -649,7 +649,7 @@ int main( int argc, char *argv[] ) {
 
     // Write it to disk.
     write_selected_image_type(out_img, opt.output_nodata_value, opt);
-
-  //} ASP_STANDARD_CATCHES;
+    
+  } ASP_STANDARD_CATCHES;
   return 0;
 }
