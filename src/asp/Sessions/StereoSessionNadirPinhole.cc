@@ -122,21 +122,21 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                                               ext_nodata,
                                               BilinearInterpolation());
     } else { // Handle CAHV derived models
-      
+
       camera_models( left_cam, right_cam );
-      
+
       get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
                                       left_cam, right_cam,
                                       left_masked_image, right_masked_image,
                                       Limg, Rimg, ext_nodata);
-    }                                    
-    
+    }
+
   } else if ( stereo_settings().alignment_method == "homography" ||
               stereo_settings().alignment_method == "affineepipolar" ) {
     // Getting left image size. Later alignment options can choose to
     // change this parameters. (Affine Epipolar).
     Vector2i left_size  = file_image_size(left_cropped_file ),
-      right_size = file_image_size(right_cropped_file);
+             right_size = file_image_size(right_cropped_file);
     
     // Define the file name containing IP match information.
     std::string match_filename    = ip::match_filename(this->m_out_prefix,
@@ -204,7 +204,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                    left_stats, right_stats, Limg, Rimg);
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
-  bool has_nodata = true;
+  bool  has_nodata    = true;
   float output_nodata = -32768.0;
 
   vw_out() << "\t--> Writing pre-aligned images.\n";

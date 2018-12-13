@@ -151,7 +151,7 @@ namespace asp {
       Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
                      align_right_matrix = math::identity_matrix<3>();
       Vector2i left_size  = file_image_size(left_cropped_file ),
-	             right_size = file_image_size(right_cropped_file);
+               right_size = file_image_size(right_cropped_file);
 
       // Compute the appropriate alignment matrix based on the input points
       if ( stereo_settings().alignment_method == "homography" ) {

@@ -45,7 +45,7 @@ namespace asp {
 
     static StereoSession* construct() { return new StereoSessionNadirPinhole; }
 
-    virtual bool is_nadir_facing          () const {return true;}
+    virtual bool is_nadir_facing() const {return true;}
 
     // Unlike non-nadir pinhole, this follows the default method.
     virtual tx_type tx_left () const {return tx_left_homography ();}

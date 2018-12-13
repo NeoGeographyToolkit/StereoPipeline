@@ -34,6 +34,8 @@ namespace camera {
   /// A camera model to approximate the type of optical bar cameras
   ///  that were used in the Corona and Hexagon satellites.
 
+  // TODO: Add paper references!
+  
   class OpticalBarModel : public vw::camera::CameraModel {
 
   public:

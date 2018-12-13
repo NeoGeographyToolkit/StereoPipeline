@@ -80,6 +80,7 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
   // Distance from the camera center to the ground.
   double H = norm_2(cam_center) - m_mean_surface_elevation;
 
+  // TODO: Make this optional!
   // Distortion caused by compensation for the satellite's forward motion during the image.
   // - The film was actually translated underneath the lens to compensate for the motion.
   double image_motion_compensation = ((-m_focal_length * m_velocity) / (H*m_scan_rate_radians))
