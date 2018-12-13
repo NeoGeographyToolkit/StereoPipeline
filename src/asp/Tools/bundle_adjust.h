@@ -436,10 +436,19 @@ void init_cams(Options & opt, BAParamStorage & param_storage,
     }
   }
 
-  // Apply any initial transform to the pinhole cameras
-  if (opt.initial_transform_file != "") {
-    apply_transform_to_cameras(opt.initial_transform, param_storage);
+  // Get an updated list of camera models
+  new_cam_models.resize(num_cameras);
+  for (size_t icam = 0; icam < num_cameras; icam++){
+    CameraAdjustment correction(param_storage.get_camera_ptr(icam));
+    camera::CameraModel* cam = new camera::AdjustedCameraModel(opt.camera_models[icam],
+                                        correction.position(), correction.pose());
+    new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(cam);
   }
+
+  // Apply any initial transform to the pinhole cameras
+  if (opt.initial_transform_file != "")
+    apply_transform_to_cameras(opt.initial_transform, param_storage, new_cam_models);
+
 
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);
@@ -465,7 +474,7 @@ void init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
 
   // Apply any initial transform to the pinhole cameras
   if (opt.initial_transform_file != "") 
-    apply_transform_to_cameras(opt.initial_transform, param_storage);
+    apply_transform_to_cameras(opt.initial_transform, param_storage, opt.camera_models);
 
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);

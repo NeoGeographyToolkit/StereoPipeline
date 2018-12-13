@@ -446,17 +446,17 @@ private:
 /// by pc_align, read the adjustments from cameras_vec, apply this
 /// transform on top of them, and write the adjustments back to the vector.
 /// - Works for pinhole and non-pinhole case.
-void apply_transform_to_cameras(vw::Matrix4x4 const& M, BAParamStorage &param_storage){
+void apply_transform_to_cameras(vw::Matrix4x4 const& M, BAParamStorage &param_storage,
+                                std::vector<boost::shared_ptr<camera::CameraModel> > const& cam_ptrs){
 
-  for (unsigned j = 0; j < param_storage.num_cameras(); j++) {
+  for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
 
     // Load the current position/pose of this camera.
-    double* cam_ptr = param_storage.get_camera_ptr(j);
+    double* cam_ptr = param_storage.get_camera_ptr(i);
     CameraAdjustment cam_adjust(cam_ptr);
 
-    // Create the adjusted camera model with a dummy camera.
-    boost::shared_ptr<vw::camera::PinholeModel> dummy(new vw::camera::PinholeModel);
-    vw::camera::AdjustedCameraModel cam(dummy, cam_adjust.position(), cam_adjust.pose());
+    // Create the adjusted camera model
+    vw::camera::AdjustedCameraModel cam(cam_ptrs[i], cam_adjust.position(), cam_adjust.pose());
     // Apply the transform
     cam.apply_transform(M);
 
