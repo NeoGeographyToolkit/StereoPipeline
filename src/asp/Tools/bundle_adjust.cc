@@ -159,14 +159,13 @@ void compute_residuals(bool apply_loss_function,
                        ceres::Problem &problem,
                        std::vector<double> & residuals // output
                        ) {
-  
   // TODO: Associate residuals with cameras!
   // Generate some additional diagnostic info
   double cost = 0;
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.apply_loss_function = apply_loss_function;
   if (opt.stereo_session_string == "isis")
-    eval_options.num_threads = 1;
+    eval_options.num_threads = 1; // ISIS must be single threaded!
   else
     eval_options.num_threads = opt.num_threads;
   problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
@@ -729,11 +728,6 @@ int do_ba_ceres_one_pass(Options             & opt,
       if (pixel_sigma != pixel_sigma) // nan check
         pixel_sigma = Vector2(1, 1);
 
-      // Each observation corresponds to a pair of a camera and a point
-      // which are identified by indices icam and ipt respectively.
-      double * camera = param_storage.get_camera_ptr(icam);
-      double * point  = param_storage.get_point_ptr (ipt );
-
       double p = opt.overlap_exponent;
       if (p > 0 && count_map[ipt] > 2) {
         // Give more weight to points that are seen in more images.
@@ -1132,15 +1126,40 @@ void do_ba_ceres(Options & opt){
                                num_lens_distortion_params, 
                                opt.intrinisc_options);
 
+  // Fill in the camera and intrinsic parameters.
+  std::vector<boost::shared_ptr<camera::CameraModel> > new_cam_models;
+  if (opt.create_pinhole)
+    init_cams_pinhole(opt, param_storage, new_cam_models);
+  else
+    init_cams(opt, param_storage, new_cam_models);
+
+  // Certain input options change the cameras inside init_cams and we need to update the
+  // point coordinates for the new cameras.
+  // - It is ok to leave the original vector of camera models unchanged.
+  ba::ControlNetwork cnet2("recompute_points");
+  bool success = vw::ba::build_control_network( true, // Always have input cameras
+                                                cnet2, new_cam_models,
+                                                opt.image_files,
+                                                opt.match_files,
+                                                opt.min_matches,
+                                                opt.min_triangulation_angle*(M_PI/180));
+  if (!success)
+    vw_throw(ArgumentErr() << "Error recomputing point locations!\n");
+
+  // Restore the rest of the cnet object
+  vw::ba::add_ground_control_points( (cnet2), opt.gcp_files, opt.datum);
+
+  if (opt.save_cnet_as_csv) {
+    std::string cnet_file = opt.out_prefix + "-cnet.csv";
+    vw_out() << "Writing: " << cnet_file << std::endl;
+    cnet2.write_in_gcp_format(cnet_file, opt.datum);
+  }
+
+
   // Fill in the point vector with the starting values, this is easy.
   for (int ipt = 0; ipt < num_points; ipt++)
-    param_storage.set_point(ipt, cnet[ipt].position());
+    param_storage.set_point(ipt, cnet2[ipt].position());
 
-  // Fill in the camera and intrinsic parameters.
-  if (opt.create_pinhole)
-    init_cams_pinhole(opt, param_storage);
-  else
-    init_cams(opt, param_storage);
 
   // The camera positions and orientations before we float them
   // - This includes modifications from any initial transforms that were specified.
@@ -1155,9 +1174,9 @@ void do_ba_ceres(Options & opt){
   
   for (int pass = 0; pass < opt.num_ba_passes; pass++) {
 
-    if (opt.num_ba_passes > 1) {
+    vw_out() << "Bundle adjust pass: " << pass << std::endl;
+    if (pass > 0) {
       // Go back to the original inputs to optimize, but keep our outlier list.
-      vw_out() << "Bundle adjust pass: " << pass << std::endl;
       param_storage.copy_points    (orig_parameters);
       param_storage.copy_cameras   (orig_parameters);
       param_storage.copy_intrinsics(orig_parameters);
@@ -1815,12 +1834,6 @@ int main(int argc, char* argv[]) {
       vw_out() << "Loading GCP files...\n";
       vw::ba::add_ground_control_points( (*opt.cnet), opt.gcp_files, opt.datum);
 
-      if (opt.save_cnet_as_csv) {
-        std::string cnet_file = opt.out_prefix + "-cnet.csv";
-        vw_out() << "Writing: " << cnet_file << std::endl;
-        opt.cnet->write_in_gcp_format(cnet_file, opt.datum);
-      }
-      
       // End case where we had to build the control networks
     } else  {
       vw_out() << "Loading control network from file: "

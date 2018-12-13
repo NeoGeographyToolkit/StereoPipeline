@@ -416,14 +416,16 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 /// This is for the BundleAdjustmentModel class where the camera parameters
 /// are a rotation/offset that is applied on top of the existing camera model.
 /// First read initial adjustments, if any, and apply perhaps a pc_align transform.
-void init_cams(Options & opt, BAParamStorage & param_storage){
+void init_cams(Options & opt, BAParamStorage & param_storage,
+       std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models){
 
   // Initialize all of the camera adjustments to zero.
   param_storage.clear_cameras();
+  const size_t num_cameras = param_storage.num_cameras();
 
   // Read the adjustments from a previous run, if present
   if (opt.input_prefix != "") {
-    for (size_t icam = 0; icam < param_storage.num_cameras(); icam++){
+    for (size_t icam = 0; icam < num_cameras; icam++){
       std::string adjust_file = asp::bundle_adjust_file_name(opt.input_prefix,
                                                              opt.image_files[icam],
                                                              opt.camera_files[icam]);
@@ -438,23 +440,43 @@ void init_cams(Options & opt, BAParamStorage & param_storage){
   if (opt.initial_transform_file != "") {
     apply_transform_to_cameras(opt.initial_transform, param_storage);
   }
+
+  // Fill out the new camera model vector
+  new_cam_models.resize(num_cameras);
+  for (size_t icam = 0; icam < num_cameras; icam++){
+    CameraAdjustment correction(param_storage.get_camera_ptr(icam));
+    camera::CameraModel* cam = new camera::AdjustedCameraModel(opt.camera_models[icam],
+                                        correction.position(), correction.pose());
+    new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(cam);
+  }
 }
 
 /// Specialization for pinhole cameras.
-void init_cams_pinhole(Options & opt, BAParamStorage & param_storage){
+void init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
+        std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models){
 
   // Copy the camera parameters from the models to param_storage
-  for (int i=0; i < param_storage.num_cameras(); ++i) {
-    PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[i].get());
+  const size_t num_cameras = param_storage.num_cameras();
+  for (int icam=0; icam < num_cameras; ++icam) {
+    PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
     vw::vw_out() << "Loading input model: " << *pin_ptr << std::endl;
-    pack_pinhole_to_arrays(*pin_ptr, i, param_storage);
+    pack_pinhole_to_arrays(*pin_ptr, icam, param_storage);
   } // End loop through cameras
 
   // Apply any initial transform to the pinhole cameras
   if (opt.initial_transform_file != "") 
     apply_transform_to_cameras(opt.initial_transform, param_storage);
 
-  return;
+  // Fill out the new camera model vector
+  new_cam_models.resize(num_cameras);
+  for (size_t icam = 0; icam < num_cameras; icam++){
+
+    PinholeModel* in_cam  = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
+    PinholeModel* out_cam = new PinholeModel(*in_cam); // Start with a copy of the input camera.
+    populate_pinhole_from_arrays(icam, param_storage, *out_cam);
+
+    new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
+  }
 }
 
 /// Write a pinhole camera file to disk.
