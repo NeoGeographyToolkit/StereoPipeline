@@ -474,7 +474,7 @@ void init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
 
   // Apply any initial transform to the pinhole cameras
   if (opt.initial_transform_file != "") 
-    apply_transform_to_cameras(opt.initial_transform, param_storage, opt.camera_models);
+    apply_transform_to_cameras_pinhole(opt.initial_transform, param_storage, opt.camera_models);
 
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);
