@@ -391,6 +391,7 @@ void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraMode
 
 }
 
+
 /// Compute output georeference to use
 void calc_target_geom(// Inputs
                       bool calc_target_res,
@@ -398,6 +399,7 @@ void calc_target_geom(// Inputs
                       boost::shared_ptr<camera::CameraModel> const& camera_model,
                       ImageViewRef<DemPixelT> const& dem,
                       GeoReference const& dem_georef, 
+                      bool datum_dem,
                       Options const & opt,
                       // Outputs
                       BBox2 & cam_box, GeoReference & target_georef){
@@ -410,10 +412,11 @@ void calc_target_geom(// Inputs
   // - This call WILL intersect pixels outside the dem valid area!
   // - TODO: Modify this function to optionally disable intersection outside the DEM
   float auto_res;
+  bool quick = datum_dem; // The non-quick option does not make sense with huge DEMs.
   cam_box = camera_bbox(dem, dem_georef,
                         target_georef, 
                         camera_model,
-                        image_size.x(), image_size.y(), auto_res, false);
+                        image_size.x(), image_size.y(), auto_res, quick);
 
   // Use auto-calculated ground resolution if that option was selected
   double current_resolution;
@@ -427,7 +430,6 @@ void calc_target_geom(// Inputs
       current_resolution = 1/opt.ppd; // Use units of degrees
                                       // Lat/lon degrees are different so we never want to do this!
     }
-    
   }
   vw_out() << "Output pixel size: " << current_resolution << std::endl;
 
@@ -485,7 +487,7 @@ void calc_target_geom(// Inputs
 
   // Last adjustment, to ensure 0 0 is always in the box corner
   target_georef = crop(target_georef, target_image_size.min().x(), target_image_size.min().y());
-  
+
   return;
 }
 
@@ -508,7 +510,7 @@ void project_image_nodata(Options & opt,
     // Update the nodata value from the input file if it is present.
     if (img_rsrc->has_nodata_read()) 
       opt.nodata_value = img_rsrc->nodata_read();
-    
+
     bool            has_img_nodata = true;
     ImageMaskPixelT nodata_mask    = ImageMaskPixelT(); // invalid value for a PixelMask
 
@@ -669,7 +671,7 @@ int main( int argc, char* argv[] ) {
                          opt.output_file,
                          opt.dem_file,
                          false) ); // Do not allow promotion from normal to map projected session
-    
+
     if ( opt.output_file.empty() )
       vw_throw( ArgumentErr() << "Missing output filename.\n" );
 
@@ -690,6 +692,7 @@ int main( int argc, char* argv[] ) {
     }
 
     // Load the DEM
+    bool datum_dem = false;
     GeoReference dem_georef;
     ImageViewRef<DemPixelT> dem;
     if (fs::path(opt.dem_file).extension() != "") {
@@ -710,8 +713,9 @@ int main( int argc, char* argv[] ) {
       }      
     } else {
       // Projecting to a datum instead of a DEM
+      datum_dem = true;
       std::string datum_name = opt.dem_file;
-      
+
       // Use the camera center to determine whether to center the fake DEM on 0 or 180.
       Vector3 llr_camera_loc =
         cartography::XYZtoLonLatRadEstimateFunctor::apply( camera_model->camera_center(Vector2()) );
@@ -767,7 +771,7 @@ int main( int argc, char* argv[] ) {
     BBox2    cam_box;
     calc_target_geom(// Inputs
                      calc_target_res, image_size, camera_model,
-                     dem, dem_georef, 
+                     dem, dem_georef, datum_dem,
                      // Outputs
                      opt, cam_box, target_georef);
 
