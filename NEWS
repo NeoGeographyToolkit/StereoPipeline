@@ -68,6 +68,11 @@
      of georeferenced images or DEMs. Those shapes can be saved, and
      then used to cut out portions of images.
 
+ - mapproject
+   * Added the --nearest-neighbor option to use that interpolation
+     method instead of bicubic.  This is better for labeled images
+     which should not be interpolated.
+
  - New tools
    * Added the coverage_fraction tool to provide a coverage estimate
      of the results of a stereo call. 

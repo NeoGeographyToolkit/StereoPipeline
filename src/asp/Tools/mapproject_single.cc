@@ -41,79 +41,6 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-/// Variant of Map2CamTrans that accepts a constant elevation instead of a DEM.
-/// - TODO: Move to vision workbench!
-class Datum2CamTrans : public vw::TransformBase<Map2CamTrans> {
-  vw::camera::CameraModel const* m_cam;
-  GeoReference m_image_georef, m_dem_georef;
-  float        m_dem_height;
-  vw::Vector2i m_image_size;
-  bool         m_call_from_mapproject;
-  Vector2      m_invalid_pix;
-
-public:
-  Datum2CamTrans( vw::camera::CameraModel const* cam,
-                GeoReference const& image_georef,
-                GeoReference const& dem_georef,
-                float dem_height,
-                vw::Vector2i const& image_size,
-                bool call_from_mapproject
-                ):
-    m_cam(cam), m_image_georef(image_georef), m_dem_georef(dem_georef),
-    m_dem_height(dem_height), m_image_size(image_size),
-    m_call_from_mapproject(call_from_mapproject){
-
-    m_invalid_pix = vw::camera::CameraModel::invalid_pixel();
-  }
-
-  /// Convert Map Projected pixel to camera pixel
-  vw::Vector2 reverse(const vw::Vector2 &p) const{
-
-    Vector2 lonlat = m_image_georef.pixel_to_lonlat(p);
-    Vector3 lonlatAlt(lonlat[0], lonlat[1], m_dem_height);
-    Vector3 xyz = m_dem_georef.datum().geodetic_to_cartesian(lonlatAlt);
-    
-    int b = BicubicInterpolation::pixel_buffer;  
-    Vector2 pt;
-    try{
-      pt = m_cam->point_to_pixel(xyz);
-      if ( m_call_from_mapproject &&
-           (pt[0] < b - 1 || pt[0] >= m_image_size[0] - b ||
-            pt[1] < b - 1 || pt[1] >= m_image_size[1] - b)
-           ){
-        // Won't be able to interpolate into image in transform(...)
-        return m_invalid_pix;
-      }
-    }catch(...){ // If a point failed to project
-      return m_invalid_pix;
-    }
-
-    return pt;
-  }
-
-  vw::BBox2i reverse_bbox( vw::BBox2i const& bbox ) const {
-
-    vw::BBox2 out_box;      
-    for( int32 y=bbox.min().y(); y<bbox.max().y(); ++y ){
-      for( int32 x=bbox.min().x(); x<bbox.max().x(); ++x ){
-      
-        Vector2 p = reverse( Vector2(x,y) );
-        if (p == m_invalid_pix) 
-          continue;
-        out_box.grow( p );
-      }
-    }
-    out_box = grow_bbox_to_int( out_box );
-
-    // Need the check below as to not try to create images with negative dimensions.
-    if (out_box.empty())
-      out_box = vw::BBox2i(0, 0, 0, 0);
-
-    return out_box;
-  }
-}; // End class Datum2CamTrans
-
-
 
 
 /// The pixel type used for the DEM data
@@ -124,7 +51,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   // Input
   std::string dem_file, image_file, camera_file, output_file, stereo_session,
     bundle_adjust_prefix;
-  bool isQuery, noGeoHeaderInfo;
+  bool isQuery, noGeoHeaderInfo, nearest_neighbor;
 
   // Settings
   std::string target_srs_string, output_type, metadata;
@@ -159,6 +86,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
     ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type, when the input is single channel. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type. This option will be ignored for multi-channel images, when the output type is set to be the same as the input type.")
+    ("nearest-neighbor", po::bool_switch(&opt.nearest_neighbor)->default_value(false),
+      "Use nearest neighbor interpolation.  Useful for classification images.")
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
      "Suppress writing some auxiliary information in geoheaders.");
@@ -499,7 +428,7 @@ void project_image_nodata(Options & opt,
                           Vector2i     const& virtual_image_size,
                           BBox2i       const& croppedImageBB,
                           boost::shared_ptr<camera::CameraModel> const& camera_model,
-                   Map2CamTransT const& transform) {
+                          Map2CamTransT const& transform) {
 
     typedef PixelMask<ImagePixelT> ImageMaskPixelT;
 
@@ -514,28 +443,54 @@ void project_image_nodata(Options & opt,
     bool            has_img_nodata = true;
     ImageMaskPixelT nodata_mask    = ImageMaskPixelT(); // invalid value for a PixelMask
 
-    write_parallel_type
-      ( // Write to the output file
-       opt.output_file,
-       crop( // Apply crop (only happens if --t_pixelwin was specified)
-            apply_mask
-            ( // Handle nodata
-             transform_nodata( // Apply the output from Map2CamTrans
-                              create_mask(DiskImageView<ImagePixelT>(img_rsrc),
-                                          opt.nodata_value), // Handle nodata
-                              transform,
-                              virtual_image_size[0],
-                              virtual_image_size[1],
-                              ValueEdgeExtension<ImageMaskPixelT>(nodata_mask),
-                              BicubicInterpolation(), nodata_mask
-                              ),
-             opt.nodata_value
-             ),
-            croppedImageBB
-            ),
-       croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
-       TerminalProgressCallback("","")
-       );
+    // TODO: This is a lot of code duplication, is there a better way?
+    if (opt.nearest_neighbor) {
+      write_parallel_type
+        ( // Write to the output file
+        opt.output_file,
+        crop( // Apply crop (only happens if --t_pixelwin was specified)
+              apply_mask
+              ( // Handle nodata
+              transform_nodata( // Apply the output from Map2CamTrans
+                                create_mask(DiskImageView<ImagePixelT>(img_rsrc),
+                                            opt.nodata_value), // Handle nodata
+                                transform,
+                                virtual_image_size[0],
+                                virtual_image_size[1],
+                                ValueEdgeExtension<ImageMaskPixelT>(nodata_mask),
+                                NearestPixelInterpolation(), nodata_mask
+                                ),
+              opt.nodata_value
+              ),
+              croppedImageBB
+              ),
+        croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+        TerminalProgressCallback("","")
+        );
+    } else {
+      write_parallel_type
+        ( // Write to the output file
+        opt.output_file,
+        crop( // Apply crop (only happens if --t_pixelwin was specified)
+              apply_mask
+              ( // Handle nodata
+              transform_nodata( // Apply the output from Map2CamTrans
+                                create_mask(DiskImageView<ImagePixelT>(img_rsrc),
+                                            opt.nodata_value), // Handle nodata
+                                transform,
+                                virtual_image_size[0],
+                                virtual_image_size[1],
+                                ValueEdgeExtension<ImageMaskPixelT>(nodata_mask),
+                                BicubicInterpolation(), nodata_mask
+                                ),
+              opt.nodata_value
+              ),
+              croppedImageBB
+              ),
+        croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+        TerminalProgressCallback("","")
+        );
+    }
 
 }
 
@@ -555,24 +510,46 @@ void project_image_alpha(Options & opt,
     const bool        has_img_nodata    = false;
     const ImagePixelT transparent_pixel = ImagePixelT();
 
-    write_parallel_type
-      ( // Write to the output file
-       opt.output_file,
-       crop( // Apply crop (only happens if --t_pixelwin was specified)
-             // Transparent pixels are inserted for nodata
-             transform_nodata( // Apply the output from Map2CamTrans
-                              DiskImageView<ImagePixelT>(img_rsrc),
-                              transform,
-                              virtual_image_size[0],
-                              virtual_image_size[1],
-                              ConstantEdgeExtension(),
-                              BicubicInterpolation(), transparent_pixel
-                              ),
-             croppedImageBB
-           ),
-       croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
-       TerminalProgressCallback("","")
-       );
+    // TODO: Is it possible to reduce code duplication?
+    if (opt.nearest_neighbor) {
+      write_parallel_type
+        ( // Write to the output file
+        opt.output_file,
+        crop( // Apply crop (only happens if --t_pixelwin was specified)
+              // Transparent pixels are inserted for nodata
+              transform_nodata( // Apply the output from Map2CamTrans
+                                DiskImageView<ImagePixelT>(img_rsrc),
+                                transform,
+                                virtual_image_size[0],
+                                virtual_image_size[1],
+                                ConstantEdgeExtension(),
+                                NearestPixelInterpolation(), transparent_pixel
+                                ),
+              croppedImageBB
+            ),
+        croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+        TerminalProgressCallback("","")
+        );
+    } else {
+      write_parallel_type
+        ( // Write to the output file
+        opt.output_file,
+        crop( // Apply crop (only happens if --t_pixelwin was specified)
+              // Transparent pixels are inserted for nodata
+              transform_nodata( // Apply the output from Map2CamTrans
+                                DiskImageView<ImagePixelT>(img_rsrc),
+                                transform,
+                                virtual_image_size[0],
+                                virtual_image_size[1],
+                                ConstantEdgeExtension(),
+                                BicubicInterpolation(), transparent_pixel
+                                ),
+              croppedImageBB
+            ),
+        croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+        TerminalProgressCallback("","")
+        );
+    }
 
 }
 
@@ -598,8 +575,8 @@ void project_image_nodata_pick_transform(Options & opt,
                                                            // georeference to camera pixels
                                                           camera_model.get(), target_georef,
                                                           dem_georef, opt.dem_file, image_size,
-                                                          call_from_mapproject
-                                                          )
+                                                          call_from_mapproject,
+                                                          opt.nearest_neighbor)
                                             );
   } else {
     // A constant datum elevation was provided
@@ -609,8 +586,8 @@ void project_image_nodata_pick_transform(Options & opt,
                                                              // georeference to camera pixels
                                                             camera_model.get(), target_georef,
                                                             dem_georef, opt.datum_offset, image_size,
-                                                            call_from_mapproject
-                                                            )
+                                                            call_from_mapproject,
+                                                            opt.nearest_neighbor)
                                             );
   }
 }
@@ -633,8 +610,8 @@ void project_image_alpha_pick_transform(Options & opt,
                                                           // georeference to camera pixels
                                                          camera_model.get(), target_georef,
                                                          dem_georef, opt.dem_file, image_size,
-                                                         call_from_mapproject
-                                                         )
+                                                         call_from_mapproject,
+                                                         opt.nearest_neighbor)
                                            );
   } else {
     // A constant datum elevation was provided
@@ -644,8 +621,8 @@ void project_image_alpha_pick_transform(Options & opt,
                                                             // georeference to camera pixels
                                                            camera_model.get(), target_georef,
                                                            dem_georef, opt.datum_offset, image_size,
-                                                           call_from_mapproject
-                                                           )
+                                                           call_from_mapproject,
+                                                           opt.nearest_neighbor)
                                            );
   }
 }
