@@ -148,6 +148,12 @@ if(Boost_FOUND)
 endif(Boost_FOUND)
 
 
+# TODO: Add DLL to our main Boost installation.
+include_directories("/home/smcmich1/repo/dll/include")
+include_directories("/home/smcmich1/repo/CSM-CameraModel/install/include")
+include_directories("/home/smcmich1/repo/CSM-Swig/install/include")
+set(CSM_LIBRARIES "/home/smcmich1/repo/CSM-Swig/install/lib/libfixturecsm.so")
+
 message("--------------------------------------------------------------")
 message("Searching for QT...")
 # QT is complicated to use and should go through find_package
@@ -330,7 +336,7 @@ set(ASP_ISISIO_LIB_DEPENDENCIES  AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES
 # --- ASP_CAMERA ------------------------------------------------------------
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES AspCore ${XERCESC_LIBRARIES})
+set(ASP_CAMERA_LIB_DEPENDENCIES AspCore ${XERCESC_LIBRARIES} ${CSM_LIBRARIES})
 
 # --- ASP_SESSIONS ------------------------------------------------------------
 ## This code is more complicated and is specified in the lower level file
