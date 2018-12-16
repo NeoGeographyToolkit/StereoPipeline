@@ -32,7 +32,13 @@
 
 // TODO: FIX
 // TODO: Hide in the .cc file
-#include </home/smcmich1/repo/CSM-CameraModel/install/include/csm/RasterGM.h>
+//#include </home/smcmich1/repo/CSM-CameraModel/install/include/csm/RasterGM.h>
+//#include </home/smcmich1/repo/CSM-Swig/install/include/plugin.h>
+
+// From the CSM base interface library
+#include <csm/csm.h>
+#include <csm/Plugin.h>
+
 
 namespace asp {
 
@@ -58,18 +64,19 @@ namespace asp {
     virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const;
 
     virtual vw::Quaternion<double> camera_pose(vw::Vector2 const& pix) const {
-      vw_throw( vw::NotSupportedErr() << "CsmModel: Cannot retrieve camera_pose!" );
+      vw_throw( vw::NoImplErr() << "CsmModel: Cannot retrieve camera_pose!" );
       return vw::Quaternion<double>();
     }
 
   private:
-/*
-    boost::shared_ptr<csm::Plugin> m_csm_plugin;
-    boost::shared_ptr<csm::RasterGM> m_csm_pointer;
+
+    const csm::Plugin* m_csm_plugin; // TODO: Do we need to hang on to this?
+    boost::shared_ptr<csm::RasterGM> m_csm_model;
+    //boost::shared_ptr<csm::Model> m_csm_model;
 
     /// Throw an exception if we have not loaded the model yet.
     void throw_if_not_init() const;
-*/
+
   }; // End class CsmModel
 
 
