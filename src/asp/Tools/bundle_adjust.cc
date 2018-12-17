@@ -1834,7 +1834,12 @@ int main(int argc, char* argv[]) {
       vw_out() << "Loading GCP files...\n";
       vw::ba::add_ground_control_points( (*opt.cnet), opt.gcp_files, opt.datum);
 
-      // End case where we had to build the control networks
+      if (opt.save_cnet_as_csv) {
+        std::string cnet_file = opt.out_prefix + "-cnet.csv";
+        vw_out() << "Writing: " << cnet_file << std::endl;
+        opt.cnet->write_in_gcp_format(cnet_file, opt.datum);
+      }
+	  // End case where we had to build the control networks
     } else  {
       vw_out() << "Loading control network from file: "
                << opt.cnet_file << "\n";

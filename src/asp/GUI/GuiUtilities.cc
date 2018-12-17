@@ -448,7 +448,7 @@ void mergePolys(std::vector<vw::geometry::dPoly> & polyVec){
   
   OGRGeometryFactory::destroyGeometry(good_geom);
   }catch(std::exception &e ){
-    std::cout << "--failed at " << e.what() << std::endl;
+    vw_out() << "OGR failed at " << e.what() << std::endl;
   }
 }
   
@@ -1243,9 +1243,9 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
 
     std::vector<vw::ip::InterestPoint> left, right;
     try {
-      std::cout << "For image index " << i
-                << ", reading matches from file " << match_file 
-                << ", matching to index " << j << std::endl;
+      //std::cout << "For image index " << i
+      //          << ", reading matches from file " << match_file 
+      //          << ", matching to index " << j << std::endl;
       ip::read_binary_match_file(match_file, left, right);
     }catch(...){
       vw_out() << "IP load failed, leaving default invalid IP\n";
@@ -1258,7 +1258,7 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
       setIpValid(0);
       setIpValid(1);
       num_ip = left.size(); // The first image sets the number of IP
-      std::cout << "First image has " << num_ip << " ip.\n";
+      //std::cout << "First image has " << num_ip << " ip.\n";
       continue;
     }
 
@@ -1288,7 +1288,7 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
         break; // This means we matched all of the IP in the existing image!
       
     }  // End loop through left
-    std::cout << "Found " << count << " points that matched image " << j << std::endl;
+    //std::cout << "Found " << count << " points that matched image " << j << std::endl;
     // Any points that did not match are left with their original value.
   }
   return true;

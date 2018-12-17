@@ -274,11 +274,13 @@ public:
       vw::Vector3 input_gcp = cnet[ipt].position();
       vw::Vector3 opt_gcp   = get_point(ipt);
 
+      vw::vw_out() << "xyz: " << input_gcp << ' ' << opt_gcp << ' '
+                   << input_gcp - opt_gcp << std::endl;
+
+      // Now convert to llh
       input_gcp = d.cartesian_to_geodetic(input_gcp);
       opt_gcp   = d.cartesian_to_geodetic(opt_gcp  );
 
-      vw::vw_out() << "xyz: " << input_gcp << ' ' << opt_gcp << ' '
-                   << input_gcp - opt_gcp << std::endl;
       vw::vw_out() << "llh: " << input_gcp << ' ' << opt_gcp << ' '
                    << input_gcp - opt_gcp << std::endl;
     }
