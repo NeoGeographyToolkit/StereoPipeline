@@ -1155,11 +1155,9 @@ void do_ba_ceres(Options & opt){
     cnet2.write_in_gcp_format(cnet_file, opt.datum);
   }
 
-
   // Fill in the point vector with the starting values, this is easy.
   for (int ipt = 0; ipt < num_points; ipt++)
     param_storage.set_point(ipt, cnet2[ipt].position());
-
 
   // The camera positions and orientations before we float them
   // - This includes modifications from any initial transforms that were specified.
@@ -1834,12 +1832,6 @@ int main(int argc, char* argv[]) {
       vw_out() << "Loading GCP files...\n";
       vw::ba::add_ground_control_points( (*opt.cnet), opt.gcp_files, opt.datum);
 
-      if (opt.save_cnet_as_csv) {
-        std::string cnet_file = opt.out_prefix + "-cnet.csv";
-        vw_out() << "Writing: " << cnet_file << std::endl;
-        opt.cnet->write_in_gcp_format(cnet_file, opt.datum);
-      }
-	  // End case where we had to build the control networks
     } else  {
       vw_out() << "Loading control network from file: "
                << opt.cnet_file << "\n";

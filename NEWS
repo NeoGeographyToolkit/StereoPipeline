@@ -1,4 +1,5 @@
 *** RELEASE 2.6.2, Upcoming ***
+
  - New tools
    * Added the cam_gen tool to create a correctly oriented pinhole
    * camera model given camera intrinsics, lon-lat coordinates of the
@@ -85,7 +86,6 @@
 - Misc
    * The stereo tools and bundle_adjust will now cache image
      statistics and interest points to files on disk.
-
 
 *** RELEASE 2.6.1, August 13, 2018 ***
 
