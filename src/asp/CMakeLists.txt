@@ -154,8 +154,10 @@ include_directories("/home/smcmich1/repo/dll/include")
 #include_directories("/home/smcmich1/repo/CSM-Swig/install/include")
 #set(CSM_LIBRARIES "/home/smcmich1/repo/CSM-Swig/install/lib/libfixturecsm.so")
 
-include_directories("/home/smcmich1/repo/csm-3.0.3.1/linux64/include")
+#include_directories("/home/smcmich1/repo/csm-3.0.3.1/linux64/include")
 #set(CSM_LIBRARIES "/home/smcmich1/repo/csm-3.0.3.1/linux64/lib/libcsmapi.so.3")
+
+include_directories("/home/smcmich1/repo/CSM-CameraModel/install/include")
 set(CSM_LIBRARIES "/home/smcmich1/repo/CSM-CameraModel/install/lib/libcsmapi.so.3")
 
 

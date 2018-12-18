@@ -24,9 +24,23 @@ using namespace vw;
 using namespace asp;
 
 
-TEST(CSM_camera, init) {
-  
-  CsmModel dummy;
+TEST(CSM_camera, basic_check) {
+
+  // Load up the sample ISD file.
+  std::string sample_isd = "/home/smcmich1/repo/StereoPipeline/src/asp/Camera/tests/sample_csm_isd.json";
+
+  CsmModel csm;
+  csm.load_model(sample_isd);
+
+  // Do some simple model tests
+  const double eps = 0.00001;
+  Vector3 center = csm.camera_center(Vector3(0,0,0));
+  for (int i=0; i<10; ++i) {
+    Vector2 pix(i*100,i*100);
+    Vector3 vec = csm.pixel_to_vector(pix);
+    Vector3 pt  = center + vec * 10;
+    EXPECT_VECTOR_NEAR(pix, csm.point_to_pixel(pt), eps);
+  }
   
   EXPECT_TRUE(false);
 }

@@ -30,15 +30,9 @@
 
 #include <asp/Core/StereoSettings.h>
 
-// TODO: FIX
-// TODO: Hide in the .cc file
-//#include </home/smcmich1/repo/CSM-CameraModel/install/include/csm/RasterGM.h>
-//#include </home/smcmich1/repo/CSM-Swig/install/include/plugin.h>
-
-// From the CSM base interface library
-#include <csm/csm.h>
-#include <csm/Plugin.h>
-
+namespace csm {
+  class RasterGM; // Forward declaration
+}
 
 namespace asp {
 
@@ -70,7 +64,7 @@ namespace asp {
 
   private:
 
-    const csm::Plugin* m_csm_plugin; // TODO: Do we need to hang on to this?
+    //const csm::Plugin* m_csm_plugin; // TODO: Do we need to hang on to this?
     boost::shared_ptr<csm::RasterGM> m_csm_model;
     //boost::shared_ptr<csm::Model> m_csm_model;
 

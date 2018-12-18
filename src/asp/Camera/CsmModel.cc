@@ -21,10 +21,12 @@
 
 #include <asp/Camera/CsmModel.h>
 
-// TODO: Check
-#include <csm/Plugin.h>
 #include <boost/dll.hpp>
 
+// From the CSM base interface library
+#include <csm/csm.h>
+#include <csm/Plugin.h>
+#include <csm/RasterGM.h>
 
 namespace dll = boost::dll;
 
@@ -59,6 +61,14 @@ Vector3 ecefCoordToVector(csm::EcefCoord c) {
   return v;
 }
 
+Vector3 ecefVectorToVector(csm::EcefVector c) {
+  Vector3 v;
+  v[0] = c.x;
+  v[1] = c.y;
+  v[2] = c.z;
+  return v;
+}
+
 Vector2 imageCoordToVector(csm::ImageCoord c) {
   Vector2 v;
   v[0] = c.samp;
@@ -72,8 +82,14 @@ Vector2 imageCoordToVector(csm::ImageCoord c) {
 
 CsmModel::CsmModel() {
 
-  // TODO: Move the loading functionality out of the constructor.
-  
+}
+
+CsmModel::~CsmModel() {
+  // Don't need to do any cleanup here!
+}
+
+bool CsmModel::load_model(std::string const& isd_path) {
+
   // TODO: Need to build against the base library, automatically detect
   //       the other library.
 
@@ -86,45 +102,6 @@ CsmModel::CsmModel() {
   boost::filesystem::path csm_dll_path ("/home/smcmich1/repo/CSM-CameraModel/install/lib/libcsmapi.so.3" );
   boost::filesystem::path usgs_dll_path("/home/smcmich1/repo/CSM-CameraModel/install/lib/libusgscsm.so");
 
-  
-  
-  std::vector<std::string> sections, symbols;
-  /*
-  boost::dll::library_info csm_info  (csm_dll_path);
-  boost::dll::library_info usgs_info(usgs_dll_path);
-  sections = csm_info.sections();
-  std::cout << "CSM sections: \n";
-  for (size_t i=0; i<sections.size(); ++i)
-    std::cout << " -> " << sections[i] << std::endl;
-  
-  symbols = csm_info.symbols();
-  std::cout << "\n\nCSM symbols: \n";
-  for (size_t i=0; i<symbols.size(); ++i)
-    std::cout << " -> " << symbols[i] << std::endl;
-  
-  sections = usgs_info.sections();
-  std::cout << "\n\n\n\nUSGS sections: \n";
-  for (size_t i=0; i<sections.size(); ++i)
-    std::cout << " -> " << sections[i] << std::endl;
-  
-  symbols = usgs_info.symbols();
-  std::cout << "\n\nUSGS symbols: \n";
-  for (size_t i=0; i<symbols.size(); ++i)
-    std::cout << " -> " << symbols[i] << std::endl;
-  */
-  /*
-  boost::dll::library_info fixture_info(fixture_dll_path);
-  sections = fixture_info.sections();
-  std::cout << "\n\n\n\nFixture sections: \n";
-  for (size_t i=0; i<sections.size(); ++i)
-    std::cout << " -> " << sections[i] << std::endl;
-  
-  symbols = fixture_info.symbols();
-  std::cout << "\n\nFixture symbols: \n";
-  for (size_t i=0; i<symbols.size(); ++i)
-    std::cout << " -> " << symbols[i] << std::endl;
-  */
-  
   // TODO: Find and load all of these only once?
   
   // Get the DLL in memory, causing it to automatically register itself
@@ -132,36 +109,7 @@ CsmModel::CsmModel() {
   //boost::dll::shared_library lib_fixture(fixture_dll_path);
   vw_out() << "Loading CSM plugin: " << usgs_dll_path << std::endl;
   boost::dll::shared_library lib_usgs(usgs_dll_path);
-  
-  /*
-  m_csm_plugin = dll::import<csm::Plugin>(
-      base_dll_path,
-      "Plugin"//,                     // name of the symbol to import
-      //dll::load_mode::append_decorations          // append `.so` or `.dll` to the name
-  );
-  */
-/*
-  m_csm_plugin = dll::import<csm::Plugin>(
-      fixture_dll_path,
-      "Plugin"//,                     // name of the symbol to import
-      //dll::load_mode::append_decorations          // append `.so` or `.dll` to the name
-  );
-*/
-/*
-  m_csm_plugin = dll::import<csm::Plugin>(
-      csm_dll_path,
-      ""//,                     // name of the symbol to import
-      //dll::load_mode::append_decorations          // append `.so` or `.dll` to the name
-  );
-  */
-/*
-  m_csm_plugin = dll::import<csm::Plugin>(
-      usgs_dll_path,
-      "UsgsAstroFramePlugin"//,                     // name of the symbol to import
-      //dll::load_mode::append_decorations          // append `.so` or `.dll` to the name
-  );
-  */
-  
+
   //std::cout << "Plugin name = " << m_csm_plugin->getPluginName() << std::endl;
   
   // TODO: Make this a setting
@@ -190,22 +138,35 @@ CsmModel::CsmModel() {
   std::string modelName = "USGS_ASTRO_FRAME_SENSOR_MODEL";
   
   // Load the selected plugin
-  m_csm_plugin = available_plugins.front();
+  const csm::Plugin* csm_plugin = available_plugins.front();
   
-  std::cout << "Loaded plugin: " << m_csm_plugin->getPluginName() << std::endl;
+  std::cout << "Loaded plugin: " << csm_plugin->getPluginName() << std::endl;
   
   // TODO: Load ISD data
-  Isd imageSupportData;
-  
+  csm::Isd imageSupportData(isd_path);
   
   // TODO: Construct a sensor model from the ISD data
-/*
+
   csm::WarningList warnings;
-  csm::Model* new_model
-    = m_csm_plugin->constructModelFromISD(imageSupportData, modelName, &warnings);
+  csm::WarningList::const_iterator w_iter;
+
+  // Check if this ISD can construct the camera we want.
+  std::cout << "Testing model construction...\n";
+  if (!csm_plugin->canModelBeConstructedFromISD(imageSupportData, modelName, &warnings)) {
+    for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
+      vw_out() << "CSM Warning: " << w_iter->getMessage() << std::endl;
+    }
+    vw::vw_throw( vw::ArgumentErr() << "Unable to construct camera model "
+                  << modelName << " from plugin " << csm_plugin->getPluginName()
+                  << " with the ISD file " << isd_path);
+  }
   
-  // Display any warnings generated when loading the sensor model.
-  csm::WarningList w_iter;
+  // Now try to construct the camera model
+  std::cout << "Constructing the model...\n";
+  csm::Model* new_model
+    = csm_plugin->constructModelFromISD(imageSupportData, modelName, &warnings);
+  
+  // Error checking
   for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
     vw_out() << "CSM Warning: " << w_iter->getMessage() << std::endl;
   }
@@ -220,27 +181,10 @@ CsmModel::CsmModel() {
     vw::vw_throw( vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
     
   m_csm_model.reset(raster_model); // We will handle cleanup of the model.
-*/
-  
+
+
 }
 
-CsmModel::~CsmModel() {
-  // Don't need to do any cleanup here!
-}
-/*
-bool CsmModel::load_model(std::string const& isd_path) {
-
-  isd_path
-  Isd isd_data;
-  const std::string model_name = "TODO";
-  
-  m_csm_pointer = m_csm_plugin->constructModelFromISD(isd_data, model_name);
-  if (!m_csm_pointer) {
-    vw_out() << "Failed to construct CSM model from ISD file: " << isd_path << std::endl;
-    return false;
-  }
-}
-*/
 void CsmModel::throw_if_not_init() const {
   if (!m_csm_model)
     vw_throw( ArgumentErr() << "CsmModel: Sensor model has not been loaded yet!" );
@@ -267,12 +211,12 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
 
   // This function generates the vector from the camera at the camera origin,
   //  there is a different call that gets the vector near the ground.
-  csm::EcefLocus locus = imageToRemoteImagingLocus(imagePt);
+  csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(imagePt);
       //double desiredPrecision = 0.001,
       //double* achievedPrecision = NULL,
       //WarningList* warnings = NULL)
 
-  Vector3 dir = ecefCoordToVector(locus.direction);
+  Vector3 dir = ecefVectorToVector(locus.direction);
   return dir;
 }
 
