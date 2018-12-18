@@ -27,8 +27,7 @@
 
 namespace asp {
 
-/// Generic stereoSession implementation for images which we can read/write with GDAL.
-/// - This class adds a "preprocessing hook" which aligns and normalizes the images using the specified methods.
+/// Session class for ASTER images.
 class StereoSessionASTER : public StereoSessionGdal {
   
 public:
@@ -40,9 +39,9 @@ public:
   /// Simple factory function
   static StereoSession* construct() { return new StereoSessionASTER; }
   
-  /// This function will be over-written for ASTER
-  virtual void main_or_rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                         boost::shared_ptr<vw::camera::CameraModel> &cam2);
+  /// For ASTER we fetch RPC, for speed
+  virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
+                             boost::shared_ptr<vw::camera::CameraModel> &cam2);
 
 protected:
   /// Function to load a camera model of the particular type.

@@ -37,13 +37,14 @@ namespace asp {
 
   /// Generic stereoSession implementation for images which we can read/write with GDAL.
   /// - This class adds a "preprocessing hook" which aligns and normalizes the images using the specified methods.
+  /// - Derived classes need to set up camera model loading.
   class StereoSessionGdal : public StereoSession {
 
   public:
     StereoSessionGdal(){}
     virtual ~StereoSessionGdal(){}
 
-    virtual std::string name() const { return "dg"; }
+    virtual std::string name() const = 0;
 
     /// Stage 1: Preprocessing
     ///
@@ -54,9 +55,21 @@ namespace asp {
                                                std::string const& right_input_file,
                                                std::string      & left_output_file,
                                                std::string      & right_output_file);
+  };
+
+//----------------------------------------------------------
+
+  // Stereo session for Digital Globe images.
+  class StereoSessionDG : public StereoSessionGdal {
+
+  public:
+    StereoSessionDG(){}
+    virtual ~StereoSessionDG(){}
+
+    virtual std::string name() const { return "dg"; }
 
     /// Simple factory function
-    static StereoSession* construct() { return new StereoSessionGdal;}
+    static StereoSession* construct() { return new StereoSessionDG;}
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -67,9 +80,6 @@ namespace asp {
                                  image_file, camera_file, pixel_offset);
     }
   };
-
-  /// StereoSession implementation for Digital Globe images.
-  typedef StereoSessionGdal StereoSessionDG;
 
 
 //-------- Function definitions --------------------------------
@@ -132,8 +142,7 @@ namespace asp {
       // - The output is written directly to file!
       DiskImageView<float> left_orig_image(left_input_file);
       boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-      //this->camera_models(left_cam, right_cam); // For ASTER we fetch RPC, for speed
-      this->main_or_rpc_camera_models(left_cam, right_cam); // For ASTER we fetch RPC, for speed
+      this->camera_models(left_cam, right_cam);
       this->ip_matching(left_cropped_file,   right_cropped_file,
                         bounding_box(left_orig_image).size(),
                         left_stats, right_stats,

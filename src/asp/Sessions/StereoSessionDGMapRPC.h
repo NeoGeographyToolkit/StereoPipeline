@@ -33,7 +33,8 @@
 namespace asp {
  
   /// Parent class for all map projected types
-  /// - All map projected types inherit from the Gdal session.
+  /// - All map projected types inherit from the Gdal session since
+  ///   our map projected images are tiff files.
   class StereoSessionMapProj : public StereoSessionGdal  {
   public:
     StereoSessionMapProj(){};
@@ -56,6 +57,15 @@ namespace asp {
     virtual std::string name() const { return "dgmaprpc"; }
 
     static StereoSession* construct() { return new StereoSessionDGMapRPC; }
+
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) const {
+      return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
   };
 
 

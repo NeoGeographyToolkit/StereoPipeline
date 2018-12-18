@@ -339,13 +339,6 @@ namespace asp {
     cam2 = camera_model(m_right_image_file, m_right_camera_file);
   }
 
-  // This function will be over-written for ASTER
-  void StereoSession::main_or_rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                                boost::shared_ptr<vw::camera::CameraModel> &cam2) const{
-    this->camera_models(cam1, cam2);
-  }
-
-
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSession::camera_model(std::string const& image_file, std::string const& camera_file) const{
   
