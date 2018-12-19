@@ -135,8 +135,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
                                         left_cam_index, right_cam_index,
                                         detailed_model, opt.intrinisc_options,
                                         residual_ptrs);
-
-  if (opt.camera_type == BaCameraType_Other) {
+ if (opt.camera_type == BaCameraType_Other) {
 
     boost::shared_ptr<CeresBundleModelBase> left_wrapper (new AdjustedCameraBundleModel(left_camera_model ));
     boost::shared_ptr<CeresBundleModelBase> right_wrapper(new AdjustedCameraBundleModel(right_camera_model));
@@ -1566,10 +1565,25 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
   //  vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
 
+<<<<<<< HEAD
   if ((opt.camera_type==BaCameraType_Other) && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole and optical bar cameras.\n");
 
   if ((opt.camera_type!=BaCameraType_Pinhole) && opt.approximate_pinhole_intrinsics)
+||||||| merged common ancestors
+  if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
+    vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
+
+  if (!opt.create_pinhole && opt.solve_intrinsics)
+    vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole cameras.\n");
+
+  if (!opt.create_pinhole && opt.approximate_pinhole_intrinsics)
+=======
+  if ((opt.camera_type==BaCameraType_Other) && opt.solve_intrinsics)
+    vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole and optical bar cameras.\n");
+
+  if ((opt.camera_type!=BaCameraType_Pinhole) && opt.approximate_pinhole_intrinsics)
+>>>>>>> Add optical bar session and bundle_adjust support.
     vw_throw( ArgumentErr() << "Cannot approximate intrinsics unless using pinhole cameras.\n");
 
   if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
@@ -1612,6 +1626,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       }
     }
   }
+<<<<<<< HEAD
 
   // Try to infer the datum from the reference terrain
   if (opt.reference_terrain != "") {
@@ -1629,6 +1644,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     }
   }
 
+||||||| merged common ancestors
+  
+=======
+
+>>>>>>> Add optical bar session and bundle_adjust support.
   if (opt.stereo_session_string == "rpc" && opt.datum_str == "")
     vw_throw( ArgumentErr() << "When the session type is RPC, the datum must be specified.\n"
                             << usage << general_options );       
