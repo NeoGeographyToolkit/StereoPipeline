@@ -43,6 +43,7 @@
 
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPC_XML.h>
+#include <asp/Camera/OpticalBarModel.h>
 #include <asp/Tools/bundle_adjust_misc_functions.h>
 #include <asp/Tools/bundle_adjust_cost_functions.h> // Ceres included in this file.
 
@@ -50,6 +51,12 @@
 
 
 //==========================================================================
+
+/// These are the different camera modes that bundle_adjust supports.
+enum BACameraType {BaCameraType_Pinhole    = 0,
+                   BaCameraType_OpticalBar = 1,
+                   BaCameraType_Other      = 2
+                  };
 
 /// The big bag of parameters needed by bundle_adjust.cc
 struct Options : public vw::cartography::GdalWriteOptions {
@@ -62,9 +69,10 @@ struct Options : public vw::cartography::GdalWriteOptions {
     translation_weight, overlap_exponent, robust_threshold, parameter_tolerance,
     ip_triangulation_max_error;
   int    report_level, min_matches, max_iterations, overlap_limit;
-  bool   save_iteration, create_pinhole, approximate_pinhole_intrinsics,
+  bool   save_iteration, approximate_pinhole_intrinsics,
          disable_pinhole_gcp_init, fix_gcp_xyz, solve_intrinsics,
          disable_tri_filtering, ip_normalize_tiles, ip_debug_images;
+  BACameraType camera_type;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, reference_terrain, disparity_list,
     heights_from_dem;
@@ -99,7 +107,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              rotation_weight(0), translation_weight(0), overlap_exponent(0), 
              robust_threshold(0), report_level(0), min_matches(0),
              max_iterations(0), overlap_limit(0), save_iteration(false),
-             create_pinhole(false), fix_gcp_xyz(false), solve_intrinsics(false),
+             fix_gcp_xyz(false), solve_intrinsics(false), camera_type(BaCameraType_Other),
              semi_major(0), semi_minor(0), position_filter_dist(-1),
              num_ba_passes(1), max_num_reference_points(-1),
              datum(vw::cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
@@ -184,7 +192,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     std::string val;
     while (is >> val) {
 
-      if (val != "focal_length" && val != "optical_center" && val != "distortion_params") {
+      if (val != "focal_length" && val != "optical_center" && val != "other_intrinsics") {
         vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to float: " << val << ".\n");
       }
       
@@ -192,7 +200,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
         intrinisc_options.focus_constant = false;
       if (val == "optical_center")
         intrinisc_options.center_constant = false;
-      if (val == "distortion_params")
+      if (val == "other_intrinsics")
         intrinisc_options.distortion_constant = false;
     }
     std::istringstream is2(intrinsics_to_share_str);
@@ -201,7 +209,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
         intrinisc_options.focus_shared = true;
       if (val == "optical_center")
         intrinisc_options.center_shared = true;
-      if (val == "distortion_params")
+      if (val == "other_intrinsics")
         intrinisc_options.distortion_shared = true;
     }
 
@@ -492,6 +500,37 @@ void init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
   }
 }
 
+// TODO: Share more code with the similar pinhole case.
+/// Specialization for optical bar cameras.
+void init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
+        std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models){
+  using asp::camera::OpticalBarModel;
+  
+  // Copy the camera parameters from the models to param_storage
+  const size_t num_cameras = param_storage.num_cameras();
+  for (int icam=0; icam < num_cameras; ++icam) {
+    OpticalBarModel* bar_ptr = dynamic_cast<OpticalBarModel*>(opt.camera_models[icam].get());
+    vw::vw_out() << "Loading input model: " << *bar_ptr << std::endl;
+    pack_optical_bar_to_arrays(*bar_ptr, icam, param_storage);
+  } // End loop through cameras
+
+  // Apply any initial transform to the pinhole cameras
+  if (opt.initial_transform_file != "") 
+    apply_transform_to_cameras_optical_bar(opt.initial_transform, param_storage, opt.camera_models);
+
+  // Fill out the new camera model vector
+  new_cam_models.resize(num_cameras);
+  for (size_t icam = 0; icam < num_cameras; icam++){
+
+    OpticalBarModel* in_cam  = dynamic_cast<OpticalBarModel*>(opt.camera_models[icam].get());
+    OpticalBarModel* out_cam = new OpticalBarModel(*in_cam); // Start with a copy of the input camera.
+    populate_optical_bar_from_arrays(icam, param_storage, *out_cam);
+
+    new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
+  }
+}
+
+
 /// Write a pinhole camera file to disk.
 void write_pinhole_output_file(Options const& opt, int icam,
                                BAParamStorage const& param_storage) {
@@ -515,6 +554,34 @@ void write_pinhole_output_file(Options const& opt, int icam,
   if (has_datum) {
     vw::vw_out() << "Camera center for " << cam_file << ": "
                   << opt.datum.cartesian_to_geodetic(pin_ptr->camera_center())
+                  << " (longitude, latitude, height above datum(m))\n\n";
+  }
+}
+
+
+/// Write an optical bar camera file to disk.
+void write_optical_bar_output_file(Options const& opt, int icam,
+                                   BAParamStorage const& param_storage) {
+
+  // Get the output file path
+  std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                      opt.image_files [icam],
+                                                      opt.camera_files[icam]);
+  cam_file = boost::filesystem::path(cam_file).replace_extension("tsai").string();
+
+  // Get the final camera model
+  asp::camera::OpticalBarModel* bar_ptr
+    = dynamic_cast<asp::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+  populate_optical_bar_from_arrays(icam, param_storage, *bar_ptr);
+
+  vw::vw_out() << "Writing: " << cam_file << std::endl;
+  bar_ptr->write(cam_file);
+  vw::vw_out() << "Writing output model: " << *bar_ptr << std::endl;
+
+  bool has_datum = (opt.datum.name() != UNSPECIFIED_DATUM);
+  if (has_datum) {
+    vw::vw_out() << "Camera center for " << cam_file << ": "
+                  << opt.datum.cartesian_to_geodetic(bar_ptr->camera_center())
                   << " (longitude, latitude, height above datum(m))\n\n";
   }
 }

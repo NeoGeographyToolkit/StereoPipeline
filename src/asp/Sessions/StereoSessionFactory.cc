@@ -49,7 +49,7 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
                                               const bool allow_map_promote) {
 
     // Known user session types are:
-    // DG, RPC, ISIS, Pinhole, NadirPinhole
+    // DG, RPC, ISIS, Pinhole, NadirPinhole, OpticalBar
     //
     // Hidden sessions are:
     // DGMapRPC, Blank (Guessing)
@@ -166,6 +166,8 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
       session_new = StereoSessionSpot::construct();
     else if (actual_session_type == "aster")
       session_new = StereoSessionASTER::construct();
+    else if (actual_session_type == "opticalbar")
+      session_new = StereoSessionOpticalBar::construct();
     if (session_new == 0)
       vw_throw(vw::NoImplErr() << "Unsuppported stereo session type: " << session_type);
 

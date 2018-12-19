@@ -41,6 +41,8 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
+using asp::camera::OpticalBarModel;
+
 typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 typedef CameraRelationNetwork<JFeature> CRNJ;
@@ -61,17 +63,38 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
   double* camera = param_storage.get_camera_ptr(camera_index);
   double* point  = param_storage.get_point_ptr (point_index );
 
-  if (opt.create_pinhole) {
+  if (opt.camera_type == BaCameraType_Other) {
+    // The generic camera case
+    boost::shared_ptr<CeresBundleModelBase> wrapper(new AdjustedCameraBundleModel(camera_model));
+      ceres::CostFunction* cost_function =
+        BaReprojectionError::Create(observation, pixel_sigma, wrapper);
+      problem.AddResidualBlock(cost_function, loss_function, point, camera);
+
+  } else { // Pinhole and optical bar
 
     double* center     = param_storage.get_intrinsic_center_ptr    (camera_index);
     double* focus      = param_storage.get_intrinsic_focus_ptr     (camera_index);
     double* distortion = param_storage.get_intrinsic_distortion_ptr(camera_index);
 
-    boost::shared_ptr<PinholeModel> pinhole_model = 
-      boost::dynamic_pointer_cast<vw::camera::PinholeModel>(camera_model);
-    if (pinhole_model.get() == 0)
-      vw::vw_throw( vw::ArgumentErr() << "Tried to add pinhole block with non-pinhole camera!");
-    boost::shared_ptr<CeresBundleModelBase> wrapper(new PinholeBundleModel(pinhole_model));
+    boost::shared_ptr<CeresBundleModelBase> wrapper;
+
+    if (opt.camera_type == BaCameraType_Pinhole) {
+
+      boost::shared_ptr<PinholeModel> pinhole_model = 
+        boost::dynamic_pointer_cast<PinholeModel>(camera_model);
+      if (pinhole_model.get() == 0)
+        vw::vw_throw( vw::ArgumentErr() << "Tried to add pinhole block with non-pinhole camera!");
+      wrapper.reset(new PinholeBundleModel(pinhole_model));
+
+    } else { // Optical bar
+
+      boost::shared_ptr<OpticalBarModel> bar_model = 
+        boost::dynamic_pointer_cast<OpticalBarModel>(camera_model);
+      if (bar_model.get() == 0)
+        vw::vw_throw( vw::ArgumentErr() << "Tried to add optical bar block with non-OB camera!");
+      wrapper.reset(new OpticalBarBundleModel(bar_model));
+    }
+
     ceres::CostFunction* cost_function =
       BaReprojectionError::Create(observation, pixel_sigma, wrapper);
     problem.AddResidualBlock(cost_function, loss_function, point, camera, 
@@ -84,13 +107,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
       problem.SetParameterBlockConstant(focus);
     if (opt.intrinisc_options.distortion_constant)
       problem.SetParameterBlockConstant(distortion);
-
-  } else { // Non-pinhole case.
-    boost::shared_ptr<CeresBundleModelBase> wrapper(new AdjustedCameraBundleModel(camera_model));
-    ceres::CostFunction* cost_function =
-      BaReprojectionError::Create(observation, pixel_sigma, wrapper);
-    problem.AddResidualBlock(cost_function, loss_function, point, camera);
-  }
+  } // End non-generic camera case.
 
   // Fix this camera if requested
   if (opt.fixed_cameras_indices.find(camera_index) != opt.fixed_cameras_indices.end()) 
@@ -110,39 +127,55 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
   boost::shared_ptr<CameraModel> left_camera_model  = opt.camera_models[left_cam_index ];
   boost::shared_ptr<CameraModel> right_camera_model = opt.camera_models[right_cam_index];
 
+  const bool detailed_model = (opt.camera_type != BaCameraType_Other);
+
   // Get the list of residual pointers that will be passed to ceres.
   std::vector<double*> residual_ptrs;
   BaDispXyzError::get_residual_pointers(param_storage,
                                         left_cam_index, right_cam_index,
-                                        opt.create_pinhole, opt.intrinisc_options,
+                                        detailed_model, opt.intrinisc_options,
                                         residual_ptrs);
 
-  if (opt.create_pinhole) {
-
-    boost::shared_ptr<PinholeModel> left_pinhole_model = 
-      boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_camera_model);
-    boost::shared_ptr<PinholeModel> right_pinhole_model = 
-      boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_camera_model);
-
-    boost::shared_ptr<CeresBundleModelBase> left_wrapper (new PinholeBundleModel(left_pinhole_model ));
-    boost::shared_ptr<CeresBundleModelBase> right_wrapper(new PinholeBundleModel(right_pinhole_model));
-    ceres::CostFunction* cost_function =
-      BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
-                             opt.create_pinhole, opt.intrinisc_options);
-
-    problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
-
-  } else { // Non-pinhole case
+  if (opt.camera_type == BaCameraType_Other) {
 
     boost::shared_ptr<CeresBundleModelBase> left_wrapper (new AdjustedCameraBundleModel(left_camera_model ));
     boost::shared_ptr<CeresBundleModelBase> right_wrapper(new AdjustedCameraBundleModel(right_camera_model));
     ceres::CostFunction* cost_function =
       BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
-                             opt.create_pinhole, opt.intrinisc_options);
+                             detailed_model, opt.intrinisc_options);
 
     problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
-  }
 
+  } else { // Pinhole or optical bar
+
+    boost::shared_ptr<CeresBundleModelBase> left_wrapper, right_wrapper;
+
+    if (opt.camera_type == BaCameraType_Pinhole) {
+      boost::shared_ptr<PinholeModel> left_pinhole_model = 
+        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_camera_model);
+      boost::shared_ptr<PinholeModel> right_pinhole_model = 
+        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_camera_model);
+
+      left_wrapper.reset (new PinholeBundleModel(left_pinhole_model ));
+      right_wrapper.reset(new PinholeBundleModel(right_pinhole_model));
+
+    } else { // Optical bar
+      boost::shared_ptr<OpticalBarModel> left_bar_model = 
+        boost::dynamic_pointer_cast<OpticalBarModel>(left_camera_model);
+      boost::shared_ptr<OpticalBarModel> right_bar_model = 
+        boost::dynamic_pointer_cast<OpticalBarModel>(right_camera_model);
+
+      left_wrapper.reset (new OpticalBarBundleModel(left_bar_model ));
+      right_wrapper.reset(new OpticalBarBundleModel(right_bar_model));
+    }
+
+    ceres::CostFunction* cost_function =
+      BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
+                             detailed_model, opt.intrinisc_options);
+    problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
+
+  }
+  
 } // End function add_disparity_residual_block
 
 
@@ -982,7 +1015,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     
     tpc.report_finished();
     vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
-  } // End if (opt.create_pinhole && opt.reference_terrain != "")
+  } // End if (opt.reference_terrain != "")
   
   const size_t MIN_KML_POINTS = 20;  
   size_t kmlPointSkip = 30;
@@ -1105,7 +1138,7 @@ void do_ba_ceres(Options & opt){
   
   // Create the storage arrays for the variables we will adjust.
   int num_lens_distortion_params = 0;
-  if (opt.create_pinhole) {
+  if (opt.camera_type == BaCameraType_Pinhole) {
     boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
             boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models[0]);
     num_lens_distortion_params = pinhole_ptr->lens_distortion()->distortion_parameters().size();
@@ -1117,18 +1150,25 @@ void do_ba_ceres(Options & opt){
       opt.intrinisc_options.distortion_shared   = true;
     }
   }
+  if (opt.camera_type == BaCameraType_OpticalBar) {
+    num_lens_distortion_params = 2; // TODO: Share this constant!
+  }
   BAParamStorage param_storage(num_points, num_cameras,
-                               opt.create_pinhole,
+                               opt.camera_type != BaCameraType_Other, // Optical bar and pinhole are similar
                                // Must be the same for each pinhole camera
                                num_lens_distortion_params, 
                                opt.intrinisc_options);
 
   // Fill in the camera and intrinsic parameters.
   std::vector<boost::shared_ptr<camera::CameraModel> > new_cam_models;
-  if (opt.create_pinhole)
-    init_cams_pinhole(opt, param_storage, new_cam_models);
-  else
-    init_cams(opt, param_storage, new_cam_models);
+  switch(opt.camera_type) {
+    case BaCameraType_Pinhole:
+      init_cams_pinhole(opt, param_storage, new_cam_models); break;
+    case BaCameraType_OpticalBar:
+      init_cams_optical_bar(opt, param_storage, new_cam_models); break;
+    default:
+      init_cams(opt, param_storage, new_cam_models);
+  };
 
   // Certain input options change the cameras inside init_cams and we need to update the
   // point coordinates for the new cameras.
@@ -1204,10 +1244,14 @@ void do_ba_ceres(Options & opt){
   // Write the results to disk.
   for (int icam = 0; icam < num_cameras; icam++){
 
-    if (opt.create_pinhole) {
-      write_pinhole_output_file(opt, icam, param_storage);
-
-    } else {
+    switch(opt.camera_type) {
+      case BaCameraType_Pinhole:
+        write_pinhole_output_file(opt, icam, param_storage);
+        break;
+      case BaCameraType_OpticalBar:
+        write_optical_bar_output_file(opt, icam, param_storage);
+        break;
+      default:
         std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
                                                               opt.image_files[icam],
                                                               opt.camera_files[icam]);
@@ -1215,7 +1259,7 @@ void do_ba_ceres(Options & opt){
 
         CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
         asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
-    }
+    };
   } // End loop through cameras
 
 } // end do_ba_ceres
@@ -1280,6 +1324,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str;
   float auto_overlap_buffer;
+  bool detailed_model;
   po::options_description general_options("");
   general_options.add_options()
 //     ("cnet,c", po::value(&opt.cnet_file),
@@ -1289,16 +1334,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
             "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
             "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
-    ("create-pinhole-cameras",    po::bool_switch(&opt.create_pinhole)->default_value(false),
-            "If the input cameras are of the pinhole type, apply the adjustments directly to the cameras, rather than saving them separately as .adjust files.")
+    ("detailed-model",   po::bool_switch(&detailed_model)->default_value(false),
+            "If set, apply the adjustments directly to the cameras, rather than saving them separately as .adjust files.  This also lets you solve for intrinsics.  Currently supported for pinhole and optical bar cameras.")
     ("approximate-pinhole-intrinsics", po::bool_switch(&opt.approximate_pinhole_intrinsics)->default_value(false),
             "If it reduces computation time, approximate the lens distortion model.")
     ("solve-intrinsics",    po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
             "Optimize intrinsic camera parameters.  Only used for pinhole cameras.")
     ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
-            "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
+            "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
-            "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
+            "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
             "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the create-pinhole-cameras option.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
@@ -1320,11 +1365,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) points from the reference terrain to use.")
     ("disparity-list",           po::value(&opt.disparity_list)->default_value(""),
-     "The unaligned disparity files to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two images, second is for the second and third images, etc. If an image pair has no disparity file, use 'none'.")
+            "The unaligned disparity files to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two images, second is for the second and third images, etc. If an image pair has no disparity file, use 'none'.")
     ("max-disp-error",           po::value(&opt.max_disp_error)->default_value(-1),
-     "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
+            "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
     ("reference-terrain-weight", po::value(&opt.reference_terrain_weight)->default_value(1.0),
-     "How much weight to give to the cost function terms involving the reference terrain.")
+            "How much weight to give to the cost function terms involving the reference terrain.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
             "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
@@ -1332,7 +1377,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
             "Explicitly set the datum semi-minor axis in meters (see above).")
     ("session-type,t",   po::value(&opt.stereo_session_string)->default_value(""),
-            "Select the stereo session type to use for processing. Options: pinhole nadirpinhole isis dg rpc spot5 aster. Usually the program can select this automatically by the file extension.")
+            "Select the stereo session type to use for processing. Options: pinhole nadirpinhole isis dg rpc spot5 aster opticalbar. Usually the program can select this automatically by the file extension.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
             "Set the minimum  number of matches between images that will be considered.")
     ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
@@ -1371,7 +1416,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-iterations",       po::value(&opt.max_iterations)->default_value(1000),
             "Set the maximum number of iterations.")
     ("parameter-tolerance",  po::value(&opt.parameter_tolerance)->default_value(1e-8),
-     "Stop when the relative error in the variables being optimized is less than this.")
+            "Stop when the relative error in the variables being optimized is less than this.")
     ("overlap-limit",        po::value(&opt.overlap_limit)->default_value(0),
             "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
     ("overlap-list",         po::value(&opt.overlap_list_file)->default_value(""),
@@ -1443,13 +1488,27 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
+  // Work out the camera model type to use
   boost::to_lower( opt.stereo_session_string );
-  
+  opt.camera_type = BaCameraType_Other;
+  if (detailed_model) {
+    if ((opt.stereo_session_string == "pinhole") || 
+        (opt.stereo_session_string == "nadirpinhole")) {
+      opt.camera_type = BaCameraType_Pinhole;
+    } else {
+      if (opt.stereo_session_string == "opticalbar")
+        opt.camera_type = BaCameraType_OpticalBar;
+      else
+        vw_throw( ArgumentErr() << "Cannot use the detailed model option with camera type = "
+                                << opt.stereo_session_string << "\n"
+                                << usage << general_options );
+    }
+  } // End resolving the model type
+
   // Separate out GCP files
   opt.gcp_files = asp::get_files_with_ext( opt.image_files, ".gcp", true );
   const size_t num_gcp_files = opt.gcp_files.size();
   vw_out() << "Found " << num_gcp_files << " GCP files on the command line.\n";
-  
 
   // Separate the cameras from the images
   std::vector<std::string> inputs = opt.image_files;
@@ -1503,21 +1562,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "The translation weight must be non-negative.\n" << usage
                             << general_options );
 
+  // TODO: Make sure the normal model loading catches this error.
+  //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
+  //  vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
 
-  if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
-    vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
+  if ((opt.camera_type==BaCameraType_Other) && opt.solve_intrinsics)
+    vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole and optical bar cameras.\n");
 
-  if (!opt.create_pinhole && opt.solve_intrinsics)
-    vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole cameras.\n");
-
-  if (!opt.create_pinhole && opt.approximate_pinhole_intrinsics)
+  if ((opt.camera_type!=BaCameraType_Pinhole) && opt.approximate_pinhole_intrinsics)
     vw_throw( ArgumentErr() << "Cannot approximate intrinsics unless using pinhole cameras.\n");
 
   if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Cannot approximate intrinsics while solving for them.\n");
 
-  if (opt.create_pinhole && opt.input_prefix != "")
-    vw_throw( ArgumentErr() << "Cannot use initial adjustments with pinhole cameras. Read the cameras directly.\n");
+  if ((opt.camera_type!=BaCameraType_Other) && opt.input_prefix != "")
+    vw_throw( ArgumentErr() << "Can only use initial adjustments with camera type 'other'.\n");
 
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
   opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4> >(opt.remove_outliers_params_str);
@@ -1573,7 +1632,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.stereo_session_string == "rpc" && opt.datum_str == "")
     vw_throw( ArgumentErr() << "When the session type is RPC, the datum must be specified.\n"
                             << usage << general_options );       
-       
+
   if (opt.datum_str != ""){
     // If the user set the datum, use it.
     opt.datum.set_well_known_datum(opt.datum_str);
@@ -1900,7 +1959,7 @@ int main(int argc, char* argv[]) {
 
     // If camera positions were provided for local inputs, align to them.
     const bool have_est_camera_positions = (opt.camera_position_file != "");
-    if (opt.create_pinhole && have_est_camera_positions) {
+    if ((opt.camera_type==BaCameraType_Pinhole) && have_est_camera_positions) {
       init_pinhole_model_with_camera_positions(opt.cnet, opt.camera_models,
                                                opt.image_files, estimated_camera_gcc);
     }
@@ -1914,7 +1973,8 @@ int main(int argc, char* argv[]) {
     //   Otherwise we could init the adjustment values.
     if (opt.gcp_files.size() > 0) {
 
-      if (opt.create_pinhole && !have_est_camera_positions &&
+      if ((opt.camera_type==BaCameraType_Pinhole) && 
+          !have_est_camera_positions &&
           !opt.disable_pinhole_gcp_init)
         init_pinhole_model_with_gcp(opt.cnet, opt.camera_models);
 

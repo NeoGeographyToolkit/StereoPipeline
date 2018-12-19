@@ -52,7 +52,7 @@ Vector3 OpticalBarModel::get_velocity(vw::Vector2 const& pixel) const {
   // Convert the velocity from sensor coords to GCC coords
   Matrix3x3 pose = transpose(camera_pose(pixel).rotation_matrix());
 
-  return pose*Vector3(0,m_velocity,0);
+  return pose*Vector3(0,m_speed,0);
 }
 
 Vector3 OpticalBarModel::camera_center(Vector2 const& pix) const {
@@ -83,7 +83,7 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
   // TODO: Make this optional!
   // Distortion caused by compensation for the satellite's forward motion during the image.
   // - The film was actually translated underneath the lens to compensate for the motion.
-  double image_motion_compensation = ((-m_focal_length * m_velocity) / (H*m_scan_rate_radians))
+  double image_motion_compensation = ((-m_focal_length * m_speed) / (H*m_scan_rate_radians))
                                      * sin(alpha);
   
   Matrix3x3 M_inv = transpose(cam_pose.rotation_matrix());
@@ -140,6 +140,24 @@ Vector2 OpticalBarModel::point_to_pixel(Vector3 const& point) const {
 
   return solution;
 }
+
+void OpticalBarModel::apply_transform(vw::Matrix3x3 const & rotation,
+                                      vw::Vector3   const & translation,
+                                      double                scale) {
+
+  // Extract current parameters
+  vw::Vector3 position = this->camera_center();
+  vw::Quat    pose     = this->camera_pose();
+  
+  vw::Quat rotation_quaternion(rotation);
+  
+  // New position and rotation
+  position = scale*rotation*position + translation;
+  pose     = rotation_quaternion*pose;
+  this->set_camera_center(position);
+  this->set_camera_pose  (pose.axis_angle());
+}
+
 
 void OpticalBarModel::read(std::string const& filename) {
 
@@ -220,9 +238,9 @@ void OpticalBarModel::read(std::string const& filename) {
   }
 
   std::getline(cam_file, line);
-  if (!cam_file.good() || sscanf(line.c_str(),"velocity = %lf", &m_velocity) != 1) {
+  if (!cam_file.good() || sscanf(line.c_str(),"speed = %lf", &m_speed) != 1) {
     cam_file.close();
-    vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the velocity\n" );
+    vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the speed\n" );
   }
 
   std::getline(cam_file, line);
@@ -273,7 +291,7 @@ void OpticalBarModel::write(std::string const& filename) const {
   cam_file << "iR = " << m_initial_orientation[0] << " "
                       << m_initial_orientation[1] << " "
                       << m_initial_orientation[2] << "\n";
-  cam_file << "velocity = " << m_velocity << "\n";
+  cam_file << "speed = " << m_speed << "\n";
   cam_file << "mean_earth_radius = "      << m_mean_earth_radius      << "\n";
   cam_file << "mean_surface_elevation = " << m_mean_surface_elevation << "\n";
 
@@ -292,7 +310,7 @@ std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model)
   os << " Scan rate (rad/s):      " << camera_model.m_scan_rate_radians      << "\n";
   os << " Initial position:       " << camera_model.m_initial_position       << "\n";
   os << " Initial pose:           " << camera_model.m_initial_orientation    << "\n";
-  os << " Velocity:               " << camera_model.m_velocity               << "\n";
+  os << " Speed:                  " << camera_model.m_speed                  << "\n";
   os << " Mean earth radius:      " << camera_model.m_mean_earth_radius      << "\n";
   os << " Mean surface elevation: " << camera_model.m_mean_surface_elevation << "\n";
 

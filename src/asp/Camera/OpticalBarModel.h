@@ -44,7 +44,9 @@ namespace camera {
     //------------------------------------------------------------------
     
     OpticalBarModel() {} // Parameters need to be set later
-    
+
+    OpticalBarModel(std::string const& path) { read(path); } // Create from file
+
     OpticalBarModel(vw::Vector2i image_size,
                     vw::Vector2  center_offset_pixels,
                     double   pixel_size,
@@ -53,7 +55,7 @@ namespace camera {
                     double   scan_rate_radians,
                     vw::Vector3  initial_position,
                     vw::Vector3  initial_orientation,
-                    double  velocity) :
+                    double  speed) :
         m_image_size          (image_size),
         m_center_offset_pixels(center_offset_pixels),
         m_pixel_size          (pixel_size),
@@ -62,7 +64,7 @@ namespace camera {
         m_scan_rate_radians   (scan_rate_radians),
         m_initial_position    (initial_position),
         m_initial_orientation (initial_orientation),
-        m_velocity            (velocity),
+        m_speed               (speed),
         m_correct_velocity_aberration(true),
         m_correct_atmospheric_refraction(true){
 
@@ -101,8 +103,37 @@ namespace camera {
 
     // -- These are new functions --
 
+    vw::Vector3 camera_center() const {return camera_center(vw::Vector2(0,0));}
+    vw::Quat    camera_pose  () const {return camera_pose  (vw::Vector2(0,0));}
+
+    /// Apply a given rotation + translation + scale transform to the camera.
+    /// - TODO: This is identical to the function in PinholeModel.
+    void apply_transform(vw::Matrix3x3 const & rotation,
+                         vw::Vector3   const & translation,
+                         double                scale);
+    
+    // Parameter accessors
+
+    void set_camera_center(vw::Vector3 const& position   ) {m_initial_position    = position;}
+    void set_camera_pose  (vw::Vector3 const& orientation) {m_initial_orientation = orientation;}
+    void set_camera_pose  (vw::Quaternion<double> const& pose) {set_camera_pose(pose.axis_angle());};
+    
     /// Returns the image size in pixels
-    vw::Vector2i get_image_size() const { return m_image_size; }
+    vw::Vector2i get_image_size    () const { return m_image_size;           }
+    vw::Vector2  get_optical_center() const { return m_center_offset_pixels; }
+    double       get_focal_length  () const { return m_focal_length;         }
+    double       get_scan_rate     () const { return m_scan_rate_radians;    }
+    double       get_speed         () const { return m_speed;                }
+    double       get_pixel_size    () const { return m_pixel_size;           }
+    double       get_scan_angle    () const { return m_scan_angle_radians;   }
+    
+    void set_image_size    (vw::Vector2i image_size    ) { m_image_size           = image_size;     }
+    void set_optical_center(vw::Vector2  optical_center) { m_center_offset_pixels = optical_center; }
+    void set_focal_length  (double       focal_length  ) { m_focal_length         = focal_length;   }
+    void set_scan_rate     (double       scan_rate     ) { m_scan_rate_radians    = scan_rate;      }
+    void set_speed         (double       speed         ) { m_speed                = speed;          }
+    void set_pixel_size    (double       pixel_size    ) { m_pixel_size           = pixel_size;     }
+    void set_scan_angle    (double       scan_angle    ) { m_scan_angle_radians   = scan_angle;     }
 
     friend std::ostream& operator<<(std::ostream&, OpticalBarModel const&);
 
@@ -145,7 +176,7 @@ namespace camera {
 
     vw::Vector3 m_initial_position;
     vw::Vector3 m_initial_orientation; // TODO: Record as matrix
-    double  m_velocity; /// Velocity in the sensor Y axis only.
+    double  m_speed; /// Velocity in the sensor Y axis only.
 
     // These are used for ray corrections.
     double m_mean_earth_radius;

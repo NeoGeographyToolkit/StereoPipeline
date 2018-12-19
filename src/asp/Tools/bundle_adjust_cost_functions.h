@@ -27,6 +27,7 @@
 #include <vw/Camera/CameraUtilities.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Camera/OpticalBarModel.h>
 
 
 // Turn off warnings from eigen
@@ -232,9 +233,82 @@ private:
   /// This camera is used for all of the intrinsic values.
   boost::shared_ptr<vw::camera::PinholeModel> m_underlying_camera;
 
-}; // End class CeresBundleModelBase
+}; // End class PinholeBundleModel
 
 
+
+/// "Full service" pinhole model which solves for all desired camera parameters.
+/// - If the current run does not want to solve for everything, those parameter
+///   blocks should be set as constant so that Ceres does not change them.
+class OpticalBarBundleModel: public CeresBundleModelBase {
+public:
+
+  OpticalBarBundleModel(boost::shared_ptr<asp::camera::OpticalBarModel> cam)
+    : m_underlying_camera(cam) {}
+
+
+  virtual int num_intrinsic_params() const {
+    return 5; // Center, focus, scan rate, and speed.
+  }
+
+  /// Return the number of Ceres input parameter blocks.
+  /// - (camera), (point), (center), (focus), (lens distortion)
+  virtual int num_parameter_blocks() const {return 5;}
+
+  virtual std::vector<int> get_block_sizes() const {
+    std::vector<int> result = CeresBundleModelBase::get_block_sizes();
+    result.push_back(2); // Center
+    result.push_back(1); // Focus
+    result.push_back(2); // Scan rate and speed
+    return result;
+  }
+
+  /// Read in all of the parameters and compute the residuals.
+  virtual vw::Vector2 evaluate(std::vector<double const*> const param_blocks) const {
+
+    double const* raw_point  = param_blocks[0];
+    double const* raw_pose   = param_blocks[1];
+    double const* raw_center = param_blocks[2];
+    double const* raw_focus  = param_blocks[3];
+    double const* raw_intrin = param_blocks[4];
+
+    // TODO: Should these values also be scaled?
+    // Read the point location and camera information from the raw arrays.
+    Vector3          point(raw_point[0], raw_point[1], raw_point[2]);
+    CameraAdjustment correction(raw_pose);
+
+    // We actually solve for scale factors for intrinsic values, so multiply them
+    //  by the original intrinsic values to get the updated values.
+    double center_x  = raw_center[0] * m_underlying_camera->get_optical_center()[0];
+    double center_y  = raw_center[1] * m_underlying_camera->get_optical_center()[1];
+    double focus     = raw_focus [0] * m_underlying_camera->get_focal_length  ();
+    double scan_rate = raw_intrin[0] * m_underlying_camera->get_scan_rate();
+    double speed     = raw_intrin[1] * m_underlying_camera->get_speed    ();
+
+    // Duplicate the input camera model with the pose, focus, center, speed, and scan rate updated.
+    asp::camera::OpticalBarModel cam(m_underlying_camera->get_image_size(),
+                                     vw::Vector2(center_x, center_y),
+                                     m_underlying_camera->get_pixel_size(),
+                                     focus,
+                                     m_underlying_camera->get_scan_angle(),
+                                     scan_rate,
+                                     correction.position(),
+                                     correction.pose().axis_angle(),
+                                     speed);
+
+    // Project the point into the camera.
+    return cam.point_to_pixel(point);
+  }
+
+private:
+
+  // TODO: Cache the constructed camera to save time when just the point changes!
+
+  // TODO: Make const
+  /// This camera is used for all of the intrinsic values.
+  boost::shared_ptr<asp::camera::OpticalBarModel> m_underlying_camera;
+
+}; // End class PinholeBundleModel
 
 
 

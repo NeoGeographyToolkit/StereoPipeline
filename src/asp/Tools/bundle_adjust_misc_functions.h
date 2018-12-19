@@ -395,15 +395,21 @@ public:
   }
 
   /// Populate from an AdjustedCameraModel
-  void copy_from_adjusted_camera(vw::camera::AdjustedCameraModel const& adj_cam) {
-    m_position_data = adj_cam.translation();
-    m_pose_data     = adj_cam.rotation();
+  void copy_from_adjusted_camera(vw::camera::AdjustedCameraModel const& cam) {
+    m_position_data = cam.translation();
+    m_pose_data     = cam.rotation();
   }
 
   /// Populate from a PinholeModel
-  void copy_from_pinhole(vw::camera::PinholeModel const& pin_cam) {
-    m_position_data = pin_cam.camera_center();
-    m_pose_data     = pin_cam.camera_pose();
+  void copy_from_pinhole(vw::camera::PinholeModel const& cam) {
+    m_position_data = cam.camera_center();
+    m_pose_data     = cam.camera_pose();
+  }
+
+  /// Populate from OpticalBarModel
+  void copy_from_optical_bar(asp::camera::OpticalBarModel const& cam) {
+    m_position_data = cam.camera_center();
+    m_pose_data     = cam.camera_pose();
   }
 
   /// Populate from an adjustment file on disk.
@@ -442,8 +448,7 @@ private:
 
 }; // End class CameraAdjustment
 
-
-
+//==================================================================================
 
 // TODO: Move to a class?
 /// Packs info from a pinhole camera into the provided arrays.
@@ -475,9 +480,37 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
     distortion_ptr[i] = 1.0;
 }
 
+
+void pack_optical_bar_to_arrays(asp::camera::OpticalBarModel const& camera,
+                                int camera_index,
+                                BAParamStorage & param_storage) {
+
+  double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
+  double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
+  double* focus_ptr      = param_storage.get_intrinsic_focus_ptr     (camera_index);
+  double* intrinsics_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
+
+  // Handle position and pose
+  CameraAdjustment pos_pose_info;
+  pos_pose_info.copy_from_optical_bar(camera);
+  pos_pose_info.pack_to_array(pos_pose_ptr);
+
+  // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
+
+  // Center point and focal length
+  center_ptr[0] = 1.0; //camera.point_offset()[0];
+  center_ptr[1] = 1.0; //camera.point_offset()[1];
+  focus_ptr [0] = 1.0; //camera.focal_length()[0];
+
+  // Pack the speed and scan rate into the distortion pointer.
+  const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 2;
+  for (int i=0; i<NUM_OPTICAL_BAR_EXTRA_PARAMS; ++i)
+    intrinsics_ptr[i] = 1.0;
+}
+
+
 /// Modify an existing pinhole model in-place using the stored parameters.
-/// - Since the stored parameters are multipliers, be careful calling this
-///   more than once!
+/// - Since the stored parameters are multipliers, be careful calling this more than once!
 void populate_pinhole_from_arrays(int camera_index,
                                   BAParamStorage const& param_storage,
                                   vw::camera::PinholeModel & camera) {
@@ -511,6 +544,39 @@ void populate_pinhole_from_arrays(int camera_index,
   double new_focus = old_focus[0]*focus_ptr[0];
   camera.set_focal_length(Vector2(new_focus,new_focus), true); // Recompute internals.
 }
+
+
+/// Modify an existing optical bar model in-place using the stored parameters.
+/// - Since the stored parameters are multipliers, be careful calling this more than once!
+void populate_optical_bar_from_arrays(int camera_index,
+                                      BAParamStorage const& param_storage,
+                                      asp::camera::OpticalBarModel & camera) {
+
+  double const* pos_pose_ptr  = param_storage.get_camera_ptr(camera_index);
+  double const* center_ptr    = param_storage.get_intrinsic_center_ptr    (camera_index);
+  double const* focus_ptr     = param_storage.get_intrinsic_focus_ptr     (camera_index);
+  double const* intrinsic_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
+
+  // Update position and pose
+  CameraAdjustment pos_pose_info(pos_pose_ptr);
+  camera.set_camera_center(pos_pose_info.position());
+  camera.set_camera_pose  (pos_pose_info.pose    ());
+
+  // All intrinsic parameters are stored as multipliers!
+
+  // Update the other intrinsic parameters.
+  camera.set_scan_rate(camera.get_scan_rate()*intrinsic_ptr[0]);
+  camera.set_speed    (camera.get_speed    ()*intrinsic_ptr[1]);
+
+  // Update the center and focus
+  Vector2 old_center = camera.get_optical_center();
+  float   old_focus  = camera.get_focal_length();
+  camera.set_optical_center(Vector2(center_ptr[0]*old_center[0],
+                                    center_ptr[1]*old_center[1]));
+  double new_focus = old_focus*focus_ptr[0];
+  camera.set_focal_length(new_focus);
+}
+
 
 // TODO: Class function?
 /// Given a transform with origin at the planet center, like output
@@ -565,8 +631,39 @@ void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M, BAParamStorage &
     pack_pinhole_to_arrays(*pin_ptr, i, param_storage);    
   }
 
-} // end function apply_transform_to_cameras
+} // end function apply_transform_to_cameras_pinhole
 
+// This function takes advantage of the fact that when it is called the cam_ptrs have the same
+//  information as is in param_storage!
+void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M, BAParamStorage &param_storage,
+                                        std::vector<boost::shared_ptr<camera::CameraModel> > const& cam_ptrs){
+
+  // Convert the transform format
+  vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
+  vw::Vector3   T;
+  for (int r = 0; r < 3; r++) 
+    T[r] = M(r, 3);
+  
+  double scale = pow(det(R), 1.0/3.0);
+  for (size_t r = 0; r < R.rows(); r++)
+    for (size_t c = 0; c < R.cols(); c++)
+      R(r, c) /= scale;
+
+  for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
+
+    // Apply the transform
+    boost::shared_ptr<asp::camera::OpticalBarModel> bar_ptr = 
+      boost::dynamic_pointer_cast<asp::camera::OpticalBarModel>(cam_ptrs[i]);
+    bar_ptr->apply_transform(R, T, scale);
+
+    // Write out to param_storage
+    pack_optical_bar_to_arrays(*bar_ptr, i, param_storage);    
+  }
+
+} // end function apply_transform_to_cameras_pinhole
+
+
+//=================================================================
 
 /// Load a DEM from disk to use for interpolation.
 void create_interp_dem(std::string & dem_file,
@@ -717,7 +814,7 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
       vw_out() << "WARNING: GCPs are over 100 KM from the other points. Are your lat/lon GCP coordinates swapped?\n";
 }
 
-
+//============================================================================
 
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided camera positions.

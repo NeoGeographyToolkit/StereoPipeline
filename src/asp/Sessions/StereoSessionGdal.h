@@ -82,7 +82,32 @@ namespace asp {
   };
 
 
-//-------- Function definitions --------------------------------
+//----------------------------------------------------------
+
+  // Stereo session for optical bar cameras such as Corona and Hexagon.
+  class StereoSessionOpticalBar : public StereoSessionGdal {
+
+  public:
+    StereoSessionOpticalBar(){}
+    virtual ~StereoSessionOpticalBar(){}
+
+    virtual std::string name() const { return "opticalbar"; }
+
+    /// Simple factory function
+    static StereoSession* construct() { return new StereoSessionOpticalBar;}
+
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) const {
+      return load_adjusted_model(m_camera_loader.load_optical_bar_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+  };
+  
+  
+//========= Function definitions ======================================
 
   inline void StereoSessionGdal::
   pre_preprocessing_hook(bool adjust_left_image_size,

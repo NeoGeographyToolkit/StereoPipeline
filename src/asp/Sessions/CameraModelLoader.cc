@@ -34,6 +34,7 @@
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/LinescanSpotModel.h>
 #include <asp/Camera/LinescanASTERModel.h>
+#include <asp/Camera/OpticalBarModel.h>
 #include <asp/Sessions/CameraModelLoader.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
@@ -118,6 +119,13 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_camera_m
   vw::vw_throw( vw::NoImplErr() << "\nCannot load ISIS files because ISIS was not enabled in the build!.\n");
 
 } // End function load_isis_camera_model()
+
+// Load an optical bar camera file
+boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_optical_bar_camera_model(std::string const& path) const
+{
+  return CameraModelPtr(new asp::camera::OpticalBarModel(path));
+}
+
 /*
 // Load a CSM camera file
 boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_csm_camera_model(std::string const& path) const
