@@ -481,7 +481,6 @@ int update_outliers(ControlNetwork   & cnet,
                                 // outputs
                                 mean_residuals, num_point_observations);
 
-
   // The number of mean residuals is the same as the number of points,
   // of which some are outliers. Hence need to collect only the
   // non-outliers so far to be able to remove new outliers.  Need to

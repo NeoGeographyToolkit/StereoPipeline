@@ -46,10 +46,10 @@ using namespace vw::cartography;
 
 struct Options : public vw::cartography::GdalWriteOptions {
   string image_file, camera_file, lon_lat_corners, datum_str, reference_dem, frame_index, gcp_file;
-  double focal_length;
+  double focal_length, gcp_std;
   Vector2 optical_center;
   std::vector<double> image_corners;
-  Options(): focal_length(-1) {}
+  Options(): focal_length(-1), gcp_std(1) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -68,7 +68,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("frame-index", po::value(&opt.frame_index)->default_value(""),
      "A file used to look up the longitude and latitude of image corners based on the image name, in the format provided by the SkyBox video product.")
     ("gcp-file", po::value(&opt.gcp_file)->default_value(""),
-     "If provided, save the image corner coordinates and heights in the GCP format to this file.");
+     "If provided, save the image corner coordinates and heights in the GCP format to this file.")
+    ("gcp-std", po::value(&opt.gcp_std)->default_value(1),
+     "The standard deviation for each GCP pixel, if saving a GCP file. A smaller value suggests a more reliable measurement, hence will be given more weight.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -104,7 +106,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.reference_dem.empty() && opt.datum_str.empty())
     vw_throw( ArgumentErr() << "Must provide either a reference DEM or a datum.\n"
 	      << usage << general_options );
-    
+
+  if (opt.gcp_std <= 0) 
+    vw_throw( ArgumentErr() << "The GCP standard deviation must be positive.\n"
+	      << usage << general_options );
+  
   // Parse the image corners
   opt.image_corners.clear();
   std::string oldStr = ",", newStr = " ";
@@ -204,6 +210,7 @@ int main( int argc, char *argv[] ) {
     vw::cartography::Datum datum;
     GeoReference geo;
     ImageView<float> dem;
+    float nodata_value = -std::numeric_limits<float>::max(); 
     bool has_dem = false;
     if (opt.reference_dem != "") {
       dem = DiskImageView<float>(opt.reference_dem);
@@ -214,6 +221,8 @@ int main( int argc, char *argv[] ) {
 
       datum = geo.datum(); // Read this in for completeness
       has_dem = true;
+      vw::read_nodata_val(opt.reference_dem, nodata_value);
+      vw_out() << "Using nodata: value: " << nodata_value << std::endl;
     }else{
       datum = vw::cartography::Datum(opt.datum_str); 
       vw_out() << "No reference DEM provided. Will use zero heights above the datum:\n" <<
@@ -221,20 +230,9 @@ int main( int argc, char *argv[] ) {
     }
 
     // Prepare the DEM for interpolation
-    ImageViewRef<float> interp_dem = interpolate(dem, BilinearInterpolation(), ZeroEdgeExtension());
+    ImageViewRef< PixelMask<float> > interp_dem
+      = interpolate(create_mask(dem, nodata_value), BilinearInterpolation(), ZeroEdgeExtension());
     
-    //double v[] = {-122.389,37.6273,-122.354,37.626,-122.358,37.6125,-122.393,37.6138};
-    //double v[] = {-122.386,37.626,-122.358,37.6223,-122.361,37.6128,-122.389,37.6165}; // img1
-    //double v[] = {-122.387,37.6263,-122.357,37.6231,-122.36,37.6129,-122.39,37.6161};  // img2
-    //double v[] = {-122.387,37.6268,-122.356,37.6241,-122.359,37.6131,-122.39,37.6157}; // img3
-    //double  v[] = {-122.388,37.627,-122.355,37.625,-122.359,37.6128,-122.392,37.6149}; // img4
-    //double v[] = {-122.389,37.6273,-122.354,37.626,-122.358,37.6125,-122.393,37.6138}; // img5
-    //double v1[] = {-106.101,39.4792,-106.064,39.4809,-106.068,39.4680,-106.105,39.4665}; // v1
-    //double v2[] = {-106.103,39.4786,-106.061,39.4844,-106.066,39.4683,-106.107,39.4641}; // v2
-    //double v3[] = {-106.105,39.478,-106.0570,39.4885,-106.064,39.4683,-106.111,39.4596}; // v3
-    //double v4[] = {-106.107,39.4788,-106.053,39.4941,-106.061,39.4687,-106.114,39.4558}; // v4
-    //double v5[] = {-106.109,39.4808,-106.048,39.5016,-106.058,39.4689,-106.117,39.4526}; // v5
-
     DiskImageView<float> img(opt.image_file);
     int wid = img.cols(), hgt = img.rows();
     if (wid <= 0 || hgt <= 0) 
@@ -252,7 +250,7 @@ int main( int argc, char *argv[] ) {
 
     double corner_x[] = {0, wid, wid, 0};
     double corner_y[] = {0, 0,   hgt, hgt};
-  
+
     for (size_t corner_it = 0; corner_it < 4; corner_it++) {
 
       // Get the height from the DEM if possible
@@ -260,12 +258,19 @@ int main( int argc, char *argv[] ) {
       llh[1] = opt.image_corners[2*corner_it+1];
       double height = 0.0;
       if (has_dem) {
+        bool success = false; 
 	pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
 	if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - BilinearInterpolation::pixel_buffer &&
 	    pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - BilinearInterpolation::pixel_buffer) {
-	  height = interp_dem(pix[0], pix[1]);
-	}else
-	  vw_out() << "Out of bounds for the DEM, will use a height of 0 above the datum.";
+	  PixelMask<float> masked_height = interp_dem(pix[0], pix[1]);
+          if (is_valid(masked_height)) {
+            height = masked_height.child();
+            success = true;
+          }
+        }
+        if (!success) 
+          vw_out() << "Could not determine a valid height value for the given corner. "
+                   << "Will use height = " << height << ".\n";
       }
       
       llh[2] = height;
@@ -280,15 +285,8 @@ int main( int argc, char *argv[] ) {
         gcp << corner_it << ' ' << llh[1] << ' ' << llh[0] << ' ' << llh[2] << ' '
             << 1 << ' ' << 1 << ' ' << 1 << ' ' << opt.image_file << ' '
             << corner_x[corner_it] << ' ' << corner_y[corner_it] << ' '
-            << 1 << ' ' << 1 << std::endl;
+            << opt.gcp_std << ' ' << opt.gcp_std << std::endl;
     }
-    
-    // We know that the satellite is at 502.689 km above ground.
-    // The swath length is 2.5 km which is 2560 pixels.
-    // This implies a focal length in pixels of
-    // f = 502.689 * 2560 / 2.5 = 514753.536
-    // If we divide focal length = 3.6 m by pixel pitch of
-    // of 6.5 * 1e-6 m, we get 553846.153846. We will use this one.
     
     // We scaled the focal length by pixel pitch, so we assume the pixel pitch to be 1.
     double pixel_pitch = 1.0; 
