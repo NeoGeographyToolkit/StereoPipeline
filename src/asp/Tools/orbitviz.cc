@@ -17,11 +17,7 @@
 
 
 /// \file orbitviz.cc
-///
-
-/************************************************************************
- *     File: orbitviz.cc
- ************************************************************************/
+/// Show the positions of the cameras above the planet in kml format.
 
 #include <vw/FileIO/KML.h>
 #include <vw/InterestPoint/InterestData.h>
@@ -217,11 +213,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("output,o",                po::value(&opt.out_file)->default_value("orbit.kml"),
-          "The output kml file that will be written")
+          "The output kml file that will be written.")
     ("reference-spheroid,r",    po::value(&opt.datum)->default_value("WGS_1984"),
      "Use this reference spheroid (datum). Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model),
-          "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
+          "Instead of using an icon to mark a camera, use a 3D model with extension .dae.")
     ("linescan-line",          po::value(&opt.linescan_line)->default_value(0),
           "Show the position of the camera when this line was captured.")
     ("hide-labels",             po::bool_switch(&opt.hide_labels)->default_value(false)->implicit_value(true),
@@ -299,8 +295,8 @@ int main(int argc, char* argv[]) {
     // Prepare output directory
     vw::create_out_dir(opt.out_file);
     
-    // Create the KML file.
-    KMLFile kml( opt.out_file, "orbitviz" );
+    // Create the KML file. The KML title comes from the output file name.
+    KMLFile kml( opt.out_file, strip_directory_and_extension(opt.out_file));
 
     // Style listing
     if ( opt.path_to_outside_model.empty() ) {
