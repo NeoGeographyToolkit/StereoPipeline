@@ -655,8 +655,6 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
 
     // Make a clean copy of the file
     match_file = fs::path(match_file).replace_extension("").string();
-    if (!match_file.empty())
-      match_file.resize(match_file.size()-1); // wipe the dot
     match_file += "-clean.match";
     
     vw_out() << "Writing: " << match_file << std::endl;
