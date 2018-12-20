@@ -475,7 +475,8 @@ bundle_adjust img.tif init.tsai gcp.gcp -o ba/run --datum WGS84 \
    --create-pinhole-cameras --camera-weight 0 --max-iterations 0
 \end{verbatim}
 
-which will write the desired correctly oriented camera file. 
+which will write the desired correctly oriented camera file. Using a positive
+number of iterations will refine the camera. 
 
 \section{Solving For Intrinsic Camera Parameters}
 \label{findintrinsics}

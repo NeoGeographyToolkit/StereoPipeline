@@ -714,8 +714,7 @@ When matching IP, filter out any pairs with a triangulation error higher than th
 \\ \hline
 
 \texttt{-\/-num-passes \textit{integer(=1)}} &
-How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using -\/-remove-outliers-params and -\/-remove-outliers-by-disparity-params, and re-optimization will take place. The match files will be overwritten with the outliers removed. Residual files with the outliers removed will be written to disk.
-\\ \hline
+How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using -\/-remove-outliers-params and -\/-remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.\\ \hline
 
 \texttt{-\/-remove-outliers-params \textit{'pct factor err1 err2'}} &
 Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.\\ \hline
@@ -1730,7 +1729,8 @@ Options & Description \\ \hline \hline
 \label{orbitviz}
 
 Produces a Google Earth \ac{KML} file useful for visualizing camera
-positions. The input for this tool is one or image and camera files.
+positions. The input for this tool is one or more images and camera
+files.
 
 \begin{figure}[!b]
   \begin{center}
@@ -1758,9 +1758,9 @@ Usage:
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
 
-\texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & The output kml file that will be written \\ \hline
+\texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & The output kml file that will be written. \\ \hline
 
-\texttt{-\/-model-scale | -s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to Earth size, use 3.66 \\ \hline
+\texttt{-\/-model-scale | -s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to Earth size, use 3.66. \\ \hline
 
 \texttt{-\/-use-path-to-dae-model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
 

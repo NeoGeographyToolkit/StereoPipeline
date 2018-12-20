@@ -449,7 +449,6 @@ void init_cams(Options & opt, BAParamStorage & param_storage,
   if (opt.initial_transform_file != "")
     apply_transform_to_cameras(opt.initial_transform, param_storage, new_cam_models);
 
-
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);
   for (size_t icam = 0; icam < num_cameras; icam++){

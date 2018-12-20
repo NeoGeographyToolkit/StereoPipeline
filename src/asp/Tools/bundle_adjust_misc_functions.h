@@ -832,8 +832,8 @@ bool init_pinhole_model_with_gcp(boost::shared_ptr<ControlNetwork> const& cnet_p
     if (num_good_gcp < MIN_NUM_GOOD_GCP) {
       vw_out() << "Num GCP       = " << num_gcp         << std::endl;
       vw_out() << "Num valid GCP = " << num_good_gcp    << std::endl;
-      vw_throw( ArgumentErr() << "Not enough valid GCPs for affine transform pinhole initalization!"
-                              << " You may need to use --disable-pinhole-gcp-init\n" );
+      vw_throw( ArgumentErr() << "Not enough valid GCPs for affine transform pinhole initialization."
+                              << " You may need to use --disable-pinhole-gcp-init.\n" );
     }
 
     vw::Matrix<double> points_in(3, num_good_gcp), points_out(3, num_good_gcp);

@@ -652,7 +652,13 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
       // Careful with the line below, it gets used in process_icebridge_batch.py.
       vw_out() << "IP coverage fraction after cleaning = " << ip_coverage << "\n";
     }
-      
+
+    // Make a clean copy of the file
+    match_file = fs::path(match_file).replace_extension("").string();
+    if (!match_file.empty())
+      match_file.resize(match_file.size()-1); // wipe the dot
+    match_file += "-clean.match";
+    
     vw_out() << "Writing: " << match_file << std::endl;
     ip::write_binary_match_file(match_file, left_ip, right_ip);
   }
@@ -1136,15 +1142,17 @@ void do_ba_ceres(Options & opt){
   // point coordinates for the new cameras.
   // - It is ok to leave the original vector of camera models unchanged.
   ba::ControlNetwork cnet2("recompute_points");
-  bool success = vw::ba::build_control_network( true, // Always have input cameras
-                                                cnet2, new_cam_models,
-                                                opt.image_files,
-                                                opt.match_files,
-                                                opt.min_matches,
-                                                opt.min_triangulation_angle*(M_PI/180));
-  if (!success)
-    vw_throw(ArgumentErr() << "Error recomputing point locations!\n");
-
+  vw_out() <<"Updating the control network." << std::endl;
+  /*bool success = */
+  // Building the control network below may fail if there are only GCP,
+  // but we will continue nevertheless.
+  vw::ba::build_control_network( true, // Always have input cameras
+                                 cnet2, new_cam_models,
+                                 opt.image_files,
+                                 opt.match_files,
+                                 opt.min_matches,
+                                 opt.min_triangulation_angle*(M_PI/180));
+  
   // Restore the rest of the cnet object
   vw::ba::add_ground_control_points( (cnet2), opt.gcp_files, opt.datum);
 
@@ -1390,7 +1398,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
             "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("num-passes",           po::value(&opt.num_ba_passes)->default_value(1),
-            "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params and --remove-outliers-by-disparity-params, and re-optimization will take place. The match files will be overwritten with the outliers removed. Residual files with the outliers removed will be written to disk.")
+            "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params and --remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.")
     ("ip-triangulation-max-error",  po::value(&opt.ip_triangulation_max_error)->default_value(-1),
             "When matching IP, filter out any pairs with a triangulation error higher than this.")
     ("remove-outliers-params", 

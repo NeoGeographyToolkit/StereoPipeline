@@ -966,8 +966,8 @@ namespace asp {
     std::string match_file = vw::ip::match_filename(prefix, left_image, right_image);
 
     std::string disp_file = boost::filesystem::path(match_file).replace_extension("").string();
-    if (!disp_file.empty())
-      disp_file.resize(disp_file.size()-1); // wipe the dot
+    //if (!disp_file.empty())
+    //  disp_file.resize(disp_file.size()-1); // wipe the dot
     
     return disp_file + "-unaligned-D.tif";
   }
