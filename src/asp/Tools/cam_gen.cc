@@ -45,11 +45,13 @@ using namespace std;
 using namespace vw::cartography;
 
 struct Options : public vw::cartography::GdalWriteOptions {
-  string image_file, camera_file, lon_lat_corners, datum_str, reference_dem, frame_index, gcp_file;
-  double focal_length, gcp_std;
+  string image_file, camera_file, lon_lat_corners, datum_str,
+    reference_dem, frame_index, gcp_file;
+  double focal_length, gcp_std, height_above_datum;
   Vector2 optical_center;
   std::vector<double> image_corners;
-  Options(): focal_length(-1), gcp_std(1) {}
+  bool refine_camera; 
+  Options(): focal_length(-1), gcp_std(1), height_above_datum(0), refine_camera(false) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -60,11 +62,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("datum", po::value(&opt.datum_str)->default_value(""),
      "Use this datum to interpret the longitude and latitude. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("reference-dem", po::value(&opt.reference_dem)->default_value(""),
-     "Use this DEM to infer the heights above datum of the image corners. Assume zero height if not provided.")
+     "Use this DEM to infer the heights above datum of the image corners.")
+    ("height-above-datum", po::value(&opt.height_above_datum)->default_value(0),
+     "Assume this height above datum in meters for the image corners unless read from the DEM.")
     ("focal-length", po::value(&opt.focal_length)->default_value(0),
      "The camera focal length, in pixels.")
     ("optical-center", po::value(&opt.optical_center)->default_value(Vector2i(0,0),"0 0"),
      "The camera optical center, in pixels.")
+    ("refine-camera", po::bool_switch(&opt.refine_camera)->default_value(false),
+     "After a rough initial camera is obtained, refine it using least squares (normally bundle_adjust would be better at refining it using this tool's output GCP than what this tool does).")
     ("frame-index", po::value(&opt.frame_index)->default_value(""),
      "A file used to look up the longitude and latitude of image corners based on the image name, in the format provided by the SkyBox video product.")
     ("gcp-file", po::value(&opt.gcp_file)->default_value(""),
@@ -222,11 +228,12 @@ int main( int argc, char *argv[] ) {
       datum = geo.datum(); // Read this in for completeness
       has_dem = true;
       vw::read_nodata_val(opt.reference_dem, nodata_value);
-      vw_out() << "Using nodata: value: " << nodata_value << std::endl;
+      vw_out() << "Using nodata value: " << nodata_value << std::endl;
     }else{
       datum = vw::cartography::Datum(opt.datum_str); 
-      vw_out() << "No reference DEM provided. Will use zero heights above the datum:\n" <<
-	datum << std::endl;
+      vw_out() << "No reference DEM provided. Will use a height of "
+               << opt.height_above_datum << " above the datum:\n" 
+               << datum << std::endl;
     }
 
     // Prepare the DEM for interpolation
@@ -256,12 +263,13 @@ int main( int argc, char *argv[] ) {
       // Get the height from the DEM if possible
       llh[0] = opt.image_corners[2*corner_it+0];
       llh[1] = opt.image_corners[2*corner_it+1];
-      double height = 0.0;
+      double height = opt.height_above_datum;
       if (has_dem) {
         bool success = false; 
 	pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
-	if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - BilinearInterpolation::pixel_buffer &&
-	    pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - BilinearInterpolation::pixel_buffer) {
+        int len =  BilinearInterpolation::pixel_buffer;
+	if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - len &&
+	    pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - len) {
 	  PixelMask<float> masked_height = interp_dem(pix[0], pix[1]);
           if (is_valid(masked_height)) {
             height = masked_height.child();
@@ -269,12 +277,12 @@ int main( int argc, char *argv[] ) {
           }
         }
         if (!success) 
-          vw_out() << "Could not determine a valid height value for the given corner. "
-                   << "Will use height = " << height << ".\n";
+          vw_out() << "Could not determine a valid height value for the next corner. "
+                   << "Will use a height of " << height << ".\n";
       }
       
       llh[2] = height;
-      vw_out() << "Lon-lat-height for corner: ("
+      vw_out() << "Lon-lat-height for corner ("
 	       << corner_x[corner_it] << ' ' << corner_y[corner_it] << ") is "
 	       << llh[0] << ' ' << llh[1] << ' ' << llh[2] << std::endl;
     
@@ -322,36 +330,48 @@ int main( int argc, char *argv[] ) {
     asp::find_3D_affine_transform(in, out, rotation, ctr, scale);
     cam.apply_transform(rotation, ctr, scale);
 
-    // Solve a little optimization problem to make the points on the ground project
-    // as much as possible exactly into the image corners.
-    Vector<double, 8> pixel_vec;
-    for (size_t corner_it = 0; corner_it < 4; corner_it++) {
-      pixel_vec[2*corner_it+0] = corner_x[corner_it];
-      pixel_vec[2*corner_it+1] = corner_y[corner_it];
-    }
-    CameraSolveLMA lma_model(xyz_vec, cam);
-    Vector<double> seed;
-    camera_to_vector(cam, seed);
-    const double abs_tolerance  = 1e-24;
-    const double rel_tolerance  = 1e-24;
-    const int    max_iterations = 2000;
-    int status = 0;
-    Vector<double> final_params;
-    final_params = math::levenberg_marquardt(lma_model, seed, pixel_vec,
-                                             status, abs_tolerance, rel_tolerance,
-                                             max_iterations);
-    if (status < 1)
-      vw_out() << "The Levenberg-Marquardt solver failed. Results may be inaccurate.\n";
-    vector_to_camera(cam, final_params);
-
     vw_out() << "The error between the projection of each ground "
-             << "corner point into the camera and its pixel value:\n";
+             << "corner point into the coarse camera and its pixel value:\n";
     for (size_t corner_it = 0; corner_it < 4; corner_it++) {
       vw_out () << "Corner and error: ("
                 << corner_x[corner_it] << ' ' << corner_y[corner_it]
                 << ") " <<  norm_2(cam.point_to_pixel(xyz_vec[corner_it]) -
                                    Vector2( corner_x[corner_it],  corner_y[corner_it]))
                 << std::endl;
+    }
+    
+    // Solve a little optimization problem to make the points on the ground project
+    // as much as possible exactly into the image corners.
+    if (opt.refine_camera) {
+      Vector<double, 8> pixel_vec;
+      for (size_t corner_it = 0; corner_it < 4; corner_it++) {
+        pixel_vec[2*corner_it+0] = corner_x[corner_it];
+        pixel_vec[2*corner_it+1] = corner_y[corner_it];
+      }
+      CameraSolveLMA lma_model(xyz_vec, cam);
+      Vector<double> seed;
+      camera_to_vector(cam, seed);
+      const double abs_tolerance  = 1e-24;
+      const double rel_tolerance  = 1e-24;
+      const int    max_iterations = 2000;
+      int status = 0;
+      Vector<double> final_params;
+      final_params = math::levenberg_marquardt(lma_model, seed, pixel_vec,
+                                               status, abs_tolerance, rel_tolerance,
+                                               max_iterations);
+      if (status < 1)
+        vw_out() << "The Levenberg-Marquardt solver failed. Results may be inaccurate.\n";
+      vector_to_camera(cam, final_params);
+
+      vw_out() << "The error between the projection of each ground "
+               << "corner point into the refined camera and its pixel value:\n";
+      for (size_t corner_it = 0; corner_it < 4; corner_it++) {
+        vw_out () << "Corner and error: ("
+                  << corner_x[corner_it] << ' ' << corner_y[corner_it]
+                  << ") " <<  norm_2(cam.point_to_pixel(xyz_vec[corner_it]) -
+                                     Vector2( corner_x[corner_it],  corner_y[corner_it]))
+                  << std::endl;
+      }
     }
     
     std::cout << "Writing: " << opt.camera_file << std::endl;
