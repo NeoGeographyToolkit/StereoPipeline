@@ -47,11 +47,11 @@ using namespace vw::cartography;
 struct Options : public vw::cartography::GdalWriteOptions {
   string image_file, camera_file, lon_lat_corners, datum_str,
     reference_dem, frame_index, gcp_file;
-  double focal_length, gcp_std, height_above_datum;
+  double focal_length, pixel_pitch, gcp_std, height_above_datum;
   Vector2 optical_center;
   std::vector<double> image_corners;
   bool refine_camera; 
-  Options(): focal_length(-1), gcp_std(1), height_above_datum(0), refine_camera(false) {}
+  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -59,20 +59,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   general_options.add_options()
     ("output-camera-file,o", po::value(&opt.camera_file), "Specify the output camera file with a .tsai extension.")
     ("lon-lat-corners", po::value(&opt.lon_lat_corners)->default_value(""), "A (quoted) string listing eight numbers, separated by commas or spaces, having the longitude and latitude (in this order) of each image corner. The corners are traversed in the order 0,0 w,0, w,h, 0,h where w and h are the image width and height.")
-    ("datum", po::value(&opt.datum_str)->default_value(""),
-     "Use this datum to interpret the longitude and latitude. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("reference-dem", po::value(&opt.reference_dem)->default_value(""),
      "Use this DEM to infer the heights above datum of the image corners.")
+    ("datum", po::value(&opt.datum_str)->default_value(""),
+     "Use this datum to interpret the longitude and latitude, unless a DEM is given. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("height-above-datum", po::value(&opt.height_above_datum)->default_value(0),
      "Assume this height above datum in meters for the image corners unless read from the DEM.")
     ("focal-length", po::value(&opt.focal_length)->default_value(0),
-     "The camera focal length, in pixels.")
+     "The camera focal length.")
     ("optical-center", po::value(&opt.optical_center)->default_value(Vector2i(0,0),"0 0"),
-     "The camera optical center, in pixels.")
+     "The camera optical center.")
+    ("pixel-pitch", po::value(&opt.pixel_pitch)->default_value(0),
+     "The pixel pitch.")
     ("refine-camera", po::bool_switch(&opt.refine_camera)->default_value(false),
-     "After a rough initial camera is obtained, refine it using least squares (normally bundle_adjust would be better at refining it using this tool's output GCP than what this tool does).")
+     "After a rough initial camera is obtained, refine it using least squares.")
     ("frame-index", po::value(&opt.frame_index)->default_value(""),
-     "A file used to look up the longitude and latitude of image corners based on the image name, in the format provided by the SkyBox video product.")
+     "A file used to look up the longitude and latitude of image corners based on the image name, in the format provided by the SkySat video product.")
     ("gcp-file", po::value(&opt.gcp_file)->default_value(""),
      "If provided, save the image corner coordinates and heights in the GCP format to this file.")
     ("gcp-std", po::value(&opt.gcp_std)->default_value(1),
@@ -116,7 +118,39 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.gcp_std <= 0) 
     vw_throw( ArgumentErr() << "The GCP standard deviation must be positive.\n"
 	      << usage << general_options );
-  
+
+  if (opt.frame_index != "" && opt.lon_lat_corners != "") 
+    vw_throw( ArgumentErr() << "Cannot specify both the frame index file and the lon-lat corners.\n"
+	      << usage << general_options );
+
+  if (opt.frame_index != "") {
+    // Parse the frame index to extract opt.lon_lat_corners.
+    // Look for a line having this image, and search for 
+    boost::filesystem::path p(opt.image_file); 
+    std::string image_base = p.stem().string(); // strip the directory name and suffix
+    std::ifstream file( opt.frame_index.c_str() );
+    std::string line;
+    std::string beg = "POLYGON((";
+    std::string end = "))";
+    while ( getline(file, line, '\n') ) {
+      if (line.find(image_base) == 0) {
+        int beg_pos = line.find(beg);
+        if (beg_pos == std::string::npos)
+          vw_throw( ArgumentErr() << "Cannot find " << beg << " in line: " << line << ".\n");
+        beg_pos += beg.size();
+        int end_pos = line.find(end);
+        if (end_pos == std::string::npos)
+          vw_throw( ArgumentErr() << "Cannot find " << end << " in line: " << line << ".\n");
+        opt.lon_lat_corners = line.substr(beg_pos, end_pos - beg_pos);
+        vw_out() << "Scanned the lon-lat corners: " << opt.lon_lat_corners << std::endl;
+        break;
+      }
+    }
+    if (opt.lon_lat_corners == "")
+      vw_throw( ArgumentErr() << "Could not parse the entry for " << image_base
+                << " in file: " << opt.frame_index << ".\n");
+  }
+    
   // Parse the image corners
   opt.image_corners.clear();
   std::string oldStr = ",", newStr = " ";
@@ -133,10 +167,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Expecting 8 values for the image corners.\n"
 	      << usage << general_options );
 
-
-  if (opt.focal_length <= 0 || opt.optical_center[0] <= 0 || opt.optical_center[1] <= 0) 
-    vw_throw( ArgumentErr() << "Must provide positive focal length and optical center values.\n"
-	      << usage << general_options );
+  if (opt.focal_length <= 0 || opt.optical_center[0] <= 0 || opt.optical_center[1] <= 0 ||
+      opt.pixel_pitch <= 0) 
+    vw_throw( ArgumentErr() << "Must provide positive focal length, optical center, "
+              << "and pixel pitch values.\n" << usage << general_options );
   
   // Create the output directory
   vw::create_out_dir(opt.camera_file);
@@ -263,6 +297,9 @@ int main( int argc, char *argv[] ) {
       // Get the height from the DEM if possible
       llh[0] = opt.image_corners[2*corner_it+0];
       llh[1] = opt.image_corners[2*corner_it+1];
+      if (llh[1] < -90 || llh[1] > 90) 
+        vw_throw( ArgumentErr() << "Detected a latitude out of bounds. "
+                  << "Perhaps the longitude and latitude are reversed?\n");
       double height = opt.height_above_datum;
       if (has_dem) {
         bool success = false; 
@@ -296,16 +333,13 @@ int main( int argc, char *argv[] ) {
             << opt.gcp_std << ' ' << opt.gcp_std << std::endl;
     }
     
-    // We scaled the focal length by pixel pitch, so we assume the pixel pitch to be 1.
-    double pixel_pitch = 1.0; 
-
     // Prepare a pinhole camera model with desired intrinsics but with
     // trivial position and orientation.
     Vector3 ctr(0, 0, 0);
     Matrix<double, 3, 3> rotation;
     rotation.set_identity();
     PinholeModel cam(ctr, rotation, opt.focal_length, opt.focal_length,
-		     opt.optical_center[0], opt.optical_center[1], NULL, pixel_pitch);
+		     opt.optical_center[0], opt.optical_center[1], NULL, opt.pixel_pitch);
 
     // This is needed only for weird reflections
     //Vector3 u_vec, v_vec, w_vec;
@@ -330,6 +364,7 @@ int main( int argc, char *argv[] ) {
     asp::find_3D_affine_transform(in, out, rotation, ctr, scale);
     cam.apply_transform(rotation, ctr, scale);
 
+    // Print out some errors
     vw_out() << "The error between the projection of each ground "
              << "corner point into the coarse camera and its pixel value:\n";
     for (size_t corner_it = 0; corner_it < 4; corner_it++) {
@@ -374,7 +409,7 @@ int main( int argc, char *argv[] ) {
       }
     }
     
-    std::cout << "Writing: " << opt.camera_file << std::endl;
+    vw_out() << "Writing: " << opt.camera_file << std::endl;
     cam.write(opt.camera_file);
 
     if (write_gcp) {

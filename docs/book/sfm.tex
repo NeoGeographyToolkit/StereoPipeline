@@ -478,6 +478,10 @@ bundle_adjust img.tif init.tsai gcp.gcp -o ba/run --datum WGS84 \
 which will write the desired correctly oriented camera file. Using a positive
 number of iterations will refine the camera. 
 
+ASP provides a tool named \texttt{cam\_gen} which can also create a 
+pinhole camera as above, and, in addition, is able to extract the heights of the 
+corners from a DEM (section \ref{camgen}).
+
 \section{Solving For Intrinsic Camera Parameters}
 \label{findintrinsics}
 
@@ -498,11 +502,14 @@ just \texttt{bundle\_adjust} can be called using the camera models found
 earlier, with the options to float some of the intrinsics, that is using
 \texttt{-\/-solve-intrinsics} and \texttt{-\/-intrinsics-to-float}.
 
-If the overall results look good, but the intersection error after invoking \texttt{point2dem} around the image corners
-looks large, it is time to use some distortion model and float it, again using \texttt{bundle\_adjust}. 
-Sometimes if invoking this tool over many iterations the optical center and focal length may drift, and hence it may be
-helpful to have them fixed while solving for distortion. 
+If the overall results look good, but the intersection error after
+invoking \texttt{point2dem} around the image corners looks large, it is
+time to use some distortion model and float it, again using
+\texttt{bundle\_adjust}. Sometimes if invoking this tool over many
+iterations the optical center and focal length may drift, and hence it
+may be helpful to have them fixed while solving for distortion.
 
-If a pre-existing DEM is available, the tool \texttt{geodiff} can be used to compare it with what ASP is creating. 
+If a pre-existing DEM is available, the tool \texttt{geodiff} can be
+used to compare it with what ASP is creating.
 
 Such a pre-existing DEM can be used as a constraint when solving for intrinsics, as described in section \ref{floatingintrinsics}.

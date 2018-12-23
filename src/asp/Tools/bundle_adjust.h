@@ -57,7 +57,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string cnet_file, out_prefix, input_prefix, stereo_session_string,
     cost_function, mapprojected_data, gcp_data;
   int    ip_per_tile, ip_edge_buffer_percent;
-  double min_triangulation_angle, lambda, camera_weight, rotation_weight, 
+  double min_triangulation_angle, forced_triangulation_distance,
+    lambda, camera_weight, rotation_weight, 
     translation_weight, overlap_exponent, robust_threshold, parameter_tolerance,
     ip_triangulation_max_error;
   int    report_level, min_matches, max_iterations, overlap_limit;
@@ -79,7 +80,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error,
     reference_terrain_weight;
-  bool   skip_rough_homography, individually_normalize, use_llh_error, save_cnet_as_csv;
+  bool   skip_rough_homography, individually_normalize, use_llh_error,
+    force_reuse_match_files, save_cnet_as_csv;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
   vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   std::string           overlap_list_file;
@@ -92,7 +94,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   
   // Make sure all values are initialized, even though they will be
   // over-written later.
-  Options(): ip_per_tile(0), min_triangulation_angle(0), lambda(-1.0), camera_weight(-1),
+  Options(): ip_per_tile(0), min_triangulation_angle(0), forced_triangulation_distance(-1),
+             lambda(-1.0), camera_weight(-1),
              rotation_weight(0), translation_weight(0), overlap_exponent(0), 
              robust_threshold(0), report_level(0), min_matches(0),
              max_iterations(0), overlap_limit(0), save_iteration(false),
@@ -102,7 +105,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              datum(vw::cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                                           "Reference Meridian", 1, 1, 0)),
              ip_detect_method(0), num_scales(-1), skip_rough_homography(false),
-             individually_normalize(false), use_llh_error(false){}
+             individually_normalize(false), use_llh_error(false), force_reuse_match_files(false){}
 
   /// Duplicate info to asp settings where it needs to go.
   void copy_to_asp_settings() const{
@@ -116,6 +119,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     asp::stereo_settings().elevation_limit            = elevation_limit;
     asp::stereo_settings().lon_lat_limit              = lon_lat_limit;
     asp::stereo_settings().individually_normalize     = individually_normalize;
+    asp::stereo_settings().force_reuse_match_files    = force_reuse_match_files;
     asp::stereo_settings().min_triangulation_angle    = min_triangulation_angle;
     asp::stereo_settings().ip_triangulation_max_error = ip_triangulation_max_error;
     asp::stereo_settings().disable_tri_filtering      = disable_tri_filtering;

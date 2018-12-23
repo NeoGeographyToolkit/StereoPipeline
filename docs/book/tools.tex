@@ -763,6 +763,9 @@ initialization process is not producing good results. \\ \hline
 If estimated camera positions are used, this option can be used to set a threshold distance in meters
 between the cameras.  If any pair of cameras is farther apart than this distance, the tool will not
 attempt to find matching interest points between those two cameras.
+
+\texttt{-\/-force-reuse-match-files} &
+Force reusing the match files even if older than the images or cameras.
 \\ \hline
 
 \texttt{-\/-mapprojected-data \textit{string}} &
@@ -2277,6 +2280,7 @@ rotation change at each iteration) is saved to disk and can be used to
 fine-tune the stopping criteria.
 
 \subsection{Manual alignment}
+\label{manual-align}
 
 If automatic alignment fails, for example, if the clouds are too
 different, or they differ by a scale factor, a manual alignment can be
@@ -3359,6 +3363,110 @@ consecutive pixels to sample. Default: 50. \\ \hline
 
 \clearpage
 
+\section{cam\_gen}
+\label{camgen}
+
+This tool will create a Pinhole camera model given camera's optical
+center, focal length, pixel pitch, the longitude-latitude coordinates of the camera
+image corners projected onto a DEM, and the DEM itself. A datum (and a
+height above it) can be used instead of the DEM. Normally all these inputs
+are known only approximately, so the output camera model will not be quite precise either,
+yet it could be good enough to refine later with bundle adjustment, which can also
+make use of the GCP file that this tool creates. 
+
+This program can be used with historical images for which camera position and orientation
+is not known. If the corners of the image on the ground are not known, they could be guessed
+in Google Earth. A good DEM to infer the heights from, at least for Earth,
+is the SRTM dataset. Section \ref{sec:skysat} makes use of \texttt{cam\_gen} for SkySat images.
+
+Usage:
+\begin{verbatim}
+   cam_gen [options] <image-file> -o <camera-file>
+\end{verbatim}
+
+Example:
+\begin{verbatim}
+  cam_gen --refine-camera --lon-lat-corners                               \
+    '-122.389 37.6273,-122.354 37.626,-122.358 37.6125,-122.393 37.6138'  \
+     --reference-dem dem.tif --focal-length 553846.153846                 \
+     --optical-center 1280 540 --pixel-pitch 1                            \
+     img.tif -o img.tsai --gcp-file img.gcp --gcp-std 1e-2                \
+\end{verbatim} % $ a fake dollar to make emacs not complain
+
+Here we assume that the pixel pitch is 1, hence both the focal length and the optical
+center are in units of pixels. If the focal length and pixel pitch are given in meters,
+and one assumes the optical center to be the center of the image, then the optical
+center passed to this tool should be half of the image width and height, with both
+multiplied by the pixel pitch, to make them in meters as well. 
+
+It is strongly suggested to mapproject the image onto the obtained camera to verify
+if it projects where expected:
+\begin{verbatim}
+  mapproject dem.tif img.tif img.tsai img_map.tif
+\end{verbatim}
+
+The output \texttt{img\_map.tif} can be overlayed onto the hillshaded DEM in 
+\texttt{stereo\_gui}.
+
+The camera obtained using this tool (whether with or without the
+\texttt{-\/-refine-camera} option) can be further optimized in
+\texttt{bundle\_adjust} using the GCP file written above as follows:
+
+\begin{verbatim}
+  bundle_adjust img.tif img.tsai img.gcp -o run/run --datum WGS84 \
+    --create-pinhole-cameras --robust-threshold 10000
+\end{verbatim}
+
+It is important to look at the residual file
+\begin{verbatim}
+  run/run-final_residuals_no_loss_function_pointmap_point_log.csv
+\end{verbatim}
+
+after this. The third column in this file is the optimized heights
+above the datum, while the fourth column has the reprojection errors
+from the corners on the ground into the camera. If invoked with a small
+value for the robust threshold, bundle adjustment tends to optimize only
+some of the corners and ignore the others, resulting in a large
+reprojection error, which is not desirable. One can also use the bundle
+adjustment option \texttt{-\/-fix-gcp-xyz} to not move the GCP during
+optimization, hence forcing the camera to move more to conform to them.
+
+One can invoke \texttt{orbitviz} as:
+\begin{verbatim}
+  orbitviz img.tif img.tsai -o orbit.kml
+\end{verbatim}
+
+to visualize the computed camera above the ground in Google Earth. 
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for cam\_gen.}
+\label{tbl:cam_gen}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-o | -\/-output-camera-file \textit{string}} & Specify the output camera file with a .tsai extension.\\ \hline
+\texttt{-\/-lon-lat-corners \textit{string} } & A (quoted) string listing eight numbers, separated by commas or spaces, having the longitude and latitude (in this order) of each image corner. The corners are traversed in the order 0,0 w,0, w,h, 0,h where w and h are the image width and height.\\ \hline
+\texttt{-\/-reference-dem \textit{string} } & Use this DEM to infer the heights above datum of the image corners.\\ \hline
+\texttt{-\/-datum \textit{string} } & Use this datum to interpret the longitude and latitude, unless a DEM is given. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON).\\ \hline
+\texttt{-\/-height-above-datum arg \textit{double(=0)} } & Assume this height above datum in meters for the image corners unless read from the DEM.\\ \hline
+\texttt{-\/-focal-length \textit{double(=0)} } & The camera focal length.\\ \hline
+\texttt{-\/-optical-center \textit{double(=0 0)}} & The camera optical center.\\ \hline
+\texttt{-\/-pixel-pitch \textit{double(=0)} } & The camera pixel pitch. \\ \hline
+\texttt{-\/-refine-camera} & After a rough initial camera is obtained, refine it using least squares.\\ \hline
+\texttt{-\/-frame-index \textit{string} } & A file used to look up the longitude and latitude of image corners based on the image name, in the format provided by the SkySat video product.\\ \hline
+\texttt{-\/-gcp-file \textit{string} } & If provided, save the image corner coordinates and heights in the GCP format to this file.\\ \hline
+\texttt{-\/-gcp-std arg \textit{double(=1)} } & The standard deviation for each GCP pixel, if saving a GCP file. A smaller value suggests a more reliable measurement, hence will be given more weight.\\ \hline
+\texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
+\texttt{-\/-tile-size \textit{integer(=256, 256)} } &
+ Image tile size used for multi-threaded processing.\\ \hline
+\texttt{-\/-no-bigtiff } & Tell GDAL to not create bigtiffs.\\ \hline
+\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
+\texttt{-v | -\/-version  } & Display the version of software.\\ \hline
+\texttt{-h | -\/-help  } & Display this help message.\\ \hline
+\end{longtable}
 
 \section{ipfind}
 \label{ipfind}
@@ -3389,7 +3497,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-interest-operator \textit{string} (=sift) } & Choose an interest point detector from: sift (default), orb, OBALoG, LoG, Harris, IAGD.\\ \hline
 \texttt{-\/-descriptor-generator \textit{string} (=sift) } & Choose a descriptor generator from: sift (default), orb, sgrad, sgrad2, patch, pca. Some descriptors work only with certain interest point operators.\\ \hline
 \texttt{-\/-ip-per-image \textit{integer}} & Set the maximum number of IP to find in the whole image. If not specified, use instead --ip-per-tile.\\ \hline
-\texttt{-t | -\/-tile-size  \textit{integer}  } & The tile size for processing interest points. Useful when working with large images. Default: 256.\\ \hline
+\texttt{-t | -\/-tile-size  \textit{integer} } & The tile size for processing interest points. Useful when working with large images. Default: 256.\\ \hline
 \texttt{-\/-ip-per-tile \textit{integer} (=250) } & Set the maximum number of IP to find in each tile. Default: 250.\\ \hline
 \texttt{-g | -\/-gain  \textit{float} (=1) } & Increasing this number will increase the gain at which interest points are detected. Default: 1.\\ \hline
 \texttt{-\/-single-scale  } & Turn off scale-invariant interest point detection. This option only searches for interest points in the first octave of the scale space. Harris and LoG only.\\ \hline
@@ -3397,7 +3505,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-normalize  } & Normalize the input. Use for images that have non-standard values such as ISIS cube files.\\ \hline
 \texttt{-\/-per-tile-normalize  } & Individually normalize each processing tile.\\ \hline
 \texttt{-\/-nodata-radius \textit{integer} (=1) } & Don't detect IP within this many pixels of image borders or nodata. Default: 1.\\ \hline
-\texttt{-\/-output-folder \textit{string}  } & Write output files to this location.\\ \hline
+\texttt{-\/-output-folder \textit{string} } & Write output files to this location.\\ \hline
 \texttt{-\/-num-threads \textit{integer} (=0) } & Set the number of threads for interest point detection. If set to 0 (default), use the visionworkbench default number of threads.\\ \hline
 \texttt{-h | -\/-help   } & Display this help message.\\ \hline
 \texttt{-d | -\/-debug-image  \textit{integer} (=0) } & Write out a low-resolution or full-resolution debug image with interest points on it if the value of this flag is respectively 1 or 2. Default: 0 (do nothing).\\ \hline

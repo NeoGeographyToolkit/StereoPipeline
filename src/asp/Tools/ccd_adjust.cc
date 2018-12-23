@@ -203,10 +203,12 @@ void ccd_adjust(std::vector<std::string> const& image_files,
   double min_angle = 0.1; // in degrees
   ba::ControlNetwork cnet("CcdAdjust");
   bool triangulate_control_points = true;
+  double forced_triangulation_distance = -1;
   bool success = build_control_network(triangulate_control_points,
                                        cnet, // output
                                        camera_models, image_files, match_files, min_matches,
-                                       min_angle*(M_PI/180));
+                                       min_angle*(M_PI/180),
+                                       forced_triangulation_distance);
 
   if (!success)
     vw_throw( ArgumentErr() << "Insufficient number of matches to solve for ccd.\n" );

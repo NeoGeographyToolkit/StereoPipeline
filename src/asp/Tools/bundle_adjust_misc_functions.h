@@ -665,7 +665,8 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
 /// Generate a warning if the GCP's are really far from the IP points
 /// - This is intended to help catch the common lat/lon swap in GCP files.
 void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_models,
-                     boost::shared_ptr<ControlNetwork> const& cnet_ptr) {
+                     boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+                     double forced_triangulation_distance) {
 
     // Make one iteration just to count the points.
     const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
@@ -680,7 +681,8 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
         //   the current set of camera models.
         ControlPoint cp_new = cnet[ipt];
         double minimum_angle = 0;
-        vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle);
+        vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
+                                          forced_triangulation_distance);
         if (cp_new.position() == Vector3())
           continue; // Skip points that fail to triangulate
 
@@ -701,7 +703,8 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
         //   the current set of camera models.
         ControlPoint cp_new = cnet[ipt];
         double minimum_angle = 0;
-        vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle);
+        vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
+                                          forced_triangulation_distance);
         if (cp_new.position() == Vector3())
           continue; // Skip points that fail to triangulate
 
@@ -812,7 +815,9 @@ bool init_pinhole_model_with_gcp(boost::shared_ptr<ControlNetwork> const& cnet_p
       ControlPoint cp_new = cnet[ipt];
       // Making minimum_angle below big may throw away valid points at this stage // really???
       double minimum_angle = 0;
-      double err = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle);
+      double forced_triangulation_distance = -1;
+      double err = vw::ba::triangulate_control_point(cp_new, camera_models,
+                                                     minimum_angle, forced_triangulation_distance);
       if ((cp_new.position() != Vector3()) && (cnet[ipt].position() != Vector3()) &&
           // Note that if there is only one camera, we allow
           // for triangulation to return a half-baked answer,
@@ -849,9 +854,9 @@ bool init_pinhole_model_with_gcp(boost::shared_ptr<ControlNetwork> const& cnet_p
       ControlPoint cp_new = cnet[ipt];
       // Making minimum_angle below big may throw away valid points at this stage // really???
       double minimum_angle = 0;
-      vw::ba::triangulate_control_point(cp_new,
-                                        camera_models,
-                                        minimum_angle);
+      double forced_triangulation_distance = -1;
+      vw::ba::triangulate_control_point(cp_new, camera_models,
+                                        minimum_angle, forced_triangulation_distance);
 
       // Store the computed and correct position of this point in Eigen matrices
       Vector3 inp  = cp_new.position();

@@ -290,7 +290,8 @@ Vector6f StereoSession::gather_stats( vw::ImageViewBase<ViewT> const& view_base,
     cache_path = prefix + '-' + boost::filesystem::path(image_path).stem().string() + "-stats.tif";
 
   // Check if this stats file was computed after any image modifications.
-  if (use_cache && asp::is_latest_timestamp(cache_path, image_path)) {
+  if ((use_cache && asp::is_latest_timestamp(cache_path, image_path)) ||
+      (stereo_settings().force_reuse_match_files && boost::filesystem::exists(cache_path))) {
     vw_out(InfoMessage) << "\t--> Reading statistics from file " + cache_path << std::endl;
     Vector<float32> stats;
     read_vector(stats, cache_path); // Just fetch the stats from the file on disk.

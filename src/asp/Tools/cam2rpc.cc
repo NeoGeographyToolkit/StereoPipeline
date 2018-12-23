@@ -150,7 +150,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                 << usage << general_options );
   }
   
-  vw_out() << "Height range is  " << opt.height_range[0] << ' ' << opt.height_range[1] << std::endl;
+  vw_out() << "Height range is " << opt.height_range[0] << ' ' << opt.height_range[1] << std::endl;
   vw_out() << "Lon-lat range is " << opt.lon_lat_range.min() << ' ' << opt.lon_lat_range.max()
            << std::endl;
 
@@ -303,8 +303,15 @@ int main( int argc, char *argv[] ) {
           
           // Go back to llh. This is a bugfix for the 360 deg offset problem.
           llh = dem_geo.datum().cartesian_to_geodetic(xyz);
+
+          Vector2 cam_pix;
+          try {
+            // the point_to_pixel function can be capricious
+            cam_pix = cam->point_to_pixel(xyz);
+          }catch(...){
+            continue;
+          }
           
-          Vector2 cam_pix = cam->point_to_pixel(xyz);
           if (image_box.contains(cam_pix)) {
             all_llh.push_back(llh);
             all_pixels.push_back(cam_pix);

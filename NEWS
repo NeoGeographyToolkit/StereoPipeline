@@ -1,5 +1,12 @@
 *** RELEASE 2.6.2, Upcoming ***
 
+ - New satellites
+   * Added support for SkyBox, together with a detailed example,
+     including how to jointly align and optimize cameras in respect
+     to a reference DEM, while optionally refining the intrinsics. 
+     This approach may be helpful for other images obtained with frame
+     cameras and uncertain positioning information.
+
  - New tools
    * Added the cam_gen tool to create a correctly oriented pinhole
    * camera model given camera intrinsics, lon-lat coordinates of the
@@ -86,6 +93,9 @@
 - Misc
    * The stereo tools and bundle_adjust will now cache image
      statistics and interest points to files on disk.
+   * In stereo and bundle_adjust, when images or cameras are newer
+     than the match files, the latter get recomputed unless the tools
+     are invoked with --force-reuse-match-files.
 
 *** RELEASE 2.6.1, August 13, 2018 ***
 

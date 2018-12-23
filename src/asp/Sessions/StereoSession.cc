@@ -164,6 +164,10 @@ namespace asp {
     bool rebuild = (!is_latest_timestamp(match_filename, input_file1, input_file2,
                                          m_left_camera_file, m_right_camera_file));
 
+    // We make an exception and not rebuild if explicitly asked
+    if (stereo_settings().force_reuse_match_files && boost::filesystem::exists(match_filename))
+      rebuild = false;
+      
     // If we crop the images we must always create new matching files
     if (!crop_left && !crop_right && !rebuild) {
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";

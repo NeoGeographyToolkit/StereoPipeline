@@ -154,6 +154,8 @@ namespace asp {
        "Skip the step of performing datum-based rough homography if it fails.")
       ("skip-image-normalization", po::bool_switch(&global.skip_image_normalization)->default_value(false)->implicit_value(true),
        "Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.")
+      ("force-reuse-match-files", po::bool_switch(&global.force_reuse_match_files)->default_value(false)->implicit_value(true),
+       "Force reusing the match files even if older than the images or cameras.")
       ("part-of-multiview-run", po::bool_switch(&global.part_of_multiview_run)->default_value(false)->implicit_value(true),
        "If the current run is part of a larger multiview run.")
 //      ("correct-atmospheric-refraction", po::bool_switch(&global.correct_atmospheric_refraction)->default_value(false)->implicit_value(true),

@@ -124,7 +124,7 @@ try setting this value to a small number, perhaps in the low double digits.
 higher factor will result in more interest points, but perhaps also
 more outliers.  It is important to note that this parameter overlaps
 somewhat in scope and effect with \texttt{epipolar-threshold} and
-sometimes not both are active. It is suggested to experiement with both,
+sometimes not both are active. It is suggested to experiment with both,
 as well as with \texttt{ip-uniqueness-threshold} below, which has a
 different justification but also somewhat similar effects.
  
@@ -143,6 +143,9 @@ to use with RPC camera models. Options: WGS\_1984, D\_MOON (1,737,400
 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83,
 WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon
 (=D\_MOON).
+
+\item[force-reuse-match-files]   \hfill \\
+Force reusing the match files even if older than the images or cameras.
 
 \end{description}
 
@@ -399,7 +402,7 @@ should be sufficient in most cases.
   This option determines the size (in pixels) searches around the expected
   disparity location in successive levels of the correlation pyramid.  A smaller
   value will decrease run time and memory usage but will increase the chance of 
-  blunders.  It is not reccomended to reduce either value below 2.
+  blunders.  It is not recommended to reduce either value below 2.
 
 \item[corr-memory-limit-mb \textnormal{\small{(\emph{integer})}} (default = 6144)]\hfill \\
 

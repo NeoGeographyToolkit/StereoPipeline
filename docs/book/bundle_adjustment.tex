@@ -201,13 +201,14 @@ cameras with the optimized extrinsics found earlier, that is:
     -o run_ba_intr/run
 \end{verbatim}
 
-It is important to note that only the non-zero intrinsics will be optimized, and the step size
-used in optimizing a certain intrinsic parameter is proportional to it. Hence,
-if an intrinsic is 0 and it is desired to optimize it, it should be set
-to small non-zero value suggestive of its final estimated scale. If
-the algorithm fails to give a good solution, perhaps different initial values
-for the intrinsics should be tried. For example, one can try changing the sign
-of the initial distortion coefficients, or make their values much smaller.
+It is important to note that only the non-zero intrinsics will be
+optimized, and the step size used in optimizing a certain intrinsic
+parameter is proportional to it. Hence, if an intrinsic is 0 and it is
+desired to optimize it, it should be set to small non-zero value
+suggestive of its final estimated scale. If the algorithm fails to give
+a good solution, perhaps different initial values for the intrinsics
+should be tried. For example, one can try changing the sign of the
+initial distortion coefficients, or make their values much smaller.
 
 Sometimes the camera weight may need to be decreased, even all the way
 to 0, if it appears that the solver is not aggressive enough, or it may
@@ -344,6 +345,14 @@ jointly for all cameras. Hence, one should use a command as follows
 In case it is desired to omit the disparity between one pair
 of images, for example, if they don't overlap, instead of
 the needed unaligned disparity one can put the word \texttt{none} in this list.
+
+Notice that since this joint adjustment was initialized from several stereo pairs,
+the second camera picked above, for example, could have been either the second camera 
+from the first pair, or the first camera from the second pair, so there was a choice
+to make. In section \ref{sec:skysat} an example is shown where a preliminary bundle
+adjustment happens at the beginning, without using a reference terrain, then those
+cameras are jointly aligned to the reference terrain, and then one continues as
+done above, but this time one need not have dealt with individual stereo pairs. 
 
 The option \texttt{-\/-overlap-limit} can be used to control which images should be
 tested for interest point matches, and a good value for it is say 1 if

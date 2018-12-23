@@ -244,6 +244,7 @@ void write_residual_map(std::string const& output_prefix,
                         std::vector<double> const& mean_residuals, // Mean residual of each point
                         std::vector<int   > const& num_point_observations, // Num non-outlier pixels per point
                         BAParamStorage const& param_storage,
+                        ControlNetwork const& cnet,
                         Options const& opt) {
 
   std::string output_path = output_prefix + "_point_log.csv";
@@ -253,8 +254,13 @@ void write_residual_map(std::string const& output_prefix,
     return;
   }
   if (mean_residuals.size() != param_storage.num_points())
-    vw_throw( LogicErr() << "Point count mismatch in write_residual_map!\n");
+    vw_throw( LogicErr() << "Point count mismatch in write_residual_map.\n");
 
+  if (cnet.size() != param_storage.num_points()) 
+    vw_throw( LogicErr()
+              << "The number of stored points "
+              << "does not agree with number of points in cnet.\n");
+  
   // Open the output file and write the header
   vw_out() << "Writing: " << output_path << std::endl;
   
@@ -274,9 +280,12 @@ void write_residual_map(std::string const& output_prefix,
       Vector3 xyz(point[0], point[1], point[2]);
 
       Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
-  
-    file << llh[0] <<", "<< llh[1] <<", "<< llh[2] <<", "<< mean_residuals[i] <<", "
-         << num_point_observations[i] << std::endl;
+
+      std::string comment = "";
+      if (cnet[i].type() == ControlPoint::GroundControlPoint)
+        comment = " # GCP";
+      file << llh[0] <<", "<< llh[1] <<", "<< llh[2] <<", "<< mean_residuals[i] <<", "
+           << num_point_observations[i] << comment << std::endl;
   }
   file.close();
 
@@ -291,7 +300,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
                          std::vector<size_t> const& cam_residual_counts,
                          size_t num_gcp_residuals, 
                          std::vector<vw::Vector3> const& reference_vec,
-                         CRNJ & crn,
+                         ControlNetwork const& cnet, CRNJ & crn, 
                          ceres::Problem &problem) {
   
   std::vector<double> residuals;
@@ -438,7 +447,8 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   compute_mean_residuals_at_xyz(crn,  residuals,  param_storage,
                                 mean_residuals, num_point_observations);
 
-  write_residual_map(map_prefix, mean_residuals, num_point_observations, param_storage, opt);
+  write_residual_map(map_prefix, mean_residuals, num_point_observations,
+                     param_storage, cnet, opt);
 
 } // End function write_residual_logs
 
@@ -843,23 +853,6 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::vector< ImageViewRef<DispPixelT> > interp_disp; 
   std::vector< vw::Vector3              > reference_vec;
   if (opt.reference_terrain != "") {
-
-    std::string file_type = asp::get_cloud_type(opt.reference_terrain);
-
-    if (file_type == "CSV" && opt.csv_format_str == "") 
-      vw_throw( ArgumentErr() << "When using a csv reference terrain, "
-                              << "must specify the csv-format.\n");
-    
-    if (opt.datum_str == "")
-      vw_throw( ArgumentErr() << "When using a reference terrain, must specify the datum.\n");
-    if (opt.disparity_list == "") 
-      vw_throw( ArgumentErr() << "When using a reference terrain, must specify a list "
-                              << "of disparities.\n");
-    if (opt.max_disp_error <= 0) 
-      vw_throw( ArgumentErr() << "Must specify --max-disp-error in pixels as a positive value.\n");
-    if (opt.reference_terrain_weight < 0) 
-      vw_throw( ArgumentErr() << "The value of --reference-terrain-weight must be non-negative.\n");
-
     // TODO: Pass these properly
     g_max_disp_error           = opt.max_disp_error;
     g_reference_terrain_weight = opt.reference_terrain_weight;
@@ -885,6 +878,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     // Read the reference terrain
     vw_out() << "Loading at most " << opt.max_num_reference_points << " points from "
              << opt.reference_terrain << std::endl;
+    std::string file_type = asp::get_cloud_type(opt.reference_terrain);
     if (file_type == "DEM") 
       asp::load_dem(opt.reference_terrain,  
                opt.max_num_reference_points, lonlat_box,  
@@ -1006,11 +1000,11 @@ int do_ba_ceres_one_pass(Options             & opt,
 
     write_residual_logs(residual_prefix, true,  opt, param_storage, 
                         cam_residual_counts, num_gcp_residuals,
-                        reference_vec, crn, problem);
+                        reference_vec, cnet, crn, problem);
     residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
     write_residual_logs(residual_prefix, false, opt, param_storage, 
                         cam_residual_counts, num_gcp_residuals,
-                        reference_vec, crn, problem);
+                        reference_vec, cnet, crn, problem);
 
     param_storage.record_points_to_kml(point_kml_path, opt.datum, 
                          kmlPointSkip, "initial_points",
@@ -1066,10 +1060,10 @@ int do_ba_ceres_one_pass(Options             & opt,
     vw_out() << "Writing final condition log files..." << std::endl;
     residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
     write_residual_logs(residual_prefix, true,  opt, param_storage, cam_residual_counts,
-                        num_gcp_residuals, reference_vec, crn, problem);
+                        num_gcp_residuals, reference_vec, cnet, crn, problem);
     residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
     write_residual_logs(residual_prefix, false, opt, param_storage, cam_residual_counts,
-                        num_gcp_residuals, reference_vec, crn, problem);
+                        num_gcp_residuals, reference_vec, cnet, crn, problem);
 
     point_kml_path = opt.out_prefix + "-final_points.kml";
     param_storage.record_points_to_kml(point_kml_path, opt.datum,
@@ -1149,7 +1143,8 @@ void do_ba_ceres(Options & opt){
                                  opt.image_files,
                                  opt.match_files,
                                  opt.min_matches,
-                                 opt.min_triangulation_angle*(M_PI/180));
+                                 opt.min_triangulation_angle*(M_PI/180),
+                                 opt.forced_triangulation_distance);
   
   // Restore the rest of the cnet object
   vw::ba::add_ground_control_points( (cnet2), opt.gcp_files, opt.datum);
@@ -1407,12 +1402,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
             "Outlier removal based on the disparity of interest points (difference between right and left pixel), when more than one bundle adjustment pass is used. For example, the 10% and 90% percentiles of disparity are computed, and this interval is made three times bigger. Interest points whose disparity fall outside the expanded interval are removed as outliers. Instead of the default 90 and 3 one can specify pct and factor, without quotes.")
     ("min-triangulation-angle",      po::value(&opt.min_triangulation_angle)->default_value(0.1),
             "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
+    ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
+            "When triangulation fails, for example, when input cameras are inaccurate, artificially crate a triangulation point this far ahead of the camera, in units of meter.")
     ("use-lon-lat-height-gcp-error",
-            po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
-            "When having GCP, interpret the three standard deviations in the GCP file as applying not to x, y, and z, but rather to latitude, longitude, and height.")
-
-    ("save-cnet-as-csv",   po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
-            "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
+     po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
+     "When having GCP, interpret the three standard deviations in the GCP file as applying not to x, y, and z, but rather to latitude, longitude, and height.")
+    ("force-reuse-match-files", po::bool_switch(&opt.force_reuse_match_files)->default_value(false)->implicit_value(true),
+     "Force reusing the match files even if older than the images or cameras.")
+    ("save-cnet-as-csv", po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
+     "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
             "Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. The documentation has an example for how to use this.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
@@ -1555,7 +1553,23 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       }
     }
   }
-  
+
+  // Try to infer the datum from the reference terrain
+  if (opt.reference_terrain != "") {
+    std::string file_type = asp::get_cloud_type(opt.reference_terrain);
+    if (file_type == "DEM") {
+      vw::cartography::GeoReference georef;
+      bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
+      if (!is_good)
+        vw_throw( ArgumentErr() << "The reference terrain DEM does not have a georeference.\n"
+                  << usage << general_options );
+      if (opt.datum_str == "" ){
+        opt.datum_str = georef.datum().name();
+        vw_out() << "Using the datum: " << opt.datum_str << ".\n";
+      }
+    }
+  }
+
   if (opt.stereo_session_string == "rpc" && opt.datum_str == "")
     vw_throw( ArgumentErr() << "When the session type is RPC, the datum must be specified.\n"
                             << usage << general_options );       
@@ -1619,6 +1633,24 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                               << " is out of bounds.\n" );
     }
   }
+
+  if (opt.reference_terrain != "") {
+    std::string file_type = asp::get_cloud_type(opt.reference_terrain);
+    if (file_type == "CSV" && opt.csv_format_str == "") 
+      vw_throw( ArgumentErr() << "When using a csv reference terrain, "
+                              << "must specify the csv-format.\n");
+    if (opt.datum_str == "")
+      vw_throw( ArgumentErr() << "When using a reference terrain, must specify the datum.\n");
+    if (opt.disparity_list == "") 
+      vw_throw( ArgumentErr() << "When using a reference terrain, must specify a list "
+                              << "of disparities.\n");
+    if (opt.max_disp_error <= 0) 
+      vw_throw( ArgumentErr() << "Must specify --max-disp-error in pixels as a positive value.\n");
+    if (opt.reference_terrain_weight < 0) 
+      vw_throw( ArgumentErr() << "The value of --reference-terrain-weight must be non-negative.\n");
+  }
+  
+  
 }
 
 
@@ -1747,9 +1779,15 @@ int main(int argc, char* argv[]) {
         std::string ip_file2       = ip::ip_filename(opt.out_prefix, image2_path);
         opt.match_files[ std::pair<int, int>(i, j) ] = match_filename;
 
-        bool inputs_changed = (!asp::is_latest_timestamp(match_filename, image1_path,  image2_path,
-                                                                         camera1_path, camera2_path));
-
+        bool inputs_changed = (!asp::is_latest_timestamp(match_filename,
+                                                         image1_path,  image2_path,
+                                                         camera1_path, camera2_path));
+        
+        // We make an exception and not rebuild if explicitly asked
+        if (asp::stereo_settings().force_reuse_match_files &&
+            boost::filesystem::exists(match_filename))
+          inputs_changed = false;
+        
         if (!inputs_changed) {
           vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
           ++num_pairs_matched;
@@ -1779,11 +1817,14 @@ int main(int argc, char* argv[]) {
 
           // Use caching function call to compute the image statistics.
           vw::Vector<vw::float32,6> image1_stats, image2_stats;
-          image1_stats = asp::StereoSession::gather_stats(masked_image1, image1_path, opt.out_prefix, image1_path);
-          image2_stats = asp::StereoSession::gather_stats(masked_image2, image2_path, opt.out_prefix, image2_path);
+          image1_stats = asp::StereoSession::gather_stats(masked_image1,
+                                                          image1_path, opt.out_prefix, image1_path);
+          image2_stats = asp::StereoSession::gather_stats(masked_image2,
+                                                          image2_path, opt.out_prefix, image2_path);
 
-          // The match files are always cached, the IP files are cached for
-          //  certain IP matching options.
+          // The match files are cached unless the images or camera
+          // are newer than them. The IP files are cached for certain
+          // IP matching options.
           session->ip_matching(image1_path, image2_path,
                                Vector2(masked_image1.cols(), masked_image1.rows()),
                                image1_stats, image2_stats,
@@ -1826,7 +1867,8 @@ int main(int argc, char* argv[]) {
                                                     opt.image_files,
                                                     opt.match_files,
                                                     opt.min_matches,
-                                                    opt.min_triangulation_angle*(M_PI/180));
+                                                    opt.min_triangulation_angle*(M_PI/180),
+                                                    opt.forced_triangulation_distance);
       if (!success) {
         vw_out() << "Failed to build a control network. Consider removing "
                  << "the currently found interest point matches and increasing "
@@ -1877,7 +1919,7 @@ int main(int argc, char* argv[]) {
         init_pinhole_model_with_gcp(opt.cnet, opt.camera_models);
 
       // Issue a warning if the GCPs are far away from the camera coords
-      check_gcp_dists(opt.camera_models, opt.cnet);
+      check_gcp_dists(opt.camera_models, opt.cnet, opt.forced_triangulation_distance);
     }
 
     // All the work happens here!  It also writes out the results.

@@ -1119,3 +1119,413 @@ using a finer resolution results in longer run-time.
 We also tried to first bundle-adjust the cameras, using ASP's \texttt{bundle\_adjust}.
 We did not notice a noticeable improvement in results. 
 
+\section{SkySat Imagery}
+\label{sec:skysat}
+
+In this section we will discuss how to process SkySat imagery. The
+biggest challenge with these images is that the camera extrinsics are
+not fully reliable, which may be an issue if perhaps the underlying
+terrain does not have sufficient topography for good alignment, or if
+the obtained DEMs are too far from their correct position for alignment
+to succeed.
+
+Throughout this example we will work with Pinhole camera models. If desired to convert these
+to RPC camera models for exporting, one can do so via the tool \texttt{cam2rpc} invoked as:
+
+\begin{verbatim}
+  cam2rpc --dem-file dem.tif input.tif input.tsai output.xml 
+\end{verbatim}
+Here, the input DEM should go beyond the extent of the image.
+This tool makes it possible to decide how finely to sample the DEM, and one can simply use
+longitude-latitude and height ranges instead of the DEM. 
+
+To continue with this example, we will use as an illustration a
+mountainous terrain close to Breckenridge, Colorado. The dataset we
+fetched is called \texttt{s4\_20181107T175036Z\_video.zip}. We chose to
+work with the following four images from it:
+
+\begin{verbatim}
+  1225648254.44006968_sc00004_c1_PAN.tiff
+  1225648269.40892076_sc00004_c1_PAN.tiff
+  1225648284.37777185_sc00004_c1_PAN.tiff
+  1225648299.37995577_sc00004_c1_PAN.tiff
+\end{verbatim}
+
+A sample example picture from this set is shown in figure \ref{skysat-example}.
+
+It is very important to pick images that have sufficient baseline, as otherwise 
+the procedure outlined in this section will fail. 
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=5.0in]{images/Breckenridge.jpg}
+\caption{An image used in the SkySat example.}
+\label{skysat-example}
+\end{figure}
+
+Based on vendor's documentation, these images are $2560 \times 1080$
+pixels.  We use the geometric center of the image as the optical center,
+which turned out to be a reasonable enough assumption (verified by
+allowing it to float later). Since the focal length is given as 3.6~m and
+the pixel pitch is $6.5 \times 10^{-6}$~m, the focal length in pixels is
+$$
+  3.6/6.5 \times 10^{-6} = 553846.153846. 
+$$
+
+We will fetch an SRTM DEM of the area, which will be used as a reference
+for registration, from location: 
+
+\begin{verbatim}
+  https://e4ftl01.cr.usgs.gov/provisional/MEaSUREs/NASADEM/NorthAmerica/hgt_merge/n39w107.hgt.zip
+\end{verbatim}
+
+After unzipping it, we clip it to the area of interest:
+
+\begin{verbatim}
+  gdal_translate -projwin -106.1679167 39.5120833 -106.0034722 39.3895833 \
+    n39w107.hgt ref_dem.tif
+\end{verbatim}
+
+It is good to be a bit generous with clipping, so that the output DEM
+goes a few km or more beyond the region of interest. If the region of
+interest is not fully covered by an SRTM tile, a neighboring one can be
+downloaded as well.  They can be merged with \texttt{dem\_mosaic} and
+then cropped as before.
+
+Using the tool \texttt{cam\_gen} (section \ref{camgen}) 
+bundled with ASP, we create an initial camera model and a GCP file (section \ref{bagcp})
+for the first image as as follows:
+
+\begin{verbatim}
+  cam_gen output/video/frames/1225648254.44006968_sc00004_c1_PAN.tiff   \
+    --reference-dem ref_dem.tif --focal-length 553846.153846            \
+    --optical-center 1280 540 --pixel-pitch 1 --height-above-datum 4000 \
+    --refine-camera --frame-index output/video/frame_index.csv          \
+    --gcp-std 1e-2 -o v1.tsai --gcp-file v1.gcp
+\end{verbatim}
+
+This tool works by reading the longitude and latitude of each image corner on the ground 
+from the meta file \texttt{frame\_index.csv}, and finding the position and orientation
+of the camera that best fits this data. The camera is written to \texttt{v1.tsai}. 
+A GCP file is written to \texttt{v1.gcp}. This will help later with bundle adjustment.
+
+In this command, the optical center and focal length are as mentioned earlier. We 
+pass a small value to \texttt{-\/-gcp-std} to give these GCP more weight during
+bundle adjustment. The reference SRTM DEM is used to infer the height above datum for
+each image corner based on its longitude and latitude. The height value specified
+via \texttt{-\/-height-above-datum} is used as a fallback option, if for example,
+the DEM is incomplete, and is not strictly necessary for this example. 
+This tool also accepts the longitude and latitude of the corners as an option,
+via \texttt{-\/-lon-lat-corners}.
+
+The flag \texttt{-\/-refine-camera} makes \texttt{cam\_gen} solve a least
+square problem to refine the output camera. In some rare cases it can get the
+refinement wrong, and then it can be omitted, as \texttt{bundle\_adjust}
+can refine the cameras as well (an example of this is shown in section \ref{camgen}).
+
+For simplicity of notation, we will copy this image to the shorter name
+\texttt{v1.tif}, and the GCP file needs to be edited to reflect
+this. The same will apply to the other files. We will have then four
+images, \texttt{v1.tif, v2.tif, v3.tif, v4.tif}, and corresponding
+camera and GCP files.
+
+A good sanity check is to visualize these computed cameras in ASP's
+\texttt{orbitviz} tool. It can be invoked as:
+\begin{verbatim}
+   orbitviz v[1-4].tif v[1-4].tsai -o orbit.kml
+\end{verbatim}
+
+The output KML file can then be opened in Google Earth. We very strongly recommend this step, 
+since it may catch inaccurate cameras which will cause problems later. 
+
+Another important check is to map-project these images using the cameras
+and overlay them in \texttt{stereo\_gui} on top of the reference
+DEM. Here is an example for the first image:
+\begin{verbatim}
+  mapproject --t_srs \
+  '+proj=stere +lat_0=39.4702 +lon_0=253.908 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m' \
+  ref_dem.tif v1.tif v1.tsai v1_map.tif 
+\end{verbatim}
+
+Notice that we used above a longitude and latitude around the area of interest. This 
+will need to be modified for your specific example. 
+
+The inspection in the GUI will note that the images are about where they
+should be, but not quite aligned. We will take care of this using bundle
+adjustment:
+
+\begin{verbatim}
+  bundle_adjust v[1-4].tif v[1-4].tsai v[1-4].gcp -o ba/run -t nadirpinhole       \
+   --datum WGS84 --ip-per-tile 2000 --robust-threshold 100 --max-iterations 500   \
+   --overlap-limit 4 --create-pinhole-cameras --camera-weight 0                   \
+   --disable-tri-ip-filter --disable-pinhole-gcp-init --skip-rough-homography     \
+   --force-reuse-match-files
+\end{verbatim}
+
+The output optimized cameras will be named \texttt{ba/run-v[1-4].tsai}.
+
+Here we use \texttt{-\/-ip-per-tile 2000} to create a lot of interest
+points. This will help with alignment later. It is suggested that the
+user study all these options and understand what they do. 
+One can also experiment with more than one pass of bundle adjustment,
+when outliers are removed. 
+
+It is very important to examine the residual file named
+\begin{verbatim}
+  ba/run-final_residuals_no_loss_function_pointmap_point_log.csv
+\end{verbatim}
+Here, the third column are the heights of triangulated interest
+points. Hence, this file can be viewed as a sparse version of the DEM
+that we will later get with ASP. The forth column are reprojection
+errors. Most of them better be no more than one or two pixels, as
+otherwise the solution did not converge. The last entries in this
+file correspond to the GCP, and those should be looked at carefully as well.
+Using a larger/smaller robust threshold can force the solver to 
+conform more or less to the GCP. The weights in the GCP file affect that as well.
+
+It is at this stage where, if one is not lucky, things can go very
+wrong, as the cameras could be very inaccurate. Assuming that all is
+well, the cameras will be consistent among themselves, but may be a bit
+off relative to the ground. This is easy to correct using registration,
+as follows:
+\begin{verbatim}
+  pc_align --max-displacement 1000 --csv-format 1:lon,2:lat,3:height_above_datum   \
+    ref_dem.tif ba/run-final_residuals_no_loss_function_pointmap_point_log.csv     \
+    --save-transformed-source-points -o ba/run
+\end{verbatim}
+
+If registration succeeds, one will get a line as follows on output:
+\begin{verbatim}
+  Output: mean of smallest errors (meters): 25%: 0.935985, 50%: 2.00245, 75%: 3.23698, ...
+\end{verbatim}
+
+These errors look reasonably small, just a few meters. The transformed
+residual file will be written to \texttt{ba/run-trans\_source.csv}.
+
+If these errors are too large, something went wrong. One may also have to play
+with the value of \texttt{-\/-max-displacement}. If the cameras are accurate
+but too far, increasing this value may help with registering them back to the reference DEM.
+
+It is possible to create a rough DEM from the residual file after alignment, 
+(also before alignment, for the earlier residual file) using the command
+
+\begin{verbatim}
+   point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021            \
+    --tr 30 --csv-format 1:lon,2:lat,3:height_above_datum ba/run-trans_source.csv
+\end{verbatim}
+
+which can be viewed and compared in \texttt{stereo\_gui} to the reference DEM. 
+Note that above we again used the longitude and latitude for the desired region 
+of interest. One can also see the error of this file compared to the reference, using
+the command:
+
+\begin{verbatim}
+  geodiff --absolute --csv-format 1:lon,2:lat,3:height_above_datum \
+    ref_dem.tif ba/run-trans_source.csv -o ba/run
+\end{verbatim}
+
+and the same command can be used with the residual file before alignment.
+
+If having bad luck, one can try dropping the GCP altogether in bundle
+adjustment or making the standard deviations in the GCP file
+bigger. This could create cameras that are self-consistent, but they can
+move very far. This could be alleviated by using a bigger camera weight
+in bundle adjustment (it is also possible to control the rotation and
+translation weights separately). One can also adjust the robust
+threshold, as mentioned earlier.  In the worst case, one can create a
+DEM from the residual file as above, and try to manually align it to the
+SRTM DEM, as described in section \ref{manual-align}.
+
+If the baseline of images is small, so one image covers roughly the same footprint 
+as some other one in the sequence, likely nothing will help and different images should be used.
+
+Assuming that the cameras turn out well, and that alignment succeeds (whether automatically
+or manually), one can apply the alignment transform to the obtained cameras to make them consistent
+with the reference DEM. That can be done as follows:
+
+\begin{verbatim}
+  bundle_adjust v[1-4].tif  ba/run-v[1-4].tsai -o ba_align/run                   \
+   -t nadirpinhole --max-iterations 0 --overlap-limit 1 --create-pinhole-cameras \
+   --camera-weight 0 --initial-transform ba/run-transform.txt
+\end{verbatim}
+
+It is very important to note that in the \texttt{pc\_align} call the reference
+DEM was the first cloud, so the transform that is passed
+to \texttt{bundle\_adjust} above will map back to this DEM. One
+should use instead \texttt{ba/run-inverse-transform.txt}
+if the order of arguments in \texttt{pc\_align} is reversed (which is not recommended,
+unless the reference DEM is coarser than the residual file used as the other point cloud).
+ 
+This \texttt{bundle\_adjust} call will write again a residual file,
+which this time should be close to the reference DEM, which should be
+checked again using \texttt{geodiff}.
+
+At this stage we should have four well-aligned cameras, named
+\texttt{ba\_align/run-run-v[1-4].tsai}. 
+One can mapproject them as above creating four images
+that we will name \texttt{v1\_map.tif}, etc. They should be on top of each other
+and on top of the hillshaded reference DEM.
+
+The next step is to run stereo and create DEMs. We will run the following command
+for each i equal to 1, 2, 3, and 4: 
+\begin{verbatim}
+  ((j=i+1))
+  stereo v${i}.tif v${j}.tif                                                 \
+    ba_align/run-run-v${i}.tsai  ba_align/run-run-v${j}.tsai                 \
+    stereo_align_v${i}${j}/run --session-type nadirpinhole                   \
+    --cost-mode 4 --stereo-algorithm 2 --corr-seed-mode 1                    \
+    --alignment-method affineepipolar --corr-tile-size 9000                  \
+    --num-matches-from-disp-triplets 10000 --unalign-disparity
+  point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 --tr 4  \
+    --errorimage stereo_align_v${i}${j}/run-PC.tif
+\end{verbatim}
+
+It is important to examine the intersection error for each DEM:
+\begin{verbatim}
+  gdalinfo -stats stereo_align_v12/run-IntersectionErr.tif |grep Mean
+\end{verbatim}
+
+which should hopefully be no more than 1 or 2 meters, and compare the DEMs among themselves
+\begin{verbatim}
+  geodiff --absolute stereo_align_v12/run-DEM.tif stereo_align_v23/run-DEM.tif -o tmp 
+  gdalinfo -stats tmp-diff.tif | grep Mean
+\end{verbatim}
+
+and each DEM with the reference DEM:
+\begin{verbatim}
+  geodiff --absolute stereo_align_v12/run-DEM.tif ref_dem.tif -o tmp 
+  gdalinfo -stats tmp-diff.tif | grep Mean
+\end{verbatim}
+
+(and so on, for the other DEMs.) These errors better be no more than 3 or 4 meters.
+
+If the steep topography prevents good DEMs from being created, one can 
+map-project the images first:
+
+\begin{verbatim}
+  for i in 1 2 3 4; do 
+    mapproject --t_srs \
+     '+proj=stere +lat_0=39.4702 +lon_0=253.908 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m' \
+    ref_dem.tif v${i}.tif ba_align/run-run-v${i}.tsai v${i}_map.tif  
+  done
+\end{verbatim} % put a stray $ here as emacs's highlighting gets confused
+
+and then run stereo with the mapprojected images:
+
+\begin{verbatim}
+  ((j=i+1))
+  stereo v${i}_map.tif v${j}_map.tif                                         \
+    ba_align/run-run-v${i}.tsai ba_align/run-run-v${j}.tsai                  \
+    stereo_map_v${i}${j}/run ref_dem.tif --session-type pinhole              \
+    --cost-mode 4 --stereo-algorithm 2 --corr-seed-mode 1                    \
+    --alignment-method none --corr-tile-size 9000                            \
+    --num-matches-from-disp-triplets 10000 --unalign-disparity
+  point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 --tr 4  \
+    --errorimage stereo_map_v${i}${j}/run-PC.tif
+\end{verbatim}
+
+At this stage, if desired, one can do joint optimization of the cameras using dense
+and uniformly distributed interest points, and using the reference DEM as a constraint.
+This should make the DEMs more consistent among themselves and closer to the reference DEM.
+
+It is also possible to float the intrinsics, per section \ref{floatingintrinsics},
+which sometimes can improve the results further. 
+
+One should inspect the dense interest points obtained via the
+\texttt{-\/-num-matches-from-disp-triplets} switch during the earlier stereo
+runs:
+
+\begin{verbatim}
+  stereo_gui v1.tif v2.tif stereo_align_v12/run-disp-v1__v2.match
+\end{verbatim}
+and the same for the other image pairs. Hopefully they will fill as much
+of the images as possible. One should also study the unaligned disparities,
+for example
+\begin{verbatim}
+  stereo_align_v12/run-v1__v2-unaligned-D.tif
+\end{verbatim}
+by invoking \texttt{disparitydebug} on it and then visualizing the two
+obtained images. Hopefully these disparities are dense and with few holes. 
+
+The dense interest points should be copied to the new bundle adjustment directory, such as
+\begin{verbatim}
+  mkdir -p run_ref_terrain
+  cp stereo_align_v12/run-disp-v1__v2.match run_ref_terrain/run-v1__v2.match
+\end{verbatim}
+
+and the same for the other ones (note the convention for match files in the new directory).
+The unaligned disparities can be used from where they are. 
+
+Then bundle adjustment using the reference terrain constraint proceeds as follows:
+\begin{verbatim}
+  disp_list=$(ls stereo_align_v*/*-unaligned-D.tif)
+  bundle_adjust v[1-4].tif  ba_align/run-run-v[1-4].tsai -o ba_ref_terrain/run      \
+  --reference-terrain ref_dem.tif --disparity-list "$disp_list"                     \
+  --max-num-reference-points 10000000 --reference-terrain-weight 50                 \ 
+  --parameter-tolerance 1e-12 -t nadirpinhole --max-iterations 500                  \
+  --overlap-limit 1 --create-pinhole-cameras --robust-threshold 2                   \
+  --force-reuse-match-files --max-disp-error 100
+\end{verbatim}
+
+If invoking this creates new match files, it means that the dense match files 
+were not copied successfully to the new location. 
+
+This will create, as before, the residual file named
+\begin{verbatim}
+  ba_ref_terrain/run-final_residuals_no_loss_function_pointmap_point_log.csv
+\end{verbatim}
+showing how consistent are the cameras among themselves, 
+and in addition, a file named
+\begin{verbatim}
+  ba_ref_terrain/run-final_residuals_no_loss_function_reference_terrain.txt
+\end{verbatim}
+
+which tells how well the cameras are aligned to the reference
+terrain. The errors in the first file should be under 1 pixel, and in
+the second one should be mostly under 2-3 pixels (both are the fourth
+column in these files).
+
+The value of \texttt{-\/-reference-terrain-weight} can be increased to make the 
+alignment to the reference terrain a little tighter.
+
+It is hoped that after running stereo with these refined cameras, the obtained DEMs
+will differ by less than 2~m among themselves, and by less than 4~m as compared
+to the reference DEM. 
+
+If desired to float the focal length as part of the optimization, one should 
+pass in addition, the options
+\begin{verbatim}
+ --solve-intrinsics --intrinsics-to-float 'focal_length'
+\end{verbatim}
+Floating the optical center can be done by adding it in as well. 
+
+It is important to note that for SkySat the intrinsics seem to be already quite good,
+and floating them is not necessary and is only shown for completeness. If 
+one wants to float them, one should vary the focal length while keeping the optical center
+fixed, and vice versa, and compare the results. Then, with the result that shows most
+promise, one should vary the other parameter. If optimizing the intrinsics too aggressively,
+it is not clear if they will still deliver better results with other images or 
+if comparing with a different reference terrain. 
+
+Yet, if desired, one can float even the distortion parameters. 
+For that, the input camera files need to be converted
+to some camera model having these (see chapter \ref{chapter:pinholemodels}), 
+and their values can be set to something very small.
+One can use the Brown-Conrady model, for example, so each camera file must have
+instead of \texttt{NULL} at the end the fields:
+\begin{verbatim}
+BrownConrady
+xp  = -1e-12
+yp  = -1e-12
+k1  = -1e-10
+k2  = -1e-14
+k3  = -1e-22
+p1  = -1e-12
+p2  = -1e-12
+phi = -1e-12
+\end{verbatim}
+
+There is always a chance when solving these parameters that the obtained solution is not optimal.
+Hence, one can also try using as initial guesses different values, for example, 
+by negating the above numbers.
+
