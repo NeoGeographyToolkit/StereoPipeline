@@ -1565,25 +1565,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
   //  vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
 
-<<<<<<< HEAD
   if ((opt.camera_type==BaCameraType_Other) && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole and optical bar cameras.\n");
 
   if ((opt.camera_type!=BaCameraType_Pinhole) && opt.approximate_pinhole_intrinsics)
-||||||| merged common ancestors
-  if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
-    vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
-
-  if (!opt.create_pinhole && opt.solve_intrinsics)
-    vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole cameras.\n");
-
-  if (!opt.create_pinhole && opt.approximate_pinhole_intrinsics)
-=======
-  if ((opt.camera_type==BaCameraType_Other) && opt.solve_intrinsics)
-    vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole and optical bar cameras.\n");
-
-  if ((opt.camera_type!=BaCameraType_Pinhole) && opt.approximate_pinhole_intrinsics)
->>>>>>> Add optical bar session and bundle_adjust support.
     vw_throw( ArgumentErr() << "Cannot approximate intrinsics unless using pinhole cameras.\n");
 
   if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
@@ -1626,7 +1611,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       }
     }
   }
-<<<<<<< HEAD
 
   // Try to infer the datum from the reference terrain
   if (opt.reference_terrain != "") {
@@ -1644,11 +1628,22 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     }
   }
 
-||||||| merged common ancestors
-  
-=======
+  // Try to infer the datum from the reference terrain
+  if (opt.reference_terrain != "") {
+    std::string file_type = asp::get_cloud_type(opt.reference_terrain);
+    if (file_type == "DEM") {
+      vw::cartography::GeoReference georef;
+      bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
+      if (!is_good)
+        vw_throw( ArgumentErr() << "The reference terrain DEM does not have a georeference.\n"
+                  << usage << general_options );
+      if (opt.datum_str == "" ){
+        opt.datum_str = georef.datum().name();
+        vw_out() << "Using the datum: " << opt.datum_str << ".\n";
+      }
+    }
+  }
 
->>>>>>> Add optical bar session and bundle_adjust support.
   if (opt.stereo_session_string == "rpc" && opt.datum_str == "")
     vw_throw( ArgumentErr() << "When the session type is RPC, the datum must be specified.\n"
                             << usage << general_options );       
