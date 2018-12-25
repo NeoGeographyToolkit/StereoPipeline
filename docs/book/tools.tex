@@ -297,21 +297,32 @@ One can then invoke
 and turn on viewing of interest point matches to study if they were
 ``unmapped'' to the right locations.
 
-\subsubsection{Creating GCP}
+\subsubsection{Creating GCP with a georeferenced image and a DEM}
+\label{creatinggcp}
 
-\texttt{stereo\_gui} can be used to create ground control point (GCP)
-files for \texttt{bundle\_adjust} (section \ref{bagcp}). It is assumed
-that the user has two or more images and corresponding cameras that need
-adjustment. It is also assumed that there exists an additional reference
-image, possible from another source, that is georeferenced, and a
-reference DEM from which one can infer xyz coordinates. All these
-images, but not the cameras or the reference DEM, should be loaded in
-the GUI, with the reference georeferenced image being the last. For each
-output ground control point, there must be an interest point in each of
-the images. These points can be added or modified manually using the
-right-click menu, but you can also try to automatically detect them and
-load the .match files as described in the earlier section on creating
-interest points.
+There exist situations when one has one or more images for which the 
+camera files are either inaccurate or, for Pinhole camera models, 
+just the intrinsics may be known. Given a DEM of the area, and optionally
+a georeferenced image, it is possible to create GCP files (section \ref{bagcp})
+that can later be used with \texttt{bundle\_adjust} to either improve the alignment
+of these cameras to the DEM, or create new Pinhole cameras from scratch
+(the latter is shown in section \ref{imagecorners}).
+
+One starts by opening these desired images and the georeferenced image in the GUI,
+in this order (hence the georeferenced image is the last). 
+If no georeferenced image exists, one can use the given DEM instead (and it can be 
+hillshaded after loading to easier identify features). 
+
+Next, a feature is identified and manually added as an interest point in all open images,
+using the right-click menu, and this process is repeated a few times. 
+Thus created interest points can also be moved around by right-clicking to turn on 
+this mode, and then dragging them with the mouse (this can be slow). 
+
+If the input images and the georeferenced image are very similar
+visually, one can also try to automatically detect interest point
+matches in them using \texttt{ipfind}/\texttt{ipmatch} and load the
+.match files as described in the earlier section on creating interest
+points.
 
 When you are finished creating interest points, use the "IP matches"->"Write GCP
 file" menu item to generate a ground control point file containing the
@@ -323,11 +334,13 @@ the reference image are not saved to the GCP file.
 
 \subsubsection{Polygon editing}
 
-\texttt{stereo\_gui} is able to draw and edit polygonal shapes on top of georeferenced images, and load/save them as shape files (*.shp).
-This functionality can be accessed by turning on polygon editing from the \textit{Vector Layer} menu, and then right-clicking with the mouse
-to access the various functions. Subsequently, one can use \texttt{gdal\_rasterize} to keep or exclude the portion of a given image/DEM that is within
-or outside the selected polygon. 
-
+\texttt{stereo\_gui} is able to draw and edit polygonal shapes on top of
+georeferenced images, and load/save them as shape files (*.shp).  This
+functionality can be accessed by turning on polygon editing from the
+\textit{Vector Layer} menu, and then right-clicking with the mouse to
+access the various functions. Subsequently, one can use
+\texttt{gdal\_rasterize} to keep or exclude the portion of a given
+image/DEM that is within or outside the selected polygon.
 
 \subsubsection{Shadow threshold}
 \texttt{stereo\_gui} can be used to find the shadow threshold for each
@@ -553,7 +566,7 @@ A number of plain-text files containing ground control points (GCP) can be
 passed as inputs to \texttt{bundle\_adjust}.
 
 These can either be created by hand, or using \texttt{stereo\_gui}
-(section \ref{bagcp}).
+(section \ref{creatinggcp}).
 
 A GCP file must end with a .gcp extension, and contain one ground
 control point per line. Each line must have the following fields:
@@ -763,13 +776,17 @@ initialization process is not producing good results. \\ \hline
 If estimated camera positions are used, this option can be used to set a threshold distance in meters
 between the cameras.  If any pair of cameras is farther apart than this distance, the tool will not
 attempt to find matching interest points between those two cameras.
+\\ \hline
 
-\texttt{-\/-force-reuse-match-files} &
+\texttt{-\/-force-reuse-match-files} & 
 Force reusing the match files even if older than the images or cameras.
 \\ \hline
 
+% This logic is not yet mature enough, and needs to be merged with existing functionality in section \ref{creatinggcp}.
+%\texttt{-\/-gcp-from-mapprojected-images \textit{string}} & Given map-projected versions of the input images, the DEM the were mapprojected onto, and interest point matches among all of these created in stereo_gui, create GCP for the input images to align them better to the DEM. An example is in the documentation. \\ \hline
+
 \texttt{-\/-mapprojected-data \textit{string}} &
-Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. The documentation has an example for how to use this.
+Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. An example is in the documentation.
 \\ \hline
 
 \texttt{-\/-lambda \textit{double}} & Set the initial value of the LM parameter
@@ -3367,12 +3384,13 @@ consecutive pixels to sample. Default: 50. \\ \hline
 \label{camgen}
 
 This tool will create a Pinhole camera model given camera's optical
-center, focal length, pixel pitch, the longitude-latitude coordinates of the camera
-image corners projected onto a DEM, and the DEM itself. A datum (and a
-height above it) can be used instead of the DEM. Normally all these inputs
-are known only approximately, so the output camera model will not be quite precise either,
-yet it could be good enough to refine later with bundle adjustment, which can also
-make use of the GCP file that this tool creates. 
+center, focal length, pixel pitch, the longitude-latitude coordinates of
+the camera image corners (or some other pixels) projected onto a DEM,
+and the DEM itself. A datum (and a height above it) can be used instead
+of the DEM. Normally all these inputs are known only approximately, so
+the output camera model will not be quite precise either, yet it could
+be good enough to refine later with bundle adjustment, which can also
+make use of the GCP file that this tool creates.
 
 This program can be used with historical images for which camera position and orientation
 is not known. If the corners of the image on the ground are not known, they could be guessed
@@ -3386,7 +3404,7 @@ Usage:
 
 Example:
 \begin{verbatim}
-  cam_gen --refine-camera --lon-lat-corners                               \
+  cam_gen --refine-camera --lon-lat-values                                \
     '-122.389 37.6273,-122.354 37.626,-122.358 37.6125,-122.393 37.6138'  \
      --reference-dem dem.tif --focal-length 553846.153846                 \
      --optical-center 1280 540 --pixel-pitch 1                            \
@@ -3398,6 +3416,9 @@ center are in units of pixels. If the focal length and pixel pitch are given in 
 and one assumes the optical center to be the center of the image, then the optical
 center passed to this tool should be half of the image width and height, with both
 multiplied by the pixel pitch, to make them in meters as well. 
+
+Some other pixels can be used instead of corners, if using the \texttt{-\/-pixel-values}
+option.
 
 It is strongly suggested to mapproject the image onto the obtained camera to verify
 if it projects where expected:
@@ -3417,19 +3438,10 @@ The camera obtained using this tool (whether with or without the
     --create-pinhole-cameras --robust-threshold 10000
 \end{verbatim}
 
-It is important to look at the residual file
-\begin{verbatim}
-  run/run-final_residuals_no_loss_function_pointmap_point_log.csv
-\end{verbatim}
-
-after this. The third column in this file is the optimized heights
-above the datum, while the fourth column has the reprojection errors
-from the corners on the ground into the camera. If invoked with a small
-value for the robust threshold, bundle adjustment tends to optimize only
-some of the corners and ignore the others, resulting in a large
-reprojection error, which is not desirable. One can also use the bundle
-adjustment option \texttt{-\/-fix-gcp-xyz} to not move the GCP during
-optimization, hence forcing the camera to move more to conform to them.
+It is suggested that this is avoided by default. One has to be a bit
+careful when doing this optimization to ensure some corners are not
+optimized at the expense of others. This is discussed in section
+\ref{imagecorners}.
 
 One can invoke \texttt{orbitviz} as:
 \begin{verbatim}
@@ -3448,7 +3460,8 @@ to visualize the computed camera above the ground in Google Earth.
 \hline
 Option & Description \\ \hline \hline
 \texttt{-o | -\/-output-camera-file \textit{string}} & Specify the output camera file with a .tsai extension.\\ \hline
-\texttt{-\/-lon-lat-corners \textit{string} } & A (quoted) string listing eight numbers, separated by commas or spaces, having the longitude and latitude (in this order) of each image corner. The corners are traversed in the order 0,0 w,0, w,h, 0,h where w and h are the image width and height.\\ \hline
+\texttt{-\/-lon-lat-values \textit{string} } &A (quoted) string listing numbers, separated by commas or spaces, having the longitude and latitude (alternating and in this order) of each image corner. The corners are traversed in the order 0,0 w,0, w,h, 0,h where w and h are the image width and height.\\ \hline
+\texttt{-\/-pixel-values \textit{string} } & A (quoted) string listing numbers, separated by commas or spaces, having the column and row (alternating and in this order) of each pixel in the raw image at which the longitude and latitude is known. By default this is empty, and will be populated by the image corners traversed as earlier.\\ \hline
 \texttt{-\/-reference-dem \textit{string} } & Use this DEM to infer the heights above datum of the image corners.\\ \hline
 \texttt{-\/-datum \textit{string} } & Use this datum to interpret the longitude and latitude, unless a DEM is given. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON).\\ \hline
 \texttt{-\/-height-above-datum arg \textit{double(=0)} } & Assume this height above datum in meters for the image corners unless read from the DEM.\\ \hline

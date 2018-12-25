@@ -1403,20 +1403,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("min-triangulation-angle",      po::value(&opt.min_triangulation_angle)->default_value(0.1),
             "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
-            "When triangulation fails, for example, when input cameras are inaccurate, artificially crate a triangulation point this far ahead of the camera, in units of meter.")
+            "When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.")
     ("use-lon-lat-height-gcp-error",
      po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
      "When having GCP, interpret the three standard deviations in the GCP file as applying not to x, y, and z, but rather to latitude, longitude, and height.")
     ("force-reuse-match-files", po::bool_switch(&opt.force_reuse_match_files)->default_value(false)->implicit_value(true),
      "Force reusing the match files even if older than the images or cameras.")
+    ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
+            "Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. An example is in the documentation.")
     ("save-cnet-as-csv", po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
      "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
-    ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
-            "Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. The documentation has an example for how to use this.")
+    ("gcp-from-mapprojected-images", po::value(&opt.gcp_from_mapprojected)->default_value(""),
+     "Given map-projected versions of the input images, the DEM the were mapprojected onto, and interest point matches among all of these created in stereo_gui, create GCP for the input images to align them better to the DEM. This is experimental and not documented.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
             "If the cameras have already been bunde-adjusted and rigidly transformed to create a DEM aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this high quality DEM and fix those points. This can be used to refine camera positions and intrinsics. Niche and experimental, not for general use.")
-    ("gcp-data",           po::value(&opt.gcp_data)->default_value(""),
-            "Given map-projected versions of the input images and the DEM mapprojected onto, create GCP so that during bundle adjustment the original unprojected images are adjusted to mapproject where desired onto the DEM. Niche and experimental, not for general use.")
     ("lambda,l",           po::value(&opt.lambda)->default_value(-1),
             "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("report-level,r",     po::value(&opt.report_level)->default_value(10),
@@ -1726,7 +1726,7 @@ int main(int argc, char* argv[]) {
       create_matches_from_mapprojected_images(opt);
 
     // Create match files from mapprojection.
-    if (opt.gcp_data != "") {
+    if (opt.gcp_from_mapprojected != "") {
       create_gcp_from_mapprojected_images(opt);
       return 0;
     }

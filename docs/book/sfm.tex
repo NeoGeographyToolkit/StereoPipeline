@@ -416,7 +416,7 @@ The corrected DEM files can be used with ASP like any other DEM file.
 Chapter \ref{nextsteps} will discuss the \texttt{stereo} program in more
 detail and the other tools in ASP.
 
-\section{Solving for Cameras Using Image Corners}
+\section{Solving for Pinhole cameras using GCP}
 \label{imagecorners}
 
 If for a given image the intrinsics of the camera are known, and also
@@ -457,26 +457,57 @@ b2 = 0.0
 
 Next, one creates a ground control points (GCP) file (section
 \ref{bagcp}), named, for example, \texttt{gcp.gcp}, containing the pixel
-positions and longitude and latitude of the corners (the heights above
+positions and longitude and latitude of the corners or other known pixels (the heights above
 datum can be set to zero if not known). Here is a sample file, where the
 image is named \texttt{img.tif} (below the latitude is written before
-the longitude).
+the longitude). 
 
 \begin{verbatim}
-1 37.62 -122.38 0 1 1 1 img.tif 0 0 1 1 
-2 37.62 -122.35 0 1 1 1 img.tif 2560 0 1 1 
-3 37.61 -122.35 0 1 1 1 img.tif 2560 1080 1 1 
-4 37.61 -122.39 0 1 1 1 img.tif 0 1080 1 1 
+# id   lat     lon   height  sigmas  image   corners    sigmas
+   1  37.62  -122.38   0     1 1 1  img.tif 0     0     1 1 
+   2  37.62  -122.35   0     1 1 1  img.tif 2560  0     1 1 
+   3  37.61  -122.35   0     1 1 1  img.tif 2560 1080   1 1 
+   4  37.61  -122.39   0     1 1 1  img.tif 0    1080   1 1 
 \end{verbatim}
+
+Such a file can be created with \texttt{stereo\_gui} (section
+\ref{creatinggcp}).
 
 One runs bundle adjustment with this data:
 \begin{verbatim}
-bundle_adjust img.tif init.tsai gcp.gcp -o ba/run --datum WGS84 \
-   --create-pinhole-cameras --camera-weight 0 --max-iterations 0
+bundle_adjust img.tif init.tsai gcp.gcp -o ba/run --datum WGS84   \
+   --create-pinhole-cameras --camera-weight 0 --max-iterations 0  \
+   --robust-threshold 10
 \end{verbatim}
 
 which will write the desired correctly oriented camera file. Using a positive
 number of iterations will refine the camera. 
+
+It is important to look at the residual file
+\begin{verbatim}
+  run/run-final_residuals_no_loss_function_pointmap_point_log.csv
+\end{verbatim}
+
+after this. The third column in this file is the optimized heights
+above the datum, while the fourth column has the reprojection errors
+from the corners on the ground into the camera. 
+
+If bundle adjustment is invoked with a positive number of iterations,
+and with a small value for the robust threshold, it tends to optimize
+only some of the corners and ignore the others, resulting in a large
+reprojection error, which is not desirable. If however, this threshold
+is too large, it may try to optimize the camera too aggressively,
+resulting in a poorly placed camera.
+
+Sometimes it works to just get a rough camera estimate from this tool
+for each image individually, using zero iterations, as above, and then
+bundle adjust all images together with the obtained rough cameras and
+possibly also using the GCP files, this time with a positive number of
+iterations.
+
+One can also use the bundle adjustment option \texttt{-\/-fix-gcp-xyz}
+to not move the GCP during optimization, hence forcing the cameras to
+move more to conform to them.
 
 ASP provides a tool named \texttt{cam\_gen} which can also create a 
 pinhole camera as above, and, in addition, is able to extract the heights of the 

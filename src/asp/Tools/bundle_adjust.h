@@ -55,7 +55,7 @@
 struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, input_prefix, stereo_session_string,
-    cost_function, mapprojected_data, gcp_data;
+    cost_function, mapprojected_data, gcp_from_mapprojected;
   int    ip_per_tile, ip_edge_buffer_percent;
   double min_triangulation_angle, forced_triangulation_distance,
     lambda, camera_weight, rotation_weight, 
@@ -293,7 +293,7 @@ void create_matches_from_mapprojected_images(Options const& opt){
 void create_gcp_from_mapprojected_images(Options const& opt){
 
   // Read the map-projected images and the dem
-  std::istringstream is(opt.gcp_data);
+  std::istringstream is(opt.gcp_from_mapprojected);
   std::vector<std::string> image_files;
   std::string file;
   while (is >> file){
@@ -349,7 +349,8 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 
   vw_out() << "Writing: " << gcp_file << std::endl;
   std::ofstream output_handle(gcp_file.c_str());
-
+  output_handle.precision(17);
+  
   int num_ips = matches[0].size();
   int pts_count = 0;
   for (int p = 0; p < num_ips; p++) { // Loop through IPs
@@ -400,7 +401,7 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 
   // Write out match files for each pair of images.
   for (int i = 0; i < num_images; i++) {
-    for (int j = i; j < num_images; j++) { // write also for i, i. Useful for only 1 image.
+    for (int j = i+1; j < num_images; j++) {
       std::string image1_path    = opt.image_files[i];
       std::string image2_path    = opt.image_files[j];
       std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);

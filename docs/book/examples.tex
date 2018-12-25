@@ -1216,7 +1216,7 @@ each image corner based on its longitude and latitude. The height value specifie
 via \texttt{-\/-height-above-datum} is used as a fallback option, if for example,
 the DEM is incomplete, and is not strictly necessary for this example. 
 This tool also accepts the longitude and latitude of the corners as an option,
-via \texttt{-\/-lon-lat-corners}.
+via \texttt{-\/-lon-lat-values}.
 
 The flag \texttt{-\/-refine-camera} makes \texttt{cam\_gen} solve a least
 square problem to refine the output camera. In some rare cases it can get the
@@ -1336,12 +1336,30 @@ threshold, as mentioned earlier.  In the worst case, one can create a
 DEM from the residual file as above, and try to manually align it to the
 SRTM DEM, as described in section \ref{manual-align}.
 
-If the baseline of images is small, so one image covers roughly the same footprint 
-as some other one in the sequence, likely nothing will help and different images should be used.
+If this still fails, one can bypass the alignment step altogether for
+the moment. One can run stereo on pairs of images and cameras obtained
+after bundle adjustment (invoked with or without GCP), create DEMs (see
+below), merge them with \texttt{dem\_mosaic}, and compare the obtained
+dense terrain to the reference terrain. Hopefully the registration
+between these two using \texttt{pc\_align} will succeed, and then one
+can use this alignment transform below. It is important to check after
+creating these DEMs how well they agree among themselves, using again
+\texttt{geodiff} with the \texttt{-\/-absolute} option. If they differ
+by more than a few meters, likely again something went wrong and some
+bundle adjustment parameters may need to be tuned. 
 
-Assuming that the cameras turn out well, and that alignment succeeds (whether automatically
-or manually), one can apply the alignment transform to the obtained cameras to make them consistent
-with the reference DEM. That can be done as follows:
+As a measure of last resort, one can use \texttt{stereo\_gui} to manually
+create GCP (section \ref{creatinggcp}) which can be used to initialize
+or refine the cameras.
+
+If the baseline of images is small, so one image covers roughly the same
+footprint as some other one in the sequence, likely nothing will help
+and different images should be used.
+
+Assuming that the cameras turn out well, and that alignment succeeds
+(whether automatically or manually), one can apply the alignment
+transform to the obtained cameras to make them consistent with the
+reference DEM. That can be done as follows:
 
 \begin{verbatim}
   bundle_adjust v[1-4].tif  ba/run-v[1-4].tsai -o ba_align/run                   \
@@ -1398,6 +1416,13 @@ and each DEM with the reference DEM:
 \end{verbatim}
 
 (and so on, for the other DEMs.) These errors better be no more than 3 or 4 meters.
+
+It is also suggested to notice a line as follows during stereo:
+\begin{verbatim}
+  Triangulation Err: 1.09702 +- 0.729729 meters
+\end{verbatim}
+
+Hopefully this error will also not exceed a meter or two. 
 
 If the steep topography prevents good DEMs from being created, one can 
 map-project the images first:
@@ -1464,11 +1489,12 @@ Then bundle adjustment using the reference terrain constraint proceeds as follow
   --max-num-reference-points 10000000 --reference-terrain-weight 50                 \ 
   --parameter-tolerance 1e-12 -t nadirpinhole --max-iterations 500                  \
   --overlap-limit 1 --create-pinhole-cameras --robust-threshold 2                   \
-  --force-reuse-match-files --max-disp-error 100
+  --force-reuse-match-files --max-disp-error 100 --camera-weight 0
 \end{verbatim}
 
 If invoking this creates new match files, it means that the dense match files 
-were not copied successfully to the new location. 
+were not copied successfully to the new location. If this optimization is slow,
+perhaps too many reference terrain points were picked. 
 
 This will create, as before, the residual file named
 \begin{verbatim}

@@ -10,8 +10,9 @@
  - New tools
    * Added the cam_gen tool to create a correctly oriented pinhole
    * camera model given camera intrinsics, lon-lat coordinates of the
-     corners, and optionally a ground truth DEM. It can also parse
-     SkySat's video/frame_index metafile to get this data.
+     corners (or some other pixels), and optionally a ground truth
+     DEM. It can also parse SkySat's video/frame_index metafile to get
+     this data.
    * Added the coverage_fraction tool to provide a coverage estimate
      of the results of a stereo call. 
    * Added the image_mosaic tool which merges together images based on
