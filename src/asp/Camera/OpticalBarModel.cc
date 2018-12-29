@@ -264,10 +264,10 @@ void OpticalBarModel::write(std::string const& filename) const {
   // TODO: Make compatible with .tsai files!
 
   // Set the path an open the output file for writing
-  std::string file_path = boost::filesystem::path(filename).replace_extension(".opb").string();
-  std::ofstream cam_file(file_path.c_str());
+  //std::string file_path = boost::filesystem::path(filename).replace_extension(".opb").string();
+  std::ofstream cam_file(filename.c_str());
   if( !cam_file.is_open() ) 
-    vw_throw( IOErr() << "OpticalBarModel::write: Could not open file: " << file_path );
+    vw_throw( IOErr() << "OpticalBarModel::write: Could not open file: " << filename );
 
   std::string VERSION = "VERSION_1";
   

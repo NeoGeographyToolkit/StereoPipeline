@@ -127,13 +127,13 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
   boost::shared_ptr<CameraModel> left_camera_model  = opt.camera_models[left_cam_index ];
   boost::shared_ptr<CameraModel> right_camera_model = opt.camera_models[right_cam_index];
 
-  const bool detailed_model = (opt.camera_type != BaCameraType_Other);
+  const bool inline_adjustments = (opt.camera_type != BaCameraType_Other);
 
   // Get the list of residual pointers that will be passed to ceres.
   std::vector<double*> residual_ptrs;
   BaDispXyzError::get_residual_pointers(param_storage,
                                         left_cam_index, right_cam_index,
-                                        detailed_model, opt.intrinisc_options,
+                                        inline_adjustments, opt.intrinisc_options,
                                         residual_ptrs);
  if (opt.camera_type == BaCameraType_Other) {
 
@@ -141,7 +141,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
     boost::shared_ptr<CeresBundleModelBase> right_wrapper(new AdjustedCameraBundleModel(right_camera_model));
     ceres::CostFunction* cost_function =
       BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
-                             detailed_model, opt.intrinisc_options);
+                             inline_adjustments, opt.intrinisc_options);
 
     problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
 
@@ -170,7 +170,7 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
 
     ceres::CostFunction* cost_function =
       BaDispXyzError::Create(reference_xyz, interp_disp, left_wrapper, right_wrapper,
-                             detailed_model, opt.intrinisc_options);
+                             inline_adjustments, opt.intrinisc_options);
     problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
 
   }
@@ -1346,7 +1346,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str;
   float auto_overlap_buffer;
-  bool detailed_model;
+  bool inline_adjustments;
   po::options_description general_options("");
   general_options.add_options()
 //     ("cnet,c", po::value(&opt.cnet_file),
@@ -1356,8 +1356,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
             "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
             "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
-    ("detailed-model",   po::bool_switch(&detailed_model)->default_value(false),
-            "If set, apply the adjustments directly to the cameras, rather than saving them separately as .adjust files.  This also lets you solve for intrinsics.  Currently supported for pinhole and optical bar cameras.")
+    ("inline-adjustments",   po::bool_switch(&inline_adjustments)->default_value(false),
+     "If this is set, and the input cameras are of the pinhole or panoramic type, apply the adjustments directly to the cameras, rather than saving them separately as .adjust files.")
     ("approximate-pinhole-intrinsics", po::bool_switch(&opt.approximate_pinhole_intrinsics)->default_value(false),
             "If it reduces computation time, approximate the lens distortion model.")
     ("solve-intrinsics",    po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
@@ -1367,7 +1367,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
             "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
-            "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the create-pinhole-cameras option.")
+            "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the inline-adjustments option.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
             "Don't try to initialize the positions of pinhole cameras based on input GCPs.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
@@ -1513,7 +1513,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Work out the camera model type to use
   boost::to_lower( opt.stereo_session_string );
   opt.camera_type = BaCameraType_Other;
-  if (detailed_model) {
+  if (inline_adjustments) {
     if ((opt.stereo_session_string == "pinhole") || 
         (opt.stereo_session_string == "nadirpinhole")) {
       opt.camera_type = BaCameraType_Pinhole;
@@ -1521,7 +1521,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       if (opt.stereo_session_string == "opticalbar")
         opt.camera_type = BaCameraType_OpticalBar;
       else
-        vw_throw( ArgumentErr() << "Cannot use the detailed model option with camera type = "
+        vw_throw( ArgumentErr() << "Cannot use inline adjustments with camera type = "
                                 << opt.stereo_session_string << "\n"
                                 << usage << general_options );
     }

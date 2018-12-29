@@ -420,7 +420,7 @@ def robustBundleAdjust(options, inputPairs,
                 '--approximate-pinhole-intrinsics ' +
                 # '--rotation-weight 400 ' + # this may be needed for some flights
                 '--translation-weight %0.16g -t nadirpinhole --skip-rough-homography ' +
-                '--create-pinhole-cameras --overlap-limit %d --robust-threshold %0.16g ' +
+                '--inline-adjustments --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
                 '--overlap-exponent %0.16g --epipolar-threshold %d ' +
                 '--ip-side-filter-percent %d ')
@@ -552,7 +552,7 @@ def applyTransformToCameras(options, inputPairs, suppressOutput, redo,
 
     cmd = (('bundle_adjust %s -o %s %s --datum wgs84 ' +
             '-t nadirpinhole --skip-rough-homography '+
-            '--create-pinhole-cameras --min-matches 0  --max-iterations 0 --ip-per-tile 1000 ' + 
+            '--inline-adjustments --min-matches 0  --max-iterations 0 --ip-per-tile 1000 ' + 
             ' --initial-transform %s')
            % (imagesAndCams, alignedBundlePrefix, threadText,
               initialTransform))

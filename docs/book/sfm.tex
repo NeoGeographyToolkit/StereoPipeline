@@ -33,7 +33,7 @@ to solve for intrinsic parameters if you have access to the camera in question.
 The camera calibration information must be contained in a
 .tsai pinhole camera model file and must passed in using the
 \texttt{-\/-calib-file} option.  You can find descriptions of
-our supported pinhole camera models in Appendix \ref{chapter:pinholemodels}.
+our supported pinhole camera models in section \ref{pinholemodels}.
 
 If no intrinsic camera information is known, it can be guessed by doing some experimentation.
 This is discussed in section \ref{findintrinsics}.
@@ -89,7 +89,7 @@ The next step is to fill out the rest of the pinhole camera model information
 we need.  Using the data sheets available at 
 \url{http://apollo.sese.asu.edu/SUPPORT_DATA/AS15_SIMBAY_SUMMARY.pdf} 
 we can find the lens distortion parameters for metric camera.  Looking at the 
-ASP lens distortion models in Appendix \ref{chapter:pinholemodels}, 
+ASP lens distortion models in section \ref{pinholemodels}, 
 we see that the description matches ASP's Brown-Conrady model.  
 Using the example in the appendix we can fill out
 the rest of the sensor model file (metric\_model.tsai) so it looks as follows:
@@ -251,8 +251,8 @@ particular to IceBridge.  You can download DMS images from
 A list of the available data types can be found at
 \url{https://nsidc.org/data/icebridge/instr_data_summary.html}.  This
 example uses data from the November 5, 2009 flight over Antarctica. The
-following camera model (icebridge\_model.tsai) was used (see chapter
-\ref{chapter:pinholemodels} on camera models):
+following camera model (icebridge\_model.tsai) was used (see section
+\ref{pinholemodels} on Pinhole camera models):
 
 \begin{verbatim}
 VERSION_3
@@ -476,7 +476,7 @@ Such a file can be created with \texttt{stereo\_gui} (section
 One runs bundle adjustment with this data:
 \begin{verbatim}
 bundle_adjust img.tif init.tsai gcp.gcp -o ba/run --datum WGS84   \
-   --create-pinhole-cameras --camera-weight 0 --max-iterations 0  \
+   --inline-adjustments --camera-weight 0 --max-iterations 0      \
    --robust-threshold 10
 \end{verbatim}
 

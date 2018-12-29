@@ -1,11 +1,15 @@
-\chapter{Pinhole Models}
-\label{chapter:pinholemodels}
+\chapter{Frame Camera Models}
 
+Ames Stereo Pipeline supports a generic Pinhole camera model with
+several lens distortion models which cover common calibration
+methods, and also the somewhat more complicated panoramic camera model.
 
-Ames Stereo Pipeline supports a generic pinhole camera model with
-several generic lens distortion models which cover common 
-calibration methods.  The generic pinhole model uses the following
-parameters:   
+\section{Pinhole Models}
+\label{pinholemodels}
+
+\section{Overview}
+
+The generic pinhole model uses the following parameters:
 
 \begin{itemize}{}
 \item  \textit{fu} = The focal length in horizontal pixel units.
@@ -125,7 +129,7 @@ are also saved as part of the model.
 \end{itemize}
 
 \hrule
-\section{File Format}
+\subsection{File Formats}
 \label{file_format}
 \bigskip
 
@@ -238,9 +242,35 @@ Note that the \texttt{orbitviz} tool can be useful for checking the formatting o
 files you create and to estimate the position and orientation. To inspect the orientation use 
 the optional \texttt{.dae} model file input option and observe the rotation of the 3D model.
 
+\section{Panoramic Camera Model}
+\label{panoramic}
 
+ASP supports the panoramic camera for declassified CORONA KH-4B images. It implements the model
+from \cite{sohn2004mathematical}.
 
+Such a model looks as follows:
+\begin{verbatim}
+VERSION_1
+image_size = 15102 1326
+image_center = 0 0
+pitch = 0.0000527903469079
+f = 0.60960199999999998
+scan_angle = 1.22173 
+scan_rate = 3.3510321638291125 
+iC = -2494043.6281357 -3994250.90444851 4535283.95327913 
+iR = 0 0 0 
+speed = 7800 
+mean_earth_radius = 6371000 
+mean_surface_elevation = 0
+\end{verbatim}
 
-
-
+Here, the image size is given in pixels, with the width followed by the
+height. The image center is the difference between the optical center
+and the geometric center (midpoint) of the image, in milliliters. The
+pixel pitch and focal length \texttt{f} are also in millimeters. The
+scan angle is in radians (in this example it is 70$^\circ$), the scan
+rate is in radians per second, the speed is in meters per second, and
+the Earth radius and mean surface elevation are in meters. The camera
+center \texttt{iC} is in meters, and the rotation matrix \texttt{iR} is
+represented as the axis angle.
 

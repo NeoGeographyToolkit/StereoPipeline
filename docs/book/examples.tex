@@ -1257,7 +1257,7 @@ adjustment:
 \begin{verbatim}
   bundle_adjust v[1-4].tif v[1-4].tsai v[1-4].gcp -o ba/run -t nadirpinhole       \
    --datum WGS84 --ip-per-tile 2000 --robust-threshold 100 --max-iterations 500   \
-   --overlap-limit 4 --create-pinhole-cameras --camera-weight 0                   \
+   --overlap-limit 4 --inline-adjustments --camera-weight 0                       \
    --disable-tri-ip-filter --disable-pinhole-gcp-init --skip-rough-homography     \
    --force-reuse-match-files
 \end{verbatim}
@@ -1362,8 +1362,8 @@ transform to the obtained cameras to make them consistent with the
 reference DEM. That can be done as follows:
 
 \begin{verbatim}
-  bundle_adjust v[1-4].tif  ba/run-v[1-4].tsai -o ba_align/run                   \
-   -t nadirpinhole --max-iterations 0 --overlap-limit 1 --create-pinhole-cameras \
+  bundle_adjust v[1-4].tif  ba/run-v[1-4].tsai -o ba_align/run               \
+   -t nadirpinhole --max-iterations 0 --overlap-limit 1 --inline-adjustments \
    --camera-weight 0 --initial-transform ba/run-transform.txt
 \end{verbatim}
 
@@ -1484,11 +1484,11 @@ The unaligned disparities can be used from where they are.
 Then bundle adjustment using the reference terrain constraint proceeds as follows:
 \begin{verbatim}
   disp_list=$(ls stereo_align_v*/*-unaligned-D.tif)
-  bundle_adjust v[1-4].tif  ba_align/run-run-v[1-4].tsai -o ba_ref_terrain/run      \
-  --reference-terrain ref_dem.tif --disparity-list "$disp_list"                     \
-  --max-num-reference-points 10000000 --reference-terrain-weight 50                 \ 
-  --parameter-tolerance 1e-12 -t nadirpinhole --max-iterations 500                  \
-  --overlap-limit 1 --create-pinhole-cameras --robust-threshold 2                   \
+  bundle_adjust v[1-4].tif  ba_align/run-run-v[1-4].tsai -o ba_ref_terrain/run  \
+  --reference-terrain ref_dem.tif --disparity-list "$disp_list"                 \
+  --max-num-reference-points 10000000 --reference-terrain-weight 50             \ 
+  --parameter-tolerance 1e-12 -t nadirpinhole --max-iterations 500              \
+  --overlap-limit 1 --inline-adjustments --robust-threshold 2                   \
   --force-reuse-match-files --max-disp-error 100 --camera-weight 0
 \end{verbatim}
 
@@ -1535,7 +1535,7 @@ if comparing with a different reference terrain.
 
 Yet, if desired, one can float even the distortion parameters. 
 For that, the input camera files need to be converted
-to some camera model having these (see chapter \ref{chapter:pinholemodels}), 
+to some camera model having these (see section \ref{pinholemodels}), 
 and their values can be set to something very small.
 One can use the Brown-Conrady model, for example, so each camera file must have
 instead of \texttt{NULL} at the end the fields:
@@ -1554,5 +1554,27 @@ phi = -1e-12
 There is always a chance when solving these parameters that the obtained solution is not optimal.
 Hence, one can also try using as initial guesses different values, for example, 
 by negating the above numbers.
+
+\section{KH-4 images}
+\label{kh4}
+
+ASP supports the declassified high-resolution CORONA KH-4B images. It
+implements the panoramic camera model from \cite{sohn2004mathematical},
+whose format is described in section \label{panoramic}.
+
+We will illustrate processing such data on an example from Tibet. 
+
+\section{Fetching the data}
+
+The KH-4 images are available via the USGS Earth Explorer, 
+\begin{center}
+ \url{https://earthexplorer.usgs.gov/}
+\end{center}
+
+(an account is required to download the data). 
+
+
+
+
 
 
