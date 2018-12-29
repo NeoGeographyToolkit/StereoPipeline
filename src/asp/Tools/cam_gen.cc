@@ -139,78 +139,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.gcp_std <= 0) 
     vw_throw( ArgumentErr() << "The GCP standard deviation must be positive.\n"
 	      << usage << general_options );
-<<<<<<< HEAD
 
   if (opt.frame_index != "" && opt.lon_lat_values_str != "") 
     vw_throw( ArgumentErr() << "Cannot specify both the frame index file and the lon-lat corners.\n"
-||||||| merged common ancestors
-  
-  // Parse the image corners
-  opt.image_corners.clear();
-  std::string oldStr = ",", newStr = " ";
-  size_t pos = 0;
-  while((pos = opt.lon_lat_corners.find(oldStr, pos)) != std::string::npos){
-    opt.lon_lat_corners.replace(pos, oldStr.length(), newStr);
-    pos += newStr.length();
-  }
-  std::istringstream is(opt.lon_lat_corners);
-  double val;
-  while (is >> val)
-    opt.image_corners.push_back(val);
-  if (opt.image_corners.size() != 8)
-    vw_throw( ArgumentErr() << "Expecting 8 values for the image corners.\n"
-=======
-
-  if (opt.frame_index != "" && opt.lon_lat_corners != "") 
-    vw_throw( ArgumentErr() << "Cannot specify both the frame index file and the lon-lat corners.\n"
 	      << usage << general_options );
 
-  if (opt.frame_index != "") {
-    // Parse the frame index to extract opt.lon_lat_corners.
-    // Look for a line having this image, and search for 
-    boost::filesystem::path p(opt.image_file); 
-    std::string image_base = p.stem().string(); // strip the directory name and suffix
-    std::ifstream file( opt.frame_index.c_str() );
-    std::string line;
-    std::string beg = "POLYGON((";
-    std::string end = "))";
-    while ( getline(file, line, '\n') ) {
-      if (line.find(image_base) == 0) {
-        int beg_pos = line.find(beg);
-        if (beg_pos == std::string::npos)
-          vw_throw( ArgumentErr() << "Cannot find " << beg << " in line: " << line << ".\n");
-        beg_pos += beg.size();
-        int end_pos = line.find(end);
-        if (end_pos == std::string::npos)
-          vw_throw( ArgumentErr() << "Cannot find " << end << " in line: " << line << ".\n");
-        opt.lon_lat_corners = line.substr(beg_pos, end_pos - beg_pos);
-        vw_out() << "Scanned the lon-lat corners: " << opt.lon_lat_corners << std::endl;
-        break;
-      }
-    }
-    if (opt.lon_lat_corners == "")
-      vw_throw( ArgumentErr() << "Could not parse the entry for " << image_base
-                << " in file: " << opt.frame_index << ".\n");
-  }
-    
-  // Parse the image corners
-  opt.image_corners.clear();
-  std::string oldStr = ",", newStr = " ";
-  size_t pos = 0;
-  while((pos = opt.lon_lat_corners.find(oldStr, pos)) != std::string::npos){
-    opt.lon_lat_corners.replace(pos, oldStr.length(), newStr);
-    pos += newStr.length();
-  }
-  std::istringstream is(opt.lon_lat_corners);
-  double val;
-  while (is >> val)
-    opt.image_corners.push_back(val);
-  if (opt.image_corners.size() != 8)
-    vw_throw( ArgumentErr() << "Expecting 8 values for the image corners.\n"
->>>>>>> Documentation for SkySat
-	      << usage << general_options );
-
-<<<<<<< HEAD
   if (opt.frame_index != "") {
     // Parse the frame index to extract opt.lon_lat_values_str.
     // Look for a line having this image, and search for 
@@ -259,17 +192,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.pixel_pitch <= 0) 
     vw_throw( ArgumentErr() << "Must provide positive focal length, optical center, "
               << "and pixel pitch values.\n" << usage << general_options );
-||||||| merged common ancestors
-
-  if (opt.focal_length <= 0 || opt.optical_center[0] <= 0 || opt.optical_center[1] <= 0) 
-    vw_throw( ArgumentErr() << "Must provide positive focal length and optical center values.\n"
-	      << usage << general_options );
-=======
-  if (opt.focal_length <= 0 || opt.optical_center[0] <= 0 || opt.optical_center[1] <= 0 ||
-      opt.pixel_pitch <= 0) 
-    vw_throw( ArgumentErr() << "Must provide positive focal length, optical center, "
-              << "and pixel pitch values.\n" << usage << general_options );
->>>>>>> Documentation for SkySat
   
   // Create the output directory
   vw::create_out_dir(opt.camera_file);
@@ -400,22 +322,11 @@ int main( int argc, char *argv[] ) {
     for (size_t corner_it = 0; corner_it < num_lon_lat_pairs; corner_it++) {
 
       // Get the height from the DEM if possible
-<<<<<<< HEAD
       llh[0] = opt.lon_lat_values[2*corner_it+0];
       llh[1] = opt.lon_lat_values[2*corner_it+1];
       if (llh[1] < -90 || llh[1] > 90) 
         vw_throw( ArgumentErr() << "Detected a latitude out of bounds. "
                   << "Perhaps the longitude and latitude are reversed?\n");
-||||||| merged common ancestors
-      llh[0] = opt.image_corners[2*corner_it+0];
-      llh[1] = opt.image_corners[2*corner_it+1];
-=======
-      llh[0] = opt.image_corners[2*corner_it+0];
-      llh[1] = opt.image_corners[2*corner_it+1];
-      if (llh[1] < -90 || llh[1] > 90) 
-        vw_throw( ArgumentErr() << "Detected a latitude out of bounds. "
-                  << "Perhaps the longitude and latitude are reversed?\n");
->>>>>>> Documentation for SkySat
       double height = opt.height_above_datum;
       if (has_dem) {
         bool success = false; 
