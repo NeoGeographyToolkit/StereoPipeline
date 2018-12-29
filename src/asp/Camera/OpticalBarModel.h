@@ -31,10 +31,24 @@
 namespace asp {
 namespace camera {
 
-  /// A camera model to approximate the type of optical bar cameras
-  ///  that were used in the Corona and Hexagon satellites.
+  // A camera model to approximate the type of optical bar cameras
+  // that were used in the Corona and Hexagon satellites.
+  
+  // This implements the logic in: 
+  // Mathematical modelling of historical reconnaissance CORONA KH-4B imagery
+  // HG Sohn, GH Kim, JH Yom - The Photogrammetric Record, 2004
+  
+  // Other good papers:
+  
+  // An evaluation of the stereoscopic capabilities of CORONA
+  // declassified spy satellite image data, Nikolaos Galiatsatos,
+  // Daniel N. M. Donoghue, and Graham Philip.
 
-  // TODO: Add paper references!
+  // Stereo analysis, DEM extraction and orthorectification of CORONA
+  // satellite imagery: archaeological applications from the Near East
+  // Jesse Casana1 & Jackson Cothren
+
+  // Data is at https://earthexplorer.usgs.gov/
   
   class OpticalBarModel : public vw::camera::CameraModel {
 

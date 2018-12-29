@@ -81,19 +81,15 @@ namespace asp {
       // Add the point shift to keywords
       std::map<std::string, std::string> local_keywords = keywords;
       local_keywords[ASP_POINT_OFFSET_TAG_STR] = vw::vec_to_str(shift);
-
       write_gdal_image(filename,
                        vw::channel_cast<float>
                        (round_image_pixels(subtract_shift(image.impl(), shift),
                                            get_rounding_error(shift, rounding_error))),
                        has_georef, georef, has_nodata, nodata,
                        opt, progress_callback, local_keywords);
-
     }else{
-
       write_gdal_image(filename, image, has_georef, georef,
                        has_nodata, nodata, opt, progress_callback, keywords);
-
     }
   }
 
@@ -103,15 +99,14 @@ namespace asp {
   void save_with_temp_big_blocks(int big_block_size,
                                  const std::string &filename,
                                  vw::ImageViewBase<ImageT> const& img,
+                                 bool has_georef,
                                  vw::cartography::GeoReference const& georef,
-                                 double nodata,
+                                 bool has_nodata, double nodata,
                                  vw::cartography::GdalWriteOptions & opt,
                                  vw::ProgressCallback const& tpc){
 
     vw::Vector2 orig_block_size = opt.raster_tile_size;
     opt.raster_tile_size = vw::Vector2(big_block_size, big_block_size);
-    bool has_georef = true;
-    bool has_nodata = true;
     block_write_gdal_image(filename, img, has_georef, georef, has_nodata, nodata, opt, tpc);
 
     if (opt.raster_tile_size != orig_block_size){

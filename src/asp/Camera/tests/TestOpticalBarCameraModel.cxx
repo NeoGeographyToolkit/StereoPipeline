@@ -45,7 +45,7 @@ TEST(OpticalBarModel, CreateCamera) {
   Vector2  center_offset_pixels(-4.3, -1.2);
   double   pixel_size         = 7*10e-6;
   double   focal_length       = 609.602/1000.0;
-  double   scan_angle_radians = 70;
+  double   scan_angle_radians = 1.22173; // in radians, that is 70 degrees
   double   scan_rate_radians  = 192 * M_PI/180;
   Vector3  initial_position(gcc);
   Vector3  initial_orientation(angles);

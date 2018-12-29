@@ -232,8 +232,9 @@ namespace asp {
   void save_with_temp_big_blocks(int big_block_size,
                                  const std::string &filename,
                                  vw::ImageViewBase<ImageT> const& img,
+                                 bool has_georef, 
                                  vw::cartography::GeoReference const& georef,
-                                 double nodata,
+                                 bool has_nodata, double nodata,
                                  vw::cartography::GdalWriteOptions & opt,
                                  vw::ProgressCallback const& tpc);
 

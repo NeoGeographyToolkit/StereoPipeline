@@ -1424,6 +1424,13 @@ Override the input nodata value.
 \texttt{-\/-output-nodata-value \textit{double}  } &
 Specify the output nodata value.
 \\ \hline
+\texttt{-\/-ip-per-tile \textit{integer}} &
+How many interest points to detect in each $1024^2$ image tile (default: automatic
+determination).
+\\ \hline
+\texttt{-\/-output-prefix  \textit{string} } &
+If specified, save here the interest point matches used in mosaicking.
+\\ \hline
 \texttt{-\/-tile-size \textit{integer(=256, 256)} } &
 The size of image tiles used for processing.  The amount of image blending is limited by
 the tile size, so this will be increased automatically if it is too small for the overlap width.

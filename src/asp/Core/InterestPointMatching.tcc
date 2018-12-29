@@ -414,8 +414,6 @@ bool epipolar_ip_matching( bool single_threaded_camera,
   return true;
 } // End function epipolar_ip_matching
 
-
-
 template <class Image1T, class Image2T>
 void detect_match_ip( std::vector<vw::ip::InterestPoint>& matched_ip1,
                       std::vector<vw::ip::InterestPoint>& matched_ip2,
@@ -424,8 +422,7 @@ void detect_match_ip( std::vector<vw::ip::InterestPoint>& matched_ip1,
                       int    ip_per_tile,
                       std::string const left_file_path,
                       std::string const right_file_path,
-                      double nodata1,
-                      double nodata2) {
+                      double nodata1, double nodata2, std::string const& match_file) {
   using namespace vw;
 
   // Detect Interest Points
@@ -434,7 +431,7 @@ void detect_match_ip( std::vector<vw::ip::InterestPoint>& matched_ip1,
                  left_file_path, right_file_path, nodata1, nodata2);
   
   // Match the interset points using the default matcher
-  vw_out() << "\t--> Matching interest points\n";
+  vw_out() << "\t--> Matching interest points.\n";
 
   // Replace the IP lists with IP vectors
   std::vector<vw::ip::InterestPoint> ip1_copy, ip2_copy;
@@ -465,13 +462,22 @@ void detect_match_ip( std::vector<vw::ip::InterestPoint>& matched_ip1,
 
   ip::remove_duplicates( matched_ip1, matched_ip2 );
 
+  vw_out() << "\n\t    Matched points: " << matched_ip1.size() << std::endl;
+
   if (stereo_settings().ip_debug_images) {
     vw_out() << "\t    Writing IP initial match debug image.\n";
     write_match_image("InterestPointMatching__ip_matching_debug.tif",
                       image1, image2, matched_ip1, matched_ip2);
   }
 
-  vw_out() << "\n\t    Matched points: " << matched_ip1.size() << std::endl;
+  // Save ip
+  if (match_file != "") {
+    // Create the output directory
+    vw::create_out_dir(match_file);
+    vw_out() << "Writing: " << match_file << std::endl;
+    ip::write_binary_match_file(match_file, matched_ip1, matched_ip2);
+  }
+  
 } // End function detect_match_ip
 
 

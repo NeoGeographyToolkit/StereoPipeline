@@ -52,12 +52,13 @@ int fix_tile_multiple(int &size) {
 }
 
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options: vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files;
-  std::string orientation, output_image, output_type;
-  int    overlap_width, band, blend_radius;
-  bool   has_input_nodata_value, has_output_nodata_value;
+  std::string orientation, output_image, output_type, out_prefix;
+  int    overlap_width, band, blend_radius, ip_per_tile;
+  bool   has_input_nodata_value, has_output_nodata_value, rotate;
   double input_nodata_value, output_nodata_value;
+  Vector2 big_tile_size;
   Options(): has_input_nodata_value(false), has_output_nodata_value(false),
              input_nodata_value (std::numeric_limits<double>::quiet_NaN()),
              output_nodata_value(std::numeric_limits<double>::quiet_NaN()){}
@@ -102,12 +103,20 @@ void match_ip_in_regions(std::string const& image_file1,
   get_input_image(image_file1, opt, image1, nodata1);
   get_input_image(image_file2, opt, image2, nodata2);
 
+  vw_out() << "Matching interest points between: " << image_file1 << " and "
+           << image_file2 << std::endl;
+  
+  std::string match_file;
+  if (opt.out_prefix != "") {
+    // Write a match file for debugging
+    match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2);
+  }
+  
   // Now find and match interest points in the selected regions
-  int ip_per_tile = 0; // Let this be computed automatically.
   asp::detect_match_ip(matched_ip1, matched_ip2,
                        crop(image1, roi1),
-                       crop(image2, roi2), ip_per_tile,
-                       "", "", nodata1, nodata2); // TODO: Cache the IP?
+                       crop(image2, roi2), opt.ip_per_tile,
+                       "", "", nodata1, nodata2, match_file); 
 
   // TODO: This should be a function!
   // Adjust the IP to account for the search ROIs.
@@ -122,7 +131,7 @@ void match_ip_in_regions(std::string const& image_file1,
     matched_ip2[i].y  += roi2.min()[1];
     matched_ip2[i].iy += roi2.min()[1];
   }
-  std::cout << "matched_ip1.size() = " << matched_ip1.size() << std::endl;
+  //std::cout << "Number of matched ip: " << matched_ip1.size() << std::endl;
 } // End function match_ip_in_regions
 
 
@@ -150,7 +159,7 @@ Matrix<double> affine_ip_matching(std::string const& image_file1,
   const int    min_num_output_inliers = ransac_ip1.size()/2;
   const bool   reduce_min_num_output_inliers_if_no_fit = true;
 
-  std::cout << "min_num_output_inliers = " << min_num_output_inliers << std::endl;
+  //std::cout << "min_num_output_inliers = " << min_num_output_inliers << std::endl;
   
   Matrix<double> tf;
   std::vector<size_t> indices;
@@ -168,17 +177,24 @@ Matrix<double> affine_ip_matching(std::string const& image_file1,
   } catch (...) {
     vw_throw( ArgumentErr() << "Automatic Alignment failed in RANSAC fit!");
   }
-/*
+
   // Keeping only inliers
   std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
   for ( size_t i = 0; i < indices.size(); i++ ) {
     inlier_ip1.push_back( matched_ip1[indices[i]] );
     inlier_ip2.push_back( matched_ip2[indices[i]] );
-  }
-  matched_ip1 = inlier_ip1;
-  matched_ip2 = inlier_ip2;
-*/
+  } 
 
+  std::string match_file;
+  if (opt.out_prefix != "") {
+    // Write a match file for debugging
+    match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2);
+    match_file = boost::filesystem::path(match_file).replace_extension("").string();
+    match_file += "-clean.match";
+    vw_out() << "Writing inlier matches after RANSAC to: " << match_file << std::endl;
+    ip::write_binary_match_file(match_file, inlier_ip1, inlier_ip2);
+  }
+  
   return tf;
 }
 
@@ -202,8 +218,8 @@ Matrix<double> compute_relative_transform(std::string const& image1,
     roi2.max() = Vector2(opt.overlap_width, size2[1]); // Bottom right corner
   }
 
-  std::cout << "roi1 = " << roi1 << std::endl;
-  std::cout << "roi2 = " << roi2 << std::endl;
+  //std::cout << "roi1 = " << roi1 << std::endl;
+  //std::cout << "roi2 = " << roi2 << std::endl;
   
   if (roi1.empty() || roi2.empty())
     vw_throw( ArgumentErr() << "Unrecognized image orientation!");
@@ -282,17 +298,17 @@ void compute_all_image_positions(Options const& opt,
     
     transforms[i] = tf_ptr; // Record transfrom from output to input
 
-    std::cout << "relative_transform: " << relative_transform << std::endl;
-    std::cout << "absolute_transform: " << absolute_transform << std::endl;
+    vw_out() << "relative_transform: " << relative_transform << std::endl;
+    vw_out() << "absolute_transform: " << absolute_transform << std::endl;
 
     // Update the overall output bbox with the new image added
     // TODO: Add other corners!
     Vector2 new_bot_right_corner = tf_ptr->forward(image_size);
     output_bbox.grow(new_bot_right_corner);
-
-    std::cout << "image_size: " << image_size << std::endl;
-    std::cout << "new_bot_right_corner: " << new_bot_right_corner << std::endl;
-    std::cout << "Overall bbox: " << output_bbox << std::endl;
+    
+    //std::cout << "image_size: " << image_size << std::endl;
+    //std::cout << "new_bot_right_corner: " << new_bot_right_corner << std::endl;
+    //std::cout << "Overall bbox: " << output_bbox << std::endl;
 
     // Update this image's bbox in output image
     BBox2f this_bbox = compute_transformed_bbox_fast(
@@ -307,7 +323,7 @@ void compute_all_image_positions(Options const& opt,
                                       AffineTransform(m, t),
                                       output_bbox.size()[0], output_bbox.size()[1]) );
     */
-    std::cout << "This bbox: "    << bboxes[i]   << std::endl;
+    //std::cout << "This bbox: "    << bboxes[i]   << std::endl;
 
   } // End loop through images
   
@@ -487,81 +503,165 @@ public:
   }
 }; // End class ImageMosaicView
 
+/// A class to rotate an image by 180 degree around its center
+template <class T>
+class ImageRotateView: public ImageViewBase<ImageRotateView<T> >{
+private:
+  ImageViewRef<T> const& m_image;
 
+public:
+  ImageRotateView(ImageViewRef<T> const& image):
+    m_image(image){}
 
+  typedef float pixel_type;
+  typedef float result_type;
+  typedef ProceduralPixelAccessor<ImageRotateView> pixel_accessor;
 
+  inline int32 cols  () const { return m_image.cols(); }
+  inline int32 rows  () const { return m_image.rows(); }
+  inline int32 planes() const { return 1; }
 
+  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+
+  inline result_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+    vw_throw(NoImplErr() << "ImageRotateView::operator()(...) is not implemented");
+    return result_type();
+  }
+
+  typedef CropView<ImageView<result_type> > prerasterize_type;
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+
+    // We will need to write pixels in the range [out_beg_x, out_end_x] x [out_beg_y, out_end_y]
+    int out_beg_x = bbox.min().x(), out_end_x = bbox.max().x() - 1; // use -1 coz bbox is exclusive
+    int out_beg_y = bbox.min().y(), out_end_y = bbox.max().y() - 1;
+
+    // For that we will need to copy from the input image
+    // in the region rotated by 180 degree around the center
+    int in_beg_x = m_image.cols() - 1 - out_end_x, in_end_x = m_image.cols() - 1 - out_beg_x;
+    int in_beg_y = m_image.rows() - 1 - out_end_y, in_end_y = m_image.rows() - 1 - out_beg_y;
+
+    BBox2i in_box;
+    in_box.min() = Vector2(in_beg_x,     in_beg_y);
+    in_box.max() = Vector2(in_end_x + 1, in_end_y + 1); // use + 1 coz bbox is exclusive
+
+    // Get the desired region before flipping
+    ImageView<result_type> in_tile = crop(m_image, in_box);
+
+    if (in_tile.cols() != bbox.width() || in_tile.rows() != bbox.height())
+      vw_throw( LogicErr() << "Book-keeping failure in ImageRotateView().\n" );
+
+    ImageView<result_type> out_tile(bbox.width(), bbox.height());
+    
+    // Flip the pixels. This could be done in-place, but it is simpler this way
+    for (int col = 0; col < out_tile.cols(); col++) {
+      for (int row = 0; row < out_tile.rows(); row++) {
+        out_tile(col, row) = in_tile(in_tile.cols() - 1 - col, in_tile.rows() - 1 - row);
+      }
+    }
+    
+    return prerasterize_type(out_tile, -bbox.min().x(), -bbox.min().y(),
+                             cols(), rows() );
+  } // End function prerasterize
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, BBox2i bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+}; // End class ImageRotateView
 
 // Write the image out, converting to the specified data type.
 void write_selected_image_type(ImageViewRef<float> const& out_img,
                                double output_nodata_value,
-                               Options const& opt) {
+                               Options & opt) {
+  
+  // Set up our output image object
+  TerminalProgressCallback tpc("asp", "\t    Mosaic:");
 
-   // Set up our output image object
-    vw_out() << "Writing: " << opt.output_image << std::endl;
-    TerminalProgressCallback tpc("asp", "\t    Mosaic:");
-
-    // Write to disk using the specified output data type.
-    if (opt.output_type == "Float32") 
-      vw::cartography::block_write_gdal_image(opt.output_image, out_img,
-                                              output_nodata_value, opt, tpc);
-    else if (opt.output_type == "Byte") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
-                                              per_pixel_filter(out_img,
-                                                               RoundAndClamp<uint8, float>()),
-                                              vw::round_and_clamp<uint8>(output_nodata_value),
-                                              opt, tpc);
-    else if (opt.output_type == "UInt16") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
-                                              per_pixel_filter(out_img,
-                                                               RoundAndClamp<uint16, float>()),
-                                              vw::round_and_clamp<uint16>(output_nodata_value),
-                                              opt, tpc);
-    else if (opt.output_type == "Int16") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
-                                              per_pixel_filter(out_img,
-                                                               RoundAndClamp<int16, float>()),
-                                              vw::round_and_clamp<int16>(output_nodata_value),
-                                              opt, tpc);
-
-    else if (opt.output_type == "UInt32") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
-                                              per_pixel_filter(out_img,
-                                                               RoundAndClamp<uint32, float>()),
-                                              vw::round_and_clamp<uint32>(output_nodata_value),
-                                              opt, tpc);
-    else if (opt.output_type == "Int32") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
-                                              per_pixel_filter(out_img,
-                                                               RoundAndClamp<int32, float>()),
-                                              vw::round_and_clamp<int32>(output_nodata_value),
-                                              opt, tpc);
-    else
-      vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
-
+  // Since we blend large portions, it is convenient to use large
+  // tiles upon writing.  Yet, those are hard to process later, for
+  // example, by stereo_gui. So, later we will rewrite the tiles
+  // with smaller blocks.
+  int min_tile_size = 2*opt.blend_radius;
+  min_tile_size = std::max(opt.raster_tile_size[0], min_tile_size);
+  min_tile_size = std::max(opt.raster_tile_size[1], min_tile_size);
+  fix_tile_multiple(min_tile_size);
+  
+  vw_out() << "Using temporary block size: " << min_tile_size << std::endl;
+  
+  bool has_georef = false;
+  bool has_nodata = true;
+  vw::cartography::GeoReference georef;
+  
+  // Write to disk using the specified output data type.
+  if (opt.output_type == "Float32") 
+    asp::save_with_temp_big_blocks(min_tile_size, opt.output_image, out_img,
+                                   has_georef, georef, has_nodata, output_nodata_value, opt, tpc);
+  else if (opt.output_type == "Byte") 
+    asp::save_with_temp_big_blocks(min_tile_size, opt.output_image,
+                                   per_pixel_filter(out_img,
+                                                    RoundAndClamp<uint8, float>()),
+                                   has_georef, georef, has_nodata, 
+                                   vw::round_and_clamp<uint8>(output_nodata_value),
+                                   opt, tpc);
+  else if (opt.output_type == "UInt16") 
+    asp::save_with_temp_big_blocks(min_tile_size, opt.output_image,
+                                   per_pixel_filter(out_img,
+                                                    RoundAndClamp<uint16, float>()),
+                                   has_georef, georef, has_nodata, 
+                                   vw::round_and_clamp<uint16>(output_nodata_value),
+                                   opt, tpc);
+  else if (opt.output_type == "Int16") 
+    asp::save_with_temp_big_blocks(min_tile_size, opt.output_image,
+                                   per_pixel_filter(out_img,
+                                                    RoundAndClamp<int16, float>()),
+                                   has_georef, georef, has_nodata, 
+                                   vw::round_and_clamp<int16>(output_nodata_value),
+                                   opt, tpc);
+  
+  else if (opt.output_type == "UInt32") 
+    asp::save_with_temp_big_blocks(min_tile_size, opt.output_image,
+                                   per_pixel_filter(out_img,
+                                                    RoundAndClamp<uint32, float>()),
+                                   has_georef, georef, has_nodata, 
+                                   vw::round_and_clamp<uint32>(output_nodata_value),
+                                   opt, tpc);
+  else if (opt.output_type == "Int32") 
+    asp::save_with_temp_big_blocks(min_tile_size, opt.output_image,
+                                   per_pixel_filter(out_img,
+                                                    RoundAndClamp<int32, float>()),
+                                   has_georef, georef, has_nodata, 
+                                   vw::round_and_clamp<int32>(output_nodata_value),
+                                   opt, tpc);
+  else
+    vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
+  
 } // End function write_selected_image_type
-
-
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   general_options.add_options()
     ("orientation", po::value(&opt.orientation)->default_value("horizontal"),
-          "Choose a supported image layout from [horizontal].")
+     "Choose a supported image layout from [horizontal].")
+    ("rotate", po::bool_switch(&opt.rotate)->default_value(false),
+     "Rotate the image 180 degrees around its center (needed for one of the two KH-7 images in a pair).")
     ("overlap-width", po::value(&opt.overlap_width)->default_value(2000),
           "Select the size of the overlap region to use.")
     ("blend-radius", po::value(&opt.blend_radius)->default_value(0),
           "Size to perform blending over.  Default is the overlap width.")
     ("output-image,o", po::value(&opt.output_image)->default_value(""),
      "Specify the output image.")
+    ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
+     "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("ot",  po::value(&opt.output_type)->default_value("Float32"),
           "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.")
     ("band", po::value(&opt.band), "Which band to use (for multi-spectral images).")
     ("input-nodata-value", po::value(&opt.input_nodata_value),
           "Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
     ("output-nodata-value", po::value(&opt.output_nodata_value),
-          "Nodata value to use on output.");
+     "Nodata value to use on output.")
+    ("output-prefix", po::value(&opt.out_prefix)->default_value(""),
+     "If specified, save here the interest point matches used in mosaicking.");
  
   po::options_description positional("");
   positional.add_options()
@@ -569,7 +669,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
-
 
   std::string usage("image_mosaic <images> [options]");
   bool allow_unregistered = false;
@@ -592,19 +691,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.blend_radius = opt.overlap_width;
     vw_out() << "Using blend radius: " << opt.blend_radius << std::endl;
   }
-  
-  int min_tile_size = 2*opt.blend_radius;
-  if (opt.raster_tile_size[0] < min_tile_size) {
-    opt.raster_tile_size[0] = min_tile_size;
-    fix_tile_multiple(opt.raster_tile_size[0]);
-  }
-  if (opt.raster_tile_size[1] < min_tile_size) {
-    opt.raster_tile_size[1] = min_tile_size;
-    fix_tile_multiple(opt.raster_tile_size[1]);
-  }
-  vw_out() << "Using tile size: " << opt.raster_tile_size << std::endl;
-  
-  
+
 }
 
 int main( int argc, char *argv[] ) {
@@ -643,12 +730,17 @@ int main( int argc, char *argv[] ) {
     vw_out() << "Writing: " << opt.output_image << std::endl;
     TerminalProgressCallback tpc("asp", "\t    Mosaic:");
     ImageViewRef<float> out_img = 
-        ImageMosaicView<PixelMask<float> >(images, transforms, bboxes,
+        ImageMosaicView< PixelMask<float> >(images, transforms, bboxes,
                                            opt.blend_radius, output_image_size,
                                            opt.output_nodata_value);
 
+    if (opt.rotate)
+      write_selected_image_type(ImageRotateView<float>(out_img), opt.output_nodata_value, opt);
+    else
+      write_selected_image_type(out_img, opt.output_nodata_value, opt);
+  
+  
     // Write it to disk.
-    write_selected_image_type(out_img, opt.output_nodata_value, opt);
     
   } ASP_STANDARD_CATCHES;
   return 0;

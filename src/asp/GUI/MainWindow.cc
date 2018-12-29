@@ -29,6 +29,7 @@ using namespace asp;
 using namespace vw::gui;
 
 #include <vw/config.h>
+#include <vw/Core/CmdUtils.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageResource.h>
@@ -929,21 +930,7 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
   int right_wx = right_win.width();
   int right_wy = right_win.height();
 
-  // Directory in which the tool is located, and replace libexec with
-  // bin.
-  std::string dir_name = fs::path(m_argv[0]).parent_path().parent_path().string();
-
-  // Command for packaged ASP.
-  std::string run_cmd = dir_name + "/bin/" + cmd;
-
-  // Command for dev ASP. The executables are in Tools.
-  if (!fs::exists(run_cmd)) {
-    run_cmd = dir_name + "/Tools/" + cmd;
-    if (!fs::exists(run_cmd)) { // because we have Tools/.libs/stereo
-      dir_name = fs::path(m_argv[0]).parent_path().parent_path().parent_path().string();
-      run_cmd = dir_name + "/Tools/" + cmd;
-    }
-  }
+  std::string run_cmd = vw::program_path(cmd, m_argv[0]);
 
   // Wipe pre-existing left-image-crop-win and right-image-crop-win
   rm_option_and_vals(m_argc, m_argv, "--left-image-crop-win", 4);

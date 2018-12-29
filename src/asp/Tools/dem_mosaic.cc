@@ -317,7 +317,7 @@ std::string processed_proj4(std::string const& srs){
   return georef.overall_proj4_str();
 }
 
-struct Options : vw::cartography::GdalWriteOptions {
+struct Options: vw::cartography::GdalWriteOptions {
   string dem_list_file, out_prefix, target_srs_string, output_type, tile_list_str, this_dem_as_reference;
   vector<string> dem_files;
   double tr, geo_tile_size;
@@ -1798,39 +1798,41 @@ int main( int argc, char *argv[] ) {
       // Raster the tile to disk. Optionally cast to int (may be
       // useful for mosaicking ortho images).
       vw_out() << "Writing: " << dem_tile << std::endl;
+      bool has_georef = true, has_nodata = true;
       TerminalProgressCallback tpc("asp", "\t--> ");
       if (opt.output_type == "Float32") 
-        asp::save_with_temp_big_blocks(block_size, dem_tile, out_dem, crop_georef,
-                                       opt.out_nodata_value, opt, tpc);
+        asp::save_with_temp_big_blocks(block_size, dem_tile, out_dem,
+                                       has_georef, crop_georef,
+                                       has_nodata, opt.out_nodata_value, opt, tpc);
       else if (opt.output_type == "Byte") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
 				       per_pixel_filter(out_dem, RoundAndClamp<uint8, RealT>()),
-                                       crop_georef,
-                                       vw::round_and_clamp<uint8>(opt.out_nodata_value),
+                                       has_georef, crop_georef,
+                                       has_nodata, vw::round_and_clamp<uint8>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "UInt16") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
 				       per_pixel_filter(out_dem, RoundAndClamp<uint16, RealT>()),
-                                       crop_georef,
-                                       vw::round_and_clamp<uint16>(opt.out_nodata_value),
+                                       has_georef, crop_georef,
+                                       has_nodata, vw::round_and_clamp<uint16>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "Int16") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
 				       per_pixel_filter(out_dem, RoundAndClamp<int16, RealT>()),
-                                       crop_georef,
-                                       vw::round_and_clamp<int16>(opt.out_nodata_value),
+                                       has_georef, crop_georef,
+                                       has_nodata, vw::round_and_clamp<int16>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "UInt32") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
 				       per_pixel_filter(out_dem, RoundAndClamp<uint32, RealT>()),
-                                       crop_georef,
-                                       vw::round_and_clamp<uint32>(opt.out_nodata_value),
+                                       has_georef, crop_georef,
+                                       has_nodata, vw::round_and_clamp<uint32>(opt.out_nodata_value),
                                        opt, tpc);
       else if (opt.output_type == "Int32") 
         asp::save_with_temp_big_blocks(block_size, dem_tile,
 				       per_pixel_filter(out_dem, RoundAndClamp<int32, RealT>()),
-                                       crop_georef,
-                                       vw::round_and_clamp<int32>(opt.out_nodata_value),
+                                       has_georef, crop_georef,
+                                       has_nodata, vw::round_and_clamp<int32>(opt.out_nodata_value),
                                        opt, tpc);
       else
         vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );

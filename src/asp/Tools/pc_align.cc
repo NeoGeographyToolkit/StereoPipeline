@@ -892,24 +892,6 @@ std::string alignment_method_fallback(std::string const& alignment_method){
   return alignment_method;
 }
 
-// Find the full path to a program in a given search directory. If not there,
-// find it using the system PATH.
-std::string program_path(std::string const& prog_name, fs::path const& search_dir){
-
-  fs::path full_path = search_dir / fs::path(prog_name);
-  if (fs::exists(full_path)) {
-    // This is for the release build
-  }else{
-    // This is for the local build
-    full_path = vw::find_executable_in_path(prog_name);
-    if (!fs::exists(full_path)) {
-      vw_throw( ArgumentErr() << "Cannot find the program: " << prog_name << ".\n" );
-    }
-  }
-  
-  return full_path.string();
-}
-                         
 // Hillshade the reference and source DEMs, and use them to find
 // interest point matches among the hillshaded images.  These will be
 // used later to find a rotation + translation + scale transform.
@@ -924,12 +906,9 @@ std::string find_matches_from_hillshading(Options & opt, std::string const& curr
               << "with the original clouds.\n" );
 
   // Find the needed executables
-  fs::path search_dir = fs::path(curr_exec_path).parent_path();
-  if (search_dir.filename() == ".libs")
-    search_dir = search_dir.parent_path(); // strip .libs
-  std::string hillshade_path = program_path("hillshade", search_dir);
-  std::string ipfind_path = program_path("ipfind", search_dir);
-  std::string ipmatch_path = program_path("ipmatch", search_dir);
+  std::string hillshade_path = vw::program_path("hillshade", curr_exec_path);
+  std::string ipfind_path    = vw::program_path("ipfind",    curr_exec_path);
+  std::string ipmatch_path   = vw::program_path("ipmatch",   curr_exec_path);
 
   // Hillshade the reference
   std::string ref_hillshade = opt.out_prefix + "-reference_hillshade.tif";
@@ -1193,7 +1172,7 @@ int main( int argc, char *argv[] ) {
     read_georef(clouds, opt.datum, opt.csv_proj4_str,  
                 opt.semi_major_axis, opt.semi_minor_axis,  
                 opt.csv_format_str,  csv_conv, geo);
-    
+
     // Use hillshading to create a match file
     if (opt.hillshading_transform != "" && opt.match_file == "")
       opt.match_file = find_matches_from_hillshading(opt, argv[0]);

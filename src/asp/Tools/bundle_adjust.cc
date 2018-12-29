@@ -571,9 +571,8 @@ int update_outliers(ControlNetwork   & cnet,
 
   vw_out() << "Removing as outliers points with mean reprojection error > " << e << ".\n";
   
-  // Now add to the outliers. Must repeat the same logic as above. 
-  int num_new_outliers = 0;
-
+  // Add to the outliers by reprojection error. Must repeat the same logic as above. 
+  int num_outliers_by_reprojection = 0;
   for ( size_t icam = 0; icam < num_cameras; icam++ ) {
     typedef CameraNode<JFeature>::const_iterator crn_iter;
     for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
@@ -592,16 +591,40 @@ int update_outliers(ControlNetwork   & cnet,
       if (mean_residuals[ipt] > e) {
         //vw_out() << "Removing " << ipt << " with residual " << mean_residuals[ipt] << std::endl;
         param_storage.set_point_outlier(ipt, true);
-        ++num_new_outliers;
+        ++num_outliers_by_reprojection;
       }
     }
   } // End double loop through all the observations
+  vw_out() << "Removed " << num_outliers_by_reprojection << " outliers by reprojection error.\n";
+
+  // Remove outliers by elevation limit
+  int num_outliers_by_elevation = 0;
+  if ( opt.elevation_limit[0] < opt.elevation_limit[1] ) {
+    
+    for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
+
+      if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+        continue; // don't filter out GCP
+      if (param_storage.get_point_outlier(ipt))
+        continue; // skip outliers
+      
+      // The GCC coordinate of this point
+      const double * point = param_storage.get_point_ptr(ipt);
+      Vector3 xyz(point[0], point[1], point[2]);
+      Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
+      // Below check for NaN as well just in case
+      if (llh[2] != llh[2] || llh[2] < opt.elevation_limit[0] || llh[2] > opt.elevation_limit[1]) {
+        param_storage.set_point_outlier(ipt, true);
+        num_outliers_by_elevation++;
+      }
+    }
+    vw_out() << "Removed " << num_outliers_by_elevation << " outliers by elevation range.\n";
+  }
 
   int num_remaining_points = num_points - param_storage.get_num_outliers();
-  vw_out() << "Removed " << num_new_outliers << " outliers by reprojection error, now have "
-           << num_remaining_points << " points remaining.\n";
+  vw_out() << "Now have " << num_remaining_points << " points remaining.\n";
 
-  return num_new_outliers;
+  return num_outliers_by_reprojection + num_outliers_by_elevation;
 }
 
 // TODO: At least part of this should be a class function??
@@ -1664,8 +1687,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() )
       vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
                               << "the datum must be specified.\n" << usage << general_options );
+
+    if ( opt.elevation_limit[0] < opt.elevation_limit[1] )
+      vw_throw( ArgumentErr() << "When filtering by elevation limit, the datum must be specified.\n"
+                << usage << general_options );
   }
-  
 
   if ( opt.out_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix.\n" << usage << general_options  );

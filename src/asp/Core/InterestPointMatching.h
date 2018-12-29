@@ -30,6 +30,7 @@
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Math/Geometry.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <asp/Core/StereoSettings.h>
 #include <boost/foreach.hpp>
@@ -335,7 +336,8 @@ namespace asp {
                         std::string const left_file_path ="",
                         std::string const right_file_path="",
                         double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                        double nodata2 = std::numeric_limits<double>::quiet_NaN() );
+                        double nodata2 = std::numeric_limits<double>::quiet_NaN(),
+                        std::string const& match_file = "");
 
 //-------------------------------------------------------------------------------------------
 

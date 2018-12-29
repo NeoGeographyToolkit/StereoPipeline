@@ -708,9 +708,12 @@ namespace asp{
       + "." + opt.output_file_type;
     vw_out() << "Writing: " << output_file << "\n";
     TerminalProgressCallback tpc("asp", imgName + ": ");
-    if ( opt.output_file_type == "tif" )
-      asp::save_with_temp_big_blocks(block_size, output_file, img, georef,
-                                     opt.nodata_value, opt, tpc);
+    if ( opt.output_file_type == "tif" ) {
+      bool has_georef = true, has_nodata = true;
+      asp::save_with_temp_big_blocks(block_size, output_file, img,
+                                     has_georef, georef,
+                                     has_nodata, opt.nodata_value, opt, tpc);
+    }
     else
       vw::cartography::write_gdal_image(output_file, img, georef, opt, tpc);
   } // End function save_image

@@ -73,6 +73,12 @@
      pinhole camera model from an image if its intrinsics and the 
      longitude and latitude (and optinonally height) of its corners
      (or some other pixels) are known.
+   * When multiple passes happen with outliers removed, match files
+     are not over-written, but a new clean copy of them gets saved.
+   * When mutiple passes happen, filter triangulated points
+     by elevation range after cameras are optimized, if a range is
+     provided (an adiddtion to doing this filtering before cameras are
+     optimized).
 
  - dem_mosaic
    * Added normalized median absolute deviation (NMAD) output option.
