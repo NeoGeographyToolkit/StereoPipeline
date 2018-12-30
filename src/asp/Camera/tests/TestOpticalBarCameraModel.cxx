@@ -45,23 +45,25 @@ TEST(OpticalBarModel, CreateCamera) {
   Vector2  center_offset_pixels(-4.3, -1.2);
   double   pixel_size         = 7*10e-6;
   double   focal_length       = 609.602/1000.0;
-  double   scan_angle_radians = 1.22173; // in radians, that is 70 degrees
+  double   scan_angle_radians = 70  * M_PI/180;
   double   scan_rate_radians  = 192 * M_PI/180;
   Vector3  initial_position(gcc);
   Vector3  initial_orientation(angles);
   double   velocity = 7800;
+  bool     use_motion_comp = true;
 
   OpticalBarModel* raw_ptr = new OpticalBarModel(image_size, center_offset_pixels, pixel_size,
                                                  focal_length, scan_angle_radians, scan_rate_radians,
-                                                 initial_position, initial_orientation, velocity);
+                                                 initial_position, initial_orientation,
+                                                 velocity, use_motion_comp);
 
   // Basic file I/O
   OpticalBarModel cpy;
-  EXPECT_NO_THROW(raw_ptr->write("test.opb"));
-  EXPECT_NO_THROW(cpy.read ("test.opb"));
+  EXPECT_NO_THROW(raw_ptr->write("test.tsai"));
+  EXPECT_NO_THROW(cpy.read ("test.tsai"));
 
   EXPECT_VECTOR_EQ(raw_ptr->get_image_size(), cpy.get_image_size());
-  
+
   typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
   CameraModelPtr cam1;
   cam1 = CameraModelPtr(raw_ptr);

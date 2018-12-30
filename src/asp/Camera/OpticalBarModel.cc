@@ -19,6 +19,8 @@
 #include <vw/Camera/CameraSolve.h>
 #include <asp/Camera/OpticalBarModel.h>
 
+#include <vw/Cartography/Datum.h>  // DEBUG
+
 #include <iomanip>
 #include <boost/filesystem/convenience.hpp>
 
@@ -31,7 +33,9 @@ using namespace vw::camera;
 
 
 Vector2 OpticalBarModel::pixel_to_sensor_plane(Vector2 const& pixel) const {
-  return (pixel - m_center_offset_pixels) * m_pixel_size;
+  Vector2 result = (pixel - (m_image_size/2.0) - m_center_offset_pixels) * m_pixel_size;
+  result[1] *= -1; // Make upper pixels have larger values // TODO: CHECK!
+  return result;
 }
 
 double OpticalBarModel::pixel_to_time_delta(Vector2 const& pix) const {
@@ -48,11 +52,13 @@ double OpticalBarModel::pixel_to_time_delta(Vector2 const& pix) const {
 
 Vector3 OpticalBarModel::get_velocity(vw::Vector2 const& pixel) const {
   
+  // TODO: Keep the transpose?
   // TODO: For speed, store the pose*velocity vector.
   // Convert the velocity from sensor coords to GCC coords
-  Matrix3x3 pose = transpose(camera_pose(pixel).rotation_matrix());
+  //Matrix3x3 pose = transpose(camera_pose(pixel).rotation_matrix());
+  Matrix3x3 pose = camera_pose(pixel).rotation_matrix();
 
-  return pose*Vector3(0,m_speed,0);
+  return pose*Vector3(m_speed,0,0);
 }
 
 Vector3 OpticalBarModel::camera_center(Vector2 const& pix) const {
@@ -78,22 +84,39 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
   double alpha = sensor_plane_pos[0] / m_focal_length;
 
   // Distance from the camera center to the ground.
-  double H = norm_2(cam_center) - m_mean_surface_elevation;
+  double H = norm_2(cam_center) - (m_mean_surface_elevation + m_mean_earth_radius);
 
-  // TODO: Make this optional!
+
   // Distortion caused by compensation for the satellite's forward motion during the image.
   // - The film was actually translated underneath the lens to compensate for the motion.
-  double image_motion_compensation = ((-m_focal_length * m_speed) / (H*m_scan_rate_radians))
-                                     * sin(alpha);
-  
-  Matrix3x3 M_inv = transpose(cam_pose.rotation_matrix());
-  
+  double image_motion_compensation = 0.0;
+  if (m_use_motion_compensation)
+    image_motion_compensation = ((-m_focal_length * m_speed) / (H*m_scan_rate_radians))
+                                 * sin(alpha);
+
+  //Matrix3x3 M_inv = transpose(cam_pose.rotation_matrix());
+
   Vector3 r(m_focal_length * sin(alpha),
             sensor_plane_pos[1] + image_motion_compensation,
             -m_focal_length * cos(alpha));
-  
-  Vector3 result = M_inv * r; // == scale(gcc_point - cam_center)
-  
+
+  // Convert local vector from ENU to NED, which is used by our other cameras.
+  Vector3 temp = r;
+  r[0] = temp[1];
+  r[1] = temp[0];
+  r[2] = temp[2]*-1.0;
+  /*
+  std::cout << "pixel = " << pixel << std::endl;
+  std::cout << "sensor_plane_pos = " << sensor_plane_pos << std::endl;
+  std::cout << "alpha = " << alpha << std::endl;
+  std::cout << "H = " << H << std::endl;
+  std::cout << "r = " << r << std::endl;
+  std::cout << "image_motion_compensation = " << image_motion_compensation << std::endl;
+  */
+
+  //Vector3 result = M_inv * r; // == scale(gcc_point - cam_center)
+  Vector3 result = cam_pose.rotate(r);
+
   return result;
 }
 
@@ -236,6 +259,12 @@ void OpticalBarModel::read(std::string const& filename) {
     cam_file.close();
     vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the initial orientation\n" );
   }
+  //// !!! DEBUG !!! -> Ignore the orientation, point it locally NED down.
+  //vw::cartography::Datum d("WGS84");
+  //Vector3 llh = d.cartesian_to_geodetic(m_initial_position);
+  //Matrix3x3 m = d.lonlat_to_ned_matrix(Vector2(llh[0],llh[1]));
+  //Quat q(m);
+  //m_initial_orientation = q.axis_angle();
 
   std::getline(cam_file, line);
   if (!cam_file.good() || sscanf(line.c_str(),"speed = %lf", &m_speed) != 1) {
@@ -254,7 +283,15 @@ void OpticalBarModel::read(std::string const& filename) {
     cam_file.close();
     vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the mean surface elevation\n" );
   }
-  
+
+  std::getline(cam_file, line);
+  int temp;
+  if (!cam_file.good() || sscanf(line.c_str(),"use_motion_compensation = %d", &temp) != 1) {
+    cam_file.close();
+    vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read use motion compensation\n" );
+  }
+  m_use_motion_compensation = (temp > 0);
+
   cam_file.close();
 }
 
@@ -263,14 +300,13 @@ void OpticalBarModel::write(std::string const& filename) const {
 
   // TODO: Make compatible with .tsai files!
 
-  // Set the path an open the output file for writing
-  //std::string file_path = boost::filesystem::path(filename).replace_extension(".opb").string();
+  // Open the output file for writing
   std::ofstream cam_file(filename.c_str());
   if( !cam_file.is_open() ) 
     vw_throw( IOErr() << "OpticalBarModel::write: Could not open file: " << filename );
 
   std::string VERSION = "VERSION_1";
-  
+
   // Write the pinhole camera model parts
   //   # digits to survive double->text->double conversion
   const size_t ACCURATE_DIGITS = 17; // = std::numeric_limits<double>::max_digits10
@@ -294,7 +330,10 @@ void OpticalBarModel::write(std::string const& filename) const {
   cam_file << "speed = " << m_speed << "\n";
   cam_file << "mean_earth_radius = "      << m_mean_earth_radius      << "\n";
   cam_file << "mean_surface_elevation = " << m_mean_surface_elevation << "\n";
-
+  if (m_use_motion_compensation)
+    cam_file << "use_motion_compensation = 1\n";
+  else
+    cam_file << "use_motion_compensation = 0\n";
   cam_file.close();
 }
 
@@ -313,6 +352,7 @@ std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model)
   os << " Speed:                  " << camera_model.m_speed                  << "\n";
   os << " Mean earth radius:      " << camera_model.m_mean_earth_radius      << "\n";
   os << " Mean surface elevation: " << camera_model.m_mean_surface_elevation << "\n";
+  os << " Use motion comp:        " << camera_model.m_use_motion_compensation<< "\n";
 
   os << "\n------------------------------------------------------------------------\n\n";
   return os;

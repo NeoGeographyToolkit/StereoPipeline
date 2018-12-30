@@ -49,17 +49,26 @@ namespace camera {
   // Jesse Casana1 & Jackson Cothren
 
   // Data is at https://earthexplorer.usgs.gov/
-  
+
   class OpticalBarModel : public vw::camera::CameraModel {
 
   public:
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
-    
-    OpticalBarModel() {} // Parameters need to be set later
 
-    OpticalBarModel(std::string const& path) { read(path); } // Create from file
+    OpticalBarModel() 
+      : m_use_motion_compensation(true), // TODO: Option!
+        m_correct_velocity_aberration(true),
+        m_correct_atmospheric_refraction(true) {
+    }
+
+    OpticalBarModel(std::string const& path)
+      : m_use_motion_compensation(true), // TODO: Option!
+        m_correct_velocity_aberration(true),
+        m_correct_atmospheric_refraction(true) {
+      read(path);
+    } // Create from file
 
     OpticalBarModel(vw::Vector2i image_size,
                     vw::Vector2  center_offset_pixels,
@@ -69,7 +78,8 @@ namespace camera {
                     double   scan_rate_radians,
                     vw::Vector3  initial_position,
                     vw::Vector3  initial_orientation,
-                    double  speed) :
+                    double   speed,
+                    bool     use_motion_compensation) :
         m_image_size          (image_size),
         m_center_offset_pixels(center_offset_pixels),
         m_pixel_size          (pixel_size),
@@ -79,6 +89,7 @@ namespace camera {
         m_initial_position    (initial_position),
         m_initial_orientation (initial_orientation),
         m_speed               (speed),
+        m_use_motion_compensation(use_motion_compensation),
         m_correct_velocity_aberration(true),
         m_correct_atmospheric_refraction(true){
 
@@ -96,7 +107,7 @@ namespace camera {
     /// Read / Write a from a file on disk.
     void read (std::string const& filename);
     void write(std::string const& filename) const;
-    
+
     //------------------------------------------------------------------
     // Interface
     //------------------------------------------------------------------
@@ -125,13 +136,13 @@ namespace camera {
     void apply_transform(vw::Matrix3x3 const & rotation,
                          vw::Vector3   const & translation,
                          double                scale);
-    
+
     // Parameter accessors
 
     void set_camera_center(vw::Vector3 const& position   ) {m_initial_position    = position;}
     void set_camera_pose  (vw::Vector3 const& orientation) {m_initial_orientation = orientation;}
     void set_camera_pose  (vw::Quaternion<double> const& pose) {set_camera_pose(pose.axis_angle());};
-    
+
     /// Returns the image size in pixels
     vw::Vector2i get_image_size    () const { return m_image_size;           }
     vw::Vector2  get_optical_center() const { return m_center_offset_pixels; }
@@ -140,7 +151,7 @@ namespace camera {
     double       get_speed         () const { return m_speed;                }
     double       get_pixel_size    () const { return m_pixel_size;           }
     double       get_scan_angle    () const { return m_scan_angle_radians;   }
-    
+
     void set_image_size    (vw::Vector2i image_size    ) { m_image_size           = image_size;     }
     void set_optical_center(vw::Vector2  optical_center) { m_center_offset_pixels = optical_center; }
     void set_focal_length  (double       focal_length  ) { m_focal_length         = focal_length;   }
@@ -149,17 +160,20 @@ namespace camera {
     void set_pixel_size    (double       pixel_size    ) { m_pixel_size           = pixel_size;     }
     void set_scan_angle    (double       scan_angle    ) { m_scan_angle_radians   = scan_angle;     }
 
+    bool get_use_motion_compensation() const        {return m_use_motion_compensation;    }
+    void set_use_motion_compensation(bool use_comp) {m_use_motion_compensation = use_comp;}
+
     friend std::ostream& operator<<(std::ostream&, OpticalBarModel const&);
 
   private:
 
     vw::Vector2 pixel_to_sensor_plane(vw::Vector2 const& pixel) const;
-    
+
     vw::Vector3 pixel_to_vector_uncorrected(vw::Vector2 const& pixel) const;
-    
+
     /// Returns the velocity in the GCC frame, not the sensor frame.
     vw::Vector3 get_velocity(vw::Vector2 const& pixel) const;
-    
+
     /// Compute the time since start of scan for a given pixel.
     double pixel_to_time_delta(vw::Vector2 const& pixel) const;
 
@@ -183,7 +197,7 @@ namespace camera {
     /// The maximum scan angle reached in both direction.
     /// - The Corona scan angle is about +/- 35 degrees.
     double m_scan_angle_radians;
-    
+
     /// The angular velocity of the scanner.
     /// - The Corona scan rate is nominally 192 degrees/second
     double m_scan_rate_radians;
@@ -196,10 +210,12 @@ namespace camera {
     double m_mean_earth_radius;
     double m_mean_surface_elevation;
 
+    bool m_use_motion_compensation;
+
     /// Set this flag to enable velocity aberration correction.
     /// - For satellites this makes a big difference, make sure it is set!
     bool m_correct_velocity_aberration;
-    
+
     /// Set this flag to enable atmospheric refraction correction.
     bool m_correct_atmospheric_refraction;
 
@@ -209,7 +225,7 @@ namespace camera {
     double get_earth_radius() const;
 
   }; // End class OpticalBarModel
-  
+
 
   /// Output stream method.
   std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model);

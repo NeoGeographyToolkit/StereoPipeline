@@ -226,7 +226,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("model-scale",             po::value(&opt.model_scale)->default_value(1.0/30.0),
           "Scale factor applied to 3D model size.")
     ("session-type,t",          po::value(&opt.stereo_session_string),
-          "Select the stereo session type to use for processing. Options: pinhole isis spot5 dg aster.")
+          "Select the stereo session type to use for processing. Options: pinhole isis spot5 dg aster opticalbar.")
     ("load-camera-solve",       po::bool_switch(&opt.load_camera_solve)->default_value(false)->implicit_value(true),
           "Load the results from a run of the camera-solve tool. The only positional argument must be the path to the camera-solve output folder.")
     ("write-csv", po::bool_switch(&opt.write_csv)->default_value(false),

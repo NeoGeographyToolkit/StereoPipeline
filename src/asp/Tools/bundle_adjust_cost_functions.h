@@ -294,7 +294,8 @@ public:
                                      scan_rate,
                                      correction.position(),
                                      correction.pose().axis_angle(),
-                                     speed);
+                                     speed,
+                                     m_underlying_camera->get_use_motion_compensation());
 
     // Project the point into the camera.
     return cam.point_to_pixel(point);
