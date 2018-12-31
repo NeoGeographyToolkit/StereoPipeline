@@ -35,6 +35,11 @@ namespace camera {
   // that were used in the Corona and Hexagon satellites.
   
   // This implements the logic in: 
+  // Rigorous Panoramic Camera Model for DISP Imagery
+  // Tony Schenk, Beata Csatho, Sung Woong Shin
+  // - Proceedings of Joint Workshop of ISPRS Working Groups, 2003
+  
+  // With the motion compensation logic taken from:
   // Mathematical modelling of historical reconnaissance CORONA KH-4B imagery
   // HG Sohn, GH Kim, JH Yom - The Photogrammetric Record, 2004
   
@@ -182,7 +187,7 @@ namespace camera {
     /// Image size in pixels: [rows, columns]
     vw::Vector2i m_image_size;
 
-    /// Offset from the center of the image (film) from the camera center.
+    /// Offset from the center of the image (film) from the camera center in millimeters.
     vw::Vector2  m_center_offset_pixels;
 
     /// The physical size of each pixel in meters (scanner resolution).

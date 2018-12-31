@@ -184,8 +184,6 @@ void OpticalBarModel::apply_transform(vw::Matrix3x3 const & rotation,
 
 void OpticalBarModel::read(std::string const& filename) {
 
-  // TODO: Make compatible with .tsai!
-  
   // Open the input file
   std::ifstream cam_file;
   cam_file.open(filename.c_str());
@@ -201,14 +199,17 @@ void OpticalBarModel::read(std::string const& filename) {
 
   int file_version = 1;
   sscanf(line.c_str(),"VERSION_%d", &file_version); // Parse the version of the input file
+  if (file_version < 4)
+    vw_throw( ArgumentErr() << "OpticalBarModel::read_file(): Versions prior to 4 are not supported!\n" );
 
-  // Right now there is only one version (VERSION_3) so if we find the version
-  //  we just skip it and move on to the next line.  If the version is changed,
-  //  handler logic needs to be implemented here.
+  // Read the camera type
   std::getline(cam_file, line);
-
+  if (line.find("OPTICAL_BAR") == std::string::npos)
+        vw_throw( ArgumentErr() << "OpticalBarModel::read_file: Expected OPTICAL_BAR type, but got type "
+                                << line );
 
   // Start parsing all the parameters from the lines.
+  std::getline(cam_file, line);
   if (!cam_file.good() || sscanf(line.c_str(),"image_size = %d %d",
       &m_image_size[0], &m_image_size[1]) != 2) {
     cam_file.close();
@@ -253,6 +254,21 @@ void OpticalBarModel::read(std::string const& filename) {
     vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the initial position\n" );
   }
 
+  // Read and convert the rotation matrix.
+  Matrix3x3 rot_mat;
+  std::getline(cam_file, line);
+  if ( !cam_file.good() ||
+       sscanf(line.c_str(), "iR = %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+              &rot_mat(0,0), &rot_mat(0,1), &rot_mat(0,2),
+              &rot_mat(1,0), &rot_mat(1,1), &rot_mat(1,2),
+              &rot_mat(2,0), &rot_mat(2,1), &rot_mat(2,2)) != 9 ) {
+    cam_file.close();
+    vw_throw( IOErr() << "PinholeModel::read_file(): Could not read the rotation matrix\n" );
+  }
+  Quat q(rot_mat);
+  m_initial_orientation = q.axis_angle();
+
+  /*
   std::getline(cam_file, line);
   if (!cam_file.good() || sscanf(line.c_str(),"iR = %lf %lf %lf", 
         &m_initial_orientation(0), &m_initial_orientation(1), &m_initial_orientation(2)) != 3) {
@@ -265,6 +281,7 @@ void OpticalBarModel::read(std::string const& filename) {
   //Matrix3x3 m = d.lonlat_to_ned_matrix(Vector2(llh[0],llh[1]));
   //Quat q(m);
   //m_initial_orientation = q.axis_angle();
+  */
 
   std::getline(cam_file, line);
   if (!cam_file.good() || sscanf(line.c_str(),"speed = %lf", &m_speed) != 1) {
@@ -305,14 +322,12 @@ void OpticalBarModel::write(std::string const& filename) const {
   if( !cam_file.is_open() ) 
     vw_throw( IOErr() << "OpticalBarModel::write: Could not open file: " << filename );
 
-  std::string VERSION = "VERSION_1";
-
   // Write the pinhole camera model parts
   //   # digits to survive double->text->double conversion
   const size_t ACCURATE_DIGITS = 17; // = std::numeric_limits<double>::max_digits10
   cam_file << std::setprecision(ACCURATE_DIGITS); 
-  cam_file << VERSION << "\n";
-
+  cam_file << "VERSION_4\n";
+  cam_file << "OPTICAL_BAR\n";
   cam_file << "image_size = "   << m_image_size[0] << " " 
                                 << m_image_size[1]<< "\n";
   cam_file << "image_center = " << m_center_offset_pixels[0] << " "
@@ -324,9 +339,14 @@ void OpticalBarModel::write(std::string const& filename) const {
   cam_file << "iC = " << m_initial_position[0] << " "
                       << m_initial_position[1] << " "
                       << m_initial_position[2] << "\n";
-  cam_file << "iR = " << m_initial_orientation[0] << " "
-                      << m_initial_orientation[1] << " "
-                      << m_initial_orientation[2] << "\n";
+  // Store in the same format as the pinhole camera model.
+  Matrix3x3 rot_mat = camera_pose(Vector2(0,0)).rotation_matrix();
+  //cam_file << "iR = " << rot_mat[0] << " " rot_mat[1] << " " rot_mat[2] << " "
+  //                    << m_initial_orientation[1] << " "
+  //                    << m_initial_orientation[2] << "\n";
+  cam_file << "iR = " << rot_mat(0,0) << " " << rot_mat(0,1) << " " << rot_mat(0,2) << " "
+                      << rot_mat(1,0) << " " << rot_mat(1,1) << " " << rot_mat(1,2) << " "
+                      << rot_mat(2,0) << " " << rot_mat(2,1) << " " << rot_mat(2,2) << "\n";
   cam_file << "speed = " << m_speed << "\n";
   cam_file << "mean_earth_radius = "      << m_mean_earth_radius      << "\n";
   cam_file << "mean_surface_elevation = " << m_mean_surface_elevation << "\n";

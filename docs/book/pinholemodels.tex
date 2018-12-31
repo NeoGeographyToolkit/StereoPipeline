@@ -138,7 +138,8 @@ using the extension \texttt{.tsai}.
 A sample file is shown below. 
 
 \begin{verbatim}
-VERSION_3
+VERSION_4
+PINHOLE
 fu = 28.429
 fv = 28.429
 cu = 17.9712
@@ -165,6 +166,7 @@ The first half of the file is the same for all pinhole models:
 
 \begin{itemize}{}
 \item  \texttt{VERSION\_X} = A header line used to track the format of the file.
+\item  \texttt{PINHOLE} = The type of camera model, so that other types can be stored with the .tsai extension.
 \item  \texttt{fu, fv, cu, cv} = The first four intrinsic parameters described in the previous section.
 \item  \texttt{u, v, and w\_direction} = These lines allow an additional permutation of the 
 axes of the camera coordinates.  By default, the positive column direction aligns with x, the
@@ -231,8 +233,7 @@ b2 = 0.0
 \end{itemize}{}
 
 For several years Ames Stereo Pipeline generated pinhole files in the binary \texttt{.pinhole} format.
-That format has been deprecated and can be read but will no longer be written.  
-At some point in the future support for that file format will be dropped.
+That format is no longer supported.
 
 Also in the past Ames Stereo Pipeline has generated a shorter version of the current file
 format, also with the extension \texttt{.tsai}, which only supported the TSAI lens distortion model.
@@ -245,12 +246,14 @@ the optional \texttt{.dae} model file input option and observe the rotation of t
 \section{Panoramic Camera Model}
 \label{panoramic}
 
-ASP supports the panoramic camera for declassified CORONA KH-4B images. It implements the model
-from \cite{sohn2004mathematical}.
+ASP also supports a simple panoramic/optical bar camera model for use with images such as
+the declassified Corona, Gambit, and Keyhole images. It implements the model
+from \cite{schenk2003rigorous} with the motion compensation from \cite{sohn2004mathematical}.
 
 Such a model looks as follows:
 \begin{verbatim}
-VERSION_1
+VERSION_4
+OPTICAL_BAR
 image_size = 15102 1326
 image_center = 0 0
 pitch = 0.0000527903469079
@@ -258,7 +261,7 @@ f = 0.60960199999999998
 scan_angle = 1.22173 
 scan_rate = 3.3510321638291125 
 iC = -2494043.6281357 -3994250.90444851 4535283.95327913 
-iR = 0 0 0 
+iR = 0.0825447 0.996303 -0.0238243 -0.996008 0.0832884 0.0321213 0.0339869 0.0210777 0.9992
 speed = 7800 
 mean_earth_radius = 6371000 
 mean_surface_elevation = 0
@@ -266,11 +269,11 @@ mean_surface_elevation = 0
 
 Here, the image size is given in pixels, with the width followed by the
 height. The image center is the difference between the optical center
-and the geometric center (midpoint) of the image, in milliliters. The
-pixel pitch and focal length \texttt{f} are also in millimeters. The
+and the geometric center (midpoint) of the image, in pixels. The
+pixel pitch and focal length \texttt{f} are in meters. The
 scan angle is in radians (in this example it is 70$^\circ$), the scan
 rate is in radians per second, the speed is in meters per second, and
 the Earth radius and mean surface elevation are in meters. The camera
-center \texttt{iC} is in meters, and the rotation matrix \texttt{iR} is
-represented as the axis angle.
+center \texttt{iC} is in meters, and the rotation matrix \texttt{iR} 
+stores the absolute pose.
 
