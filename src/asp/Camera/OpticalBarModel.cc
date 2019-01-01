@@ -15,6 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+#include <vw/Math/EulerAngles.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Camera/CameraSolve.h>
 #include <asp/Camera/OpticalBarModel.h>
@@ -33,7 +34,7 @@ using namespace vw::camera;
 
 
 Vector2 OpticalBarModel::pixel_to_sensor_plane(Vector2 const& pixel) const {
-  Vector2 result = (pixel - (m_image_size/2.0) - m_center_offset_pixels) * m_pixel_size;
+  Vector2 result = (pixel - m_center_loc_pixels) * m_pixel_size;
   result[1] *= -1; // Make upper pixels have larger values // TODO: CHECK!
   return result;
 }
@@ -96,6 +97,7 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
 
   //Matrix3x3 M_inv = transpose(cam_pose.rotation_matrix());
 
+  // TODO: Consolidate the rotations when things are correct.
   Vector3 r(m_focal_length * sin(alpha),
             sensor_plane_pos[1] + image_motion_compensation,
             -m_focal_length * cos(alpha));
@@ -105,6 +107,11 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
   r[0] = temp[1];
   r[1] = temp[0];
   r[2] = temp[2]*-1.0;
+
+  // TODO: Why is this needed for Gambit?
+  Matrix3x3 m = vw::math::rotation_z_axis(-M_PI/2.0);
+  r = m*r;
+
   /*
   std::cout << "pixel = " << pixel << std::endl;
   std::cout << "sensor_plane_pos = " << sensor_plane_pos << std::endl;
@@ -218,7 +225,7 @@ void OpticalBarModel::read(std::string const& filename) {
 
   std::getline(cam_file, line);
   if (!cam_file.good() || sscanf(line.c_str(),"image_center = %lf %lf",
-      &m_center_offset_pixels[0], &m_center_offset_pixels[1]) != 2) {
+      &m_center_loc_pixels[0], &m_center_loc_pixels[1]) != 2) {
     cam_file.close();
     vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the image center\n" );
   }
@@ -330,8 +337,8 @@ void OpticalBarModel::write(std::string const& filename) const {
   cam_file << "OPTICAL_BAR\n";
   cam_file << "image_size = "   << m_image_size[0] << " " 
                                 << m_image_size[1]<< "\n";
-  cam_file << "image_center = " << m_center_offset_pixels[0] << " "
-                                << m_center_offset_pixels[1] << "\n";
+  cam_file << "image_center = " << m_center_loc_pixels[0] << " "
+                                << m_center_loc_pixels[1] << "\n";
   cam_file << "pitch = "        << m_pixel_size             << "\n";
   cam_file << "f = "            << m_focal_length           << "\n";
   cam_file << "scan_angle = "   << m_scan_angle_radians     << "\n";
@@ -362,7 +369,7 @@ void OpticalBarModel::write(std::string const& filename) const {
 std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model) {
   os << "\n------------------------ Optical Bar Model -----------------------\n\n";
   os << " Image size :            " << camera_model.m_image_size             << "\n";
-  os << " Center offset (pixels): " << camera_model.m_center_offset_pixels   << "\n";
+  os << " Center loc (pixels):    " << camera_model.m_center_loc_pixels      << "\n";
   os << " Pixel size (m) :        " << camera_model.m_pixel_size             << "\n";
   os << " Focal length (m) :      " << camera_model.m_focal_length           << "\n";
   os << " Scan angle (rad):       " << camera_model.m_scan_angle_radians     << "\n";

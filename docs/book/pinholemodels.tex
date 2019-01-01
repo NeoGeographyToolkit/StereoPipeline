@@ -15,9 +15,9 @@ The generic pinhole model uses the following parameters:
 \item  \textit{fu} = The focal length in horizontal pixel units.
 \item  \textit{fv} = The focal length in vertical pixel units.
 \item  \textit{cu} = The horizontal offset of the principal 
-point of the camera in the image plane in pixel units.
+point of the camera in the image plane in pixel units, from 0,0.
 \item  \textit{cv} = The vertical offset of the principal 
-point of the camera in the image plane in pixel units.
+point of the camera in the image plane in pixel units, from 0,0.
 \item  \textit{pitch} = The size of each pixel in the units used to specify
 the four parameters listed above.  This will usually either be 1.0 if they
 are specified in pixel units or alternately the size of a pixel in millimeters.
@@ -255,7 +255,7 @@ Such a model looks as follows:
 VERSION_4
 OPTICAL_BAR
 image_size = 15102 1326
-image_center = 0 0
+image_center = 0.3986199 0.03499977
 pitch = 0.0000527903469079
 f = 0.60960199999999998
 scan_angle = 1.22173 

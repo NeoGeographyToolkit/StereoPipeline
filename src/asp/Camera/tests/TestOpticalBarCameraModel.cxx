@@ -40,10 +40,10 @@ TEST(OpticalBarModel, CreateCamera) {
   Vector3 angles(0,0,0); // Looking down at the north pole
   
   Vector3 gcc = d.geodetic_to_cartesian(llh);
-  
-  Vector2i image_size(12000, 4000);
-  Vector2  center_offset_pixels(-4.3, -1.2);
+
   double   pixel_size         = 7*10e-6;
+  Vector2i image_size(12000, 4000);
+  Vector2  center_loc_pixels(-4.3, -1.2) + image_size/2;
   double   focal_length       = 609.602/1000.0;
   double   scan_angle_radians = 70  * M_PI/180;
   double   scan_rate_radians  = 192 * M_PI/180;
@@ -52,7 +52,7 @@ TEST(OpticalBarModel, CreateCamera) {
   double   velocity = 7800;
   bool     use_motion_comp = true;
 
-  OpticalBarModel* raw_ptr = new OpticalBarModel(image_size, center_offset_pixels, pixel_size,
+  OpticalBarModel* raw_ptr = new OpticalBarModel(image_size, center_loc_pixels, pixel_size,
                                                  focal_length, scan_angle_radians, scan_rate_radians,
                                                  initial_position, initial_orientation,
                                                  velocity, use_motion_comp);

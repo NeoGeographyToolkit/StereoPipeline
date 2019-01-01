@@ -86,7 +86,7 @@ namespace camera {
                     double   speed,
                     bool     use_motion_compensation) :
         m_image_size          (image_size),
-        m_center_offset_pixels(center_offset_pixels),
+        m_center_loc_pixels   (center_offset_pixels),
         m_pixel_size          (pixel_size),
         m_focal_length        (focal_length),
         m_scan_angle_radians  (scan_angle_radians),
@@ -149,21 +149,21 @@ namespace camera {
     void set_camera_pose  (vw::Quaternion<double> const& pose) {set_camera_pose(pose.axis_angle());};
 
     /// Returns the image size in pixels
-    vw::Vector2i get_image_size    () const { return m_image_size;           }
-    vw::Vector2  get_optical_center() const { return m_center_offset_pixels; }
-    double       get_focal_length  () const { return m_focal_length;         }
-    double       get_scan_rate     () const { return m_scan_rate_radians;    }
-    double       get_speed         () const { return m_speed;                }
-    double       get_pixel_size    () const { return m_pixel_size;           }
-    double       get_scan_angle    () const { return m_scan_angle_radians;   }
+    vw::Vector2i get_image_size    () const { return m_image_size;         }
+    vw::Vector2  get_optical_center() const { return m_center_loc_pixels;  }
+    double       get_focal_length  () const { return m_focal_length;       }
+    double       get_scan_rate     () const { return m_scan_rate_radians;  }
+    double       get_speed         () const { return m_speed;              }
+    double       get_pixel_size    () const { return m_pixel_size;         }
+    double       get_scan_angle    () const { return m_scan_angle_radians; }
 
-    void set_image_size    (vw::Vector2i image_size    ) { m_image_size           = image_size;     }
-    void set_optical_center(vw::Vector2  optical_center) { m_center_offset_pixels = optical_center; }
-    void set_focal_length  (double       focal_length  ) { m_focal_length         = focal_length;   }
-    void set_scan_rate     (double       scan_rate     ) { m_scan_rate_radians    = scan_rate;      }
-    void set_speed         (double       speed         ) { m_speed                = speed;          }
-    void set_pixel_size    (double       pixel_size    ) { m_pixel_size           = pixel_size;     }
-    void set_scan_angle    (double       scan_angle    ) { m_scan_angle_radians   = scan_angle;     }
+    void set_image_size    (vw::Vector2i image_size    ) { m_image_size         = image_size;     }
+    void set_optical_center(vw::Vector2  optical_center) { m_center_loc_pixels  = optical_center; }
+    void set_focal_length  (double       focal_length  ) { m_focal_length       = focal_length;   }
+    void set_scan_rate     (double       scan_rate     ) { m_scan_rate_radians  = scan_rate;      }
+    void set_speed         (double       speed         ) { m_speed              = speed;          }
+    void set_pixel_size    (double       pixel_size    ) { m_pixel_size         = pixel_size;     }
+    void set_scan_angle    (double       scan_angle    ) { m_scan_angle_radians = scan_angle;     }
 
     bool get_use_motion_compensation() const        {return m_use_motion_compensation;    }
     void set_use_motion_compensation(bool use_comp) {m_use_motion_compensation = use_comp;}
@@ -187,8 +187,8 @@ namespace camera {
     /// Image size in pixels: [rows, columns]
     vw::Vector2i m_image_size;
 
-    /// Offset from the center of the image (film) from the camera center in millimeters.
-    vw::Vector2  m_center_offset_pixels;
+    /// Offset from the top left of the image (film) to the camera center.
+    vw::Vector2  m_center_loc_pixels;
 
     /// The physical size of each pixel in meters (scanner resolution).
     /// - Should be 7 or 14 microns.
@@ -209,7 +209,7 @@ namespace camera {
 
     vw::Vector3 m_initial_position;
     vw::Vector3 m_initial_orientation; // TODO: Record as matrix
-    double  m_speed; /// Velocity in the sensor Y axis only.
+    double      m_speed; /// Velocity in the sensor Y axis only.
 
     // These are used for ray corrections.
     double m_mean_earth_radius;
