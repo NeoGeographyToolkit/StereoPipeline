@@ -65,6 +65,8 @@
      creation, the DEMs are well-aligned to the ground truth.
    * Added the flag --reference-terrain-weight which, when increased,
      helps align better camera images to a given reference terrain. 
+   * Added the option --heights-from-dem. It is very helfpul in 
+     determinging an unknown focal length for pinhole cameras.
    * Bug fix in outlier filtering for n images.
    * Updated Ceres version from 1.11 to 1.14. When optimizing with 
      multiple threads, results now vary slightly from run to run.

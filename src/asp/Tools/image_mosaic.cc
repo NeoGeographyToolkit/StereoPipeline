@@ -639,12 +639,13 @@ void write_selected_image_type(ImageViewRef<float> const& out_img,
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
+  // Add the reverse option
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   general_options.add_options()
     ("orientation", po::value(&opt.orientation)->default_value("horizontal"),
      "Choose a supported image layout from [horizontal].")
     ("rotate", po::bool_switch(&opt.rotate)->default_value(false),
-     "Rotate the image 180 degrees around its center (needed for one of the two KH-7 images in a pair).")
+     "After mosaicking, rotate the image by 180 degrees around its center (needed for some scan directions).")
     ("overlap-width", po::value(&opt.overlap_width)->default_value(2000),
           "Select the size of the overlap region to use.")
     ("blend-radius", po::value(&opt.blend_radius)->default_value(0),

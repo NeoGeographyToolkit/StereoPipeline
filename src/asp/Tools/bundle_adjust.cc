@@ -1392,6 +1392,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
             "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
     ("reference-terrain-weight", po::value(&opt.reference_terrain_weight)->default_value(1.0),
             "How much weight to give to the cost function terms involving the reference terrain.")
+    ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
+            "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this DEM and fix those points.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
             "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
@@ -1482,8 +1484,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
     ("gcp-from-mapprojected-images", po::value(&opt.gcp_from_mapprojected)->default_value(""),
      "Given map-projected versions of the input images, the DEM the were mapprojected onto, and interest point matches among all of these created in stereo_gui, create GCP for the input images to align them better to the DEM. This is experimental and not documented.")
-    ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
-            "If the cameras have already been bunde-adjusted and rigidly transformed to create a DEM aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this high quality DEM and fix those points. This can be used to refine camera positions and intrinsics. Niche and experimental, not for general use.")
     ("lambda,l",           po::value(&opt.lambda)->default_value(-1),
             "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("report-level,r",     po::value(&opt.report_level)->default_value(10),

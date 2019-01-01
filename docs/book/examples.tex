@@ -1564,14 +1564,127 @@ whose format is described in section \label{panoramic}.
 
 We will illustrate processing such data on an example from Tibet. 
 
-\section{Fetching the data}
+\subsection{Fetching the data}
 
 The KH-4 images are available via the USGS Earth Explorer, 
 \begin{center}
  \url{https://earthexplorer.usgs.gov/}
 \end{center}
 
-(an account is required to download the data). 
+(an account is required to download the data). We will work with the image pair
+
+\begin{verbatim}
+ DS1105-2248DF076
+ DS1105-2248DA082
+\end{verbatim}
+
+To get these from Earth Explorer, one clicks on the \texttt{Data Sets}
+tab, and selects the three types of declassfied data available, then in
+the \texttt{Entry ID} tab pastes the above frames. Clicking on the
+\texttt{Results} tab presents the user with information about these
+frames. 
+
+Clicking on the \texttt{Show Metadata and Browse} for every
+image will present a table with meta-information. That one can be pasted
+as a text file, named for example, \texttt{DS1105-2248DF076.txt} for the
+first image, from which later the longitude and latitude of each corner
+will be parsed. Then one can click on \texttt{Download Options} 
+to download the data. 
+
+\subsection{Stitching the images}
+
+Each downloaded image will be made up of four portions, presumably due
+to the limitations of the scanning equipement. They can be stitched together
+using ASP's \texttt{image\_mosaic} tool (section \ref{imagemosaic}).
+
+For some reason, the KH-4 images in an unusual order. To mosaic them,
+the last image must be placed first, the next to last should be second,
+etc., which is not the case, for example, for KH-9. Hence, this tool
+must be invoked with the \texttt{-\/-reverse} flag. In addition, as seen
+from the tables of metadata discussed earlier, some images correspond to
+the \tettt{Aft} camera type. Those will need to be rotated 180 degrees
+after mosaicking.
+
+It is also important to note that the images tend to be exceedingly large. For
+that reason, in a first pass, all operations are suggested to be done
+at reduced resolution. When opening these images in \texttt{stereo\_gui}
+it will create versions of the images at reduced resolution. We recommend
+using the sub8 images to get familiar with processing. 
+
+With this in mind, image mosacking for these two images will happen as follows:
+
+\begin{verbatim}
+  image_mosaic DS1105-2248DF076_[a-d]_sub8.tif -o \
+     DS1105-2248DF076_sub8.tif --reverse
+  image_mosaic DS1105-2248DA082_[a-d]_sub8.tif -o \
+     DS1105-2248DA082_sub8.tif --reverse --rotate
+\end{verbatim}
+
+\subsection{Fetching a ground truth DEM}
+
+To create initial cameras to use with these images, and to later refine and validate
+the terrain model made from them, we will need some ground truth. 
+Several good sets of DEMs exist, including SRTM, ASTER, and TanDEM-X. Here we will
+work with SRTM, which provides a 30-meter post spacing. The bounds of the region 
+of interest are inferred from the tables with meta-information from above. 
+We will use \texttt{wget} to fetch
+
+\begin{verbatim}
+   https://e4ftl01.cr.usgs.gov/provisional/MEaSUREs/NASADEM/Eurasia/hgt_merge/n31e099.hgt.zip
+\end{verbatim}
+
+and also tiles \texttt{n31e100} and \texttt{n31e101}. After unzipping, these can be
+merged and cropped as follows:
+
+\begin{verbatim}
+  dem_mosaic n*.hgt --t_projwin 99.6 31.5 102 31 -o dem.tif
+\end{verbatim}
+
+Determining these bounds and the visualisation of all images and DEMs
+can be done in \texttt{stereo\_gui}.
+
+\subsection{Creating camera files and GCP}
+
+The meta-information table mentions that the width 
+of the film is 70~mm. From \cite{sohn2004mathematical} the focal length
+is known as 609.602~mm. The images have 10602 pixel rows, this results
+in a pitch of
+\begin{equation*}
+  p = 70/10602 = 0.0066025 mm
+\end{equation*}
+
+Since in this example the image resolution will be reduced by a factor of 8,
+the pitch needs to be multiplied by this number, becoming 0.0528202225995088~m.
+
+After mosaicking as earlier, the reduced resolution images will have
+15102 rows, which multiplied by the pixel pitch at this resolution gives
+the length of the film of 
+
+\begin{equation*}
+ 0.0528202225995088 \times 15102 = 797.6910 mm
+\end{equation*}
+
+Since we don't know the optical center of the image, we will assume it is at
+the geometric center of the image, hence we will use for it half of
+the film length and width, in millimeters. 
+
+ASP provides the tool named \texttt{cam\_gen} that, based on a camera's intrinsics
+and the positions of the image corners on Earth's surface will
+create intital camera models and GCP files, that can then be used later
+for refining and aligning the cameras.
+
+\begin{verbatim}
+  cam_gen --pixel-pitch 0.0066025  --focal-length 609.602                \
+   --optical-center 398.8455 35 --frame-file DS1105-2248DF076.txt        \
+   DS1105-2248DF076_sub8.tif --reference-dem dem.tif --refine-camera     \
+   -o DS1105-2248DF076_sub8.tsai --gcp-file DS1105-2248DF076_sub8.gcp    \
+   --gcp-std 1e-2                                                        \
+   --camera-type panoramic --scan-angle 1.22 --scan-speed 100
+\end{verbatim}
+
+The file DS1105-2248DF076.txt will be parsed to extract the longitude
+and latitude of image corners, and the heights at those point will be infered
+from the provided DEM.
 
 
 

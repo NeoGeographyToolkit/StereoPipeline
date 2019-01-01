@@ -734,7 +734,7 @@ Outlier removal based on percentage, when more than one bundle adjustment pass i
 \texttt{-\/-remove-outliers-by-disparity-params \textit{pct factor}} &
 Outlier removal based on the disparity of interest points (difference between right and left pixel), when more than one bundle adjustment pass is used. For example, the 10\% and 90\% percentiles of disparity are computed, and this interval is made three times bigger. Interest points whose disparity fall outside the expanded interval are removed as outliers. Instead of the default 90 and 3 one can specify pct and factor, without quotes.\\ \hline
 
-\texttt{-\/-reference-terrain arg} & An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras. See section \ref{floatingintrinsics}. \\ \hline
+\texttt{-\/-reference-terrain arg} & An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras. \\ \hline
 
 \texttt{-\/-max-num-reference-points} \\
 \texttt{\textit{integer(=100000000)}}   & Maximum number of (randomly picked) points from the reference terrain to use.\\ \hline
@@ -744,6 +744,8 @@ Outlier removal based on the disparity of interest points (difference between ri
 \texttt{-\/-max-disp-error \textit{double(=-1)}} & When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.\\ \hline
 
 \texttt{-\/-reference-terrain-weight \textit{double(=1)}} & How much weight to give to the cost function terms involving the reference terrain. \\ \hline
+
+\texttt{-\/-heights-from-dem arg} & If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this DEM and fix those points. \\ \hline
 
 \texttt{-\/-csv-format \textit{string}} & Specify the format of input
 CSV files as a list of entries column\_index:column\_type (indices start
@@ -1401,7 +1403,10 @@ Options & Description \\
 \texttt{-\/-t\_orientation \textit{string(=horizontal)} } &
 Specify the image layout.  Currently only supports horizontal.
 \\ \hline
-\texttt{-\/-help|-h} & Display the help message.\\ \hline
+\texttt{-\/-rotate} & 
+After mosaicking, rotate the image by 180 degrees around its center
+(needed for some scan directions). 
+ \\ \hline
 \texttt{-o | -\/-output-image  \textit{string} } &
 Specify the output file path.  Required.
 \\ \hline
@@ -1435,6 +1440,10 @@ If specified, save here the interest point matches used in mosaicking.
 The size of image tiles used for processing.  The amount of image blending is limited by
 the tile size, so this will be increased automatically if it is too small for the overlap width.
 \\ \hline
+
+\texttt{-\/-help|-h} & Display the help message.
+\\ \hline
+
 \end{longtable}
 
 \clearpage
