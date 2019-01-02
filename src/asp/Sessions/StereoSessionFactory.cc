@@ -132,7 +132,7 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [pinhole isis dg rpc spot5 aster pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc].\n");
+              << "Options include: [pinhole isis dg rpc spot5 aster opticalbar pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc].\n");
     VW_OUT(vw::DebugMessage,"asp") << "Using session: " << actual_session_type << ".\n";
 
     // Compare the current session name to all recognized types
@@ -169,7 +169,7 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
     else if (actual_session_type == "opticalbar")
       session_new = StereoSessionOpticalBar::construct();
     if (session_new == 0)
-      vw_throw(vw::NoImplErr() << "Unsuppported stereo session type: " << session_type);
+      vw_throw(vw::NoImplErr() << "Unsupported stereo session type: " << session_type);
 
     session_new->initialize( options,         // Initialize the new object
                              left_image_file,  right_image_file,
