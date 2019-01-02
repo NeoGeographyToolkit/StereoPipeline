@@ -133,6 +133,8 @@ to correct imperfectly calibrated intrinsic parameters, which can result in grea
 improved results, such as creating less distorted DEMs that agree much better
 with the ground truth. 
 
+\subsubsection{A first attempt at floating the intrinsics}
+
 We recommend that first bundle adjustment is run with the intrinsics fixed,
 to get the extrinsics mostly correct, as optimizing for both of them at
 the same time may result in a non-convex problem which may lead to a 
@@ -239,6 +241,8 @@ and viewed in \texttt{stereo\_gui}.
 This file also shows how often each feature is seen in the images, so, if three
 images are present, hopefully many features will be seen three times. 
 
+\subsubsection{Using ground truth when floating the intrinsics}
+
 If a ground truth lidar file (or DEM) is present, say named \texttt{lidar.csv}, it can be used
 as part of bundle adjustment. For that, the DEM obtained with the earlier
 stereo pass needs to be first aligned to this ground truth, such as:
@@ -262,6 +266,11 @@ Here we have used 0 iterations because we simply want to move the cameras
 without any optimization. Note that your lidar file may have some conventions as to what each column
 means, and then any tools that use this cloud must set \texttt{-\/-csv-format}
 and perhaps also \texttt{-\/-datum} and/or \texttt{-\/-csv-proj4}. 
+
+If \texttt{pc\_align} is called with the clouds in reverse order
+(the denser cloud should always be the first), when applying the
+transform to the cameras in \texttt{bundle\_adjust} one should use  
+\texttt{transform.txt} instead of \texttt{inverse-transform.txt} above. 
 
 Next, we will need to create a disparity from the left and right images
 that we will use during bundle adjustment. For that we will take the disparity obtained
@@ -300,6 +309,11 @@ projected into the left camera image and then transferred onto the right
 image via the unaligned disparity and its direct projection into the
 right camera.
 
+If the initial errors in that file are large to start with, say more than 2-3 pixels,
+there is a chance something is wrong. Either the cameras are not well-aligned to each 
+other or to the ground, or the intrinsics are off too much. In that case it is possible
+the errors are too large for this approach to reduce them effectively. 
+
 We strongly recommend that for this process one should not rely on bundle adjustment
 to create interest points, but to use the dense and uniformly distributed ones 
 created with stereo, as suggested earlier. 
@@ -314,16 +328,40 @@ When the lidar file is large, in bundle adjustment one can use the flag
 can speed up setting up the problem but does not affect the
 optimization.
 
+\subsubsection{Using the heights from a reference DEM}
+
+In some situations the DEM obtained with ASP is, after alignment, quite
+similar to the reference DEM, but the heights may be off. This can
+happen, for example, if the focal length is not accurately known. It is
+then possible after triangulating the interest point matches in bundle
+adjustment to replace their heights above datum with values obtained
+from the reference DEM, which are presumably more accurate. These
+triangulated points are then kept fixed while the extrinsics and
+intrinsics of the cameras are varied. The option for this is
+\texttt{-\/-heights-from-dem arg}.
+
+This option can be used with or without the \texttt{-\/-reference-terrain}
+option and the DEM provided need not be the same for the two options.
+
+It is important to note that here we assume that a simple height correction 
+is enough. Hence this option is an approximation, and perhaps it should be used
+iteratively, and a subsequent pass of bundle adjustment should be done without it.
+This option can however be more effective than using \texttt{-\/-reference-terrain}
+when there is a large uncertainty in camera intrinsics. 
+
+\subsubsection{Using multiple images}
+
 Everything mentioned earlier works with more than two images, in fact,
 having more images is highly desirable, and ideally the images overlap a
 lot. For example, one can create stereo pairs consisting of first and
-second images, second and third, third and fourth, etc., invoke the above logic for each
-pair, that is, run stereo, alignment to the ground truth, dense interest
-point generation, creation of unaligned disparities, and transforming the cameras using the alignment
-transform matrix. Then, a directory can be made in which one can
-copy the dense interest point files, and run bundle adjustment with intrinsics optimization
-jointly for all cameras. Hence, one should use a command as follows
-(the example here is for 4 images):
+second images, second and third, third and fourth, etc., invoke the
+above logic for each pair, that is, run stereo, alignment to the ground
+truth, dense interest point generation, creation of unaligned
+disparities, and transforming the cameras using the alignment transform
+matrix. Then, a directory can be made in which one can copy the dense
+interest point files, and run bundle adjustment with intrinsics
+optimization jointly for all cameras. Hence, one should use a command as
+follows (the example here is for 4 images):
 
 \begin{verbatim}
   disp1=run_stereo12/run-unaligned-D.tif
@@ -367,6 +405,7 @@ of the cameras to the reference terrain.
 
 Also note the earlier comment about sharing and floating the intrinsics individually. 
 
+\subsubsection{RPC lens distortion}
 If it is realized that the optimized intrinsics still do not make the ASP-generated
 DEMs agree very well with the ground truth, and some residual and systematic error can be seen
 either by comparing these two or in intersection error files, it may be convenient
@@ -378,12 +417,19 @@ in which it was still not expressive enough, but still better than simpler model
 An example showing how to convert a camera model to RPC is given in
 section \ref{convertpinholemodel}.
 
-If stereo was done with map-projected images, one can still extract 
-dense interest point matches and the unaligned disparity from such a run,
-and these can be applied with the original unprojected images for the purpose
-of bundle adjustment (after being renamed appropriately). This may be convenient
-since while bundle adjustment must always happen with the original images, 
-stereo could be faster and more accurate when images are map-projected.
+\subsubsection{Working with map-projected images}
+
+If stereo was done with map-projected images, one can still extract
+dense interest point matches and the unaligned disparity from such a
+run, and these can be applied with the original unprojected images for
+the purpose of bundle adjustment (after being renamed
+appropriately). This may be convenient since while bundle adjustment
+must always happen with the original images, stereo could be faster and
+more accurate when images are map-projected. It is suggested that the
+unaligned disparity and interest points obtained this way be examined
+carefully. Particularly the grid size used in mapprojection should be
+similar to the ground sample distance for the raw images for best
+results.
 
 \section{Bundle adjustment using ISIS}
 
