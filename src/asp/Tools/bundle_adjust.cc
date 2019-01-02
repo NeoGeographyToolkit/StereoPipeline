@@ -815,7 +815,16 @@ int do_ba_ceres_one_pass(Options             & opt,
         if (cnet[ipt].type() != ControlPoint::GroundControlPoint){
           double* point = param_storage.get_point_ptr(ipt);
           update_point_from_dem(point, dem_georef, interp_dem);
-          problem.SetParameterBlockConstant(point);
+          if (opt.heights_from_dem_weight <= 0) 
+            problem.SetParameterBlockConstant(point);
+          else{
+            // Make this into a GCP so we can float it while not deviating
+            // too much from what we have now.
+            cnet[ipt].set_type(ControlPoint::GroundControlPoint);
+            double s = 1.0/opt.heights_from_dem_weight;
+            cnet[ipt].set_position(Vector3(point[0], point[1], point[2]));
+            cnet[ipt].set_sigma(Vector3(s, s, s));
+          }
         }
       }
 
@@ -1126,7 +1135,8 @@ int do_ba_ceres_one_pass(Options             & opt,
                         "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
   }
 
-  if (num_gcp > 0)
+  // If heights_from_dem_weight > 0, each point is a gcp, and this stats becomes too long
+  if (num_gcp > 0 && opt.heights_from_dem_weight <= 0)
     param_storage.print_gcp_stats(cnet, opt.datum);
 
   int num_new_outliers = 0;
@@ -1391,7 +1401,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("reference-terrain-weight", po::value(&opt.reference_terrain_weight)->default_value(1.0),
             "How much weight to give to the cost function terms involving the reference terrain.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
-            "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this DEM and fix those points.")
+            "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this DEM, and fix those points unless --heights-from-dem-weight is positive.")
+    ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(-1.0),
+     "How much weight to give to keep the triangulated points close to the DEM if specified via --heights-from-dem. If the weight is not positive, keep the triangulated points fixed.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
             "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
@@ -1701,10 +1713,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
 
-  // Based on the cameras, try to guess the session if not specified. If the session is isis,
+  // Based on the cameras, try to guess the session, if not specified. If the session is isis,
   // then we can pull the datum from the .cub files. 
   {
-    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, // may change
+                                                         opt,
                                                          opt.image_files [0], opt.image_files [0],
                                                          opt.camera_files[0], opt.camera_files[0],
                                                          opt.out_prefix));
@@ -1818,7 +1831,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     if (opt.reference_terrain_weight < 0) 
       vw_throw( ArgumentErr() << "The value of --reference-terrain-weight must be non-negative.\n");
   }
-  
   
 }
 

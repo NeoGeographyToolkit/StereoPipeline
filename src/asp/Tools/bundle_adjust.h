@@ -87,7 +87,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int    ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error,
-    reference_terrain_weight;
+    reference_terrain_weight, heights_from_dem_weight;
   bool   skip_rough_homography, individually_normalize, use_llh_error,
     force_reuse_match_files, save_cnet_as_csv;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.

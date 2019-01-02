@@ -745,7 +745,9 @@ Outlier removal based on the disparity of interest points (difference between ri
 
 \texttt{-\/-reference-terrain-weight \textit{double(=1)}} & How much weight to give to the cost function terms involving the reference terrain. \\ \hline
 
-\texttt{-\/-heights-from-dem arg} & If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this DEM and fix those points. \\ \hline
+\texttt{-\/-heights-from-dem \textit{string} } & If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this DEM, and fix those points unless -\/-heights-from-dem-weight is positive. \\ \hline
+
+\texttt{-\/-heights-from-dem-weight \textit{double(=-1)}} & How much weight to give to keep the triangulated points close to the DEM if specified via -\/-heights-from-dem. If the weight is not positive, keep the triangulated points fixed. \\ \hline
 
 \texttt{-\/-csv-format \textit{string}} & Specify the format of input
 CSV files as a list of entries column\_index:column\_type (indices start

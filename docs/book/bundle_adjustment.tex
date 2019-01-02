@@ -336,16 +336,20 @@ happen, for example, if the focal length is not accurately known. It is
 then possible after triangulating the interest point matches in bundle
 adjustment to replace their heights above datum with values obtained
 from the reference DEM, which are presumably more accurate. These
-triangulated points are then kept fixed while the extrinsics and
+triangulated points can be kept fixed while the extrinsics and
 intrinsics of the cameras are varied. The option for this is
-\texttt{-\/-heights-from-dem arg}.
+\texttt{-\/-heights-from-dem arg}. To allow these triangulated
+points to vary somewhat, one can pass a positive value to 
+\texttt{-\/-heights-from-dem-weight}. The larger its value is,
+the more constrained those points will be.  
 
 This option can be used with or without the \texttt{-\/-reference-terrain}
 option and the DEM provided need not be the same for the two options.
 
 It is important to note that here we assume that a simple height correction 
 is enough. Hence this option is an approximation, and perhaps it should be used
-iteratively, and a subsequent pass of bundle adjustment should be done without it.
+iteratively, and a subsequent pass of bundle adjustment should be done without it,
+or one should consider using a smaller weight above.
 This option can however be more effective than using \texttt{-\/-reference-terrain}
 when there is a large uncertainty in camera intrinsics. 
 
