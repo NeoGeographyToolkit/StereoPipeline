@@ -1508,23 +1508,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
-  // Work out the camera model type to use
-  boost::to_lower( opt.stereo_session_string );
-  opt.camera_type = BaCameraType_Other;
-  if (inline_adjustments) {
-    if ((opt.stereo_session_string == "pinhole") || 
-        (opt.stereo_session_string == "nadirpinhole")) {
-      opt.camera_type = BaCameraType_Pinhole;
-    } else {
-      if (opt.stereo_session_string == "opticalbar")
-        opt.camera_type = BaCameraType_OpticalBar;
-      else
-        vw_throw( ArgumentErr() << "Cannot use inline adjustments with session: "
-                                << opt.stereo_session_string << "\n"
-                                << usage << general_options );
-    }
-  } // End resolving the model type
-
   // Separate out GCP files
   opt.gcp_files = asp::get_files_with_ext(opt.image_files, ".gcp", true);
   const size_t num_gcp_files = opt.gcp_files.size();
@@ -1559,10 +1542,42 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Missing input image files.\n"
                             << usage << general_options );
 
+
+  // Work out the camera model type to use
+  boost::to_lower( opt.stereo_session_string );
+  opt.camera_type = BaCameraType_Other;
+  if (inline_adjustments) {
+
+    // Try to guess the session 
+    if (opt.stereo_session_string == ""){
+      try {
+        // If we can open a pinhole camera file, that means
+        // we are good. We prefer nadirpinhole to pinhole
+        // session.
+        PinholeModel(opt.camera_files[0]);
+        opt.stereo_session_string = "nadirpinhole";
+      }catch(std::exception const& e){}
+    }
+    
+    if ((opt.stereo_session_string == "pinhole") || 
+        (opt.stereo_session_string == "nadirpinhole")) {
+      opt.camera_type = BaCameraType_Pinhole;
+    } else {
+      if (opt.stereo_session_string == "opticalbar")
+        opt.camera_type = BaCameraType_OpticalBar;
+      else
+        vw_throw( ArgumentErr() << "Cannot use inline adjustments with session: "
+                  << opt.stereo_session_string << "\n"
+                                << usage << general_options );
+    }
+  } // End resolving the model type
+  
+  
+  
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
     vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and the overlap list.\n"
               << usage << general_options );
-    
+  
   if ( opt.overlap_limit < 0 )
     vw_throw( ArgumentErr() << "Must allow search for matches between "
               << "at least each image and its subsequent one.\n" << usage << general_options );
