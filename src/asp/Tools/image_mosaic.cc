@@ -56,7 +56,7 @@ struct Options: vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files;
   std::string orientation, output_image, output_type, out_prefix;
   int    overlap_width, band, blend_radius, ip_per_tile;
-  bool   has_input_nodata_value, has_output_nodata_value, rotate;
+  bool   has_input_nodata_value, has_output_nodata_value, reverse, rotate;
   double input_nodata_value, output_nodata_value;
   Vector2 big_tile_size;
   Options(): has_input_nodata_value(false), has_output_nodata_value(false),
@@ -644,8 +644,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("orientation", po::value(&opt.orientation)->default_value("horizontal"),
      "Choose a supported image layout from [horizontal].")
+    ("reverse", po::bool_switch(&opt.reverse)->default_value(false),
+     "Mosaic the images in reverse order.")
     ("rotate", po::bool_switch(&opt.rotate)->default_value(false),
-     "After mosaicking, rotate the image by 180 degrees around its center (needed for some scan directions).")
+     "After mosaicking, rotate the image by 180 degrees around its center.")
     ("overlap-width", po::value(&opt.overlap_width)->default_value(2000),
           "Select the size of the overlap region to use.")
     ("blend-radius", po::value(&opt.blend_radius)->default_value(0),
@@ -693,6 +695,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_out() << "Using blend radius: " << opt.blend_radius << std::endl;
   }
 
+  // Reverse the order of files
+  if (opt.reverse) {
+    size_t len = opt.image_files.size();
+    for (size_t it = 0; it < len; it++) {
+      size_t it2 = len-1-it;
+      if (it < it2)
+        std::swap(opt.image_files[it], opt.image_files[it2]);
+    }
+  }
+  
 }
 
 int main( int argc, char *argv[] ) {

@@ -7,7 +7,7 @@
      This approach may be helpful for other images obtained with frame
      cameras and uncertain positioning information.
    * Added support for CORONA KH-4B declassifed images and its
-     panoramic model.
+     panoramic model, with an example in the documentation.
  
  - New tools
    * Added the cam_gen tool to create a correctly oriented pinhole

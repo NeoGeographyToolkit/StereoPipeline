@@ -1382,7 +1382,8 @@ file with the index assigned to each input DEM is saved as well.\\ \hline
 
 The program \texttt{image\_mosaic} aligns multiple input images into a single
 output image.  Currently it only supports a horizontal sequence of images such
-as scanned Corona images.
+as scanned Corona images. An example of using this tool is in section 
+\ref{kh4}.
 
 Usage:
 \begin{verbatim}
@@ -1403,9 +1404,11 @@ Options & Description \\
 \texttt{-\/-t\_orientation \textit{string(=horizontal)} } &
 Specify the image layout.  Currently only supports horizontal.
 \\ \hline
+\texttt{-\/-reverse} & 
+Mosaic the images in reverse order.
+\\ \hline
 \texttt{-\/-rotate} & 
-After mosaicking, rotate the image by 180 degrees around its center
-(needed for some scan directions). 
+After mosaicking, rotate the image by 180 degrees around its center. 
  \\ \hline
 \texttt{-o | -\/-output-image  \textit{string} } &
 Specify the output file path.  Required.

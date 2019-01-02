@@ -1521,7 +1521,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       if (opt.stereo_session_string == "opticalbar")
         opt.camera_type = BaCameraType_OpticalBar;
       else
-        vw_throw( ArgumentErr() << "Cannot use inline adjustments with camera type = "
+        vw_throw( ArgumentErr() << "Cannot use inline adjustments with session: "
                                 << opt.stereo_session_string << "\n"
                                 << usage << general_options );
     }
@@ -1645,24 +1645,26 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
         vw_throw( ArgumentErr() << "The reference terrain DEM does not have a georeference.\n"
                   << usage << general_options );
       if (opt.datum_str == "" ){
+        opt.datum = georef.datum();
         opt.datum_str = georef.datum().name();
-        vw_out() << "Using the datum: " << opt.datum_str << ".\n";
+        vw_out() << "Using the datum: " << opt.datum << ".\n";
       }
     }
   }
 
-  // Try to infer the datum from the reference terrain
-  if (opt.reference_terrain != "") {
-    std::string file_type = asp::get_cloud_type(opt.reference_terrain);
+  // Try to infer the datum from the heights-from-dem
+  if (opt.heights_from_dem != "") {
+    std::string file_type = asp::get_cloud_type(opt.heights_from_dem);
     if (file_type == "DEM") {
       vw::cartography::GeoReference georef;
-      bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
+      bool is_good = vw::cartography::read_georeference(georef, opt.heights_from_dem);
       if (!is_good)
-        vw_throw( ArgumentErr() << "The reference terrain DEM does not have a georeference.\n"
+        vw_throw( ArgumentErr() << "The DEM does not have a georeference.\n"
                   << usage << general_options );
       if (opt.datum_str == "" ){
+        opt.datum = georef.datum();
         opt.datum_str = georef.datum().name();
-        vw_out() << "Using the datum: " << opt.datum_str << ".\n";
+        vw_out() << "Using the datum: " << opt.datum << ".\n";
       }
     }
   }

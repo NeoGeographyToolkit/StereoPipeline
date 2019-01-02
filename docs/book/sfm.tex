@@ -475,8 +475,8 @@ Such a file can be created with \texttt{stereo\_gui} (section
 
 One runs bundle adjustment with this data:
 \begin{verbatim}
-bundle_adjust img.tif init.tsai gcp.gcp -o ba/run --datum WGS84   \
-   --inline-adjustments --camera-weight 0 --max-iterations 0      \
+bundle_adjust -t nadirpinhole img.tif init.tsai gcp.gcp -o ba/run           \
+   --datum WGS84 --inline-adjustments --camera-weight 0 --max-iterations 0  \
    --robust-threshold 10
 \end{verbatim}
 

@@ -1555,63 +1555,69 @@ There is always a chance when solving these parameters that the obtained solutio
 Hence, one can also try using as initial guesses different values, for example, 
 by negating the above numbers.
 
-\section{KH-4 images}
+\section{KH-4B and KH-9 images}
 \label{kh4}
 
 ASP supports the declassified high-resolution CORONA KH-4B images. It
 implements the panoramic camera model from \cite{sohn2004mathematical},
-whose format is described in section \label{panoramic}.
+whose format is described in section \ref{panoramic}. 
 
-We will illustrate processing such data on an example from Tibet. 
+ASP also supports the lower-resolution KH-9 images which use the much
+simpler Pinhole camera model. We will illustrate processing KH-4B data
+on an example from Tibet, and we will point out along the way where
+processing of KH-9 differs.
 
 \subsection{Fetching the data}
 
-The KH-4 images are available via the USGS Earth Explorer, 
+The KH-4B and KH-9 images are available via the USGS Earth Explorer, at
 \begin{center}
  \url{https://earthexplorer.usgs.gov/}
 \end{center}
 
-(an account is required to download the data). We will work with the image pair
+(an account is required to download the data). We will work with the
+KH-4B image pair
 
 \begin{verbatim}
  DS1105-2248DF076
  DS1105-2248DA082
 \end{verbatim}
 
-To get these from Earth Explorer, one clicks on the \texttt{Data Sets}
-tab, and selects the three types of declassfied data available, then in
-the \texttt{Entry ID} tab pastes the above frames. Clicking on the
-\texttt{Results} tab presents the user with information about these
-frames. 
+To get these from Earth Explorer, click on the \texttt{Data Sets}
+tab and select the three types of declassified data available, then in the 
+\texttt{Additional Criteria} tab choose \texttt{Declass 1}, and in
+the \texttt{Entity ID} field in that tab paste the above frames (if no results
+are returned, one can attempt switching above to \texttt{Declass 2},
+etc). Clicking on the \texttt{Results} tab presents the user with information about
+these frames.
 
-Clicking on the \texttt{Show Metadata and Browse} for every
-image will present a table with meta-information. That one can be pasted
-as a text file, named for example, \texttt{DS1105-2248DF076.txt} for the
-first image, from which later the longitude and latitude of each corner
+Clicking on \texttt{Show Metadata and Browse} for every
+image will pop-up a table with meta-information. That one can be pasted
+into a text file, named for example, \texttt{DS1105-2248DF076.txt} for the
+first image, from which later the longitude and latitude of each image corner
 will be parsed. Then one can click on \texttt{Download Options} 
 to download the data. 
 
 \subsection{Stitching the images}
 
-Each downloaded image will be made up of four portions, presumably due
-to the limitations of the scanning equipement. They can be stitched together
+Each downloaded image will be made up of 2-4 portions, presumably due
+to the limitations of the scanning equipment. They can be stitched together
 using ASP's \texttt{image\_mosaic} tool (section \ref{imagemosaic}).
 
-For some reason, the KH-4 images in an unusual order. To mosaic them,
-the last image must be placed first, the next to last should be second,
-etc., which is not the case, for example, for KH-9. Hence, this tool
-must be invoked with the \texttt{-\/-reverse} flag. In addition, as seen
-from the tables of metadata discussed earlier, some images correspond to
-the \tettt{Aft} camera type. Those will need to be rotated 180 degrees
-after mosaicking.
+For some reason, the KH-4B images are scanned in an unusual order. To
+mosaic them, the last image must be placed first, the next to last
+should be second, etc. Hence, this tool must be invoked with the \texttt{-\/-reverse}
+flag. In addition, as seen from the tables of metadata discussed
+earlier, some images correspond to the \texttt{Aft} camera type. Those
+will need to be rotated 180 degrees after mosaicking, hence below we use
+the \texttt{-\/-rotate} flag for that one.
 
 It is also important to note that the images tend to be exceedingly large. For
 that reason, in a first pass, all operations are suggested to be done
 at reduced resolution. When opening these images in \texttt{stereo\_gui}
-it will create versions of the images at reduced resolution. We recommend
+it will create versions of the images at multiple resolutions. We recommend
 using the sub8 images to get familiar with processing. 
 
-With this in mind, image mosacking for these two images will happen as follows:
+With this in mind, image mosaicking for these two images will happen as follows:
 
 \begin{verbatim}
   image_mosaic DS1105-2248DF076_[a-d]_sub8.tif -o \
@@ -1620,12 +1626,15 @@ With this in mind, image mosacking for these two images will happen as follows:
      DS1105-2248DA082_sub8.tif --reverse --rotate
 \end{verbatim}
 
+For KH-9, the \texttt{-\/-rotate} and \texttt{-\/-reverse} flags are not
+necessary.
+
 \subsection{Fetching a ground truth DEM}
 
 To create initial cameras to use with these images, and to later refine and validate
 the terrain model made from them, we will need some ground truth. 
 Several good sets of DEMs exist, including SRTM, ASTER, and TanDEM-X. Here we will
-work with SRTM, which provides a 30-meter post spacing. The bounds of the region 
+work with SRTM, which provides DEMs with a 30-meter post spacing. The bounds of the region 
 of interest are inferred from the tables with meta-information from above. 
 We will use \texttt{wget} to fetch
 
@@ -1640,28 +1649,28 @@ merged and cropped as follows:
   dem_mosaic n*.hgt --t_projwin 99.6 31.5 102 31 -o dem.tif
 \end{verbatim}
 
-Determining these bounds and the visualisation of all images and DEMs
+Determining these bounds and the visualization of all images and DEMs
 can be done in \texttt{stereo\_gui}.
 
 \subsection{Creating camera files and GCP}
 
-The meta-information table mentions that the width 
-of the film is 70~mm. From \cite{sohn2004mathematical} the focal length
+On Earth Exploer it is mentioned that the width 
+of the film is 70~mm for KH-4B. From \cite{sohn2004mathematical} the focal length
 is known as 609.602~mm. The images have 10602 pixel rows, this results
 in a pitch of
 \begin{equation*}
-  p = 70/10602 = 0.0066025 mm
+  p = 70/10602 = 0.0066025
 \end{equation*}
 
 Since in this example the image resolution will be reduced by a factor of 8,
-the pitch needs to be multiplied by this number, becoming 0.0528202225995088~m.
+the pitch needs to be multiplied by this number, becoming 0.05282~mm.
 
 After mosaicking as earlier, the reduced resolution images will have
 15102 rows, which multiplied by the pixel pitch at this resolution gives
 the length of the film of 
 
 \begin{equation*}
- 0.0528202225995088 \times 15102 = 797.6910 mm
+ 0.05282 \times 15102 = 797.688
 \end{equation*}
 
 Since we don't know the optical center of the image, we will assume it is at
@@ -1670,23 +1679,131 @@ the film length and width, in millimeters.
 
 ASP provides the tool named \texttt{cam\_gen} that, based on a camera's intrinsics
 and the positions of the image corners on Earth's surface will
-create intital camera models and GCP files, that can then be used later
+create initial camera models and GCP files, that can then be used later
 for refining and aligning the cameras.
 
+The metadata table from Earth Explorer has the following entries
+for DS1105-2248DF076:
 \begin{verbatim}
-  cam_gen --pixel-pitch 0.0066025  --focal-length 609.602                \
-   --optical-center 398.8455 35 --frame-file DS1105-2248DF076.txt        \
-   DS1105-2248DF076_sub8.tif --reference-dem dem.tif --refine-camera     \
-   -o DS1105-2248DF076_sub8.tsai --gcp-file DS1105-2248DF076_sub8.gcp    \
-   --gcp-std 1e-2                                                        \
-   --camera-type panoramic --scan-angle 1.22 --scan-speed 100
+  NW Cormer Lat dec   31.266
+  NW Corner Long dec  99.55
+  NE Corner Lat dec   31.55
+  NE Corner Long dec  101.866
+  SE Corner Lat dec   31.416
+  SE Corner Long dec  101.916
+  SW Corner Lat dec   31.133
+  SW Corner Long dec  99.55
 \end{verbatim}
 
-The file DS1105-2248DF076.txt will be parsed to extract the longitude
-and latitude of image corners, and the heights at those point will be infered
-from the provided DEM.
+These correspond to the upper-left, upper-right, lower-right, and lower-left
+pixels in the image. We will invoke \texttt{cam\_gen} as follows:
 
+\begin{verbatim}
+  cam_gen --pixel-pitch 0.05282 --focal-length 609.602                       \
+   --optical-center 398.844 35                                               \
+   --lon-lat-values '99.55 31.266 101.866 31.55 101.916 31.416 99.55 31.133' \
+   DS1105-2248DF076_sub8.tif --reference-dem dem.tif --refine-camera         \
+   -o DS1105-2248DF076_sub8.tsai --gcp-file DS1105-2248DF076_sub8.gcp        \
+   --gcp-std 1e-2                                                            \
+\end{verbatim}
 
+and similarly for the other image:
+
+\begin{verbatim}
+  cam_gen --pixel-pitch 0.05282 --focal-length 609.602                       \
+   --optical-center 398.844 35                                               \
+   --lon-lat-values '99.566 31.266 101.95 31.55 101.933 31.416 99.616 31.15' \
+   DS1105-2248DA082_sub8.tif --reference-dem dem.tif --refine-camera         \
+   -o DS1105-2248DA082_sub8.tsai --gcp-file DS1105-2248DA082_sub8.gcp        \
+   --gcp-std 1e-2               
+\end{verbatim}
+
+It is very important to note that if, for example, the upper-left image
+corner is in fact, the NE corner from the metadata, as can be the case
+for KH-9, then that corner should be the first in the longitude-latitude
+list when invoking this tool.
+
+Also, here we multiplied the pitch by 8, because we are working at 1/8th
+of the raw image resolution. Hence, each time we work with an image at
+reduced resolution, the only parameter that changes is the pixel pitch.
+
+For KH-9, one would have to adjust the focal length, optical center, and
+pixel pitch.
+
+An important sanity check is to mapproject the images with these
+cameras, for example as:
+
+\begin{verbatim}
+  mapproject dem.tif DS1105-2248DF076_sub8.tif DS1105-2248DF076_sub8.tsai \
+    DS1105-2248DF076_sub8.map.tif
+\end{verbatim}
+
+and then overlay the mapprojected image on top of the DEM in \texttt{stereo\_gui}.
+If it appears that the image was not projected correctly, likely 
+the order of image corners was incorrect. 
+
+\subsection{Bundle adjustment and stereo}
+
+At the next step we run bundle adjustment:
+
+\begin{verbatim}
+  bundle_adjust DS1105-2248DF076_sub8.tif DS1105-2248DA082_sub8.tif \
+    DS1105-2248DF076_sub8.tsai DS1105-2248DA082_sub8.tsai           \
+    DS1105-2248DF076_sub8.gcp DS1105-2248DA082_sub8.gcp             \
+    -o ba_sub8/run --max-iterations 100 --camera-weight 0           \
+    --disable-tri-ip-filter --disable-pinhole-gcp-init              \
+    --skip-rough-homography --inline-adjustments                    \
+    --ip-detect-method 1 -t nadirpinhole --datum WGS84
+\end{verbatim}
+
+followed by stereo and DEM creation:
+\begin{verbatim}
+  parallel_stereo DS1105-2248DF076_sub8.tif DS1105-2248DA082_sub8.tif \
+    ba_sub8/run-DS1105-2248DF076_sub8.tsai                            \
+    ba_sub8/run-DS1105-2248DA082_sub8.tsai                            \
+    stereo_sub8_mgm/run --alignment-method affineepipolar             \
+    -t nadirpinhole --skip-rough-homography --disable-tri-ip-filter   \
+    --skip-low-res-disparity-comp --ip-detect-method 1                \
+    --stereo-algorithm 2 
+
+  point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417 \
+    --tr 30 stereo_sub8/run-PC.tif
+\end{verbatim}
+
+This will create a very rough initial DEM. It is sufficient however
+to align and compare with the SRTM DEM:
+
+\begin{verbatim}
+  pc_align --max-displacement -1                                      \
+    --initial-transform-from-hillshading similarity                   \
+    --save-transformed-source-points --num-iterations 0               \
+    --max-num-source-points 1000 --max-num-reference-points 1000      \
+    dem.tif stereo_sub8/run-DEM.tif -o stereo_sub8/run
+  point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417 \
+    --tr 30 stereo_sub8/run-trans_source.tif
+\end{verbatim}
+
+which will hopefully create a DEM aligned to the underlying SRTM. There
+is a chance that this may fail as the two DEMs to align could be too
+different. In that case, one can re-run \texttt{point2dem} to re-create
+the DEM to align with a coarser resolution, say with \texttt{-\/-tr
+120}, then re-grid the SRTM DEM to the same resolution, which can be
+done as:
+
+\begin{verbatim}
+  pc_align --max-displacement -1 dem.tif dem.tif -o dem/dem             \
+    --num-iterations 0 --max-num-source-points 1000                     \
+    --max-num-reference-points 1000 --save-transformed-source-points
+  point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417   \
+    --tr 120 dem/dem-trans_source.tif
+\end{verbatim}
+
+and then try to align the newly obtained coarser SRTM DEM to the 
+coarser DEM from stereo. 
+
+The obtained alignment transform can be used to align 
+the cameras as well, and then one can experiment with 
+floating the intrinsics, as in section \ref{sec:skysat}.
 
 
 
