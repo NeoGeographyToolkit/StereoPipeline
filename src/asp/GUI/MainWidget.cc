@@ -878,7 +878,6 @@ namespace vw { namespace gui {
     // determined. Then, there is nothing to do.
     if (m_current_view.empty()) return;
 
-    std::list<BBox2i> screen_box_list; // List of regions the images are drawn in
     // Loop through input images
     // - These images get drawn in the same
     for (size_t j = 0; j < m_images.size(); j++){
@@ -910,7 +909,6 @@ namespace vw { namespace gui {
         screen_box.max().x() = screen_box.min().x() + 1;
       if (screen_box.min().y() >= screen_box.max().y())
         screen_box.max().y() = screen_box.min().y() + 1;
-      screen_box_list.push_back(screen_box);
 
       // Go from world coordinates to pixels in the second image.
       BBox2 image_box = MainWidget::world2image(world_box, i);
@@ -1012,29 +1010,17 @@ namespace vw { namespace gui {
 
     } // End loop through input images
 
-    // Call another function to handle drawing the interest points
-    if ((static_cast<size_t>(m_image_id) < m_matchlist.getNumImages()) && m_view_matches) {
-      drawInterestPoints(paint, screen_box_list);
-    }
-
     return;
   } // End function drawImage()
 
 
-  void MainWidget::drawInterestPoints(QPainter* paint, std::list<BBox2i> const& valid_regions) {
+  void MainWidget::drawInterestPoints(QPainter* paint){
 
     // Highlight colors for various actions
     QColor ipColor              = QColor(255,  0,  0); // Red
     QColor ipInvalidColor       = QColor(255,163, 26); // Orange
     QColor ipAddHighlightColor  = QColor( 64,255,  0); // Green
     QColor ipMoveHighlightColor = QColor(255,  0,255); // Magenta
-
-    // Convert the input rects to QRect format
-    std::list<QRect> qrect_list;
-    for (std::list<BBox2i>::const_iterator i=valid_regions.begin(); i!=valid_regions.end(); ++i){
-      qrect_list.push_back(QRect(i->min().x(), i->min().y(),
-                                 i->width(),   i->height()));
-    }
 
     paint->setBrush(Qt::NoBrush);
 
@@ -1061,19 +1047,13 @@ namespace vw { namespace gui {
       Vector2 pt    = m_matchlist.getPointCoord(m_image_id, ip_iter);
       Vector2 world = MainWidget::image2world(pt, static_cast<int>(trans_image_id));
       Vector2 P     = world2screen(world);
-      QPoint Q(P.x(), P.y());
 
-      // Skip the point if none of the valid regions contain it
-      bool safe = false;
-      for (std::list<QRect>::const_iterator i=qrect_list.begin(); i!=qrect_list.end(); ++i) {
-        if (i->contains(Q)) { // Verify the conversion worked
-          safe = true;
-          break;
-        }
-      }
-      if (!safe)
+      // Do not draw points that are outside the viewing area
+      if (P.x() < 0 || P.x() > m_window_width ||
+          P.y() < 0 || P.y() > m_window_height) {
         continue;
-
+      }
+      
       paint->setPen(ipColor); // The default IP color
 
       if (!m_matchlist.isPointValid(m_image_id, ip_iter))
@@ -1086,6 +1066,7 @@ namespace vw { namespace gui {
       if (static_cast<int>(ip_iter) == m_editMatchPointVecIndex)
         paint->setPen(ipMoveHighlightColor);
 
+      QPoint Q(P.x(), P.y());
       paint->drawEllipse(Q, 2, 2); // Draw the point!
 
     } // End loop through points
@@ -1278,6 +1259,10 @@ namespace vw { namespace gui {
 			    drawVertIndex, polyColor, paint, poly);
     }
 
+    // Call another function to handle drawing the interest points
+    if ((static_cast<size_t>(m_image_id) < m_matchlist.getNumImages()) && m_view_matches) 
+      drawInterestPoints(&paint);
+    
   } // end paint event
   
   // Call paintEvent() on the edges of the rubberband
@@ -2295,8 +2280,6 @@ namespace vw { namespace gui {
               m_editVertIndexInCurrPoly < 0)
             return;
 
-          std::cout << "Update poly location!\n";
-          
           Vector2 P = screen2world(Vector2(mouseRelX, mouseRelY));
           m_world_box.grow(P); // to not cut when plotting later
           P = world2projpoint(P, m_polyVecIndex); // projected units
@@ -2674,7 +2657,7 @@ namespace vw { namespace gui {
     }
 
     m_view_matches = view_matches;
-    refreshPixmap();
+    update(); // redraw matches on top of existing images
   }
 
   
@@ -2704,9 +2687,6 @@ namespace vw { namespace gui {
             + "Cannot add this match.");
       return;
     }
-
-    bool view_matches = true;
-    viewMatches(view_matches);
 
     // Must refresh the matches in all the images, not just this one
     emit turnOnViewMatchesSignal();

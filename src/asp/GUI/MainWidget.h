@@ -354,8 +354,8 @@ public slots:
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);
     /// Add all the interest points to the provided canvas
-    /// - Called internally by drawImage
-    void drawInterestPoints(QPainter* paint, std::list<BBox2i> const& valid_regions);
+    /// - Called internally by paintEvent()
+    void drawInterestPoints(QPainter* paint);
 
     /// Return the value of imageIndex to be passed in to the functions below
     int     getTransformImageIndex() const;
