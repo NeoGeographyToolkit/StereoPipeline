@@ -43,7 +43,7 @@ TEST(OpticalBarModel, CreateCamera) {
 
   double   pixel_size         = 7*10e-6;
   Vector2i image_size(12000, 4000);
-  Vector2  center_loc_pixels(-4.3, -1.2) + image_size/2;
+  Vector2  center_loc_pixels = Vector2(-4.3, -1.2) + image_size/2;
   double   focal_length       = 609.602/1000.0;
   double   scan_angle_radians = 70  * M_PI/180;
   double   scan_rate_radians  = 192 * M_PI/180;
