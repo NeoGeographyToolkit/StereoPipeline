@@ -1340,9 +1340,7 @@ int load_estimated_camera_positions(Options &opt,
   return num_matches_found;  
 }
 
-
-
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str;
   float auto_overlap_buffer;
@@ -1528,7 +1526,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   } // End resolving the model type
 
   // Separate out GCP files
-  opt.gcp_files = asp::get_files_with_ext( opt.image_files, ".gcp", true );
+  opt.gcp_files = asp::get_files_with_ext(opt.image_files, ".gcp", true);
   const size_t num_gcp_files = opt.gcp_files.size();
   vw_out() << "Found " << num_gcp_files << " GCP files on the command line.\n";
 
@@ -1539,6 +1537,22 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                                     opt.image_files, opt.camera_files, // outputs
                                     ensure_equal_sizes); 
   
+  // If there are no camera files, then the image files have the camera information.
+  if (opt.camera_files.empty()){
+    for (int i = 0; i < opt.image_files.size(); i++)
+      opt.camera_files.push_back("");
+  }
+  
+  // Throw if there are duplicate camera file names.
+  opt.check_for_duplicate_camera_names();
+  
+  // Sanity check
+  if (opt.image_files.size() != (int)opt.camera_files.size()){
+    vw_out() << "Detected " << opt.image_files.size() << " images and "
+             << opt.camera_files.size() << " cameras.\n";
+    vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
+  }
+  
   // TODO: Check for duplicates in opt.image_files!
 
   if ( opt.image_files.empty() )
@@ -1546,7 +1560,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             << usage << general_options );
 
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
-    vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and the overlap list.\n" << usage << general_options );
+    vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and the overlap list.\n"
+              << usage << general_options );
     
   if ( opt.overlap_limit < 0 )
     vw_throw( ArgumentErr() << "Must allow search for matches between "
@@ -1624,13 +1639,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   // Try to infer the datum, if possible, from the images. For
   // example, Cartosat-1 has that info in the Tif file.
+  bool guessed_datum = false;
   if (opt.datum_str == "") {
     vw::cartography::GeoReference georef;
     for (size_t it = 0; it < opt.image_files.size(); it++) {
       bool is_good = vw::cartography::read_georeference(georef, opt.image_files[it]);
-      if (is_good && opt.datum_str == "" ){
-        opt.datum_str = georef.datum().name();
-        vw_out() << "Using the datum: " << opt.datum_str << ".\n";
+      if (is_good){
+        opt.datum = georef.datum();
+        opt.datum_str = opt.datum.name();
+        guessed_datum = true;
       }
     }
   }
@@ -1644,10 +1661,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       if (!is_good)
         vw_throw( ArgumentErr() << "The reference terrain DEM does not have a georeference.\n"
                   << usage << general_options );
-      if (opt.datum_str == "" ){
+      if (opt.datum_str == ""){
         opt.datum = georef.datum();
-        opt.datum_str = georef.datum().name();
-        vw_out() << "Using the datum: " << opt.datum << ".\n";
+        opt.datum_str = opt.datum.name();
+        guessed_datum = true;
       }
     }
   }
@@ -1663,28 +1680,59 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                   << usage << general_options );
       if (opt.datum_str == "" ){
         opt.datum = georef.datum();
-        opt.datum_str = georef.datum().name();
-        vw_out() << "Using the datum: " << opt.datum << ".\n";
+        opt.datum_str = opt.datum.name();
+        guessed_datum = true;
       }
     }
   }
 
+  // Based on the cameras, try to guess the session if not specified. If the session is isis,
+  // then we can pull the datum from the .cub files. 
+  {
+    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+                                                         opt.image_files [0], opt.image_files [0],
+                                                         opt.camera_files[0], opt.camera_files[0],
+                                                         opt.out_prefix));
+    
+    if (opt.datum_str == "" && opt.stereo_session_string == "isis"){
+      try {
+        bool use_sphere_for_isis = false;
+        opt.datum = session->get_datum(session->camera_model(opt.image_files [0],
+                                                             opt.camera_files[0]).get(),
+                                       use_sphere_for_isis);
+        opt.datum_str = opt.datum.name();
+        guessed_datum = true;
+      }catch(...){}
+    }
+  }
+  
+  // Many of the sessions are for Earth, when we use WGS84 by default
+  if (opt.stereo_session_string == "nadirpinhole" || opt.stereo_session_string == "dg"    ||
+      opt.stereo_session_string == "spot5"        || opt.stereo_session_string == "aster" ||
+      opt.stereo_session_string == "opticalbar") {
+    if (opt.datum_str == "" ){
+      opt.datum_str = "WGS84";
+      opt.datum.set_well_known_datum(opt.datum_str);
+      guessed_datum = true;
+    }
+  }
+
+  // If nothing worked, the datum must be specified
   if (opt.stereo_session_string == "rpc" && opt.datum_str == "")
     vw_throw( ArgumentErr() << "When the session type is RPC, the datum must be specified.\n"
                             << usage << general_options );       
 
   if (opt.datum_str != ""){
     // If the user set the datum, use it.
-    opt.datum.set_well_known_datum(opt.datum_str);
-    asp::stereo_settings().datum = opt.datum_str; // for RPC
-    vw_out() << "Will use datum: " << opt.datum << std::endl;
+    if (!guessed_datum)
+      opt.datum.set_well_known_datum(opt.datum_str);
   }else if (opt.semi_major > 0 && opt.semi_minor > 0){
     // Otherwise, if the user set the semi-axes, use that.
     opt.datum = cartography::Datum("User Specified Datum",
                                    "User Specified Spheroid",
                                    "Reference Meridian",
                                    opt.semi_major, opt.semi_minor, 0.0);
-    vw_out() << "Will use datum: " << opt.datum << std::endl;
+    opt.datum_str = opt.datum.name();
   }else{ // Datum not specified
     if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() )
       vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
@@ -1694,7 +1742,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       vw_throw( ArgumentErr() << "When filtering by elevation limit, the datum must be specified.\n"
                 << usage << general_options );
   }
-
+  
+  vw_out() << "Will use the datum:\n" << opt.datum << std::endl;
+  
+  asp::stereo_settings().datum = opt.datum.name(); // for RPC
+  
   if ( opt.out_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix.\n" << usage << general_options  );
 
@@ -1768,22 +1820,6 @@ int main(int argc, char* argv[]) {
 
     const int num_images = opt.image_files.size();
 
-    // If there are no camera files, then the image files have the camera information.
-    if (opt.camera_files.empty()){
-      for (int i = 0; i < num_images; i++)
-        opt.camera_files.push_back("");
-    }
-
-    // Throw if there are duplicate camera file names.
-    opt.check_for_duplicate_camera_names();
-
-    // Sanity check
-    if (num_images != (int)opt.camera_files.size()){
-      vw_out() << "Detected " << num_images << " images and "
-               << opt.camera_files.size() << " cameras.\n";
-      vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
-    }
-
     // Create the stereo session. This will attempt to identify the session type.
     // Read in the camera model and image info for the input images.
     for (int i = 0; i < num_images; i++){
@@ -1795,20 +1831,7 @@ int main(int argc, char* argv[]) {
       SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
                                                            opt.image_files [i], opt.image_files [i],
                                                            opt.camera_files[i], opt.camera_files[i],
-                                                           opt.out_prefix
-                                                           ));
-
-      // Try to pull the datum from the cameras
-      if (opt.datum.name() == UNSPECIFIED_DATUM) {
-        try {
-          bool use_sphere_for_isis = false;
-          opt.datum = session->get_datum(session->camera_model(opt.image_files [i],
-                                                               opt.camera_files[i]).get(),
-                                         use_sphere_for_isis);
-          opt.datum_str = opt.datum.name();
-          vw_out() << "Using datum: " << opt.datum << std::endl;
-        }catch(...){}
-      }
+                                                           opt.out_prefix));
       
       opt.camera_models.push_back(session->camera_model(opt.image_files [i],
                                                         opt.camera_files[i]));
