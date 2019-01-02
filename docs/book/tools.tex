@@ -3405,7 +3405,7 @@ consecutive pixels to sample. Default: 50. \\ \hline
 \section{cam\_gen}
 \label{camgen}
 
-This tool will create a Pinhole camera model given camera's optical
+This tool will create a Pinhole or Optical Bar camera model given camera's optical
 center, focal length, pixel pitch, the longitude-latitude coordinates of
 the camera image corners (or some other pixels) projected onto a DEM,
 and the DEM itself. A datum (and a height above it) can be used instead
@@ -3441,6 +3441,9 @@ multiplied by the pixel pitch, to make them in meters as well.
 
 Some other pixels can be used instead of corners, if using the \texttt{-\/-pixel-values}
 option.
+
+Note that for Optical Bar cameras the camera parameters must be passed in using the 
+\texttt{-\/-sample-file} option instead of specifying them all manually.
 
 It is strongly suggested to mapproject the image onto the obtained camera to verify
 if it projects where expected:
@@ -3482,11 +3485,13 @@ to visualize the computed camera above the ground in Google Earth.
 \hline
 Option & Description \\ \hline \hline
 \texttt{-o | -\/-output-camera-file \textit{string}} & Specify the output camera file with a .tsai extension.\\ \hline
+\texttt{-\/-camera-type \textit{string}} & Either pinhole [default] or opticalbar.\\ \hline
 \texttt{-\/-lon-lat-values \textit{string} } &A (quoted) string listing numbers, separated by commas or spaces, having the longitude and latitude (alternating and in this order) of each image corner. The corners are traversed in the order 0,0 w,0, w,h, 0,h where w and h are the image width and height.\\ \hline
 \texttt{-\/-pixel-values \textit{string} } & A (quoted) string listing numbers, separated by commas or spaces, having the column and row (alternating and in this order) of each pixel in the raw image at which the longitude and latitude is known. By default this is empty, and will be populated by the image corners traversed as earlier.\\ \hline
 \texttt{-\/-reference-dem \textit{string} } & Use this DEM to infer the heights above datum of the image corners.\\ \hline
 \texttt{-\/-datum \textit{string} } & Use this datum to interpret the longitude and latitude, unless a DEM is given. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON).\\ \hline
 \texttt{-\/-height-above-datum arg \textit{double(=0)} } & Assume this height above datum in meters for the image corners unless read from the DEM.\\ \hline
+\texttt{-\/-sample-file \textit{string}} & Instead of manually specifying all of the camera parameters, specify a sample camera model file on disk to read them from.\\ \hline
 \texttt{-\/-focal-length \textit{double(=0)} } & The camera focal length.\\ \hline
 \texttt{-\/-optical-center \textit{double(=0 0)}} & The camera optical center.\\ \hline
 \texttt{-\/-pixel-pitch \textit{double(=0)} } & The camera pixel pitch. \\ \hline

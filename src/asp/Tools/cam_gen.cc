@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// Create a pinhole camera model based on intrinsics, image corner
+// Create a pinhole or optical bar camera model based on intrinsics, image corner
 // coordinates, and, optionally, a DEM of the area.
 
 #include <vw/FileIO/DiskImageView.h>
@@ -28,6 +28,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Camera/OpticalBarModel.h>
 
 #include <limits>
 #include <cstring>
@@ -43,6 +44,7 @@ using namespace vw;
 using namespace vw::camera;
 using namespace std;
 using namespace vw::cartography;
+using namespace asp::camera;
 
 // Parse numbers from a list where they are separated by commas or spaces
 void parse_numbers(std::string list, std::vector<double> & values){
@@ -66,7 +68,7 @@ void parse_numbers(std::string list, std::vector<double> & values){
 
 struct Options : public vw::cartography::GdalWriteOptions {
   string image_file, camera_file, lon_lat_values_str, pixel_values_str, datum_str,
-    reference_dem, frame_index, gcp_file;
+    reference_dem, frame_index, gcp_file, camera_type, sample_file;
   double focal_length, pixel_pitch, gcp_std, height_above_datum;
   Vector2 optical_center;
   std::vector<double> lon_lat_values, pixel_values;
@@ -78,6 +80,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("output-camera-file,o", po::value(&opt.camera_file), "Specify the output camera file with a .tsai extension.")
+    ("camera-type", po::value(&opt.camera_type), "Either pinhole [default] or opticalbar")
     ("lon-lat-values", po::value(&opt.lon_lat_values_str)->default_value(""), "A (quoted) string listing numbers, separated by commas or spaces, having the longitude and latitude (alternating and in this order) of each image corner. The corners are traversed in the order 0,0 w,0, w,h, 0,h where w and h are the image width and height.")
     ("pixel-values", po::value(&opt.pixel_values_str)->default_value(""), "A (quoted) string listing numbers, separated by commas or spaces, having the column and row (alternating and in this order) of each pixel in the raw image at which the longitude and latitude is known. By default this is empty, and will be populated by the image corners traversed as earlier.")
     ("reference-dem", po::value(&opt.reference_dem)->default_value(""),
@@ -86,6 +89,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use this datum to interpret the longitude and latitude, unless a DEM is given. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("height-above-datum", po::value(&opt.height_above_datum)->default_value(0),
      "Assume this height above datum in meters for the image corners unless read from the DEM.")
+    ("sample-file", po::value(&opt.sample_file)->default_value(""), 
+     "Read in the camera parameters from the example camera file.  Required for opticalbar type.")
     ("focal-length", po::value(&opt.focal_length)->default_value(0),
      "The camera focal length.")
     ("optical-center", po::value(&opt.optical_center)->default_value(Vector2i(0,0),"0 0"),
@@ -115,34 +120,39 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
-			    positional, positional_desc, usage,
-			    allow_unregistered, unregistered);
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
   if ( opt.image_file.empty() )
     vw_throw( ArgumentErr() << "Missing the input image.\n"
-	      << usage << general_options );
+              << usage << general_options );
 
   if ( opt.camera_file.empty() )
     vw_throw( ArgumentErr() << "Missing the output camera file name.\n"
-	      << usage << general_options );
+              << usage << general_options );
+
+  boost::to_lower(opt.camera_type);
+  if ((opt.camera_type == "opticalbar") && (opt.sample_file == ""))
+    vw_throw( ArgumentErr() << "opticalbar type must use a sample camera file.\n"
+              << usage << general_options );
 
   std::string ext = get_extension(opt.camera_file);
   if (ext != ".tsai") 
     vw_throw( ArgumentErr() << "The output camera file must end with .tsai.\n"
-	      << usage << general_options );
+              << usage << general_options );
 
   // If we cannot read the data from a DEM, must specify a lot of things.
   if (opt.reference_dem.empty() && opt.datum_str.empty())
     vw_throw( ArgumentErr() << "Must provide either a reference DEM or a datum.\n"
-	      << usage << general_options );
+              << usage << general_options );
 
   if (opt.gcp_std <= 0) 
     vw_throw( ArgumentErr() << "The GCP standard deviation must be positive.\n"
-	      << usage << general_options );
+              << usage << general_options );
 
   if (opt.frame_index != "" && opt.lon_lat_values_str != "") 
     vw_throw( ArgumentErr() << "Cannot specify both the frame index file and the lon-lat corners.\n"
-	      << usage << general_options );
+              << usage << general_options );
 
   if (opt.frame_index != "") {
     // Parse the frame index to extract opt.lon_lat_values_str.
@@ -176,7 +186,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   parse_numbers(opt.lon_lat_values_str, opt.lon_lat_values);
   if (opt.lon_lat_values.size() < 6) 
     vw_throw( ArgumentErr() << "Expecting at least three longitude-latitude pairs.\n"
-	      << usage << general_options );
+              << usage << general_options );
 
   // Parse the pixel values
   parse_numbers(opt.pixel_values_str, opt.pixel_values);
@@ -185,20 +195,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     // When no pixel values are given, we will use the corners, hence
     // we must have eight values.
     vw_throw( ArgumentErr() << "Expecting 8 values for the image corners.\n"
-	      << usage << general_options );
+              << usage << general_options );
   }
   
-  if (opt.focal_length <= 0 || opt.optical_center[0] <= 0 || opt.optical_center[1] <= 0 ||
-      opt.pixel_pitch <= 0) 
+  if ( opt.sample_file == "" && (opt.focal_length <= 0      || opt.optical_center[0] <= 0 ||
+                                 opt.optical_center[1] <= 0 || opt.pixel_pitch <= 0))
     vw_throw( ArgumentErr() << "Must provide positive focal length, optical center, "
-              << "and pixel pitch values.\n" << usage << general_options );
+              << "and pixel pitch values OR a sample file.\n" << usage << general_options );
   
   // Create the output directory
   vw::create_out_dir(opt.camera_file);
-}
+} // End function handle_arguments
 
-// Pack a pinhole model's rotation and camera center into a vector
-void camera_to_vector(PinholeModel const& P, Vector<double> & C){
+
+// Pack a pinhole or optical bar model's rotation and camera center into a vector
+template <class CAM>
+void camera_to_vector(CAM const& P, Vector<double> & C){
 
   Vector3 ctr = P.camera_center();
   Vector3 axis_angle = P.camera_pose().axis_angle();
@@ -207,9 +219,10 @@ void camera_to_vector(PinholeModel const& P, Vector<double> & C){
   subvector(C, 3, 3) = axis_angle;
 }
 
-// Pack a vector into a pinhole model. We assume the model
+// Pack a vector into a pinhole or optical bar model. We assume the model
 // already has set its optical center, focal length, etc. 
-void vector_to_camera(PinholeModel & P, Vector<double> const& C){
+template <class CAM>
+void vector_to_camera(CAM & P, Vector<double> const& C){
 
   if (C.size() != 6) 
     vw_throw( LogicErr() << "Expecting a vector of size 6.\n" );
@@ -220,10 +233,12 @@ void vector_to_camera(PinholeModel & P, Vector<double> const& C){
   P.set_camera_pose(rotation);
 }
 
+
 /// Find the camera model that best projects given xyz points into given pixels
-class CameraSolveLMA : public vw::math::LeastSquaresModelBase<CameraSolveLMA> {
+template <class CAM>
+class CameraSolveLMA : public vw::math::LeastSquaresModelBase<CameraSolveLMA<CAM> > {
   std::vector<vw::Vector3> const& m_xyz;
-  PinholeModel m_camera_model;
+  CAM m_camera_model;
   mutable size_t m_iter_count;
   
 public:
@@ -234,7 +249,7 @@ public:
 
   /// Instantiate the solver with a set of xyz to pixel pairs and a pinhole model
   CameraSolveLMA(std::vector<vw::Vector3> const& xyz,
-              PinholeModel const& camera_model):
+                 CAM const& camera_model):
     m_xyz(xyz),
     m_camera_model(camera_model), m_iter_count(0){}
 
@@ -242,8 +257,8 @@ public:
   inline result_type operator()( domain_type const& C ) const {
 
     // Create the camera model
-    PinholeModel camera_model = m_camera_model; // make a copy local to this function
-    vector_to_camera(camera_model, C);          // update its parameters
+    CAM camera_model = m_camera_model; // make a copy local to this function
+    vector_to_camera(camera_model, C);      // update its parameters
     
     const size_t result_size = m_xyz.size() * 2;
     result_type result;
@@ -258,7 +273,6 @@ public:
     
     return result;
   }
-
 }; // End class CameraSolveLMA
 
 
@@ -277,8 +291,8 @@ int main( int argc, char *argv[] ) {
       dem = DiskImageView<float>(opt.reference_dem);
       bool ans = read_georeference(geo, opt.reference_dem);
       if (!ans) 
-	vw_throw( ArgumentErr() << "Could not read the georeference from dem: "
-		  << opt.reference_dem << ".\n");
+        vw_throw( ArgumentErr() << "Could not read the georeference from dem: "
+                  << opt.reference_dem << ".\n");
 
       datum = geo.datum(); // Read this in for completeness
       has_dem = true;
@@ -299,7 +313,7 @@ int main( int argc, char *argv[] ) {
     int wid = img.cols(), hgt = img.rows();
     if (wid <= 0 || hgt <= 0) 
       vw_throw( ArgumentErr() << "Could not read an image with positive dimensions from: "
-		<< opt.image_file << ".\n");
+                << opt.image_file << ".\n");
 
     size_t num_lon_lat_pairs = opt.lon_lat_values.size()/2;
     
@@ -330,11 +344,11 @@ int main( int argc, char *argv[] ) {
       double height = opt.height_above_datum;
       if (has_dem) {
         bool success = false; 
-	pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
+        pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
         int len =  BilinearInterpolation::pixel_buffer;
-	if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - len &&
-	    pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - len) {
-	  PixelMask<float> masked_height = interp_dem(pix[0], pix[1]);
+        if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - len &&
+            pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - len) {
+          PixelMask<float> masked_height = interp_dem(pix[0], pix[1]);
           if (is_valid(masked_height)) {
             height = masked_height.child();
             success = true;
@@ -347,9 +361,9 @@ int main( int argc, char *argv[] ) {
       
       llh[2] = height;
       vw_out() << "Lon-lat-height for corner ("
-	       << opt.pixel_values[2*corner_it] << ' ' << opt.pixel_values[2*corner_it+1]
+               << opt.pixel_values[2*corner_it] << ' ' << opt.pixel_values[2*corner_it+1]
                << ") is "
-	       << llh[0] << ' ' << llh[1] << ' ' << llh[2] << std::endl;
+               << llh[0] << ' ' << llh[1] << ' ' << llh[2] << std::endl;
     
       xyz = datum.geodetic_to_cartesian(llh);
       xyz_vec.push_back(xyz);
@@ -359,16 +373,30 @@ int main( int argc, char *argv[] ) {
             << 1 << ' ' << 1 << ' ' << 1 << ' ' << opt.image_file << ' '
             << opt.pixel_values[2*corner_it] << ' ' << opt.pixel_values[2*corner_it+1] << ' '
             << opt.gcp_std << ' ' << opt.gcp_std << std::endl;
-    }
+    } // End loop through lon-lat pairs
     
     // Prepare a pinhole camera model with desired intrinsics but with
     // trivial position and orientation.
     Vector3 ctr(0, 0, 0);
     Matrix<double, 3, 3> rotation;
     rotation.set_identity();
-    PinholeModel cam(ctr, rotation, opt.focal_length, opt.focal_length,
-		     opt.optical_center[0], opt.optical_center[1], NULL, opt.pixel_pitch);
-
+    boost::shared_ptr<PinholeModel>    pinhole_cam;
+    boost::shared_ptr<OpticalBarModel> opticalbar_cam;
+    CameraModel const* cam_ptr;
+    
+    if (opt.camera_type == "opticalbar") {
+      opticalbar_cam.reset(new OpticalBarModel(opt.sample_file));
+      cam_ptr = opticalbar_cam.get();
+    } else {
+      if (opt.sample_file != "")
+        pinhole_cam.reset(new PinholeModel(opt.sample_file));
+      else // Command line values
+        pinhole_cam.reset(new PinholeModel(ctr, rotation, opt.focal_length, opt.focal_length,
+                                          opt.optical_center[0], opt.optical_center[1],
+                                          NULL, opt.pixel_pitch));
+      cam_ptr = pinhole_cam.get();
+    }
+    
     // This is needed only for weird reflections
     //Vector3 u_vec, v_vec, w_vec;
     //cam.coordinate_frame(u_vec, v_vec, w_vec);
@@ -376,23 +404,26 @@ int main( int argc, char *argv[] ) {
     
     // Create fake points in space at given distance from this camera's center
     // and corresponding actual points on the ground.
-    double ht = 500000; // 500 km, just some height not too far from actual satellite height 
+    const double ht = 500000; // 500 km, just some height not too far from actual satellite height 
     vw::Matrix<double> in, out;
     in.set_size(3, num_lon_lat_pairs);
     out.set_size(3, num_lon_lat_pairs);
     for (int col = 0; col < in.cols(); col++) {
-      Vector3 a = cam.camera_center(Vector2(0, 0)) +
-        ht*cam.pixel_to_vector(Vector2(opt.pixel_values[2*col], opt.pixel_values[2*col+1]));
+      Vector3 a = cam_ptr->camera_center(Vector2(0, 0)) +
+        ht*cam_ptr->pixel_to_vector(Vector2(opt.pixel_values[2*col], opt.pixel_values[2*col+1]));
       for (int row = 0; row < in.rows(); row++) {
-	in(row, col)  = a[row];
-	out(row, col) = xyz_vec[col][row];
+        in(row, col)  = a[row];
+        out(row, col) = xyz_vec[col][row];
       }
     }
 
     // Apply a transform to the camera so that the fake points are on top of the real points
     double scale;
     asp::find_3D_affine_transform(in, out, rotation, ctr, scale);
-    cam.apply_transform(rotation, ctr, scale);
+    if (opt.camera_type == "opticalbar")
+      opticalbar_cam->apply_transform(rotation, ctr, scale);
+    else
+      pinhole_cam->apply_transform(rotation, ctr, scale);
 
     // Print out some errors
     vw_out() << "The error between the projection of each ground "
@@ -400,7 +431,7 @@ int main( int argc, char *argv[] ) {
     for (size_t corner_it = 0; corner_it < num_lon_lat_pairs; corner_it++) {
       vw_out () << "Corner and error: ("
                 << opt.pixel_values[2*corner_it] << ' ' << opt.pixel_values[2*corner_it+1]
-                << ") " <<  norm_2(cam.point_to_pixel(xyz_vec[corner_it]) -
+                << ") " <<  norm_2(cam_ptr->point_to_pixel(xyz_vec[corner_it]) -
                                    Vector2( opt.pixel_values[2*corner_it],
                                             opt.pixel_values[2*corner_it+1]))
                 << std::endl;
@@ -413,35 +444,49 @@ int main( int argc, char *argv[] ) {
       pixel_vec.set_size(opt.pixel_values.size());
       for (size_t corner_it = 0; corner_it < pixel_vec.size(); corner_it++) 
         pixel_vec[corner_it] = opt.pixel_values[corner_it];
-      CameraSolveLMA lma_model(xyz_vec, cam);
-      Vector<double> seed;
-      camera_to_vector(cam, seed);
       const double abs_tolerance  = 1e-24;
       const double rel_tolerance  = 1e-24;
       const int    max_iterations = 2000;
       int status = 0;
       Vector<double> final_params;
-      final_params = math::levenberg_marquardt(lma_model, seed, pixel_vec,
-                                               status, abs_tolerance, rel_tolerance,
-                                               max_iterations);
+      Vector<double> seed;
+      
+      if (opt.camera_type == "opticalbar") {
+        CameraSolveLMA<OpticalBarModel> lma_model(xyz_vec, *opticalbar_cam);
+        camera_to_vector(*opticalbar_cam, seed);
+        final_params = math::levenberg_marquardt(lma_model, seed, pixel_vec,
+                                                status, abs_tolerance, rel_tolerance,
+                                                max_iterations);
+        vector_to_camera(*opticalbar_cam, final_params);
+      } else {
+        CameraSolveLMA<PinholeModel> lma_model(xyz_vec, *pinhole_cam);
+        camera_to_vector(*pinhole_cam, seed);
+        final_params = math::levenberg_marquardt(lma_model, seed, pixel_vec,
+                                                status, abs_tolerance, rel_tolerance,
+                                                max_iterations);
+        vector_to_camera(*pinhole_cam, final_params);
+      }
       if (status < 1)
         vw_out() << "The Levenberg-Marquardt solver failed. Results may be inaccurate.\n";
-      vector_to_camera(cam, final_params);
+      
 
       vw_out() << "The error between the projection of each ground "
                << "corner point into the refined camera and its pixel value:\n";
       for (size_t corner_it = 0; corner_it < num_lon_lat_pairs; corner_it++) {
         vw_out () << "Corner and error: ("
                   << opt.pixel_values[2*corner_it] << ' ' << opt.pixel_values[2*corner_it+1]
-                  << ") " <<  norm_2(cam.point_to_pixel(xyz_vec[corner_it]) -
+                  << ") " <<  norm_2(cam_ptr->point_to_pixel(xyz_vec[corner_it]) -
                                      Vector2( opt.pixel_values[2*corner_it],
                                               opt.pixel_values[2*corner_it+1]))
                   << std::endl;
       }
-    }
+    } // End camera refinement case
     
     vw_out() << "Writing: " << opt.camera_file << std::endl;
-    cam.write(opt.camera_file);
+    if (opt.camera_type == "opticalbar")
+      opticalbar_cam->write(opt.camera_file);
+    else
+      pinhole_cam->write(opt.camera_file);
 
     if (write_gcp) {
       vw_out() << "Writing: " << opt.gcp_file << std::endl;
