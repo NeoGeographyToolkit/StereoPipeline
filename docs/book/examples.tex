@@ -1659,18 +1659,18 @@ of the film is 70~mm for KH-4B. From \cite{sohn2004mathematical} the focal lengt
 is known as 609.602~mm. The images have 10602 pixel rows, this results
 in a pitch of
 \begin{equation*}
-  p = 70/10602 = 0.0066025
+  p = 70/10602 = 0.0066025278249386
 \end{equation*}
 
 Since in this example the image resolution will be reduced by a factor of 8,
-the pitch needs to be multiplied by this number, becoming 0.05282~mm.
+the pitch needs to be multiplied by this number, becoming 0.0528202225995088~mm.
 
 After mosaicking as earlier, the reduced resolution images will have
-15102 rows, which multiplied by the pixel pitch at this resolution gives
+15102 columns, which multiplied by the pixel pitch at this resolution gives
 the length of the film of 
 
 \begin{equation*}
- 0.05282 \times 15102 = 797.688
+ 0.0528202225995088 \times 15102 = 797.6910016977818976
 \end{equation*}
 
 Since we don't know the optical center of the image, we will assume it is at
@@ -1699,8 +1699,8 @@ These correspond to the upper-left, upper-right, lower-right, and lower-left
 pixels in the image. We will invoke \texttt{cam\_gen} as follows:
 
 \begin{verbatim}
-  cam_gen --pixel-pitch 0.05282 --focal-length 609.602                       \
-   --optical-center 398.844 35                                               \
+  cam_gen --pixel-pitch 0.0528202225995088 --focal-length 609.602            \
+   --optical-center 398.8455008488909488 35                                  \
    --lon-lat-values '99.55 31.266 101.866 31.55 101.916 31.416 99.55 31.133' \
    DS1105-2248DF076_sub8.tif --reference-dem dem.tif --refine-camera         \
    -o DS1105-2248DF076_sub8.tsai --gcp-file DS1105-2248DF076_sub8.gcp        \
@@ -1710,8 +1710,8 @@ pixels in the image. We will invoke \texttt{cam\_gen} as follows:
 and similarly for the other image:
 
 \begin{verbatim}
-  cam_gen --pixel-pitch 0.05282 --focal-length 609.602                       \
-   --optical-center 398.844 35                                               \
+  cam_gen --pixel-pitch 0.0528202225995088 --focal-length 609.602            \
+   --optical-center 398.8455008488909488 35                                  \
    --lon-lat-values '99.566 31.266 101.95 31.55 101.933 31.416 99.616 31.15' \
    DS1105-2248DA082_sub8.tif --reference-dem dem.tif --refine-camera         \
    -o DS1105-2248DA082_sub8.tsai --gcp-file DS1105-2248DA082_sub8.gcp        \
