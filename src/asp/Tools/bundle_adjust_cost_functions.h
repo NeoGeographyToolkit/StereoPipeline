@@ -292,6 +292,7 @@ public:
                                      focus,
                                      m_underlying_camera->get_scan_angle(),
                                      scan_rate,
+                                     m_underlying_camera->get_forward_tilt(),
                                      correction.position(),
                                      correction.pose().axis_angle(),
                                      speed,

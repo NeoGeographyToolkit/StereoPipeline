@@ -81,6 +81,7 @@ namespace camera {
                     double   focal_length,
                     double   scan_angle_radians,
                     double   scan_rate_radians,
+                    double   forward_tilt_radians,
                     vw::Vector3  initial_position,
                     vw::Vector3  initial_orientation,
                     double   speed,
@@ -91,6 +92,7 @@ namespace camera {
         m_focal_length        (focal_length),
         m_scan_angle_radians  (scan_angle_radians),
         m_scan_rate_radians   (scan_rate_radians),
+        m_forward_tilt_radians(forward_tilt_radians),
         m_initial_position    (initial_position),
         m_initial_orientation (initial_orientation),
         m_speed               (speed),
@@ -149,21 +151,24 @@ namespace camera {
     void set_camera_pose  (vw::Quaternion<double> const& pose) {set_camera_pose(pose.axis_angle());};
 
     /// Returns the image size in pixels
-    vw::Vector2i get_image_size    () const { return m_image_size;         }
-    vw::Vector2  get_optical_center() const { return m_center_loc_pixels;  }
-    double       get_focal_length  () const { return m_focal_length;       }
-    double       get_scan_rate     () const { return m_scan_rate_radians;  }
-    double       get_speed         () const { return m_speed;              }
-    double       get_pixel_size    () const { return m_pixel_size;         }
-    double       get_scan_angle    () const { return m_scan_angle_radians; }
+    vw::Vector2i get_image_size    () const { return m_image_size;          }
+    vw::Vector2  get_optical_center() const { return m_center_loc_pixels;   }
+    double       get_focal_length  () const { return m_focal_length;        }
+    double       get_scan_rate     () const { return m_scan_rate_radians;   }
+    double       get_speed         () const { return m_speed;               }
+    double       get_pixel_size    () const { return m_pixel_size;          }
+    double       get_scan_angle    () const { return m_scan_angle_radians;  }
+    double       get_forward_tilt  () const { return m_forward_tilt_radians;}
 
-    void set_image_size    (vw::Vector2i image_size    ) { m_image_size         = image_size;     }
-    void set_optical_center(vw::Vector2  optical_center) { m_center_loc_pixels  = optical_center; }
-    void set_focal_length  (double       focal_length  ) { m_focal_length       = focal_length;   }
-    void set_scan_rate     (double       scan_rate     ) { m_scan_rate_radians  = scan_rate;      }
-    void set_speed         (double       speed         ) { m_speed              = speed;          }
-    void set_pixel_size    (double       pixel_size    ) { m_pixel_size         = pixel_size;     }
-    void set_scan_angle    (double       scan_angle    ) { m_scan_angle_radians = scan_angle;     }
+
+    void set_image_size    (vw::Vector2i image_size    ) { m_image_size           = image_size;     }
+    void set_optical_center(vw::Vector2  optical_center) { m_center_loc_pixels    = optical_center; }
+    void set_focal_length  (double       focal_length  ) { m_focal_length         = focal_length;   }
+    void set_scan_rate     (double       scan_rate     ) { m_scan_rate_radians    = scan_rate;      }
+    void set_speed         (double       speed         ) { m_speed                = speed;          }
+    void set_pixel_size    (double       pixel_size    ) { m_pixel_size           = pixel_size;     }
+    void set_scan_angle    (double       scan_angle    ) { m_scan_angle_radians   = scan_angle;     }
+    void set_forward_tilt  (double       tilt_angle    ) { m_forward_tilt_radians = tilt_angle;     }
 
     bool get_use_motion_compensation() const        {return m_use_motion_compensation;    }
     void set_use_motion_compensation(bool use_comp) {m_use_motion_compensation = use_comp;}
@@ -206,6 +211,11 @@ namespace camera {
     /// The angular velocity of the scanner.
     /// - The Corona scan rate is nominally 192 degrees/second
     double m_scan_rate_radians;
+
+    /// The tilt of the camera forward relative to nadir.
+    /// - Some optical bar systems have a forward and backward aimed camera.
+    /// - This tilt angle is needed to properly account for the camera's motion.
+    double m_forward_tilt_radians;
 
     vw::Vector3 m_initial_position;
     vw::Vector3 m_initial_orientation; // TODO: Record as matrix

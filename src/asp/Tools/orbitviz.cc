@@ -55,6 +55,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string datum;
   double model_scale; ///< Size scaling applied to 3D models
   int    linescan_line; ///< Show the camera position at this line
+  int    linescan_sample;
 
   // Output
   std::string out_file;
@@ -220,6 +221,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
           "Instead of using an icon to mark a camera, use a 3D model with extension .dae.")
     ("linescan-line",          po::value(&opt.linescan_line)->default_value(0),
           "Show the position of the camera when this line was captured.")
+    ("linescan-sample",          po::value(&opt.linescan_sample)->default_value(0),
+          "Show the position of the camera when this sample was captured.")
     ("hide-labels",             po::bool_switch(&opt.hide_labels)->default_value(false)->implicit_value(true),
           "Hide image names unless the camera is highlighted.")
     // The KML class applies a model scale of 3000 * this value.
@@ -323,7 +326,7 @@ int main(int argc, char* argv[]) {
         vw_throw( IOErr() << "Unable to open output file.\n" );
     }
     
-    Vector2 camera_pixel(0, opt.linescan_line);
+    Vector2 camera_pixel(opt.linescan_sample, opt.linescan_line);
 
     // Building Camera Models and then writing to KML
     std::vector<Vector3> camera_positions(num_cameras);

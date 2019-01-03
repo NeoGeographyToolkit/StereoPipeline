@@ -53,13 +53,16 @@ double OpticalBarModel::pixel_to_time_delta(Vector2 const& pix) const {
 
 Vector3 OpticalBarModel::get_velocity(vw::Vector2 const& pixel) const {
   
-  // TODO: Keep the transpose?
+ 
   // TODO: For speed, store the pose*velocity vector.
   // Convert the velocity from sensor coords to GCC coords
   //Matrix3x3 pose = transpose(camera_pose(pixel).rotation_matrix());
   Matrix3x3 pose = camera_pose(pixel).rotation_matrix();
 
-  return pose*Vector3(m_speed,0,0);
+  // Recover the satellite attitude relative to the tilted camera position
+  Matrix3x3 m = vw::math::rotation_x_axis(-m_forward_tilt_radians)*pose;
+
+  return m*Vector3(0,m_speed,0);
 }
 
 Vector3 OpticalBarModel::camera_center(Vector2 const& pix) const {
@@ -255,6 +258,12 @@ void OpticalBarModel::read(std::string const& filename) {
   }
 
   std::getline(cam_file, line);
+  if (!cam_file.good() || sscanf(line.c_str(),"forward_tilt = %lf", &m_forward_tilt_radians) != 1) {
+    cam_file.close();
+    vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the forward tilt angle\n" );
+  }
+  
+  std::getline(cam_file, line);
   if (!cam_file.good() || sscanf(line.c_str(),"iC = %lf %lf %lf", 
         &m_initial_position(0), &m_initial_position(1), &m_initial_position(2)) != 3) {
     cam_file.close();
@@ -343,6 +352,7 @@ void OpticalBarModel::write(std::string const& filename) const {
   cam_file << "f = "            << m_focal_length           << "\n";
   cam_file << "scan_angle = "   << m_scan_angle_radians     << "\n";
   cam_file << "scan_rate = "    << m_scan_rate_radians      << "\n";
+  cam_file << "forward_tilt = " << m_forward_tilt_radians   << "\n";
   cam_file << "iC = " << m_initial_position[0] << " "
                       << m_initial_position[1] << " "
                       << m_initial_position[2] << "\n";
@@ -374,6 +384,7 @@ std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model)
   os << " Focal length (m) :      " << camera_model.m_focal_length           << "\n";
   os << " Scan angle (rad):       " << camera_model.m_scan_angle_radians     << "\n";
   os << " Scan rate (rad/s):      " << camera_model.m_scan_rate_radians      << "\n";
+  os << " Forward tilt (rad):     " << camera_model.m_forward_tilt_radians   << "\n";
   os << " Initial position:       " << camera_model.m_initial_position       << "\n";
   os << " Initial pose:           " << camera_model.m_initial_orientation    << "\n";
   os << " Speed:                  " << camera_model.m_speed                  << "\n";
