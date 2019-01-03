@@ -2821,7 +2821,6 @@ namespace vw { namespace gui {
     return m_shadow_thresh;
   }
 
-
   // Set the azimuth and elevation for hillshaded images
   void MainWidget::setHillshadeParams(){
 

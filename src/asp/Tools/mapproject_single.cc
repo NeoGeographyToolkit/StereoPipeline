@@ -342,10 +342,18 @@ void calc_target_geom(// Inputs
   // - TODO: Modify this function to optionally disable intersection outside the DEM
   float auto_res;
   bool quick = datum_dem; // The non-quick option does not make sense with huge DEMs.
-  cam_box = camera_bbox(dem, dem_georef,
-                        target_georef, 
-                        camera_model,
-                        image_size.x(), image_size.y(), auto_res, quick);
+  try {
+    cam_box = camera_bbox(dem, dem_georef,
+                          target_georef, 
+                          camera_model,
+                          image_size.x(), image_size.y(), auto_res, quick);
+  }catch(std::exception const& e){
+    if (opt.target_projwin == BBox2() || calc_target_res) {
+      vw_throw( ArgumentErr()
+                << e.what() << "\n"
+                << "Check your inputs. Or try specifying --t_projwin and --tr values.\n");
+    }
+  }
 
   // Use auto-calculated ground resolution if that option was selected
   double current_resolution;
