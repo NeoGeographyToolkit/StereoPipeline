@@ -484,7 +484,7 @@ def run_bundle_adjust(options):
     cam_type = 'pinhole'
     if options.gcp_path or have_camera_positions:
       cam_type = 'nadirpinhole' # This is better, but can only use with global coordinates.
-    ba_params = ['--create-pinhole-cameras', '-t', cam_type, '--datum', options.datum]
+    ba_params = ['--inline-adjustments', '-t', cam_type, '--datum', options.datum]
     
     if options.solveIntrinsic:
         # Add flag to bundle adjust but make sure it is not added twice
