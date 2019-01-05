@@ -58,13 +58,13 @@ struct IntrinsicOptions {
 /// - Currently only supports either one camera or all unique cameras.
 class BAParamStorage {
 
+public:
+
   static const int PARAMS_PER_POINT  = 3;
   static const int NUM_CAMERA_PARAMS = 6; // Position and pose.
   // These two are only for pinhole cameras.
   static const int NUM_CENTER_PARAMS = 2; // TODO: Share info with other classes!
   static const int NUM_FOCUS_PARAMS  = 1;
-
-public:
 
   BAParamStorage(int num_points, int num_cameras,
                  // Parameters below here only apply to pinhole models.
@@ -882,9 +882,9 @@ bool init_pinhole_model_with_camera_positions(boost::shared_ptr<ControlNetwork> 
 ///  a least squares error transform to match the provided control points file.
 /// - This function overwrites the camera parameters in-place
 bool init_pinhole_model_with_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr, 
-              std::vector<boost::shared_ptr<CameraModel> > & camera_models,
-              bool check_only=false) {
-
+                                 std::vector<boost::shared_ptr<CameraModel> > & camera_models,
+                                 bool check_only=false) {
+  
     vw_out() << "Initializing camera positions from ground control points..." << std::endl;
 
     const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias

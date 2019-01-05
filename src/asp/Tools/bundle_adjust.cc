@@ -1147,19 +1147,91 @@ int do_ba_ceres_one_pass(Options             & opt,
                       opt, cam_residual_counts,  
                       num_gcp_residuals, reference_vec, problem);
 
-  // Remove flagged outliers and overwrite the match files.
-  if (opt.num_ba_passes > 1 && num_new_outliers > 0) 
+  // Remove flagged outliers and create clean match files.
+  // Do this even when no new outliers are found, to
+  // make sure the clean match files are written at least once.
+  if (opt.num_ba_passes > 1) 
     remove_outliers(cnet, param_storage, opt);
 
   return num_new_outliers;
 }
 
 /// Use Ceres to do bundle adjustment.
-void do_ba_ceres(Options & opt){
+void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc){
 
+  // Try to set up the control network, ie the list of point coordinates.
+  // - This triangulates from the camera models to determine the initial
+  //   world coordinate estimate for each matched IP.
+  opt.cnet.reset( new ControlNetwork("BundleAdjust") );
   ControlNetwork & cnet = *(opt.cnet.get());
 
-  const int num_points  = cnet.size();
+  if ( opt.cnet_file.empty() ) {
+    bool success = vw::ba::build_control_network( true, // Always have input cameras
+                                                  cnet, opt.camera_models,
+                                                  opt.image_files,
+                                                  opt.match_files,
+                                                  opt.min_matches,
+                                                  opt.min_triangulation_angle*(M_PI/180),
+                                                  opt.forced_triangulation_distance);
+    if (!success) {
+      vw_out() << "Failed to build a control network. Consider removing "
+               << "the currently found interest point matches and increasing "
+               << "the number of interest points per tile using "
+               << "--ip-per-tile, or decreasing --min-matches. Will continue "
+               << "if ground control points are present.\n";
+    }
+    vw_out() << "Loading GCP files...\n";
+    vw::ba::add_ground_control_points( cnet, opt.gcp_files, opt.datum);
+
+  } else  {
+    vw_out() << "Loading control network from file: "
+             << opt.cnet_file << "\n";
+
+    // Deciding which Control Network we have
+    std::vector<std::string> tokens;
+    boost::split( tokens, opt.cnet_file, boost::is_any_of(".") );
+    if ( tokens.back() == "net" ) {
+      // An ISIS style control network
+      cnet.read_isis( opt.cnet_file );
+    } else if ( tokens.back() == "cnet" ) {
+      // A VW binary style
+      cnet.read_binary( opt.cnet_file );
+    } else {
+      vw_throw( IOErr() << "Unknown Control Network file extension, \""
+                << tokens.back() << "\"." );
+    }
+  } // End control network loading case
+
+  // If we change the cameras, we must rebuild the control network
+  bool cameras_changed = false;
+  
+  // If camera positions were provided for local inputs, align to them.
+  const bool have_est_camera_positions = (opt.camera_position_file != "");
+  if ((opt.camera_type==BaCameraType_Pinhole) && have_est_camera_positions) {
+    init_pinhole_model_with_camera_positions(opt.cnet, opt.camera_models,
+                                             opt.image_files, estimated_camera_gcc);
+    cameras_changed = true;
+  }
+
+  // If we have GPC's for pinhole cameras, try to do a simple affine
+  // initialization of the camera parameters.
+  // - This function also updates all the ControlNetwork world point
+  //   positions.
+  // - We could do this for other camera types too, but it would
+  //   require us to be able to adjust our camera model positions.
+  //   Otherwise we could init the adjustment values.
+  if (opt.gcp_files.size() > 0) {
+    if ((opt.camera_type==BaCameraType_Pinhole) && 
+        !have_est_camera_positions &&
+        !opt.disable_pinhole_gcp_init)
+      init_pinhole_model_with_gcp(opt.cnet, opt.camera_models);
+
+    // Issue a warning if the GCPs are far away from the camera coords
+    check_gcp_dists(opt.camera_models, opt.cnet, opt.forced_triangulation_distance);
+    cameras_changed = true;
+  }
+
+  int num_points  = cnet.size();
   const int num_cameras = opt.image_files.size();
 
   // This is important to prevent a crash later
@@ -1186,50 +1258,60 @@ void do_ba_ceres(Options & opt){
     num_lens_distortion_params = 2; // TODO: Share this constant!
   }
   BAParamStorage param_storage(num_points, num_cameras,
-                               opt.camera_type != BaCameraType_Other, // Optical bar and pinhole are similar
+                               // Optical bar and pinhole are similar
+                               opt.camera_type != BaCameraType_Other, 
                                // Must be the same for each pinhole camera
                                num_lens_distortion_params, 
                                opt.intrinisc_options);
 
   // Fill in the camera and intrinsic parameters.
   std::vector<boost::shared_ptr<camera::CameraModel> > new_cam_models;
+  bool ans = false;
   switch(opt.camera_type) {
     case BaCameraType_Pinhole:
-      init_cams_pinhole(opt, param_storage, new_cam_models); break;
+      ans = init_cams_pinhole(opt, param_storage, new_cam_models); break;
     case BaCameraType_OpticalBar:
-      init_cams_optical_bar(opt, param_storage, new_cam_models); break;
+      ans = init_cams_optical_bar(opt, param_storage, new_cam_models); break;
     default:
-      init_cams(opt, param_storage, new_cam_models);
+      ans = init_cams(opt, param_storage, new_cam_models);
   };
 
+  if (ans)
+    cameras_changed = true;
+  
   // Certain input options change the cameras inside init_cams and we need to update the
   // point coordinates for the new cameras.
   // - It is ok to leave the original vector of camera models unchanged.
-  ba::ControlNetwork cnet2("recompute_points");
-  vw_out() <<"Updating the control network." << std::endl;
-  /*bool success = */
-  // Building the control network below may fail if there are only GCP,
-  // but we will continue nevertheless.
-  vw::ba::build_control_network( true, // Always have input cameras
-                                 cnet2, new_cam_models,
-                                 opt.image_files,
-                                 opt.match_files,
-                                 opt.min_matches,
-                                 opt.min_triangulation_angle*(M_PI/180),
-                                 opt.forced_triangulation_distance);
-  
-  // Restore the rest of the cnet object
-  vw::ba::add_ground_control_points( (cnet2), opt.gcp_files, opt.datum);
+  if (cameras_changed) {
+    vw_out() <<"Updating the control network." << std::endl;
+    /*bool success = */
+    // Building the control network below may fail if there are only GCP,
+    // but we will continue nevertheless.
+    vw::ba::build_control_network( true, // Always have input cameras
+                                   cnet, new_cam_models,
+                                   opt.image_files,
+                                   opt.match_files,
+                                   opt.min_matches,
+                                   opt.min_triangulation_angle*(M_PI/180),
+                                   opt.forced_triangulation_distance);
+    
+    // Restore the rest of the cnet object
+    vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
 
+    // Must update the number of points after the control network is recomputed
+    num_points = cnet.size();
+    param_storage.get_point_vector().resize(num_points *BAParamStorage::PARAMS_PER_POINT);
+  }
+  
   if (opt.save_cnet_as_csv) {
     std::string cnet_file = opt.out_prefix + "-cnet.csv";
     vw_out() << "Writing: " << cnet_file << std::endl;
-    cnet2.write_in_gcp_format(cnet_file, opt.datum);
+    cnet.write_in_gcp_format(cnet_file, opt.datum);
   }
 
-  // Fill in the point vector with the starting values, this is easy.
+  // Fill in the point vector with the starting values.
   for (int ipt = 0; ipt < num_points; ipt++)
-    param_storage.set_point(ipt, cnet2[ipt].position());
+    param_storage.set_point(ipt, cnet[ipt].position());
 
   // The camera positions and orientations before we float them
   // - This includes modifications from any initial transforms that were specified.
@@ -2005,78 +2087,8 @@ int main(int argc, char* argv[]) {
       }
     } // End loop through all input image pairs
 
-    //if (num_pairs_matched == 0) {
-    //  vw_throw( ArgumentErr() << "Unable to find an IP based match between any input image pair!\n");
-    // }
-
-    // Try to set up the control network, ie the list of point coordinates.
-    // - This triangulates from the camera models to determine the initial
-    //   world coordinate estimate for each matched IP.
-    opt.cnet.reset( new ControlNetwork("BundleAdjust") );
-    if ( opt.cnet_file.empty() ) {
-      bool success = vw::ba::build_control_network( true, // Always have input cameras
-                                                    (*opt.cnet), opt.camera_models,
-                                                    opt.image_files,
-                                                    opt.match_files,
-                                                    opt.min_matches,
-                                                    opt.min_triangulation_angle*(M_PI/180),
-                                                    opt.forced_triangulation_distance);
-      if (!success) {
-        vw_out() << "Failed to build a control network. Consider removing "
-                 << "the currently found interest point matches and increasing "
-                 << "the number of interest points per tile using "
-                 << "--ip-per-tile, or decreasing --min-matches. Will continue "
-                 << "if ground control points are present.\n";
-      }
-      vw_out() << "Loading GCP files...\n";
-      vw::ba::add_ground_control_points( (*opt.cnet), opt.gcp_files, opt.datum);
-
-    } else  {
-      vw_out() << "Loading control network from file: "
-               << opt.cnet_file << "\n";
-
-      // Deciding which Control Network we have
-      std::vector<std::string> tokens;
-      boost::split( tokens, opt.cnet_file, boost::is_any_of(".") );
-      if ( tokens.back() == "net" ) {
-        // An ISIS style control network
-        opt.cnet->read_isis( opt.cnet_file );
-      } else if ( tokens.back() == "cnet" ) {
-        // A VW binary style
-        opt.cnet->read_binary( opt.cnet_file );
-      } else {
-        vw_throw( IOErr() << "Unknown Control Network file extension, \""
-                          << tokens.back() << "\"." );
-      }
-    } // End control network loading case
-
-    // If camera positions were provided for local inputs, align to them.
-    const bool have_est_camera_positions = (opt.camera_position_file != "");
-    if ((opt.camera_type==BaCameraType_Pinhole) && have_est_camera_positions) {
-      init_pinhole_model_with_camera_positions(opt.cnet, opt.camera_models,
-                                               opt.image_files, estimated_camera_gcc);
-    }
-
-    // If we have GPC's for pinhole cameras, try to do a simple affine
-    // initialization of the camera parameters.
-    // - This function also updates all the ControlNetwork world point
-    //   positions.
-    // - We could do this for other camera types too, but it would
-    //   require us to be able to adjust our camera model positions.
-    //   Otherwise we could init the adjustment values.
-    if (opt.gcp_files.size() > 0) {
-
-      if ((opt.camera_type==BaCameraType_Pinhole) && 
-          !have_est_camera_positions &&
-          !opt.disable_pinhole_gcp_init)
-        init_pinhole_model_with_gcp(opt.cnet, opt.camera_models);
-
-      // Issue a warning if the GCPs are far away from the camera coords
-      check_gcp_dists(opt.camera_models, opt.cnet, opt.forced_triangulation_distance);
-    }
-
-    // All the work happens here!  It also writes out the results.
-    do_ba_ceres(opt);
+    // All the work happens here! It also writes out the results.
+    do_ba_ceres(opt, estimated_camera_gcc);
 
     xercesc::XMLPlatformUtils::Terminate();
 

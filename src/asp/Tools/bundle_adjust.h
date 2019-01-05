@@ -429,9 +429,11 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 /// This is for the BundleAdjustmentModel class where the camera parameters
 /// are a rotation/offset that is applied on top of the existing camera model.
 /// First read initial adjustments, if any, and apply perhaps a pc_align transform.
-void init_cams(Options & opt, BAParamStorage & param_storage,
+bool init_cams(Options & opt, BAParamStorage & param_storage,
        std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models){
 
+  bool cameras_changed = false;
+  
   // Initialize all of the camera adjustments to zero.
   param_storage.clear_cameras();
   const size_t num_cameras = param_storage.num_cameras();
@@ -447,6 +449,7 @@ void init_cams(Options & opt, BAParamStorage & param_storage,
       adjustment.read_from_adjust_file(adjust_file);
       adjustment.pack_to_array(cam_ptr);
     }
+    cameras_changed = true;
   }
 
   // Get an updated list of camera models
@@ -459,9 +462,11 @@ void init_cams(Options & opt, BAParamStorage & param_storage,
   }
 
   // Apply any initial transform to the pinhole cameras
-  if (opt.initial_transform_file != "")
+  if (opt.initial_transform_file != "") {
     apply_transform_to_cameras(opt.initial_transform, param_storage, new_cam_models);
-
+    cameras_changed = true;
+  }
+  
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);
   for (size_t icam = 0; icam < num_cameras; icam++){
@@ -470,12 +475,16 @@ void init_cams(Options & opt, BAParamStorage & param_storage,
                                         correction.position(), correction.pose());
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(cam);
   }
+
+  return cameras_changed;
 }
 
 /// Specialization for pinhole cameras.
-void init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
+bool init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
         std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models){
 
+  bool cameras_changed = false;
+  
   // Copy the camera parameters from the models to param_storage
   const size_t num_cameras = param_storage.num_cameras();
   for (int icam=0; icam < num_cameras; ++icam) {
@@ -485,8 +494,10 @@ void init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
   } // End loop through cameras
 
   // Apply any initial transform to the pinhole cameras
-  if (opt.initial_transform_file != "") 
+  if (opt.initial_transform_file != "") {
     apply_transform_to_cameras_pinhole(opt.initial_transform, param_storage, opt.camera_models);
+    cameras_changed = true;
+  }
 
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);
@@ -498,13 +509,17 @@ void init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
 
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
   }
+
+  return cameras_changed;
 }
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
-void init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
+bool init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
         std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models){
   using asp::camera::OpticalBarModel;
+
+  bool cameras_changed = false;
   
   // Copy the camera parameters from the models to param_storage
   const size_t num_cameras = param_storage.num_cameras();
@@ -515,8 +530,10 @@ void init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
   } // End loop through cameras
 
   // Apply any initial transform to the pinhole cameras
-  if (opt.initial_transform_file != "") 
+  if (opt.initial_transform_file != "") {
     apply_transform_to_cameras_optical_bar(opt.initial_transform, param_storage, opt.camera_models);
+    cameras_changed = true;
+  }
 
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);
@@ -528,6 +545,8 @@ void init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
 
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
   }
+
+  return cameras_changed;
 }
 
 
