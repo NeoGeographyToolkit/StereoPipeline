@@ -381,11 +381,11 @@ int main( int argc, char *argv[] ) {
     Matrix<double, 3, 3> rotation;
     rotation.set_identity();
     boost::shared_ptr<PinholeModel>    pinhole_cam;
-    boost::shared_ptr<OpticalBarModel> opticalbar_cam;
+    boost::shared_ptr<asp::camera::OpticalBarModel> opticalbar_cam;
     CameraModel const* cam_ptr;
     
     if (opt.camera_type == "opticalbar") {
-      opticalbar_cam.reset(new OpticalBarModel(opt.sample_file));
+      opticalbar_cam.reset(new asp::camera::OpticalBarModel(opt.sample_file));
       // Make sure the image size matches the input image file.
       opticalbar_cam->set_image_size(Vector2i(img.cols(), img.rows()));
       opticalbar_cam->set_optical_center(Vector2(img.cols()/2.0, img.rows()/2.0));
@@ -455,7 +455,7 @@ int main( int argc, char *argv[] ) {
       Vector<double> seed;
       
       if (opt.camera_type == "opticalbar") {
-        CameraSolveLMA<OpticalBarModel> lma_model(xyz_vec, *opticalbar_cam);
+        CameraSolveLMA<asp::camera::OpticalBarModel> lma_model(xyz_vec, *opticalbar_cam);
         camera_to_vector(*opticalbar_cam, seed);
         final_params = math::levenberg_marquardt(lma_model, seed, pixel_vec,
                                                 status, abs_tolerance, rel_tolerance,
