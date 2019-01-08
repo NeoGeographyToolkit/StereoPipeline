@@ -1129,6 +1129,7 @@ terrain does not have sufficient topography for good alignment, or if
 the obtained DEMs are too far from their correct position for alignment
 to succeed.
 
+\subsection{Converting a Pinhole model to RPC}
 Throughout this example we will work with Pinhole camera models. If desired to convert these
 to RPC camera models for exporting, one can do so via the tool \texttt{cam2rpc} invoked as:
 
@@ -1138,6 +1139,8 @@ to RPC camera models for exporting, one can do so via the tool \texttt{cam2rpc} 
 Here, the input DEM should go beyond the extent of the image.
 This tool makes it possible to decide how finely to sample the DEM, and one can simply use
 longitude-latitude and height ranges instead of the DEM. 
+
+\subsection{The input data}
 
 To continue with this example, we will use as an illustration a
 mountainous terrain close to Breckenridge, Colorado. The dataset we
@@ -1162,6 +1165,8 @@ the procedure outlined in this section will fail.
 \caption{An image used in the SkySat example.}
 \label{skysat-example}
 \end{figure}
+
+\subsection{Initial camera models and a reference DEM}
 
 Based on vendor's documentation, these images are $2560 \times 1080$
 pixels.  We use the geometric center of the image as the optical center,
@@ -1250,6 +1255,8 @@ DEM. Here is an example for the first image:
 Notice that we used above a longitude and latitude around the area of interest. This 
 will need to be modified for your specific example. 
 
+\subsection{Bundle adjustment}
+
 The inspection in the GUI will note that the images are about where they
 should be, but not quite aligned. We will take care of this using bundle
 adjustment:
@@ -1282,6 +1289,8 @@ otherwise the solution did not converge. The last entries in this
 file correspond to the GCP, and those should be looked at carefully as well.
 Using a larger/smaller robust threshold can force the solver to 
 conform more or less to the GCP. The weights in the GCP file affect that as well.
+
+\subsection{Alignment and handling problems}
 
 It is at this stage where, if one is not lucky, things can go very
 wrong, as the cameras could be very inaccurate. Assuming that all is
@@ -1384,6 +1393,8 @@ One can mapproject them as above creating four images
 that we will name \texttt{v1\_map.tif}, etc. They should be on top of each other
 and on top of the hillshaded reference DEM.
 
+\subsection{Creating terrain models}
+
 The next step is to run stereo and create DEMs. We will run the following command
 for each i equal to 1, 2, 3, and 4: 
 \begin{verbatim}
@@ -1448,6 +1459,8 @@ and then run stereo with the mapprojected images:
   point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 --tr 4  \
     --errorimage stereo_map_v${i}${j}/run-PC.tif
 \end{verbatim}
+
+\subsection{Bundle adjustment using reference terrain}
 
 At this stage, if desired, one can do joint optimization of the cameras using dense
 and uniformly distributed interest points, and using the reference DEM as a constraint.
@@ -1518,6 +1531,8 @@ It is hoped that after running stereo with these refined cameras, the obtained D
 will differ by less than 2~m among themselves, and by less than 4~m as compared
 to the reference DEM. 
 
+\subsection{Floating the camera intrinsics}
+
 If desired to float the focal length as part of the optimization, one should 
 pass in addition, the options
 \begin{verbatim}
@@ -1553,7 +1568,9 @@ phi = -1e-12
 
 There is always a chance when solving these parameters that the obtained solution is not optimal.
 Hence, one can also try using as initial guesses different values, for example, 
-by negating the above numbers.
+by negating the above numbers. 
+
+One can also try to experiment with the option \texttt{-\/-heights-from-dem}, and also with \texttt{-\/-robust-threshold} if it appears that the large errors are not minimized enough.
 
 \section{KH-4B and KH-9 images}
 \label{kh4}
@@ -1801,10 +1818,9 @@ done as:
 and then try to align the newly obtained coarser SRTM DEM to the 
 coarser DEM from stereo. 
 
+\subsection{Floating the intrinsics}
+
 The obtained alignment transform can be used to align 
 the cameras as well, and then one can experiment with 
 floating the intrinsics, as in section \ref{sec:skysat}.
-
-
-
 
