@@ -41,8 +41,6 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
-using asp::camera::OpticalBarModel;
-
 typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 typedef CameraRelationNetwork<JFeature> CRNJ;
@@ -88,8 +86,8 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
 
     } else { // Optical bar
 
-      boost::shared_ptr<OpticalBarModel> bar_model = 
-        boost::dynamic_pointer_cast<OpticalBarModel>(camera_model);
+      boost::shared_ptr<asp::camera::OpticalBarModel> bar_model = 
+        boost::dynamic_pointer_cast<asp::camera::OpticalBarModel>(camera_model);
       if (bar_model.get() == 0)
         vw::vw_throw( vw::ArgumentErr() << "Tried to add optical bar block with non-OB camera!");
       wrapper.reset(new OpticalBarBundleModel(bar_model));
@@ -159,10 +157,10 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
       right_wrapper.reset(new PinholeBundleModel(right_pinhole_model));
 
     } else { // Optical bar
-      boost::shared_ptr<OpticalBarModel> left_bar_model = 
-        boost::dynamic_pointer_cast<OpticalBarModel>(left_camera_model);
-      boost::shared_ptr<OpticalBarModel> right_bar_model = 
-        boost::dynamic_pointer_cast<OpticalBarModel>(right_camera_model);
+      boost::shared_ptr<asp::camera::OpticalBarModel> left_bar_model = 
+        boost::dynamic_pointer_cast<asp::camera::OpticalBarModel>(left_camera_model);
+      boost::shared_ptr<asp::camera::OpticalBarModel> right_bar_model = 
+        boost::dynamic_pointer_cast<asp::camera::OpticalBarModel>(right_camera_model);
 
       left_wrapper.reset (new OpticalBarBundleModel(left_bar_model ));
       right_wrapper.reset(new OpticalBarBundleModel(right_bar_model));
@@ -760,9 +758,9 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   // We will optimize multipliers of the intrinsics. This way
   // each intrinsic changes by a scale specific to it.
-  // TODO: If an intrinsic starts as 0, it will then stay as 0 which is not good!
-
-
+  // Note: If an intrinsic starts as 0, it will then stay as 0. This is documented.
+  // Can be both useful and confusing.
+  
   vw::cartography::GeoReference dem_georef;
   ImageViewRef< PixelMask<double> >  interp_dem;
   if (opt.heights_from_dem != "") 
@@ -1165,43 +1163,23 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   opt.cnet.reset( new ControlNetwork("BundleAdjust") );
   ControlNetwork & cnet = *(opt.cnet.get());
 
-  if ( opt.cnet_file.empty() ) {
-    bool success = vw::ba::build_control_network( true, // Always have input cameras
-                                                  cnet, opt.camera_models,
-                                                  opt.image_files,
-                                                  opt.match_files,
-                                                  opt.min_matches,
-                                                  opt.min_triangulation_angle*(M_PI/180),
-                                                  opt.forced_triangulation_distance);
-    if (!success) {
-      vw_out() << "Failed to build a control network. Consider removing "
-               << "the currently found interest point matches and increasing "
-               << "the number of interest points per tile using "
-               << "--ip-per-tile, or decreasing --min-matches. Will continue "
-               << "if ground control points are present.\n";
-    }
-    vw_out() << "Loading GCP files...\n";
-    vw::ba::add_ground_control_points( cnet, opt.gcp_files, opt.datum);
-
-  } else  {
-    vw_out() << "Loading control network from file: "
-             << opt.cnet_file << "\n";
-
-    // Deciding which Control Network we have
-    std::vector<std::string> tokens;
-    boost::split( tokens, opt.cnet_file, boost::is_any_of(".") );
-    if ( tokens.back() == "net" ) {
-      // An ISIS style control network
-      cnet.read_isis( opt.cnet_file );
-    } else if ( tokens.back() == "cnet" ) {
-      // A VW binary style
-      cnet.read_binary( opt.cnet_file );
-    } else {
-      vw_throw( IOErr() << "Unknown Control Network file extension, \""
-                << tokens.back() << "\"." );
-    }
-  } // End control network loading case
-
+  bool success = vw::ba::build_control_network( true, // Always have input cameras
+                                                cnet, opt.camera_models,
+                                                opt.image_files,
+                                                opt.match_files,
+                                                opt.min_matches,
+                                                opt.min_triangulation_angle*(M_PI/180),
+                                                opt.forced_triangulation_distance);
+  if (!success) {
+    vw_out() << "Failed to build a control network. Consider removing "
+             << "the currently found interest point matches and increasing "
+             << "the number of interest points per tile using "
+             << "--ip-per-tile, or decreasing --min-matches. Will continue "
+             << "if ground control points are present.\n";
+  }
+  vw_out() << "Loading GCP files...\n";
+  vw::ba::add_ground_control_points( cnet, opt.gcp_files, opt.datum);
+  
   // If we change the cameras, we must rebuild the control network
   bool cameras_changed = false;
   
@@ -1284,6 +1262,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   // - It is ok to leave the original vector of camera models unchanged.
   if (cameras_changed) {
     vw_out() <<"Updating the control network." << std::endl;
+    cnet = ControlNetwork("Updated network"); // Wipe it all first
     /*bool success = */
     // Building the control network below may fail if there are only GCP,
     // but we will continue nevertheless.
@@ -1297,10 +1276,10 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     
     // Restore the rest of the cnet object
     vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
-
+    
     // Must update the number of points after the control network is recomputed
     num_points = cnet.size();
-    param_storage.get_point_vector().resize(num_points *BAParamStorage::PARAMS_PER_POINT);
+    param_storage.get_point_vector().resize(num_points*BAParamStorage::PARAMS_PER_POINT);
   }
   
   if (opt.save_cnet_as_csv) {
@@ -1308,7 +1287,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     vw_out() << "Writing: " << cnet_file << std::endl;
     cnet.write_in_gcp_format(cnet_file, opt.datum);
   }
-
+  
   // Fill in the point vector with the starting values.
   for (int ipt = 0; ipt < num_points; ipt++)
     param_storage.set_point(ipt, cnet[ipt].position());
@@ -1439,8 +1418,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   bool inline_adjustments;
   po::options_description general_options("");
   general_options.add_options()
-//     ("cnet,c", po::value(&opt.cnet_file),
-//      "Load a control network from a file (optional).")
     ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")
     ("cost-function",    po::value(&opt.cost_function)->default_value("Cauchy"),
             "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
@@ -1582,7 +1559,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "Use a value >= 20 to get increasingly more verbose output.");
 //     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
-
 
   // TODO: When finding the min and max bounds, do a histogram, throw away 5% of points
   // or something at each end.

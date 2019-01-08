@@ -517,14 +517,13 @@ bool init_cams_pinhole(Options & opt, BAParamStorage & param_storage,
 /// Specialization for optical bar cameras.
 bool init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
         std::vector<boost::shared_ptr<camera::CameraModel> > &new_cam_models){
-  using asp::camera::OpticalBarModel;
 
   bool cameras_changed = false;
   
   // Copy the camera parameters from the models to param_storage
   const size_t num_cameras = param_storage.num_cameras();
   for (int icam=0; icam < num_cameras; ++icam) {
-    OpticalBarModel* bar_ptr = dynamic_cast<OpticalBarModel*>(opt.camera_models[icam].get());
+    asp::camera::OpticalBarModel* bar_ptr = dynamic_cast<asp::camera::OpticalBarModel*>(opt.camera_models[icam].get());
     vw::vw_out() << "Loading input model: " << *bar_ptr << std::endl;
     pack_optical_bar_to_arrays(*bar_ptr, icam, param_storage);
   } // End loop through cameras
@@ -539,8 +538,8 @@ bool init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
   new_cam_models.resize(num_cameras);
   for (size_t icam = 0; icam < num_cameras; icam++){
 
-    OpticalBarModel* in_cam  = dynamic_cast<OpticalBarModel*>(opt.camera_models[icam].get());
-    OpticalBarModel* out_cam = new OpticalBarModel(*in_cam); // Start with a copy of the input camera.
+    asp::camera::OpticalBarModel* in_cam  = dynamic_cast<asp::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+    asp::camera::OpticalBarModel* out_cam = new asp::camera::OpticalBarModel(*in_cam); // Start with a copy of the input camera.
     populate_optical_bar_from_arrays(icam, param_storage, *out_cam);
 
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
