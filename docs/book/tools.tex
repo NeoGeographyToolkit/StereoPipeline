@@ -717,14 +717,6 @@ Pixels with values less than or equal to this number are treated as no-data. Thi
 
 \texttt{-\/-intrinsics-to-share arg} & If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal\_length, optical\_center, other\_intrinsics.\\ \hline
 
-\texttt{-\/-min-triangulation-angle \textit{double(=0.1)}} &
-The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
-\\ \hline
-
-\texttt{-\/-ip-triangulation-max-error \textit{double}} &
-When matching IP, filter out any pairs with a triangulation error higher than this.
-\\ \hline
-
 \texttt{-\/-num-passes \textit{integer(=1)}} &
 How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using -\/-remove-outliers-params and -\/-remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.\\ \hline
 
@@ -763,6 +755,18 @@ measured from planet center.\\ \hline
 \texttt{-\/-csv-proj4 \textit{string}} & The PROJ.4 string to use to
 interpret the entries in input CSV files, if those files contain Easting
 and Northing fields. \\ \hline
+
+\texttt{-\/-min-triangulation-angle \textit{double(=0.1)}} &
+The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
+\\ \hline
+
+\texttt{-\/-ip-triangulation-max-error \textit{double}} &
+When matching IP, filter out any pairs with a triangulation error higher than this.
+\\ \hline
+
+\texttt{-\/-forced-triangulation-distance \textit{double}} &
+When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.
+\\ \hline
 
 \texttt{-\/-save-cnet-as-csv} & Save the initial control network containing all interest points in the format used by ground control points, so it can be inspected. \\ \hline
 

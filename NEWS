@@ -88,7 +88,10 @@
      distortion_params to other_intrinsics. This is needed since
      for the panoramic model there will be other intrinsic
      parameters as well.
-
+  *  Added the option --forced-triangulation-distance for when one
+     really needs to triangulate with poor cameras. Can be used with 
+     --min-triangulation-angle 0.
+    
  - dem_mosaic
    * Added normalized median absolute deviation (NMAD) output option.
    * Added the option --force-projwin to create a mosaic filling
