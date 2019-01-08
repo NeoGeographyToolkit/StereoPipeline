@@ -375,7 +375,7 @@ int main( int argc, char *argv[] ) {
             << opt.gcp_std << ' ' << opt.gcp_std << std::endl;
     } // End loop through lon-lat pairs
     
-    // Prepare a pinhole camera model with desired intrinsics but with
+    // Prepare a pinhole camera or optical bar model with desired intrinsics but with
     // trivial position and orientation.
     Vector3 ctr(0, 0, 0);
     Matrix<double, 3, 3> rotation;
@@ -386,6 +386,9 @@ int main( int argc, char *argv[] ) {
     
     if (opt.camera_type == "opticalbar") {
       opticalbar_cam.reset(new OpticalBarModel(opt.sample_file));
+      // Make sure the image size matches the input image file.
+      opticalbar_cam->set_image_size(Vector2i(img.cols(), img.rows()));
+      opticalbar_cam->set_optical_center(Vector2(img.cols()/2.0, img.rows()/2.0));
       cam_ptr = opticalbar_cam.get();
     } else {
       if (opt.sample_file != "")

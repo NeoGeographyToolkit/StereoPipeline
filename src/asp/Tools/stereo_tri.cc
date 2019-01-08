@@ -715,7 +715,7 @@ namespace asp{
 
   }
 
-}
+} // End namespace asp
 
 /// Main triangulation function
 void stereo_triangulation( string          const& output_prefix,

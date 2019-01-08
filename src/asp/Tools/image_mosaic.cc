@@ -110,13 +110,22 @@ void match_ip_in_regions(std::string const& image_file1,
   if (opt.out_prefix != "") {
     // Write a match file for debugging
     match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2);
+
+    // If the match file already exists, load it instead of finding new points.
+    if (boost::filesystem::exists(match_file)) {
+      vw_out() << "Reading matched interest points from file: " << match_file << std::endl;
+      ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
+      vw_out() << "Read in " << matched_ip1.size() << " matched IP.\n";
+    }
   }
-  
-  // Now find and match interest points in the selected regions
-  asp::detect_match_ip(matched_ip1, matched_ip2,
-                       crop(image1, roi1),
-                       crop(image2, roi2), opt.ip_per_tile,
-                       "", "", nodata1, nodata2, match_file); 
+
+  if (matched_ip1.empty()) {
+    // Now find and match interest points in the selected regions
+    asp::detect_match_ip(matched_ip1, matched_ip2,
+                        crop(image1, roi1),
+                        crop(image2, roi2), opt.ip_per_tile,
+                        "", "", nodata1, nodata2, match_file);
+  }
 
   // TODO: This should be a function!
   // Adjust the IP to account for the search ROIs.

@@ -114,7 +114,7 @@ namespace asp {
          lineDenCoeffs = false,
          sampNumCoeffs = false,
          sampDenCoeffs = false;
-    int coeff_index = 0;
+    int coeff_index = 0, max_coeff_index = 0;
 
     // Read through each line in the file    
     while (std::getline(f, line)) {
@@ -179,6 +179,8 @@ namespace asp {
           lineDenCoeffs = false;
           sampNumCoeffs = false;
           sampDenCoeffs = false;
+          if (coeff_index > max_coeff_index)
+            max_coeff_index = coeff_index;
           coeff_index = 0;
         }
       } catch(...) {
@@ -187,6 +189,10 @@ namespace asp {
       }
     } // End loop through lines.
     f.close();
+    // Basic error check
+    if (max_coeff_index != 19)
+      vw_throw( ArgumentErr() << "Error reading file " << filename
+                                << ", failed to load enough coefficients!");
   }
 
   // All of these implementations are largely inspired by the GDAL

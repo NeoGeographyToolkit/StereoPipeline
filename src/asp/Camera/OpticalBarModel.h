@@ -81,6 +81,7 @@ namespace camera {
                     double   focal_length,
                     double   scan_angle_radians,
                     double   scan_rate_radians,
+                    bool     scan_left_to_right,
                     double   forward_tilt_radians,
                     vw::Vector3  initial_position,
                     vw::Vector3  initial_orientation,
@@ -92,6 +93,7 @@ namespace camera {
         m_focal_length        (focal_length),
         m_scan_angle_radians  (scan_angle_radians),
         m_scan_rate_radians   (scan_rate_radians),
+        m_scan_left_to_right  (scan_left_to_right),
         m_forward_tilt_radians(forward_tilt_radians),
         m_initial_position    (initial_position),
         m_initial_orientation (initial_orientation),
@@ -158,6 +160,7 @@ namespace camera {
     double       get_speed         () const { return m_speed;               }
     double       get_pixel_size    () const { return m_pixel_size;          }
     double       get_scan_angle    () const { return m_scan_angle_radians;  }
+    bool         get_scan_dir      () const { return m_scan_left_to_right;  }
     double       get_forward_tilt  () const { return m_forward_tilt_radians;}
 
 
@@ -168,6 +171,7 @@ namespace camera {
     void set_speed         (double       speed         ) { m_speed                = speed;          }
     void set_pixel_size    (double       pixel_size    ) { m_pixel_size           = pixel_size;     }
     void set_scan_angle    (double       scan_angle    ) { m_scan_angle_radians   = scan_angle;     }
+    void set_scan_dir      (bool         scan_l_to_r   ) { m_scan_left_to_right   = scan_l_to_r;    }
     void set_forward_tilt  (double       tilt_angle    ) { m_forward_tilt_radians = tilt_angle;     }
 
     bool get_use_motion_compensation() const        {return m_use_motion_compensation;    }
@@ -189,7 +193,7 @@ namespace camera {
 
   protected:
 
-    /// Image size in pixels: [rows, columns]
+    /// Image size in pixels: [columns, rows]
     vw::Vector2i m_image_size;
 
     /// Offset from the top left of the image (film) to the camera center.
@@ -217,6 +221,10 @@ namespace camera {
     /// - This tilt angle is needed to properly account for the camera's motion.
     double m_forward_tilt_radians;
 
+    /// If true, the first column corresponds to the inital position,
+    ///  otherwise the last column is at the initial position.
+    bool m_scan_left_to_right;
+    
     vw::Vector3 m_initial_position;
     vw::Vector3 m_initial_orientation; // TODO: Record as matrix
     double      m_speed; /// Velocity in the sensor Y axis only.

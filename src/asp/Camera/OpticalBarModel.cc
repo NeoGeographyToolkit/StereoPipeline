@@ -46,8 +46,13 @@ double OpticalBarModel::pixel_to_time_delta(Vector2 const& pix) const {
 
   // Since the camera sweeps a scan through columns, use that to
   //  determine the fraction of the way it is through the image.
-  double scan_fraction = pix[0] / m_image_size[0]; // TODO: Add 0.5 pixels?
-  double time_delta    = scan_fraction * scan_time;
+  const int max_col = m_image_size[0]-1;
+  double scan_fraction = 0;
+  if (m_scan_left_to_right)
+    scan_fraction = pix[0] / max_col; // TODO: Add 0.5 pixels to calculation?
+  else // Right to left scan direction
+    scan_fraction = (max_col - pix[0]) / max_col;
+  double time_delta = scan_fraction * scan_time;
   return time_delta;
 }
 
@@ -318,12 +323,15 @@ void OpticalBarModel::read(std::string const& filename) {
   }
 
   std::getline(cam_file, line);
-  int temp;
-  if (!cam_file.good() || sscanf(line.c_str(),"use_motion_compensation = %d", &temp) != 1) {
+  int temp_i;
+  if (!cam_file.good() || sscanf(line.c_str(),"use_motion_compensation = %d", &temp_i) != 1) {
     cam_file.close();
     vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read use motion compensation\n" );
   }
-  m_use_motion_compensation = (temp > 0);
+  m_use_motion_compensation = (temp_i > 0);
+
+  std::getline(cam_file, line);
+  m_scan_left_to_right = line.find("scan_dir = left") == std::string::npos;
 
   cam_file.close();
 }
@@ -371,6 +379,10 @@ void OpticalBarModel::write(std::string const& filename) const {
     cam_file << "use_motion_compensation = 1\n";
   else
     cam_file << "use_motion_compensation = 0\n";
+  if (m_scan_left_to_right)
+    cam_file << "scan_dir = right\n";
+  else
+    cam_file << "scan_dir = left\n";
   cam_file.close();
 }
 
@@ -384,6 +396,7 @@ std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model)
   os << " Focal length (m) :      " << camera_model.m_focal_length           << "\n";
   os << " Scan angle (rad):       " << camera_model.m_scan_angle_radians     << "\n";
   os << " Scan rate (rad/s):      " << camera_model.m_scan_rate_radians      << "\n";
+  os << " Scan left to right?:    " << camera_model.m_scan_left_to_right     << "\n";
   os << " Forward tilt (rad):     " << camera_model.m_forward_tilt_radians   << "\n";
   os << " Initial position:       " << camera_model.m_initial_position       << "\n";
   os << " Initial pose:           " << camera_model.m_initial_orientation    << "\n";

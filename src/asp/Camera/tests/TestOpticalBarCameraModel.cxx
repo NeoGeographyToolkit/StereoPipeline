@@ -47,6 +47,7 @@ TEST(OpticalBarModel, CreateCamera) {
   double   focal_length       = 609.602/1000.0;
   double   scan_angle_radians = 70  * M_PI/180;
   double   scan_rate_radians  = 192 * M_PI/180;
+  bool     scan_left_to_right = true;
   double   forward_tilt_radians = 0;
   Vector3  initial_position(gcc);
   Vector3  initial_orientation(angles);
@@ -54,7 +55,8 @@ TEST(OpticalBarModel, CreateCamera) {
   bool     use_motion_comp = true;
 
   OpticalBarModel* raw_ptr = new OpticalBarModel(image_size, center_loc_pixels, pixel_size,
-                                                 focal_length, scan_angle_radians, scan_rate_radians, forward_tilt_radians,
+                                                 focal_length, scan_angle_radians, scan_rate_radians, scan_left_to_right,
+                                                 forward_tilt_radians,
                                                  initial_position, initial_orientation,
                                                  velocity, use_motion_comp);
 
