@@ -1121,6 +1121,11 @@ and off texture, wireframe, and full-screen modes.  The left, middle, and
 right mouse buttons control rotation, panning, and zooming of the
 model.
 
+The \texttt{-t} option also takes \texttt{\textit{obj}} and will
+create a Wavefront OBJ format file (\texttt{\textit{output-prefix.obj}})
+that represents the 3D geometry for use in various 3D graphics
+programs.
+
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for point2mesh}
 \label{tbl:point2mesh}
@@ -1138,7 +1143,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-input-file \textit{pointcloud-file}} & Explicitly specify the input file. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix. \\ \hline
 \texttt{-\/-texture-file \textit{texture-file}} & Explicitly specify the texture file. \\ \hline
-\texttt{-\/-output-filetype|-t \textit{type(=ive)}} & Specify the output file type. \\ \hline
+\texttt{-\/-output-filetype|-t \textit{type(=osgb)}} & Specify the output file type. \\ \hline
 \texttt{-\/-enable-lighting|-l} & Enables shades and lighting on the mesh. \\ \hline
 \texttt{-\/-center} & Center the model around the origin. Use this option if you are experiencing numerical precision issues. \\ \hline
 \end{longtable}
