@@ -75,8 +75,6 @@ namespace asp {
     if (!isMapProjected()) // Nothing to do for non map-projected types.
       return;
 
-    vw_out() << "Loading the camera models that were used in map-projection\n";
-
     // Back up the bundle-adjust prefix that should be used only with the
     // original camera model, not with the model used in mapprojection
     // (e.g., the original camera model could have been DG, but in
@@ -132,8 +130,6 @@ namespace asp {
     VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSession: Require input DEM." );
     if (!boost::filesystem::exists(m_input_dem))
       vw_throw( ArgumentErr() << "StereoSession: DEM \"" << m_input_dem << "\" does not exist." );
-
-    vw_out() << "Done loading the camera models used in map-projection\n";
   }
   
 
