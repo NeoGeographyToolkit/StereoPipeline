@@ -172,7 +172,12 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 		 << ". If you are not using Digital Globe images, you may need to specify the session type, such as -t rpc, -t rpcmaprpc, -t aster, etc.\n"
 		 << e.what() << "\n");
   }
-
+  if (img.sat_id == "GE01") 
+    vw::vw_throw(vw::ArgumentErr() << "Detected GeoEye camera models. "
+                 << "The provided linescan camera model is not supported. "
+                 << "The provided RPC camera model will be used. "
+                 << "Please use the flag: -t rpc.\n");
+  
   // Get an estimate of the surface elevation from the corners specified in the file.
   // - Not every file has this information, in which case we will just use zero.
   double mean_ground_elevation = 0;
@@ -229,7 +234,10 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 							       convert( parse_time( img.tlc_start_time ) ) );
   VW_ASSERT( fabs( convert( parse_time( img.first_line_start_time ) ) -
 		   tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
-	     vw::MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
+	     vw::MathErr() << "First Line Time and output from TLC lookup table "
+             << "do not agree of the ephemeris time for the first line of the image. "
+             << "If your XML camera files are not from the WorldView satellites, "
+             << "you may try the switch -t rpc to use the RPC camera model." );
 
   vw::Vector2 final_detector_origin
     = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
