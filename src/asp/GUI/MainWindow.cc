@@ -113,17 +113,30 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
     return;
   }
 
-  if (stereo_settings().match_file != "" && stereo_settings().gcp_file != ""){
-    popUp("Cannot specify both --match-file and --gcp-file at the same time.");
+  if (stereo_settings().match_file != "" &&
+      stereo_settings().gcp_file   != "" &&
+      !stereo_settings().vwip_files.empty()){
+    popUp("Cannot do more than one of: specify --match-file or --gcp-file, or pass in .vwip files.");
     m_view_matches = false;
     stereo_settings().match_file = "";
     stereo_settings().gcp_file   = "";
+    stereo_settings().vwip_files.clear();
   }
 
   // If a gcp file was passed in, we will interpret those as matches
   if (stereo_settings().gcp_file != "")
     m_view_matches = true;
 
+  // If .vwip files were passed in, we will interpret those as matches.
+  if (!stereo_settings().vwip_files.empty()) {
+    m_view_matches = true;
+    if (m_image_files.size() != stereo_settings().vwip_files.size()) {
+      popUp("There must be as many .vwip files as images.");
+      stereo_settings().vwip_files.clear();
+      m_view_matches = false;
+    }    
+  }
+  
   // If a match file was explicitly specified, use it.
   if (stereo_settings().match_file != ""){
     if (m_image_files.size() != 2){
@@ -306,6 +319,17 @@ void MainWindow::createLayout() {
   // This code must be here in order to load the matches if needed
   viewMatches();
 
+  double nodata_value = stereo_settings().nodata_value;
+  if (!std::isnan(nodata_value)) {
+    for (size_t i = 0; i < m_widgets.size(); i++) {
+      if (m_widgets[i]) {
+	m_widgets[i]->setThreshold(nodata_value);
+	bool refresh_pixmap = false; // Prepare everything but don't redraw yet
+	m_widgets[i]->viewThreshImages(refresh_pixmap);
+      }
+    }
+  }
+  
   // Refresh the menu checkboxes
   m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
   m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
@@ -676,13 +700,18 @@ void MainWindow::viewMatches(){
     m_matches_exist = true;
     m_matchlist.resize(num_images);
 
-    // First try to read them from gcp
     if (stereo_settings().gcp_file != "") {
 
+      // Try to read matches from gcp
       m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, m_image_files);
       return;
 
-    }else{ // End GCP case
+    }else if (!stereo_settings().vwip_files.empty()){
+
+      // Try to read matches from vwip files
+      m_matchlist.loadPointsFromVwip(stereo_settings().vwip_files, m_image_files);
+      
+    }else{
 
       // If no match file was specified by now, ask the user for the output prefix.
       if (m_match_file == "") {
@@ -985,8 +1014,9 @@ void MainWindow::shadowThresholdCalc() {
 
 void MainWindow::viewThreshImages() {
   for (size_t i = 0; i < m_widgets.size(); i++) {
+    bool refresh_pixmap = true;
     if (m_widgets[i]) {
-      m_widgets[i]->viewThreshImages();
+      m_widgets[i]->viewThreshImages(refresh_pixmap);
     }
   }
 }
@@ -1002,7 +1032,10 @@ void MainWindow::viewUnthreshImages() {
 void MainWindow::shadowThresholdGetSet() {
 
   if (m_widgets.size() != m_image_files.size()) {
-    popUp("Each image must be in its own window to be able to set the shadow thresholds.");
+    if (std::isnan(asp::stereo_settings().nodata_value))
+      popUp("Each image must be in its own window to set the shadow thresholds.");
+    else
+      popUp("Each image must be in its own window to use the nodata option.");
     return;
   }
   

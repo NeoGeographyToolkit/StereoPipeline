@@ -161,7 +161,7 @@ public slots:
     void toggleAllOnOff    ();
     void customMenuRequested(QPoint pos);
     void viewUnthreshImages();
-    void viewThreshImages  ();
+    void viewThreshImages  (bool refresh_pixmap);
     void viewHillshadedImages(bool hillshade_mode);
 
     void addMatchPoint          (); ///< Add a new interest point (from right click menu)

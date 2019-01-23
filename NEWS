@@ -104,6 +104,11 @@
    * Added basic functionality for drawing/editing polygons on top 
      of georeferenced images or DEMs. Those shapes can be saved, and
      then used to cut out portions of images.
+   * Added the option --nodata-value. Pixels with value less than 
+     or equal to this are shown as transparent.
+   * Added the ability to view .vwip files (specify one per image).
+   * Can view (but not edit) GCP files, via --gcp-file (creating
+     GCP is supported in a separate mode, per the doc).
 
  - mapproject
    * Added the --nearest-neighbor option to use that interpolation

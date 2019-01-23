@@ -570,12 +570,16 @@ namespace vw { namespace gui {
     return MainWidget::image2world(image_box, 0);
   }
   
-  void MainWidget::viewThreshImages(){
+  void MainWidget::viewThreshImages(bool refresh_pixmap){
     m_shadow_thresh_view_mode = true;
     MainWidget::setHillshadeMode(false);
 
     if (m_images.size() != 1) {
-      popUp("Must have just one image in each window to be able to view thresholded images.");
+      if (std::isnan(asp::stereo_settings().nodata_value))
+        popUp("Must have just one image in each window to view thresholded images.");
+      else
+        popUp("Must have just one image in each window to use the nodata option.");
+        
       m_shadow_thresh_view_mode = false;
 
       refreshPixmap();
@@ -621,7 +625,10 @@ namespace vw { namespace gui {
       temporary_files().files.insert(output_file);
     }
 
-    refreshPixmap();
+    // We may not want to refresh the pixmap right away if we are going to
+    // update the GUI anyway in proper time
+    if (refresh_pixmap) 
+      refreshPixmap();
   }
 
   void MainWidget::maybeGenHillshade(){
@@ -932,6 +939,12 @@ namespace vw { namespace gui {
       double scale_out;
       BBox2i region_out;
       bool   highlight_nodata = m_shadow_thresh_view_mode;
+      if (!std::isnan(asp::stereo_settings().nodata_value)) {
+        // When the user specifies --nodata-value, we will show
+        // nodata pixels as transparent.
+        highlight_nodata = false;
+      }
+      
       if (m_shadow_thresh_view_mode){
         m_shadow_thresh_images[i].img.get_image_clip(scale, image_box,
                                                      highlight_nodata,
@@ -2807,8 +2820,11 @@ namespace vw { namespace gui {
   }
 
   void MainWidget::setThreshold(double thresh){
-    if (m_images.size() != 1) {
-      popUp("Must have just one image in each window to set the shadow threshold.");
+    if (m_images.size() != 1){
+      if (std::isnan(asp::stereo_settings().nodata_value)) 
+        popUp("Must have just one image in each window to set the shadow threshold.");
+      else
+        popUp("Must have just one image in each window to use the nodata value option.");
       return;
     }
 

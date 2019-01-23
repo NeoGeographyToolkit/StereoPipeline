@@ -373,10 +373,14 @@ namespace vw { namespace gui {
     bool loadPointsFromMatchFiles(std::vector<std::string> const& matchFiles,
                                   std::vector<size_t     > const& leftIndices);
 
-    /// Try to load the points from a GCP file.
+    /// Try to load the interest points from a GCP file.
     bool loadPointsFromGCPs(std::string const gcpPath,
                             std::vector<std::string> const& imageNames);
 
+    /// Try to load the interest points from vwip files.
+    bool loadPointsFromVwip(std::vector<std::string> const& vwipFiles,
+                            std::vector<std::string> const& imageNames);
+    
     /// Write all points out using a given prefix.
     bool savePointsToDisk(std::string const& prefix,
                           std::vector<std::string> const& imageNames,

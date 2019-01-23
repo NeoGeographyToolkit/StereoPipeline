@@ -50,8 +50,13 @@ namespace asp{
   void handle_arguments( int argc, char *argv[], ASPGlobalOptions& opt,
                          std::vector<string> & input_files){
 
+    // Options for which we will print the help message
     po::options_description general_options("");
     general_options.add(GUIDescription());
+
+    // All options that we will parse
+    po::options_description all_general_options("");
+    all_general_options.add(generate_config_file_options(opt));
 
     po::options_description positional_options("");
     po::positional_options_description positional_desc;
@@ -63,7 +68,7 @@ namespace asp{
     bool allow_unregistered = false;
     std::vector<std::string> unregistered;
     po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,
-                                                   general_options, positional_options,
+                                                   all_general_options, positional_options,
                                                    positional_desc, usage,
                                                    allow_unregistered, unregistered);
 
@@ -140,38 +145,42 @@ int main(int argc, char** argv) {
       // user only wants to see images?
       try {
 
-        std::vector<std::string> all_images;
+        std::vector<std::string> all_files;
+        stereo_settings().vwip_files.clear();
         opt_vec.resize(1);
-        handle_arguments(argc, argv, opt_vec[0], all_images);
+        handle_arguments(argc, argv, opt_vec[0], all_files);
 
         // Try to load each input file as a standalone image one at a time
-        for (size_t i = 0; i < all_images.size(); i++) {
-          std::string image = all_images[i];
+        for (size_t i = 0; i < all_files.size(); i++) {
+          std::string file = all_files[i];
           bool is_image = false;
           try {
-            DiskImageView<float> tmp(image);
+            DiskImageView<float> tmp(file);
             is_image = true;
           }catch(std::exception & e){
-            if (!image.empty() && image[0] != '-') {
-              if (get_extension(image) == ".match") {
-                // See if this is a match file
-                stereo_settings().match_file = image;
-                is_image = false;
-              }else if (asp::has_shp_extension(image)) {
-                // See if this is a shape file
-                vw_out() << "Reading shapefile: " << image << std::endl;
-                is_image = true; // will load it in the same struct as for images
-                    }else{
-                vw_out() << "Not a valid image: " << image << ".\n";
-                if (!fs::exists(image)) {
-                  vw_out() << "Using this as the output prefix.\n";
-                  output_prefix = image;
-                }
+            if (file.empty() || file[0] == '-') continue;
+            if (get_extension(file) == ".match") {
+              // Found a match file
+              stereo_settings().match_file = file;
+              is_image = false;
+            }else if (get_extension(file) == ".vwip") {
+              // Found a vwip file
+              stereo_settings().vwip_files.push_back(file);
+              is_image = false;
+            }else if (asp::has_shp_extension(file)) {
+              // See if this is a shape file
+              vw_out() << "Reading shapefile: " << file << std::endl;
+              is_image = true; // will load it in the same struct as for images
+            }else{
+              vw_out() << "Not a valid image: " << file << ".\n";
+              if (!fs::exists(file)) {
+                vw_out() << "Using this as the output prefix.\n";
+                output_prefix = file;
               }
             }
           }
           if (is_image)
-            images.push_back(image);
+            images.push_back(file);
         }
       }catch (std::exception& e2){
         vw_throw(ArgumentErr() << "Use either the stereo or the image viewer interface.\n"

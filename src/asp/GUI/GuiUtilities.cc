@@ -1189,14 +1189,31 @@ bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
   for ( size_t icam = 0; icam < crn.size(); icam++ ) {
     if (m_matches[0].size() != m_matches[icam].size()) {
       popUp("Each GCP must be represented as a pixel in each image.");
-      m_matches.clear();
-      m_matches.resize(num_images);
-      m_valid_matches.clear();
-      m_valid_matches.resize(num_images);
+      resize(num_images);
       return false;
     }
   }
 
+  return true;
+}
+
+bool MatchList::loadPointsFromVwip(std::vector<std::string> const& vwipFiles,
+                                   std::vector<std::string> const& imageNames){
+
+  using namespace vw::ba;
+
+  if (getNumPoints() > 0) // Can't double-load points!
+    return false;
+
+  const size_t num_images = imageNames.size();
+  resize(num_images);
+
+  // Load in all of the points
+  for (size_t i = 0; i < num_images; ++i) {
+    //std::vector<InterestPoint> ip;
+    m_matches[i] = vw::ip::read_binary_ip_file(vwipFiles[i]);
+  }
+  
   return true;
 }
 

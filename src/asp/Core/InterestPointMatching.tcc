@@ -132,11 +132,11 @@ void detect_ip( vw::ip::InterestPointList& ip,
   vw_out(DebugMessage,"asp") << "Detect interest points elapsed time: "
                               << sw.elapsed_seconds() << " s." << std::endl;
 
-  const int NODATA_RADIUS = 4;
-  vw_out() << "\t    Removing IP near nodata with radius " << NODATA_RADIUS << std::endl;
-  if ( !boost::math::isnan(nodata) )
-    remove_ip_near_nodata( image.impl(), nodata, ip, NODATA_RADIUS );
- 
+  if ( !boost::math::isnan(nodata) ) {
+    vw_out() << "\t    Removing IP near nodata with radius "
+             << stereo_settings().ip_nodata_radius << std::endl;
+    remove_ip_near_nodata( image.impl(), nodata, ip, stereo_settings().ip_nodata_radius );
+  }
 
   // For the two OpenCV options we already built the descriptors, so only do this for the integral method.
   if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
