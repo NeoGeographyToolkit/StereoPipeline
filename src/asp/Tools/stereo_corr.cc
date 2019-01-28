@@ -85,9 +85,12 @@ void read_search_range_from_dsub(ASPGlobalOptions & opt){
   std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
 
   ImageViewRef<PixelMask<Vector2f> > sub_disp;
-  if (!load_sub_disp_image(d_sub_file, sub_disp))
-    return; // File not found
-
+  if (!load_sub_disp_image(d_sub_file, sub_disp)) {
+    std::string msg = "Could not read " + d_sub_file + ".";
+    if (stereo_settings().skip_low_res_disparity_comp)
+      msg += " Perhaps one should disable --skip-low-res-disparity-comp.";
+    vw_throw(ArgumentErr() << msg << ".\n");
+  }
   Vector2 upsample_scale( double(Lmask.cols()) / double(sub_disp.cols()) ,
                           double(Lmask.rows()) / double(sub_disp.rows()) );
 
@@ -126,7 +129,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
 
     // Use low-res correlation to get the low-res disparity
     Vector2i expansion( search_range.width(),
-                  			search_range.height() );
+                                          search_range.height() );
     expansion *= stereo_settings().seed_percent_pad / 2.0f;
     // Expand by the user selected amount. Default is 25%.
     search_range.min() -= expansion;
@@ -282,7 +285,7 @@ double adjust_ip_for_align_matrix(std::string               const& out_prefix,
     ip_right[i].iy = r[1];
   }
   return 1.0; // If alignment files are present they take care of the scaling.
-	      
+              
 } // End adjust_ip_for_align_matrix
 
 
@@ -1129,8 +1132,14 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   std::string dsub_file   = opt.out_prefix+"-D_sub.tif";
   std::string spread_file = opt.out_prefix+"-D_sub_spread.tif";
   
-  if ( stereo_settings().seed_mode > 0 )
-    load_sub_disp_image(dsub_file, sub_disp); // TODO: What if file is missing?
+  if ( stereo_settings().seed_mode > 0 ) {
+    if (!load_sub_disp_image(dsub_file, sub_disp)) {
+      std::string msg = "Could not read " + d_sub_file + ".";
+      if (stereo_settings().skip_low_res_disparity_comp)
+        msg += " Perhaps one should disable --skip-low-res-disparity-comp.";
+      vw_throw(ArgumentErr() << msg << ".\n");
+    }
+  }
   ImageViewRef<PixelMask<Vector2i> > sub_disp_spread;
   if ( stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3 ){
     // D_sub_spread is mandatory for seed_mode 2 and 3.
@@ -1190,7 +1199,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     break;
   case 1:
     vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
-	           << stereo_settings().slogW << " sigma blur.\n";
+	     << stereo_settings().slogW << " sigma blur.\n";
     break;
   default:
     vw_out() << "\t--> Using NO pre-processing filter." << endl;
