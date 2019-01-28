@@ -176,7 +176,7 @@ def writeSingleTile(options):
 # For some reason, this function must be invoked after the writing
 # of the output tif file has been competed. Otherwise something wipes it.
 def maybe_copy_rpc(inputPath, outputPath):
-    for ext in ['_RPC.TXT', '.RPB']:
+    for ext in ['_RPC.TXT', '_rpc.txt', '.RPB', '.rpb']:
         input_rpc = os.path.splitext(inputPath)[0] + ext
         output_rpc = os.path.splitext(outputPath)[0] + ext
         if os.path.exists(input_rpc):
