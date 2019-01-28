@@ -1134,7 +1134,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   
   if ( stereo_settings().seed_mode > 0 ) {
     if (!load_sub_disp_image(dsub_file, sub_disp)) {
-      std::string msg = "Could not read " + d_sub_file + ".";
+      std::string msg = "Could not read " + dsub_file + ".";
       if (stereo_settings().skip_low_res_disparity_comp)
         msg += " Perhaps one should disable --skip-low-res-disparity-comp.";
       vw_throw(ArgumentErr() << msg << ".\n");
