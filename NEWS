@@ -124,6 +124,7 @@
    * In stereo and bundle_adjust, when images or cameras are newer
      than the match files, the latter get recomputed unless the tools
      are invoked with --force-reuse-match-files.
+   * Added a fix to make stereo work with the ZY3 satellite. 
 
 *** RELEASE 2.6.1, August 13, 2018 ***
 
