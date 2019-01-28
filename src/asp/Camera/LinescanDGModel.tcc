@@ -172,11 +172,6 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 		 << ". If you are not using Digital Globe images, you may need to specify the session type, such as -t rpc, -t rpcmaprpc, -t aster, etc.\n"
 		 << e.what() << "\n");
   }
-  if (img.sat_id == "GE01") 
-    vw::vw_throw(vw::ArgumentErr() << "Detected GeoEye camera models. "
-                 << "The provided linescan camera model is not supported. "
-                 << "The provided RPC camera model will be used. "
-                 << "Please use the flag: -t rpc.\n");
   
   // Get an estimate of the surface elevation from the corners specified in the file.
   // - Not every file has this information, in which case we will just use zero.
