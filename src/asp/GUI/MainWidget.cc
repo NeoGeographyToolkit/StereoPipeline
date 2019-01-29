@@ -844,7 +844,7 @@ namespace vw { namespace gui {
     }
 
     if (m_stereoCropWin.empty()) {
-      popUp("No valid region for stereo is present.");
+      popUp("No valid region for stereo is present. Regions can be selected with Control-Mouse in each image.");
       return false;
     }
 
