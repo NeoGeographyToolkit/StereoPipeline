@@ -34,8 +34,8 @@ def die(msg, code=-1):
 def verify_python_version_is_supported():
     '''Verifies that a supported version of Python is being used.'''
     
-    if sys.version_info < (2, 6, 0):
-        print('\nERROR: Must use Python version >= 2.6.')
+    if sys.version_info < (2, 7, 0):
+        print('\nERROR: Must use Python version >= 2.7.')
         sys.exit(1)
 
 def get_prog_version(prog):
