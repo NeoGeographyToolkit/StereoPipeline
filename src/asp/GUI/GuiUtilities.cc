@@ -1043,6 +1043,7 @@ bool MatchList::addPoint(size_t image, vw::ip::InterestPoint const &pt, bool val
     return false;
 
   m_matches[image].push_back(pt);
+  m_valid_matches[image].push_back(true);
   return true;
 }
 
@@ -1131,6 +1132,7 @@ bool MatchList::deletePointAcrossImages(size_t point) {
 
   for (size_t vec_iter = 0; vec_iter < m_matches.size(); vec_iter++) {
     m_matches[vec_iter].erase(m_matches[vec_iter].begin() + point);
+    m_valid_matches[vec_iter].erase(m_valid_matches[vec_iter].begin() + point);
   }
   return true;
 }
@@ -1212,6 +1214,11 @@ bool MatchList::loadPointsFromVwip(std::vector<std::string> const& vwipFiles,
   for (size_t i = 0; i < num_images; ++i) {
     //std::vector<InterestPoint> ip;
     m_matches[i] = vw::ip::read_binary_ip_file(vwipFiles[i]);
+    // Keep the valid matches synced up
+    size_t num_pts = m_matches[i].size();
+    m_valid_matches[i].resize(num_pts);
+    for (size_t j=0; j<num_pts; ++j)
+       m_valid_matches[i][j] = true;
   }
   
   return true;
