@@ -63,13 +63,13 @@ namespace camera {
     //------------------------------------------------------------------
 
     OpticalBarModel() 
-      : m_use_motion_compensation(true), // TODO: Option!
+      : m_use_motion_compensation(0),
         m_correct_velocity_aberration(true),
         m_correct_atmospheric_refraction(true) {
     }
 
     OpticalBarModel(std::string const& path)
-      : m_use_motion_compensation(true), // TODO: Option!
+      : m_use_motion_compensation(0),
         m_correct_velocity_aberration(true),
         m_correct_atmospheric_refraction(true) {
       read(path);
@@ -86,7 +86,7 @@ namespace camera {
                     vw::Vector3  initial_position,
                     vw::Vector3  initial_orientation,
                     double   speed,
-                    bool     use_motion_compensation) :
+                    int     use_motion_compensation) :
         m_image_size          (image_size),
         m_center_loc_pixels   (center_offset_pixels),
         m_pixel_size          (pixel_size),
@@ -233,7 +233,9 @@ namespace camera {
     double m_mean_earth_radius;
     double m_mean_surface_elevation;
 
-    bool m_use_motion_compensation;
+    /// This needs to be synced up with the motion direction
+    // TODO
+    int m_use_motion_compensation;
 
     /// Set this flag to enable velocity aberration correction.
     /// - For satellites this makes a big difference, make sure it is set!

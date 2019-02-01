@@ -35,7 +35,7 @@ using namespace vw::camera;
 
 Vector2 OpticalBarModel::pixel_to_sensor_plane(Vector2 const& pixel) const {
   Vector2 result = (pixel - m_center_loc_pixels) * m_pixel_size;
-  result[1] *= -1; // Make upper pixels have larger values // TODO: CHECK!
+  //result[1] *= -1; // Make upper pixels have larger values // TODO: CHECK!
   return result;
 }
 
@@ -99,27 +99,29 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
   // Distortion caused by compensation for the satellite's forward motion during the image.
   // - The film was actually translated underneath the lens to compensate for the motion.
   double image_motion_compensation = 0.0;
-  if (m_use_motion_compensation)
-    image_motion_compensation = ((-m_focal_length * m_speed) / (H*m_scan_rate_radians))
-                                 * sin(alpha);
+  //if (m_use_motion_compensation)
+  //  image_motion_compensation = ((-m_focal_length * m_speed) / (H*m_scan_rate_radians))
+  //                               * sin(alpha);
+  image_motion_compensation = ((m_focal_length * m_speed) / (H*m_scan_rate_radians))
+                                 * sin(alpha) * m_use_motion_compensation;
+  if (!m_scan_left_to_right) // Sync alpha with motion compensation.
+    image_motion_compensation *= -1.0;
 
   //Matrix3x3 M_inv = transpose(cam_pose.rotation_matrix());
 
   // TODO: Consolidate the rotations when things are correct.
+  // This vector is ESD format, consistent with the linescan model.
   Vector3 r(m_focal_length * sin(alpha),
             sensor_plane_pos[1] + image_motion_compensation,
-            -m_focal_length * cos(alpha));
-
-  // Convert local vector from ENU to NED, which is used by our other cameras.
-  Vector3 temp = r;
-  r[0] = temp[1];
-  r[1] = temp[0];
-  r[2] = temp[2]*-1.0;
+            m_focal_length * cos(alpha));
+  r = normalize(r);
 
   // TODO: Why is this needed for Gambit?
-  Matrix3x3 m = vw::math::rotation_z_axis(-M_PI/2.0);
-  r = m*r;
+//  Matrix3x3 m = vw::math::rotation_z_axis(-M_PI/2.0);
+//  r = m*r;
 
+  // r is the ray vector in the local camera system
+  
   /*
   std::cout << "pixel = " << pixel << std::endl;
   std::cout << "sensor_plane_pos = " << sensor_plane_pos << std::endl;
@@ -129,6 +131,7 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
   std::cout << "image_motion_compensation = " << image_motion_compensation << std::endl;
   */
 
+  // Convert the ray vector into GCC coordinates.
   //Vector3 result = M_inv * r; // == scale(gcc_point - cam_center)
   Vector3 result = cam_pose.rotate(r);
 
@@ -328,7 +331,7 @@ void OpticalBarModel::read(std::string const& filename) {
     cam_file.close();
     vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read use motion compensation\n" );
   }
-  m_use_motion_compensation = (temp_i > 0);
+  m_use_motion_compensation = temp_i;//(temp_i > 0);
 
   std::getline(cam_file, line);
   m_scan_left_to_right = line.find("scan_dir = left") == std::string::npos;
@@ -375,10 +378,11 @@ void OpticalBarModel::write(std::string const& filename) const {
   cam_file << "speed = " << m_speed << "\n";
   cam_file << "mean_earth_radius = "      << m_mean_earth_radius      << "\n";
   cam_file << "mean_surface_elevation = " << m_mean_surface_elevation << "\n";
-  if (m_use_motion_compensation)
-    cam_file << "use_motion_compensation = 1\n";
-  else
-    cam_file << "use_motion_compensation = 0\n";
+  cam_file << "use_motion_compensation = " << m_use_motion_compensation << "\n";
+  //if (m_use_motion_compensation)
+  //  cam_file << "use_motion_compensation = 1\n";
+  //else
+  //  cam_file << "use_motion_compensation = 0\n";
   if (m_scan_left_to_right)
     cam_file << "scan_dir = right\n";
   else
@@ -404,6 +408,7 @@ std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model)
   os << " Mean earth radius:      " << camera_model.m_mean_earth_radius      << "\n";
   os << " Mean surface elevation: " << camera_model.m_mean_surface_elevation << "\n";
   os << " Use motion comp:        " << camera_model.m_use_motion_compensation<< "\n";
+  os << " Left to right scan:     " << camera_model.m_scan_left_to_right     << "\n";
 
   os << "\n------------------------------------------------------------------------\n\n";
   return os;
