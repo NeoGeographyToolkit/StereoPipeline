@@ -20,7 +20,7 @@
 """
 General functions for handling files
 """
-
+from __future__ import print_function
 import sys, os, re, shutil, subprocess, string, time, errno
 
 

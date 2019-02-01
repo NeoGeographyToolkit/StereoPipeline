@@ -20,7 +20,7 @@
 """
    Functions to help with string parsing.
 """
-
+from __future__ import print_function
 import sys, os, re, string, time, shlex
 
 def isNumber(text):

@@ -20,7 +20,7 @@
 '''
 Python tools for working with SkySat data products.
 '''
-
+from __future__ import print_function
 import sys
 import os, glob, re, shutil, subprocess, string, time, errno, argparse
 import simplekml, json

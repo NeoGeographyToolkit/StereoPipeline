@@ -20,7 +20,7 @@
 """
    Functions for working with images containing geo metadata.
 """
-
+from __future__ import print_function
 import sys, os, glob, re, shutil, string, time, errno, subprocess
 try:
     import subprocess32 # More features, if installed.

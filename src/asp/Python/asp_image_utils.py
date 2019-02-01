@@ -20,11 +20,9 @@
 """
 Basic functions for working with images on disk.
 """
-
+from __future__ import print_function
 import sys, os, re, subprocess, string, time, errno
-
 import asp_string_utils
-
 
 def stripRgbImageAlphaChannel(inputPath, outputPath):
     """Makes an RGB copy of an RBGA image"""

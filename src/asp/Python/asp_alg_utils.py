@@ -20,7 +20,7 @@
 """
    Misc functions implementing algorithms.
 """
-
+from __future__ import print_function
 import sys, os, re, string, time, math
 
 class BBox:
