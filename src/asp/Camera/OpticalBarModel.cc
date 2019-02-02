@@ -35,7 +35,6 @@ using namespace vw::camera;
 
 Vector2 OpticalBarModel::pixel_to_sensor_plane(Vector2 const& pixel) const {
   Vector2 result = (pixel - m_center_loc_pixels) * m_pixel_size;
-  //result[1] *= -1; // Make upper pixels have larger values // TODO: CHECK!
   return result;
 }
 
@@ -57,11 +56,9 @@ double OpticalBarModel::pixel_to_time_delta(Vector2 const& pix) const {
 }
 
 Vector3 OpticalBarModel::get_velocity(vw::Vector2 const& pixel) const {
-  
- 
+
   // TODO: For speed, store the pose*velocity vector.
   // Convert the velocity from sensor coords to GCC coords
-  //Matrix3x3 pose = transpose(camera_pose(pixel).rotation_matrix());
   Matrix3x3 pose = camera_pose(pixel).rotation_matrix();
 
   // Recover the satellite attitude relative to the tilted camera position
@@ -95,44 +92,23 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
   // Distance from the camera center to the ground.
   double H = norm_2(cam_center) - (m_mean_surface_elevation + m_mean_earth_radius);
 
-
   // Distortion caused by compensation for the satellite's forward motion during the image.
   // - The film was actually translated underneath the lens to compensate for the motion.
-  double image_motion_compensation = 0.0;
-  //if (m_use_motion_compensation)
-  //  image_motion_compensation = ((-m_focal_length * m_speed) / (H*m_scan_rate_radians))
-  //                               * sin(alpha);
-  image_motion_compensation = ((m_focal_length * m_speed) / (H*m_scan_rate_radians))
-                                 * sin(alpha) * m_use_motion_compensation;
+  double image_motion_compensation =
+                ((m_focal_length * m_speed) / (H*m_scan_rate_radians))
+                * sin(alpha) * m_use_motion_compensation;
   if (!m_scan_left_to_right) // Sync alpha with motion compensation.
     image_motion_compensation *= -1.0;
 
-  //Matrix3x3 M_inv = transpose(cam_pose.rotation_matrix());
-
-  // TODO: Consolidate the rotations when things are correct.
   // This vector is ESD format, consistent with the linescan model.
   Vector3 r(m_focal_length * sin(alpha),
             sensor_plane_pos[1] + image_motion_compensation,
             m_focal_length * cos(alpha));
   r = normalize(r);
 
-  // TODO: Why is this needed for Gambit?
-//  Matrix3x3 m = vw::math::rotation_z_axis(-M_PI/2.0);
-//  r = m*r;
-
   // r is the ray vector in the local camera system
-  
-  /*
-  std::cout << "pixel = " << pixel << std::endl;
-  std::cout << "sensor_plane_pos = " << sensor_plane_pos << std::endl;
-  std::cout << "alpha = " << alpha << std::endl;
-  std::cout << "H = " << H << std::endl;
-  std::cout << "r = " << r << std::endl;
-  std::cout << "image_motion_compensation = " << image_motion_compensation << std::endl;
-  */
 
   // Convert the ray vector into GCC coordinates.
-  //Vector3 result = M_inv * r; // == scale(gcc_point - cam_center)
   Vector3 result = cam_pose.rotate(r);
 
   return result;
