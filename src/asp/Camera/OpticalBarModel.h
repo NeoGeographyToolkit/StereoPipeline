@@ -63,13 +63,13 @@ namespace camera {
     //------------------------------------------------------------------
 
     OpticalBarModel() 
-      : m_use_motion_compensation(0),
+      : m_motion_compensation(1.0),
         m_correct_velocity_aberration(true),
         m_correct_atmospheric_refraction(true) {
     }
 
     OpticalBarModel(std::string const& path)
-      : m_use_motion_compensation(0),
+      : m_motion_compensation(1.0),
         m_correct_velocity_aberration(true),
         m_correct_atmospheric_refraction(true) {
       read(path);
@@ -86,7 +86,7 @@ namespace camera {
                     vw::Vector3  initial_position,
                     vw::Vector3  initial_orientation,
                     double   speed,
-                    int     use_motion_compensation) :
+                    double   motion_compensation_factor) :
         m_image_size          (image_size),
         m_center_loc_pixels   (center_offset_pixels),
         m_pixel_size          (pixel_size),
@@ -98,7 +98,7 @@ namespace camera {
         m_initial_position    (initial_position),
         m_initial_orientation (initial_orientation),
         m_speed               (speed),
-        m_use_motion_compensation(use_motion_compensation),
+        m_motion_compensation(motion_compensation_factor),
         m_correct_velocity_aberration(true),
         m_correct_atmospheric_refraction(true){
 
@@ -174,8 +174,8 @@ namespace camera {
     void set_scan_dir      (bool         scan_l_to_r   ) { m_scan_left_to_right   = scan_l_to_r;    }
     void set_forward_tilt  (double       tilt_angle    ) { m_forward_tilt_radians = tilt_angle;     }
 
-    bool get_use_motion_compensation() const        {return m_use_motion_compensation;    }
-    void set_use_motion_compensation(bool use_comp) {m_use_motion_compensation = use_comp;}
+    double get_motion_compensation() const           { return m_motion_compensation;    }
+    void   set_motion_compensation(double mc_factor) { m_motion_compensation = mc_factor;}
 
     friend std::ostream& operator<<(std::ostream&, OpticalBarModel const&);
 
@@ -233,9 +233,8 @@ namespace camera {
     double m_mean_earth_radius;
     double m_mean_surface_elevation;
 
-    /// This needs to be synced up with the motion direction
-    // TODO
-    int m_use_motion_compensation;
+    /// Apply this fraction of the nominal motion compensation.
+    double m_motion_compensation;
 
     /// Set this flag to enable velocity aberration correction.
     /// - For satellites this makes a big difference, make sure it is set!

@@ -275,7 +275,7 @@ public:
     std::vector<int> result = CeresBundleModelBase::get_block_sizes();
     result.push_back(2); // Center
     result.push_back(1); // Focus
-    result.push_back(2); // Scan rate and speed
+    result.push_back(2); // MCF and speed
     return result;
   }
 
@@ -299,9 +299,10 @@ public:
     double center_y  = raw_center[1] * m_underlying_camera->get_optical_center()[1];
     double focus     = raw_focus [0] * m_underlying_camera->get_focal_length  ();
     double scan_rate = raw_intrin[0] * m_underlying_camera->get_scan_rate();
-    double speed     = raw_intrin[1] * m_underlying_camera->get_speed    ();
+    double mcf       = raw_intrin[0] * m_underlying_camera->get_motion_compensation();
+    double speed     = raw_intrin[1] * m_underlying_camera->get_speed();
 
-    // Duplicate the input camera model with the pose, focus, center, speed, and scan rate updated.
+    // Duplicate the input camera model with the pose, focus, center, speed, and MCF updated.
     asp::camera::OpticalBarModel cam(m_underlying_camera->get_image_size(),
                                      vw::Vector2(center_x, center_y),
                                      m_underlying_camera->get_pixel_size(),
@@ -312,8 +313,7 @@ public:
                                      m_underlying_camera->get_forward_tilt(),
                                      correction.position(),
                                      correction.pose().axis_angle(),
-                                     speed,
-                                     m_underlying_camera->get_use_motion_compensation());
+                                     speed,  mcf);
 
     // Project the point into the camera.
     return cam.point_to_pixel(point);

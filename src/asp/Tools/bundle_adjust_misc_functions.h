@@ -568,9 +568,10 @@ void pack_optical_bar_to_arrays(asp::camera::OpticalBarModel const& camera,
   center_ptr[1] = 1.0; //camera.point_offset()[1];
   focus_ptr [0] = 1.0; //camera.focal_length()[0];
 
-  // Pack the speed and scan rate into the distortion pointer.
-  for (int i=0; i<NUM_OPTICAL_BAR_EXTRA_PARAMS; ++i)
-    intrinsics_ptr[i] = 1.0;
+  // Pack the speed and MCF into the distortion pointer.
+  // - MCF is a factor already, so we can manipulate it as-is.
+  intrinsics_ptr[0] = 1.0;
+  intrinsics_ptr[1] = camera.get_motion_compensation();
 }
 
 
@@ -630,8 +631,9 @@ void populate_optical_bar_from_arrays(int camera_index,
   // All intrinsic parameters are stored as multipliers!
 
   // Update the other intrinsic parameters.
-  camera.set_scan_rate(camera.get_scan_rate()*intrinsic_ptr[0]);
-  camera.set_speed    (camera.get_speed    ()*intrinsic_ptr[1]);
+  // - MCF is naturally a multiplier so we can just store it.
+  camera.set_motion_compensation(intrinsic_ptr[0]);
+  camera.set_speed              (camera.get_speed()*intrinsic_ptr[1]);
 
   // Update the center and focus
   Vector2 old_center = camera.get_optical_center();

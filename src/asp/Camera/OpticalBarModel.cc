@@ -94,11 +94,11 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
 
   // Distortion caused by compensation for the satellite's forward motion during the image.
   // - The film was actually translated underneath the lens to compensate for the motion.
-  double image_motion_compensation =
-                ((m_focal_length * m_speed) / (H*m_scan_rate_radians))
-                * sin(alpha) * m_use_motion_compensation;
+  double image_motion_compensation = ((m_focal_length * m_speed) / (H*m_scan_rate_radians))
+                                      * sin(alpha) * m_motion_compensation;
   if (!m_scan_left_to_right) // Sync alpha with motion compensation.
     image_motion_compensation *= -1.0;
+
 
   // This vector is ESD format, consistent with the linescan model.
   Vector3 r(m_focal_length * sin(alpha),
@@ -302,12 +302,11 @@ void OpticalBarModel::read(std::string const& filename) {
   }
 
   std::getline(cam_file, line);
-  int temp_i;
-  if (!cam_file.good() || sscanf(line.c_str(),"use_motion_compensation = %d", &temp_i) != 1) {
+  if (!cam_file.good() || sscanf(line.c_str(),"motion_compensation_factor = %lf",
+                                 &m_motion_compensation) != 1) {
     cam_file.close();
-    vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read use motion compensation\n" );
+    vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read motion compensation factor\n" );
   }
-  m_use_motion_compensation = temp_i;//(temp_i > 0);
 
   std::getline(cam_file, line);
   m_scan_left_to_right = line.find("scan_dir = left") == std::string::npos;
@@ -352,13 +351,9 @@ void OpticalBarModel::write(std::string const& filename) const {
                       << rot_mat(1,0) << " " << rot_mat(1,1) << " " << rot_mat(1,2) << " "
                       << rot_mat(2,0) << " " << rot_mat(2,1) << " " << rot_mat(2,2) << "\n";
   cam_file << "speed = " << m_speed << "\n";
-  cam_file << "mean_earth_radius = "      << m_mean_earth_radius      << "\n";
-  cam_file << "mean_surface_elevation = " << m_mean_surface_elevation << "\n";
-  cam_file << "use_motion_compensation = " << m_use_motion_compensation << "\n";
-  //if (m_use_motion_compensation)
-  //  cam_file << "use_motion_compensation = 1\n";
-  //else
-  //  cam_file << "use_motion_compensation = 0\n";
+  cam_file << "mean_earth_radius = "          << m_mean_earth_radius      << "\n";
+  cam_file << "mean_surface_elevation = "     << m_mean_surface_elevation << "\n";
+  cam_file << "motion_compensation_factor = " << m_motion_compensation << "\n";
   if (m_scan_left_to_right)
     cam_file << "scan_dir = right\n";
   else
@@ -383,8 +378,8 @@ std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model)
   os << " Speed:                  " << camera_model.m_speed                  << "\n";
   os << " Mean earth radius:      " << camera_model.m_mean_earth_radius      << "\n";
   os << " Mean surface elevation: " << camera_model.m_mean_surface_elevation << "\n";
-  os << " Use motion comp:        " << camera_model.m_use_motion_compensation<< "\n";
-
+  os << " Motion comp factor:     " << camera_model.m_motion_compensation<< "\n";
+  os << " Left to right scan:     " << camera_model.m_scan_left_to_right     << "\n";
   os << "\n------------------------------------------------------------------------\n\n";
   return os;
 }
