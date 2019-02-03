@@ -740,7 +740,7 @@ def checkLabelResults(run, options, logger):
     (minFrame, maxFrame) = run.getFrameRange()
 
     labelFolder = run.getLabelFolder()
-    orthoFolder = run.getLabelOrthoFolder()
+    orthoFolder = run.getOrthoFolder()
     jpegFolder  = run.getJpegFolder()
 
     for frame in range(minFrame, maxFrame+1):

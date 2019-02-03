@@ -166,10 +166,9 @@ def runOrtho(frame, processFolder, imageFile, bundleLength, cameraMounting,
             demFile, batchFolder = icebridge_common.frameToFile(frame + offset,
                                                                 icebridge_common.blendFileName(),
                                                                 processFolder, bundleLength)
-
             # If the central DEM is missing, we are out of luck
             if offset == 0 and demFile == "":
-                print("Could not find DEM for frame: " + str(frame + offset))
+                print("Could not find blended DEM for frame: " + str(frame + offset))
                 return
 
             if offset == 0:
