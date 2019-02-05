@@ -55,7 +55,7 @@ TEST(OpticalBarModel, CreateCamera) {
   double   velocity = 7800;
   bool     use_motion_comp = true;
   */
-/*
+
   Vector3   gcc(-2470899.9105873918, 5542443.1851118281, 2502370.2339997198);
   Matrix3x3 rot_mat(-0.057502980758053046, -0.74594045857037883,  0.66352561327483939,
                     -0.16417103320903326,  -0.64851223071215924, -0.74328982131589649,
@@ -81,10 +81,10 @@ TEST(OpticalBarModel, CreateCamera) {
                                                  forward_tilt_radians,
                                                  initial_position, initial_orientation,
                                                  velocity, use_motion_comp);
-*/
+
   //OpticalBarModel* raw_ptr = new OpticalBarModel("/home/smcmich1/data/KH7/left16.tsai");
   //OpticalBarModel* raw_ptr = new OpticalBarModel("/home/smcmich1/data/KH4B/bundle_v2_2/out-v2_opt_bar.tsai");
-  OpticalBarModel* raw_ptr = new OpticalBarModel("/home/smcmich1/data/KH4B/v2_test.tsai");
+  //OpticalBarModel* raw_ptr = new OpticalBarModel("/home/smcmich1/data/KH4B/v2_test.tsai");
 
 
   // Basic file I/O
@@ -138,7 +138,7 @@ TEST(OpticalBarModel, CreateCamera) {
                                                  forward_tilt_radians,
                                                  initial_position2, initial_orientation2,
                                                  velocity, use_motion_comp);
-  */
+  
   //OpticalBarModel* raw_ptr2 = new OpticalBarModel("/home/smcmich1/data/KH7/right16.tsai");
   //OpticalBarModel* raw_ptr2 = new OpticalBarModel("/home/smcmich1/data/KH4B/bundle_v6_2/out-v6_opt_bar.tsai");
   OpticalBarModel* raw_ptr2 = new OpticalBarModel("/home/smcmich1/data/KH4B/v6_test.tsai");
@@ -168,7 +168,7 @@ TEST(OpticalBarModel, CreateCamera) {
   //pixels1.push_back(Vector2());
   //pixels2.push_back(Vector2());
   
-  
+  */
   
   
   /* // KH7 matching pixels
@@ -183,7 +183,7 @@ TEST(OpticalBarModel, CreateCamera) {
   //Vector2 pix1(3639.6,167.803); // From stereo
   //Vector2 pix2(2815.35,614.75);
   */
-  
+  /*
   double error = 0;
   for (size_t i=0; i<pixels1.size(); ++i) {
     
@@ -195,11 +195,11 @@ TEST(OpticalBarModel, CreateCamera) {
     std::cout << "GDC = " << gdc << std::endl;
     std::cout << "error = " << error << std::endl;
   }
-  
+  */
   //std::cout << "cam1 = " << *raw_ptr << std::endl;
   //std::cout << "cam2 = " << *raw_ptr2 << std::endl;
   
-  EXPECT_EQ(error, -999);
+  //EXPECT_EQ(error, -999);
   
 }
 
