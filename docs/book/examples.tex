@@ -1209,20 +1209,6 @@ for the first image as as follows:
     --gcp-std 1e-2 -o v1.tsai --gcp-file v1.gcp
 \end{verbatim}
 
-20181215_045354_ssc3d1_0008_basic_panchromatic_dn.tif
-20181215_045504_ssc3d1_0007_basic_panchromatic_dn.tif  
-20181215_045354_ssc3d1_0008_basic_panchromatic_dn_RPC2.rpb   
-20181215_045504_ssc3d1_0007_basic_panchromatic_dn_RPC2.rpb
-
-3199, 1349
-1599.5 674.5
-TL
-BL
-BR
-TR
-
-~/repo/StereoPipeline/install/bin/cam_gen 20181215_045354_ssc3d1_0008_basic_panchromatic_dn.tif  --reference-dem srtm_dem.tif  --focal-length 553846.153846  --optical-center 1599.5 674.5 --pixel-pitch 1  --refine-camera  --lon-lat-values "84.74984098845754 25.707136213587532  84.74856836212118 25.734667036405494  84.75962606291556 25.73482648895813  84.76093343026852 25.707311183805896"  -o 20181215_045354_ssc3d1_0008_basic_panchromatic_dn.tsai
-
 This tool works by reading the longitude and latitude of each image corner on the ground 
 from the meta file \texttt{frame\_index.csv}, and finding the position and orientation
 of the camera that best fits this data. The camera is written to \texttt{v1.tsai}. 
@@ -1589,24 +1575,22 @@ One can also try to experiment with the option \texttt{-\/-heights-from-dem}, an
 \section{Declassified satellite images}
 \label{kh4}
 
-ASP supports the declassified high-resolution CORONA KH-4B images. It
-implements the panoramic camera model from \cite{schenk2003rigorous},
-whose format is described in section \ref{panoramic}. 
-
-ASP also supports the lower-resolution KH-9 images which use the much
-simpler Pinhole camera model. We will illustrate processing KH-4B data
-on an example from Tibet, and we will point out along the way where
-processing of KH-9 differs.
+ASP supports the declassified high-resolution CORONA KH-4B images.
+These images can be processed using either as optical bar (panoramic) camera models or as 
+pinhole camera models with an RPC distortion model.  This tutorial describes how to use
+the optical bar method, though most of the steps are similar if you use pinhole models.
+You can find an example of creating a pinhole model using \texttt{cam\_gen} in \ref{skysat-example}.
+The optical bar camera model is based on \cite{schenk2003rigorous}
+and \cite{sohn2004mathematical}, whose format is described in section \ref{panoramic}. 
 
 \subsection{Fetching the data}
 
-The KH-4B and KH-9 images are available via the USGS Earth Explorer, at
+KH-4B images are available via the USGS Earth Explorer, at
 \begin{center}
  \url{https://earthexplorer.usgs.gov/}
 \end{center}
 
-(an account is required to download the data). We will work with the
-KH-4B image pair
+(an account is required to download the data). We will work with the KH-4B image pair
 
 \begin{verbatim}
  DS1105-2248DF076
@@ -1636,43 +1620,41 @@ using ASP's \texttt{image\_mosaic} tool (section \ref{imagemosaic}).
 
 For some reason, the KH-4B images are scanned in an unusual order. To
 mosaic them, the last image must be placed first, the next to last
-should be second, etc. Hence, this tool must be invoked with the \texttt{-\/-reverse}
-flag. In addition, as seen from the tables of metadata discussed
+should be second, etc. In addition, as seen from the tables of metadata discussed
 earlier, some images correspond to the \texttt{Aft} camera type. Those
-will need to be rotated 180 degrees after mosaicking, hence below we use
-the \texttt{-\/-rotate} flag for that one.
-
-It is also important to note that the images tend to be exceedingly large. For
-that reason, in a first pass, all operations are suggested to be done
-at reduced resolution. When opening these images in \texttt{stereo\_gui}
-it will create versions of the images at multiple resolutions. We recommend
-using the sub8 images to get familiar with processing. 
+should be rotated 180 degrees after mosaicking, hence below we use
+the \texttt{-\/-rotate} flag for that one.  The overlap width is manually 
+determined by looking at two of the sub images in \texttt{stereo\_gui}.
 
 With this in mind, image mosaicking for these two images will happen as follows:
 
 \begin{verbatim}
-  image_mosaic DS1105-2248DF076_[a-d]_sub8.tif -o \
-     DS1105-2248DF076_sub8.tif --reverse
-  image_mosaic DS1105-2248DA082_[a-d]_sub8.tif -o \
-     DS1105-2248DA082_sub8.tif --reverse --rotate
+  image_mosaic DS1105-2248DF076_d.tif  DS1105-2248DF076_c.tif              \
+    DS1105-2248DF076_b.tif  DS1105-2248DF076_a.tif -o DS1105-2248DF076.tif \
+    --overlap-width 7000 --blend-radius 2000
+  image_mosaic DS1105-2248DA082_c.tif  DS1105-2248DA082_b.tif              \
+    DS1105-2248DA082_a.tif -o DS1105-2248DA082.tif -o DS1105-2248DA082.tif \
+    --rotate --overlap-width 7000 --blend-radius 2000
 \end{verbatim}
 
-For KH-9, the \texttt{-\/-rotate} and \texttt{-\/-reverse} flags are not
-necessary.
+In order to process with the optical bar camera model these images need to be cropped
+to remove the most of empty area around the image.  This is a good opportunity to 
+simplify the file names going forwards.
+
+\begin{verbatim}
+  gdal_translate -co TILED=YES DS1105-2248DF076.tif for.tif -srcwin 6330 1087 109208 8216
+  gdal_translate -co TILED=YES DS1105-2248DA082.tif aft.tif -srcwin 4533 1527 110423 7804
+\end{verbatim}
 
 \subsection{Fetching a ground truth DEM}
 
 To create initial cameras to use with these images, and to later refine and validate
-the terrain model made from them, we will need some ground truth. 
+the terrain model made from them, we will a ground truth source. 
 Several good sets of DEMs exist, including SRTM, ASTER, and TanDEM-X. Here we will
 work with SRTM, which provides DEMs with a 30-meter post spacing. The bounds of the region 
 of interest are inferred from the tables with meta-information from above. 
 We will use \texttt{wget} to fetch
-
-\begin{verbatim}
-   https://e4ftl01.cr.usgs.gov/provisional/MEaSUREs/NASADEM/Eurasia/hgt_merge/n31e099.hgt.zip
-\end{verbatim}
-
+\url{https://e4ftl01.cr.usgs.gov/provisional/MEaSUREs/NASADEM/Eurasia/hgt_merge/n31e099.hgt.zip}
 and also tiles \texttt{n31e100} and \texttt{n31e101}. After unzipping, these can be
 merged and cropped as follows:
 
@@ -1683,35 +1665,45 @@ merged and cropped as follows:
 Determining these bounds and the visualization of all images and DEMs
 can be done in \texttt{stereo\_gui}.
 
-\subsection{Creating camera files and GCP}
-
-On Earth Exploer it is mentioned that the width 
-of the film is 70~mm for KH-4B. From \cite{sohn2004mathematical} the focal length
-is known as 609.602~mm. The images have 10602 pixel rows, this results
-in a pitch of
-\begin{equation*}
-  p = 70/10602 = 0.0066025278249386
-\end{equation*}
-
-Since in this example the image resolution will be reduced by a factor of 8,
-the pitch needs to be multiplied by this number, becoming 0.0528202225995088~mm.
-
-After mosaicking as earlier, the reduced resolution images will have
-15102 columns, which multiplied by the pixel pitch at this resolution gives
-the length of the film of 
-
-\begin{equation*}
- 0.0528202225995088 \times 15102 = 797.6910016977818976
-\end{equation*}
-
-Since we don't know the optical center of the image, we will assume it is at
-the geometric center of the image, hence we will use for it half of
-the film length and width, in millimeters. 
+\subsection{Creating camera files}
 
 ASP provides the tool named \texttt{cam\_gen} that, based on a camera's intrinsics
 and the positions of the image corners on Earth's surface will
-create initial camera models and GCP files, that can then be used later
-for refining and aligning the cameras.
+create initial camera models that will be the starting point for aliging the cameras.
+
+To create optical bar camera models, an example camera model file is needed.
+This needs to contain all of the expected values for the camera, though
+image\_size, image\_center, iC, and IR can be any value since they will be recalculated.
+The pitch is determined by the resolution of the scanner used, which is seven microns.
+The other values are determined by looking at available information about the satellite.
+For the first image (DS1105-2248DF076) the following values were used:
+
+\begin{verbatim}
+  VERSION_4
+  OPTICAL_BAR
+  image_size = 13656 1033
+  image_center = 6828 517
+  pitch = 7.0e-06
+  f = 0.61000001430511475
+  scan_angle = 1.22173
+  scan_rate = 3.3500000000000001
+  forward_tilt = 0.2618
+  iC = -1030862.1946224371 5468503.8842079658 3407902.5154047827
+  iR = -0.95700845635275322 -0.27527006183758934 0.091439638698163225 \
+       -0.26345593052063937 0.69302501329766897 -0.67104940475144637 \
+       0.1213498543172795 -0.66629027007731101 -0.73575232847574434
+  speed = 7700
+  mean_earth_radius = 6371000
+  mean_surface_elevation = 4000
+  use_motion_compensation = 1.0
+  scan_dir = right
+\end{verbatim}
+
+For the other image (aft camera) the forward tilt was set to -0.2618 and scan\_dir was set to 'left'.
+The correct values for scan\_dir (left or right) and use\_motion\_compensation (1.0 or -1.0) are not
+known for certain due to uncertainties about how the images were recorded and may even change
+between launches of the KH4 satellite.  You will need to experiment to see which combination of settings
+produces the best results for your particular data set.
 
 The metadata table from Earth Explorer has the following entries
 for DS1105-2248DF076:
@@ -1730,43 +1722,24 @@ These correspond to the upper-left, upper-right, lower-right, and lower-left
 pixels in the image. We will invoke \texttt{cam\_gen} as follows:
 
 \begin{verbatim}
-  cam_gen --pixel-pitch 0.0528202225995088 --focal-length 609.602            \
-   --optical-center 398.8455008488909488 35                                  \
-   --lon-lat-values '99.55 31.266 101.866 31.55 101.916 31.416 99.55 31.133' \
-   DS1105-2248DF076_sub8.tif --reference-dem dem.tif --refine-camera         \
-   -o DS1105-2248DF076_sub8.tsai --gcp-file DS1105-2248DF076_sub8.gcp        \
-   --gcp-std 1e-2                                                            \
-\end{verbatim}
+  cam_gen --sample-file sample_kh4b_for_optical_bar.tsai --camera-type opticalbar \
+    --lon-lat-values '99.55 31.266 101.866 31.55 101.916 31.416 99.55 31.133' \
+    for.tif --reference-dem dem.tif --refine-camera -o for.tsai
 
-and similarly for the other image:
-
-\begin{verbatim}
-  cam_gen --pixel-pitch 0.0528202225995088 --focal-length 609.602            \
-   --optical-center 398.8455008488909488 35                                  \
-   --lon-lat-values '99.566 31.266 101.95 31.55 101.933 31.416 99.616 31.15' \
-   DS1105-2248DA082_sub8.tif --reference-dem dem.tif --refine-camera         \
-   -o DS1105-2248DA082_sub8.tsai --gcp-file DS1105-2248DA082_sub8.gcp        \
-   --gcp-std 1e-2
+  cam_gen --sample-file sample_kh4b_aft_optical_bar.tsai --camera-type opticalbar
+    --lon-lat-values '99.566 31.266 101.95 31.55 101.933 31.416 99.616 31.15' \
+    aft.tif --reference-dem dem.tif --refine-camera -o aft.tsai
 \end{verbatim}
 
 It is very important to note that if, for example, the upper-left image
-corner is in fact, the NE corner from the metadata, as can be the case
-for KH-9, then that corner should be the first in the longitude-latitude
-list when invoking this tool.
-
-Also, here we multiplied the pitch by 8, because we are working at 1/8th
-of the raw image resolution. Hence, each time we work with an image at
-reduced resolution, the only parameter that changes is the pixel pitch.
-
-For KH-9, one would have to adjust the focal length, optical center, and
-pixel pitch.
+corner is in fact the NE corner from the metadata, then that corner 
+should be the first in the longitude-latitude list when invoking this tool.
 
 An important sanity check is to mapproject the images with these
 cameras, for example as:
 
 \begin{verbatim}
-  mapproject dem.tif DS1105-2248DF076_sub8.tif DS1105-2248DF076_sub8.tsai \
-    DS1105-2248DF076_sub8.map.tif
+  mapproject dem.tif for.tif for.tsai for.map.tif
 \end{verbatim}
 
 and then overlay the mapprojected image on top of the DEM in \texttt{stereo\_gui}.
@@ -1777,30 +1750,43 @@ will be corrected later.
 
 \subsection{Bundle adjustment and stereo}
 
-At the next step we run bundle adjustment:
+Before processing the input images it is a good idea to experiment with
+reduced resolution copies in order to accelerate testing.  You can easily
+generate reduced resolution copies of the images using \texttt{stereo\_gui}
+as shown below.  When making a copy of the camera model files, make sure to
+update image\_size, image\_center, and the pitch to account for the downsampling.
 
 \begin{verbatim}
-  bundle_adjust DS1105-2248DF076_sub8.tif DS1105-2248DA082_sub8.tif \
-    DS1105-2248DF076_sub8.tsai DS1105-2248DA082_sub8.tsai           \
-    DS1105-2248DF076_sub8.gcp DS1105-2248DA082_sub8.gcp             \
-    -o ba_sub8/run --max-iterations 100 --camera-weight 0           \
-    --disable-tri-ip-filter --disable-pinhole-gcp-init              \
-    --skip-rough-homography --inline-adjustments                    \
+  stereo_gui for.tif aft.tif --create-image-pyramids-only
+  ln -s for_sub8.tif  for_small.tif
+  ln -s aft_sub8.tif  aft_small.tif
+  cp for.tsai  for_small.tsai
+  cp aft.tsai  aft_small.tsai
+\end{verbatim}
+
+You can now run bundle adjustment on the downsampled images:
+
+\begin{verbatim}
+  bundle_adjust for_small.tif aft_small.tif                 \
+    for_small.tsai aft_small.tsai                           \
+    -o ba_small/run --max-iterations 100 --camera-weight 0  \
+    --disable-tri-ip-filter --disable-pinhole-gcp-init      \
+    --skip-rough-homography --inline-adjustments            \
     --ip-detect-method 1 -t nadirpinhole --datum WGS84
 \end{verbatim}
 
-followed by stereo and DEM creation:
+Followed by stereo and DEM creation:
+
 \begin{verbatim}
-  parallel_stereo DS1105-2248DF076_sub8.tif DS1105-2248DA082_sub8.tif \
-    ba_sub8/run-DS1105-2248DF076_sub8.tsai                            \
-    ba_sub8/run-DS1105-2248DA082_sub8.tsai                            \
-    stereo_sub8_mgm/run --alignment-method affineepipolar             \
-    -t nadirpinhole --skip-rough-homography --disable-tri-ip-filter   \
-    --skip-low-res-disparity-comp --ip-detect-method 1                \
+  parallel_stereo for_small.tif aft_small.tif                        \
+    ba_small/run-for_small.tsai ba_small/run-aft_small.tsai          \
+    stereo_small_mgm/run --alignment-method affineepipolar           \
+    -t nadirpinhole --skip-rough-homography --disable-tri-ip-filter  \
+    --skip-low-res-disparity-comp --ip-detect-method 1               \
     --stereo-algorithm 2 
 
   point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417 \
-    --tr 30 stereo_sub8/run-PC.tif
+    --tr 30 stereo_small_mgm/run-PC.tif
 \end{verbatim}
 
 This will create a very rough initial DEM. It is sufficient however
@@ -1811,12 +1797,13 @@ to align and compare with the SRTM DEM:
     --initial-transform-from-hillshading similarity                   \
     --save-transformed-source-points --num-iterations 0               \
     --max-num-source-points 1000 --max-num-reference-points 1000      \
-    dem.tif stereo_sub8/run-DEM.tif -o stereo_sub8/run
+    dem.tif stereo_small_mgm/run-DEM.tif -o stereo_small_mgm/run
+
   point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417 \
-    --tr 30 stereo_sub8/run-trans_source.tif
+    --tr 30 stereo_small_mgm/run-trans_source.tif
 \end{verbatim}
 
-which will hopefully create a DEM aligned to the underlying SRTM. There
+This will hopefully create a DEM aligned to the underlying SRTM. There
 is a chance that this may fail as the two DEMs to align could be too
 different. In that case, one can re-run \texttt{point2dem} to re-create
 the DEM to align with a coarser resolution, say with \texttt{-\/-tr
@@ -1827,11 +1814,12 @@ done as:
   pc_align --max-displacement -1 dem.tif dem.tif -o dem/dem             \
     --num-iterations 0 --max-num-source-points 1000                     \
     --max-num-reference-points 1000 --save-transformed-source-points
+
   point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417   \
     --tr 120 dem/dem-trans_source.tif
 \end{verbatim}
 
-and then try to align the newly obtained coarser SRTM DEM to the 
+You can then try to align the newly obtained coarser SRTM DEM to the 
 coarser DEM from stereo. 
 
 \subsection{Floating the intrinsics}
@@ -1840,8 +1828,6 @@ The obtained alignment transform can be used to align
 the cameras as well, and then one can experiment with 
 floating the intrinsics, as in section \ref{sec:skysat}.
 
-<<<<<<< 6e314c90ecd8a984de1a5fd4eae52b20651fb1c7
-=======
 
 \label{kh7}
 
@@ -1854,7 +1840,7 @@ For this example we find the following images in Earth Explorer declassified col
   DZB00401800038H026001
 \end{verbatim}
 
-Make note of the lat/long corners of the images listed in Earth Explorer, and note which
+Make note of the lat/lon corners of the images listed in Earth Explorer, and note which
 image corners correspond to which compass locations.
 
 After downloading and unpacking the images, we merge them with the \texttt{image\_mosaic} tool.
@@ -1863,38 +1849,49 @@ that we do not have memory problems when merging the images.  Note that the imag
 different for each image.
 
 \begin{verbatim}
-  image_mosaic DZB00401800038H025001_b.tif  DZB00401800038H025001_a.tif  -o DZB00401800038H025001.tif  --blend-radius 2000  --overlap-width 10000
-  image_mosaic DZB00401800038H026001_a.tif  DZB00401800038H026001_b.tif  -o DZB00401800038H026001.tif  --blend-radius 2000  --overlap-width 10000 
+  image_mosaic DZB00401800038H025001_b.tif  DZB00401800038H025001_a.tif      \
+    -o DZB00401800038H025001.tif  --blend-radius 2000  --overlap-width 10000 \
+  image_mosaic DZB00401800038H026001_a.tif  DZB00401800038H026001_b.tif      \
+    -o DZB00401800038H026001.tif  --blend-radius 2000  --overlap-width 10000 \
 \end{verbatim}
 
 For this image pair we will use the following SRTM images from Earth Explorer:
 
 \begin{verbatim}
   n22_e113_1arc_v3.tif
-  n22_e114_1arc_v3.tif TODO ??
   n23_e113_1arc_v3.tif
-  n23_e114_1arc_v3.tif TODO ??
-  dem_mosaic n*.tif -o srtm_dem.tif
+  dem_mosaic n22_e113_1arc_v3.tif n23_e113_1arc_v3.tif -o srtm_dem.tif
 \end{verbatim}
 
-Now create a sample camera model for the KH7 using known information about the satellite:
+Next we crop the input images so they only contain valid image area.
+
+\begin{verbatim}
+  gdal_translate -co TILED=YES DZB00401800038H025001.tif 5001.tif -srcwin 1873 2659 59342 30861
+  gdal_translate -co TILED=YES DZB00401800038H026001.tif 6001.tif -srcwin 517  2688 61732 30912
+\end{verbatim}
+
+Now we create a sample camera model for the KH7 using known information about the satellite.
+The size, center, position, and orientation here do not matter.
 
 \begin{verbatim}
   VERSION_4
   OPTICAL_BAR
-  image_size = 62546 36633
-  image_center = 31273 18315.5
+  image_size = 59342 30861
+  image_center = 29671 15431
   pitch = 7.0e-06
   f = 1.96
   scan_angle = 1.29154
   scan_rate = 2.0
   forward_tilt = 0.0
   iC = -1053926.8825477704 5528294.6575468015 3343882.1925249361
-  iR = -0.96592328992496967 -0.16255393156297787 0.20141603042941184 -0.23867502833024612 0.25834753840712932 -0.93610404349651921 0.10013205696518604 -0.95227767417513032 -0.28834146846321851
+  iR = -0.96592328992496967 -0.16255393156297787 0.20141603042941184 \
+       -0.23867502833024612 0.25834753840712932 -0.93610404349651921 \
+       0.10013205696518604 -0.95227767417513032 -0.28834146846321851
   speed = 8000
   mean_earth_radius = 6371000
   mean_surface_elevation = 0000
   use_motion_compensation = 1
+  scan_dir = right
 \end{verbatim}
 
 Using the image corner coordinates which we recorded earlier, use the \texttt{cam\_gen}
@@ -1903,67 +1900,87 @@ tool to generate camera models for each image, being careful of the order of coo
 \begin{verbatim}
   cam_gen --sample-file sample_gambit_optical_bar.tsai --camera-type opticalbar     \
     --lon-lat-values '113.25 22.882  113.315 23.315  113.6 23.282  113.532 22.85'   \
-    DZB00401800038H025001.tif --reference-dem srtm_dem.tif --refine-camera          \
-    -o DZB00401800038H025001.tsai
+    5001.tif --reference-dem srtm_dem.tif --refine-camera -o 5001.tsai
   cam_gen --sample-file sample_gambit_optical_bar.tsai --camera-type opticalbar     \
     --lon-lat-values '113.2 22.95  113.265 23.382  113.565 23.35  113.482 22.915'   \
-    DZB00401800038H026001.tif --reference-dem srtm_dem.tif --refine-camera          \
-    -o DZB00401800038H026001.tsai
+    6001.tif --reference-dem srtm_dem.tif --refine-camera  -o 6001.tsai
 \end{verbatim}
+
 
 A quick way to evaluate the camera models is to use the \texttt{camera\_footprint} tool to
-create KML footprint files, then look at them in Google Earth.
+create KML footprint files, then look at them in Google Earth.  For a more detailed view,
+you can map project them and overlay them on the reference DEM in \texttt{stereo\_gui}.
 
 \begin{verbatim}
-  camera_footprint   DZB00401800038H025001.tif  DZB00401800038H025001.tsai  --datum  WGS_1984 \
-  --quick  --output-kml  25001_footprint.kml -t opticalbar --dem-file srtm_dem.tif
-  camera_footprint   DZB00401800038H026001.tif  DZB00401800038H026001.tsai  --datum  WGS_1984 \
-  --quick  --output-kml  26001_footprint.kml -t opticalbar --dem-file srtm_dem.tif
+  camera_footprint 5001.tif  5001.tsai  --datum  WGS_1984 --quick \
+    --output-kml  5001_footprint.kml -t opticalbar --dem-file srtm_dem.tif
+  camera_footprint 6001.tif  6001.tsai  --datum  WGS_1984 --quick \
+    --output-kml  6001_footprint.kml -t opticalbar --dem-file srtm_dem.tif
 \end{verbatim}
 
-TODO: Screenshot?
+The output files from \texttt{cam\_gen} will be roughly accurate but they may still be bad
+enough that \texttt{bundle\_adjust} has trouble finding a solution.  One way to improve your
+initial models is to use ground control points.  For this test case I was able to match
+features along the rivers to the same rivers in a hillshaded version of the reference DEM.
+I used three sets of GCPs, one for each image individually and a joint set for both images.
+I then ran \texttt{bundle\_adjust} individually for each camera using the GCPs.
 
-Before processing the full resolution images it is a good idea to experiment with downsampled
-copies.  You can generate these using \texttt{stereo\_gui}.  Also make copies of the camera model
+\begin{verbatim}
+  bundle_adjust 5001.tif 5001.tsai gcp_5001.gcp -t opticalbar --inline-adjustments \
+    --num-passes 1 --camera-weight 0 --ip-detect-method 1 -o bundle_5001/out       \
+    --max-iterations 30 --fix-gcp-xyz
+
+  bundle_adjust 6001.tif 6001.tsai gcp_6001.gcp -t opticalbar --inline-adjustments \
+    --num-passes 1 --camera-weight 0 --ip-detect-method 1 -o bundle_6001/out       \
+    --max-iterations 30 --fix-gcp-xyz
+\end{verbatim}
+
+At this point it is a good idea to experiment with downsampled copies of the input
+images before running processing with the full size images.  You can generate these 
+using \texttt{stereo\_gui}.  Also make copies of the camera model
 files and scale the image size, image center, and pitch to match the downsample amount.
 
 \begin{verbatim}
-  stereo_gui DZB00401800038H025001.tif DZB00401800038H026001.tif --create-image-pyramids-only
-  ln -s DZB00401800038H025001_sub16.tif  left16.tif
-  ln -s DZB00401800038H026001_sub16.tif  right16.tif
-  cp DZB00401800038H025001.tsai  left16.tsai
-  cp DZB00401800038H026001.tsai  right16.tsai
+  stereo_gui 5001.tif 6001.tif --create-image-pyramids-only
+  ln -s 5001_sub16.tif  5001_small.tif
+  ln -s 6001_sub16.tif  6001_small.tif
+  cp 5001.tsai  5001_small.tsai
+  cp 6001.tsai  6001_small.tsai
 \end{verbatim}
 
-Now you can try mapprojecting one of the subsampled images to make sure it looks ok:
+Now we can run \texttt{bundle\_adjust} and \texttt{stereo}.  If you are using the
+GCPs from earlier, the pixel values will need to be scaled to match the downsampling
+applied to the input images.
 
 \begin{verbatim}
-  mapproject srtm_dem.tif  left16.tif left16.tsai left16_proj.tif -t opticalbar
+  bundle_adjust 5001_small.tif 6001_small.tif bundle_5001/out-5001_small.tsai \
+    bundle_6001/out-6001_small.tsai gcp_small.gcp -t opticalbar               \
+    -o bundle_small_new/out --force-reuse-match-files --max-iterations 30     \
+    --camera-weight 0 --disable-tri-ip-filter --disable-pinhole-gcp-init      \
+    --skip-rough-homography --inline-adjustments --ip-detect-method 1         \
+    --datum WGS84 --num-passes 2 --solve-intrinsics                           \
+    --intrinsics-to-float "optical_center other_intrinsics"
+
+  stereo --alignment-method homography --skip-rough-homography              \
+    --disable-tri-ip-filter --ip-detect-method 1 --session-type opticalbar  \
+     5001_small.tif 6001_small.tif bundle_small_new/out-out-5001_small.tsai \
+    bundle_small_new/out-out-6001_small.tsai st_small_new/out
 \end{verbatim}
 
-Before running stereo we need to bundle adjust the downsampled images:
-
-\begin{verbatim}
-  bundle_adjust  left16.tif  right16.tif left16.tsai right16.tsai -t opticalbar  \
-    --inline-adjustments  --solve-intrinsics  --num-passes 1 --camera-weight 0   \
-    --ip-detect-method 1  -o bundle/out --max-iterations 30                      \
-    --intrinsics-to-float 'optical_center other_intrinsics'
-\end{verbatim}
-
-Now run stereo using the outputs from \texttt{bundle\_adjust}.
-
-\begin{verbatim}
-  stereo left16.tif right16.tif bundle/out-left16.tsai bundle/out-right16.tsai -t opticalbar st/out
-\end{verbatim}
-
-
-
-
-
+You can try modifying the values in your sample camera file to see how it changes
+the results.  The "other intrinsics" values for this camera in \texttt{bundle\_adjust}
+are scan\_rate and speed.  The KH7 satellite only contains a single camera so the
+camera parameters should be the same, at least if they are from the same flight.
+Once you are happy with the results on the small scale images you can repeat the
+final \texttt{bundle\_adjust} and \texttt{stereo} steps on the full size input images.
 
 \label{kh9}
 
-The KH9 satellite contained two panoramic cameras, one pitched forwards and one aft.
+The KH9 satellite contained one frame camera and two panoramic cameras,
+one pitched forwards and one aft.  The frame camera is a normal pinhole model so
+this example describes how to set up the panoramic cameras for processing.
+Processing this data is similar to processing KH4B data except that the 
+images are much larger.
 
 For this example we use the following images from the Earth Explorer declassified collection 3:
 \begin{verbatim}
@@ -1971,95 +1988,82 @@ For this example we use the following images from the Earth Explorer declassifie
   D3C1216-200548F040
 \end{verbatim}
 
-Make note of the lat/long corners of the images listed in Earth Explorer, and note which
+Make note of the lat/lon corners of the images listed in Earth Explorer, and note which
 image corners correspond to which compass locations.
 
 After downloading and unpacking the images, we merge them with the \texttt{image\_mosaic} tool.
 
-
-image_mosaic D3C1216-200548A041_a.tif  D3C1216-200548A041_b.tif  D3C1216-200548A041_c.tif D3C1216-200548A041_d.tif  D3C1216-200548A041_e.tif  D3C1216-200548A041_f.tif D3C1216-200548A041_g.tif  D3C1216-200548A041_h.tif  D3C1216-200548A041_i.tif D3C1216-200548A041_j.tif  D3C1216-200548A041_k.tif --overlap-width 1000 -o D3C1216-200548A041.tif  --rotate
-
-
 \begin{verbatim}
-  image_mosaic D3C1216-200548F040_a.tif  D3C1216-200548F040_b.tif  D3C1216-200548F040_c.tif           \
-    D3C1216-200548F040_d.tif  D3C1216-200548F040_e.tif  D3C1216-200548F040_f.tif                      \
-    D3C1216-200548F040_g.tif  D3C1216-200548F040_h.tif  D3C1216-200548F040_i.tif                      \
-    D3C1216-200548F040_j.tif  D3C1216-200548F040_k.tif  D3C1216-200548F040_l.tif                      \
+  image_mosaic D3C1216-200548F040_a.tif  D3C1216-200548F040_b.tif  D3C1216-200548F040_c.tif \
+    D3C1216-200548F040_d.tif  D3C1216-200548F040_e.tif  D3C1216-200548F040_f.tif            \
+    D3C1216-200548F040_g.tif  D3C1216-200548F040_h.tif  D3C1216-200548F040_i.tif            \
+    D3C1216-200548F040_j.tif  D3C1216-200548F040_k.tif  D3C1216-200548F040_l.tif            \
     --overlap-width 3000 -o D3C1216-200548F040.tif
-  image_mosaic D3C1216-200548A041_a.tif  D3C1216-200548A041_b.tif  D3C1216-200548A041_c.tif           \
-    D3C1216-200548A041_d.tif  D3C1216-200548A041_e.tif  D3C1216-200548A041_f.tif                      \
-    D3C1216-200548A041_g.tif  D3C1216-200548A041_h.tif  D3C1216-200548A041_i.tif                      \
-    D3C1216-200548A041_j.tif  D3C1216-200548A041_k.tif --overlap-width 1000 -o D3C1216-200548A041.tif  --rotate
+  image_mosaic D3C1216-200548A041_a.tif  D3C1216-200548A041_b.tif  D3C1216-200548A041_c.tif \
+    D3C1216-200548A041_d.tif  D3C1216-200548A041_e.tif  D3C1216-200548A041_f.tif            \
+    D3C1216-200548A041_g.tif  D3C1216-200548A041_h.tif  D3C1216-200548A041_i.tif            \
+    D3C1216-200548A041_j.tif  D3C1216-200548A041_k.tif --overlap-width 1000                 \
+    -o D3C1216-200548A041.tif  --rotate
 \end{verbatim}
+
+These images also need to be cropped to remove most of the area around the images:
 
 \begin{verbatim}
-  cam_gen --sample-file sample_kh9_for_optical_bar.tsai --camera-type opticalbar  --lon-lat-values '-151.954 61.999  -145.237 61.186  -145.298 60.944  -152.149 61.771'  D3C1216-200548F040.tif --reference-dem aster_dem.tif --refine-camera  -o D3C1216-200548F040.tsai
-  cam_gen --sample-file sample_kh9_aft_optical_bar.tsai --camera-type opticalbar --lon-lat-values '-152.124 61.913  -145.211 61.156  -145.43 60.938  -152.117 61.667'  D3C1216-200548A041_rotate.tif --reference-dem aster_dem.tif --refine-camera  -o D3C1216-200548A041_rotate.tsai
+  gdal_translate -co TILED=YES D3C1216-200548F040.tif for.tif -srcwin 2397 1194 343571 22771
+  gdal_translate -co TILED=YES D3C1216-200548A041.tif aft.tif -srcwin 1652 1356 344562 22696
 \end{verbatim}
+
+For this example there are ASTER DEMs which can be used for reference.  They can be downloaded from
+\url{https://gdex.cr.usgs.gov/gdex/} as single geotiff files.  To cover the entire area of this
+image pair you may need to download two files separately and merge them using \texttt{dem\_mosaic}.
+
+Camera files are generated using \texttt{cam\_gen} from a sample camera file as in the previous examples.
+As with KH4B, this satellite contains a forward pointing and aft pointing camera that need to have
+different values for "forward\_tilt" in the sample camera files.  The suggested values are -0.174533
+for the aft camera and 0.174533 for the forward camera.
 
 \begin{verbatim}
-  camera_footprint   D3C1216-200548F040.tif  D3C1216-200548F040.tsai  --datum  WGS_1984  --quick  --output-kml  for_footprint.kml -t opticalbar --dem-file aster_dem.tif
-  camera_footprint   D3C1216-200548A041_rotate.tif  D3C1216-200548A041_rotate.tsai  --datum  WGS_1984  --quick  --output-kml  aft_footprint.kml -t opticalbar --dem-file aster_dem.tif
+  VERSION_4
+  OPTICAL_BAR
+  image_size = 62546 36633
+  image_center = 31273 18315.5
+  pitch = 7.0e-06
+  f = 1.5
+  scan_angle = 2.0944
+  scan_rate = 2.0
+  forward_tilt = 0.174533
+  iC = -1053926.8825477704 5528294.6575468015 3343882.1925249361
+  iR = -0.96592328992496967 -0.16255393156297787 0.20141603042941184 \
+       -0.23867502833024612 0.25834753840712932 -0.93610404349651921 \
+       0.10013205696518604 -0.95227767417513032 -0.28834146846321851
+  speed = 8000
+  mean_earth_radius = 6371000
+  mean_surface_elevation = 0000
+  use_motion_compensation = 1
+  scan_dir = right
 \end{verbatim}
 
-
-D3C1216-200548A041 (aft)
-NW Corner Lat dec	61.913
-NW Corner Long dec	-152.124
-NE Corner Lat dec	61.156
-NE Corner Long dec	-145.211
-SE Corner Lat dec	60.938
-SE Corner Long dec	-145.43
-SW Corner Lat dec	61.667
-SW Corner Long dec	-152.117
-
-
-D3C1216-200548F040 (for)
-NW Corner Lat dec	61.999
-NW Corner Long dec	-151.954
-NE Corner Lat dec	61.186
-NE Corner Long dec	-145.237
-SE Corner Lat dec	60.944
-SE Corner Long dec	-145.298
-SW Corner Lat dec	61.771
-SW Corner Long dec	-152.149
-
-
---> Download ASTER segments from https://gdex.cr.usgs.gov/gdex/
-- They will automatically be merged together in the selected ROI.
-
-Make low resolution copies
 
 \begin{verbatim}
-  stereo_gui D3C1216-200548F040.tif D3C1216-200548A041.tif --create-image-pyramids-only
-  ln -s D3C1216-200548F040_sub32.tif  for32.tif
-  ln -s D3C1216-200548A041_sub32.tif  aft32.tif
-  cp D3C1216-200548F040.tsai  for32.tsai
-  cp D3C1216-200548A041.tsai  aft32.tsai
+  cam_gen --sample-file sample_kh9_for_optical_bar.tsai --camera-type opticalbar          \
+    --lon-lat-values '-151.954 61.999  -145.237 61.186  -145.298 60.944  -152.149 61.771' \
+    for.tif --reference-dem aster_dem.tif --refine-camera  -o for.tsai
+  cam_gen --sample-file sample_kh9_aft_optical_bar.tsai --camera-type opticalbar         \
+    --lon-lat-values '-152.124 61.913  -145.211 61.156  -145.43 60.938  -152.117 61.667' \
+    aft.tif --reference-dem aster_dem.tif --refine-camera  -o aft.tsai
 \end{verbatim}
 
-Check one of the images
+As with KH7, it is best to first experiment with low resolution copies of the images.
+Don't forget to scale the image size, center location, and pixel size in the new camera files!
 
 \begin{verbatim}
-  mapproject aster_dem.tif  aft32.tif aft32.tsai aft32_proj.tif -t opticalbar
+  stereo_gui for.tif aft.tif --create-image-pyramids-only
+  ln -s for_sub32.tif  for_small.tif
+  ln -s aft_sub32.tif  aft_small.tif
+  cp for.tsai  for_small.tsai
+  cp aft.tsai  aft_small.tsai
 \end{verbatim}
 
-Before running stereo we need to bundle adjust the downsampled images:
-
-\begin{verbatim}
-  bundle_adjust  for32.tif  aft32.tif for32.tsai aft32.tsai -t opticalbar  \
-    --inline-adjustments  --solve-intrinsics  --num-passes 2 --camera-weight 0   \
-    --ip-detect-method 1  -o bundle/out --max-iterations 30                      \
-    --intrinsics-to-float 'optical_center other_intrinsics'
-\end{verbatim}
-
-
-bundle_adjust  for32.tif  aft32.tif for32.tsai aft32.tsai -t opticalbar  --inline-adjustments  --solve-intrinsics  --num-passes 2 --camera-weight 0   --ip-detect-method 1  -o bundle/out --max-iterations 30 --intrinsics-to-float 'optical_center other_intrinsics'
-
-Now run stereo using the outputs from \texttt{bundle\_adjust}.
-
-\begin{verbatim}
-  stereo for32.tif aft32.tif bundle/out-for32.tsai bundle/out-aft32.tsai -t opticalbar st/out
-\end{verbatim}
-
->>>>>>> Shutdown work in progress
+From this point KH9 data is processed in a very similar manner to the KH4B and KH7 examples.
+Once again, you may need to vary some of the camera parameters to find the settings that
+produce the best results.
