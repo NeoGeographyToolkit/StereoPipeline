@@ -1572,7 +1572,7 @@ by negating the above numbers.
 
 One can also try to experiment with the option \texttt{-\/-heights-from-dem}, and also with \texttt{-\/-robust-threshold} if it appears that the large errors are not minimized enough.
 
-\section{Declassified satellite images}
+\section{Declassified satellite images: KH-4B}
 \label{kh4}
 
 ASP supports the declassified high-resolution CORONA KH-4B images.
@@ -1581,7 +1581,7 @@ pinhole camera models with an RPC distortion model.  This tutorial describes how
 the optical bar method, though most of the steps are similar if you use pinhole models.
 You can find an example of creating a pinhole model using \texttt{cam\_gen} in \ref{skysat-example}.
 The optical bar camera model is based on \cite{schenk2003rigorous}
-and \cite{sohn2004mathematical}, whose format is described in section \ref{panoramic}. 
+and \cite{sohn2004mathematical}, whose format is described in section \ref{panoramic}.
 
 \subsection{Fetching the data}
 
@@ -1638,8 +1638,9 @@ With this in mind, image mosaicking for these two images will happen as follows:
 \end{verbatim}
 
 In order to process with the optical bar camera model these images need to be cropped
-to remove the most of empty area around the image.  This is a good opportunity to 
-simplify the file names going forwards.
+to remove the most of empty area around the image.  The boundaries of the valid image 
+area can be manually found by clicking on the corners in \texttt{stereo\_gui}.
+This is also a good opportunity to simplify the file names going forwards.
 
 \begin{verbatim}
   gdal_translate -co TILED=YES DS1105-2248DF076.tif for.tif -srcwin 6330 1087 109208 8216
@@ -1649,12 +1650,14 @@ simplify the file names going forwards.
 \subsection{Fetching a ground truth DEM}
 
 To create initial cameras to use with these images, and to later refine and validate
-the terrain model made from them, we will a ground truth source. 
+the terrain model made from them, we will need a ground truth source. 
 Several good sets of DEMs exist, including SRTM, ASTER, and TanDEM-X. Here we will
 work with SRTM, which provides DEMs with a 30-meter post spacing. The bounds of the region 
 of interest are inferred from the tables with meta-information from above. 
 We will use \texttt{wget} to fetch
+\begin{center}
 \url{https://e4ftl01.cr.usgs.gov/provisional/MEaSUREs/NASADEM/Eurasia/hgt_merge/n31e099.hgt.zip}
+\end{center}
 and also tiles \texttt{n31e100} and \texttt{n31e101}. After unzipping, these can be
 merged and cropped as follows:
 
@@ -1699,10 +1702,11 @@ For the first image (DS1105-2248DF076) the following values were used:
   scan_dir = right
 \end{verbatim}
 
+For a description of each value, see \ref{panoramic}.
 For the other image (aft camera) the forward tilt was set to -0.2618 and scan\_dir was set to 'left'.
 The correct values for scan\_dir (left or right) and use\_motion\_compensation (1.0 or -1.0) are not
 known for certain due to uncertainties about how the images were recorded and may even change
-between launches of the KH4 satellite.  You will need to experiment to see which combination of settings
+between launches of the KH-4 satellite.  You will need to experiment to see which combination of settings
 produces the best results for your particular data set.
 
 The metadata table from Earth Explorer has the following entries
@@ -1754,7 +1758,8 @@ Before processing the input images it is a good idea to experiment with
 reduced resolution copies in order to accelerate testing.  You can easily
 generate reduced resolution copies of the images using \texttt{stereo\_gui}
 as shown below.  When making a copy of the camera model files, make sure to
-update image\_size, image\_center, and the pitch to account for the downsampling.
+update image\_size, image\_center (divide by N), and the pitch (multiply by N)
+to account for the downsample amount.
 
 \begin{verbatim}
   stereo_gui for.tif aft.tif --create-image-pyramids-only
@@ -1828,11 +1833,13 @@ The obtained alignment transform can be used to align
 the cameras as well, and then one can experiment with 
 floating the intrinsics, as in section \ref{sec:skysat}.
 
-
+\section{Declassified satellite images: KH-7}
 \label{kh7}
 
-KH7 was an effective observation satellite that followed the Corona program.
-It contained an index (frame) camera and a single panoramic camera.
+KH-7 was an effective observation satellite that followed the Corona program.
+It contained an index (frame) camera and a single panoramic camera.  Processing
+this data is similar to KH-4B data except that there are not different forward and
+aft cameras to worry about.
 
 For this example we find the following images in Earth Explorer declassified collection 2:
 \begin{verbatim}
@@ -1870,7 +1877,7 @@ Next we crop the input images so they only contain valid image area.
   gdal_translate -co TILED=YES DZB00401800038H026001.tif 6001.tif -srcwin 517  2688 61732 30912
 \end{verbatim}
 
-Now we create a sample camera model for the KH7 using known information about the satellite.
+Now we create a sample camera model for the KH-7 using known information about the satellite.
 The size, center, position, and orientation here do not matter.
 
 \begin{verbatim}
@@ -1969,17 +1976,18 @@ applied to the input images.
 
 You can try modifying the values in your sample camera file to see how it changes
 the results.  The "other intrinsics" values for this camera in \texttt{bundle\_adjust}
-are scan\_rate and speed.  The KH7 satellite only contains a single camera so the
+are scan\_rate and speed.  The KH-7 satellite only contains a single camera so the
 camera parameters should be the same, at least if they are from the same flight.
 Once you are happy with the results on the small scale images you can repeat the
 final \texttt{bundle\_adjust} and \texttt{stereo} steps on the full size input images.
 
+\section{Declassified satellite images: KH-9}
 \label{kh9}
 
-The KH9 satellite contained one frame camera and two panoramic cameras,
+The KH-9 satellite contained one frame camera and two panoramic cameras,
 one pitched forwards and one aft.  The frame camera is a normal pinhole model so
 this example describes how to set up the panoramic cameras for processing.
-Processing this data is similar to processing KH4B data except that the 
+Processing this data is similar to processing KH-4B data except that the 
 images are much larger.
 
 For this example we use the following images from the Earth Explorer declassified collection 3:
@@ -2018,7 +2026,7 @@ For this example there are ASTER DEMs which can be used for reference.  They can
 image pair you may need to download two files separately and merge them using \texttt{dem\_mosaic}.
 
 Camera files are generated using \texttt{cam\_gen} from a sample camera file as in the previous examples.
-As with KH4B, this satellite contains a forward pointing and aft pointing camera that need to have
+As with KH-4B, this satellite contains a forward pointing and aft pointing camera that need to have
 different values for "forward\_tilt" in the sample camera files.  The suggested values are -0.174533
 for the aft camera and 0.174533 for the forward camera.
 
@@ -2053,7 +2061,7 @@ for the aft camera and 0.174533 for the forward camera.
     aft.tif --reference-dem aster_dem.tif --refine-camera  -o aft.tsai
 \end{verbatim}
 
-As with KH7, it is best to first experiment with low resolution copies of the images.
+As with KH-7, it is best to first experiment with low resolution copies of the images.
 Don't forget to scale the image size, center location, and pixel size in the new camera files!
 
 \begin{verbatim}
@@ -2064,6 +2072,6 @@ Don't forget to scale the image size, center location, and pixel size in the new
   cp aft.tsai  aft_small.tsai
 \end{verbatim}
 
-From this point KH9 data is processed in a very similar manner to the KH4B and KH7 examples.
+From this point KH-9 data is processed in a very similar manner to the KH-4B and KH-7 examples.
 Once again, you may need to vary some of the camera parameters to find the settings that
 produce the best results.

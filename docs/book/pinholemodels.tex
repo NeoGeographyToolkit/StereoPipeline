@@ -266,16 +266,19 @@ iR = 0.0825447 0.996303 -0.0238243 -0.996008 0.0832884 0.0321213 0.0339869 0.021
 speed = 7800 
 mean_earth_radius = 6371000 
 mean_surface_elevation = 0
+use_motion_compensation = 1.0
+scan_dir = right
 \end{verbatim}
 
-Here, the image size is given in pixels, with the width followed by the
-height. The image center is the difference between the optical center
-and the geometric center (midpoint) of the image, in pixels. The
-pixel pitch and focal length \texttt{f} are in meters. The
+Here, the image size and center are given in pixels, with the width followed by the
+height. The pixel pitch and focal length \texttt{f} are in meters. The
 scan angle is in radians (in this example it is 70$^\circ$), the scan
 rate is in radians per second, the forward tilt is in radians,
-the speed is in meters per second, and
-the Earth radius and mean surface elevation are in meters. The camera
-center \texttt{iC} is in meters, and the rotation matrix \texttt{iR} 
-stores the absolute pose.
-
+the speed is in meters per second, and the Earth radius and mean
+surface elevation are in meters. The initial camera center \texttt{iC} is 
+in meters, and the rotation matrix \texttt{iR} stores the absolute pose.
+\texttt{use\_motion\_compensation} should be set to 1.0 or -1.0 and 
+\texttt{scan\_dir} must be set to 'left' or 'right'.  These two variables
+control how the sensor model accounts accounts for the motion of the satellite
+during the image scan.  Without the benefit of detailed historical documents it may
+require experimentation to find the correct value for those two settings for each camera.
