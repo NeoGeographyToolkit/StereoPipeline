@@ -1576,12 +1576,12 @@ One can also try to experiment with the option \texttt{-\/-heights-from-dem}, an
 \label{kh4}
 
 ASP supports the declassified high-resolution CORONA KH-4B images.
-These images can be processed using either as optical bar (panoramic) camera models or as 
-pinhole camera models with an RPC distortion model.  This tutorial describes how to use
-the optical bar method, though most of the steps are similar if you use pinhole models.
-You can find an example of creating a pinhole model using \texttt{cam\_gen} in \ref{skysat-example}.
-The optical bar camera model is based on \cite{schenk2003rigorous}
-and \cite{sohn2004mathematical}, whose format is described in section \ref{panoramic}.
+These images can be processed using either optical bar (panoramic)
+camera models or as pinhole camera models with RPC distortion.
+Most of the steps are similar to the example in section \ref{skysat-example}.
+The optical bar camera model is based on \cite{schenk2003rigorous} and
+\cite{sohn2004mathematical}, whose format is described in section
+\ref{panoramic}.
 
 \subsection{Fetching the data}
 
@@ -1672,7 +1672,7 @@ can be done in \texttt{stereo\_gui}.
 
 ASP provides the tool named \texttt{cam\_gen} that, based on a camera's intrinsics
 and the positions of the image corners on Earth's surface will
-create initial camera models that will be the starting point for aliging the cameras.
+create initial camera models that will be the starting point for aligning the cameras.
 
 To create optical bar camera models, an example camera model file is needed.
 This needs to contain all of the expected values for the camera, though
@@ -1832,6 +1832,75 @@ coarser DEM from stereo.
 The obtained alignment transform can be used to align 
 the cameras as well, and then one can experiment with 
 floating the intrinsics, as in section \ref{sec:skysat}.
+
+\subsection{Modeling the camera models as pinhole cameras with RPC distortion}
+
+Once sufficiently good optical bar cameras are produced and the DEMs
+from them are reasonably similar to some reference terrain ground truth,
+such as SRTM, one may attempt to improve the accuracy further by
+modeling these cameras as simple pinhole models with the nonlinear
+effects represented as a distortion model given by Rational
+Polynomial Coefficients (RPC) (see section \ref{pinholemodels}). The
+best fit RPC representation can be found for both optical bar models,
+and the RPC can be further optimized using the reference DEM as
+a constraint.
+
+To convert from optical bar models to pinhole models with RPC distortion
+one does
+
+\begin{verbatim}
+   convert_pinhole_model for_small.tif for_small.tsai -o for_small_rpc.tsai \
+     --output-type RPC --sample-spacing 50
+\end{verbatim}
+
+and the same for the other camera. The obtained cameras should be
+bundle-adjusted as before. One can create a DEM and compare
+it with the one obtained with the earlier cameras. Likely 
+some shift in the position of the DEM will be present, but hopefully 
+not too large. The \texttt{pc\_align} tool can be used 
+to make this DEM aligned to the reference DEM. 
+
+Next, one follows the same process as outlined in sections
+\ref{sec:skysat} and \ref{floatingintrinsics} to refine the RPC
+coefficients. We will float the RPC coefficients of the left and
+right images independently, as they are unrelated. Hence the command
+we will use is:
+
+\begin{verbatim}
+  bundle_adjust for_small.tif aft_small.tif for_small_rpc.tsai aft_small_rpc.tsai \
+    -o ba_rpc/run --max-iterations 200 --camera-weight 0                          \
+    --disable-tri-ip-filter --disable-pinhole-gcp-init                            \
+    --skip-rough-homography --inline-adjustments                                  \
+    --ip-detect-method 1 -t nadirpinhole --datum WGS84                            \
+    --force-reuse-match-files --reference-terrain-weight 1000                     \
+    --parameter-tolerance 1e-12 --max-disp-error 100                              \
+    --disparity-list stereo/run-unaligned-D.tif                                   \
+    --max-num-reference-points 40000 --reference-terrain srtm.tif                 \
+    --solve-intrinsics --intrinsics-to-share 'focal_length optical_center'        \
+    --intrinsics-to-float other_intrinsics --robust-threshold 10                  \
+    --initial-transform pc_align/run-transform.txt
+\end{verbatim}
+
+Here it is suggested to use a match file with dense interest points.
+The initial transform is the transform written by \texttt{pc\_align}
+applied to the reference terrain and the DEM obtained with the camera
+models \texttt{for\_small\_rpc.tsai} and \texttt{aft\_small\_rpc.tsai}
+(with the reference terrain being the first of the two clouds passed to
+the alignment program). The unaligned disparity in the disparity list
+should be from the stereo run with these initial guess camera models
+(hence stereo should be used with the \texttt{--\/-unalign-disparity}
+option). It is suggested that the optical center and focal lengths of
+the two cameras be kept fixed, as RPC distortion should be able model
+any changes in those quantities as well.
+
+One can also experiment with the option \texttt{-\/-heights-from-dem}
+instead of \texttt{-\/-reference-terrain}. The former seems to be able
+to handle better large height differences between the 
+DEM with the initial cameras and the reference terrain, while the 
+former is better at refining the solution. 
+
+Then one can create a new DEM from the optimized camera models and see
+if it is an improvement.
 
 \section{Declassified satellite images: KH-7}
 \label{kh7}
@@ -2022,7 +2091,7 @@ These images also need to be cropped to remove most of the area around the image
 \end{verbatim}
 
 For this example there are ASTER DEMs which can be used for reference.  They can be downloaded from
-\url{https://gdex.cr.usgs.gov/gdex/} as single geotiff files.  To cover the entire area of this
+\url{https://gdex.cr.usgs.gov/gdex/} as single GeoTIFF files.  To cover the entire area of this
 image pair you may need to download two files separately and merge them using \texttt{dem\_mosaic}.
 
 Camera files are generated using \texttt{cam\_gen} from a sample camera file as in the previous examples.

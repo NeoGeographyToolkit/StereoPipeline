@@ -6,9 +6,11 @@
      to a reference DEM, while optionally refining the intrinsics. 
      This approach may be helpful for other images obtained with frame
      cameras and uncertain positioning information.
-   * Added support for CORONA KH-4B declassifed images and its
-     panoramic model, with an example in the documentation.
- 
+   * Added support for CORONA KH-4B, KH-7, and KH-9 declassified images
+     and their panoramic (optical bar) camera models, as well as using
+     and optimizing camera models with RPC distortion. An example
+     is in the documentation. 
+   
  - New tools
    * Added the cam_gen tool to create a correctly oriented pinhole
    * camera model given camera intrinsics, lon-lat coordinates of the
@@ -65,8 +67,8 @@
      creation, the DEMs are well-aligned to the ground truth.
    * Added the flag --reference-terrain-weight which, when increased,
      helps align better camera images to a given reference terrain. 
-   * Added the option --heights-from-dem. It is very helfpul in 
-     determinging an unknown focal length and distortion parameters
+   * Added the option --heights-from-dem. It is very helpful in 
+     determining an unknown focal length and distortion parameters
      for pinhole cameras.
      It can be used together with ---heights-from-dem-weight.
    * Bug fix in outlier filtering for n images.
@@ -77,13 +79,13 @@
      error in the variables being optimized is less than this.
    * Documented the ability to create a roughly positioned 
      pinhole camera model from an image if its intrinsics and the 
-     longitude and latitude (and optinonally height) of its corners
+     longitude and latitude (and optionally height) of its corners
      (or some other pixels) are known.
    * When multiple passes happen with outliers removed, match files
      are not over-written, but a new clean copy of them gets saved.
-   * When mutiple passes happen, filter triangulated points
+   * When multiple passes happen, filter triangulated points
      by elevation range after cameras are optimized, if a range is
-     provided (an adiddtion to doing this filtering before cameras are
+     provided (an addition to doing this filtering before cameras are
      optimized).
    * Renamed --create-pinhole-cameras to --inline-adjustments, and 
      distortion_params to other_intrinsics. This is needed since
