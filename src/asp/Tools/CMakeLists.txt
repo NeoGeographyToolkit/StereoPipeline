@@ -25,7 +25,7 @@ set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
                  sparse_disp          stereo
                  time_trials          camera_calibrate
                  camera_solve         parallel_sfs
-                 mapproject)
+                 mapproject           parallel_bundle_adjust)
 set(PYTHON_LIBS crs2crs2grid.py stereo_utils.py)
 
 foreach(p ${PYTHON_TOOLS})

@@ -1555,6 +1555,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Given map-projected versions of the input images, the DEM the were mapprojected onto, and interest point matches among all of these created in stereo_gui, create GCP for the input images to align them better to the DEM. This is experimental and not documented.")
     ("lambda,l",           po::value(&opt.lambda)->default_value(-1),
             "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
+    
+    ("instance-count",      po::value(&opt.instance_count)->default_value(1),
+            "The number of bundle_adjustment processes being run in parallel.")
+    ("instance-index",      po::value(&opt.instance_index)->default_value(0),
+            "The index of this parallel bundle adjustment process.")
+    ("stop-after-statistics",    po::bool_switch(&opt.stop_after_stats)->default_value(false)->implicit_value(true),
+            "Quit after computing image statistics.")
+    ("stop-after-matching",    po::bool_switch(&opt.stop_after_matching)->default_value(false)->implicit_value(true),
+            "Quit after writing all match files.")
+    ("skip-matching",    po::bool_switch(&opt.skip_matching)->default_value(false)->implicit_value(true),
+            "Only use image matches which can be loaded from disk.")
+    
     ("report-level,r",     po::value(&opt.report_level)->default_value(10),
             "Use a value >= 20 to get increasingly more verbose output.");
 //     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
@@ -1905,6 +1917,46 @@ int main(int argc, char* argv[]) {
 
     const int num_images = opt.image_files.size();
 
+    // Assign the images which this instance should compute statistics for.
+    std::vector<size_t> image_stats_indices;
+    for (size_t i=opt.instance_index; i<num_images; i+=opt.instance_count)
+      image_stats_indices.push_back(i);
+    
+    // Compute statistics for the designated images
+    for (size_t i=0; i<image_stats_indices.size(); ++i) {
+      
+      size_t index = image_stats_indices[i];
+      
+      std::string image_path  = opt.image_files [index];
+      std::string camera_path = opt.camera_files[index];
+
+      // Call a bunch of stuff to get the nodata value
+      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+                                                            image_path,  image_path,
+                                                            camera_path, camera_path,
+                                                            opt.out_prefix));
+      boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
+      float nodata, dummy;
+      session->get_nodata_values(rsrc, rsrc, nodata, dummy);
+
+      // Set up the image view
+      DiskImageView<float> image_view(rsrc);
+      ImageViewRef< PixelMask<float> > masked_image
+        = create_mask_less_or_equal(image_view,  nodata);
+
+      // Use caching function call to compute the image statistics.
+      asp::StereoSession::gather_stats(masked_image, image_path,
+                                       opt.out_prefix, image_path);
+    }
+    if (opt.stop_after_stats){
+      vw_out() << "Quitting after statistics computation.\n";
+      return 0;
+    }
+    // Done computing image statistics.
+      
+    
+    
+    
     // Create the stereo session. This will attempt to identify the session type.
     // Read in the camera model and image info for the input images.
     for (int i = 0; i < num_images; i++){
@@ -1953,15 +2005,15 @@ int main(int argc, char* argv[]) {
     // Find interest points between all of the image pairs.
     int num_pairs_matched = 0;
 
+    // Make a list of all of the image pairs to find matches for.
+    std::vector<std::pair<int,int> > all_pairs;
     for (int i = 0; i < num_images; i++){
       for (int j = i+1; j <= std::min(num_images-1, i+opt.overlap_limit); j++){
 
-        std::string image1_path  = opt.image_files[i];
-        std::string image2_path  = opt.image_files[j];
-
-        // Look only at these pairs, if specified in a list
+        // Apply the overlap list if manually specified.
         if (!opt.overlap_list.empty()) {
-          std::pair<std::string, std::string> pair(image1_path, image2_path);
+          std::pair<std::string, std::string> pair(opt.image_files[i],
+                                                   opt.image_files[j]);
           if (opt.overlap_list.find(pair) == opt.overlap_list.end())
             continue;
         }
@@ -1974,94 +2026,130 @@ int main(int argc, char* argv[]) {
                (other_pos != Vector3(0,0,0)) && // and they are too far apart
                (norm_2(this_pos - other_pos) > opt.position_filter_dist) ) {
             vw_out() << "Skipping position: " << this_pos << " and "
-                     << other_pos << " with distance " << norm_2(this_pos - other_pos)
-                     << std::endl;
+                      << other_pos << " with distance " << norm_2(this_pos - other_pos)
+                      << std::endl;
             continue; // Skip this image pair
           }
-        } // End estimated camera position filtering
-
-        // Load both images into a new StereoSession object and use it to find interest points.
-        // - The points are written to a file on disk.
-        std::string camera1_path   = opt.camera_files[i];
-        std::string camera2_path   = opt.camera_files[j];
-        std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
-        std::string ip_file1       = ip::ip_filename(opt.out_prefix, image1_path);
-        std::string ip_file2       = ip::ip_filename(opt.out_prefix, image2_path);
-        opt.match_files[ std::pair<int, int>(i, j) ] = match_filename;
-
-        bool inputs_changed = (!asp::is_latest_timestamp(match_filename,
-                                                         image1_path,  image2_path,
-                                                         camera1_path, camera2_path));
-        
-        // We make an exception and not rebuild if explicitly asked
-        if (asp::stereo_settings().force_reuse_match_files &&
-            boost::filesystem::exists(match_filename))
-          inputs_changed = false;
-        
-        if (!inputs_changed) {
-          vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
-          ++num_pairs_matched;
-          continue;
         }
-        boost::shared_ptr<DiskImageResource>
-          rsrc1(vw::DiskImageResourcePtr(image1_path)),
-          rsrc2(vw::DiskImageResourcePtr(image2_path));
-        if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
-          vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
-        float nodata1, nodata2;
-        SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
-                                                             image1_path,  image2_path,
-                                                             camera1_path, camera2_path,
-                                                             opt.out_prefix));
 
-        session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
-        try{
-          // IP matching may not succeed for all pairs
-
-          // Get masked views of the images to get statistics from
-          DiskImageView<float> image1_view(rsrc1), image2_view(rsrc2);
-          ImageViewRef< PixelMask<float> > masked_image1
-            = create_mask_less_or_equal(image1_view,  nodata1);
-          ImageViewRef< PixelMask<float> > masked_image2
-            = create_mask_less_or_equal(image2_view, nodata2);
-
-          // Use caching function call to compute the image statistics.
-          vw::Vector<vw::float32,6> image1_stats, image2_stats;
-          image1_stats = asp::StereoSession::gather_stats(masked_image1,
-                                                          image1_path, opt.out_prefix, image1_path);
-          image2_stats = asp::StereoSession::gather_stats(masked_image2,
-                                                          image2_path, opt.out_prefix, image2_path);
-
-          // The match files are cached unless the images or camera
-          // are newer than them. The IP files are cached for certain
-          // IP matching options.
-          session->ip_matching(image1_path, image2_path,
-                               Vector2(masked_image1.cols(), masked_image1.rows()),
-                               image1_stats, image2_stats,
-                               opt.ip_per_tile,
-                               nodata1, nodata2,
-                               opt.camera_models[i].get(),
-                               opt.camera_models[j].get(),
-                               match_filename, ip_file1, ip_file2
-                              );
-
-          // Compute the coverage fraction
-          std::vector<ip::InterestPoint> ip1, ip2;
-          ip::read_binary_match_file(match_filename, ip1, ip2);
-          int right_ip_width = rsrc1->cols()*
-                                static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
-          Vector2i ip_size(right_ip_width, rsrc1->rows());
-          double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);
-          vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
-
-          ++num_pairs_matched;
-        } catch ( const std::exception& e ){
-          vw_out() << "Could not find interest points between images "
-                   << opt.image_files[i] << " and " << opt.image_files[j] << std::endl;
-          vw_out(WarningMessage) << e.what() << std::endl;
-        } //End try/catch
+        all_pairs.push_back(std::pair<int,int>(i,j));
       }
+    }
+
+    // TODO: Make this a function
+    // Assign the matches which this instance should compute.
+    size_t per_instance = all_pairs.size()/opt.instance_count; // Round down
+    size_t remainder    = all_pairs.size()%opt.instance_count;
+    size_t start_index  = 0, this_count = 0;
+    for (size_t i=0; i<=opt.instance_index; ++i) {
+      this_count = per_instance;
+      if (i < remainder)
+        ++this_count;
+      start_index += this_count;
+    }
+    start_index -= this_count;
+
+    std::vector<std::pair<int,int> > this_instance_pairs;
+    for (size_t i=0; i<this_count; ++i)
+      this_instance_pairs.push_back(all_pairs[i+start_index]);
+
+    // Now process the selected pairs
+    for (size_t k=0; k<this_instance_pairs.size(); ++k) {
+      const int i = this_instance_pairs[k].first;
+      const int j = this_instance_pairs[k].second;
+
+      std::string image1_path  = opt.image_files[i];
+      std::string image2_path  = opt.image_files[j];
+
+      // Load both images into a new StereoSession object and use it to find interest points.
+      // - The points are written to a file on disk.
+      std::string camera1_path   = opt.camera_files[i];
+      std::string camera2_path   = opt.camera_files[j];
+      std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
+      std::string ip_file1       = ip::ip_filename(opt.out_prefix, image1_path);
+      std::string ip_file2       = ip::ip_filename(opt.out_prefix, image2_path);
+      opt.match_files[ std::pair<int, int>(i, j) ] = match_filename;
+
+      // TODO: Need to make sure this works with the parallel script!
+      bool inputs_changed = (!asp::is_latest_timestamp(match_filename,
+                                                       image1_path,  image2_path,
+                                                       camera1_path, camera2_path));
+
+      // We make an exception and not rebuild if explicitly asked
+      if (asp::stereo_settings().force_reuse_match_files &&
+          boost::filesystem::exists(match_filename))
+        inputs_changed = false;
+
+      if (!inputs_changed) {
+        vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
+        ++num_pairs_matched;
+        continue;
+      }
+      if (opt.skip_matching)
+        continue;
+      boost::shared_ptr<DiskImageResource>
+        rsrc1(vw::DiskImageResourcePtr(image1_path)),
+        rsrc2(vw::DiskImageResourcePtr(image2_path));
+      if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
+        vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
+      float nodata1, nodata2;
+      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+                                                            image1_path,  image2_path,
+                                                            camera1_path, camera2_path,
+                                                            opt.out_prefix));
+
+      session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
+      try{
+        // IP matching may not succeed for all pairs
+
+        // Get masked views of the images to get statistics from
+        DiskImageView<float> image1_view(rsrc1), image2_view(rsrc2);
+        ImageViewRef< PixelMask<float> > masked_image1
+          = create_mask_less_or_equal(image1_view,  nodata1);
+        ImageViewRef< PixelMask<float> > masked_image2
+          = create_mask_less_or_equal(image2_view, nodata2);
+
+        // Since we computed statistics earlier, this will just be loading files.
+        vw::Vector<vw::float32,6> image1_stats, image2_stats;
+        image1_stats = asp::StereoSession::gather_stats(masked_image1,
+                                                        image1_path, opt.out_prefix, image1_path);
+        image2_stats = asp::StereoSession::gather_stats(masked_image2,
+                                                        image2_path, opt.out_prefix, image2_path);
+
+        // The match files are cached unless the images or camera
+        // are newer than them. The IP files are cached for certain
+        // IP matching options.
+        session->ip_matching(image1_path, image2_path,
+                              Vector2(masked_image1.cols(), masked_image1.rows()),
+                              image1_stats, image2_stats,
+                              opt.ip_per_tile,
+                              nodata1, nodata2,
+                              opt.camera_models[i].get(),
+                              opt.camera_models[j].get(),
+                              match_filename, ip_file1, ip_file2
+                            );
+
+        // Compute the coverage fraction
+        std::vector<ip::InterestPoint> ip1, ip2;
+        ip::read_binary_match_file(match_filename, ip1, ip2);
+        int right_ip_width = rsrc1->cols()*
+                              static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
+        Vector2i ip_size(right_ip_width, rsrc1->rows());
+        double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);
+        vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
+
+        ++num_pairs_matched;
+      } catch ( const std::exception& e ){
+        vw_out() << "Could not find interest points between images "
+                  << opt.image_files[i] << " and " << opt.image_files[j] << std::endl;
+        vw_out(WarningMessage) << e.what() << std::endl;
+      } //End try/catch
     } // End loop through all input image pairs
+
+    if (opt.stop_after_matching){
+      vw_out() << "Quitting after matches computation.\n";
+      return 0;
+    }
 
     // All the work happens here! It also writes out the results.
     do_ba_ceres(opt, estimated_camera_gcc);

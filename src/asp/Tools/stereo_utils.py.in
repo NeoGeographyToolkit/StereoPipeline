@@ -47,6 +47,11 @@ class Step:
     fltr  = 4
     tri   = 5
 
+    # TODO: Move these!
+    statistics   = 0
+    matching     = 1
+    optimization = 2
+
 # Utilities to ensure that the Python parser does not garble negative
 # values such as '-365' into '-3'.
 escapeStr='esc_rand_str'

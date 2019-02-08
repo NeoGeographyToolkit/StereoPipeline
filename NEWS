@@ -12,6 +12,8 @@
      is in the documentation. 
    
  - New tools
+   * Added parallel_bundle_adjust which computes image statistics and
+     IP matching in a parallel manner similar to parallel_stereo.
    * Added the cam_gen tool to create a correctly oriented pinhole
    * camera model given camera intrinsics, lon-lat coordinates of the
      corners (or some other pixels), and optionally a ground truth
