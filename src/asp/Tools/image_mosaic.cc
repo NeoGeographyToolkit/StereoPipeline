@@ -33,16 +33,6 @@
 using namespace vw;
 namespace po = boost::program_options;
 
-/*
-//TODO: REMOVE!
-  template<class T>
-  std::string num2str(T num){
-    std::ostringstream S;
-    S << num;
-    return S.str();
-  }
-*/
-
 /// GDAL block write sizes must be a multiple to 16 so if the input value is
 ///  not a multiple of 16 increase it until it is.
 int fix_tile_multiple(int &size) {
@@ -56,7 +46,8 @@ struct Options: vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files;
   std::string orientation, output_image, output_type, out_prefix;
   int    overlap_width, band, blend_radius, ip_per_tile;
-  bool   has_input_nodata_value, has_output_nodata_value, reverse, rotate;
+  bool   has_input_nodata_value, has_output_nodata_value, reverse, rotate,
+         use_affine_transform;
   double input_nodata_value, output_nodata_value;
   Vector2 big_tile_size;
   Options(): has_input_nodata_value(false), has_output_nodata_value(false),
@@ -144,13 +135,13 @@ void match_ip_in_regions(std::string const& image_file1,
 } // End function match_ip_in_regions
 
 
-/// Compute an affine transform between images, searching for IP in
+/// Compute a matrix transform between images, searching for IP in
 ///  the specified regions.
-Matrix<double> affine_ip_matching(std::string const& image_file1,
-                                  std::string const& image_file2,
-                                  BBox2i const& roi1,
-                                  BBox2i const& roi2,
-                                  Options const& opt) {
+Matrix<double> compute_ip_matching(std::string const& image_file1,
+                                   std::string const& image_file2,
+                                   BBox2i const& roi1,
+                                   BBox2i const& roi2,
+                                   Options const& opt) {
 
   // Find IP, looking in only the specified regions.
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
@@ -161,28 +152,38 @@ Matrix<double> affine_ip_matching(std::string const& image_file1,
   std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
   std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
 
-  // TODO: Experiment with these!
   // RANSAC parameters.
   const int    num_iterations   = 100;
   const double inlier_threshold = 10;
   const int    min_num_output_inliers = ransac_ip1.size()/2;
   const bool   reduce_min_num_output_inliers_if_no_fit = true;
 
-  //std::cout << "min_num_output_inliers = " << min_num_output_inliers << std::endl;
-  
   Matrix<double> tf;
   std::vector<size_t> indices;
   try {
-    vw::math::RandomSampleConsensus<vw::math::AffineFittingFunctor,
-                                    vw::math::InterestPointErrorMetric>
-                                      ransac(vw::math::AffineFittingFunctor(),
-                                             vw::math::InterestPointErrorMetric(),
-                                             num_iterations,
-                                             inlier_threshold,
-                                             min_num_output_inliers,
-                                             reduce_min_num_output_inliers_if_no_fit);
-    tf = ransac( ransac_ip2, ransac_ip1 );
-    indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1 );
+    if (opt.use_affine_transform) {
+      vw::math::RandomSampleConsensus<vw::math::AffineFittingFunctor,
+                                      vw::math::InterestPointErrorMetric>
+                                        ransac(vw::math::AffineFittingFunctor(),
+                                              vw::math::InterestPointErrorMetric(),
+                                              num_iterations,
+                                              inlier_threshold,
+                                              min_num_output_inliers,
+                                              reduce_min_num_output_inliers_if_no_fit);
+      tf      = ransac( ransac_ip2, ransac_ip1 );
+      indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1 );
+    } else { // More restricted transform.
+      vw::math::RandomSampleConsensus<vw::math::TranslationRotationFittingFunctorN<2>,
+                                      vw::math::InterestPointErrorMetric>
+                                        ransac(vw::math::TranslationRotationFittingFunctorN<2>(),
+                                              vw::math::InterestPointErrorMetric(),
+                                              num_iterations,
+                                              inlier_threshold,
+                                              min_num_output_inliers,
+                                              reduce_min_num_output_inliers_if_no_fit);
+      tf      = ransac( ransac_ip2, ransac_ip1 );
+      indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1 );
+    }
   } catch (...) {
     vw_throw( ArgumentErr() << "Automatic Alignment failed in RANSAC fit!");
   }
@@ -227,13 +228,10 @@ Matrix<double> compute_relative_transform(std::string const& image1,
     roi2.max() = Vector2(opt.overlap_width, size2[1]); // Bottom right corner
   }
 
-  //std::cout << "roi1 = " << roi1 << std::endl;
-  //std::cout << "roi2 = " << roi2 << std::endl;
-  
   if (roi1.empty() || roi2.empty())
     vw_throw( ArgumentErr() << "Unrecognized image orientation!");
 
-  Matrix<double> tf = affine_ip_matching(image1, image2, roi1, roi2, opt);
+  Matrix<double> tf = compute_ip_matching(image1, image2, roi1, roi2, opt);
   return tf;
 
 } // End function compute_relative_transform
@@ -394,7 +392,7 @@ public:
       //std::cout << "i = " << i << std::endl;
       //std::cout << "bbox = " << bbox << std::endl;
       //std::cout << "m_bboxes[i] = " << m_bboxes[i] << std::endl;
-      
+
       // Get the intersection (if any) of this image with the current bbox.
       if (!m_bboxes[i].intersects(bbox)) {
         //std::cout << "Skipping\n";
@@ -423,7 +421,6 @@ public:
       // TODO: Clean up
       AffineTransform* temp = dynamic_cast<AffineTransform*>(m_transforms[i].get());
 
-      // TODO: Some kind of blending?
       // --> Requires loading a larger section of the input image,
       //     calling grassfire on it, and then extracting out the section we need.
 
@@ -459,8 +456,6 @@ public:
       //write_image("input"+fix, apply_mask(trans_input,0));
       //write_image("weights"+fix, input_weights);
       //write_image("weights_crop"+fix, crop(input_weights, BBox2i(m_blend_radius,m_blend_radius, intersect.width(), intersect.height())));
-      
-      //vw_throw( NoImplErr() << "DEBUG\n" );
 
       // Copy that piece to the output tile, applying the mask.
       for (int r=0; r<intersect.height(); ++r) {
@@ -512,6 +507,7 @@ public:
   }
 }; // End class ImageMosaicView
 
+// TODO: Move this class!
 /// A class to rotate an image by 180 degree around its center
 template <class T>
 class ImageRotateView: public ImageViewBase<ImageRotateView<T> >{
@@ -657,6 +653,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Mosaic the images in reverse order.")
     ("rotate", po::bool_switch(&opt.rotate)->default_value(false),
      "After mosaicking, rotate the image by 180 degrees around its center.")
+    ("use-affine-transform", po::bool_switch(&opt.use_affine_transform)->default_value(false),
+     "Solve for full affine transforms between segments instead of a simpler rotate+translate transform.")
     ("overlap-width", po::value(&opt.overlap_width)->default_value(2000),
           "Select the size of the overlap region to use.")
     ("blend-radius", po::value(&opt.blend_radius)->default_value(0),
@@ -760,10 +758,7 @@ int main( int argc, char *argv[] ) {
       write_selected_image_type(ImageRotateView<float>(out_img), opt.output_nodata_value, opt);
     else
       write_selected_image_type(out_img, opt.output_nodata_value, opt);
-  
-  
-    // Write it to disk.
-    
+
   } ASP_STANDARD_CATCHES;
   return 0;
 }

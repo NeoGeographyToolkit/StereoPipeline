@@ -84,7 +84,7 @@ types of sources.
 \section{Bundle adjustment using ASP}
 \label{baasp}
 
-Recently, Stereo Pipeline started providing its own bundle adjustment
+Stereo Pipeline provides its own bundle adjustment
 tool, named \texttt{bundle\_adjust}. Its usage is described in section
 \ref{bundleadjust}.
 
@@ -118,6 +118,9 @@ Running stereo while using the bundle-adjusted camera models.
 \end{verbatim}
 
 A comparison of the two ways of doing stereo is shown in figure \ref{fig:asp-ba-example}.
+
+ASP also offers the tool \texttt{parallel\_bundle\_adjust} which can
+be much faster bundle adjusting many images at once.
 
 \subsection{Floating intrinsics and using a lidar or DEM ground truth}
 \label{floatingintrinsics}

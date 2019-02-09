@@ -44,31 +44,6 @@ from stereo_utils import * # must be after the path is altered above
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
-# TODO: Are any of these job functions actually needed for anything??
-job_pool = [] # currently running jobs
-
-def add_job( cmd ):
-    sleep_time = 0.001
-    while ( len(job_pool) >= opt.processes ):
-        for i in range(len(job_pool)):
-            if ( job_pool[i].poll() is not None ):
-                job_pool.pop(i)
-                job_pool.append( subprocess.Popen(cmd) )
-                return
-        time.sleep( sleep_time )
-        sleep_time = (sleep_time * 5) % 60
-    job_pool.append( subprocess.Popen(cmd) )
-
-def wait_on_all_jobs():
-    print("Waiting for jobs to finish")
-    sleep_time = 1
-    while len(job_pool) > 0:
-        for i in range(len(job_pool)):
-            if ( job_pool[i].poll() is not None ):
-                job_pool.pop(i)
-                break # must restart as array changed size
-        time.sleep( sleep_time )
-
 def get_option(options, opt, n):
     # In the array 'options', find and return the entry with value 'opt'
     #  and the next n values.
@@ -250,20 +225,20 @@ def spawn_to_nodes(step, argsIn):
 
     generic_run(cmd, opt.verbose)
 
+def run_job(prog, args, instance_index, **kw):
+    '''Wrapper to run a command.
+       Set instance_index=-1 if only one instance will be called.'''
 
+    binpath = bin_path(prog)
+    call    = [binpath]
+    call.extend(args)
 
-def parallel_run(prog, args, instance_index, **kw):
-    '''Launch jobs on the current machine'''
+    if instance_index < 0: # Only one instance will be used
+        if opt.threads_single is not None:
+            wipe_option(call, '--threads', 1)
+            call.extend(['--threads', str(opt.threads_single)])
 
-    # TODO: Doesn't GNU Parallel take care of launching the jobs in parallel?
-
-
-    try:
-
-        # Set up the call string
-        binpath = bin_path(prog)
-        call    = [binpath]
-        call.extend(args)
+    else: # One of the parallel jobs
 
         if opt.threads_multi is not None:
             wipe_option(call, '--threads', 1)
@@ -278,33 +253,6 @@ def parallel_run(prog, args, instance_index, **kw):
             # Replace the output prefix in the call
             set_option(call, '-o', [sub_prefix])
             wipe_option(call, '--output-prefix', 1)
-            print call
-
-
-        cmd = call
-        if opt.dryrun:
-            print(" ".join(cmd))
-            return
-        if opt.verbose:
-            print(" ".join(cmd))
-
-        code = subprocess.call(cmd)
-        if code != 0:
-            raise Exception('Bundle adjust step ' + kw['msg'] + ' failed')
-
-    except OSError as e:
-        raise Exception('%s: %s' % (binpath, e))
-
-# Run with one process
-def single_run(prog, args, **kw):
-
-    binpath = bin_path(prog)
-    call    = [binpath]
-    call.extend(args)
-
-    if opt.threads_single is not None:
-        wipe_option(call, '--threads', 1)
-        call.extend(['--threads', str(opt.threads_single)])
 
     if opt.dryrun:
         print('%s' % ' '.join(call))
@@ -502,7 +450,7 @@ if __name__ == '__main__':
             if ( opt.stop_point <= step ):
                 sys.exit()
             args.extend(['--skip-matching'])
-            single_run('bundle_adjust', args, msg='%d: Optimizing' % step)
+            run_job('bundle_adjust', args, instance_index=-1, msg='%d: Optimizing' % step)
 
             # End main process case
     else:
@@ -517,13 +465,13 @@ if __name__ == '__main__':
 
             if ( opt.entry_point == Step.statistics ):
                 args.extend(['--stop-after-statistics'])
-                parallel_run('bundle_adjust', args, opt.instance_index,
-                             msg='%d: Statistics' % opt.entry_point)
+                run_job('bundle_adjust', args, opt.instance_index,
+                        msg='%d: Statistics' % opt.entry_point)
 
             if ( opt.entry_point == Step.matching ):
                 args.extend(['--stop-after-matching'])
-                parallel_run('bundle_adjust', args, opt.instance_index,
-                              msg='%d: Matching' % opt.entry_point)
+                run_job('bundle_adjust', args, opt.instance_index,
+                        msg='%d: Matching' % opt.entry_point)
 
         except Exception as e:
             die(e)
