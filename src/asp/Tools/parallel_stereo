@@ -48,7 +48,6 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 # and neither the log files
 skip_symlink_expr = '^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
 
-job_pool = [] # currently running jobs
 
 def check_system_memory(opt, args, settings):
     '''Issue a warning if our selected options are estimated to exceed available RAM.'''
@@ -110,28 +109,6 @@ def produce_tiles( settings, tile_w, tile_h ):
             tiles.append(BBox(i*tile_w,j*tile_h,c_tile_w,c_tile_h))
 
     return tiles
-
-def add_job( cmd ):
-    sleep_time = 0.001
-    while ( len(job_pool) >= opt.processes ):
-        for i in range(len(job_pool)):
-            if ( job_pool[i].poll() is not None ):
-                job_pool.pop(i)
-                job_pool.append( subprocess.Popen(cmd) )
-                return
-        time.sleep( sleep_time )
-        sleep_time = (sleep_time * 5) % 60
-    job_pool.append( subprocess.Popen(cmd) )
-
-def wait_on_all_jobs():
-    print("Waiting for jobs to finish")
-    sleep_time = 1
-    while len(job_pool) > 0:
-        for i in range(len(job_pool)):
-            if ( job_pool[i].poll() is not None ):
-                job_pool.pop(i)
-                break # must restart as array changed size
-        time.sleep( sleep_time )
 
 def wipe_option(options, opt, n):
     # In the array 'options', find the entry with value 'opt'.
@@ -506,8 +483,8 @@ def spawn_to_nodes(step, settings, args):
 
     generic_run(cmd, opt.verbose)
 
-def parallel_run(prog, args, settings, tiles, **kw):
-    '''Launch jobs on the current machine'''
+def tile_run(prog, args, settings, tile, **kw):
+    '''Job launch wrapper for a single tile'''
 
     if prog != 'stereo_blend':  # Set collar_size argument to zero in almost all cases.
         set_option(args, '--sgm-collar-size', [0])
@@ -519,51 +496,54 @@ def parallel_run(prog, args, settings, tiles, **kw):
     w = settings['transformed_window']
     user_crop_win = BBox(int(w[0]), int(w[1]), int(w[2]), int(w[3]))
     try:
-        for tile in tiles:
 
-            # Get tile folder
-            tile_dir_string = tile_dir(settings['out_prefix'][0], tile) + "/" + tile.name_str()
+        # Get tile folder
+        tile_dir_string = tile_dir(settings['out_prefix'][0], tile) + "/" + tile.name_str()
 
-            # When using SGM correlation, increase the output tile size.
-            # - The output image will contain more populated pixels but 
-            #   there will be no other change.
-            if (settings['stereo_algorithm'][0] != '0') and (prog == 'stereo_corr'):
-                collar_size = int(settings['collar_size'][0])
-                tile.add_collar(collar_size)
+        # When using SGM correlation, increase the output tile size.
+        # - The output image will contain more populated pixels but 
+        #   there will be no other change.
+        if (settings['stereo_algorithm'][0] != '0') and (prog == 'stereo_corr'):
+            collar_size = int(settings['collar_size'][0])
+            tile.add_collar(collar_size)
 
-                # Also increase the processing block size for the tile so we process
-                #  the entire tile in one go.
-                curr_tile_size = int(settings['corr_tile_size'][0])
-                set_option(args, '--corr-tile-size', [curr_tile_size + 2*collar_size])
+            # Also increase the processing block size for the tile so we process
+            #  the entire tile in one go.
+            curr_tile_size = int(settings['corr_tile_size'][0])
+            set_option(args, '--corr-tile-size', [curr_tile_size + 2*collar_size])
 
-            # Set up the call string
-            call = [binpath]
-            call.extend(args)
+        # Set up the call string
+        call = [binpath]
+        call.extend(args)
 
-            if opt.threads_multi is not None:
-                wipe_option(call, '--threads', 1)
-                call.extend(['--threads', str(opt.threads_multi)])
+        if opt.threads_multi is not None:
+            wipe_option(call, '--threads', 1)
+            call.extend(['--threads', str(opt.threads_multi)])
 
-            crop_box = intersect_boxes(user_crop_win, tile)
-            if crop_box.width <= 0 or crop_box.height <= 0: 
-              continue
-            crop_str = crop_box.crop_str() # Get the --trans-crop-win string
+        crop_box = intersect_boxes(user_crop_win, tile)
+        if crop_box.width <= 0 or crop_box.height <= 0: 
+          return # Don't need to process this
+        crop_str = crop_box.crop_str() # Get the --trans-crop-win string
 
-            cmd = call+crop_str
-            cmd[cmd.index( settings['out_prefix'][0] )] = tile_dir_string
-            if opt.dryrun:
-                print(" ".join(cmd))
-                return
+        cmd = call+crop_str
+        cmd[cmd.index( settings['out_prefix'][0] )] = tile_dir_string
 
-            if opt.verbose:
-                print(" ".join(cmd))
-            add_job( cmd )
-        wait_on_all_jobs()
+        if opt.dryrun:
+            print(" ".join(cmd))
+            return
+        if opt.verbose:
+            print(" ".join(cmd))
+
+        code = subprocess.call(cmd)
+        if code != 0:
+            raise Exception('Stereo step ' + kw['msg'] + ' failed')
+
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
 
-# Run with one process
-def single_run(prog, args, **kw):
+
+def normal_run(prog, args, **kw):
+    '''Job launch wrapper for a non-tile stereo call.'''
 
     binpath = bin_path(prog)
     call = [binpath]
@@ -841,7 +821,7 @@ if __name__ == '__main__':
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ):
                 sys.exit()
-            single_run('stereo_pprc', args, msg='%d: Preprocessing' % step)
+            normal_run('stereo_pprc', args, msg='%d: Preprocessing' % step)
             create_subproject_dirs( settings ) # symlink L.tif, etc
             # Now the left is defined. Regather the settings
             # and properly create the project dirs.
@@ -884,7 +864,7 @@ if __name__ == '__main__':
                     sys.exit()
                 create_subproject_dirs( settings )
                 spawn_to_nodes(step, settings, self_args)
-                
+
                 if not skip_refine_step:
                     # Do the same trick as after stereo_corr
                     rename_files( settings, "-B.tif", "-Bnosym.tif" )
@@ -911,7 +891,7 @@ if __name__ == '__main__':
             if ( opt.stop_point <= step ):
                 sys.exit()
             build_vrt(settings, georef, "-RD.tif", "-RD.tif")
-            single_run('stereo_fltr', args, msg='%d: Filtering' % step)
+            normal_run('stereo_fltr', args, msg='%d: Filtering' % step)
             create_subproject_dirs( settings ) # symlink F.tif
 
         # Triangulation
@@ -924,7 +904,7 @@ if __name__ == '__main__':
             if '--image-lines-per-piecewise-adjustment' in args:
                 tmp_args = args[:] # deep copy
                 tmp_args.extend(['--compute-piecewise-adjustments-only'])
-                single_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
+                normal_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
                 # And don't do it again
                 args.extend(['--skip-computing-piecewise-adjustments'])
                 self_args.extend(['--skip-computing-piecewise-adjustments'])
@@ -932,7 +912,7 @@ if __name__ == '__main__':
             # Then compute the cloud center. Done once per run.
             tmp_args = args[:] # deep copy
             tmp_args.append('--compute-point-cloud-center-only')
-            single_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
+            normal_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
             # Point cloud center computation was done
             self_args.extend(['--skip-point-cloud-center-comp'])
 
@@ -953,28 +933,25 @@ if __name__ == '__main__':
 
         try:
 
-            # The list of tiles
-            tiles     = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
-            num_tiles = len(tiles)
-            min_index = opt.tile_id
-            max_index = opt.tile_id + 1
-            tiles     = tiles[min_index:max_index]
+            # Pick the tile we want from the list of tiles
+            tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
+            tile  = tiles[opt.tile_id]
 
             if ( opt.entry_point == Step.corr ):
-                parallel_run('stereo_corr', args, settings, tiles,
-                             msg='%d: Correlation' % opt.entry_point)
+                tile_run('stereo_corr', args, settings, tile,
+                         msg='%d: Correlation' % opt.entry_point)
 
             if ( opt.entry_point == Step.blend ):
-                parallel_run('stereo_blend', args, settings, tiles,
-                                 msg='%d: Blending' % opt.entry_point)
+                tile_run('stereo_blend', args, settings, tile,
+                         msg='%d: Blending' % opt.entry_point)
 
             if ( opt.entry_point == Step.rfne ):
-                parallel_run('stereo_rfne', args, settings, tiles,
-                              msg='%d: Refinement' % opt.entry_point)
+                tile_run('stereo_rfne', args, settings, tile,
+                         msg='%d: Refinement' % opt.entry_point)
 
             if ( opt.entry_point == Step.tri ):
-                parallel_run('stereo_tri', args, settings, tiles,
-                             msg='%d: Triangulation' % opt.entry_point)
+                tile_run('stereo_tri', args, settings, tile,
+                         msg='%d: Triangulation' % opt.entry_point)
 
         except Exception as e:
             die(e)

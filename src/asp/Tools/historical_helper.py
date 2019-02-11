@@ -129,7 +129,7 @@ def rotateAndCrop(options):
     cmd = ("convert %s -define tiff:tile-geometry=256x256 -distort ScaleRotateTranslate '0,0 %lf' %s %s"
            % (options.inputPath, degrees, cropCmd, options.outputPath))
     print(cmd)
-    #os.system(cmd)
+    os.system(cmd)
 
 
 def main(argsIn):
