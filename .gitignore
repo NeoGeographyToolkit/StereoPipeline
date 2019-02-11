@@ -113,8 +113,8 @@ src/asp/Sessions/tests/TestStereoSessionSpot
 src/asp/WVCorrect/disp_avg
 
 # Tools
+src/asp/Tools/stereo_utils.py
 src/asp/MPI/isis_mpi_adjust
-src/asp/Tools/*.py
 src/asp/Tools/asp_calc
 src/asp/Tools/aster2asp
 src/asp/Tools/aligndem
