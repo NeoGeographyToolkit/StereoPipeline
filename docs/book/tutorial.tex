@@ -537,16 +537,16 @@ Here is an example:
 If \texttt{sparse\_disp} is not working well for your images you may be
 able to improve its results by experimenting with the set of \texttt{sparse\_disp}
 options which can be passed into \texttt{stereo} through the 
-texttt{-\/-sparse-disp-options} parameter.  \texttt{sparse\_disp}
+\texttt{-\/-sparse-disp-options} parameter.  \texttt{sparse\_disp}
 has so far only been tested with \texttt{affineepipolar} image alignment
-so you may not get results with other alignment methods.
+so you may not get good results with other alignment methods.
 
 
 Since \texttt{sparse\_disp} is written in Python
 it depends on a variety of binary Python modules. These modules cannot
 be distributed with Stereo Pipeline as they depend on the version of
 Python installed on your system. One way to get these Python modules is
-to install them yourself. We reccomend the Conda Python management system
+to install them yourself. We recommend the Conda Python management system
 (\href{https://conda.io/docs/index.html}{https://conda.io/docs/index.html})
 as an easy way to install these dependencies.
 
@@ -1122,7 +1122,7 @@ to a trusted dataset using \texttt{pc\_align} before creating a combined
 terrain model (section \ref{pc-align-example}).
 
 The advantage of creating separate DEMs and then merging them (after
-alignment) with \texttt{dem\_mosaic}, compared to multivew trianglation,
+alignment) with \texttt{dem\_mosaic}, compared to multiview triangulation,
 is that this approach will not create visible seams, while likely it will
 still increase the accuracy compared to the individual input DEMs.
 
@@ -1424,7 +1424,7 @@ the pictures.
 
 Such errors can be corrected in advance using bundle adjustment, as
 described in the previous section. That requires using ground control
-points, that may not be easy to collect. Alliteratively, the images and
+points, that may not be easy to collect. Alternatively, the images and
 cameras can be used as they are, and the absolute position of the output
 point clouds can be corrected in post-processing. For that, ASP provides
 a tool named \texttt{pc\_align}. It aligns a 3D terrain to a much more

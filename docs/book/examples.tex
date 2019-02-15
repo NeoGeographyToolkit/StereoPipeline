@@ -1129,16 +1129,31 @@ terrain does not have sufficient topography for good alignment, or if
 the obtained DEMs are too far from their correct position for alignment
 to succeed.
 
-\subsection{Converting a Pinhole model to RPC}
-Throughout this example we will work with Pinhole camera models. If desired to convert these
-to RPC camera models for exporting, one can do so via the tool \texttt{cam2rpc} invoked as:
+\subsection{Creating an RPC model}
+
+We found that the RPC model provided by SkySat is not sufficiently
+robust for stereo.  One can either create a new camera model from
+scratch, which we will in later sections, for which we will use our
+Pinhole model, and then that one can be converted to RPC with the
+\texttt{cam2rpc} tool invoked as:
 
 \begin{verbatim}
   cam2rpc --dem-file dem.tif input.tif input.tsai output.xml 
 \end{verbatim}
-Here, the input DEM should go beyond the extent of the image.
-This tool makes it possible to decide how finely to sample the DEM, and one can simply use
-longitude-latitude and height ranges instead of the DEM. A good DEM to use can be SRTM.
+
+or one can regenerate the provided SkyBox RPC model as:
+
+\begin{verbatim}
+  cam2rpc -t rpc --dem-file dem.tif input.tif output.xml
+\end{verbatim}
+
+We assumed in the last command that the input image implicitly stores
+the RPC camera model, as is the case for SkyBox.
+
+Here, the input DEM should go beyond the extent of the image.  This tool
+makes it possible to decide how finely to sample the DEM, and one can
+simply use longitude-latitude and height ranges instead of the DEM. A
+good DEM to use can be SRTM.
 
 \subsection{The input data}
 
