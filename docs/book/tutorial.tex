@@ -7,8 +7,9 @@
 \label{quickstart}
 
 The Stereo Pipeline package contains GUI and command-line programs that
-convert a stereo pair in the ISIS {\em cube} format into a 3D ``point
-cloud'' image.  This is an intermediate format that can be passed along
+convert a stereo pair in the ISIS \texttt{.cub} format into a 3D ``point
+cloud'' image (its format is described in section \ref{chapter:outputfiles}).
+This is an intermediate format that can be passed along
 to one of several programs that convert a point cloud into a mesh for 3D
 viewing, a gridded digital elevation model (DEM) for GIS purposes, or a
 LAS/LAZ point cloud.
@@ -350,6 +351,9 @@ you use affine epipolar alignment to reduce the search range. The
 
 Alternatively, the \texttt{stereo\_gui} frontend can be invoked, with
 the same options, as described in section \ref{stereo_gui}.
+
+How to create a DEM and visualize the results of stereo is desribed in section
+\ref{visualising}.
 
 \begin{figure}[h!]
 \centering
@@ -702,7 +706,8 @@ adding the option:
 More details about this option and the inner workings of stereo correlation
 can be found in chapter \ref{ch:correlation}.
 
-\subsection{Performing Stereo Correlation}\label{perform-stereo}
+\subsection{Performing Stereo Correlation}
+\label{perform-stereo}
 
 \begin{figure}[t!]
 \begin{minipage}{4in}
@@ -735,7 +740,6 @@ images as
 \end{verbatim}
 
 For Digital Globe imagery the cameras need to be specified separately:
-
 
 \begin{verbatim}
   > stereo left.tif right.tif left.xml right.xml \
@@ -1231,7 +1235,7 @@ to have large height variations.
 \label{visualising}
 
 When \texttt{stereo} finishes, it will have produced a point cloud
-image.  At this point, many kinds of data products can be built from
+image. At this point, many kinds of data products can be built from
 the \texttt{results/output-PC.tif} point cloud file.
 
 \begin{figure}[h!]
