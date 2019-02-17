@@ -25,6 +25,8 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Algorithms2.h>
 #include <vw/Image/AlgorithmFunctions.h>
+#include <vw/Image/Manipulation.h>
+
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
@@ -47,7 +49,7 @@ struct Options: vw::cartography::GdalWriteOptions {
   std::string orientation, output_image, output_type, out_prefix;
   int    overlap_width, band, blend_radius, ip_per_tile;
   bool   has_input_nodata_value, has_output_nodata_value, reverse, rotate,
-         use_affine_transform;
+         use_affine_transform, rotate90, rotate90ccw;
   double input_nodata_value, output_nodata_value;
   Vector2 big_tile_size;
   Options(): has_input_nodata_value(false), has_output_nodata_value(false),
@@ -507,72 +509,6 @@ public:
   }
 }; // End class ImageMosaicView
 
-// TODO: Move this class!
-/// A class to rotate an image by 180 degree around its center
-template <class T>
-class ImageRotateView: public ImageViewBase<ImageRotateView<T> >{
-private:
-  ImageViewRef<T> const& m_image;
-
-public:
-  ImageRotateView(ImageViewRef<T> const& image):
-    m_image(image){}
-
-  typedef float pixel_type;
-  typedef float result_type;
-  typedef ProceduralPixelAccessor<ImageRotateView> pixel_accessor;
-
-  inline int32 cols  () const { return m_image.cols(); }
-  inline int32 rows  () const { return m_image.rows(); }
-  inline int32 planes() const { return 1; }
-
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
-
-  inline result_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
-    vw_throw(NoImplErr() << "ImageRotateView::operator()(...) is not implemented");
-    return result_type();
-  }
-
-  typedef CropView<ImageView<result_type> > prerasterize_type;
-  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
-
-    // We will need to write pixels in the range [out_beg_x, out_end_x] x [out_beg_y, out_end_y]
-    int out_beg_x = bbox.min().x(), out_end_x = bbox.max().x() - 1; // use -1 coz bbox is exclusive
-    int out_beg_y = bbox.min().y(), out_end_y = bbox.max().y() - 1;
-
-    // For that we will need to copy from the input image
-    // in the region rotated by 180 degree around the center
-    int in_beg_x = m_image.cols() - 1 - out_end_x, in_end_x = m_image.cols() - 1 - out_beg_x;
-    int in_beg_y = m_image.rows() - 1 - out_end_y, in_end_y = m_image.rows() - 1 - out_beg_y;
-
-    BBox2i in_box;
-    in_box.min() = Vector2(in_beg_x,     in_beg_y);
-    in_box.max() = Vector2(in_end_x + 1, in_end_y + 1); // use + 1 coz bbox is exclusive
-
-    // Get the desired region before flipping
-    ImageView<result_type> in_tile = crop(m_image, in_box);
-
-    if (in_tile.cols() != bbox.width() || in_tile.rows() != bbox.height())
-      vw_throw( LogicErr() << "Book-keeping failure in ImageRotateView().\n" );
-
-    ImageView<result_type> out_tile(bbox.width(), bbox.height());
-    
-    // Flip the pixels. This could be done in-place, but it is simpler this way
-    for (int col = 0; col < out_tile.cols(); col++) {
-      for (int row = 0; row < out_tile.rows(); row++) {
-        out_tile(col, row) = in_tile(in_tile.cols() - 1 - col, in_tile.rows() - 1 - row);
-      }
-    }
-    
-    return prerasterize_type(out_tile, -bbox.min().x(), -bbox.min().y(),
-                             cols(), rows() );
-  } // End function prerasterize
-
-  template <class DestT>
-  inline void rasterize(DestT const& dest, BBox2i bbox) const {
-    vw::rasterize(prerasterize(bbox), dest, bbox);
-  }
-}; // End class ImageRotateView
 
 // Write the image out, converting to the specified data type.
 void write_selected_image_type(ImageViewRef<float> const& out_img,
@@ -653,6 +589,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Mosaic the images in reverse order.")
     ("rotate", po::bool_switch(&opt.rotate)->default_value(false),
      "After mosaicking, rotate the image by 180 degrees around its center.")
+    ("rotate-90", po::bool_switch(&opt.rotate90)->default_value(false),
+     "After mosaicking, rotate the image by 90 degrees clockwise around its center.")
+    ("rotate-90-ccw", po::bool_switch(&opt.rotate90ccw)->default_value(false),
+     "After mosaicking, rotate the image by 90 degrees counter-clockwise around its center.")
     ("use-affine-transform", po::bool_switch(&opt.use_affine_transform)->default_value(false),
      "Solve for full affine transforms between segments instead of a simpler rotate+translate transform.")
     ("overlap-width", po::value(&opt.overlap_width)->default_value(2000),
@@ -696,11 +636,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( opt.output_image.empty() )
     vw_throw( ArgumentErr() << "Missing output image name.\n" << usage << general_options );
-  
+
   if ( opt.blend_radius == 0 ) {
     opt.blend_radius = opt.overlap_width;
     vw_out() << "Using blend radius: " << opt.blend_radius << std::endl;
   }
+
+  int check = 0; // Count the number of rotate options specified.
+  if (opt.rotate     ) ++check;
+  if (opt.rotate90   ) ++check;
+  if (opt.rotate90ccw) ++check;
+  if (check > 1)
+    vw_throw( ArgumentErr() << "Cannot specify more than one rotate option.\n"
+                            << usage << general_options );
 
   // Reverse the order of files
   if (opt.reverse) {
@@ -755,9 +703,16 @@ int main( int argc, char *argv[] ) {
                                            opt.output_nodata_value);
 
     if (opt.rotate)
-      write_selected_image_type(ImageRotateView<float>(out_img), opt.output_nodata_value, opt);
+      //write_selected_image_type(ImageRotateView<float>(out_img), opt.output_nodata_value, opt);
+      write_selected_image_type(vw::rotate_180(out_img), opt.output_nodata_value, opt);
     else
-      write_selected_image_type(out_img, opt.output_nodata_value, opt);
+      if (opt.rotate90)
+        write_selected_image_type(vw::rotate_90_cw(out_img), opt.output_nodata_value, opt);
+      else
+        if (opt.rotate90ccw)
+          write_selected_image_type(vw::rotate_90_ccw(out_img), opt.output_nodata_value, opt);
+        else
+          write_selected_image_type(out_img, opt.output_nodata_value, opt);
 
   } ASP_STANDARD_CATCHES;
   return 0;
