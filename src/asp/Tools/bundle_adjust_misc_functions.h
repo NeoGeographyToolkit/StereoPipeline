@@ -30,6 +30,10 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
 
+
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
+
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
@@ -66,6 +70,9 @@ public:
   static const int NUM_CENTER_PARAMS = 2; // TODO: Share info with other classes!
   static const int NUM_FOCUS_PARAMS  = 1;
 
+  
+  boost::random::mt19937 m_rand_gen;
+  
   BAParamStorage(int num_points, int num_cameras,
                  // Parameters below here only apply to pinhole models.
                  bool using_intrinsics=false,
@@ -78,13 +85,15 @@ public:
       m_num_pose_params   (NUM_CAMERA_PARAMS),
       m_num_shared_intrinsics    (0),
       m_num_intrinsics_per_camera(0),
+      m_num_distortion_params(num_distortion_params),
       m_focus_offset(0),
       m_distortion_offset(0),
       m_intrin_options    (intrin_opts),
       m_points_vec        (num_points *PARAMS_PER_POINT,  0),
       m_cameras_vec       (num_cameras*NUM_CAMERA_PARAMS, 0),
       m_intrinsics_vec    (0),
-      m_outlier_points_vec(num_points, false) {
+      m_outlier_points_vec(num_points, false),
+      m_rand_gen(std::time(0)) {
 
         if (!using_intrinsics)
           return; // If we are not using intrinsics, nothing else to do.
@@ -129,13 +138,15 @@ public:
       m_num_pose_params   (other.m_num_pose_params),
       m_num_shared_intrinsics    (other.m_num_shared_intrinsics),
       m_num_intrinsics_per_camera(other.m_num_intrinsics_per_camera),
+      m_num_distortion_params(other.m_num_distortion_params),
       m_focus_offset      (other.m_focus_offset),
       m_distortion_offset (other.m_distortion_offset),
       m_intrin_options    (other.m_intrin_options),
       m_points_vec        (other.m_points_vec.size()        ),
       m_cameras_vec       (other.m_cameras_vec.size()       ),
       m_intrinsics_vec    (other.m_intrinsics_vec.size()    ),
-      m_outlier_points_vec(other.m_outlier_points_vec.size()){
+      m_outlier_points_vec(other.m_outlier_points_vec.size()),
+      m_rand_gen(std::time(0)) {
     copy_points    (other);
     copy_cameras   (other);
     copy_intrinsics(other);
@@ -168,6 +179,60 @@ public:
       m_outlier_points_vec[i] = other.m_outlier_points_vec[i];
   }
 
+  /// Apply a random offset to each camera position.
+  void randomize_cameras() {
+    // These are stored as x,y,z, axis_angle.
+    // - We move the position +/- 5 meters.
+    // - Currently we don't adjust the angle.
+    boost::random::uniform_int_distribution<> xyz_dist(0, 10);
+    const size_t NUM_CAMERA_PARAMS = 6;
+    VW_ASSERT((m_cameras_vec.size() % NUM_CAMERA_PARAMS) == 0,
+                LogicErr() << "Camera parameter length is not a multiple of 6!");
+    const size_t num_cameras = m_cameras_vec.size() / NUM_CAMERA_PARAMS;
+    for (size_t c=0; c<num_cameras; ++c) {
+      double* ptr = get_camera_ptr(c);
+      for (size_t i=0; i<3; ++i) {
+        int o = xyz_dist(m_rand_gen) - 5;
+        ptr[i] += o;
+      }
+      //for (size_t i=3; i<PARAMS_PER_CAM; ++i) {
+      //}
+    }
+  }
+
+  /// Randomly scale each intrinsic value.
+  void randomize_intrinsics() {
+    // Intrinsic values are stored as multipliers, here we 
+    //  multiply from 0.5 to 1.5, being careful about shared and constant values.
+    boost::random::uniform_int_distribution<> dist(5, 15);
+    for (size_t c=0; c<num_cameras(); ++c) {
+      if (!m_intrin_options.center_constant && !(m_intrin_options.center_shared && (c>0))) {
+        double* ptr = get_intrinsic_center_ptr(c);
+        for (int i=0; i<NUM_CENTER_PARAMS; ++i) {
+          int   o     = dist(m_rand_gen);
+          float scale = static_cast<float>(o) * 0.10;
+          ptr[i] *= scale;
+        }
+      } // End center loop
+      if (!m_intrin_options.focus_constant && !(m_intrin_options.focus_shared && (c>0))) {
+        double* ptr = get_intrinsic_focus_ptr(c);
+        for (int i=0; i<NUM_FOCUS_PARAMS; ++i) {
+          int   o     = dist(m_rand_gen);
+          float scale = static_cast<float>(o) * 0.10;
+          ptr[i] *= scale;
+        }
+      } // End focus loop
+      if (!m_intrin_options.distortion_constant && !(m_intrin_options.distortion_shared && (c>0))) {
+        double* ptr = get_intrinsic_distortion_ptr(c);
+        for (int i=0; i<m_num_distortion_params; ++i) {
+          int   o     = dist(m_rand_gen);
+          float scale = static_cast<float>(o) * 0.10;
+          ptr[i] *= scale;
+        }
+      } // End distortion loop
+    } // End camera loop
+  }
+  
   int num_points       () const {return m_num_points; }
   int num_cameras      () const {return m_num_cameras;}
   int num_intrinsics   () const {return m_num_intrinsics_per_camera;} // Per camera
@@ -335,7 +400,7 @@ private: // Variables
   
   // m_intrinsics_vec starts out with m_num_shared_intrinsics values which are
   //  shared between all cameras, followed by the per-camera intrinsics for each camera.
-  int m_num_shared_intrinsics, m_num_intrinsics_per_camera;
+  int m_num_shared_intrinsics, m_num_intrinsics_per_camera, m_num_distortion_params;
   
   // These store the offset to the focus or distortion data from the start of
   //  either the shared parameters at the start of m_intrinsics_vec or from

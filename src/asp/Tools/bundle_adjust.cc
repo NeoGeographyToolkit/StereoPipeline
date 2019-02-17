@@ -20,6 +20,7 @@
 ///
 
 #include <vw/Camera/CameraUtilities.h>
+#include <vw/Core/CmdUtils.h>
 #include <vw/BundleAdjustment/BundleAdjustReport.h>
 #include <vw/BundleAdjustment/AdjustRef.h>
 #include <asp/Core/Macros.h>
@@ -292,7 +293,7 @@ void write_residual_map(std::string const& output_prefix,
               << "does not agree with number of points in cnet.\n");
   
   // Open the output file and write the header
-  vw_out() << "Writing: " << output_path << std::endl;
+  //vw_out() << "Writing: " << output_path << std::endl;
   
   std::ofstream file;
   file.open(output_path.c_str()); file.precision(18);
@@ -350,10 +351,10 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   // Write a report on residual errors
   std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp,
     residual_file_raw_cams, residual_file_reference_xyz;
-  vw_out() << "Writing: " << residual_path << std::endl;
-  vw_out() << "Writing: " << residual_raw_pixels_path << std::endl;
-  vw_out() << "Writing: " << residual_raw_gcp_path << std::endl;
-  vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
+  //vw_out() << "Writing: " << residual_path << std::endl;
+  //vw_out() << "Writing: " << residual_raw_pixels_path << std::endl;
+  //vw_out() << "Writing: " << residual_raw_gcp_path << std::endl;
+  //vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
   
   residual_file.open(residual_path.c_str());
   residual_file.precision(18);
@@ -363,7 +364,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   residual_file_raw_cams.precision(18);
 
   if (reference_vec.size() > 0) {
-    vw_out() << "Writing: " << residual_reference_xyz_path << std::endl;
+    //vw_out() << "Writing: " << residual_reference_xyz_path << std::endl;
     residual_file_reference_xyz.open(residual_reference_xyz_path.c_str());
     residual_file_reference_xyz.precision(18);
   }
@@ -734,7 +735,8 @@ int do_ba_ceres_one_pass(Options             & opt,
                          bool                  last_pass,
                          BAParamStorage      & param_storage, 
                          BAParamStorage const& orig_parameters,
-                         bool                & convergence_reached){
+                         bool                & convergence_reached,
+                         double              & final_cost){
 
   ceres::Problem problem;
 
@@ -1111,6 +1113,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   vw_out() << "Starting the Ceres optimizer..." << std::endl;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
+  final_cost = summary.final_cost;
   vw_out() << summary.FullReport() << "\n";
   if (summary.termination_type == ceres::NO_CONVERGENCE){
     // Print a clarifying message, so the user does not think that the algorithm failed.
@@ -1152,7 +1155,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     remove_outliers(cnet, param_storage, opt);
 
   return num_new_outliers;
-}
+} // End function do_ba_ceres_one_pass
 
 /// Use Ceres to do bundle adjustment.
 void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc){
@@ -1303,9 +1306,10 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   if (opt.num_ba_passes <= 0)
     vw_throw(ArgumentErr() << "Error: Expecting at least one bundle adjust pass.\n");
   
+  double final_cost;
   for (int pass = 0; pass < opt.num_ba_passes; pass++) {
 
-    vw_out() << "Bundle adjust pass: " << pass << std::endl;
+    vw_out() << "--> Bundle adjust pass: " << pass << std::endl;
     if (pass > 0) {
       // Go back to the original inputs to optimize, but keep our outlier list.
       param_storage.copy_points    (orig_parameters);
@@ -1318,7 +1322,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     bool convergence_reached = true;
     int  num_new_outliers    = do_ba_ceres_one_pass(opt, crn, (pass==0), last_pass,
                                                     param_storage, orig_parameters,
-                                                    convergence_reached);
+                                                    convergence_reached, final_cost);
 
     if (!last_pass && num_new_outliers == 0 && convergence_reached) {
       vw_out() << "No new outliers removed, and the algorithm converged. "
@@ -1334,15 +1338,69 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     }
   } // End loop through passes
 
+  double best_cost = final_cost;
+  boost::shared_ptr<BAParamStorage> best_params_ptr(new BAParamStorage(param_storage));
+
+  std::string orig_out_prefix = opt.out_prefix;
+  for (int pass = 0; pass < opt.num_random_passes; pass++) {
+
+    vw_out() << "\n--> Running bundle adjust pass " << pass 
+             << " with random initial parameter offsets.\n";
+
+    // Go back to the original inputs to optimize, but keep our outlier list.
+    param_storage.copy_points    (orig_parameters);
+    param_storage.copy_cameras   (orig_parameters);
+    param_storage.copy_intrinsics(orig_parameters);
+
+    // Randomly distort the original inputs.
+    param_storage.randomize_cameras();
+    if (opt.solve_intrinsics)
+      param_storage.randomize_intrinsics(); // The function call handles sharing etc.
+
+    // Write output files to a temporary prefix
+    opt.out_prefix = orig_out_prefix + "_rand";
+
+    // Do another pass of bundle adjustment.
+    bool first_pass = true;
+    bool last_pass  = true;
+    bool convergence_reached = true;
+    int  num_new_outliers    = do_ba_ceres_one_pass(opt, crn, first_pass, last_pass,
+                                                    param_storage, orig_parameters,
+                                                    convergence_reached, final_cost);
+    // Record the parameters of the best result.
+    if (final_cost < best_cost) {
+      vw_out() << "  --> Found a better solution!\n\n";
+      best_cost = final_cost;
+      best_params_ptr.reset(new BAParamStorage(param_storage));
+
+      // Get a list of all the files that were generated in the random step.
+      std::vector<std::string> rand_files;
+      get_files_with_prefix(opt.out_prefix, rand_files);
+
+      // Replace the existing output files with them.
+      for (size_t i=0; i<rand_files.size(); ++i) {
+        std::string new_path = rand_files[i];
+        boost::replace_all(new_path, opt.out_prefix, orig_out_prefix);
+        boost::filesystem::copy_file(rand_files[i], new_path,
+                                     boost::filesystem::copy_option::overwrite_if_exists);
+      }
+    }
+
+    // Clear out the extra files that were generated
+    std::string cmd("rm -f " + opt.out_prefix + "*");
+    vw::exec_cmd(cmd.c_str());
+  }
+  opt.out_prefix = orig_out_prefix; // So the cameras are written to the expected paths.
+
   // Write the results to disk.
   for (int icam = 0; icam < num_cameras; icam++){
 
     switch(opt.camera_type) {
       case BaCameraType_Pinhole:
-        write_pinhole_output_file(opt, icam, param_storage);
+        write_pinhole_output_file(opt, icam, *best_params_ptr);
         break;
       case BaCameraType_OpticalBar:
-        write_optical_bar_output_file(opt, icam, param_storage);
+        write_optical_bar_output_file(opt, icam, *best_params_ptr);
         break;
       default:
         std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -1350,7 +1408,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                                               opt.camera_files[icam]);
         vw_out() << "Writing: " << adjust_file << std::endl;
 
-        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+        CameraAdjustment cam_adjust(best_params_ptr->get_camera_ptr(icam));
         asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
     };
   } // End loop through cameras
@@ -1530,6 +1588,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("num-passes",           po::value(&opt.num_ba_passes)->default_value(1),
             "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params and --remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.")
+    ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
+            "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
     ("ip-triangulation-max-error",  po::value(&opt.ip_triangulation_max_error)->default_value(-1),
             "When matching IP, filter out any pairs with a triangulation error higher than this.")
     ("remove-outliers-params", 

@@ -740,6 +740,9 @@ Pixels with values less than or equal to this number are treated as no-data. Thi
 \texttt{-\/-num-passes \textit{integer(=1)}} &
 How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using -\/-remove-outliers-params and -\/-remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.\\ \hline
 
+\texttt{-\/-num-random-passes \textit{integer(=0)}} &
+After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.  Only the results for the optimization pass with the lowest error are kept.\\ \hline
+
 \texttt{-\/-remove-outliers-params \textit{'pct factor err1 err2'}} &
 Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.\\ \hline
 

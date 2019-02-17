@@ -96,6 +96,9 @@
   *  Added the option --forced-triangulation-distance for when one
      really needs to triangulate with poor cameras. Can be used with 
      --min-triangulation-angle 0.
+    * Added --num-random-passes option to allow bundle_adjust to
+      re-optimize with random adjustments to the initiali parameter
+      values with the goal of escaping local minima.
     
  - dem_mosaic
    * Added normalized median absolute deviation (NMAD) output option.

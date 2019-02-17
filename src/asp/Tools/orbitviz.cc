@@ -20,6 +20,7 @@
 /// Show the positions of the cameras above the planet in kml format.
 
 #include <vw/FileIO/KML.h>
+#include <vw/FileIO/FileUtils.h>
 #include <vw/InterestPoint/InterestData.h>
 
 #include <asp/Core/Macros.h>
@@ -61,51 +62,6 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string out_file;
 };
 
-/// Strip the directory out of a file path
-std::string strip_directory( std::string const& input){
- boost::filesystem::path p(input); 
- return p.filename().string();
-}
-
-/// Strip the directory and extension out of a file path
-std::string strip_directory_and_extension( std::string const& input){
- boost::filesystem::path p(input); 
- return p.stem().string();
-}
-
-// Would be nice to have this in a function
-/// Populate a list of all files in a directory.
-/// - Returns the number of files found.
-/// - If an extension is passed in, files must match the extension.
-size_t get_files_in_folder(std::string              const& folder,
-                           std::vector<std::string>      & output,
-                           std::string              const& ext="")
-{
-  output.clear();
-  
-  // Handle invalid inputs
-  if(!boost::filesystem::exists(folder) || !boost::filesystem::is_directory(folder)) 
-    return 0;
-
-  boost::filesystem::directory_iterator it(folder);
-  boost::filesystem::directory_iterator endit;
-
-  if (ext != ""){ // Check the extension
-    while(it != endit) {
-        if(boost::filesystem::is_regular_file(*it) && it->path().extension() == ext) 
-          output.push_back(it->path().filename().string());
-        ++it;
-    }
-  }
-  else{ // No extension check
-    while(it != endit) {
-        if(boost::filesystem::is_regular_file(*it)) 
-          output.push_back(it->path().filename().string());
-        ++it;
-    }
-  }
-  return output.size();
-}
 
 // TODO: Eliminate bool input and move somewhere else.
 /// Seperates a list of files into camera files and image files.

@@ -69,7 +69,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     translation_weight, overlap_exponent, robust_threshold, parameter_tolerance,
     ip_triangulation_max_error;
   int    report_level, min_matches, max_iterations, overlap_limit,
-         instance_count, instance_index;
+         instance_count, instance_index, num_random_passes;
   bool   save_iteration, approximate_pinhole_intrinsics,
          disable_pinhole_gcp_init, fix_gcp_xyz, solve_intrinsics,
          disable_tri_filtering, ip_normalize_tiles, ip_debug_images,
