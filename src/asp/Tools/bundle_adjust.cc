@@ -48,14 +48,19 @@ typedef CameraRelationNetwork<JFeature> CRNJ;
 
 //=========================================================================
 
-// Wrapper for the AdjustedCameraBundleModel type
+/// Add error source for projecting a 3D point into the camera.
 void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& pixel_sigma,
-                                     int point_index, int camera_index,
+                                     int point_index, int camera_index, bool is_gcp,
                                      BAParamStorage & param_storage,
                                      Options const& opt,
                                      ceres::Problem & problem){
 
-  ceres::LossFunction* loss_function = get_loss_function(opt);
+  // For GCP use a loss function that won't treat this point as an outlier.
+  ceres::LossFunction* loss_function;
+  if (is_gcp)
+    loss_function = new ceres::TrivialLoss();
+  else
+    loss_function = get_loss_function(opt);
 
   boost::shared_ptr<CameraModel> camera_model = opt.camera_models[camera_index];
 
@@ -793,6 +798,8 @@ int do_ba_ceres_one_pass(Options             & opt,
       Vector2 observation = (**fiter).m_location;
       Vector2 pixel_sigma = (**fiter).m_scale;
 
+      const bool is_gcp = (cnet[ipt].type() == ControlPoint::GroundControlPoint);
+
       // This is a bugfix
       if (pixel_sigma != pixel_sigma) // nan check
         pixel_sigma = Vector2(1, 1);
@@ -807,13 +814,13 @@ int do_ba_ceres_one_pass(Options             & opt,
 
       // Call function to add the appropriate Ceres residual block.
       add_reprojection_residual_block(observation, pixel_sigma, ipt, icam,
-                                      param_storage, opt, problem);
+                                      is_gcp, param_storage, opt, problem);
 
       if (opt.heights_from_dem != "") {
         // For non-GCP points, copy the heights for xyz points from the DEM.
         // Fix the obtained xyz points as they are considered reliable
         // and we should have the cameras and intrinsics params to conform to these.
-        if (cnet[ipt].type() != ControlPoint::GroundControlPoint){
+        if (!is_gcp){
           double* point = param_storage.get_point_ptr(ipt);
           update_point_from_dem(point, dem_georef, interp_dem);
           if (opt.heights_from_dem_weight <= 0) 
@@ -843,9 +850,9 @@ int do_ba_ceres_one_pass(Options             & opt,
 
     if (param_storage.get_point_outlier(ipt))
       continue; // skip outliers
-    
+
     num_gcp++;
-    
+
     Vector3 observation = cnet[ipt].position();
     Vector3 xyz_sigma   = cnet[ipt].sigma();
 
@@ -860,7 +867,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
 
     // Don't use the same loss function as for pixels since that one discounts
-    //  outliers and the cameras should never be discounted.
+    //  outliers and the GCP's should never be discounted.
     ceres::LossFunction* loss_function = new ceres::TrivialLoss();
 
     double * point  = param_storage.get_point_ptr(ipt);
@@ -1049,7 +1056,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
   } // End if (opt.reference_terrain != "")
   
-  const size_t MIN_KML_POINTS = 20;  
+  const size_t MIN_KML_POINTS = 50;
   size_t kmlPointSkip = 30;
   // Figure out a good KML point skip aount
   if (num_points / kmlPointSkip < MIN_KML_POINTS)
@@ -1480,7 +1487,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   general_options.add_options()
     ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")
     ("cost-function",    po::value(&opt.cost_function)->default_value("Cauchy"),
-            "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
+            "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2, Trivial.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
             "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
     ("inline-adjustments",   po::bool_switch(&inline_adjustments)->default_value(false),

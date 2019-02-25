@@ -298,9 +298,10 @@ public:
     double center_x  = raw_center[0] * m_underlying_camera->get_optical_center()[0];
     double center_y  = raw_center[1] * m_underlying_camera->get_optical_center()[1];
     double focus     = raw_focus [0] * m_underlying_camera->get_focal_length  ();
-    double scan_rate = raw_intrin[0] * m_underlying_camera->get_scan_rate();
-    double mcf       = raw_intrin[0] * m_underlying_camera->get_motion_compensation();
-    double speed     = raw_intrin[1] * m_underlying_camera->get_speed();
+    double speed     = raw_intrin[0] * m_underlying_camera->get_speed();
+    double mcf       = raw_intrin[1]; // We use this scale factor directly.
+
+    //std::cout << "raw_intrin = " << raw_intrin[0] << ", " << raw_intrin[1] << std::endl;
 
     // Duplicate the input camera model with the pose, focus, center, speed, and MCF updated.
     asp::camera::OpticalBarModel cam(m_underlying_camera->get_image_size(),
@@ -308,12 +309,14 @@ public:
                                      m_underlying_camera->get_pixel_size(),
                                      focus,
                                      m_underlying_camera->get_scan_angle(),
-                                     scan_rate,
+                                     m_underlying_camera->get_scan_rate(),
                                      m_underlying_camera->get_scan_dir(),
                                      m_underlying_camera->get_forward_tilt(),
                                      correction.position(),
                                      correction.pose().axis_angle(),
                                      speed,  mcf);
+
+    //std::cout << "Created camera: " << cam << std::endl;
 
     // Project the point into the camera.
     return cam.point_to_pixel(point);
@@ -352,13 +355,13 @@ struct BaReprojectionError {
   // - Takes array of arrays.
   bool operator()(double const * const * parameters, double * residuals) const {
 
+    //std::cout << "For observation " << m_observation << std::endl;
+
     try {
       // Unpack the parameter blocks
       std::vector<double const*> param_blocks(m_num_param_blocks);
       for (size_t i=0; i<m_num_param_blocks; ++i) {
         param_blocks[i] = parameters[i];
-        //std::cout << "param block " << i << " = " << param_blocks[i]
-        //          << ", [0] = " << param_blocks[i][0] << std::endl;
       }
 
       // Use the camera model wrapper to handle all of the parameter blocks.
@@ -375,6 +378,8 @@ struct BaReprojectionError {
 
     } catch (std::exception const& e) { // TODO: Catch only projection errors?
       // Failed to compute residuals
+
+      //std::cout << "Caught exception!" << std::endl;
 
       Mutex::Lock lock( g_ba_mutex );
       g_ba_num_errors++;

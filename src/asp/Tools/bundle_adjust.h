@@ -615,6 +615,8 @@ ceres::LossFunction* get_loss_function(Options const& opt ){
   ceres::LossFunction* loss_function;
   if      ( opt.cost_function == "l2"     )
     loss_function = NULL;
+  else if ( opt.cost_function == "trivial"  )
+    loss_function = new ceres::TrivialLoss();
   else if ( opt.cost_function == "huber"  )
     loss_function = new ceres::HuberLoss(th);
   else if ( opt.cost_function == "cauchy" )
