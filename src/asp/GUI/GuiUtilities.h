@@ -425,13 +425,16 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
         if (clip(col, row) > max_val) max_val = clip(col, row);
       }
     }
-
-    // These bounds may contain outliers, so correct for that
-    if (bounds[0] != bounds[1]) {
-      min_val = std::max(min_val, bounds[0]);
-      max_val = std::min(max_val, bounds[1]);
-    }
-
+    
+    // The input bounds are computed on the lowest resolution level of the pyramid 
+    //  with: vw::math::find_outlier_brackets(vals, 0.25, 4.0, b, e);
+    //  but enforcing them here likely causes more problems than it solves.
+    //// These bounds may contain outliers, so correct for that
+    //if (bounds[0] != bounds[1]) {
+    //  min_val = std::max(min_val, bounds[0]);
+    //  max_val = std::min(max_val, bounds[1]);
+    //}
+    
     // A safety measure
     if (min_val >= max_val)
       max_val = min_val + 1.0;
