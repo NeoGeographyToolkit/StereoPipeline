@@ -47,7 +47,6 @@ namespace asp {
     virtual ~CsmModel();
     virtual std::string type() const { return "CSM"; }
 
-    
     /// Load the camera model from an ISD file.
     bool load_model(std::string const& isd_path);
 
@@ -62,12 +61,22 @@ namespace asp {
       return vw::Quaternion<double>();
     }
 
+    /// Return the path to the folder where we will look for CSM plugin DLLs.
+    static std::string get_csm_plugin_folder();
+
+    /// Get a list of all of the CSM plugin DLLs in the CSM plugin folder.
+    static size_t find_csm_plugins(std::vector<std::string> &plugins);
+
+    /// Print the CSM models that have been loaded into the main CSM plugin.
+    static void print_available_models();
+
   private:
-
-    //const csm::Plugin* m_csm_plugin; // TODO: Do we need to hang on to this?
+    // TODO: Is it always going to be this type?
     boost::shared_ptr<csm::RasterGM> m_csm_model;
-    //boost::shared_ptr<csm::Model> m_csm_model;
 
+    /// Find and load any available CSM plugin libraries from disk.
+    void initialize_plugins();
+    
     /// Throw an exception if we have not loaded the model yet.
     void throw_if_not_init() const;
 
