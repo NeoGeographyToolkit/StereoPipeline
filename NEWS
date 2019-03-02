@@ -6,7 +6,7 @@
      to a reference DEM, while optionally refining the intrinsics. 
      This approach may be helpful for other images obtained with frame
      cameras and uncertain positioning information.
-   * Added support for CORONA KH-4B, KH-7, and KH-9 declassified images
+   * Added support for CORONA KH-4B and KH-9 declassified images
      and their panoramic (optical bar) camera models, as well as using
      and optimizing camera models with RPC distortion. An example
      is in the documentation. 

@@ -1664,8 +1664,10 @@ in the order top-left, top-right, bot-right, bot-left (column then row).
 This is also a good opportunity to simplify the file names going forwards.
 
 \begin{verbatim}
-  historical_helper.py rotate-crop --input-path DS1105-2248DA082.tif  --output-path aft.tif  --interest-points '4523 1506  114956 1450  114956 9355  4453 9408'
-  historical_helper.py rotate-crop --input-path DS1105-2248DF076.tif  --output-path for.tif  --interest-points '6335 1093  115555 1315  115536 9205  6265 8992'
+  historical_helper.py rotate-crop --input-path DS1105-2248DA082.tif  --output-path aft.tif \
+    --interest-points '4523 1506  114956 1450  114956 9355  4453 9408'
+  historical_helper.py rotate-crop --input-path DS1105-2248DF076.tif  --output-path for.tif \
+    --interest-points '6335 1093  115555 1315  115536 9205  6265 8992'
 \end{verbatim}
 
 \subsection{Fetching a ground truth DEM}
@@ -1927,9 +1929,11 @@ if it is an improvement.
 \label{kh7}
 
 KH-7 was an effective observation satellite that followed the Corona program.
-It contained an index (frame) camera and a single panoramic camera.  Processing
-this data is similar to KH-4B data except that there are not different forward and
-aft cameras to worry about.
+It contained an index (frame) camera and a single strip (pushbroom) camera.
+ASP does currently have a dedicated camera model for this camera, so we will
+have to try to approximate it with a pinhole model.  Without a dedicated solution
+for this camera, you may only be able to get good results near the central region
+of the image.
 
 For this example we find the following images in Earth Explorer declassified collection 2:
 \begin{verbatim}
@@ -1963,42 +1967,29 @@ For this image pair we will use the following SRTM images from Earth Explorer:
 Next we crop the input images so they only contain valid image area.
 
 \begin{verbatim}
-  historical_helper.py rotate-crop --input-path DZB00401800038H025001.tif  --output-path 5001.tif  --interest-points '1847 2656  61348 2599  61338 33523  1880 33567'
-  historical_helper.py rotate-crop --input-path DZB00401800038H026001.tif  --output-path 6001.tif  --interest-points '566 2678  62421 2683  62290 33596  465 33595'
+  historical_helper.py rotate-crop --input-path DZB00401800038H025001.tif \
+  --output-path 5001.tif  --interest-points '1847 2656  61348 2599  61338 33523  1880 33567'
+  historical_helper.py rotate-crop --input-path DZB00401800038H026001.tif \
+  --output-path 6001.tif  --interest-points '566 2678  62421 2683  62290 33596  465 33595'
 \end{verbatim}
 
-Now we create a sample camera model for the KH-7 using known information about the satellite.
-The size, center, position, and orientation here do not matter.
 
-\begin{verbatim}
-  VERSION_4
-  OPTICAL_BAR
-  image_size = 59342 30861
-  image_center = 29671 15431
-  pitch = 7.0e-06
-  f = 1.96
-  scan_angle = 1.29154
-  scan_rate = 2.0
-  forward_tilt = 0.0
-  iC = -1053926.8825477704 5528294.6575468015 3343882.1925249361
-  iR = -0.96592328992496967 -0.16255393156297787 0.20141603042941184 \
-       -0.23867502833024612 0.25834753840712932 -0.93610404349651921 \
-       0.10013205696518604 -0.95227767417513032 -0.28834146846321851
-  speed = 8000
-  mean_earth_radius = 6371000
-  mean_surface_elevation = 0000
-  use_motion_compensation = 1
-  scan_dir = right
-\end{verbatim}
+We will try to approximate the KH7 camera using a pinhole model.
+The pitch of the image is determined by the scanner, which is 7.0e-06 meters per pixel.
+The focal length of the camera is reported to be 1.96 meters, and we will set the optical
+center at the center of the image.  We need to convert the optical center to units of meters,
+which means muliplying the pixel coordinates by the pitch to get units of meters.
 
 Using the image corner coordinates which we recorded earlier, use the \texttt{cam\_gen}
 tool to generate camera models for each image, being careful of the order of coordinates.
 
 \begin{verbatim}
-  cam_gen --sample-file sample_gambit_optical_bar.tsai --camera-type opticalbar     \
+  cam_gen --pixel-pitch 7.0e-06 --focal-length 1.96                                 \
+    --optical-center 0.2082535  0.1082305                                           \
     --lon-lat-values '113.25 22.882  113.315 23.315  113.6 23.282  113.532 22.85'   \
     5001.tif --reference-dem srtm_dem.tif --refine-camera -o 5001.tsai
-  cam_gen --sample-file sample_gambit_optical_bar.tsai --camera-type opticalbar     \
+  cam_gen --pixel-pitch 7.0e-06 --focal-length 1.96                                 \
+    --optical-center 0.216853 0.108227                                              \
     --lon-lat-values '113.2 22.95  113.265 23.382  113.565 23.35  113.482 22.915'   \
     6001.tif --reference-dem srtm_dem.tif --refine-camera  -o 6001.tsai
 \end{verbatim}
@@ -2010,9 +2001,9 @@ you can map project them and overlay them on the reference DEM in \texttt{stereo
 
 \begin{verbatim}
   camera_footprint 5001.tif  5001.tsai  --datum  WGS_1984 --quick \
-    --output-kml  5001_footprint.kml -t opticalbar --dem-file srtm_dem.tif
+    --output-kml  5001_footprint.kml -t nadirpinhole --dem-file srtm_dem.tif
   camera_footprint 6001.tif  6001.tsai  --datum  WGS_1984 --quick \
-    --output-kml  6001_footprint.kml -t opticalbar --dem-file srtm_dem.tif
+    --output-kml  6001_footprint.kml -t nadirpinhole --dem-file srtm_dem.tif
 \end{verbatim}
 
 The output files from \texttt{cam\_gen} will be roughly accurate but they may still be bad
@@ -2023,11 +2014,11 @@ I used three sets of GCPs, one for each image individually and a joint set for b
 I then ran \texttt{bundle\_adjust} individually for each camera using the GCPs.
 
 \begin{verbatim}
-  bundle_adjust 5001.tif 5001.tsai gcp_5001.gcp -t opticalbar --inline-adjustments \
+  bundle_adjust 5001.tif 5001.tsai gcp_5001.gcp -t nadirpinhole --inline-adjustments \
     --num-passes 1 --camera-weight 0 --ip-detect-method 1 -o bundle_5001/out       \
     --max-iterations 30 --fix-gcp-xyz
 
-  bundle_adjust 6001.tif 6001.tsai gcp_6001.gcp -t opticalbar --inline-adjustments \
+  bundle_adjust 6001.tif 6001.tsai gcp_6001.gcp -t nadirpinhole --inline-adjustments \
     --num-passes 1 --camera-weight 0 --ip-detect-method 1 -o bundle_6001/out       \
     --max-iterations 30 --fix-gcp-xyz
 \end{verbatim}
@@ -2035,7 +2026,7 @@ I then ran \texttt{bundle\_adjust} individually for each camera using the GCPs.
 At this point it is a good idea to experiment with downsampled copies of the input
 images before running processing with the full size images.  You can generate these 
 using \texttt{stereo\_gui}.  Also make copies of the camera model
-files and scale the image size, image center, and pitch to match the downsample amount.
+files and scale the image center and pitch to match the downsample amount.
 
 \begin{verbatim}
   stereo_gui 5001.tif 6001.tif --create-image-pyramids-only
@@ -2051,25 +2042,41 @@ applied to the input images.
 
 \begin{verbatim}
   bundle_adjust 5001_small.tif 6001_small.tif bundle_5001/out-5001_small.tsai \
-    bundle_6001/out-6001_small.tsai gcp_small.gcp -t opticalbar               \
+    bundle_6001/out-6001_small.tsai gcp_small.gcp -t nadirpinhole               \
     -o bundle_small_new/out --force-reuse-match-files --max-iterations 30     \
     --camera-weight 0 --disable-tri-ip-filter --disable-pinhole-gcp-init      \
     --skip-rough-homography --inline-adjustments --ip-detect-method 1         \
-    --datum WGS84 --num-passes 2 --solve-intrinsics                           \
-    --intrinsics-to-float "optical_center other_intrinsics"
+    --datum WGS84 --num-passes 2
 
   stereo --alignment-method homography --skip-rough-homography              \
-    --disable-tri-ip-filter --ip-detect-method 1 --session-type opticalbar  \
+    --disable-tri-ip-filter --ip-detect-method 1 --session-type nadirpinhole  \
      5001_small.tif 6001_small.tif bundle_small_new/out-out-5001_small.tsai \
     bundle_small_new/out-out-6001_small.tsai st_small_new/out
+
+  gdal_translate -b 4 st_small_new/out-PC.tif st_small_new/error.tif
 \end{verbatim}
 
-You can try modifying the values in your sample camera file to see how it changes
-the results.  The "other intrinsics" values for this camera in \texttt{bundle\_adjust}
-are scan\_rate and speed.  The KH-7 satellite only contains a single camera so the
-camera parameters should be the same, at least if they are from the same flight.
-Once you are happy with the results on the small scale images you can repeat the
-final \texttt{bundle\_adjust} and \texttt{stereo} steps on the full size input images.
+
+Looking at the error result, it is clear that the simple pinhole model is not
+doing a good job modelling the KH7 camera.  We can try to improve things by
+adding a distortion model to replace the NULL model in the .tsai files we are using.
+
+\begin{verbatim}
+BrownConrady
+xp  = -1e-12
+yp  = -1e-12
+k1  = -1e-10
+k2  = -1e-14
+k3  = -1e-22
+p1  = -1e-12
+p2  = -1e-12
+phi = -1e-12
+\end{verbatim}
+
+Once the distortion model is added, you can use \texttt{bundle\_adjust} to optimize
+them.  See the section on solving for pinhole intrinsics in the KH4B example for details.
+We hope to provide a more rigorous method of modelling the KH7 camera in the future.
+
 
 \section{Declassified satellite images: KH-9}
 \label{kh9}
@@ -2151,7 +2158,7 @@ for the aft camera and 0.174533 for the forward camera.
     aft.tif --reference-dem aster_dem.tif --refine-camera  -o aft.tsai
 \end{verbatim}
 
-As with KH-7, it is best to first experiment with low resolution copies of the images.
+As with KH-4, it is best to first experiment with low resolution copies of the images.
 Don't forget to scale the image size, center location, and pixel size in the new camera files!
 
 \begin{verbatim}
