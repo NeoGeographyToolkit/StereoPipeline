@@ -222,7 +222,22 @@ public:
                                  m_underlying_camera->pixel_pitch());
 
     // Project the point into the camera.
-    return cam.point_to_pixel(point);
+    Vector2 pixel = cam.point_to_pixel_no_check(point);
+
+
+    // Try to do the error check for point_to_pixel, but the RPC lens distortion
+    //  model does not support it (without a lot of extra computation time) so if we
+    //  can't do the check we just have to live without it.
+    const double ERROR_THRESHOLD = 0.01;
+    double diff = 0.0;
+    try {
+      Vector3 pixel_vector = cam.pixel_to_vector(pixel);
+      Vector3 phys_vector  = normalize(point - cam.camera_center());
+      diff = norm_2(pixel_vector - phys_vector);
+    }
+    catch (...){}
+    VW_ASSERT(diff < ERROR_THRESHOLD, vw::camera::PointToPixelErr());
+
   }
 
 private:
