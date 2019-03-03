@@ -238,6 +238,7 @@ public:
     catch (...){}
     VW_ASSERT(diff < ERROR_THRESHOLD, vw::camera::PointToPixelErr());
 
+    return pixel;
   }
 
 private:
