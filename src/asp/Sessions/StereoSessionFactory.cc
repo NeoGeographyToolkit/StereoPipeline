@@ -35,6 +35,7 @@
 #include <vw/FileIO/DiskImageResourceRaw.h>
 #include <asp/Camera/SPOT_XML.h>
 #include <asp/Camera/ASTER_XML.h>
+#include <asp/Camera/OpticalBarModel.h>
 
 namespace asp{
 
@@ -60,7 +61,29 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
     if (actual_session_type.empty()) {
       if (asp::has_pinhole_extension(left_camera_file ) || // TODO: Fix this dangerous code!
           asp::has_pinhole_extension(right_camera_file)   ) {
-        actual_session_type = "pinhole";
+        // There can be several types of .tsai files
+        std::string error_pinhole, error_opticalbar;
+        try {
+          vw::camera::PinholeModel P;
+          // For some reason, have to first create the model and then read it,
+          // otherwise the exception does not get thrown if the file is bad.
+          P.read(left_camera_file);
+          actual_session_type = "pinhole";
+        }catch (std::exception & e) {
+          error_pinhole = e.what();
+          try {
+            asp::camera::OpticalBarModel P; 
+            P.read(left_camera_file);
+            actual_session_type = "opticalbar";
+          }catch (std::exception & e) {
+            error_opticalbar = e.what();
+            vw_throw(vw::NoImplErr() << "Could not read the camera model " <<
+                     left_camera_file << " as pinhole. "
+                     << "The error was: " << error_pinhole << "\n"
+                     << "Could not read it as opticalbar model either, the error was: "
+                     << error_opticalbar);
+          }
+        }
       }
       if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
           boost::iends_with(boost::to_lower_copy(right_image_file ), ".cub") ||

@@ -102,7 +102,7 @@ asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
     vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor,       
       vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), 
                                                   vw::math::InterestPointErrorMetric(),
-                                                  100, // number of iterations
+                                                  stereo_settings().ip_num_ransac_iterations,
                                                   10*(15.0*ip_inlier_factor), // inlier thresh
                                                   ransac_ip1.size()/2, true);
     T = ransac( ransac_ip2, ransac_ip1 );

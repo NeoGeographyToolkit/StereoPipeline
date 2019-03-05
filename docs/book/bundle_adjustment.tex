@@ -412,14 +412,17 @@ of the cameras to the reference terrain.
 
 Also note the earlier comment about sharing and floating the intrinsics individually. 
 
-\subsubsection{RPC lens distortion}
-If it is realized that the optimized intrinsics still do not make the ASP-generated
-DEMs agree very well with the ground truth, and some residual and systematic error can be seen
-either by comparing these two or in intersection error files, it may be convenient
-to convert the current camera models to ones with the distortion given by rational function
-coefficients (RPC) (section \ref{pinholemodels}). An RPC model has a lot more
-coefficients to optimize, hence a better fit can be found (though we noticed situations 
-in which it was still not expressive enough, but still better than simpler models). 
+\subsubsection{RPC lens distortion} 
+If it is realized that the optimized intrinsics still do not make the
+ASP-generated DEMs agree very well with the ground truth, and some
+residual and systematic error can be seen either by comparing these two
+or in intersection error files, it may be convenient to convert the
+current camera models to ones with the distortion given by rational
+function coefficients (RPC) of a desired degre (section
+\ref{pinholemodels}). An RPC model can have a lot more coefficients to
+optimize, hence a better fit can be found (though we noticed situations
+in which it was still not expressive enough, but still better than
+simpler models).
 
 An example showing how to convert a camera model to RPC is given in
 section \ref{convertpinholemodel}.

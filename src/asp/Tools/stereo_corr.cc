@@ -89,7 +89,7 @@ void read_search_range_from_dsub(ASPGlobalOptions & opt){
     std::string msg = "Could not read " + d_sub_file + ".";
     if (stereo_settings().skip_low_res_disparity_comp)
       msg += " Perhaps one should disable --skip-low-res-disparity-comp.";
-    vw_throw(ArgumentErr() << msg << ".\n");
+    vw_throw(ArgumentErr() << msg << "\n");
   }
   Vector2 upsample_scale( double(Lmask.cols()) / double(sub_disp.cols()) ,
                           double(Lmask.rows()) / double(sub_disp.rows()) );
@@ -1137,7 +1137,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
       std::string msg = "Could not read " + dsub_file + ".";
       if (stereo_settings().skip_low_res_disparity_comp)
         msg += " Perhaps one should disable --skip-low-res-disparity-comp.";
-      vw_throw(ArgumentErr() << msg << ".\n");
+      vw_throw(ArgumentErr() << msg << "\n");
     }
   }
   ImageViewRef<PixelMask<Vector2i> > sub_disp_spread;

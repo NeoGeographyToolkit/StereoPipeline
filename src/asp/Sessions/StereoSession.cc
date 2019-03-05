@@ -258,8 +258,7 @@ namespace asp {
                                       match_filename,
                                       left_ip_file, right_ip_file,
                                       nodata1, nodata2);
-      }
-      else {
+      } else {
         inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
                                          image1_norm, image2_norm,
                                          ip_per_tile,
@@ -268,7 +267,7 @@ namespace asp {
                                          left_ip_file, nodata1, nodata2);
       }
     } else { // Not nadir facing
-      // Run a simpler purely image based matching function
+      // Run a simpler purely image-based matching function
       double ip_inlier_factor = stereo_settings().ip_inlier_factor;
       int    inlier_threshold = round(ip_inlier_factor*150.0); // by default this is 10.
 

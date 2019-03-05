@@ -15,7 +15,7 @@
    * Added parallel_bundle_adjust which computes image statistics and
      IP matching in a parallel manner similar to parallel_stereo.
    * Added the cam_gen tool to create a correctly oriented pinhole
-   * camera model given camera intrinsics, lon-lat coordinates of the
+     camera model given camera intrinsics, lon-lat coordinates of the
      corners (or some other pixels), and optionally a ground truth
      DEM. It can also parse SkySat's video/frame_index metafile to get
      this data.
@@ -121,6 +121,9 @@
    * Added the --nearest-neighbor option to use that interpolation
      method instead of bicubic.  This is better for labeled images
      which should not be interpolated.
+
+ - convert_pinhole_model
+   * Can create RPC distortion models of any degree.
 
 - Misc
    * Expanded the documentation explaining how to align cameras 
@@ -287,7 +290,7 @@
    * Added support for running sparse_disp with your own Python installation.
    * Bugfix for image cropping with epipolar aligned images.
    * The sfs tool supports the integrability constraint weight from Horn 1990.
-   * The software works with both Python 2 and 3. 
+   * The software works with both Python versions >= 2.6 and 3. 
 
 *** RELEASE 2.6.0, May 15, 2017 ***
 

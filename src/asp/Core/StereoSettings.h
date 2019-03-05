@@ -101,6 +101,7 @@ namespace asp {
     double ip_uniqueness_thresh;            /// Min percentage distance between closest and second closest IP descriptors.
     double ip_nodata_radius;                /// Remove IP near nodata with this radius, in pixels.
     double ip_triangulation_max_error;      ///< Remove IP matches with triangulation error higher than this.
+    int    ip_num_ransac_iterations;        ///< How many ransac iterations to do in ip matching.
     bool   disable_tri_filtering;           ///< Turn of tri-ip filtering.
     vw::Vector2 remove_outliers_by_disp_params; /// Remove outliers based on disparity of ip.
     
@@ -117,6 +118,7 @@ namespace asp {
     double nodata_stddev_thresh;            ///
     int    nodata_stddev_kernel;            ///< Kernel size of the nadata stddev calculation
     bool   skip_rough_homography;           ///< Use this if datum-based rough homography fails. 
+    bool   no_datum;                        ///< Do not assume a reliable datum exists
     bool   skip_image_normalization;        ///< Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
     bool   force_reuse_match_files;         ///< Force reusing the match files even if older than the images or cameras
     bool   part_of_multiview_run;           ///< If this run is part of a larger multiview run

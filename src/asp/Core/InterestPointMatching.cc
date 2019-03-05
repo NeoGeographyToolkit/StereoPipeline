@@ -405,14 +405,13 @@ namespace asp {
     tpc.report_finished();
     
     if (left_points.empty() || right_points.empty())
-      vw_throw( ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points! Examine your images, or consider using the option --skip-rough-homography.\n" );
+      vw_throw( ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points! Examine your images, or consider using the options --skip-rough-homography and --no-datum.\n" );
 
     double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
-
     typedef math::HomographyFittingFunctor hfit_func;
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
       ransac( hfit_func(), math::InterestPointErrorMetric(),
-              100, // num iterations
+              stereo_settings().ip_num_ransac_iterations,
               norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor), // inlier threshold
               left_points.size()/2 // min output inliers
               );
@@ -445,7 +444,7 @@ namespace asp {
     math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric>
       ransac( math::HomographyFittingFunctor(),
               math::InterestPointErrorMetric(),
-              100, // num iter
+              stereo_settings().ip_num_ransac_iterations,
               norm_2(Vector2(left_size.x(),left_size.y())) * (1.5*thresh_factor), // inlier thresh
               left_copy.size()*2/3 // min output inliers
             );
@@ -840,12 +839,11 @@ namespace asp {
     
       typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
       const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
-      const int    NUM_ITERATIONS         = 100;
       RansacT ransac( math::HomographyFittingFunctor(),
-                      math::InterestPointErrorMetric(), NUM_ITERATIONS,
+                      math::InterestPointErrorMetric(),
+                      stereo_settings().ip_num_ransac_iterations,
                       inlier_threshold,
-                      MIN_NUM_OUTPUT_INLIERS, true
-                    );
+                      MIN_NUM_OUTPUT_INLIERS, true);
       Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
       //vw_out() << "\t--> Homography: " << H << "\n";
       indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
@@ -937,7 +935,11 @@ namespace asp {
     std::vector<size_t> indices;
     try {
 
-      vw::math::RandomSampleConsensus<vw::math::TranslationScaleFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::TranslationScaleFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
+      vw::math::RandomSampleConsensus<vw::math::TranslationScaleFittingFunctor, vw::math::InterestPointErrorMetric>
+        ransac(vw::math::TranslationScaleFittingFunctor(),
+               vw::math::InterestPointErrorMetric(),
+               stereo_settings().ip_num_ransac_iterations,
+               10, ransac_ip1.size()/2, true);
       T = ransac( ransac_ip2, ransac_ip1 );
       indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
     } catch (...) {

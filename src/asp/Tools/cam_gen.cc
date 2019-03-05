@@ -80,7 +80,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("output-camera-file,o", po::value(&opt.camera_file), "Specify the output camera file with a .tsai extension.")
-    ("camera-type", po::value(&opt.camera_type), "Either pinhole [default] or opticalbar")
+    ("camera-type", po::value(&opt.camera_type)->default_value("pinhole"), "Specify the camera type. Options are: pinhole (default) and opticalbar.")
     ("lon-lat-values", po::value(&opt.lon_lat_values_str)->default_value(""), "A (quoted) string listing numbers, separated by commas or spaces, having the longitude and latitude (alternating and in this order) of each image corner. The corners are traversed in the order 0,0 w,0, w,h, 0,h where w and h are the image width and height.")
     ("pixel-values", po::value(&opt.pixel_values_str)->default_value(""), "A (quoted) string listing numbers, separated by commas or spaces, having the column and row (alternating and in this order) of each pixel in the raw image at which the longitude and latitude is known. By default this is empty, and will be populated by the image corners traversed as earlier.")
     ("reference-dem", po::value(&opt.reference_dem)->default_value(""),
@@ -132,6 +132,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << usage << general_options );
 
   boost::to_lower(opt.camera_type);
+  
+  if (opt.camera_type != "pinhole" && opt.camera_type != "opticalbar")
+    vw_throw( ArgumentErr() << "Only pinhole and opticalbar cameras are supported.\n");
+  
   if ((opt.camera_type == "opticalbar") && (opt.sample_file == ""))
     vw_throw( ArgumentErr() << "opticalbar type must use a sample camera file.\n"
               << usage << general_options );

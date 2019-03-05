@@ -370,13 +370,13 @@ void OpticalBarModel::write(std::string const& filename) const {
 
 std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model) {
   os << "\n------------------------ Optical Bar Model -----------------------\n\n";
-  os << " Image size :            " << camera_model.m_image_size             << "\n";
+  os << " Image size:             " << camera_model.m_image_size             << "\n";
   os << " Center loc (pixels):    " << camera_model.m_center_loc_pixels      << "\n";
-  os << " Pixel size (m) :        " << camera_model.m_pixel_size             << "\n";
-  os << " Focal length (m) :      " << camera_model.m_focal_length           << "\n";
+  os << " Pixel size (m):         " << camera_model.m_pixel_size             << "\n";
+  os << " Focal length (m):       " << camera_model.m_focal_length           << "\n";
   os << " Scan angle (rad):       " << camera_model.m_scan_angle_radians     << "\n";
   os << " Scan rate (rad/s):      " << camera_model.m_scan_rate_radians      << "\n";
-  os << " Scan left to right?:    " << camera_model.m_scan_left_to_right     << "\n";
+  os << " Left to right scan:     " << camera_model.m_scan_left_to_right     << "\n";
   os << " Forward tilt (rad):     " << camera_model.m_forward_tilt_radians   << "\n";
   os << " Initial position:       " << camera_model.m_initial_position       << "\n";
   os << " Initial pose:           " << camera_model.m_initial_orientation    << "\n";
@@ -384,7 +384,6 @@ std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model)
   os << " Mean earth radius:      " << camera_model.m_mean_earth_radius      << "\n";
   os << " Mean surface elevation: " << camera_model.m_mean_surface_elevation << "\n";
   os << " Use motion comp:        " << camera_model.m_use_motion_compensation<< "\n";
-  os << " Left to right scan:     " << camera_model.m_scan_left_to_right     << "\n";
 
   os << "\n------------------------------------------------------------------------\n\n";
   return os;

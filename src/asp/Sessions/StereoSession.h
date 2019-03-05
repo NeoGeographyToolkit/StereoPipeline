@@ -70,7 +70,7 @@ namespace asp {
     virtual bool uses_rpc_map_projection  () const {return isMapProjected();} // Set to false if using another type
     virtual bool requires_input_dem       () const {return isMapProjected();}
     virtual bool supports_image_alignment () const {return !isMapProjected(); }
-    virtual bool is_nadir_facing          () const {return true; }
+    virtual bool is_nadir_facing          () const {return !asp::stereo_settings().no_datum; }
 
 
     /// Helper function that retrieves both cameras.

@@ -82,7 +82,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
       boost::shared_ptr<PinholeModel> pinhole_model = 
         boost::dynamic_pointer_cast<PinholeModel>(camera_model);
       if (pinhole_model.get() == 0)
-        vw::vw_throw( vw::ArgumentErr() << "Tried to add pinhole block with non-pinhole camera!");
+        vw::vw_throw( vw::ArgumentErr() << "Tried to add pinhole block with non-pinhole camera.");
       wrapper.reset(new PinholeBundleModel(pinhole_model));
 
     } else { // Optical bar
@@ -90,7 +90,8 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
       boost::shared_ptr<asp::camera::OpticalBarModel> bar_model = 
         boost::dynamic_pointer_cast<asp::camera::OpticalBarModel>(camera_model);
       if (bar_model.get() == 0)
-        vw::vw_throw( vw::ArgumentErr() << "Tried to add optical bar block with non-OB camera!");
+        vw::vw_throw( vw::ArgumentErr() << "Tried to add optical bar block with "
+                      << "non-optical bar camera.");
       wrapper.reset(new OpticalBarBundleModel(bar_model));
     }
 
@@ -1236,7 +1237,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     }
   }
   if (opt.camera_type == BaCameraType_OpticalBar) {
-    num_lens_distortion_params = 2; // TODO: Share this constant!
+    num_lens_distortion_params = NUM_OPTICAL_BAR_EXTRA_PARAMS; // TODO: Share this constant!
   }
   BAParamStorage param_storage(num_points, num_cameras,
                                // Optical bar and pinhole are similar
@@ -1560,12 +1561,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
     ("skip-rough-homography",
             po::bool_switch(&opt.skip_rough_homography)->default_value(false)->implicit_value(true),
-            "Skip the step of performing datum-based rough homography if it fails.")
+     "Skip the step of performing datum-based rough homography if it fails.")
+    ("no-datum", po::bool_switch(&opt.no_datum)->default_value(false)->implicit_value(true),
+     "Do not assume a reliable datum exists, such as for potato-shaped bodies.")
     ("individually-normalize", 
             po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
             "Individually normalize the input images instead of using common values.")
+    ("num-iterations",       po::value(&opt.max_iterations)->default_value(1000),
+     "Set the maximum number of iterations.") 
     ("max-iterations",       po::value(&opt.max_iterations)->default_value(1000),
-            "Set the maximum number of iterations.")
+            "Set the maximum number of iterations.") // alias for num-iterations
     ("parameter-tolerance",  po::value(&opt.parameter_tolerance)->default_value(1e-8),
             "Stop when the relative error in the variables being optimized is less than this.")
     ("overlap-limit",        po::value(&opt.overlap_limit)->default_value(0),
@@ -1591,7 +1596,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
             "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
     ("ip-triangulation-max-error",  po::value(&opt.ip_triangulation_max_error)->default_value(-1),
-            "When matching IP, filter out any pairs with a triangulation error higher than this.")
+     "When matching IP, filter out any pairs with a triangulation error higher than this.")
+    ("ip-num-ransac-iterations", po::value(&opt.ip_num_ransac_iterations)->default_value(100),
+     "How many RANSAC iterations to do in interest point matching.")
     ("remove-outliers-params", 
             po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
             "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.")
@@ -2036,9 +2043,8 @@ int main(int argc, char* argv[]) {
         boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
                 boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models.back());
         // Replace lens distortion with fast approximation
-        vw::camera::update_pinhole_for_fast_point2pixel<TsaiLensDistortion, 
-            TsaiLensDistortion::num_distortion_params>(*(pinhole_ptr.get()),
-                                                       file_image_size(opt.image_files[i]));
+        vw::camera::update_pinhole_for_fast_point2pixel<TsaiLensDistortion>
+          (*(pinhole_ptr.get()), file_image_size(opt.image_files[i]));
       }
 
     } // End loop through images loading all the camera models

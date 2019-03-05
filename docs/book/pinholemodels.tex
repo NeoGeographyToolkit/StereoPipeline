@@ -28,6 +28,7 @@ distance}. The value $cu$ is computed as half the image width in
 pixels times the pitch, while $cv$ is half the image height in pixels
 time the pitch.
 
+A few sample pinhole models are shown later in the text.
 
 Along with the basic pinhole camera parameters, a lens distortion model
 can be added.  Note that the units used in the distortion model must
@@ -116,8 +117,7 @@ coordinates via the formula
 
 The functions in the numerator and denominator are polynomials in $x$
 and $y$ with certain coefficients. The degree of
-polynomials is 4. ASP also supports the similarly named RPC5 and RPC6
-models, when the degree is 5 and 6 respectively.
+polynomials can be any positive integer.
 
 RPC distortion models can be generated as approximations to other pre-existing
 models with the tool \texttt{convert\_pinhole\_model} (section \ref{convertpinholemodel}).
@@ -229,6 +229,33 @@ p2 = 2.2656e-006
 b1 = 0.0
 b2 = 0.0
 \end{verbatim}
+
+\item  \textbf{RPC}
+
+\begin{verbatim}
+RPC
+rpc_degree = 1
+image_size = 5760 3840
+distortion_num_x   = 0 1 0
+distortion_den_x   = 1 0 0
+distortion_num_y   = 0 0 1
+distortion_den_y   = 1 0 0
+undistortion_num_x = 0 1 0
+undistortion_den_x = 1 0 0
+undistortion_num_y = 0 0 1
+undistortion_den_y = 1 0 0
+\end{verbatim}
+
+This sample RPC lens distortion model represents the case of no distortion, 
+when the degree of the polynomials is 1, and both the distortion and undistortion 
+formula leave the pixels unchanged, that is, the distortion transform is
+\begin{equation*}
+(x, y) \to (x, y) = \left(\frac{ 0 + 1\cdot x + 0\cdot y}{1 + 0\cdot x + 0\cdot y},
+ \frac{0 + 0\cdot x + 1\cdot y)}{1 + 0\cdot x + 0\cdot y}\right).
+\end{equation*}
+
+In general, if the degree of the polynomials is $n$, there are $2(n+1)(n+2)$ coefficients. 
+The zero-th degree coefficients in the denominator are always set to 1.
 
 \end{itemize}{}
 

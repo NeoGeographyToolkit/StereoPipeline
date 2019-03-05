@@ -702,13 +702,20 @@ namespace asp {
     bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
     if (!using_sgm) {
       if (stereo_settings().cost_mode == 3)
-        vw_throw( ArgumentErr() << "Cannot use census transform without SGM!\n" );
+        vw_throw( ArgumentErr() << "Cannot use the census transform without SGM!\n" );
       if (stereo_settings().cost_mode == 4)
-        vw_throw( ArgumentErr() << "Cannot use ternary census transform without SGM!\n" );
+        vw_throw( ArgumentErr() << "Cannot use the ternary census transform without SGM!\n" );
     }
     if (stereo_settings().cost_mode > 4)
       vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode << " for cost-mode.\n" );
 
+    if ( using_sgm &&
+         (stereo_settings().cost_mode == 3 || stereo_settings().cost_mode == 4) &&
+         (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 7) ){
+      vw_throw( ArgumentErr() << "For this kernel size, use --cost-mode 2, 1, or 0, "
+                << "with 2 preferred.\n" );
+    }
+    
     // Camera checks
     bool force_throw = false;
     try {

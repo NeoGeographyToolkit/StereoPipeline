@@ -295,7 +295,7 @@ bool epipolar_ip_matching( bool single_threaded_camera,
   vw_out() << "\t--> Matching interest points" << std::endl;
 
   vw_out() << "\t    Uniqueness threshold: " << uniqueness_threshold << "\n";
-  vw_out() << "\t    Inlier threshold:     " << epipolar_threshold   << "\n";
+  vw_out() << "\t    Epipolar threshold:   " << epipolar_threshold   << "\n";
   
   EpipolarLinePointMatcher matcher(single_threaded_camera,
                                     uniqueness_threshold, epipolar_threshold, datum );

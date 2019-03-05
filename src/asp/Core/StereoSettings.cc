@@ -134,6 +134,8 @@ namespace asp {
        "Remove IP near nodata with this radius, in pixels.")
       ("ip-triangulation-max-error", po::value(&global.ip_triangulation_max_error)->default_value(-1),
        "When matching IP, filter out any pairs with a triangulation error higher than this.")
+      ("ip-num-ransac-iterations", po::value(&global.ip_num_ransac_iterations)->default_value(100),
+       "How many RANSAC iterations to do in interest point matching.")
       ("disable-tri-ip-filter",     po::value(&global.disable_tri_filtering)->default_value(false)->implicit_value(true),
        "Turn off the tri-ip filtering step.")
       ("remove-outliers-by-disparity-params",  po::value(&global.remove_outliers_by_disp_params)->default_value(Vector2(100.0,3.0), "pct factor"),
@@ -154,6 +156,8 @@ namespace asp {
        "Size of kernel to be used in standard deviation filtering, must be odd and > 2 (default -1).")
       ("skip-rough-homography", po::bool_switch(&global.skip_rough_homography)->default_value(false)->implicit_value(true),
        "Skip the step of performing datum-based rough homography if it fails.")
+      ("no-datum", po::bool_switch(&global.no_datum)->default_value(false)->implicit_value(true),
+       "Do not assume a reliable datum exists, such as for potato-shaped bodies.")
       ("skip-image-normalization", po::bool_switch(&global.skip_image_normalization)->default_value(false)->implicit_value(true),
        "Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.")
       ("force-reuse-match-files", po::bool_switch(&global.force_reuse_match_files)->default_value(false)->implicit_value(true),

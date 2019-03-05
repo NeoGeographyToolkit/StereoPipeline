@@ -658,7 +658,7 @@ automatically by the file extension. Options: pinhole nadirpinhole isis dg rpc s
 \texttt{-\/-min-matches \textit{integer(=30)}} & Set the minimum number of matches
 between images that will be considered. \\ \hline
 
-\texttt{-\/-max-iterations \textit{integer(=100)}} & Set the maximum
+\texttt{-\/-num-iterations \textit{integer(=100)}} & Set the maximum
 number of iterations. \\ \hline
 
 \texttt{-\/-parameter-tolerance \textit{double(=1e-8)}} & Stop when the relative error in the variables being optimized is less than this. \\ \hline
@@ -850,7 +850,7 @@ to complete processing in the folder.  Steps 0 and 1 produce the -stats.tif and 
 files that are used in the last step.
 
 \begin{longtable}{|l|p{7.5cm}|}
-\caption{Command-line options for parallel\_budle\_adjust}
+\caption{Command-line options for parallel\_bundle\_adjust}
 \label{tbl:parallelbundleadjust}
 \endfirsthead
 \endhead
@@ -2512,7 +2512,7 @@ initial guess. It can come from a previous run of the tool. \\ \hline
 
 \texttt{-\/-ipfind-options} & Options to pass to the \texttt{ipfind} program when computing the transform from hillshading. Default: \texttt{-\/-ip-per-image 500000 -\/-interest-operator sift -\/-descriptor-generator sift}. \\ \hline
 
-\texttt{-\/-ipmatch-options} & Options to pass to the \texttt{ipmatch} program when computing the transform from hillshading. Default: \texttt{-\/-inlier-threshold 100 -\/-ransac-constraint similarity}. \\ \hline
+\texttt{-\/-ipmatch-options} & Options to pass to the \texttt{ipmatch} program when computing the transform from hillshading. Default: \texttt{-\/-inlier-threshold 100 -\/-ransac-iterations 10000 -\/-ransac-constraint similarity}. \\ \hline
 
 \texttt{-\/-match-file} & Compute an initial transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo\_gui).  The type of transform can be set via \texttt{-\/-initial-transform-from-hillshading \textit{string}}.\\ \hline
 
@@ -3445,15 +3445,17 @@ as Tsai and Adjustable Tsai, the reverse is true, hence converting from
 the former to the latter models can be very convenient for performance
 reasons.
 
-Also, this tool can be used to convert a pinhole or optical bar model to
-a pinhole model with RPC lens distortion, which is a model where distortion is
-expressed as a ratio of polynomials. The RPC lens distortion model has
-the advantage that both the forward and reverse distortion calculation
-are approximated using RPC, hence both of these operations are fast,
-which can provide a large speedup when running stereo and bundle
-adjustment. (This model also has many coefficients, which can help with
-solving for the unknown distortion, per section
-\ref{floatingintrinsics}.)
+This program can also be used to convert a pinhole or optical bar model
+to a pinhole model with RPC lens distortion, which is a model where
+distortion is expressed as a ratio of polynomials. The
+RPC lens distortion model has the advantage that both the forward and
+reverse distortion calculation are approximated using RPC, hence both of
+these operations are fast, which can provide a large speedup when
+running stereo and bundle adjustment.
+
+The degree of the RPC lens distortion can be specified via
+\texttt{-\/-rpc-degree}. A smaller value is suggested to start with, as
+lower-degree polynomials may be easier to interpret.
 
 Usage:
 \begin{verbatim}
@@ -3463,8 +3465,8 @@ Usage:
 Example (convert a camera model to the RPC type):
 
 \begin{verbatim}
-  convert_pinhole_model input.jpg input.tsai --output-type RPC --sample-spacing 50 \
-   -o output_rpc.tsai
+  convert_pinhole_model input.jpg input.tsai --output-type RPC \
+    --rpc-degree 2 --sample-spacing 50 -o output_rpc.tsai
 \end{verbatim}
 
 \begin{longtable}{|l|p{7.5cm}|}
@@ -3481,7 +3483,9 @@ Option & Description \\ \hline \hline
 \texttt{-o | -\/-output-file \textit{string} } & Specify the output file. It is expected to have the .tsai extension. \\ \hline
 
 \texttt{-\/-output-type \textit{string}} & The output model type. Options: TsaiLensDistortion, 
-BrownConradyDistortion, RPC, RPC5, RPC6. Default: TsaiLensDistortion.\\ \hline
+BrownConradyDistortion, RPC. Default: TsaiLensDistortion.\\ \hline
+
+\texttt{-\/-rpc-degree \textit{int}} & The degree of the polynomials, if the output distortion model is RPC. Default: 3. \\ \hline
 
 \texttt{-\/-sample-spacing \textit{int}} & Pick one out of this many
 consecutive pixels to sample. Default: 50. \\ \hline
@@ -3573,7 +3577,7 @@ to visualize the computed camera above the ground in Google Earth.
 \hline
 Option & Description \\ \hline \hline
 \texttt{-o | -\/-output-camera-file \textit{string}} & Specify the output camera file with a .tsai extension.\\ \hline
-\texttt{-\/-camera-type \textit{string}} & Either pinhole [default] or opticalbar.\\ \hline
+\texttt{-\/-camera-type \textit{string}} & Specify the camera type. Options are: pinhole (default) and opticalbar.\\ \hline
 \texttt{-\/-lon-lat-values \textit{string} } &A (quoted) string listing numbers, separated by commas or spaces, having the longitude and latitude (alternating and in this order) of each image corner. The corners are traversed in the order 0,0 w,0, w,h, 0,h where w and h are the image width and height.\\ \hline
 \texttt{-\/-pixel-values \textit{string} } & A (quoted) string listing numbers, separated by commas or spaces, having the column and row (alternating and in this order) of each pixel in the raw image at which the longitude and latitude is known. By default this is empty, and will be populated by the image corners traversed as earlier.\\ \hline
 \texttt{-\/-reference-dem \textit{string} } & Use this DEM to infer the heights above datum of the image corners.\\ \hline

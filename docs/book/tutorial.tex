@@ -1074,8 +1074,12 @@ the name of the DEM used for map-projection. The session name passed to
 \subsection{Multi-View Stereo}
 \label{multiview}
 
-ASP supports multi-view stereo at the triangulation stage.  In this
-scenario, the first image is set as reference, disparities are
+ASP supports multi-view stereo at the triangulation stage. This mode is
+somewhat experimental, and not used widely. We have obtained higher
+quality results by doing pairwise stereo and merging the result, as
+described later on in thi section.
+
+In the multiview scenario, the first image is set as reference, disparities are
 computed from it to all the other images, and then joint triangulation
 is performed \cite{slabaugh2001optimal}. A single
 point cloud is generated with one 3D point for each pixel in the first
