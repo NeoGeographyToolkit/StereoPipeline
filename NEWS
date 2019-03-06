@@ -6,7 +6,7 @@
      to a reference DEM, while optionally refining the intrinsics. 
      This approach may be helpful for other images obtained with frame
      cameras and uncertain positioning information.
-   * Added support for CORONA KH-4B and KH-9 declassified images
+   * Added support for CORONA KH-4B, KH-7, and KH-9 declassified images
      and their panoramic (optical bar) camera models, as well as using
      and optimizing camera models with RPC distortion. An example
      is in the documentation. 
@@ -123,7 +123,11 @@
      which should not be interpolated.
 
  - convert_pinhole_model
-   * Can create RPC distortion models of any degree.
+   * Can create RPC distortion models of any degree, which can be
+     further optimized in bundle_adjust. Old RPC distortion files are
+     still supported throughout ASP, but not functionality which
+     optimizes them. They can be approximately converted to new type
+     RPC distortion files with this tool if optimization is desired.
 
 - Misc
    * Expanded the documentation explaining how to align cameras 
@@ -134,7 +138,12 @@
    * In stereo and bundle_adjust, when images or cameras are newer
      than the match files, the latter get recomputed unless the tools
      are invoked with --force-reuse-match-files.
-   * Added a fix to make stereo work with the ZY3 satellite. 
+   * Added a fix to make stereo work with the ZY3 satellite.
+   * Added the --no-datum option in stereo and bundle_adjust to 
+     find interest points without assuming a reliable datum exists,
+     such as for irregularly shaped bodies. Added the related 
+     option --skip-rough-homography to not use the datum in 
+     rough homography computation.
 
 *** RELEASE 2.6.1, August 13, 2018 ***
 

@@ -1563,7 +1563,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             po::bool_switch(&opt.skip_rough_homography)->default_value(false)->implicit_value(true),
      "Skip the step of performing datum-based rough homography if it fails.")
     ("no-datum", po::bool_switch(&opt.no_datum)->default_value(false)->implicit_value(true),
-     "Do not assume a reliable datum exists, such as for potato-shaped bodies.")
+     "Do not assume a reliable datum exists, such as for irregularly shaped bodies.")
     ("individually-normalize", 
             po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
             "Individually normalize the input images instead of using common values.")

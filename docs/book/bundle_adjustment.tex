@@ -420,9 +420,9 @@ or in intersection error files, it may be convenient to convert the
 current camera models to ones with the distortion given by rational
 function coefficients (RPC) of a desired degre (section
 \ref{pinholemodels}). An RPC model can have a lot more coefficients to
-optimize, hence a better fit can be found (though we noticed situations
-in which it was still not expressive enough, but still better than
-simpler models).
+optimize, hence a better fit can be found. However, it is suggested to 
+use low-degree polynomials as those are easy to fit, and go to higher
+degree only for refinement if needed. 
 
 An example showing how to convert a camera model to RPC is given in
 section \ref{convertpinholemodel}.

@@ -816,6 +816,14 @@ Force reusing the match files even if older than the images or cameras.
 Force reusing the match files even if older than the images or cameras.
 \\ \hline
 
+\texttt{-\/-skip-rough-homography} & 
+Skip the step of performing datum-based rough homography if it fails.
+\\ \hline
+
+\texttt{-\/-no-datum} & 
+Do not assume a reliable datum exists, such as for irregularly shaped bodies.
+\\ \hline
+
 % This logic is not yet mature enough, and needs to be merged with existing functionality in section \ref{creatinggcp}.
 %\texttt{-\/-gcp-from-mapprojected-images \textit{string}} & Given map-projected versions of the input images, the DEM the were mapprojected onto, and interest point matches among all of these created in stereo_gui, create GCP for the input images to align them better to the DEM. An example is in the documentation. \\ \hline
 
@@ -3466,7 +3474,7 @@ Example (convert a camera model to the RPC type):
 
 \begin{verbatim}
   convert_pinhole_model input.jpg input.tsai --output-type RPC \
-    --rpc-degree 2 --sample-spacing 50 -o output_rpc.tsai
+    --rpc-degree 2 -o output_rpc.tsai
 \end{verbatim}
 
 \begin{longtable}{|l|p{7.5cm}|}
@@ -3487,8 +3495,7 @@ BrownConradyDistortion, RPC. Default: TsaiLensDistortion.\\ \hline
 
 \texttt{-\/-rpc-degree \textit{int}} & The degree of the polynomials, if the output distortion model is RPC. Default: 3. \\ \hline
 
-\texttt{-\/-sample-spacing \textit{int}} & Pick one out of this many
-consecutive pixels to sample. Default: 50. \\ \hline
+\texttt{-\/-sample-spacing \textit{int}} & Pick one out of this many consecutive pixels to sample. If not specified, it will be auto-computed. \\ \hline
 
 \end{longtable}
 
