@@ -16,7 +16,7 @@ sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
 import icebridge_common, pbs_functions, archive_functions, run_helper
-import asp_system_utils, generate_flight_summary
+import asp_system_utils
 
 asp_system_utils.verify_python_version_is_supported()
 

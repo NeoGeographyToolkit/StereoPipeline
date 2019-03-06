@@ -77,10 +77,10 @@ def workDirs():
     return (pfePath, lfePath)
     
 def tarAndWipe(options, logger):
-    '''Connect to lou from where we can se the files, then tar and wipe the current run.'''
+    '''Connect to lou from where we can see the files, then tar and wipe the current run.'''
 
     logger.info("All files were fetched and checks passed. " +
-                "Will tar to lou and wipe the dir.")
+                "Will tar to lou and optionally wipe the dir.")
 
     # Per https://www.nas.nasa.gov/hecc/support/kb/using-
     # shift-for-local-transfers-and-tar-operations_512.html
@@ -92,12 +92,12 @@ def tarAndWipe(options, logger):
     # should as well go to lfe first.
 
     (pfePath, lfePath) = workDirs()
-    
+
     lfeCmd = 'cd ' + pfePath + '; tar cfv ' + lfePath + '/' + \
              options.outputFolder + '.tar ' + options.outputFolder
 
     start_time()
-    
+
     cmd = 'ssh ' + louUser + '@lfe "' + lfeCmd + '"'
     logger.info(cmd)
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, universal_newlines=True)
@@ -114,12 +114,13 @@ def tarAndWipe(options, logger):
     # Do this here, before the wiping
     stop_time("tar_and_wipe", logger)
 
-    logger.info('Will wipe: ' + options.outputFolder)
-    try:
-        shutil.rmtree(options.outputFolder)
-    except Exception as e:
-        # TODO: Can't wipe it as still logging there
-        print("Failed to wipe " + options.outputFolder)
+    if options.wipe:
+        logger.info('Will wipe: ' + options.outputFolder)
+        try:
+            shutil.rmtree(options.outputFolder)
+        except Exception as e:
+            # TODO: Can't wipe it as still logging there
+            print("Failed to wipe " + options.outputFolder)
 
     return 0
 
@@ -203,10 +204,11 @@ def main(argsIn):
                           dest="stopAfterIndexFetch", default=False,
                           help="Stop after fetching the indices.")
 
-        parser.add_option("--tar-and-wipe", action="store_true", dest="tarAndWipe", default=False,
+        parser.add_option("--tar", action="store_true", dest="tar", default=False,
                           help="After fetching all data and performing all conversions and " + \
-                          "validations, make a tarball on lou and wipe the directory. "      + \
-                          "Only valid on Pleiades!")
+                          "validations, make a tarball on lou.  Only valid on Pleiades!")
+        parser.add_option("--wipe", action="store_true", dest="wipe", default=False,
+                          help="After making a tarball with --tar, wipe the directory. ")
         parser.add_option("--start-with-lou-archive", action="store_true",
                           dest="startWithLouArchive", default=False,
                           help="Untar an existing archive from lou, then continue.")
@@ -291,7 +293,7 @@ def main(argsIn):
     stop_time("fetch_validate", logger)
 
     # Archive after fetching
-    if options.tarAndWipe:
+    if options.tar:
         tarAndWipe(options, logger)
 
 # Run main function if file used from shell

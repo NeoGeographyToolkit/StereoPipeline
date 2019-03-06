@@ -334,11 +334,11 @@ double asp::get_rounding_error(vw::Vector3 const& shift, double rounding_error){
 void asp::run_cmd_app_to_file(std::string cmd, std::string file){
   std::string full_cmd;
   full_cmd = "echo '" + cmd + "' >> " + file; // echo the command to run
-  system(full_cmd.c_str());
+  int code = system(full_cmd.c_str());
   full_cmd = cmd + " >> " + file + " 2>&1";
-  system(full_cmd.c_str());
+  code = system(full_cmd.c_str());
   full_cmd = "echo '' >> " + file; // append a newline
-  system(full_cmd.c_str());
+  code = system(full_cmd.c_str());
 }
 
 std::string asp::extract_prog_name(std::string const& prog_str){
