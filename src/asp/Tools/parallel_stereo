@@ -889,6 +889,12 @@ if __name__ == '__main__':
             # Point cloud center computation was done
             self_args.extend(['--skip-point-cloud-center-comp'])
 
+            # Wipe options that should have been done when the
+            # the center of point cloud was computed
+            wipe_option(self_args, '--unalign-disparity', 0)
+            wipe_option(self_args, '--num-matches-from-disparity', 1)
+            wipe_option(self_args, '--num-matches-from-disp-triplets', 1)
+            
             # symlink the files just created
             create_subproject_dirs( settings )
 

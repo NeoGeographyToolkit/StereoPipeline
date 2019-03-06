@@ -68,7 +68,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     lambda, camera_weight, rotation_weight, 
     translation_weight, overlap_exponent, robust_threshold, parameter_tolerance,
     ip_triangulation_max_error;
-  int    report_level, min_matches, max_iterations, overlap_limit,
+  int    report_level, min_matches, num_iterations, overlap_limit,
          instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool   save_iteration, approximate_pinhole_intrinsics,
          disable_pinhole_gcp_init, fix_gcp_xyz, solve_intrinsics,
@@ -108,7 +108,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              lambda(-1.0), camera_weight(-1),
              rotation_weight(0), translation_weight(0), overlap_exponent(0), 
              robust_threshold(0), report_level(0), min_matches(0),
-             max_iterations(0), overlap_limit(0), save_iteration(false),
+             num_iterations(0), overlap_limit(0), save_iteration(false),
              fix_gcp_xyz(false), solve_intrinsics(false), camera_type(BaCameraType_Other),
              semi_major(0), semi_minor(0), position_filter_dist(-1),
              num_ba_passes(1), max_num_reference_points(-1),

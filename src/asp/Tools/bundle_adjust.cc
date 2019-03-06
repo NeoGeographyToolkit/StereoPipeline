@@ -1082,8 +1082,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   options.function_tolerance  = 1e-16;
   options.parameter_tolerance = opt.parameter_tolerance; // default is 1e-8
 
-  options.max_num_iterations                = opt.max_iterations;
-  options.max_num_consecutive_invalid_steps = std::max(5, opt.max_iterations/5); // try hard
+  options.max_num_iterations                = opt.num_iterations;
+  options.max_num_consecutive_invalid_steps = std::max(5, opt.num_iterations/5); // try hard
   options.minimizer_progress_to_stdout      = true;//(opt.report_level >= vw::ba::ReportFile);
 
   if (opt.stereo_session_string == "isis")
@@ -1475,6 +1475,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   std::string intrinsics_to_float_str, intrinsics_to_share_str;
   float auto_overlap_buffer;
   bool inline_adjustments;
+  int max_iterations_tmp;
   po::options_description general_options("");
   general_options.add_options()
     ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")
@@ -1567,9 +1568,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("individually-normalize", 
             po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
             "Individually normalize the input images instead of using common values.")
-    ("num-iterations",       po::value(&opt.max_iterations)->default_value(1000),
+    ("num-iterations",       po::value(&opt.num_iterations)->default_value(1000),
      "Set the maximum number of iterations.") 
-    ("max-iterations",       po::value(&opt.max_iterations)->default_value(1000),
+    ("max-iterations",       po::value(&max_iterations_tmp)->default_value(1000),
             "Set the maximum number of iterations.") // alias for num-iterations
     ("parameter-tolerance",  po::value(&opt.parameter_tolerance)->default_value(1e-8),
             "Stop when the relative error in the variables being optimized is less than this.")
@@ -1907,6 +1908,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw( ArgumentErr() << "When filtering by elevation limit, the datum must be specified.\n"
                 << usage << general_options );
   }
+
+  // This is a little clumsy, but need to see whether the user set --max-iterations
+  // or --num-iterations. They are aliases to each other.
+  if (!vm["max-iterations"].defaulted() && !vm["num-iterations"].defaulted()) 
+    vw_throw( ArgumentErr() << "Cannot set both --num-iterations and --max-iterations.\n");
+  if (!vm["max-iterations"].defaulted())
+    opt.num_iterations = max_iterations_tmp;
   
   vw_out() << "Will use the datum:\n" << opt.datum << std::endl;
   
