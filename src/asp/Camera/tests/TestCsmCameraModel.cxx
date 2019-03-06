@@ -29,20 +29,32 @@ TEST(CSM_camera, basic_check) {
   // TODO: Get a better sample file.
   // Load up the sample ISD file.
   //std::string sample_isd = "/home/smcmich1/repo/StereoPipeline/src/asp/Camera/tests/sample_csm_isd.json";
-  std::string sample_isd = "/home/smcmich1/repo/StereoPipeline/src/asp/Camera/tests/simpleFramerISD.json";
+  //std::string sample_isd = "/home/smcmich1/repo/StereoPipeline/src/asp/Camera/tests/simpleFramerISD.json";
+  std::string sample_isd = "/home/smcmich1/data/csm/ctx_pair/J03_045994_1986_XN_18N282W.json";
 
   CsmModel csm;
   csm.load_model(sample_isd);
+  
+  std::cout << "Size = " << csm.get_image_size() << std::endl;
 
   // Do some simple model tests
-  const double eps = 0.00001;
-  for (int i=0; i<10; ++i) {
-    Vector2 pix(i*1,i*1);
+  const double eps = 0.005;
+  for (int i=1; i<10; ++i) {
+    std::cout << "i = " << i << std::endl;
+    Vector2 pix(i*100,i*100);
+    std::cout << "pix = " << pix << std::endl;
     Vector3 center = csm.camera_center(pix);
+    std::cout << "center = " << center << std::endl;
     Vector3 vec    = csm.pixel_to_vector(pix);
-    Vector3 pt     = center + vec * 10;
-    EXPECT_VECTOR_NEAR(pix, csm.point_to_pixel(pt), eps);
+    std::cout << "vec = " << vec << std::endl;
+    Vector3 pt     = center + vec * 10000;
+    std::cout << " pt = " << pt << std::endl;
+    Vector2 pixel = csm.point_to_pixel(pt);
+    std::cout << " pixel = " << pixel << std::endl;
+    EXPECT_VECTOR_NEAR(pix, pixel, eps);
+    std::cout << std::endl;
   }
+  
   
   EXPECT_TRUE(false);
 }

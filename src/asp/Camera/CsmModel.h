@@ -50,6 +50,9 @@ namespace asp {
     /// Load the camera model from an ISD file.
     bool load_model(std::string const& isd_path);
 
+    /// Return the size of the associated image.
+    vw::Vector2 get_image_size() const;
+    
     virtual vw::Vector2 point_to_pixel (vw::Vector3 const& point) const;
 
     virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;

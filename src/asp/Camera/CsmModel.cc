@@ -280,6 +280,7 @@ bool CsmModel::load_model(std::string const& isd_path) {
     vw::vw_throw( vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
 
   m_csm_model.reset(raster_model); // We will handle cleanup of the model.
+  std::cout << "Done setting up the CSM model\n";
 }
 
 void CsmModel::throw_if_not_init() const {
@@ -289,15 +290,32 @@ void CsmModel::throw_if_not_init() const {
 
 // TODO: Check the warnings
 
+
+vw::Vector2 CsmModel::get_image_size() const {
+  throw_if_not_init();
+
+  csm::ImageVector size = m_csm_model->getImageSize();
+  return Vector2(size.samp, size.line);
+}
+
 Vector2 CsmModel::point_to_pixel (Vector3 const& point) const {
   throw_if_not_init();
 
   csm::EcefCoord  ecef    = vectorToEcefCoord(point);
-  csm::ImageCoord imagePt = m_csm_model->groundToImage(ecef);
-    //double desiredPrecision = 0.001,
-  //double* achievedPrecision = NULL,
-  //WarningList* warnings = NULL)
   
+  double desiredPrecision = 0.01;
+  double achievedPrecision;
+  csm::WarningList warnings;
+  std::cout << "call\n";
+  csm::ImageCoord imagePt = m_csm_model->groundToImage(ecef, desiredPrecision,
+                                                       &achievedPrecision,
+                                                       &warnings);
+
+  csm::WarningList::const_iterator w_iter;
+  for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
+    vw_out() << "CSM Warning: " << w_iter->getMessage() << std::endl;
+  }
+
   return imageCoordToVector(imagePt);
 }
 
