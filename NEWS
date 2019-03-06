@@ -97,7 +97,7 @@
      really needs to triangulate with poor cameras. Can be used with 
      --min-triangulation-angle 0.
     * Added --num-random-passes option to allow bundle_adjust to
-      re-optimize with random adjustments to the initiali parameter
+      re-optimize with random adjustments to the initial parameter
       values with the goal of escaping local minima.
     
  - dem_mosaic
@@ -139,11 +139,14 @@
      than the match files, the latter get recomputed unless the tools
      are invoked with --force-reuse-match-files.
    * Added a fix to make stereo work with the ZY3 satellite.
-   * Added the --no-datum option in stereo and bundle_adjust to 
+   * For stereo and bundle_adjust, added the --no-datum option to
      find interest points without assuming a reliable datum exists,
-     such as for irregularly shaped bodies. Added the related 
-     option --skip-rough-homography to not use the datum in 
-     rough homography computation.
+     such as for irregularly shaped bodies. Added the related
+     option --skip-rough-homography to not use the datum in
+     rough homography computation. Added the option
+     --ip-num-ransac-iterations for finer control of interest
+     point matching. Added --ip-triangulation-max-error to control
+     the triangulation error.
 
 *** RELEASE 2.6.1, August 13, 2018 ***
 

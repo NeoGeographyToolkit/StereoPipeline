@@ -113,6 +113,19 @@ What type of interest point detection algorithm to use for image alignment.
 2 = ORB implementation from OpenCV
 If the default method does not perform well, try out one of the other two methods.
 
+\item[nodata-value \textnormal (default = none)] \hfill \\
+Pixels with values less than or equal to this number are treated as
+no-data. This overrides the nodata values from input images.
+
+\item[datum \textnormal (default = WGS\_1984)] \hfill \\ 
+Set the datum to use with RPC camera models. Options: WGS\_1984, D\_MOON (1,737,400
+meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83,
+WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon
+(=D\_MOON).
+
+\item[no-datum] \hfill \\
+Do not assume a reliable datum exists, such as for irregularly shaped bodies.
+
 \item[epipolar-threshold]  \hfill \\
 Maximum distance in pixels from the epipolar line to search for matches for each
 interest point.  Due to the way ASP finds matches, reducing this value can actually
@@ -120,8 +133,8 @@ increase the number of interest points detected.  If image alignment seems to be
 well but you are not getting enough interest points to get a good search range estimate,
 try setting this value to a small number, perhaps in the low double digits.
 
-\item[ip-inlier-factor \textnormal (default = 1.0/15)] \hfill \\ A
-higher factor will result in more interest points, but perhaps also
+\item[ip-inlier-factor \textnormal (default = 1.0/15)] \hfill \\ 
+A higher factor will result in more interest points, but perhaps also
 more outliers.  It is important to note that this parameter overlaps
 somewhat in scope and effect with \texttt{epipolar-threshold} and
 sometimes not both are active. It is suggested to experiment with both,
@@ -131,30 +144,17 @@ different justification but also somewhat similar effects.
 \item[ip-uniqueness-threshold \textnormal (default = 0.7)] \hfill \\
 A higher threshold will result in more interest points, but perhaps less unique ones.
 
-\texttt{-\/-ip-triangulation-max-error \textit{double}} \hfill \\
+\item[ip-triangulation-max-error \textit{double}] \hfill \\
 When matching IP, filter out any pairs with a triangulation error higher than this.
 
-\item[nodata-value \textnormal (default = none)] \hfill \\
-Pixels with values less than or equal to this number are treated as
-no-data. This overrides the nodata values from input images.
-
-\item[datum \textnormal (default = WGS\_1984)] \hfill \\ Set the datum
-to use with RPC camera models. Options: WGS\_1984, D\_MOON (1,737,400
-meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83,
-WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon
-(=D\_MOON).
+\item[ip-num-ransac-iterations \textit{int(=100)}] \hfill \\
+How many RANSAC iterations to do in interest point matching.
 
 \item[force-reuse-match-files]   \hfill \\
 Force reusing the match files even if older than the images or cameras.
 
 \item[skip-rough-homography ] \hfill \\ 
 Skip the step of performing datum-based rough homography if it fails.
-
-
-\item[no-datum] \hfill \\
-Do not assume a reliable datum exists, such as for irregularly shaped bodies.
-\\ \hline
-
 
 \end{description}
 

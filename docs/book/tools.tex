@@ -791,6 +791,10 @@ When matching IP, filter out any pairs with a triangulation error higher than th
 When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.
 \\ \hline
 
+\texttt{-\/-ip-num-ransac-iterations \textit{int(=100)}} &
+How many RANSAC iterations to do in interest point matching.
+\\ \hline
+
 \texttt{-\/-save-cnet-as-csv} & Save the initial control network containing all interest points in the format used by ground control points, so it can be inspected. \\ \hline
 
 \texttt{-\/-camera-positions \textit{filename}} & CSV file containing estimated positions of each camera.
