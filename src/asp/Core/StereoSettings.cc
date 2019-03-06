@@ -138,8 +138,6 @@ namespace asp {
        "How many RANSAC iterations to do in interest point matching.")
       ("disable-tri-ip-filter",     po::value(&global.disable_tri_filtering)->default_value(false)->implicit_value(true),
        "Turn off the tri-ip filtering step.")
-      ("remove-outliers-by-disparity-params",  po::value(&global.remove_outliers_by_disp_params)->default_value(Vector2(100.0,3.0), "pct factor"),
-     "Outlier removal based on the disparity of interest points, when more than one bundle adjustment pass is used. Points with x or y disparity not within the 100-'pct' to 'pct' percentile interval expanded by 'factor' will be removed as outliers. Default: pct = 100.0 and factor = 3.0, hence by default this is not enabled.")
       ("ip-debug-images",     po::value(&global.ip_debug_images)->default_value(false)->implicit_value(true),
                       "Write debug images to disk when detecting and matching interest points.")
       ("num-obalog-scales",              po::value(&global.num_scales)->default_value(-1),
@@ -207,6 +205,8 @@ namespace asp {
       //                        "Minimum number of pixels to be matched to keep sample (for filter mode 2).")
       //("rm-threshold",        po::value(&global.rm_threshold)->default_value(3),
       //                        "Maximum distance between samples to be considered still matched (for filter mode 2).")
+      ("remove-outliers-by-disparity-params",  po::value(&global.remove_outliers_by_disp_params)->default_value(Vector2(100.0,3.0), "pct factor"),
+       "Outlier removal based on the disparity of interest points, when estimating the disparity search range.  Points with x or y disparity not within the 100-'pct' to 'pct' percentile interval expanded by 'factor' will be removed as outliers. Default: pct = 100.0 and factor = 3.0, hence by default this is not enabled.")
       ("rm-quantile-percentile",  po::value(&global.rm_quantile_percentile)->default_value(0.85),
                               "Filter out pixels in D_sub where disparity > multiple*quantile.")
       ("rm-quantile-multiple",    po::value(&global.rm_quantile_multiple)->default_value(-1),

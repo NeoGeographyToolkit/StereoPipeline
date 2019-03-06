@@ -251,7 +251,6 @@ Automatic search range estimation will quit if at least this many interest point
 not detected.
 
 \item[cost-mode \textnormal{\small{(= 0,1,2,3,4)}}] (default = 2) \hfill \\
-
   This defines the cost function used during integer
   correlation. Squared difference is the fastest cost
   function. However it comes at the price of not being resilient
@@ -311,12 +310,10 @@ not detected.
   nadir epipolar alignment cases.
 
 \item[corr-max-levels \textnormal{\small{(\emph{integer})}} (default = 5)] \hfill \\
-
   The maximum number of additional (lower) resolution levels to use when performing integer correlation.
   Setting this value to zero just performs correlation at the native resolution.
 
 \item[xcorr-threshold \textnormal{\small{(\emph{integer})}} (default = 2)] \hfill \\
-
   Integer correlation to a limited sense performs a correlation
   forward and backwards to double check its result. This is one of the
   first filtering steps to insure that we have indeed converged to a
@@ -330,7 +327,6 @@ not detected.
   additional noise.
 
 \item[min-xcorr-level \textnormal{\small{(\emph{integer})}} (default = 0)] \hfill \\
-
   When using the cross-correlation check controlled by xcorr-threshold, this parameter
   sets the minimum pyramid resolution level that the check will be performed at.  By 
   default the check will be performed at every resolution level but you may wish to increase
@@ -339,6 +335,8 @@ not detected.
   Currently this feature is not enabled when using the default block-matching correlation
   method.  In that case cross correlation is only ever performed on the last resolution level.
 
+\item[remove-outliers-by-disparity-params \textnormal{\small{(\emph{double double})}} (default = 100 3)]  \hfill \\
+  Outlier removal based on the disparity of interest points (difference between right and left pixel), when estimating the disparity search range. For example, the 10\% and 90\% percentiles of disparity are computed, and this interval is made three times bigger. Interest points whose disparity fall outside the expanded interval are removed as outliers. Instead of the default 100 and 3 one can specify pct and factor, without quotes.
 
 \item[rm-quantile-percentile \textnormal{\small{(\emph{double})}} (default = 0.85)] \hfill \\
   See rm-quantile-multiple for details.
@@ -354,18 +352,15 @@ not detected.
   greater than the rest of the image.
 
 \item[use-local-homography \textnormal (default = false)] \hfill \\
-
   This flag, if provided, enables using local homography during
   correlation, as described in Section \ref{sec:local_hom}.
 
 \item[corr-timeout \textnormal{\small{(\emph{integer})}} (default = 1800)]\hfill \\
-
   Correlation timeout for an image tile, in seconds. A non-positive
 value will result in no timeout enforcement. A value of 600 seconds
 should be sufficient in most cases.
 
 \item[stereo-algorithm \textnormal (default = 0)] \hfill \\
-
   Use this setting to switch between the different integer correlation options supported by ASP.  
   \begin{description}
     \item[0 - Local Search Window] - The default option searches for the best match
@@ -386,7 +381,6 @@ should be sufficient in most cases.
   \end{description}
 
 \item[corr-blob-filter \textnormal{\small{(\emph{integer})}} (default = 0)]\hfill \\
-
   Set to apply a blob filter in each level of pyramidal integer correlation.
   When the correlator fails it often leaves "islands" of erroneous disparity results.
   Using this blob filter to remove them cleans up the final stereo output and
@@ -395,14 +389,12 @@ should be sufficient in most cases.
   in pixels that will be removed at the full image resolution.
 
 \item[corr-tile-size \textnormal{\small{(\emph{integer})}} (default = 1024)]\hfill \\
-
   Manually specifies the size of image tiles used by the correlator for multi-threaded
   processing. Typically there is no need to adjust this value but it is very important
   when using semi-global matching. See section \ref{sec:sgm} for details.  This value
   must be a multiple of 16.
 
 \item[sgm-collar-size \textnormal{\small{(\emph{integer})}} (default = 512)]\hfill \\
-
   Specify the size of a region of additional processing around each correlation tile when
   using SGM or MGM processing.  This helps reduce seam artifacts at tile borders when
   processing an image that needs to be broken up into tiles at the cost of additional
@@ -415,7 +407,6 @@ should be sufficient in most cases.
   blunders.  It is not recommended to reduce either value below 2.
 
 \item[corr-memory-limit-mb \textnormal{\small{(\emph{integer})}} (default = 6144)]\hfill \\
-
   Restrict the amount of memory used by the correlation step to be slightly above this value.
   This only really affects SGM/MGM which use a pair of large memory buffer in their computation.
   The total memory usage of these buffers is compared to this limit, and if it is greater then
