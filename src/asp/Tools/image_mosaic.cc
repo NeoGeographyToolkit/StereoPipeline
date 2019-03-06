@@ -21,6 +21,7 @@
 /// - Currently supports one line of images.
 
 #include <limits>
+#include <boost/algorithm/string.hpp>
 
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Algorithms2.h>
@@ -533,25 +534,27 @@ void write_selected_image_type(ImageViewRef<float> const& out_img,
   bool has_nodata = true;
   vw::cartography::GeoReference georef;
   
+  boost::algorithm::to_lower(opt.output_type);
+  
   // Write to disk using the specified output data type.
-  if (opt.output_type == "Float32") 
+  if (opt.output_type == "float32") 
     asp::save_with_temp_big_blocks(min_tile_size, opt.output_image, out_img,
                                    has_georef, georef, has_nodata, output_nodata_value, opt, tpc);
-  else if (opt.output_type == "Byte") 
+  else if (opt.output_type == "byte") 
     asp::save_with_temp_big_blocks(min_tile_size, opt.output_image,
                                    per_pixel_filter(out_img,
                                                     RoundAndClamp<uint8, float>()),
                                    has_georef, georef, has_nodata, 
                                    vw::round_and_clamp<uint8>(output_nodata_value),
                                    opt, tpc);
-  else if (opt.output_type == "UInt16") 
+  else if (opt.output_type == "uint16") 
     asp::save_with_temp_big_blocks(min_tile_size, opt.output_image,
                                    per_pixel_filter(out_img,
                                                     RoundAndClamp<uint16, float>()),
                                    has_georef, georef, has_nodata, 
                                    vw::round_and_clamp<uint16>(output_nodata_value),
                                    opt, tpc);
-  else if (opt.output_type == "Int16") 
+  else if (opt.output_type == "int16") 
     asp::save_with_temp_big_blocks(min_tile_size, opt.output_image,
                                    per_pixel_filter(out_img,
                                                     RoundAndClamp<int16, float>()),
@@ -559,14 +562,14 @@ void write_selected_image_type(ImageViewRef<float> const& out_img,
                                    vw::round_and_clamp<int16>(output_nodata_value),
                                    opt, tpc);
   
-  else if (opt.output_type == "UInt32") 
+  else if (opt.output_type == "uint32") 
     asp::save_with_temp_big_blocks(min_tile_size, opt.output_image,
                                    per_pixel_filter(out_img,
                                                     RoundAndClamp<uint32, float>()),
                                    has_georef, georef, has_nodata, 
                                    vw::round_and_clamp<uint32>(output_nodata_value),
                                    opt, tpc);
-  else if (opt.output_type == "Int32") 
+  else if (opt.output_type == "int32") 
     asp::save_with_temp_big_blocks(min_tile_size, opt.output_image,
                                    per_pixel_filter(out_img,
                                                     RoundAndClamp<int32, float>()),
