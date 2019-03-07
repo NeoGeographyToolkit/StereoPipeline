@@ -62,8 +62,9 @@ Vector3 OpticalBarModel::get_velocity(vw::Vector2 const& pixel) const {
   Matrix3x3 pose = camera_pose(pixel).rotation_matrix();
 
   // Recover the satellite attitude relative to the tilted camera position
-  Matrix3x3 m = vw::math::rotation_x_axis(-m_forward_tilt_radians)*pose;
-
+  //Matrix3x3 m = vw::math::rotation_x_axis(-m_forward_tilt_radians)*pose;
+  Matrix3x3 m = pose*vw::math::rotation_x_axis(m_forward_tilt_radians);
+  
   return m*Vector3(0,m_speed,0);
 }
 
@@ -161,16 +162,16 @@ Vector2 OpticalBarModel::point_to_pixel(Vector3 const& point) const {
 void OpticalBarModel::apply_transform(vw::Matrix3x3 const & rotation,
                                       vw::Vector3   const & translation,
                                       double                scale) {
-
   // Extract current parameters
   vw::Vector3 position = this->camera_center();
   vw::Quat    pose     = this->camera_pose();
-  
+
   vw::Quat rotation_quaternion(rotation);
   
   // New position and rotation
   position = scale*rotation*position + translation;
   pose     = rotation_quaternion*pose;
+
   this->set_camera_center(position);
   this->set_camera_pose  (pose.axis_angle());
 }

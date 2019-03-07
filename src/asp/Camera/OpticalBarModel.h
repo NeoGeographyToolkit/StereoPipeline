@@ -137,20 +137,20 @@ namespace camera {
 
     // -- These are new functions --
 
-    vw::Vector3 camera_center() const {return camera_center(vw::Vector2(0,0));}
-    vw::Quat    camera_pose  () const {return camera_pose  (vw::Vector2(0,0));}
+    // These return the initial center/pose at time=0.
+    vw::Vector3 camera_center() const {return m_initial_position;}
+    vw::Quat    camera_pose  () const {return camera_pose(vw::Vector2(0,0));} // Constant
 
     /// Apply a given rotation + translation + scale transform to the camera.
-    /// - TODO: This is identical to the function in PinholeModel.
     void apply_transform(vw::Matrix3x3 const & rotation,
                          vw::Vector3   const & translation,
                          double                scale);
 
     // Parameter accessors
 
-    void set_camera_center(vw::Vector3 const& position   ) {m_initial_position    = position;}
-    void set_camera_pose  (vw::Vector3 const& orientation) {m_initial_orientation = orientation;}
-    void set_camera_pose  (vw::Quaternion<double> const& pose) {set_camera_pose(pose.axis_angle());};
+    void set_camera_center(vw::Vector3 const& position   )     {m_initial_position    = position;}
+    void set_camera_pose  (vw::Vector3 const& orientation)     {m_initial_orientation = orientation;}
+    void set_camera_pose  (vw::Quaternion<double> const& pose) {set_camera_pose(pose.axis_angle());}
 
     /// Returns the image size in pixels
     vw::Vector2i get_image_size    () const { return m_image_size;          }
