@@ -57,10 +57,10 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
 
   // For GCP use a loss function that won't treat this point as an outlier.
   ceres::LossFunction* loss_function;
-  if (is_gcp)
-    loss_function = new ceres::TrivialLoss();
-  else
-    loss_function = get_loss_function(opt);
+  //if (is_gcp) // TODO: Test if this improves things.
+  //  loss_function = new ceres::TrivialLoss();
+  //else
+  loss_function = get_loss_function(opt);
 
   boost::shared_ptr<CameraModel> camera_model = opt.camera_models[camera_index];
 
