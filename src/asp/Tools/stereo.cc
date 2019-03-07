@@ -711,7 +711,7 @@ namespace asp {
 
     if ( using_sgm &&
          (stereo_settings().cost_mode == 3 || stereo_settings().cost_mode == 4) &&
-         (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 7) ){
+         (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 9) ){
       vw_throw( ArgumentErr() << "For this kernel size, use --cost-mode 2, 1, or 0, "
                 << "with 2 preferred.\n" );
     }
