@@ -74,7 +74,7 @@ def parseInterestPoints(ipString):
     parts = ipString.split()
     if len(parts) % 2 == 1:
         raise Exception('The number of IP numbers must be even!')
-    numIp = len(parts) / 2
+    numIp = int(len(parts) / 2)
 
     ip = np.ndarray(shape=(numIp,2), dtype=float)
 
