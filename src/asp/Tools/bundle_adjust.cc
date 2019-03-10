@@ -1936,7 +1936,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
-  opt.load_intrinsics_options(intrinsics_to_float_str, intrinsics_to_share_str);
+  opt.load_intrinsics_options(intrinsics_to_float_str, intrinsics_to_share_str,
+                              !vm["--intrinsics-to-share"].defaulted());
 
   opt.save_iteration = vm.count("save-iteration-data");
   boost::to_lower( opt.cost_function );

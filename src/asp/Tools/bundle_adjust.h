@@ -158,7 +158,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   /// For each option, the string must include a subset of the entries:
   ///  "focal_length, optical_center, distortion_params"
   void load_intrinsics_options(std::string const& intrinsics_to_float_str,
-                               std::string const& intrinsics_to_share_str) {
+                               std::string const& intrinsics_to_share_str,
+                               bool               shared_is_specified) {
 
     // Float everything unless a list was provided.
     intrinisc_options.focus_constant      = true;
@@ -186,7 +187,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
       intrinisc_options.center_constant     = true;
       intrinisc_options.distortion_constant = true;
     }
-    if (intrinsics_to_share_str != "") {
+    if (shared_is_specified) {
       intrinisc_options.focus_shared      = false;
       intrinisc_options.center_shared     = false;
       intrinisc_options.distortion_shared = false;

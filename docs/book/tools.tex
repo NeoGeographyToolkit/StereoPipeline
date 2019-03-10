@@ -735,7 +735,8 @@ Pixels with values less than or equal to this number are treated as no-data. Thi
 
 \texttt{-\/-intrinsics-to-float arg} & If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal\_length, optical\_center, other\_intrinsics.\\ \hline
 
-\texttt{-\/-intrinsics-to-share arg} & If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal\_length, optical\_center, other\_intrinsics.\\ \hline
+\texttt{-\/-intrinsics-to-share arg} & If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal\_length, optical\_center, other\_intrinsics.  By default all of the intrinsics are shared so to not share any of them pass in a blank string.\\ \hline
+
 
 \texttt{-\/-num-passes \textit{integer(=1)}} &
 How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using -\/-remove-outliers-params and -\/-remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.\\ \hline
