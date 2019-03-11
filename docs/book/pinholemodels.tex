@@ -274,27 +274,27 @@ the optional \texttt{.dae} model file input option and observe the rotation of t
 \label{panoramic}
 
 ASP also supports a simple panoramic/optical bar camera model for use with images such as
-the declassified Corona, Gambit, and Keyhole images. It implements the model
+the declassified Corona KH4 and Keyhole KH9 images. It implements the model
 from \cite{schenk2003rigorous} with the motion compensation from \cite{sohn2004mathematical}.
 
 Such a model looks as follows:
 \begin{verbatim}
 VERSION_4
 OPTICAL_BAR
-image_size = 15102 1326
-image_center = 7551.3986199 663.03499977
-pitch = 0.0000527903469079
-f = 0.60960199999999998
-scan_angle = 1.22173 
-scan_rate = 3.3510321638291125 
-forward_tilt = 0.0
-iC = -2494043.6281357 -3994250.90444851 4535283.95327913 
-iR = 0.0825447 0.996303 -0.0238243 -0.996008 0.0832884 0.0321213 0.0339869 0.0210777 0.9992
-speed = 7800 
-mean_earth_radius = 6371000 
-mean_surface_elevation = 0
+image_size = 110507 7904
+image_center = 55253.5 3952
+pitch = 7.0e-06
+f = 0.61000001430511475
+scan_angle = 1.22173
+scan_rate = 3.3500000000000001
+forward_tilt = -0.261799
+iC = -1047140.9611702315 5508464.4323527571 3340425.4078937685
+iR = -0.96635634448923746 -0.16918164442572045 0.1937343197650008 -0.23427205529446918 0.26804084264169648 -0.93448954557235941 0.10616976770014927 -0.94843643849513648 -0.29865750042675621
+speed = 7700
+mean_earth_radius = 6371000
+mean_surface_elevation = 4000
 use_motion_compensation = 1.0
-scan_dir = right
+scan_dir = left
 \end{verbatim}
 
 Here, the image size and center are given in pixels, with the width followed by the
@@ -304,8 +304,10 @@ rate is in radians per second, the forward tilt is in radians,
 the speed is in meters per second, and the Earth radius and mean
 surface elevation are in meters. The initial camera center \texttt{iC} is 
 in meters, and the rotation matrix \texttt{iR} stores the absolute pose.
-\texttt{use\_motion\_compensation} should be set to 1.0 or -1.0 and 
-\texttt{scan\_dir} must be set to 'left' or 'right'.  These two variables
+\texttt{scan\_dir} must be set to 'left' or 'right'.
+\texttt{scan\_dir} and \texttt{use\_motion\_compensation}
 control how the sensor model accounts accounts for the motion of the satellite
 during the image scan.  Without the benefit of detailed historical documents it may
-require experimentation to find the correct value for those two settings for each camera.
+require experimentation to find the good initial values for these cameras.  When using
+\texttt{bundle\_adjust}, the only intrinsic parameters that are solved for are 
+\texttt{speed} and \texttt{use\_motion\_compensation}.

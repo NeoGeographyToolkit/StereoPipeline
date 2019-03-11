@@ -202,35 +202,61 @@ public:
   }
 
   /// Randomly scale each intrinsic value.
-  void randomize_intrinsics() {
+  void randomize_intrinsics(std::vector<double> const& intrinsic_limits) {
     // Intrinsic values are stored as multipliers, here we 
     //  multiply from 0.5 to 1.5, being careful about shared and constant values.
-    boost::random::uniform_int_distribution<> dist(5, 15);
-    for (size_t c=0; c<num_cameras(); ++c) {
-      if (!m_intrin_options.center_constant && !(m_intrin_options.center_shared && (c>0))) {
-        double* ptr = get_intrinsic_center_ptr(c);
-        for (int i=0; i<NUM_CENTER_PARAMS; ++i) {
-          int   o     = dist(m_rand_gen);
-          float scale = static_cast<float>(o) * 0.10;
-          ptr[i] *= scale;
-        }
-      } // End center loop
+    // - If intrinsic limits are specified, use that range instead.
+    boost::random::uniform_int_distribution<> dist(0, 100);
+    const double DENOM = 100.0;
+    const double DEFAULT_MIN   = 0.5;
+    const double DEFAULT_MAX   = 1.5;
+    const double DEFAULT_RANGE = DEFAULT_MAX - DEFAULT_MIN;
+
+    const size_t num_intrinsics = intrinsic_limits.size() / 2;
+    float percent, scale, range = 0;
+    for (size_t c=0; c<num_cameras(); ++c) { // For each camera...
+      size_t intrin_index = 0;
       if (!m_intrin_options.focus_constant && !(m_intrin_options.focus_shared && (c>0))) {
         double* ptr = get_intrinsic_focus_ptr(c);
         for (int i=0; i<NUM_FOCUS_PARAMS; ++i) {
-          int   o     = dist(m_rand_gen);
-          float scale = static_cast<float>(o) * 0.10;
+          percent = static_cast<double>(dist(m_rand_gen))/DENOM;
+          if (intrin_index < num_intrinsics) {
+            range = intrinsic_limits[2*intrin_index+1] - intrinsic_limits[2*intrin_index];
+            scale = percent*range + intrinsic_limits[2*intrin_index];
+          } else
+            scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
           ptr[i] *= scale;
+          ++intrin_index;
         }
-      } // End focus loop
+      } // End focus case
+      intrin_index = NUM_FOCUS_PARAMS; // In case we did not go through the loop
+      if (!m_intrin_options.center_constant && !(m_intrin_options.center_shared && (c>0))) {
+        double* ptr = get_intrinsic_center_ptr(c);
+        for (int i=0; i<NUM_CENTER_PARAMS; ++i) {
+          percent = static_cast<double>(dist(m_rand_gen))/DENOM;
+          if (intrin_index < num_intrinsics) {
+            range = intrinsic_limits[2*intrin_index+1] - intrinsic_limits[2*intrin_index];
+            scale = percent*range + intrinsic_limits[2*intrin_index];
+          } else
+            scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
+          ptr[i] *= scale;
+          ++intrin_index;
+        }
+      } // End center case
+      intrin_index = NUM_FOCUS_PARAMS+NUM_CENTER_PARAMS; // In case we did not go through the loops
       if (!m_intrin_options.distortion_constant && !(m_intrin_options.distortion_shared && (c>0))) {
         double* ptr = get_intrinsic_distortion_ptr(c);
         for (int i=0; i<m_num_distortion_params; ++i) {
-          int   o     = dist(m_rand_gen);
-          float scale = static_cast<float>(o) * 0.10;
+          percent = static_cast<double>(dist(m_rand_gen))/DENOM;
+          if (intrin_index < num_intrinsics) {
+            range = intrinsic_limits[2*intrin_index+1] - intrinsic_limits[2*intrin_index];
+            scale = percent*range + intrinsic_limits[2*intrin_index];
+          } else
+            scale = percent*DEFAULT_RANGE + DEFAULT_MIN;
           ptr[i] *= scale;
+          ++intrin_index;
         }
-      } // End distortion loop
+      } // End distortion case
     } // End camera loop
   }
   
@@ -569,9 +595,8 @@ void pack_optical_bar_to_arrays(asp::camera::OpticalBarModel const& camera,
   focus_ptr [0] = 1.0; //camera.focal_length()[0];
 
   // Pack the speed and MCF into the distortion pointer.
-  // - MCF is a factor already, so we can manipulate it as-is.
   intrinsics_ptr[0] = 1.0;
-  intrinsics_ptr[1] = camera.get_motion_compensation();
+  intrinsics_ptr[1] = 1.0;
 }
 
 
@@ -631,9 +656,8 @@ void populate_optical_bar_from_arrays(int camera_index,
   // All intrinsic parameters are stored as multipliers!
 
   // Update the other intrinsic parameters.
-  // - MCF is naturally a multiplier so we can just store it.
   camera.set_speed              (camera.get_speed()*intrinsic_ptr[0]);
-  camera.set_motion_compensation(intrinsic_ptr[1]);
+  camera.set_motion_compensation(camera.get_motion_compensation()*intrinsic_ptr[1]);
 
   // Update the center and focus
   Vector2 old_center = camera.get_optical_center();

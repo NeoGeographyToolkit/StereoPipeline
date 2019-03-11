@@ -57,6 +57,10 @@
      clouds need a big shift to align.
 
  - bundle_adjust
+   * Added the --intrinsics-limits option to manually specify 
+     intrinsic parameter limits.
+   * Added the --num-random-passes option to allow repeat solving 
+     attempts with randomly distorted initial parameters.
    * Added option to automatically guess overlapping images from
      Worldview style XML camera files.
    * Removed the non-Ceres bundle adjustment options.

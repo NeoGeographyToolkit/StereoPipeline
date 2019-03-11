@@ -105,6 +105,36 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
     problem.AddResidualBlock(cost_function, loss_function, point, camera, 
                             center, focus, distortion);
 
+    // Apply the residual limits
+    size_t num_limits = opt.intrinsics_limits.size() / 2;
+    if ((num_limits > 0) && (num_limits > wrapper->num_intrinsic_params())) {
+      vw::vw_throw( vw::ArgumentErr() << "Error: Too many intrinsic limits provided!"
+        << " This model has " << wrapper->num_intrinsic_params() << " intrinsic parameters.");
+    }
+    size_t intrin_index = 0;
+    if (num_limits > 0) { // Do focus first.
+      problem.SetParameterLowerBound(focus, 0, opt.intrinsics_limits[0]);
+      problem.SetParameterUpperBound(focus, 0, opt.intrinsics_limits[1]);
+      //std::cout << "Set focus bounds: " << opt.intrinsics_limits[0] << ", " << opt.intrinsics_limits[1] << std::endl;
+      ++intrin_index;
+    }
+    while ((intrin_index < 3) && (intrin_index < num_limits)) { // Next is the two center params
+      problem.SetParameterLowerBound(center, intrin_index-1,
+                                     opt.intrinsics_limits[2*intrin_index    ]);
+      problem.SetParameterUpperBound(center, intrin_index-1,
+                                     opt.intrinsics_limits[2*intrin_index + 1]);
+      //std::cout << "Set center: " << opt.intrinsics_limits[2*intrin_index] << ", " << opt.intrinsics_limits[2*intrin_index + 1] << std::endl;
+      ++intrin_index;
+    }
+    while (intrin_index < num_limits) { // Finish with the intrinsic params
+      problem.SetParameterLowerBound(distortion, intrin_index-3,
+                                     opt.intrinsics_limits[2*intrin_index    ]);
+      problem.SetParameterUpperBound(distortion, intrin_index-3,
+                                     opt.intrinsics_limits[2*intrin_index + 1]);
+      //std::cout << "Set parameter: " << opt.intrinsics_limits[2*intrin_index] << ", " << opt.intrinsics_limits[2*intrin_index + 1] << std::endl;
+      ++intrin_index;
+    }
+
     // If we don't want to solve for something, just tell Ceres not to adjust the values.
     if (opt.intrinisc_options.center_constant)
       problem.SetParameterBlockConstant(center);
@@ -1363,7 +1393,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     // Randomly distort the original inputs.
     param_storage.randomize_cameras();
     if (opt.solve_intrinsics)
-      param_storage.randomize_intrinsics(); // The function call handles sharing etc.
+      param_storage.randomize_intrinsics(opt.intrinsics_limits); // The function call handles sharing etc.
 
     // Write output files to a temporary prefix
     opt.out_prefix = orig_out_prefix + "_rand";
@@ -1479,10 +1509,11 @@ int load_estimated_camera_positions(Options &opt,
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
-  std::string intrinsics_to_float_str, intrinsics_to_share_str;
+  std::string intrinsics_to_float_str, intrinsics_to_share_str,
+              intrinsics_limit_str;
   float auto_overlap_buffer;
-  bool inline_adjustments;
-  int max_iterations_tmp;
+  bool  inline_adjustments;
+  int   max_iterations_tmp;
   po::options_description general_options("");
   general_options.add_options()
     ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")
@@ -1500,6 +1531,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
             "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
+    ("intrinsics-limits", 
+            po::value(&intrinsics_limit_str)->default_value(""),
+            "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to dermine how many intrinsic parameters are used for your cameras.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
             "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the inline-adjustments option.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
@@ -1938,6 +1972,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   opt.load_intrinsics_options(intrinsics_to_float_str, intrinsics_to_share_str,
                               !vm["--intrinsics-to-share"].defaulted());
+
+  opt.parse_intrinsics_limits(intrinsics_limit_str);
 
   opt.save_iteration = vm.count("save-iteration-data");
   boost::to_lower( opt.cost_function );

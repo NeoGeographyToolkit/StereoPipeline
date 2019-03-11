@@ -81,6 +81,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double semi_major, semi_minor, position_filter_dist;
   int    num_ba_passes, max_num_reference_points;
   std::string remove_outliers_params_str;
+  std::vector<double> intrinsics_limits;
   vw::Vector<double, 4> remove_outliers_params;
   vw::Vector2 remove_outliers_by_disp_params;
   boost::shared_ptr<vw::ba::ControlNetwork> cnet;
@@ -155,8 +156,29 @@ struct Options : public vw::cartography::GdalWriteOptions {
     }
   }
 
+  /// Just parse the string of limits and make sure they are all valid pairs.
+  void parse_intrinsics_limits(std::string const& intrinsics_limits_str) {
+    intrinsics_limits.clear();
+    std::istringstream is(intrinsics_limits_str);
+    double val;
+    int    count = 0;
+    while (is >> val) {
+      //std::cout << "val = " << val << std::endl;
+      intrinsics_limits.push_back(val);
+      if (count % 2 == 1) {
+        if (intrinsics_limits[count] < intrinsics_limits[count-1])
+          vw_throw( vw::ArgumentErr() << "Error: Intrinsic limit pairs must be min before max.\n" );
+      }
+      ++count;
+    }
+    if (count % 2 != 0)
+      vw_throw( vw::ArgumentErr() << "Error: Intrinsic limits must always be provided in min max pairs.\n" );
+  }
+  
   /// For each option, the string must include a subset of the entries:
   ///  "focal_length, optical_center, distortion_params"
+  /// - Need the extra boolean to handle the case where --intrinsics-to-share
+  ///   is provided as "" in order to share none of them.
   void load_intrinsics_options(std::string const& intrinsics_to_float_str,
                                std::string const& intrinsics_to_share_str,
                                bool               shared_is_specified) {

@@ -533,7 +533,7 @@ public:
       BBox2 in_box = geotrans.reverse_bbox(bbox);
 
       // Grow to account for blending and erosion length, etc.  If
-      // priority blending length was positive, we've already done that.
+      // priority blending length was positive, we've already expanded 'bbox'.
       if (m_opt.priority_blending_len <= 0)
         in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
 

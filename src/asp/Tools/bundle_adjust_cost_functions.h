@@ -299,7 +299,7 @@ public:
     double center_y  = raw_center[1] * m_underlying_camera->get_optical_center()[1];
     double focus     = raw_focus [0] * m_underlying_camera->get_focal_length  ();
     double speed     = raw_intrin[0] * m_underlying_camera->get_speed();
-    double mcf       = raw_intrin[1]; // We use this scale factor directly.
+    double mcf       = raw_intrin[1] * m_underlying_camera->get_motion_compensation();
 
     //std::cout << "raw_intrin = " << raw_intrin[0] << ", " << raw_intrin[1] << std::endl;
 
