@@ -252,8 +252,10 @@ private:
 }; // End class PinholeBundleModel
 
 
+// TODO: Clean this up!
+const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 3;
 
-/// "Full service" pinhole model which solves for all desired camera parameters.
+/// "Full service" optical bar model which solves for all desired camera parameters.
 /// - If the current run does not want to solve for everything, those parameter
 ///   blocks should be set as constant so that Ceres does not change them.
 class OpticalBarBundleModel: public CeresBundleModelBase {
@@ -264,18 +266,18 @@ public:
 
 
   virtual int num_intrinsic_params() const {
-    return 5; // Center, focus, scan rate, and speed.
+    return 2 + 1 + NUM_OPTICAL_BAR_EXTRA_PARAMS;
   }
 
   /// Return the number of Ceres input parameter blocks.
-  /// - (camera), (point), (center), (focus), (lens distortion)
+  /// - (camera), (point), (center), (focus), (other intrinsic parameters)
   virtual int num_parameter_blocks() const {return 5;}
 
   virtual std::vector<int> get_block_sizes() const {
     std::vector<int> result = CeresBundleModelBase::get_block_sizes();
     result.push_back(2); // Center
     result.push_back(1); // Focus
-    result.push_back(2); // MCF and speed
+    result.push_back(NUM_OPTICAL_BAR_EXTRA_PARAMS);
     return result;
   }
 
@@ -300,16 +302,15 @@ public:
     double focus     = raw_focus [0] * m_underlying_camera->get_focal_length  ();
     double speed     = raw_intrin[0] * m_underlying_camera->get_speed();
     double mcf       = raw_intrin[1] * m_underlying_camera->get_motion_compensation();
-
-    //std::cout << "raw_intrin = " << raw_intrin[0] << ", " << raw_intrin[1] << std::endl;
+    double scan_time = raw_intrin[2] * m_underlying_camera->get_scan_time();
 
     // Duplicate the input camera model with the pose, focus, center, speed, and MCF updated.
     asp::camera::OpticalBarModel cam(m_underlying_camera->get_image_size(),
                                      vw::Vector2(center_x, center_y),
                                      m_underlying_camera->get_pixel_size(),
                                      focus,
-                                     m_underlying_camera->get_scan_angle(),
-                                     m_underlying_camera->get_scan_rate(),
+                                     scan_time,
+                                     //m_underlying_camera->get_scan_rate(),
                                      m_underlying_camera->get_scan_dir(),
                                      m_underlying_camera->get_forward_tilt(),
                                      correction.position(),

@@ -41,7 +41,6 @@ using namespace vw::ba;
 //==================================================================================
 
 std::string UNSPECIFIED_DATUM = "unspecified_datum";
-const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 2;
 
 /// Structure to fully describe how the intrinsics are being handled.
 /// - Currently only pinhole cameras suppert intrinsics in bundle_adjust.
@@ -594,9 +593,10 @@ void pack_optical_bar_to_arrays(asp::camera::OpticalBarModel const& camera,
   center_ptr[1] = 1.0; //camera.point_offset()[1];
   focus_ptr [0] = 1.0; //camera.focal_length()[0];
 
-  // Pack the speed and MCF into the distortion pointer.
+  // Pack the speed, MCF, and scan time into the distortion pointer.
   intrinsics_ptr[0] = 1.0;
   intrinsics_ptr[1] = 1.0;
+  intrinsics_ptr[2] = 1.0;
 }
 
 
@@ -658,6 +658,8 @@ void populate_optical_bar_from_arrays(int camera_index,
   // Update the other intrinsic parameters.
   camera.set_speed              (camera.get_speed()*intrinsic_ptr[0]);
   camera.set_motion_compensation(camera.get_motion_compensation()*intrinsic_ptr[1]);
+  camera.set_scan_time          (camera.get_scan_time()*intrinsic_ptr[2]);
+
 
   // Update the center and focus
   Vector2 old_center = camera.get_optical_center();

@@ -38,10 +38,25 @@ Vector2 OpticalBarModel::pixel_to_sensor_plane(Vector2 const& pixel) const {
   return result;
 }
 
-double OpticalBarModel::pixel_to_time_delta(Vector2 const& pix) const {
+double OpticalBarModel::sensor_to_alpha(vw::Vector2 const& sensor_loc) const {
+  // This calculation comes from the focal point projected on to a circular surface.
+  return sensor_loc[0] / m_focal_length;
+}
 
-  // This is the amount of time required for one complete image scan.
-  const double scan_time = m_scan_angle_radians / m_scan_rate_radians;
+void OpticalBarModel::compute_scan_rate() {
+
+  // Compute the scan angle using pixel information.
+  Vector2 p1 = pixel_to_sensor_plane(Vector2(0,0));
+  Vector2 p2 = pixel_to_sensor_plane(Vector2(m_image_size - Vector2i(1,1)));
+  
+  double alpha1     = sensor_to_alpha(p1);
+  double alpha2     = sensor_to_alpha(p2);
+  double scan_angle = alpha2 - alpha1;
+  
+  m_scan_rate_radians = scan_angle / m_scan_time;
+}
+
+double OpticalBarModel::pixel_to_time_delta(Vector2 const& pix) const {
 
   // Since the camera sweeps a scan through columns, use that to
   //  determine the fraction of the way it is through the image.
@@ -51,7 +66,7 @@ double OpticalBarModel::pixel_to_time_delta(Vector2 const& pix) const {
     scan_fraction = pix[0] / max_col; // TODO: Add 0.5 pixels to calculation?
   else // Right to left scan direction
     scan_fraction = (max_col - pix[0]) / max_col;
-  double time_delta = scan_fraction * scan_time;
+  double time_delta = scan_fraction * m_scan_time;
   return time_delta;
 }
 
@@ -88,7 +103,7 @@ Vector3 OpticalBarModel::pixel_to_vector_uncorrected(Vector2 const& pixel) const
   Quat    cam_pose         = camera_pose  (pixel);
 
   // This is the horizontal angle away from the center point (from straight out of the camera)
-  double alpha = sensor_plane_pos[0] / m_focal_length;
+  double alpha = sensor_to_alpha(sensor_plane_pos);
 
   // Distance from the camera center to the ground.
   double H = norm_2(cam_center) - (m_mean_surface_elevation + m_mean_earth_radius);
@@ -231,16 +246,17 @@ void OpticalBarModel::read(std::string const& filename) {
   }
 
   std::getline(cam_file, line);
-  if (!cam_file.good() || sscanf(line.c_str(),"scan_angle = %lf", &m_scan_angle_radians) != 1) {
+  if (!cam_file.good() || sscanf(line.c_str(),"scan_time = %lf", &m_scan_time) != 1) {
     cam_file.close();
-    vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the scan angle\n" );
+    vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the scan time\n" );
   }
-  
+  /*
   std::getline(cam_file, line);
   if (!cam_file.good() || sscanf(line.c_str(),"scan_rate = %lf", &m_scan_rate_radians) != 1) {
     cam_file.close();
     vw_throw( IOErr() << "OpticalBarModel::read_file(): Could not read the scan rate\n" );
   }
+  */
 
   std::getline(cam_file, line);
   if (!cam_file.good() || sscanf(line.c_str(),"forward_tilt = %lf", &m_forward_tilt_radians) != 1) {
@@ -313,6 +329,8 @@ void OpticalBarModel::read(std::string const& filename) {
   m_scan_left_to_right = line.find("scan_dir = left") == std::string::npos;
 
   cam_file.close();
+  
+  compute_scan_rate(); // This needs to be updated!
 }
 
 
@@ -337,8 +355,8 @@ void OpticalBarModel::write(std::string const& filename) const {
                                 << m_center_loc_pixels[1] << "\n";
   cam_file << "pitch = "        << m_pixel_size             << "\n";
   cam_file << "f = "            << m_focal_length           << "\n";
-  cam_file << "scan_angle = "   << m_scan_angle_radians     << "\n";
-  cam_file << "scan_rate = "    << m_scan_rate_radians      << "\n";
+  cam_file << "scan_time = "   << m_scan_time     << "\n";
+  //cam_file << "scan_rate = "    << m_scan_rate_radians      << "\n";
   cam_file << "forward_tilt = " << m_forward_tilt_radians   << "\n";
   cam_file << "iC = " << m_initial_position[0] << " "
                       << m_initial_position[1] << " "
@@ -370,9 +388,8 @@ std::ostream& operator<<( std::ostream& os, OpticalBarModel const& camera_model)
   os << " Center loc (pixels):    " << camera_model.m_center_loc_pixels      << "\n";
   os << " Pixel size (m):         " << camera_model.m_pixel_size             << "\n";
   os << " Focal length (m):       " << camera_model.m_focal_length           << "\n";
-  os << " Scan angle (rad):       " << camera_model.m_scan_angle_radians     << "\n";
+  os << " Scan time (s):          " << camera_model.m_scan_time              << "\n";
   os << " Scan rate (rad/s):      " << camera_model.m_scan_rate_radians      << "\n";
-  os << " Left to right scan:     " << camera_model.m_scan_left_to_right     << "\n";
   os << " Forward tilt (rad):     " << camera_model.m_forward_tilt_radians   << "\n";
   os << " Initial position:       " << camera_model.m_initial_position       << "\n";
   os << " Initial pose:           " << camera_model.m_initial_orientation    << "\n";

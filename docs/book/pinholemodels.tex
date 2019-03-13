@@ -285,8 +285,7 @@ image_size = 110507 7904
 image_center = 55253.5 3952
 pitch = 7.0e-06
 f = 0.61000001430511475
-scan_angle = 1.22173
-scan_rate = 3.3500000000000001
+scan_time = 0.5
 forward_tilt = -0.261799
 iC = -1047140.9611702315 5508464.4323527571 3340425.4078937685
 iR = -0.96635634448923746 -0.16918164442572045 0.1937343197650008 -0.23427205529446918 0.26804084264169648 -0.93448954557235941 0.10616976770014927 -0.94843643849513648 -0.29865750042675621
@@ -299,8 +298,7 @@ scan_dir = left
 
 Here, the image size and center are given in pixels, with the width followed by the
 height. The pixel pitch and focal length \texttt{f} are in meters. The
-scan angle is in radians (in this example it is 70$^\circ$), the scan
-rate is in radians per second, the forward tilt is in radians,
+scan time is seconds, the forward tilt is in radians,
 the speed is in meters per second, and the Earth radius and mean
 surface elevation are in meters. The initial camera center \texttt{iC} is 
 in meters, and the rotation matrix \texttt{iR} stores the absolute pose.
@@ -309,5 +307,5 @@ in meters, and the rotation matrix \texttt{iR} stores the absolute pose.
 control how the sensor model accounts accounts for the motion of the satellite
 during the image scan.  Without the benefit of detailed historical documents it may
 require experimentation to find the good initial values for these cameras.  When using
-\texttt{bundle\_adjust}, the only intrinsic parameters that are solved for are 
-\texttt{speed} and \texttt{use\_motion\_compensation}.
+\texttt{bundle\_adjust}, the intrinsic parameters that are solved for are 
+\texttt{speed}, \texttt{use\_motion\_compensation}, and \texttt{scan\_time}.

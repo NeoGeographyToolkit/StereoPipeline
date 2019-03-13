@@ -79,8 +79,7 @@ namespace camera {
                     vw::Vector2  center_offset_pixels,
                     double   pixel_size,
                     double   focal_length,
-                    double   scan_angle_radians,
-                    double   scan_rate_radians,
+                    double   scan_time,
                     bool     scan_left_to_right,
                     double   forward_tilt_radians,
                     vw::Vector3  initial_position,
@@ -91,8 +90,7 @@ namespace camera {
         m_center_loc_pixels   (center_offset_pixels),
         m_pixel_size          (pixel_size),
         m_focal_length        (focal_length),
-        m_scan_angle_radians  (scan_angle_radians),
-        m_scan_rate_radians   (scan_rate_radians),
+        m_scan_time           (scan_time),
         m_scan_left_to_right  (scan_left_to_right),
         m_forward_tilt_radians(forward_tilt_radians),
         m_initial_position    (initial_position),
@@ -107,6 +105,8 @@ namespace camera {
       const double DEFAULT_SURFACE_ELEVATION = 0.0;
       m_mean_earth_radius      = DEFAULT_EARTH_RADIUS;
       m_mean_surface_elevation = DEFAULT_SURFACE_ELEVATION;
+      
+      compute_scan_rate();
     }
 
     virtual ~OpticalBarModel() {}
@@ -159,18 +159,23 @@ namespace camera {
     double       get_scan_rate     () const { return m_scan_rate_radians;   }
     double       get_speed         () const { return m_speed;               }
     double       get_pixel_size    () const { return m_pixel_size;          }
-    double       get_scan_angle    () const { return m_scan_angle_radians;  }
+    double       get_scan_time     () const { return m_scan_time;  }
     bool         get_scan_dir      () const { return m_scan_left_to_right;  }
     double       get_forward_tilt  () const { return m_forward_tilt_radians;}
 
 
-    void set_image_size    (vw::Vector2i image_size    ) { m_image_size           = image_size;     }
-    void set_optical_center(vw::Vector2  optical_center) { m_center_loc_pixels    = optical_center; }
-    void set_focal_length  (double       focal_length  ) { m_focal_length         = focal_length;   }
-    void set_scan_rate     (double       scan_rate     ) { m_scan_rate_radians    = scan_rate;      }
+    void set_image_size    (vw::Vector2i image_size    ) { m_image_size           = image_size;
+                                                           compute_scan_rate(); }
+    void set_optical_center(vw::Vector2  optical_center) { m_center_loc_pixels    = optical_center;
+                                                           compute_scan_rate(); }
+    void set_focal_length  (double       focal_length  ) { m_focal_length         = focal_length;
+                                                           compute_scan_rate(); }
+    //void set_scan_rate     (double       scan_rate     ) { m_scan_rate_radians    = scan_rate;      }
     void set_speed         (double       speed         ) { m_speed                = speed;          }
-    void set_pixel_size    (double       pixel_size    ) { m_pixel_size           = pixel_size;     }
-    void set_scan_angle    (double       scan_angle    ) { m_scan_angle_radians   = scan_angle;     }
+    void set_pixel_size    (double       pixel_size    ) { m_pixel_size           = pixel_size;
+                                                           compute_scan_rate(); }
+    void set_scan_time     (double       scan_time     ) { m_scan_time   = scan_time;     
+                                                           compute_scan_rate(); }
     void set_scan_dir      (bool         scan_l_to_r   ) { m_scan_left_to_right   = scan_l_to_r;    }
     void set_forward_tilt  (double       tilt_angle    ) { m_forward_tilt_radians = tilt_angle;     }
 
@@ -181,8 +186,16 @@ namespace camera {
 
   private:
 
+    /// Get the alpha (scanner rotation) angle from a location on the sensor (film) plane.
+    double sensor_to_alpha(vw::Vector2 const& sensor_loc) const;
+
+    /// Compute and record the scan rate into m_scan_rate.
+    void compute_scan_rate();
+
+    /// Get position on the (flattened) sensor (film) plane in meters.
     vw::Vector2 pixel_to_sensor_plane(vw::Vector2 const& pixel) const;
 
+    /// Does not incluce velocity aberration and atmospheric correction.
     vw::Vector3 pixel_to_vector_uncorrected(vw::Vector2 const& pixel) const;
 
     /// Returns the velocity in the GCC frame, not the sensor frame.
@@ -208,9 +221,9 @@ namespace camera {
     // Nominal focal length for Hexagon is 1.5m inches
     double m_focal_length;
 
-    /// The maximum scan angle reached in both direction.
-    /// - The Corona scan angle is about +/- 35 degrees.
-    double m_scan_angle_radians;
+    /// The time it takes to complete one scan.
+    /// - The Corona scan time is about 0.5 seconds.
+    double m_scan_time;
 
     /// The angular velocity of the scanner.
     /// - The Corona scan rate is nominally 192 degrees/second

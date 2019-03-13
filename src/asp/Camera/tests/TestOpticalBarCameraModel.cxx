@@ -68,8 +68,9 @@ TEST(OpticalBarModel, CreateCamera) {
   Vector2i image_size(3910, 2290);
   Vector2  center_loc_pixels = Vector2(1957.2358579744291, 1112.512227705716);
   double   focal_length       = 1.9600000381469727;
-  double   scan_angle_radians = 1.2915399999999999;
-  double   scan_rate_radians  = 3.0125446909089169;
+  double   scan_time = 0.5;
+  //double   scan_angle_radians = 1.2915399999999999;
+  //double   scan_rate_radians  = 3.0125446909089169;
   bool     scan_left_to_right = true;
   double   forward_tilt_radians = 0;
   double   velocity = 5253.0854975797192;
@@ -77,7 +78,7 @@ TEST(OpticalBarModel, CreateCamera) {
 
 
   OpticalBarModel* raw_ptr = new OpticalBarModel(image_size, center_loc_pixels, pixel_size,
-                                                 focal_length, scan_angle_radians, scan_rate_radians, scan_left_to_right,
+                                                 focal_length, scan_time, scan_left_to_right,
                                                  forward_tilt_radians,
                                                  initial_position, initial_orientation,
                                                  velocity, use_motion_comp);
@@ -89,6 +90,8 @@ TEST(OpticalBarModel, CreateCamera) {
 
   // Basic file I/O
   OpticalBarModel cpy;
+  raw_ptr->write("test.tsai");
+  cpy.read ("test.tsai");  
   EXPECT_NO_THROW(raw_ptr->write("test.tsai"));
   EXPECT_NO_THROW(cpy.read ("test.tsai"));
 
