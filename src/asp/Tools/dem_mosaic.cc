@@ -323,10 +323,13 @@ struct Options: vw::cartography::GdalWriteOptions {
   double tr, geo_tile_size;
   bool   has_out_nodata, force_projwin;
   double out_nodata_value;
-  int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, block_size, save_dem_weight;
+  int    tile_size, tile_index, erode_len, priority_blending_len,
+         extra_crop_len, hole_fill_len, block_size, save_dem_weight;
   double weights_exp, weights_blur_sigma, dem_blur_sigma;
   double nodata_threshold;
-  bool   first, last, min, max, block_max, mean, stddev, median, nmad, count, save_index_map, use_centerline_weights, first_dem_as_reference, propagate_nodata;
+  bool   first, last, min, max, block_max, mean, stddev, median, nmad,
+         count, save_index_map, use_centerline_weights,
+         first_dem_as_reference, propagate_nodata, no_border_blend;
   std::set<int> tile_list;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), force_projwin(false), tile_index(-1),
@@ -446,11 +449,14 @@ public:
   inline prerasterize_type prerasterize(BBox2i bbox) const {
 
     BBox2i orig_box = bbox;
+
+    // Get a shorthand for this
+    const bool use_priority_blend = (m_opt.priority_blending_len > 0);
     
     // When doing priority blending, we will do all the work in the
     // output pixels domain. Hence we need to take into account the
     // bias here rather than later.
-    if (m_opt.priority_blending_len > 0)
+    if (use_priority_blend)
       bbox.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
 
     // We will do all computations in double precision, regardless
@@ -477,7 +483,7 @@ public:
       fill( tile_vec[0], 0.0 );
       fill( tile,        0.0 );
     }
-    if (m_opt.priority_blending_len > 0) { // Store each weight separately
+    if (use_priority_blend) { // Store each weight separately
       tile_vec.reserve  (m_imgMgr.size());
       weight_vec.reserve(m_imgMgr.size());
     }
@@ -485,7 +491,7 @@ public:
     // This will ensure that pixels from earlier images are
     // mostly used unmodified except being blended at the boundary.
     ImageView<double> weight_modifier;
-    if (m_opt.priority_blending_len > 0) {
+    if (use_priority_blend) {
       weight_modifier = ImageView<double>(bbox.width(), bbox.height());
       fill(weight_modifier, std::numeric_limits<double>::max());
     }
@@ -514,17 +520,17 @@ public:
                    << " as this is one of the indices being saved in the index map.\n");
       }
     }
-    
+
     ImageView<double> first_dem;
     ImageView<double> local_wts_orig;
-    
+
     // Loop through all input DEMs
     for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++){
 
       // Load the information for this DEM
       GeoReference georef        = m_georefs         [dem_iter];
       BBox2i       dem_pixel_box = m_dem_pixel_bboxes[dem_iter];
-      
+
       // The GeoTransform will hide the messy details of conversions
       // from pixels to points and lon-lat.
       GeoTransform geotrans(georef, m_out_georef, dem_pixel_box, bbox);
@@ -534,7 +540,7 @@ public:
 
       // Grow to account for blending and erosion length, etc.  If
       // priority blending length was positive, we've already expanded 'bbox'.
-      if (m_opt.priority_blending_len <= 0)
+      if (!use_priority_blend)
         in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
 
       in_box.crop(dem_pixel_box);
@@ -546,7 +552,7 @@ public:
       if (in_box.width() <= 1 || in_box.height() <= 1)
         continue; // No overlap with this tile, skip to the next DEM.
 
-      if (m_opt.median || m_opt.nmad || m_opt.priority_blending_len > 0 || m_opt.block_max){
+      if (m_opt.median || m_opt.nmad || use_priority_blend || m_opt.block_max){
         // Must use a blank tile each time
         fill( tile, m_opt.out_nodata_value );
         fill( weights, 0.0 );
@@ -562,9 +568,9 @@ public:
         // when merging in the blended DEM
         first_dem = crop(disk_dem, bbox);
       }
-      
+
       std::string dem_name = m_imgMgr.get_file_name(dem_iter);
-      
+
       // If the nodata_threshold is specified, all values no more than this
       // will be invalidated.
       double nodata_value = m_nodata_values[dem_iter];
@@ -595,14 +601,15 @@ public:
       // keep that image file open, for increased performance, unless
       // their number becomes too large.
       m_imgMgr.release(dem_iter);
-      
+
       if (dem_iter == 0 && m_opt.this_dem_as_reference != "") {
         // We won't actually use this DEM, we just do all in reference to it.
         continue;
       }
-      
+
       // Compute linear weights
-      ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value));
+      ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value),
+                                              m_opt.no_border_blend);
       local_wts_orig = local_wts;
       if (m_opt.use_centerline_weights) {
         // Erode based on grassfire weights, and then overwrite the grassfire
@@ -619,20 +626,20 @@ public:
         centerline_weights2
                 (create_mask_less_or_equal(select_channel(dem2, 0), nodata_value),
                  local_wts, -1.0);
-      }
+      } // End centerline weights case
 
       // If we don't limit the weights from above, we will have tiling artifacts,
       // as in different tiles the weights grow to different heights since
       // they are cropped to different regions. for priority blending length,
       // we'll do this process later, as the bbox is obtained differently in that case.
-      if (m_opt.priority_blending_len <= 0) {
+      if (!use_priority_blend) {
         for (int col = 0; col < local_wts.cols(); col++) {
           for (int row = 0; row < local_wts.rows(); row++) {
             local_wts(col, row) = std::min(local_wts(col, row), double(m_bias));
           }
         }
       }
-      
+
       // Erode. We already did that if centerline weights are used.
       if (!m_opt.use_centerline_weights){
         int max_cutoff = max_pixel_value(local_wts);
@@ -644,12 +651,12 @@ public:
       
       // Blur the weights. If priority blending length is on, we'll do the blur later,
       // after weights from different DEMs are combined.
-      if (m_opt.weights_blur_sigma > 0 && m_opt.priority_blending_len <= 0)
+      if (m_opt.weights_blur_sigma > 0 && !use_priority_blend)
         blur_weights(local_wts, m_opt.weights_blur_sigma);
 
       // Raise to the power. Note that when priority blending length is positive, we
       // delay this process.
-      if (m_opt.weights_exp != 1 && m_opt.priority_blending_len <= 0) {
+      if (m_opt.weights_exp != 1 && !use_priority_blend) {
         for (int col = 0; col < dem.cols(); col++){
           for (int row = 0; row < dem.rows(); row++){
             if (local_wts(col, row) > 0)
@@ -727,14 +734,14 @@ public:
                            (dem(i0, j1).a() == 0) || (dem(i1, j1).a() == 0));
             bool border = ((dem(i0, j0).a() <  0) || (dem(i1, j0).a() <  0) ||
                            (dem(i0, j1).a() <  0) || (dem(i1, j1).a() <  0));
-            
+
             if (nodata || border) {
               pval.v() = 0;
               pval.a() = -1; // Flag as border
 
               if (m_opt.propagate_nodata && !border)
                 pval.a() = 0; // Flag as nodata
-              
+
             } else
               pval = interp_dem(x, y); // Things checked out, do the interpolation.
           }
@@ -742,7 +749,7 @@ public:
           double val = pval.v();
           double wt  = pval.a();
 
-          if (m_opt.priority_blending_len > 0) {
+          if (use_priority_blend) {
             // The priority blending, pixels from earlier DEMs at this location
             // are used unmodified unless close to that DEM boundary.
             wt = std::min(weight_modifier(c, r), wt);
@@ -772,7 +779,7 @@ public:
           // Initialize the tile if not done already.
           // Init to zero not needed with some types.
           if (!m_opt.stddev && !m_opt.median && !m_opt.nmad && !m_opt.min && !m_opt.max &&
-              m_opt.priority_blending_len <= 0){
+              !use_priority_blend){
             if ( is_nodata ){
               tile   (c, r) = 0;
               weights(c, r) = 0.0;
@@ -785,7 +792,7 @@ public:
                ( m_opt.min && ( val < tile(c, r) || is_nodata ) ) ||
                ( m_opt.max && ( val > tile(c, r) || is_nodata ) ) ||
                m_opt.median || m_opt.nmad || 
-               m_opt.priority_blending_len > 0   || m_opt.block_max){
+               use_priority_blend   || m_opt.block_max){
             // --> Conditions where we replace the current value
             tile   (c, r) = val;
             weights(c, r) = wt;
@@ -839,7 +846,7 @@ public:
       }
       
       // For priority blending, need also to keep all tiles, but also the weights
-      if (m_opt.priority_blending_len > 0){
+      if (use_priority_blend){
         tile_vec.push_back(copy(tile));
         weight_vec.push_back(copy(weights));
         clip2dem_index.push_back(dem_iter);
@@ -913,7 +920,7 @@ public:
               min_dist = dist;
             }
           }
-          
+
         }// End row loop
       } // End col loop
     } // End median/nmad case
@@ -941,9 +948,9 @@ public:
       if (max_index >= 0 && max_index < num_tiles) 
         tile = copy(tile_vec[max_index]);
     }
-    
+
     // For priority blending length.
-    if (m_opt.priority_blending_len > 0) {
+    if (use_priority_blend) {
 
       if (tile_vec.size() != weight_vec.size() || tile_vec.size() != clip2dem_index.size())
         vw_throw(ArgumentErr() << "There must be as many dem tiles as weight tiles.\n");
@@ -960,11 +967,12 @@ public:
               tile_vec[clip_iter](col, row) = m_opt.out_nodata_value;
           }
         }
-        
+
         weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter],
-                                                      m_opt.out_nodata_value));
+                                                    m_opt.out_nodata_value),
+                                          m_opt.no_border_blend);
       }
-      
+
       // Don't allow the weights to grow too fast, for uniqueness.
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
         for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
@@ -1004,7 +1012,8 @@ public:
           for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
 
             double wt = weight_vec[clip_iter](col, row);
-            if (wt <= 0) continue; // nothing to do
+            if (wt <= 0)
+              continue; // nothing to do
 
             // Initialize the tile
             if (tile(col, row) == m_opt.out_nodata_value)
@@ -1096,7 +1105,7 @@ public:
     }
 
     if (m_opt.first_dem_as_reference) {
-      
+
       if (first_dem.cols() != tile.cols() || first_dem.rows() != tile.rows()) {
         vw_throw(ArgumentErr() << "Book-keeping error when blending into first DEM.\n");
       }
@@ -1115,7 +1124,7 @@ public:
         }
       }
     }
-    
+
     // Return the tile we created with fake borders to make it look
     // the size of the entire output image. So far we operated
     // on doubles, here we cast to RealT.
@@ -1242,6 +1251,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	   "Erode input DEMs by this many pixels at boundary before mosaicking them.")
     ("priority-blending-length", po::value<int>(&opt.priority_blending_len)->default_value(0),
 	   "If positive, keep unmodified values from the earliest available DEM at the current location except a band this wide measured in pixels around its boundary where blending will happen.")
+    ("no-border-blend", po::bool_switch(&opt.no_border_blend)->default_value(false),
+	   "Only apply blending around holes, don't blend at image borders.  Not compatible with centerline weights.")
     ("hole-fill-length",   po::value(&opt.hole_fill_len)->default_value(0),
 	   "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
     ("tr",              po::value(&opt.tr),
