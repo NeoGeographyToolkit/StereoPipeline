@@ -133,6 +133,11 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
         actual_session_type = "pinholemappinhole";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinholemappinhole" << std::endl;
       }
+      if (!input_dem.empty() && actual_session_type == "opticalbar") {
+        // User says OPTICAL BAR .. but also gives a DEM.
+        actual_session_type = "opticalbarmapopticalbar";
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: opticalbarmapopticalbar" << std::endl;
+      }
       if (!input_dem.empty() && actual_session_type == "isis") {
         // User says ISIS .. but also gives a DEM.
         actual_session_type = "isismapisis";
@@ -174,6 +179,8 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
       session_new = StereoSessionRPCMapRPC::construct();
     else if (actual_session_type == "pinholemappinhole")
       session_new = StereoSessionPinholeMapPinhole::construct();
+    else if (actual_session_type == "opticalbarmapopticalbar")
+      session_new = StereoSessionBarMapBar::construct();
     else if (actual_session_type == "spot5maprpc")
         session_new = StereoSessionSpot5MapRPC::construct();
     else if (actual_session_type == "astermaprpc")

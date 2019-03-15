@@ -140,6 +140,28 @@ namespace asp {
     }
   };
 
+
+  /// Specialization of the StereoSessionGDAL class to use optical bar map-projected inputs with the optical bar sensor model.
+  class StereoSessionBarMapBar : public StereoSessionMapProj{
+  public:
+    StereoSessionBarMapBar() {}
+    virtual ~StereoSessionBarMapBar() {}
+
+    virtual std::string name() const { return "opticalbarmapopticalbar"; }
+    virtual bool uses_rpc_map_projection() const {return false;}
+
+    static StereoSession* construct() { return new StereoSessionBarMapBar; }
+
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) const {
+      return load_adjusted_model(m_camera_loader.load_optical_bar_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+  };
+
   /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the SPOT5 sensor model.
   class StereoSessionSpot5MapRPC : public StereoSessionMapProj  {
   public:
