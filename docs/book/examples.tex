@@ -2113,18 +2113,20 @@ After downloading and unpacking the images, we merge them with the \texttt{image
 These images also need to be cropped to remove most of the area around the images:
 
 \begin{verbatim}
-  historical_helper.py rotate-crop --input-path D3C1216-200548F040.tif  --output-path for.tif  --interest-points '2414 1190  346001 1714  345952 23960  2356 23174'
-  historical_helper.py rotate-crop --input-path D3C1216-200548A041.tif  --output-path aft.tif  --interest-points '1624 1333  346183 1812  346212 24085  1538 23504'
+  historical_helper.py rotate-crop --input-path D3C1216-200548F040.tif --output-path for.tif \
+    --interest-points '2414 1190  346001 1714  345952 23960  2356 23174'
+  historical_helper.py rotate-crop --input-path D3C1216-200548A041.tif --output-path aft.tif \
+    --interest-points '1624 1333  346183 1812  346212 24085  1538 23504'
 \end{verbatim}
 
 For this example there are ASTER DEMs which can be used for reference.  They can be downloaded from
 \url{https://gdex.cr.usgs.gov/gdex/} as single GeoTIFF files.  To cover the entire area of this
 image pair you may need to download two files separately and merge them using \texttt{dem\_mosaic}.
 
-Camera files are generated using \texttt{cam\_gen} from a sample camera file as in the previous examples.
 As with KH-4B, this satellite contains a forward pointing and aft pointing camera that need to have
 different values for "forward\_tilt" in the sample camera files.  The suggested values are -0.174533
-for the aft camera and 0.174533 for the forward camera.
+for the aft camera and 0.174533 for the forward camera.  Note that some KH9 images have a much smaller
+field of view (horizontal size) than others!
 
 \begin{verbatim}
   VERSION_4
@@ -2141,11 +2143,12 @@ for the aft camera and 0.174533 for the forward camera.
        0.10013205696518604 -0.95227767417513032 -0.28834146846321851
   speed = 8000
   mean_earth_radius = 6371000
-  mean_surface_elevation = 0000
+  mean_surface_elevation = 0
   motion_compensation_factor = 1
   scan_dir = right
 \end{verbatim}
 
+Camera files are generated using \texttt{cam\_gen} from a sample camera file as in the previous examples.
 
 \begin{verbatim}
   cam_gen --sample-file sample_kh9_for_optical_bar.tsai --camera-type opticalbar          \
@@ -2156,7 +2159,7 @@ for the aft camera and 0.174533 for the forward camera.
     aft.tif --reference-dem aster_dem.tif --refine-camera  -o aft.tsai
 \end{verbatim}
 
-As with KH-4, it is best to first experiment with low resolution copies of the images.
+As with KH-4B, it is best to first experiment with low resolution copies of the images.
 Don't forget to scale the image size, center location, and pixel size in the new camera files!
 
 \begin{verbatim}
@@ -2167,6 +2170,54 @@ Don't forget to scale the image size, center location, and pixel size in the new
   cp aft.tsai  aft_small.tsai
 \end{verbatim}
 
-From this point KH-9 data is processed in a very similar manner to the KH-4B and KH-7 examples.
+From this point KH-9 data can be processed in a very similar manner to the KH-4B example.
 Once again, you may need to vary some of the camera parameters to find the settings that
-produce the best results.
+produce the best results.  For this example we will demonstrate how to use 
+\texttt{bundle\_adjust} to solve for intrinsic parameters in optical bar models.
+
+Using the DEM and the input images it is possible to collect rough ground control points
+which can be used to roughly align the initial camera models.
+
+\begin{verbatim}
+  bundle_adjust for_small.tif for_small.tsai ground_control_points.gcp -t opticalbar \
+    --inline-adjustments --num-passes 1 --camera-weight 0 --ip-detect-method 1       \
+    -o bundle_for_small/out --max-iterations 30 --fix-gcp-xyz
+
+  bundle_adjust aft_small.tif aft_small.tsai ground_control_points.gcp -t opticalbar \
+    --inline-adjustments --num-passes 1 --camera-weight 0 --ip-detect-method 1       \
+    -o bundle_aft_small/out --max-iterations 30 --fix-gcp-xyz
+\end{verbatim}
+
+Now we can do a joint bundle adjustment.  While in this example we immediately attempt
+to solve for intrinsics, you can get better results using techniques such as the
+\texttt{-\/-disparity-list} option described in \ref{kh4} and \ref{sec:skysat} along with
+the reference DEM.  We will try to solve for all intrinsics but will share the
+focal length and optical center since we expect them to be very similar.  If we get
+good values for the other intrinsics we could do another pass where we don't share
+those values in order to find small difference between the two cameras.  We specify
+intrinsic scaling limits here.  The first three pairs are for the focal length and
+the two optical center values.  For an optical bar camera, the next three values are
+for \texttt{speed}, \texttt{motion\_compensation\_factor}, and \texttt{scan\_time}.
+We are fairly confident in the focal length and the optical center but we only have
+guesses for the other values so we allow them to vary in a wider range.
+
+\begin{verbatim}
+  bundle_adjust left_small.tif right_small.tif bundle_for_small/out-for_small.tsai \
+    bundle_aft_small/out-aft_small.tsai -t opticalbar -o bundle_small/out          \
+    --force-reuse-match-files --max-iterations 30 --camera-weight 0                \
+    --disable-tri-ip-filter  --skip-rough-homography --inline-adjustments          \
+    --ip-detect-method 1 --datum WGS84 --num-passes 2 --solve-intrinsics           \
+    --intrinsics-to-float "focal_length optical_center other_intrinsics"           \
+    --intrinsics-to-share "focal_length optical_center" --ip-per-tile 1000         \
+    --intrinsics-limits "0.95 1.05   0.90 1.10  0.90 1.10   0.5 1.5  -5.0 5.0      \
+    0.3 2.0" --num-random-passes 2
+\end{verbatim}
+
+These limits restrict our parameters to reasonable bounds but unfortunately they greatly
+increase the run time of \texttt{bundle\_adjust}.  Hopefully you can figure out the correct
+values for \texttt{scan\_dir} doing long optimization runs using the limits.  The
+\texttt{-\/-intrinsic-limits} option is useful when used in conjunction with the
+\texttt{-\/-num-random-passes} option because it also sets the numeric range in which the
+random initial parameter values are chosen from.  Note that \texttt{-\/-num-passes} is
+intended to filter out bad interest points while \texttt{-\/-num-random-passes} tries out
+multiple random starting seeds to see which one leads to the result with the lowest error.

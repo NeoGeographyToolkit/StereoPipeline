@@ -292,7 +292,7 @@ iR = -0.96635634448923746 -0.16918164442572045 0.1937343197650008 -0.23427205529
 speed = 7700
 mean_earth_radius = 6371000
 mean_surface_elevation = 4000
-use_motion_compensation = 1.0
+motion_compensation_factor = 1.0
 scan_dir = left
 \end{verbatim}
 
@@ -308,4 +308,4 @@ control how the sensor model accounts accounts for the motion of the satellite
 during the image scan.  Without the benefit of detailed historical documents it may
 require experimentation to find the good initial values for these cameras.  When using
 \texttt{bundle\_adjust}, the intrinsic parameters that are solved for are 
-\texttt{speed}, \texttt{use\_motion\_compensation}, and \texttt{scan\_time}.
+\texttt{speed}, \texttt{motion\_compensation\_factor}, and \texttt{scan\_time}.
