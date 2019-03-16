@@ -149,7 +149,10 @@ namespace asp {
     virtual ~StereoSessionIsis() {}
 
     virtual std::string name() const { return "isis"; }
-
+    
+    /// Only the alternative CSM sensor model for ISIS images supports multi threading.
+    virtual bool supports_multi_threading() const;
+    
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
                                              bool use_sphere_for_isis) const;

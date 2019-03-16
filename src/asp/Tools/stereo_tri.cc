@@ -801,17 +801,16 @@ namespace asp{
     bool has_nodata = false;
     double nodata = -std::numeric_limits<float>::max(); // smallest float
 
-    // TODO: Replace this with with a function call!
-    if ( (opt.session->name() == "isis") || (opt.session->name() == "isismapisis")){
-      // ISIS does not support multi-threading
-      asp::write_approx_gdal_image
+    if ( opt.session->supports_multi_threading() ){
+      asp::block_write_approx_gdal_image
         ( point_cloud_file, shift,
           stereo_settings().point_cloud_rounding_error,
           point_cloud,
           has_georef, georef, has_nodata, nodata,
           opt, TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }else{
-      asp::block_write_approx_gdal_image
+      // ISIS does not support multi-threading
+      asp::write_approx_gdal_image
         ( point_cloud_file, shift,
           stereo_settings().point_cloud_rounding_error,
           point_cloud,
@@ -829,7 +828,8 @@ namespace asp{
     // point from median we'd get the zero vector which by convention
     // is invalid.
 
-    if (points.empty()) return Vector3();
+    if (points.empty())
+      return Vector3();
 
     Vector3 median;
     vector<double> V(points.size());

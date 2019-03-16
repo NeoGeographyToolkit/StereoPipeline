@@ -84,7 +84,7 @@ namespace asp {
 
 //----------------------------------------------------------
 
-  // Stereo session for optical bar cameras such as Corona and Hexagon.
+  /// Stereo session for optical bar cameras such as Corona and Hexagon.
   class StereoSessionOpticalBar : public StereoSessionGdal {
 
   public:
@@ -105,8 +105,32 @@ namespace asp {
                                  image_file, camera_file, pixel_offset);
     }
   };
-  
-  
+
+//----------------------------------------------------------
+
+  /// Stereo session for CSM camera models that use GDAL compatible image files.
+  /// - CSM files can also be used with ISIS image data, in which case they use StereoSessionIsis.
+  class StereoSessionCSM : public StereoSessionGdal {
+
+  public:
+    StereoSessionCSM(){}
+    virtual ~StereoSessionCSM(){}
+
+    virtual std::string name() const { return "csm"; }
+
+    /// Simple factory function
+    static StereoSession* construct() { return new StereoSessionCSM;}
+
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) const {
+      return load_adjusted_model(m_camera_loader.load_csm_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+  };
+
 //========= Function definitions ======================================
 
   inline void StereoSessionGdal::

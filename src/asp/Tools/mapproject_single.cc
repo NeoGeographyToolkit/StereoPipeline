@@ -53,6 +53,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string dem_file, image_file, camera_file, output_file, stereo_session,
     bundle_adjust_prefix;
   bool isQuery, noGeoHeaderInfo, nearest_neighbor;
+  bool multithreaded_model; // This is set based on the session type.
 
   // Settings
   std::string target_srs_string, output_type, metadata;
@@ -248,14 +249,14 @@ void write_parallel_cond( std::string              const& filename,
   
   bool has_georef = true;
 
-  // ISIS is not thread safe so we must switch out base on what the session is.
+  // ISIS is not thread safe so we must switch out based on what the session is.
   vw_out() << "Writing: " << filename << "\n";
-  if ( session_type == "isis" ) {
-    vw::cartography::write_gdal_image(filename, image.impl(), has_georef, georef,
-                          has_nodata, nodata_val, opt, tpc, keywords);
-  } else {
+  if (opt.multithreaded_model) {
     vw::cartography::block_write_gdal_image(filename, image.impl(), has_georef, georef,
                                 has_nodata, nodata_val, opt, tpc, keywords);
+  } else {
+    vw::cartography::write_gdal_image(filename, image.impl(), has_georef, georef,
+                          has_nodata, nodata_val, opt, tpc, keywords);
   }
 
 }
@@ -436,7 +437,6 @@ void project_image_nodata(Options & opt,
                           GeoReference const& croppedGeoRef,
                           Vector2i     const& virtual_image_size,
                           BBox2i       const& croppedImageBB,
-                          boost::shared_ptr<camera::CameraModel> const& camera_model,
                           Map2CamTransT const& transform) {
 
     typedef PixelMask<ImagePixelT> ImageMaskPixelT;
@@ -579,7 +579,7 @@ void project_image_nodata_pick_transform(Options & opt,
   if (fs::path(opt.dem_file).extension() != "") {
     // A DEM file was provided
     return project_image_nodata<ImagePixelT>(opt, croppedGeoRef,
-                                             virtual_image_size, croppedImageBB, camera_model, 
+                                             virtual_image_size, croppedImageBB,
                                              Map2CamTrans( // Converts coordinates in DEM
                                                            // georeference to camera pixels
                                                           camera_model.get(), target_georef,
@@ -590,7 +590,7 @@ void project_image_nodata_pick_transform(Options & opt,
   } else {
     // A constant datum elevation was provided
     return project_image_nodata<ImagePixelT>(opt, croppedGeoRef,
-                                             virtual_image_size, croppedImageBB, camera_model, 
+                                             virtual_image_size, croppedImageBB,
                                              Datum2CamTrans( // Converts coordinates in DEM
                                                              // georeference to camera pixels
                                                             camera_model.get(), target_georef,
@@ -665,6 +665,8 @@ int main( int argc, char* argv[] ) {
     boost::shared_ptr<camera::CameraModel> camera_model =
       session->camera_model(opt.image_file, opt.camera_file);
 
+    opt.multithreaded_model = session->supports_multi_threading();
+      
     {
       // Safety check that the users are not trying to map project map
       // projected images. This should not be an error as sometimes

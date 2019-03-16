@@ -382,12 +382,14 @@ def get_best_procs_threads(step, settings):
         if num_threads <= 0: num_threads = 1
 
         # For triangulation, we need to consider the case of ISIS cameras
-        # when we must use 1 thread no matter what.
+        # when we must use 1 thread unless CSM sensor models have been provided.
         if step == Step.tri:
             cam_info = " ".join(settings['in_file1'] + settings['in_file2'] + \
                                 settings['cam_file1'] + settings['cam_file2'])
-            m = re.search('\\.cub\\b', cam_info, re.IGNORECASE)
-            if m:
+            m1 = re.search('\\.cub\\b',  cam_info, re.IGNORECASE)
+            m2 = re.search('\\.json\\b', cam_info, re.IGNORECASE)
+            m3 = re.search('\\.isd\\b',  cam_info, re.IGNORECASE)
+            if m1 and not (m2 or m3):
                 num_threads = 1
 
         num_procs = int(math.ceil(float(num_cpus)/num_threads))

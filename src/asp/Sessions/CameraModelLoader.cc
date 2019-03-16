@@ -23,6 +23,7 @@
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
+#include <vw/FileIO/FileUtils.h>
 #include <vw/Math/EulerAngles.h>
 #include <vw/Math/Matrix.h>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -31,6 +32,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/IsisIO/Equation.h>
 #include <asp/IsisIO/IsisCameraModel.h>
+#include <asp/Camera/CsmModel.h>
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/LinescanSpotModel.h>
 #include <asp/Camera/LinescanASTERModel.h>
@@ -113,7 +115,12 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_ASTER_camera_
 boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_camera_model(std::string const& path) const
 {
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  return CameraModelPtr(new vw::camera::IsisCameraModel(path));
+  
+  std::string ext = vw::get_extension(path);
+  if (asp::CsmModel::file_has_isd_extension(path)) // Community Sensor Model
+    return CameraModelPtr(new asp::CsmModel(path));
+  else // Should be a .cub extension.
+    return CameraModelPtr(new vw::camera::IsisCameraModel(path));
 #endif
   // If ISIS was not enabled in the build, just throw an exception.
   vw::vw_throw( vw::NoImplErr() << "\nCannot load ISIS files because ISIS was not enabled in the build!.\n");
@@ -126,14 +133,14 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_optical_bar_c
   return CameraModelPtr(new asp::camera::OpticalBarModel(path));
 }
 
-/*
+
 // Load a CSM camera file
 boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_csm_camera_model(std::string const& path) const
 {
   // Use the class method, then pack in a base class pointer.
-  boost::shared_ptr<camera::CsmModel> cam_ptr(new camera::CsmModel());
+  boost::shared_ptr<asp::CsmModel> cam_ptr(new asp::CsmModel());
   cam_ptr->load_model(path);
   return CameraModelPtr(cam_ptr);
 }
-*/
+
 } // end namespace asp

@@ -27,6 +27,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionGdal.h>
 #include <asp/Sessions/StereoSessionPinhole.h>
+#include <asp/Camera/CsmModel.h>
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Image/Transform.h>
 
@@ -104,6 +105,12 @@ namespace asp {
     virtual std::string name() const { return "isismapisis"; }
     virtual bool uses_rpc_map_projection() const {return false;}
 
+    /// Only the alternative CSM sensor model for ISIS images supports multi threading.
+    virtual bool supports_multi_threading() const {
+      return (asp::CsmModel::file_has_isd_extension(m_left_camera_file ) && 
+              asp::CsmModel::file_has_isd_extension(m_right_camera_file)   );
+    }
+
     static StereoSession* construct() { return new StereoSessionIsisMapIsis; }
     
   protected:
@@ -158,6 +165,27 @@ namespace asp {
                                                                          std::string const& camera_file,
                                                                          vw::Vector2 pixel_offset) const {
       return load_adjusted_model(m_camera_loader.load_optical_bar_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+  };
+
+  /// Specialization of the StereoSessionGDAL class to use CSM map-projected inputs with the CSM sensor model.
+  class StereoSessionCsmMapCsm : public StereoSessionMapProj{
+  public:
+    StereoSessionCsmMapCsm() {}
+    virtual ~StereoSessionCsmMapCsm() {}
+
+    virtual std::string name() const { return "csmmapcsm"; }
+    virtual bool uses_rpc_map_projection() const {return false;}
+
+    static StereoSession* construct() { return new StereoSessionCsmMapCsm; }
+
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
+                                                                         std::string const& camera_file,
+                                                                         vw::Vector2 pixel_offset) const {
+      return load_adjusted_model(m_camera_loader.load_csm_camera_model(camera_file),
                                  image_file, camera_file, pixel_offset);
     }
   };

@@ -102,6 +102,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::set<int> fixed_cameras_indices;
   IntrinsicOptions intrinisc_options;
   std::map< std::pair<int, int>, std::string> match_files;
+  bool single_threaded_cameras; // Set to true if any sessions are single threaded.
   
   // Make sure all values are initialized, even though they will be
   // over-written later.

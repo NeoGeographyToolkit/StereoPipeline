@@ -44,6 +44,8 @@ namespace asp {
     // Constructors / Destructors
     //------------------------------------------------------------------
     CsmModel();
+    CsmModel(std::string const& isd_path); ///< Construct from ISD file
+    
     virtual ~CsmModel();
     virtual std::string type() const { return "CSM"; }
 
@@ -64,6 +66,9 @@ namespace asp {
       return vw::Quaternion<double>();
     }
 
+    /// Return true if the path has an extension compatible with CsmModel.
+    static bool file_has_isd_extension(std::string const& path);
+    
     /// Return the path to the folder where we will look for CSM plugin DLLs.
     static std::string get_csm_plugin_folder();
 

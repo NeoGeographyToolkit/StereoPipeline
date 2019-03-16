@@ -71,6 +71,7 @@ namespace asp {
     virtual bool requires_input_dem       () const {return isMapProjected();}
     virtual bool supports_image_alignment () const {return !isMapProjected(); }
     virtual bool is_nadir_facing          () const {return !asp::stereo_settings().no_datum; }
+    virtual bool supports_multi_threading () const {return true; }
 
 
     /// Helper function that retrieves both cameras.

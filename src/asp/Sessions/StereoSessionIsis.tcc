@@ -46,6 +46,7 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/PhotometricOutlier.h>
+#include <asp/Camera/CsmModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #include <asp/IsisIO/Equation.h>
@@ -204,6 +205,13 @@ void write_preprocessed_isis_image( vw::cartography::GdalWriteOptions const& opt
   }
 
 }
+
+
+bool StereoSessionIsis::supports_multi_threading () const {
+  return (asp::CsmModel::file_has_isd_extension(m_left_camera_file ) && 
+          asp::CsmModel::file_has_isd_extension(m_right_camera_file)   );
+}
+
 
 vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam, bool use_sphere_for_isis) const
 {

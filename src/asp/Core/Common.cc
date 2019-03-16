@@ -50,7 +50,8 @@ namespace fs = boost::filesystem;
 bool asp::has_cam_extension( std::string const& input ) {
   std::string ext = get_extension(input);
   if ( has_pinhole_extension(input) ||
-      ext == ".cub" || ext == ".xml" || ext == ".dim" || ext == ".rpb" )
+      ext == ".cub" || ext == ".xml" || ext == ".dim" ||
+      ext == ".rpb" || ext == ".json" || ext == ".isd"  )
     return true;
   return false;
 }
@@ -155,19 +156,19 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
     
     std::string ext = get_extension(inputs2[i]);
     
-    if (ext == ".cub")                    has_cub    = true;
-    if (ext != ".cub")                    has_nocub  = true;
+    if (ext == ".cub")                      has_cub    = true;
+    if (ext != ".cub")                      has_nocub  = true;
     if (asp::has_cam_extension(inputs2[i])) has_cam   = true;
   }
   
   if ( (has_cub && !has_nocub) || (!has_cam) ) {
-    
+
     // Only cubes, or only non-cameras, cases 1 and 3 above
     for (size_t i=0; i < inputs2.size(); ++i) 
       images.push_back(inputs2[i]);
     
   } else{
-    
+
     // Images and cameras (cameras could be cubes)
     if (inputs2.size() % 2 != 0) {
       vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n");

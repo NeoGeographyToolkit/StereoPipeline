@@ -231,7 +231,7 @@ void compute_residuals(bool apply_loss_function,
   double cost = 0;
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.apply_loss_function = apply_loss_function;
-  if (opt.stereo_session_string == "isis")
+  if (opt.single_threaded_cameras)
     eval_options.num_threads = 1; // ISIS must be single threaded!
   else
     eval_options.num_threads = opt.num_threads;
@@ -1155,7 +1155,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   options.max_num_consecutive_invalid_steps = std::max(5, opt.num_iterations/5); // try hard
   options.minimizer_progress_to_stdout      = true;//(opt.report_level >= vw::ba::ReportFile);
 
-  if (opt.stereo_session_string == "isis")
+  if (opt.single_threaded_cameras)
     options.num_threads = 1;
   else
     options.num_threads = opt.num_threads;
@@ -2371,6 +2371,7 @@ int main(int argc, char* argv[]) {
       image_stats_indices.push_back(i);
     
     // Compute statistics for the designated images
+    opt.single_threaded_cameras = false;
     for (size_t i=0; i<image_stats_indices.size(); ++i) {
       
       size_t index = image_stats_indices[i];
@@ -2386,6 +2387,8 @@ int main(int argc, char* argv[]) {
       boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
       float nodata, dummy;
       session->get_nodata_values(rsrc, rsrc, nodata, dummy);
+      if (!session->supports_multi_threading())
+        opt.single_threaded_cameras = true;
 
       // Set up the image view
       DiskImageView<float> image_view(rsrc);

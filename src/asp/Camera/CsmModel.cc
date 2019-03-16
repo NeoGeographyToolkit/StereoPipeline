@@ -88,10 +88,18 @@ Vector2 imageCoordToVector(csm::ImageCoord c) {
 CsmModel::CsmModel() {
 }
 
+CsmModel::CsmModel(std::string const& isd_path) {
+  load_model(isd_path);
+}
+
 CsmModel::~CsmModel() {
   // Don't need to do any cleanup here!
 }
 
+bool CsmModel::file_has_isd_extension(std::string const& path) {
+  std::string ext = vw::get_extension(path);
+  return ((ext == ".json") || (ext == ".isd"));
+}
 
 std::string CsmModel::get_csm_plugin_folder(){
 

@@ -141,6 +141,11 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
         actual_session_type = "opticalbarmapopticalbar";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: opticalbarmapopticalbar" << std::endl;
       }
+      if (!input_dem.empty() && actual_session_type == "csm") {
+        // User says CSM .. but also gives a DEM.
+        actual_session_type = "csmmapcsm";
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: csmmapcsm" << std::endl;
+      }
       if (!input_dem.empty() && actual_session_type == "isis") {
         // User says ISIS .. but also gives a DEM.
         actual_session_type = "isismapisis";
@@ -162,7 +167,7 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [pinhole isis dg rpc spot5 aster opticalbar pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc].\n");
+              << "Options include: [pinhole isis dg rpc spot5 aster opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
     vw_out() << "Using session: " << actual_session_type << ".\n";
 
     // Compare the current session name to all recognized types
@@ -200,6 +205,8 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
       session_new = StereoSessionASTER::construct();
     else if (actual_session_type == "opticalbar")
       session_new = StereoSessionOpticalBar::construct();
+    else if (actual_session_type == "csm")
+      session_new = StereoSessionCSM::construct();
     if (session_new == 0)
       vw_throw(vw::NoImplErr() << "Unsupported stereo session type: " << session_type);
 

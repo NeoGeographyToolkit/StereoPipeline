@@ -275,7 +275,6 @@ namespace asp {
       vw_throw( ArgumentErr() << "The executable " << prog_name
                 << " is not meant to be used directly with more than two images. "
                 << "Use instead the stereo/parallel_stereo scripts with desired entry points.\n" );
-
   }
 
   // Parse input command line arguments
@@ -288,7 +287,7 @@ namespace asp {
     po::options_description general_options_sub("");
     general_options_sub.add_options()
       ("session-type,t",      po::value(&opt.stereo_session_string),
-                              "Select the stereo session type to use for processing. [options: pinhole isis dg rpc spot5 aster opticalbar pinholemappinhole isismapisis dgmaprpc rpcmaprpc astermaprpc spot5maprpc opticalbarmapopticalbar]")
+                              "Select the stereo session type to use for processing. [options: pinhole isis dg rpc spot5 aster opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc astermaprpc spot5maprpc opticalbarmapopticalbar csmmapcsm]")
       ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"),
        "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
 
