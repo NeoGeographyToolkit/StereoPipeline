@@ -1664,7 +1664,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Given map-projected versions of the input images, the DEM the were mapprojected onto, and interest point matches among all of these created in stereo_gui, create GCP for the input images to align them better to the DEM. This is experimental and not documented.")
     ("lambda,l",           po::value(&opt.lambda)->default_value(-1),
             "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
-    
     ("instance-count",      po::value(&opt.instance_count)->default_value(1),
             "The number of bundle_adjustment processes being run in parallel.")
     ("instance-index",      po::value(&opt.instance_index)->default_value(0),
@@ -1971,7 +1970,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   opt.load_intrinsics_options(intrinsics_to_float_str, intrinsics_to_share_str,
-                              !vm["--intrinsics-to-share"].defaulted());
+                              !vm["intrinsics-to-share"].defaulted());
 
   opt.parse_intrinsics_limits(intrinsics_limit_str);
 
