@@ -674,11 +674,17 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
 
     // IP from the control network, for which we flagged outliers
     std::vector<vw::ip::InterestPoint> left_ip, right_ip;
-      
+
     std::pair<int, int> cam_pair   = match_it->first;
     std::string         match_file = match_it->second;
     size_t left_cam  = cam_pair.first;
     size_t right_cam = cam_pair.second;
+
+    // Just skip over match files that don't exist.
+    if (!boost::filesystem::exists(match_file)) {
+      vw_out() << "Skipping non-existant match file: " << match_file << std::endl;
+      continue;
+    }
 
     // Read the original IP, to ensure later we write to disk only
     // the subset of the IP from the control network which
@@ -759,7 +765,7 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
     
     vw_out() << "Writing: " << match_file << std::endl;
     ip::write_binary_match_file(match_file, left_ip, right_ip);
-  }
+  } // End loop through the match files
 }
 
 // End outlier functions
