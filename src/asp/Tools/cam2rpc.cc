@@ -460,7 +460,7 @@ int main( int argc, char *argv[] ) {
     ofs << "                <BAND_P>\n";
     ofs << "                    <ULLON>" << llh_box.min()[0] << "</ULLON>\n";
     ofs << "                    <ULLAT>" << llh_box.max()[1] << "</ULLAT>\n";
-    ofs << "                    <ULHAE>" << llh_box.max()[2] << "</ULHAE>\n";
+    ofs << "                    <ULHAE>" << llh_box.min()[2] << "</ULHAE>\n";
   
     ofs << "                    <URLON>" << llh_box.max()[0] << "</URLON>\n";
     ofs << "                    <URLAT>" << llh_box.max()[1] << "</URLAT>\n";
