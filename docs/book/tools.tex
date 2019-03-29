@@ -406,13 +406,14 @@ Pixels with values less than or equal to this number are treated as no-data and 
 
 The \texttt{parallel\_stereo} program is a modification of
 \texttt{stereo} designed to distribute the stereo processing over
-multiple computing nodes. It uses GNU Parallel to manage the jobs, a tool which
-is distributed along with Stereo Pipeline. It expects that all nodes
-can connect to each other using ssh without password. \texttt{parallel\_stereo}
-can also be useful when processing extraterrestrial data on a single computer.
-This is because ISIS camera models are restricted to a single thread, but
-\texttt{parallel\_stereo} can run multiple processes in parallel to reduce
-computation times.
+multiple computing nodes. It uses GNU Parallel to manage the jobs, a
+tool which is distributed along with Stereo Pipeline. It expects that
+all nodes can connect to each other using ssh without password and that
+they share the same storage space. \texttt{parallel\_stereo} can also be
+useful when processing extraterrestrial data on a single computer.  This
+is because ISIS camera models are restricted to a single thread, but
+\texttt{parallel\_stereo} can run multiple processes in parallel to
+reduce computation times.
 
 At the simplest, \texttt{parallel\_stereo} can be invoked exactly like \texttt{stereo},
 with the addition of the list of nodes to use (if using multiple nodes).
