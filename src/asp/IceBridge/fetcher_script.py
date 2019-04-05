@@ -49,7 +49,8 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath      + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
-louUser = 'oalexan1' # all data is stored under this user name
+#louUser = 'oalexan1' # all data is stored under this user name
+louUser = 'smcmich1'
 
 g_start_time = -1
 g_stop_time  = -1
@@ -91,7 +92,13 @@ def tarAndWipe(options, logger):
     # to manage. Note: To untar and transfer in one step, one
     # should as well go to lfe first.
 
-    (pfePath, lfePath) = workDirs()
+    #(pfePath, lfePath) = workDirs()
+    pfePath = '/nobackup/smcmich1/icebridge/data'
+    lfePath = '/u/smcmich1/icebridge/inputs'
+    
+#    print lfePath
+#    logger.info(options.outputFolder)
+#    raise Exception('eouoeu')
 
     lfeCmd = 'cd ' + pfePath + '; tar cfv ' + lfePath + '/' + \
              options.outputFolder + '.tar ' + options.outputFolder
@@ -170,7 +177,7 @@ def main(argsIn):
         parser.add_option("--camera-calibration-folder",  dest="inputCalFolder", default=None,
                           help="The folder containing camera calibration.")
 
-        parser.add_argument("--reference-dem-folder",  dest="refDemFolder", default=None,
+        parser.add_option("--reference-dem-folder",  dest="refDemFolder", default=None,
                           help="The folder containing DEMs that created orthoimages.")
         
         # Python treats numbers starting with 0 as being in octal rather than decimal.
@@ -196,6 +203,9 @@ def main(argsIn):
         parser.add_option("--no-nav", action="store_true", dest="noNav",
                           default=False,
                           help="Skip dealing with raw nav data.")
+        parser.add_option("--skip-processing", action="store_true", dest="skipProcessing",
+                          default=False,
+                          help="Skip fetch, validate, and convert. Assume all data is ready.")
 
         parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
                           default=False,
@@ -267,30 +277,32 @@ def main(argsIn):
     if options.refDemFolder is not None:
         cmd += ' --reference-dem-folder ' + options.refDemFolder
 
-    # Refetch all nav stuff, as it was unreliable in the past
-    navFolder = icebridge_common.getNavFolder(options.outputFolder)
-    navCameraFolder = icebridge_common.getNavCameraFolder(options.outputFolder)
-    if os.path.exists(navFolder):
-        logger.info("Wiping: " + navFolder)
-        os.system('rm -rfv ' + navFolder)
-    if os.path.exists(navCameraFolder):
-        logger.info("Wiping: " + navCameraFolder)
-        os.system('rm -rfv ' + navCameraFolder)
+    if not options.skipProcessing:
 
-    # Wipe processed lidar, as sometimes errors crept in.
-    logger.info("Wiping processed lidar:")
-    lidarFolder = icebridge_common.getLidarFolder(options.outputFolder)
-    if os.path.exists(lidarFolder):
-        os.system('rm -fv ' + lidarFolder + '/*csv')
-    pairedFolder = icebridge_common.getPairedLidarFolder(lidarFolder)
-    if os.path.exists(pairedFolder):
-        os.system('rm -rfv ' + pairedFolder)
+        # Refetch all nav stuff, as it was unreliable in the past
+        navFolder = icebridge_common.getNavFolder(options.outputFolder)
+        navCameraFolder = icebridge_common.getNavCameraFolder(options.outputFolder)
+        if os.path.exists(navFolder):
+            logger.info("Wiping: " + navFolder)
+            os.system('rm -rfv ' + navFolder)
+        if os.path.exists(navCameraFolder):
+            logger.info("Wiping: " + navCameraFolder)
+            os.system('rm -rfv ' + navCameraFolder)
+
+        # Wipe processed lidar, as sometimes errors crept in.
+        logger.info("Wiping processed lidar:")
+        lidarFolder = icebridge_common.getLidarFolder(options.outputFolder)
+        if os.path.exists(lidarFolder):
+            os.system('rm -fv ' + lidarFolder + '/*csv')
+        pairedFolder = icebridge_common.getPairedLidarFolder(lidarFolder)
+        if os.path.exists(pairedFolder):
+            os.system('rm -rfv ' + pairedFolder)
         
-    logger.info("full_processing_script.py " + cmd)
-    start_time()
-    if full_processing_script.main(cmd.split()) < 0:
-        return -1
-    stop_time("fetch_validate", logger)
+        logger.info("full_processing_script.py " + cmd)
+        start_time()
+        if full_processing_script.main(cmd.split()) < 0:
+            return -1
+        stop_time("fetch_validate", logger)
 
     # Archive after fetching
     if options.tar:
@@ -299,5 +311,4 @@ def main(argsIn):
 # Run main function if file used from shell
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
-
 

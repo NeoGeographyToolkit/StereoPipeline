@@ -36,7 +36,7 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
-import icebridge_common
+import icebridge_common, run_helper
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 
 asp_system_utils.verify_python_version_is_supported()
@@ -51,73 +51,98 @@ os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
 
 
-def get_label_and_camera(labelFolder, cameraFolder, frame):
+def get_camera(cameraFolder, frame):
     '''Get the label file and the camera file for a given frame'''
 
     # Get a list of all the input files
-    allImageFiles  = getTifs(labelFolder)
-    allCameraFiles = getByExtension(cameraFolder, '.tsai')
+#    allImageFiles  = icebridge_common.getTifs(labelFolder)
+    allCameraFiles = icebridge_common.getByExtension(cameraFolder, '.tsai')
 
     # Keep only the images and cameras within the given range
-    imageFile = None
-    for image in allImageFiles:
-        thisFrame = getFrameNumberFromFilename(image)
-        if thisFrame != frame:
-            continue
-        imageFile = image
-        break
+#    imageFile = None
+#    for image in allImageFiles:
+#        thisFrame = icebridge_common.getFrameNumberFromFilename(image)
+#        if thisFrame != frame:
+#            continue
+#        imageFile = os.path.join(labelFolder, image)
+#        break
 
     cameraFile = None
     for camera in allCameraFiles:
-        thisFrame = getFrameNumberFromFilename(camera)
+        thisFrame = icebridge_common.getFrameNumberFromFilename(camera)
         if thisFrame != frame:
             continue
-        cameraFile = camera
+        cameraFile = os.path.join(cameraFolder, camera)
         break
 
-    return (image, camera)
+    return cameraFile
 
 
 
-def label_images(outputFolder, frameNum, trainingPath, site):
+def label_images(outputFolder, frameNum, trainingPath, site, yyyymmdd, numThreads):
     '''Apply the labeling algorithm to a single image, then map project the result.'''
 
+    print 'Running label for frame: ' + str(frameNum)
+
     # Get required paths
-    inputFolder  = icebridge_common.getJpegFolder      (options.outputFolder)
-    cameraFolder = icebridge_common.getCameraFolder    (options.outputFolder)
-    labelFolder  = icebridge_common.getLabelFolder     (options.outputFolder)
-    orthoFolder  = icebridge_common.getLabelOrthoFolder(options.outputFolder)
+    inputFolder  = icebridge_common.getJpegFolder      (outputFolder)
+    cameraFolder = icebridge_common.getCameraFolder    (outputFolder)
+    labelFolder  = icebridge_common.getLabelFolder     (outputFolder)
+    orthoFolder  = icebridge_common.getLabelOrthoFolder(outputFolder)
+
+    # Hardcoded paths!!!
+    toolPath     = 'python ~/repo/OSSP/ossp_process.py'
+    refDemFolder = '/nobackup/smcmich1/icebridge/reference_dems/'
 
     # Run the label tool
-
-    toolPath = 'python ~/repo/OSSP/ossp_process.py'
-
     NO_SPLITTING = 1 # Plenty of RAM to load these images
     ONE_PROCESS  = 1
 
-    cmd = ('%s %s --output_dir %s --min_frame %d --max_frame %d srgb %s --splits %d --parallel %d' % 
-           (toolPath, inputFolder, labelFolder, frameNum, trainingPath, NO_SPLITTING, ONE_PROCESS))
+    # Figure out the label path
+    run       = run_helper.RunHelper(site, yyyymmdd)
+    labelName = icebridge_common.makeLabelFileName(run, frameNum)
+    labelPath = os.path.join(labelFolder, labelName)
+
+    #cmd = ('%s %s --output_dir %s --min_frame %d --max_frame %d srgb %s --splits %d --parallel %d' % 
+    #       (toolPath, inputFolder, labelFolder, frameNum, frameNum, trainingPath, NO_SPLITTING, ONE_PROCESS))
+    cmd = ('time %s %s --output_dir %s --min_frame %d --max_frame %d srgb %s' %
+           (toolPath, inputFolder, labelFolder, frameNum, frameNum, trainingPath))
     print cmd
-    os.system(cmd)
+    if icebridge_common.isValidImage(labelPath):
+        print 'Skipping completed file: ' + labelPath
+    else:
+        os.system(cmd)
 
     # Also generate the map projected version of the image
 
     # Figure out the camera and output path
-    (labelPath, cameraPath) = get_label_and_camera(labelFolder, cameraFolder, frameNum)
+    cameraPath  = get_camera(cameraFolder, frameNum)
     fname       = os.path.basename(labelPath).replace('classified', 'classified_ortho')
     mapProjPath = os.path.join(orthoFolder, fname)
 
+    if not icebridge_common.isValidImage(labelPath):
+        print 'ERROR: Failed to generate label file: ' + labelPath
+        return
+
     # Set map projection parameters
-    toolPath = 'mapproject' # TODO: Locate
+    toolPath = 'mapproject'
     isSouth  = (site == 'AN')
     srs      = projString = icebridge_common.getEpsgCode(isSouth, asString=True)
-    demPath  = 'WGS84' # Map project on to a flat surface
+    demPath  = 'WGS84' # Map project on to a flat surface, elevation zero.
+    #demPath  = os.path.join(refDemFolder, icebridge_common.getReferenceDemName(site)) # The NSIDC ortho DEM
 
     # Mapproject
-    cmd = ('%s %s %s %s %s -t nadirpinhole -t_srs %s' % 
-           (toolPath, demPath, labelPath, cameraPath, mapProjPath srs))
+    cmd = ('time %s %s %s %s %s -t nadirpinhole --t_srs %s --threads %d --num-processes 1 --ot Byte --nearest-neighbor' %
+           (toolPath, demPath, labelPath, cameraPath, mapProjPath, srs, numThreads))
     print cmd
-    os.system(cmd)
+    if icebridge_common.isValidImage(mapProjPath):
+        print 'Skipping existing file: ' + mapProjPath
+    else:
+        os.system(cmd)  
+
+    if not os.path.exists(mapProjPath):
+        print 'ERROR: Failed to generate map projected label file: ' + mapProjPath
+        return
 
 def main(argsIn):
 
@@ -149,7 +174,7 @@ def main(argsIn):
         parser.add_argument('--num-processes', dest='numProcesses', default=8,
                           type=int, help='The number of simultaneous processes to run.')
         parser.add_argument('--num-threads', dest='numThreads', default=1,
-                          type=int, help='IGNORED.')
+                          type=int, help='Used for mapproject.')
 
         options = parser.parse_args(argsIn)
 
@@ -173,8 +198,10 @@ def main(argsIn):
     for i in range(options.startFrame, options.stopFrame+1):
 
         # Run on a single frame with one thread.
+        #label_images(options.outputFolder, i, options.trainingPath, options.site, options.yyyymmdd,  options.numThreads)
         taskHandles.append(pool.apply_async(label_images, (options.outputFolder, 
-                                                           i, options.trainingPath, options.site)))
+                                                           i, options.trainingPath, options.site,
+                                                           options.yyyymmdd, options.numThreads)))
 
     # Wait for all the tasks to complete
     print('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')

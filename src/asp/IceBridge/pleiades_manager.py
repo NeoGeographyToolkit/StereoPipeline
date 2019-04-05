@@ -114,12 +114,11 @@ def getParallelParams(nodeType, task):
         if nodeType == 'bro': return (14, 4, 500, 8)
         if nodeType == 'wes': return (8,  4, 200, 8)
 
-    # TODO: All guesses!
     if task == 'label':
-        if nodeType == 'san': return (3,  1, 350, 6)
-        if nodeType == 'ivy': return (6, 1, 400, 5)
-        if nodeType == 'bro': return (12, 1, 500, 4)
-        if nodeType == 'wes': return (3, 1, 200, 4)
+        if nodeType == 'san': return (8,  4, 200, 8)
+        if nodeType == 'ivy': return (6,  4, 100, 8)
+        if nodeType == 'bro': return (12, 3, 150, 8)
+        if nodeType == 'wes': return (3,  1, 35, 8)
 
 
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
@@ -130,7 +129,8 @@ def getLabelTrainingPath(userName):
     '''Path to the OSSP label training file'''
 
     if userName == 'smcmich1':
-        return '/u/smcmich1/repo/OSSP/training_datasets/icebridge_v3_training_data.h5'
+        #return '/u/smcmich1/repo/OSSP/training_datasets/icebridge_v3_training_data.h5'
+        return '/u/smcmich1/repo/OSSP/training_datasets/icebridge_v5_training_data.h5'
     if userName == 'oalexan1':
         raise Exception('Need to set the label training path!')
 
@@ -365,11 +365,12 @@ def runConversion(run, options, conversionAttempt, logger):
             thisArgs += ' --no-lidar-convert'
 
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
+        pythonPath = asp_system_utils.which('python')
         logger.info('Submitting camera generation job: ' + scriptPath + ' ' + thisArgs)
         jobID = pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, maxHours, logger,
                                         options.minutesInDevelQueue,
                                         GROUP_ID,
-                                        options.nodeType, '/usr/bin/python2.7',
+                                        options.nodeType, pythonPath,
                                         scriptPath + " " + thisArgs, logPrefix)
         jobIDs.append(jobID)
         currentFrame += tasksPerJob
@@ -449,10 +450,11 @@ def runConversion(run, options, conversionAttempt, logger):
             jobName    = ('%s%06d%s' % ('C', 0, baseName) ) # C for camera
             logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
             logger.info('Submitting camera generation job: ' + cmd)
+            pythonPath = asp_system_utils.which('python')
             jobID = pbs_functions.submitJob(jobName, CAMGEN_PBS_QUEUE, maxHours, logger,
                                             options.minutesInDevelQueue,
                                             GROUP_ID,
-                                            options.nodeType, '/usr/bin/python2.7',
+                                            options.nodeType, pythonPath,
                                             cmd, logPrefix)
             jobIDs.append(jobID)
             
@@ -606,11 +608,11 @@ def submitBatchJobs(run, options, batchListPath, logger):
         
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting DEM creation job: ' + scriptPath + ' ' + args)
-
+        pythonPath = asp_system_utils.which('python')
         jobID = pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, maxHours, logger,
                                         options.minutesInDevelQueue,
                                         GROUP_ID,
-                                        options.nodeType, '/usr/bin/python2.7',
+                                        options.nodeType, pythonPath,
                                         scriptPath + ' ' + args, logPrefix)
         jobIDs.append(jobID)
 
@@ -686,10 +688,11 @@ def launchJobs(run, mode, options, logger):
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, mode + '_' + jobName)
         logger.info('Submitting job: ' + scriptPath +  ' ' + thisArgs)
+        pythonPath = asp_system_utils.which('python')
         jobID = pbs_functions.submitJob(jobName, queueName, maxHours, logger,
                                         options.minutesInDevelQueue, GROUP_ID,
-                                        options.nodeType, '/usr/bin/python2.7',
-                                        scriptPath + ' ' + thisArgs, logPrefix, priority)
+                                        options.nodeType, pythonPath,
+                                        scriptPath + ' ' + thisArgs, logPrefix, priority, pythonPath)
 
         jobNames.append(jobName)
         jobIDs.append(jobID)

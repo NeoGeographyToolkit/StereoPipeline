@@ -223,8 +223,8 @@ def makeJpegFileName(run, frame):
     return ('%s_%05d.JPG' % (run.yyyy_mm_dd(), frame))
 
 def makeLabelFileName(run, frame):
-    '''Generate a file name like: 2016_07_19_00015_classified.h5'''
-    return ('%s_%05d_classified.h5' % (run.yyyy_mm_dd(), frame))
+    '''Generate a file name like: 2016_07_19_00015_classified.tif'''
+    return ('%s_%05d_classified.tif' % (run.yyyy_mm_dd(), frame))
 
 def makeLabelOrthoFileName(run, frame):
     '''Generate a file name like: 2016_07_19_00015_classified_ortho.tif'''
@@ -891,8 +891,8 @@ def getFrameNumberFromFilename(filename):
     m = re.match("^.*?ILATM\w+\_\d+\_(\d+)\.\w+\.(h5|qi)", filename, re.IGNORECASE)
     if m: return int(m.group(1))
 
-    # Match 2016_07_19_00008_classified.h5
-    m = re.match("^.*?\d+\_\d+\_\d+\_(\d+)_classified\.h5", filename, re.IGNORECASE)
+    # Match 2016_07_19_00008_classified.tif or .h5
+    m = re.match("^.*?\d+\_\d+\_\d+\_(\d+)_classified\.[h5|tif]", filename, re.IGNORECASE)
     if m: return int(m.group(1))
 
     raise Exception('Could not parse: ' + filename)

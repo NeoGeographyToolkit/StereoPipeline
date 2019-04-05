@@ -100,7 +100,8 @@ def getNumCores(nodeType):
 
 
 def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
-              groupId, nodeType, commandPath, args, logPrefix, priority=None):
+              groupId, nodeType, commandPath, args, logPrefix, priority=None,
+              pythonPath='/u/oalexan1/.local/lib/python2.7/site-packages'):
     '''Submits a job to the PBS system.
     Any such job must invoke icebridge_common.switchWorkDir().'''
     
@@ -155,8 +156,10 @@ def submitJob(jobName, queueName, maxHours, logger, minutesInDevelQueue,
     os.system("chmod a+rx " + shellScriptPath)
 
     # Run it
-    pbsCommand = ('qsub -r y -q %s -N %s %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- /usr/bin/env OIB_WORK_DIR=%s PYTHONPATH=/u/oalexan1/.local/lib/python2.7/site-packages PYTHONSTARTUP="" LD_LIBRARY_PATH="" %s' % 
-               (queueName, jobName, priorityString, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, workDir, shellScriptPath))
+    pbsCommand = ('qsub -r y -q %s -N %s %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- /usr/bin/env OIB_WORK_DIR=%s PYTHONPATH=%s PYTHONSTARTUP="" LD_LIBRARY_PATH="" %s' % 
+               (queueName, jobName, priorityString, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, workDir, pythonPath, shellScriptPath))
+#~/repo/python_env/lib/python2.7/site-packages/
+#/u/oalexan1/.local/lib/python2.7/site-packages
 
     logger.info(pbsCommand)
     outputPath = None

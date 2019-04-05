@@ -146,6 +146,8 @@ class RunHelper():
         return self._internalLoc('summary')
     def getLabelFolder(self):
         return self._internalLoc('labeled')
+    def getLabelOrthoFolder(self):
+        return self._internalLoc('label_ortho')
 
     def getJpegList(self, prependFolder=False):
         '''Return a list containing all the currently stored jpeg files'''
@@ -294,7 +296,7 @@ class RunHelper():
             if frame < startFrame or frame > stopFrame:
                 continue
             if not frame in orthoFrameDict:
-                logger.info("Missing ortho for frame: " + frame)
+                logger.info("Missing ortho for frame: " + frameString)
                 continue
 
             [newDateString, newTimeString] = icebridge_common.parseTimeStamps(orthoFrameDict[frame])
