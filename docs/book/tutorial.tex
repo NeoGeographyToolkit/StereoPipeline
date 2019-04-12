@@ -299,7 +299,8 @@ measurements.
 
 In the next two sections we will show how to process unmodified and
 map-projected variants of World View imagery. The imagery we are using is
-from the free stereo pair example of Guangzhou, China available from
+from the free stereo pair labeled "System-Ready (1B) Stereo, 50cm" which
+captures the city of Stockholm, found on
 Digital Globe's website \cite{digital-globe:samples}. These images
 represent a non-ideal problem for us since this is an urban location,
 but at least you should be able to download this imagery yourself and
@@ -308,11 +309,11 @@ follow along.
 \section{Processing Raw}
 \label{rawdg}
 
-After you have downloaded the example stereo imagery of China, you
+After you have downloaded the example stereo imagery of Stockholm, you
 will find a directory titled
 
 \begin{verbatim}
-  053950035030_01_P001_PAN
+  056082198020_01_P001_PAN
 \end{verbatim}
 
 It has a lot of files and many of them contain redundant information
@@ -329,7 +330,7 @@ resolution of) such a set of sub-observations into a single image file
 and create an appropriate camera file
 
 \begin{verbatim}
-    > dg_mosaic 12FEB12053305*TIF --output-prefix 12FEB12053305 --reduce-percent 50
+    > dg_mosaic 12FEB16101327*TIF --output-prefix 12FEB16101327 --reduce-percent 50
 \end{verbatim}
 
 and analogously for the second set. See section \ref{dgmosaic} for more
@@ -343,10 +344,8 @@ you use affine epipolar alignment to reduce the search range. The
 
 \begin{verbatim}
     > stereo -t dg --subpixel-mode 1 --alignment-method affineepipolar \
-             13DEC28032941-P1BS-053950035030_01_P001.TIF          \
-             13DEC28033039-P1BS-053950035030_01_P001.TIF          \
-             13DEC28032941-P1BS-053950035030_01_P001.XML          \
-             13DEC28033039-P1BS-053950035030_01_P001.XML dg/dg
+             12FEB16101327.r50.tif  12FEB16101426.r50.tif         \
+             12FEB16101327.r50.xml  12FEB16101426.r50.xml  dg/out
 \end{verbatim}
 
 Alternatively, the \texttt{stereo\_gui} frontend can be invoked, with
@@ -357,8 +356,8 @@ How to create a DEM and visualize the results of stereo is desribed in section
 
 \begin{figure}[h!]
 \centering
-  \includegraphics[width=3.0in]{images/examples/dg/wv_tutorial_input.png}
-  \includegraphics[width=3.0in]{images/examples/dg/wv_tutorial_colormap.png}
+  \includegraphics[width=6.0in]{images/examples/dg/wv_tutorial_input.png}
+  \includegraphics[width=6.0in]{images/examples/dg/wv_tutorial_colormap.png}
 \caption{Example WorldView image section and colorized height map.}
 \label{fig:dg-nomap-example}
 \end{figure}
