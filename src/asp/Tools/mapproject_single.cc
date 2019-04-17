@@ -708,8 +708,8 @@ int main( int argc, char* argv[] ) {
       if ((llr_camera_loc[0] < 0) && (llr_camera_loc[0] > -180))
         lonstart = -180;
       dem_georef = GeoReference(Datum(datum_name),
-                                Matrix3x3(1,  0, lonstart,
-                                          0, -1, 90,
+                                Matrix3x3(1,  0, lonstart-0.5, // Need adjustments to work at boundaries!
+                                          0, -1, 90+0.5,
                                           0,  0,  1) );
 
       dem = constant_view(PixelMask<float>(opt.datum_offset), 360, 180 );
