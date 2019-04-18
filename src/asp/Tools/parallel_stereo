@@ -435,6 +435,8 @@ def spawn_to_nodes(step, settings, args):
 
     if opt.nodes_list is not None:
         cmd += ['--sshloginfile', opt.nodes_list]
+    if opt.ssh is not None:
+        cmd += ['--ssh', opt.ssh]
 
     # Add the options which we want GNU parallel to not mess up
     # with. Put them into a single string. Before that, put in quotes
@@ -562,6 +564,8 @@ if __name__ == '__main__':
     p.add_option('--nodes-list',           dest='nodes_list', default=None,
                  help='The list of computing nodes, one per line. ' + \
                  'If not provided, run on the local machine.')
+    p.add_option('--ssh',                  dest='ssh', default=None,
+                 help='The path to ssh program to use to connect to other nodes')
     p.add_option('--processes',            dest='processes', default=None,
                  type='int', help='The number of processes to use per node.')
     p.add_option('--threads-multiprocess', dest='threads_multi', default=None,
