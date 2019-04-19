@@ -41,6 +41,8 @@ void asp::read_adjustments(std::string const& filename,
                            vw::Vector2 & adjustment_bounds,
                            std::vector<Vector3> & position_correction,
                            std::vector<Quat> & pose_correction,
+			   Vector2 & pixel_offset,
+			   double & scale,
                            std::string & session) {
 
   // Initialize the outputs
@@ -48,6 +50,8 @@ void asp::read_adjustments(std::string const& filename,
   adjustment_bounds = Vector2();
   position_correction.clear();
   pose_correction.clear();
+  pixel_offset = Vector2();
+  scale = 1.0;
   session = "dg"; // default session, for historical reasons
   
   Vector3 pos;
@@ -82,7 +86,16 @@ void asp::read_adjustments(std::string const& filename,
   while (1){
     if (! (istr >> pos[0] >> pos[1] >> pos[2]) ) break;
     if (! (istr >> q_buf[0] >> q_buf[1] >> q_buf[2] >> q_buf[3]) ) break;
-
+    
+    // The adjustments that are not piecewise may have an offset and a scale
+    if (!piecewise_adjustments) {
+      double a, b, c;
+      if (istr >> a >> b >> c){
+	pixel_offset = Vector2(a, b);
+	scale = c;
+      }
+    }
+    
     position_correction.push_back(pos);
     pose_correction.push_back(Quat(q_buf));
   }

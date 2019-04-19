@@ -744,6 +744,8 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
 
   std::vector<Vector3> position_correction;
   std::vector<Quat   > pose_correction;
+  Vector2 local_pixel_offset;
+  double local_scale;
 
   // Ensure these vectors are populated even when there are no corrections to read,
   // as we may still have pixel offset.
@@ -764,7 +766,7 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
     std::string session;
     asp::read_adjustments(adjust_file, piecewise_adjustments,
                           adjustment_bounds, position_correction, pose_correction,
-                          session);
+			  local_pixel_offset, local_scale, session);
 
     if (position_correction.empty() || pose_correction.empty())
       vw_throw(InputErr() << "Unable to read corrections.\n");
@@ -815,7 +817,8 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
   // Create VW adjusted camera model object with the info we loaded
   return boost::shared_ptr<camera::CameraModel>(new vw::camera::AdjustedCameraModel
                                                 (cam, position_correction[0],
-                                                 pose_correction[0], pixel_offset));
+                                                 pose_correction[0], local_pixel_offset,
+						 local_scale));
 }
 
 } // End namespace asp

@@ -513,12 +513,14 @@ public:
     // Not used, just for the api
     bool piecewise_adjustments;
     vw::Vector2 adjustment_bounds;
+    Vector2 pixel_offset;
+    double scale;
     std::string session;
-
+    
     vw::vw_out() << "Reading adjusted camera model: " << filename << std::endl;
     asp::read_adjustments(filename, piecewise_adjustments,
                           adjustment_bounds, position_correction, pose_correction,
-                          session);
+                          pixel_offset, scale, session);
     m_position_data = position_correction[0];
     m_pose_data     = pose_correction    [0];
   }

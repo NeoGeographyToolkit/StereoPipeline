@@ -46,7 +46,8 @@ namespace asp{
                         vw::Vector2 & adjustment_bounds,
                         std::vector<vw::Vector3> & position_correction,
                         std::vector<vw::Quat>    & pose_correction,
-                        std::string & session);
+			vw::Vector2 & pixel_offset, double & scale,
+			std::string & session);
 
   /// Write piecewise adjustments
   void write_adjustments(std::string const & filename,
