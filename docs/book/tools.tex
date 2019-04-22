@@ -1414,8 +1414,6 @@ Limit the mosaic to this region, with the corners given in georeferenced coordin
 & Each pixel is set to the number of valid DEM heights at that pixel.
 \\ \hline
 
-\texttt{-\/-block-max} & For each block of size \texttt{-\/-block-size}, keep the DEM with the largest sum of values in the block.\\ \hline
-
 \texttt{-\/-georef-tile-size \textit{double}} &
 Set the tile size in georeferenced (projected) units (e.g., degrees or meters).
 \\ \hline
@@ -1448,8 +1446,6 @@ Crop the DEMs this far from the current tile (measured in pixels) before blendin
 \texttt{-\/-force-projwin}
 & Make the output mosaic fill precisely the specified projwin, by padding it if necessary and aligning the output grid to the region.
 \\ \hline
-
-\texttt{-\/-block-size arg (=0)} & To be used with -\/-max-per-block.\\ \hline
 
 \texttt{-\/-save-dem-weight \textit{integer}} &
 Save the weight image that tracks how much the input DEM with given index contributed to the output mosaic at each pixel (smallest index is 0).\\ \hline

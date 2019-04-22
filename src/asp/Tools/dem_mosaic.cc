@@ -849,9 +849,11 @@ public:
       if (use_priority_blend){
         tile_vec.push_back(copy(tile));
         weight_vec.push_back(copy(weights));
-        clip2dem_index.push_back(dem_iter);
       }
-
+      
+      if (use_priority_blend || m_opt.save_index_map)
+	clip2dem_index.push_back(dem_iter);
+      
     } // End iterating over DEMs
 
     // Divide by the weights in blend, mean
@@ -910,13 +912,19 @@ public:
 
           if (!m_opt.save_index_map)
             continue;
-          // Record the index of the image that is closest to the median value,
-          //   in case the median is two values averaged together.
+          // Record the index of the image that is closest to the
+          // median value.  Note that the median can average two
+          // values, so the median value may not equal exactly any of
+          // the input values.
           double min_dist = std::numeric_limits<double>::max();
-          for (size_t m=0; m<vals_all.size(); ++m) {
+          for (size_t m = 0; m < vals_all.size(); m++) {
             double dist = fabs(vals_all[m] - tile(c, r));
             if (dist < min_dist) {
-              index_map(c, r) = m;
+	      // Here we save the index not in the current array which
+	      // is m, but in the full list of DEMs, some of which are
+	      // likely skipped in this tile as they don't intersect
+	      // it.
+              index_map(c, r) = clip2dem_index[m];
               min_dist = dist;
             }
           }
@@ -1300,8 +1308,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Set a pixel to nodata if any input DEM is also nodata at that location.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).")
-    ("block-size",      po::value<int>(&opt.block_size)->default_value(0),
-     "To be used with --max-per-block. A large value can result in increased memory usage.")
+    ("block-size",      po::value<int>(&opt.block_size)->default_value(0), "A large value can result in increased memory usage.")
     ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
      "Save the weight image that tracks how much the input DEM with given index contributed to the output mosaic at each pixel (smallest index is 0).")
     ("first-dem-as-reference", po::bool_switch(&opt.first_dem_as_reference)->default_value(false),
