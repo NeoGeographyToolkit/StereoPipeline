@@ -24,6 +24,7 @@
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <asp/Camera/RPCModel.h>
+#include <asp/Core/Common.h>
 
 #include <gdal.h>
 #include <gdal_priv.h>
@@ -73,9 +74,17 @@ namespace asp {
       load_rpb_file(filename);
       return;
     }
+
+    // Must have this check, otherwise GDAL prints an error.
+    if (has_image_extension(filename)) {
+      boost::scoped_ptr<DiskImageResourceGDAL> s_ptr( new DiskImageResourceGDAL(filename) );
+      initialize( s_ptr.get() );
+    }else{
+      // Throw an error. It will be caught, but it will get printed
+      // only if no other approaches turn out to work later on.
+      vw_throw( ArgumentErr() << "Not an image " << filename);
+    }
     
-    boost::scoped_ptr<DiskImageResourceGDAL> s_ptr( new DiskImageResourceGDAL(filename) );
-    initialize( s_ptr.get() );
   }
 
   RPCModel::RPCModel( DiskImageResourceGDAL* resource  ) {

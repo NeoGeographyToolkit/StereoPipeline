@@ -73,12 +73,12 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_rpc_camera_mo
     RPCXML rpc_xml; // This is for reading XML files
     rpc_xml.read_from_file(path);
     rpc_model = new RPCModel(*rpc_xml.rpc_ptr()); // Copy the value
-  } catch (...) {}
-  if (!rpc_model) // The default loading method failed, try the backup method.
-  {
+  } catch (...) {
+  }
+  if (!rpc_model){ // The default loading method failed, try the backup method.
     rpc_model = new RPCModel(path); // This is for reading RPC data via the GDAL driver from image files.
   }
-
+  
   // We don't catch an error here because the user will need to
   // know of a failure at this point.
   return boost::shared_ptr<asp::RPCModel>(rpc_model);
