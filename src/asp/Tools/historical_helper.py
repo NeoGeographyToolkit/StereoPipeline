@@ -30,6 +30,7 @@ import numpy as np
 basepath    = os.path.abspath(sys.path[0])
 pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
 libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+libpath = os.path.abspath(basepath + '/../lib') # path to the lib directory
 sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
@@ -42,6 +43,8 @@ asp_system_utils.verify_python_version_is_supported()
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
+# Prepend to system LD_LIBRARY_PATH
+os.environ["LD_LIBRARY_PATH"] = libpath + os.pathsep + os.environ["LD_LIBRARY_PATH"]
 
 #------------------------------------------------------------------------------
 
@@ -159,7 +162,7 @@ def main(argsIn):
     if options.operation == 'rotate-crop' or options.operation == 'rotate':
         rotateAndCrop(options)
 
-    print('Script is finished.')
+    print('Script finished.')
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
