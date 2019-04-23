@@ -439,7 +439,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     for (size_t i=0; i<num_gcp_residuals; ++i) {
       double mean_residual = 0; // Take average of XYZ error for each point
       residual_file_raw_gcp << i;
-      for (size_t j=0; j<param_storage.params_per_point(); ++j) {
+      for (size_t j = 0; j < param_storage.params_per_point(); j++) {
         mean_residual += fabs(residuals[index]);
         residual_file_raw_gcp << ", " << residuals[index]; // Write all values in this file
         ++index;
@@ -461,12 +461,12 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
       residual_file_raw_cams << opt.camera_files[c];
       // Separately compute the mean position and rotation error
       double mean_residual_pos = 0, mean_residual_rot = 0;
-      for (size_t j=0; j<part_size; ++j) {
+      for (size_t j = 0; j < part_size; j++) {
         mean_residual_pos += fabs(residuals[index]);
         residual_file_raw_cams << ", " << residuals[index]; // Write all values in this file
         ++index;
       }
-      for (size_t j=0; j<part_size; ++j) {
+      for (size_t j = 0; j < part_size; j++) {
         mean_residual_rot += fabs(residuals[index]);
         residual_file_raw_cams << ", " << residuals[index]; // Write all values in this file
         ++index;
@@ -1165,20 +1165,20 @@ int do_ba_ceres_one_pass(Options             & opt,
     convergence_reached = false;
   }
 
-  if (last_pass) {
-    vw_out() << "Writing final condition log files..." << std::endl;
-    residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
-    write_residual_logs(residual_prefix, true,  opt, param_storage, cam_residual_counts,
-                        num_gcp_residuals, reference_vec, cnet, crn, problem);
-    residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
-    write_residual_logs(residual_prefix, false, opt, param_storage, cam_residual_counts,
-                        num_gcp_residuals, reference_vec, cnet, crn, problem);
-
-    point_kml_path = opt.out_prefix + "-final_points.kml";
-    param_storage.record_points_to_kml(point_kml_path, opt.datum,
-                        kmlPointSkip, "final_points",
-                        "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
-  }
+  // Write the condition files after each pass, as we never know which pass will be the last
+  // since we may stop the passes prematurely if no more outliers are present.
+  vw_out() << "Writing final condition log files..." << std::endl;
+  residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
+  write_residual_logs(residual_prefix, true,  opt, param_storage, cam_residual_counts,
+		      num_gcp_residuals, reference_vec, cnet, crn, problem);
+  residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
+  write_residual_logs(residual_prefix, false, opt, param_storage, cam_residual_counts,
+		      num_gcp_residuals, reference_vec, cnet, crn, problem);
+  
+  point_kml_path = opt.out_prefix + "-final_points.kml";
+  param_storage.record_points_to_kml(point_kml_path, opt.datum,
+				     kmlPointSkip, "final_points",
+				     "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
 
   // If heights_from_dem_weight > 0, each point is a gcp, and this stats becomes too long
   if (num_gcp > 0 && opt.heights_from_dem_weight <= 0)
