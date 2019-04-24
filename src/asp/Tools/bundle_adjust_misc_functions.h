@@ -513,8 +513,8 @@ public:
     // Not used, just for the api
     bool piecewise_adjustments;
     vw::Vector2 adjustment_bounds;
-    Vector2 pixel_offset;
-    double scale;
+    Vector2 pixel_offset = Vector2();
+    double scale = 1.0;
     std::string session;
     
     vw::vw_out() << "Reading adjusted camera model: " << filename << std::endl;

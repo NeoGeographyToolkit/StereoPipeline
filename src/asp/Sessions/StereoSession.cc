@@ -744,8 +744,13 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
 
   std::vector<Vector3> position_correction;
   std::vector<Quat   > pose_correction;
-  Vector2 local_pixel_offset;
-  double local_scale;
+
+  // These must start initialized. Note that we may have a pixel
+  // offset passed in from outside, or a pixel offset and scale
+  // that we read from an adjust file. We will throw an error
+  // below if both scenarios happen.
+  Vector2 local_pixel_offset = pixel_offset;
+  double local_scale = 1.0;
 
   // Ensure these vectors are populated even when there are no corrections to read,
   // as we may still have pixel offset.
@@ -766,8 +771,22 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
     std::string session;
     asp::read_adjustments(adjust_file, piecewise_adjustments,
                           adjustment_bounds, position_correction, pose_correction,
-			  local_pixel_offset, local_scale, session);
+			  local_pixel_offset, local_scale, // these will change
+			  session);
 
+    if (local_pixel_offset != Vector2() || local_scale != 1.0) {
+      // We read a custom scale and pixel offset passed by the user. But then
+      // the pixel offset passed in by the caller is not valid. Instead of
+      // sorting things out simply refuse to allow this scenario.
+      if (pixel_offset != Vector2()) {
+	      vw_throw(InputErr() << "Cannot use crop-win functionality with custom scale and pixel offset in .adjust files.\n");
+      }
+    }else{
+      // In this case we have local_pixel_offset == (0, 0) local_scale == 1.0.
+      // So use the pixel_offset passed in by the caller. Scale will stay at 1.0.
+      local_pixel_offset = pixel_offset;
+    }
+    
     if (position_correction.empty() || pose_correction.empty())
       vw_throw(InputErr() << "Unable to read corrections.\n");
 
