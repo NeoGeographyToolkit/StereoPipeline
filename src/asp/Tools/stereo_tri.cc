@@ -211,7 +211,7 @@ stereo_error_triangulate( vector<DisparityT> const& disparities,
 /// and the image transforms.
 /// - Note that the output image size is not the same as the input disparity image.
 template <typename DisparityT>
-class UnwarpDisparityView: public ImageViewBase<UnwarpDisparityView<DisparityT> >{
+class UnalignDisparityView: public ImageViewBase<UnalignDisparityView<DisparityT> >{
   
   DisparityT const& m_disparity;
   TXT        const& m_left_transform;
@@ -219,37 +219,41 @@ class UnwarpDisparityView: public ImageViewBase<UnwarpDisparityView<DisparityT> 
 
   ASPGlobalOptions const& m_opt;
   int m_num_cols, m_num_rows;
-
+  bool m_is_map_projected;
+  
 public:
-  UnwarpDisparityView( DisparityT const& disparity,
+  UnalignDisparityView( DisparityT const& disparity,
                        TXT        const& left_transform,
                        TXT        const& right_transform,
                        ASPGlobalOptions const& opt):
     m_disparity(disparity), m_left_transform(left_transform), 
     m_right_transform(right_transform), m_opt(opt),
-    m_num_cols(0), m_num_rows(0){
+    m_num_cols(0), m_num_rows(0), m_is_map_projected(m_opt.session->isMapProjected()){
 
     // Compute the output image size
-    const bool is_map_projected = m_opt.session->isMapProjected();
-    if (!is_map_projected) {
+    
+    if (!m_is_map_projected) {
       // The left image passed as input is the original
       // unprojected/unaligned one, hence use its size.
       std::string left_file  = m_opt.in_file1;
       DiskImageView<float> left_img(left_file);
       m_num_cols = left_img.cols();
       m_num_rows = left_img.rows();
-    }else{ // Map projected, need to check all the pixel coordinates.
+    }else{
+      // Map projected, need to check all the pixel coordinates.
       // This is going to be slow for large images!
       BBox2i img_box; 
       for (int col = 0; col < m_disparity.cols(); col++) {
         for (int row = 0; row < m_disparity.rows(); row++) {
 
-          typename DisparityT::pixel_type dpix = m_disparity(col, row);
-          if (!is_valid(dpix))
-            continue;
+	  // This is off as it may be slow. We'd rather write a slightly bigger
+	  // image than compute exactly its size.
+          //typename DisparityT::pixel_type dpix = m_disparity(col, row);
+          //if (!is_valid(dpix))
+	  //  continue;
 
-          // De-warp (unalign) the left pixel
-          Vector2 left_pix  = m_left_transform->reverse ( Vector2(col, row) );
+          // Unalign the left pixel
+          Vector2 left_pix  = m_left_transform->reverse(Vector2(col, row));
           img_box.grow(left_pix);
         }
       }
@@ -259,10 +263,10 @@ public:
     // Done computing the input image size.
   }
 
-  // Image View interface
+  // ImageView interface
   typedef PixelMask<Vector2f>                          pixel_type;
   typedef pixel_type                                   result_type;
-  typedef ProceduralPixelAccessor<UnwarpDisparityView> pixel_accessor;
+  typedef ProceduralPixelAccessor<UnalignDisparityView> pixel_accessor;
 
   inline int32 cols  () const { return m_num_cols; }
   inline int32 rows  () const { return m_num_rows; }
@@ -271,87 +275,137 @@ public:
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
 
   inline pixel_type operator()( double /*i*/, double /*j*/, int32 /*p*/ = 0 ) const {
-    vw_throw(NoImplErr() << "UnwarpDisparityView::operator()(...) is not implemented");
+    vw_throw(NoImplErr() << "UnalignDisparityView::operator()(...) is not implemented");
     return pixel_type();
   }
 
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
-  inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
-
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+    
+    // We will do some averaging
+    int KERNEL_SIZE = 1;
+    
+    BBox2i curr_bbox = bbox;
+    curr_bbox.expand(2*KERNEL_SIZE);
+    curr_bbox.crop(BBox2i(0, 0, cols(), rows()));
+    
     // Initialize the unaligned disparity values for this tile.
-    ImageView<pixel_type> unaligned_disp(bbox.width(), bbox.height());
-    for (int col = 0; col < bbox.width(); col++) {
-      for (int row = 0; row < bbox.height(); row++) {
+    ImageView<pixel_type> unaligned_disp(curr_bbox.width(), curr_bbox.height());
+    ImageView<int> count(curr_bbox.width(), curr_bbox.height());
+    for (int col = 0; col < curr_bbox.width(); col++) {
+      for (int row = 0; row < curr_bbox.height(); row++) {
         unaligned_disp(col, row) = pixel_type();
         unaligned_disp(col, row).invalidate();
+	count(col, row) = 0;
       }
     }
-
+    
     // Find the bounding box of pixels we will need from the disparity image.
+    // For mapprojected images the forward() function is not always accurate,
+    // and it is also very slow, hence avoid it.
     BBox2i disp_bbox;
-    for (int col = 0; col < unaligned_disp.cols(); col++) {
-      for (int row = 0; row < unaligned_disp.rows(); row++) {
-
-        // Get the pixel coordinate in the output image (left unaligned pixel),
-        // Then get the pixel coordinate in the left input image.
-        Vector2 output_pixel(col+bbox.min()[0], row+bbox.min()[1]);
-        Vector2 left_aligned_pixel = m_left_transform->forward(output_pixel);
-        disp_bbox.grow(left_aligned_pixel);
+    if (!m_is_map_projected) {
+      BBox2i full_disp_bbox = bounding_box(m_disparity);
+      for (int col = 0; col < unaligned_disp.cols(); col++) {
+	for (int row = 0; row < unaligned_disp.rows(); row++) {
+	  
+	  // Get the pixel coordinate in the output image (left unaligned pixel),
+	  // Then get the pixel coordinate in the left input image.
+	  Vector2 output_pixel(col + curr_bbox.min()[0], row + curr_bbox.min()[1]);
+	  Vector2 left_aligned_pixel;
+	try {
+	  left_aligned_pixel = m_left_transform->forward(output_pixel);
+	}catch(...){
+	  // This can fail since we may apply it to pixels outside of range
+	  continue;
+	}
+	if (!full_disp_bbox.contains(left_aligned_pixel)) 
+	  continue;
+	disp_bbox.grow(left_aligned_pixel);
+	}
+      }
+    }else{
+      // The mapprojected case. This is a bit slow but with big tiles
+      // seems to be manageable.
+      for (int col = 0; col < m_disparity.cols(); col++) {
+	for (int row = 0; row < m_disparity.rows(); row++) {
+	  Vector2 rev = m_left_transform->reverse(Vector2(col, row));
+	  if (curr_bbox.contains(rev)) {
+	    disp_bbox.grow(Vector2(col, row));
+	  }
+	}
       }
     }
-    const int INTERP_BUFFER_SIZE = 3; // Add a few pixels as an interpolation buffer
-    disp_bbox.expand(INTERP_BUFFER_SIZE);
-
+    
+    disp_bbox.expand(2*KERNEL_SIZE); // expand a bit
+    disp_bbox.crop(bounding_box(m_disparity));
+    
     typedef typename DisparityT::pixel_type DispPixelT;
     
     // Rasterize the section of the disparity image that we need for this tile
-    // - Since we buffer "disp" we don't need to do more edge extension
-    ImageView   <DispPixelT> disp        = crop(edge_extend(m_disparity), disp_bbox);
-    ImageViewRef<DispPixelT> disp_interp = interpolate(disp, BilinearInterpolation(),
-                                                             NoEdgeExtension());
+    ImageView<DispPixelT> disp = crop(m_disparity, disp_bbox);
 
-    // Loop through the pixels in the output (unaligned) disparity image.
+    for (int col = 0; col < disp.cols(); col++) {
+      for (int row = 0; row < disp.rows(); row++) {
+	
+	DispPixelT dpix = disp(col, row);
+	if (!is_valid(dpix))
+	  continue;
+
+	// Go from position in the cropped disparity to the
+	// position in the full disparity.
+	int ucol = col + disp_bbox.min().x();
+	int urow = row + disp_bbox.min().y();
+	
+	// De-warp left and right pixels to be in the camera coordinate system
+	Vector2 left_pix  = m_left_transform->reverse ( Vector2(ucol, urow) );
+	Vector2 right_pix = m_right_transform->reverse( Vector2(ucol, urow)
+							+ stereo::DispHelper(dpix) );
+	Vector2 dir       = right_pix - left_pix; // disparity value
+	
+	// This averaging is useful in filling tiny holes and avoiding staircasing.
+	// TODO: Use some weights. The closer contribution should have more weight.
+	for (int icol = -KERNEL_SIZE; icol <= KERNEL_SIZE; icol++) {
+	  for (int irow = -KERNEL_SIZE; irow <= KERNEL_SIZE; irow++) {
+	    int lcol = round(left_pix[0]) + icol;
+	    int lrow = round(left_pix[1]) + irow;
+	    
+	    // shift to be in the domain of the cropped image
+	    lcol -= curr_bbox.min()[0];
+	    lrow -= curr_bbox.min()[1];
+	    if (lcol < 0 || lcol >= curr_bbox.width())  continue;
+	    if (lrow < 0 || lrow >= curr_bbox.height()) continue;
+	    if (!is_valid(unaligned_disp(lcol, lrow)))
+	      unaligned_disp(lcol, lrow).validate();
+	    unaligned_disp(lcol, lrow).child() += dir;
+	    count(lcol, lrow)++;
+	  }
+	}
+	
+      }
+    }
+    
     for (int col = 0; col < unaligned_disp.cols(); col++) {
       for (int row = 0; row < unaligned_disp.rows(); row++) {
-
-        // Get the pixel coordinate in the output image (left unaligned pixel)
-        Vector2 output_pixel(col+bbox.min()[0], row+bbox.min()[1]);
-
-        // Get the pixel coordinate in the left input image.
-        Vector2 left_aligned_pixel = m_left_transform->forward(output_pixel);
-
-        // Compute the unaligned disparity value for this pixel.
-        
-        // Interpolate the disparity for this output pixel
-        DispPixelT dpix = disp_interp(left_aligned_pixel[0] - disp_bbox.min()[0],
-                                      left_aligned_pixel[1] - disp_bbox.min()[1]);
-        if (!is_valid(dpix))
-          continue;
-        
-        Vector2 right_aligned_pixel = left_aligned_pixel + stereo::DispHelper(dpix);
-        Vector2 right_pixel = m_right_transform->reverse(right_aligned_pixel);
-        Vector2 dir = right_pixel - output_pixel; // disparity value
-
-        unaligned_disp(col, row) = dir;
-        
-      } // End col loop
-    } // End row loop
-
-    // If we want to apply smoothing or hole filling we could do it here.
-
+	if (count(col, row) == 0)
+	  unaligned_disp(col, row).invalidate();
+	else
+	  unaligned_disp(col, row) /= double(count(col, row));
+      }
+    }
+    
     // Use the crop trick to fake that the support region is the same size as the entire image.
-    return prerasterize_type(unaligned_disp, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
+    return prerasterize_type(unaligned_disp, -curr_bbox.min().x(), -curr_bbox.min().y(),
+			     cols(), rows());
   }
-
+  
   template <class DestT>
   inline void rasterize(DestT const& dest, BBox2i bbox) const {
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
-}; // End class UnwarpDisparityView
+}; // End class UnalignDisparityView
 
-
-
-/// Take a given disparity and make it between the original unaligned images
+// Take a given disparity and make it between the original unaligned images
 template <class DisparityT>
 void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
                        vector<DisparityT> const& disparities,
@@ -378,18 +432,40 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
     pinPtr->pinhole_cam_trans(left_trans, right_trans);
   }
 
-  vw_out() << "Writing: " << disp_file << std::endl;
+  bool is_map_projected = opt_vec[0].session->isMapProjected();
 
+  // It is quite tricky to write logic for mapprojected images. The
+  // forward() function is very slow and gives wrong results sometimes
+  // if it is invoked out of its range, which we don't know. Hence we
+  // are forced to use only the reverse() function which makes 
+  // things slower. Hence, at least use big blocks, as the overhead is
+  // the same regardless of the block size.
+  ASPGlobalOptions opt = opt_vec[0]; // make a copy so that we can modify it
+  vw::Vector2 orig_block_size = opt.raster_tile_size;
+  if (is_map_projected) {
+    vw_out() << "Images are mapprojected. Un-aligning the disparity may be slow "
+	     << "and take a lot of memory.\n";
+    opt.raster_tile_size = vw::Vector2(5120, 5120);
+  }
+  
   cartography::GeoReference left_georef;
   bool   has_left_georef = false;
   bool   has_nodata      = false;
   double nodata          = -32768.0;
+  vw_out() << "Unaligning the disparity.\n";
+  vw_out() << "Writing: " << disp_file << "\n";
   vw::cartography::block_write_gdal_image(disp_file, 
-                                          UnwarpDisparityView<DisparityT>(disparities[0], left_trans, 
-                                                                          right_trans, opt_vec[0]),
+                                          UnalignDisparityView<DisparityT>(disparities[0],
+									   left_trans, 
+									   right_trans, opt),
                                           has_left_georef, left_georef,
-                                          has_nodata, nodata, opt_vec[0],
+                                          has_nodata, nodata, opt,
                                           TerminalProgressCallback("asp", "\t--> Undist disp:") );
+
+  // Restore the default block size
+  if (is_map_projected) 
+    opt.raster_tile_size = orig_block_size;
+  
 }
 
 /// Bin the disparities, and from each bin get a disparity value.
