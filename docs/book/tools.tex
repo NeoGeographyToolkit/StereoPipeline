@@ -1798,14 +1798,15 @@ Option & Description \\ \hline \hline
 in meters.\\ \hline
 \texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis
 in meters.\\ \hline
-\texttt{-\/-t\_srs \textit{string}} & Specify the output projection (PROJ.4 string) instead of the datum.  Can also be an URL or in WKT format, as for GDAL.\\ \hline
+\texttt{-\/-t\_srs \textit{string}} & Specify a projection (PROJ.4 string) instead of the datum. Can also be an URL or in WKT format, as for GDAL.\\ \hline
 \texttt{-\/-dem-file \textit{string}} & Instead of using a datum and a longitude-latitude-height box, sample the surface of this DEM.\\ \hline
 \texttt{-\/-lon-lat-range arg (=0 0 0 0)} & The longitude-latitude range in which to compute the RPC model. Specify in the format: lon\_min lat\_min lon\_max lat\_max.\\ \hline
 \texttt{-\/-height-range arg (=0 0)} & Minimum and maximum heights above the datum in which to compute the RPC model.\\ \hline
 \texttt{-\/-num-samples arg (=40)} & How many samples to use in each direction in the longitude-latitude-height range.\\ \hline
 \texttt{-\/-penalty-weight arg (=0.03)} & A higher penalty weight will result in smaller higher-order RPC coefficients.\\ \hline
 \texttt{-\/-save-tif-image} & Save a TIF version of the input image that approximately corresponds to the input longitude-latitude-height range and which can be used for stereo together with the RPC model.\\ \hline
-\texttt{-\/-output-nodata-value arg (=-3.40282347e+38)} & Set the image output nodata value.\\ \hline
+\texttt{-\/-input-nodata-value arg} & Set the image input nodata value.\\ \hline
+\texttt{-\/-output-nodata-value arg} & Set the image output nodata value.\\ \hline
 \texttt{-t | -\/-session-type  \textit{string}} & Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: pinhole isis rpc dg spot5 aster opticalbar.\\ \hline
 \texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
 adjustment obtained by previously running bundle\_adjust with this
