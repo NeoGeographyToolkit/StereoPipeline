@@ -31,6 +31,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Camera/RPCModelGen.h>
+#include <asp/Core/PointUtils.h>
 
 #include <limits>
 #include <cstring>
@@ -50,25 +51,32 @@ using namespace vw::cartography;
 struct Options : public vw::cartography::GdalWriteOptions {
   double penalty_weight;
   string image_file, camera_file, output_rpc, stereo_session, bundle_adjust_prefix,
-    datum_str, dem_file;
+    datum_str, dem_file, target_srs_string;
   bool no_crop, skip_computing_rpc, save_tif, has_output_nodata;
   BBox2 lon_lat_range;
   BBox2i image_crop_box;
   Vector2 height_range;
-  float output_nodata_value;
+  float input_nodata_value, output_nodata_value;
+  double semi_major, semi_minor;
   double gsd;
   int num_samples;
+  Datum datum;
   Options(): penalty_weight(-1.0), no_crop(false),
              skip_computing_rpc(false), save_tif(false), has_output_nodata(false),
-             output_nodata_value(-std::numeric_limits<float>::max()),
-             gsd(-1.0), num_samples(-1) {}
+	     gsd(-1.0), num_samples(-1) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
+  float nan = std::numeric_limits<float>::quiet_NaN();
   general_options.add_options()
     ("datum",            po::value(&opt.datum_str)->default_value(""),
      "Use this datum to interpret the heights. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+    ("semi-major-axis",      po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
+    ("semi-minor-axis",      po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
+    ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string) instead of the datum. Can also be an URL or in WKT format, as for GDAL.")
+    ("dem-file",   po::value(&opt.dem_file)->default_value(""),
+     "Instead of using a datum and a longitude-latitude-height box, sample the surface of this DEM.")
     ("lon-lat-range", po::value(&opt.lon_lat_range)->default_value(BBox2i(0,0,0,0), "0 0 0 0"),
      "The longitude-latitude range in which to compute the RPC model. Specify in the format: lon_min lat_min lon_max lat_max.")
     ("height-range", po::value(&opt.height_range)->default_value(Vector2i(0,0),"0 0"),
@@ -79,8 +87,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A higher penalty weight will result in smaller higher-order RPC coefficients.")
     ("save-tif-image", po::bool_switch(&opt.save_tif)->default_value(false),
      "Save a TIF version of the input image that approximately corresponds to the input longitude-latitude-height range and which can be used for stereo together with the RPC model.")
-    ("output-nodata-value", po::value(&opt.output_nodata_value)->default_value(-std::numeric_limits<float>::max()),
-     "Set the image output nodata value.")
+    ("input-nodata-value", po::value(&opt.input_nodata_value)->default_value(nan),
+     "Set the image input nodata value.")
+    ("output-nodata-value", po::value(&opt.output_nodata_value)->default_value(nan),
+     "Set the image output nodata value. If not specified, the input nodata value will be used.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: pinhole isis rpc dg spot5 aster opticalbar.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
@@ -91,8 +101,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "Try to create an RPC model over the entire input image, even if the input longitude-latitude-height box covers just a small portion of it. Not recommended.")
     ("skip-computing-rpc", po::bool_switch(&opt.skip_computing_rpc)->default_value(false),
      "Skip computing the RPC model.")
-    ("dem-file",   po::value(&opt.dem_file)->default_value(""),
-     "Instead of using a longitude-latitude-height box, sample the surface of this DEM.")
     ("gsd",     po::value(&opt.gsd)->default_value(-1),
      "Expected resolution on the ground, in meters. This is needed for SETSM.");
 
@@ -117,8 +125,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 			    positional, positional_desc, usage,
 			    allow_unregistered, unregistered);
 
-  opt.has_output_nodata = vm.count("output-nodata-value");
-  
   if ( opt.image_file.empty() )
     vw_throw( ArgumentErr() << "Missing input image.\n" << usage << general_options );
 
@@ -137,9 +143,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   // If we cannot read the data from a DEM, must specify a lot of things.
   if (opt.dem_file.empty()) {
+
+    // See if the user specified the datum outside of the srs string
+    bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
+                                                opt.datum_str, opt.datum);
+    // Set the srs string into georef.
+    if (!opt.target_srs_string.empty()) {
+      vw::cartography::GeoReference georef;
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, opt.datum, georef);
+      opt.datum = georef.datum();
+    }
     
-    if (opt.datum_str.empty() )
-      vw_throw( ArgumentErr() << "Missing input datum.\n" << usage << general_options );
+    if (opt.datum_str.empty() && !have_user_datum && opt.target_srs_string.empty())
+      vw_throw( ArgumentErr() << "Missing input datum. Must set one of: --datum,  --t_srs, --semi-major-axis, and --semi-minor-axis, --t_srs, or --dem-file.\n" << usage << general_options );
 
     if (opt.height_range[0] >= opt.height_range[1])
       vw_throw( ArgumentErr() << "Must specify a valid range of heights.\n"
@@ -208,19 +224,32 @@ int main( int argc, char *argv[] ) {
     
     boost::shared_ptr<CameraModel> cam = session->camera_model(opt.image_file, opt.camera_file);
 
-    // The input nodata value
-    float input_nodata_value = -std::numeric_limits<float>::max(); 
-    vw::read_nodata_val(opt.image_file, input_nodata_value);
+    // Get the input nodata value from the image file, unless the
+    // user overwrites it.
+    float val = std::numeric_limits<float>::quiet_NaN();
+    bool has_input_nodata = vw::read_nodata_val(opt.image_file, val);
+    if (has_input_nodata && boost::math::isnan(opt.input_nodata_value)) {
+      opt.input_nodata_value = val;
+    }
+    if (!boost::math::isnan(opt.input_nodata_value)) 
+      vw_out() << "Using input nodata value: " << opt.input_nodata_value << "\n";
+    else
+      has_input_nodata = false;
 
     // If the output nodata value was not specified, use the input one
-    if (!opt.has_output_nodata) {
-      opt.output_nodata_value = input_nodata_value;
+    if (boost::math::isnan(opt.output_nodata_value)) 
+      opt.output_nodata_value = opt.input_nodata_value;
+
+    if (!boost::math::isnan(opt.output_nodata_value)) {
       opt.has_output_nodata = true;
+      vw_out() << "Using output nodata value: " << opt.output_nodata_value << "\n";
+    }else{
+      opt.has_output_nodata = false;
     }
 
     // Read the image as float and mask it right away
     ImageViewRef< PixelMask<float> > input_img
-      = create_mask(DiskImageView<float>(opt.image_file), input_nodata_value);
+      = create_mask_less_or_equal(DiskImageView<float>(opt.image_file), opt.input_nodata_value);
 
     // The bounding box
     BBox2 image_box = bounding_box(input_img);
@@ -238,8 +267,7 @@ int main( int argc, char *argv[] ) {
     
     if (opt.dem_file.empty()) {
 
-      cartography::Datum datum(opt.datum_str);
-      vw_out() << "Using datum: " << datum << std::endl;
+      vw_out() << "Using datum: " << opt.datum << std::endl;
       
       BBox2   & ll = opt.lon_lat_range; // shortcut
       Vector2 & H  = opt.height_range;
@@ -252,10 +280,10 @@ int main( int argc, char *argv[] ) {
           for (double ht = H[0]; ht <= H[1]; ht += delta_ht) {
 
             Vector3 llh(lon, lat, ht);
-            Vector3 xyz = datum.geodetic_to_cartesian(llh);
+            Vector3 xyz = opt.datum.geodetic_to_cartesian(llh);
             
             // Go back to llh. This is a bugfix for the 360 deg offset problem.
-            llh = datum.cartesian_to_geodetic(xyz);
+            llh = opt.datum.cartesian_to_geodetic(xyz);
             
             Vector2 cam_pix = cam->point_to_pixel(xyz);
             if (image_box.contains(cam_pix)) {
@@ -312,7 +340,7 @@ int main( int argc, char *argv[] ) {
             continue;
           }
           
-          if (image_box.contains(cam_pix)) {
+          if (image_box.contains(cam_pix) && is_valid(input_img(cam_pix[0], cam_pix[1]))) {
             all_llh.push_back(llh);
             all_pixels.push_back(cam_pix);
           }

@@ -151,6 +151,8 @@
      --ip-num-ransac-iterations for finer control of interest
      point matching. Added --ip-triangulation-max-error to control
      the triangulation error.
+   * The cam2rpc tool accepts --t_srs and --semi-major-axis as
+      alternatives to --datum and --dem-file.
 
 *** RELEASE 2.6.1, August 13, 2018 ***
 
