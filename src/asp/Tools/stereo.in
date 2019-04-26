@@ -107,11 +107,13 @@ if __name__ == '__main__':
     # set in this Python script so that they show up in the help message.
     if opt.session is not None:
         args.extend(['--session-type', opt.session])
-    if opt.stereo_file is not None:
+    if opt.stereo_file is not None and os.path.exists(opt.stereo_file):
         args.extend(['--stereo-file', opt.stereo_file])
+        
     if opt.no_bigtiff:
         args.append('--no-bigtiff')
-    if opt.tif_compress is not None:
+    if opt.tif_compress is not None and opt.tif_compress != "LZW":
+        # If it is LZW then don't pass it, as that is the default
         args.extend(['--tif-compress', opt.tif_compress])
     if opt.version:
         print_version_and_exit(opt, args)
@@ -139,7 +141,7 @@ if __name__ == '__main__':
 
         # Correlation
         step = Step.corr
-        if ( opt.entry_point <= step ):
+        if (opt.entry_point <= step):
             if ( opt.stop_point <= step ): sys.exit()
 
             if ( opt.seed_mode == 0 ):
@@ -152,7 +154,8 @@ if __name__ == '__main__':
                 # Run full-resolution stereo correlation
                 args.extend(['--skip-low-res-disparity-comp'])
                 stereo_run('stereo_corr', args, opt, msg='%d: Correlation' % step)
-
+                wipe_option(args, '--skip-low-res-disparity-comp', 0) # no longer needed
+        
         # Refinement
         step = Step.rfne
         if ( opt.entry_point <= step ):

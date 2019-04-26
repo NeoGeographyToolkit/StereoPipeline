@@ -77,7 +77,7 @@ def check_system_memory(opt, args, settings):
         est_ram_usage   = num_procs * ram_per_process
 
         if (est_ram_usage > freemem_mb):
-            print('WARNING: Estimated maximum memory consumption is '
+            print('Warning: Estimated maximum memory consumption is '
                   + str(est_ram_usage) + 'mb but only ' + str(freemem_mb)
                   + 'mb of free memory is detected.  To lower memory use, '
                   + 'consider reducing the number of processes or lowering '
@@ -85,7 +85,7 @@ def check_system_memory(opt, args, settings):
 
     except:
         # Don't let an error here prevent the tool from running.
-        print('WARNING: Error checking system memory, skipping the memory test!')
+        print('Warning: Error checking system memory, skipping the memory test!')
         return
 
 def tile_dir(prefix, tile):
@@ -592,7 +592,7 @@ if __name__ == '__main__':
                  help='Options to pass directly to sparse_disp.')
     p.add_option('-v', '--version',        dest='version', default=False,
                  action='store_true', help='Display the version of software.')
-    p.add_option('-s', '--stereo-file',    dest='stereo_file',    default='./stereo.default',
+    p.add_option('-s', '--stereo-file',    dest='stereo_file', default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_option('--verbose', dest='verbose', default=False, action='store_true',
                  help='Display the commands being executed.')
@@ -639,7 +639,8 @@ if __name__ == '__main__':
     # Pass it to the subprocesses
     args.extend(['--corr-seed-mode', str(opt.seed_mode)])
 
-    args.extend(['--stereo-file', opt.stereo_file])
+    if os.path.exists(opt.stereo_file):
+        args.extend(['--stereo-file', opt.stereo_file])
 
     if opt.tile_id is None:
         # When the script is started, set some options from the
@@ -734,7 +735,8 @@ if __name__ == '__main__':
 
             # Bugfix: avoid confusing the logic below
             wipe_option(self_args, '-s', 1)
-            self_args.extend(['--stereo-file', opt.stereo_file])
+            if os.path.exists(opt.stereo_file):
+                self_args.extend(['--stereo-file', opt.stereo_file])
 
             # Map from option, say --job-size-w, to the variable name, say, job_size_w.
             opt2var = {}
@@ -820,7 +822,8 @@ if __name__ == '__main__':
             # Run full-res stereo using multiple processes.
             self_args.extend(['--skip-low-res-disparity-comp'])
             spawn_to_nodes(step, settings, self_args)
-
+            wipe_option(self_args, '--skip-low-res-disparity-comp', 0) # no longer needed
+            
             # Bugfix: When doing refinement for a given tile, we must see
             # the result of correlation for all tiles. To achieve that,
             # rename all correlation tiles to something else,
