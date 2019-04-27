@@ -21,6 +21,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/CameraUtilities.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Math/LevenbergMarquardt.h>
@@ -210,75 +211,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Create the output directory
   vw::create_out_dir(opt.camera_file);
 } // End function handle_arguments
-
-
-// Pack a pinhole or optical bar model's rotation and camera center into a vector
-template <class CAM>
-void camera_to_vector(CAM const& P, Vector<double> & C){
-
-  Vector3 ctr = P.camera_center();
-  Vector3 axis_angle = P.camera_pose().axis_angle();
-  C.set_size(6);
-  subvector(C, 0, 3) = ctr;
-  subvector(C, 3, 3) = axis_angle;
-}
-
-// Pack a vector into a pinhole or optical bar model. We assume the model
-// already has set its optical center, focal length, etc. 
-template <class CAM>
-void vector_to_camera(CAM & P, Vector<double> const& C){
-
-  if (C.size() != 6) 
-    vw_throw( LogicErr() << "Expecting a vector of size 6.\n" );
-
-  Vector3 ctr      = subvector(C, 0, 3);
-  Quat    rotation = axis_angle_to_quaternion(subvector(C, 3, 3));
-  P.set_camera_center(ctr);
-  P.set_camera_pose(rotation);
-}
-
-
-/// Find the camera model that best projects given xyz points into given pixels
-template <class CAM>
-class CameraSolveLMA : public vw::math::LeastSquaresModelBase<CameraSolveLMA<CAM> > {
-  std::vector<vw::Vector3> const& m_xyz;
-  CAM m_camera_model;
-  mutable size_t m_iter_count;
-  
-public:
-
-  typedef vw::Vector<double>    result_type;   // pixel residuals
-  typedef vw::Vector<double, 6> domain_type;   // camera parameters (camera center and axis angle)
-  typedef vw::Matrix<double> jacobian_type;
-
-  /// Instantiate the solver with a set of xyz to pixel pairs and a pinhole model
-  CameraSolveLMA(std::vector<vw::Vector3> const& xyz,
-                 CAM const& camera_model):
-    m_xyz(xyz),
-    m_camera_model(camera_model), m_iter_count(0){}
-
-  /// Given the camera, project xyz into it
-  inline result_type operator()( domain_type const& C ) const {
-
-    // Create the camera model
-    CAM camera_model = m_camera_model; // make a copy local to this function
-    vector_to_camera(camera_model, C);      // update its parameters
-    
-    const size_t result_size = m_xyz.size() * 2;
-    result_type result;
-    result.set_size(result_size);
-    for (size_t i = 0; i < m_xyz.size(); i++) {
-      Vector2 pixel = camera_model.point_to_pixel(m_xyz[i]);
-      result[2*i  ] = pixel[0];
-      result[2*i+1] = pixel[1];
-    }
-  
-    ++m_iter_count;
-    
-    return result;
-  }
-}; // End class CameraSolveLMA
-
 
 int main( int argc, char *argv[] ) {
   Options opt;
