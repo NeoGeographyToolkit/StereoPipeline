@@ -422,49 +422,50 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
   TXT right_trans = transforms[1];
 
   // Special case to overwrite the transforms
+  ASPGlobalOptions opt = opt_vec[0];
   bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
-                              ( opt_vec[0].session->name() == "pinhole" ||
-                                opt_vec[0].session->name() == "nadirpinhole") );
+                              ( opt.session->name() == "pinhole" ||
+                                opt.session->name() == "nadirpinhole") );
   if (usePinholeEpipolar) {
-    StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt_vec[0].session.get());
+    StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
     if (pinPtr == NULL) 
       vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
     pinPtr->pinhole_cam_trans(left_trans, right_trans);
   }
 
-  bool is_map_projected = opt_vec[0].session->isMapProjected();
-
-  // It is quite tricky to write logic for mapprojected images. The
-  // forward() function is very slow and gives wrong results sometimes
-  // if it is invoked out of its range, which we don't know. Hence we
-  // are forced to use only the reverse() function which makes 
-  // things slower. Hence, at least use big blocks, as the overhead is
-  // the same regardless of the block size.
-  ASPGlobalOptions opt = opt_vec[0]; // make a copy so that we can modify it
-  vw::Vector2 orig_block_size = opt.raster_tile_size;
-  if (is_map_projected) {
-    vw_out() << "Images are mapprojected. Un-aligning the disparity may be slow "
-	     << "and take a lot of memory.\n";
-    opt.raster_tile_size = vw::Vector2(5120, 5120);
-  }
-  
+  bool is_map_projected = opt.session->isMapProjected();
   cartography::GeoReference left_georef;
   bool   has_left_georef = false;
   bool   has_nodata      = false;
   double nodata          = -32768.0;
   vw_out() << "Unaligning the disparity.\n";
   vw_out() << "Writing: " << disp_file << "\n";
-  vw::cartography::block_write_gdal_image(disp_file, 
-                                          UnalignDisparityView<DisparityT>(disparities[0],
-									   left_trans, 
-									   right_trans, opt),
-                                          has_left_georef, left_georef,
-                                          has_nodata, nodata, opt,
-                                          TerminalProgressCallback("asp", "\t--> Undist disp:") );
-
-  // Restore the default block size
-  if (is_map_projected) 
-    opt.raster_tile_size = orig_block_size;
+  if (is_map_projected) {
+    // It is quite tricky to write logic for mapprojected images. The
+    // forward() function is very slow and gives wrong results sometimes
+    // if it is invoked out of its range, which we don't know. Hence we
+    // are forced to use only the reverse() function which makes 
+    // things slower. Hence, at least use big blocks, as the overhead is
+    // the same regardless of the block size.
+    vw_out() << "Images are mapprojected. Un-aligning the disparity may be slow "
+	     << "and take a lot of memory.\n";
+    int block_size = 5120;
+    asp::save_with_temp_big_blocks(block_size, disp_file, 
+				   UnalignDisparityView<DisparityT>(disparities[0],
+								    left_trans, 
+								    right_trans, opt),
+				   has_left_georef, left_georef,
+				   has_nodata, nodata, opt,
+				   TerminalProgressCallback("asp", "\t--> Undist disp:") );
+  }else{
+    vw::cartography::block_write_gdal_image(disp_file, 
+					    UnalignDisparityView<DisparityT>(disparities[0],
+									     left_trans, 
+									     right_trans, opt),
+					    has_left_georef, left_georef,
+					    has_nodata, nodata, opt,
+					    TerminalProgressCallback("asp", "\t--> Undist disp:") );
+  }
   
 }
 
