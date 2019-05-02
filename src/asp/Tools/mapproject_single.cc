@@ -26,6 +26,7 @@
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/Camera/PinholeModel.h>
 #include <vw/Image/Algorithms2.h>
 #include <vw/Image/Filter.h>
 
@@ -711,9 +712,9 @@ int main( int argc, char* argv[] ) {
                                 Matrix3x3(1,  0, lonstart-0.5, // Need adjustments to work at boundaries!
                                           0, -1, 90+0.5,
                                           0,  0,  1) );
-
       dem = constant_view(PixelMask<float>(opt.datum_offset), 360, 180 );
       vw_out() << "\t--> Using flat datum \"" << datum_name << "\" as elevation model.\n";
+      //std::cout << "dem_georef = " << dem_georef << std::endl;
     }
     // Finished setting up the datum
 
@@ -800,6 +801,14 @@ int main( int argc, char* argv[] ) {
       vw_out() << "Query finished, exiting mapproject tool.\n";
       return 0;
     }
+
+    // For certain pinhole camera models the reverse check can make map projection very slow,
+    // so we disable it here.  The check is very important for computing the bounding box safely
+    // but we don't really need it when projecting the pixels back in to the camera.
+    boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
+                boost::dynamic_pointer_cast<vw::camera::PinholeModel>(camera_model);
+    //if (pinhole_ptr)
+    //  pinhole_ptr->set_do_point_to_pixel_check(false);
 
     // Determine the pixel type of the input image
     boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(opt.image_file);

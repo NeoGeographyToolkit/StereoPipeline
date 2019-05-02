@@ -316,7 +316,9 @@ def getFolderUrl(yyyymmdd, year, month, day,
                 ext = 'b'
             dayInc = 0
             
-        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01'
+        #base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01'
+        base = 'https://daacdata.apps.nsidc.org/pub/DATASETS/ICEBRIDGE/IODMS0_DMSraw_v01'
+        
         yearFolder = makeYearFolder(year, site)
         dateFolder = makeDateFolder(year, month, day + dayInc, ext, fileType)
         folderUrl  = os.path.join(base, yearFolder, dateFolder)
