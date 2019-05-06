@@ -47,6 +47,16 @@ using namespace std;
 
 typedef typename StereoSession::tx_type TXT;
 
+// A small function used in making a copy of the transform for map-projected images with
+// a sanity check.
+template<class T>
+T make_transform_copy(T trans){
+  vw::cartography::Map2CamTrans* t_ptr = dynamic_cast<vw::cartography::Map2CamTrans*>(trans.get());
+  if (!t_ptr)
+    vw_throw( NoImplErr() << "Need to support new map projection transform in stereo_tri.");
+  return T(new vw::cartography::Map2CamTrans(*t_ptr));
+}
+
 /// The main class for taking in a set of disparities and returning a point cloud via joint triangulation.
 template <class DisparityImageT, class StereoModelT>
 class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, StereoModelT> >
@@ -154,14 +164,11 @@ private:
     // - Without some sort of duplication function in the transform base class we need
     //   to manually copy the Map2CamTrans type which is pretty hacky.
     vector<T> transforms_copy(transforms.size());
-    for (size_t i=0; i<transforms.size(); ++i) {
-      vw::cartography::Map2CamTrans* t_ptr 
-          = dynamic_cast<vw::cartography::Map2CamTrans*>(transforms[i].get());
-      if (!t_ptr)
-        vw_throw( NoImplErr() << "Need to support new map projection transform in stereo_tri!");
-      transforms_copy[i].reset(new vw::cartography::Map2CamTrans(*t_ptr));
+    for (size_t i = 0; i < transforms.size(); ++i) {
+      transforms_copy[i] = make_transform_copy(transforms[i]);
     }
-    transforms_copy[0]->reverse_bbox(bbox); // As a side effect this call makes transforms_copy create a local cache we want later
+    // As a side effect this call makes transforms_copy create a local cache we want later
+    transforms_copy[0]->reverse_bbox(bbox); 
 
     if (transforms_copy.size() != m_disparity_maps.size() + 1){
       vw_throw( ArgumentErr() << "In multi-view triangulation, "
@@ -186,7 +193,8 @@ private:
       right_bbox.max() += disparity_range.size();
 
       // Also cache the data for subsequent transforms
-      transforms_copy[p+1]->reverse_bbox(right_bbox); // As a side effect this call makes transforms_copy create a local cache we want later
+      // As a side effect this call makes transforms_copy create a local cache we want later
+      transforms_copy[p+1]->reverse_bbox(right_bbox); 
     }
 
     return prerasterize_type(disparity_cropviews, transforms_copy, m_stereo_model, m_is_map_projected);
@@ -220,7 +228,7 @@ class UnalignDisparityView: public ImageViewBase<UnalignDisparityView<DisparityT
   ASPGlobalOptions const& m_opt;
   int m_num_cols, m_num_rows;
   bool m_is_map_projected;
-  
+  std::map <std::pair<int, int>, Vector2> m_unaligned_trans;
 public:
   UnalignDisparityView( DisparityT const& disparity,
                        TXT        const& left_transform,
@@ -242,23 +250,65 @@ public:
     }else{
       // Map projected, need to check all the pixel coordinates.
       // This is going to be slow for large images!
-      BBox2i img_box; 
-      for (int col = 0; col < m_disparity.cols(); col++) {
-        for (int row = 0; row < m_disparity.rows(); row++) {
+      BBox2i img_box;
 
-	  // This is off as it may be slow. We'd rather write a slightly bigger
-	  // image than compute exactly its size.
-          //typename DisparityT::pixel_type dpix = m_disparity(col, row);
-          //if (!is_valid(dpix))
-	  //  continue;
+      // Use sampling as this operation is very slow.
+      int sample_len = 10;
+      int num_min_samples = 100;
+      int col_sample = std::max(1, std::min(sample_len, m_disparity.cols()/num_min_samples));
+      int row_sample = std::max(1, std::min(sample_len, m_disparity.rows()/num_min_samples));
+
+      vw::TerminalProgressCallback tpc("asp", "\t--> ");
+      double inc_amount = col_sample / std::max(double(m_disparity.cols()), 1.0);
+      tpc.report_progress(0);
+      vw_out() << "\nEstimating the unaligned disparity dimensions.\n";
+
+      for (int col = 0; col < m_disparity.cols(); col++) {
+
+	// Ensure that the last column is picked
+	if (col % col_sample != 0 && col != m_disparity.cols() - 1) 
+	  continue;
+
+        for (int row = 0; row < m_disparity.rows(); row++) {
+	  
+	  // Ensure that the last row is picked
+	  if (row % row_sample != 0 && row != m_disparity.rows() - 1) 
+	    continue;
+
+	  // This is quite important to avoid an incorrectly computed img_box.
+          typename DisparityT::pixel_type dpix = m_disparity(col, row);
+          if (!is_valid(dpix))
+	    continue;
 
           // Unalign the left pixel
-          Vector2 left_pix  = m_left_transform->reverse(Vector2(col, row));
+	  Vector2 left_pix;
+	  try{
+	    left_pix  = m_left_transform->reverse(Vector2(col, row));
+	  }catch(...){
+	    continue;
+	  }
           img_box.grow(left_pix);
+
+	  // Save this lookup map for the future
+	  m_unaligned_trans[std::make_pair(col, row)] = left_pix;
         }
+
+	tpc.report_incremental_progress(inc_amount);
       }
+      tpc.report_finished();
+
+      // Grow the box to account for the fact that we did a sub-sampling
+      // and may have missed some points.
+      Vector2 diff = img_box.max() - img_box.min();
+      if (!img_box.empty()) {
+	img_box.grow( img_box.min() - 0.1*diff);
+	img_box.grow( img_box.max() + 0.1*diff);
+      }
+      
       m_num_cols = img_box.max().x();
       m_num_rows = img_box.max().y();
+
+      vw_out() << "Dimensions are: " << m_num_cols << ' ' << m_num_rows << ".\n";
     }
     // Done computing the input image size.
   }
@@ -281,6 +331,20 @@ public:
 
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+
+    TXT local_left_transform;
+    TXT local_right_transform;
+
+    // For map-projected images the transforms are not thread-safe,
+    // hence need to make a copy of them.
+    if (!m_is_map_projected) {
+      local_left_transform = m_left_transform;
+      local_right_transform = m_right_transform;
+    }else{
+      local_left_transform = make_transform_copy(m_left_transform);
+      local_right_transform = make_transform_copy(m_right_transform);
+    }
+
     
     // We will do some averaging
     int KERNEL_SIZE = 1;
@@ -314,7 +378,7 @@ public:
 	  Vector2 output_pixel(col + curr_bbox.min()[0], row + curr_bbox.min()[1]);
 	  Vector2 left_aligned_pixel;
 	try {
-	  left_aligned_pixel = m_left_transform->forward(output_pixel);
+	  left_aligned_pixel = local_left_transform->forward(output_pixel);
 	}catch(...){
 	  // This can fail since we may apply it to pixels outside of range
 	  continue;
@@ -325,24 +389,39 @@ public:
 	}
       }
     }else{
-      // The mapprojected case. This is a bit slow but with big tiles
-      // seems to be manageable.
       for (int col = 0; col < m_disparity.cols(); col++) {
 	for (int row = 0; row < m_disparity.rows(); row++) {
-	  Vector2 rev = m_left_transform->reverse(Vector2(col, row));
+	  
+	  std::pair<int, int> pix = std::make_pair(col, row);
+	  std::map <std::pair<int, int>, Vector2>::const_iterator it = m_unaligned_trans.find(pix);
+	  if (it == m_unaligned_trans.end())
+	    continue;
+
+	  Vector2 rev = it->second;
 	  if (curr_bbox.contains(rev)) {
 	    disp_bbox.grow(Vector2(col, row));
 	  }
 	}
       }
+
+      // Grow the box to account for the fact that we did a sub-sampling
+      // and may have missed some points.
+      Vector2 diff = disp_bbox.max() - disp_bbox.min();
+      if (!disp_bbox.empty()) {
+	disp_bbox.grow( disp_bbox.min() - 0.1*diff);
+	disp_bbox.grow( disp_bbox.max() + 0.1*diff);
+      }
+      
     }
     
-    disp_bbox.expand(2*KERNEL_SIZE); // expand a bit
+    // Expand to take into account the sampling to be used below
+    disp_bbox.expand(2*KERNEL_SIZE);
+
+    // Crop to its maximum extent
     disp_bbox.crop(bounding_box(m_disparity));
-    
-    typedef typename DisparityT::pixel_type DispPixelT;
-    
+
     // Rasterize the section of the disparity image that we need for this tile
+    typedef typename DisparityT::pixel_type DispPixelT;
     ImageView<DispPixelT> disp = crop(m_disparity, disp_bbox);
 
     for (int col = 0; col < disp.cols(); col++) {
@@ -358,10 +437,15 @@ public:
 	int urow = row + disp_bbox.min().y();
 	
 	// De-warp left and right pixels to be in the camera coordinate system
-	Vector2 left_pix  = m_left_transform->reverse ( Vector2(ucol, urow) );
-	Vector2 right_pix = m_right_transform->reverse( Vector2(ucol, urow)
-							+ stereo::DispHelper(dpix) );
-	Vector2 dir       = right_pix - left_pix; // disparity value
+	Vector2 left_pix, right_pix;
+	try{
+	  left_pix  = local_left_transform->reverse ( Vector2(ucol, urow) );
+	  right_pix = local_right_transform->reverse( Vector2(ucol, urow)
+							  + stereo::DispHelper(dpix) );
+	}catch(...){
+	  continue;
+	}
+	Vector2 dir = right_pix - left_pix; // disparity value
 	
 	// This averaging is useful in filling tiny holes and avoiding staircasing.
 	// TODO: Use some weights. The closer contribution should have more weight.
@@ -434,38 +518,25 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
   }
 
   bool is_map_projected = opt.session->isMapProjected();
+  Stopwatch sw;
+  sw.start();
+
   cartography::GeoReference left_georef;
   bool   has_left_georef = false;
   bool   has_nodata      = false;
   double nodata          = -32768.0;
   vw_out() << "Unaligning the disparity.\n";
   vw_out() << "Writing: " << disp_file << "\n";
-  if (is_map_projected) {
-    // It is quite tricky to write logic for mapprojected images. The
-    // forward() function is very slow and gives wrong results sometimes
-    // if it is invoked out of its range, which we don't know. Hence we
-    // are forced to use only the reverse() function which makes 
-    // things slower. Hence, at least use big blocks, as the overhead is
-    // the same regardless of the block size.
-    vw_out() << "Images are mapprojected. Un-aligning the disparity may be slow "
-	     << "and take a lot of memory.\n";
-    int block_size = 5120;
-    asp::save_with_temp_big_blocks(block_size, disp_file, 
-				   UnalignDisparityView<DisparityT>(disparities[0],
-								    left_trans, 
-								    right_trans, opt),
-				   has_left_georef, left_georef,
-				   has_nodata, nodata, opt,
-				   TerminalProgressCallback("asp", "\t--> Undist disp:") );
-  }else{
-    vw::cartography::block_write_gdal_image(disp_file, 
-					    UnalignDisparityView<DisparityT>(disparities[0],
-									     left_trans, 
-									     right_trans, opt),
-					    has_left_georef, left_georef,
-					    has_nodata, nodata, opt,
-					    TerminalProgressCallback("asp", "\t--> Undist disp:") );
-  }
+  vw::cartography::block_write_gdal_image(disp_file, 
+					  UnalignDisparityView<DisparityT>(disparities[0],
+									   left_trans, 
+									   right_trans, opt),
+					  has_left_georef, left_georef,
+					  has_nodata, nodata, opt,
+					  TerminalProgressCallback("asp", "\t--> Undist disp:") );
+  
+  sw.stop();
+  vw_out() << "Unaligning disparity elapsed time: " << sw.elapsed_seconds() << " seconds.\n";
   
 }
 
