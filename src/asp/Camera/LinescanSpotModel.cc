@@ -44,7 +44,7 @@ vw::Vector2 SPOTCameraModel::point_to_pixel(Vector3 const& point, double starty)
   const double MAX_ERROR = 0.01;
 
   Vector3 objective(0, 0, 0);
-  vw::Vector2 solution = vw::math::levenberg_marquardt(model, start, objective, status,
+  vw::Vector2 solution = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>(model, start, objective, status,
                                                ABS_TOL, REL_TOL, MAX_ITERATIONS);
   // Check the error - If it is too high then the solver probably got stuck at the edge of the image.
   double  error = norm_2(model(solution));

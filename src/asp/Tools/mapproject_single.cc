@@ -807,8 +807,8 @@ int main( int argc, char* argv[] ) {
     // but we don't really need it when projecting the pixels back in to the camera.
     boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
                 boost::dynamic_pointer_cast<vw::camera::PinholeModel>(camera_model);
-    //if (pinhole_ptr)
-    //  pinhole_ptr->set_do_point_to_pixel_check(false);
+    if (pinhole_ptr)
+      pinhole_ptr->set_do_point_to_pixel_check(false);
 
     // Determine the pixel type of the input image
     boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(opt.image_file);

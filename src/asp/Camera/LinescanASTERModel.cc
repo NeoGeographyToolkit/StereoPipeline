@@ -190,13 +190,13 @@ vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point, Vector2 const
   
   // Solution with user-provided initial guess
   Vector3 objective(0, 0, 0);
-  vw::Vector2 solution1 = vw::math::levenberg_marquardt(model, start, objective, status,
+  vw::Vector2 solution1 = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>(model, start, objective, status,
 							ABS_TOL, REL_TOL, MAX_ITERATIONS);
   
 
   // Solution with the RPC initial guess
   Vector2 start_rpc = this->m_rpc_model->point_to_pixel(point);
-  vw::Vector2 solution2 = vw::math::levenberg_marquardt(model, start_rpc, objective, status,
+  vw::Vector2 solution2 = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>(model, start_rpc, objective, status,
 							ABS_TOL, REL_TOL, MAX_ITERATIONS);
   
   

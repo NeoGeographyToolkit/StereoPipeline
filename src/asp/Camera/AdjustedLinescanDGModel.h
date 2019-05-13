@@ -287,7 +287,7 @@ namespace asp {
       const int    MAX_ITERATIONS = 1e+5;
       
       vw::Vector3 objective(0, 0, 0);
-      vw::Vector2 solution = vw::math::levenberg_marquardt(model, start, objective, status,
+      vw::Vector2 solution = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>(model, start, objective, status,
 						   ABS_TOL, REL_TOL, MAX_ITERATIONS);
       VW_ASSERT( status > 0,
 		 vw::camera::PointToPixelErr() << "Unable to project point into camera." );
