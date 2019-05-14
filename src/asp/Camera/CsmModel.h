@@ -45,7 +45,7 @@ namespace asp {
     //------------------------------------------------------------------
     CsmModel();
     CsmModel(std::string const& isd_path); ///< Construct from ISD file
-    
+
     virtual ~CsmModel();
     virtual std::string type() const { return "CSM"; }
 
@@ -54,7 +54,7 @@ namespace asp {
 
     /// Return the size of the associated image.
     vw::Vector2 get_image_size() const;
-    
+
     virtual vw::Vector2 point_to_pixel (vw::Vector3 const& point) const;
 
     virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;
@@ -68,7 +68,7 @@ namespace asp {
 
     /// Return true if the path has an extension compatible with CsmModel.
     static bool file_has_isd_extension(std::string const& path);
-    
+
     /// Return the path to the folder where we will look for CSM plugin DLLs.
     static std::string get_csm_plugin_folder();
 
@@ -79,12 +79,13 @@ namespace asp {
     static void print_available_models();
 
   private:
-    // TODO: Is it always going to be this type?
+    // TODO: Is it always going to be this type (RasterGM)?
     boost::shared_ptr<csm::RasterGM> m_csm_model;
 
     /// Find and load any available CSM plugin libraries from disk.
+    /// - This does nothing after the first time it finds any plugins.
     void initialize_plugins();
-    
+
     /// Throw an exception if we have not loaded the model yet.
     void throw_if_not_init() const;
 

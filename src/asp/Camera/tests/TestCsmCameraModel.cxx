@@ -26,10 +26,8 @@ using namespace asp;
 
 TEST(CSM_camera, basic_check) {
 
-  // TODO: Get a better sample file.
+  // TODO: Add a sample file to the repo for ASP to load!
   // Load up the sample ISD file.
-  //std::string sample_isd = "/home/smcmich1/repo/StereoPipeline/src/asp/Camera/tests/sample_csm_isd.json";
-  //std::string sample_isd = "/home/smcmich1/repo/StereoPipeline/src/asp/Camera/tests/simpleFramerISD.json";
   std::string sample_isd = "/home/smcmich1/data/csm/ctx_pair/J03_045994_1986_XN_18N282W.json";
 
   CsmModel csm;

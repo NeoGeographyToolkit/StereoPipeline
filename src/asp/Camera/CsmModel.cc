@@ -134,7 +134,7 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
     p /= plugins[i];
     plugins[i] = p.string();
   }
-  
+
   return num_dlls;
 }
 
@@ -162,9 +162,9 @@ void CsmModel::print_available_models() {
 /// Look through all of the loaded plugins and find one that is compatible with
 ///  the provided ISD.
 const csm::Plugin* find_plugin_for_isd(csm::Isd const& support_data,
-                                 std::string   & model_name,
-                                 std::string   & model_family,
-                                 bool            show_warnings) {
+                                       std::string   & model_name,
+                                       std::string   & model_family,
+                                       bool            show_warnings) {
 
   // Loop through the available plugins.
   csm::PluginList::iterator iter;
@@ -211,7 +211,7 @@ void CsmModel::initialize_plugins() {
     return;
 
   vw_out() << "Initializing CSM plugins...\n";
-  
+
   // Find all of the available CSM plugin DLL files.
   std::vector<std::string> plugin_files;
   size_t num_plugin_files = find_csm_plugins(plugin_files);
@@ -221,29 +221,17 @@ void CsmModel::initialize_plugins() {
   for (size_t i=0; i<num_plugin_files; ++i) {
     // Get the DLL in memory, causing it to automatically register itself
     //  with the main Plugin interface.
-    //boost::dll::shared_library lib_fixture(fixture_dll_path);
     vw_out() << "Loading CSM plugin: " << plugin_files[i] << std::endl;
     boost::dll::shared_library lib_usgs(plugin_files[i]);
   }
 
-  //csm::Plugin::setDataDirectory(plugin_folder);
+  //csm::Plugin::setDataDirectory(plugin_folder); // Don't think we need this.
 
   print_available_models();
 }
 
 
 bool CsmModel::load_model(std::string const& isd_path) {
-
-/*
-  // Use either these two together...
-  boost::filesystem::path base_dll_path("/home/smcmich1/repo/csm-3.0.3.1/linux64/lib/libcsmapi.so.3");  
-  boost::filesystem::path fixture_dll_path("/home/smcmich1/repo/CSM-Swig/install/lib/libfixturecsm.so");
-
-  // Or use these two.
-  // - TODO: May want to use base dll + usgs dll but that will require some USGS CMake changes.
-  boost::filesystem::path csm_dll_path ("/home/smcmich1/repo/CSM-CameraModel/install/lib/libcsmapi.so.3" ); // -> This is set in the CMakeLists file.
-  boost::filesystem::path usgs_dll_path("/home/smcmich1/repo/CSM-CameraModel/install/lib/libusgscsm.so"); // -> This is dynamically loaded.
- */
 
   // This only happens the first time it is called.
   initialize_plugins();
@@ -280,7 +268,7 @@ bool CsmModel::load_model(std::string const& isd_path) {
     vw::vw_throw( vw::ArgumentErr() << "Failed to load CSM sensor model from file: "
                                     << isd_path);
 
-  // TODO: Are all sensor models going to be this type?
+  // TODO: Are all sensor models going to be this type (RasterGM)?
   //       Otherwise we can use the result of getModelFamily() to choose the class.
   // Cast the model we got to the child class with the needed functionality.
   csm::RasterGM* raster_model = dynamic_cast<csm::RasterGM*>(new_model);
@@ -296,7 +284,7 @@ void CsmModel::throw_if_not_init() const {
     vw_throw( ArgumentErr() << "CsmModel: Sensor model has not been loaded yet!" );
 }
 
-// TODO: Check the warnings
+// TODO: Check all of the warnings
 
 
 vw::Vector2 CsmModel::get_image_size() const {
@@ -310,7 +298,7 @@ Vector2 CsmModel::point_to_pixel (Vector3 const& point) const {
   throw_if_not_init();
 
   csm::EcefCoord  ecef    = vectorToEcefCoord(point);
-  
+
   double desiredPrecision = 0.01;
   double achievedPrecision;
   csm::WarningList warnings;
@@ -351,13 +339,6 @@ Vector3 CsmModel::camera_center(Vector2 const& pix) const {
 
   return ecefCoordToVector(ecef);
 }
-/*
-Quaternion<double> CsmModel::camera_pose(Vector2 const& pix) const {
-  throw_if_not_init();
-  
-  return Quaternion<double>();
-}
-*/
 
 } // end namespace asp
 
