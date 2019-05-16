@@ -1017,16 +1017,17 @@ works well for this stereo pair. Just set
 \section{ASTER Imagery}
 \label{sec:aster}
 
-In this example we will describe how to process ASTER Level 1A VNIR
-imagery. The data can be obtained for free from
-\url{http://reverb.echo.nasa.gov}. Select a region on the map, 
-search for AST\_L1A, and choose ``ASTER L1A Reconstructed Unprocessed Instrument Data''.
+In this example we will describe how to process ASTER Level 1A VNIR imagery. 
+The data can be obtained for free from 
+\url{https://search.earthdata.nasa.gov/search}. Select a region on the map,
+search for AST\_L1A, and choose 
+``ASTER L1A Reconstructed Unprocessed Instrument Data V003''.
 (The same interface can be used to obtain pre-existing ASTER DEMs.)
 
 There are two important things to keep in mind when ordering the data.
-First, at the very last step, when finalizing the order options, click on
-``change'' and choose GeoTIFF as the data format, rather than
-HDF-EOS. This way the imagery and metadata will come already extracted from the HDF file.
+First, at the very last step, when finalizing the order options, 
+choose GeoTIFF as the data format, rather than HDF-EOS. 
+This way the imagery and metadata will come already extracted from the HDF file.
 
 Second, note that ASP cannot process ASTER Level 1B imagery, as those
 images lack camera information.
