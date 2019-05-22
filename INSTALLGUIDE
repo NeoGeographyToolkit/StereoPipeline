@@ -78,7 +78,7 @@ sudo apt-get install -y python g++ gfortran tcsh libtool libtool-bin            
   autoconf automake libssl-dev wget curl git subversion zip xserver-xorg-dev        \
   xorg-dev libx11-dev libxext-dev libxmu6 libxmu-dev libxi-dev                      \
   '^libxcb.*-dev' libx11-xcb-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev     \
-  libgtk2.0-dev
+  libgtk2.0-dev texlive-latex-base latexmk graphviz texinfo
 
 If the package libtool-bin is not available (on older Linux versions),
 it can be simply removed, as libtool has all the functionality. 
@@ -100,6 +100,9 @@ as above. If your gcc is too old, you can fetch and use devtoolset-3
 
 Set: 
 export LD_LIBRARY_PATH=<path to libstdc++ for your version compliant gcc>:$LD_LIBRARY_PATH
+
+To build the documentation, one should install latex-mk from 
+https://sourceforge.net/projects/latex-mk/files/latest/download
 
 2. Base dependencies - MAC
 
