@@ -831,16 +831,18 @@ void MainWindow::writeGroundControlPoints() {
   if (num_ips < 1)
     return popUp("Cannot save matches. No matches been created!");
 
-  // Prompt the user for a DEM path
-  std::string dem_path = "";
-  try {
-    dem_path = QFileDialog::getOpenFileName(0,
-                                      "Select DEM to use for point elevations",
-                                      m_output_prefix.c_str()).toStdString();
-  }catch(...){
-    return popUp("Error selecting the dem path.");
+  // Prompt the user for a DEM path unless specified via --dem-file.
+  if (stereo_settings().dem_file == "") {
+    try {
+      stereo_settings().dem_file
+	= QFileDialog::getOpenFileName(0,
+				       "Select DEM to use for point elevations",
+				       m_output_prefix.c_str()).toStdString();
+    }catch(...){
+      return popUp("Error selecting the DEM path.");
+    }
   }
-
+  
   // Load a georeference to use for the GCPs from the last image
   cartography::GeoReference georef_image, georef_dem;
   const size_t GEOREF_INDEX = m_image_files.size() - 1;
@@ -853,8 +855,8 @@ void MainWindow::writeGroundControlPoints() {
   vw_out() << "Loaded georef from file " << georef_image_file << std::endl;
 
   // Init the DEM to use for height interpolation
-  boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResourcePtr(dem_path));
-  DiskImageView<float> dem_disk_image(dem_path);
+  boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResourcePtr(stereo_settings().dem_file));
+  DiskImageView<float> dem_disk_image(stereo_settings().dem_file);
   vw::ImageViewRef<PixelMask<float> > raw_dem;
   float nodata_val = -std::numeric_limits<float>::max();
   if (dem_rsrc->has_nodata_read()){
@@ -870,11 +872,11 @@ void MainWindow::writeGroundControlPoints() {
                                                       BilinearInterpolation(),
                                                       ValueEdgeExtension<PixelMask<float> >(fill_val));
   // Load the georef from the DEM
-  has_georef = vw::cartography::read_georeference(georef_dem, dem_path);
+  has_georef = vw::cartography::read_georeference(georef_dem, stereo_settings().dem_file);
   if (!has_georef) {
-    return popUp("Error: Could not load a valid georeference from dem file: " + dem_path);
+    return popUp("Error: Could not load a valid georeference from dem file: " + stereo_settings().dem_file);
   }
-  vw_out() << "Loaded georef from dem file " << dem_path << std::endl;
+  vw_out() << "Loaded georef from dem file " << stereo_settings().dem_file << std::endl;
 
   // Prompt the user for the desired output path
   std::string save_path = "";

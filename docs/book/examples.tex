@@ -857,6 +857,9 @@ objective.
    stereo -t rpc po_312012_pan_0000000.tif po_312012_pan_0010000.tif geoeye/geoeye
 \end{verbatim}
 
+(Apparently for Cartosat sometimes one should overwrite the RPC.TXT files that are present
+with the ones named RPC\_ORIG.txt.)
+
 If RPC cameras are specified separately, the \texttt{stereo} command
 looks as follows. This example is for Mars, with the RPC models created
 with \texttt{cam2rpc} from ISIS cubes.  So the datum has to be set.
@@ -867,7 +870,12 @@ with \texttt{cam2rpc} from ISIS cubes.  So the datum has to be set.
 
 For terrains having steep slopes, we recommend that images be
 map-projected onto an existing DEM before running stereo. This is
-described in section \ref{mapproj-example}. If the RPC coefficients are
+described in section \ref{mapproj-example}. As above, if the cameras
+are specified separately (as xml files), they should be on the command line,
+otherwise they can be omitted.
+
+
+If the RPC coefficients are
 not stored in the original Tif images, but rather in associated .RPB or
 \_RPC.TXT files, \texttt{mapproject} creates
 these files automatically for each map-projected image.

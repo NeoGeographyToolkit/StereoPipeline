@@ -392,6 +392,8 @@ namespace asp {
        "Display this match file instead of looking one up based on existing conventions (implies --view-matches).")
       ("gcp-file", po::value(&global.gcp_file)->default_value(""),
        "Display the GCP pixel coordinates for this GCP file (implies --view-matches).")
+      ("dem-file", po::value(&global.dem_file)->default_value(""),
+       "Use this DEM when creating GCP from images.")
       ("delete-temporary-files-on-exit",   po::bool_switch(&global.delete_temporary_files_on_exit)->default_value(false)->implicit_value(true),
        "Delete any subsampled and other files created by the GUI when exiting.")
       ("create-image-pyramids-only",   po::bool_switch(&global.create_image_pyramids_only)->default_value(false)->implicit_value(true),

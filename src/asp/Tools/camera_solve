@@ -279,12 +279,42 @@ def generate_flagfile(options):
 --triangulation_reprojection_error_pixels=15.0
 --bundle_adjust_tracks=true
 
+############### Reconstruction Type ###############
+# It can be GLOBAL or INCREMENTAL. The second is more robust.
+--reconstruction_estimator=GLOBAL
+
 ############### Logging Options ###############
 # Logging verbosity.
 --logtostderr
 # Increase this number to get more verbose logging.
 --v=3
 '''
+        # See if to overwride some of the above
+        if options.theia_overrides != "":
+            lines = output_string.splitlines()
+            for count in range(len(lines)):
+                line = lines[count]
+                m = re.match("(^.*?=)(.*?$)", line)
+                if not m:
+                    continue
+                name = m.group(1)
+                old_val = m.group(2)
+                
+                for repl in options.theia_overrides.split():
+                    m = re.match("(^.*?=)(.*?$)", repl)
+                    curr_name = m.group(1)
+                    new_val = m.group(2)
+
+                    if name != curr_name:
+                        continue
+                    
+                    print("Overriding: " + line)
+                    line = name + new_val
+                    print("with:       " + line)
+                    lines[count] = line
+                    
+            output_string = "\n".join(lines)
+                    
 
     # Now have a string to write to the flag file, however we got it.
 
@@ -494,10 +524,6 @@ def run_bundle_adjust(options):
     
     if options.bundle_params:
         ba_params += shlex.split(options.bundle_params) # Split on spaces but keep quoted parts together
-
-
-            
-
     # Always run this step as otherwise there was no point to calling the tool
 
     # Run ASP's bundle_adjust tool    
@@ -625,10 +651,15 @@ def main(argsIn):
         # Solving for intrinsics is disabled until either Theia or our bundle adjustment tool supports it!
         parser.add_option("--solve-intrinsics", action="store_true", default=False,
                                                dest="solveIntrinsic",  help="Use the optimizer to improve the intrinsic camera parameter estimates.")
+
         parser.add_option('--bundle-adjust-params',  dest='bundle_params', default=None,
                                          help='Params string (in single quotes '') passed to the bundle_adjust tool')
+        parser.add_option('--theia-overrides',  dest='theia_overrides', default='',
+                                         help='Override any option in the auto-generated Theia flag file. Set as "--option1=val1 --option2=val2 ...".')
+
         parser.add_option('--theia-flagfile',  dest='existing_theia_flagfile', default=None,
-                                         help='Path to a custom THEIA flag file to fine-tune its operation')
+                                         help='Path to a custom Theia flag file to fine-tune its operation. File paths specified in this file are ignored.')
+
 
         # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)
@@ -645,8 +676,7 @@ def main(argsIn):
         options.output_folder = args[0]
         options.input_images  = args[1:]
 
-        if not (os.path.exists(options.output_folder)):
-            os.mkdir(options.output_folder)
+        asp_system_utils.mkdir_p(options.output_folder)
         
         # If we don't have input camera params we have to solve for them.
         if not options.camera_param_paths:

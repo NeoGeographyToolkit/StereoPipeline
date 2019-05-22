@@ -1250,7 +1250,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
         !have_est_camera_positions &&
         !opt.disable_pinhole_gcp_init)
       init_pinhole_model_with_gcp(opt.cnet, opt.camera_models);
-
+    
     // Issue a warning if the GCPs are far away from the camera coords
     check_gcp_dists(opt.camera_models, opt.cnet, opt.forced_triangulation_distance);
     cameras_changed = true;
@@ -1656,7 +1656,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("min-triangulation-angle",      po::value(&opt.min_triangulation_angle)->default_value(0.1),
             "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
-            "When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.")
+     "When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.")
     ("use-lon-lat-height-gcp-error",
      po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
      "When having GCP, interpret the three standard deviations in the GCP file as applying not to x, y, and z, but rather to latitude, longitude, and height.")

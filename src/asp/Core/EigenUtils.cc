@@ -636,5 +636,42 @@ void computeRigidTransform(const std::vector<Eigen::Vector3d>& src,
   rot   = svd.matrixU()*Vt;
   trans = center_dst - rot*center_src;	
 }
+
+/// Read a 4x4 rotation + translation + scale transform from disk.
+void read_transform(Eigen::MatrixXd & T, std::string const& transFile){
+
+  T = Eigen::MatrixXd::Zero(4, 4);
+    
+  vw::vw_out() << "Reading: " << transFile << std::endl;
+  std::ifstream is(transFile.c_str());
+  for (int row = 0; row < T.rows(); row++){
+    for (int col = 0; col < T.cols(); col++){
+      double a;
+      if (! (is >> a) )
+        vw_throw( vw::IOErr() << "Failed to read initial transform from: "
+                  << transFile << "\n" );
+      T(row, col) = a;
+    }
+  }
+  
+  if (T(3, 3) != 1) {
+    vw_throw( vw::ArgumentErr()
+              << "The transform must have a 1 in the lower-right corner.\n");
+  }
+  
+}
+
+/// Write a 4x4 rotation + translation + scale transform to disk.
+void write_transform(Eigen::MatrixXd const& T, std::string const& transFile){
+  if (T(3, 3) != 1) {
+    vw_throw( vw::ArgumentErr()
+              << "The initial transform must have a 1 in the lower-right corner.\n");
+  }
+
+  std::ofstream tf(transFile.c_str());
+  tf.precision(17);
+  tf << T << "\n";
+  tf.close();
+}
   
 }

@@ -147,7 +147,7 @@ namespace asp {
                                   std::string const  left_ip_file,
                                   std::string const  right_ip_file){
 
-    vw_out() << "\t--> Matching interest points...\n";
+    vw_out() << "\t--> Matching interest points in StereoSession.\n";
 
     if (uses_map_projected_inputs()) {
       vw_throw( vw::ArgumentErr() << "StereoSession: IP matching is not implemented for map-projected images since we do not align them!");
@@ -248,9 +248,10 @@ namespace asp {
       if (stereo_settings().epipolar_threshold > 0)
         epipolar_threshold = stereo_settings().epipolar_threshold;
       vw_out() << "\t    Using epipolar threshold = " << epipolar_threshold << std::endl;
-      vw_out() << "\t    IP uniqueness threshold     = " << ip_uniqueness_thresh  << std::endl;
-
+      vw_out() << "\t    IP uniqueness threshold  = " << ip_uniqueness_thresh  << std::endl;
+      vw_out() << "\t    Datum:                     " << datum << std::endl;
       if (stereo_settings().skip_rough_homography) {
+	vw_out() << "\t    Skipping rough homography.\n";
         inlier = ip_matching_no_align(single_threaded_camera, cam1, cam2,
                                       image1_norm, image2_norm,
                                       ip_per_tile, datum,
@@ -259,6 +260,7 @@ namespace asp {
                                       left_ip_file, right_ip_file,
                                       nodata1, nodata2);
       } else {
+	vw_out() << "\t    Using rough homography.\n";
         inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
                                          image1_norm, image2_norm,
                                          ip_per_tile,
@@ -276,12 +278,13 @@ namespace asp {
       if (stereo_settings().epipolar_threshold > 0)
         inlier_threshold = stereo_settings().epipolar_threshold;
 
-      inlier = homography_ip_matching( image1_norm, image2_norm,
-                                       ip_per_tile,
-                                       inlier_threshold,
-                                       match_filename,
-                                       left_ip_file, right_ip_file,
-                                       nodata1, nodata2);
+      vw_out() << "\t    Not using a datum in interest point matching.\n";
+      inlier = homography_ip_matching(image1_norm, image2_norm,
+				      ip_per_tile,
+				      inlier_threshold,
+				      match_filename,
+				      left_ip_file, right_ip_file,
+				      nodata1, nodata2);
     }
     if (!inlier) {
       boost::filesystem::remove(match_filename);

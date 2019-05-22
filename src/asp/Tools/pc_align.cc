@@ -374,23 +374,17 @@ void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
 }
 
 /// Save the transform and its inverse.
-void save_transforms(Options const& opt,
+void write_transforms(Options const& opt,
                      PointMatcher<RealT>::Matrix const& T){
 
   string transFile = opt.out_prefix + "-transform.txt";
   vw_out() << "Writing: " << transFile << endl;
-  ofstream tf(transFile.c_str());
-  tf.precision(16);
-  tf << T << endl;
-  tf.close();
+  write_transform(T, transFile);
 
   string iTransFile = opt.out_prefix + "-inverse-transform.txt";
   PointMatcher<RealT>::Matrix invT = T.inverse();
   vw_out() << "Writing: " << iTransFile << endl;
-  ofstream itf(iTransFile.c_str());
-  itf.precision(16);
-  itf << invT << endl;
-  itf.close();
+  write_transform(invT, iTransFile);
 }
 
 /// Save the lon, lat, radius/height, and error. Use a format
@@ -1479,7 +1473,7 @@ int main( int argc, char *argv[] ) {
     
     Stopwatch sw5;
     sw5.start();
-    save_transforms(opt, globalT);
+    write_transforms(opt, globalT);
 
     if (opt.save_trans_ref){
       string trans_ref_prefix = opt.out_prefix + "-trans_reference";

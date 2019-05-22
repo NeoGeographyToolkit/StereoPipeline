@@ -34,9 +34,11 @@ VIEWPDF = open
 endif
 
 # This should find the location of the latex.gmk file on your system
-#GMKFILE := $(shell which latex-mk | awk -F 'latex-mk' '{print $$1}')
-#GMKFILE := $(GMKFILE)../share/latex-mk/latex.gmk
-GMKFILE := /home/smcmich1/programs/latexmk/share/latex-mk/latex.gmk
+GMKFILE := /usr/local/share/latex-mk/latex.gmk
+ifeq ("$(wildcard $(GMKFILE))","")
+  # Custom location for latex.gmk
+  GMKFILE := /home/smcmich1/programs/latexmk/share/latex-mk/latex.gmk
+endif
 
 include $(GMKFILE)
 

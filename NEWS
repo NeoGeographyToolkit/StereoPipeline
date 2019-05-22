@@ -120,6 +120,8 @@
    * Added the ability to view .vwip files (specify one per image).
    * Can view (but not edit) GCP files, via --gcp-file (creating
      GCP is supported in a separate mode, per the doc).
+   * The option --dem-file specifies a DEM to use when creating
+     manually picked GCP.
 
  - mapproject
    * Added the --nearest-neighbor option to use that interpolation

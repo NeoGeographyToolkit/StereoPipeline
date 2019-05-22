@@ -80,6 +80,11 @@ void computeRigidTransform(const std::vector<Eigen::Vector3d>& src,
                            const std::vector<Eigen::Vector3d>& dst,
                            Eigen::Matrix3d & rot, Eigen::Vector3d & trans);
 
+/// Read a 4x4 rotation + translation + scale transform from disk.
+void read_transform(Eigen::MatrixXd & T, std::string const& transFile);
+
+/// Write a 4x4 rotation + translation + scale transform to disk.
+void write_transform(Eigen::MatrixXd const& T, std::string const& transFile);
 
 } //end namespace asp
 

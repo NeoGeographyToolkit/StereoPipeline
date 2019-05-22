@@ -836,7 +836,10 @@ namespace asp {
     
       std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(ip1_in),
                            ransac_ip2 = iplist_to_vectorlist(ip2_in);
-    
+
+      vw_out() << "\t    Inlier threshold:                     " << inlier_threshold << "\n";
+      vw_out() << "\t    RANSAC iterations:                    "
+	       << stereo_settings().ip_num_ransac_iterations << "\n";
       typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
       const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
       RansacT ransac( math::HomographyFittingFunctor(),
@@ -848,7 +851,7 @@ namespace asp {
       //vw_out() << "\t--> Homography: " << H << "\n";
       indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
     } catch (const math::RANSACErr& e ) {
-      vw_out() << "RANSAC Failed: " << e.what() << "\n";
+      vw_out() << "RANSAC failed: " << e.what() << "\n";
       return false;
     }
 

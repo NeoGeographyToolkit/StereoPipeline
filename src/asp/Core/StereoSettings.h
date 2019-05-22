@@ -244,7 +244,7 @@ namespace asp {
     bool hillshade;
     double hillshade_azimuth, hillshade_elevation;
     bool view_matches;
-    std::string match_file, gcp_file;
+    std::string match_file, gcp_file, dem_file;
     bool delete_temporary_files_on_exit;
     bool create_image_pyramids_only;
     std::vector<std::string> vwip_files;

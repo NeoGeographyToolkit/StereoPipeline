@@ -228,12 +228,20 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
   vw::camera::TLCTimeInterpolation tlc_time_interpolation( img.tlc_vec,
 							       convert( parse_time( img.tlc_start_time ) ) );
   VW_ASSERT( fabs( convert( parse_time( img.first_line_start_time ) ) -
-		   tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
-	     vw::MathErr() << "First Line Time and output from TLC lookup table "
-             << "do not agree of the ephemeris time for the first line of the image. "
-             << "If your XML camera files are not from the WorldView satellites, "
-             << "you may try the switch -t rpc to use the RPC camera model." );
-
+  tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
+	     vw::MathErr()
+	     << "First Line Time and output from TLC lookup table "
+	     << "do not agree of the ephemeris time for the first line of the image. "
+	     << "If your XML camera files are not from the WorldView satellites, "
+	     << "you may try the switch -t rpc to use the RPC camera model.\n"
+	     << "The first image line ephemeris time is: "
+  	     << convert( parse_time( img.first_line_start_time ) ) << ".\n"
+	     << "The TLC look up table time is: " << tlc_time_interpolation( 0 ) << ".\n"
+	     << "Maximum allowed difference is 1/10 of avg line rate, which is: "
+	     << fabs( 1.0 / (10.0 * img.avg_line_rate ))
+	     << ".\n"
+    );
+   
   vw::Vector2 final_detector_origin
     = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
 							      geo.detector_origin[1],

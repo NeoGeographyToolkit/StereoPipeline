@@ -299,16 +299,13 @@ std::string transform_file(std::string const& out_prefix, int index){
 }
 
 /// Save the transforms
-void save_transforms(std::vector<Eigen::MatrixXd> const& transVec,
+void write_transforms(std::vector<Eigen::MatrixXd> const& transVec,
 		     std::string const& out_prefix){
 
   for (size_t it = 0; it < transVec.size(); it++) {
     std::string transFile = transform_file(out_prefix, it);
     vw_out() << "Writing: " << transFile << std::endl;
-    std::ofstream tf(transFile.c_str());
-    tf.precision(16);
-    tf << transVec[it] << std::endl;
-    tf.close();
+    write_transform(transVec[it], transFile);
   }
 }
 
@@ -679,7 +676,7 @@ int main(int argc, char *argv[]){
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++)
       vw_out() << "Final transform for cloud: " << cloudIter << ":\n"
                << transVec[cloudIter] << std::endl;
-    save_transforms(transVec, opt.out_prefix);
+    write_transforms(transVec, opt.out_prefix);
 
     if (opt.save_transformed_clouds) {
       for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {

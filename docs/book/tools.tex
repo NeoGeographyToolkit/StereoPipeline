@@ -303,13 +303,15 @@ matches in them using \texttt{ipfind}/\texttt{ipmatch} and load the
 .match files as described in the earlier section on creating interest
 points.
 
-When you are finished creating interest points, use the "IP matches"->"Write GCP
-file" menu item to generate a ground control point file containing the
-selected points.  You will be prompted for the reference DEM and for the
-desired output file name. The last image, that is the reference, is only
-used to find the positions on the ground, which in turn are used to find
-the heights for the GCPs from the DEM. The selected interest points from
-the reference image are not saved to the GCP file.
+When you are finished creating interest points, use the "IP
+matches"->"Write GCP file" menu item to generate a ground control point
+file containing the selected points. You will be prompted for the
+reference DEM and for the desired output file name, unless this DEM was
+already specified via \texttt{-\/-dem-file} upon launch. The last image,
+that is the reference, is only used to find the positions on the ground,
+which in turn are used to find the heights for the GCPs from the
+DEM. The selected interest points from the reference image are not saved
+to the GCP file.
 
 \subsubsection{Creating manual interest point matches using map-projected images}
 \label{mapip}
@@ -393,10 +395,10 @@ Pixels with values less than or equal to this number are treated as no-data and 
 \texttt{-\/-hillshade} & Interpret the input images as DEMs and hillshade them.\\ \hline
 \texttt{-\/-hillshade-azimuth} & The azimuth value when showing hillshaded images.\\ \hline
 \texttt{-\/-hillshade-elevation} & The elevation value when showing hillshaded images.\\ \hline
-
 \texttt{-\/-view-matches} & Locate and display the interest point matches.\\ \hline
 \texttt{-\/-match-file} & Display this match file instead of looking one up based on existing conventions (implies \texttt{-\/-view-matches}). \\ \hline
 \texttt{-\/-gcp-file} & Display the GCP pixel coordinates for this GCP file (implies \texttt{-\/-view-matches}). \\ \hline
+\texttt{-\/-dem-file} & Use this DEM when creating GCP from images. \\ \hline
 \texttt{-\/-delete-temporary-files-on-exit} & Delete any subsampled and other files created by the GUI when exiting.\\ \hline
 \texttt{-\/-create-image-pyramids-only} & Without starting the GUI, build multi-resolution pyramids for the inputs, to be able to load them fast later.\\ \hline
 \end{longtable}
@@ -792,8 +794,7 @@ When matching IP, filter out any pairs with a triangulation error higher than th
 \\ \hline
 
 \texttt{-\/-forced-triangulation-distance \textit{double}} &
-When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.
-\\ \hline
+When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter. \\ \hline
 
 \texttt{-\/-ip-num-ransac-iterations \textit{int(=100)}} &
 How many RANSAC iterations to do in interest point matching.
@@ -2379,7 +2380,8 @@ component, which is relative to that point, but not the rotation matrix.
 The tool outputs to CSV files the lists of errors together with their
 locations in the source point cloud, before the alignment of the source
 points (but after applying any initial transform), and also after the alignment
-computed by the tool. An error is defined as the distance from a source
+computed by the tool. They are named \texttt{<output prefix>-beg\_errors.csv} and
+\texttt{<output prefix>-end\_errors.csv}. An error is defined as the distance from a source
 point used in alignment to the closest reference point. The format of
 output CSV files is the same as of input CSV files, or as given by
 \texttt{-\/-csv-format}, although any columns of extraneous data in the
@@ -3426,6 +3428,7 @@ to use a unique file for each input image, pass a space separated list of files 
 the tool to generate cameras in a global coordinate system.\\ \hline
 \texttt{-\/-bundle-adjust-params  \textit{string}} & Additional parameters (in single quotes)
 to pass to the \texttt{bundle\_adjust} tool.\\ \hline
+\texttt{-\/-theia-overrides  \textit{string}} & Override any option in the auto-generated Theia flag file. Set as "--option1=val1 --option2=val2 ...".\\ \hline
 \texttt{-\/-theia-flagfile  \textit{string}} & Path to a custom Theia flagfile to use settings from.
 File paths specified in this file are ignored.\\ \hline
 \texttt{-\/-overwrite}  & Recompute any intermediate steps already completed on disk.\\ \hline
