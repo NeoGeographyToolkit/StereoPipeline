@@ -811,6 +811,8 @@ in the input image files to match locations to cameras.\\ \hline
 provided GCP coordinates.  Set this if you only have one image per GCP or if the pinhole
 initialization process is not producing good results. \\ \hline
 
+\texttt{-\/-transform-cameras-using-gcp} & Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each. \\ \hline
+
 \texttt{-\/-position-filter-dist \textit{double(=-1.0)}} &
 If estimated camera positions are used, this option can be used to set a threshold distance in meters
 between the cameras.  If any pair of cameras is farther apart than this distance, the tool will not

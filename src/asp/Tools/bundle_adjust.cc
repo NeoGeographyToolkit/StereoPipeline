@@ -1555,7 +1555,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
             "Don't try to initialize the positions of pinhole cameras based on input GCPs.")
     ("transform-cameras-using-gcp",  po::bool_switch(&opt.use_single_image_gcp)->default_value(false)->implicit_value(true),
-            "Use GCP, even those that show up in just an image, to transform cameras to ground coordinates.")
+            "Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
             "Prefix to read initial adjustments from, written by a previous invocation of this program.")
     ("initial-transform",   po::value(&opt.initial_transform_file)->default_value(""),

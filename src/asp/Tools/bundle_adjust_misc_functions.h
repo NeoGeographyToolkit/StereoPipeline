@@ -1034,8 +1034,9 @@ bool init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& 
     vw_out() << "Num GCP       = " << num_gcp         << std::endl;
     vw_out() << "Num valid GCP = " << num_good_gcp    << std::endl;
     vw_throw( ArgumentErr()
-	      << "Not enough valid GCPs for affine transform pinhole initialization."
-	      << " You may need to use --disable-pinhole-gcp-init.\n" );
+	      << "Not enough valid GCPs for affine transform pinhole initialization. "
+	      << "You may need to use --disable-pinhole-gcp-init or "
+	      << "--transform-cameras-using-gcp.\n" );
   }
   
   vw::Matrix<double> points_in(3, num_good_gcp), points_out(3, num_good_gcp);

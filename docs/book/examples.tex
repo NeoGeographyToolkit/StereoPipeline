@@ -1278,11 +1278,25 @@ DEM. Here is an example for the first image:
 Notice that we used above a longitude and latitude around the area of interest. This 
 will need to be modified for your specific example. 
 
+\subsection{Structure from motion}
+
+In case \texttt{cam\_gen} does not create sufficiently good cameras, 
+one can use the \texttt{camera\_solve} tool (chapter \ref{ch:sfm}).
+This will create hopefully good cameras but in an arbitrary coordinate system.
+To make it transform the cameras to the world-coordinate system it can be invoked
+with the option
+
+\begin{verbatim}
+  --bundle-adjust-params "--transform-cameras-using-gcp v1.gcp v2.gcp v3.gcp v4.gcp"
+\end{verbatim}
+
+Note that the \texttt{camera\_solve} tool can be capricious. It is suggested
+it be tried first with a couple of images only.
+
 \subsection{Bundle adjustment}
 
-The inspection in the GUI will note that the images are about where they
-should be, but not quite aligned. We will take care of this using bundle
-adjustment:
+At this stage, the cameras should be about right, but not quite
+aligned. We will take care of this using bundle adjustment:
 
 \begin{verbatim}
   bundle_adjust v[1-4].tif v[1-4].tsai v[1-4].gcp -o ba/run -t nadirpinhole       \
@@ -1985,7 +1999,7 @@ We will try to approximate the KH7 camera using a pinhole model.
 The pitch of the image is determined by the scanner, which is 7.0e-06 meters per pixel.
 The focal length of the camera is reported to be 1.96 meters, and we will set the optical
 center at the center of the image.  We need to convert the optical center to units of meters,
-which means muliplying the pixel coordinates by the pitch to get units of meters.
+which means multiplying the pixel coordinates by the pitch to get units of meters.
 
 Using the image corner coordinates which we recorded earlier, use the \texttt{cam\_gen}
 tool to generate camera models for each image, being careful of the order of coordinates.
@@ -2065,7 +2079,7 @@ applied to the input images.
 
 
 Looking at the error result, it is clear that the simple pinhole model is not
-doing a good job modelling the KH7 camera.  We can try to improve things by
+doing a good job modeling the KH7 camera.  We can try to improve things by
 adding a distortion model to replace the NULL model in the .tsai files we are using.
 
 \begin{verbatim}
@@ -2082,7 +2096,7 @@ phi = -1e-12
 
 Once the distortion model is added, you can use \texttt{bundle\_adjust} to optimize
 them.  See the section on solving for pinhole intrinsics in the KH4B example for details.
-We hope to provide a more rigorous method of modelling the KH7 camera in the future.
+We hope to provide a more rigorous method of modeling the KH7 camera in the future.
 
 
 \section{Declassified satellite images: KH-9}

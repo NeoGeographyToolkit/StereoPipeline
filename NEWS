@@ -103,7 +103,12 @@
     * Added --num-random-passes option to allow bundle_adjust to
       re-optimize with random adjustments to the initial parameter
       values with the goal of escaping local minima.
-    
+    * Added the option --transform-cameras-using-gcp. If there
+      are at least two images with each having at least 3 GCP
+      (each GCP need not show in more than one image), use this
+      to convert cameras from an abstract coordinate system to world
+      coordinates.
+
  - dem_mosaic
    * Added normalized median absolute deviation (NMAD) output option.
    * Added the option --force-projwin to create a mosaic filling
@@ -154,7 +159,9 @@
      point matching. Added --ip-triangulation-max-error to control
      the triangulation error.
    * The cam2rpc tool accepts --t_srs and --semi-major-axis as
-      alternatives to --datum and --dem-file.
+     alternatives to --datum and --dem-file.
+   * Add option --theia-overrides to camera_solve to make it easier
+     to customize its behavior via flags.
 
 *** RELEASE 2.6.1, August 13, 2018 ***
 

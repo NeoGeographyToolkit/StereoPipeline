@@ -81,7 +81,7 @@ First download a pair of images:
 
 In order to make the example run faster we use downsampled versions of
 the original images.  The images at those links have already been downsampled
-by a factor of 4*sqrt(2) from the original images.  This means that the
+by a factor of $4\sqrt{2}$ from the original images.  This means that the
 effective pixel size has increased from five microns (0.005 millimeters) to
 0.028284 millimeters.
 
@@ -199,6 +199,25 @@ the output camera positions using the \texttt{orbitviz} tool with the
 \texttt{--load-camera-solve} option as shown below.  Green lines between camera
 positions mean that a sufficient number of matching interest points were found
 between those two images.
+
+For GCP to be usable, they can be one of two kinds. The preferred option is for
+each of at least three GCP to show up in more than one image. Then its triangulated
+position can be determined in local coordinates and in global (world) coordinates,
+and \texttt{bundle\_adjust} will be able to compute the transform between these coordinate
+systems, and convert the cameras to world coordinates.
+
+If this is not possible, then at least two of the images should have at least three
+GCP each, and they need not be shared among the images. For example, for each image
+the longitude, latitude, and height of each of its four corners is known. Then,
+one can pass such a GCP file to \texttt{camera\_solve} and also with the flag:
+
+\begin{verbatim}
+  --bundle-adjust-params "--transform-cameras-using-gcp"
+\end{verbatim}
+
+and it will attempt to transform the cameras to world coordinates.
+
+Next, one can run stereo. 
 
 \begin{verbatim}
 > stereo AS15-M-0414_MED.png AS15-M-1134_MED.png out_gcp/AS15-M-0414_MED.png.final.tsai \
