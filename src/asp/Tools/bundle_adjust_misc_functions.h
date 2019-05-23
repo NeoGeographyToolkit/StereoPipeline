@@ -1088,8 +1088,6 @@ bool init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& 
   return true;
 } // End function init_pinhole_model_with_gcp
 
-#if 1
-
 // Given some GCP so that at least two images have at at least three GCP each,
 // but each GCP is allowed to show in one image only, use the GCP
 // to transform cameras to ground coordinates.
@@ -1264,9 +1262,6 @@ void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
   vector_to_transform(final_params, rotation, translation, scale);
 
 }
-
-
-#endif
 
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided control points file.
