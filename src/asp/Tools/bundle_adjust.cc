@@ -1248,7 +1248,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   if (opt.gcp_files.size() > 0) {
     if ((opt.camera_type==BaCameraType_Pinhole) && 
         !have_est_camera_positions) {
-      if (opt.use_single_image_gcp) {
+      if (opt.transform_cameras_using_gcp) {
 	init_pinhole_model_with_mono_gcp(opt.cnet, opt.camera_models);
 	cameras_changed = true;
       } else if (!opt.disable_pinhole_gcp_init) {
@@ -1554,7 +1554,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the inline-adjustments option.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
             "Don't try to initialize the positions of pinhole cameras based on input GCPs.")
-    ("transform-cameras-using-gcp",  po::bool_switch(&opt.use_single_image_gcp)->default_value(false)->implicit_value(true),
+    ("transform-cameras-using-gcp",  po::bool_switch(&opt.transform_cameras_using_gcp)->default_value(false)->implicit_value(true),
             "Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
             "Prefix to read initial adjustments from, written by a previous invocation of this program.")
@@ -1781,6 +1781,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   } // End resolving the model type
   
   
+  if (opt.transform_cameras_using_gcp &&
+      (!inline_adjustments) &&
+      (opt.camera_type != BaCameraType_Pinhole)) {
+    vw_throw( ArgumentErr() << "Transforming cameras using GCP works only for pinhole "
+	      << "cameras and with the --inline-adjustments flag.\n"
+	      << usage << general_options );
+  }
   
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
     vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and the overlap list.\n"

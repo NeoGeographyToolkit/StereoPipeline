@@ -201,14 +201,14 @@ positions mean that a sufficient number of matching interest points were found
 between those two images.
 
 For GCP to be usable, they can be one of two kinds. The preferred option is for
-each of at least three GCP to show up in more than one image. Then its triangulated
-position can be determined in local coordinates and in global (world) coordinates,
+each of at least three GCP to show up in more than one image. Then their triangulated
+positions can be determined in local coordinates and in global (world) coordinates,
 and \texttt{bundle\_adjust} will be able to compute the transform between these coordinate
 systems, and convert the cameras to world coordinates.
 
 If this is not possible, then at least two of the images should have at least three
 GCP each, and they need not be shared among the images. For example, for each image
-the longitude, latitude, and height of each of its four corners is known. Then,
+the longitude, latitude, and height of each of its four corners can be known. Then,
 one can pass such a GCP file to \texttt{camera\_solve} and also with the flag:
 
 \begin{verbatim}
