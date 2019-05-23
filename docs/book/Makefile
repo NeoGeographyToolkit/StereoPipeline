@@ -33,11 +33,21 @@ ifeq ($(OS),Darwin)
 VIEWPDF = open
 endif
 
-# This should find the location of the latex.gmk file on your system
-GMKFILE := /usr/local/share/latex-mk/latex.gmk
+# Find GMKFILE.
+# First try being clever.
+GMKFILE := $(shell which latex-mk)
+GMKFILE := $(shell dirname $(GMKFILE))/../share/latex-mk/latex.gmk
+$(info Trying: $(GMKFILE))
+
 ifeq ("$(wildcard $(GMKFILE))","")
-  # Custom location for latex.gmk
+  # Then try hard-coded 
+  GMKFILE := /usr/local/share/latex-mk/latex.gmk
+  $(info Trying: $(GMKFILE))
+endif
+ifeq ("$(wildcard $(GMKFILE))","")
+  # Then try custom
   GMKFILE := /home/smcmich1/programs/latexmk/share/latex-mk/latex.gmk
+  $(info Trying: $(GMKFILE))
 endif
 
 include $(GMKFILE)
@@ -45,3 +55,4 @@ include $(GMKFILE)
 # Paste in the ASP version into the text
 asp_book.tex: asp_book.tex.in
 	sed 's/@ASP_VERSION@/$(ASP_VERSION)/g' < $< > $@
+
