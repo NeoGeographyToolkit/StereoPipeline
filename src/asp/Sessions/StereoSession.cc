@@ -697,10 +697,22 @@ StereoSession::load_rpc_camera_model(std::string const& image_file,
   catch(std::exception const& e2) {
     err2 = e2.what();
   }
+
+  // For Cartosat, GDAL chokes. The user must move {image}_RPC_ORG.TXT
+  // to {image}_RPC.TXT
+  std::string truncated =  boost::filesystem::path(image_file).replace_extension("").string();
+  std::string org_file = truncated + "_RPC_ORG.TXT";
+  std::string rpc_file = truncated + "_RPC.TXT";
+  std::string msg = "";
+  if (boost::filesystem::exists(org_file))
+    msg = "Detected file: " + org_file + ". If this is Cartosat data, any such files "
+      "must be moved to names like " + rpc_file
+      + " by overwriting those files if necessary.\n";
+    
   // Raise a custom exception if both failed
   vw_throw(ArgumentErr() << "Unable to load RPC model from either:\n" << image_file
           << "\nor:\n" << camera_file << "\n"
-          << err1 << "\n" << err2 << "\n");
+	   << err1 << "\n" << err2 << "\n" << msg);
 } // End function load_rpc_camera_model
 
 

@@ -112,9 +112,12 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
         actual_session_type = "rpc";
       }
     } catch (vw::NotFoundErr const& e) {
+      vw_out() << "Error: " << e.what() << "\n";
       // If it throws, it wasn't RPC
-    } catch (...) {
-      // It didn't even have XML!
+    } catch (std::exception const& e) {
+      vw_out() << "Error: " << e.what() << std::endl;
+      vw_out() << "Using the rpc session failed. Cannot guess other "
+	       << "sessions based on filename extension.\n" << e.what() << std::endl;
     }
 
     if (allow_map_promote) {
