@@ -43,32 +43,6 @@ namespace vw{
 
 namespace asp {
 
-
-  // TODO: Move this to VW!
-  /// Given a set of input and output points, use an SVD to find the best
-  ///  rigid rotate/scale/translate transform that aligns the points.
-  /// - The two input matrices should have 3 rows and N columns where
-  ///   N is equal to the number of points. Optionally remove outliers.
-  void find_3D_affine_transform(vw::Matrix<double> const & in_vec, 
-                                vw::Matrix<double> const & out_vec,
-                                vw::Matrix<double,3,3>   & rotation,
-                                vw::Vector<double,3>     & translation,
-                                double                   & scale,
-                                std::string      const   & transform_type  = "similarity",
-				bool                       filter_outliers = false
-				);
-
-  // An auxiliary function to help remove outliers
-  void find_3D_affine_transform_aux(vw::Matrix<double> const & in_vec, 
-				    vw::Matrix<double> const & out_vec,
-				    vw::Matrix<double,3,3>   & rotation,
-				    vw::Vector<double,3>     & translation,
-				    double                   & scale,
-                                    std::string        const & transform_type,
-				    bool                       filter_outliers,
-				    std::vector<bool>        & is_outlier
-				    );
-
   class BaseOptions;
 
   /// A Data structure which converts from CSV to Cartesian and vice-versa.

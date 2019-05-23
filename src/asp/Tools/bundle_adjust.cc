@@ -1197,7 +1197,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   // make sure the clean match files are written at least once.
   if (opt.num_ba_passes > 1) 
     remove_outliers(cnet, param_storage, opt);
-
+  
   return num_new_outliers;
 } // End function do_ba_ceres_one_pass
 
@@ -1247,15 +1247,22 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   //   Otherwise we could init the adjustment values.
   if (opt.gcp_files.size() > 0) {
     if ((opt.camera_type==BaCameraType_Pinhole) && 
-        !have_est_camera_positions &&
-        !opt.disable_pinhole_gcp_init)
-      init_pinhole_model_with_gcp(opt.cnet, opt.camera_models);
+        !have_est_camera_positions) {
+      if (opt.use_single_image_gcp) {
+	init_pinhole_model_with_mono_gcp(opt.cnet, opt.camera_models);
+	cameras_changed = true;
+      } else if (!opt.disable_pinhole_gcp_init) {
+	init_pinhole_model_with_multi_gcp(opt.cnet, opt.camera_models);
+	    cameras_changed = true;
+      }
+    }
     
-    // Issue a warning if the GCPs are far away from the camera coords
-    check_gcp_dists(opt.camera_models, opt.cnet, opt.forced_triangulation_distance);
-    cameras_changed = true;
+    // Issue a warning if the GCPs are far away from the camera coords.
+    // Do it only if the cameras did not change, as otherwise the cnet is outdated.
+    if (!cameras_changed) 
+      check_gcp_dists(opt.camera_models, opt.cnet, opt.forced_triangulation_distance);
   }
-
+  
   int num_points  = cnet.size();
   const int num_cameras = opt.image_files.size();
 
@@ -1264,7 +1271,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     vw_out() << "No points to optimize (GCP or otherwise). Cannot continue.\n";
     return;
   }
-  
+
   // Create the storage arrays for the variables we will adjust.
   int num_lens_distortion_params = 0;
   if (opt.camera_type == BaCameraType_Pinhole) {
@@ -1324,10 +1331,13 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     // Restore the rest of the cnet object
     vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
     
+    check_gcp_dists(new_cam_models, opt.cnet, opt.forced_triangulation_distance);
+    
     // Must update the number of points after the control network is recomputed
     num_points = cnet.size();
     param_storage.get_point_vector().resize(num_points*BAParamStorage::PARAMS_PER_POINT);
   }
+
   
   if (opt.save_cnet_as_csv) {
     std::string cnet_file = opt.out_prefix + "-cnet.csv";
@@ -1544,6 +1554,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the inline-adjustments option.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
             "Don't try to initialize the positions of pinhole cameras based on input GCPs.")
+    ("transform-cameras-using-gcp",  po::bool_switch(&opt.use_single_image_gcp)->default_value(false)->implicit_value(true),
+            "Use GCP, even those that show up in just an image, to transform cameras to ground coordinates.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
             "Prefix to read initial adjustments from, written by a previous invocation of this program.")
     ("initial-transform",   po::value(&opt.initial_transform_file)->default_value(""),

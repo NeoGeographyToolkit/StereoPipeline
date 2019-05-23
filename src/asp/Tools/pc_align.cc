@@ -1025,7 +1025,7 @@ initial_transform_from_match_file(std::string const& ref_file,
   vw::Vector3   translation;
   double        scale;
   bool filter_outliers = true;
-  asp::find_3D_affine_transform(points_src, points_ref,
+  vw::math::find_3D_affine_transform(points_src, points_ref,
                                 rotation, translation, scale,
                                 hillshading_transform,
                                 filter_outliers);

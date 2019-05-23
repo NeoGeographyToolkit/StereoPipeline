@@ -909,7 +909,7 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
 
   double dist = norm_2(mean_ip - mean_gcp);
   if (dist > 100000)
-    vw_out() << "WARNING: GCPs are over 100 KM from the other points. Are your lat/lon GCP coordinates swapped?\n";
+    vw_out() << "WARNING: GCPs are over 100 km from the other points. Are your lat/lon GCP coordinates swapped?\n";
 }
 
 //============================================================================
@@ -970,7 +970,7 @@ bool init_pinhole_model_with_camera_positions
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
-  asp::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
+  vw::math::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
 
   // Update the camera and point information with the new transform
   apply_rigid_transform(rotation, translation, scale, camera_models, cnet);
@@ -979,12 +979,13 @@ bool init_pinhole_model_with_camera_positions
 
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided control points file.
-/// - This function overwrites the camera parameters in-place
-bool init_pinhole_model_with_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr, 
-                                 std::vector<boost::shared_ptr<CameraModel> > & camera_models) {
+/// This function overwrites the camera parameters in-place. It works
+/// if at least three GCP are seen in no less than two images.
+bool init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+				       std::vector<boost::shared_ptr<CameraModel> > & camera_models) {
   
-  vw_out() << "Initializing camera positions from ground control points..." << std::endl;
-  
+  vw_out() << "Initializing camera positions from ground control points.\n";
+  vw_out()<< "Assume at least three GCP are seen in at least two images.\n";
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
   
   // DEBUG: Print out all pinhole cameras and verify they are pinhole cameras.
@@ -1032,7 +1033,8 @@ bool init_pinhole_model_with_gcp(boost::shared_ptr<ControlNetwork> const& cnet_p
   if (num_good_gcp < MIN_NUM_GOOD_GCP) {
     vw_out() << "Num GCP       = " << num_gcp         << std::endl;
     vw_out() << "Num valid GCP = " << num_good_gcp    << std::endl;
-    vw_throw( ArgumentErr() << "Not enough valid GCPs for affine transform pinhole initialization."
+    vw_throw( ArgumentErr()
+	      << "Not enough valid GCPs for affine transform pinhole initialization."
 	      << " You may need to use --disable-pinhole-gcp-init.\n" );
   }
   
@@ -1072,7 +1074,7 @@ bool init_pinhole_model_with_gcp(boost::shared_ptr<ControlNetwork> const& cnet_p
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
-  asp::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
+  vw::math::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
   
   // Update the camera and point information with the new transform
   vw_out() << "Applying transform based on GCP:\n";
@@ -1081,10 +1083,260 @@ bool init_pinhole_model_with_gcp(boost::shared_ptr<ControlNetwork> const& cnet_p
   vw_out() << "Scale:       " << scale       << "\n";
   vw_out() << "This transform can be disabled with --disable-pinhole-gcp-init\n";
   apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
+
   
   return true;
 } // End function init_pinhole_model_with_gcp
 
+#if 1
+
+// Given some GCP so that at least two images have at at least three GCP each,
+// but each GCP is allowed to show in one image only, use the GCP
+// to transform cameras to ground coordinates.
+void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
+			     std::vector< std::vector<Vector2> > const& pix,
+			     std::vector<PinholeModel> & sfm_cams,
+			     Matrix3x3 & rotation, 
+			     Vector3 & translation,
+			     double & scale){
+  
+  std::string camera_type = "pinhole";
+  bool refine_camera = true;
+  bool verbose = false; 
+
+  // Cameras individually aligned to ground using GCP. They may not be
+  // self-consistent, and are only used to give an idea of the
+  // transform to apply to the unaligned cameras.
+  std::vector<PinholeModel> aux_cams;
+
+  int num_cams = sfm_cams.size();
+  for (int it = 0; it < num_cams; it++) {
+    // Export to the format used by the API
+    std::vector<double> pixel_values;
+    for (size_t c = 0; c < pix[it].size(); c++) {
+      pixel_values.push_back(pix[it][c][0]);
+      pixel_values.push_back(pix[it][c][1]);
+    }
+
+    boost::shared_ptr<CameraModel> out_cam(new PinholeModel(sfm_cams[it]));
+
+    bool is_good = (xyz[it].size() >= 3);
+    if (is_good) 
+      fit_camera_to_xyz(camera_type, refine_camera,  
+			xyz[it], pixel_values, verbose, out_cam);
+    
+    aux_cams.push_back(*((PinholeModel*)out_cam.get()));
+  }
+  
+  // Estimate the scale ratio between cameras obtained from SfM and cameras
+  // aligned to GCP.
+  double world_scale = 1.0;
+  int good_index1 = -1, good_index2 = -1;
+  for (int it = 0; it < num_cams; it++) {
+    bool is_good = (xyz[it].size() >= 3);
+    if (!is_good)
+      continue;
+    if (good_index1 < 0) {
+      good_index1 = it;
+      continue;
+    }
+    if (good_index2 < 0) {
+      good_index2 = it;
+      continue;
+    }
+  }
+
+  if (good_index1 < 0 || good_index2 < 0) 
+    vw_throw( LogicErr() << "Could not find two images with at least three GCP.\n");
+  
+  double len1 = norm_2(sfm_cams[good_index1].camera_center()
+		- sfm_cams[good_index2].camera_center());
+  double len2 = norm_2(aux_cams[good_index1].camera_center()
+		       - aux_cams[good_index2].camera_center());
+  world_scale = len2/len1;
+  
+  vw_out() << "Estimated scale to apply when converting to world coordinates using GCP: "
+	   << world_scale << ".\n";
+
+  // So far we aligned both cameras individually to GCP and we got an
+  // idea of scale.  Yet we would like to align them without changing
+  // the relationship between them, so using a single transform for
+  // all not an individual transform for each.  This way we will
+  // transform the SfM-computed cameras to the new coordinate system.
+
+  // Start by estimating a such a transform.
+  int num_pts = 0;
+  for (int it = 0; it < num_cams; it++) {
+    bool is_good = (xyz[it].size() >= 3);
+    if (is_good) 
+      num_pts += pix[it].size();
+  }
+  
+  vw::Matrix<double> in_pts, out_pts;
+  in_pts.set_size(3, num_pts);
+  out_pts.set_size(3, num_pts);
+  
+  int col = 0;
+  for (int it = 0; it < num_cams; it++) {
+    
+    bool is_good = (xyz[it].size() >= 3);
+    if (is_good) {
+      // For each camera, find xyz values in the input cameras
+      // that map to GCP. Use the scale for that.
+      for (int c = 0; c < xyz[it].size(); c++) {
+	
+	// Distance from camera center to xyz for the individually aligned cameras
+	double len = norm_2(aux_cams[it].camera_center() - xyz[it][c]);
+	len = len / world_scale;
+	Vector3 trans_xyz = sfm_cams[it].camera_center()
+	  + len * sfm_cams[it].pixel_to_vector(pix[it][c]);
+	for (int row = 0; row < in_pts.rows(); row++) {
+	  in_pts(row, col)  = trans_xyz[row];
+	  out_pts(row, col) = xyz[it][c][row];
+	}
+	
+	col++;
+      }
+    }
+  }
+  
+  if (col != num_pts) 
+    vw_throw( LogicErr() << "Book-keeping failure in cam_gen.\n");
+
+  // The initial transform to world coordinates
+  Vector<double> C;
+  vw::math::find_3D_affine_transform(in_pts, out_pts, rotation, translation, scale);
+
+  // Copy into C
+  transform_to_vector(C, rotation, translation, scale);
+
+  // Form the pixel vector
+  int pixel_vec_len = 0;
+  for (size_t it = 0; it < pix.size(); it++) {
+    bool is_good = (xyz[it].size() >= 3);
+    if (is_good)
+      pixel_vec_len += pix[it].size() * 2;
+  }
+
+  Vector<double> pixel_vec;
+  pixel_vec.set_size(pixel_vec_len);
+  int count = 0;
+  for (size_t it = 0; it < pix.size(); it++) {
+    bool is_good = (xyz[it].size() >= 3);
+    if (is_good) {
+      for (size_t c = 0; c < pix[it].size(); c++) {
+	Vector2 pixel = pix[it][c];
+	pixel_vec[2*count  ] = pixel[0];
+	pixel_vec[2*count+1] = pixel[1];
+	count++;
+      }
+    }
+  }
+  if (2*count != pixel_vec_len)
+    vw_throw( LogicErr() << "Book-keeping failure in cam_gen.\n");
+  
+  // Optimize the transform
+  double abs_tolerance  = 1e-24;
+  double rel_tolerance  = 1e-24;
+  int    max_iterations = 2000;
+  int status = 0;
+  CameraSolveRotTransScale<PinholeModel> lma_model(xyz, pixel_vec, sfm_cams);
+  Vector<double> final_params
+    = vw::math::levenberg_marquardt(lma_model, C, pixel_vec,
+				    status, abs_tolerance, rel_tolerance,
+				    max_iterations);
+
+  Vector<double>  final_residual = lma_model(final_params, verbose);
+  
+  // Bring the cameras to world coordinates
+  for (int it = 0; it < num_cams; it++) 
+    apply_rot_trans_scale(sfm_cams[it], final_params);
+
+  // Compute the refined scale
+  len2 = norm_2(sfm_cams[good_index1].camera_center()
+		- sfm_cams[good_index2].camera_center());
+  world_scale = len2/len1;
+  
+  vw_out() << "Refined scale to apply when converting to world coordinates using GCP: "
+	   << world_scale << ".\n";
+
+  // Unpack the final vector into a rotation + translation + scale
+  vector_to_transform(final_params, rotation, translation, scale);
+
+}
+
+
+#endif
+
+/// Initialize the position and orientation of each pinhole camera model using
+///  a least squares error transform to match the provided control points file.
+/// This function overwrites the camera parameters in-place. It works
+/// if at least two images have at least 3 GCP each. Each GCP need
+/// not show in multiple images.
+bool init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+				      std::vector<boost::shared_ptr<CameraModel> > & camera_models) {
+  
+  vw_out() << "Initializing camera positions from ground control points." << std::endl;
+  vw_out() << "Assume at least two images have each at least 3 GCP each.\n";
+
+  int num_cams = camera_models.size();
+
+  // Create pinhole cameras
+  std::vector<PinholeModel> pinhole_cams;
+  for (int icam = 0; icam < num_cams; icam++){
+    vw::camera::PinholeModel * pincam
+      = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
+    VW_ASSERT(pincam != NULL,
+	      vw::ArgumentErr() << "A pinhole camera expected.\n");
+    pinhole_cams.push_back(*pincam);
+  }
+  
+  // Extract from the control network each pixel for each camera together
+  // with its xyz.
+  std::vector< std::vector<Vector3> > xyz;
+  std::vector< std::vector<Vector2> > pix;
+  xyz.resize(num_cams);
+  pix.resize(num_cams);
+  
+  const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
+
+  int ipt = - 1;
+  for ( ControlNetwork::const_iterator iter = cnet.begin();
+	iter != cnet.end(); ++iter ) {
+
+    ipt++;
+    
+    // Keep only gcp
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint) {
+      continue;
+    }
+        
+    for ( ControlPoint::const_iterator measure = (*iter).begin();
+	  measure != (*iter).end(); ++measure ) {
+
+      int cam_it = measure->image_id();
+      if (cam_it < 0 || cam_it >= num_cams) 
+	vw_throw(ArgumentErr() << "Error: cnet index out of range.\n");
+
+      Vector2 pixel( measure->position()[0],  measure->position()[1]);
+      pix[cam_it].push_back(pixel);
+      xyz[cam_it].push_back(cnet[ipt].position());
+    }
+  }  
+
+
+  Matrix3x3 rotation;
+  Vector3   translation;
+  double    scale;
+  align_cameras_to_ground(xyz, pix, pinhole_cams, rotation, translation, scale);
+
+  // Update the camera and point information with the new transform
+  vw_out() << "Applying transform based on GCP:\n";
+  vw_out() << "Rotation:    " << rotation    << "\n";
+  vw_out() << "Translation: " << translation << "\n";
+  vw_out() << "Scale:       " << scale       << "\n";
+  apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
+}
 
 /// Take an interest point from a map projected image and convert it
 /// to the corresponding IP in the original non-map-projected image.

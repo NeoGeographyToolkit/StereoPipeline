@@ -71,7 +71,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int    report_level, min_matches, num_iterations, overlap_limit,
          instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool   save_iteration, approximate_pinhole_intrinsics,
-         disable_pinhole_gcp_init, fix_gcp_xyz, solve_intrinsics,
+    disable_pinhole_gcp_init, use_single_image_gcp, fix_gcp_xyz, solve_intrinsics,
          disable_tri_filtering, ip_normalize_tiles, ip_debug_images,
          stop_after_stats, stop_after_matching, skip_matching;
   BACameraType camera_type;
