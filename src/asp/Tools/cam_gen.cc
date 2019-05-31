@@ -204,10 +204,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Expecting 8 values for the image corners.\n"
               << usage << general_options );
   }
-  
-  if ( opt.sample_file == "" && (opt.focal_length <= 0      || opt.optical_center[0] <= 0 ||
-                                 opt.optical_center[1] <= 0 || opt.pixel_pitch <= 0))
-    vw_throw( ArgumentErr() << "Must provide positive focal length, optical center, "
+
+  // Note that optical center can be negative (for some SkyBox products).
+  if ( opt.sample_file == "" && (opt.focal_length <= 0 || opt.pixel_pitch <= 0))
+    vw_throw( ArgumentErr() << "Must provide positive focal length"
               << "and pixel pitch values OR a sample file.\n" << usage << general_options );
   
   // Create the output directory
@@ -246,7 +246,7 @@ void manufacture_cam(Options const& opt, int wid, int hgt,
 int main( int argc, char *argv[] ) {
   Options opt;
   try {
-
+    
     handle_arguments(argc, argv, opt);
     
     vw::cartography::Datum datum;
