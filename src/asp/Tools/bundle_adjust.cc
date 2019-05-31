@@ -858,28 +858,27 @@ int do_ba_ceres_one_pass(Options             & opt,
         // and we should have the cameras and intrinsics params to conform to these.
         if (!is_gcp){
           double* point = param_storage.get_point_ptr(ipt);
-          if (!update_point_from_dem(point, dem_georef, interp_dem)) {
-	    // Areas that have no underlying DEM are not put any
-	    // constraints. The user can take advantage of that to put
-	    // constraints only in parts of the image where desired.
-	    continue;
+	  // Areas that have no underlying DEM are not put any
+	  // constraints. The user can take advantage of that to put
+	  // constraints only in parts of the image where desired.
+          if (update_point_from_dem(point, dem_georef, interp_dem)) {
+	    if (opt.heights_from_dem_weight <= 0) {
+	      // Fix it. Set it as GCP to not remove it as outlier.
+	      problem.SetParameterBlockConstant(point);
+	      cnet[ipt].set_type(ControlPoint::GroundControlPoint);
+	    }else{
+	      // Make this into a GCP so we can float it while not deviating
+	      // too much from what we have now. Also not remove it
+	      // as outlier.
+	      cnet[ipt].set_type(ControlPoint::GroundControlPoint);
+	      double s = 1.0/opt.heights_from_dem_weight;
+	      cnet[ipt].set_position(Vector3(point[0], point[1], point[2]));
+	      cnet[ipt].set_sigma(Vector3(s, s, s));
+	    }
 	  }
-          if (opt.heights_from_dem_weight <= 0) {
-	    // Fix it. Set it as GCP to not remove it as outlier.
-            problem.SetParameterBlockConstant(point);
-	    cnet[ipt].set_type(ControlPoint::GroundControlPoint);
-	  }else{
-            // Make this into a GCP so we can float it while not deviating
-            // too much from what we have now. Also not remove it
-	    // as outlier.
-            cnet[ipt].set_type(ControlPoint::GroundControlPoint);
-            double s = 1.0/opt.heights_from_dem_weight;
-            cnet[ipt].set_position(Vector3(point[0], point[1], point[2]));
-            cnet[ipt].set_sigma(Vector3(s, s, s));
-          }
-        }
+	}
       }
-
+      
       cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
     } // end iterating over points
   } // end iterating over cameras
@@ -1188,8 +1187,8 @@ int do_ba_ceres_one_pass(Options             & opt,
 				     kmlPointSkip, "final_points",
 				     "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
 
-  // If heights_from_dem_weight > 0, each point is a gcp, and this stats becomes too long
-  if (num_gcp > 0 && opt.heights_from_dem_weight <= 0)
+  // If heights_from_dem is set, each point is a gcp, and this stats becomes too long
+  if (num_gcp > 0 && opt.heights_from_dem != "")
     param_storage.print_gcp_stats(cnet, opt.datum);
 
   int num_new_outliers = 0;
