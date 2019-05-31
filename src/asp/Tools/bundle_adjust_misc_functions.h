@@ -782,7 +782,7 @@ void create_interp_dem(std::string & dem_file,
 }
 
 /// Try to update the elevation of a GCC coordinate from a DEM.
-/// - Returns false if the point falls outside the DEM.
+/// - Returns false if the point falls outside the DEM or in a hole.
 bool update_point_from_dem(double* point, cartography::GeoReference const& dem_georef,
                            ImageViewRef< PixelMask<double> > const& interp_dem) {
   Vector3 xyz(point[0], point[1], point[2]);
@@ -791,13 +791,22 @@ bool update_point_from_dem(double* point, cartography::GeoReference const& dem_g
   Vector2 pix = dem_georef.lonlat_to_pixel(ll);
   if (!interp_dem.pixel_in_bounds(pix))
     return false;
+
   PixelMask<double> height = interp_dem(pix[0], pix[1]);
-  if (is_valid(height)) {
-    llh[2] = height.child();
-    xyz    = dem_georef.datum().geodetic_to_cartesian(llh);
-    for (size_t it = 0; it < xyz.size(); it++) 
-      point[it] = xyz[it];
+  if (!is_valid(height)) {
+    return false;
   }
+  
+  llh[2] = height.child();
+
+  // NaN check
+  if (llh[2] != llh[2]) 
+    return false;
+  
+  xyz = dem_georef.datum().geodetic_to_cartesian(llh);
+  for (size_t it = 0; it < xyz.size(); it++) 
+    point[it] = xyz[it];
+  
   return true;
 }
 

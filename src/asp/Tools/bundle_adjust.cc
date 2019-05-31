@@ -858,12 +858,20 @@ int do_ba_ceres_one_pass(Options             & opt,
         // and we should have the cameras and intrinsics params to conform to these.
         if (!is_gcp){
           double* point = param_storage.get_point_ptr(ipt);
-          update_point_from_dem(point, dem_georef, interp_dem);
-          if (opt.heights_from_dem_weight <= 0) 
+          if (!update_point_from_dem(point, dem_georef, interp_dem)) {
+	    // Areas that have no underlying DEM are not put any
+	    // constraints. The user can take advantage of that to put
+	    // constraints only in parts of the image where desired.
+	    continue;
+	  }
+          if (opt.heights_from_dem_weight <= 0) {
+	    // Fix it. Set it as GCP to not remove it as outlier.
             problem.SetParameterBlockConstant(point);
-          else{
+	    cnet[ipt].set_type(ControlPoint::GroundControlPoint);
+	  }else{
             // Make this into a GCP so we can float it while not deviating
-            // too much from what we have now.
+            // too much from what we have now. Also not remove it
+	    // as outlier.
             cnet[ipt].set_type(ControlPoint::GroundControlPoint);
             double s = 1.0/opt.heights_from_dem_weight;
             cnet[ipt].set_position(Vector3(point[0], point[1], point[2]));
