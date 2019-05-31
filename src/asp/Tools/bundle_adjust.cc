@@ -865,7 +865,6 @@ int do_ba_ceres_one_pass(Options             & opt,
 	    if (opt.heights_from_dem_weight <= 0) {
 	      // Fix it. Set it as GCP to not remove it as outlier.
 	      problem.SetParameterBlockConstant(point);
-	      cnet[ipt].set_type(ControlPoint::GroundControlPoint);
 	    }else{
 	      // Make this into a GCP so we can float it while not deviating
 	      // too much from what we have now. Also not remove it
@@ -1188,7 +1187,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 				     "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
 
   // If heights_from_dem is set, each point is a gcp, and this stats becomes too long
-  if (num_gcp > 0 && opt.heights_from_dem != "")
+  if (num_gcp > 0 && opt.heights_from_dem == "")
     param_storage.print_gcp_stats(cnet, opt.datum);
 
   int num_new_outliers = 0;
@@ -1921,8 +1920,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
         guessed_datum = true;
       }
     }
-  }
 
+    if (opt.num_ba_passes > 1) 
+      vw_out(WarningMessage) << "It is not recommended to use "
+			     << "--heights-from-dem-weight with multiple "
+			     << "passes. Results could be unpredictable.\n";
+    
+  }
+  
   // Based on the cameras, try to guess the session, if not specified. If the session is isis,
   // then we can pull the datum from the .cub files. 
   {
