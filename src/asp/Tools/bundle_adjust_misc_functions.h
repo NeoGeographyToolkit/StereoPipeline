@@ -907,10 +907,11 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
       //   the current set of camera models.
       ControlPoint cp_new = cnet[ipt];
       double minimum_angle = 0;
-      vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
-                                        forced_triangulation_distance);
-      if (cp_new.position() == Vector3())
-        continue; // Skip points that fail to triangulate
+      double ans = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
+						     forced_triangulation_distance);
+      // Skip points for which triangulation failed
+      if (cp_new.position() == Vector3() || ans < 0)
+	continue;
 
       mean_ip += (cp_new.position() / ip_count);
     }
