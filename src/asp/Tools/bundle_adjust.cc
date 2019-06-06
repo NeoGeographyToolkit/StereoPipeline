@@ -1112,9 +1112,10 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (first_pass) { 
     vw_out() << "Writing initial condition files..." << std::endl;
 
-    write_residual_logs(residual_prefix, true,  opt, param_storage, 
-                        cam_residual_counts, num_gcp_residuals,
-                        reference_vec, cnet, crn, problem);
+    // These are not useful
+    //write_residual_logs(residual_prefix, true,  opt, param_storage, 
+    //                    cam_residual_counts, num_gcp_residuals,
+    //                    reference_vec, cnet, crn, problem);
     residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
     write_residual_logs(residual_prefix, false, opt, param_storage, 
                         cam_residual_counts, num_gcp_residuals,
@@ -1174,9 +1175,10 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Write the condition files after each pass, as we never know which pass will be the last
   // since we may stop the passes prematurely if no more outliers are present.
   vw_out() << "Writing final condition log files..." << std::endl;
-  residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
-  write_residual_logs(residual_prefix, true,  opt, param_storage, cam_residual_counts,
-		      num_gcp_residuals, reference_vec, cnet, crn, problem);
+  // Not useful
+  //residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
+  //write_residual_logs(residual_prefix, true,  opt, param_storage, cam_residual_counts,
+  //		      num_gcp_residuals, reference_vec, cnet, crn, problem);
   residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
   write_residual_logs(residual_prefix, false, opt, param_storage, cam_residual_counts,
 		      num_gcp_residuals, reference_vec, cnet, crn, problem);

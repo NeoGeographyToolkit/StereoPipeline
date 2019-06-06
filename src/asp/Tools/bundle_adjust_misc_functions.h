@@ -899,10 +899,13 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
   for (int ipt = 0; ipt < num_cnet_points; ipt++){
 
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
+
+      if (cnet[ipt].position() == Vector3() || cnet[ipt].size() <= 1)
+	continue;
+
       mean_gcp += (cnet[ipt].position() / gcp_count);
       ++gcp_count;
-    }
-    else {
+    }else {
       // Use triangulation to estimate the position of this control point using
       //   the current set of camera models.
       ControlPoint cp_new = cnet[ipt];
@@ -910,7 +913,7 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
       double ans = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
 						     forced_triangulation_distance);
       // Skip points for which triangulation failed
-      if (cp_new.position() == Vector3() || ans < 0)
+      if (cp_new.position() == Vector3() || ans < 0 || cp_new.size() <= 1)
 	continue;
 
       mean_ip += (cp_new.position() / ip_count);
@@ -1099,6 +1102,49 @@ bool init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& 
   return true;
 } // End function init_pinhole_model_with_gcp
 
+// Given original cams in sfm_cams and individually scaled cameras in
+// aux_cams, get the median scale change from the first set to the second one.
+// It is important to do the median, since scaling the cameras individually
+// is a bit of a shaky business.
+double find_median_scale_change(std::vector<PinholeModel> const & sfm_cams,
+				std::vector<PinholeModel> const & aux_cams,
+				std::vector< std::vector<Vector3> > const& xyz){
+  
+  int num_cams = sfm_cams.size();
+
+  std::vector<double> scales;
+  
+  for (int it1 = 0; it1 < num_cams; it1++) {
+
+    bool is_good = (xyz[it1].size() >= 3);
+    if (!is_good)
+      continue;
+    
+    for (int it2 = it1 + 1; it2 < num_cams; it2++) {
+      
+      bool is_good = (xyz[it2].size() >= 3);
+      if (!is_good)
+	continue;
+    
+      double len1 = norm_2(sfm_cams[it1].camera_center()
+			   - sfm_cams[it2].camera_center());
+      double len2 = norm_2(aux_cams[it1].camera_center()
+			   - aux_cams[it2].camera_center());
+      
+      double scale = len2/len1;
+      scales.push_back(scale);
+    }
+  }
+
+  if (scales.empty())
+    vw_throw( LogicErr() << "Could not find two images with at least 3 GCP each.\n");
+    
+  double median_scale = vw::math::destructive_median(scales);
+
+  return median_scale;
+}
+
+
 // Given some GCP so that at least two images have at at least three GCP each,
 // but each GCP is allowed to show in one image only, use the GCP
 // to transform cameras to ground coordinates.
@@ -1136,35 +1182,9 @@ void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
     
     aux_cams.push_back(*((PinholeModel*)out_cam.get()));
   }
-  
-  // Estimate the scale ratio between cameras obtained from SfM and cameras
-  // aligned to GCP.
-  double world_scale = 1.0;
-  int good_index1 = -1, good_index2 = -1;
-  for (int it = 0; it < num_cams; it++) {
-    bool is_good = (xyz[it].size() >= 3);
-    if (!is_good)
-      continue;
-    if (good_index1 < 0) {
-      good_index1 = it;
-      continue;
-    }
-    if (good_index2 < 0) {
-      good_index2 = it;
-      continue;
-    }
-  }
 
-  if (good_index1 < 0 || good_index2 < 0) 
-    vw_throw( LogicErr() << "Could not find two images with at least three GCP.\n");
-  
-  double len1 = norm_2(sfm_cams[good_index1].camera_center()
-		- sfm_cams[good_index2].camera_center());
-  double len2 = norm_2(aux_cams[good_index1].camera_center()
-		       - aux_cams[good_index2].camera_center());
-  world_scale = len2/len1;
-  
-  vw_out() << "Estimated scale to apply when converting to world coordinates using GCP: "
+  double world_scale = find_median_scale_change(sfm_cams, aux_cams, xyz);
+  vw_out() << "Initial guess scale to apply when converting to world coordinates using GCP: "
 	   << world_scale << ".\n";
 
   // So far we aligned both cameras individually to GCP and we got an
@@ -1210,7 +1230,7 @@ void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
   }
   
   if (col != num_pts) 
-    vw_throw( LogicErr() << "Book-keeping failure in cam_gen.\n");
+    vw_throw( LogicErr() << "Book-keeping failure in aligning cameras to ground.\n");
 
   // The initial transform to world coordinates
   Vector<double> C;
@@ -1226,7 +1246,6 @@ void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
     if (is_good)
       pixel_vec_len += pix[it].size() * 2;
   }
-
   Vector<double> pixel_vec;
   pixel_vec.set_size(pixel_vec_len);
   int count = 0;
@@ -1260,14 +1279,6 @@ void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
   // Bring the cameras to world coordinates
   for (int it = 0; it < num_cams; it++) 
     apply_rot_trans_scale(sfm_cams[it], final_params);
-
-  // Compute the refined scale
-  len2 = norm_2(sfm_cams[good_index1].camera_center()
-		- sfm_cams[good_index2].camera_center());
-  world_scale = len2/len1;
-  
-  vw_out() << "Refined scale to apply when converting to world coordinates using GCP: "
-	   << world_scale << ".\n";
 
   // Unpack the final vector into a rotation + translation + scale
   vector_to_transform(final_params, rotation, translation, scale);
