@@ -849,8 +849,8 @@ void MainWindow::writeGroundControlPoints() {
   const std::string georef_image_file = m_image_files[GEOREF_INDEX];
   bool has_georef = vw::cartography::read_georeference(georef_image, georef_image_file);
   if (!has_georef) {
-    return popUp("Error: Could not load a valid georeference to use for ground control points in file: "
-                 + georef_image_file);
+    return popUp(std::string("Error: Could not load a valid georeference to use for ")
+		 + "ground control points in file: " + georef_image_file);
   }
   vw_out() << "Loaded georef from file " << georef_image_file << std::endl;
 
@@ -878,21 +878,24 @@ void MainWindow::writeGroundControlPoints() {
   }
   vw_out() << "Loaded georef from dem file " << stereo_settings().dem_file << std::endl;
 
-  // Prompt the user for the desired output path
-  std::string save_path = "";
-  try {
-    std::string default_path = m_output_prefix + "/ground_control_points.gcp";
-    if (m_output_prefix.empty()) // Default to current dir if prefix not set
-      default_path = "ground_control_points.gcp";
-    save_path = QFileDialog::getSaveFileName(0,
-                                      "Select a path to save the GCP file to",
-                                      default_path.c_str()).toStdString();
-  }catch(...){
-    return popUp("Error selecting the output path.");
+  // Prompt the user for the desired output path unless specified in --gcp-file.
+  if (stereo_settings().gcp_file == "") {
+    try {
+      std::string default_path = m_output_prefix + "/ground_control_points.gcp";
+      if (m_output_prefix.empty()) // Default to current dir if prefix not set
+	default_path = "ground_control_points.gcp";
+      stereo_settings().gcp_file = QFileDialog::getSaveFileName(0,
+					       "Select a path to save the GCP file to",
+					       default_path.c_str()).toStdString();
+    }catch(...){
+      return popUp("Error selecting the output path.");
+    }
   }
+  
   BBox2 image_bb = bounding_box(interp_dem);
 
-  std::ofstream output_handle(save_path.c_str());
+  std::ofstream output_handle(stereo_settings().gcp_file.c_str());
+  output_handle << std::setprecision(18);
   size_t num_pts_skipped = 0, num_pts_used = 0;
   for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
 
@@ -909,11 +912,9 @@ void MainWindow::writeGroundControlPoints() {
       ++num_pts_skipped;
       continue; // Skip locations which do not fall on the DEM
     }
-    vw_out() << "Writing out location: " << mask_height << std::endl;
 
     // Write the per-point information
     output_handle << num_pts_used; // The ground control point ID
-    output_handle << std::setprecision(14);
     output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << mask_height[0]; // Lat, lon, height
     output_handle << ", " << 1 << ", " << 1 << ", " << 1; // Sigma values
 
@@ -930,7 +931,8 @@ void MainWindow::writeGroundControlPoints() {
   } // End loop through IPs
 
   output_handle.close();
-  popUp("Finished writing file: " + save_path);
+  vw_out() << "Writing: " << stereo_settings().gcp_file << "\n";
+  popUp("Finished writing file: " + stereo_settings().gcp_file);
 }
 
 

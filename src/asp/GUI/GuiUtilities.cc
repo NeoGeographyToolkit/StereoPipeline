@@ -1166,13 +1166,18 @@ bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
   std::vector<std::string> gcp_files;
   gcp_files.push_back(gcpPath);
   vw::cartography::Datum datum; // the actual datum does not matter here
-  add_ground_control_points(cnet, gcp_files, datum);
-
+  try {
+    add_ground_control_points(cnet, gcp_files, datum);
+  }catch(...){
+    // Do not complain if the GCP file does not exist. Maybe we want to create it.
+    return true;
+  }
+  
   CameraRelationNetwork<JFeature> crn;
   crn.read_controlnetwork(cnet);
 
   typedef CameraNode<JFeature>::iterator crn_iter;
-  if (crn.size() != num_images) {
+  if (crn.size() != num_images && crn.size() != 0) {
     popUp("The number of images in the control network does not agree with the number of images to view.");
     return false;
   }
