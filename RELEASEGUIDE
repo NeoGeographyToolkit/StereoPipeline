@@ -65,10 +65,11 @@ different commit, first remove the exiting tag with:
   git push origin :refs/tags/v2.6.1
   git push god    :refs/tags/v2.6.1
 
-11.) Copy the new builds to the release area at
-/byss/docroot/stereopipeline/binaries. Also copy the documentation
-from BinaryBuilder/dist-add/asp_book.pdf to the same location, 
-and rename it to incorporate the version name. 
+11.) Upload the builds and the pdf documentation to GitHub, in
+the release area.
+
+Make a DOI with Zenodo
+(https://guides.github.com/activities/citable-code/)
 
 Update the website, at https://ti.arc.nasa.gov/cms/pages/page/
 (SG can give permissions to edit the pages under
@@ -84,7 +85,9 @@ Update the website, at https://ti.arc.nasa.gov/cms/pages/page/
 documentation.
 
 13.) Send an announcement of the new release to the mailing list, at
-stereo-pipeline@lists.nasa.gov, listing the changes specified in NEWS.
+https://groups.google.com/forum/\#!forum/ames-stereo-pipeline-support
+and the old stereo-pipeline@lists.nasa.gov, listing the changes
+specified in NEWS.
 
 14.) Modify the build system:
 
