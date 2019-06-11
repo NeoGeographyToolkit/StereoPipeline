@@ -10,7 +10,7 @@ camera model.
 
 \section{Overview}
 
-The generic pinhole model uses the following parameters:
+The generic Pinhole model uses the following parameters:
 
 \begin{itemize}{}
 \item  \textit{fu} = The focal length in horizontal pixel units.
@@ -29,10 +29,10 @@ distance}. The value $cu$ is usually approximately half the image width in
 pixels times the pitch, while $cv$ is often the image height in pixels
 times the pitch, though there are situations when these can be quite different.
 
-A few sample pinhole models are shown later in the text. The underlying mathematical model
+A few sample Pinhole models are shown later in the text. The underlying mathematical model
 is described in section \ref{pinholemath}.
 
-Along with the basic pinhole camera parameters, a lens distortion model
+Along with the basic Pinhole camera parameters, a lens distortion model
 can be added.  Note that the units used in the distortion model must
 match the units used for the parameters listed above.  For example, if the
 camera calibration was performed using units of millimeters the focal lengths etc. must be given in
@@ -135,7 +135,7 @@ are also saved as part of the model.
 \label{file_format}
 \bigskip
 
-ASP pinhole model files are written in an easy to work with plain text format 
+ASP Pinhole model files are written in an easy to work with plain text format 
 using the extension \texttt{.tsai}.
 A sample file is shown below. 
 
@@ -164,7 +164,7 @@ b1 = 0.0
 b2 = 0.0
 \end{verbatim}
 
-The first half of the file is the same for all pinhole models:
+The first half of the file is the same for all Pinhole models:
 
 \begin{itemize}{}
 \item  \texttt{VERSION\_X} = A header line used to track the format of the file.
@@ -261,7 +261,7 @@ The zero-th degree coefficients in the denominator are always set to 1.
 
 \end{itemize}{}
 
-For several years Ames Stereo Pipeline generated pinhole files in the binary \texttt{.pinhole} format.
+For several years Ames Stereo Pipeline generated Pinhole files in the binary \texttt{.pinhole} format.
 That format is no longer supported.
 
 Also in the past Ames Stereo Pipeline has generated a shorter version of the current file
@@ -272,7 +272,7 @@ Note that the \texttt{orbitviz} tool can be useful for checking the formatting o
 files you create and to estimate the position and orientation. To inspect the orientation use 
 the optional \texttt{.dae} model file input option and observe the rotation of the 3D model.
 
-\subsection{How the pinhole model is applied}
+\subsection{How the Pinhole model is applied}
 \label{pinholemath}
 
 As mentioned in section \ref{file_format}, the ASP Pinhole models store
