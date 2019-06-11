@@ -1,8 +1,9 @@
 \chapter{Frame Camera Models}
 
 Ames Stereo Pipeline supports a generic Pinhole camera model with
-several lens distortion models which cover common calibration
-methods, and also the somewhat more complicated panoramic camera model.
+several lens distortion models which cover common calibration methods,
+and also the somewhat more complicated panoramic (\textit{optical bar})
+camera model.
 
 \section{Pinhole Models}
 \label{pinholemodels}
@@ -24,11 +25,12 @@ are specified in pixel units or alternately the size of a pixel in millimeters.
 \end{itemize}
 
 The focal length is sometimes known as the \textit{principal
-distance}. The value $cu$ is computed as half the image width in
-pixels times the pitch, while $cv$ is half the image height in pixels
-time the pitch.
+distance}. The value $cu$ is usually approximately half the image width in
+pixels times the pitch, while $cv$ is often the image height in pixels
+times the pitch, though there are situations when these can be quite different.
 
-A few sample pinhole models are shown later in the text.
+A few sample pinhole models are shown later in the text. The underlying mathematical model
+is described in section \ref{pinholemath}.
 
 Along with the basic pinhole camera parameters, a lens distortion model
 can be added.  Note that the units used in the distortion model must
@@ -269,6 +271,36 @@ Existing files in that format can still be used by ASP.
 Note that the \texttt{orbitviz} tool can be useful for checking the formatting of \texttt{.tsai}
 files you create and to estimate the position and orientation. To inspect the orientation use 
 the optional \texttt{.dae} model file input option and observe the rotation of the 3D model.
+
+\subsection{How the pinhole model is applied}
+\label{pinholemath}
+
+As mentioned in section \ref{file_format}, the ASP Pinhole models store
+the focal length as $fu$ and $fv$, the optical center $(cu, cv)$ (which
+is the pixel location at which the ray coming from the center of the
+camera is perpendicular to the image plane, in units of the pixel
+pitch), the vector $C$ which is the camera center in world coordinates
+system, and the matrix $R$ that is the transform from camera to world
+coordinates.
+
+To go in more detail, a point $Q$ in the camera coordinate system gets transformed
+to a point $P$ in the world coordinate system via:
+\begin{equation*}
+ P = RQ + C
+\end{equation*}
+
+Hence, to go from world to camera coordinates one does:
+\begin{equation*}
+ Q = R^{-1}  P - R^{-1}  C
+\end{equation*}
+
+From here the pixel location is computed as:
+
+\begin{equation*}
+ \frac{1}{p} \left(fu \frac{Q_1}{Q_3} + cu, fv \frac{Q_2}{Q_3} + cv\right)
+\end{equation*}
+
+where $p$ is the pixel pitch.
 
 \section{Panoramic Camera Model}
 \label{panoramic}

@@ -307,7 +307,8 @@ When you are finished creating interest points, use the "IP
 matches"->"Write GCP file" menu item to generate a ground control point
 file containing the selected points. You will be prompted for the
 reference DEM and for the desired output file name, unless this DEM was
-already specified via \texttt{-\/-dem-file} upon launch. The last image,
+already specified via \texttt{-\/-dem-file} upon launch and
+the GCP file was already specified via \texttt{-\/-gcp-file}. The last image,
 that is the reference, is only used to find the positions on the ground,
 which in turn are used to find the heights for the GCPs from the
 DEM. The selected interest points from the reference image are not saved
@@ -397,7 +398,7 @@ Pixels with values less than or equal to this number are treated as no-data and 
 \texttt{-\/-hillshade-elevation} & The elevation value when showing hillshaded images.\\ \hline
 \texttt{-\/-view-matches} & Locate and display the interest point matches.\\ \hline
 \texttt{-\/-match-file} & Display this match file instead of looking one up based on existing conventions (implies \texttt{-\/-view-matches}). \\ \hline
-\texttt{-\/-gcp-file} & Display the GCP pixel coordinates for this GCP file (implies \texttt{-\/-view-matches}). \\ \hline
+\texttt{-\/-gcp-file} & Display the GCP pixel coordinates for this GCP file (implies \texttt{-\/-view-matches}). Also save here GCP if created from the GUI.\\ \hline
 \texttt{-\/-dem-file} & Use this DEM when creating GCP from images. \\ \hline
 \texttt{-\/-delete-temporary-files-on-exit} & Delete any subsampled and other files created by the GUI when exiting.\\ \hline
 \texttt{-\/-create-image-pyramids-only} & Without starting the GUI, build multi-resolution pyramids for the inputs, to be able to load them fast later.\\ \hline
@@ -3589,6 +3590,25 @@ One can invoke \texttt{orbitviz} as:
 
 to visualize the computed camera above the ground in Google Earth. 
 
+This tool can also create a Pinhole camera approximating any camera
+supported by ASP, such as from ISIS cubes, RPC cameras, etc., as long as
+the intrinsics are known, as above. For that, it will shoot rays from
+the image corners (and also some inner points) using the provided camera
+that will intersect a reference DEM determining the footprint on the
+ground, and then the best-fit pinhole model will be created based on that.
+Here's an example for ISIS cameras:
+
+\begin{verbatim}
+  cam_gen image.cub --input-camera image.cub --focal-length 1000       \
+    --optical-center 500 300 --pixel-pitch 1 --height-above-datum 4000 \
+    --gcp-std 1 --datum WGS84 --refine-camera --reference-dem dem.tif  \
+    -o output.tsai --gcp-file output.gcp 
+\end{verbatim}
+
+Here we passed the image as the input camera, since for ISIS cubes
+(and also for some RPC cameras) the camera information is not stored
+in a separate camera file.
+
 \begin{longtable}{|l|p{7.5cm}|}
 \caption{Command-line options for cam\_gen.}
 \label{tbl:cam_gen}
@@ -3613,6 +3633,9 @@ Option & Description \\ \hline \hline
 \texttt{-\/-frame-index \textit{string} } & A file used to look up the longitude and latitude of image corners based on the image name, in the format provided by the SkySat video product.\\ \hline
 \texttt{-\/-gcp-file \textit{string} } & If provided, save the image corner coordinates and heights in the GCP format to this file.\\ \hline
 \texttt{-\/-gcp-std arg \textit{double(=1)} } & The standard deviation for each GCP pixel, if saving a GCP file. A smaller value suggests a more reliable measurement, hence will be given more weight.\\ \hline
+\texttt{-\/-input-camera \textit{string} } & Create the output pinhole camera approximating this camera. \\ \hline
+\texttt{-t | -\/-session-type  \textit{string}} & Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: pinhole isis rpc dg spot5 aster opticalbar.\\ \hline
+\texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera adjustment obtained by previously running bundle\_adjust when providing an input camera. \\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
 \texttt{-\/-tile-size \textit{integer(=256, 256)} } &
  Image tile size used for multi-threaded processing.\\ \hline

@@ -18,7 +18,9 @@
      camera model given camera intrinsics, lon-lat coordinates of the
      corners (or some other pixels), and optionally a ground truth
      DEM. It can also parse SkySat's video/frame_index metafile to get
-     this data.
+     this data. It can also take as input any camera supported by ASP
+     via --input-camera and create a most-similar pinhole camera
+     model with given intrinsics.
    * Added the coverage_fraction tool to provide a coverage estimate
      of the results of a stereo call. 
    * Added the image_mosaic tool which merges together images based on
@@ -126,7 +128,8 @@
    * Can view (but not edit) GCP files, via --gcp-file (creating
      GCP is supported in a separate mode, per the doc).
    * The option --dem-file specifies a DEM to use when creating
-     manually picked GCP.
+     manually picked GCP and --gcp-file specifies the name of 
+     the GCP file to use opon saving such GCP.
 
  - mapproject
    * Added the --nearest-neighbor option to use that interpolation
@@ -162,6 +165,7 @@
      alternatives to --datum and --dem-file.
    * Add option --theia-overrides to camera_solve to make it easier
      to customize its behavior via flags.
+   * Added an explanation for how the pinhole model works. 
 
 *** RELEASE 2.6.1, August 13, 2018 ***
 
