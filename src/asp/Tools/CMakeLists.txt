@@ -211,5 +211,5 @@ target_link_libraries(wv_correct AspCamera)
 install(TARGETS wv_correct DESTINATION bin)
 
 add_executable(cam_gen cam_gen.cc) 
-target_link_libraries(cam_gen AspCore AspCamera)
+target_link_libraries(cam_gen AspSessions)
 install(TARGETS cam_gen DESTINATION bin)

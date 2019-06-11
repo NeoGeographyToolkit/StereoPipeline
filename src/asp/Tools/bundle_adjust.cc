@@ -1233,7 +1233,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
              << "if ground control points are present.\n";
   }
   vw_out() << "Loading GCP files...\n";
-  vw::ba::add_ground_control_points( cnet, opt.gcp_files, opt.datum);
+  vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
   
   // If we change the cameras, we must rebuild the control network
   bool cameras_changed = false;
