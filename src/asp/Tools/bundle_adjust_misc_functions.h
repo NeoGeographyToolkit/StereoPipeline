@@ -875,6 +875,9 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
   double gcp_count=0, ip_count=0;
   for (int ipt = 0; ipt < num_cnet_points; ipt++){
 
+    if (cnet[ipt].position() == Vector3() || cnet[ipt].size() <= 1)
+      continue;
+    
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
       gcp_count += 1.0;
     else {
@@ -882,15 +885,15 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
       //   the current set of camera models.
       ControlPoint cp_new = cnet[ipt];
       double minimum_angle = 0;
-      vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
-                                        forced_triangulation_distance);
-      if (cp_new.position() == Vector3())
+      double ans = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
+						     forced_triangulation_distance);
+      if (ans < 0 || cp_new.position() == Vector3())
         continue; // Skip points that fail to triangulate
 
       ip_count += 1.0;
     }
   } // End loop through control network points
-  if ((ip_count == 0) || (gcp_count == 0))
+  if (ip_count == 0 || gcp_count == 0)
     return; // Can't do this check if we don't have both point types.
 
   // Make another iteration to compute the mean.
@@ -898,10 +901,10 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
   Vector3 mean_ip (0,0,0);
   for (int ipt = 0; ipt < num_cnet_points; ipt++){
 
+    if (cnet[ipt].position() == Vector3() || cnet[ipt].size() <= 1)
+      continue;
+    
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
-
-      if (cnet[ipt].position() == Vector3() || cnet[ipt].size() <= 1)
-	continue;
 
       mean_gcp += (cnet[ipt].position() / gcp_count);
       ++gcp_count;
@@ -913,7 +916,7 @@ void check_gcp_dists(std::vector<boost::shared_ptr<CameraModel> > const& camera_
       double ans = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
 						     forced_triangulation_distance);
       // Skip points for which triangulation failed
-      if (cp_new.position() == Vector3() || ans < 0 || cp_new.size() <= 1)
+      if (cp_new.position() == Vector3() || ans < 0)
 	continue;
 
       mean_ip += (cp_new.position() / ip_count);
