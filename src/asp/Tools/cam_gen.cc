@@ -735,6 +735,8 @@ int main(int argc, char * argv[]){
 		      xyz_vec, opt.pixel_values, verbose, out_cam);
 
 
+    llh = datum.cartesian_to_geodetic(out_cam->camera_center(Vector2()));
+    vw_out() << "Camera lon, lat, and height above datum: " << llh << std::endl;
     vw_out() << "Writing: " << opt.camera_file << std::endl;
     if (opt.camera_type == "opticalbar")
       ((asp::camera::OpticalBarModel*)out_cam.get())->write(opt.camera_file);

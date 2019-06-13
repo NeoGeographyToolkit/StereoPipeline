@@ -169,7 +169,7 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
     # Let output be interspersed, read input series from file
     # Start in the same directory on remote machines. Ensure
     # that vital env variables are copied over.
-    cmd = ['parallel',  '--workdir', os.getcwd(), '-u',
+    cmd = ['parallel',  '--will-cite', '--workdir', os.getcwd(), '-u',
            '--env', 'PATH', '--env', 'PYTHONPATH', '--env', 'ISISROOT',
            '--env', 'ISIS3DATA', '-a', argumentFilePath]
 

@@ -161,8 +161,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw( ArgumentErr() << "Must specify a valid range of heights.\n"
                 << usage << general_options );
     
-    if (opt.lon_lat_range.empty() )
-      vw_throw( ArgumentErr() << "Must specify a valid range of longitude and latitude.\n"
+    if (opt.lon_lat_range.empty())
+      vw_throw( ArgumentErr() << "Must specify a valid range for longitude and latitude.\n"
                 << usage << general_options );
   }
   

@@ -429,7 +429,7 @@ def spawn_to_nodes(step, settings, args):
     f.close()
 
     # Use GNU parallel with given number of processes.
-    cmd = ['parallel', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '-u', '-P', str(procs), '-a', tmpFile.name]
+    cmd = ['parallel', '--will-cite', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '-u', '-P', str(procs), '-a', tmpFile.name]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
