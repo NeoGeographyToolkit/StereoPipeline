@@ -254,9 +254,8 @@ def distribute_files(output_prefix, ext, num_instances):
             base_name = f.replace(output_prefix,'')
             for s in sub_prefixes:
                 sub_folder = os.path.dirname(s)
-                if not os.path.exists(sub_folder):
-                    os.mkdir(sub_folder)
                 new_path = s + base_name
+                asp_system_utils.mkdir_p(os.path.dirname(new_path))
                 shutil.copyfile(f, new_path)
 
 if __name__ == '__main__':

@@ -1141,7 +1141,7 @@ so some patience will be needed to work with it. That is due to the following fa
  \item The footprint on the ground is small, on the order of 2 km.
   \item The terrain can be very steep.
  \item The known longitude-latitude corners of each image have only a few digits of
-precision, which can result in poor initial estimatd cameras.
+precision, which can result in poor initial estimated cameras.
 \end{itemize}
 
 Below a recipe for how to deal with this data is described, together with
@@ -1211,7 +1211,7 @@ It appears that SRTM stores heights above the geoid, rather than above the datum
 Hence it needs to be adjusted, as follows:
 
 \begin{verbatim}
-  dem_geoid --reverse-adjustment ref_dem_clipped.tif -o -o run/run 
+  dem_geoid --reverse-adjustment ref_dem_clipped.tif -o run/run 
   mv run/run-adj.tif ref_dem.tif
 \end{verbatim}
 
@@ -1307,7 +1307,7 @@ It is very important to not use the ``pinhole'' session here, rather
 in this steep terrain.
 
 The output optimized cameras will be named \texttt{ba/run-run-v[1-4].tsai}.
-The reason one has the word ``run'' twice is because we ran 
+The reason one has the word ``run'' repeated is because we ran 
 this tool twice. The intermediate cameras from the first run 
 were called \texttt{ba/run-v[1-4].tsai}.
 
@@ -1336,7 +1336,7 @@ images, one may need to increase the value of \texttt{-\/-ip-inlier-factor}.
 Note that a large value here may allow more outliers. 
 
 Another thing one should keep an eye on is the height above datum
-of the camera centers as printed by bundle adjustment towatds the end. 
+of the camera centers as printed by bundle adjustment towards the end. 
 Any large difference in camera heights (say more than a few km) could
 be a symptom of some failure.
 
@@ -1346,7 +1346,7 @@ be a symptom of some failure.
 The next step is to run stereo and create DEMs.
 
 We will run the following command for each pair of images. Note
-that we reuse the filtered match points created by stereo. 
+that we reuse the filtered match points created by bundle adjustment. 
 \begin{verbatim}
   i=1
   ((j=i+1))
@@ -1362,12 +1362,14 @@ that we reuse the filtered match points created by stereo.
 (Repeat this for other values of $i$.)
 
 Here we chose to use a stereographic projection in \texttt{point2dem}
-to create the DEM in units of meter. One can can also use a different
-projection that can be passed to the option \texttt{-\/-t\_srs}.
+centered on this region to create the DEM in units of meter. One can can
+also use a different projection that can be passed to the option
+\texttt{-\/-t\_srs}, or if doing as above, the center of the projection
+would need to change if working on a different region.
 
 It is important to examine the mean intersection error for each DEM:
 \begin{verbatim}
-  gdalinfo -stats stereo_v12/run-IntersectionErr.tif |grep Mean
+  gdalinfo -stats stereo_v12/run-IntersectionErr.tif | grep Mean
 \end{verbatim}
 
 which should hopefully be no more than 0.5 meters, otherwise likely 
@@ -1421,7 +1423,7 @@ follows:
   gdalinfo -stats tmp-diff.tif | grep Mean
 \end{verbatim}
 
-In this case the mean error after alignemnt was about 6.5 m, 
+In this case the mean error after alignment was about 6.5 m, 
 which is not too bad given that the reference DEM resolution is about
 30 m/pixel.
 
@@ -1440,7 +1442,7 @@ be done as follows:
 \end{verbatim}
 
 creating the aligned cameras \texttt{ba/run-run-run-v[1-4].tsai}. 
-If \texttt{pc\_align} was called with the refrence DEM being
+If \texttt{pc\_align} was called with the reference DEM being
 the second cloud, one should use above the file
 \begin{verbatim}
   align/run-inverse-transform.txt
@@ -1454,9 +1456,7 @@ map-project the images first onto the reference DEM:
 
 \begin{verbatim}
   for i in 1 2 3 4; do 
-    mapproject --t_srs \
-     '+proj=stere +lat_0=39.4702 +lon_0=253.908 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m' \
-    ref_dem.tif v${i}.tif ba/run-run-run-v${i}.tsai v${i}_map.tif  
+    mapproject ref_dem.tif v${i}.tif ba/run-run-run-v${i}.tsai v${i}_map.tif  
   done
 \end{verbatim} % put a stray $ here as emacs's highlighting gets confused
 
@@ -1465,11 +1465,12 @@ and then run stereo with the mapprojected images, such as:
 \begin{verbatim}
   i=1
   ((j=i+1))
+  rm -rfv stereo_map_v${i}${j}
   stereo v${i}_map.tif v${j}_map.tif                                         \
     ba/run-run-run-v${i}.tsai ba/run-run-run-v${j}.tsai                      \
     stereo_map_v${i}${j}/run ref_dem.tif --session-type pinhole              \
     --cost-mode 4 --stereo-algorithm 2 --corr-seed-mode 1                    \
-    --alignment-method none --corr-tile-size 9000                            \
+    --alignment-method none --corr-tile-size 9000                            
   point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 --tr 4  \
     --errorimage stereo_map_v${i}${j}/run-PC.tif
 \end{verbatim}
@@ -1489,12 +1490,12 @@ Problems are usually due to cameras being initialized inaccurately
 by \texttt{cam\_gen} or bundle adjustment not optimizing them well.
 The simplest solution is often to just try a different pair of images from the sequence, 
 say from earlier or later in the flight, or a pair with less overlap,
-or with more time elapsed between the two acquistions. Modifying various
+or with more time elapsed between the two acquisitions. Modifying various
 parameters may help as well.
 
-We have experimented suffiently with various SkySat datasets
+We have experimented sufficiently with various SkySat datasets
 to be sure that the intrinsics (focal length, optical center, and pixel pitch)
-are usually the issue, rather the positions and orientations of the cameras.
+are usually not the issue, rather the positions and orientations of the cameras.
 
 \subsection{Structure from motion}
 
@@ -1508,9 +1509,6 @@ Here is an example for two cameras:
 \begin{verbatim}
   out=out_v12 
   ba_params="--num-passes 1 --num-iterations 0 --transform-cameras-using-gcp"
-\end{verbatim}
-
-\begin{verbatim}
   theia_overdides="--sift_num_levels=6 --lowes_ratio=0.9 
     --min_num_inliers_for_valid_match=10 
     --min_num_absolute_pose_inliers=10 
@@ -1521,17 +1519,15 @@ Here is an example for two cameras:
     --triangulation_reprojection_error_pixels=100.0 
     --min_num_inliers_for_valid_match=10 
     --min_num_absolute_pose_inliers=10"                  
-\end{verbatim}
-
-\begin{verbatim}
   rm -rfv $out
-  camera_solve $out --datum WGS84 --datum WGS84 --calib-file v1.tsai \
+  camera_solve $out --datum WGS84 --calib-file v1.tsai               \
       --bundle-adjust-params "$ba_params v1.gcp v2.gcp" v1.tif v2.tif 
-\end{verbatim} # make emacs happy $
+\end{verbatim} % make emacs happy $
 
-The obtained cameras would hopefully be good enough to use with stereo,
-or they can be used instead of the ones output by \texttt{cam\_gen}
-so they can be further bundle-adjusted as at the beginning of the section.
+The obtained cameras should be bundle-adjusted as done for the outputs
+of \texttt{cam\_gen}. Note that this tool is capricious and its outputs
+can be often wrong. In the future it will be replaced by something more
+robust.
 
 \subsection{RPC models}
 
@@ -1555,7 +1551,7 @@ of corners. Here is an example:
 \end{verbatim}
 (Note that the Breckenridge dataset does not have RPC data, but other datasets do.)
 
-and then one can proceed as earlier (particularly the GCP file can be edited
+Then one can proceed as earlier (particularly the GCP file can be edited
 to reflect the shorter image name).
 
 One can also regenerate the provided SkySat RPC model as:
@@ -1610,8 +1606,8 @@ obtained images. Hopefully these disparities are dense and with few holes.
 
 The dense interest points should be copied to the new bundle adjustment directory, such as
 \begin{verbatim}
-  mkdir -p run_ref_terrain
-  cp stereo_v12/run-disp-v1__v2.match run_ref_terrain/run-v1__v2.match
+  mkdir -p ba_ref_terrain
+  cp stereo_v12/run-disp-v1__v2.match ba_ref_terrain/run-v1__v2.match
 \end{verbatim}
 
 and the same for the other ones (note the convention for match files in the new directory).
@@ -1619,7 +1615,7 @@ The unaligned disparities can be used from where they are.
 
 Then bundle adjustment using the reference terrain constraint proceeds as follows:
 \begin{verbatim}
-  disp_list=$(ls stereo_v*/*-unaligned-D.tif)
+  disp_list=$(ls stereo_v[1-4][1-4]/*-unaligned-D.tif)
   bundle_adjust v[1-4].tif  ba/run-run-run-v[1-4].tsai -o ba_ref_terrain/run    \
   --reference-terrain ref_dem.tif --disparity-list "$disp_list"                 \
   --max-num-reference-points 10000000 --reference-terrain-weight 50             \

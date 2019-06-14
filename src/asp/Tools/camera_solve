@@ -534,7 +534,7 @@ def run_bundle_adjust(options):
     cmd += ba_params
     asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
-    # The previous call should create a .pinhole file for every input image in the output folder
+    # The previous call should create a .tsai file for every input image in the output folder
     ba_camera_models = get_paths_with_extension(options.input_images, options.output_folder,
                                                 '.tsai', prefix='asp_ba_out-')
     output_paths = get_paths_with_extension(options.input_images, options.output_folder,
