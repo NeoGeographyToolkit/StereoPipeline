@@ -26,6 +26,7 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Math/LevenbergMarquardt.h>
+#include <vw/Math/Geometry.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
@@ -51,6 +52,183 @@ using namespace std;
 using namespace vw::cartography;
 using namespace asp::camera;
 
+// Solve for best fitting camera that projects given
+// xyz locations at given pixels. If cam_weight > 0,
+// try to constrain the camera height above datum at
+// the value of cam_height.
+template <class CAM>
+class CameraSolveLMA_Ht: public vw::math::LeastSquaresModelBase<CameraSolveLMA_Ht<CAM> > {
+  std::vector<vw::Vector3> const& m_xyz;
+  CAM m_camera_model;
+  double m_cam_height, m_cam_weight;
+  vw::cartography::Datum m_datum;
+  mutable size_t m_iter_count;
+  
+public:
+
+  typedef vw::Vector<double>    result_type;   // pixel residuals
+  typedef vw::Vector<double, 6> domain_type;   // camera parameters (camera center and axis angle)
+  typedef vw::Matrix<double> jacobian_type;
+
+  /// Instantiate the solver with a set of xyz to pixel pairs and a pinhole model
+  CameraSolveLMA_Ht(std::vector<vw::Vector3> const& xyz,
+		  CAM const& camera_model,
+		  double cam_height, double cam_weight,
+		  vw::cartography::Datum const& datum):
+    m_xyz(xyz),
+    m_camera_model(camera_model), m_iter_count(0),
+    m_cam_height(cam_height), m_cam_weight(cam_weight),
+    m_datum(datum) {}
+
+  /// Given the camera, project xyz into it
+  inline result_type operator()( domain_type const& C ) const {
+
+    // Create the camera model
+    CAM camera_model = m_camera_model;  // make a copy local to this function
+    vector_to_camera(camera_model, C);  // update its parameters
+
+    int xyz_len = m_xyz.size();
+    size_t result_size = xyz_len * 2;
+    if (m_cam_weight > 0) {
+      result_size += 1;
+    }
+
+    // See where the xyz coordinates project into the camera.
+    result_type result;
+    result.set_size(result_size);
+    for (size_t i = 0; i < xyz_len; i++) {
+      Vector2 pixel = camera_model.point_to_pixel(m_xyz[i]);
+      result[2*i  ] = pixel[0];
+      result[2*i+1] = pixel[1];
+    }
+
+    // Try to make the camera stay at given height
+    if (m_cam_weight > 0) {
+      Vector3 cam_ctr = subvector(C, 0, 3);
+      Vector3 llh = m_datum.cartesian_to_geodetic(cam_ctr);
+      result[2*xyz_len] = m_cam_weight*(llh[2] - m_cam_height);
+    }
+    
+    ++m_iter_count;
+    
+    return result;
+  }
+}; // End class CameraSolveLMA_Ht
+
+/// Find the best camera that fits the current GCP
+void fit_camera_to_xyz_ht(std::string const& camera_type,
+			bool refine_camera, 
+			std::vector<Vector3> const& xyz_vec,
+			std::vector<double> const& pixel_values,
+			double cam_height, double cam_weight,
+			vw::cartography::Datum const& datum,
+			bool verbose,
+			boost::shared_ptr<CameraModel> & out_cam){
+  
+  // Create fake points in space at given distance from this camera's
+  // center and corresponding actual points on the ground.  Use 500
+  // km, just some height not too far from actual satellite height.
+  const double ht = 500000; 
+  vw::Matrix<double> in, out;
+  int num_pts = pixel_values.size()/2;
+  in.set_size(3, num_pts);
+  out.set_size(3, num_pts);
+  for (int col = 0; col < in.cols(); col++) {
+    Vector3 a = out_cam->camera_center(Vector2(0, 0)) +
+      ht*out_cam->pixel_to_vector(Vector2(pixel_values[2*col], pixel_values[2*col+1]));
+    for (int row = 0; row < in.rows(); row++) {
+      in(row, col)  = a[row];
+      out(row, col) = xyz_vec[col][row];
+    }
+  }
+
+  // Apply a transform to the camera so that the fake points are on top of the real points
+  Matrix<double, 3, 3> rotation;
+  Vector3 translation;
+  double scale;
+  find_3D_affine_transform(in, out, rotation, translation, scale);
+  if (camera_type == "opticalbar")
+    ((vw::camera::OpticalBarModel*)out_cam.get())->apply_transform(rotation,
+								    translation, scale);
+  else
+    ((PinholeModel*)out_cam.get())->apply_transform(rotation, translation, scale);
+
+  // Print out some errors
+  if (verbose) {
+    vw_out() << "The error between the projection of each ground "
+	     << "corner point into the coarse camera and its pixel value:\n";
+    for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
+      vw_out () << "Corner and error: ("
+		<< pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
+		<< ") " <<  norm_2(out_cam.get()->point_to_pixel(xyz_vec[corner_it]) -
+				 Vector2( pixel_values[2*corner_it],
+					  pixel_values[2*corner_it+1]))
+		<< std::endl;
+    }
+  }
+  
+  // Solve a little optimization problem to make the points on the ground project
+  // as much as possible exactly into the image corners.
+  if (refine_camera) {
+    Vector<double> out_vec; // must copy to this structure
+    int residual_len = pixel_values.size();
+
+    // If we enforce the camera height, add another residual
+    if (cam_weight > 0.0) 
+      residual_len += 1;
+
+    // Copy the image pixels
+    out_vec.set_size(residual_len);
+    for (size_t corner_it = 0; corner_it < pixel_values.size(); corner_it++) 
+      out_vec[corner_it] = pixel_values[corner_it];
+
+    if (cam_weight > 0.0) 
+      out_vec[residual_len - 1] = 0.0;
+        
+    const double abs_tolerance  = 1e-24;
+    const double rel_tolerance  = 1e-24;
+    const int    max_iterations = 2000;
+    int status = 0;
+    Vector<double> final_params;
+    Vector<double> seed;
+      
+    if (camera_type == "opticalbar") {
+      CameraSolveLMA_Ht<vw::camera::OpticalBarModel>
+	lma_model(xyz_vec, *((vw::camera::OpticalBarModel*)out_cam.get()),
+		  cam_height, cam_weight, datum);
+      camera_to_vector(*((vw::camera::OpticalBarModel*)out_cam.get()), seed);
+      final_params = math::levenberg_marquardt(lma_model, seed, out_vec,
+					       status, abs_tolerance, rel_tolerance,
+					       max_iterations);
+      vector_to_camera(*((vw::camera::OpticalBarModel*)out_cam.get()), final_params);
+    } else {
+      CameraSolveLMA_Ht<PinholeModel> lma_model(xyz_vec, *((PinholeModel*)out_cam.get()),
+		  cam_height, cam_weight, datum);
+      camera_to_vector(*((PinholeModel*)out_cam.get()), seed);
+      final_params = math::levenberg_marquardt(lma_model, seed, out_vec,
+					       status, abs_tolerance, rel_tolerance,
+					       max_iterations);
+      vector_to_camera(*((PinholeModel*)out_cam.get()), final_params);
+    }
+    if (status < 1)
+      vw_out() << "The Levenberg-Marquardt solver failed. Results may be inaccurate.\n";
+
+    if (verbose) {
+      vw_out() << "The error between the projection of each ground "
+	       << "corner point into the refined camera and its pixel value:\n";
+      for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
+	vw_out () << "Corner and error: ("
+		  << pixel_values[2*corner_it] << ' ' << pixel_values[2*corner_it+1]
+		  << ") " <<  norm_2(out_cam.get()->point_to_pixel(xyz_vec[corner_it]) -
+				     Vector2( pixel_values[2*corner_it],
+					      pixel_values[2*corner_it+1]))
+		  << std::endl;
+      }
+    }
+    
+  } // End camera refinement case
+}
+
 // Parse numbers or strings from a list where they are separated by commas or spaces.
 template<class T>
 void parse_values(std::string list, std::vector<T> & values){
@@ -75,12 +253,13 @@ void parse_values(std::string list, std::vector<T> & values){
 struct Options : public vw::cartography::GdalWriteOptions {
   string image_file, camera_file, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
-    stereo_session, bundle_adjust_prefix;
-  double focal_length, pixel_pitch, gcp_std, height_above_datum;
+    stereo_session, bundle_adjust_prefix, cam_xyz_str;
+  double focal_length, pixel_pitch, gcp_std, height_above_datum,
+    cam_height, cam_weight;
   Vector2 optical_center;
   std::vector<double> lon_lat_values, pixel_values;
   bool refine_camera; 
-  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false) {}
+  Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -112,6 +291,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If provided, save the image corner coordinates and heights in the GCP format to this file.")
     ("gcp-std", po::value(&opt.gcp_std)->default_value(1),
      "The standard deviation for each GCP pixel, if saving a GCP file. A smaller value suggests a more reliable measurement, hence will be given more weight.")
+    ("cam-height", po::value(&opt.cam_height)->default_value(0),
+     "If both this and --cam-weight are positive, enforce that the output camera is at this height above datum. For SkySat, if not set, read this from the frame index. Highly experimental.")
+    ("cam-weight", po::value(&opt.cam_weight)->default_value(0),
+     "If positive, try to enforce the option --cam-height with this weight (bigger weight means try harder to enforce). Highly experimental.")
     ("input-camera", po::value(&opt.input_camera)->default_value(""),
      "Create the output pinhole camera approximating this camera.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
@@ -168,12 +351,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << usage << general_options );
 
   if (opt.frame_index != "" && opt.lon_lat_values_str != "") 
-    vw_throw( ArgumentErr() << "Cannot specify both the frame index file and the lon-lat corners.\n"
+    vw_throw( ArgumentErr() << "Cannot specify both the frame index file "
+	      << "and the lon-lat corners.\n"
               << usage << general_options );
 
   if (opt.frame_index != "") {
     // Parse the frame index to extract opt.lon_lat_values_str.
-    // Look for a line having this image, and search for 
+    // Look for a line having this image, and search for "POLYGON".
     boost::filesystem::path p(opt.image_file); 
     std::string image_base = p.stem().string(); // strip the directory name and suffix
     std::ifstream file( opt.frame_index.c_str() );
@@ -190,7 +374,27 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
         if (end_pos == std::string::npos)
           vw_throw( ArgumentErr() << "Cannot find " << end << " in line: " << line << ".\n");
         opt.lon_lat_values_str = line.substr(beg_pos, end_pos - beg_pos);
-        vw_out() << "Scanned the lon-lat corner values: " << opt.lon_lat_values_str << std::endl;
+        vw_out() << "Parsed the lon-lat corner values: " << opt.lon_lat_values_str
+		 << std::endl;
+	
+	// Also parse the camera height constraint, unless manually specified
+	if (opt.cam_weight > 0) {
+	  std::vector<std::string> vals;
+	  parse_values<std::string>(line, vals);
+	  
+	  if (vals.size() < 8) 
+	    vw_throw( ArgumentErr() << "Could not parse 8 values from: " << line << ".\n");
+
+	  // Extract the ECI coordinates of camera center. Keep them
+	  // as string until we can convert to height above datum.
+	  std::string x = vals[5];
+	  std::string y = vals[6];
+	  std::string z = vals[7];
+	  opt.cam_xyz_str = x + " " + y + " " + z;
+	  vw_out() << "Parsed the ECI camera center in km: "
+		   << x << ' ' << y << ' ' << z <<".\n";
+	}
+	
         break;
       }
     }
@@ -644,6 +848,31 @@ int main(int argc, char * argv[]){
     ImageViewRef< PixelMask<float> > interp_dem
       = interpolate(create_mask(dem, nodata_value),
 		    BilinearInterpolation(), ZeroEdgeExtension());
+
+    // If we have camera center in ECI coordinates in km, convert
+    // to height above datum.
+    if (opt.cam_xyz_str != "") {
+      std::vector<double> vals;
+      parse_values<double>(opt.cam_xyz_str, vals);
+      if (vals.size() != 3) 
+	vw_throw( ArgumentErr() << "Could not parse 3 values from: "
+		  << opt.cam_xyz_str << ".\n");
+
+      Vector3 xyz(vals[0], vals[1], vals[2]);
+      xyz *= 1000.0;  // convert to meters
+
+      Vector3 llh = datum.cartesian_to_geodetic(xyz);
+      
+      // Since xyz is in ECI coordinates, the lon and lat won't be accurate
+      // but the height will be.
+      opt.cam_height = llh[2];
+    }
+
+    if (opt.cam_weight > 0) {
+      vw_out() << "Will attempt to find a camera center height above datum of "
+	       << opt.cam_height
+	       << " meters with a weight strength of " << opt.cam_weight << ".\n";
+    }
     
     if (opt.input_camera != ""){
       // Extract lon and lat from tracing rays from the camera to the ground.
@@ -693,8 +922,8 @@ int main(int argc, char * argv[]){
           }
         }
         if (!success) 
-          vw_out() << "Could not determine a valid height value for the next corner. "
-                   << "Will use a height of " << height << ".\n";
+          vw_out() << "Could not determine a valid height value at lon-lat: "
+		   << llh[0] << ' ' << llh[1] << ". Will use a height of " << height << ".\n";
       }
       
       llh[2] = height;
@@ -731,12 +960,14 @@ int main(int argc, char * argv[]){
 
     // Transform it and optionally refine it
     bool verbose = true;
-    fit_camera_to_xyz(opt.camera_type, opt.refine_camera,  
-		      xyz_vec, opt.pixel_values, verbose, out_cam);
-
-
+    
+    fit_camera_to_xyz_ht(opt.camera_type, opt.refine_camera,  
+			 xyz_vec, opt.pixel_values, 
+			 opt.cam_height, opt.cam_weight, datum,
+			 verbose, out_cam);
+    
     llh = datum.cartesian_to_geodetic(out_cam->camera_center(Vector2()));
-    vw_out() << "Camera lon, lat, and height above datum: " << llh << std::endl;
+    vw_out() << "Output camera center lon, lat, and height above datum: " << llh << std::endl;
     vw_out() << "Writing: " << opt.camera_file << std::endl;
     if (opt.camera_type == "opticalbar")
       ((asp::camera::OpticalBarModel*)out_cam.get())->write(opt.camera_file);

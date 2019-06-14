@@ -527,10 +527,15 @@ by reprojection error and disparity (the options below have more detail).
 Example (for generic pinhole camera data, using estimated camera positions):
 \begin{verbatim}
   bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai -o run_ba/run  \
-     -t pinhole --inline-adjustments --datum WGS_1984                    \
+     -t nadirpinhole --inline-adjustments --datum WGS_1984               \
      --camera-positions nav_data.csv                                     \
      --csv-format "1:file 6:lat 7:lon 9:height_above_datum"
 \end{verbatim}
+
+Here we assumed that the cameras point towards some planet's surface and
+used the \texttt{nadirpinhole} session. If this assumption is not true
+one should use the \texttt{pinhole} session, though this one
+often does not perform as well when finding interest points in planetary context. 
 
 This tool will write the adjustments to the cameras as \texttt{*.adjust}
 files starting with the specified output prefix. In order for

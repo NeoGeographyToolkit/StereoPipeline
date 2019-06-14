@@ -1230,7 +1230,7 @@ for the first image as as follows:
 \end{verbatim}
 
 This tool works by reading the longitude and latitude of each image corner on the ground 
-from the meta file \texttt{frame\_index.csv}, and finding the position and orientation
+from the file \texttt{frame\_index.csv}, and finding the position and orientation
 of the camera that best fits this data. The camera is written to \texttt{v1.tsai}. 
 A GCP file is written to \texttt{v1.gcp}. This will help later with bundle adjustment.
 
@@ -1284,22 +1284,27 @@ cameras self-consistent, which can make them move away, however,
 and in the second call we will bring them back to the original location.
 
 \begin{verbatim}
-  parallel_bundle_adjust -t pinhole --disable-tri-ip-filter \
-    --disable-pinhole-gcp-init --skip-rough-homography      \
-    --force-reuse-match-files --ip-inlier-factor 2.0        \
-    --ip-uniqueness-threshold 0.9 --ip-per-tile 2000        \
-    --datum WGS84 --inline-adjustments --camera-weight 0    \
-    --overlap-limit 10 --robust-threshold 10                \
-    --remove-outliers-params '75 3 4 5'                     \
-    --ip-num-ransac-iterations 1000                         \
-    --num-passes 2 --num-iterations 2000                    \
+  parallel_bundle_adjust -t nadirpinhole --disable-tri-ip-filter \
+    --disable-pinhole-gcp-init --skip-rough-homography           \
+    --force-reuse-match-files --ip-inlier-factor 2.0             \
+    --ip-uniqueness-threshold 0.9 --ip-per-tile 2000             \
+    --datum WGS84 --inline-adjustments --camera-weight 0         \
+    --overlap-limit 10 --robust-threshold 10                     \
+    --remove-outliers-params '75 3 4 5'                          \
+    --ip-num-ransac-iterations 1000                              \
+    --num-passes 2 --num-iterations 2000                         \
     v[1-4].tif v[1-4].tsai -o ba/run
 
-  parallel_bundle_adjust -t pinhole --datum WGS84          \
-    --inline-adjustments --num-passes 1                    \
-    --num-iterations 0 --transform-cameras-using-gcp       \
+  parallel_bundle_adjust -t nadirpinhole --datum WGS84           \
+    --force-reuse-match-files --inline-adjustments               \
+    --num-passes 1 --num-iterations 0                            \
+    --transform-cameras-using-gcp                                \
     v[1-4].tif ba/run-v[1-4].tsai v[1-4].gcp -o ba/run
 \end{verbatim}
+
+It is very important to not use the ``pinhole'' session here, rather
+``nadirpinhole'' as the former does not filter well interest points
+in this steep terrain.
 
 The output optimized cameras will be named \texttt{ba/run-run-v[1-4].tsai}.
 The reason one has the word ``run'' twice is because we ran 
@@ -1309,8 +1314,7 @@ were called \texttt{ba/run-v[1-4].tsai}.
 Here we use \texttt{-\/-ip-per-tile 2000} to create a lot of interest
 points. This will help with alignment later. It is suggested that the
 user study all these options and understand what they do. 
-One can also experiment with more than one pass of bundle adjustment,
-when outliers are removed. We also used \texttt{-\/-robust-threshold 10}
+We also used \texttt{-\/-robust-threshold 10}
 to force the solver to work the bigger errors. That is necessary
 since the initial cameras could be pretty inaccurate. 
 
@@ -1341,11 +1345,14 @@ be a symptom of some failure.
 
 The next step is to run stereo and create DEMs.
 
-We will run the following command for each pair of images in the bash shell: 
+We will run the following command for each pair of images. Note
+that we reuse the filtered match points created by stereo. 
 \begin{verbatim}
   i=1
   ((j=i+1))
   st=stereo_v${i}${j}
+  rm -rfv $st
+  mkdir -p $st
   cp -fv ba/run-v${i}__v${j}-clean.match $st/run-v${i}__v${j}.match
   parallel_stereo --skip-rough-homography -t nadirpinhole --stereo-algorithm 2 \
     v${i}.tif v${j}.tif ba/run-run-v${i}.tsai ba/run-run-v${j}.tsai $st/run
@@ -1371,14 +1378,14 @@ bundle adjustment failed. One should also compare the DEMs among themselves:
 \end{verbatim}
 
 (And so on for any other pair.) 
-Here the mean error should be on the order of 4-6 meters, or hopefully less. 
+Here the mean error should be on the order of 2 meters, or hopefully less. 
 
 \subsection{Mosaicking and alignment}
 
 If more than one image pair was used, the obtained DEMs can be mosaicked:
 
 \begin{verbatim}
-  dem_mosaic stereo_v12/run-DEM.tif stereo_v23/run-DEM.tif\
+  dem_mosaic stereo_v12/run-DEM.tif stereo_v23/run-DEM.tif \
     stereo_v34/run-DEM.tif -o mosaic.tif
 \end{verbatim}
 
@@ -1387,7 +1394,8 @@ reference DEM.
 
 The next step is aligning it to the reference. 
 \begin{verbatim}
-  pc_align --max-displacement 2000 --save-transformed-source-points \
+  pc_align --max-displacement 1000 --save-transformed-source-points \
+    --alignment-method similarity-point-to-point                    \
     ref_dem.tif mosaic.tif -o align/run
 \end{verbatim}
 
@@ -1413,7 +1421,7 @@ follows:
   gdalinfo -stats tmp-diff.tif | grep Mean
 \end{verbatim}
 
-In this case the mean error after alignemnt was about 7 m, 
+In this case the mean error after alignemnt was about 6.5 m, 
 which is not too bad given that the reference DEM resolution is about
 30 m/pixel.
 
@@ -1424,13 +1432,20 @@ to bring the cameras in alignment to the reference DEM. That can
 be done as follows:
 
 \begin{verbatim}
-  parallel_bundle_adjust -t pinhole --datum wgs84          \
+  parallel_bundle_adjust -t nadirpinhole --datum wgs84     \
+    --force-reuse-match-files                              \
     --inline-adjustments --num-passes 1 --num-iterations 0 \
     --initial-transform align/run-transform.txt            \
     v[1-4].tif ba/run-run-v[1-4].tsai -o ba/run
 \end{verbatim}
 
-creating the aligned cameras \texttt{ba/run-run-run-v[1-4].tsai}.
+creating the aligned cameras \texttt{ba/run-run-run-v[1-4].tsai}. 
+If \texttt{pc\_align} was called with the refrence DEM being
+the second cloud, one should use above the file
+\begin{verbatim}
+  align/run-inverse-transform.txt
+\end{verbatim}
+as the initial transform.
 
 \subsection{Mapprojection}
 
@@ -1538,6 +1553,7 @@ of corners. Here is an example:
     --refine-camera --gcp-std 1 --input-camera $img                     \
     -o v1_rpc.tsai --gcp-file v1_rpc.gcp
 \end{verbatim}
+(Note that the Breckenridge dataset does not have RPC data, but other datasets do.)
 
 and then one can proceed as earlier (particularly the GCP file can be edited
 to reflect the shorter image name).
@@ -1604,9 +1620,9 @@ The unaligned disparities can be used from where they are.
 Then bundle adjustment using the reference terrain constraint proceeds as follows:
 \begin{verbatim}
   disp_list=$(ls stereo_v*/*-unaligned-D.tif)
-  bundle_adjust v[1-4].tif  ba_align/run-run-v[1-4].tsai -o ba_ref_terrain/run  \
+  bundle_adjust v[1-4].tif  ba/run-run-run-v[1-4].tsai -o ba_ref_terrain/run    \
   --reference-terrain ref_dem.tif --disparity-list "$disp_list"                 \
-  --max-num-reference-points 10000000 --reference-terrain-weight 50             \ 
+  --max-num-reference-points 10000000 --reference-terrain-weight 50             \
   --parameter-tolerance 1e-12 -t nadirpinhole --max-iterations 500              \
   --overlap-limit 1 --inline-adjustments --robust-threshold 2                   \
   --force-reuse-match-files --max-disp-error 100 --camera-weight 0
