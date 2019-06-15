@@ -16,6 +16,12 @@
 #  limitations under the License.
 # __END_LICENSE__
 
+# TODO: Use relative symbolic links.
+# TODO: The same behavior as bundle adjust should be used when dealing
+# with pre-existing match files. This tool recreates them if cannot
+# find them in the subdirectory for each subtask even though they
+# exist in the final location.
+
 import sys, optparse, subprocess, re, os, math, time, tempfile, glob,\
        shutil, math, copy
 import os.path as P

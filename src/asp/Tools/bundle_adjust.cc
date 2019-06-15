@@ -633,9 +633,9 @@ int update_outliers(ControlNetwork   & cnet,
   vw_out() << "Removed " << num_outliers_by_reprojection << " outliers by reprojection error.\n";
 
   // Remove outliers by elevation limit
-  int num_outliers_by_elevation = 0;
-  if ( opt.elevation_limit[0] < opt.elevation_limit[1] ) {
-    
+  int num_outliers_by_elev_or_lonlat = 0;
+  if ( opt.elevation_limit[0] < opt.elevation_limit[1] || !opt.lon_lat_limit.empty()) {
+
     for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
 
       if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
@@ -647,19 +647,28 @@ int update_outliers(ControlNetwork   & cnet,
       const double * point = param_storage.get_point_ptr(ipt);
       Vector3 xyz(point[0], point[1], point[2]);
       Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
-      // Below check for NaN as well just in case
-      if (llh[2] != llh[2] || llh[2] < opt.elevation_limit[0] || llh[2] > opt.elevation_limit[1]) {
+      if (opt.elevation_limit[0] < opt.elevation_limit[1] && 
+	  (llh[2] < opt.elevation_limit[0] ||
+	   llh[2] > opt.elevation_limit[1])) {
         param_storage.set_point_outlier(ipt, true);
-        num_outliers_by_elevation++;
+        num_outliers_by_elev_or_lonlat++;
+	continue;
       }
+
+      Vector2 lon_lat = subvector(llh, 0, 2);
+      if ( !opt.lon_lat_limit.empty() && !opt.lon_lat_limit.contains(lon_lat) ) {
+        param_storage.set_point_outlier(ipt, true);
+        num_outliers_by_elev_or_lonlat++;
+	continue;
+      }
+      
     }
-    vw_out() << "Removed " << num_outliers_by_elevation << " outliers by elevation range.\n";
+    vw_out() << "Removed " << num_outliers_by_elev_or_lonlat << " outliers by elevation range and/or lon-lat range.\n";
   }
 
   int num_remaining_points = num_points - param_storage.get_num_outliers();
-  vw_out() << "Now have " << num_remaining_points << " points remaining.\n";
 
-  return num_outliers_by_reprojection + num_outliers_by_elevation;
+  return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;
 }
 
 // TODO: At least part of this should be a class function??
@@ -763,6 +772,8 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
     match_file = fs::path(match_file).replace_extension("").string();
     match_file += "-clean.match";
     
+    vw_out() << "Saving " << left_ip.size() << " filtered interest points.\n";
+
     vw_out() << "Writing: " << match_file << std::endl;
     ip::write_binary_match_file(match_file, left_ip, right_ip);
   } // End loop through the match files
@@ -1563,7 +1574,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
             "Don't try to initialize the positions of pinhole cameras based on input GCPs.")
     ("transform-cameras-using-gcp",  po::bool_switch(&opt.transform_cameras_using_gcp)->default_value(false)->implicit_value(true),
-            "Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each.")
+            "Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each. If at least three GCP each show up in at least two images, the transform will happen even without this option using a more robust algorithm.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
             "Prefix to read initial adjustments from, written by a previous invocation of this program.")
     ("initial-transform",   po::value(&opt.initial_transform_file)->default_value(""),
@@ -1603,38 +1614,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
             "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
     ("epipolar-threshold",      po::value(&opt.epipolar_threshold)->default_value(-1),
-            "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation.")
-    ("ip-inlier-factor",        po::value(&opt.ip_inlier_factor)->default_value(1.0/15.0),
-            "A higher factor will result in more interest points, but perhaps also more outliers.")
-    ("ip-uniqueness-threshold", po::value(&opt.ip_uniqueness_thresh)->default_value(0.7),
+            "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation. A higher values will result in more matches.")
+    ("ip-inlier-factor",        po::value(&opt.ip_inlier_factor)->default_value(0.2),
+            "A higher factor will result in more interest points, but perhaps also more outliers. This is used only with homography alignment, such as for the pinhole session.")
+    ("ip-uniqueness-threshold", po::value(&opt.ip_uniqueness_thresh)->default_value(0.8),
             "A higher threshold will result in more interest points, but perhaps less unique ones.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1),
             "Remove matched IPs this percentage from the image left/right sides.")
     ("normalize-ip-tiles", 
             po::bool_switch(&opt.ip_normalize_tiles)->default_value(false)->implicit_value(true),
             "Individually normalize tiles used for IP detection.")
-    ("disable-tri-ip-filter",
-            po::bool_switch(&opt.disable_tri_filtering)->default_value(false)->implicit_value(true),
-            "Skip tri_ip filtering.")
-    ("ip-debug-images",        po::value(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
-            "Write debug images to disk when detecting and matching interest points.")
-    ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
-            "Limit on expected elevation range: Specify as two values: min max.")
-    // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
-    ("lon-lat-limit",          po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
-            "Limit the triangulated interest points to this longitude-latitude range. The format is: lon_min lat_min lon_max lat_max.")
     ("num-obalog-scales",      po::value(&opt.num_scales)->default_value(-1),
             "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")
     ("nodata-value",           po::value(&opt.nodata_value)->default_value(nan),
             "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
-    ("skip-rough-homography",
-            po::bool_switch(&opt.skip_rough_homography)->default_value(false)->implicit_value(true),
-     "Skip the step of performing datum-based rough homography if it fails.")
-    ("no-datum", po::bool_switch(&opt.no_datum)->default_value(false)->implicit_value(true),
-     "Do not assume a reliable datum exists, such as for irregularly shaped bodies.")
-    ("individually-normalize", 
-            po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
-            "Individually normalize the input images instead of using common values.")
     ("num-iterations",       po::value(&opt.num_iterations)->default_value(1000),
      "Set the maximum number of iterations.") 
     ("max-iterations",       po::value(&max_iterations_tmp)->default_value(1000),
@@ -1659,20 +1652,42 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
             "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
-    ("num-passes",           po::value(&opt.num_ba_passes)->default_value(1),
+    ("num-passes",           po::value(&opt.num_ba_passes)->default_value(2),
             "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params and --remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.")
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
             "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
-    ("ip-triangulation-max-error",  po::value(&opt.ip_triangulation_max_error)->default_value(-1),
-     "When matching IP, filter out any pairs with a triangulation error higher than this.")
-    ("ip-num-ransac-iterations", po::value(&opt.ip_num_ransac_iterations)->default_value(100),
-     "How many RANSAC iterations to do in interest point matching.")
     ("remove-outliers-params", 
             po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
             "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.")
     ("remove-outliers-by-disparity-params",  
             po::value(&opt.remove_outliers_by_disp_params)->default_value(Vector2(90.0,3.0), "pct factor"),
             "Outlier removal based on the disparity of interest points (difference between right and left pixel), when more than one bundle adjustment pass is used. For example, the 10% and 90% percentiles of disparity are computed, and this interval is made three times bigger. Interest points whose disparity fall outside the expanded interval are removed as outliers. Instead of the default 90 and 3 one can specify pct and factor, without quotes.")
+    ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
+            "Remove as outliers interest points for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.")
+    // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
+    ("lon-lat-limit",          po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
+            "Remove as outliers interest points for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min_lon min_lat max_lon max_lat.")
+    ("enable-rough-homography",
+            po::bool_switch(&opt.enable_rough_homography)->default_value(false)->implicit_value(true),
+     "Enable the step of performing datum-based rough homography for interest point matching. This is best used with reasonably reliable input cameras and a wide footprint on the ground.")
+    ("skip-rough-homography",
+            po::bool_switch(&opt.skip_rough_homography)->default_value(false)->implicit_value(true),
+     "Skip the step of performing datum-based rough homography. This obsolete option is ignored as is the default.")
+    ("enable-tri-ip-filter",
+     po::bool_switch(&opt.enable_tri_filtering)->default_value(false)->implicit_value(true),
+     "Enable triangulation-based interest points filtering. This is best used with reasonably reliable input cameras.")
+    ("disable-tri-ip-filter",
+     po::bool_switch(&opt.disable_tri_filtering)->default_value(false)->implicit_value(true),
+     "Disable triangulation-based interest points filtering. This obsolete option is ignored as is the default.")
+    ("no-datum", po::bool_switch(&opt.no_datum)->default_value(false)->implicit_value(true),
+     "Do not assume a reliable datum exists, such as for irregularly shaped bodies.")
+    ("individually-normalize", 
+            po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
+            "Individually normalize the input images instead of using common values.")
+    ("ip-triangulation-max-error",  po::value(&opt.ip_triangulation_max_error)->default_value(-1),
+     "When matching IP, filter out any pairs with a triangulation error higher than this.")
+    ("ip-num-ransac-iterations", po::value(&opt.ip_num_ransac_iterations)->default_value(1000),
+     "How many RANSAC iterations to do in interest point matching.")
     ("min-triangulation-angle",      po::value(&opt.min_triangulation_angle)->default_value(0.1),
             "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
@@ -1688,8 +1703,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
     ("gcp-from-mapprojected-images", po::value(&opt.gcp_from_mapprojected)->default_value(""),
      "Given map-projected versions of the input images, the DEM the were mapprojected onto, and interest point matches among all of these created in stereo_gui, create GCP for the input images to align them better to the DEM. This is experimental and not documented.")
-    ("lambda,l",           po::value(&opt.lambda)->default_value(-1),
-            "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("instance-count",      po::value(&opt.instance_count)->default_value(1),
             "The number of bundle_adjustment processes being run in parallel.")
     ("instance-index",      po::value(&opt.instance_index)->default_value(0),
@@ -1700,6 +1713,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "Quit after writing all match files.")
     ("skip-matching",    po::bool_switch(&opt.skip_matching)->default_value(false)->implicit_value(true),
             "Only use image matches which can be loaded from disk.")
+    ("ip-debug-images",        po::value(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
+            "Write debug images to disk when detecting and matching interest points.")
     
     ("report-level,r",     po::value(&opt.report_level)->default_value(10),
             "Use a value >= 20 to get increasingly more verbose output.");
@@ -1856,25 +1871,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
   opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4> >(opt.remove_outliers_params_str);
   
-  // Copy the IP settings to the global stereo_settings() object
-  opt.copy_to_asp_settings();
-
   // Ensure good order
-  if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
-    if ( asp::stereo_settings().lon_lat_limit.min().y() >
-         asp::stereo_settings().lon_lat_limit.max().y() ) 
-      std::swap( asp::stereo_settings().lon_lat_limit.min().y(),
-                 asp::stereo_settings().lon_lat_limit.max().y() );
-    if ( asp::stereo_settings().lon_lat_limit.min().x() >
-         asp::stereo_settings().lon_lat_limit.max().x() ) 
-      std::swap( asp::stereo_settings().lon_lat_limit.min().x(),
-                 asp::stereo_settings().lon_lat_limit.max().x() );
+  if ( opt.lon_lat_limit != BBox2(0,0,0,0) ) {
+    if ( opt.lon_lat_limit.min().y() > opt.lon_lat_limit.max().y() ) 
+      std::swap( opt.lon_lat_limit.min().y(), opt.lon_lat_limit.max().y() );
+    if ( opt.lon_lat_limit.min().x() > opt.lon_lat_limit.max().x() ) 
+      std::swap( opt.lon_lat_limit.min().x(), opt.lon_lat_limit.max().x() );
   }
   
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
     vw_throw( ArgumentErr() << "When using a camera position file, the csv-format "
-                            << "option must be set.\n" << usage << general_options );
-  
+	      << "option must be set.\n" << usage << general_options );
+
+  // Copy the IP settings to the global stereo_settings() object
+  opt.copy_to_asp_settings();
+
   // Try to infer the datum, if possible, from the images. For
   // example, Cartosat-1 has that info in the Tif file.
   bool guessed_datum = false;
@@ -2276,14 +2287,13 @@ int main(int argc, char* argv[]) {
         // are newer than them. The IP files are cached for certain
         // IP matching options.
         session->ip_matching(image1_path, image2_path,
-                              Vector2(masked_image1.cols(), masked_image1.rows()),
-                              image1_stats, image2_stats,
-                              opt.ip_per_tile,
-                              nodata1, nodata2,
-                              opt.camera_models[i].get(),
-                              opt.camera_models[j].get(),
-                              match_filename, ip_file1, ip_file2
-                            );
+			     Vector2(masked_image1.cols(), masked_image1.rows()),
+			     image1_stats, image2_stats,
+			     opt.ip_per_tile,
+			     nodata1, nodata2,
+			     opt.camera_models[i].get(),
+			     opt.camera_models[j].get(),
+			     match_filename, ip_file1, ip_file2);
 
         // Compute the coverage fraction
         std::vector<ip::InterestPoint> ip1, ip2;

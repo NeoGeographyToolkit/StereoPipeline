@@ -348,11 +348,11 @@ namespace asp {
   // reverse. This will help find a rough correspondence between
   // the pixels in the two camera images.
   Matrix<double>
-  rough_homography_fit( camera::CameraModel* cam1,
-                        camera::CameraModel* cam2,
-                        BBox2i const& box1, BBox2i const& box2,
-                        cartography::Datum const& datum ) {
-
+  rough_homography_fit(camera::CameraModel* cam1,
+		       camera::CameraModel* cam2,
+		       BBox2i const& box1, BBox2i const& box2,
+		       cartography::Datum const& datum) {
+    
     // Bounce several points off the datum and fit an affine.
     std::vector<Vector3> left_points, right_points;
     int num = 100;
@@ -384,8 +384,8 @@ namespace asp {
         catch (...) {}
 
         try {
-          Vector2 r( double(box2.width()  - 1) * i / (num-1.0),
-                     double(box2.height() - 1) * j / (num-1.0) );
+          Vector2 r(double(box2.width()  - 1) * i / (num-1.0),
+		    double(box2.height() - 1) * j / (num-1.0) );
 
           Vector3 intersection = cartography::datum_intersection( datum, cam2, r );
           if ( intersection == Vector3() )
@@ -427,13 +427,13 @@ namespace asp {
   }
 
   Vector2i
-  homography_rectification( bool adjust_left_image_size,
-                            Vector2i const& left_size,
-                            Vector2i const& right_size,
-                            std::vector<ip::InterestPoint> const& left_ip,
-                            std::vector<ip::InterestPoint> const& right_ip,
-                            vw::Matrix<double>& left_matrix,
-                            vw::Matrix<double>& right_matrix ) {
+  homography_rectification(bool adjust_left_image_size,
+			   Vector2i const& left_size,
+			   Vector2i const& right_size,
+			   std::vector<ip::InterestPoint> const& left_ip,
+			   std::vector<ip::InterestPoint> const& right_ip,
+			   vw::Matrix<double>& left_matrix,
+			   vw::Matrix<double>& right_matrix) {
     // Reformat the interest points for RANSAC
     std::vector<Vector3>  right_copy = iplist_to_vectorlist(right_ip),
                           left_copy  = iplist_to_vectorlist(left_ip);
@@ -652,7 +652,7 @@ namespace asp {
         count++;
       }
       math::FLANNTree<float> tree1;
-      tree1.load_match_data( locations1, vw::math::FLANN_DistType_L2);
+      tree1.load_match_data(locations1, vw::math::FLANN_DistType_L2);
 
       std::pair<double,size_t> worse_index;
       worse_index.first = 0;
@@ -660,8 +660,8 @@ namespace asp {
         Vector<int   > indices;
         Vector<double> distance;
         const int NUM_INDICES_TO_GET = 11;
-        tree1.knn_search( select_row( locations1, i ),
-                          indices, distance, NUM_INDICES_TO_GET );
+        tree1.knn_search(select_row( locations1, i ),
+                          indices, distance, NUM_INDICES_TO_GET);
 
         // Bugfix: If there are too few inputs, in rare occasions
         // some of the outputs are invalid. Not always. Could not
@@ -759,7 +759,7 @@ namespace asp {
     
     // For each interest point, compute the height and only keep it if the height falls within
     // the specified range.
-    for (size_t i=0; i<num_ip; ++i) {
+    for (size_t i = 0; i < num_ip; ++i) {
       double error;
 
       // We must not both apply a transform and a scale at the same time

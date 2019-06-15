@@ -441,7 +441,8 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
   DetectIpMethod detect_method = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
 
   // Best point must be closer than the next best point
-  const double adj_uniqueness_thresh = (0.8/0.7)*stereo_settings().ip_uniqueness_thresh;
+  double adj_uniqueness_thresh = (0.8/0.7)*stereo_settings().ip_uniqueness_thresh;
+  adj_uniqueness_thresh = std::min(0.99, adj_uniqueness_thresh);
   vw_out() << "\t--> Adjusted uniqueness threshold: " << adj_uniqueness_thresh << "\n";
   // TODO: Should probably unify the ip::InterestPointMatcher class
   // with the EpipolarLinePointMatcher class!

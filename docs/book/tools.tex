@@ -749,7 +749,7 @@ Pixels with values less than or equal to this number are treated as no-data. Thi
 
 \texttt{-\/-intrinsics-limits arg} & Set a string in quotes that contains min max ratio pairs for intrinsic parameters.  For example, "0.8 1.2" limits the parameter to changing by no more than 20 percent.  The first pair is for focal length, the next two are for the center pixel, and the remaining pairs are for other intrinsic parameters.  If too many pairs are passed in the program will throw an exception and print the number of intrinsic parameters the cameras use.  Cameras adjust all of the parameters in the order they are specified in the camera model unless it is specified otherwise in \ref{pinholemodels}. Unfortunately, setting limits can greatly slow down the solver.\\ \hline
 
-\texttt{-\/-num-passes \textit{integer(=1)}} &
+\texttt{-\/-num-passes \textit{integer(=2)}} &
 How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using -\/-remove-outliers-params and -\/-remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.\\ \hline
 
 \texttt{-\/-num-random-passes \textit{integer(=0)}} &
@@ -760,6 +760,14 @@ Outlier removal based on percentage, when more than one bundle adjustment pass i
 
 \texttt{-\/-remove-outliers-by-disparity-params \textit{pct factor}} &
 Outlier removal based on the disparity of interest points (difference between right and left pixel), when more than one bundle adjustment pass is used. For example, the 10\% and 90\% percentiles of disparity are computed, and this interval is made three times bigger. Interest points whose disparity fall outside the expanded interval are removed as outliers. Instead of the default 90 and 3 one can specify pct and factor, without quotes.\\ \hline
+
+\texttt{-\/-elevation-limit \textit{double double}} &
+Remove as outliers interest points for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.
+\\ \hline
+
+\texttt{-\/lon-lat-limit \textit{double double double double}} &
+Remove as outliers interest points for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min\_lon min\_lat max\_lon max\_lat.
+\\ \hline
 
 \texttt{-\/-reference-terrain arg} & An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras. \\ \hline
 
@@ -802,7 +810,7 @@ When matching IP, filter out any pairs with a triangulation error higher than th
 \texttt{-\/-forced-triangulation-distance \textit{double}} &
 When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter. \\ \hline
 
-\texttt{-\/-ip-num-ransac-iterations \textit{int(=100)}} &
+\texttt{-\/-ip-num-ransac-iterations \textit{int(=1000)}} &
 How many RANSAC iterations to do in interest point matching.
 \\ \hline
 
@@ -817,7 +825,7 @@ in the input image files to match locations to cameras.\\ \hline
 provided GCP coordinates.  Set this if you only have one image per GCP or if the pinhole
 initialization process is not producing good results. \\ \hline
 
-\texttt{-\/-transform-cameras-using-gcp} & Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each. \\ \hline
+\texttt{-\/-transform-cameras-using-gcp} & Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each. If at least three GCP each show up in at least two images, the transform will happen even without this option using a more robust algorithm. \\ \hline
 
 \texttt{-\/-position-filter-dist \textit{double(=-1.0)}} &
 If estimated camera positions are used, this option can be used to set a threshold distance in meters
@@ -829,12 +837,19 @@ attempt to find matching interest points between those two cameras.
 Force reusing the match files even if older than the images or cameras.
 \\ \hline
 
-\texttt{-\/-force-reuse-match-files} & 
-Force reusing the match files even if older than the images or cameras.
+\texttt{-\/-enable-rough-homography} & 
+Enable the step of performing datum-based rough homography for interest point matching. This is best used with reasonably reliable input cameras and a wide footprint on the ground.
 \\ \hline
 
 \texttt{-\/-skip-rough-homography} & 
-Skip the step of performing datum-based rough homography if it fails.
+Skip the step of performing datum-based rough homography. This obsolete option is ignored as is the default.\\ \hline
+
+\texttt{-\/-enable-tri-ip-filter} & 
+Enable triangulation-based interest points filtering. This is best used with reasonably reliable input cameras.
+\\ \hline
+
+\texttt{-\/-disable-tri-ip-filter} & 
+Disable triangulation-based interest points filtering. This obsolete option is ignored as is the default.
 \\ \hline
 
 \texttt{-\/-no-datum} & 
@@ -847,9 +862,6 @@ Do not assume a reliable datum exists, such as for irregularly shaped bodies.
 \texttt{-\/-mapprojected-data \textit{string}} &
 Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. An example is in the documentation.
 \\ \hline
-
-\texttt{-\/-lambda \textit{double}} & Set the initial value of the LM parameter
-lambda (ignored for the Ceres solver).\\ \hline
 
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use the default defined in the program or in the .vwrc file. Note that when using more than one thread and the Ceres option the results will vary slightly each time the tool is run. \\ \hline
 
@@ -895,7 +907,6 @@ point (start at this stage). \\ \hline
 \texttt{-\/-threads-multiprocess \textit{integer}} & The number of threads to use per process.\\ \hline
 \texttt{-\/-threads-singleprocess \textit{integer}} & The number of threads to use when running a single process (for pre-processing and filtering).\\ \hline
 \end{longtable}
-
 
 \section{point2dem}
 \label{point2dem}

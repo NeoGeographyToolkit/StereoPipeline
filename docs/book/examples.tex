@@ -1332,8 +1332,9 @@ of each GCP are not well-known.
 
 It is also very important to examine the obtained match files in the 
 output directory. If there are too few matches, particularly among very similar
-images, one may need to increase the value of \texttt{-\/-ip-inlier-factor}.
-Note that a large value here may allow more outliers. 
+images, one may need to increase the value of 
+\texttt{-\/-epipolar-threshold} (or of \texttt{-\/-ip-inlier-factor} for 
+the not-recommended pinhole session). Note that a large value here may allow more outliers. 
 
 Another thing one should keep an eye on is the height above datum
 of the camera centers as printed by bundle adjustment towards the end. 

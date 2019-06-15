@@ -72,7 +72,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
          instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool   save_iteration, approximate_pinhole_intrinsics,
     disable_pinhole_gcp_init, transform_cameras_using_gcp, fix_gcp_xyz, solve_intrinsics,
-         disable_tri_filtering, ip_normalize_tiles, ip_debug_images,
+         ip_normalize_tiles, ip_debug_images,
          stop_after_stats, stop_after_matching, skip_matching;
   BACameraType camera_type;
   std::string datum_str, camera_position_file, initial_transform_file,
@@ -91,7 +91,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error,
     reference_terrain_weight, heights_from_dem_weight;
-  bool   skip_rough_homography, no_datum, individually_normalize, use_llh_error,
+  bool   skip_rough_homography, enable_rough_homography, disable_tri_filtering, enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
     force_reuse_match_files, save_cnet_as_csv;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
   vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
@@ -112,7 +112,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              num_iterations(0), overlap_limit(0), save_iteration(false),
              fix_gcp_xyz(false), solve_intrinsics(false), camera_type(BaCameraType_Other),
              semi_major(0), semi_minor(0), position_filter_dist(-1),
-             num_ba_passes(1), max_num_reference_points(-1),
+             num_ba_passes(2), max_num_reference_points(-1),
              datum(vw::cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                                           "Reference Meridian", 1, 1, 0)),
              ip_detect_method(0), num_scales(-1), skip_rough_homography(false),
@@ -126,16 +126,25 @@ struct Options : public vw::cartography::GdalWriteOptions {
     asp::stereo_settings().ip_uniqueness_thresh       = ip_uniqueness_thresh;
     asp::stereo_settings().num_scales                 = num_scales;
     asp::stereo_settings().nodata_value               = nodata_value;
-    asp::stereo_settings().skip_rough_homography      = skip_rough_homography;
+
+    // Note that by default rough homography and tri filtering are disabled
+    // as input cameras may be too inaccurate for that.
+    asp::stereo_settings().skip_rough_homography      = !enable_rough_homography;
+    asp::stereo_settings().disable_tri_filtering      = !enable_tri_filtering;
+
     asp::stereo_settings().no_datum                   = no_datum;
-    asp::stereo_settings().elevation_limit            = elevation_limit;
-    asp::stereo_settings().lon_lat_limit              = lon_lat_limit;
+
+    // Do not pass this as it will results in filtering by elevation and lonlat
+    // with unoptimized cameras. We will do that filtering with optimized
+    // cameras later.
+    //asp::stereo_settings().elevation_limit            = elevation_limit;
+    //asp::stereo_settings().lon_lat_limit              = lon_lat_limit;
+    
     asp::stereo_settings().individually_normalize     = individually_normalize;
     asp::stereo_settings().force_reuse_match_files    = force_reuse_match_files;
     asp::stereo_settings().min_triangulation_angle    = min_triangulation_angle;
     asp::stereo_settings().ip_triangulation_max_error = ip_triangulation_max_error;
     asp::stereo_settings().ip_num_ransac_iterations   = ip_num_ransac_iterations;
-    asp::stereo_settings().disable_tri_filtering      = disable_tri_filtering;
     asp::stereo_settings().ip_edge_buffer_percent     = ip_edge_buffer_percent;
     asp::stereo_settings().ip_debug_images            = ip_debug_images;
     asp::stereo_settings().ip_normalize_tiles         = ip_normalize_tiles;

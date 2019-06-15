@@ -1,4 +1,4 @@
-*** RELEASE 2.6.2, Upcoming ***
+*** RELEASE 2.6.3, June 15, 2019 ***
 
  - New satellites
    * Added support for SkyBox, together with a detailed example,
@@ -59,6 +59,15 @@
      clouds need a big shift to align.
 
  - bundle_adjust
+   * Two passes of bundle adjustment (with outlier filtering after
+   * first pass) is now the default. 
+   * The flag --skip-rough-homography is on by default as it usually 
+     gives more reliable results. Use --enable-rough-homography
+     to turn this option back on (useful when the footprint on the 
+     ground and difference in perspective are large).
+   * The flag --disable-tri-ip-filter is also the default as input
+     cameras may not be reliable enough for this filter. Can be 
+     enabled back with --enable-tri-ip-filter.
    * Added the --intrinsics-limits option to manually specify 
      intrinsic parameter limits.
    * Added the --num-random-passes option to allow repeat solving 
@@ -91,10 +100,6 @@
      (or some other pixels) are known.
    * When multiple passes happen with outliers removed, match files
      are not over-written, but a new clean copy of them gets saved.
-   * When multiple passes happen, filter triangulated points
-     by elevation range after cameras are optimized, if a range is
-     provided (an addition to doing this filtering before cameras are
-     optimized).
    * Renamed --create-pinhole-cameras to --inline-adjustments, and 
      distortion_params to other_intrinsics. This is needed since
      for the panoramic model there will be other intrinsic
@@ -102,14 +107,20 @@
   *  Added the option --forced-triangulation-distance for when one
      really needs to triangulate with poor cameras. Can be used with 
      --min-triangulation-angle 0.
-    * Added --num-random-passes option to allow bundle_adjust to
-      re-optimize with random adjustments to the initial parameter
-      values with the goal of escaping local minima.
-    * Added the option --transform-cameras-using-gcp. If there
-      are at least two images with each having at least 3 GCP
-      (each GCP need not show in more than one image), use this
-      to convert cameras from an abstract coordinate system to world
-      coordinates.
+  * Added the option --transform-cameras-using-gcp. If there
+     are at least two images with each having at least 3 GCP
+     (each GCP need not show in more than one image), use this
+     to convert cameras from an abstract coordinate system to world
+     coordinates.
+  *  Increased the default --num-ransac-iterations to 1000 from 100
+     so that the solver tries harder to find a fit.
+  *  Increased default --ip-inlier-factor from 1/15 to 0.2 to help
+     with getting more interest points for steep terrain with the
+     pinhole session.
+  *  Increased the default --ip-uniqueness-threshold from 0.7 
+     to 0.8 to allow for more interest points.
+   * Option to filter interest points by elevation limit and lon-lat limit
+     after each pass of bundle adjustment except the last.
 
  - dem_mosaic
    * Added normalized median absolute deviation (NMAD) output option.
@@ -118,10 +129,11 @@
 
  - stereo_gui
    * Added the ability to manually reposition interest points.
-   * Can now load non-synchronous .match files.
-   * Added basic functionality for drawing/editing polygons on top 
-     of georeferenced images or DEMs. Those shapes can be saved, and
-     then used to cut out portions of images.
+   * Can now show non-synchronous .match files (that is, each IP
+     need not be present in all images).
+   * Added basic functionality for drawing/editing/merging polygons on
+   * top of georeferenced images or DEMs. The polygons can be saved as 
+     shape files, and then used to cut out portions of images with GDAL.
    * Added the option --nodata-value. Pixels with value less than 
      or equal to this are shown as transparent.
    * Added the ability to view .vwip files (specify one per image).
@@ -129,7 +141,7 @@
      GCP is supported in a separate mode, per the doc).
    * The option --dem-file specifies a DEM to use when creating
      manually picked GCP and --gcp-file specifies the name of 
-     the GCP file to use opon saving such GCP.
+     the GCP file to use upon saving such GCP.
 
  - mapproject
    * Added the --nearest-neighbor option to use that interpolation
