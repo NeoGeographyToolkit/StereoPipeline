@@ -156,6 +156,7 @@
      RPC distortion files with this tool if optimization is desired.
 
 - Misc
+   * Comiled against USGS ISIS version 3.6.0.
    * Expanded the documentation explaining how to align cameras 
      to a DEM manually (or initialize such cameras) by selecting
      matching points between the images and the DEM.

@@ -5,9 +5,9 @@ Pipeline (ASP) release.
 
 1.) Modify the build system:
 
-Inside ASP's configure.ac, remove "_post" and increment version number
-on the AC_INIT line. Do not do this for VisionWorkbench, as that
-library has its own versioning.
+Inside ASP's configure.ac and in src/CMakeLists.txt set the new
+version. Do not do this for VisionWorkbench, as that library has its
+own versioning.
 
 2.) Look up the latest ISIS version and update it in
     StereoPipeline/README (see the "version" file in the packaged ASP
@@ -51,19 +51,19 @@ The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
 
 10.) Commit and tag the release in the ASP repo. Example: 
 
-  git tag v2.6.1 
+  git tag v2.6.2 
 
 Push the tags to the remote server with: 
 
- git push origin v2.6.1 # commit to your branch
- git push god    v2.6.1 # commit to main branch
+ git push origin v2.6.2 # commit to your branch
+ git push god    v2.6.2 # commit to main branch
 
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with:
 
-  git tag -d v2.6.1
-  git push origin :refs/tags/v2.6.1
-  git push god    :refs/tags/v2.6.1
+  git tag -d v2.6.2
+  git push origin :refs/tags/v2.6.2
+  git push god    :refs/tags/v2.6.2
 
 11.) Upload the builds and the pdf documentation to GitHub, in
 the release area.
@@ -91,8 +91,8 @@ specified in NEWS.
 
 14.) Modify the build system:
 
-Inside ASP's configure.ac, append "_post" to version number in AC_INIT
-line.
+Inside ASP's configure.ac and in src/CMakeLists.txt, append "_post" to
+the version number.
 
 15.) Reflect any changes in release policy by modifying this document.
 
