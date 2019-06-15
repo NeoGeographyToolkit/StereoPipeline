@@ -109,23 +109,26 @@ def isisversion(verbose=False):
         raise Exception( "The ISIS environment does not seem to be enabled.\nThe " + str(msg) + " environment variable must be set." )
 
     version = None
-    if os.path.exists( path+'/version' ):
-        v = open( path+"/version", 'r')
+    version_file = path + '/version'
+    if os.path.exists( version_file ):
+        v = open( version_file, 'r')
         version = v.readline().strip()
         v.close()
 
-    f = open(path+"/inc/Constants.h",'r');
-    for line in f:
-         if ( line.rfind("std::string version(") > 0 ):
-            index = line.find("version(\"");
-            index_e = line.rfind("|");
-            version = line[index+9:index_e].rstrip()
-            #version = version +'b'
-    f.close()
+    constants_file = path + "/inc/Constants.h"
+    if os.path.exists(constants_file):
+        f = open(constants_file,'r')
+        for line in f:
+            if ( line.rfind("std::string version(") > 0 ):
+                index = line.find("version(\"");
+                index_e = line.rfind("|");
+                version = line[index+9:index_e].rstrip()
+                #version = version +'b'
+        f.close()
 
-    if( version ):
-        if( verbose ): 
-          print("\tFound Isis Version: "+version+ " at "+path)
+    if (version):
+        if (verbose): 
+          print("\tFound Isis Version: " + version + " at " + path)
         alphaend = version.lstrip(string.digits+'.')
         version_numbers = version.rstrip(string.ascii_letters);
         version_strings = version_numbers.split('.')
