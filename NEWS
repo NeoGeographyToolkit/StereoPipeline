@@ -7,7 +7,7 @@
 DOI: https://doi.org/10.5281/zenodo.3247734
 
  - New satellites
-   * Added support for SkyBox, together with a detailed example,
+   * Added support for SkySat, together with a detailed example,
      including how to jointly align and optimize cameras in respect
      to a reference DEM, while optionally refining the intrinsics. 
      This approach may be helpful for other images obtained with frame

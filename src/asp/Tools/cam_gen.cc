@@ -434,7 +434,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     parse_values<double>(opt.lon_lat_values_str, opt.lon_lat_values);
   }
   
-  // Note that optical center can be negative (for some SkyBox products).
+  // Note that optical center can be negative (for some SkySat products).
   if ( opt.sample_file == "" && (opt.focal_length <= 0 || opt.pixel_pitch <= 0))
     vw_throw( ArgumentErr() << "Must provide positive focal length"
               << "and pixel pitch values OR a sample file.\n");
