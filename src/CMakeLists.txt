@@ -21,7 +21,7 @@ endif()
 
 project (StereoPipeline)
 
-set(PACKAGE_VERSION "2.6.2")
+set(PACKAGE_VERSION "2.6.2_post")
 set(PACKAGE_NAME "NASA Ames Stereo Pipeline")
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 set(PACKAGE_BUGREPORT "scott.t.mcmichael@nasa.gov")
