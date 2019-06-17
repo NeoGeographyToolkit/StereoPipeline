@@ -1,4 +1,6 @@
-*** RELEASE 2.6.3, June 15, 2019 ***
+*** RELEASE 2.6.2, June 15, 2019 ***
+
+DOI: https://doi.org/10.5281/zenodo.3247734
 
  - New satellites
    * Added support for SkyBox, together with a detailed example,
@@ -8,7 +10,8 @@
      cameras and uncertain positioning information.
    * Added support for CORONA KH-4B, KH-7, and KH-9 declassified images
      and their panoramic (optical bar) camera models, as well as using
-     and optimizing camera models with RPC distortion. An example
+     and optimizing camera models with RPC distortion (only RPC is
+     supported for KH-7 because it is a linescan camera). An example
      is in the documentation. 
    
  - New tools
@@ -104,20 +107,20 @@
      distortion_params to other_intrinsics. This is needed since
      for the panoramic model there will be other intrinsic
      parameters as well.
-  *  Added the option --forced-triangulation-distance for when one
+   *  Added the option --forced-triangulation-distance for when one
      really needs to triangulate with poor cameras. Can be used with 
      --min-triangulation-angle 0.
-  * Added the option --transform-cameras-using-gcp. If there
+   * Added the option --transform-cameras-using-gcp. If there
      are at least two images with each having at least 3 GCP
      (each GCP need not show in more than one image), use this
      to convert cameras from an abstract coordinate system to world
      coordinates.
-  *  Increased the default --num-ransac-iterations to 1000 from 100
+   * Increased the default --num-ransac-iterations to 1000 from 100
      so that the solver tries harder to find a fit.
-  *  Increased default --ip-inlier-factor from 1/15 to 0.2 to help
+     Increased default --ip-inlier-factor from 1/15 to 0.2 to help
      with getting more interest points for steep terrain with the
      pinhole session.
-  *  Increased the default --ip-uniqueness-threshold from 0.7 
+   *  Increased the default --ip-uniqueness-threshold from 0.7 
      to 0.8 to allow for more interest points.
    * Option to filter interest points by elevation limit and lon-lat limit
      after each pass of bundle adjustment except the last.
@@ -156,7 +159,7 @@
      RPC distortion files with this tool if optimization is desired.
 
 - Misc
-   * Comiled against USGS ISIS version 3.6.0.
+   * Compiled against USGS ISIS version 3.6.0.
    * Expanded the documentation explaining how to align cameras 
      to a DEM manually (or initialize such cameras) by selecting
      matching points between the images and the DEM.
@@ -179,7 +182,7 @@
    * Add option --theia-overrides to camera_solve to make it easier
      to customize its behavior via flags.
    * Added an explanation for how the pinhole model works. 
-
+   
 *** RELEASE 2.6.1, August 13, 2018 ***
 
  - New satellites

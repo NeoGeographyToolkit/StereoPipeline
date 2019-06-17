@@ -86,7 +86,6 @@
 % }
 
 \title{{\Huge The Ames Stereo Pipeline:}\\NASA's Open Source Automated Stereogrammetry Software\\
-{\em A part of the NASA NeoGeography Toolkit}\\
 Version @ASP_VERSION@}
 
 \author{
@@ -107,9 +106,9 @@ stereo-pipeline-owner@lists.nasa.gov
 \begin{acronym}
 \acro{ASP}{Ames Stereo Pipeline}
 \acro{CTX}{Context Camera}
-\acro{DEM}{digital elevation model}
-\acro{ET}{ephemeris time}
-\acro{GCP}{ground control point}
+\acro{DEM}{Digital elevation model}
+\acro{ET}{Ephemeris time}
+\acro{GCP}{Ground control point}
 \acro{HRSC}{High Resolution Stereo Camera}
 \acro{HiRISE}{High Resolution Imaging Science Experiment}
 \acro{IRG}{Intelligent Robotics Group}
