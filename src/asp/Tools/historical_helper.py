@@ -44,6 +44,8 @@ asp_system_utils.verify_python_version_is_supported()
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
 # Prepend to system LD_LIBRARY_PATH
+if "LD_LIBRARY_PATH" not in os.environ:
+    os.environ["LD_LIBRARY_PATH"] = ""
 os.environ["LD_LIBRARY_PATH"] = libpath + os.pathsep + os.environ["LD_LIBRARY_PATH"]
 
 #------------------------------------------------------------------------------
