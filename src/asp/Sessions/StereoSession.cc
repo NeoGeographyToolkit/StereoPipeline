@@ -198,6 +198,11 @@ namespace asp {
     }
 
     bool nadir_facing = this->is_nadir_facing();
+
+    // If cameras are null then we cannot use them
+    if (cam1 == NULL || cam2 == NULL) {
+      nadir_facing = false;
+    }
     
     bool inlier = false;
     if (nadir_facing) {

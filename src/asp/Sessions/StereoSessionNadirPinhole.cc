@@ -146,7 +146,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     
     DiskImageView<float> left_orig_image(left_input_file);
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-    camera_models( left_cam, right_cam );
+    camera_models(left_cam, right_cam);
     this->ip_matching(left_cropped_file,   right_cropped_file,
                       bounding_box(left_orig_image).size(),
                       left_stats, right_stats,
