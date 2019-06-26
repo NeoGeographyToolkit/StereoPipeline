@@ -1,6 +1,14 @@
 *** RELEASE 2.6.3, Upcoming! ***
 
-<placeholder>
+ - bundle_adjust
+   * Can first create interest point matches among mapprojected images
+     (automatically or manually) and use those to create matches among
+     the unprojected images when the latter are so dissimilar in
+     perspective that the direct approach fails. See --mapprojected-data.
+  
+ - stereo_gui
+   * Bugfix when zooming all images to same region when the region is
+     such that all images are seen fully.
 
 *** RELEASE 2.6.2, June 15, 2019 ***
 
