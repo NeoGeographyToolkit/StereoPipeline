@@ -67,6 +67,7 @@ Mutex g_ba_mutex;
 // TODO: Pass these properly
 double g_max_disp_error = -1.0, g_reference_terrain_weight = 1.0;
 
+double g_big_pixel_value = 10000; 
 
 //=====================================================================
 
@@ -137,11 +138,17 @@ public:
 
     //std::cout << "point2pixel with correction position = " << correction.position()
     //              << ", pose = " << correction.pose() << std::endl;
-    
+
     vw::camera::AdjustedCameraModel cam(m_underlying_camera,
-                                        correction.position(),
-                                        correction.pose());
-    return cam.point_to_pixel(point);
+					correction.position(),
+					correction.pose());
+    try {
+      return cam.point_to_pixel(point);
+    } catch(...){
+    }
+
+    // We must not allow one bad point to run the optimization
+    return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
   }
 
 private:
@@ -221,24 +228,15 @@ public:
                                  distortion.get(),
                                  m_underlying_camera->pixel_pitch());
 
-    // Project the point into the camera.
-    Vector2 pixel = cam.point_to_pixel_no_check(point);
-
-
-    // Try to do the error check for point_to_pixel, but the RPC lens distortion
-    //  model does not support it (without a lot of extra computation time) so if we
-    //  can't do the check we just have to live without it.
-    const double ERROR_THRESHOLD = 0.01;
-    double diff = 0.0;
     try {
-      Vector3 pixel_vector = cam.pixel_to_vector(pixel);
-      Vector3 phys_vector  = normalize(point - cam.camera_center());
-      diff = norm_2(pixel_vector - phys_vector);
+      // Project the point into the camera.
+      Vector2 pixel = cam.point_to_pixel_no_check(point);
+      return pixel;
+    } catch(...){
     }
-    catch (...){}
-    VW_ASSERT(diff < ERROR_THRESHOLD, vw::camera::PointToPixelErr());
 
-    return pixel;
+    // Do not allow one bad pixel value to ruin the whole problem
+    return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
   }
 
 private:
@@ -320,7 +318,13 @@ public:
     //std::cout << "Created camera: " << cam << std::endl;
 
     // Project the point into the camera.
-    return cam.point_to_pixel(point);
+    try {
+      return cam.point_to_pixel(point);
+    } catch(...){
+    }
+    
+    // We must not allow one bad point to run the optimization
+    return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
   }
 
 private:
