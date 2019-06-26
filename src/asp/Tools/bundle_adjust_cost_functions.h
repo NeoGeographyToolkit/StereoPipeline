@@ -147,7 +147,7 @@ public:
     } catch(...){
     }
 
-    // We must not allow one bad point to run the optimization
+    // We must not allow one bad point to ruin the optimization
     return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
   }
 
@@ -323,7 +323,7 @@ public:
     } catch(...){
     }
     
-    // We must not allow one bad point to run the optimization
+    // We must not allow one bad point to ruin the optimization
     return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
   }
 
