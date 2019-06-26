@@ -729,7 +729,7 @@ namespace asp {
       Vector3 cam1_vec = camera_model1->pixel_to_vector(Vector2());
       Vector3 cam2_vec = camera_model2->pixel_to_vector(Vector2());
       // Do the cameras appear to be in the same location?
-      if ( norm_2(cam1_ctr - cam2_ctr) < 1e-3 )
+      if (norm_2(cam1_ctr - cam2_ctr) < 1e-3)
         vw_out(WarningMessage)
           << "Your cameras appear to be in the same location!\n"
           << "\tYou should double check your given camera\n"
@@ -745,7 +745,9 @@ namespace asp {
                                  << "      dot against pos: " << dot_prod(cam1_vec, cam1_ctr) << "\n";
       VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << cam2_vec << "\n"
                                  << "      dot against pos: " << dot_prod(cam2_vec, cam2_ctr) << "\n";
-
+      vw_out() << "Distance between camera centers in meters: "
+	       << norm_2(cam1_ctr - cam2_ctr) << ".\n";
+	
       // Can cameras triangulate to point at something in front of them?
       stereo::StereoModel model(camera_model1.get(), camera_model2.get());
       double error;
