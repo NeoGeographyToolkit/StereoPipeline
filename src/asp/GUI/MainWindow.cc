@@ -564,16 +564,33 @@ void MainWindow::forceQuit(){
 }
 
 // Zoom in/out of each image so that it fits fully within its allocated display area.
+// If we zoom all images to same region, zoom all to the union of display areas.
 void MainWindow::sizeToFit(){
 
-  for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i])
-      m_widgets[i]->sizeToFit();
-  }
-    
   bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
   if (zoom_all_to_same_region) {
-    MainWindow::setZoomAllToSameRegion();
+
+    BBox2 big_region; 
+    for (size_t i = 0; i < m_widgets.size(); i++) {
+      if (!m_widgets[i])
+	continue;
+
+      vw::BBox2 region = m_widgets[i]->worldBox();
+      big_region.grow(region);
+    }
+    
+    for (size_t i = 0; i < m_widgets.size(); i++) {
+      if (!m_widgets[i])
+	continue;
+      m_widgets[i]->zoomToRegion(big_region);
+    }
+    
+  }else{
+    // Full view for each individual image
+    for (size_t i = 0; i < m_widgets.size(); i++) {
+      if (m_widgets[i])
+	m_widgets[i]->sizeToFit();
+    }
   }
   
 }
@@ -1138,16 +1155,6 @@ void MainWindow::setZoomAllToSameRegion() {
       createLayout();
     }
 
-    // See where the earlier viewable region ended up in the current world
-    // coordinate system. A lot of things could have changed since then.
-    BBox2 world_box = m_widgets[BASE_IMAGE_INDEX]->firstImageWorldBox(pixel_box);
-
-    // Now let this be the world box in all images. Later, during resizeEvent(),
-    // the sizeToFit() function will be called which will use this box.
-    for (size_t i = 0; i < m_widgets.size(); i++) {
-      if (m_widgets[i])
-        m_widgets[i]->setWorldBox(world_box);
-    }
   }
 }
 

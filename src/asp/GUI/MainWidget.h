@@ -144,16 +144,16 @@ namespace vw { namespace gui {
     void  setHillshadeMode(bool hillshade_mode);
     BBox2 firstImagePixelBox() const;
     BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
-    void  setWorldBox(vw::BBox2 const& box);
+    vw::BBox2 worldBox() const;
 
-    signals:
+signals:
     void turnOnViewMatchesSignal    ();
     void turnOffViewMatchesSignal   ();
     void removeImageAndRefreshSignal();
     void uncheckProfileModeCheckbox ();
     void uncheckPolyEditModeCheckbox();
     void zoomAllToSameRegionSignal  (int);
-    
+
 public slots:
     void sizeToFit();
     void showFilesChosenByUser (int rowClicked, int columnClicked);

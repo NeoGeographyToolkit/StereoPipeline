@@ -518,9 +518,8 @@ namespace vw { namespace gui {
     return out_box;
   }
 
-  // Over-ride the world box. Useful when zooming all images to same region.
-  void MainWidget::setWorldBox(BBox2 const& box){
-    m_world_box = box;
+  vw::BBox2 MainWidget::worldBox() const {
+    return m_world_box;
   }
   
   // Zoom to show each image fully, unless one messed up with
