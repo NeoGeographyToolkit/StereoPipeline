@@ -1120,7 +1120,15 @@ int do_ba_ceres_one_pass(Options             & opt,
   std::string residual_prefix = opt.out_prefix + "-initial_residuals_loss_function";
   std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
     
-  if (first_pass) { 
+  if (first_pass) {
+
+    // Save the cnet 
+    if (opt.save_cnet_as_csv) {
+      std::string cnet_file = opt.out_prefix + "-cnet.csv";
+      vw_out() << "Writing: " << cnet_file << std::endl;
+      cnet.write_in_gcp_format(cnet_file, opt.datum);
+    }
+    
     vw_out() << "Writing initial condition files..." << std::endl;
 
     // These are not useful
@@ -1357,13 +1365,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     param_storage.get_point_vector().resize(num_points*BAParamStorage::PARAMS_PER_POINT);
   }
 
-  
-  if (opt.save_cnet_as_csv) {
-    std::string cnet_file = opt.out_prefix + "-cnet.csv";
-    vw_out() << "Writing: " << cnet_file << std::endl;
-    cnet.write_in_gcp_format(cnet_file, opt.datum);
-  }
-  
+
   // Fill in the point vector with the starting values.
   for (int ipt = 0; ipt < num_points; ipt++)
     param_storage.set_point(ipt, cnet[ipt].position());
