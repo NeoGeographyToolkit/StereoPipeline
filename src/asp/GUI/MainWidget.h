@@ -144,6 +144,7 @@ namespace vw { namespace gui {
     void  setHillshadeMode(bool hillshade_mode);
     BBox2 firstImagePixelBox() const;
     BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
+    void setWorldBox(vw::BBox2 const& world_box);
     vw::BBox2 worldBox() const;
 
 signals:

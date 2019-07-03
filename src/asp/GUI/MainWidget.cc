@@ -515,6 +515,7 @@ namespace vw { namespace gui {
       double delta = (new_height - in_box.height())/2.0;
       out_box.min().y() -= delta; out_box.max().y() += delta;
     }
+
     return out_box;
   }
 
@@ -522,8 +523,11 @@ namespace vw { namespace gui {
     return m_world_box;
   }
   
-  // Zoom to show each image fully, unless one messed up with
-  // m_world_box, as it happens when zooming all images to same region.
+  void MainWidget::setWorldBox(vw::BBox2 const& world_box) {
+    m_world_box = world_box;
+  }
+  
+  // Zoom to show each image fully.
   void MainWidget::sizeToFit() {
 
     m_current_view = expand_box_to_keep_aspect_ratio(m_world_box);
@@ -896,19 +900,19 @@ namespace vw { namespace gui {
         continue;
 
       // The portion of the image in the current view. 
-      BBox2 world_box = m_current_view; 
+      BBox2 curr_world_box = m_current_view; 
       BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
-      world_box.crop(B);
+      curr_world_box.crop(B);
 
       // This is a bugfix for the case when the world boxes 
       // of images do not overlap.
-      if (world_box.empty())
+      if (curr_world_box.empty())
         continue;
 
       // See where it fits on the screen
       BBox2i screen_box;
-      screen_box.grow(floor(world2screen(world_box.min())));
-      screen_box.grow(ceil(world2screen(world_box.max())));
+      screen_box.grow(floor(world2screen(curr_world_box.min())));
+      screen_box.grow(ceil(world2screen(curr_world_box.max())));
 
       // Ensure the screen box is never empty
       if (screen_box.min().x() >= screen_box.max().x())
@@ -917,7 +921,7 @@ namespace vw { namespace gui {
         screen_box.max().y() = screen_box.min().y() + 1;
 
       // Go from world coordinates to pixels in the second image.
-      BBox2 image_box = MainWidget::world2image(world_box, i);
+      BBox2 image_box = MainWidget::world2image(curr_world_box, i);
 
       // Grow a bit to integer, as otherwise we get strange results
       // if zooming too close.
@@ -1103,6 +1107,7 @@ namespace vw { namespace gui {
       return;
     }
     m_current_view = expand_box_to_keep_aspect_ratio(region);
+
     refreshPixmap();
   }
 
