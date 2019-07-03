@@ -263,7 +263,7 @@ void parse_values(std::string list, std::vector<T> & values){
 struct Options : public vw::cartography::GdalWriteOptions {
   string image_file, camera_file, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
-    stereo_session, bundle_adjust_prefix, cam_parsed_cam_ctr_str, cam_parsed_cam_quat_str;
+    stereo_session, bundle_adjust_prefix, parsed_cam_ctr_str, parsed_cam_quat_str;
   double focal_length, pixel_pitch, gcp_std, height_above_datum,
     cam_height, cam_weight;
   Vector2 optical_center;
@@ -410,17 +410,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 	    std::string x = vals[5];
 	    std::string y = vals[6];
 	    std::string z = vals[7];
-	    opt.cam_parsed_cam_ctr_str = x + " " + y + " " + z;
+	    opt.parsed_cam_ctr_str = x + " " + y + " " + z;
 	    vw_out() << "Parsed the ECI camera center in km: "
-		     << opt.cam_parsed_cam_ctr_str <<".\n";
+		     << opt.parsed_cam_ctr_str <<".\n";
 	    
 	    std::string q0 = vals[8];
 	    std::string q1 = vals[9];
 	    std::string q2 = vals[10];
 	    std::string q3 = vals[11];
-	    opt.cam_parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
+	    opt.parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
 	    vw_out() << "Parsed the ECI quaternion: "
-		     << opt.cam_parsed_cam_quat_str <<".\n";
+		     << opt.parsed_cam_quat_str <<".\n";
 	  }
 	  
 	  if (opt.parse_ecef) {
@@ -430,17 +430,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 	    std::string x = vals[12];
 	    std::string y = vals[13];
 	    std::string z = vals[14];
-	    opt.cam_parsed_cam_ctr_str = x + " " + y + " " + z;
+	    opt.parsed_cam_ctr_str = x + " " + y + " " + z;
 	    vw_out() << "Parsed the ECEF camera center in km: "
-		     << opt.cam_parsed_cam_ctr_str <<".\n";
+		     << opt.parsed_cam_ctr_str <<".\n";
 	    
 	    std::string q0 = vals[15];
 	    std::string q1 = vals[16];
 	    std::string q2 = vals[17];
 	    std::string q3 = vals[18];
-	    opt.cam_parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
+	    opt.parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
 	    vw_out() << "Parsed the ECEF quaternion: "
-		     << opt.cam_parsed_cam_quat_str <<".\n";
+		     << opt.parsed_cam_quat_str <<".\n";
 	  }
 	  
 	}
@@ -902,12 +902,12 @@ int main(int argc, char * argv[]){
     // If we have camera center in ECI or ECEF coordinates in km, convert
     // to height above datum.
     Vector3 parsed_cam_ctr;
-    if (opt.cam_parsed_cam_ctr_str != "") {
+    if (opt.parsed_cam_ctr_str != "") {
       std::vector<double> vals;
-      parse_values<double>(opt.cam_parsed_cam_ctr_str, vals);
+      parse_values<double>(opt.parsed_cam_ctr_str, vals);
       if (vals.size() != 3) 
 	vw_throw( ArgumentErr() << "Could not parse 3 values from: "
-		  << opt.cam_parsed_cam_ctr_str << ".\n");
+		  << opt.parsed_cam_ctr_str << ".\n");
 
       parsed_cam_ctr = Vector3(vals[0], vals[1], vals[2]);
       parsed_cam_ctr *= 1000.0;  // convert to meters
@@ -923,12 +923,12 @@ int main(int argc, char * argv[]){
     }
     
     vw::Quat parsed_cam_quat;
-    if (opt.cam_parsed_cam_quat_str != "") {
+    if (opt.parsed_cam_quat_str != "") {
       std::vector<double> vals;
-      parse_values<double>(opt.cam_parsed_cam_quat_str, vals);
+      parse_values<double>(opt.parsed_cam_quat_str, vals);
       if (vals.size() != 4) 
 	vw_throw( ArgumentErr() << "Could not parse 4 values from: "
-		  << opt.cam_parsed_cam_quat_str << ".\n");
+		  << opt.parsed_cam_quat_str << ".\n");
 
       parsed_cam_quat = vw::Quat(vals[0], vals[1], vals[2], vals[3]);
       vw_out() << "Parsed camera quaternion: " << parsed_cam_quat << "\n";
