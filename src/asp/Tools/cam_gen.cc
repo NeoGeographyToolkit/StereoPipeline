@@ -52,10 +52,12 @@ using namespace std;
 using namespace vw::cartography;
 using namespace asp::camera;
 
-// Solve for best fitting camera that projects given
-// xyz locations at given pixels. If cam_weight > 0,
-// try to constrain the camera height above datum at
-// the value of cam_height.
+// Solve for best fitting camera that projects given xyz locations at
+// given pixels. If cam_weight > 0, try to constrain the camera height
+// above datum at the value of cam_height.
+// TODO: The logic with the camera height did not work. Wipe it.
+// Use the original functions in VW and move some of the newer
+// code from here to there.
 template <class CAM>
 class CameraSolveLMA_Ht: public vw::math::LeastSquaresModelBase<CameraSolveLMA_Ht<CAM> > {
   std::vector<vw::Vector3> const& m_xyz;
@@ -116,21 +118,23 @@ public:
 }; // End class CameraSolveLMA_Ht
 
 /// Find the best camera that fits the current GCP
-void fit_camera_to_xyz_ht(std::string const& camera_type,
-			bool refine_camera, 
-			std::vector<Vector3> const& xyz_vec,
-			std::vector<double> const& pixel_values,
-			double cam_height, double cam_weight,
-			vw::cartography::Datum const& datum,
-			bool verbose,
-			boost::shared_ptr<CameraModel> & out_cam){
+void fit_camera_to_xyz_ht(bool parse_ecef,
+			  Vector3 const& parsed_camera_center,
+			  std::string const& camera_type,
+			  bool refine_camera, 
+			  std::vector<Vector3> const& xyz_vec,
+			  std::vector<double> const& pixel_values,
+			  double cam_height, double cam_weight,
+			  vw::cartography::Datum const& datum,
+			  bool verbose,
+			  boost::shared_ptr<CameraModel> & out_cam){
   
   // Create fake points in space at given distance from this camera's
   // center and corresponding actual points on the ground.  Use 500
   // km, just some height not too far from actual satellite height.
   const double ht = 500000; 
-  vw::Matrix<double> in, out;
   int num_pts = pixel_values.size()/2;
+  vw::Matrix<double> in, out;
   in.set_size(3, num_pts);
   out.set_size(3, num_pts);
   for (int col = 0; col < in.cols(); col++) {
@@ -141,7 +145,7 @@ void fit_camera_to_xyz_ht(std::string const& camera_type,
       out(row, col) = xyz_vec[col][row];
     }
   }
-
+  
   // Apply a transform to the camera so that the fake points are on top of the real points
   Matrix<double, 3, 3> rotation;
   Vector3 translation;
@@ -149,10 +153,16 @@ void fit_camera_to_xyz_ht(std::string const& camera_type,
   find_3D_affine_transform(in, out, rotation, translation, scale);
   if (camera_type == "opticalbar")
     ((vw::camera::OpticalBarModel*)out_cam.get())->apply_transform(rotation,
-								    translation, scale);
-  else
+								   translation, scale);
+  else{
     ((PinholeModel*)out_cam.get())->apply_transform(rotation, translation, scale);
-
+    if (parse_ecef) {
+      // Overwrite the solved camera center with what is found from the
+      // frame index file.
+      ((PinholeModel*)out_cam.get())->set_camera_center(parsed_camera_center);
+    }
+  }
+  
   // Print out some errors
   if (verbose) {
     vw_out() << "The error between the projection of each ground "
@@ -253,12 +263,12 @@ void parse_values(std::string list, std::vector<T> & values){
 struct Options : public vw::cartography::GdalWriteOptions {
   string image_file, camera_file, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
-    stereo_session, bundle_adjust_prefix, cam_xyz_str;
+    stereo_session, bundle_adjust_prefix, cam_parsed_cam_ctr_str, cam_parsed_cam_quat_str;
   double focal_length, pixel_pitch, gcp_std, height_above_datum,
     cam_height, cam_weight;
   Vector2 optical_center;
   std::vector<double> lon_lat_values, pixel_values;
-  bool refine_camera; 
+  bool refine_camera, parse_eci, parse_ecef; 
   Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0) {}
 };
 
@@ -295,6 +305,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If both this and --cam-weight are positive, enforce that the output camera is at this height above datum. For SkySat, if not set, read this from the frame index. Highly experimental.")
     ("cam-weight", po::value(&opt.cam_weight)->default_value(0),
      "If positive, try to enforce the option --cam-height with this weight (bigger weight means try harder to enforce). Highly experimental.")
+    ("parse-eci", po::bool_switch(&opt.parse_eci)->default_value(false),
+     "Create cameras based on ECI positions and orientations (not working).")
+    ("parse-ecef", po::bool_switch(&opt.parse_ecef)->default_value(false),
+     "Create cameras based on ECEF position (but not orientation).")
     ("input-camera", po::value(&opt.input_camera)->default_value(""),
      "Create the output pinhole camera approximating this camera.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
@@ -376,23 +390,59 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
         opt.lon_lat_values_str = line.substr(beg_pos, end_pos - beg_pos);
         vw_out() << "Parsed the lon-lat corner values: " << opt.lon_lat_values_str
 		 << std::endl;
+
+	if (opt.parse_eci && opt.parse_ecef)
+	  vw_throw( ArgumentErr() << "Cannot parse both ECI end ECEF at the same time.\n");
 	
 	// Also parse the camera height constraint, unless manually specified
-	if (opt.cam_weight > 0) {
+	if (opt.cam_weight > 0 || opt.parse_eci || opt.parse_ecef) {
 	  std::vector<std::string> vals;
 	  parse_values<std::string>(line, vals);
 	  
-	  if (vals.size() < 8) 
-	    vw_throw( ArgumentErr() << "Could not parse 8 values from: " << line << ".\n");
+	  if (vals.size() < 12) 
+	    vw_throw( ArgumentErr() << "Could not parse 12 values from: " << line << ".\n");
 
-	  // Extract the ECI coordinates of camera center. Keep them
-	  // as string until we can convert to height above datum.
-	  std::string x = vals[5];
-	  std::string y = vals[6];
-	  std::string z = vals[7];
-	  opt.cam_xyz_str = x + " " + y + " " + z;
-	  vw_out() << "Parsed the ECI camera center in km: "
-		   << x << ' ' << y << ' ' << z <<".\n";
+	  // Extract the ECI or ECEF coordinates of camera
+	  // center. Keep them as string until we can convert to
+	  // height above datum.
+	  
+	  if (opt.parse_eci) {
+	    std::string x = vals[5];
+	    std::string y = vals[6];
+	    std::string z = vals[7];
+	    opt.cam_parsed_cam_ctr_str = x + " " + y + " " + z;
+	    vw_out() << "Parsed the ECI camera center in km: "
+		     << opt.cam_parsed_cam_ctr_str <<".\n";
+	    
+	    std::string q0 = vals[8];
+	    std::string q1 = vals[9];
+	    std::string q2 = vals[10];
+	    std::string q3 = vals[11];
+	    opt.cam_parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
+	    vw_out() << "Parsed the ECI quaternion: "
+		     << opt.cam_parsed_cam_quat_str <<".\n";
+	  }
+	  
+	  if (opt.parse_ecef) {
+	    if (vals.size() < 19) 
+	      vw_throw( ArgumentErr() << "Could not parse 19 values from: " << line << ".\n");
+	    
+	    std::string x = vals[12];
+	    std::string y = vals[13];
+	    std::string z = vals[14];
+	    opt.cam_parsed_cam_ctr_str = x + " " + y + " " + z;
+	    vw_out() << "Parsed the ECEF camera center in km: "
+		     << opt.cam_parsed_cam_ctr_str <<".\n";
+	    
+	    std::string q0 = vals[15];
+	    std::string q1 = vals[16];
+	    std::string q2 = vals[17];
+	    std::string q3 = vals[18];
+	    opt.cam_parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
+	    vw_out() << "Parsed the ECEF quaternion: "
+		     << opt.cam_parsed_cam_quat_str <<".\n";
+	  }
+	  
 	}
 	
         break;
@@ -849,25 +899,41 @@ int main(int argc, char * argv[]){
       = interpolate(create_mask(dem, nodata_value),
 		    BilinearInterpolation(), ZeroEdgeExtension());
 
-    // If we have camera center in ECI coordinates in km, convert
+    // If we have camera center in ECI or ECEF coordinates in km, convert
     // to height above datum.
-    if (opt.cam_xyz_str != "") {
+    Vector3 parsed_cam_ctr;
+    if (opt.cam_parsed_cam_ctr_str != "") {
       std::vector<double> vals;
-      parse_values<double>(opt.cam_xyz_str, vals);
+      parse_values<double>(opt.cam_parsed_cam_ctr_str, vals);
       if (vals.size() != 3) 
 	vw_throw( ArgumentErr() << "Could not parse 3 values from: "
-		  << opt.cam_xyz_str << ".\n");
+		  << opt.cam_parsed_cam_ctr_str << ".\n");
 
-      Vector3 xyz(vals[0], vals[1], vals[2]);
-      xyz *= 1000.0;  // convert to meters
+      parsed_cam_ctr = Vector3(vals[0], vals[1], vals[2]);
+      parsed_cam_ctr *= 1000.0;  // convert to meters
+      vw_out().precision(18);
+      vw_out() << "Parsed camera center (meters): " << parsed_cam_ctr << "\n";
 
-      Vector3 llh = datum.cartesian_to_geodetic(xyz);
+      Vector3 llh = datum.cartesian_to_geodetic(parsed_cam_ctr);
       
-      // Since xyz is in ECI coordinates, the lon and lat won't be accurate
+      // If parsed_cam_ctr is in ECI coordinates, the lon and lat won't be accurate
       // but the height will be.
-      opt.cam_height = llh[2];
+      if (opt.cam_weight > 0) 
+	opt.cam_height = llh[2];
     }
+    
+    vw::Quat parsed_cam_quat;
+    if (opt.cam_parsed_cam_quat_str != "") {
+      std::vector<double> vals;
+      parse_values<double>(opt.cam_parsed_cam_quat_str, vals);
+      if (vals.size() != 4) 
+	vw_throw( ArgumentErr() << "Could not parse 4 values from: "
+		  << opt.cam_parsed_cam_quat_str << ".\n");
 
+      parsed_cam_quat = vw::Quat(vals[0], vals[1], vals[2], vals[3]);
+      vw_out() << "Parsed camera quaternion: " << parsed_cam_quat << "\n";
+    }
+    
     if (opt.cam_weight > 0) {
       vw_out() << "Will attempt to find a camera center height above datum of "
 	       << opt.cam_height
@@ -880,7 +946,7 @@ int main(int argc, char * argv[]){
       extract_lon_lat_from_camera(opt, create_mask(dem, nodata_value), geo);
     }
 
-    if (opt.lon_lat_values.size() < 6) 
+    if (opt.lon_lat_values.size() < 3) 
       vw_throw( ArgumentErr() << "Expecting at least three longitude-latitude pairs.\n");
 
     if (opt.lon_lat_values.size() != opt.pixel_values.size()){
@@ -960,19 +1026,33 @@ int main(int argc, char * argv[]){
 
     // Transform it and optionally refine it
     bool verbose = true;
-    
-    fit_camera_to_xyz_ht(opt.camera_type, opt.refine_camera,  
+    fit_camera_to_xyz_ht(opt.parse_ecef, parsed_cam_ctr,
+			 opt.camera_type, opt.refine_camera,  
 			 xyz_vec, opt.pixel_values, 
 			 opt.cam_height, opt.cam_weight, datum,
 			 verbose, out_cam);
+    
+    if ((opt.parse_eci || opt.parse_ecef) && opt.camera_type == "opticalbar") {
+      vw_throw( ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");
+    }
+
+    // Code that is not working. 
+    //((vw::camera::PinholeModel*)out_cam.get())->set_camera_center(parsed_cam_ctr); 
+    //((vw::camera::PinholeModel*)out_cam.get())->set_camera_pose(parsed_cam_quat); 
+    //if (opt.parse_eci)
+    // ((vw::camera::PinholeModel*)out_cam.get())->set_camera_pose(parsed_cam_quat);
+    //if (opt.parse_ecef) 
+    // ((vw::camera::PinholeModel*)out_cam.get())->set_camera_pose
+    //	(inverse(parsed_cam_quat));
     
     llh = datum.cartesian_to_geodetic(out_cam->camera_center(Vector2()));
     vw_out() << "Output camera center lon, lat, and height above datum: " << llh << std::endl;
     vw_out() << "Writing: " << opt.camera_file << std::endl;
     if (opt.camera_type == "opticalbar")
       ((asp::camera::OpticalBarModel*)out_cam.get())->write(opt.camera_file);
-    else
-      ((PinholeModel*)out_cam.get())->write(opt.camera_file);
+    else {
+      ((vw::camera::PinholeModel*)out_cam.get())->write(opt.camera_file);
+    }
 
 
   } ASP_STANDARD_CATCHES;
