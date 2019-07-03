@@ -757,15 +757,17 @@ void MainWindow::viewMatches(){
 
         // Look in default location 1, match from previous file to this file.
         try {
-          trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[i-1], m_image_files[i]);
-          leftIndex   = i-1;
+          trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[i-1],
+					       m_image_files[i]);
+          leftIndex = i-1;
           vw_out() << "     - Trying location " << trial_match << std::endl;
           ip::read_binary_match_file(trial_match, left, right);
 
         }catch(...){
           // Look in default location 2, match from first file to this file.
           try {
-            trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[0], m_image_files[i]);
+            trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[0],
+						 m_image_files[i]);
             leftIndex   = 0;
             vw_out() << "     - Trying location " << trial_match << std::endl;
             ip::read_binary_match_file(trial_match, left, right);
@@ -1125,10 +1127,6 @@ void MainWindow::setZoomAllToSameRegion() {
 
   if (zoom_all_to_same_region) {
 
-    // This can be tricky. First save the image region we are looking at,
-    // before we re-project and re-draw everything.
-    BBox2 pixel_box = m_widgets[BASE_IMAGE_INDEX]->firstImagePixelBox();
-    
     // If zooming to same region, windows better not be on top of each other
     if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
       if (m_view_type_old != VIEW_IN_SINGLE_WINDOW)
@@ -1137,8 +1135,8 @@ void MainWindow::setZoomAllToSameRegion() {
         m_view_type = VIEW_SIDE_BY_SIDE;
     }
 
-    // If all images are georeferenced, it makes perfect sense
-    // to turn on georeferencing when zooming. The user can later turn it off
+    // If all images are georeferenced, it makes perfect sense to turn
+    // on georeferencing when zooming. The user can later turn it off
     // from the menu if so desired.
     bool has_georef = true;
     for (size_t i = 0; i < m_image_files.size(); i++) {
@@ -1149,13 +1147,28 @@ void MainWindow::setZoomAllToSameRegion() {
     if (has_georef && !m_use_georef) {
       m_use_georef = true;
       m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-      viewGeoreferencedImages();
+      viewGeoreferencedImages(); // This will invoke createLayout() too.
     }else{
-      // In either case must re-create all widgets
       createLayout();
     }
 
+    // See where the earlier viewable region ended up in the current world
+    // coordinate system. A lot of things could have changed since then.
+    BBox2 world_box;
+    for (size_t i = 0; i < m_widgets.size(); i++) {
+      vw::BBox2 region = m_widgets[i]->worldBox();
+      if (m_widgets[i])
+	world_box.grow(region);
+    }
+    
+    // Now let this be the world box in all images. Later, during resizeEvent(),
+    // the sizeToFit() function will be called which will use this box.
+    for (size_t i = 0; i < m_widgets.size(); i++) {
+      if (m_widgets[i])
+        m_widgets[i]->setWorldBox(world_box);
+    }
   }
+  
 }
 
 // Zoom all widgets to the same region which comes from widget with given id.

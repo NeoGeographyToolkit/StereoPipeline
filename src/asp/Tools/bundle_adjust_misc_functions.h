@@ -43,7 +43,7 @@ using namespace vw::ba;
 std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
 /// Structure to fully describe how the intrinsics are being handled.
-/// - Currently only pinhole cameras suppert intrinsics in bundle_adjust.
+/// - Currently only pinhole cameras support intrinsics in bundle_adjust.
 struct IntrinsicOptions {
   bool center_constant;
   bool center_shared;
@@ -771,7 +771,7 @@ void create_interp_dem(std::string & dem_file,
     vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
   }
   
-  ImageView< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
+  ImageViewRef< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
   
   interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
   bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);

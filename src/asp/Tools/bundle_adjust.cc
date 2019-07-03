@@ -1208,8 +1208,13 @@ int do_ba_ceres_one_pass(Options             & opt,
 				     "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
 
   // If heights_from_dem is set, each point is a gcp, and this stats becomes too long
-  if (num_gcp > 0 && opt.heights_from_dem == "")
-    param_storage.print_gcp_stats(cnet, opt.datum);
+  if (num_gcp > 0 && opt.heights_from_dem == "") {
+    if (num_gcp > 500) 
+      vw_out() << "Too many GCP, will not print out the stats. "
+	       << "The pointmap file has GCP-related information.\n";
+    else
+      param_storage.print_gcp_stats(cnet, opt.datum);
+  }
 
   int num_new_outliers = 0;
   if (!last_pass) 
