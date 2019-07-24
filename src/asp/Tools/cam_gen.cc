@@ -465,7 +465,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 		<< opt.image_file << ".\n");
     
     // populate the corners
-    double arr[] = {0, 0, wid, 0, wid, hgt, 0, hgt};
+    double arr[] = {0.0, 0.0, (double)wid, 0.0, (double)wid, (double)hgt, 0.0, (double)hgt};
     for (size_t it  = 0; it < sizeof(arr)/sizeof(double); it++) 
       opt.pixel_values.push_back(arr[it]);
 

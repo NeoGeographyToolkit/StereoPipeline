@@ -15,6 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// Rename this to StereoSessionMap.h!
 
 /// \file StereoSessionDGMapRPC.h
 ///

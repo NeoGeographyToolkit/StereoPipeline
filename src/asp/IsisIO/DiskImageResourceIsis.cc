@@ -42,7 +42,6 @@ using namespace boost;
 
 namespace vw {
 
-
   // We use a fixed tile size of 2048x2048 pixels here.  Although this
   // may not be the native tile size of the ISIS cube, it seems to be
   // much faster to let the ISIS driver aggregate smaller blocks by

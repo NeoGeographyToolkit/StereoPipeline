@@ -29,6 +29,10 @@
 using namespace vw;
 using namespace boost::assign;
 
+#if 0
+
+// Turning off this very old functionality.
+
 class SoftwareRenderTest : public ::testing::Test {
 protected:
   SoftwareRenderTest() : render_buffer( 128, 128 ), renderer( 128, 128, &render_buffer(0,0) ), vertices(6), color(3) {
@@ -185,3 +189,5 @@ TEST_F( SoftwareRenderTest, ExtremelyLargeTriangle ) {
     }
   }
 }
+
+#endif

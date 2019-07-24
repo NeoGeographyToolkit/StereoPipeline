@@ -1,5 +1,9 @@
 *** RELEASE 2.6.3, Upcoming! ***
 
+ - New functionality
+   * Support for the Community Sensor Model
+     (https://github.com/USGS-Astrogeology/usgscsm)
+
  - bundle_adjust
    * Can first create interest point matches among mapprojected images
      (automatically or manually) and use those to create matches among
@@ -9,6 +13,11 @@
  - stereo_gui
    * Bugfix when zooming all images to same region when the region is
      such that all images are seen fully.
+
+ - Misc
+   * Updated to C++ 11.
+   * The Linux build system upgraded to Ubuntu 16, using conda
+     for many dependencies, and with Python version >= 2.7 or 3.
 
 *** RELEASE 2.6.2, June 15, 2019 ***
 

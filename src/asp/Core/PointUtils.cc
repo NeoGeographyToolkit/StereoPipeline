@@ -102,7 +102,7 @@ namespace asp{
       // is reached.
       while (1){
 	
-        m_has_valid_point = getline(*m_ifs, line, '\n');
+        m_has_valid_point = static_cast<bool>(getline(*m_ifs, line, '\n'));
         if (!m_has_valid_point) return m_has_valid_point; // reached end of file
 
         vals = m_csv_conv.parse_csv_line(m_is_first_line, m_has_valid_point, line);

@@ -265,7 +265,6 @@ namespace asp {
                                       nodata1, nodata2);
       } else {
 	vw_out() << "\t    Using rough homography.\n";
-        inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
         inlier = ip_matching_w_alignment(!supports_multi_threading(), cam1, cam2,
                                          image1_norm, image2_norm,
                                          ip_per_tile,

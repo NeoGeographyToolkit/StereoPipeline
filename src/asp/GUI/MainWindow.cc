@@ -753,14 +753,14 @@ void MainWindow::viewMatches(){
         // Look for the match file in the default location, and if it
         // does not appear prompt the user or a path.
 
-        vw_out() << "Looking for match file for image index " << i << std::endl;
+        //vw_out() << "Looking for match file for image index " << i << std::endl;
 
         // Look in default location 1, match from previous file to this file.
         try {
           trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[i-1],
 					       m_image_files[i]);
           leftIndex = i-1;
-          vw_out() << "     - Trying location " << trial_match << std::endl;
+          //vw_out() << "     - Trying location " << trial_match << std::endl;
           ip::read_binary_match_file(trial_match, left, right);
 
         }catch(...){
@@ -769,7 +769,7 @@ void MainWindow::viewMatches(){
             trial_match = vw::ip::match_filename(m_output_prefix, m_image_files[0],
 						 m_image_files[i]);
             leftIndex   = 0;
-            vw_out() << "     - Trying location " << trial_match << std::endl;
+            //vw_out() << "     - Trying location " << trial_match << std::endl;
             ip::read_binary_match_file(trial_match, left, right);
           }catch(...){
             // Default locations failed, ask the user for the location.

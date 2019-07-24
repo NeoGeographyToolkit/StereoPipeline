@@ -17,9 +17,9 @@ B. Using the Software
 
 When you unpack the Stereo Pipeline tarball, it will contain a copy of
 the documentation in pdf format, a set of command-line tools in the
-"bin/" directory, and other dependencies. The "bin/" directory needs
-to be in your path. See the README file for how to use Stereo
-Pipeline.
+"bin" directory, and other dependencies. The "bin" directory needs to
+be in your path or one should invoke those tools using the full
+path. See the README file for how to use Stereo Pipeline.
 
 C. Installing from Source
 
@@ -42,10 +42,12 @@ dependencies in a virtual machine. How to set one up is described in
 the file VIRTMACHINES.
 
 The following packages need to be installed in order to build Stereo
-Pipeline:
+Pipeline (this list is not exhaustive, see the precise commands
+to install dependencies below):
 
-Python (version >= 2.6.1)
-g++, gfortran (version >= 4.9)
+Python (version >= 3 preferred, version >= 2.7 supported)
+g++, gfortran (version >= 5.0)
+cmake (version >= 3.11)
 csh
 libtool
 autoconf
@@ -70,12 +72,13 @@ freeglut3-dev
 gtk2-dev
 
 If you have root access on your machine you can install them on a
-Debian-based distribution using the following command (note that sometimes
-the precise names of packages may change):
+Debian-based distribution (for example Ubuntu version >= 16) using the
+following command (note that sometimes the precise names of packages
+may change):
 
 sudo apt-get update -y
 sudo apt-get install -y python g++ gfortran tcsh libtool libtool-bin                \
-  autoconf automake libssl-dev wget curl git subversion zip xserver-xorg-dev        \
+  m4 autoconf automake libssl-dev wget curl git subversion zip xserver-xorg-dev     \
   xorg-dev libx11-dev libxext-dev libxmu6 libxmu-dev libxi-dev                      \
   '^libxcb.*-dev' libx11-xcb-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev     \
   libgtk2.0-dev texlive-latex-base latexmk graphviz texinfo
@@ -86,7 +89,7 @@ it can be simply removed, as libtool has all the functionality.
 For Red Hat-based distributions (CentOS/RHEL version >= 6) one can do instead:
 
 sudo yum update -y
-sudo yum -y install python gcc-c++ gcc-gfortran tcsh libtool autoconf               \
+sudo yum -y install python gcc-c++ gcc-gfortran tcsh libtool m4 autoconf            \
   automake openssl-devel wget curl git subversion xorg-x11-server-Xorg libX11-devel \
   libXext-devel libXmu libXmu-devel libXi-devel libxcb libxcb-devel xcb-util        \
   xcb-util-devel mesa-libGL-devel freeglut-devel gtk2-devel
@@ -128,14 +131,33 @@ export PATH=$HOMEBREW_PREFIX/bin:$PATH
 brew update
 brew doctor
 brew install automake libtool openssl git wget curl xz
-brew install homebrew/versions/gcc49 --with-fortran
+brew install gcc --with-fortran
+
+(Use gcc version >= 5).
 
 Set the following env variable:
 export DYLD_LIBRARY_PATH=$HOME/local/lib/gcc/4.9/:$DYLD_LIBRARY_PATH
 
+4. Setting up ISIS
+
+ASP depends heavily on USGS ISIS and its dependencies. ISIS should
+be built using cmake and conda using the following instructions:
+
+https://github.com/USGS-Astrogeology/ISIS3/blob/dev/README.md
+https://github.com/USGS-Astrogeology/ISIS3/wiki/Developing-ISIS3-with-cmake
+
+If it is desired to build VisionWorkbench only, or ASP without ISIS
+support, one need not build ISIS, but one still must invoke conda to
+fetch the ISIS dependencies.
+
+If building on CentOS 7.2 or SuSE 12, one should have gcc 5 and the
+binutils package with the gold linker, and one should use the
+environemnt in environment.yml rather than environment_gcc4.yml
+mentioned there for CentOS.
+
 3. Invoking Binary Builder
 
-Having installed the base libraries and tools, the following lines of
+Having installed the tools, base libraries, and ISIS, the following lines of
 code will start the build of Stereo Pipeline in the directory
 '~/projects/BinaryBuilder':
 
@@ -144,6 +166,10 @@ git clone https://github.com/NeoGeographyToolkit/BinaryBuilder.git
 cd BinaryBuilder
 source ./auto_build/utils.sh
 ./build.py --download-dir tarballs --build-root build_asp
+
+If the conda packages were installed in a location other than
+$HOME/miniconda3/envs/isis3, the path to that directory should be
+set via --isis3-deps-dir.
 
 Due to the amount of code that must be downloaded and built,
 BinaryBuilder will take quite a while to finish.  If you see the

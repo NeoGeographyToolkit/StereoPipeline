@@ -37,7 +37,7 @@ namespace asp {
 
 typedef double RealT; // To introduce a bit of clarity
 
-typedef typename Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic> DoubleMatrix;
+typedef Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic> DoubleMatrix;
 
 // Note: Just changing 3 to 2 below won't be enough to make the code
 // work with 2D point clouds. There are some Vector3's all over the place.

@@ -28,6 +28,7 @@
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/Core/CmdUtils.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/LocalHomography.h>
@@ -39,7 +40,7 @@ using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
 using namespace std;
-
+namespace fs = boost::filesystem;
 
 namespace asp{
 
@@ -47,8 +48,8 @@ namespace asp{
   // only when we failed to parse the arguments under the assumption
   // that the tool was being invoked with the stereo interface. Hence
   // we'll fallback to this when the tool is used as an image viewer.
-  void handle_arguments( int argc, char *argv[], ASPGlobalOptions& opt,
-                         std::vector<string> & input_files){
+  void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
+			std::vector<string> & input_files){
 
     // Options for which we will print the help message
     po::options_description general_options("");
@@ -204,10 +205,30 @@ int main(int argc, char** argv) {
 
     vw::create_out_dir(output_prefix);
 
+    // For the developer build, that is, the one installed but not packaged,
+    // look up the plugin path for Qt.
+    std::string plugin_var = "QT_PLUGIN_PATH";
+    std::string plugin_str;
+    char * plugin_val = getenv(plugin_var.c_str());
+    if (plugin_val == NULL || strlen(plugin_val) == 0) {
+      std::string program_path = vw::program_path("stereo_gui", argv[0]);
+      fs::path plugin_path = fs::path(program_path).parent_path().parent_path()
+       	/ fs::path("plugins");
+      plugin_str = plugin_var + "=" + plugin_path.string();
+
+      // The putenv function is very fragile. If plugin_str changes
+      // after this call, it will change the environment. Hence,
+      // do not touch plugin_str or let it go out of scope!
+      vw_out() << "Setting: " << plugin_str << "\n";
+      if (putenv((char*)plugin_str.c_str()) != 0) 
+	vw_out() << "Failed to set: " << plugin_val << "\n";
+    }
+    
     // Create the application. Must be done before trying to read
     // images as that call uses pop-ups.
     StereoApplication app(argc, argv);
-
+    
+    
     // Start up the Qt GUI
     vw::gui::MainWindow main_window(opt_vec[0],
                                     images, output_prefix,

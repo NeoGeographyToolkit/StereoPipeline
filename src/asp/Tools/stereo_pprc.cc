@@ -229,7 +229,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     // skipped image normalization, so we are still using the original
     // input images, and the user wants to use a custom no-data value,
     // this is the time to apply it.
-    if (skip_img_norm && !isnan(stereo_settings().nodata_value)){
+    if (skip_img_norm && !std::isnan(stereo_settings().nodata_value)){
       left_nodata_value  = stereo_settings().nodata_value;
       right_nodata_value = stereo_settings().nodata_value;
     }
@@ -247,20 +247,20 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     double right_threshold = numeric_limits<double>::quiet_NaN();
     double nodata_fraction = stereo_settings().nodata_pixel_percentage/100.0;
     double nodata_factor   = stereo_settings().nodata_optimal_threshold_factor;
-    if ( skip_img_norm && ((!isnan(nodata_fraction)) || (!isnan(nodata_factor))) ){
+    if ( skip_img_norm && ((!std::isnan(nodata_fraction)) || (!std::isnan(nodata_factor))) ){
       vw_throw( ArgumentErr() << "\nCannot skip image normalization while attempting "
                               << "to apply a normalized threshold.\n");
     }
-    if ( (!isnan(nodata_fraction)) && (!isnan(nodata_factor)) ){
+    if ( (!std::isnan(nodata_fraction)) && (!std::isnan(nodata_factor)) ){
       vw_throw( ArgumentErr() << "\nCannot set both nodata-pixel-percentage and "
                               << "nodata-optimal-threshold-factor at the same time.\n");
     }
-    if ( !isnan(nodata_factor) ){
+    if ( !std::isnan(nodata_factor) ){
       // Find the black pixels threshold using Otsu's optimal threshold method.
       left_threshold  = nodata_factor*optimal_threshold(left_image );
       right_threshold = nodata_factor*optimal_threshold(right_image);
     }
-    if ( !isnan(nodata_fraction) ){
+    if ( !std::isnan(nodata_fraction) ){
       // Declare a fixed proportion of low-value pixels to be no-data.
       math::CDFAccumulator< PixelGray<float> > left_cdf (1024, 1024),
                                                right_cdf(1024, 1024);
@@ -273,7 +273,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     // The blob holders must not go out of scope while masks are being written.
     BlobHolder LB, RB;
 
-    if ( !isnan(left_threshold) && !isnan(right_threshold) ){
+    if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ){
       ImageViewRef< PixelMask<uint8> > left_thresh_mask  = LB.mask_and_fill_holes(left_image,  left_threshold);
       ImageViewRef< PixelMask<uint8> > right_thresh_mask = RB.mask_and_fill_holes(right_image, right_threshold);
       left_mask  = intersect_mask(left_mask,  left_thresh_mask );

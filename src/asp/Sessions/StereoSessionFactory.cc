@@ -161,6 +161,14 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
         actual_session_type = "astermaprpc";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: astermaprpc" << std::endl;
       }
+
+      // Quetly switch from nadirpinhole to pinhole for mapprojected images
+      if (!input_dem.empty() && actual_session_type == "nadirpinhole") {
+        // User says nadirpinhole but also gives a DEM.
+        actual_session_type = "pinholemappinhole";
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinhole" << std::endl;
+      }
+      
     } // End map promotion section
 
     // We should know the session type by now.

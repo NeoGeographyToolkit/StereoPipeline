@@ -1,41 +1,22 @@
 This is documentation for ASP developers about how set up a Linux
-virtual machine and build ASP and its dependencies inside of
-it. A virtual machine makes it easier work on a desired OS version and
-to install third-party libraries.
+virtual machine and build ASP and its dependencies inside of it. A
+virtual machine makes it easier work on a desired OS version and to
+install third-party libraries.
 
 We use KVM to manage virtual machines. The system administrators
 need to have it installed on the host machine. 
 
 It is suggested that the virtual machine (the guest) to be used for
 building ASP be reasonably old, so that the shipped ASP build works on
-as many machines as possible. Here is an example of installing Cent OS
-6.0 as a guest.
+as many machines as possible. Here is an example of installing Ubuntu 16
+as a guest.
 
-# Installing a CentOS virtual machine
-
-wget https://archive.org/download/centos-6.0_release/CentOS-6.0-x86_64-bin-DVD1.iso
+wget http://releases.ubuntu.com/16.04/ubuntu-16.04.6-desktop-amd64.iso
 mkdir -p ~/projects/libvrt
-fallocate -l 70000M ~/projects/libvrt/centos.img
-virt-install -r 8192 --accelerate -n centos -f ~/projects/libvrt/centos.img --cdrom CentOS-6.0-x86_64-bin-DVD1.iso  --vcpus=8 --vnc --vncport=5950
-
-Note that for CentOS minor versions are very fluid. This OS will
-quickly upgrade itself to the latest minor version, so it may end up
-as version 6.8 instead of 6.0 for example.
-
-CentOS arbitrarily partitions the hard drive using LVM into home and
-root drives, which makes it hard to use the storage efficiently. That
-should be disabled, or otherwise more storage can be pre-allocated, or
-the build can be built partially in /home and partially in /.
+fallocate -l 70000M ~/projects/libvrt/ubuntu16.img
+virt-install -r 8192 --accelerate -n ubuntu-16.04.5-amd64 -f ~/projects/libvrt/ubuntu16.img --cdrom ubuntu-16.04.6-desktop-amd64.iso  --vcpus=8 --vnc --vncport=5950
 
 # Managing the virtual machine
-
-CentOS does not start the network on boot, that can be rectified by running:
-
-sudo sed -i -e 's@^ONBOOT="no@ONBOOT="yes@' /etc/sysconfig/network-scripts/ifcfg-eth0
-
-and rebooting. Or, for the current session, with:
-
-  ifup eth0
 
 To open a GUI in the machine, use either:
 
@@ -43,7 +24,7 @@ To open a GUI in the machine, use either:
 
 (the same VNC port used when the machine was created), or 
 
-  virt-viewer centos
+  virt-viewer ubuntu-16.04.5-amd64
 
 Use
 
@@ -105,12 +86,12 @@ Locate the virtual machine, for example, with the command:
 
 virsh list --all
 
-Here it is assumed we name it centos.
+Here it is assumed we name it ubuntu-16.04.5-amd64.
 
 Dump and edit an xml file:
 
-virsh dumpxml centos > centos.xml
-vim centos.xml
+virsh dumpxml ubuntu-16.04.5-amd64 > ubuntu-16.04.5-amd64.xml
+vim ubuntu-16.04.5-amd64.xml
 
 Under the line
 
@@ -123,33 +104,15 @@ add the line:
 Save this file and exit. Then undefine, shut down, redefine, and
 restart the machine as follows:
 
-virsh undefine centos
-virsh destroy centos
-virsh create centos.xml
-virsh start centos
+virsh undefine ubuntu-16.04.5-amd64
+virsh destroy ubuntu-16.04.5-amd64
+virsh create ubuntu-16.04.5-amd64.xml
+virsh start ubuntu-16.04.5-amd64
  
 # Further customization and administration
 
-Also, the number of CPUs and RAM for GUEST can be changed each time
-before starting it by again editing the xml file.
-
-To allow the user to use sudo to install packages, follow the instructions at:
-
-https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/2/html/Getting_Started_Guide/ch02s03.html        
-
-If the development tools on CentOS are old, they can be updated by
-using devtoolset-3:
-
-sudo yum -y install centos-release-scl
-
-sudo yum -y install devtoolset-3-gcc devtoolset-3-gcc-c++ devtoolset-3-gcc-gfortran
-
-After the new tools are installed, run:
-
-scl enable devtoolset-3 bash
-
-The path to the new compilers, e.g., /opt/rh/devtoolset-3/root/usr/bin,
-can be saved so that in the future one need not invoke scl each time. 
+The number of CPUs and RAM for GUEST can be changed each time before
+starting it by again editing the xml file.
 
 See INSTALLGUIDE for how to continue the installation of dependencies
 and building ASP.

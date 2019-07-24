@@ -193,7 +193,7 @@ public:
   };
 
   inline channel_type operator()( channel_type const& val ) const {
-    return (val != m_nodata && !isnan(val))? range_type::max() : range_type::min();
+    return (val != m_nodata && !std::isnan(val))? range_type::max() : range_type::min();
   }
 };
 
@@ -211,7 +211,7 @@ struct BigOrZero: public ReturnFixedType<PixelT> {
   PixelT m_nodata;
   BigOrZero(PixelT nodata):m_nodata(nodata){}
   double operator() (PixelT const& pix) const {
-    if (pix != m_nodata && !isnan(pix)) return 1e+8;
+    if (pix != m_nodata && !std::isnan(pix)) return 1e+8;
     return 0;
   }
 };

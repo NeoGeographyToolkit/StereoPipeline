@@ -1,8 +1,7 @@
-
 # This file contains functions used in other parts of the project.
 
 # Obtains a file list with all the files in a directory properly formatted
-function( get_all_source_files relativePath outputFileList)
+function(get_all_source_files relativePath outputFileList)
 
   # Load all matching files into TEMP
   file(GLOB TEMP
@@ -22,17 +21,20 @@ function( get_all_source_files relativePath outputFileList)
 endfunction(get_all_source_files)
 
 # Look for a library dependency, starting with the BinaryBuilder folder.
-function(find_external_library name bbIncludeFolder libNameList required)
+# Look for it in search_folder if provided.
+# If the header files are in a subfolder of "include", specify that one
+# in "inc_subfolder".
+function(find_external_library name search_folder inc_subfolder libNameList required)
 
   # Define the variable names we will create
   set(FOUND_NAME "${name}_FOUND")
   set(LIB_NAME   "${name}_LIBRARIES")
   set(INC_NAME   "${name}_INCLUDE_DIR")
-  set(ASP_NAME    "ASP_HAVE_PKG_${name}") # TODO: Remove VW/ASP name!
+  set(ASP_NAME   "ASP_HAVE_PKG_${name}") # TODO: Remove VW/ASP name!
 
   # Look in the BB directory if it was provided, otherwise
   #  make halfhearted attempt to find the dependency.
-  if(BINARYBUILDER_INSTALL_DIR)
+  if(search_folder)
     set(${FOUND_NAME} 1)
 
     set(ext ".so")
@@ -44,20 +46,23 @@ function(find_external_library name bbIncludeFolder libNameList required)
     set(${${LIB_NAME}} "")
     foreach(lib ${libNameList})
       set(FULL_NAME "lib${lib}${ext}")
-      set(FULL_PATH "${BINARYBUILDER_INSTALL_DIR}/lib/${FULL_NAME}")
+      set(FULL_PATH "${search_folder}/lib/${FULL_NAME}")
       if (NOT EXISTS ${FULL_PATH})
-        set(FULL_PATH "${BINARYBUILDER_INSTALL_DIR}/lib64/${FULL_NAME}")
-        if (NOT EXISTS ${FULL_PATH})
-          message("Missing library file: ${FULL_NAME}")
-          set(${FOUND_NAME} 0)
-          continue()
-        endif()
+          message("Missing library file: ${FULL_PATH}")
+	  set(FULL_PATH "${search_folder}/lib64/${FULL_NAME}")
+	  if (NOT EXISTS ${FULL_PATH})
+	      message("Missing library file: ${FULL_PATH}")
+	      set(${FOUND_NAME} 0)
+	      continue()
+	  endif()
+      else()
+          message("Found library file: ${FULL_PATH}")
       endif()
-      set(${LIB_NAME}  ${${LIB_NAME}} ${FULL_PATH})
-      
+	      
+    set(${LIB_NAME} ${${LIB_NAME}} ${FULL_PATH})
     endforeach()
     
-    set(${INC_NAME}   ${BINARYBUILDER_INSTALL_DIR}/include/${bbIncludeFolder})
+    set(${INC_NAME} ${search_folder}/include/${inc_subfolder})
   else()
     # TODO: Provide effective findX.cmake files to handle these.
     find_package(${name} REQUIRED)
@@ -80,7 +85,9 @@ function(find_external_library name bbIncludeFolder libNameList required)
   set(${LIB_NAME}   ${${LIB_NAME}}   PARENT_SCOPE)
   set(${INC_NAME}   ${${INC_NAME}}   PARENT_SCOPE)
   set(${ASP_NAME}   ${${ASP_NAME}}   PARENT_SCOPE)
-
+ 
+  #message(STATUS "Found ${${LIB_NAME}}")
+  
 endfunction(find_external_library)
 
 # Define a custom make target that will run all tests with normal gtest output.

@@ -38,7 +38,7 @@ namespace po = boost::program_options;
 
 /// GDAL block write sizes must be a multiple to 16 so if the input value is
 ///  not a multiple of 16 increase it until it is.
-int fix_tile_multiple(int &size) {
+void fix_tile_multiple(int &size) {
   const int TILE_MULTIPLE = 16;
   if (size % TILE_MULTIPLE != 0)
     size = ((size / TILE_MULTIPLE) + 1) * TILE_MULTIPLE;

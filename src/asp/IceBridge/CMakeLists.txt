@@ -20,3 +20,12 @@ install(TARGETS orbitviz_pinhole DESTINATION bin)
 add_executable(qi2txt qi2txt.cc)
 target_link_libraries(qi2txt AspCore)
 install(TARGETS qi2txt DESTINATION bin)
+
+# Install all of the python files.
+set(PYTHON_TOOLS icebridge_kmz_to_csv.py extract_icebridge_ATM_points.py lvis2kml.py)
+
+foreach(p ${PYTHON_TOOLS})
+  INSTALL(FILES ${p}
+          PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_EXECUTE GROUP_READ WORLD_EXECUTE
+          DESTINATION bin)
+endforeach()
