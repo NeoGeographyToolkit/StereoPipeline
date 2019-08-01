@@ -1,9 +1,5 @@
 cmake_minimum_required (VERSION 3.2)
 
-# Make it possible to append to these from the command line
-set(CMAKE_CXX_FLAGS "" CACHE STRING "")
-set(CMAKE_C_FLAGS "" CACHE STRING "")
-
 # Tell cmake to look in the /cmake folder.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
