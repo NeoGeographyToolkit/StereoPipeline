@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-#include <asp/Sessions/StereoSessionDGMapRPC.h>
+#include <asp/Sessions/StereoSessionMapProj.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/RPCModel.h>
 #include <boost/scoped_ptr.hpp>

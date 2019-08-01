@@ -324,7 +324,7 @@ def local_sum(a, tshape, padval):
         ind2 = [slice(None,None),]*a.ndim
         ind1[shiftdim] = slice(tshape[shiftdim], a.shape[shiftdim]-1)
         ind2[shiftdim] = slice(0,a.shape[shiftdim]-tshape[shiftdim]-1)
-        return a[ind1] - a[ind2]
+        return a[tuple(ind1)] - a[tuple(ind2)]
 
     # take the cumsum along each dimension and subtracting a shifted version
     # from itself. this reduces the number of computations to 2*N additions
@@ -386,7 +386,7 @@ def ndpad(a,npad=None,padval=0):
     ind = [slice(int(np.floor(npad[dd])), int(a.shape[dd]+np.floor(npad[dd]))) for dd in range(a.ndim)]
 
     # fill in the non-pad part of the array
-    b[ind] = a
+    b[tuple(ind)] = a
     return b
 
 def procrustes(a,target,side='both',padval=0):
@@ -444,7 +444,7 @@ def procrustes(a,target,side='both',padval=0):
     else:
         raise Exception('Invalid choice of pad type: %s' %side)
 
-    b[bind] = a[aind]
+    b[tuple(bind)] = a[tuple(aind)]
 
     return b
 
@@ -719,15 +719,22 @@ def make_pt_2_neighbors(tri):
 
 
 def unique_rows(data):
-    """ return the indices for he unique rows of matrix (data) """
+    """ return the indices for the unique rows of matrix (data) """
+
     udict = dict()
     for row in range(len(data)):
         row_data = tuple(data[row,:])
         if not row_data in udict:
-            udict[row_data] =row
+            udict[row_data] = row
     uInd=udict.values()
-    uRows=np.c_[udict.keys()]
-    return uInd, uRows
+
+    new_ind = []
+    for key in udict:
+        new_ind.append(udict[key])
+
+    new_rows = data[new_ind, :]
+    
+    return new_ind, new_rows
 
 def search_new_pts(xy, dxy, t_size, matcher, min_template_sigma=0., mask=None):
     """
@@ -735,6 +742,7 @@ def search_new_pts(xy, dxy, t_size, matcher, min_template_sigma=0., mask=None):
     two images at the points defined by xy, using search windows that
     span the range in dxy
     """
+
     if mask is not None:
         x_geo    = matcher.template_geotransform[0] + matcher.template_geotransform[1]*xy[:,0]
         y_geo    = matcher.template_geotransform[3] + matcher.template_geotransform[5]*xy[:,1]
@@ -1222,6 +1230,7 @@ def main():
         not_dups      = np.squeeze(np.array(score_mat[new_y, new_x]==0))
         new_xy        = np.c_[new_x[not_dups], new_y[not_dups]]
         uRows, new_xy = unique_rows(new_xy)
+
         new_dxy_score = new_dxy_score[uRows,:]
         N_search      = new_xy.shape[0]
 

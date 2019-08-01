@@ -36,10 +36,10 @@ print('%s: logging to %s' % (sys.argv[0], logFname), file=sys.stderr)
 # open log
 if not os.path.exists(logDir):
     os.system('mkdir -p %s' % logDir)
-logFile = file(logFname, 'w')
+logFile = open(logFname, 'w')
 
 # close stdin
-devNull = file('/dev/null', 'rw')
+devNull = open('/dev/null', 'rw')
 os.dup2(devNull.fileno(), 0)
 
 # redirect stdout and stderr to log

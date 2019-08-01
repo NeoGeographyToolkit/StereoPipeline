@@ -31,7 +31,7 @@
 
 // We must have the implementations of all sessions for triangulation
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Sessions/StereoSessionDGMapRPC.h>
+#include <asp/Sessions/StereoSessionMapProj.h>
 #include <asp/Sessions/StereoSessionIsis.h>
 #include <asp/Sessions/StereoSessionNadirPinhole.h>
 #include <asp/Sessions/StereoSessionPinhole.h>

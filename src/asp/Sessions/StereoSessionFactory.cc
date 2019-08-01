@@ -23,7 +23,7 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Sessions/StereoSessionDGMapRPC.h>
+#include <asp/Sessions/StereoSessionMapProj.h>
 #include <asp/Sessions/StereoSessionIsis.h>
 #include <asp/Sessions/StereoSessionNadirPinhole.h>
 #include <asp/Sessions/StereoSessionPinhole.h>
@@ -84,18 +84,19 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
           }
         }
       }
-      if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
-          boost::iends_with(boost::to_lower_copy(right_image_file ), ".cub") ||
-          boost::iends_with(boost::to_lower_copy(left_camera_file ), ".cub") ||
-          boost::iends_with(boost::to_lower_copy(right_camera_file), ".cub") ) {
+      if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".json") ||
+          boost::iends_with(boost::to_lower_copy(right_camera_file), ".json") ) {
+        actual_session_type = "csm";
+      }else if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
+		boost::iends_with(boost::to_lower_copy(right_image_file ), ".cub") ||
+		boost::iends_with(boost::to_lower_copy(left_camera_file ), ".cub") ||
+		boost::iends_with(boost::to_lower_copy(right_camera_file), ".cub") ) {
         actual_session_type = "isis";
-      }
-      if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".xml") ||
-          boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml") ) {
+      }else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".xml") ||
+		boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml") ) {
         actual_session_type = "dg";
-      }
-      if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".dim") ||
-          boost::iends_with(boost::to_lower_copy(right_camera_file), ".dim") ) {
+      } else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".dim") ||
+		 boost::iends_with(boost::to_lower_copy(right_camera_file), ".dim") ) {
         actual_session_type = "spot5";
       }
     }
@@ -175,7 +176,7 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [pinhole isis dg rpc spot5 aster opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
+              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
     vw_out() << "Using session: " << actual_session_type << ".\n";
 
     // Compare the current session name to all recognized types
@@ -214,9 +215,11 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
     else if (actual_session_type == "opticalbar")
       session_new = StereoSessionOpticalBar::construct();
     else if (actual_session_type == "csm")
-      session_new = StereoSessionCSM::construct();
+      session_new = StereoSessionCsm::construct();
+    else if (actual_session_type == "csmmapcsm")
+      session_new = StereoSessionCsmMapCsm::construct();
     if (session_new == 0)
-      vw_throw(vw::NoImplErr() << "Unsupported stereo session type: " << session_type);
+      vw_throw(vw::NoImplErr() << "Unsupported stereo session type: " << actual_session_type);
 
     session_new->initialize( options,         // Initialize the new object
                              left_image_file,  right_image_file,

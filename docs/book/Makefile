@@ -19,10 +19,12 @@ TEXSRCS =	acknowledgments.tex \
 			tutorial.tex \
 			vwlogconfig.tex\
 			pinholemodels.tex
-OTHER_PDF=	graph/asp_deps.pdf
-OTHER+=		$(OTHER_PDF) asp_book.tex
+OTHER_PDF=	graph/asp_deps.pdf # this needs graphviz with the triangulation library
+#OTHER+=		$(OTHER_PDF) asp_book.tex
+OTHER+=		asp_book.tex
 
-CLEAN_FILES+= $(OTHER_PDF) asp_book.tex
+#CLEAN_FILES+= $(OTHER_PDF) asp_book.tex
+CLEAN_FILES+= asp_book.tex
 USE_PDFLATEX = YES
 
 ASP_VERSION:=$(shell cat ../../src/asp/asp_config.h | grep ASP_VERSION --color=no | awk -F\" '{print $$2}' | sed 's/_/\\\\_/g')

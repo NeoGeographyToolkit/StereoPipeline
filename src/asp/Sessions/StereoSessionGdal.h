@@ -20,8 +20,8 @@
 ///
 /// This a session to support Digital Globe images from Quickbird and World View.
 
-#ifndef __STEREO_SESSION_DG_H__
-#define __STEREO_SESSION_DG_H__
+#ifndef __STEREO_SESSION_GDAL_H__
+#define __STEREO_SESSION_GDAL_H__
 
 #include <asp/Sessions/StereoSession.h>
 #include <vw/Stereo/StereoModel.h>
@@ -110,16 +110,16 @@ namespace asp {
 
   /// Stereo session for CSM camera models that use GDAL compatible image files.
   /// - CSM files can also be used with ISIS image data, in which case they use StereoSessionIsis.
-  class StereoSessionCSM : public StereoSessionGdal {
+  class StereoSessionCsm : public StereoSessionGdal {
 
   public:
-    StereoSessionCSM(){}
-    virtual ~StereoSessionCSM(){}
+    StereoSessionCsm(){}
+    virtual ~StereoSessionCsm(){}
 
     virtual std::string name() const { return "csm"; }
 
     /// Simple factory function
-    static StereoSession* construct() { return new StereoSessionCSM;}
+    static StereoSession* construct() { return new StereoSessionCsm;}
 
   protected:
     /// Function to load a camera model of the particular type.
@@ -284,4 +284,4 @@ namespace asp {
 
 } // End namespace asp
 
-#endif//__STEREO_SESSION_DG_H__
+#endif//__STEREO_SESSION_GDAL_H__

@@ -15,9 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// Rename this to StereoSessionMap.h!
-
-/// \file StereoSessionDGMapRPC.h
+/// \file StereoSessionMapProj.h
 ///
 /// This a session that support RPC Mapproject DG images. It is built
 /// entirely so that left and right TX are objects and not TransformRefs.

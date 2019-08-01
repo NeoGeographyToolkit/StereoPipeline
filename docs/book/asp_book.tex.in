@@ -7,7 +7,7 @@
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage{amsfonts, psfrag, fancyhdr, layout, array}
-\usepackage{wrapfig}
+%\usepackage{wrapfig}
 \usepackage{color}
 \definecolor{gray}{gray}{0.25}
 \usepackage[numbers]{natbib}

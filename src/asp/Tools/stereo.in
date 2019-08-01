@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
     p = PassThroughOptionParser(usage=usage)
     p.add_option('-t', '--session-type',   dest='session',
-                 help='Select the stereo session type to use for processing. Options: pinhole isis dg rpc spot5 aster opticalbar pinholemappinhole isismapisis dgmaprpc rpcmaprpc astermaprpc.')
+                 help='Select the stereo session type to use for processing. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm.')
     p.add_option('-s', '--stereo-file',    dest='stereo_file',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. Default: ./stereo.default.')
     p.add_option('--corr-seed-mode',    dest='seed_mode', default=None,

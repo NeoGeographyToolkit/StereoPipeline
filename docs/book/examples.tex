@@ -790,6 +790,64 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images and their label (.
 \end{Verbatim}
 \end{minipage}\end{center}
 
+\section{ Community Sensor Model}
+\label{sec:csm}
+
+The Community Sensor Model, established by the U.S. defense and
+intelligence community, has the goal of standardizing camera models for
+various remote sensor types. It provides a well-defined application
+program interface (API) for multiple types of sensors and has been
+widely adopted by Earth remote sensing software systems.
+\citep{hare2017community}. ASP supports for CSM planetary data via the USGS
+ISIS implementation (\url{https://github.com/USGS-Astrogeology/usgscsm})
+that we ship with our software. 
+
+What follows is an example of using this sensor model for Mars imagery,
+specifically for the CTX camera. The images are regular \texttt{.cub}
+files as in the tutorial in chapter \ref{ch:moc_tutorial}. Yet the camera
+information is this time stored separately in plain text \texttt{.json} files
+that contain various metadata for this sensor, including ephemeris time, focal length,
+linescan rate, etc. for this particular linescan sensor. 
+
+We will work with the dataset pair 
+
+\begin{verbatim}
+  J03_045994_1986_XN_18N282W.cub J03_046060_1986_XN_18N282W.cub
+\end{verbatim}
+
+which, for simplicity, we will rename to \texttt{left.cub} and \texttt{right.cub}
+and the same for the associated camera files.
+
+One runs the stereo and terrain generation steps as usual:
+
+\begin{verbatim}
+  stereo left.cub right.cub left.json right.json run/run    
+  point2dem -r mars --stereographic --proj-lon 77.4 --proj-lat 18.4 run/run-PC.tif
+\end{verbatim}
+
+The actual stereo session used is \texttt{csm}, and here it will be auto-detected
+based on the extension of the camera files. For \texttt{point2dem} we chose
+to use a stereographic projection centered at the area of interest. One of course
+could use the fancier MGM algorithm by running this example with \texttt{parallel\_stereo}
+and \texttt{-\/-stereo-algorithm 2}. 
+
+One can also run stereo with mapprojected images (section \ref{mapproj-example}). 
+The first step would be to create a low-resolution smooth DEM from the previous cloud:
+
+\begin{verbatim}
+  point2dem  -r mars --stereographic --proj-lon 77.4 --proj-lat 18.4 run/run-PC.tif \
+    --tr 120 -o run/run-smooth
+\end{verbatim}
+
+followed by mapprojecting onto it and redoing stereo:
+
+\begin{verbatim}
+  mapproject run/run-smooth-DEM.tif left.cub left.json left.map.tif
+  mapproject run/run-smooth-DEM.tif right.cub right.json right.map.tif
+  stereo left.map.tif right.map.tif left.json right.json \
+    run_map/run run/run-smooth-DEM.tif
+\end{verbatim}
+
 \section{Digital Globe Imagery}
 \label{digital_globe_data}
 

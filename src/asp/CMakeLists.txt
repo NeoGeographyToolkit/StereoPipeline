@@ -28,7 +28,7 @@ endif()
 # Define boost requirements
 message("--------------------------------------------------------------")
 message("Searching for boost...")
-set(BOOST_MIN_VERSION "1.67")
+set(BOOST_MIN_VERSION "1.65")
 set(REQUIRED_BOOST_LIBS program_options system filesystem regex date_time thread iostreams)
 #set(Boost_DEBUG 1) # Uncomment for useful finding boost debug output
 #if(BINARYBUILDER_INSTALL_DIR) # Look in BinaryBuilder directory
@@ -86,7 +86,7 @@ option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # Make sure installed files can find installed libraries
-SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_PREFIX}/lib)
+SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_PREFIX}/lib ${ISIS3_DEPS_DIR}/lib ${ISIS3_DEPS_DIR}/lib64)
 
 # --- Fixed options ---
 set(Boost_USE_STATIC_LIBS   OFF)

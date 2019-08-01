@@ -22,6 +22,7 @@
 #include <asp/Camera/CsmModel.h>
 
 #include <boost/dll.hpp>
+#include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem.hpp>
 
 
@@ -31,6 +32,7 @@
 #include <csm/RasterGM.h>
 
 namespace dll = boost::dll;
+namespace fs = boost::filesystem;
 
 using namespace vw;
 
@@ -93,7 +95,7 @@ CsmModel::CsmModel(std::string const& isd_path) {
 }
 
 CsmModel::~CsmModel() {
-  // Don't need to do any cleanup here!
+  // nothing to do.
 }
 
 bool CsmModel::file_has_isd_extension(std::string const& path) {
@@ -105,19 +107,26 @@ std::string CsmModel::get_csm_plugin_folder(){
 
   // Look up the CSM_PLUGIN_PATH environmental variable.
   // - It is set in the "libexec/libexec-funcs.sh" deployed file.
-  char * data_folder = getenv("CSM_PLUGIN_PATH");
-  if (data_folder == NULL){
-    vw_throw( ArgumentErr() << "The environmental variable CSM_PLUGIN_PATH was not set. "
-              << "It should point to the 'share' directory of your ASP distribution.\n" );
+
+  std::string plugin_path;
+  char * plugin_path_arr = getenv("CSM_PLUGIN_PATH");
+  if (plugin_path_arr != NULL && std::string(plugin_path_arr) != ""){
+    plugin_path = std::string(plugin_path_arr);
+  }else{
+    // This is for the installed but not packaged build.
+    vw_out() << "The environmental variable CSM_PLUGIN_PATH was not set.\n";
+    fs::path try_path = boost::dll::program_location().parent_path().parent_path();
+    try_path /= "lib64";
+    plugin_path = try_path.string();
+    vw_out() << "Looking in " << plugin_path << ".\n";
   }
 
-  std::string full_path = std::string(data_folder);
-  if (!boost::filesystem::exists(full_path)){
-    vw_throw( ArgumentErr() << "Could not find CSM plugin folder: " << full_path << ".\n"
+  if (!fs::exists(plugin_path)){
+    vw_throw( ArgumentErr() << "Could not find CSM plugin folder: " << plugin_path << ".\n"
               << "Check the value of environmental variable CSM_PLUGIN_PATH.");
   }
 
-  return full_path;
+  return plugin_path;
 }
 
 
@@ -130,7 +139,7 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
     num_dlls = vw::get_files_in_folder(folder, plugins, ".dylib");
 
   for (size_t i=0; i<num_dlls; ++i) {
-    boost::filesystem::path p(folder);
+    fs::path p(folder);
     p /= plugins[i];
     plugins[i] = p.string();
   }
@@ -302,16 +311,23 @@ Vector2 CsmModel::point_to_pixel (Vector3 const& point) const {
   double desiredPrecision = 0.01;
   double achievedPrecision;
   csm::WarningList warnings;
-  std::cout << "call\n";
+  csm::WarningList * warnings_ptr = NULL;
+
+  // Do not show warnings, it becomes too verbose
+  bool show_warnings = false;
+  if (show_warnings) 
+    warnings_ptr = &warnings;
+
   csm::ImageCoord imagePt = m_csm_model->groundToImage(ecef, desiredPrecision,
-                                                       &achievedPrecision,
-                                                       &warnings);
+						       &achievedPrecision, warnings_ptr);
 
-  csm::WarningList::const_iterator w_iter;
-  for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
-    vw_out() << "CSM Warning: " << w_iter->getMessage() << std::endl;
+  if (show_warnings) {
+    csm::WarningList::const_iterator w_iter;
+    for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
+      vw_out() << "CSM Warning: " << w_iter->getMessage() << std::endl;
+    }
   }
-
+  
   return imageCoordToVector(imagePt);
 }
 

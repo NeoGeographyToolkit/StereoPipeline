@@ -22,7 +22,7 @@ Tool to convert the datum of an image file.
 
 This python script calls a Python script called crs2crs2grid.py which in
 turn calls a Fortran script called htdp.  This generates a grid shift file
-which can then be passed into ASP's c++ datum conversion function.  Some
+which can then be passed into the ASP c++ datum conversion function.  Some
 datum transforms do not require a grid shift file in which case the 
 grid shift file does not need to be generated.
 

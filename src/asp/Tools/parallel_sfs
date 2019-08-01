@@ -344,7 +344,7 @@ def main(argsIn):
     
     # Generate a text file that contains the boundaries for each tile
     argumentFilePath = os.path.join(outputFolder, 'argumentList.txt')
-    argumentFile     = file(argumentFilePath, 'w')
+    argumentFile     = open(argumentFilePath, 'w')
     for tile in tileList:
         argumentFile.write( str(tile[0]) + '\t' + str(tile[1]) + '\t' \
                             + str(tile[2]) + '\t' + str(tile[3]) + '\n')

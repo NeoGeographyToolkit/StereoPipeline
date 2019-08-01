@@ -61,7 +61,7 @@ in sub-directories, we recommend using an output prefix like
 \hline
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-session-type|-t \textit{string} } & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension. Options: pinhole isis dg rpc spot5 aster opticalbar pinholemappinhole isismapisis dgmaprpc rpcmaprpc astermaprpc. \\ \hline
+\texttt{-\/-session-type|-t \textit{string} } & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm. \\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use.\\ \hline
 \texttt{-\/-entry-point|-e integer(=0 to 5)} & Stereo Pipeline entry
 point (start at this stage). \\ \hline
@@ -672,7 +672,7 @@ in meters.\\ \hline
 
 \texttt{-\/-session-type|-t \textit{string}} & Select the stereo
 session type to use for processing. Usually the program can select this
-automatically by the file extension. Options: pinhole nadirpinhole isis dg rpc spot5 aster opticalbar. \\ \hline
+automatically by the file extension. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm. \\ \hline
 
 \texttt{-\/-min-matches \textit{integer(=30)}} & Set the minimum number of matches
 between images that will be considered. \\ \hline
@@ -1836,7 +1836,7 @@ in meters.\\ \hline
 \texttt{-\/-save-tif-image} & Save a TIF version of the input image that approximately corresponds to the input longitude-latitude-height range and which can be used for stereo together with the RPC model.\\ \hline
 \texttt{-\/-input-nodata-value arg} & Set the image input nodata value.\\ \hline
 \texttt{-\/-output-nodata-value arg} & Set the image output nodata value.\\ \hline
-\texttt{-t | -\/-session-type  \textit{string}} & Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: pinhole isis rpc dg spot5 aster opticalbar.\\ \hline
+\texttt{-t | -\/-session-type  \textit{string}} & Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm.\\ \hline
 \texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
 adjustment obtained by previously running bundle\_adjust with this
 output prefix. \\ \hline
@@ -1940,7 +1940,7 @@ Options & Description \\ \hline \hline
 
 \texttt{-r | -\/-reference-spheroid \textit{string=WGS\_1984}} & Use this reference spheroid (datum). Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON). \\ \hline
 
-\texttt{-t | -\/-session-type  \textit{string}} & Select the stereo session type to use for processing. Options: pinhole isis spot5 dg aster opticalbar.\\ \hline
+\texttt{-t | -\/-session-type  \textit{string}} & Select the stereo session type to use for processing. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm.\\ \hline
 
 \texttt{-\/-load-camera-solve} & Use a specialized display for showing the results of the \texttt{camera\_solve} tool.
 When using this option, only pass in the path to the \texttt{camera\_solve} output folder as a positional argument.
@@ -3659,7 +3659,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-gcp-file \textit{string} } & If provided, save the image corner coordinates and heights in the GCP format to this file.\\ \hline
 \texttt{-\/-gcp-std arg \textit{double(=1)} } & The standard deviation for each GCP pixel, if saving a GCP file. A smaller value suggests a more reliable measurement, hence will be given more weight.\\ \hline
 \texttt{-\/-input-camera \textit{string} } & Create the output pinhole camera approximating this camera. \\ \hline
-\texttt{-t | -\/-session-type  \textit{string}} & Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: pinhole isis rpc dg spot5 aster opticalbar.\\ \hline
+\texttt{-t | -\/-session-type  \textit{string}} & Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm.\\ \hline
 \texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera adjustment obtained by previously running bundle\_adjust when providing an input camera. \\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
 \texttt{-\/-tile-size \textit{integer(=256, 256)} } &

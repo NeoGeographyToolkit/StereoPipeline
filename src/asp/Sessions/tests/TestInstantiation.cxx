@@ -17,7 +17,7 @@
 
 
 #include <asp/Sessions/StereoSessionGdal.h>
-#include <asp/Sessions/StereoSessionDGMapRPC.h>
+#include <asp/Sessions/StereoSessionMapProj.h>
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionIsis.h>
 #include <asp/Sessions/StereoSessionPinhole.h>

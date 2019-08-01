@@ -51,7 +51,7 @@ def convertCoordinate(input_srs_string, output_srs_string, x, y):
         # Fancier way, if installed.
         p = subprocess32.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False,
                                universal_newlines=True)
-        text, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.5 )    
+        text, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.5 )
     except:
         # Simpler way.
         p = subprocess.Popen(cmd, stdin=subprocess.PIPE,stdout=subprocess.PIPE)

@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 /*
-/// \file StereoSessionDG.cc
+/// \file StereoSessionGdal.cc
 ///
 #include <vw/Image/ImageMath.h>
 #include <vw/Image/Manipulation.h>

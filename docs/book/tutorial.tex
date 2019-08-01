@@ -550,24 +550,29 @@ it depends on a variety of binary Python modules. These modules cannot
 be distributed with Stereo Pipeline as they depend on the version of
 Python installed on your system. One way to get these Python modules is
 to install them yourself. We recommend the Conda Python management system
-(\href{https://conda.io/docs/index.html}{https://conda.io/docs/index.html})
+(\href{https://docs.conda.io/en/latest/miniconda.html})
 as an easy way to install these dependencies.
 
-\texttt{sparse\_disp} has been tested on Ubuntu 16.04 using Conda with
-following additional packages installed:
-\begin{verbatim}
-scipy=1.0.0
-numpy=1.14.0
-simplekml=1.3.0
-pyfftw=0.10.4
-proj4=4.9.3
-gdal=2.2.2
-geos=3.6.2
-blas=1.0
-\end{verbatim}
-Note that the \texttt{simplekml} and \texttt{pyfftw} packages needed the argument
-\texttt{-c conda-forge} added to their \texttt{conda install} command.
+Here's a recipe that was tested to work on CentOS 7:
 
+\begin{verbatim}
+  conda create --name sparse_disp -c conda-forge python=3.6 gdal
+  conda activate sparse_disp
+  conda install -c conda-forge scipy
+  conda install -c conda-forge pyfftw
+\end{verbatim}
+
+One should use the version of python installed with the above when running
+stereo, hence the path should be set as:
+
+\begin{verbatim}
+  export PATH=/path/to/your/miniconda/envs/sparse_disp/bin:$PATH
+\end{verbatim} % $ make emacs happy
+
+It is very important to note that if gdal is fetched from a different
+repository than conda-forge, one may run into issues with dependencies
+not being correct and then it fail at runtime.
+ 
 Another way to get these dependencies is to use an installation script
 provided by ASP.  It will download and compile the dependencies of
 this tool for your platform. The script and instructions are at
