@@ -1,6 +1,4 @@
-
 include(Utilities) # Contains functions
-
 
 # Verify that we have a new enough compiler.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -21,11 +19,12 @@ endif()
 
 project (StereoPipeline)
 
+# The line below is used by docs/book/Makefile so don't change it
+# without testing the result.
 set(PACKAGE_VERSION "2.6.2_post")
 set(PACKAGE_NAME "NASA Ames Stereo Pipeline")
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 set(PACKAGE_BUGREPORT "scott.t.mcmichael@nasa.gov")
-
 
 # Fetch the Git hash and store in ASP_COMMIT_ID
 execute_process(

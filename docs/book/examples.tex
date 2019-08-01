@@ -793,21 +793,31 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images and their label (.
 \section{ Community Sensor Model}
 \label{sec:csm}
 
-The Community Sensor Model, established by the U.S. defense and
+The Community Sensor Model (CSM), established by the U.S. defense and
 intelligence community, has the goal of standardizing camera models for
 various remote sensor types. It provides a well-defined application
 program interface (API) for multiple types of sensors and has been
 widely adopted by Earth remote sensing software systems.
-\citep{hare2017community}. ASP supports for CSM planetary data via the USGS
+\citep{hare2017community}. ASP supports CSM by using the USGS
 ISIS implementation (\url{https://github.com/USGS-Astrogeology/usgscsm})
 that we ship with our software. 
 
+CSM is handled via dynamically loaded plugins. 
+Hence, if a user has a new sensor model, ASP can use it as soon as a supporting
+plugin is added to the existing software, without having to rebuild it or
+modify it otherwise. Plugins are stored in the directory \texttt{plugins/usgscsm}
+of the ASP distribution.
+
+Each stereo pair to be processed by ASP should be made up of two images
+(for example in .cub format) and two plain text camera files with \texttt{.json}
+extension.  The CSM information is contained in the \texttt{.json} files
+and it determines which plugin to load to use with those cameras. 
+More details are available at the USGS ISIS CSM repository mentioned earlier.
+
 What follows is an example of using this sensor model for Mars imagery,
 specifically for the CTX camera. The images are regular \texttt{.cub}
-files as in the tutorial in chapter \ref{ch:moc_tutorial}. Yet the camera
-information is this time stored separately in plain text \texttt{.json} files
-that contain various metadata for this sensor, including ephemeris time, focal length,
-linescan rate, etc. for this particular linescan sensor. 
+files as in the tutorial in chapter \ref{ch:moc_tutorial}, hence
+the only distinction is that cameras are stored as \texttt{.json} files.
 
 We will work with the dataset pair 
 

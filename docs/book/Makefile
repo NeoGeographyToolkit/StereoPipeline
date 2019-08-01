@@ -31,7 +31,8 @@ OTHER+=		asp_book.tex
 CLEAN_FILES+= asp_book.tex
 USE_PDFLATEX = YES
 
-ASP_VERSION:=$(shell cat ../../src/asp/asp_config.h | grep ASP_VERSION --color=no | awk -F\" '{print $$2}' | sed 's/_/\\\\_/g')
+ASP_VERSION:=$(shell cat ../../src/CMakeLists.txt | grep -E --color=no 'set.PACKAGE_VERSION' | awk -F\" '{print $$2}' | sed 's/_/\\\\_/g')
+$(info ASP version is $(ASP_VERSION))
 
 # Use 'open' on Mac systems to view the PDF
 OS := $(shell uname -s)
@@ -56,6 +57,8 @@ ifeq ("$(wildcard $(GMKFILE))","")
   $(info Trying: $(GMKFILE))
 endif
 
+ENV_PROG=$(shell which env)
+$(info ENV_PROG=$(ENV_PROG))
 include $(GMKFILE)
 
 # Paste in the ASP version into the text
