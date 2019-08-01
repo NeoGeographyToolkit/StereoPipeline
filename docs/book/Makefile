@@ -19,8 +19,12 @@ TEXSRCS =	acknowledgments.tex \
 			tutorial.tex \
 			vwlogconfig.tex\
 			pinholemodels.tex
-OTHER_PDF=	graph/asp_deps.pdf # this needs graphviz with the triangulation library
-#OTHER+=		$(OTHER_PDF) asp_book.tex
+
+# To regenerate this diagram from the dot file one needs graphviz with the triangulation library
+# which is not available on CentOS 7 without rebuilding graphviz from scratch.
+OTHER_PDF=	graph/asp_deps.pdf
+
+#OTHER+=	$(OTHER_PDF) asp_book.tex
 OTHER+=		asp_book.tex
 
 #CLEAN_FILES+= $(OTHER_PDF) asp_book.tex

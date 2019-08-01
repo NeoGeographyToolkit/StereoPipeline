@@ -108,6 +108,8 @@ Then unzip the archive and run in the extracted directory:
 
 ./configure --prefix=$HOME/projects/gcc5 --enable-gold=yes --enable-ld=yes --disable-multilib 
 
+followed by running make and installing it.
+
 Set: 
 export LD_LIBRARY_PATH=<path to libstdc++ for your version compliant gcc>:$LD_LIBRARY_PATH
 
@@ -115,7 +117,7 @@ To build the documentation, one should install latex-mk from
 https://sourceforge.net/projects/latex-mk/files/latest/download
 (at some point this should be part of Binary Builder.)
 
-On CentOS some packages are missing from texlive, even when extra
+On CentOS some packages are missing from texlive, even when the extra
 packages are installed, which makes it challenging to build the
 documentation (those can be copied from a different machine).
 
