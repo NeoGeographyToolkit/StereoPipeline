@@ -806,7 +806,8 @@ CSM is handled via dynamically loaded plugins.
 Hence, if a user has a new sensor model, ASP can use it as soon as a supporting
 plugin is added to the existing software, without having to rebuild it or
 modify it otherwise. Plugins are stored in the directory \texttt{plugins/usgscsm}
-of the ASP distribution.
+of the ASP distribution. New plugins should be added there and will be detected
+automatically.
 
 Each stereo pair to be processed by ASP should be made up of two images
 (for example in .cub format) and two plain text camera files with \texttt{.json}
