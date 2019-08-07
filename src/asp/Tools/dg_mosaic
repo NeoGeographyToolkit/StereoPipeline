@@ -40,6 +40,12 @@ verify_python_version_is_supported()
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
+def write_tree(tree, filename):
+    '''A workarround for tree.write() not printing the string <?xml version="1.0"...>'''
+    root = tree.getroot()
+    with open(filename, 'w') as fh:
+        fh.write(ET.tostring(root, encoding='utf8', method='xml'))
+    
 def format_microsec(microsec):
     # Ensure that we have 6 digits in a microsecond. Pre-pad with
     # zeros if necessary.
@@ -390,7 +396,7 @@ def read_corners(band):
 # files are in the same directory and end with extension ".xml" or ".XML".
 def read_xml(filename, options, xml_keys):
 
-    tree = ET.parse( filename )
+    tree = ET.parse(filename)
     root = tree.getroot()
     IMD  = root.find("IMD")
     GEO  = root.find("GEO")
@@ -915,7 +921,7 @@ def main():
             # Find the best-fitting RPC coefficients.
             temp_xml_file = tempfile.NamedTemporaryFile(suffix = ".xml",
                                                         dir = out_dir)
-            tree.write(temp_xml_file.name)
+            write_tree(tree, temp_xml_file.name)
             rpc_cmd = "rpc_gen"
             rpc_args = ['--penalty-weight', str(options.penalty_weight),
                         '--output-prefix', options.output_prefix,
@@ -1022,7 +1028,7 @@ def main():
 
         xml_file = options.output_prefix + suffix + ".xml"
         print("Writing: " + xml_file)
-        tree.write(xml_file)
+        write_tree(tree, xml_file)
         
         if not options.skip_tif_gen:
 
@@ -1060,7 +1066,7 @@ def main():
 
             # For some reason, the xml file goes missing when
             # tif_mosaic is invoked. Very strange. Write it again, for now.
-            tree.write(xml_file)
+            write_tree(tree, xml_file)
             
             # Make a preview image
             if options.preview:
