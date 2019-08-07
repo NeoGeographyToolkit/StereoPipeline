@@ -1723,9 +1723,10 @@ It is very important to pick a good value for the grid size parameter, given by
 \texttt{-\/-mpp}, \texttt{-\/-ppd}, or \texttt{-\/-tr}. Ideally it should be very close to the known image resolution
 as measured on the ground (in degree or meter units, depending on the projection).
 
-If the imagery is from Digital Globe, both the exact DG model from the XML file
-can be used for map-projection (\texttt{-t dg}) and its RPC approximation (\texttt{-t rpc}).
-The former is more accurate but much smaller.
+If processing DigitalGlobe imagery, both the rigorous DG model (\texttt{-t dg}) and its
+RPC approximation (\texttt{-t rpc}) from the XML metadata file can be used for
+map projection. In practice, the latter is recommended for most
+applications. The former is slightly more accurate, but much slower.  
 
 Usage:
 \begin{verbatim}
