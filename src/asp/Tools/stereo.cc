@@ -508,7 +508,7 @@ namespace asp {
     
     // TODO: Modify SGM tile sizes?
 
-    bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
+    bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM);
     if (using_sgm) {
       if (vm["subpixel-mode"].defaulted()) {
         vw_out() << "Subpixel mode not specified, using the default SGM subpixel method.\n";
@@ -698,7 +698,7 @@ namespace asp {
     }
 
     // Check SGM related settings.
-    bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
+    bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM);
     if (!using_sgm) {
       if (stereo_settings().cost_mode == 3)
         vw_throw( ArgumentErr() << "Cannot use the census transform without SGM!\n" );

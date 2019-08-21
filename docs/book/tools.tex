@@ -317,37 +317,41 @@ to the GCP file.
 \subsubsection{Creating interest point matches using map-projected images}
 \label{mapip}
 
-To make it easier to create interest point matches in situations when the
-images are very different or taken from very diverse perspectives, one 
-can first mapproject them onto a DEM, as then the images look a
-lot more similar. Then interest points are created among the
-map-projected images, and they are transferred to the original images.
+To make it easier to create interest point matches in situations when
+the images are very different or taken from very diverse perspectives,
+they can be first mapproject onto a DEM, as then the images look a lot
+more similar. Then interest points are created among the map-projected
+images, when this process is more likely to succeed, and they 
+are transferred to the original images.
 
 Here is an example. Given three images A.tif, B.tif, and C.tif, and a DEM named 
-dem.tif, map-project them onto the DEM, obtaining the images A.map.tif, B.map.tif, and C.map.tif.
+dem.tif, mapproject them onto this DEM, obtaining the images A.map.tif, B.map.tif, and C.map.tif.
 Note that one should not use \texttt{-\/-bundle-adjust-prefix} in mapprojection.
 
-If the mapprojected images are still too different 
-for interest point matching to succeed, create them manually in the GUI as follows:
-
-\begin{verbatim}
-  stereo_gui A.map.tif B.map.tif C.map.tif run/run
-\end{verbatim}
-
-Pick interest points by right-clicking, save them, and quit the GUI. 
-
-Then bundle adjustment is invoked as follows (whether or not interest points were picked in the GUI):
+Then bundle adjustment is invoked as follows, during which the transfer
+of interest points happens:
 
 \begin{verbatim}
    bundle_adjust A.tif B.tif C.tif <cameras> run/run \
    --mapprojected-data 'A.map.tif B.map.tif C.map.tif dem.tif' --min-matches 0  
 \end{verbatim}
 
-This will first create matches among mapprojected images if those do not exist,
-then transform those to be among the original images,
-and continue with bundle adjustment.
+If the mapprojected images are still too different for interest point
+matching among them to succeed, one can try to bring in more images that
+are intermediate in appearance or illumination between the existing
+ones, hence bridging the gap. Alternatively, interest point matching
+can be done manually in the GUI as follows: 
 
-One can then invoke
+\begin{verbatim}
+  stereo_gui A.map.tif B.map.tif C.map.tif run/run
+\end{verbatim}
+
+Interest points can be picked by right-clicking on the same feature
+in each image, from left to right, then repeating this process for 
+a different feature, etc. They can be saved to disk from the menu,
+and the above bundle adjustment command can be invoked.
+
+One can then run
 \begin{verbatim}
   stereo_gui A.tif B.tif C.tif run/run
 \end{verbatim}
@@ -2849,12 +2853,11 @@ Input images are restricted to one channel.
 
 The following symbols are allowed in the arithmetic string: +, -, *, /,
 (), min(), max(), pow(), abs(), and var\_N where N is the index of one
-of the input images. An example arithmetic string is: "-abs(var\_2) +
-min(58, var\_1, var\_3) / 2".  The tool respects the normal PEMDAS order
+of the input images (N$\ge$0). An example arithmetic string is: "-abs(var\_0) +
+min(58, var\_1, var\_2) / 2".  The tool respects the normal PEMDAS order
 of operations \textit{except} that it parses equal priority operations
 from right to left, \textit{not} the expected left to right.
 Parentheses can be used to enforce any preferred order of evaluation.
-
 
 \medskip
 

@@ -1178,7 +1178,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
   // With SGM, we must do the entire image chunk as one tile. Otherwise,
   // if it gets done in smaller tiles, there will be artifacts at tile boundaries.
-  bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
+  bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM);
   if (using_sgm) {
     Vector2i image_size = bounding_box(fullres_disparity).size();
     int max_dim = std::max(image_size[0], image_size[1]);
@@ -1212,7 +1212,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
   string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
-  if (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW) {
+  if (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM) {
     // SGM performs subpixel correlation in this step, so write out floats.
     
     // Rasterize the image first as one block, then write it out using multiple blocks.
@@ -1259,7 +1259,7 @@ int main(int argc, char* argv[]) {
     // - Thread handling is still a little confusing because opt.num_threads is ONLY used
     //   to control the number of parallel image blocks written at a time.  Everything else
     //   reads directly from vw_settings().default_num_threads()
-    const bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
+    const bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM);
     opt.num_threads = vw_settings().default_num_threads();
     if (using_sgm)
       opt.num_threads = 1;

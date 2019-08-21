@@ -368,15 +368,16 @@ the terrain at ever increasing levels of resolution. Yet, this may still
 fail if the terrain does not have large and pronounced features on the
 scale bigger than the errors in the cameras.
 
-The approach that we found to work all the time is to manually select
-interest points in the images, as the human eye is much more skilled at
-identifying a given landmark in multiple images, even when the lightning
-changes drastically. Picking about 4 landmarks in each image is
+The approach that we found to work all the time is to find interest points
+in the images, first automatically, and if that fails then manually, as
+the human eye is much more skilled at identifying a given landmark in
+multiple images, even when the lightning changes drastically. Picking
+about 4 landmarks in each image (if doing it manually) is
 sufficient. Ideally they should be positioned far from each other, to
 improve the accuracy.
 
-Below is one example of how we manually select interest points, run SfS,
-and then how we compare to LOLA, which is an independently acquired
+Below is one example of how we select interest points, run SfS,
+and then compare to LOLA, which is an independently acquired
 sparse dataset of 3D points on the Moon. According to
 \cite{smith2011results}, the LOLA accuracy is on the order of 1~m. To
 ensure a meaningful comparison of stereo and SfS with LOLA, we resample
@@ -386,38 +387,44 @@ repeated with the original images, but it is easier to see the
 improvement due to SfS when comparing to LOLA when the images are
 coarser than the LOLA error itself.
 
-We work with the same images as before. To resample them, we do:
+We work with the same images as before. They are resampled as follows:
 \begin{verbatim}
   for f in A B C D; do 
     reduce from = ${f}_crop.cub to = ${f}_crop_sub4.cub sscale=4 lscale=4
   done
 \end{verbatim}
 
-We run \texttt{stereo} and \texttt{point2dem} to get a first cut DEM. We don't do bundle
-adjustment at this stage yet. 
+The \texttt{stereo} and \texttt{point2dem} tools are run to get a first-cut DEM. Bundle adjustment is not done at this stage yet. 
 \begin{verbatim}
   stereo A_crop_sub4.cub B_crop_sub4.cub run_stereo_noba_sub4/run --subpixel-mode 3
   point2dem --stereographic --proj-lon -5.7113451 --proj-lat -85.000351 \
     run_stereo_noba_sub4/run-PC.tif --tr 4 
 \end{verbatim}
 
-We would like now to manually pick interest points for the purpose of
-doing bundle adjustment.  We found it it much easier to locate the landmarks if we 
-first map-project the images, which brings them all into the same
-perspective. We then pick interest points in \texttt{stereo\_gui}, and then project
-them back into the original cameras and do bundle adjustment. Here are
-the steps:
+We would like now to automatically or manually pick interest points for
+the purpose of doing bundle adjustment. It much easier to compute these
+if the images are first mapprojected, which brings them all into the
+same perspective. This approach is described in section \ref{mapip}, and
+here just the relevant commands are shown.
+
 \begin{verbatim}
   for f in A B C D; do 
     mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif ${f}_crop_sub4.cub \
       ${f}_crop_sub4_v1.tif --tile-size 128
   done
-  stereo_gui A_crop_sub4_v1.tif B_crop_sub4_v1.tif C_crop_sub4_v1.tif \
-    D_crop_sub4_v1.tif run_ba_sub4/run
 \end{verbatim}
-Interest points are selected by zooming and right-clicking with the
-mouse, one point at a time, from left to right, and then saving them. An
-illustration is shown in Figure \ref{fig:sfs3}.
+
+(Optional manual interest point picking in the mapprojected images can happen here.)
+
+\begin{verbatim}
+  P='A_crop_sub4_v1.tif B_crop_sub4_v1.tif' # to avoid long lines below
+  Q='C_crop_sub4_v1.tif D_crop_sub4_v1.tif run_stereo_noba_sub4/run-DEM.tif'
+  bundle_adjust A_crop_sub4.cub B_crop_sub4.cub C_crop_sub4.cub D_crop_sub4.cub  \
+    -o run_ba_sub4/run --mapprojected-data  "$P $Q"                              \
+    --min-matches 1
+\end{verbatim}
+
+An illustration is shown in Figure \ref{fig:sfs3}.
 
 \begin{figure}[t!]
 \begin{center}
@@ -427,20 +434,10 @@ illustration is shown in Figure \ref{fig:sfs3}.
 \end{center}
 \end{figure}
 
-Then bundle adjustment happens:
-\begin{verbatim}
-  P='A_crop_sub4_v1.tif B_crop_sub4_v1.tif' # to avoid long lines below
-  Q='C_crop_sub4_v1.tif D_crop_sub4_v1.tif run_stereo_noba_sub4/run-DEM.tif'
-  bundle_adjust A_crop_sub4.cub B_crop_sub4.cub C_crop_sub4.cub D_crop_sub4.cub  \
-    -o run_ba_sub4/run --mapprojected-data  "$P $Q"                              \
-    --min-matches 1
-\end{verbatim}
-(See section \ref{mapip} for more information about how to automatically or manually create
-interst points using mapprojected images.)
-
-A good sanity check to ensure that at this stage cameras are aligned properly is to map-project
-using the newly obtained camera adjustments and then overlay the obtained images in the GUI.
-The features in all images should be perfectly on top of each other.
+A good sanity check to ensure that at this stage cameras are aligned
+properly is to map-project using the newly obtained camera adjustments
+and then overlay the obtained images in the GUI.  The features in all
+images should be perfectly on top of each other.
 \begin{verbatim}
   for f in A B C D; do 
     mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif ${f}_crop_sub4.cub  \
@@ -604,7 +601,7 @@ SfS). These orthoimages can be mosaicked using \texttt{dem\_mosaic}. If the
 \texttt{-\/-max} option is used with this tool, it create a mosaic with
 the most illuminated pixels from this image. If during SfS the camera
 adjustments were solved accurately, this mosaic should have little or no
-blur. An alterantive is to use the \texttt{-\/-block-max} option
+blur. An alternative is to use the \texttt{-\/-block-max} option
 which will pick the most lit of the images per each block, with the latter
 being specified via \texttt{-\/-block-size}. 
 \end{itemize}

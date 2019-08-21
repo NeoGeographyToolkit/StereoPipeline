@@ -209,15 +209,16 @@ struct calc_operation {
         // Unary
         case OP_number:   return T(value);
         case OP_variable: if (varName >= static_cast<int>(params.size()))
-                            vw_throw(ArgumentErr() << "Unrecognized variable input!\n");
-                          return params[varName];
+          vw_throw(ArgumentErr()
+                   << "Unrecognized variable input. Note that the first variable is var_0.\n");
+          return params[varName];
         if (numInputs < 1)
-          vw_throw(LogicErr() << "Insufficient inputs for this operation!\n");
+          vw_throw(LogicErr() << "Insufficient inputs for this operation.\n");
         case OP_negate:   return T(-1 * inputResults[0]);
-        case OP_abs:      return T(std::abs(inputResults[0])); // regular abs casts to integer!
+        case OP_abs:      return T(std::abs(inputResults[0])); // regular abs casts to integer.
         // Binary
         if (numInputs < 2)
-          vw_throw(LogicErr() << "Insufficient inputs for this operation!\n");
+          vw_throw(LogicErr() << "Insufficient inputs for this operation.\n");
         case OP_add:      return (inputResults[0] + inputResults[1]);
         case OP_subtract: return (inputResults[0] - inputResults[1]);
         case OP_divide:   return (inputResults[0] / inputResults[1]);
@@ -228,7 +229,7 @@ struct calc_operation {
         case OP_max:      return manual_max(inputResults);
 
         default:
-          vw_throw(LogicErr() << "Unexpected operation type!\n");
+          vw_throw(LogicErr() << "Unexpected operation type.\n");
       }
     }
 };
@@ -265,13 +266,13 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
      using b_s::qi::int_;
      using b_s::qi::eps;
      using b_s::qi::_val;
-     using b_s::qi::_1; // This is required to avoid namespace mixups with other Boost modules!
+     using b_s::qi::_1; // This is required to avoid namespace mixups with other Boost modules.
      using b_s::qi::_2;
      using b_s::qi::_3;
 
 
-     // This approach works but it processes expressions right to left!
-     // - To get what you want, use parenthesis!
+     // This approach works but it processes expressions right to left.
+     // - To get what you want, use parenthesis.
 
      // An outer expression
      expression =
@@ -306,7 +307,7 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
     /*
 
   // This code is for proper left priority parsing, but this approach does not work at all using
-  //  Boost::Spirit!  An entirely new approach is needed but it is not worth the time figuring out.
+  //  Boost::Spirit.  An entirely new approach is needed but it is not worth the time figuring out.
 
 
     // This split-based approach will make the parser visit the parameters in the correct order,
@@ -344,7 +345,7 @@ enum DataType {
   DT_UINT8   = 0,
   DT_UINT16  = 1,
   DT_UINT32  = 2,
-  //DT_INT8    = 3, // Not supported by GDAL!
+  //DT_INT8    = 3, // Not supported by GDAL.
   DT_INT16   = 3,
   DT_INT32   = 4,
   DT_FLOAT32 = 5,
@@ -365,7 +366,7 @@ double get_default_nodata(const DataType d) {
 }
 
 /// Converts a double to another numeric type with min/max value clamping.
-/// - TODO: Replace this with the correct VW function!
+/// - TODO: Replace this with the correct VW function.
 template <typename T>
 T clamp_and_cast(const double val) {
   const T minVal = std::numeric_limits<T>::min();
@@ -426,9 +427,9 @@ public: // Functions
                     m_nodata_vec(nodata_vec), m_output_nodata(outputNodata),
                     m_operation_tree(operation_tree) {
     const size_t numImages = imageVec.size();
-    VW_ASSERT( (numImages > 0), ArgumentErr() << "ImageCalcView: One or more images required!." );
-    VW_ASSERT( (has_nodata_vec.size() == numImages), LogicErr() << "ImageCalcView: Incorrect hasNodata count passed in!." );
-    VW_ASSERT( (nodata_vec.size()    == numImages), LogicErr() << "ImageCalcView: Incorrect nodata count passed in!." );
+    VW_ASSERT( (numImages > 0), ArgumentErr() << "ImageCalcView: One or more images required.." );
+    VW_ASSERT( (has_nodata_vec.size() == numImages), LogicErr() << "ImageCalcView: Incorrect hasNodata count passed in." );
+    VW_ASSERT( (nodata_vec.size()    == numImages), LogicErr() << "ImageCalcView: Incorrect nodata count passed in." );
 
     // Make sure all images are the same size
     m_num_rows     = imageVec[0].rows();
@@ -438,7 +439,7 @@ public: // Functions
       if ( (imageVec[i].rows()   != m_num_rows    ) ||
            (imageVec[i].cols()   != m_num_cols    ) ||
            (imageVec[i].planes() != m_num_channels)   )
-        vw_throw(ArgumentErr() << "Error: Input images must all have the same size and number of channels!");
+        vw_throw(ArgumentErr() << "Error: Input images must all have the same size and number of channels.");
     }
   }
 
@@ -448,7 +449,7 @@ public: // Functions
 
   inline result_type operator()( int32 i, int32 j, int32 p=0 ) const
   {
-    return 0; // NOT IMPLEMENTED!
+    return 0; // NOT IMPLEMENTED.
   }
 
   typedef ProceduralPixelAccessor<ImageCalcView<ImageT, OutputPixelT> > pixel_accessor;
@@ -462,7 +463,7 @@ public: // Functions
     // Set up the output image tile
     ImageView<result_type> tile(bbox.width(), bbox.height());
 
-    // TODO: Left to right processing!
+    // TODO: Left to right processing.
 
     // Set up for pixel calculations
     const size_t num_images = m_image_vec.size();
@@ -549,12 +550,14 @@ struct Options : vw::cartography::GdalWriteOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   const std::string calc_string_help =
-    "The operation to be performed on the input images.  Input images must all be the same size and type.\n"
-    "Currently only single channel images are supported.\n"
-    "Recognized operators: +, -, /, *, (), pow(), abs(), min(), max(), var_0, var_1, ...\n"
-    "Use var_n to refer to the pixel of the n'th input image."
-    "Order of operations is parsed with RIGHT priority, use parenthesis to assure the order you want.\n"
-    "Surround the entire string with double quotes.\n";
+    "The operation to be performed on the input images. "
+    "Input images must all be the same size and type. "
+    "Currently only single channel images are supported. "
+    "Recognized operators: +, -, /, *, (), pow(), abs(), min(), max(), var_0, var_1, ..."
+    "Use var_n to refer to the pixel of the n-th input image. "
+    "Order of operations is parsed with RIGHT priority, use parenthesis "
+    "to assure the order you want. "
+    "Surround the entire string with double quotes.";
 
   const std::string data_type_string =
     "The data type of the output file:\n"
@@ -594,9 +597,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 			     allow_unregistered, unregistered );
 
   if ( opt.input_files.empty() )
-    vw_throw( ArgumentErr() << "Missing input files!\n" << usage << general_options );
+    vw_throw( ArgumentErr() << "Missing input files.\n" << usage << general_options );
   if ( opt.calc_string.size() == 0)
-    vw_throw( ArgumentErr() << "Missing operation string!\n" << usage << general_options );
+    vw_throw( ArgumentErr() << "Missing operation string.\n" << usage << general_options );
 
   if      (opt.output_data_string == "uint8"  ) opt.output_data_type = DT_UINT8;
   else if (opt.output_data_string == "uint16" ) opt.output_data_type = DT_UINT16;
@@ -686,7 +689,7 @@ void load_inputs_and_process(Options &opt, const std::string &output_file, const
       nodata_vec[i] = rsrc->nodata_read();
       std::cout << "\t--> Extracted nodata value from file: " << nodata_vec[i] << ".\n";
       has_nodata_vec[i] = true;
-      opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata!
+      opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata.
     }
     else { // File does not specify nodata
       if (opt.has_in_nodata) { // User has specified a default nodata value
@@ -766,7 +769,7 @@ int main( int argc, char *argv[] ) {
       output_file += firstFile.substr(pt_idx,firstFile.size()-pt_idx);
     }
 
-    // Determining the format of the input images (all are assumed to be the same type!)
+    // Determining the format of the input images (all are assumed to be the same type.)
     boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(firstFile));
     ChannelTypeEnum input_data_type = rsrc->channel_type();
     //PixelFormatEnum pixel_format = rsrc->pixel_format();
@@ -781,7 +784,7 @@ int main( int argc, char *argv[] ) {
     case VW_CHANNEL_UINT32 : load_inputs_and_process<PixelGray<vw::uint32 > >(opt, output_file, calc_tree);  break;
     case VW_CHANNEL_FLOAT32: load_inputs_and_process<PixelGray<vw::float32> >(opt, output_file, calc_tree);  break;
     case VW_CHANNEL_FLOAT64: load_inputs_and_process<PixelGray<vw::float64> >(opt, output_file, calc_tree);  break;
-    default : vw_throw(ArgumentErr() << "Input image format " << input_data_type << " is not supported!\n");
+    default : vw_throw(ArgumentErr() << "Input image format " << input_data_type << " is not supported.\n");
     };
   } ASP_STANDARD_CATCHES;
 

@@ -178,6 +178,11 @@ mkdir -p  backup
 cp -fv  *la backup
 perl -pi -e "s#(/[^\s]*?lib)/lib([^\s]+).la#-L\$1 -l\$2#g" *la
 
+At some point in the near future likely all dependencies, 
+including the ones installed so far in a system location using
+apt-get or yum, can likely be transitioned to using conda and 
+having them in user space.
+
 3. Invoking Binary Builder
 
 Having installed the tools, base libraries, and ISIS, the following lines of

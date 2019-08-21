@@ -23,6 +23,7 @@
 #include <asp/Tools/stereo.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Stereo/CorrelationView.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -122,7 +123,7 @@ int main( int argc, char* argv[] ) {
 
     vw_out() << "stereo_algorithm," << stereo_settings().stereo_algorithm << endl;
     vw_out() << "subpixel_mode," << stereo_settings().subpixel_mode << endl;
-    if (stereo_settings().stereo_algorithm == 0)
+    if (stereo_settings().stereo_algorithm == vw::stereo::VW_CORRELATION_BM)
       vw_out() << "collar_size," << 0 << endl;
     else
       vw_out() << "collar_size," << stereo_settings().sgm_collar_size << endl;
