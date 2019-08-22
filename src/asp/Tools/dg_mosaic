@@ -44,7 +44,7 @@ def write_tree(tree, filename):
     '''A workarround for tree.write() not printing the string <?xml version="1.0"...>'''
     root = tree.getroot()
     with open(filename, 'w') as fh:
-        fh.write(ET.tostring(root, encoding='utf8', method='xml'))
+        fh.write(ET.tostring(root, encoding='utf8', method='xml').decode())
     
 def format_microsec(microsec):
     # Ensure that we have 6 digits in a microsecond. Pre-pad with
