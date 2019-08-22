@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # __BEGIN_LICENSE__
-#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Copyright (c) 2009-2019, United States Government as represented by the
 #  Administrator of the National Aeronautics and Space Administration. All
 #  rights reserved.
 #
@@ -101,47 +101,6 @@ def read_flatfile( flat ):
             crop        = line[index+7:index_e];
             averages[1] = float(crop);
     return averages;
-
-def isisversion(verbose=False):
-    path = ''
-    try: path = os.environ['ISISROOT']
-    except KeyError as msg:
-        raise Exception( "The ISIS environment does not seem to be enabled.\nThe " + str(msg) + " environment variable must be set." )
-
-    version = None
-    version_file = path + '/version'
-    if os.path.exists( version_file ):
-        v = open( version_file, 'r')
-        version = v.readline().strip()
-        v.close()
-
-    constants_file = path + "/inc/Constants.h"
-    if os.path.exists(constants_file):
-        f = open(constants_file,'r')
-        for line in f:
-            if ( line.rfind("std::string version(") > 0 ):
-                index = line.find("version(\"");
-                index_e = line.rfind("|");
-                version = line[index+9:index_e].rstrip()
-                #version = version +'b'
-        f.close()
-
-    if (version):
-        if (verbose): 
-          print("\tFound Isis Version: " + version + " at " + path)
-        alphaend = version.lstrip(string.digits+'.')
-        version_numbers = version.rstrip(string.ascii_letters);
-        version_strings = version_numbers.split('.')
-        version_list = []
-        version_list = [int(item) for item in version_strings]
-        if (alphaend): version_list.append(alphaend)
-        version_tuple = tuple(version_list)
-        return version_tuple
-
-    raise Exception( "Could not find an ISIS version string in " + \
-                     version_file + " or " + constants_file  )
-    return False
-
 
 def check_output_files(file_list):
     '''Verify the output files were created.'''
@@ -320,14 +279,8 @@ def mosaic( noprojed_CCDs, averages ):
 def handmos( fromcub, tocub, outsamp, outline ):
     cmd = 'handmos from= '+ fromcub +' mosaic= '+ tocub \
             +' outsample= '+ outsamp \
-            +' outline= '+   outline
-
-    if( isisversion() > (3,1,20) ):
-        # ISIS 3.1.21+
-        cmd += ' priority= beneath'
-    else:
-        # ISIS 3.1.20-
-        cmd += ' input= beneath'
+            +' outline= '+   outline \
+            +' priority= beneath'
     os.system(cmd)
     return
 
@@ -454,10 +407,6 @@ def main():
 
         except optparse.OptionError as msg:
             raise Usage(msg)
-
-        # # Determine Isis Version
-        # post_isis_20 = is_post_isis_3_1_20();
-        isisversion( True )
 
         if not options.resume_no_proj:
             # hi2isis
