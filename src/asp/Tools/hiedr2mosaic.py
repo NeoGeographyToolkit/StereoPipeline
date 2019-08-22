@@ -134,11 +134,12 @@ def isisversion(verbose=False):
         version_strings = version_numbers.split('.')
         version_list = []
         version_list = [int(item) for item in version_strings]
-        if( alphaend ): version_list.append( alphaend )
-        version_tuple = tuple( version_list )
+        if (alphaend): version_list.append(alphaend)
+        version_tuple = tuple(version_list)
         return version_tuple
 
-    raise Exception( "Could not find an ISIS version string in " + f.str() )
+    raise Exception( "Could not find an ISIS version string in " + \
+                     version_file + " or " + constants_file  )
     return False
 
 
@@ -352,11 +353,17 @@ def fetch_files( url, output_folder, image_type='RED' ):
         # python2 
         from BeautifulSoup import BeautifulSoup
         parsedDataPage = BeautifulSoup(urlopen(url).read())
-    except ImportError:
+    except:
         # python3
-        from bs4 import BeautifulSoup        
-        parsedDataPage = BeautifulSoup(urlopen(url).read(), "html.parser")
-    
+        try:
+            from bs4 import BeautifulSoup        
+            parsedDataPage = BeautifulSoup(urlopen(url).read(), "html.parser")
+        except Exception as e:
+            raise Exception("Error: " + str(e) + "\n" + 
+                            "If this is a missing module error, please install " + \
+                            "BeautifulSoup for python 2 or bs4 for python 3.\n" +
+                            "Or do not use the --download-folder option.")
+        
     # Loop through all the links on the page
     image_list = []
     for link in parsedDataPage.findAll('a'):
