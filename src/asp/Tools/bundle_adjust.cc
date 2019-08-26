@@ -298,7 +298,7 @@ void compute_mean_residuals_at_xyz(CRNJ & crn,
     if (param_storage.get_point_outlier(i)) {
       // Skip outliers. But initialize to something.
       mean_residuals        [i] = std::numeric_limits<double>::quiet_NaN();
-      num_point_observations[i] = std::numeric_limits<double>::quiet_NaN();
+      num_point_observations[i] = std::numeric_limits<int>::quiet_NaN();
       continue;
     }
     mean_residuals[i] /= static_cast<double>(num_point_observations[i]);
@@ -2184,10 +2184,17 @@ void create_matches_from_mapprojected_images
     // too. 
     std::string map_match_file = ip::match_filename(opt.out_prefix,
 						    map_files[i], map_files[j]);
-    ba_match_ip(opt, map_files[i], map_files[j],
-		opt.camera_files[i], opt.camera_files[j],
-		NULL, NULL, // cameras are set to null since images are mapprojected
-		map_match_file);
+    try{
+      
+      ba_match_ip(opt, map_files[i], map_files[j],
+                  opt.camera_files[i], opt.camera_files[j],
+                  NULL, NULL, // cameras are set to null since images are mapprojected
+                  map_match_file);
+      } catch ( const std::exception& e ){
+        vw_out() << "Could not find interest points between images "
+                 << map_files[i] << " and " << map_files[j] << std::endl;
+        vw_out(WarningMessage) << e.what() << std::endl;
+    } //End try/catch
     
     if (!boost::filesystem::exists(map_match_file)) {
       vw_out() << "Missing: " << map_match_file << "\n";
