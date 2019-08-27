@@ -51,7 +51,7 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 skip_symlink_expr = '^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
 
 
-def check_system_memory(opt, args, settings):
+def check_system_memory(opt, settings):
     '''Issue a warning if our selected options are estimated to exceed available RAM.'''
     kb_bytes = 1024
 
@@ -722,8 +722,7 @@ if __name__ == '__main__':
                             str(corr_tile_size) + ' ' + str(opt.job_size_h) + ' ' + \
                             str(opt.job_size_w) + '.')
 
-
-    check_system_memory(opt, args, settings)
+    check_system_memory(opt, settings)
 
     if opt.tile_id is None:
 
