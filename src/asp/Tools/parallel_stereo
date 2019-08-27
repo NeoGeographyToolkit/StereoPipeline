@@ -84,10 +84,10 @@ def check_system_memory(opt, settings):
 
         if (est_ram_usage > freemem_mb):
             print('Warning: Estimated maximum memory consumption is '
-                  + str(est_ram_usage) + 'mb but only ' + str(freemem_mb)
-                  + 'mb of free memory is detected.  To lower memory use, '
-                  + 'consider reducing the number of processes or lowering '
-                  + '--corr_memory_limit_mb')
+                  + str(est_ram_usage) + 'mb but only ' + str(freemem_mb) +
+                  'mb of free memory is detected.  To lower memory use, '
+                  'consider reducing the number of processes or lowering '
+                  '--corr_memory_limit_mb')
 
     except:
         # Don't let an error here prevent the tool from running.
