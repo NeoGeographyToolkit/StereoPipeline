@@ -769,17 +769,17 @@ How many passes of bundle adjustment to do. If more than one, outliers will be r
 After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.  Only the results for the optimization pass with the lowest error are kept.\\ \hline
 
 \texttt{-\/-remove-outliers-params \textit{'pct factor err1 err2'}} &
-Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.\\ \hline
+Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points (that are not GCP) with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.\\ \hline
 
 \texttt{-\/-remove-outliers-by-disparity-params \textit{pct factor}} &
-Outlier removal based on the disparity of interest points (difference between right and left pixel), when more than one bundle adjustment pass is used. For example, the 10\% and 90\% percentiles of disparity are computed, and this interval is made three times bigger. Interest points whose disparity fall outside the expanded interval are removed as outliers. Instead of the default 90 and 3 one can specify pct and factor, without quotes.\\ \hline
+Outlier removal based on the disparity of interest points (difference between right and left pixel), when more than one bundle adjustment pass is used. For example, the 10\% and 90\% percentiles of disparity are computed, and this interval is made three times bigger. Interest points (that are not GCP) whose disparity fall outside the expanded interval are removed as outliers. Instead of the default 90 and 3 one can specify pct and factor, without quotes.\\ \hline
 
 \texttt{-\/-elevation-limit \textit{double double}} &
-Remove as outliers interest points for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.
+Remove as outliers interest points (that are not GCP) for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.
 \\ \hline
 
 \texttt{-\/lon-lat-limit \textit{double double double double}} &
-Remove as outliers interest points for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min\_lon min\_lat max\_lon max\_lat.
+Remove as outliers interest points (that are not GCP) for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min\_lon min\_lat max\_lon max\_lat.
 \\ \hline
 
 \texttt{-\/-reference-terrain arg} & An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras. \\ \hline
