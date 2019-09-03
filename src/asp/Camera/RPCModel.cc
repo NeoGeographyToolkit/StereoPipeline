@@ -199,9 +199,9 @@ namespace asp {
     } // End loop through lines.
     f.close();
     // Basic error check
-    if (max_coeff_index != 19)
+    if (max_coeff_index != 20)
       vw_throw( ArgumentErr() << "Error reading file " << filename
-                                << ", failed to load enough coefficients!");
+                              << ", loaded wrong number of coefficients!");
   }
 
   // All of these implementations are largely inspired by the GDAL
