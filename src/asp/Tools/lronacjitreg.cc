@@ -450,26 +450,23 @@ bool determineShifts(Parameters & params,
 
 int main(int argc, char* argv[]) 
 {
-  try 
-  {
+  try  {
     // Parse the input parameters
     Parameters params;
-    if (!handle_arguments(argc, argv, params))
-    {
+    if (!handle_arguments(argc, argv, params)) {
       printf("Failed to parse input parameters!\n");
-      return false;
+      return 1;
     }
     
     double dX, dY;
-    if (determineShifts(params, dX, dY))
-    {
+    if (determineShifts(params, dX, dY)) {
       // Success, print the results
       printf("Mean sample offset = %lf\n", dX);
       printf("Mean line   offset = %lf\n", dY);
     }
-
+    
   } ASP_STANDARD_CATCHES;
-
+  
   return 0;
 }
 

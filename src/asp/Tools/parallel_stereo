@@ -50,7 +50,6 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 # and neither the log files
 skip_symlink_expr = '^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
 
-
 def check_system_memory(opt, args, settings):
     '''Issue a warning if our selected options are estimated to exceed available RAM.'''
 
@@ -527,10 +526,12 @@ def normal_run(prog, args, **kw):
     binpath = bin_path(prog)
     call = [binpath]
     call.extend(args)
-
+    
     if opt.threads_single is not None:
         wipe_option(call, '--threads', 1)
         call.extend(['--threads', str(opt.threads_single)])
+
+    call = reduce_num_threads_in_pprc(call)
 
     if opt.dryrun:
         print('%s' % ' '.join(call))

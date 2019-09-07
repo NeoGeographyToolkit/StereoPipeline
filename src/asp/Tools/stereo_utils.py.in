@@ -113,8 +113,6 @@ def generic_run(cmd, verbose):
     if code != 0:
             raise Exception('Failed to run: ' + cmd_str)
 
-
-
 def get_option(options, opt, n):
     # In the array 'options', find and return the entry with value 'opt'
     #  and the next n values.
@@ -138,8 +136,8 @@ def wipe_option(options, opt, n):
             if r < len(options): del options[r]
 
 def set_option(options, opt, new_values):
-    # In the array 'options', find the entry with value 'opt'.
-    # Replace the next values with new_values.
+    '''In the array 'options', find the entry with value 'opt'.
+    Replace the next values with new_values.'''
 
     if opt in options:
         # The option is already included, update its value.
@@ -155,19 +153,41 @@ def set_option(options, opt, new_values):
         for i in new_values:
             options.append(str(i))
 
+# This is a bugfix for OpenBLAS on the Mac. It cannot handle
+# too many threads.
+def reduce_num_threads_in_pprc(cmd):
+    
+    prog = cmd[0]
+    if os.path.basename(prog) == 'stereo_pprc' and sys.platform == 'darwin':
 
+        os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
+        num_threads_arr = get_option(cmd, '--threads', 1)
+        if len(num_threads_arr) > 1:
+            num_threads = int(num_threads_arr[1])
+        else:
+            num_threads = 1
+
+        num_cpus = get_num_cpus()
+        if num_threads > int(num_cpus / 2):
+            num_threads = int(num_cpus / 2)
+        if num_threads <= 0:
+            num_threads = 1
+
+        set_option(cmd, '--threads', [num_threads])
+
+    return cmd
 
 #=====================================================================================
 # Functions below here are purely stereo
-
-
 
 # Run one of the stereo executables
 def stereo_run(prog, args, opt, **kw):
     binpath = bin_path(prog)
     call = [binpath]
     call.extend(args)
+
+    call = reduce_num_threads_in_pprc(call)
 
     # This must not be used in production. /usr/bin/time on the Mac does not work well.
     # This is a debug option, at some point it may go away.

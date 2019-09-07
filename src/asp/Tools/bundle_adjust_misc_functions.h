@@ -997,7 +997,7 @@ bool init_pinhole_model_with_camera_positions
 ///  a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
 /// if at least three GCP are seen in no less than two images.
-bool init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+void init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
 				       std::vector<boost::shared_ptr<CameraModel> > & camera_models) {
   
   vw_out() << "Initializing camera positions from ground control points.\n";
@@ -1101,8 +1101,6 @@ bool init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& 
   vw_out() << "This transform can be disabled with --disable-pinhole-gcp-init\n";
   apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
 
-  
-  return true;
 } // End function init_pinhole_model_with_gcp
 
 // Given original cams in sfm_cams and individually scaled cameras in
@@ -1293,7 +1291,7 @@ void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
 /// This function overwrites the camera parameters in-place. It works
 /// if at least two images have at least 3 GCP each. Each GCP need
 /// not show in multiple images.
-bool init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
+void init_pinhole_model_with_mono_gcp(boost::shared_ptr<ControlNetwork> const& cnet_ptr,
 				      std::vector<boost::shared_ptr<CameraModel> > & camera_models) {
   
   vw_out() << "Initializing camera positions from ground control points." << std::endl;
