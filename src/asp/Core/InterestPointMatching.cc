@@ -282,7 +282,12 @@ namespace asp {
     // Jobs set to 2x the number of cores. This is just incase all jobs are not equal.
     // The total number of interest points will be divided up among the jobs.
     size_t number_of_jobs = vw_settings().default_num_threads() * 2;
-
+#if __APPLE__
+    // Fix due to OpenBLAS crashing. May need to be revisited.
+    number_of_jobs = std::min(int(vw_settings().default_num_threads()), 4);
+    vw_out() << "\t    Using " << number_of_jobs << " threads for matching.\n";
+#endif
+    
     // Robustness fix
     if (ip1_size < number_of_jobs)
       number_of_jobs = ip1_size;
