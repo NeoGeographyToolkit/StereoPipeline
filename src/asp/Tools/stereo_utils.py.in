@@ -168,9 +168,8 @@ def reduce_num_threads_in_pprc(cmd):
         else:
             num_threads = 1
 
-        num_cpus = get_num_cpus()
-        if num_threads > int(num_cpus / 2):
-            num_threads = int(num_cpus / 2)
+        if num_threads > 2:
+            num_threads = 2
         if num_threads <= 0:
             num_threads = 1
 
