@@ -659,7 +659,9 @@ def main(argsIn):
 
         parser.add_option('--theia-flagfile',  dest='existing_theia_flagfile', default=None,
                                          help='Path to a custom Theia flag file to fine-tune its operation. File paths specified in this file are ignored.')
-
+        
+        parser.add_option('--theia-retries', type=int, dest='theia_retries', default=3,
+                          help='How many times to retry solving for cameras.')
 
         # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)
@@ -716,15 +718,13 @@ def main(argsIn):
     # Theia's reconstruction tool sometimes fails for no apparent reason but
     #  this does not happen often.  If it fails, try a few more times
     #  to see if we can get it to succeed.
-    NUM_THEIA_RETRIES = 3
-    
     try_counter = 0
-    for i in range(0,NUM_THEIA_RETRIES):
+    for i in range(0,options.theia_retries):
         try:
             build_reconstruction(options)
             break
         except: # Theia failed, but give it another shot.
-            if i == NUM_THEIA_RETRIES-1:
+            if i == options.theia_retries-1:
                 print('Error: Theia failed to generate a camera reconstruction!')
                 return -1
             else:
