@@ -265,7 +265,9 @@ namespace asp {
       ("disable-v-subpixel",  po::bool_switch(&global.disable_v_subpixel)->default_value(false)->implicit_value(true),
                               "Disable calculation of subpixel in vertical direction.")
       ("subpixel-max-levels", po::value(&global.subpixel_max_levels)->default_value(2),
-                              "Max pyramid levels to process when using the BayesEM refinement. (0 is just a single level).");
+                              "Max pyramid levels to process when using the BayesEM refinement. (0 is just a single level).")
+      ("phase-subpixel-accuracy", po::value(&global.phase_subpixel_accuracy)->default_value(20),
+                              "Accuracy to use for mode 4 phase subpixel.  Resolution is 1/this.  Larger values take more time.");
 
     po::options_description experimental_subpixel_options("Experimental Subpixel Options");
     experimental_subpixel_options.add_options()

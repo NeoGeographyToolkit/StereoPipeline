@@ -21,6 +21,7 @@
      for many dependencies, with gcc 5, glibc 2.17, and Python version
      >= 3 or 2.7. Tested on SUSE Linux Enterprise Server 12 and Ubuntu
      18.04.
+   * Added phase subpixel correlation accuracy parameter.
 
 *** RELEASE 2.6.2, June 15, 2019 ***
 

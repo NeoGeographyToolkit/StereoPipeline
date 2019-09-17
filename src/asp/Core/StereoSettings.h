@@ -181,6 +181,8 @@ namespace asp {
     vw::Vector2i subpixel_kernel;     // Subpixel correlation kernel
     bool disable_h_subpixel, disable_v_subpixel;
     vw::uint16 subpixel_max_levels;   // Max pyramid levels to process. 0 hits only once.
+    vw::uint16 phase_subpixel_accuracy;  // Phase subpixel is accurate to 1/this pixels
+
 
     // Experimental Subpixel Options (mode 3 only)
     int subpixel_em_iter;

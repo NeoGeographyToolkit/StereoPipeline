@@ -119,7 +119,8 @@ refine_disparity(Image1T const& left_image,
                       left_image, right_image,
                       prefilter_mode, stereo_settings().slogW,
                       stereo_settings().subpixel_kernel,
-                      stereo_settings().subpixel_max_levels );
+                      stereo_settings().subpixel_max_levels,
+                      stereo_settings().phase_subpixel_accuracy);
 
   } // End Lucas-Kanade cases
   if (stereo_settings().subpixel_mode == 5) {
