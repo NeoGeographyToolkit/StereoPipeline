@@ -75,9 +75,12 @@ def generateTilePrefix(outputFolder, tileName, outputName):
     return os.path.join(outputFolder, tileName, outputName)
 
 def handleArguments(args):
-    """Split up arguments into required and optional lists which will be passed to subprocess"""
-
-    requiredList = []
+    """Split up arguments into input cameras and arguments."""
+    # TODO: This code is buggy. A boolean option followed by a value will be taken
+    # as the value of the boolean option but that one does not take a value.
+    # As of now, all boolean options must either be followed by other options
+    # or be at the end.
+    cameras = []
     optionsList  = []
 
     # Loop through all entries.
@@ -96,7 +99,7 @@ def handleArguments(args):
             if asp_cmd_utils.isCmdOption(n): 
                 continue
 
-            optionsList.append(n)  # Otherwise record the next entry as a value.
+            optionsList.append(n)  # Otherwise record the next entry has a value.
             next(iterable)        # Skip the next entry in the loop.
 
             if (a == '--crop-win'):  # These arguments have four values, not just one.
@@ -109,12 +112,12 @@ def handleArguments(args):
                 next(iterable)
 
         else: # This is one of the three positional arguments
-            requiredList.append(a)
+            cameras.append(a)
 
     # Return the two lists
-    return (requiredList, optionsList)
+    return (cameras, optionsList)
 
-def runSfs(options, requiredList, outputFolder, outputName):
+def runSfs(options, cameras, outputFolder, outputName):
     """Run sfs in a single tile."""
 
     # Determine the name of the tile we need to write
@@ -164,7 +167,7 @@ def runSfs(options, requiredList, outputFolder, outputName):
     # Just call the command for a single tile
     #cmd = ['/usr/bin/time', '-f', '"elapsed=%E memory=%M (kb)"' ...] # not working on mac
     cmd = ['sfs',  '--crop-win', str(startX), str(startY), str(stopX), str(stopY)]
-    cmd = cmd + requiredList + extraArgs # Append other options
+    cmd = cmd + cameras + extraArgs # Append other options
     willRun = True
     if options.resume:
         finalDem = tilePrefix + '-DEM-final.tif'
@@ -204,7 +207,7 @@ def mosaic_results(tileList, outputFolder, outputName, options, inFilePrefix, ou
 
 def main(argsIn):
 
-    requiredList = []
+    cameras = []
     sfsPath = asp_system_utils.bin_path('sfs')
     try:
         try:
@@ -271,7 +274,7 @@ def main(argsIn):
         (options, args) = parser.parse_args(argsIn)
 
         # This will parse all the parallel_sfs options.
-        requiredList, optionsList = handleArguments(args)
+        cameras, optionsList = handleArguments(args)
 
         # The parallel_sfs tool must not take the option --crop-win as it will
         # work on the entire input DEM.
@@ -280,8 +283,8 @@ def main(argsIn):
             parser.error("parallel_sfs cannot take the --crop-win option. " +
                          "Use the sfs tool directly if this is desired.\n" );
 
-        # Check the required positional arguments.
-        if len(requiredList) < 1:
+        # Check the cameras.
+        if len(cameras) < 1:
             parser.print_help()
             parser.error("Missing inputs.\n" );
 
@@ -312,15 +315,26 @@ def main(argsIn):
     if spawnedCopy:
         # This copy was spawned to process a single tile. Just call a
         # function to handle this and then we are done.
-        return runSfs(options, requiredList, outputFolder, outputName) 
+        return runSfs(options, cameras, outputFolder, outputName) 
 
     # Otherwise this is the original called process and there are multiple steps to go through
 
+    # Compute the exposures if not specified and missing
+    if '--image-exposures-prefix' not in options.extraArgs:
+        print("Computing exposures.\n")
+        cmd = [sfsPath] + cameras + options.extraArgs + ['--compute-exposures-only']
+        asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+        options.extraArgs += ['--image-exposures-prefix', options.output_prefix]
+
+    if '--compute-exposures-only' in options.extraArgs:
+        print("Finished computing exposures.")
+        return
+    
     # What is the size of the DEM on which to do SfS
     sep = ","
     verbose = False
     settings = asp_system_utils.run_and_parse_output( sfsPath, 
-                                                      requiredList + \
+                                                      cameras + \
                                                       options.extraArgs + ['--query'],
                                                       sep, verbose )
     sizeX = int(settings['dem_cols'][0])
@@ -338,7 +352,7 @@ def main(argsIn):
 
     # If there is only going to be one output tile, just use the non-parallel call
     if (numTilesX*numTilesY == 1):
-        cmd = [sfsPath] + requiredList + options.extraArgs
+        cmd = [sfsPath] + cameras + options.extraArgs
         asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
         return 0
     
@@ -393,7 +407,7 @@ def main(argsIn):
     if options.resume:
         commandList.append('--resume')
         
-    commandList   = commandList + requiredList + options.extraArgs # Append other options
+    commandList   = commandList + cameras + options.extraArgs # Append other options
     commandString = asp_string_utils.argListToString(commandList)
 
     # Use GNU parallel call to distribute the work across computers

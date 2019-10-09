@@ -1,4 +1,4 @@
-\chapter{Tools}
+chapter{Tools}
 
 This chapter provides a overview of the various tools that are
 provided as part of the Ames Stereo Pipeline, and a summary of their
@@ -405,7 +405,6 @@ Option & Description \\ \hline \hline
 \texttt{-\/-nodata-value \textit{double(=NaN)}} & 
 Pixels with values less than or equal to this number are treated as no-data and displayed as transparent. This overrides the no-data values from input images.
 \\ \hline
-
 \texttt{-\/-hillshade} & Interpret the input images as DEMs and hillshade them.\\ \hline
 \texttt{-\/-hillshade-azimuth} & The azimuth value when showing hillshaded images.\\ \hline
 \texttt{-\/-hillshade-elevation} & The elevation value when showing hillshaded images.\\ \hline
@@ -413,6 +412,7 @@ Pixels with values less than or equal to this number are treated as no-data and 
 \texttt{-\/-match-file} & Display this match file instead of looking one up based on existing conventions (implies \texttt{-\/-view-matches}). \\ \hline
 \texttt{-\/-gcp-file} & Display the GCP pixel coordinates for this GCP file (implies \texttt{-\/-view-matches}). Also save here GCP if created from the GUI.\\ \hline
 \texttt{-\/-dem-file} & Use this DEM when creating GCP from images. \\ \hline
+\texttt{-\/-hide-all} & Start with all images turned off (if all images are in the same window, useful with a large number of images).\\ \hline
 \texttt{-\/-delete-temporary-files-on-exit} & Delete any subsampled and other files created by the GUI when exiting.\\ \hline
 \texttt{-\/-create-image-pyramids-only} & Without starting the GUI, build multi-resolution pyramids for the inputs, to be able to load them fast later.\\ \hline
 \end{longtable}
@@ -3268,6 +3268,10 @@ Option & Description \\ \hline \hline
 \texttt{-\/-coarse-levels arg (=0)} & Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids. Experimental.\\ \hline
 \texttt{-\/-max-coarse-iterations arg (=50)} & How many iterations to do at levels of resolution coarser than the final result.\\ \hline
 \texttt{-\/-crop-input-images} & Crop the images to a region that was computed to be large enough and keep them fully in memory, for speed.\\ \hline
+\texttt{-\/-blending-dist arg(=0)} & Give less weight to image pixels close to no-data or boundary values. Enabled only when crop-input-images is true, for performance reasons. Blend over this many pixels. \\ \hline
+\texttt{-\/-blending-power arg(=2)} & A higher value will result in smoother blending. \\ \hline
+\texttt{-\/-min-blend-size arg(=0)} & Do not apply blending in shadowed areas of dimensions less than this. \\ \hline
+\texttt{-\/-compute-exposures-only} & Quit after saving the exposures. This should be done once for a big DEM, before using these for small sub-clips without recomputing them.\\ \hline
 \texttt{-\/-image-exposures-prefix arg} & Use this prefix to optionally read initial exposures (filename is <prefix>-exposures.txt).\\ \hline
 \texttt{-\/-model-coeffs-prefix arg} & Use this prefix to optionally read model coefficients from a file (filename is <prefix>-model\_coeffs.txt) .\\ \hline
 \texttt{-\/-model-coeffs arg} & Use the model coefficients specified as a list of numbers in quotes. Lunar-Lambertian: O, A, B, C, e.g., '1 0.019 0.000242 -0.00000146'. Hapke: omega, b, c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.\\ \hline

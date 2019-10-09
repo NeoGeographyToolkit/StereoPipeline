@@ -248,7 +248,7 @@ namespace asp {
     bool view_matches;
     std::string match_file, gcp_file, dem_file;
     bool delete_temporary_files_on_exit;
-    bool create_image_pyramids_only;
+    bool create_image_pyramids_only, hide_all;
     std::vector<std::string> vwip_files;
     
     // Sensor options

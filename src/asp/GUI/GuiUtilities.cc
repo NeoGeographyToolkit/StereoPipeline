@@ -788,7 +788,7 @@ chooseFilesDlg::chooseFilesDlg(QWidget * parent):
   
 chooseFilesDlg::~chooseFilesDlg(){}
 
-void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images){
+  void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images, bool hide_all){
 
   // See the top of this file for documentation.
 
@@ -802,7 +802,11 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images){
     // Checkbox
     QTableWidgetItem *item = new QTableWidgetItem(1);
     item->data(Qt::CheckStateRole);
-    item->setCheckState(Qt::Checked);
+    if (!hide_all)
+      item->setCheckState(Qt::Checked);
+    else
+      item->setCheckState(Qt::Unchecked);
+      
     m_filesTable->setItem(fileIter, 0, item);
 
     // Set the filename in the table

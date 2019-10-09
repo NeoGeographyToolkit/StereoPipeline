@@ -2132,103 +2132,86 @@ void ba_match_ip(Options & opt,
 //==================================================================================
 // Mapprojected image functions.
 
-/// If the user map-projected the images and created matches by hand
-/// (this is useful when the illumination conditions are too different,
-/// and automated matching fails), project those matching ip back
-/// into the cameras, creating matches between the raw images
-/// that then bundle_adjust can use.
-/// - The output matches are written to file.
-/// If the matches between mapprojected images do not exist,
-/// create them first and then use them.
-void create_matches_from_mapprojected_images
-(Options& opt, std::vector<std::pair<int,int> > const& all_pairs){
+/// If the user map-projected the images (this is useful when the
+/// perspective or illumination conditions are too different, and
+/// automated matching fails), first create matches among the
+/// mapprojected images (or use any such matches created beforehand
+/// manually by the user), and project those matches into the cameras,
+/// creating matches between the raw images that then bundle_adjust
+/// can use. Both matches between mapprojected images and between
+/// original images are saved to files.
+void matches_from_mapproj_images(int i, int j,
+                                 Options& opt,
+                                 std::vector<std::string> const& map_files,
+                                 vw::cartography::GeoReference const& dem_georef,
+                                 ImageViewRef< PixelMask<double> > & interp_dem,
+                                 std::string const& match_filename){
   
-  std::istringstream is(opt.mapprojected_data);
-  std::vector<std::string> map_files;
-  std::string file;
-  while (is >> file){
-    map_files.push_back(file); 
+  vw::cartography::GeoReference georef1, georef2;
+  vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
+  bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
+  bool is_good2 = vw::cartography::read_georeference(georef2, map_files[j]);
+  if (!is_good1 || !is_good2) {
+    vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
   }
-  std::string dem_file = map_files.back();
-  map_files.erase(map_files.end() - 1);
-
-  if ( opt.camera_models.size() != map_files.size()) 
-    vw_throw(ArgumentErr() << "Error: Expecting as many input cameras as map-projected images.\n");
-
-  vw::cartography::GeoReference dem_georef;
-  ImageViewRef< PixelMask<double> > interp_dem;
-  create_interp_dem(dem_file, dem_georef, interp_dem);
   
-  for (size_t k = 0; k < all_pairs.size(); k++) {
-
-    const int i = all_pairs[k].first;
-    const int j = all_pairs[k].second;
-    
-    vw::cartography::GeoReference georef1, georef2;
-    vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
-    bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
-    bool is_good2 = vw::cartography::read_georeference(georef2, map_files[j]);
-    if (!is_good1 || !is_good2) {
-      vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
-    }
-
-    std::string image1_path  = opt.image_files[i];
-    std::string image2_path  = opt.image_files[j];
-    std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
-    if (boost::filesystem::exists(match_filename)) {
-      vw_out() << "Using cached match file: " << match_filename << "\n";
-      continue;
-    }
-
-    // If the match file does not exist, create it. The user can create this manually
-    // too. 
-    std::string map_match_file = ip::match_filename(opt.out_prefix,
-						    map_files[i], map_files[j]);
-    try{
-      
-      ba_match_ip(opt, map_files[i], map_files[j],
-                  opt.camera_files[i], opt.camera_files[j],
-                  NULL, NULL, // cameras are set to null since images are mapprojected
-                  map_match_file);
-      } catch ( const std::exception& e ){
-        vw_out() << "Could not find interest points between images "
-                 << map_files[i] << " and " << map_files[j] << std::endl;
-        vw_out(WarningMessage) << e.what() << std::endl;
-    } //End try/catch
-    
-    if (!boost::filesystem::exists(map_match_file)) {
-      vw_out() << "Missing: " << map_match_file << "\n";
-      continue;
-    }
-    vw_out() << "Reading: " << map_match_file << std::endl;
-    std::vector<ip::InterestPoint> ip1,     ip2;
-    std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
-    ip::read_binary_match_file(map_match_file, ip1, ip2);
-    
-    // Undo the map-projection
-    for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
-      
-      // TODO: Does the logic here fail if P1 succeeds but P2 fails???
-      vw::ip::InterestPoint P1 = ip1[ip_iter];
-      vw::ip::InterestPoint P2 = ip2[ip_iter];
-      if (!projected_ip_to_raw_ip(P1, interp_dem, opt.camera_models[i], georef1, dem_georef))
-	continue;
-      if (!projected_ip_to_raw_ip(P2, interp_dem, opt.camera_models[j], georef2, dem_georef))
-	continue;
-      
-      ip1_cam.push_back(P1);
-      ip2_cam.push_back(P2);
-    }
-    
-    // TODO: There is a problem if the number of matches changes!!!
-    vw_out() << "Saving " << ip1_cam.size() << " matches.\n";
-    
-    vw_out() << "Writing: " << match_filename << std::endl;
-    ip::write_binary_match_file(match_filename, ip1_cam, ip2_cam);
-    
+  std::string image1_path  = opt.image_files[i];
+  std::string image2_path  = opt.image_files[j];
+  if (boost::filesystem::exists(match_filename)) {
+    vw_out() << "Using cached match file: " << match_filename << "\n";
+    return;
   }
 
-} // End function create_matches_from_mapprojected_images
+  if (opt.skip_matching)
+    return;
+
+  // If the match file does not exist, create it. The user can create this manually
+  // too. 
+  std::string map_match_file = ip::match_filename(opt.out_prefix,
+                                                  map_files[i], map_files[j]);
+  try{
+    
+    ba_match_ip(opt, map_files[i], map_files[j],
+                opt.camera_files[i], opt.camera_files[j],
+                NULL, NULL, // cameras are set to null since images are mapprojected
+                map_match_file);
+  } catch ( const std::exception& e ){
+    vw_out() << "Could not find interest points between images "
+             << map_files[i] << " and " << map_files[j] << std::endl;
+    vw_out(WarningMessage) << e.what() << std::endl;
+    return;
+  } //End try/catch
+  
+  if (!boost::filesystem::exists(map_match_file)) {
+    vw_out() << "Missing: " << map_match_file << "\n";
+    return;
+  }
+
+  vw_out() << "Reading: " << map_match_file << std::endl;
+  std::vector<ip::InterestPoint> ip1,     ip2;
+  std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
+  ip::read_binary_match_file(map_match_file, ip1, ip2);
+  
+  // Undo the map-projection
+  for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
+    
+    vw::ip::InterestPoint P1 = ip1[ip_iter];
+    vw::ip::InterestPoint P2 = ip2[ip_iter];
+    if (!projected_ip_to_raw_ip(P1, interp_dem, opt.camera_models[i], georef1, dem_georef))
+      continue;
+    if (!projected_ip_to_raw_ip(P2, interp_dem, opt.camera_models[j], georef2, dem_georef))
+      continue;
+    
+    ip1_cam.push_back(P1);
+    ip2_cam.push_back(P2);
+  }
+  
+  vw_out() << "Saving " << ip1_cam.size() << " matches.\n";
+  
+  vw_out() << "Writing: " << match_filename << std::endl;
+  ip::write_binary_match_file(match_filename, ip1_cam, ip2_cam);
+
+} // End function matches_from_mapproj_images()
 
 /// If the user map-projected the images and created matches by hand
 /// from each map-projected image to the DEM it was map-projected onto,
@@ -2483,16 +2466,33 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // Create match files from mapprojection.
-    if (opt.mapprojected_data != "")
-      create_matches_from_mapprojected_images(opt, all_pairs);
-
-    // Create match files from mapprojection.
+    // Create GCP from mapprojection.
     if (opt.gcp_from_mapprojected != "") {
       create_gcp_from_mapprojected_images(opt);
       return 0;
     }
 
+    // When we make matches based on mapprojected images.
+    // TODO: Must gather the stats beforehand, as for unprojected images!
+    std::vector<std::string> map_files;
+    vw::cartography::GeoReference dem_georef;
+    ImageViewRef< PixelMask<double> > interp_dem;
+    if (opt.mapprojected_data != "") {
+      std::istringstream is(opt.mapprojected_data);
+      std::string file;
+      while (is >> file)
+        map_files.push_back(file); 
+
+      if ( opt.camera_models.size() + 1 != map_files.size()) 
+        vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
+                 << "cameras, and also a DEM.\n");
+
+      std::string dem_file = map_files.back();
+      map_files.erase(map_files.end() - 1);
+      
+      create_interp_dem(dem_file, dem_georef, interp_dem);
+    }
+    
     // TODO: Make this a function
     // Assign the matches which this instance should compute.
     size_t per_instance = all_pairs.size()/opt.instance_count; // Round down
@@ -2560,11 +2560,16 @@ int main(int argc, char* argv[]) {
       // IP matching may not succeed for all pairs
       try{
 
-	ba_match_ip(opt, image1_path, image2_path,
-		    camera1_path, camera2_path,
-		    opt.camera_models[i].get(),
-		    opt.camera_models[j].get(),
-		    match_filename);
+        if (opt.mapprojected_data == "") 
+          ba_match_ip(opt, image1_path, image2_path,
+                      camera1_path, camera2_path,
+                      opt.camera_models[i].get(),
+                      opt.camera_models[j].get(),
+                      match_filename);
+
+        else
+          matches_from_mapproj_images(i, j, opt, map_files, dem_georef, interp_dem,  
+                                      match_filename);
 
         // Compute the coverage fraction
         std::vector<ip::InterestPoint> ip1, ip2;

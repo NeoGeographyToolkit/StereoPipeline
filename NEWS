@@ -14,6 +14,14 @@
    * Bugfix when zooming all images to same region when the region is
      such that all images are seen fully.
 
+ - sfs
+   * Added a new very challenging example at the South Pole with drastic
+     illumination changes and using a non-stereo DEM as initial guess.
+   * Fixed a bug with craters missing under low light.
+   * Fixed a bug with computation of exposures in terrain with many shadows.
+   * Print the Sun azimuth angle for all images (useful for sorting them
+     by illumination conditions).
+
  - Misc
    * Compiled against ISIS version 3.8.0.
    * Updated to C++ 11.

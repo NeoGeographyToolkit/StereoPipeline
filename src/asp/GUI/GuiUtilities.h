@@ -302,7 +302,7 @@ namespace vw { namespace gui {
   public:
     chooseFilesDlg(QWidget * parent);
     ~chooseFilesDlg();
-    void chooseFiles(const std::vector<imageData> & images);
+    void chooseFiles(const std::vector<imageData> & images, bool hide_all);
 
     QTableWidget * getFilesTable(){ return m_filesTable; }
     static QString selectFilesTag(){ return ""; }

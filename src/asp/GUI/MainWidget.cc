@@ -274,8 +274,23 @@ namespace vw { namespace gui {
     // Choose which files to hide/show in the GUI
     if (m_chooseFilesDlg){
       
-      m_chooseFilesDlg->chooseFiles(m_images);
+      m_chooseFilesDlg->chooseFiles(m_images, asp::stereo_settings().hide_all);
 
+      // Make list of all the unchecked files.
+      // TODO: It is poor design that we keep in both the table and
+      // in m_filesToHide the state of which files to hide and these
+      // need to be synched up.
+      m_filesToHide.clear();
+      QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+      int rows = filesTable->rowCount();
+      for (int rowIter = 0; rowIter < rows; rowIter++){
+        QTableWidgetItem *item = filesTable->item(rowIter, 0);
+        if (item->checkState() != Qt::Checked){
+          string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+          m_filesToHide.insert(fileName);
+        }
+      }
+      
       // When the user clicks on a table entry, say by modifying a 
       // checkbox, update the display.
       QObject::connect(m_chooseFilesDlg->getFilesTable(),
@@ -882,6 +897,8 @@ namespace vw { namespace gui {
   //             MainWidget Private Methods
   // --------------------------------------------------------------
 
+  // TODO: Rewrite this to draw only the pixels that end up being seen!
+  // It should greatly improve the performance!
   void MainWidget::drawImage(QPainter* paint) {
 
     // Sometimes we arrive here prematurely, before the window geometry was

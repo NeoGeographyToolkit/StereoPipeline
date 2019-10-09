@@ -15,8 +15,15 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// TODO: Deal with outliers in image intensity!
-// Always use local projection? How about orientations?
+// TODO:
+// Deal with outliers in image intensity.
+// When the cameras are not floated, compute
+// the approximation for the input adjusted cameras,
+// rather than for the unadjusted cameras with a wide margin.
+// That should speed things up and use less memory.
+// The rpc approximation should also approximate the adjusted cameras if those won't float.
+// This approximation needs to remember is domain of validity.
+// TODO: Ensure the output DEM is float. Check its no-data value.
 
 /// \file sfs.cc
 
@@ -35,6 +42,7 @@
 
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>
+#include <vw/Image/InpaintView.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Stopwatch.h>
 #include <asp/Core/Macros.h>
@@ -811,46 +819,113 @@ void callTop() {
 }
 
 // Pull the ISIS model from an adjusted IsisCameraModel or ApproxCameraModel
-boost::shared_ptr<CameraModel> get_isis_cam(boost::shared_ptr<CameraModel> cam){
+boost::shared_ptr<CameraModel> get_isis_cam(boost::shared_ptr<CameraModel> cam,
+                                            bool allow_unadjusted = false){
 
-  AdjustedCameraModel * acam = dynamic_cast<AdjustedCameraModel*>(cam.get());
-  if (acam == NULL)
-    vw_throw( ArgumentErr() << "get_isis_cam: Expecting an adjusted camera model.\n" );
-
-  boost::shared_ptr<CameraModel> ucam = acam->unadjusted_model();
-  if (ucam.get() == NULL)
+  boost::shared_ptr<CameraModel> unadj_cam, isis_cam;
+  
+  AdjustedCameraModel * adj_cam = dynamic_cast<AdjustedCameraModel*>(cam.get());
+  if (adj_cam != NULL) {
+    unadj_cam = adj_cam->unadjusted_model();
+  }else{
+    if (!allow_unadjusted) 
+      vw_throw( ArgumentErr() << "get_isis_cam: Expecting an adjusted camera model.\n" );
+    else
+      unadj_cam = cam;
+  }
+  
+  if (unadj_cam.get() == NULL)
     vw_throw( ArgumentErr() << "get_isis_cam: Expecting a valid camera model.\n" );
 
-  ApproxCameraModel * apcam = dynamic_cast<ApproxCameraModel*>(ucam.get());
-  if (apcam != NULL)
-    return apcam->exact_camera();
-
-  if (dynamic_cast<IsisCameraModel*>(ucam.get()) == NULL)
+  ApproxCameraModel * apcam = dynamic_cast<ApproxCameraModel*>(unadj_cam.get());
+  if (apcam != NULL) {
+    isis_cam = apcam->exact_camera();
+  }else{
+    isis_cam = unadj_cam;
+  }
+  
+  if (dynamic_cast<IsisCameraModel*>(isis_cam.get()) == NULL)
     vw_throw( ArgumentErr() << "get_isis_cam: Expecting an ISIS camera model.\n" );
 
-  return ucam;
+  return isis_cam;
 }
 
+// Find the angle between the vector going east at the current point
+// on the planet and the sun direction. This angle grows as the sun is
+// rising. This is more robust than either the sun elevation or the
+// sun azimuth, and easier to calculate. It is important to use a DEM
+// at the desired location as the result can change depending on the
+// DEM.
+double sun_angle(ImageView<double> const& dem, double nodata_val, GeoReference const& georef,
+                 boost::shared_ptr<CameraModel> cam){
 
-// Compute mean and standard deviation of an image
+  bool allow_unadjusted = true; // At this stage we don't care about adjustments
+  boost::shared_ptr<CameraModel> ucam = get_isis_cam(cam, allow_unadjusted);
+  IsisCameraModel* isis_cam = dynamic_cast<IsisCameraModel*>(ucam.get());
+  if (isis_cam == NULL)
+    vw_throw( ArgumentErr()
+              << "Expecting an ISIS camera model.\n");
+  
+  int cols = dem.cols(), rows = dem.rows();
+  if (cols <= 0 || rows <= 0)
+    vw_throw( ArgumentErr() << "Expecting a non-empty DEM.\n" );
+
+  // Find lon-lat-height in the middle of the DEM
+  Vector2 ll = georef.pixel_to_lonlat(Vector2(cols/2.0, rows/2.0));
+  double height = dem(cols/2.0, rows/2.0);
+  if (height == nodata_val)
+    height = 0;
+  Vector3 llh(ll[0], ll[1], height);
+
+  Vector3 xyz = georef.datum().geodetic_to_cartesian(llh); // point on the planet
+  Vector3 east(-xyz[1], xyz[0], 0);
+
+  Vector3 sun_pos = isis_cam->sun_position();
+  Vector3 sun_dir = sun_pos - xyz;
+
+  double prod = dot_prod(sun_dir, east)
+    / sqrt ( dot_prod(east, east) * dot_prod(sun_dir, sun_dir));
+  double angle = (180.0/M_PI) * acos (prod);
+
+  // Projection in the tangent plane
+  Vector3 proj = sun_dir - xyz*dot_prod(sun_dir, xyz)/dot_prod(xyz, xyz);
+  
+  prod = dot_prod(proj, east)
+    / sqrt ( dot_prod(east, east) * dot_prod(proj, proj));
+
+  double angle2 = (180.0/M_PI) * acos (prod);
+
+  return angle2;
+}
+
+// Compute mean and standard deviation of two images. Do it where both are valid.
 template <class ImageT>
-void compute_image_stats(ImageT const& I, double & mean, double & stdev){
-  mean  = 0;
-  stdev = 0;
-  double sum = 0.0, sum2 = 0.0, count = 0.0;
-  for (int col = 0; col < I.cols(); col++){
-    for (int row = 0; row < I.rows(); row++){
-      if (!is_valid(I(col, row))) continue;
+void compute_image_stats(ImageT const& I1, ImageT const& I2,
+                         double & mean1, double & stdev1,
+                         double & mean2, double & stdev2){
+
+  if (I1.cols() != I2.cols() || I1.rows() != I2.rows()) 
+    vw_throw(ArgumentErr() << "Expecting two input images of same size.\n");
+  
+  mean1 = 0; stdev1 = 0;
+  mean2 = 0; stdev2 = 0;
+  
+  double sum1 = 0.0, sum2 = 0.0, sum1_sq = 0.0, sum2_sq = 0.0, count = 0.0;
+  for (int col = 0; col < I1.cols(); col++){
+    for (int row = 0; row < I1.rows(); row++){
+      
+      if (!is_valid(I1(col, row)) || !is_valid(I2(col, row))) continue;
+                    
       count++;
-      double val = I(col, row);
-      sum += val;
-      sum2 += val*val;
+      
+      double val1 = I1(col, row); sum1 += val1; sum1_sq += val1*val1;
+      double val2 = I2(col, row); sum2 += val2; sum2_sq += val2*val2;
     }
   }
 
   if (count > 0){
-    mean = sum/count;
-    stdev = sqrt( sum2/count - mean*mean );
+    mean1 = sum1/count; stdev1 = sqrt( sum1_sq/count - mean1*mean1 );
+    mean2 = sum2/count; stdev2 = sqrt( sum2_sq/count - mean2*mean2 );
   }
 
 }
@@ -956,11 +1031,11 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::vector< std::set<int> > skip_images;
 
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels,
-    blending_dist, blending_power, num_haze_coeffs;
+    blending_dist, blending_power, min_blend_size, num_haze_coeffs;
   bool float_albedo, float_exposure, float_cameras, float_all_cameras, model_shadows,
-    save_computed_intensity_only,
+    save_computed_intensity_only, compute_exposures_only,
     save_dem_with_nodata, use_approx_camera_models, use_rpc_approximation, use_semi_approx,
-    crop_input_images, use_blending_weights, float_dem_at_boundary, boundary_fix, fix_dem,
+    crop_input_images, float_dem_at_boundary, boundary_fix, fix_dem,
     float_reflectance_model, float_sun_position, query, save_sparingly, float_haze;
   double smoothness_weight, integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
     initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
@@ -968,17 +1043,18 @@ struct Options : public vw::cartography::GdalWriteOptions {
   vw::BBox2 crop_win;
 
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
-	    coarse_levels(0), blending_dist(10), blending_power(2),
-            num_haze_coeffs(0),
+	    coarse_levels(0), blending_dist(0), blending_power(2),
+            min_blend_size(0), num_haze_coeffs(0),
             float_albedo(false), float_exposure(false), float_cameras(false),
             float_all_cameras(false),
 	    model_shadows(false), 
 	    save_computed_intensity_only(false),
+            compute_exposures_only(false),
 	    save_dem_with_nodata(false),
 	    use_approx_camera_models(false),
 	    use_rpc_approximation(false),
             use_semi_approx(false),
-	    crop_input_images(false), use_blending_weights(false),
+	    crop_input_images(false), 
             float_dem_at_boundary(false), boundary_fix(false), fix_dem(false),
             float_reflectance_model(false), float_sun_position(false),
             query(false), save_sparingly(false), float_haze(false),
@@ -1561,6 +1637,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   else
     weight = 1.0;
 
+  // Note that we allow negative reflectance. It will hopefully guide
+  // the SfS solution the right way.
   if (!is_valid(intensity)) {
     reflectance = 0.0; reflectance.invalidate();
     intensity   = 0.0; intensity.invalidate();
@@ -1590,6 +1668,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				    bool model_shadows,
 				    double & max_dem_height, // alias
 				    double gridx, double gridy,
+                                    int sample_col_rate, int sample_row_rate,
 				    ModelParams const& model_params,
 				    GlobalParams const& global_params,
 				    BBox2i const& crop_box,
@@ -1605,8 +1684,8 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
   // Update max_dem_height
   max_dem_height = -std::numeric_limits<double>::max();
   if (model_shadows) {
-    for (int col = 0; col < dem.cols(); col++) {
-      for (int row = 0; row < dem.rows(); row++) {
+    for (int col = 0; col < dem.cols(); col += sample_col_rate) {
+      for (int row = 0; row < dem.rows(); row += sample_row_rate) {
         if (dem(col, row) > max_dem_height) {
           max_dem_height = dem(col, row);
         }
@@ -1615,7 +1694,9 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
     vw_out() << "Maximum DEM height: " << max_dem_height << std::endl;
   }
   
-  // Init the reflectance and intensity as invalid
+  // Init the reflectance and intensity as invalid. Do it at all grid
+  // points, not just where we sample, to ensure that these quantities
+  // are fully initialized.
   reflectance.set_size(dem.cols(), dem.rows());
   intensity.set_size(dem.cols(), dem.rows());
   weight.set_size(dem.cols(), dem.rows());
@@ -1628,8 +1709,8 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
   }
 
   bool use_pq = (pq.cols() > 0 && pq.rows() > 0);
-  for (int col = 1; col < dem.cols()-1; col++) {
-    for (int row = 1; row < dem.rows()-1; row++) {
+  for (int col = 1; col < dem.cols()-1; col += sample_col_rate) {
+    for (int row = 1; row < dem.rows()-1; row += sample_row_rate) {
       
       double pval = 0, qval = 0;
       if (use_pq) {
@@ -1680,6 +1761,18 @@ void interp_image(ImageView<double> const& coarse_image, double scale,
   }
 }
 
+void save_exposures(std::string const& out_prefix,
+                    std::vector<std::string> const& input_images,
+                    std::vector<double> const& exposures){
+    std::string exposure_file = exposure_file_name(out_prefix);
+    vw_out() << "Writing: " << exposure_file << std::endl;
+    std::ofstream exf(exposure_file.c_str());
+    exf.precision(18);
+    for (size_t image_iter = 0; image_iter < exposures.size(); image_iter++)
+      exf << input_images[image_iter] << " " << exposures[image_iter] << "\n";
+    exf.close();
+}
+
 // A function to invoke at every iteration of ceres.
 // We need a lot of global variables to do something useful.
 int                                            g_iter = -1;
@@ -1724,13 +1817,7 @@ public:
     vw_out() << "Finished iteration: " << g_iter << std::endl;
     callTop();
 
-    std::string exposure_file = exposure_file_name(g_opt->out_prefix);
-    vw_out() << "Writing: " << exposure_file << std::endl;
-    std::ofstream exf(exposure_file.c_str());
-    exf.precision(18);
-    for (size_t image_iter = 0; image_iter < (*g_exposures).size(); image_iter++)
-      exf << g_opt->input_images[image_iter] << " " << (*g_exposures)[image_iter] << "\n";
-    exf.close();
+    save_exposures(g_opt->out_prefix, g_opt->input_images, *g_exposures);
 
     if (g_opt->num_haze_coeffs > 0) {
       std::string haze_file = haze_file_name(g_opt->out_prefix);
@@ -1887,11 +1974,13 @@ public:
 	iter_str2 += iter_str;
 	
         // Compute reflectance and intensity with optimized DEM
+        int sample_col_rate = 1, sample_row_rate = 1;
         computeReflectanceAndIntensity((*g_dem)[dem_iter], (*g_pq)[dem_iter],
                                        (*g_geo)[dem_iter],
                                        g_opt->model_shadows,
                                        (*g_max_dem_height)[dem_iter],
                                        *g_gridx, *g_gridy,
+                                       sample_col_rate, sample_row_rate,
                                        (*g_model_params)[image_iter],
                                        *g_global_params,
                                        (*g_crop_boxes)[dem_iter][image_iter],
@@ -1979,9 +2068,7 @@ public:
 
 
         double imgmean, imgstdev, refmean, refstdev;
-        compute_image_stats(intensity, imgmean, imgstdev);
-        compute_image_stats(comp_intensity, refmean, refstdev);
-
+        compute_image_stats(intensity, comp_intensity, imgmean, imgstdev, refmean, refstdev);
         vw_out() << "meas image mean and std: " << imgmean << ' ' << imgstdev
                  << std::endl;
         vw_out() << "comp image mean and std: " << refmean << ' ' << refstdev
@@ -2089,8 +2176,8 @@ calc_intensity_residual(const F* const exposure,
     adj_cam_copy.set_translation(translation);
     adj_cam_copy.set_axis_angle_rotation(axis_angle);
 
-    PixelMask<double> reflectance, intensity;
-    double weight;
+    PixelMask<double> reflectance(0), intensity(0);
+    double weight = 0;
 
     // Need to be careful not to access an array which does not exist
     G p = 0, q = 0;
@@ -2695,7 +2782,8 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
 
 ImageView<double> comp_blending_weights(MaskedImgT const& img,
                                         double blending_dist,
-                                        double blending_power){
+                                        double blending_power,
+                                        int min_blend_size){
  
 //   if (img.cols() <= 2 || img.rows() <= 2) {
 //     // The image is too small to have good weights. grassfire crashes.
@@ -2708,8 +2796,14 @@ ImageView<double> comp_blending_weights(MaskedImgT const& img,
 //     return weights;
 //   }
   
-  ImageView<double> weights = grassfire(img);
+  ImageView<double> weights;
 
+  if (min_blend_size <= 0)
+    weights = grassfire(img);
+  else
+    weights = vw::copy(grassfire(vw::copy(vw::fill_holes_grass(vw::copy(img), min_blend_size))));
+
+  // Make the weights plateau at blending_dist distance from the edge.
   for (int col = 0; col < weights.cols(); col++) {
     for (int row = 0; row < weights.rows(); row++) {
       weights(col, row) = pow( std::min(weights(col, row)/blending_dist, 1.0), blending_power );
@@ -2753,6 +2847,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
     ("save-computed-intensity-only",   po::bool_switch(&opt.save_computed_intensity_only)->default_value(false)->implicit_value(true),
      "Do not run any optimization. Simply compute the intensity for a given DEM with exposures, camera positions, etc, coming from a previous SfS run. Useful with --model-shadows.")
+    ("compute-exposures-only",   po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
+     "Quit after saving the exposures. This should be done once for a big DEM, before using these for small sub-clips without recomputing them.")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
     ("max-valid-image-vals", po::value(&opt.max_valid_image_vals)->default_value(""),
@@ -2778,12 +2874,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "How many iterations to do at levels of resolution coarser than the final result.")
     ("crop-input-images",   po::bool_switch(&opt.crop_input_images)->default_value(false)->implicit_value(true),
      "Crop the images to a region that was computed to be large enough, and keep them fully in memory, for speed.")
-    ("use-blending-weights", po::bool_switch(&opt.use_blending_weights)->default_value(false)->implicit_value(true),
-     "Give less weight to image pixels close to no-data or boundary values. Enabled only when crop-input-images is true, for performance reasons.")
-    ("blending-dist", po::value(&opt.blending_dist)->default_value(10),
-     "Over how many pixels to blend.")
+    ("blending-dist", po::value(&opt.blending_dist)->default_value(0),
+     "Give less weight to image pixels close to no-data or boundary values. Enabled only when crop-input-images is true, for performance reasons. Blend over this many pixels.")
     ("blending-power", po::value(&opt.blending_power)->default_value(2),
      "A higher value will result in smoother blending.")
+    ("min-blend-size", po::value(&opt.min_blend_size)->default_value(0),
+     "Do not apply blending in shadowed areas of dimensions less than this.")
     ("image-exposures-prefix", po::value(&opt.image_exposure_prefix)->default_value(""),
      "Use this prefix to optionally read initial exposures (filename is <prefix>-exposures.txt).")
     ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
@@ -2891,6 +2987,27 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if ( opt.image_haze_prefix != "" && opt.num_haze_coeffs == 0  )
     vw_throw(ArgumentErr() << "Haze cannot be read unless there is at least one haze coefficient.\n");
 
+  if (opt.compute_exposures_only){
+    if (opt.use_approx_camera_models || opt.use_rpc_approximation ||
+        opt.crop_input_images || opt.use_semi_approx) {
+      vw_out(WarningMessage) << "When computing exposures only, not using approximate "
+                             << "camera models or cropping input images.\n";
+      opt.use_approx_camera_models = false;
+      opt.use_rpc_approximation = false;
+      opt.crop_input_images = false;
+      opt.use_semi_approx = false;
+      opt.blending_dist = 0;
+    }
+  }
+  
+  if (opt.blending_dist > 0 && !opt.crop_input_images) 
+    vw_throw(ArgumentErr() << "A blending distance is only supported with --crop-input-images.\n");
+  
+  if (opt.crop_input_images && !opt.use_approx_camera_models) {
+    vw_throw( ArgumentErr()
+              << "Using cropped input images implies using an approximate camera model.\n" );
+  }
+
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -2966,7 +3083,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.image_exposures_vec.push_back(exp_val);
     }
   }
-      
+  if (opt.image_exposure_prefix != "" && exp_count == 0) 
+    vw_throw(ArgumentErr()
+             << "Could not find the exposures file: " << exposure_file << ".\n");
+  
   // Initial image haze, if provided. First read them in a map,
   // as perhaps the initial haze were created using more images
   // than what we have here. 
@@ -3141,10 +3261,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 		<< "Expecting the haze to be computed and passed in.\n" );
   }
   
-  if (opt.crop_input_images && !opt.use_approx_camera_models) {
-    vw_throw( ArgumentErr()
-              << "Using cropped input images implies using an approximate camera model.\n" );
-  }
   
 }
 
@@ -3559,6 +3675,182 @@ void run_sfs_level(// Fixed inputs
   vw_out() << summary.FullReport() << "\n" << std::endl;
 }
 
+#if 0
+
+// Function for highlighting no-data
+template<class PixelT>
+class NoData {
+  typedef typename CompoundChannelType<PixelT>::type channel_type;
+  channel_type m_nodata;
+  typedef ChannelRange<channel_type> range_type;
+public:
+  NoData( channel_type nodata ) : m_nodata(nodata) {}
+
+  template <class Args> struct result {
+    typedef channel_type type;
+  };
+
+  inline channel_type operator()( channel_type const& val ) const {
+    return (!(val != m_nodata && !std::isnan(val)))? range_type::max() : range_type::min();
+  }
+};
+
+template <class ImageT, class NoDataT>
+UnaryPerPixelView<ImageT,UnaryCompoundFunctor<NoData<typename ImageT::pixel_type>, typename ImageT::pixel_type>  >
+inline nodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
+  typedef UnaryCompoundFunctor<NoData<typename ImageT::pixel_type>, typename ImageT::pixel_type> func_type;
+  func_type func( nodata );
+  return UnaryPerPixelView<ImageT,func_type>( image.impl(), func );
+}
+
+// Prototype code to identify permanently shadowed areas
+// and deepen the craters there. Needs to be integrated
+// and tested with various shapes of the deepened crater.
+
+  std::vector<std::string> image;
+
+  std::string dem_file = argv[argc - 1];
+  std::cout << "dem file is " << dem_file << std::endl;
+  
+  float dem_nodata_val = -std::numeric_limits<float>::max();
+  if (vw::read_nodata_val(dem_file, dem_nodata_val)){
+    vw_out() << "Dem nodata: " << dem_nodata_val << std::endl;
+  }
+
+  ImageView< PixelMask<float> > dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
+  std::cout << "cols and rows are " << dem.cols() << ' ' << dem.rows() << std::endl;
+
+  vw::cartography::GeoReference georef;
+  if (!read_georeference(georef, dem_file))
+    vw_throw( ArgumentErr() << "The input DEM " << dem_file << " has no georeference.\n" );
+  
+  // The maximum of all valid pixel values with no-data where there is no-valid data.
+  ImageView< PixelMask<float> > max_img(dem.cols(), dem.rows());
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      max_img(col, row) = dem_nodata_val;
+      max_img(col, row).invalidate();
+    }
+  }
+  
+  for (int i = 1; i < argc - 1; i++) {
+    std::cout << "Reading " << argv[i] << std::endl;
+
+    std::string img_file = argv[i];
+    float img_nodata_val = -std::numeric_limits<float>::max();
+    if (vw::read_nodata_val(img_file, img_nodata_val)){
+      vw_out() << "Img nodata: " << img_nodata_val << std::endl;
+    }
+    
+    ImageView< PixelMask<float> > img(create_mask(DiskImageView<float>(img_file), img_nodata_val));
+    std::cout << "cols and rows are " << img.cols() << ' ' << img.rows() << std::endl;
+    if (img.cols() != dem.cols() || img.rows() != dem.rows()) {
+      vw_throw(ArgumentErr() << "Images and DEM must have same size.\n");
+    }
+
+    for (int col = 0; col < img.cols(); col++) {
+      for (int row = 0; row < img.rows(); row++) {
+
+        // Nothing to do if the current image has invalid data
+        if (!is_valid(img(col, row)))
+          continue; 
+
+        // If the output image is not valid yet, copy the current image's valid pixel
+        if (!is_valid(max_img(col, row) && img(col, row).child() > 0)) {
+          max_img(col, row) = img(col, row);
+          continue;
+        }
+
+        // Now both the current image and the output image are valid
+        if (img(col, row).child() > max_img(col, row).child() &&
+            img(col, row).child() > 0) {
+          max_img(col, row) = img(col, row);
+        }
+        
+      }
+    }
+  }
+
+  // At the boundary the intensity is always invalid, but that is due to
+  // computational limitations. Make it valid if we can.
+  // TODO: Test here that the image has at least 3 rows and 3 cols!
+  for (int col = 0; col < max_img.cols(); col++) {
+    for (int row = 0; row < max_img.rows(); row++) {
+      if ( (col == 0 || col == max_img.cols() - 1) ||
+           (row == 0 || row == max_img.rows() - 1) ) {
+        int next_col = col, next_row = row;
+        if (col == 0) next_col = 1;
+        if (col == max_img.cols() - 1) next_col = max_img.cols() - 2;
+        if (row == 0) next_row = 1;
+        if (row == max_img.rows() - 1) next_row = max_img.rows() - 2;
+
+        if (!is_valid(max_img(col, row)) && is_valid(max_img(next_col, next_row))) 
+          max_img(col, row) = max_img(next_col, next_row);
+      }
+    }
+  }
+  
+  std::string max_img_file = "max_img.tif";
+  bool has_nodata = true, has_georef = true;
+  TerminalProgressCallback tpc("", "\t--> ");
+
+  vw_out() << "Writing: " << max_img_file << "\n";
+  
+  block_write_gdal_image(max_img_file, apply_mask(max_img, dem_nodata_val),
+                         has_georef, georef,
+                         has_nodata, dem_nodata_val,
+                         opt, tpc);
+
+  ImageView<double> grass = grassfire(nodata(select_channel(max_img, 0), dem_nodata_val));
+
+  // Scale as craters are shallow.
+  // TODO: Need to think of a better algorithm!
+  for (int col = 0; col < grass.cols(); col++) {
+    for (int row = 0; row < grass.rows(); row++) {
+      grass(col, row) *= 0.2;
+    }
+  }
+
+  // Blur with a given sigma
+  double sigma = atof(getenv("SIGMA"));
+  std::cout << "--sigma is " << sigma << std::endl;
+  //blur_weights(grass, sigma);
+  ImageView<double> blurred_grass;
+  if (sigma > 0) 
+    blurred_grass = gaussian_filter(grass, sigma);
+  else
+    blurred_grass = copy(grass);
+  
+  std::string grass_file = "grass.tif";
+  vw_out() << "Writing: " << grass_file << "\n";
+
+  bool grass_has_nodata = false;
+  block_write_gdal_image(grass_file, blurred_grass,
+                         has_georef, georef,
+                         grass_has_nodata, dem_nodata_val,
+                         opt, tpc);
+
+  // Bias the DEM by that grassfire height deepening the craters
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (is_valid(dem(col, row))) {
+        dem(col, row).child() -= blurred_grass(col, row);
+      }
+    }
+  }
+
+
+  std::string out_dem_file = "out_dem.tif";
+  vw_out() << "Writing: " << out_dem_file << "\n";
+  
+  block_write_gdal_image(out_dem_file, apply_mask(dem, dem_nodata_val),
+                         has_georef, georef,
+                         has_nodata, dem_nodata_val,
+                         opt, tpc);
+
+  
+#endif
+
 int main(int argc, char* argv[]) {
   
   Stopwatch sw_total;
@@ -3567,6 +3859,12 @@ int main(int argc, char* argv[]) {
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
+
+    if (opt.compute_exposures_only && !opt.image_exposures_vec.empty()) {
+      // TODO: This needs to be adjusted if haze is computed.
+      vw_out() << "Exposures exist.";
+      return 0;
+    }
 
     GlobalParams global_params;
     if (opt.reflectance_type == 0)
@@ -3673,7 +3971,6 @@ int main(int argc, char* argv[]) {
     if (opt.query) {
       vw_out() << "dem_cols, " << dems[0][0].cols() << std::endl;
       vw_out() << "dem_rows, " << dems[0][0].rows() << std::endl;
-      return 0;
     }
 
     // Adjust the crop win
@@ -3761,15 +4058,26 @@ int main(int argc, char* argv[]) {
 		 <<  opt.input_cameras[image_iter] << " for DEM clip " << dem_iter << ".\n";
 	cameras[dem_iter][image_iter] = session->camera_model(opt.input_images[image_iter],
 							      opt.input_cameras[image_iter]);
+        if (dem_iter == 0) {
+          double angle = sun_angle(dems[0][dem_iter], dem_nodata_val,
+                                   geos[0][dem_iter], cameras[dem_iter][image_iter]);
+          // This line is being parsed outside this tool
+          vw_out() << "Sun azimuth for: " << opt.input_images[image_iter] << " " << angle << "\n";
+        }
       }
     }
     
+    if (opt.query) {
+      return 0;
+    }
+
     // Since we may float the cameras, ensure our camera models are
     // always adjustable.
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       for (int image_iter = 0; image_iter < num_images; image_iter++){
         
-        if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end()) continue;
+        if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end())
+          continue;
         CameraModel * icam
           = dynamic_cast<AdjustedCameraModel*>(cameras[dem_iter][image_iter].get());
         if (icam == NULL) {
@@ -3986,7 +4294,8 @@ int main(int argc, char* argv[]) {
     for (int image_iter = 0; image_iter < num_images; image_iter++){
       for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       
-        if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end()) continue;
+        if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end())
+          continue;
        
         std::string img_file = opt.input_images[image_iter];
         if (vw::read_nodata_val(img_file, img_nodata_val)){
@@ -4008,10 +4317,11 @@ int main(int argc, char* argv[]) {
             
             // Compute blending weights only when using an approx camera model and
             // cropping the images. Otherwise the weights are too huge.
-            if (opt.use_blending_weights)
+            if (opt.blending_dist > 0)
               blend_weights_vec[0][dem_iter][image_iter]
                 = comp_blending_weights(masked_images_vec[0][dem_iter][image_iter],
-                                        opt.blending_dist, opt.blending_power);
+                                        opt.blending_dist, opt.blending_power,
+                                        opt.min_blend_size);
           }
         }else{
           masked_images_vec[0][dem_iter][image_iter]
@@ -4093,7 +4403,8 @@ int main(int argc, char* argv[]) {
     // skip. If the user provided initial exposures and haze, use those, but
     // still go through the motions to find the images to skip.
     if (!opt.save_computed_intensity_only) {
-      
+
+      vw_out() << "Computing exposures.\n";
       std::vector<double> local_exposures_vec(num_images, 0);
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
@@ -4106,9 +4417,13 @@ int main(int argc, char* argv[]) {
 	  ImageView< PixelMask<double> > reflectance, intensity;
 	  ImageView<double> weight;
           ImageView<Vector2> pq; // no need for these just for initialization
+
+          // Sample the large DEMs. Keep about 200 row and column samples.
+          int sample_col_rate = std::max((int)round(dems[0][dem_iter].cols()/200.0), 1);
+          int sample_row_rate = std::max((int)round(dems[0][dem_iter].rows()/200.0), 1);
           computeReflectanceAndIntensity(dems[0][dem_iter], pq, geos[0][dem_iter],
 					 opt.model_shadows, max_dem_height[dem_iter],
-					 gridx, gridy,
+					 gridx, gridy, sample_col_rate, sample_row_rate,
 					 model_params[image_iter],
 					 global_params,
 					 crop_boxes[0][dem_iter][image_iter],
@@ -4122,8 +4437,7 @@ int main(int argc, char* argv[]) {
           // TODO: Below is not the optimal way of finding the exposure!
           // Find it as the analytical minimum using calculus.
 	  double imgmean, imgstdev, refmean, refstdev;
-	  compute_image_stats(intensity, imgmean, imgstdev);
-	  compute_image_stats(reflectance, refmean, refstdev);
+	  compute_image_stats(intensity, reflectance, imgmean, imgstdev, refmean, refstdev);
 	  double exposure = imgmean/refmean/initial_albedo;
 	  vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
 	  vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
@@ -4171,6 +4485,11 @@ int main(int argc, char* argv[]) {
     for (size_t image_iter = 0; image_iter < opt.image_exposures_vec.size(); image_iter++) {
       vw_out() << "Image exposure for " << opt.input_images[image_iter] << ' '
                << opt.image_exposures_vec[image_iter] << std::endl;
+    }
+
+    if (opt.compute_exposures_only){
+      save_exposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
+      return 0;
     }
 
     if (opt.num_haze_coeffs > 0) {

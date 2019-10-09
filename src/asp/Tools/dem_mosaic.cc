@@ -948,8 +948,11 @@ public:
             }
           }
         }
-        // The latter is useful later when inspecting the individual DEMs
-        vw_out(DebugMessage,"asp") << "\n" << dem_vec[i] << " sum: " << tile_sum[i] << std::endl;
+        // The latter is useful later when inspecting the individual DEMs.
+        // TODO: Document this trick. Also document --block-size.
+        // Also about how to do asp debug 3 in .vwrc.
+        vw_out(DebugMessage,"asp") << "\n" << bbox << " " << dem_vec[i]
+                                   << " sum: " << tile_sum[i] << std::endl;
       }
       int max_index = std::distance(tile_sum.begin(),
                                     std::max_element(tile_sum.begin(), tile_sum.end()));
@@ -1490,6 +1493,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main( int argc, char *argv[] ) {
 
   Options opt;
+  
   try{
 
     handle_arguments( argc, argv, opt );
