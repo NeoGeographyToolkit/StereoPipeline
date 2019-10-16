@@ -3283,7 +3283,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-float-reflectance-model} & Allow the coefficients of the reflectance model to float (not recommended).\\ \hline
 \texttt{-\/-integrability-constraint-weight arg (=0.0)} & Use the integrability constraint from Horn 1990 with this value of its weight (experimental).\\ \hline
 \texttt{-\/-smoothness-weight-pq (=0.0)} & Smoothness weight for p and q, when the integrability constraint is used. A larger value will result in a smoother solution (experimental).\\ \hline
-\texttt{-\/-query} & Print some info and exit. Invoked from parallel\_sfs.\\ \hline
+\texttt{-\/-query} & Print some info, including DEM size and the solar azimuth and elevation for the images, and exit. Invoked from parallel\_sfs.\\ \hline
 \texttt{-\/-camera-position-step-size arg (=1)} & Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).\\ \hline
 \texttt{-\/-threads arg (=0)} & Select the number of processors (threads) to use.\\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline

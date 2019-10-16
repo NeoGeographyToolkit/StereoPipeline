@@ -850,14 +850,10 @@ boost::shared_ptr<CameraModel> get_isis_cam(boost::shared_ptr<CameraModel> cam,
   return isis_cam;
 }
 
-// Find the angle between the vector going east at the current point
-// on the planet and the sun direction. This angle grows as the sun is
-// rising. This is more robust than either the sun elevation or the
-// sun azimuth, and easier to calculate. It is important to use a DEM
-// at the desired location as the result can change depending on the
-// DEM.
-double sun_angle(ImageView<double> const& dem, double nodata_val, GeoReference const& georef,
-                 boost::shared_ptr<CameraModel> cam){
+// Find the sun azimuth and elevation at the lon-lat position of the
+// center of the DEM. The result can change depending on the DEM.
+void sun_angles(ImageView<double> const& dem, double nodata_val, GeoReference const& georef,
+                  boost::shared_ptr<CameraModel> cam, double & azimuth, double &elevation){
 
   bool allow_unadjusted = true; // At this stage we don't care about adjustments
   boost::shared_ptr<CameraModel> ucam = get_isis_cam(cam, allow_unadjusted);
@@ -883,19 +879,30 @@ double sun_angle(ImageView<double> const& dem, double nodata_val, GeoReference c
   Vector3 sun_pos = isis_cam->sun_position();
   Vector3 sun_dir = sun_pos - xyz;
 
-  double prod = dot_prod(sun_dir, east)
-    / sqrt ( dot_prod(east, east) * dot_prod(sun_dir, sun_dir));
-  double angle = (180.0/M_PI) * acos (prod);
+  //double prod = dot_prod(sun_dir, east)
+  //  / sqrt ( dot_prod(east, east) * dot_prod(sun_dir, sun_dir));
+  //double angle = (180.0/M_PI) * acos (prod);
 
   // Projection in the tangent plane
-  Vector3 proj = sun_dir - xyz*dot_prod(sun_dir, xyz)/dot_prod(xyz, xyz);
+  //  Vector3 proj = sun_dir - xyz*dot_prod(sun_dir, xyz)/dot_prod(xyz, xyz);
+
+  //prod = dot_prod(proj, east)
+  //  / sqrt ( dot_prod(east, east) * dot_prod(proj, proj));
+
+  //double angle2 = (180.0/M_PI) * acos (prod);
+
+  // Find the sun direction in the North-East-Down coordinate system
+  vw::Matrix3x3 M = georef.datum().lonlat_to_ned_matrix(ll);
+  Vector3 sun_dir_ned = inverse(M)*sun_dir;
   
-  prod = dot_prod(proj, east)
-    / sqrt ( dot_prod(east, east) * dot_prod(proj, proj));
+  if (sun_dir_ned[0] == 0 && sun_dir_ned[1] == 0)
+    azimuth = 0;
+  else
+    azimuth = (180.0/M_PI) * atan2(sun_dir_ned[1], sun_dir_ned[0]);
 
-  double angle2 = (180.0/M_PI) * acos (prod);
-
-  return angle2;
+  double L = norm_2(subvector(sun_dir_ned, 0, 2));
+  elevation = (180.0/M_PI) * atan2(-sun_dir_ned[2], L);
+  
 }
 
 // Compute mean and standard deviation of two images. Do it where both are valid.
@@ -4059,10 +4066,13 @@ int main(int argc, char* argv[]) {
 	cameras[dem_iter][image_iter] = session->camera_model(opt.input_images[image_iter],
 							      opt.input_cameras[image_iter]);
         if (dem_iter == 0) {
-          double angle = sun_angle(dems[0][dem_iter], dem_nodata_val,
-                                   geos[0][dem_iter], cameras[dem_iter][image_iter]);
+          double azimuth, elevation;
+          sun_angles(dems[0][dem_iter], dem_nodata_val, geos[0][dem_iter],
+                     cameras[dem_iter][image_iter], azimuth, elevation);
           // This line is being parsed outside this tool
-          vw_out() << "Sun azimuth for: " << opt.input_images[image_iter] << " " << angle << "\n";
+          vw_out() << "Sun azimuth and elevation for: "
+                   << opt.input_images[image_iter] << " are " << azimuth
+                   << " and " << elevation << " degrees.\n";
         }
       }
     }

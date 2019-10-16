@@ -524,40 +524,40 @@ By far the hardest part of this exercise is choosing the images. We
 downloaded several hundred of them (the process is described earlier),
 mapprojected them onto this DEM (at a low-resolution, for preview only),
 sorted them by the Sun azimuth (this angle is printed when running
-\texttt{sfs} on the .cub files), and selected the subset:
+\texttt{sfs} with the \texttt{-\/-query} option on the .cub files), and selected the subset:
 
 \begin{verbatim}
- M147992619RE.cal.echo.cub       3.99739
- M148012947LE.cal.echo.cub       6.85482
- M114859732RE.cal.echo.cub       9.6046
- M152979020RE.cal.echo.cub       14.123
- M117241732LE.cal.echo.cub       15.1436
- M152924707RE.cal.echo.cub       21.7575
- M150366876RE.cal.echo.cub       21.8515
- M152897611RE.cal.echo.cub       25.5655
- M152856903RE.cal.echo.cub       31.2854
- M140021445LE.cal.echo.cub       39.0548
- M157843789LE.cal.echo.cub       48.0583
- M157830228RE.cal.echo.cub       49.968
- M157830228LE.cal.echo.cub       49.968
- M157809893RE.cal.echo.cub       52.8315
- M139743255RE.cal.echo.cub       78.2342
- M139729686RE.cal.echo.cub       80.1455
- M139709342LE.cal.echo.cub       83.0112
- M139695762LE.cal.echo.cub       84.9243
- M142240314RE.cal.echo.cub       85.9024
- M142226765RE.cal.echo.cub       87.8085
- M142213197LE.cal.echo.cub       89.7175
- M132001536LE.cal.echo.cub       92.7381
- M103870068LE.cal.echo.cub       100.723
- M103841430LE.cal.echo.cub       104.766
- M142104686LE.cal.echo.cub       104.987
- M162499044LE.cal.echo.cub       109.969
- M162492261LE.cal.echo.cub       110.926
- M162485477LE.cal.echo.cub       111.884
- M162478694LE.cal.echo.cub       112.842
- M103776992LE.cal.echo.cub       113.865
- M103776992RE.cal.echo.cub       113.865
+  M114859732RE.cal.echo.cub       73.1771
+  M148012947LE.cal.echo.cub       75.9232
+  M147992619RE.cal.echo.cub       78.7806
+  M152979020RE.cal.echo.cub       96.895
+  M117241732LE.cal.echo.cub       97.9219
+  M152924707RE.cal.echo.cub       104.529
+  M150366876RE.cal.echo.cub       104.626
+  M152897611RE.cal.echo.cub       108.337
+  M152856903RE.cal.echo.cub       114.057
+  M140021445LE.cal.echo.cub       121.838
+  M157843789LE.cal.echo.cub       130.831
+  M157830228LE.cal.echo.cub       132.74
+  M157830228RE.cal.echo.cub       132.74
+  M157809893RE.cal.echo.cub       135.604
+  M139743255RE.cal.echo.cub       161.014
+  M139729686RE.cal.echo.cub       162.926
+  M139709342LE.cal.echo.cub       165.791
+  M139695762LE.cal.echo.cub       167.704
+  M142240314RE.cal.echo.cub       168.682
+  M142226765RE.cal.echo.cub       170.588
+  M142213197LE.cal.echo.cub       172.497
+  M132001536LE.cal.echo.cub       175.515
+  M103870068LE.cal.echo.cub       183.501
+  M103841430LE.cal.echo.cub       187.544
+  M142104686LE.cal.echo.cub       187.765
+  M162499044LE.cal.echo.cub       192.747
+  M162492261LE.cal.echo.cub       193.704
+  M162485477LE.cal.echo.cub       194.662
+  M162478694LE.cal.echo.cub       195.62
+  M103776992RE.cal.echo.cub       196.643
+  M103776992LE.cal.echo.cub       196.643
 \end{verbatim}
 
 (the Sun azimuth is shown on the right, in degrees). These were then mapprojected
@@ -571,10 +571,12 @@ tool is employed to co-register the images and correct camera errors.
        <images> --mapprojected-data '<mapprojected images> ref.tif' -o ba/run
 \end{verbatim}
 
-(For bundle adjustment we in fact used even more images that overlap
+For bundle adjustment we in fact used even more images that overlap
 with this area, but likely this set is sufficient, and it is this set
-that was used later for shape-from-shading.) (Here more bundle
-adjustment iterations are desirable, but this step takes too long.)
+that was used later for shape-from-shading. Here more bundle
+adjustment iterations are desirable, but this step takes too long. And a large
+\texttt{-\/-ip-per-tile} can make a difference in images with rather
+different illumination conditions.
 
 A very critical part of the process is aligning the obtained cameras to the ground:
 
