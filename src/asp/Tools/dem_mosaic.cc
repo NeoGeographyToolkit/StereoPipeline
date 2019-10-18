@@ -948,11 +948,11 @@ public:
             }
           }
         }
-        // The latter is useful later when inspecting the individual DEMs.
-        // TODO: Document this trick. Also document --block-size.
-        // Also about how to do asp debug 3 in .vwrc.
-        vw_out(DebugMessage,"asp") << "\n" << bbox << " " << dem_vec[i]
-                                   << " sum: " << tile_sum[i] << std::endl;
+        // The whole purpose of --block-max is to print the sum of
+        // pixels for each mapprojected image/DEM when doing SfS.
+        // The documentation has a longer explanation.
+        vw_out() << "\n" << bbox << " " << dem_vec[i]
+                 << " pixel sum: " << tile_sum[i] << std::endl;
       }
       int max_index = std::distance(tile_sum.begin(),
                                     std::max_element(tile_sum.begin(), tile_sum.end()));

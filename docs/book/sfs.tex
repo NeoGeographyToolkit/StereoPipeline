@@ -717,7 +717,27 @@ Here are a few suggestions we have found helpful when running \texttt{sfs}:
   \texttt{-\/-max} option is used with this tool, it create a mosaic with
   the most illuminated pixels from this image. If during SfS the camera
   adjustments were solved accurately, this mosaic should have little or no
-  blur. An alternative is to use the \texttt{-\/-block-max} option
-  which will pick the most lit of the images per each block, with the latter
-  being specified via \texttt{-\/-block-size}. 
+  blur.
+
+\item To find the most promising images for a given region, one can try
+to mosaic the mapprojected versions of these images with
+\texttt{dem\_mosaic} with the option \texttt{-\/-block-max}, with a
+large value of \texttt{-\/-block-size}, and using the
+\texttt{-\/-t\_projwin} option to specify the region of interest.  When
+doing so, the sum of pixels in the current region for each image being
+mosaicked will be printed to the screen. Images with the largest sum of
+pixels likely will have a larger contribution to the desired region.
+
+\item For challenging datasets it is suggested to first work at 1/4th of
+the full resolution (the resolution of an ISIS cube can be changed using
+the \texttt{reduce} command, and the DEM can be made coarser with
+\texttt{gdalwarp} or by converting it to a cloud with \texttt{pc\_align}
+with zero iterations and then regenerated with \texttt{point2dem}).
+This should make the whole process perhaps an order of magnitude
+faster. Any obtained camera adjustment files are still usable at the
+full resolution (after an appropriate rename), but it is suggested that
+these adjustments be reoptimized using the full resolution cameras,
+hence these should be initial guesses for \texttt{bundle\_adjust}'s 
+\texttt{-\/-input-adjustments-prefix} option.
+
 \end{itemize}
