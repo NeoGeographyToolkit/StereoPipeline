@@ -3542,9 +3542,11 @@ Option & Description \\ \hline \hline
 \texttt{-\/-output-type \textit{string}} & The output model type. Options: TsaiLensDistortion, 
 BrownConradyDistortion, RPC. Default: TsaiLensDistortion.\\ \hline
 
+\texttt{-\/-sample-spacing \textit{int}} & Pick one out of this many consecutive pixels to sample. If not specified, it will be auto-computed. \\ \hline
+
 \texttt{-\/-rpc-degree \textit{int}} & The degree of the polynomials, if the output distortion model is RPC. Default: 3. \\ \hline
 
-\texttt{-\/-sample-spacing \textit{int}} & Pick one out of this many consecutive pixels to sample. If not specified, it will be auto-computed. \\ \hline
+\texttt{-\/-camera-to-ground-dist \textit{double}} & The distance from the camera to the ground, in meters. This is necessary to convert an optical bar model to pinhole. Default: 0. \\ \hline
 
 \end{longtable}
 

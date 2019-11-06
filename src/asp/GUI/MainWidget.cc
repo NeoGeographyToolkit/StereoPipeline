@@ -899,6 +899,8 @@ namespace vw { namespace gui {
 
   // TODO: Rewrite this to draw only the pixels that end up being seen!
   // It should greatly improve the performance!
+  // Also, the buffer to be rendered can be split into tiles,
+  // with each tile being rendered in its own thread.
   void MainWidget::drawImage(QPainter* paint) {
 
     // Sometimes we arrive here prematurely, before the window geometry was

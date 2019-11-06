@@ -521,10 +521,25 @@ named \texttt{ref.tif}.
 Note that we scaled its heights by 0.5 per the information in the LBL file.
 
 By far the hardest part of this exercise is choosing the images. We
-downloaded several hundred of them (the process is described earlier),
-mapprojected them onto this DEM (at a low-resolution, for preview only),
-sorted them by the Sun azimuth (this angle is printed when running
-\texttt{sfs} with the \texttt{-\/-query} option on the .cub files), and selected the subset:
+downloaded several hundred of them by visiting the web site noted
+earlier and searching by the longitude-latitude bounds. The .IMG images
+were converted to .cub as before, and they were mapprojected onto the
+reference DEM, initially at a lower resolution to get a preview of
+things. 
+
+The mapprojected images were mosaicked together using
+\texttt{dem\_mosaic} with the option \texttt{-\/-block-max}, with a
+large value of \texttt{-\/-block-size} (larger than the image size), and
+using the \texttt{-\/-t\_projwin} option to specify the region of
+interest (in \texttt{stereo\_gui} one can find this region by selecting
+it with Control-Mouse).  When the mosaicking tool runs, the sum of
+pixels in the current region for each image will be printed to the
+screen. Images with a positive sum of pixels are likely to contribute to
+the desired region.
+
+The obtained subset of images should be sorted by the Sun azimuth (this
+angle is printed when running \texttt{sfs} with the \texttt{-\/-query}
+option on the .cub files). Out of those, the following were kept:
 
 \begin{verbatim}
   M114859732RE.cal.echo.cub       73.1771
@@ -566,17 +581,24 @@ projection specified in this DEM. The \texttt{parallel\_bundle\_adjust}
 tool is employed to co-register the images and correct camera errors. 
 
 \begin{verbatim}
-     parallel_bundle_adjust --processes 8 --ip-per-tile 1000 --overlap-limit 100  \
+     parallel_bundle_adjust --processes 8 --ip-per-tile 1000 --overlap-limit 30   \
        --num-iterations 10 --num-passes 2 --min-matches 1                         \
        <images> --mapprojected-data '<mapprojected images> ref.tif' -o ba/run
 \end{verbatim}
 
 For bundle adjustment we in fact used even more images that overlap
 with this area, but likely this set is sufficient, and it is this set
-that was used later for shape-from-shading. Here more bundle
+that was used later for shape-from-shading. 
+Here more bundle
 adjustment iterations are desirable, but this step takes too long. And a large
 \texttt{-\/-ip-per-tile} can make a difference in images with rather
-different illumination conditions.
+different illumination conditions. 
+
+It is very important to keep a lot of images in bundle adjustment, to ensure
+that there are enough overlaps and sufficiently similar illumination conditions
+among them for bundle adjustment to succeed. Later, just a subset can be used
+for shape-from-shading, enough to cover the entire region, preferable with
+multiple illumination conditions at each location. 
 
 A very critical part of the process is aligning the obtained cameras to the ground:
 
@@ -613,17 +635,62 @@ The images should now be projected onto this DEM as:
 \end{verbatim}
 
 It is very important to overlay the obtained images and ensure that they
-are precisely on top of each other and on top of the LOLA DEM. In case
-of failures, more images with intermediate illumination conditions and
-more terrain coverage should be added and the process should be
-repeated. Even if after this step some images fail to overlay correctly,
-the offending ones should be removed from consideration.
+are precisely on top of each other and on top of the LOLA DEM. 
 
-Next, the SfS step follows:
+There are occasions in which the alignment transform is still not accurate
+enough. Then, one can refine the cameras using the reference terrain as
+a constraint in bundle adjustment:
+
+\begin{verbatim}
+    mkdir -p ba_align_ref
+    /bin/cp -fv ba_alin/run* ba_align_ref
+    bundle_adjust --skip-matching --num-iterations 5 --force-reuse-match-files   \
+      --num-passes 1 --input-adjustments-prefix ba_align/run <images>            \
+      --camera-weight 0 --heights-from-dem ref.tif --heights-from-dem-weight 0.1 \ 
+      -o ba_align_ref/run
+\end{verbatim}
+
+After mapprojecting with the newly refined cameras in \texttt{ba\_align\_ref}
+any residual alignment errors should go away. The value used for
+\textt{-\/-heights-from-dem-weight} may need some experimentation. The reference
+DEM has vertical error as well, so of this value is too high, it may bind too
+tightly to this somewhat innacurate DEM. Yet, making it too low may not
+constrain sufficiently the uncertainty that exists in the height of triangulated
+points after bundle adjustment, which is rather high since LRO NAC is mostly looking
+down so the convergence angle among any rays going through matching interest points
+is small.
+
+It is suggested that the user examine the file
+\begin{verbatim}
+  ba_align_ref/run-final_residuals_no_loss_function_pointmap_point_log.csv
+\end{verbatim}
+
+to see if the reprojection errors (column 4) are reasonably small, say mostly
+on the order of 0.1 pixels. The triangulated point cloud
+from this file should also hopefully be close to the reference DEM. Their
+difference is found as:
+\begin{verbatim}
+  geodiff --absolute                                                         \
+    --csv-format '1:lon 2:lat 3:height_above_datum' ref.tif                  \
+    ba_align_ref/run-final_residuals_no_loss_function_pointmap_point_log.csv \
+    -o ba_align_ref/run
+\end{verbatim}
+
+Some of the differences that will be saved to disk are likely outliers,
+but mostly they should be small, perhaps on the order of 1 meter.
+
+If, even after this step, the mapprojected images fail to be perfectly
+on top of each other, or areas with poor coverage exist, more images
+with intermediate illumination conditions and more terrain coverage
+should be added and the process should be restarted. As a last resort,
+any images that do not overlay correctly must be removed from
+consideration for the shape-from-shading step.
+
+Next, SfS follows:
 
 \begin{verbatim}
    parallel_sfs -i ref.tif <images> --shadow-thresholds '<thresholds>'  \
-     --bundle-adjust-prefix ba_align/run -o sfs/run                     \ 
+     --bundle-adjust-prefix ba_align_ref/run -o sfs/run                 \ 
      --use-approx-camera-models --crop-input-images                     \
      --blending-dist 10 --min-blend-size 100 --threads 4                \
      --smoothness-weight 0.12 --initial-dem-constraint-weight 0.0001    \
@@ -632,7 +699,7 @@ Next, the SfS step follows:
      --nodes-list <machine list>
 \end{verbatim}
 
-The shadow thresholds were chosen here as 0.003.
+The shadow thresholds were chosen here to be 0.003.
 
 The first step that will happen when this is launched is computing the
 exposures. That one can be a bit slow, and can be done offline, using
@@ -718,15 +785,6 @@ Here are a few suggestions we have found helpful when running \texttt{sfs}:
   the most illuminated pixels from this image. If during SfS the camera
   adjustments were solved accurately, this mosaic should have little or no
   blur.
-
-\item To find the most promising images for a given region, one can try
-to mosaic the mapprojected versions of these images with
-\texttt{dem\_mosaic} with the option \texttt{-\/-block-max}, with a
-large value of \texttt{-\/-block-size}, and using the
-\texttt{-\/-t\_projwin} option to specify the region of interest.  When
-doing so, the sum of pixels in the current region for each image being
-mosaicked will be printed to the screen. Images with the largest sum of
-pixels likely will have a larger contribution to the desired region.
 
 \item For challenging datasets it is suggested to first work at 1/4th of
 the full resolution (the resolution of an ISIS cube can be changed using

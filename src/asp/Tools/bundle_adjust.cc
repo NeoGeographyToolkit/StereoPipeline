@@ -919,10 +919,10 @@ int do_ba_ceres_one_pass(Options             & opt,
       cost_function = LLHError::Create(observation, llh_sigma, opt.datum);
     }
 
-    // Don't use the same loss function as for pixels since that one discounts
-    //  outliers and the GCP's should never be discounted.
+    // Don't use the same loss function as for pixels since that one
+    // discounts outliers and the GCP's should never be discounted.
     ceres::LossFunction* loss_function = new ceres::TrivialLoss();
-
+    
     double * point  = param_storage.get_point_ptr(ipt);
     problem.AddResidualBlock(cost_function, loss_function, point);
     ++num_gcp_residuals;
