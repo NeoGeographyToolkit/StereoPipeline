@@ -260,7 +260,6 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
     = interpolate(create_mask(dem, dem_nodata),
 		  BilinearInterpolation(), ConstantEdgeExtension());
 
-
   // Save the diffs
   int    count     = 0;
   double diff_min  = std::numeric_limits<double>::max();

@@ -3057,7 +3057,7 @@ Projection Options\\ \hline
 \section{geodiff}
 \label{geodiff}
 
-The \texttt{geodiff} program takes as input two DEMs (or a DEM and a CSV file, with the latter in the same format as used for \texttt{pc\_align} and \texttt{point2dem}), and subtracts the second from the first. The grid used is the one from the first DEM, so the second one is interpolated into it (when one file is a CSV, the grid from the other one, the DEM, is used). The tool can also take the absolute difference of the two DEMs.
+The \texttt{geodiff} program takes as input two DEMs (or a DEM and a CSV file, with the latter in the same format as used for \texttt{pc\_align} and \texttt{point2dem}), and subtracts the second from the first. The grid used is the one from the first DEM, so the second one is interpolated into it usign bilinear interpolation (when one file is a CSV, the grid from the other one, the DEM, is used). The tool can also take the absolute difference of the two DEMs.
 
 It is important to note that the tool is very sensitive to the order of
 the two DEMs, due to the fact that the grid comes from the first
