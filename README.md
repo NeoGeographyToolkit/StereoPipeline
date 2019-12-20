@@ -63,10 +63,10 @@ See the AUTHORS file for a complete list of developers.
 ### Citation
 
 In general, please use this reference for the Ames Stereo Pipeline:
->Beyer, Ross A., Oleg Alexandrov, and Scott McMichael. 2018. The Ames Stereo Pipeline: NASA's open source software for deriving and processing terrain data. Earth and Space Science, 5. https: //doi.org/10.1029/2018EA000409.
+>Beyer, Ross A., Oleg Alexandrov, and Scott McMichael. 2018. The Ames Stereo Pipeline: NASA's open source software for deriving and processing terrain data, Earth and Space Science, 5, https://doi.org/10.1029/2018EA000409.
 
 If you are using ASP for application to Earth images, or need a reference which details the quality of output, then we suggest also referencing:
->Shean, D. E., O. Alexandrov, Z. Moratto, B. E. Smith, I. R. Joughin, C. C. Porter, Morin, P. J. 2016. An automated, open-source pipeline for mass production of digital elevation models (DEMs) from very high-resolution commercial stereo satellite imagery. ISPRS Journal of Photogrammetry and Remote Sensing. 116.
+>Shean, D. E., O. Alexandrov, Z. Moratto, B. E. Smith, I. R. Joughin, C. C. Porter, Morin, P. J. 2016. An automated, open-source pipeline for mass production of digital elevation models (DEMs) from very high-resolution commercial stereo satellite imagery. ISPRS Journal of Photogrammetry and Remote Sensing, 116. https://doi.org/10.1016/j.isprsjprs.2016.03.012.
 
 In addition to the recommended general citations, we recommend that you cite the Zenodo digital object identifier (DOI) for the specific ASP version used for processing. Every new release of ASP will have its own unique DOI, which can be found at this URL: https://doi.org/10.5281/zenodo.598174
 
