@@ -412,7 +412,10 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     size_t num_this_cam_residuals = cam_residual_counts[c];
     
     // Write header for the raw file
-    residual_file_raw_pixels << opt.camera_files[c] << ", " << num_this_cam_residuals << std::endl;
+    std::string name = opt.camera_files[c];
+    if (name == "")
+      name = opt.image_files[c];
+    residual_file_raw_pixels << name << ", " << num_this_cam_residuals << std::endl;
     
     double mean_residual = 0; // Take average of all pixel coord errors
     for (size_t i=0; i<num_this_cam_residuals; ++i) {
@@ -426,7 +429,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     }
     // Write line for the summary file
     mean_residual /= static_cast<double>(num_this_cam_residuals);
-    residual_file << opt.camera_files[c] << ", " << mean_residual << ", "
+    residual_file << name << ", " << mean_residual << ", "
                   << num_this_cam_residuals << std::endl;
   }
   residual_file_raw_pixels.close();
