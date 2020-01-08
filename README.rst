@@ -35,12 +35,10 @@ system, extract, and run the executables in the ``bin`` subdirectory.
 
 - `Stable Releases
   <https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
-  (`Book
-   <https://github.com/NeoGeographyToolkit/StereoPipeline/releases/latest/download/asp_book.pdf>`_)
+  (`Book <https://github.com/NeoGeographyToolkit/StereoPipeline/releases/latest/download/asp_book.pdf>`_)
 
 - `Development Build <http://byss.arc.nasa.gov/stereopipeline/daily_build/>`_
-  (`Book
-  <https://byss.arc.nasa.gov/stereopipeline/daily_build/asp_book.pdf>`_)
+  (`Book <https://byss.arc.nasa.gov/stereopipeline/daily_build/asp_book.pdf>`_)
 
 See the NEWS file for the most recent additions.
 
@@ -111,7 +109,7 @@ In general, please use this reference for the Ames Stereo Pipeline:
 
   Beyer, Ross A., Oleg Alexandrov, and Scott McMichael. 2018. The
   Ames Stereo Pipeline: NASA's open source software for deriving and
-  processing terrain data, Earth and Space Science, 5,
+  processing terrain data, Earth and Space Science, 5.
   https://doi.org/10.1029/2018EA000409.
 
 If you are using ASP for application to Earth Images, or need a reference
