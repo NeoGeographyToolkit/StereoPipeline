@@ -3263,7 +3263,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-shadow-thresholds arg} & Optional shadow thresholds for the input images (a list of real values in quotes, one per image).\\ \hline
 \texttt{-\/-save-dem-with-nodata} & Save a copy of the DEM while using a no-data value at a DEM grid point where all images show shadows. To be used if shadow thresholds are set.\\ \hline
 \texttt{-\/-use-approx-camera-models} & Use approximate camera models for speed.\\ \hline
-\texttt{-\/-use-rpc-approximation} & Use RPC approximations for the camera models instead of approximate tabulated camera models (invoke with --use-approx-camera-models).\\ \hline
+\texttt{-\/-use-rpc-approximation} & Use RPC approximations for the camera models instead of approximate tabulated camera models (invoke with --use-approx-camera-models). This is broken and should not be used.\\ \hline
 \texttt{-\/-rpc-penalty-weight arg (=0.1)} & The RPC penalty weight to use to keep the higher-order RPC coefficients small, if the RPC model approximation is used. Higher penalty weight results in smaller such coefficients.\\ \hline
 \texttt{-\/-coarse-levels arg (=0)} & Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids. Experimental.\\ \hline
 \texttt{-\/-max-coarse-iterations arg (=50)} & How many iterations to do at levels of resolution coarser than the final result.\\ \hline

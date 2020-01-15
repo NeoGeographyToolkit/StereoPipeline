@@ -151,7 +151,7 @@ Then we run \texttt{sfs}:
      --reflectance-type 1                                           \
     --smoothness-weight 0.08 --initial-dem-constraint-weight 0.0001 \
     --max-iterations 10 --use-approx-camera-models                  \
-    --use-rpc-approximation --crop-input-images  
+    --crop-input-images
 \end{verbatim}
 
 The smoothness weight is a parameter that needs tuning. If it is too
@@ -304,8 +304,7 @@ can be visualized/updated from the menu as well, and this process can be iterate
     --smoothness-weight 0.12 --initial-dem-constraint-weight 0.0001   \
     --reflectance-type 1 --float-exposure                             \
     --float-cameras --use-approx-camera-models                        \
-    --max-iterations 10 --use-approx-camera-models                    \
-    --use-rpc-approximation --crop-input-images                       \
+    --max-iterations 10  --crop-input-images                          \
     --bundle-adjust-prefix run_ba_sub10/run                           \
     --shadow-thresholds "0.00162484 0.0012166 0.000781663"
 \end{verbatim}
@@ -460,7 +459,7 @@ Then we run stereo, followed by SfS.
     --shadow-thresholds '0.00149055 0.00138248 0.000747531'                    \
     --threads 4 --smoothness-weight 0.12 --initial-dem-constraint-weight 0.001 \
     --reflectance-type 1 --float-exposure --float-cameras --max-iterations 20  \
-    --use-approx-camera-models --use-rpc-approximation --crop-input-images     \
+    --use-approx-camera-models --crop-input-images                             \
     --bundle-adjust-prefix run_ba_sub4/run
 \end{verbatim}
 

@@ -2993,7 +2993,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Haze cannot be floated unless there is at least one haze coefficient.\n");
   if ( opt.image_haze_prefix != "" && opt.num_haze_coeffs == 0  )
     vw_throw(ArgumentErr() << "Haze cannot be read unless there is at least one haze coefficient.\n");
-
+  
+  if (opt.use_rpc_approximation) 
+    vw_throw(ArgumentErr() << "The RPC approximation is broken.\n");
+    
   if (opt.compute_exposures_only){
     if (opt.use_approx_camera_models || opt.use_rpc_approximation ||
         opt.crop_input_images || opt.use_semi_approx) {
