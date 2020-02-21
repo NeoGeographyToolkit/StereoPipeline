@@ -445,8 +445,10 @@ def main(argsIn):
     # Build a gdal VRT file which is composed of all the processed tiles
     vrtPath = os.path.join(tempFolder, 'mosaic.vrt')
     cmd = "gdalbuildvrt -resolution highest " + vrtPath + " " + " ".join(tiles)
-    print(cmd)
-    os.system(cmd)
+    ret = subprocess.call(["gdalbuildvrt", "-resolution", "highest", vrtPath]+tiles)
+    if ret != 0:
+        print("gdalbuildvrt error ", ret)
+        exit(1)
 
     # Modify the vrt to append some metadata from the original tiles
     if not options.noGeoHeaderInfo:
