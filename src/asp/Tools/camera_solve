@@ -94,6 +94,7 @@ def generate_flagfile(options):
     flagfile_path    = os.path.join(options.output_folder, 'theia_flagfile.txt')
     options.theia_output_path = output_path
     options.flagfile_path     = flagfile_path
+    options.theia_match_path  = match_path
 
     # Control solving for intrinsic parameters
     intrinsics_options = 'NONE'
