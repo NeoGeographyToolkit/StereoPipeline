@@ -61,9 +61,6 @@ subpixel-kernel 21 21
 # Post Filtering / stereo_fltr
 ################################################################
 
-# Fill in holes up to 100,000 pixels in size with an inpainting method
-# disable-fill-holes
-
 # Automatic "erode" low confidence pixels
 filter-mode 1
 rm-half-kernel 5 5
