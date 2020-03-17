@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # __BEGIN_LICENSE__
-#  Copyright (c) 2009-2019, United States Government as represented by the
+#  Copyright (c) 2009-2020, United States Government as represented by the
 #  Administrator of the National Aeronautics and Space Administration. All
 #  rights reserved.
 #
@@ -89,17 +89,26 @@ def wait_on_all_jobs():
 def read_flatfile( flat ):
     f = open(flat,'r')
     averages = [0.0,0.0]
-    for line in f:
-        if ( line.rfind("Average Sample Offset:") > 0 ):
-            index       = line.rfind("Offset:");
-            index_e     = line.rfind("StdDev:");
-            crop        = line[index+7:index_e];
-            averages[0] = float(crop);
-        elif ( line.rfind("Average Line Offset:") > 0 ):
-            index       = line.rfind("Offset:");
-            index_e     = line.rfind("StdDev:");
-            crop        = line[index+7:index_e];
-            averages[1] = float(crop);
+    try:
+        for line in f:
+            if ( line.rfind("Average Sample Offset:") > 0 ):
+                index       = line.rfind("Offset:");
+                index_e     = line.rfind("StdDev:");
+                crop        = line[index+7:index_e];
+                averages[0] = float(crop);
+            elif ( line.rfind("Average Line Offset:") > 0 ):
+                index       = line.rfind("Offset:");
+                index_e     = line.rfind("StdDev:");
+                crop        = line[index+7:index_e];
+                averages[1] = float(crop);
+    except ValueError:
+        print("Could not extract valid offsets from the flat file (" +
+              flat + "). "
+              "This could be because no matches were found. "
+              "You may need to run hijitreg manually with a "
+              "custom REGDEF parameter.  In order for this program "
+              "to complete, we are returning zeros as the offset "
+              "but this may result in misaligned CCDs.")
     return averages;
 
 def check_output_files(file_list):
