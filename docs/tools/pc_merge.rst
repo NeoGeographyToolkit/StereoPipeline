@@ -1,0 +1,31 @@
+.. _pc_merge:
+
+pc_merge
+--------
+
+This is a simple tool for combining multiple ASP-generated point cloud
+files into a single concatenated file. The output file will be float32
+unless the input images are float64 or the user has specified the
+float64 option.
+
+``pc_merge`` can merge clouds with 1, 3, 4, and 6 bands. In particular,
+it can merge *output-prefix*-L.tif images created by ``stereo``. This is
+useful if it is desired to create an ortho-image from a merged cloud
+with ``point2dem``. In that case, one can invoke ``pc_merge`` on
+individual “L” files to create a merged texture file to pass to
+``point2dem`` together with the merged point cloud tile.
+
+Usage::
+
+    pc_merge [options] [required output file option] <multiple point cloud files>
+
+Command-line options for pc_merge:
+
+--help  
+    Display the help message
+
+-d, --write-double
+    Force output file to be float64 instead of float32.
+
+-o, --output-file <name>
+    Specify the output file (required).

@@ -1,0 +1,64 @@
+geodiff
+-------
+
+The ``geodiff`` program takes as input two DEMs (or a DEM and a CSV
+file, with the latter in the same format as used for ``pc_align`` and
+``point2dem``), and subtracts the second from the first. The grid used
+is the one from the first DEM, so the second one is interpolated into it
+usign bilinear interpolation (when one file is a CSV, the grid from the
+other one, the DEM, is used). The tool can also take the absolute
+difference of the two DEMs.
+
+It is important to note that the tool is very sensitive to the order of
+the two DEMs, due to the fact that the grid comes from the first one.
+Ideally the grid of the first DEM would be denser than the one of the
+second.
+
+Usage::
+
+     > geodiff [options] <dem1> <dem2> [ -o output_file_prefix ]
+
+Command-line options for geodiff:
+
+-h, --help
+    Display the help message.
+
+-o, --output-prefix <filename>
+    Specify the output prefix.
+
+--absolute
+    Output the absolute difference as opposed to just the difference.
+
+--float
+    Output using float (32 bit) instead of using doubles (64 bit).
+
+--csv-format <string>
+    Specify the format of input CSV files as a list of entries
+    column_index:column_type (indices start from 1).  Examples:
+    ``1:x 2:y 3:z`` (a Cartesian coordinate system with origin at
+    planet center is assumed, with the units being in meters),
+    ``5:lon 6:lat 7:radius_m`` (longitude and latitude are in degrees,
+    the radius is measured in meters from planet center), 
+    ``3:lat 2:lon 1:height_above_datum``,
+    ``1:easting 2:northing 3:height_above_datum``
+    (need to set ``--csv-proj4``; the height above datum is in
+    meters).  Can also use radius_km for column_type, when it is
+    again measured from planet center.
+
+--csv-proj4 <proj string>
+    The PROJ.4 string to use to interpret the entries in input CSV
+    files, if those files contain Easting and Northing fields. If
+    not specified, it will be borrowed from the DEM.
+
+--nodata-value <float (default: -32768)>
+    The no-data value to use, unless present in the DEM geoheaders.
+
+--threads <integer (default: 0)>
+    Set the number of threads to use. 0 means use as many threads
+    as there are cores.
+
+--no-bigtiff
+    Tell GDAL to not create bigtiffs.
+
+--tif-comp <None|LZW|Deflate|Packbits>
+    TIFF compression method.
