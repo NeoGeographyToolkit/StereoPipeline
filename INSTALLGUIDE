@@ -19,7 +19,7 @@ When you unpack the Stereo Pipeline tarball, it will contain a copy of
 the documentation in pdf format, a set of command-line tools in the
 "bin" directory, and other dependencies. The "bin" directory needs to
 be in your path or one should invoke those tools using the full
-path. See the README file for how to use Stereo Pipeline.
+path. See the README.rst file for how to use Stereo Pipeline.
 
 C. Installing from Source
 

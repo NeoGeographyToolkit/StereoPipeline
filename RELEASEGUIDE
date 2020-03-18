@@ -10,7 +10,7 @@ version. Do not do this for VisionWorkbench, as that library has its
 own versioning.
 
 2.) Look up the latest ISIS version and update it in
-    StereoPipeline/README (see the "version" file in the packaged ASP
+    StereoPipeline/README.rst (see the "version" file in the packaged ASP
     tarball).
 
 3.) Update NEWS. 
