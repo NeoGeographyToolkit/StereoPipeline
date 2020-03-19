@@ -1,0 +1,8 @@
+# conda environment needed to build the docs.
+
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - sphinx
+  - sphinxcontrib-bibtex

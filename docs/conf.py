@@ -16,17 +16,23 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+import re
+from pathlib import Path
+
 
 # -- Project information -----------------------------------------------------
 
 project = 'Ames Stereo Pipeline'
-copyright = '2019, ASP Authors'
+copyright = '2020, ASP Authors'
 author = 'ASP Authors'
 
+version_text = Path("../src/CMakeLists.txt").read_text()
+version_string = re.search(r'set\(PACKAGE_VERSION "(.*)"\)', version_text).group(1)
+
 # The short X.Y version
-version = '2.6.2'
+version = version_string.replace('_', '-')
 # The full version, including alpha/beta/rc tags
-release = '2.6.2'
+release = version
 
 
 # -- General configuration ---------------------------------------------------
@@ -137,8 +143,9 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'AmesStereoPipeline.tex', 'Ames Stereo Pipeline Documentation',
-     'Ross A. Beyer, Oleg Alexandrov, and Scott McMichael', 'manual'),
+    (master_doc, 'asp_book.tex', 'Ames Stereo Pipeline Documentation',
+     r'Ross A. Beyer, Oleg Alexandrov, Scott McMichael, \\ and the ASP contributors',
+     'manual'),
 ]
 
 

@@ -6,12 +6,12 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
 .. toctree::
    :maxdepth: 2
    :numbered:
-   :caption: Contents:
 
    introduction
    installation
    tutorial
    next_steps
+   tips_tricks
    correlation
    bundle_adjustment
    sfm
