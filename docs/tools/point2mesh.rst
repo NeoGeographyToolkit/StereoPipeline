@@ -91,7 +91,7 @@ Command-line options for point2mesh:
     Explicitly specify the texture file.
 
 -t, --output-filetype <type (default: osgb)>
-    Specify the output file type.
+    Specify the output file type.  The type 'obj' is possible here.
 
 -l, --enable-lighting
     Enables shades and lighting on the mesh.

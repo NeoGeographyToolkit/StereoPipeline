@@ -48,6 +48,7 @@ Remember, in order for ``stereo`` to process stereo pairs in ISIS cube
 format, the images must have had SPICE data associated by running ISIS’s
 ``spiceinit`` program run on them first.
 
+
 Mars Reconnaissance Orbiter HiRISE
 ----------------------------------
 
@@ -230,6 +231,16 @@ stereo.default
 The stereo.default example file (:numref:`stereodefault`) works
 generally well with all CTX pairs. Just set ``alignment-method``
 to ``homography`` or ``affineepipolar``.
+
+
+Automated Processing of HiRISE and CTX
+--------------------------------------
+
+While he was at the University of Chicago, David Mayer developed a set of
+scripts for automating Stereo Pipeline for CTX and HiRISE images.  Those
+scripts and more information can now be found at 
+https://github.com/USGS-Astrogeology/asp_scripts
+
 
 Mars Global Surveyor MOC-NA
 ---------------------------

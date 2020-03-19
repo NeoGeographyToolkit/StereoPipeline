@@ -27,8 +27,6 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
    glossary
    zzreferences
    
-.. We should add a 'data visualization' someday.
-
 .. only:: html
 
    Indices and tables

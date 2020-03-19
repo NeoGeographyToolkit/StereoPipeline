@@ -981,6 +981,39 @@ created by the Ames Stereo Pipeline. For more information, visit
 https://github.com/nasa/DERT.
 
 
+Using Blender to Visualize Meshes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :ref:`point2mesh` program can take a ``-t obj`` option.  This
+will create ``.obj`` and ``.mtl`` files that you can import directly
+into Blender (https://www.blender.org/).  Remember that ``.obj``
+files don’t particularly have a way to specify 'units' but the
+'units' of an ``.obj`` file written out by ASP are going to be
+'meters.'  If you open a large .obj model created by ASP (like
+HiRISE), you’ll need to remember to move the default viewpoint away
+from the origin, and extend the clipping distance to a few thousand
+(which will be a few kilometers), otherwise it may ‘appear’ that
+the model hasn’t loaded (because your viewpoint is inside of it,
+and you can’t see far enough).
+
+The default step size for :ref:`point2mesh` is 10, which only samples
+every 10th point, so you may want to read the documentation which
+talks more about the ``--step`` argument to :ref:`point2mesh` (and
+also ``--simplify-mesh`` and ``--smooth-mesh``).  Depending on how
+big your model is, even that might be too small, and I’d be very
+cautious about using ``-s 1`` on a HiRISE model that isn’t cropped
+somehow first.
+
+You can also use :ref:`point2mesh` to pull off this trick with
+terrain models you've already made (maybe with SOCET or something
+else).  Our :ref:`point2mesh` program certainly knows how to read
+our ASP ``*-PC.tif`` files, but it can also read GeoTIFFs.  So if
+you have a DEM as a GeoTIFF, or an ISIS cube which is a terrain
+model (you can use ``gdal_translate`` to convert them to GeoTIFFs),
+then you can run :ref:`point2mesh` on them to get ``.obj`` and
+``.mtl`` files.
+
+
 Using QGIS to Visualize Terrain Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
