@@ -40,7 +40,7 @@ system, extract, and run the executables in the ``bin`` subdirectory.
 - `Development Build <http://byss.arc.nasa.gov/stereopipeline/daily_build/>`_
   (`Book <https://byss.arc.nasa.gov/stereopipeline/daily_build/asp_book.pdf>`_)
 
-See the NEWS file for the most recent additions.
+See the NEWS.rst file for the most recent additions.
 
 To permanently add the ASP executable subdirectory to your PATH,
 you can add the following line to your shell configuration (e.g.,
@@ -71,8 +71,8 @@ documentation for each tool, and example processing workflows for many
 supported sensors.
 
 A PDF version of the book is bundled with the binary distributions
-(named ``asp_book.pdf``), and the LaTeX source files are distributed
-in the `docs/book` subdirectory.
+(named ``asp_book.pdf``), and the ReStructured Text source files
+are distributed in the `docs/` subdirectory.
 
 
 Support and User Community
@@ -99,7 +99,7 @@ Adaptive Control and Evolvable Systems (ACES) group, and draws on
 their experience developing computer vision techniques for autonomous
 vehicle control systems.
 
-See the AUTHORS file for a complete list of developers.
+See the AUTHORS.rst file for a complete list of developers.
 
 
 Citation

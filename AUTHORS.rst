@@ -16,13 +16,14 @@ at the NASA Ames Research Center in Moffett Field, CA.
 
 **Contributors and Developers**
 
-- Zachary Moratto (NASA/Stinger-Ghaffarian Technologies)
-- Michael J. Broxton (NASA/Carnegie Mellon University)
+- Zachary Moratto (NASA/Stinger-Ghaffarian Technologies, former ASP Lead Architect)
+- Michael J. Broxton (NASA/Carnegie Mellon University, former ASP Lead Architect
+  and Project Lead, co-developer of the Vision Workbench)
+- Matthew Hancher (NASA, co-developer of the Vision Workbench)
 - Dr. Ara Nefian (NASA/Carnegie Mellon University)
-- Matthew Hancher (NASA)
 - Mike Lundy (NASA/Stinger-Ghaffarian Technologies)
 - Vinh To (NASA/Stinger-Ghaffarian Technologies)
-- Dr. Laurence Edwards (NASA)
+- Dr. Laurence Edwards (NASA, former IRG Terrain Reconstruction Lead)
 - Kyle Husmann (California Polytechnic State University)
 - Sasha Aravkin (Washington State University)
 - Aleksandr Segal (Stanford)
@@ -33,6 +34,15 @@ at the NASA Ames Research Center in Moffett Field, CA.
 - Morgon Kanter (Bard College)
 - Kerri Cahoy (Stanford University) 
 - Ian Saxton (UC San Diego)
+- Trey Smith (NASA)
+- `mstyer <https://github.com/mstyer>`_
+- `harguess <https://github.com/harguess>`_
+- David Shean (University of Washington)
+- Ben Smith (University of Washington)
+- Andrew Annex (Johns Hopkins University)
+- Joachim Meyer (University of Washington)
+- Jay Laura (USGS)
+- Shashank Bhushan (University of Washington)
 
 
 Acknowledgments
@@ -85,9 +95,9 @@ contributions to this software, and Dr. Terry Fong (IRG Group Lead
 during the first decade or so of ASP's existance) for his management
 and support of the open source and public software release process.
 
-Portions of this software were developed with support from the following
-NASA Science Mission Directorate (SMD) and Exploration Systems Mission
-Directorate (ESMD) funding sources:
+Portions of this software were developed with support from the
+following sources from NASA Science Mission Directorate (SMD) and
+Exploration Systems Mission Directorate (ESMD) funding sources:
 
 - Mars Technology Program
 - Mars Critical Data Products Initiative 
@@ -97,6 +107,8 @@ Directorate (ESMD) funding sources:
   #07-LASER07-0148 and #11-LASER11-0112
 - ESMD Lunar Mapping and Modeling Program (LMMP)
 - SMD Cryosphere Program
+- The Resource Prospector site selection activity
+- The VIPER mission site selection activity
 - Planetary Data Archiving and Tools program (PDART) grant #19-PDART19_2-0094
   under Dr. Ross Beyer (2020-2022)
 

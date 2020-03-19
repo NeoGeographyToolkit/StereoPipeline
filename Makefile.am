@@ -1,5 +1,5 @@
 # __BEGIN_LICENSE__
-#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Copyright (c) 2009-2020, United States Government as represented by the
 #  Administrator of the National Aeronautics and Space Administration. All
 #  rights reserved.
 #
@@ -31,7 +31,7 @@ EXTRA_DIST = \
 	docs \
 	stereo.default.example
 
-dist_doc_DATA = AUTHORS COPYING INSTALLGUIDE NEWS README.rst THIRDPARTYLICENSES
+dist_doc_DATA = AUTHORS.rst COPYING INSTALLGUIDE.rst NEWS.rst README.rst THIRDPARTYLICENSES
 exampledir = $(docdir)/examples
 dist_example_DATA = stereo.default.example
 

@@ -259,10 +259,6 @@ Set::
 
      export LD_LIBRARY_PATH=<path to libstdc++ for your version compliant gcc>:$LD_LIBRARY_PATH
 
-To build the documentation, one should install Sphinx-Docs
-(https://www.sphinx-doc.org) and sphinxcontrib-bibtex
-(https://sphinxcontrib-bibtex.readthedocs.io)
-
 
 macOS
 .....
@@ -375,3 +371,15 @@ store the completed build. Do so using the following command from the
 BinaryBuilder directory::
 
     ./make-dist.py last-completed-run/install
+
+
+Building Documentation
+----------------------
+
+The ASP documentation is encoded in ReStructured Text and is built
+with the Sphinx-Doc system (https://www.sphinx-doc.org) with 
+sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
+
+The ``docs\`` directory contains the root of the documentation and 
+``make html`` and ``make latexpdf`` will create the HTML and PDF versions
+of the documentation.

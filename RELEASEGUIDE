@@ -13,7 +13,7 @@ own versioning.
     StereoPipeline/README.rst (see the "version" file in the packaged ASP
     tarball).
 
-3.) Update NEWS. 
+3.) Update NEWS.rst.
 
 4.) Read and update the documentation.
 
@@ -25,10 +25,16 @@ own versioning.
   - Build the dependenices, see BinaryBuilder/README, section 3.B, 
     part 1.
   - Ensure that the latest ISIS gets built.
-  - Build the documentation in StereoPipeline/docs/book. Must do
-    make distclean at the top level first, to force that the ASP
-    version gets updated.
-  - Copy the obtained pdf file to BinaryBuilder/dist-add/asp_book.pdf.
+  - Build the documentation in StereoPipeline/docs/.
+
+	make html
+		tests building the online documentation
+
+	make latexpdf
+		builds 'the book'
+
+  - Copy the obtained pdf file from docs/_build/latex/asp_book.pdf to
+    BinaryBuilder/dist-add/asp_book.pdf.
   - Build the ASP release tarball, see BinaryBuilder/README,
     section 3.B, part 2.
 
