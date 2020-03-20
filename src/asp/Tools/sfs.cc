@@ -124,21 +124,58 @@ typedef ImageViewRef<double> DoubleImgT;
 
 namespace vw { namespace camera {
 
+  // A base approx camera model class that will factor out some functionality
+  // from the two approx camera model classes we have below
+  class BaseApproxCameraModel: public CameraModel {
+
+  protected:
+    BBox2i m_img_bbox;
+    mutable BBox2 m_point_box, m_crop_box;
+    bool m_model_is_valid;
+    boost::shared_ptr<CameraModel>  m_exact_unadjusted_camera;
+    AdjustedCameraModel m_exact_adjusted_camera;
+
+  public:
+
+    BaseApproxCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
+                          boost::shared_ptr<CameraModel> exact_unadjusted_camera,
+                          BBox2i img_bbox): m_exact_adjusted_camera(exact_adjusted_camera),
+                                            m_exact_unadjusted_camera(exact_unadjusted_camera),
+                                            m_img_bbox(img_bbox){}
+    
+    // The range of pixels in the image we are actually expected to use.
+    // Note that the function returns an alias, so that we can modify the
+    // crop box from outside.
+    BBox2 & crop_box(){
+      m_crop_box.crop(m_img_bbox);
+      return m_crop_box;
+    }
+
+    bool model_is_valid(){
+      return m_model_is_valid;
+    }
+    
+    boost::shared_ptr<CameraModel> exact_unadjusted_camera() const{
+      return m_exact_unadjusted_camera;
+    }
+    
+    AdjustedCameraModel exact_adjusted_camera() const{
+      return m_exact_adjusted_camera;
+    }
+    
+  };
+    
   // This class provides an approximation for the point_to_pixel()
   // function of an ISIS camera around a current DEM. The algorithm
   // works by tabulation of point_to_pixel and pixel_to_vector values
   // at the mean dem height.
-  class ApproxCameraModel: public CameraModel {
-    boost::shared_ptr<CameraModel>  m_exact_camera;
+  class ApproxCameraModel: public BaseApproxCameraModel {
     mutable Vector3 m_mean_dir; // mean vector from camera to ground
-    BBox2i m_img_bbox;
     GeoReference m_geo;
     double m_mean_ht;
     mutable ImageView< PixelMask<Vector3> > m_pixel_to_vec_mat;
     mutable ImageView< PixelMask<Vector2> > m_point_to_pix_mat;
-    //ImageView< PixelMask<Vector3> > m_camera_center_mat;
     double m_approx_table_gridx, m_approx_table_gridy;
-    mutable BBox2 m_point_box, m_crop_box;
     bool m_use_rpc_approximation, m_use_semi_approx;
     vw::Mutex& m_camera_mutex;
     Vector2 m_uncompValue;
@@ -146,10 +183,9 @@ namespace vw { namespace camera {
     mutable bool m_compute_mean, m_stop_growing_range;
     mutable int m_count;
     boost::shared_ptr<asp::RPCModel> m_rpc_model;
-    bool m_model_is_valid;
     
     bool comp_rpc_approx_table(AdjustedCameraModel const& adj_camera,
-                               boost::shared_ptr<CameraModel> exact_camera,
+                               boost::shared_ptr<CameraModel> exact_unadjusted_camera,
                                BBox2i img_bbox,
 			       ImageView<double> const& dem,
 			       GeoReference const& geo,
@@ -187,7 +223,7 @@ namespace vw { namespace camera {
             // Go back to llh. This is a bugfix for the 360 deg offset problem.
             llh = geo.datum().cartesian_to_geodetic(xyz);
           
-            Vector2 cam_pix = exact_camera->point_to_pixel(xyz);
+            Vector2 cam_pix = exact_unadjusted_camera->point_to_pixel(xyz);
             //if (!m_img_bbox.contains(cam_pix)) 
             //  continue; // skip out of range pixels? Not a good idea.
          
@@ -260,7 +296,7 @@ namespace vw { namespace camera {
             // Go back to llh. This is a bugfix for the 360 deg offset problem.
             llh = geo.datum().cartesian_to_geodetic(xyz);
 
-            Vector2 cam_pix = exact_camera->point_to_pixel(xyz);
+            Vector2 cam_pix = exact_unadjusted_camera->point_to_pixel(xyz);
             //if (!m_img_bbox.contains(cam_pix)) 
             //  continue; // skip out of range pixels? Not a good idea.
          
@@ -373,9 +409,9 @@ namespace vw { namespace camera {
 	  Vector2 pix;
 	  Vector3 vec;
 	  try {
-	    pix = m_exact_camera->point_to_pixel(xyz);
+	    pix = m_exact_unadjusted_camera->point_to_pixel(xyz);
             //if (true || m_img_bbox.contains(pix))  // Need to think more here
-            vec = m_exact_camera->pixel_to_vector(pix);
+            vec = m_exact_unadjusted_camera->pixel_to_vector(pix);
             //else
             // success = false;
             
@@ -404,20 +440,8 @@ namespace vw { namespace camera {
     
   public:
 
-    // The range of pixels in the image we are actually expected to use.
-    // Note that the function returns an alias, so that we can modify the
-    // crop box from outside.
-    BBox2 & crop_box(){
-      m_crop_box.crop(m_img_bbox);
-      return m_crop_box;
-    }
-
-    bool model_is_valid(){
-      return m_model_is_valid;
-    }
-    
-    ApproxCameraModel(AdjustedCameraModel const& adj_camera,
-                      boost::shared_ptr<CameraModel> exact_camera,
+    ApproxCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
+                      boost::shared_ptr<CameraModel> exact_unadjusted_camera,
                       BBox2i img_bbox, 
 		      ImageView<double> const& dem,
 		      GeoReference const& geo,
@@ -425,17 +449,21 @@ namespace vw { namespace camera {
 		      bool use_rpc_approximation, bool use_semi_approx,
                       double rpc_penalty_weight,
 		      vw::Mutex &camera_mutex):
-      m_exact_camera(exact_camera), m_img_bbox(img_bbox), m_geo(geo),
+      BaseApproxCameraModel(exact_adjusted_camera, exact_unadjusted_camera, img_bbox),
+      m_geo(geo),
       m_use_rpc_approximation(use_rpc_approximation),
       m_use_semi_approx(use_semi_approx),
-      m_camera_mutex(camera_mutex), m_model_is_valid(true){
+      m_camera_mutex(camera_mutex) {
 
+      // Initialize members of the base class
+      m_model_is_valid = true;
+      
       int big = 1e+8;
       m_uncompValue = Vector2(-big, -big);
       m_compute_mean = true; // We'll set this to false when we finish estimating the mean
       m_stop_growing_range = false; // stop when it does not help
       
-      if (dynamic_cast<IsisCameraModel*>(exact_camera.get()) == NULL)
+      if (dynamic_cast<IsisCameraModel*>(exact_unadjusted_camera.get()) == NULL)
 	vw_throw( ArgumentErr()
 		  << "ApproxCameraModel: Expecting an unadjusted ISIS camera model.\n");
 
@@ -479,7 +507,8 @@ namespace vw { namespace camera {
       
       // Bypass everything if doing RPC
       if (m_use_rpc_approximation) {
-	m_model_is_valid = comp_rpc_approx_table(adj_camera, exact_camera, m_img_bbox,
+	m_model_is_valid = comp_rpc_approx_table(exact_adjusted_camera,
+                                                 exact_unadjusted_camera, m_img_bbox,
                                                  dem,  geo, rpc_penalty_weight);
         
 	// Ensure the box is valid
@@ -560,27 +589,6 @@ namespace vw { namespace camera {
       m_crop_box.crop(m_img_bbox);
 #endif
 
-#if 0 // takes too much memory
-      // Tabulate the camera_center function
-      m_camera_center_mat.set_size(m_crop_box.width(), m_crop_box.height());
-      for (int col = 0; col < m_crop_box.width(); col++) {
-	for (int row = 0; row < m_crop_box.height(); row++) {
-	  bool success = true;
-	  Vector3 ctr;
-	  try {
-	    ctr = m_exact_camera->camera_center(m_crop_box.min() + Vector2(col, row));
-	  }catch(...){
-	    success = false;
-	  }
-	  if (success) {
-	    m_camera_center_mat(col, row) = ctr;
-	    m_camera_center_mat(col, row).validate();
-	  }else{
-	    m_camera_center_mat(col, row).invalidate();
-	  }
-	}
-      }
-#endif
       return;
     }
 
@@ -594,7 +602,7 @@ namespace vw { namespace camera {
       if (m_use_semi_approx){
         vw::Mutex::Lock lock(m_camera_mutex);
         g_num_locks++;
-        return m_exact_camera->point_to_pixel(xyz);
+        return m_exact_unadjusted_camera->point_to_pixel(xyz);
       }
       
       if (m_use_rpc_approximation) 
@@ -625,7 +633,7 @@ namespace vw { namespace camera {
               g_warning_count++;
               vw_out(WarningMessage) << "3D point is inside the planet.\n";
             }
-	    return m_exact_camera->point_to_pixel(xyz);
+	    return m_exact_unadjusted_camera->point_to_pixel(xyz);
 	  }
 	}
 
@@ -698,7 +706,7 @@ namespace vw { namespace camera {
                                    << m_pixel_to_vec_mat.cols() << ' ' << m_pixel_to_vec_mat.rows()
                                    << std::endl;
           }
-	  return m_exact_camera->point_to_pixel(xyz);
+	  return m_exact_unadjusted_camera->point_to_pixel(xyz);
 	}
 	PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
 	PixelMask<Vector2> masked_pix = point_to_pix_interp(x, y);
@@ -715,7 +723,7 @@ namespace vw { namespace camera {
               vw_out(WarningMessage) << "Invalid ground to camera direction: "
                                      << masked_dir << ' ' << masked_pix << std::endl;
             }
-	    return m_exact_camera->point_to_pixel(xyz);
+	    return m_exact_unadjusted_camera->point_to_pixel(xyz);
 	  }
 	}
       }
@@ -731,7 +739,7 @@ namespace vw { namespace camera {
       if (m_use_semi_approx) {
         vw::Mutex::Lock lock(m_camera_mutex);
         g_num_locks++;
-        return this->exact_camera()->pixel_to_vector(pix);
+        return this->exact_unadjusted_camera()->pixel_to_vector(pix);
       }
 
       if (m_use_rpc_approximation){
@@ -745,7 +753,7 @@ namespace vw { namespace camera {
         vw_out(WarningMessage) << "Invoked exact camera model pixel_to_vector for pixel: "
                                << pix << std::endl;
       }
-      return this->exact_camera()->pixel_to_vector(pix);
+      return this->exact_unadjusted_camera()->pixel_to_vector(pix);
     }
 
     virtual Vector3 camera_center(Vector2 const& pix) const{
@@ -755,7 +763,7 @@ namespace vw { namespace camera {
 	g_num_locks++;
 	//vw_out(WarningMessage) << "Invoked the camera center function for pixel: "
         //                       << pix << std::endl;
-	return this->exact_camera()->camera_center(pix);
+	return this->exact_unadjusted_camera()->camera_center(pix);
 	//return m_rpc_model->camera_center(pix);
 	//}
 
@@ -784,7 +792,7 @@ namespace vw { namespace camera {
           vw_out(WarningMessage) << "Invoked the camera center function for pixel: "
                                  << pix << std::endl;
         }
-	return this->exact_camera()->camera_center(pix);
+	return this->exact_unadjusted_camera()->camera_center(pix);
       }
 
     }
@@ -797,13 +805,299 @@ namespace vw { namespace camera {
         vw_out(WarningMessage) << "Invoked the camera pose function for pixel: "
                                << pix << std::endl;
       }
-      return this->exact_camera()->camera_pose(pix);
+      return this->exact_unadjusted_camera()->camera_pose(pix);
     }
 
-    boost::shared_ptr<CameraModel> exact_camera() const{
-      return m_exact_camera;
-    }
   };
+
+  // This class provides an approximation for an input adjusted ISIS
+  // camera model around a current DEM. Unlike the ApproxCameraModel
+  // class, here the adjusted camera is approximated, not the
+  // unadjusted one, hence the adjustments and the cameras themselves
+  // cannot be floated with this class. Keeping the cameras fixed
+  // allows the approximation to work perhaps on a narrower
+  // domain. The algorithm works by tabulation of point_to_pixel and
+  // pixel_to_vector values at the mean dem height.
+  class AdjustedApproxCameraModel: public BaseApproxCameraModel {
+    mutable Vector3 m_mean_dir; // mean vector from camera to ground
+    GeoReference m_geo;
+    double m_mean_ht;
+    mutable ImageView< PixelMask<Vector3> > m_pixel_to_vec_mat;
+    mutable ImageView< PixelMask<Vector2> > m_point_to_pix_mat;
+    double m_approx_table_gridx, m_approx_table_gridy;
+    vw::Mutex& m_camera_mutex;
+    Vector2 m_uncompValue;
+    mutable int m_begX, m_endX, m_begY, m_endY;
+    mutable int m_count;
+    
+    void comp_entries_in_table() const{
+      for (int x = m_begX; x <= m_endX; x++) {
+	for (int y = m_begY; y <= m_endY; y++) {
+	  
+	  // This will be useful when we invoke this function repeatedly
+	  if (m_point_to_pix_mat(x, y).child() != m_uncompValue) {
+	    continue;
+	  }
+	  
+	  Vector2 pt(m_point_box.min().x() + x*m_approx_table_gridx,
+		     m_point_box.min().y() + y*m_approx_table_gridy);
+	  Vector2 lonlat = m_geo.point_to_lonlat(pt);
+	  Vector3 xyz = m_geo.datum().geodetic_to_cartesian
+	    (Vector3(lonlat[0], lonlat[1], m_mean_ht));
+	  bool success = true;
+	  Vector2 pix;
+	  Vector3 vec;
+	  try {
+	    pix = m_exact_adjusted_camera.point_to_pixel(xyz);
+            //if (true || m_img_bbox.contains(pix))  // Need to think more here
+            vec = m_exact_adjusted_camera.pixel_to_vector(pix);
+            //else
+            // success = false;
+            
+	  }catch(...){
+	    success = false;
+	  }
+	  if (success) {
+	    m_pixel_to_vec_mat(x, y) = vec;
+	    m_point_to_pix_mat(x, y) = pix;
+	    m_pixel_to_vec_mat(x, y).validate();
+	    m_point_to_pix_mat(x, y).validate();
+            m_mean_dir += vec; // only when the point projects inside the camera?
+            if (m_img_bbox.contains(pix)) 
+              m_crop_box.grow(pix);
+            m_count++;
+	  }else{
+       	    m_pixel_to_vec_mat(x, y).invalidate();
+	    m_point_to_pix_mat(x, y).invalidate();
+	  }
+	}
+      }
+      
+    }
+    
+  public:
+
+    AdjustedApproxCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
+                              boost::shared_ptr<CameraModel> exact_unadjusted_camera,
+                              BBox2i img_bbox, 
+                              ImageView<double> const& dem,
+                              GeoReference const& geo,
+                              double nodata_val,
+                              vw::Mutex &camera_mutex):
+      BaseApproxCameraModel(exact_adjusted_camera, exact_unadjusted_camera, img_bbox),
+      m_geo(geo), m_camera_mutex(camera_mutex) {
+
+      // Initialize members of the base class
+      m_model_is_valid = true;
+
+      int big = 1e+8;
+      m_uncompValue = Vector2(-big, -big);
+      
+      if (dynamic_cast<IsisCameraModel*>(exact_unadjusted_camera.get()) == NULL)
+	vw_throw( ArgumentErr()
+		  << "AdjustedApproxCameraModel: Expecting an unadjusted ISIS camera model.\n");
+
+      // Compute the mean DEM height.
+      // We expect all DEM entries to be valid.
+      m_mean_ht = 0;
+      double num = 0.0;
+      for (int col = 0; col < dem.cols(); col++) {
+	for (int row = 0; row < dem.rows(); row++) {
+	  if (dem(col, row) == nodata_val)
+	    vw_throw( ArgumentErr()
+		      << "AdjustedApproxCameraModel: Expecting a DEM without nodata values.\n");
+	  m_mean_ht += dem(col, row);
+	  num += 1.0;
+	}
+      }
+      if (num > 0) m_mean_ht /= num;
+
+      // The area we're supposed to work around
+      m_point_box = m_geo.pixel_to_point_bbox(bounding_box(dem));
+      double wx = m_point_box.width(), wy = m_point_box.height();
+      m_approx_table_gridx = wx/std::max(dem.cols(), 1);
+      m_approx_table_gridy = wy/std::max(dem.rows(), 1);
+
+      if (m_approx_table_gridx == 0 || m_approx_table_gridy == 0) {
+	vw_throw( ArgumentErr()
+		  << "AdjustedApproxCameraModel: Expecting a positive grid size.\n");
+      }
+
+      // Expand the box, as later the DEM will change. 
+      double extra = 0.5;
+      m_point_box.min().x() -= extra*wx; m_point_box.max().x() += extra*wx;
+      m_point_box.min().y() -= extra*wy; m_point_box.max().y() += extra*wy;
+      wx = m_point_box.width();
+      wy = m_point_box.height();
+
+      vw_out() << "Approximation proj box: " << m_point_box << std::endl;
+
+      // We will tabulate the point_to_pixel function at a multiple of
+      // the grid, and we'll use interpolation for anything in
+      // between.
+      //m_approx_table_gridx /= 2.0; m_approx_table_gridy /= 2.0; // fine
+      m_approx_table_gridx *= 2.0; m_approx_table_gridy *= 2.0; // Coarse. Good enough.
+
+      int numx = wx/m_approx_table_gridx;
+      int numy = wy/m_approx_table_gridy;
+
+      vw_out() << "Lookup table dimensions: " << numx << ' ' << numy << std::endl;
+
+      // Choose f so that the width from m_begX to m_endX is 2 x original wx
+      double f = 0; // (extra-0.5)/(2.0*extra+1.0);
+      m_begX = f*numx; m_endX = std::min((1.0-f)*numx, numx-1.0);
+      m_begY = f*numy; m_endY = std::min((1.0-f)*numy, numy-1.0);
+      
+      //vw_out() << "Size of actually pre-computed table: "
+      //	       << m_endX - m_begX << ' ' << m_endY - m_begY << std::endl;
+      
+      // Mark all values as uncomputed and invalid
+      m_pixel_to_vec_mat.set_size(numx, numy);
+      m_point_to_pix_mat.set_size(numx, numy);
+      for (int x = 0; x < numx; x++) {
+	for (int y = 0; y < numy; y++) {
+	  m_point_to_pix_mat(x, y) = m_uncompValue;
+	  m_point_to_pix_mat(x, y).invalidate();
+	}
+      }
+	  
+      // Fill in the table. Find along the way the mean direction from
+      // the camera to the ground. Invalid values will be masked.
+      m_count = 0;
+      m_mean_dir = Vector3();
+      comp_entries_in_table();
+      m_mean_dir /= std::max(1, m_count);
+      m_mean_dir = m_mean_dir/norm_2(m_mean_dir);
+      
+      m_crop_box.crop(m_img_bbox);
+
+      return;
+    }
+
+    // We have tabulated point_to_pixel at the mean dem height.
+    // Look-up point_to_pixel for the current point by first
+    // intersecting the ray from the current point to the camera
+    // with the datum at that height. We don't know that ray,
+    // so we iterate to find it.
+    virtual Vector2 point_to_pixel(Vector3 const& xyz) const{
+
+      // TODO: What happens if we use bicubic interpolation?
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3> >, ConstantEdgeExtension >, BilinearInterpolation> pixel_to_vec_interp
+	= interpolate(m_pixel_to_vec_mat, BilinearInterpolation(),
+		      ConstantEdgeExtension());
+
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector2> >, ConstantEdgeExtension >, BilinearInterpolation> point_to_pix_interp
+	= interpolate(m_point_to_pix_mat, BilinearInterpolation(),
+		      ConstantEdgeExtension());
+
+      Vector3 dir = m_mean_dir;
+      Vector2 pix;
+      double major_radius = m_geo.datum().semi_major_axis() + m_mean_ht;
+      double minor_radius = m_geo.datum().semi_minor_axis() + m_mean_ht;
+      for (size_t i = 0; i < 10; i++) {
+
+	Vector3 S = xyz - 1.1*major_radius*dir; // push the point outside the sphere
+	if (norm_2(S) <= major_radius) {
+	  // should not happen. Return the exact solution.
+	  {
+	    vw::Mutex::Lock lock(m_camera_mutex);
+	    g_num_locks++;
+            if (g_warning_count < g_max_warning_count) {
+              g_warning_count++;
+              vw_out(WarningMessage) << "3D point is inside the planet.\n";
+            }
+	    return m_exact_adjusted_camera.point_to_pixel(xyz);
+	  }
+	}
+
+	Vector3 datum_pt = datum_intersection(major_radius, minor_radius, S, dir);
+	Vector3 llh = m_geo.datum().cartesian_to_geodetic(datum_pt);
+	Vector2 pt = m_geo.lonlat_to_point(subvector(llh, 0, 2));
+
+	// Indices
+	double x = (pt.x() - m_point_box.min().x())/m_approx_table_gridx;
+	double y = (pt.y() - m_point_box.min().y())/m_approx_table_gridy;
+
+	bool out_of_range = (x < m_begX || x >= m_endX-1 ||
+                             y < m_begY || y >= m_endY-1);
+
+        // If out of range, return the exact result. This should be very slow.
+        // The hope is that it will be very rare.
+	if (out_of_range){
+	  vw::Mutex::Lock lock(m_camera_mutex);
+	  g_num_locks++;
+          if (g_warning_count < g_max_warning_count) {
+            g_warning_count++;
+            vw_out(WarningMessage) << "Pixel outside of range. Current values and range: "  << ' '
+                                   << x << ' ' << y << ' '
+                                   << m_pixel_to_vec_mat.cols() << ' ' << m_pixel_to_vec_mat.rows()
+                                   << std::endl;
+          }
+	  return m_exact_adjusted_camera.point_to_pixel(xyz);
+	}
+        
+	PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
+	PixelMask<Vector2> masked_pix = point_to_pix_interp(x, y);
+	if (is_valid(masked_dir) && is_valid(masked_pix)) {
+	  dir = masked_dir.child();
+	  pix = masked_pix.child();
+	}else{
+	  {
+	    vw::Mutex::Lock lock(m_camera_mutex);
+	    g_num_locks++;
+            if (g_warning_count < g_max_warning_count) {
+              g_warning_count++;
+              vw_out(WarningMessage) << "Invalid ground to camera direction: "
+                                     << masked_dir << ' ' << masked_pix << std::endl;
+            }
+	    return m_exact_adjusted_camera.point_to_pixel(xyz);
+	  }
+	}
+      }
+
+      return pix;
+    }
+
+    virtual ~AdjustedApproxCameraModel(){}
+    virtual std::string type() const{ return "AdjustedApproxIsis"; }
+
+    virtual Vector3 pixel_to_vector(Vector2 const& pix) const {
+
+      vw::Mutex::Lock lock(m_camera_mutex);
+      g_num_locks++;
+      if (g_warning_count < g_max_warning_count) {
+        g_warning_count++;
+        vw_out(WarningMessage) << "Invoked exact camera model pixel_to_vector for pixel: "
+                               << pix << std::endl;
+      }
+      // TODO(oalexan1): Put here the exact adjusted camera!
+      return this->exact_unadjusted_camera()->pixel_to_vector(pix);
+    }
+
+    virtual Vector3 camera_center(Vector2 const& pix) const{
+      // It is tricky to approximate the camera center
+      // TODO(oalexan1): Must apply the adjustment here?!!!
+	vw::Mutex::Lock lock(m_camera_mutex);
+	g_num_locks++;
+        // TODO(oalexan1): Put here the exact adjusted camera!
+	return this->exact_unadjusted_camera()->camera_center(pix);
+    }
+
+    virtual Quat camera_pose(Vector2 const& pix) const{
+      // TODO(oalexan1): Must apply the adjustment here?!!!
+      vw::Mutex::Lock lock(m_camera_mutex);
+      g_num_locks++;
+      if (g_warning_count < g_max_warning_count) {
+        g_warning_count++;
+        vw_out(WarningMessage) << "Invoked the camera pose function for pixel: "
+                               << pix << std::endl;
+      }
+      // TODO(oalexan1): Put here the exact adjusted camera!
+      return this->exact_unadjusted_camera()->camera_pose(pix);
+    }
+
+  };
+  
 }}
 
 // Get the memory usage for the given process.
@@ -813,97 +1107,11 @@ void callTop() {
   int pid = getpid();
   os << pid;
   
-  std::string cmd = "top -b -n 1 | grep -i 'sfs ' | grep -i '" + os.str() + " '";
+  std::string cmd = "top -b -n 1 | grep -i ' sfs' | grep -i '" + os.str() + "'";
   std::string ans = vw::exec_cmd(cmd.c_str());
   vw_out() << "Memory usage: " << cmd << " " << ans << std::endl;
 }
 
-// Pull the ISIS model from an adjusted IsisCameraModel or ApproxCameraModel
-boost::shared_ptr<CameraModel> get_isis_cam(boost::shared_ptr<CameraModel> cam,
-                                            bool allow_unadjusted = false){
-
-  boost::shared_ptr<CameraModel> unadj_cam, isis_cam;
-  
-  AdjustedCameraModel * adj_cam = dynamic_cast<AdjustedCameraModel*>(cam.get());
-  if (adj_cam != NULL) {
-    unadj_cam = adj_cam->unadjusted_model();
-  }else{
-    if (!allow_unadjusted) 
-      vw_throw( ArgumentErr() << "get_isis_cam: Expecting an adjusted camera model.\n" );
-    else
-      unadj_cam = cam;
-  }
-  
-  if (unadj_cam.get() == NULL)
-    vw_throw( ArgumentErr() << "get_isis_cam: Expecting a valid camera model.\n" );
-
-  ApproxCameraModel * apcam = dynamic_cast<ApproxCameraModel*>(unadj_cam.get());
-  if (apcam != NULL) {
-    isis_cam = apcam->exact_camera();
-  }else{
-    isis_cam = unadj_cam;
-  }
-  
-  if (dynamic_cast<IsisCameraModel*>(isis_cam.get()) == NULL)
-    vw_throw( ArgumentErr() << "get_isis_cam: Expecting an ISIS camera model.\n" );
-
-  return isis_cam;
-}
-
-// Find the sun azimuth and elevation at the lon-lat position of the
-// center of the DEM. The result can change depending on the DEM.
-void sun_angles(ImageView<double> const& dem, double nodata_val, GeoReference const& georef,
-                  boost::shared_ptr<CameraModel> cam, double & azimuth, double &elevation){
-
-  bool allow_unadjusted = true; // At this stage we don't care about adjustments
-  boost::shared_ptr<CameraModel> ucam = get_isis_cam(cam, allow_unadjusted);
-  IsisCameraModel* isis_cam = dynamic_cast<IsisCameraModel*>(ucam.get());
-  if (isis_cam == NULL)
-    vw_throw( ArgumentErr()
-              << "Expecting an ISIS camera model.\n");
-  
-  int cols = dem.cols(), rows = dem.rows();
-  if (cols <= 0 || rows <= 0)
-    vw_throw( ArgumentErr() << "Expecting a non-empty DEM.\n" );
-
-  // Find lon-lat-height in the middle of the DEM
-  Vector2 ll = georef.pixel_to_lonlat(Vector2(cols/2.0, rows/2.0));
-  double height = dem(cols/2.0, rows/2.0);
-  if (height == nodata_val)
-    height = 0;
-  Vector3 llh(ll[0], ll[1], height);
-
-  Vector3 xyz = georef.datum().geodetic_to_cartesian(llh); // point on the planet
-  Vector3 east(-xyz[1], xyz[0], 0);
-
-  Vector3 sun_pos = isis_cam->sun_position();
-  Vector3 sun_dir = sun_pos - xyz;
-
-  //double prod = dot_prod(sun_dir, east)
-  //  / sqrt ( dot_prod(east, east) * dot_prod(sun_dir, sun_dir));
-  //double angle = (180.0/M_PI) * acos (prod);
-
-  // Projection in the tangent plane
-  //  Vector3 proj = sun_dir - xyz*dot_prod(sun_dir, xyz)/dot_prod(xyz, xyz);
-
-  //prod = dot_prod(proj, east)
-  //  / sqrt ( dot_prod(east, east) * dot_prod(proj, proj));
-
-  //double angle2 = (180.0/M_PI) * acos (prod);
-
-  // Find the sun direction in the North-East-Down coordinate system
-  vw::Matrix3x3 M = georef.datum().lonlat_to_ned_matrix(ll);
-  Vector3 sun_dir_ned = inverse(M)*sun_dir;
-  
-  if (sun_dir_ned[0] == 0 && sun_dir_ned[1] == 0)
-    azimuth = 0;
-  else
-    azimuth = (180.0/M_PI) * atan2(sun_dir_ned[1], sun_dir_ned[0]);
-
-  double L = norm_2(subvector(sun_dir_ned, 0, 2));
-  elevation = (180.0/M_PI) * atan2(-sun_dir_ned[2], L);
-  
-}
 
 // Compute mean and standard deviation of two images. Do it where both are valid.
 template <class ImageT>
@@ -1041,7 +1249,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
     blending_dist, blending_power, min_blend_size, num_haze_coeffs;
   bool float_albedo, float_exposure, float_cameras, float_all_cameras, model_shadows,
     save_computed_intensity_only, compute_exposures_only,
-    save_dem_with_nodata, use_approx_camera_models, use_rpc_approximation, use_semi_approx,
+    save_dem_with_nodata, use_approx_camera_models, use_approx_adjusted_camera_models,
+    use_rpc_approximation, use_semi_approx,
     crop_input_images, float_dem_at_boundary, boundary_fix, fix_dem,
     float_reflectance_model, float_sun_position, query, save_sparingly, float_haze;
   double smoothness_weight, integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
@@ -1059,6 +1268,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
             compute_exposures_only(false),
 	    save_dem_with_nodata(false),
 	    use_approx_camera_models(false),
+	    use_approx_adjusted_camera_models(false),
 	    use_rpc_approximation(false),
             use_semi_approx(false),
 	    crop_input_images(false), 
@@ -1780,32 +1990,129 @@ void save_exposures(std::string const& out_prefix,
     exf.close();
 }
 
+// Pull the ISIS model from an adjusted IsisCameraModel or
+// ApproxCameraModel or AdjustedApproxCameraModel
+boost::shared_ptr<CameraModel> get_isis_cam(Options const& opt,
+                                            boost::shared_ptr<CameraModel> cam,
+                                            bool allow_unadjusted = false){
+
+  boost::shared_ptr<CameraModel> unadj_cam, isis_cam;
+  
+  AdjustedCameraModel * adj_cam = dynamic_cast<AdjustedCameraModel*>(cam.get());
+  if (adj_cam != NULL) {
+    unadj_cam = adj_cam->unadjusted_model();
+  }else{
+    if (!allow_unadjusted && !opt.use_approx_adjusted_camera_models) 
+      vw_throw( ArgumentErr() << "get_isis_cam: Expecting an adjusted camera model.\n" );
+    else
+      unadj_cam = cam;
+  }
+  
+  if (unadj_cam.get() == NULL)
+    vw_throw( ArgumentErr() << "get_isis_cam: Expecting a valid camera model.\n" );
+
+  // There are three cases here. The unadjusted camera is either ISIS camera,
+  // or ApproxCameraModel, or AdjustedApproxCameraModel.
+  ApproxCameraModel * apcam = dynamic_cast<ApproxCameraModel*>(unadj_cam.get());
+  if (apcam != NULL) {
+    isis_cam = apcam->exact_unadjusted_camera();
+  }else{
+    AdjustedApproxCameraModel * aapcam = dynamic_cast<AdjustedApproxCameraModel*>(unadj_cam.get());
+    if (aapcam != NULL) {
+      isis_cam = aapcam->exact_unadjusted_camera();
+    }else{
+      isis_cam = unadj_cam;
+    }
+  }
+  
+  if (dynamic_cast<IsisCameraModel*>(isis_cam.get()) == NULL)
+    vw_throw( ArgumentErr() << "get_isis_cam: Expecting an ISIS camera model.\n" );
+
+  return isis_cam;
+}
+
+// Find the sun azimuth and elevation at the lon-lat position of the
+// center of the DEM. The result can change depending on the DEM.
+void sun_angles(Options const& opt,
+                ImageView<double> const& dem, double nodata_val, GeoReference const& georef,
+                boost::shared_ptr<CameraModel> cam, double & azimuth, double &elevation){
+
+  bool allow_unadjusted = true; // At this stage we don't care about adjustments
+  boost::shared_ptr<CameraModel> ucam = get_isis_cam(opt, cam, allow_unadjusted);
+  IsisCameraModel* isis_cam = dynamic_cast<IsisCameraModel*>(ucam.get());
+  if (isis_cam == NULL)
+    vw_throw( ArgumentErr()
+              << "Expecting an ISIS camera model.\n");
+  
+  int cols = dem.cols(), rows = dem.rows();
+  if (cols <= 0 || rows <= 0)
+    vw_throw( ArgumentErr() << "Expecting a non-empty DEM.\n" );
+
+  // Find lon-lat-height in the middle of the DEM
+  Vector2 ll = georef.pixel_to_lonlat(Vector2(cols/2.0, rows/2.0));
+  double height = dem(cols/2.0, rows/2.0);
+  if (height == nodata_val)
+    height = 0;
+  Vector3 llh(ll[0], ll[1], height);
+
+  Vector3 xyz = georef.datum().geodetic_to_cartesian(llh); // point on the planet
+  Vector3 east(-xyz[1], xyz[0], 0);
+
+  Vector3 sun_pos = isis_cam->sun_position();
+  Vector3 sun_dir = sun_pos - xyz;
+
+  //double prod = dot_prod(sun_dir, east)
+  //  / sqrt ( dot_prod(east, east) * dot_prod(sun_dir, sun_dir));
+  //double angle = (180.0/M_PI) * acos (prod);
+
+  // Projection in the tangent plane
+  //  Vector3 proj = sun_dir - xyz*dot_prod(sun_dir, xyz)/dot_prod(xyz, xyz);
+
+  //prod = dot_prod(proj, east)
+  //  / sqrt ( dot_prod(east, east) * dot_prod(proj, proj));
+
+  //double angle2 = (180.0/M_PI) * acos (prod);
+
+  // Find the sun direction in the North-East-Down coordinate system
+  vw::Matrix3x3 M = georef.datum().lonlat_to_ned_matrix(ll);
+  Vector3 sun_dir_ned = inverse(M)*sun_dir;
+  
+  if (sun_dir_ned[0] == 0 && sun_dir_ned[1] == 0)
+    azimuth = 0;
+  else
+    azimuth = (180.0/M_PI) * atan2(sun_dir_ned[1], sun_dir_ned[0]);
+
+  double L = norm_2(subvector(sun_dir_ned, 0, 2));
+  elevation = (180.0/M_PI) * atan2(-sun_dir_ned[2], L);
+  
+}
+
 // A function to invoke at every iteration of ceres.
 // We need a lot of global variables to do something useful.
+Options                                const * g_opt = NULL;
 int                                            g_iter = -1;
-Options                                const * g_opt;
-std::vector< ImageView<double> >             * g_dem;
-std::vector< ImageView<Vector2> >            * g_pq;
-std::vector< ImageView<double> >             * g_albedo;
-std::vector<cartography::GeoReference> const * g_geo;
-GlobalParams                           const * g_global_params;
-std::vector<ModelParams>               const * g_model_params;
-std::vector< std::vector<BBox2i> >     const * g_crop_boxes;
-std::vector< std::vector<MaskedImgT> > const * g_masked_images;
-std::vector< std::vector<DoubleImgT> > const * g_blend_weights;
-std::vector< std::vector<boost::shared_ptr<CameraModel> > > * g_cameras;
-double                                       * g_dem_nodata_val;
-float                                        * g_img_nodata_val;
-std::vector<double>                          * g_exposures;
-std::vector< std::vector<double> >           * g_haze;
-std::vector<double>                          * g_adjustments;
-std::vector<double>                          * g_sun_positions;
-std::vector<double>                          * g_max_dem_height;
-double                                       * g_gridx;
-double                                       * g_gridy;
+std::vector< ImageView<double> >             * g_dem = NULL;
+std::vector< ImageView<Vector2> >            * g_pq = NULL;
+std::vector< ImageView<double> >             * g_albedo = NULL;
+std::vector<cartography::GeoReference> const * g_geo = NULL;
+GlobalParams                           const * g_global_params = NULL;
+std::vector<ModelParams>               const * g_model_params = NULL;
+std::vector< std::vector<BBox2i> >     const * g_crop_boxes = NULL;
+std::vector< std::vector<MaskedImgT> > const * g_masked_images = NULL;
+std::vector< std::vector<DoubleImgT> > const * g_blend_weights = NULL;
+std::vector< std::vector<boost::shared_ptr<CameraModel> > > * g_cameras = NULL;
+double                                       * g_dem_nodata_val = NULL;
+float                                        * g_img_nodata_val = NULL;
+std::vector<double>                          * g_exposures = NULL;
+std::vector< std::vector<double> >           * g_haze = NULL;
+std::vector<double>                          * g_adjustments = NULL;
+std::vector<double>                          * g_sun_positions = NULL;
+std::vector<double>                          * g_max_dem_height = NULL;
+double                                       * g_gridx = NULL;
+double                                       * g_gridy = NULL;
 int                                            g_level = -1;
 bool                                           g_final_iter = false;
-double                                       * g_reflectance_model_coeffs; 
+double                                       * g_reflectance_model_coeffs = NULL; 
 
 // When floating the camera position and orientation, multiply the
 // position variables by this factor times
@@ -1874,21 +2181,25 @@ public:
       for (size_t image_iter = 0; image_iter < (*g_masked_images)[dem_iter].size(); image_iter++) {
         if (g_opt->skip_images[dem_iter].find(image_iter) !=
             g_opt->skip_images[dem_iter].end()) continue;
-       
-        AdjustedCameraModel * icam
-          = dynamic_cast<AdjustedCameraModel*>((*g_cameras)[dem_iter][image_iter].get());
-        if (icam == NULL)
-          vw_throw(ArgumentErr() << "Expecting adjusted camera models.\n");
-        Vector3 translation;
-        Vector3 axis_angle;
-        for (int param_iter = 0; param_iter < 3; param_iter++) {
-          translation[param_iter]
-            = (g_position_scale_factor*g_opt->camera_position_step_size)*
-            (*g_adjustments)[6*image_iter + 0 + param_iter];
-          axis_angle[param_iter] = (*g_adjustments)[6*image_iter + 3 + param_iter];
+
+        if (!g_opt->use_approx_adjusted_camera_models) {
+          // When we use approx adjusted camera models we never change the adjustments,
+          // hence this step is not necessary
+          AdjustedCameraModel * icam
+            = dynamic_cast<AdjustedCameraModel*>((*g_cameras)[dem_iter][image_iter].get());
+          if (icam == NULL)
+            vw_throw(ArgumentErr() << "Expecting an adjusted camera model.\n");
+          Vector3 translation;
+          Vector3 axis_angle;
+          for (int param_iter = 0; param_iter < 3; param_iter++) {
+            translation[param_iter]
+              = (g_position_scale_factor*g_opt->camera_position_step_size)*
+              (*g_adjustments)[6*image_iter + 0 + param_iter];
+            axis_angle[param_iter] = (*g_adjustments)[6*image_iter + 3 + param_iter];
+          }
+          icam->set_translation(translation);
+          icam->set_axis_angle_rotation(axis_angle);
         }
-        icam->set_translation(translation);
-        icam->set_axis_angle_rotation(axis_angle);
       }
 
       std::ostringstream os;
@@ -1948,31 +2259,36 @@ public:
         ImageView< PixelMask<double> > reflectance, intensity, comp_intensity;
         ImageView< double            > blend_weight;
 
-        // Save the camera adjustments for the current iteration
-        //std::string out_camera_file = g_opt->out_prefix + "-camera"
-	//+ iter_str2 + ".adjust";
-        //vw_out() << "Writing: " << out_camera_file << std::endl;
-        AdjustedCameraModel * icam
-          = dynamic_cast<AdjustedCameraModel*>((*g_cameras)[dem_iter][image_iter].get());
-        if (icam == NULL)
-          vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
-        Vector3 translation = icam->translation();
-        Quaternion<double> rotation = icam->rotation();
-        //asp::write_adjustments(out_camera_file, translation, rotation);
-
-        // Save adjusted files in the format <out prefix>-<input-img>.adjust
-        // so we can later read them with --bundle-adjust-prefix to be
-        // used in another SfS run.
-        //if (g_level == 0) {
-	std::string out_camera_file
-	  = asp::bundle_adjust_file_name(g_opt->out_prefix,
-					 g_opt->input_images[image_iter],
-					 g_opt->input_cameras[image_iter]);
-	if (!g_opt->save_computed_intensity_only){
-	  vw_out() << "Writing: " << out_camera_file << std::endl;
-	  asp::write_adjustments(out_camera_file, translation, rotation);
-	}
-
+        std::string out_camera_file
+          = asp::bundle_adjust_file_name(g_opt->out_prefix,
+                                         g_opt->input_images[image_iter],
+                                         g_opt->input_cameras[image_iter]);
+        
+        if (!g_opt->use_approx_adjusted_camera_models) {
+          // Save the camera adjustments for the current iteration.
+          // When we use approx adjusted camera models this is not necessary
+          // since then the cameras don't change.
+          //std::string out_camera_file = g_opt->out_prefix + "-camera"
+          //+ iter_str2 + ".adjust";
+          //vw_out() << "Writing: " << out_camera_file << std::endl;
+          AdjustedCameraModel * icam
+            = dynamic_cast<AdjustedCameraModel*>((*g_cameras)[dem_iter][image_iter].get());
+          if (icam == NULL)
+            vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
+          Vector3 translation = icam->translation();
+          Quaternion<double> rotation = icam->rotation();
+          //asp::write_adjustments(out_camera_file, translation, rotation);
+          
+          // Save adjusted files in the format <out prefix>-<input-img>.adjust
+          // so we can later read them with --bundle-adjust-prefix to be
+          // used in another SfS run.
+          //if (g_level == 0) {
+          if (!g_opt->save_computed_intensity_only){
+            vw_out() << "Writing: " << out_camera_file << std::endl;
+            asp::write_adjustments(out_camera_file, translation, rotation);
+          }
+        }
+        
         if (g_opt->save_sparingly && !g_opt->save_dem_with_nodata) 
           continue; // don't write too many things
         
@@ -2162,27 +2478,44 @@ calc_intensity_residual(const F* const exposure,
   residuals[0] = F(0.0);
   try{
 
-    AdjustedCameraModel * adj_cam
-      = dynamic_cast<AdjustedCameraModel*>(m_camera.get());
-    if (adj_cam == NULL)
-      vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
+    // Initialize this variable to something for now, it does not
+    // matter yet to what.  We just don't want it to go out of scope.
+    AdjustedCameraModel adj_cam_copy(m_camera);
 
-    // We create a copy of this camera to avoid issues when using
-    // multiple threads. We copy just the adjustment parameters,
-    // the pointer to the underlying ISIS camera is shared.
-    AdjustedCameraModel adj_cam_copy = *adj_cam;
+    // This is a bit tricky. If use adjusted approximate camera model
+    // (then the cameras never change), use the camera passed
+    // in. Else, create a copy of this camera to avoid issues when
+    // using multiple threads. In that case we copy just the
+    // adjustment parameters, the pointer to the underlying ISIS
+    // camera is shared.
+    CameraModel * camera = NULL;
 
-    // Apply current adjustments to the camera
-    Vector3 axis_angle;
-    Vector3 translation;
-    for (int param_iter = 0; param_iter < 3; param_iter++) {
-      translation[param_iter]
-        = (g_position_scale_factor*m_camera_position_step_size)*camera_adjustments[param_iter];
-      axis_angle[param_iter] = camera_adjustments[3 + param_iter];
+    if (g_opt->use_approx_adjusted_camera_models) {
+      camera = (CameraModel*)(m_camera.get());
+    }else{
+      AdjustedCameraModel * adj_cam
+        = dynamic_cast<AdjustedCameraModel*>(m_camera.get());
+      if (adj_cam == NULL)
+        vw_throw( ArgumentErr() << "Expecting an adjusted camera.\n");
+
+      // We overwrite the dummy value of adj_cam_copy with a deep copy
+      // of adj_cam.
+      adj_cam_copy = *adj_cam;
+      
+      // Apply current adjustments to the camera
+      Vector3 axis_angle;
+      Vector3 translation;
+      for (int param_iter = 0; param_iter < 3; param_iter++) {
+        translation[param_iter]
+          = (g_position_scale_factor*m_camera_position_step_size)*camera_adjustments[param_iter];
+        axis_angle[param_iter] = camera_adjustments[3 + param_iter];
+      }
+      adj_cam_copy.set_translation(translation);
+      adj_cam_copy.set_axis_angle_rotation(axis_angle);
+      
+      camera = &adj_cam_copy;
     }
-    adj_cam_copy.set_translation(translation);
-    adj_cam_copy.set_axis_angle_rotation(axis_angle);
-
+    
     PixelMask<double> reflectance(0), intensity(0);
     double weight = 0;
 
@@ -2201,7 +2534,7 @@ calc_intensity_residual(const F* const exposure,
                                      m_model_shadows, m_max_dem_height,
                                      m_gridx, m_gridy,
                                      m_model_params,  m_global_params,
-                                     m_crop_box, m_image, m_blend_weight, &adj_cam_copy,
+                                     m_crop_box, m_image, m_blend_weight, camera,
                                      sun_position,
                                      reflectance, intensity, weight, reflectance_model_coeffs);
       
@@ -2867,6 +3200,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save a copy of the DEM while using a no-data value at a DEM grid point where all images show shadows. To be used if shadow thresholds are set.")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed.")
+    ("use-approx-adjusted-camera-models",   po::bool_switch(&opt.use_approx_adjusted_camera_models)->default_value(false)->implicit_value(true),
+     "Approximate the adjusted cameras. This assumes that the adjustments won't change hence that the cameras are fixed. This should use less memory than just using approximate cameras as above.")
     ("use-rpc-approximation",   po::bool_switch(&opt.use_rpc_approximation)->default_value(false)->implicit_value(true),
      "Use RPC approximations for the camera models instead of approximate tabulated camera models (invoke with --use-approx-camera-models).")
     ("rpc-penalty-weight", po::value(&opt.rpc_penalty_weight)->default_value(0.1),
@@ -2998,11 +3333,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "The RPC approximation is broken.\n");
     
   if (opt.compute_exposures_only){
-    if (opt.use_approx_camera_models || opt.use_rpc_approximation ||
-        opt.crop_input_images || opt.use_semi_approx) {
+    if (opt.use_approx_camera_models ||
+        opt.use_approx_adjusted_camera_models ||
+        opt.use_rpc_approximation ||
+        opt.crop_input_images ||
+        opt.use_semi_approx) {
       vw_out(WarningMessage) << "When computing exposures only, not using approximate "
                              << "camera models or cropping input images.\n";
       opt.use_approx_camera_models = false;
+      opt.use_approx_adjusted_camera_models = false;
       opt.use_rpc_approximation = false;
       opt.crop_input_images = false;
       opt.use_semi_approx = false;
@@ -3013,11 +3352,26 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.blending_dist > 0 && !opt.crop_input_images) 
     vw_throw(ArgumentErr() << "A blending distance is only supported with --crop-input-images.\n");
   
-  if (opt.crop_input_images && !opt.use_approx_camera_models) {
+  if (opt.crop_input_images &&
+      !opt.use_approx_camera_models &&
+      !opt.use_approx_adjusted_camera_models) {
     vw_throw( ArgumentErr()
               << "Using cropped input images implies using an approximate camera model.\n" );
   }
 
+  if (opt.use_approx_adjusted_camera_models) {
+    if (opt.float_cameras)
+      vw_throw( ArgumentErr()
+                << "Using approximate adjusted camera models precludes them from floating.\n" );
+    if (opt.use_rpc_approximation)
+      vw_throw( ArgumentErr()
+                << "Approximate adjusted camera models cannot be used with rpc approximation.\n" );
+    if (opt.use_semi_approx)
+      vw_throw( ArgumentErr()
+                << "Approximate adjusted camera models cannot be used "
+                << "with the semi-approximation.\n" );
+  }
+  
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -3254,9 +3608,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.coarse_levels = 0;
     }
 
-    if (opt.use_approx_camera_models || opt.use_rpc_approximation || opt.crop_input_images) {
+    if (opt.use_approx_camera_models ||
+        opt.use_approx_adjusted_camera_models ||
+        opt.use_rpc_approximation ||
+        opt.crop_input_images) {
       vw_out(WarningMessage) << "Not using approximate camera models or cropping input images.\n";
       opt.use_approx_camera_models = false;
+      opt.use_approx_adjusted_camera_models = false;
       opt.use_rpc_approximation = false;
       opt.crop_input_images = false;
       opt.use_semi_approx = false;
@@ -3636,7 +3994,9 @@ void run_sfs_level(// Fixed inputs
      }
   }
   
-  if (opt.num_threads > 1 && !opt.use_approx_camera_models) {
+  if (opt.num_threads > 1 &&
+      !opt.use_approx_camera_models &&
+      !opt.use_approx_adjusted_camera_models) {
     vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
     opt.num_threads = 1;
   }
@@ -3656,7 +4016,6 @@ void run_sfs_level(// Fixed inputs
   options.update_state_every_iteration = true;
 
   // A bunch of global variables to use in the callback
-  g_opt            = &opt;
   g_dem            = &dems;
   g_pq             = &pq;
   g_albedo         = &albedos;
@@ -3867,6 +4226,7 @@ int main(int argc, char* argv[]) {
   sw_total.start();
   
   Options opt;
+  g_opt = &opt;
   try {
     handle_arguments( argc, argv, opt );
 
@@ -4000,7 +4360,6 @@ int main(int argc, char* argv[]) {
       // This can be useful
       vw_out() << "DEM cols and rows: " << dems[0][dem_iter].cols()  << ' '
                << dems[0][dem_iter].rows() << std::endl;
-
     }
     
     // Replace no-data values with the min valid value. That is because
@@ -4070,7 +4429,7 @@ int main(int argc, char* argv[]) {
 							      opt.input_cameras[image_iter]);
         if (dem_iter == 0) {
           double azimuth, elevation;
-          sun_angles(dems[0][dem_iter], dem_nodata_val, geos[0][dem_iter],
+          sun_angles(opt, dems[0][dem_iter], dem_nodata_val, geos[0][dem_iter],
                      cameras[dem_iter][image_iter], azimuth, elevation);
           // This line is being parsed outside this tool
           vw_out() << "Sun azimuth and elevation for: "
@@ -4085,7 +4444,9 @@ int main(int argc, char* argv[]) {
     }
 
     // Since we may float the cameras, ensure our camera models are
-    // always adjustable.
+    // always adjustable. Note that if the user invoked this tool with
+    // --bundle-adjust-prefix, the adjustments were already loaded
+    // by now so the cameras are already adjustable. 
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       for (int image_iter = 0; image_iter < num_images; image_iter++){
         
@@ -4133,7 +4494,7 @@ int main(int argc, char* argv[]) {
     vw::Mutex camera_mutex;
 
     // If to use approximate camera models
-    if (opt.use_approx_camera_models) {
+    if (opt.use_approx_camera_models || opt.use_approx_adjusted_camera_models) {
 
       for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       
@@ -4158,29 +4519,44 @@ int main(int argc, char* argv[]) {
           BBox2i img_bbox = crop_boxes[0][dem_iter][image_iter];
           Stopwatch sw;
           sw.start();
-          boost::shared_ptr<CameraModel> apcam
-            (new ApproxCameraModel(adj_cam, exact_cam, img_bbox, dems[0][dem_iter],
-                                   geos[0][dem_iter],
-                                   dem_nodata_val, opt.use_rpc_approximation, opt.use_semi_approx,
-                                   opt.rpc_penalty_weight, camera_mutex));
+          boost::shared_ptr<CameraModel> apcam;
+          if (opt.use_approx_camera_models) {
+            apcam = boost::shared_ptr<CameraModel>
+              (new ApproxCameraModel(adj_cam, exact_cam, img_bbox, dems[0][dem_iter],
+                                     geos[0][dem_iter],
+                                     dem_nodata_val, opt.use_rpc_approximation,
+                                     opt.use_semi_approx,
+                                     opt.rpc_penalty_weight, camera_mutex));
+            
+            // Copy the adjustments over to the approximate camera model
+            Vector3 translation  = adj_cam.translation();
+            Quat rotation        = adj_cam.rotation();
+            Vector2 pixel_offset = adj_cam.pixel_offset();
+            double scale         = adj_cam.scale();
+            cameras[dem_iter][image_iter] = boost::shared_ptr<CameraModel>
+              (new AdjustedCameraModel(apcam, translation,
+                                       rotation, pixel_offset, scale));
+          }else if (opt.use_approx_adjusted_camera_models){
+            apcam = boost::shared_ptr<CameraModel>
+              (new AdjustedApproxCameraModel(adj_cam, exact_cam, img_bbox,
+                                             dems[0][dem_iter], geos[0][dem_iter],
+                                             dem_nodata_val, camera_mutex));
+            // Adjustments are already baked into the adjusted
+            // approximate cameras, that is why the logic as above to
+            // reincorporate the adjustments is not needed.
+            cameras[dem_iter][image_iter] = apcam;
+          }
+          
           sw.stop();
           vw_out() << "Approximate model generation time: " << sw.elapsed_seconds()
                    << " s." << std::endl;
+          
+          callTop();
 
-          // Copy the adjustments over to the approximate camera model
-          Vector3 translation  = adj_cam.translation();
-          Quat rotation        = adj_cam.rotation();
-          Vector2 pixel_offset = adj_cam.pixel_offset();
-          double scale         = adj_cam.scale();
-
-          cameras[dem_iter][image_iter] = boost::shared_ptr<CameraModel>
-            (new AdjustedCameraModel(apcam, translation,
-                                     rotation, pixel_offset, scale));
-
-          // Cast the pointer back to AdjustedCameraModel as we need that.
-          ApproxCameraModel* cam_ptr = dynamic_cast<ApproxCameraModel*>(apcam.get());
+          // Cast the pointer back to BaseApproxCameraModel as we need that.
+          BaseApproxCameraModel* cam_ptr = dynamic_cast<BaseApproxCameraModel*>(apcam.get());
           if (cam_ptr == NULL) 
-            vw_throw( ArgumentErr() << "Expecting an ApproxCameraModel." );
+            vw_throw( ArgumentErr() << "Expecting a BaseApproxCameraModel." );
 
           bool model_is_valid = cam_ptr->model_is_valid();
           
@@ -4199,16 +4575,25 @@ int main(int argc, char* argv[]) {
                 Vector3 xyz = geos[0][dem_iter].datum().geodetic_to_cartesian
                   (Vector3(ll[0], ll[1], dems[0][dem_iter](col, row)));
 
-                // Test how unadjusted models compare
-                Vector2 pix1 = exact_cam->point_to_pixel(xyz);
-                //if (!img_bbox.contains(pix1)) continue;
-
-                Vector2 pix2 = apcam->point_to_pixel(xyz);
-                max_curr_err = std::max(max_curr_err, norm_2(pix1 - pix2));
-                //std::cout << "orig and approx1 " << pix1 << ' ' << pix2 << ' '
-                //          << norm_2(pix1-pix2) << std::endl;
-
-                // Test how adjusted models compare
+                if (opt.use_approx_camera_models) {
+                  // For approx adjusted camera models we don't do this,
+                  // as we don't approximate the unadjusted camera.
+                  // Test how unadjusted models compare
+                  Vector2 pix1 = exact_cam->point_to_pixel(xyz);
+                  //if (!img_bbox.contains(pix1)) continue;
+                  
+                  Vector2 pix2 = apcam->point_to_pixel(xyz);
+                  max_curr_err = std::max(max_curr_err, norm_2(pix1 - pix2));
+                  //std::cout << "orig and approx1 " << pix1 << ' ' << pix2 << ' '
+                  //          << norm_2(pix1-pix2) << std::endl;
+                  
+                  // Use these pixels to expand the crop box, as we now also know the adjustments.
+                  // This is a bug fix.
+                  cam_ptr->crop_box().grow(pix1);
+                  cam_ptr->crop_box().grow(pix2);
+                }
+                
+                // Test how adjusted (exact and approximate) models compare
                 Vector2 pix3 = adj_cam.point_to_pixel(xyz);
                 //if (!img_bbox.contains(pix3)) continue;
                 Vector2 pix4 = cameras[dem_iter][image_iter]->point_to_pixel(xyz);
@@ -4216,10 +4601,6 @@ int main(int argc, char* argv[]) {
                 //std::cout << "orig and approx2 " << pix3 << ' ' << pix4 << ' '
                 //          << norm_2(pix3-pix4) << std::endl;
 
-                // Use these pixels to expand the crop box, as we now also know the adjustments.
-                // This is a bug fix.
-                cam_ptr->crop_box().grow(pix1);
-                cam_ptr->crop_box().grow(pix2);
                 cam_ptr->crop_box().grow(pix3);
                 cam_ptr->crop_box().grow(pix4);
               }
@@ -4355,7 +4736,7 @@ int main(int argc, char* argv[]) {
 	if (opt.skip_images[dem_iter].find(image_iter) !=
 	    opt.skip_images[dem_iter].end()) continue;
 	IsisCameraModel* icam
-	  = dynamic_cast<IsisCameraModel*>(get_isis_cam(cameras[dem_iter][image_iter]).get());
+	  = dynamic_cast<IsisCameraModel*>(get_isis_cam(opt, cameras[dem_iter][image_iter]).get());
 	model_params[image_iter].sunPosition = icam->sun_position();
       }
       
