@@ -41,6 +41,11 @@ asp_system_utils.verify_python_version_is_supported()
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
+# Measure the memory usage on Linux and elapsed time
+timeCmd = []
+if 'linux' in sys.platform:
+    timeCmd = ['/usr/bin/time', '-f', 'elapsed=%E memory=%M (kb)']
+
 def generateTileList(sizeX, sizeY, tileSize, padding):
     """Generate a full list of tiles for this image"""
 
@@ -164,9 +169,9 @@ def runSfs(options, cameras, outputFolder, outputName):
             extraArgs.append(arg)
             i += 1
 
-    # Just call the command for a single tile
-    #cmd = ['/usr/bin/time', '-f', '"elapsed=%E memory=%M (kb)"' ...] # not working on mac
-    cmd = ['sfs',  '--crop-win', str(startX), str(startY), str(stopX), str(stopY)]
+    # Call the command for a single tile
+    cmd = timeCmd + ['sfs',  '--crop-win', str(startX), str(startY), str(stopX), str(stopY)]
+
     cmd = cmd + cameras + extraArgs # Append other options
     willRun = True
     if options.resume:
@@ -180,8 +185,10 @@ def runSfs(options, cameras, outputFolder, outputName):
             willRun = False
             
     if willRun:
-        asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
-
+        (out, err, status) = asp_system_utils.executeCommand(cmd,
+                                                             suppressOutput=options.suppressOutput)
+        write_cmd_output(tilePrefix, cmd, out, err, status)
+        
     return 0
 
 def mosaic_results(tileList, outputFolder, outputName, options, inFilePrefix, outFilePrefix):
@@ -197,7 +204,7 @@ def mosaic_results(tileList, outputFolder, outputName, options, inFilePrefix, ou
     dem_mosaic_path = asp_system_utils.bin_path('dem_mosaic')
     dem_mosaic_args = ['--weights-exponent', '2', '--use-centerline-weights',
                        '-o', options.output_prefix]
-    cmd = [dem_mosaic_path] + outputDems + dem_mosaic_args
+    cmd = timeCmd + [dem_mosaic_path] + outputDems + dem_mosaic_args
     asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
     # Rename from dem_mosaic convention to sfs convention
@@ -205,6 +212,15 @@ def mosaic_results(tileList, outputFolder, outputName, options, inFilePrefix, ou
     print("Renaming to: " + finalDem)
     os.rename(options.output_prefix + '-tile-0.tif', finalDem)
 
+def write_cmd_output(output_prefix, cmd, out, err, status):
+    logFile = output_prefix + '-cmd-log.txt'
+    print("Saving log in: " + logFile)
+    with open(logFile, 'w') as f:
+        f.write(" ".join(cmd))
+        f.write(out)
+        f.write(err)
+        f.write('Command return status: ' + str(status))
+    
 def main(argsIn):
 
     cameras = []
@@ -322,7 +338,7 @@ def main(argsIn):
     # Compute the exposures if not specified and missing
     if '--image-exposures-prefix' not in options.extraArgs:
         print("Computing exposures.\n")
-        cmd = [sfsPath] + cameras + options.extraArgs + ['--compute-exposures-only']
+        cmd = timeCmd + [sfsPath] + cameras + options.extraArgs + ['--compute-exposures-only']
         asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
         options.extraArgs += ['--image-exposures-prefix', options.output_prefix]
 
@@ -352,8 +368,10 @@ def main(argsIn):
 
     # If there is only going to be one output tile, just use the non-parallel call
     if (numTilesX*numTilesY == 1):
-        cmd = [sfsPath] + cameras + options.extraArgs
-        asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+        cmd = timeCmd + [sfsPath] + cameras + options.extraArgs
+        (out, err, status) = asp_system_utils.executeCommand(cmd,
+                                                             suppressOutput=options.suppressOutput)
+        write_cmd_output(options.output_prefix, cmd, out, err, status)
         return 0
     
     # Generate a text file that contains the boundaries for each tile

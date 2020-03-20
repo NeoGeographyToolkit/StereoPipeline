@@ -17,13 +17,47 @@
 
 // TODO:
 // Deal with outliers in image intensity.
-// When the cameras are not floated, compute
-// the approximation for the input adjusted cameras,
-// rather than for the unadjusted cameras with a wide margin.
-// That should speed things up and use less memory.
 // The rpc approximation should also approximate the adjusted cameras if those won't float.
 // This approximation needs to remember is domain of validity.
 // TODO: Ensure the output DEM is float. Check its no-data value.
+// TODO: Study more floating model coefficients.
+// TODO: Study why using tabulated camera model and multiple resolutions does
+// not work as well as it should.
+// TODO: When using approx camera, we assume the DEM and image grids are very similar.
+// TODO: Remove warning from the approx camera
+// TODO: Make it possible to initialize a DEM from scratch.
+// TODO: Study more the multi-resolution approach.
+// TODO: Must specify in the SfS doc that the lunar lambertian model fails at poles
+// TODO: If this code becomes multi-threaded, need to keep in mind
+// that camera models are shared and modified, so
+// this may cause problems.
+// TODO: How to relax conditions at the boundary to improve the accuracy?
+// TODO: Study if blurring the input images improves the fit.
+// TODO: Add --orthoimage option, and make it clear where the final DEM is.
+// Same for albedo. The other info should be printed only in debug mode.
+// Implement multi-grid for SfS, it should help with bad initial DEM and bad
+// camera alignment.
+// TODO: Save final DEM and final ortho images.
+// TODO: Document the bundle adjustment, and if necessary, manual ip selection.
+// Say that if the camera are bundle adjusted, sfs can further improve
+// the camera positions to make the results more self consistent,
+// but this works only if the cameras are reasonably accurate to start with.
+// TODO: Study the effect of reading the images as double as opposed to float.
+// TODO: Study the effect of using bicubic interpolation.
+// TODO: Study phaseCoeffC1, etc.
+// TODO: Find a good automatic value for the smoothness weight.
+// TODO: How to change the smoothness weight if resolution changes?
+// How to change the smoothness weight if the number of images changes?
+// TODO: Investigate the sign of the normal.
+// TODO: Loop over all images when doing sfs.
+// TODO: Check that we are within image boundaries when interpolating.
+// TODO: Radiometric calibration of images.
+// TODO: Handle the case when the DEM has no-data values.
+// TODO: Add various kind of loss function.
+// TODO: Study the normal computation formula.
+// TODO: Move some code to Core.
+// TODO: Make it work with non-ISIS cameras.
+// TODO: Clean up some of the classes, not all members are needed.
 
 /// \file sfs.cc
 
@@ -83,61 +117,23 @@ using namespace vw::cartography;
 typedef ImageViewRef< PixelMask<float> > MaskedImgT;
 typedef ImageViewRef<double> DoubleImgT;
 
-// TODO: Study more floating model coefficients.
-// TODO: Study why using tabulated camera model and multiple resolutions does
-// not work as well as it should.
-// TODO: When using approx camera, we assume the DEM and image grids are very similar.
-// TODO: Remove warning from the approx camera
-// TODO: Make it possible to initialize a DEM from scratch.
-// TODO: Study more the multi-resolution approach.
-// TODO: Must specify in the SfS doc that the lunar lambertian model fails at poles
-// TODO: If this code becomes multi-threaded, need to keep in mind
-// that camera models are shared and modified, so
-// this may cause problems.
-// TODO: How to relax conditions at the boundary to improve the accuracy?
-// TODO: Study if blurring the input images improves the fit.
-// TODO: Add --orthoimage option, and make it clear where the final DEM is.
-// Same for albedo. The other info should be printed only in debug mode.
-// Implement multi-grid for SfS, it should help with bad initial DEM and bad
-// camera alignment.
-// TODO: Save final DEM and final ortho images.
-// TODO: Document the bundle adjustment, and if necessary, manual ip selection.
-// Say that if the camera are bundle adjusted, sfs can further improve
-// the camera positions to make the results more self consistent,
-// but this works only if the cameras are reasonably accurate to start with.
-// TODO: Study the effect of reading the images as double as opposed to float.
-// TODO: Study the effect of using bicubic interpolation.
-// TODO: Study phaseCoeffC1, etc.
-// TODO: Find a good automatic value for the smoothness weight.
-// TODO: How to change the smoothness weight if resolution changes?
-// How to change the smoothness weight if the number of images changes?
-// TODO: Investigate the sign of the normal.
-// TODO: Loop over all images when doing sfs.
-// TODO: Check that we are within image boundaries when interpolating.
-// TODO: Radiometric calibration of images.
-// TODO: Handle the case when the DEM has no-data values.
-// TODO: Add various kind of loss function.
-// TODO: Study the normal computation formula.
-// TODO: Move some code to Core.
-// TODO: Make it work with non-ISIS cameras.
-// TODO: Clean up some of the classes, not all members are needed.
 
 namespace vw { namespace camera {
 
   // A base approx camera model class that will factor out some functionality
-  // from the two approx camera model classes we have below
-  class BaseApproxCameraModel: public CameraModel {
+  // from the two approx camera model classes we have below.
+  class ApproxBaseCameraModel: public CameraModel {
 
   protected:
     BBox2i m_img_bbox;
     mutable BBox2 m_point_box, m_crop_box;
     bool m_model_is_valid;
-    boost::shared_ptr<CameraModel>  m_exact_unadjusted_camera;
+    boost::shared_ptr<CameraModel> m_exact_unadjusted_camera;
     AdjustedCameraModel m_exact_adjusted_camera;
 
   public:
 
-    BaseApproxCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
+    ApproxBaseCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
                           boost::shared_ptr<CameraModel> exact_unadjusted_camera,
                           BBox2i img_bbox): m_exact_adjusted_camera(exact_adjusted_camera),
                                             m_exact_unadjusted_camera(exact_unadjusted_camera),
@@ -169,7 +165,7 @@ namespace vw { namespace camera {
   // function of an ISIS camera around a current DEM. The algorithm
   // works by tabulation of point_to_pixel and pixel_to_vector values
   // at the mean dem height.
-  class ApproxCameraModel: public BaseApproxCameraModel {
+  class ApproxCameraModel: public ApproxBaseCameraModel {
     mutable Vector3 m_mean_dir; // mean vector from camera to ground
     GeoReference m_geo;
     double m_mean_ht;
@@ -449,7 +445,7 @@ namespace vw { namespace camera {
 		      bool use_rpc_approximation, bool use_semi_approx,
                       double rpc_penalty_weight,
 		      vw::Mutex &camera_mutex):
-      BaseApproxCameraModel(exact_adjusted_camera, exact_unadjusted_camera, img_bbox),
+      ApproxBaseCameraModel(exact_adjusted_camera, exact_unadjusted_camera, img_bbox),
       m_geo(geo),
       m_use_rpc_approximation(use_rpc_approximation),
       m_use_semi_approx(use_semi_approx),
@@ -810,15 +806,17 @@ namespace vw { namespace camera {
 
   };
 
-  // This class provides an approximation for an input adjusted ISIS
-  // camera model around a current DEM. Unlike the ApproxCameraModel
-  // class, here the adjusted camera is approximated, not the
-  // unadjusted one, hence the adjustments and the cameras themselves
-  // cannot be floated with this class. Keeping the cameras fixed
-  // allows the approximation to work perhaps on a narrower
-  // domain. The algorithm works by tabulation of point_to_pixel and
+  // TODO(oalexan1): Must use the adjusted model in the camera center
+  // and camera pose functions!
+  // This class provides an approximation for an adjusted ISIS camera
+  // model around a current DEM. Unlike the ApproxCameraModel class,
+  // here the adjusted camera is approximated, not the unadjusted one,
+  // hence the adjustments and the cameras themselves cannot be
+  // floated with this class. Keeping the cameras fixed allows the
+  // domain of approximation to be narrower so using less memory. The
+  // algorithm works by tabulation of point_to_pixel and
   // pixel_to_vector values at the mean dem height.
-  class AdjustedApproxCameraModel: public BaseApproxCameraModel {
+  class ApproxAdjustedCameraModel: public ApproxBaseCameraModel {
     mutable Vector3 m_mean_dir; // mean vector from camera to ground
     GeoReference m_geo;
     double m_mean_ht;
@@ -877,14 +875,14 @@ namespace vw { namespace camera {
     
   public:
 
-    AdjustedApproxCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
+    ApproxAdjustedCameraModel(AdjustedCameraModel const& exact_adjusted_camera,
                               boost::shared_ptr<CameraModel> exact_unadjusted_camera,
                               BBox2i img_bbox, 
                               ImageView<double> const& dem,
                               GeoReference const& geo,
                               double nodata_val,
                               vw::Mutex &camera_mutex):
-      BaseApproxCameraModel(exact_adjusted_camera, exact_unadjusted_camera, img_bbox),
+      ApproxBaseCameraModel(exact_adjusted_camera, exact_unadjusted_camera, img_bbox),
       m_geo(geo), m_camera_mutex(camera_mutex) {
 
       // Initialize members of the base class
@@ -895,7 +893,7 @@ namespace vw { namespace camera {
       
       if (dynamic_cast<IsisCameraModel*>(exact_unadjusted_camera.get()) == NULL)
 	vw_throw( ArgumentErr()
-		  << "AdjustedApproxCameraModel: Expecting an unadjusted ISIS camera model.\n");
+		  << "ApproxAdjustedCameraModel: Expecting an unadjusted ISIS camera model.\n");
 
       // Compute the mean DEM height.
       // We expect all DEM entries to be valid.
@@ -905,7 +903,7 @@ namespace vw { namespace camera {
 	for (int row = 0; row < dem.rows(); row++) {
 	  if (dem(col, row) == nodata_val)
 	    vw_throw( ArgumentErr()
-		      << "AdjustedApproxCameraModel: Expecting a DEM without nodata values.\n");
+		      << "ApproxAdjustedCameraModel: Expecting a DEM without nodata values.\n");
 	  m_mean_ht += dem(col, row);
 	  num += 1.0;
 	}
@@ -920,7 +918,7 @@ namespace vw { namespace camera {
 
       if (m_approx_table_gridx == 0 || m_approx_table_gridy == 0) {
 	vw_throw( ArgumentErr()
-		  << "AdjustedApproxCameraModel: Expecting a positive grid size.\n");
+		  << "ApproxAdjustedCameraModel: Expecting a positive grid size.\n");
       }
 
       // Expand the box, as later the DEM will change. 
@@ -943,10 +941,8 @@ namespace vw { namespace camera {
 
       vw_out() << "Lookup table dimensions: " << numx << ' ' << numy << std::endl;
 
-      // Choose f so that the width from m_begX to m_endX is 2 x original wx
-      double f = 0; // (extra-0.5)/(2.0*extra+1.0);
-      m_begX = f*numx; m_endX = std::min((1.0-f)*numx, numx-1.0);
-      m_begY = f*numy; m_endY = std::min((1.0-f)*numy, numy-1.0);
+      m_begX = 0; m_endX = numx-1;
+      m_begY = 0; m_endY = numy-1;
       
       //vw_out() << "Size of actually pre-computed table: "
       //	       << m_endX - m_begX << ' ' << m_endY - m_begY << std::endl;
@@ -1058,8 +1054,8 @@ namespace vw { namespace camera {
       return pix;
     }
 
-    virtual ~AdjustedApproxCameraModel(){}
-    virtual std::string type() const{ return "AdjustedApproxIsis"; }
+    virtual ~ApproxAdjustedCameraModel(){}
+    virtual std::string type() const{ return "ApproxAdjustedIsis"; }
 
     virtual Vector3 pixel_to_vector(Vector2 const& pix) const {
 
@@ -1251,7 +1247,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     save_computed_intensity_only, compute_exposures_only,
     save_dem_with_nodata, use_approx_camera_models, use_approx_adjusted_camera_models,
     use_rpc_approximation, use_semi_approx,
-    crop_input_images, float_dem_at_boundary, boundary_fix, fix_dem,
+    crop_input_images, float_dem_at_boundary, boundary_fix, fix_dem, float_dem_only,
     float_reflectance_model, float_sun_position, query, save_sparingly, float_haze;
   double smoothness_weight, integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
     initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
@@ -1273,6 +1269,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
             use_semi_approx(false),
 	    crop_input_images(false), 
             float_dem_at_boundary(false), boundary_fix(false), fix_dem(false),
+            float_dem_only(false),
             float_reflectance_model(false), float_sun_position(false),
             query(false), save_sparingly(false), float_haze(false),
 	    smoothness_weight(0), integrability_weight(0), smoothness_weight_pq(0),
@@ -1991,7 +1988,7 @@ void save_exposures(std::string const& out_prefix,
 }
 
 // Pull the ISIS model from an adjusted IsisCameraModel or
-// ApproxCameraModel or AdjustedApproxCameraModel
+// ApproxCameraModel or ApproxAdjustedCameraModel
 boost::shared_ptr<CameraModel> get_isis_cam(Options const& opt,
                                             boost::shared_ptr<CameraModel> cam,
                                             bool allow_unadjusted = false){
@@ -2012,12 +2009,12 @@ boost::shared_ptr<CameraModel> get_isis_cam(Options const& opt,
     vw_throw( ArgumentErr() << "get_isis_cam: Expecting a valid camera model.\n" );
 
   // There are three cases here. The unadjusted camera is either ISIS camera,
-  // or ApproxCameraModel, or AdjustedApproxCameraModel.
+  // or ApproxCameraModel, or ApproxAdjustedCameraModel.
   ApproxCameraModel * apcam = dynamic_cast<ApproxCameraModel*>(unadj_cam.get());
   if (apcam != NULL) {
     isis_cam = apcam->exact_unadjusted_camera();
   }else{
-    AdjustedApproxCameraModel * aapcam = dynamic_cast<AdjustedApproxCameraModel*>(unadj_cam.get());
+    ApproxAdjustedCameraModel * aapcam = dynamic_cast<ApproxAdjustedCameraModel*>(unadj_cam.get());
     if (aapcam != NULL) {
       isis_cam = aapcam->exact_unadjusted_camera();
     }else{
@@ -2274,7 +2271,7 @@ public:
           AdjustedCameraModel * icam
             = dynamic_cast<AdjustedCameraModel*>((*g_cameras)[dem_iter][image_iter].get());
           if (icam == NULL)
-            vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
+            vw_throw( ArgumentErr() << "Expecting an adjusted camera.\n");
           Vector3 translation = icam->translation();
           Quaternion<double> rotation = icam->rotation();
           //asp::write_adjustments(out_camera_file, translation, rotation);
@@ -2672,6 +2669,133 @@ struct IntensityError {
   MaskedImgT                        const & m_image;          // alias
   DoubleImgT                        const & m_blend_weight;   // alias
   double                                  * m_sun_position;   //  pointer
+  boost::shared_ptr<CameraModel>    const & m_camera;         // alias
+};
+
+// A variation of the intensity error where only the DEM is floated
+struct IntensityErrorFloatDemOnly {
+  IntensityErrorFloatDemOnly(int col, int row,
+                             ImageView<double> const& dem,
+                             double albedo,
+                             double * reflectance_model_coeffs, 
+                             double * exposure, 
+                             double * haze, 
+                             double * camera_adjustments, 
+                             cartography::GeoReference const& geo,
+                             bool model_shadows,
+                             double camera_position_step_size,
+                             double const& max_dem_height, // note: this is an alias
+                             double gridx, double gridy,
+                             GlobalParams const& global_params,
+                             ModelParams const& model_params,
+                             BBox2i const& crop_box,
+                             MaskedImgT const& image,
+                             DoubleImgT const& blend_weight,
+                             double * sun_position, 
+                             boost::shared_ptr<CameraModel> const& camera):
+    m_col(col), m_row(row), m_dem(dem),
+    m_albedo(albedo), m_reflectance_model_coeffs(reflectance_model_coeffs),
+    m_exposure(exposure), m_haze(haze), m_camera_adjustments(camera_adjustments),
+    m_geo(geo),
+    m_model_shadows(model_shadows),
+    m_camera_position_step_size(camera_position_step_size),
+    m_max_dem_height(max_dem_height),
+    m_gridx(gridx), m_gridy(gridy),
+    m_global_params(global_params),
+    m_model_params(model_params),
+    m_crop_box(crop_box),
+    m_image(image), m_blend_weight(blend_weight),
+    m_sun_position(sun_position),
+    m_camera(camera) {}
+
+  // See SmoothnessError() for the definitions of bottom, top, etc.
+  template <typename F>
+  bool operator()(const F* const left,
+		  const F* const center,
+		  const F* const right,
+		  const F* const bottom,
+		  const F* const top,
+                  F* residuals) const {
+
+    // For this error we do not use p and q, hence just use a placeholder.
+    bool use_pq = false;
+    const F * const pq = NULL;
+
+    return calc_intensity_residual(m_exposure, m_haze,
+                                   left, center, right, bottom, top,
+                                   use_pq, pq,
+                                   &m_albedo, m_camera_adjustments,
+                                   m_sun_position,
+                                   m_reflectance_model_coeffs,
+                                   m_col, m_row,  
+                                   m_dem,  // alias
+                                   m_geo,  // alias
+                                   m_model_shadows,  
+                                   m_camera_position_step_size,  
+                                   m_max_dem_height,  // alias
+                                   m_gridx, m_gridy,  
+                                   m_global_params,   // alias
+                                   m_model_params,    // alias
+                                   m_crop_box,  
+                                   m_image,           // alias
+                                   m_blend_weight,    // alias
+                                   m_camera,          // alias
+                                   residuals);
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(int col, int row,
+				     ImageView<double> const& dem,
+                                     double albedo,
+                                     double * reflectance_model_coeffs, 
+                                     double * exposure, 
+                                     double * haze, 
+                                     double * camera_adjustments, 
+				     vw::cartography::GeoReference const& geo,
+				     bool model_shadows,
+				     double camera_position_step_size,
+				     double const& max_dem_height, // alias
+				     double gridx, double gridy,
+				     GlobalParams const& global_params,
+				     ModelParams const& model_params,
+				     BBox2i const& crop_box,
+				     MaskedImgT const& image,
+				     DoubleImgT const& blend_weight,
+                                     double * sun_position, 
+				     boost::shared_ptr<CameraModel> const& camera){
+    return (new ceres::NumericDiffCostFunction<IntensityErrorFloatDemOnly,
+	    ceres::CENTRAL, 1, 1, 1, 1, 1, 1>
+	    (new IntensityErrorFloatDemOnly(col, row, dem,
+                                            albedo, reflectance_model_coeffs,
+                                            exposure, haze, camera_adjustments,
+                                            geo,
+                                            model_shadows,
+                                            camera_position_step_size,
+                                            max_dem_height,
+                                            gridx, gridy,
+                                            global_params, model_params,
+                                            crop_box, image, blend_weight, sun_position, camera)));
+  }
+
+  int                                       m_col, m_row;
+  ImageView<double>                 const & m_dem;            // alias
+  double                                    m_albedo;
+  double                                  * m_reflectance_model_coeffs;
+  double                                  * m_exposure;
+  double                                  * m_haze;
+  double                                  * m_camera_adjustments;
+  cartography::GeoReference         const & m_geo;            // alias
+  bool                                      m_model_shadows;
+  double                                    m_camera_position_step_size;
+  double                            const & m_max_dem_height; // alias
+  double                                    m_gridx, m_gridy;
+  GlobalParams                      const & m_global_params;  // alias
+  ModelParams                       const & m_model_params;   // alias
+  BBox2i                                    m_crop_box;
+  MaskedImgT                        const & m_image;          // alias
+  DoubleImgT                        const & m_blend_weight;   // alias
+  double                                  * m_sun_position;   // pointer
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
@@ -3246,6 +3370,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "An attempt to let the DEM float at the boundary.")
     ("fix-dem",   po::bool_switch(&opt.fix_dem)->default_value(false)->implicit_value(true),
      "Do not float the DEM at all. Useful when floating the model params.")
+    ("float-dem-only",   po::bool_switch(&opt.float_dem_only)->default_value(false)->implicit_value(true),
+     "Float only the DEM.")
     ("float-reflectance-model",   po::bool_switch(&opt.float_reflectance_model)->default_value(false)->implicit_value(true),
      "Allow the coefficients of the reflectance model to float (not recommended).")
     ("float-sun-position",   po::bool_switch(&opt.float_sun_position)->default_value(false)->implicit_value(true),
@@ -3370,6 +3496,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw( ArgumentErr()
                 << "Approximate adjusted camera models cannot be used "
                 << "with the semi-approximation.\n" );
+    if (opt.use_approx_camera_models)
+      vw_throw( ArgumentErr()
+                << "Cannot specify more than one of: --use-approx-camera-models "
+                << "and --use-approx-adjusted-camera-models.\n" );
+  }
+
+
+  if (opt.float_dem_only) {
+    if (opt.float_albedo || opt.float_exposure || opt.float_cameras ||
+        opt.float_all_cameras || opt.float_dem_at_boundary ||
+        opt.boundary_fix || opt.fix_dem || opt.float_reflectance_model ||
+        opt.float_sun_position || opt.float_haze || opt.integrability_weight > 0 ){
+      vw_throw( ArgumentErr()
+                << "When floating the DEM only, other things must not float. "
+                << "Some other non-default options are not supported as well in this mode.\n" );
+    }
   }
   
   // Create the output directory
@@ -3721,29 +3863,55 @@ void run_sfs_level(// Fixed inputs
     }
   }
   
-  // When albedo, dem, model, are fixed, we will not even set these as variables.
-  bool fix_most = (!opt.float_albedo && opt.fix_dem && !opt.float_reflectance_model);
-
   std::set<int> use_dem, use_albedo; // to avoid a crash in Ceres when a param is fixed but not set
   
   for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
-
+    
     int bd = 1;
     if (opt.boundary_fix) bd = 0;
-      
+    
     // Add a residual block for every grid point not at the boundary
     for (int col = bd; col < dems[dem_iter].cols()-bd; col++) {
       for (int row = bd; row < dems[dem_iter].rows()-bd; row++) {
-
+        
         // Intensity error for each image
         for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
           if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end()) {
             continue;
           }
-        
+          
           ceres::LossFunction* loss_function_img = NULL;
-          if (opt.integrability_weight == 0){
+          if (opt.float_dem_only) {
+            ceres::CostFunction* cost_function_img =
+              IntensityErrorFloatDemOnly::Create(col, row,
+                                                 dems[dem_iter],
+                                                 albedos[dem_iter](col, row), 
+                                                 &reflectance_model_coeffs[0],
+                                                 &exposures[image_iter],      // exposure
+                                                 &haze[image_iter][0],        // haze
+                                                 &adjustments[6*image_iter],  // camera adjustments
+                                                 geo[dem_iter],
+                                                 opt.model_shadows,
+                                                 opt.camera_position_step_size,
+                                                 max_dem_height[dem_iter],
+                                                 gridx, gridy,
+                                                 global_params, model_params[image_iter],
+                                                 crop_boxes[dem_iter][image_iter],
+                                                 masked_images[dem_iter][image_iter],
+                                                 blend_weights[dem_iter][image_iter],
+                                                 &sun_positions[3*image_iter], // sun positions
+                                                 cameras[dem_iter][image_iter]);
+            problem.AddResidualBlock(cost_function_img, loss_function_img,
+                                     &dems[dem_iter](col-1, row),  // left
+                                     &dems[dem_iter](col, row),    // center
+                                     &dems[dem_iter](col+1, row),  // right
+                                     &dems[dem_iter](col, row+1),  // bottom
+                                     &dems[dem_iter](col, row-1)  // top
+                                     );
+            use_dem.insert(dem_iter); 
+            
+          }else if (opt.integrability_weight == 0){
             ceres::CostFunction* cost_function_img =
               IntensityError::Create(col, row, dems[dem_iter], geo[dem_iter],
                                      opt.model_shadows,
@@ -3770,7 +3938,8 @@ void run_sfs_level(// Fixed inputs
                                      &reflectance_model_coeffs[0]);
             use_dem.insert(dem_iter); 
             use_albedo.insert(dem_iter);
-          } else if (!fix_most) {
+          } else {
+            // Use the integrability constraint
             ceres::CostFunction* cost_function_img =
               IntensityErrorPQ::Create(col, row, dems[dem_iter], geo[dem_iter],
                                        opt.model_shadows,
@@ -3795,37 +3964,13 @@ void run_sfs_level(// Fixed inputs
             
             use_dem.insert(dem_iter); 
             use_albedo.insert(dem_iter);
-            
-          }else{
-            ceres::CostFunction* cost_function_img =
-              IntensityErrorFixedMost::Create(col, row, dems[dem_iter],
-                                              albedos[dem_iter](col, row), 
-                                              &reflectance_model_coeffs[0],
-                                              geo[dem_iter],
-                                              opt.model_shadows,
-                                              opt.camera_position_step_size,
-                                              max_dem_height[dem_iter],
-                                              gridx, gridy,
-                                              global_params, model_params[image_iter],
-                                              crop_boxes[dem_iter][image_iter],
-                                              masked_images[dem_iter][image_iter],
-                                              blend_weights[dem_iter][image_iter],
-                                              cameras[dem_iter][image_iter]);
-            problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                     &exposures[image_iter],      // exposure
-                                     &haze[image_iter][0],        // haze
-                                     &adjustments[6*image_iter],  // camera
-                                     &sun_positions[3*image_iter] // sun positions
-                                     );
-            
           }
           
         } // end iterating over images
         
-        if (!fix_most &&
-            col > 0 && col < dems[dem_iter].cols()-1 &&
+        if (col > 0 && col < dems[dem_iter].cols()-1 &&
             row > 0 && row < dems[dem_iter].rows()-1 ) {
-       
+          
           // Smoothness penalty. We always add this, even if the weight is 0,
           // to make Ceres not complain about blocks not being set. 
           ceres::LossFunction* loss_function_sm = NULL;
@@ -3894,25 +4039,23 @@ void run_sfs_level(// Fixed inputs
     } // end col iter
     
     // DEM at the boundary must be fixed.
-    if (!fix_most) {
-      if (!opt.float_dem_at_boundary) {
-        for (int col = 0; col < dems[dem_iter].cols(); col++) {
-          for (int row = 0; row < dems[dem_iter].rows(); row++) {
-            if (col == 0 || col == dems[dem_iter].cols() - 1 ||
-                row == 0 || row == dems[dem_iter].rows() - 1 ) {
-              if (use_dem.find(dem_iter) != use_dem.end())
-                problem.SetParameterBlockConstant(&dems[dem_iter](col, row));
-            }
-          }
-        }
-      }
-
-      if (opt.fix_dem) {
-        for (int col = 0; col < dems[dem_iter].cols(); col++) {
-          for (int row = 0; row < dems[dem_iter].rows(); row++) {
+    if (!opt.float_dem_at_boundary) {
+      for (int col = 0; col < dems[dem_iter].cols(); col++) {
+        for (int row = 0; row < dems[dem_iter].rows(); row++) {
+          if (col == 0 || col == dems[dem_iter].cols() - 1 ||
+              row == 0 || row == dems[dem_iter].rows() - 1 ) {
             if (use_dem.find(dem_iter) != use_dem.end())
               problem.SetParameterBlockConstant(&dems[dem_iter](col, row));
           }
+        }
+      }
+    }
+    
+    if (opt.fix_dem) {
+      for (int col = 0; col < dems[dem_iter].cols(); col++) {
+        for (int row = 0; row < dems[dem_iter].rows(); row++) {
+          if (use_dem.find(dem_iter) != use_dem.end())
+            problem.SetParameterBlockConstant(&dems[dem_iter](col, row));
         }
       }
     }
@@ -3937,7 +4080,7 @@ void run_sfs_level(// Fixed inputs
     }
     
     // If to float the albedo
-    if (!fix_most) {
+    if (!opt.float_dem_only) {
       for (int col = 1; col < dems[dem_iter].cols() - 1; col++) {
         for (int row = 1; row < dems[dem_iter].rows() - 1; row++) {
           if (!opt.float_albedo && num_used > 0 && use_albedo.find(dem_iter) != use_albedo.end())
@@ -3945,53 +4088,57 @@ void run_sfs_level(// Fixed inputs
         }
       }
     }
+    
   } // end iterating over DEMs
 
-  if (!opt.float_exposure){
-    for (int image_iter = 0; image_iter < num_images; image_iter++) {
-      if (use_image[image_iter]) problem.SetParameterBlockConstant(&exposures[image_iter]);
+  if (!opt.float_dem_only) {
+
+    // If floating the DEM only, none of the below parameters are even added to the problem,
+    // it does not make sense to check to keep them fixed or floating them.
+    
+    if (!opt.float_exposure){
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        if (use_image[image_iter]) problem.SetParameterBlockConstant(&exposures[image_iter]);
+      }
     }
-  }
-  if (!opt.float_haze){
-    for (int image_iter = 0; image_iter < num_images; image_iter++) {
-      if (use_image[image_iter]) problem.SetParameterBlockConstant(&haze[image_iter][0]);
+    if (!opt.float_haze){
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        if (use_image[image_iter]) problem.SetParameterBlockConstant(&haze[image_iter][0]);
+      }
     }
-  }
-  
-  if (!opt.float_cameras) {
-    vw_out() << "Not floating cameras." << std::endl;
-    for (int image_iter = 0; image_iter < num_images; image_iter++){
+    
+    if (!opt.float_cameras) {
+      vw_out() << "Not floating cameras." << std::endl;
+      for (int image_iter = 0; image_iter < num_images; image_iter++){
+        if (use_image[image_iter]){
+          problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
+        }
+      }
+    }else if (!opt.float_all_cameras){
+      // Fix the first camera, let the other ones conform to it.
+      // TODO: This needs further study.
+      vw_out() << "Floating all cameras sans the first one." << std::endl;
+      int image_iter = 0;
       if (use_image[image_iter]){
         problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
       }
+      
+    }else{
+      vw_out() << "Floating all cameras, including the first one." << std::endl;
     }
-  }else if (!opt.float_all_cameras){
-    // Fix the first camera, let the other ones conform to it.
-    // TODO: This needs further study.
-    vw_out() << "Floating all cameras sans the first one." << std::endl;
-    int image_iter = 0;
-    if (use_image[image_iter]){
-      problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
-    }
-    
-  }else{
-    vw_out() << "Floating all cameras, including the first one." << std::endl;
-  }
-  
-  
-  // If to float the reflectance model coefficients
-  if (!fix_most) {
+
+    // If to float the reflectance model coefficients
     if (!opt.float_reflectance_model && num_used > 0) {
       problem.SetParameterBlockConstant(&reflectance_model_coeffs[0]);
     }
-  }
-  
-  if (!opt.float_sun_position){
-     if (fix_most || opt.integrability_weight != 0){
-       for (int image_iter = 0; image_iter < num_images; image_iter++) {
-         if (use_image[image_iter]) problem.SetParameterBlockConstant(&sun_positions[3*image_iter]);
-       }
-     }
+    
+    if (!opt.float_sun_position){
+      if (opt.integrability_weight != 0){
+        for (int image_iter = 0; image_iter < num_images; image_iter++) {
+          if (use_image[image_iter]) problem.SetParameterBlockConstant(&sun_positions[3*image_iter]);
+        }
+      }
+    }
   }
   
   if (opt.num_threads > 1 &&
@@ -4042,6 +4189,8 @@ void run_sfs_level(// Fixed inputs
   callback(callback_summary);
   
   vw_out() << summary.FullReport() << "\n" << std::endl;
+
+  callTop();
 }
 
 #if 0
@@ -4459,8 +4608,11 @@ int main(int argc, char* argv[]) {
           Vector2 pixel_offset;
           Vector3 translation;
           Quaternion<double> rotation = Quat(math::identity_matrix<3>());
+          // For clarity, first make a copy of the object that we will overwrite.
+          // This may not be necessary but looks safer this way.
+          boost::shared_ptr<CameraModel> cam_ptr = cameras[dem_iter][image_iter];
           cameras[dem_iter][image_iter] = boost::shared_ptr<CameraModel>
-            (new AdjustedCameraModel(cameras[dem_iter][image_iter], translation,
+            (new AdjustedCameraModel(cam_ptr, translation,
                                      rotation, pixel_offset));
         }
       }
@@ -4493,6 +4645,8 @@ int main(int argc, char* argv[]) {
     // Declare the lock here, as we want it to live until the end of the program. 
     vw::Mutex camera_mutex;
 
+    callTop();
+    
     // If to use approximate camera models
     if (opt.use_approx_camera_models || opt.use_approx_adjusted_camera_models) {
 
@@ -4506,11 +4660,12 @@ int main(int argc, char* argv[]) {
               != opt.skip_images[dem_iter].end()) continue;
       
           // Here we make a copy, since soon cameras[dem_iter][image_iter] will be overwritten
-          AdjustedCameraModel adj_cam
+          AdjustedCameraModel exact_adjusted_camera
             = *dynamic_cast<AdjustedCameraModel*>(cameras[dem_iter][image_iter].get());
 
-          boost::shared_ptr<CameraModel> exact_cam = adj_cam.unadjusted_model();
-          if (dynamic_cast<IsisCameraModel*>(exact_cam.get()) == NULL)
+          boost::shared_ptr<CameraModel>
+            exact_unadjusted_camera = exact_adjusted_camera.unadjusted_model();
+          if (dynamic_cast<IsisCameraModel*>(exact_unadjusted_camera.get()) == NULL)
             vw_throw( ArgumentErr() << "Expecting an ISIS camera model.\n" );
 
           vw_out() << "Creating an approximate camera model for "
@@ -4522,23 +4677,25 @@ int main(int argc, char* argv[]) {
           boost::shared_ptr<CameraModel> apcam;
           if (opt.use_approx_camera_models) {
             apcam = boost::shared_ptr<CameraModel>
-              (new ApproxCameraModel(adj_cam, exact_cam, img_bbox, dems[0][dem_iter],
+              (new ApproxCameraModel(exact_adjusted_camera, exact_unadjusted_camera,
+                                     img_bbox, dems[0][dem_iter],
                                      geos[0][dem_iter],
                                      dem_nodata_val, opt.use_rpc_approximation,
                                      opt.use_semi_approx,
                                      opt.rpc_penalty_weight, camera_mutex));
             
             // Copy the adjustments over to the approximate camera model
-            Vector3 translation  = adj_cam.translation();
-            Quat rotation        = adj_cam.rotation();
-            Vector2 pixel_offset = adj_cam.pixel_offset();
-            double scale         = adj_cam.scale();
+            Vector3 translation  = exact_adjusted_camera.translation();
+            Quat rotation        = exact_adjusted_camera.rotation();
+            Vector2 pixel_offset = exact_adjusted_camera.pixel_offset();
+            double scale         = exact_adjusted_camera.scale();
             cameras[dem_iter][image_iter] = boost::shared_ptr<CameraModel>
               (new AdjustedCameraModel(apcam, translation,
                                        rotation, pixel_offset, scale));
           }else if (opt.use_approx_adjusted_camera_models){
             apcam = boost::shared_ptr<CameraModel>
-              (new AdjustedApproxCameraModel(adj_cam, exact_cam, img_bbox,
+              (new ApproxAdjustedCameraModel(exact_adjusted_camera, exact_unadjusted_camera,
+                                             img_bbox,
                                              dems[0][dem_iter], geos[0][dem_iter],
                                              dem_nodata_val, camera_mutex));
             // Adjustments are already baked into the adjusted
@@ -4553,10 +4710,10 @@ int main(int argc, char* argv[]) {
           
           callTop();
 
-          // Cast the pointer back to BaseApproxCameraModel as we need that.
-          BaseApproxCameraModel* cam_ptr = dynamic_cast<BaseApproxCameraModel*>(apcam.get());
+          // Cast the pointer back to ApproxBaseCameraModel as we need that.
+          ApproxBaseCameraModel* cam_ptr = dynamic_cast<ApproxBaseCameraModel*>(apcam.get());
           if (cam_ptr == NULL) 
-            vw_throw( ArgumentErr() << "Expecting a BaseApproxCameraModel." );
+            vw_throw( ArgumentErr() << "Expecting a ApproxBaseCameraModel." );
 
           bool model_is_valid = cam_ptr->model_is_valid();
           
@@ -4579,7 +4736,7 @@ int main(int argc, char* argv[]) {
                   // For approx adjusted camera models we don't do this,
                   // as we don't approximate the unadjusted camera.
                   // Test how unadjusted models compare
-                  Vector2 pix1 = exact_cam->point_to_pixel(xyz);
+                  Vector2 pix1 = exact_unadjusted_camera->point_to_pixel(xyz);
                   //if (!img_bbox.contains(pix1)) continue;
                   
                   Vector2 pix2 = apcam->point_to_pixel(xyz);
@@ -4594,7 +4751,7 @@ int main(int argc, char* argv[]) {
                 }
                 
                 // Test how adjusted (exact and approximate) models compare
-                Vector2 pix3 = adj_cam.point_to_pixel(xyz);
+                Vector2 pix3 = exact_adjusted_camera.point_to_pixel(xyz);
                 //if (!img_bbox.contains(pix3)) continue;
                 Vector2 pix4 = cameras[dem_iter][image_iter]->point_to_pixel(xyz);
                 max_curr_err = std::max(max_curr_err, norm_2(pix3 - pix4));
@@ -4606,6 +4763,8 @@ int main(int argc, char* argv[]) {
               }
             }
 
+            cam_ptr->crop_box().crop(img_bbox);
+            
             vw_out() << "Max approximate model error in pixels for: "
                      <<  opt.input_cameras[image_iter] << " and clip "
                      << opt.input_dems[dem_iter] << ": " << max_curr_err << std::endl;
@@ -4919,13 +5078,29 @@ int main(int argc, char* argv[]) {
       for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
         if (opt.skip_images[dem_iter].find(image_iter) != opt.skip_images[dem_iter].end()) continue;
       
-        AdjustedCameraModel * icam
-          = dynamic_cast<AdjustedCameraModel*>(cameras[dem_iter][image_iter].get());
-        if (icam == NULL)
-          vw_throw(ArgumentErr() << "Expecting adjusted camera models.\n");
-        Vector3 translation = icam->translation();
-        Vector3 axis_angle = icam->rotation().axis_angle();
-        Vector2 pixel_offset = icam->pixel_offset();
+        Vector3 translation, axis_angle;
+        Vector2 pixel_offset;
+
+        if (!opt.use_approx_adjusted_camera_models) {
+          AdjustedCameraModel * icam
+            = dynamic_cast<AdjustedCameraModel*>(cameras[dem_iter][image_iter].get());
+          if (icam == NULL)
+            vw_throw(ArgumentErr() << "Expecting an adjusted camera model.\n");
+          translation = icam->translation();
+          axis_angle = icam->rotation().axis_angle();
+          pixel_offset = icam->pixel_offset();
+        }else{
+          ApproxAdjustedCameraModel * aapcam
+            = dynamic_cast<ApproxAdjustedCameraModel*>(cameras[dem_iter][image_iter].get());
+          if (aapcam == NULL)
+            vw_throw(ArgumentErr() << "Expecting an approximate adjusted camera model.\n");
+          AdjustedCameraModel acam = aapcam->exact_adjusted_camera();
+          translation = acam.translation();
+          axis_angle = acam.rotation().axis_angle();
+          pixel_offset = acam.pixel_offset();
+        }
+
+        // TODO(oalexan1): This does not appear necessary use adjusted approximate cameras.
         if (pixel_offset != Vector2())
           vw_throw(ArgumentErr() << "Expecting zero pixel offset.\n");
         for (int param_iter = 0; param_iter < 3; param_iter++) {
@@ -5064,12 +5239,14 @@ int main(int argc, char* argv[]) {
           
           if (opt.skip_images[dem_iter].find(image_iter) !=
               opt.skip_images[dem_iter].end()) continue;
-	  
-          AdjustedCameraModel * adj_cam
-            = dynamic_cast<AdjustedCameraModel*>(cameras[dem_iter][image_iter].get());
-          if (adj_cam == NULL)
-            vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
-          adj_cam->set_scale(factors[level]);
+
+          if (!opt.use_approx_adjusted_camera_models) {
+            AdjustedCameraModel * adj_cam
+              = dynamic_cast<AdjustedCameraModel*>(cameras[dem_iter][image_iter].get());
+            if (adj_cam == NULL)
+              vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
+            adj_cam->set_scale(factors[level]);
+          }
         }
       }
       
@@ -5109,5 +5286,6 @@ int main(int argc, char* argv[]) {
 
   sw_total.stop();
   vw_out() << "Total elapsed time: " << sw_total.elapsed_seconds() << " s." << std::endl;
-  
+  callTop();
+ 
 }
