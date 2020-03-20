@@ -44,6 +44,17 @@ public:
   }
 };
 
+// Function to mask NaN pixels 
+class MaskNaN : public ReturnFixedType<PixelMask<double> > {
+public:
+  PixelMask<double> operator()(PixelMask<double> const& v) const {
+    if (!is_valid(v) || std::isnan(v.child())) {
+      return PixelMask<double>();
+    }
+    return v;
+  }
+};
+
 struct Options : vw::cartography::GdalWriteOptions {
   string dem1_file, dem2_file, output_prefix, csv_format_str, csv_proj4_str;
   double nodata_value;
@@ -153,15 +164,15 @@ void dem2dem_diff(Options& opt){
     vw_throw(ArgumentErr() << "The two DEMs do not have a common area.\n");
     
   ImageViewRef<PixelMask<double> > dem2_trans =
-    crop(geo_transform
-	 (per_pixel_filter(dem_to_geodetic
-			   (create_mask(dem2_disk_image_view, dem2_nodata),
-			    dem2_georef),
-			   MGeodeticToMAltitude()),
-	  dem2_georef, dem1_georef,
-      ValueEdgeExtension<PixelMask<double> >(PixelMask<double>())),
-     crop_box);
-    
+    per_pixel_filter(crop(geo_transform
+                          (per_pixel_filter(dem_to_geodetic
+                                            (create_mask(dem2_disk_image_view, dem2_nodata),
+                                             dem2_georef),
+                                            MGeodeticToMAltitude()),
+                           dem2_georef, dem1_georef,
+                           ValueEdgeExtension<PixelMask<double> >(PixelMask<double>())),
+                          crop_box), MaskNaN());
+  
   ImageViewRef<double> difference;
   if (opt.use_absolute) {
     difference =
