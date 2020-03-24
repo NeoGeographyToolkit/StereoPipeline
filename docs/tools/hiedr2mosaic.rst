@@ -24,6 +24,9 @@ Command-line options for hiedr2mosaic.py:
 -m, --match
     The CCD number passed as the match argument to noproj (default 5).
 
+-n, --nocheck
+    Script will not check for an even number of input CCD files
+
 --stop-at-no-proj
     Stops processing after the noproj steps are complete.
 

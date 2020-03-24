@@ -30,11 +30,11 @@ from stereo_utils import get_asp_version
 import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()
 
-job_pool = [];
+job_pool = []
 
 def man(option, opt, value, parser):
-    print (parser.usage, file=sys.stderr)
-    print ('''\
+    print(parser.usage, file=sys.stderr)
+    print('''\
 This program operates on HiRISE EDR (.IMG) channel files, and performs the
 following ISIS 3 operations:
  * Converts to ISIS format (hi2isis)
@@ -74,33 +74,33 @@ class CCDs(dict):
 
 
 def add_job( cmd, num_working_threads=4 ):
-    if ( len(job_pool) >= num_working_threads):
-        job_pool[0].wait();
-        job_pool.pop(0);
+    if len(job_pool) >= num_working_threads:
+        job_pool[0].wait()
+        job_pool.pop(0)
     print(cmd)
-    job_pool.append( subprocess.Popen(cmd, shell=True) );
+    job_pool.append( subprocess.Popen(cmd, shell=True) )
 
 def wait_on_all_jobs():
     print("Waiting for jobs to finish")
     while len(job_pool) > 0:
-        job_pool[0].wait();
-        job_pool.pop(0);
+        job_pool[0].wait()
+        job_pool.pop(0)
 
 def read_flatfile( flat ):
     f = open(flat,'r')
     averages = [0.0,0.0]
     try:
         for line in f:
-            if ( line.rfind("Average Sample Offset:") > 0 ):
-                index       = line.rfind("Offset:");
-                index_e     = line.rfind("StdDev:");
-                crop        = line[index+7:index_e];
-                averages[0] = float(crop);
-            elif ( line.rfind("Average Line Offset:") > 0 ):
-                index       = line.rfind("Offset:");
-                index_e     = line.rfind("StdDev:");
-                crop        = line[index+7:index_e];
-                averages[1] = float(crop);
+            if line.rfind("Average Sample Offset:") > 0:
+                index       = line.rfind("Offset:")
+                index_e     = line.rfind("StdDev:")
+                crop        = line[index+7:index_e]
+                averages[0] = float(crop)
+            elif line.rfind("Average Line Offset:") > 0:
+                index       = line.rfind("Offset:")
+                index_e     = line.rfind("StdDev:")
+                crop        = line[index+7:index_e]
+                averages[1] = float(crop)
     except ValueError:
         print("Could not extract valid offsets from the flat file (" +
               flat + "). "
@@ -109,7 +109,7 @@ def read_flatfile( flat ):
               "custom REGDEF parameter.  In order for this program "
               "to complete, we are returning zeros as the offset "
               "but this may result in misaligned CCDs.")
-    return averages;
+    return averages
 
 def check_output_files(file_list):
     '''Verify the output files were created.'''
@@ -122,7 +122,7 @@ def hi2isis( img_files, threads ):
     for img in img_files:
         # Expect to end in .IMG, change to end in .cub
         to_cub = os.path.splitext( os.path.basename(img) )[0] + '.cub'
-        if( os.path.exists(to_cub) ):
+        if os.path.exists(to_cub):
             print(to_cub + ' exists, skipping hi2isis.')
         else:
             cmd = 'hi2isis from= '+ img +' to= '+ to_cub
@@ -137,7 +137,7 @@ def hical( cub_files, threads, delete=False ):
     for cub in cub_files:
         # Expect to end in .cub, change to end in .hical.cub
         to_cub = os.path.splitext(cub)[0] + '.hical.cub'
-        if( os.path.exists(to_cub) ):
+        if os.path.exists(to_cub):
             print(to_cub + ' exists, skipping hical.')
         else:
             cmd = 'hical from=  '+ cub +' to= '+ to_cub
@@ -145,7 +145,7 @@ def hical( cub_files, threads, delete=False ):
         hical_cubs.append( to_cub )
     wait_on_all_jobs()
     check_output_files(hical_cubs)
-    if( delete ):
+    if delete:
         for cub in cub_files: os.remove( cub )
         hical_log_files = glob.glob( os.path.commonprefix(cub_files) + '*.hical.log' )
         for file in hical_log_files: os.remove( file )
@@ -164,7 +164,7 @@ def histitch( cub_files, threads, delete=False ):
     pattern = re.compile(r"(\d)_(\d)")
     for cub in cub_files:
         match = re.match( pattern, cub[len(prefix):] )
-        if( match ):
+        if match:
             ccd     = match.group(1)
             channel = match.group(2)
             # print ('ccd: ' + ccd + ' channel: '+ channel)
@@ -175,8 +175,8 @@ def histitch( cub_files, threads, delete=False ):
     for i in range(10):
         to_cub = prefix + str(i) + '.histitch.cub'
 
-        if( channel_files[i][0] and channel_files[i][1] ):
-            if( os.path.exists(to_cub) ):
+        if channel_files[i][0] and channel_files[i][1]:
+            if os.path.exists(to_cub):
                 print(to_cub + ' exists, skipping histitch.')
             else:
                 cmd = 'histitch balance= TRUE from1= '+ channel_files[i][0] \
@@ -185,10 +185,11 @@ def histitch( cub_files, threads, delete=False ):
                 to_del_cubs.append( channel_files[i][0] )
                 to_del_cubs.append( channel_files[i][1] )
             histitch_cubs.append( to_cub )
-        elif( channel_files[i][0] or channel_files[i][1] ):
-            found = ''
-            if( channel_files[i][0] ):  found = channel_files[i][0]
-            else:                       found = channel_files[i][1]
+        elif channel_files[i][0] or channel_files[i][1]:
+            if channel_files[i][0]:
+                found = channel_files[i][0]
+            else:
+                found = channel_files[i][1]
             print('Found '+ found  +' but not the matching channel file.')
             cmd = 'histitch from1= '+ found +' to= '+ to_cub
             add_job(cmd, threads)
@@ -197,7 +198,7 @@ def histitch( cub_files, threads, delete=False ):
 
     wait_on_all_jobs()
     check_output_files(histitch_cubs)
-    if( delete ):
+    if delete:
         for cub in to_del_cubs: os.remove( cub )
     return histitch_cubs
 
@@ -233,14 +234,14 @@ def noproj( CCD_object, threads, delete=False ):
             # os.system(cmd)
         noproj_CCDs.append( to_cub )
     wait_on_all_jobs()
-    if( delete ):
+    if delete:
         for cub in CCD_object.values(): os.remove( cub )
     return CCDs( noproj_CCDs, CCD_object.match )
 
 # Check for failure for hijitreg.  Sometimes bombs?  Default to zeros.
 def hijitreg( noproj_CCDs, threads ):
     for i in noproj_CCDs.keys():
-        j = i + 1;
+        j = i + 1
         if( j not in noproj_CCDs ): continue
         cmd = 'hijitreg from= '+ noproj_CCDs[i]         \
             +' match= '+ noproj_CCDs[j]                 \
@@ -251,7 +252,7 @@ def hijitreg( noproj_CCDs, threads ):
     averages = dict()
 
     for i in noproj_CCDs.keys():
-        j = i + 1;
+        j = i + 1
         if( j not in noproj_CCDs ): continue
         flat_file = 'flat_'+str(i)+'_'+str(j)+'.txt'
         averages[i] = read_flatfile( flat_file )
@@ -262,20 +263,20 @@ def hijitreg( noproj_CCDs, threads ):
 def mosaic( noprojed_CCDs, averages ):
     mosaic = noprojed_CCDs.prefix+'.mos_hijitreged.cub'
     shutil.copy( noprojed_CCDs.matchcube(), mosaic )
-    sample_sum = 1;
-    line_sum   = 1;
+    sample_sum = 1
+    line_sum   = 1
     for i in range( noprojed_CCDs.match-1, noprojed_CCDs.min()-1, -1):
-        if( i not in noprojed_CCDs): continue
+        if i not in noprojed_CCDs: continue
         sample_sum  += averages[i][0]
         line_sum    += averages[i][1]
         handmos( noprojed_CCDs[i], mosaic,
                  str( int(round( sample_sum )) ),
                  str( int(round( line_sum )) ) )
 
-    sample_sum = 1;
-    line_sum = 1;
+    sample_sum = 1
+    line_sum = 1
     for i in range( noprojed_CCDs.match+1, noprojed_CCDs.max()+1, 1):
-        if( i not in noprojed_CCDs): continue
+        if i not in noprojed_CCDs: continue
         sample_sum  -= averages[i-1][0]
         line_sum    -= averages[i-1][1]
         handmos( noprojed_CCDs[i], mosaic,
@@ -298,7 +299,7 @@ def cubenorm( fromcub, delete=False ):
     cmd   = 'cubenorm from= '+ fromcub+' to= '+ tocub
     print(cmd)
     os.system(cmd)
-    if( delete ):
+    if delete:
         os.remove( fromcub )
     return tocub
 
@@ -363,9 +364,9 @@ def get_ccd(path):
 def main():
     try:
         try:
-            usage = "usage: hiedr2mosaic.py [--help][--manual][--threads N][--keep][-m match] HiRISE-EDR.IMG-files\n  " + get_asp_version()
+            usage = "usage: hiedr2mosaic.py [--help][--manual][--threads N][--keep][--nocheck][-m match] HiRISE-EDR.IMG-files\n  " + get_asp_version()
             parser = optparse.OptionParser(usage=usage)
-            parser.set_defaults(delete=True)
+            parser.set_defaults(delete=True, nocheck=False)
             parser.set_defaults(match=5)
             parser.set_defaults(threads=4)
             parser.add_option("--manual", action="callback", callback=man,
@@ -381,6 +382,8 @@ def main():
             parser.add_option("-k", "--keep", action="store_false",
                               dest="delete",
                               help="Will not delete intermediate files.")
+            parser.add_option("-n", "--nocheck", dest="nocheck", type='bool',
+                              action="store_false", help="Will not check for even number of CCD")
             parser.add_option("--download-folder", dest="download_folder", default=None,
                               help="Download files to this folder. Hence the second argument to this is the URL of the page to download the files from.")
 
@@ -395,8 +398,8 @@ def main():
                 args = fetch_files(args[0], options.download_folder, image_type='RED')
                 print ('Finished downloading ' + str(len(args)) + ' images.')
             
-            # Make sure there is a valid match CCD
-            if len(args) % 2 != 0 and not options.resume_no_proj:
+            # Make sure there is a valid match CCD, unless we say not to bother
+            if not options.nocheck and len(args) % 2 != 0 and not options.resume_no_proj:
                 raise Exception('An even number of input CCD files is required!')
 
             # Verify that we have both of the specified match CCD's.
@@ -449,7 +452,7 @@ def main():
         mosaicked = mosaic( noprojed_CCDs, averages )
 
         # Clean up noproj files
-        if( options.delete ):
+        if options.delete:
           for cub in noprojed_CCDs.values():
               os.remove( cub )
 
@@ -463,7 +466,7 @@ def main():
         print (err.msg, file = sys.stderr)
         return 2
 
-	# To more easily debug this program, comment out this catch block.
+    # To more easily debug this program, comment out this catch block.
     # except Exception as err:
     #     sys.stderr.write( str(err) + '\n' )
     #     return 1
