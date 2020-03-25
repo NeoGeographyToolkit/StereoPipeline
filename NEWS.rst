@@ -1,4 +1,4 @@
-RELEASE 2.6.3, Upcoming!
+RELEASE 2.7.0, Upcoming!
 ------------------------
 
 New functionality
@@ -40,6 +40,8 @@ Misc
      18.04.
    * Added phase subpixel correlation accuracy parameter.
    * Updated documentation to ReStructured Text, and Sphinx-Doc.
+   * As of this release, we have transitioned to the `Semantic Versioning 2.0.0
+     standard <https://semver.org>`_ for ASP.
 
 RELEASE 2.6.2, June 15, 2019
 ----------------------------

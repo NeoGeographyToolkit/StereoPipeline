@@ -6,8 +6,13 @@ Pipeline (ASP) release.
 1.) Modify the build system:
 
 Inside ASP's configure.ac and in src/CMakeLists.txt set the new
-version. Do not do this for VisionWorkbench, as that library has its
-own versioning.
+version. Do not do this for VisionWorkbench, as that library has
+its own versioning.  After the last release (x.y-1.0), the ASP
+version is likely x.y.0-alpha, and so you just need to change it
+to x.y.0 if this is a feature release.  If this is a bugfix release
+or a major release instead, then set the version number of the release
+appropriately (see https://semver.org for guidance).
+
 
 2.) Look up the latest ISIS version and update it in
     StereoPipeline/README.rst (see the "version" file in the packaged ASP
@@ -57,35 +62,26 @@ The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
 
 10.) Commit and tag the release in the ASP repo. Example: 
 
-  git tag v2.6.2 
+  git tag 2.6.0 
 
 Push the tags to the remote server with: 
 
- git push origin v2.6.2 # commit to your branch
- git push god    v2.6.2 # commit to main branch
+ git push origin 2.6.0 # commit to your branch
+ git push god    2.6.0 # commit to main branch
 
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with:
 
-  git tag -d v2.6.2
-  git push origin :refs/tags/v2.6.2
-  git push god    :refs/tags/v2.6.2
+  git tag -d 2.6.0
+  git push origin :refs/tags/2.6.0
+  git push god    :refs/tags/2.6.0
 
 11.) Upload the builds and the pdf documentation to GitHub, in
 the release area.
 
-Make a DOI with Zenodo
-(https://guides.github.com/activities/citable-code/)
-
-Update the website, at https://ti.arc.nasa.gov/cms/pages/page/
-(SG can give permissions to edit the pages under
-/tech/asr/intelligent-robotics/ngt). Update:
- - The sidebar 
- - The main page, inluding:
-   * Binary release links
-   * ISIS version
-   * Source code release link
-   * Documentation link
+The 'forever' DOI on Zenodo is https://zenodo.org/badge/latestdoi/714891
+which should resolve to the 'latest' DOI.  A new DOI for *this* release of
+ASP should be minted when the new tag is pushed to GitHub.
 
 12.) Ask fellow ASP developers to do some tests and review the
 documentation.
@@ -93,12 +89,28 @@ documentation.
 13.) Send an announcement of the new release to the mailing list, at
 https://groups.google.com/forum/\#!forum/ames-stereo-pipeline-support
 and the old stereo-pipeline@lists.nasa.gov, listing the changes
-specified in NEWS.
+specified in NEWS.rst.
 
 14.) Modify the build system:
 
-Inside ASP's configure.ac and in src/CMakeLists.txt, append "_post" to
-the version number.
+As a final step, after the release has been done, prep the repo for the next
+phase of development, by updating the version number in:
+
+	- configure.ac 
+	- src/CMakeLists.txt
+
+If you just released version 2.6.0, we expect that the next feature
+release will be 2.7.0, so the version tag should be updated to
+"2.7.0-alpha" in anticipation (see https://semver.org for guidance).
+If we decide to push a bugfix, then this would get changed to
+2.6.1-alpha while we fixed the bug, then the release would be 2.6.1,
+and then we'd go back to 2.7.0-alpha.  Of course, at any point
+during some '-alpha' stage, we may decide that we are going to work
+on the next major release, and when we decide to do that, if the
+version is 2.7.0-alpha, then we'd change to 3.0.0-alpha in anticipation
+of the next release.  At this time, only the release versions are tagged
+in the repo, so we can be flexible with these release numbers in the 
+above files.
 
 15.) Reflect any changes in release policy by modifying this document.
 

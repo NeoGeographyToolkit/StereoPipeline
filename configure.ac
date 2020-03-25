@@ -1,5 +1,5 @@
 dnl __BEGIN_LICENSE__
-dnl  Copyright (c) 2009-2013, United States Government as represented by the
+dnl  Copyright (c) 2009-2020, United States Government as represented by the
 dnl  Administrator of the National Aeronautics and Space Administration. All
 dnl  rights reserved.
 dnl
@@ -37,7 +37,7 @@ m4_pattern_allow([^PKG_ARBITRARY_QT_NEEDED_HEADERS$])
 
 AC_PREREQ([2.59])
 dnl TODO BEFORE RELEASE: update package version
-AC_INIT([NASA Ames Stereo Pipeline], [2.6.2_post], [asp@nx.arc.nasa.gov], [StereoPipeline])
+AC_INIT([NASA Ames Stereo Pipeline], [2.7.0-alpha], [asp@nx.arc.nasa.gov], [StereoPipeline])
 #AC_INIT([NASA Ames Stereo Pipeline], [2.6.2], [asp@nx.arc.nasa.gov], [StereoPipeline])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
