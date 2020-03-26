@@ -90,7 +90,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int    ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error,
-    reference_terrain_weight, heights_from_dem_weight;
+    reference_terrain_weight, heights_from_dem_weight, heights_from_dem_robust_threshold;
   bool   skip_rough_homography, enable_rough_homography, disable_tri_filtering, enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
     force_reuse_match_files, save_cnet_as_csv;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
@@ -434,8 +434,12 @@ void write_optical_bar_output_file(Options const& opt, int icam,
 
 
 /// From the input options select the correct Ceres loss function.
-ceres::LossFunction* get_loss_function(Options const& opt ){
-  double th = opt.robust_threshold;
+ceres::LossFunction* get_loss_function(Options const& opt, double th = 0.0){
+
+  // By default use opt.robust_threshold, unless overwritten above
+  if (th == 0) 
+    th = opt.robust_threshold;
+
   ceres::LossFunction* loss_function;
   if      ( opt.cost_function == "l2"     )
     loss_function = NULL;

@@ -878,6 +878,7 @@ int do_ba_ceres_one_pass(Options             & opt,
           if (update_point_from_dem(point, dem_georef, interp_dem)) {
 	    if (opt.heights_from_dem_weight <= 0) {
 	      // Fix it. Set it as GCP to not remove it as outlier.
+	      cnet[ipt].set_type(ControlPoint::GroundControlPoint);
 	      problem.SetParameterBlockConstant(point);
 	    }else{
 	      // Make this into a GCP so we can float it while not deviating
@@ -924,8 +925,16 @@ int do_ba_ceres_one_pass(Options             & opt,
 
     // Don't use the same loss function as for pixels since that one
     // discounts outliers and the GCP's should never be discounted.
-    ceres::LossFunction* loss_function = new ceres::TrivialLoss();
-    
+    // The user an override this for the advanced --heights_from_dem
+    // option.
+    ceres::LossFunction* loss_function;
+    if (opt.heights_from_dem != "" &&
+        opt.heights_from_dem_weight > 0 &&
+        opt.heights_from_dem_robust_threshold > 0) {
+      loss_function = get_loss_function(opt, opt.heights_from_dem_robust_threshold);
+    }else{
+      loss_function = new ceres::TrivialLoss();
+    }
     double * point  = param_storage.get_point_ptr(ipt);
     problem.AddResidualBlock(cost_function, loss_function, point);
     ++num_gcp_residuals;
@@ -1611,6 +1620,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this DEM, and fix those points unless --heights-from-dem-weight is positive.")
     ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(-1.0),
      "How much weight to give to keep the triangulated points close to the DEM if specified via --heights-from-dem. If the weight is not positive, keep the triangulated points fixed.")
+    ("heights-from-dem-robust-threshold", po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.0),
+     "If positive, the robust threshold to use keep the triangulated points close to the DEM if specified via --heights-from-dem. This is applied after the point differences are multiplied by --heights-from-dem-weight.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
             "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
