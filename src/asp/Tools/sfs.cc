@@ -16,6 +16,8 @@
 // __END_LICENSE__
 
 // TODO:
+// Add option to match images at the beginning with images at the end.
+// Add option --num-ip-matches.
 // Deal with outliers in image intensity.
 // The rpc approximation should also approximate the adjusted cameras if those won't float.
 // This approximation needs to remember is domain of validity.
@@ -1247,7 +1249,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     save_computed_intensity_only, compute_exposures_only,
     save_dem_with_nodata, use_approx_camera_models, use_approx_adjusted_camera_models,
     use_rpc_approximation, use_semi_approx,
-    crop_input_images, float_dem_at_boundary, boundary_fix, fix_dem, float_dem_only,
+    crop_input_images, float_dem_at_boundary, boundary_fix, fix_dem, 
     float_reflectance_model, float_sun_position, query, save_sparingly, float_haze;
   double smoothness_weight, integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
     initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
@@ -1269,7 +1271,6 @@ struct Options : public vw::cartography::GdalWriteOptions {
             use_semi_approx(false),
 	    crop_input_images(false), 
             float_dem_at_boundary(false), boundary_fix(false), fix_dem(false),
-            float_dem_only(false),
             float_reflectance_model(false), float_sun_position(false),
             query(false), save_sparingly(false), float_haze(false),
 	    smoothness_weight(0), integrability_weight(0), smoothness_weight_pq(0),
@@ -1733,7 +1734,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 				    MaskedImgT   const & image,
 				    DoubleImgT   const & blend_weight,
 				    CameraModel  const * camera,
-                                    double       const * sun_position,
+                                    double       const * scaled_sun_posn,
 				    PixelMask<double>  & reflectance,
 				    PixelMask<double>  & intensity,
 				    double             & weight,
@@ -1797,7 +1798,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 
   // Update the sun position using the scaled sun position variable 
   for (int it = 0; it < 3; it++) 
-    local_model_params.sunPosition[it] = sun_position[it] * model_params.sunPosition[it]; 
+    local_model_params.sunPosition[it] = scaled_sun_posn[it] * model_params.sunPosition[it]; 
     
   // Update the camera position for the given pixel (camera position
   // is pixel-dependent for linescan cameras.
@@ -1889,7 +1890,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				    MaskedImgT const  & image,
 				    DoubleImgT const  & blend_weight,
 				    CameraModel const * camera,
-                                    double     const  * sun_position,
+                                    double     const  * scaled_sun_posn,
 				    ImageView< PixelMask<double> > & reflectance,
 				    ImageView< PixelMask<double> > & intensity,
 				    ImageView< double            > & weight,
@@ -1939,7 +1940,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				     gridx, gridy,
 				     model_params, global_params,
 				     crop_box, image, blend_weight, camera,
-                                     sun_position, 
+                                     scaled_sun_posn, 
 				     reflectance(col, row), intensity(col, row),
                                      weight(col, row),
                                      reflectance_model_coeffs);
@@ -2103,7 +2104,7 @@ float                                        * g_img_nodata_val = NULL;
 std::vector<double>                          * g_exposures = NULL;
 std::vector< std::vector<double> >           * g_haze = NULL;
 std::vector<double>                          * g_adjustments = NULL;
-std::vector<double>                          * g_sun_positions = NULL;
+std::vector<double>                          * g_scaled_sun_posns = NULL;
 std::vector<double>                          * g_max_dem_height = NULL;
 double                                       * g_gridx = NULL;
 double                                       * g_gridy = NULL;
@@ -2159,15 +2160,17 @@ public:
     for (size_t i = 0; i < g_num_model_coeffs; i++) vw_out() << g_reflectance_model_coeffs[i] << " ";
     vw_out() << std::endl;
     
-    vw_out() << "cam adj: ";
-    for (int s = 0; s < int((*g_adjustments).size()); s++) {
-      vw_out() << (*g_adjustments)[s] << " ";
+    if (!g_opt->use_approx_adjusted_camera_models) {
+      vw_out() << "cam adj: ";
+      for (int s = 0; s < int((*g_adjustments).size()); s++) {
+        vw_out() << (*g_adjustments)[s] << " ";
+      }
+      vw_out() << std::endl;
     }
-    vw_out() << std::endl;
-
-    vw_out() << "sun position: ";
-    for (int s = 0; s < int((*g_sun_positions).size()); s++) {
-      vw_out() << (*g_sun_positions)[s] << " ";
+    
+    vw_out() << "scaled sun position: ";
+    for (int s = 0; s < int((*g_scaled_sun_posns).size()); s++) {
+      vw_out() << (*g_scaled_sun_posns)[s] << " ";
     }
     vw_out() << std::endl;
 
@@ -2307,7 +2310,7 @@ public:
                                        (*g_masked_images)[dem_iter][image_iter],
                                        (*g_blend_weights)[dem_iter][image_iter],
                                        (*g_cameras)[dem_iter][image_iter].get(),
-                                       &(*g_sun_positions)[3*image_iter],
+                                       &(*g_scaled_sun_posns)[3*image_iter],
                                        reflectance, intensity, blend_weight, 
                                        g_reflectance_model_coeffs);
 
@@ -2409,7 +2412,7 @@ public:
         // Dump the points in shadow
         ImageView<float> shadow; // don't use int, scaled weirdly by ASP on reading
         
-        Vector3 sunPos = // all wrong here &(*g_sun_positions)[3*image_iter]; // fix here
+        Vector3 sunPos = // all wrong here &(*g_scaled_sun_posns)[3*image_iter]; // fix here
         // = (*g_model_params)[image_iter].sunPosition;
         areInShadow(sunPos, (*g_dem)[dem_iter], *g_gridx, *g_gridy,  (*g_geo)[dem_iter], shadow);
 
@@ -2452,7 +2455,7 @@ calc_intensity_residual(const F* const exposure,
                         const G* const pq, // partial derivatives of the dem in x and y
                         const G* const albedo,
                         const F* const camera_adjustments,
-                        const F* const sun_position,
+                        const F* const scaled_sun_posn,
                         const G* const reflectance_model_coeffs, 
                         int m_col, int m_row,
                         ImageView<double>                 const & m_dem,            // alias
@@ -2532,7 +2535,7 @@ calc_intensity_residual(const F* const exposure,
                                      m_gridx, m_gridy,
                                      m_model_params,  m_global_params,
                                      m_crop_box, m_image, m_blend_weight, camera,
-                                     sun_position,
+                                     scaled_sun_posn,
                                      reflectance, intensity, weight, reflectance_model_coeffs);
       
     if (g_opt->unreliable_intensity_threshold > 0){
@@ -2573,7 +2576,7 @@ struct IntensityError {
 		 BBox2i const& crop_box,
 		 MaskedImgT const& image,
 		 DoubleImgT const& blend_weight,
-                 double * sun_position, 
+                 double * scaled_sun_posn, 
 		 boost::shared_ptr<CameraModel> const& camera):
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
     m_model_shadows(model_shadows),
@@ -2584,7 +2587,7 @@ struct IntensityError {
     m_model_params(model_params),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
-    m_sun_position(sun_position),
+    m_scaled_sun_posn(scaled_sun_posn),
     m_camera(camera) {}
 
   // See SmoothnessError() for the definitions of bottom, top, etc.
@@ -2598,7 +2601,7 @@ struct IntensityError {
 		  const F* const top,
 		  const F* const albedo,
 		  const F* const camera_adjustments,
-		  //const F* const sun_position,
+		  //const F* const scaled_sun_posn,
 		  const F* const reflectance_model_coeffs,
                   F* residuals) const {
 
@@ -2611,7 +2614,7 @@ struct IntensityError {
                                    left, center, right, bottom, top,
                                    use_pq, pq,
                                    albedo, camera_adjustments,
-                                   m_sun_position,
+                                   m_scaled_sun_posn,
                                    reflectance_model_coeffs,
                                    m_col, m_row,  
                                    m_dem,  // alias
@@ -2643,7 +2646,7 @@ struct IntensityError {
 				     BBox2i const& crop_box,
 				     MaskedImgT const& image,
 				     DoubleImgT const& blend_weight,
-                                     double * sun_position, 
+                                     double * scaled_sun_posn, 
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityError,
 	    ceres::CENTRAL, 1, 1, g_max_num_haze_coeffs, 1, 1, 1, 1, 1, 1, 6, g_num_model_coeffs>
@@ -2653,7 +2656,7 @@ struct IntensityError {
 				max_dem_height,
 				gridx, gridy,
 				global_params, model_params,
-				crop_box, image, blend_weight, sun_position, camera)));
+				crop_box, image, blend_weight, scaled_sun_posn, camera)));
   }
 
   int m_col, m_row;
@@ -2668,7 +2671,7 @@ struct IntensityError {
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
   DoubleImgT                        const & m_blend_weight;   // alias
-  double                                  * m_sun_position;   //  pointer
+  double                                  * m_scaled_sun_posn;   //  pointer
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
@@ -2691,7 +2694,7 @@ struct IntensityErrorFloatDemOnly {
                              BBox2i const& crop_box,
                              MaskedImgT const& image,
                              DoubleImgT const& blend_weight,
-                             double * sun_position, 
+                             double * scaled_sun_posn, 
                              boost::shared_ptr<CameraModel> const& camera):
     m_col(col), m_row(row), m_dem(dem),
     m_albedo(albedo), m_reflectance_model_coeffs(reflectance_model_coeffs),
@@ -2705,7 +2708,7 @@ struct IntensityErrorFloatDemOnly {
     m_model_params(model_params),
     m_crop_box(crop_box),
     m_image(image), m_blend_weight(blend_weight),
-    m_sun_position(sun_position),
+    m_scaled_sun_posn(scaled_sun_posn),
     m_camera(camera) {}
 
   // See SmoothnessError() for the definitions of bottom, top, etc.
@@ -2725,7 +2728,7 @@ struct IntensityErrorFloatDemOnly {
                                    left, center, right, bottom, top,
                                    use_pq, pq,
                                    &m_albedo, m_camera_adjustments,
-                                   m_sun_position,
+                                   m_scaled_sun_posn,
                                    m_reflectance_model_coeffs,
                                    m_col, m_row,  
                                    m_dem,  // alias
@@ -2762,7 +2765,7 @@ struct IntensityErrorFloatDemOnly {
 				     BBox2i const& crop_box,
 				     MaskedImgT const& image,
 				     DoubleImgT const& blend_weight,
-                                     double * sun_position, 
+                                     double * scaled_sun_posn, 
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityErrorFloatDemOnly,
 	    ceres::CENTRAL, 1, 1, 1, 1, 1, 1>
@@ -2775,7 +2778,7 @@ struct IntensityErrorFloatDemOnly {
                                             max_dem_height,
                                             gridx, gridy,
                                             global_params, model_params,
-                                            crop_box, image, blend_weight, sun_position, camera)));
+                                            crop_box, image, blend_weight, scaled_sun_posn, camera)));
   }
 
   int                                       m_col, m_row;
@@ -2795,7 +2798,7 @@ struct IntensityErrorFloatDemOnly {
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
   DoubleImgT                        const & m_blend_weight;   // alias
-  double                                  * m_sun_position;   // pointer
+  double                                  * m_scaled_sun_posn;   // pointer
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
@@ -2834,7 +2837,7 @@ struct IntensityErrorFixedMost {
   bool operator()(const F* const exposure,
                   const F* const haze,
 		  const F* const camera_adjustments,
-		  const F* const sun_position,
+		  const F* const scaled_sun_posn,
                   F* residuals) const {
 
     // For this error we do not use p and q, hence just use a placeholder.
@@ -2850,7 +2853,7 @@ struct IntensityErrorFixedMost {
                                    use_pq, pq,
                                    &m_albedo,
                                    camera_adjustments,
-                                   sun_position,
+                                   scaled_sun_posn,
                                    m_reflectance_model_coeffs,
                                    m_col, m_row,  
                                    m_dem,  // alias
@@ -2948,7 +2951,7 @@ struct IntensityErrorPQ {
 		  const F* const pq,                 // array of length 2 
 		  const F* const albedo,
 		  const F* const camera_adjustments, // array of length 6
-		  const F* const sun_position,       // array of length 3
+		  const F* const scaled_sun_posn,       // array of length 3
 		  const F* const reflectance_model_coeffs,
                   F* residuals) const {
 
@@ -2958,7 +2961,7 @@ struct IntensityErrorPQ {
     return calc_intensity_residual(exposure, haze, &v, center_h, &v, &v, &v,
                                    use_pq, pq,
                                    albedo, camera_adjustments,
-                                   sun_position,
+                                   scaled_sun_posn,
                                    reflectance_model_coeffs,
                                    m_col, m_row,  
                                    m_dem,  // alias
@@ -3259,7 +3262,7 @@ ImageView<double> comp_blending_weights(MaskedImgT const& img,
 //     }
 //     return weights;
 //   }
-  
+
   ImageView<double> weights;
 
   if (min_blend_size <= 0)
@@ -3324,8 +3327,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save a copy of the DEM while using a no-data value at a DEM grid point where all images show shadows. To be used if shadow thresholds are set.")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed.")
-    ("use-approx-adjusted-camera-models",   po::bool_switch(&opt.use_approx_adjusted_camera_models)->default_value(false)->implicit_value(true),
-     "Approximate the adjusted cameras. This assumes that the adjustments won't change hence that the cameras are fixed. This should use less memory than just using approximate cameras as above.")
     ("use-rpc-approximation",   po::bool_switch(&opt.use_rpc_approximation)->default_value(false)->implicit_value(true),
      "Use RPC approximations for the camera models instead of approximate tabulated camera models (invoke with --use-approx-camera-models).")
     ("rpc-penalty-weight", po::value(&opt.rpc_penalty_weight)->default_value(0.1),
@@ -3370,8 +3371,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "An attempt to let the DEM float at the boundary.")
     ("fix-dem",   po::bool_switch(&opt.fix_dem)->default_value(false)->implicit_value(true),
      "Do not float the DEM at all. Useful when floating the model params.")
-    ("float-dem-only",   po::bool_switch(&opt.float_dem_only)->default_value(false)->implicit_value(true),
-     "Float only the DEM.")
     ("float-reflectance-model",   po::bool_switch(&opt.float_reflectance_model)->default_value(false)->implicit_value(true),
      "Allow the coefficients of the reflectance model to float (not recommended).")
     ("float-sun-position",   po::bool_switch(&opt.float_sun_position)->default_value(false)->implicit_value(true),
@@ -3457,7 +3456,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   if (opt.use_rpc_approximation) 
     vw_throw(ArgumentErr() << "The RPC approximation is broken.\n");
-    
+
+  // When we use approximate cameras, and the cameras are fixed, use an approximation
+  // for the adjusted camera rather than for the unadjusted one. This uses less memory.
+  if (opt.use_approx_camera_models && !opt.float_cameras &&
+      !opt.use_rpc_approximation && !opt.use_semi_approx) {
+    opt.use_approx_camera_models = false;
+    opt.use_approx_adjusted_camera_models = true;
+  }
+  
   if (opt.compute_exposures_only){
     if (opt.use_approx_camera_models ||
         opt.use_approx_adjusted_camera_models ||
@@ -3473,6 +3480,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.use_semi_approx = false;
       opt.blending_dist = 0;
     }
+
+    if (!opt.crop_win.empty()) {
+      vw_throw(ArgumentErr() << "When computing exposures only, cannot crop the input DEM as that will give wrong results. Use the full DEM.\n");
+    }
   }
   
   if (opt.blending_dist > 0 && !opt.crop_input_images) 
@@ -3485,35 +3496,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << "Using cropped input images implies using an approximate camera model.\n" );
   }
 
-  if (opt.use_approx_adjusted_camera_models) {
-    if (opt.float_cameras)
-      vw_throw( ArgumentErr()
-                << "Using approximate adjusted camera models precludes them from floating.\n" );
-    if (opt.use_rpc_approximation)
-      vw_throw( ArgumentErr()
-                << "Approximate adjusted camera models cannot be used with rpc approximation.\n" );
-    if (opt.use_semi_approx)
-      vw_throw( ArgumentErr()
-                << "Approximate adjusted camera models cannot be used "
-                << "with the semi-approximation.\n" );
-    if (opt.use_approx_camera_models)
-      vw_throw( ArgumentErr()
-                << "Cannot specify more than one of: --use-approx-camera-models "
-                << "and --use-approx-adjusted-camera-models.\n" );
-  }
-
-
-  if (opt.float_dem_only) {
-    if (opt.float_albedo || opt.float_exposure || opt.float_cameras ||
-        opt.float_all_cameras || opt.float_dem_at_boundary ||
-        opt.boundary_fix || opt.fix_dem || opt.float_reflectance_model ||
-        opt.float_sun_position || opt.float_haze || opt.integrability_weight > 0 ){
-      vw_throw( ArgumentErr()
-                << "When floating the DEM only, other things must not float. "
-                << "Some other non-default options are not supported as well in this mode.\n" );
-    }
-  }
-  
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -3793,7 +3775,7 @@ void run_sfs_level(// Fixed inputs
 		   std::vector< std::vector<boost::shared_ptr<CameraModel> > > & cameras,
 		   std::vector<double> & exposures,
 		   std::vector< std::vector<double> > & haze,
-		   std::vector<double> & sun_positions,
+		   std::vector<double> & scaled_sun_posns,
 		   std::vector<double> & adjustments,
                    std::vector<double> & reflectance_model_coeffs){
 
@@ -3862,6 +3844,16 @@ void run_sfs_level(// Fixed inputs
       }
     }
   }
+
+  // Use a simpler cost function if only the DEM is floated. Not sure how much
+  // of speedup that gives.
+  bool float_dem_only = true;
+  if (opt.float_albedo || opt.float_exposure || opt.float_cameras ||
+      opt.float_all_cameras || opt.float_dem_at_boundary ||
+      opt.boundary_fix || opt.fix_dem || opt.float_reflectance_model ||
+      opt.float_sun_position || opt.float_haze || opt.integrability_weight > 0 ){
+    float_dem_only = false;
+  }
   
   std::set<int> use_dem, use_albedo; // to avoid a crash in Ceres when a param is fixed but not set
   
@@ -3882,7 +3874,7 @@ void run_sfs_level(// Fixed inputs
           }
           
           ceres::LossFunction* loss_function_img = NULL;
-          if (opt.float_dem_only) {
+          if (float_dem_only) {
             ceres::CostFunction* cost_function_img =
               IntensityErrorFloatDemOnly::Create(col, row,
                                                  dems[dem_iter],
@@ -3900,7 +3892,7 @@ void run_sfs_level(// Fixed inputs
                                                  crop_boxes[dem_iter][image_iter],
                                                  masked_images[dem_iter][image_iter],
                                                  blend_weights[dem_iter][image_iter],
-                                                 &sun_positions[3*image_iter], // sun positions
+                                                 &scaled_sun_posns[3*image_iter], // sun positions
                                                  cameras[dem_iter][image_iter]);
             problem.AddResidualBlock(cost_function_img, loss_function_img,
                                      &dems[dem_iter](col-1, row),  // left
@@ -3922,7 +3914,7 @@ void run_sfs_level(// Fixed inputs
                                      crop_boxes[dem_iter][image_iter],
                                      masked_images[dem_iter][image_iter],
                                      blend_weights[dem_iter][image_iter],
-                                     &sun_positions[3*image_iter], // sun positions
+                                     &scaled_sun_posns[3*image_iter], // sun positions
                                      cameras[dem_iter][image_iter]);
             problem.AddResidualBlock(cost_function_img, loss_function_img,
                                      &exposures[image_iter],       // exposure
@@ -3934,7 +3926,7 @@ void run_sfs_level(// Fixed inputs
                                      &dems[dem_iter](col, row-1),  // top
                                      &albedos[dem_iter](col, row), // albedo
                                      &adjustments[6*image_iter],   // camera
-                                     //&sun_positions[3*image_iter], // sun positions
+                                     //&scaled_sun_posns[3*image_iter], // sun positions
                                      &reflectance_model_coeffs[0]);
             use_dem.insert(dem_iter); 
             use_albedo.insert(dem_iter);
@@ -3958,7 +3950,7 @@ void run_sfs_level(// Fixed inputs
                                      &pq[dem_iter](col, row)[0],      // pq
                                      &albedos[dem_iter](col, row),    // albedo
                                      &adjustments[6*image_iter],      // camera
-                                     &sun_positions[3*image_iter],    // sun positions
+                                     &scaled_sun_posns[3*image_iter],    // sun positions
                                      &reflectance_model_coeffs[0]);   // reflectance 
             
             
@@ -4080,7 +4072,7 @@ void run_sfs_level(// Fixed inputs
     }
     
     // If to float the albedo
-    if (!opt.float_dem_only) {
+    if (!float_dem_only) {
       for (int col = 1; col < dems[dem_iter].cols() - 1; col++) {
         for (int row = 1; row < dems[dem_iter].rows() - 1; row++) {
           if (!opt.float_albedo && num_used > 0 && use_albedo.find(dem_iter) != use_albedo.end())
@@ -4091,7 +4083,7 @@ void run_sfs_level(// Fixed inputs
     
   } // end iterating over DEMs
 
-  if (!opt.float_dem_only) {
+  if (!float_dem_only) {
 
     // If floating the DEM only, none of the below parameters are even added to the problem,
     // it does not make sense to check to keep them fixed or floating them.
@@ -4135,7 +4127,7 @@ void run_sfs_level(// Fixed inputs
     if (!opt.float_sun_position){
       if (opt.integrability_weight != 0){
         for (int image_iter = 0; image_iter < num_images; image_iter++) {
-          if (use_image[image_iter]) problem.SetParameterBlockConstant(&sun_positions[3*image_iter]);
+          if (use_image[image_iter]) problem.SetParameterBlockConstant(&scaled_sun_posns[3*image_iter]);
         }
       }
     }
@@ -4190,7 +4182,7 @@ void run_sfs_level(// Fixed inputs
   
   vw_out() << summary.FullReport() << "\n" << std::endl;
 
-  callTop();
+  // callTop();
 }
 
 #if 0
@@ -4466,6 +4458,13 @@ int main(int argc, char* argv[]) {
     // Prepare for multiple levels
     int levels = opt.coarse_levels;
 
+    // Read the handles to the DEMs. Here we don't load them into
+    // memory yet. We will later load into memory only cropped
+    // versions if cropping is specified. This is to save on memory.
+    std::vector< ImageViewRef<double> > dem_handles(num_dems);
+    for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) 
+      dem_handles[dem_iter] = DiskImageView<double>(opt.input_dems[dem_iter]);
+
     // There are multiple DEM clips, and multiple coarseness levels
     // for each DEM. Same about albedo and georeferences.
     std::vector< std::vector< ImageView<double> > >
@@ -4478,32 +4477,32 @@ int main(int argc, char* argv[]) {
       geos      [level].resize(num_dems);
     }
     
-    // Read the DEMs
-    for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) 
-      dems[0][dem_iter] = copy(DiskImageView<double>(opt.input_dems[dem_iter]));
-    
     if ( (!opt.crop_win.empty() || opt.query) && num_dems > 1) 
       vw_throw( ArgumentErr() << "Cannot run parallel_stereo with multiple DEM clips.\n" );
 
     // This must be done before the DEM is cropped. This stats is
     // queried from parallel_sfs.
     if (opt.query) {
-      vw_out() << "dem_cols, " << dems[0][0].cols() << std::endl;
-      vw_out() << "dem_rows, " << dems[0][0].rows() << std::endl;
+      vw_out() << "dem_cols, " << dem_handles[0].cols() << std::endl;
+      vw_out() << "dem_rows, " << dem_handles[0].rows() << std::endl;
     }
 
     // Adjust the crop win
-    opt.crop_win.crop(bounding_box(dems[0][0]));
+    opt.crop_win.crop(bounding_box(dem_handles[0]));
     
     // Read the georeference. 
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       if (!read_georeference(geos[0][dem_iter], opt.input_dems[dem_iter]))
         vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
       
-      // Crop the DEM and georef if requested to given box
+      // Crop the DEM and georef if requested to given box.  The
+      // cropped DEM (or uncropped if no cropping happens) is fully
+      // loaded in memory.
       if (!opt.crop_win.empty()) {
-        dems[0][dem_iter] = crop(dems[0][dem_iter], opt.crop_win);
+        dems[0][dem_iter] = crop(dem_handles[dem_iter], opt.crop_win);
         geos[0][dem_iter] = crop(geos[0][dem_iter], opt.crop_win);
+      }else{
+        dems[0][dem_iter] = dem_handles[dem_iter]; // load in memory
       }
     
       // This can be useful
@@ -4645,7 +4644,7 @@ int main(int argc, char* argv[]) {
     // Declare the lock here, as we want it to live until the end of the program. 
     vw::Mutex camera_mutex;
 
-    callTop();
+    // callTop();
     
     // If to use approximate camera models
     if (opt.use_approx_camera_models || opt.use_approx_adjusted_camera_models) {
@@ -4708,7 +4707,7 @@ int main(int argc, char* argv[]) {
           vw_out() << "Approximate model generation time: " << sw.elapsed_seconds()
                    << " s." << std::endl;
           
-          callTop();
+          // callTop();
 
           // Cast the pointer back to ApproxBaseCameraModel as we need that.
           ApproxBaseCameraModel* cam_ptr = dynamic_cast<ApproxBaseCameraModel*>(apcam.get());
@@ -4897,17 +4896,16 @@ int main(int argc, char* argv[]) {
 	IsisCameraModel* icam
 	  = dynamic_cast<IsisCameraModel*>(get_isis_cam(opt, cameras[dem_iter][image_iter]).get());
 	model_params[image_iter].sunPosition = icam->sun_position();
-      }
-      
-      vw_out() << "Sun position for image: " << image_iter << " "
+        vw_out() << "Sun position for image: " << image_iter << " "
 	       << model_params[image_iter].sunPosition << std::endl;
+      }
     }
 
     // Copy sun positions to an array
-    std::vector<double> sun_positions(3*num_images);
+    std::vector<double> scaled_sun_posns(3*num_images);
     for (int image_iter = 0; image_iter < num_images; image_iter++){
       for (int it = 0; it < 3; it++) 
-        sun_positions[3*image_iter + it] = 1; // model_params[image_iter].sunPosition[it];
+        scaled_sun_posns[3*image_iter + it] = 1; // model_params[image_iter].sunPosition[it];
     }    
     
     // Find the grid sizes in meters. Note that dem heights are in
@@ -4983,7 +4981,7 @@ int main(int argc, char* argv[]) {
 					 masked_images_vec[0][dem_iter][image_iter],
 					 blend_weights_vec[0][dem_iter][image_iter],
 					 cameras[dem_iter][image_iter].get(),
-                                         &sun_positions[3*image_iter],
+                                         &scaled_sun_posns[3*image_iter],
 					 reflectance, intensity, weight,
 					 &opt.model_coeffs_vec[0]);
 
@@ -5057,7 +5055,7 @@ int main(int argc, char* argv[]) {
     
     g_exposures     = &opt.image_exposures_vec;
     g_haze          = &opt.image_haze_vec;
-    g_sun_positions = &sun_positions;
+    g_scaled_sun_posns = &scaled_sun_posns;
     
     // For images that we don't use, wipe the cameras and all other
     // info, as those take up memory (the camera is a table). 
@@ -5183,6 +5181,7 @@ int main(int argc, char* argv[]) {
                 Vector2i(tile_size, tile_size) * sub_scale),
                Vector2i(tile_size, tile_size), sub_threads), img_nodata_val),
              has_img_georef, img_georef, has_img_nodata, img_nodata_val, opt, tpc);
+          
           // Read it right back
           if (opt.crop_input_images) {
             // Read it fully in memory, as we cropped it before
@@ -5261,7 +5260,7 @@ int main(int argc, char* argv[]) {
                     dems[level], albedos[level], cameras,
                     opt.image_exposures_vec,
                     opt.image_haze_vec,
-                    sun_positions,
+                    scaled_sun_posns,
                     adjustments, opt.model_coeffs_vec);
 
       // TODO: Study this. Discarding the coarse DEM and exposure so
@@ -5286,6 +5285,5 @@ int main(int argc, char* argv[]) {
 
   sw_total.stop();
   vw_out() << "Total elapsed time: " << sw_total.elapsed_seconds() << " s." << std::endl;
-  callTop();
  
 }
