@@ -59,7 +59,7 @@ def check_system_memory(opt, args, settings):
             return
 
         # Use a command line call to Estimate the amount of free memory
-        freemem_mb = map(int, os.popen('free -m').readlines()[-2].split()[1:])[2]
+        freemem_mb = list(map(int, os.popen('free -m').readlines()[-2].split()[1:]))[2]
 
         # This is the processor count code, won't work if other
         #  machines have a different processor count.
