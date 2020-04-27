@@ -650,14 +650,15 @@ stereo.default
 Community Sensor Model
 ----------------------
 
-The Community Sensor Model (CSM), established by the U.S. defense and
-intelligence community, has the goal of standardizing camera models for
-various remote sensor types. It provides a well-defined application
-program interface (API) for multiple types of sensors and has been
-widely adopted by Earth remote sensing software systems.
-:cite:`hare2017community`. ASP supports CSM by using the
-USGS ISIS implementation (https://github.com/USGS-Astrogeology/usgscsm)
-that we ship with our software.
+The Community Sensor Model (CSM), established by the U.S. defense
+and intelligence community, has the goal of standardizing camera
+models for various remote sensor types :cite:`CSMTRD`. It provides
+a well-defined application program interface (API) for multiple
+types of sensors and has been widely adopted by Earth remote sensing
+software systems :cite:`hare2017community,2019EA000713`.
+ASP supports CSM by using the USGS ISIS implementation
+(https://github.com/USGS-Astrogeology/usgscsm) that we ship with
+our software.
 
 CSM is handled via dynamically loaded plugins. Hence, if a user has a
 new sensor model, ASP can use it as soon as a supporting plugin is added

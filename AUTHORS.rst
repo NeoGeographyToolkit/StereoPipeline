@@ -109,8 +109,10 @@ Exploration Systems Mission Directorate (ESMD) funding sources:
 - SMD Cryosphere Program
 - The Resource Prospector site selection activity
 - The VIPER mission site selection activity
+- NASA-USGS Inter-Agency Agreement #NNH16AC13I to support the Comunity 
+  Sensor Model (CSM) work in 2019 and 2020.
 - Planetary Data Archiving and Tools program (PDART) grant #19-PDART19_2-0094
-  under Dr. Ross Beyer (2020-2022)
+  under Dr. Ross Beyer (2020-2022).
 
 Any opinions, findings, and conclusions or recommendations expressed in
 this documentation are those of the authors and do not necessarily
