@@ -78,7 +78,12 @@ enum OperationType {
   OP_power,
   // MULTI operations
   OP_min,
-  OP_max
+  OP_max,
+  OP_lt,
+  OP_gt,
+  OP_lte,
+  OP_gte,
+  OP_eq
 };
 
 std::string getTagName(const OperationType o) {
@@ -97,6 +102,11 @@ std::string getTagName(const OperationType o) {
     case OP_power:    return "POWER";
     case OP_min:      return "MIN";
     case OP_max:      return "MAX";
+    case OP_lt:       return "LESS_THAN";
+    case OP_gt:       return "GREATER_THAN";
+    case OP_lte:      return "LESS_THAN_EQ";
+    case OP_gte:      return "LESS_THAN_EQ";
+    case OP_eq:       return "EQUALS";
     default:          return "ERROR";
   }
 }
@@ -132,9 +142,9 @@ T manual_max(const std::vector<T> &vec) {
 // This type represents an operation performed on one or more inputs.
 struct calc_operation {
 
-    OperationType               opType; // The operation to be performed on the children
-    double value; // If this is a leaf node, the number is stored here.  Ignored unless OP_number.
-    int varName;
+    OperationType opType; // The operation to be performed on the children
+    double        value; // If this is a leaf node, the number is stored here.  Ignored unless OP_number.
+    int           varName;
     std::vector<calc_operation> inputs; // The inputs to the operation
 
     calc_operation() : opType(OP_pass) {}
@@ -216,6 +226,7 @@ struct calc_operation {
           vw_throw(LogicErr() << "Insufficient inputs for this operation.\n");
         case OP_negate:   return T(-1 * inputResults[0]);
         case OP_abs:      return T(std::abs(inputResults[0])); // regular abs casts to integer.
+
         // Binary
         if (numInputs < 2)
           vw_throw(LogicErr() << "Insufficient inputs for this operation.\n");
@@ -224,9 +235,16 @@ struct calc_operation {
         case OP_divide:   return (inputResults[0] / inputResults[1]);
         case OP_multiply: return (inputResults[0] * inputResults[1]);
         case OP_power:    return (pow(inputResults[0], inputResults[1]));
+
         // Multi
         case OP_min:      return manual_min(inputResults); // TODO: Do these functions exist?
         case OP_max:      return manual_max(inputResults);
+
+        case OP_lt:   return (inputResults[0] <  inputResults[1]) ? inputResults[2] : inputResults[3];
+        case OP_gt:   return (inputResults[0] >  inputResults[1]) ? inputResults[2] : inputResults[3];
+        case OP_lte:  return (inputResults[0] <= inputResults[1]) ? inputResults[2] : inputResults[3];
+        case OP_gte:  return (inputResults[0] >= inputResults[1]) ? inputResults[2] : inputResults[3];
+        case OP_eq:   return (inputResults[0] == inputResults[1]) ? inputResults[2] : inputResults[3];
 
         default:
           vw_throw(LogicErr() << "Unexpected operation type.\n");
@@ -269,8 +287,7 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
      using b_s::qi::_1; // This is required to avoid namespace mixups with other Boost modules.
      using b_s::qi::_2;
      using b_s::qi::_3;
-
-
+   
      // This approach works but it processes expressions right to left.
      // - To get what you want, use parenthesis.
 
@@ -292,9 +309,15 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
     // - TODO: An additional layer to prevent double signs?
     factor =
         (double_          [at_c<NUM>(_val)=_1,            at_c<OP>(_val)=OP_number]    ) | // Just a number
-        // The min and max operations take a comma seperated list of expressions
+        // These operations take a comma seperated list of expressions
         ("min(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_min] % ',' > ')') |
         ("max(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_max] % ',' > ')') |
+        ("lt("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_lt ] % ',' > ')') |
+        ("gt("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gt ] % ',' > ')') |
+        ("lte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_lte] % ',' > ')') |
+        ("gte(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_gte] % ',' > ')') |
+        ("eq("  > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_eq ] % ',' > ')') |
+
         ( ("pow(" > expression > ',' > expression > ')')
                 [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), at_c<OP>(_val)=OP_power] ) |
         ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | // Absolute value
@@ -428,8 +451,8 @@ public: // Functions
                     m_operation_tree(operation_tree) {
     const size_t numImages = imageVec.size();
     VW_ASSERT( (numImages > 0), ArgumentErr() << "ImageCalcView: One or more images required.." );
-    VW_ASSERT( (has_nodata_vec.size() == numImages), LogicErr() << "ImageCalcView: Incorrect hasNodata count passed in." );
-    VW_ASSERT( (nodata_vec.size()    == numImages), LogicErr() << "ImageCalcView: Incorrect nodata count passed in." );
+    VW_ASSERT( (has_nodata_vec.size() == numImages), LogicErr() << "ImageCalcView: Incorrect hasNodata count passed in.");
+    VW_ASSERT( (nodata_vec.size()     == numImages), LogicErr() << "ImageCalcView: Incorrect nodata count passed in."   );
 
     // Make sure all images are the same size
     m_num_rows     = imageVec[0].rows();
@@ -578,7 +601,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-nodata-value", po::value(&opt.out_nodata_value), "Value to use for no-data in the output image.")
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("help,h",            "Display this help message");
-    
+
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -593,8 +616,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
-			     positional, positional_desc, usage,
-			     allow_unregistered, unregistered );
+                             positional, positional_desc, usage,
+                             allow_unregistered, unregistered );
 
   if ( opt.input_files.empty() )
     vw_throw( ArgumentErr() << "Missing input files.\n" << usage << general_options );
