@@ -11,11 +11,16 @@ and data type. Input images are restricted to one channel.
 
 The following symbols are allowed in the arithmetic string: +, -, \*, /,
 (), min(), max(), pow(), abs(), and var_N where N is the index of one of
-the input images (N\ :math:`\ge`\ 0). An example arithmetic string is:
+the input images (N\ :math:`\ge`\ 0). The tool also supports certain conditional
+operations: lt, gt, lte, gte, eq (<, >, <=, >=, == respectively).  These must be
+used in a format like "lt(var_0, 0.003, var_1, 0)", which translates to
+"if var_0 < 0.003 then var_1 else 0".
+An example arithmetic string is:
 "-abs(var_0) + min(58, var_1, var_2) / 2". The tool respects the normal
 PEMDAS order of operations *except* that it parses equal priority
 operations from right to left, *not* the expected left to right.
 Parentheses can be used to enforce any preferred order of evaluation.
+
 
 Usage::
 
