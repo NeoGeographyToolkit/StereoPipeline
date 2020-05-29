@@ -15,14 +15,15 @@ another source.
 Guidelines for Selecting Stereo Pairs
 -------------------------------------
 
-When choosing image pairs to process, images that are taken with similar
-viewing angles, lighting conditions, and significant surface coverage
-overlap are best suited for creating terrain models. Depending on the
-characteristics of the mission data set and the individual images, the
-degree of acceptable variation will differ. Significant differences
-between image characteristics increases the likelihood of stereo
-matching error and artifacts, and these errors will propagate through to
-the resulting data products.
+When choosing image pairs to process, images that are taken with
+similar viewing angles, lighting conditions, and significant surface
+coverage overlap are best suited for creating terrain models
+:cite:`2015LPI462703B`.  Depending on the characteristics of the
+mission data set and the individual images, the degree of acceptable
+variation will differ. Significant differences between image
+characteristics increases the likelihood of stereo matching error
+and artifacts, and these errors will propagate through to the
+resulting data products.
 
 Although images do not need to be map-projected before running the
 ``stereo`` program, we recommend that you do run ``cam2map`` (or
