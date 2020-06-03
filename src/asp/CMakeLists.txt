@@ -240,8 +240,7 @@ find_external_library(ILMBASE ${ISIS_DEPS_DIR} "" "${ILMBASE_LIB_NAMES}" REQUIRE
 find_external_library(OPENEXR ${ISIS_DEPS_DIR} "OpenEXR" "IlmImf;IlmThread" REQUIRED)
 
 # Dependencies for ASP and ISIS
-find_external_library(SPICE ${ISIS_DEPS_DIR} "cspice" "cspice" REQUIRED) # BROKEN?
-#find_external_library(SPICE ${ISIS_DEPS_DIR} "" "cspice" REQUIRED)
+find_external_library(SPICE ${ISIS_DEPS_DIR} "cspice" "cspice" REQUIRED)
 find_external_library(GEOID ${bbdir} "" "egm2008" REQUIRED)
 find_external_library(XERCESC ${ISIS_DEPS_DIR} "" "xerces-c" REQUIRED)
 find_external_library(PROTOBUF ${ISIS_DEPS_DIR} "" "protobuf" REQUIRED)
