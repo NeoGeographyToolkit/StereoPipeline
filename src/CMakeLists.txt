@@ -2,8 +2,8 @@ include(Utilities) # Contains functions
 
 # Verify that we have a new enough compiler.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.8.5")
-    message(FATAL_ERROR "GCC version >= 4.8.5 is required!")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0.0")
+    message(FATAL_ERROR "GCC version >= 5.0.0 is required!")
   endif()
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.1.0")

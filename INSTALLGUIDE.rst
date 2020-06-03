@@ -55,11 +55,11 @@ camera models by the ISIS Developers. At the very least, you should
 be able to install older versions of ISIS if a failure is found.
 To do so, follow the ISIS installation instructions, but create a
 new conda environment (not the one with your current ISIS), and right
-before you would run ``conda install isis3``, run ``conda search
+before you would run ``conda install isis``, run ``conda search
 isis`` to find all of the versions of ISIS available for installation.
-For example, if you wanted to install ISIS 3.9.0, and it is available
+For example, if you wanted to install ISIS 4.1.0, and it is available
 in the ``conda search isis`` listing, you can run ``conda install
-isis3=3.9.0`` (to install that specific version of ISIS) and then
+isis=4.1.0`` (to install that specific version of ISIS) and then
 follow the remainder of the ISIS installation instructions.
 
 In closing, running the Stereo Pipeline executables only requires
@@ -314,7 +314,7 @@ with::
 
 This can be done with the following commands::
 
-    cd ~/miniconda3/envs/isis3/lib
+    cd ~/miniconda3/envs/isis/lib
     mkdir -p  backup
     cp -fv  *la backup
     perl -pi -e "s#(/[^\s]*?lib)/lib([^\s]+).la#-L\$1 -l\$2#g" *la
@@ -335,7 +335,7 @@ directory ``~/projects/BinaryBuilder``::
     cd ~; mkdir projects; cd projects
     git clone https://github.com/NeoGeographyToolkit/BinaryBuilder.git
     cd BinaryBuilder
-    conda activate isis3
+    conda activate isis
     source ./auto_build/utils.sh
     ./build.py 
 
@@ -347,8 +347,8 @@ One can specify the compilers as::
     ./build.py --cc=/path/to/gcc --cxx=/path/to/g++ --gfortran=/path/to/gfortran
 
 If the conda packages were installed in a location other than
-``$HOME/miniconda3/envs/isis3``, the path to that directory should be
-set via ``--isis3-deps-dir``.
+``$HOME/miniconda3/envs/isis``, the path to that directory should be
+set via ``--isis-deps-dir``.
 
 Due to the amount of code that must be downloaded and built,
 BinaryBuilder will take quite a while to finish.  If you see the

@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
       vw_out() << "The variable QT_PLUGIN_PATH was not set.\n";
       // Look in the miniconda dir
       fs::path plugin_path = std::string(getenv("HOME")) +
-	"/miniconda3/envs/isis3/plugins";
+	"/miniconda3/envs/isis/plugins";
       // Look in ASP install dir
       //std::string program_path = vw::program_path("stereo_gui", argv[0]);
       //fs::path plugin_path = fs::path(program_path).parent_path().parent_path()

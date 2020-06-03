@@ -125,12 +125,6 @@ if MAKE_APP_DEM_GEOID
   dem_geoid_LDADD = $(APP_DEM_GEOID_LIBS)
 endif
 
-if MAKE_APP_BUNDLEVIS
-  bin_PROGRAMS += bundlevis
-  bundlevis_SOURCES = bundlevis.cc bundlevis.h
-  bundlevis_LDADD = $(APP_BUNDLEVIS_LIBS)
-endif
-
 if MAKE_APP_PC_ALIGN
   bin_PROGRAMS += pc_align
   pc_align_SOURCES = pc_align.cc

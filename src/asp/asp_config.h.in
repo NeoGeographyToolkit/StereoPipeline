@@ -87,9 +87,6 @@
 /* Define to 1 if the BOOST_THREAD package is available. */
 //#cmakedefine ASP_HAVE_PKG_BOOST_THREAD
 
-/* Define to 1 if the BUNDLEVIS app is available. */
-//#cmakedefine ASP_HAVE_PKG_BUNDLEVIS
-
 /* Define to 1 if the BUNDLE_ADJUST app is available. */
 //#cmakedefine ASP_HAVE_PKG_BUNDLE_ADJUST
 

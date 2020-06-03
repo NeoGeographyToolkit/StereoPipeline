@@ -121,24 +121,6 @@ You need to set up your ISIS environment or manually set the correct
 location for \texttt{ISIS3DATA}.
 
 \begin{verbatim}
-point2mesh stereo-output-PC.tif stereo-output-L.tif
-[...]
-99%  Vertices:   [************************************************************] Complete!
-       > size: 82212 vertices
-Drawing Triangle Strips
-Attaching Texture Data
-zsh: bus error  point2mesh stereo-output-PC.tif stereo-output-L.tif
-\end{verbatim}
-
-The source of this problem is an old version of OpenSceneGraph in
-your library path. Check your \verb#LD_LIBRARY_PATH# (for Linux),
-\verb#DYLD_LIBRARY_PATH# (for OSX), or your \verb#DYLD_FALLBACK_LIBRARY_PATH#
-(for OSX) to see if you have an old version listed, and remove it
-from the path if that is the case. It is not necessary to remove the
-old versions from your computer, you just need to remove the reference
-to them from your library path.
-
-\begin{verbatim}
 bash: stereo: command not found
 \end{verbatim}
 

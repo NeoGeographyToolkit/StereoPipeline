@@ -18,8 +18,8 @@ endif()
 # Make an abbreviation for this long name
 set(bbdir ${BINARYBUILDER_INSTALL_DIR})
 
-if ("${ISIS3_DEPS_DIR}" STREQUAL "")
-  message(FATAL_ERROR "You need to set ISIS3_DEPS_DIR")
+if ("${ISIS_DEPS_DIR}" STREQUAL "")
+  message(FATAL_ERROR "You need to set ISIS_DEPS_DIR")
 endif()
 
 # Put the search for Boost early on, to ensure that the Conda version
@@ -32,10 +32,10 @@ set(BOOST_MIN_VERSION "1.65")
 set(REQUIRED_BOOST_LIBS program_options system filesystem regex date_time thread iostreams)
 #set(Boost_DEBUG 1) # Uncomment for useful finding boost debug output
 #if(BINARYBUILDER_INSTALL_DIR) # Look in BinaryBuilder directory
-if(ISIS3_DEPS_DIR) # Look in BinaryBuilder directory
-  set(BOOST_ROOT       "${ISIS3_DEPS_DIR}")
-  set(BOOST_LIBRARYDIR "${ISIS3_DEPS_DIR}/lib")
-  set(BOOST_INCLUDEDIR "${ISIS3_DEPS_DIR}/include")
+if(ISIS_DEPS_DIR) # Look in BinaryBuilder directory
+  set(BOOST_ROOT       "${ISIS_DEPS_DIR}")
+  set(BOOST_LIBRARYDIR "${ISIS_DEPS_DIR}/lib")
+  set(BOOST_INCLUDEDIR "${ISIS_DEPS_DIR}/include")
 
   #DBoost_INCLUDE_DIR=$HOME/projects/BinaryBuilder/build_asp/install/include/boost-1_67
 
@@ -86,7 +86,7 @@ option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # Make sure installed files can find installed libraries
-SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_PREFIX}/lib ${ISIS3_DEPS_DIR}/lib ${ISIS3_DEPS_DIR}/lib64)
+SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_PREFIX}/lib ${ISIS_DEPS_DIR}/lib ${ISIS_DEPS_DIR}/lib64)
 
 # --- Fixed options ---
 set(Boost_USE_STATIC_LIBS   OFF)
@@ -172,10 +172,10 @@ include_directories(${VISIONWORKBENCH_INCLUDE_DIR})
 message("--------------------------------------------------------------")
 message("Searching for QT...")
 # QT is complicated to use and should go through find_package
-set(QT_QMAKE_EXECUTABLE  ${BINARYBUILDER_INSTALL_DIR}/bin/qmake)
-set(QT_MOC_EXECUTABLE    ${BINARYBUILDER_INSTALL_DIR}/bin/moc)
-set(QT_RCC_EXECUTABLE    ${BINARYBUILDER_INSTALL_DIR}/bin/rcc)
-set(QT_UIC_EXECUTABLE    ${BINARYBUILDER_INSTALL_DIR}/bin/uic)
+set(QT_QMAKE_EXECUTABLE  ${ISIS_DEPS_DIR}/bin/qmake)
+set(QT_MOC_EXECUTABLE    ${ISIS_DEPS_DIR}/bin/moc)
+set(QT_RCC_EXECUTABLE    ${ISIS_DEPS_DIR}/bin/rcc)
+set(QT_UIC_EXECUTABLE    ${ISIS_DEPS_DIR}/bin/uic)
 
 set(REQUIRED_QT_COMPONENTS  Core                Concurrent
                             Gui                 Multimedia
@@ -186,7 +186,7 @@ set(REQUIRED_QT_COMPONENTS  Core                Concurrent
                             Sql                 Svg
                             Test                Widgets
                             Xml                 XmlPatterns)
-find_package(Qt5 5.6.3 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
+find_package(Qt5 5.9.6 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
 
 if(Qt5_FOUND)
 
@@ -208,7 +208,7 @@ if(Qt5_FOUND)
 endif(Qt5_FOUND)
 message("--------------------------------------------------------------")
 
-find_external_library(QWT ${ISIS3_DEPS_DIR} "" "qwt" REQUIRED)
+find_external_library(QWT ${ISIS_DEPS_DIR} "" "qwt" REQUIRED)
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
@@ -223,45 +223,46 @@ if (APPLE) # Use the system version
   find_package(LAPACK)
   find_package(BLAS)
 else() # Use our BB compiled version
-  find_external_library(LAPACK ${ISIS3_DEPS_DIR} "" "lapack;blas" REQUIRED)
+  find_external_library(LAPACK ${ISIS_DEPS_DIR} "" "lapack;blas" REQUIRED)
 endif()
 if(LAPACK_FOUND)
   set(VW_HAVE_PKG_FLAPACK 1) # --> This specifies that it is a Fortran derived version
                              #      How to check this if the user provides Fortran?
 endif()
 
-find_external_library(FLANN ${bbdir} "" "flann_cpp" REQUIRED)
-find_external_library(Z ${ISIS3_DEPS_DIR} "" "z" REQUIRED)
-find_external_library(PROJ4 ${ISIS3_DEPS_DIR} "" "proj"      REQUIRED)
+find_external_library(FLANN ${ISIS_DEPS_DIR} "" "flann_cpp" REQUIRED)
+find_external_library(Z ${ISIS_DEPS_DIR} "" "z" REQUIRED)
+find_external_library(PROJ4 ${ISIS_DEPS_DIR} "" "proj"      REQUIRED)
 
 find_external_library(GDAL ${bbdir} "" "gdal"      REQUIRED)
 set(ILMBASE_LIB_NAMES Half Iex Imath IlmThread)
-find_external_library(ILMBASE ${bbdir} "" "${ILMBASE_LIB_NAMES}" REQUIRED)
-find_external_library(OPENEXR ${bbdir} "OpenEXR" "IlmImf;IlmThread" REQUIRED)
+find_external_library(ILMBASE ${ISIS_DEPS_DIR} "" "${ILMBASE_LIB_NAMES}" REQUIRED)
+find_external_library(OPENEXR ${ISIS_DEPS_DIR} "OpenEXR" "IlmImf;IlmThread" REQUIRED)
 
 # Dependencies for ASP and ISIS
-find_external_library(SPICE ${bbdir} "naif" "cspice" REQUIRED)
-#find_external_library(SPICE ${ISIS3_DEPS_DIR} "" "cspice" REQUIRED)
+find_external_library(SPICE ${ISIS_DEPS_DIR} "cspice" "cspice" REQUIRED) # BROKEN?
+#find_external_library(SPICE ${ISIS_DEPS_DIR} "" "cspice" REQUIRED)
 find_external_library(GEOID ${bbdir} "" "egm2008" REQUIRED)
-find_external_library(XERCESC ${ISIS3_DEPS_DIR} "" "xerces-c" REQUIRED)
-find_external_library(PROTOBUF ${ISIS3_DEPS_DIR} "" "protobuf" REQUIRED)
-find_external_library(EMBREE ${ISIS3_DEPS_DIR} "" "embree" REQUIRED)
-find_external_library(EIGEN ${ISIS3_DEPS_DIR} "eigen3" "" REQUIRED)
-find_external_library(CERES ${bbdir} "ceres" "ceres" REQUIRED)
+find_external_library(XERCESC ${ISIS_DEPS_DIR} "" "xerces-c" REQUIRED)
+find_external_library(PROTOBUF ${ISIS_DEPS_DIR} "" "protobuf" REQUIRED)
+find_external_library(EMBREE ${ISIS_DEPS_DIR} "" "embree" REQUIRED)
+find_external_library(EIGEN ${ISIS_DEPS_DIR} "eigen3" "" REQUIRED)
+find_external_library(CERES ${ISIS_DEPS_DIR} "ceres" "ceres" REQUIRED)
 find_external_library(LIBPOINTMATCHER ${bbdir} "" "pointmatcher" REQUIRED)
 find_external_library(FASTGLOBALREGISTRATION ${bbdir} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
 find_external_library(LIBLAS ${bbdir} "" "las" REQUIRED)
 find_external_library(LASZIP ${bbdir} "laszip" "laszip" REQUIRED)
-find_external_library(GFLAGS ${bbdir} "gflags" "gflags" REQUIRED)
-find_external_library(GLOG ${bbdir} "glog" "glog" REQUIRED)
-find_external_library(ARMADILLO ${ISIS3_DEPS_DIR} "" "armadillo" REQUIRED)
+find_external_library(GFLAGS ${ISIS_DEPS_DIR} "gflags" "gflags" REQUIRED)
+find_external_library(GLOG ${ISIS_DEPS_DIR} "glog" "glog" REQUIRED)
+find_external_library(ARMADILLO ${ISIS_DEPS_DIR} "" "armadillo" REQUIRED)
 
-find_external_library(ISIS ${bbdir} "isis3" "isis3" REQUIRED)
-include_directories("${bbdir}/include/isis3")
+find_external_library(ISIS ${ISIS_DEPS_DIR} "isis" "isis3" REQUIRED)
+include_directories("${ISIS_DEPS_DIR}/include/isis")
+include_directories("${bbdir}/include/isis") # temporary, remove when ISIS folks put it above
 
 if(ASP_HAVE_PKG_ISIS)
   # Pull the ISIS version. It is on the first line before the first space.
-  file(STRINGS "${bbdir}/version" MY_STRING LIMIT_COUNT 1)
+  file(STRINGS "${ISIS_DEPS_DIR}/version" MY_STRING LIMIT_COUNT 1)
   string(REPLACE " " ";" MY_LIST ${MY_STRING}) # split by space and store into MY_LIST
   list(GET MY_LIST 0 ASP_ISIS_VERSION)
   set(ASP_HAVE_PKG_ISISIO 1)
@@ -276,13 +277,7 @@ set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
                   pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
                   pcl_registration pcl_sample_consensus pcl_search pcl_segmentation
                   pcl_stereo pcl_surface pcl_tracking)
-find_external_library(PCL ${ISIS3_DEPS_DIR} "pcl" "${PCL_LIB_NAMES}" REQUIRED)
-
-
-set(OPENSCENEGRAPH_LIB_NAMES osgAnimation osgDB osgFX osgGA osgManipulator
-                             osgParticle osgPresentation osgShadow osgSim OpenThreads
-                             osg osgTerrain osgText osgUtil osgViewer osgVolume osgWidget)
-find_external_library(OPENSCENEGRAPH ${bbdir} "" "${OPENSCENEGRAPH_LIB_NAMES}" REQUIRED)
+find_external_library(PCL ${ISIS_DEPS_DIR} "pcl" "${PCL_LIB_NAMES}" REQUIRED)
 
 # TODO: Which do we actually need!
 #find_external_library(JPEG ${bbdir} "" "jpeg" NOT_REQUIRED)
@@ -301,7 +296,7 @@ set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_ml          opencv_ximgproc
                      opencv_objdetect   opencv_xobjdetect
                      opencv_photo       opencv_xphoto)
-find_external_library(OPENCV ${ISIS3_DEPS_DIR} "" "${OPENCV_LIB_NAMES}" NOT_REQUIRED)
+find_external_library(OPENCV ${ISIS_DEPS_DIR} "" "${OPENCV_LIB_NAMES}" NOT_REQUIRED)
 
 # For convenience, list some libraries that VW and ISIS depend on.
 set(VW_3RD_PARTY_LIBS   ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} ${OPENEXR_LIBRARIES}

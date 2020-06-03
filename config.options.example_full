@@ -1,3 +1,5 @@
+# This is no longer useful as now ASP is built with cmake. This page
+# is to be wiped in the near future.
 
 # An example of a full config file used to build ASP from March 2017.
 
@@ -30,7 +32,6 @@ ENABLE_APP_RMAX2CAHVOR=no
 ENABLE_APP_RMAXADJUST=no
 ENABLE_APP_ORTHOPROJECT=no
 ENABLE_APP_BUNDLE_ADJUST=yes
-ENABLE_APP_BUNDLEVIS=yes
 ENABLE_APP_DATUM_CONVERT=yes
 ENABLE_APP_DEM_GEOID=yes
 ENABLE_APP_DEM_MOSAIC=yes
@@ -113,5 +114,5 @@ PROTOC=$BASE/bin/protoc
 
 CFLAGS="-O3 -g"
 CXXFLAGS="-O3 -g"
-CPPFLAGS="-I$BASE/include -DGEOID_PATH=$BASE/share/geoids -I$BASE/include/QtConcurrent -I$BASE/include/QtCore -I$BASE/include/QtGui -I$BASE/include/QtNetwork -I$BASE/include/QtSql -I$BASE/include/QtSvg -I$BASE/include/QtWidgets -I$BASE/include/QtXml -I$BASE/include/QtXmlPatterns -I$BASE/include/QtPrintSupport -I$BASE/include/QtTest -I$BASE/include/QtPositioning -I$BASE/include/QtQml -I$BASE/include/QtQuick -I$BASE/include/QtSensors -I$BASE/include/QtOpenGL -I$BASE/include/QtMultimedia -I$BASE/include/QtMultimediaWidgets -I$BASE/include/QtDBus -I$BASE/include/eigen3 -I$BASE/include/isis3"
+CPPFLAGS="-I$BASE/include -DGEOID_PATH=$BASE/share/geoids -I$BASE/include/QtConcurrent -I$BASE/include/QtCore -I$BASE/include/QtGui -I$BASE/include/QtNetwork -I$BASE/include/QtSql -I$BASE/include/QtSvg -I$BASE/include/QtWidgets -I$BASE/include/QtXml -I$BASE/include/QtXmlPatterns -I$BASE/include/QtPrintSupport -I$BASE/include/QtTest -I$BASE/include/QtPositioning -I$BASE/include/QtQml -I$BASE/include/QtQuick -I$BASE/include/QtSensors -I$BASE/include/QtOpenGL -I$BASE/include/QtMultimedia -I$BASE/include/QtMultimediaWidgets -I$BASE/include/QtDBus -I$BASE/include/eigen3 -I$BASE/include/isis"
 LDFLAGS="-L$BASE/lib -Wl,-rpath -Wl,$BASE"

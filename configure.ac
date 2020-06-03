@@ -403,7 +403,6 @@ AX_MODULE(PYTHON,   [src/asp/Python],   [],                  yes, [],     [],   
 # Tools - The yes/no means to enable by default
 AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE LIBPOINTMATCHER CERES])
 AX_APP(BUNDLE_ADJUST,    [src/asp/Tools], yes, [CORE VW_BUNDLEADJUSTMENT SESSIONS CERES OPENCV])
-AX_APP(BUNDLEVIS,        [src/asp/Tools], yes, [OPENSCENEGRAPH VW_BUNDLEADJUSTMENT CORE])
 AX_APP(SFS,              [src/asp/Tools], yes, [SESSIONS CERES])
 AX_APP(DEM_MOSAIC,       [src/asp/Tools], yes, [CORE])
 AX_APP(DEMPROFILE,       [src/asp/Tools], no,  [CORE])
@@ -452,7 +451,6 @@ AM_CONDITIONAL(MAKE_MODULE_PYTHON,   [test "$MAKE_MODULE_PYTHON"   = "yes"])
 
 AM_CONDITIONAL(MAKE_APP_PC_ALIGN,      [test "$MAKE_APP_PC_ALIGN"      = "yes"])
 AM_CONDITIONAL(MAKE_APP_BUNDLE_ADJUST, [test "$MAKE_APP_BUNDLE_ADJUST" = "yes"])
-AM_CONDITIONAL(MAKE_APP_BUNDLEVIS,     [test "$MAKE_APP_BUNDLEVIS"     = "yes"])
 AM_CONDITIONAL(MAKE_APP_SFS,           [test "$MAKE_APP_SFS"           = "yes"])
 AM_CONDITIONAL(MAKE_APP_DEM_MOSAIC,    [test "$MAKE_APP_DEM_MOSAIC"    = "yes"])
 AM_CONDITIONAL(MAKE_APP_DEMPROFILE,    [test "$MAKE_APP_DEMPROFILE"    = "yes"])

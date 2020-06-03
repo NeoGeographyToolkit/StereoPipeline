@@ -38,26 +38,26 @@ using namespace vw;
 using namespace vw::cartography;
 namespace po = boost::program_options;
 
-//OpenSceneGraph
-#include <osg/Geode>
-#include <osg/Group>
-#include <osg/ShapeDrawable>
-#include <osgUtil/Optimizer>
-#include <osgUtil/SmoothingVisitor>
-#include <osgUtil/Simplifier>
-#include <osg/Node>
-#include <osg/Texture1D>
-#include <osg/Texture2D>
-#include <osg/TexGen>
-#include <osg/Material>
-#include <osgViewer/Viewer>
-#include <osgDB/Registry>
-#include <osgDB/WriteFile>
-#include <osgDB/ReadFile>
-#include <osgSim/Version>
-#include <osgFX/Version>
-#include <osgTerrain/Version>
-#include <osgVolume/Version>
+// //OpenSceneGraph
+// #include <osg/Geode>
+// #include <osg/Group>
+// #include <osg/ShapeDrawable>
+// #include <osgUtil/Optimizer>
+// #include <osgUtil/SmoothingVisitor>
+// #include <osgUtil/Simplifier>
+// #include <osg/Node>
+// #include <osg/Texture1D>
+// #include <osg/Texture2D>
+// #include <osg/TexGen>
+// #include <osg/Material>
+// #include <osgViewer/Viewer>
+// #include <osgDB/Registry>
+// #include <osgDB/WriteFile>
+// #include <osgDB/ReadFile>
+// #include <osgSim/Version>
+// #include <osgFX/Version>
+// #include <osgTerrain/Version>
+// #include <osgVolume/Version>
 
 
 // ---------------------------------------------------------
@@ -66,24 +66,26 @@ namespace po = boost::program_options;
 
 
 struct Options : vw::cartography::GdalWriteOptions {
-  Options() : root( new osg::Group() ), simplify_percent(0) {};
+  Options() : // root( new osg::Group() ),
+              simplify_percent(0) {};
   // Input
   std::string pointcloud_filename, texture_file_name;
 
   // Settings
   uint32 step_size;
-  osg::ref_ptr<osg::Group> root;
+  //osg::ref_ptr<osg::Group> root;
   float simplify_percent;
-  osg::Vec3f dataNormal;
+  //osg::Vec3f dataNormal;
   std::string rot_order;
   double phi_rot, omega_rot, kappa_rot;
   bool center, enable_lighting, smooth_mesh, simplify_mesh;
-  std::string osg_version;
+  //std::string osg_version;
 
   // Output
   std::string output_prefix, output_file_type;
 };
 
+#if 0
 // ---------------------------------------------------------
 // BUILD MESH
 //
@@ -420,6 +422,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
   return mesh;
 
 }
+#endif
 
 // MAIN
 // ---------------------------------------------------------
@@ -480,6 +483,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   opt.simplify_mesh = vm.count("simplify-mesh");
 
+#if 0
   // The purpose of this is to force ASP to link to the OSG libraries
   // at link-time, otherwise it fails to find them at run-time
   // due to peculiarities in OSG's functionality for library search.
@@ -487,7 +491,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     + osgSimGetVersion()
     + osgFXGetVersion()
     + osgTerrainGetVersion();
-    + osgVolumeGetVersion();
+  + osgVolumeGetVersion();
+#endif
 }
 
 int main( int argc, char *argv[] ){
@@ -529,6 +534,7 @@ int main( int argc, char *argv[] ){
       point_image = asp::point_image_offset(point_image, -midpoint);
     }
 
+#if 0
     {
       vw_out() << "\nGenerating 3D mesh from point cloud:\n";
       opt.root->addChild(build_mesh(point_image, opt));
@@ -582,7 +588,8 @@ int main( int argc, char *argv[] ){
       osgDB::writeNodeFile( *opt.root.get() , os.str(),
                             new osgDB::Options("WriteImageHint=IncludeData Compressor=zlib"));
     }
-
+#endif
+    
   } ASP_STANDARD_CATCHES;
 
   return 0;
