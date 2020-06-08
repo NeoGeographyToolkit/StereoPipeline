@@ -394,16 +394,29 @@ void asp::log_to_file(int argc, char *argv[],
 
   // System calls. Not all will succeed on all machines.
   asp::run_cmd_app_to_file("uname -a", log_file);
-  asp::run_cmd_app_to_file("cat /proc/meminfo 2>/dev/null | grep MemTotal", log_file);
-  asp::run_cmd_app_to_file("cat /proc/cpuinfo 2>/dev/null | tail -n 25", log_file);
+  if (fs::exists("/proc/meminfo")) 
+    asp::run_cmd_app_to_file("cat /proc/meminfo 2>/dev/null | grep MemTotal", log_file);
+  if (fs::exists("/proc/cpuinfo")) 
+    asp::run_cmd_app_to_file("cat /proc/cpuinfo 2>/dev/null | tail -n 25", log_file);
+  
   // The line below is for MacOSX
   asp::run_cmd_app_to_file("sysctl -a hw 2>/dev/null | grep -E \"ncpu|byteorder|memsize|cpufamily|cachesize|mmx|sse|machine|model\" | grep -v ipv6", log_file);
-  if (stereo_default_filename != ""){
+  if (stereo_default_filename != "" && fs::exists(stereo_default_filename)) {
     std::string cmd = "cat " + stereo_default_filename + " 2>/dev/null";
     asp::run_cmd_app_to_file(cmd, log_file);
   }
-  asp::run_cmd_app_to_file("cat ~/.vwrc 2>/dev/null", log_file);
 
+  // Save the current .vwrc
+  char * home_ptr = getenv("HOME");
+  if (home_ptr) {
+    std::string home = home_ptr;
+    std::string vwrc = home + "/.vwrc";
+    if (fs::exists(vwrc)) {
+      std::string cmd = "cat " + vwrc + " 2>/dev/null";
+      asp::run_cmd_app_to_file(cmd, log_file);
+    }
+  }
+  
   // Copy all the info going to the console to log_file as well,
   // except the progress bar.
   boost::shared_ptr<vw::LogInstance> current_log( new vw::LogInstance(log_file) );

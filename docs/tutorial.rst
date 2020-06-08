@@ -56,7 +56,7 @@ Loading and Calibrating Images using ISIS
 These raw PDS images (``M0100115.imq`` and ``E0201461.imq``) need to be
 imported into the ISIS environment and radiometrically calibrated. You
 will need to be in an ISIS environment (usually via a ``conda activate``
-command which sets the ``ISISROOT`` and ``ISIS3DATA`` environment variables; 
+command which sets the ``ISISROOT`` and ``ISISDATA`` environment variables; 
 we will denote this state with the ``ISIS>`` prompt). Then you can use 
 the ``mocproc`` program, as follows::
 

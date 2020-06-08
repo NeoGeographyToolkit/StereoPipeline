@@ -171,7 +171,7 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
     # that vital env variables are copied over.
     cmd = ['parallel',  '--will-cite', '--workdir', os.getcwd(), '-u',
            '--env', 'PATH', '--env', 'PYTHONPATH', '--env', 'ISISROOT',
-           '--env', 'ISIS3DATA', '-a', argumentFilePath]
+           '--env', 'ISISDATA', '-a', argumentFilePath]
 
     # Add number of processes if specified (default is one job per CPU core)
     if numParallelProcesses is not None:

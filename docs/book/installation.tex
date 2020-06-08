@@ -45,7 +45,7 @@ according to the instructions.
 
 In closing, running the Stereo Pipeline executables only requires that
 you have downloaded the ISIS secondary data and have appropriately set
-the \texttt{ISIS3DATA} environment variable. This is normally
+the \texttt{ISISDATA} environment variable. This is normally
 performed for the user by ISIS startup script,
 \texttt{\$ISISROOT/scripts/isis3Startup.sh}.
 
@@ -113,12 +113,12 @@ these as templates for problems.  In practice, the error messages might
 be slightly different.
 
 \begin{verbatim}
-**I/O ERROR** Unable to open [$ISIS3DATA/Some/Path/Here].
+**I/O ERROR** Unable to open [$ISISDATA/Some/Path/Here].
 Stereo step 0: Preprocessing failed
 \end{verbatim} % $ A hidden dollar to not confuse emacs syntax highlighting. 
 
 You need to set up your ISIS environment or manually set the correct
-location for \texttt{ISIS3DATA}.
+location for \texttt{ISISDATA}.
 
 \begin{verbatim}
 bash: stereo: command not found

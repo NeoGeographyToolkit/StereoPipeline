@@ -111,20 +111,24 @@ namespace asp{
         if (err == 0) return; // null errors come from invalid pixels
         int len = m_hist.size();
         int k = round((len-1)*std::min(err, m_max_val)/m_max_val);
-        m_hist[k]++;
+        if (k >= 0 && k < len) {
+          // This is a bugfix for an observed situation when err is NaN.
+          // In that case the rounding returns a negative integer.
+          m_hist[k]++;
+        }
       }
     };
 
   public:
-    SubBlockBoundaryTask( ImageViewRef<Vector3> const& view,
-                          int sub_block_size,
-                          BBox2i const& image_bbox,
-                          BBox3       & global_bbox, 
-                          std::vector<BBoxPair>& boundaries,
-                          ImageViewRef<double> const& error_image, double estim_max_error,
-                          std::vector<double> & errors_hist,
-                          double max_valid_triangulation_error,
-                          Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
+    SubBlockBoundaryTask(ImageViewRef<Vector3> const& view,
+                         int sub_block_size,
+                         BBox2i const& image_bbox,
+                         BBox3       & global_bbox, 
+                         std::vector<BBoxPair>& boundaries,
+                         ImageViewRef<double> const& error_image, double estim_max_error,
+                         std::vector<double> & errors_hist,
+                         double max_valid_triangulation_error,
+                         Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
       m_view(view.impl()), m_sub_block_size(sub_block_size),
       m_image_bbox(image_bbox),
       m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
@@ -133,23 +137,23 @@ namespace asp{
       m_mutex( mutex ), m_progress( progress ), m_inc_amt( inc_amt ) {}
       
     void operator()() {
-      ImageView<Vector3 > local_image = crop( m_view, m_image_bbox );
+      ImageView<Vector3> local_image = crop(m_view, m_image_bbox);
 
       bool remove_outliers_with_pct = (!m_errors_hist.empty());
       ImageView<double> local_error;
       if (remove_outliers_with_pct || m_max_valid_triangulation_error > 0.0)
         local_error = crop( m_error_image, m_image_bbox );
-
-      // Further subdivide into boundaries so
-      // that prerasterize will only query what it needs.
-      std::vector<BBox2i> blocks = subdivide_bbox( m_image_bbox, m_sub_block_size, m_sub_block_size );
+      
+      // Further subdivide into boundaries so that prerasterize will
+      // only query what it needs.
+      std::vector<BBox2i> blocks = subdivide_bbox(m_image_bbox, m_sub_block_size, m_sub_block_size);
       BBox3 local_union;
       std::list<BBoxPair> solutions;
       std::vector<double> local_hist(m_errors_hist.size(), 0);
+
       for ( size_t i = 0; i < blocks.size(); i++ ) {
-      
         BBox3 pts_bdbox;
-        ImageView<Vector3 > local_image2 = crop( local_image, blocks[i] - m_image_bbox.min() );
+        ImageView<Vector3> local_image2 = crop(local_image, blocks[i] - m_image_bbox.min());
         if (m_max_valid_triangulation_error <= 0){
           GrowBBoxAccumulator accum;
           for_each_pixel( local_image2, accum );
@@ -164,6 +168,9 @@ namespace asp{
                 continue;
               if (local_error2(col, row) > m_max_valid_triangulation_error)
                 continue;
+
+              // TODO(oalexan1): Put here check that before growing must be in the pre-estimated
+              // boundary box.
               pts_bdbox.grow(local_image2(col, row));
             }
           }
@@ -382,9 +389,9 @@ namespace asp{
     else if (filter == "nmad"            ) m_filter = asp::f_nmad;
     else if (sscanf (filter.c_str(), "%lf-pct", &m_percentile) == 1)
       m_filter = asp::f_percentile;
-  else
+    else
     vw_throw( ArgumentErr() << "OrthoRasterize: unknown filter: " << filter << ".\n" );
-
+    
     //dump_image("img", BBox2(0, 0, 3000, 3000), point_image);
 
     // Compute the bounding box that encompasses tiles within the image
@@ -473,7 +480,6 @@ namespace asp{
       vw_out() << "Manual triangulation error cutoff is " << m_error_cutoff
                << " meters.\n";
     }
-
 
     // Find the width and height of the median point cloud pixel in
     // projected coordinates. For las or csv files, this approach

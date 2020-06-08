@@ -8,7 +8,7 @@ from source, but this is not recommended.
 Precompiled Binaries (Linux and macOS)
 --------------------------------------
 
-Simply download the appropriate distirbution for your operating
+Simply download the appropriate distribution for your operating
 system, extract, and run the executables in the ``bin`` subdirectory.
 No other 'installation' steps or administrative rights are necessary.
 
@@ -37,7 +37,7 @@ before Stereo Pipeline programs are run for planetary data.  If you
 only want to process terrestrial Digital Globe images, skip to the
 `Quick Start for Digital Globe Users`_ section.
 
-To perform pre-processing (radiometric caligration, ephemeris
+To perform pre-processing (radiometric calibration, ephemeris
 processing, etc.), of non-terrestrial images prior to running Stereo
 Pipeline, you will need to install :term:`ISIS`.  Just as with our 
 binaries, you can use the ISIS binaries as-is.
@@ -64,45 +64,45 @@ follow the remainder of the ISIS installation instructions.
 
 In closing, running the Stereo Pipeline executables only requires
 that you have downloaded the ISIS secondary data and have
-appropriately set the ``ISIS3DATA`` environment variable. This is
+appropriately set the ``ISISDATA`` environment variable. This is
 normally performed for the user by starting up the conda ISIS 
 environment.
 
 Quick Start for ISIS Users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#. FetchÂ StereoÂ Pipeline from
+#. Fetch Stereo Pipeline from
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
 
-#. FetchÂ ISISÂ Binaries and install, following
+#. Fetch ISIS Binaries and install, following
    https://github.com/USGS-Astrogeology/ISIS3#installation
 
-#. FetchÂ ISISÂ Data, as detailed at
+#. Fetch ISIS Data, as detailed at
    https://github.com/USGS-Astrogeology/ISIS3#the-isis-data-area
 
-#. UntarÂ StereoÂ Pipeline::
+#. Unitary Stereo Pipeline::
 
      tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
 
-#. AddÂ StereoÂ PipelineÂ toÂ PathÂ (optional):
+#. Add Stereo Pipeline to Path (optional):
 
    - bash: ``export PATH="</path/to/StereoPipeline>/bin:${PATH}"``
    - csh: ``setenv PATH "</path/to/StereoPipeline>/bin:${PATH}"``
 
-#. TryÂ ItÂ Out: See :numref:`moc_tutorial` for an example.
+#. Try It Out: See :numref:`moc_tutorial` for an example.
 
 
 Quick Start for Digital Globe Users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#. FetchÂ StereoÂ Pipeline from
+#. Fetch Stereo Pipeline from
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
 
-#. UntarÂ StereoÂ Pipeline::
+#. Untar Stereo Pipeline::
 
      tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
 
-#. TryÂ ItÂ Out: Processing Earth images is described in the data processing
+#. Try It Out: Processing Earth images is described in the data processing
    tutorial in :numref:`dg_tutorial`.
 
 
@@ -122,29 +122,11 @@ slightly different.
 
 ::
 
-   **I/O ERROR** Unable to open [$ISIS3DATA/<Some/Path/Here>].
+   **I/O ERROR** Unable to open [$ISISDATA/<Some/Path/Here>].
    Stereo step 0: Preprocessing failed
 
 You need to set up your ISIS environment or manually set the correct
-location for ``ISIS3DATA``.
-
-::
-
-   point2mesh stereo-output-PC.tif stereo-output-L.tif
-   [...]
-   99%  Vertices:   [**********************************] Complete!
-          > size: 82212 vertices
-   Drawing Triangle Strips
-   Attaching Texture Data
-   zsh: bus error  point2mesh stereo-output-PC.tif stereo-output-L.tif
-
-The source of this problem is an old version of OpenSceneGraph in your
-library path. Check your ``LD_LIBRARY_PATH`` (for Linux),
-``DYLD_LIBRARY_PATH`` (for macOS), or your ``DYLD_FALLBACK_LIBRARY_PATH``
-(for macOS) to see if you have an old version listed, and remove it from
-the path if that is the case. It is not necessary to remove the old
-versions from your computer, you just need to remove the reference to
-them from your library path.
+location for ``ISISDATA``.
 
 ::
 
@@ -157,19 +139,11 @@ installation to the environmental variable ``PATH``.
 Building from Source
 --------------------
 
-This method is for advanced users. You will need to fetch the Stereo
-Pipeline source code from GitHub at
-https://github.com/NeoGeographyToolkit/StereoPipeline and then
-follow these instructions.
-
-Building Stereo Pipeline from source can be difficult, due to the
-large number of dependencies, and the variety of Linux and Mac
-architectures that Stereo Pipeline supports. A separate software
-package called `BinaryBuilder
-<https://github.com/NeoGeographyToolkit/BinaryBuilder>`_ will take
-care of setting up the build environment and building the code. We
-describe below what dependencies BinaryBuilder needs and then how
-to invoke it.
+This method is for advanced users. Building Stereo Pipeline from
+source can be difficult, due to the large number of dependencies, and
+the variety of Linux and Mac architectures that Stereo Pipeline
+supports. We strongly suggest you use the pre-existing built software
+rather than compiling it yourself.
 
 Base Dependencies
 ~~~~~~~~~~~~~~~~~
@@ -190,7 +164,7 @@ ASP can be built with is gcc 5. Version 4 is too old, and some
 dependencies do not build with version 6.
 
 - Python (version >= 3 preferred, version >= 2.7 supported--but not for long)
-- gcc, g++, gfortran
+- gcc, g++, gfortran, version 5
 - cmake (version >= 3.11)
 - csh
 - libtool
@@ -277,7 +251,7 @@ Next you need the following packages:
 
 Here's an example for how to install some of these. First read
 http://superuser.com/questions/619498/can-i-install-homebrew-without-sudo-privileges
-about how to install homebrew without sudo. Then do::
+about how to install Homebrew without sudo. Then do::
 
     export HOMEBREW_PREFIX=$HOME/usr/local
     export PATH=$HOMEBREW_PREFIX/bin:$PATH
@@ -294,13 +268,47 @@ Setting up ISIS dependencies via conda
 
 ASP depends heavily on :term:`ISIS` and its dependencies. The
 dependencies should be installed using conda based on the 
-instructions at: https://github.com/USGS-Astrogeology/ISIS3/wiki/Developing-ISIS3-with-cmake
+instructions at: 
 
-This is needed even if it is desired to build VisionWorkbench only.
+  https://github.com/USGS-Astrogeology/ISIS3
 
-One should always use the dependencies in environment.yml on all
-platforms, as we use gcc 5, rather than environment_gcc4.yml mentioned
-there for CentOS.
+This is needed even if it is desired to build Vision Workbench only.
+
+Adapted for our needs, and further expanded, those instructions go as
+follows:
+
+Fetch and run
+
+  ./Miniconda3-latest-Linux-x86_64.sh
+
+on Linux, and the appropriate version on OSX. Use the suggested 
+
+  $HOME/miniconda3
+
+directory for installation. Then, run:
+
+  conda create -n isis python=3.6
+  conda activate isis
+
+  conda config --env --add channels conda-forge
+  conda config --env --add channels usgs-astrogeology
+
+Ensure that the usgs-astrogeology channel is on top by running:
+
+  conda config --show channels
+
+Install ISIS:
+
+  conda install -c usgs-astrogeology isis==4.1.0
+
+Install more dependencies, as:
+
+  conda install -c conda-forge ilmbase==2.3.0 openexr==2.3.0  openjpeg==2.1.0 \
+    cmake==3.14.5 pbzip2 gflags glog ceres-solver parallel
+
+On Linux, install in addition chrpath:
+
+  conda install -c conda-forge chrpath
 
 Some of the .la files created by conda point to other .la files that
 are not available.  For that reason, those files should be edited to
@@ -319,10 +327,10 @@ This can be done with the following commands::
     cp -fv  *la backup
     perl -pi -e "s#(/[^\s]*?lib)/lib([^\s]+).la#-L\$1 -l\$2#g" *la
 
-At some point in the near future likely all dependencies, 
-including the ones installed so far in a system location using
-apt-get or yum, can likely be transitioned to using conda and 
-having them in user space.
+At some point in the near future likely all dependencies, including
+the ones installed so far in a system location using apt-get or yum,
+can likely be transitioned to using conda and having them in user
+space.
 
 
 Invoking Binary Builder
@@ -345,6 +353,8 @@ things to work.
 One can specify the compilers as::
 
     ./build.py --cc=/path/to/gcc --cxx=/path/to/g++ --gfortran=/path/to/gfortran
+
+Note that for now only GCC 5 is supported.
 
 If the conda packages were installed in a location other than
 ``$HOME/miniconda3/envs/isis``, the path to that directory should be
@@ -373,7 +383,7 @@ BinaryBuilder directory::
     ./make-dist.py last-completed-run/install
 
 
-Building Documentation
+Building the Documentation
 ----------------------
 
 The ASP documentation is encoded in ReStructured Text and is built

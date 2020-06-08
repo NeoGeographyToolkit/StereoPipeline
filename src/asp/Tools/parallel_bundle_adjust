@@ -185,7 +185,7 @@ def spawn_to_nodes(step, argsIn):
                " ".join(args_copy) + " --entry-point " + str(start) + \
                " --stop-point " + str(stop) + " --work-dir "  + opt.work_dir
     if opt.isisroot  is not None: args_str += " --isisroot "  + opt.isisroot
-    if opt.isis3data is not None: args_str += " --isis3data " + opt.isis3data
+    if opt.isisdata is not None: args_str += " --isisdata " + opt.isisdata
     args_str += " --instance-index {}"
     cmd += [args_str]
 
@@ -310,7 +310,7 @@ if __name__ == '__main__':
     # ISIS settings
     p.add_option('--isisroot', dest='isisroot', default=None,
                  help=optparse.SUPPRESS_HELP)
-    p.add_option('--isis3data', dest='isis3data', default=None,
+    p.add_option('--isisdata', dest='isisdata', default=None,
                  help=optparse.SUPPRESS_HELP)
     # Debug options
     p.add_option('--dry-run', dest='dryrun', default=False, action='store_true',
@@ -341,7 +341,7 @@ if __name__ == '__main__':
         opt.work_dir = os.getcwd()
         # 2. Set the ISIS settings if any
         if 'ISISROOT'  in os.environ: opt.isisroot  = os.environ['ISISROOT']
-        if 'ISIS3DATA' in os.environ: opt.isis3data = os.environ['ISIS3DATA']
+        if 'ISISDATA' in os.environ: opt.isisdata = os.environ['ISISDATA']
         # 3. Fix for Pleiades, copy the nodes_list to current directory
         if opt.nodes_list is not None:
             if not os.path.isfile(opt.nodes_list):
@@ -357,7 +357,7 @@ if __name__ == '__main__':
         os.chdir(opt.work_dir)
         # Set the ISIS settings
         if opt.isisroot  is not None: os.environ['ISISROOT' ] = opt.isisroot
-        if opt.isis3data is not None: os.environ['ISIS3DATA'] = opt.isis3data
+        if opt.isisdata is not None: os.environ['ISISDATA'] = opt.isisdata
 
     num_nodes     = get_num_nodes(opt.nodes_list)
     num_instances = get_num_instances(args)

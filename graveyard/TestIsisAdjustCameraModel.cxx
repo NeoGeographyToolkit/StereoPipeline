@@ -75,7 +75,7 @@ protected:
 TEST_F(IsisAdjustCameraTest, NoFunctions) {
 
   if (!asp::isis::IsisEnv()) {
-    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+    vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."
              << std::endl;
     return;
   }
@@ -126,7 +126,7 @@ TEST_F(IsisAdjustCameraTest, NoFunctions) {
 
 TEST_F(IsisAdjustCameraTest, PolyFunctions) {
   if (!asp::isis::IsisEnv()) {
-    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+    vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."
              << std::endl;
     return;
   }
@@ -165,7 +165,7 @@ TEST_F(IsisAdjustCameraTest, PolyFunctions) {
 
 TEST_F(IsisAdjustCameraTest, RPNFunctions) {
   if (!asp::isis::IsisEnv()) {
-    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+    vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."
              << std::endl;
     return;
   }

@@ -333,8 +333,7 @@ DrawFlatGraySpan(GraphicsState *gc)
 }
 
 static void
-DrawGraySpan(GraphicsState *gc)
-{
+DrawGraySpan(GraphicsState *gc) {
   RealT gray = gc->rasterInfo.frag.color.r;
   RealT drdx = gc->rasterInfo.colorIter.drdx;
 
@@ -355,8 +354,7 @@ DrawGraySpan(GraphicsState *gc)
   // Check to see if we just removed this line
   if ( length < 1 ) return;
 
-  float *span =
-    &(gc->buffer[gc->rasterInfo.frag.y * gc->width + x ] );
+  float *span = &(gc->buffer[gc->rasterInfo.frag.y * gc->width + x ] );
 
   for (int i = length; i; --i) {
     *span++ = float(gray);
@@ -518,9 +516,7 @@ FillSubTriangle(GraphicsState *gc,  int iyBottom, int iyTop)
   gc->rasterInfo.ixRightFrac = ixRightFrac;
 }
 
-static void
-FillTriangle(GraphicsState *gc, Vertex *a, Vertex *b, Vertex *c)
-{
+static void FillTriangle(GraphicsState *gc, Vertex *a, Vertex *b, Vertex *c) {
   RealT area, oneOverArea, t1, t2, t3, t4;
   RealT dxAC, dxBC, dyAC, dyBC;
   RealT dxAB, dyAB;
@@ -766,8 +762,7 @@ SoftwareRenderer::SetColorPointer(const int numComponents, float * const colors)
 }
 
 void
-SoftwareRenderer::DrawPolygon(const int startIndex, const int numVertices)
-{
+SoftwareRenderer::DrawPolygon(const int startIndex, const int numVertices) {
   if (m_vertexPointer == 0)
     return;
 

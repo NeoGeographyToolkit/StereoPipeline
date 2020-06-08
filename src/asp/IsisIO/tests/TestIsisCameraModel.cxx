@@ -56,7 +56,7 @@ Vector2 generate_random( int const& xsize,
 
 TEST(IsisCameraModel, mapprojected) {
   if (!asp::isis::IsisEnv()) {
-    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+    vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."
 	     << std::endl;
     return;
   }
@@ -112,7 +112,7 @@ TEST(IsisCameraModel, groundmap_chk) {
   // prove that they get the same values
 
   if (!asp::isis::IsisEnv()) {
-    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+    vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."
 	     << std::endl;
     return;
   }
@@ -214,7 +214,7 @@ TEST(IsisCameraModel, groundmap_chk) {
 
 TEST(IsisCameraModel, camera_model) {
   if (!asp::isis::IsisEnv()) {
-    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+    vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."
 	     << std::endl;
     return;
   }

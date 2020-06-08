@@ -1211,7 +1211,6 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
 //-----------------------------------------------------------------------------------
 
 int main( int argc, char *argv[] ) {
-
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
@@ -1306,6 +1305,18 @@ int main( int argc, char *argv[] ) {
         // of what the distribution of errors is. This will be refined
         // later using a histogram approach and using all points. Do
         // several attempts if the sampling is too coarse.
+
+        // TODO(oalexan1): Remove outliers when doing bounding box
+        // determination.  This is a request from a user.  Do here
+        // finer sampling, instead of 128 by 128 perhaps 512 by 512,
+        // and estimate a first size of the bounding box that can be
+        // expanded by a factor. This will help us throw out large
+        // outliers when doing the precise bounding box computation.
+        // Test this with a large point cloud!
+        // The testcase ssISIS_alignAffEp_seedMode1_mapProj0_subPix1_frameCam
+        // with full image set on pfe is a good example!
+        // Also estimate here a first cut for the max triangulation error.
+        
         bool success = false;
         for (int count = 7; count <= 18; count++){
 

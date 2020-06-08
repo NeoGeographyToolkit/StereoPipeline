@@ -137,10 +137,10 @@ std::ostream& asp::isis::operator<<( std::ostream& os, IsisInterface* i ) {
     return os;
 }
 
-// Check if ISISROOT and ISIS3DATA was set
+// Check if ISISROOT and ISISDATA was set
 bool asp::isis::IsisEnv() {
   char * isisroot_ptr = getenv("ISISROOT");
-  char * isisdata_ptr = getenv("ISIS3DATA");
+  char * isisdata_ptr = getenv("ISISDATA");
 
   if (isisroot_ptr == NULL || isisdata_ptr == NULL ||
       std::string(isisroot_ptr) == "" ||
