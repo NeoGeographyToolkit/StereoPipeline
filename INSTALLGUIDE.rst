@@ -80,7 +80,7 @@ Quick Start for ISIS Users
 #. Fetch ISIS Data, as detailed at
    https://github.com/USGS-Astrogeology/ISIS3#the-isis-data-area
 
-#. Unitary Stereo Pipeline::
+#. Untar Stereo Pipeline::
 
      tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
 
