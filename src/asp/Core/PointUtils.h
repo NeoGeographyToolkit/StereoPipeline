@@ -422,10 +422,16 @@ vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> con
 }
 
 // Find the average longitude for a given point image with lon, lat, height values
-  double find_avg_lon(vw::ImageViewRef<vw::Vector3> const& point_image);
+double find_avg_lon(vw::ImageViewRef<vw::Vector3> const& point_image);
 
 
-  std::string get_cloud_type(std::string const& file_name);
+// Get a generous estimate of the bounding box of the current set
+// while excluding outliers
+void estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points,
+                           vw::Vector2 const& remove_outliers_params,
+                           vw::BBox3 & estim_bdbox);
+  
+std::string get_cloud_type(std::string const& file_name);
   
 } // End namespace asp
 

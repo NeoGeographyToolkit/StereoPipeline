@@ -1153,11 +1153,12 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
 
 
 // Wrapper for do_software_rasterization that goes through all spacing values
-void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_point_input,
+void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_points,
                                              Options& opt,
                                              cartography::GeoReference& georef,
                                              ImageViewRef<double> const& error_image,
-                                             double estim_max_error) {
+                                             double estim_max_error,
+                                             vw::BBox3 const& estim_proj_box) {
   // Perform the slow initialization that can be shared by all output resolutions
   Stopwatch sw1;
   sw1.start();
@@ -1165,12 +1166,12 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
   size_t num_invalid_pixels = 0; // Need to pass in by pointer because we can't get back the number from
                                  //  the original rasterizer object otherwise for some reason.
   asp::OrthoRasterizerView
-    rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
+    rasterizer(proj_points.impl(), select_channel(proj_points.impl(),2),
                opt.search_radius_factor, opt.sigma_factor, opt.use_surface_sampling,
                asp::ASPGlobalOptions::tri_tile_size(), // to efficiently process the cloud
                opt.target_projwin,
                opt.remove_outliers_with_pct, opt.remove_outliers_params,
-               error_image, estim_max_error, opt.max_valid_triangulation_error,
+               error_image, estim_max_error, estim_proj_box, opt.max_valid_triangulation_error,
                opt.median_filter_params, opt.erode_len, opt.has_las_or_csv_or_pcd,
                opt.filter, opt.default_grid_size_multiplier,
                &num_invalid_pixels, &count_mutex,
@@ -1205,15 +1206,19 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
   opt.out_prefix = base_out_prefix; // Restore the original value
 }
 
-// Get a somewhat dense sampling of the error image to get an idea
-// of what the distribution of errors is. This will be refined
-// later using a histogram approach and using all points. Do
-// several attempts if the sampling is too coarse.
-double estim_max_tri_error(ImageViewRef<double> const& error_image,
-                           Vector2 const& remove_outliers_params) {
+// Sample the image and get generous estimates (but without outliers)
+// of the maximum triangulation error and of the 3D box containing the
+// projected points. These will be tightened later.
+double estim_max_tri_error_and_proj_box(ImageViewRef<Vector3> const& proj_points,
+                                        ImageViewRef<double> const& error_image,
+                                        Vector2 const& remove_outliers_params,
+                                        BBox3 & estim_proj_box) {
+
+  // Initialize the outputs
+  double estim_max_error = 0.0;
+  estim_proj_box = BBox3();
   
   bool success = false;
-  double estim_max_error = 0.0;
   for (int attempt = 7; attempt <= 18; attempt++){
     
     double sample = (1 << attempt);
@@ -1227,16 +1232,23 @@ double estim_max_tri_error(ImageViewRef<double> const& error_image,
     for_each_pixel(subsample(error_image, subsample_amt),
                    error_accum,
                    TerminalProgressCallback
-                   ("asp","Triangulation error range estimation: ") );
+                   ("asp","Bounding box and triangulation error range estimation: ") );
     if (error_accum.size() > 0){
       success = true;
       estim_max_error = error_accum.value(remove_outliers_params);
     }
     sw2.stop();
-    vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
-                               << sw2.elapsed_seconds() << std::endl;
+
+    asp::estimate_points_bdbox(subsample(proj_points, subsample_amt),  
+                               remove_outliers_params,  
+                               estim_proj_box);
+
+    if (estim_proj_box.empty()) 
+      success = false;
+    
+    vw_out(DebugMessage,"asp") << "Elapsed time: " << sw2.elapsed_seconds() << std::endl;
     if (success || subsample_amt == 1) break;
-    vw_out() << "Failed to estimate the triangulation range. Check if your cloud is valid. "
+    vw_out() << "Estimation failed. Check if your cloud is valid. "
              << "Trying again with finer sampling.\n";
   }
   return estim_max_error;
@@ -1318,13 +1330,9 @@ int main( int argc, char *argv[] ) {
         (point_image, math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,
                                                      opt.kappa_rot, opt.rot_order));
     }
-    
-    // Estimate the maximum value of the error channel in case we would
-    // like to remove outliers. This not the cuttoff triangulation error,
-    // just a large but reasonable number that will be used to estimate
-    // that error later.
+
+    // Set up the error image
     ImageViewRef<double> error_image;
-    double estim_max_error = 0.0;
     if (opt.remove_outliers_with_pct || opt.max_valid_triangulation_error > 0.0){
       int num_channels = asp::num_channels(opt.pointcloud_files);
 
@@ -1338,12 +1346,6 @@ int main( int argc, char *argv[] ) {
         opt.remove_outliers_with_pct      = false;
         opt.max_valid_triangulation_error = 0.0;
       }
-
-      if (error_image.cols() != point_image.cols() || error_image.rows() != point_image.rows()) 
-        vw_throw(ArgumentErr() << "The error image and point image must have the same size.");
-        
-      if (opt.remove_outliers_with_pct && opt.max_valid_triangulation_error == 0.0)
-        estim_max_error = estim_max_tri_error(error_image, opt.remove_outliers_params); 
     }
     
     // Determine if we should be using a longitude range between
@@ -1362,28 +1364,41 @@ int main( int argc, char *argv[] ) {
     // Convert xyz points to projected points
     // - The cartesian_to_geodetic call converts invalid (0,0,0,0) points to NaN,
     //   which is checked for in the OrthoRasterizer class.
-    ImageViewRef<Vector3> proj_point_input;
+    ImageViewRef<Vector3> proj_points;
     if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.lon_offset
                << " " << opt.lat_offset << " " << opt.height_offset << "\n";
-      proj_point_input
+      proj_points
         = geodetic_to_point         // GDC to XYZ
-        (asp::point_image_offset         // Add user coordinate offset
-         (asp::recenter_longitude          // XYZ to GDC, then normalize longitude
+        (asp::point_image_offset    // Add user coordinate offset
+         (asp::recenter_longitude   // XYZ to GDC, then normalize longitude
           (cartesian_to_geodetic(point_image, output_georef), 
            avg_lon),
           Vector3(opt.lon_offset, opt.lat_offset, opt.height_offset)
           ),
          output_georef);
     } else {
-      proj_point_input = geodetic_to_point(asp::recenter_longitude
-                                           (cartesian_to_geodetic(point_image, output_georef),
-                                            avg_lon),
-                                           output_georef);
+      proj_points = geodetic_to_point(asp::recenter_longitude
+                                      (cartesian_to_geodetic(point_image, output_georef),
+                                       avg_lon),
+                                      output_georef);
     }
-    
-    do_software_rasterization_multi_spacing(proj_point_input, opt, output_georef, error_image,
-                                            estim_max_error);
+
+    double estim_max_error = 0.0;
+    BBox3 estim_proj_box;
+    if (error_image.rows() > 0 && error_image.cols() > 0) {
+
+      if (error_image.cols() != point_image.cols() || error_image.rows() != point_image.rows()) 
+        vw_throw(ArgumentErr() << "The error image and point image must have the same size.");
+
+      estim_max_error = estim_max_tri_error_and_proj_box(proj_points, error_image,
+                                                         opt.remove_outliers_params,
+                                                         estim_proj_box);
+    }
+
+    // Create the DEM
+    do_software_rasterization_multi_spacing(proj_points, opt, output_georef, error_image,
+                                            estim_max_error, estim_proj_box);
     
     // Wipe the temporary files
     for (int i = 0; i < (int)tmp_tifs.size(); i++)

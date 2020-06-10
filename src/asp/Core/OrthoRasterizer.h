@@ -98,6 +98,7 @@ namespace asp{
                         Vector2 const& remove_outliers_params,
                         ImageViewRef<double> const& error_image,
                         double  estim_max_error,
+                        vw::BBox3 const& estim_proj_box,
                         double  max_valid_triangulation_error,
                         Vector2 median_filter_params,
                         int     erode_len,

@@ -26,6 +26,7 @@
 #include <vw/Cartography/Chipper.h>
 #include <vw/Core/Stopwatch.h>
 #include <boost/math/special_functions/fpclassify.hpp>
+#include <boost/math/special_functions/next.hpp>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -1182,6 +1183,52 @@ std::string asp::get_cloud_type(std::string const& file_name){
     return "PC";
   vw_throw(vw::ArgumentErr() << "File: " << file_name
                          << " is neither a point cloud nor a DEM.\n");
+}
+
+// Get a generous estimate of the bounding box of the current set
+// while excluding outliers
+void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points,
+                                vw::Vector2 const& remove_outliers_params,
+                                vw::BBox3 & estim_bdbox) {
+  
+  // Initialize the output
+  estim_bdbox = BBox3();
+
+  std::vector<double> x_vals, y_vals, z_vals;
+  for (int col = 0; col < proj_points.cols(); col++){
+    for (int row = 0; row < proj_points.rows(); row++){
+
+      // Avoid points marked as not valid
+      Vector3 P = proj_points(col, row);
+      if (boost::math::isnan(P.z()))
+        continue;
+      x_vals.push_back(P.x());
+      y_vals.push_back(P.y());
+      z_vals.push_back(P.z());
+    }
+  }
+
+  double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
+  double factor = remove_outliers_params[1];       // e.g., 3.0.
+
+  double bx, ex, by, ey, bz, ez;
+  if (!vw::math::find_outlier_brackets(x_vals, pct, factor, bx, ex))
+    return;
+  if (!vw::math::find_outlier_brackets(y_vals, pct, factor, by, ey))
+    return;
+  if (!vw::math::find_outlier_brackets(z_vals, pct, factor, bz, ez))
+    return;
+
+  // Need to compute the next double because the VW bounding box is
+  // exclusive at the top.
+  ex = boost::math::nextafter(ex, std::numeric_limits<double>::max());
+  ey = boost::math::nextafter(ey, std::numeric_limits<double>::max());
+  ez = boost::math::nextafter(ez, std::numeric_limits<double>::max());
+
+  estim_bdbox.grow(Vector3(bx, by, bz));
+  estim_bdbox.grow(Vector3(ex, ey, ez));
+  
+  return;
 }
 
 

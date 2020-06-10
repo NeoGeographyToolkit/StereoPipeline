@@ -85,7 +85,8 @@ namespace asp{
     BBox3& m_global_bbox;
     std::vector<BBoxPair>& m_point_image_boundaries;
     ImageViewRef<double> const& m_error_image;
-    double m_estim_max_error; // used for outlier removal based on percentage
+    double m_estim_max_error;   // used for outlier removal by tri error based on percentage
+    vw::BBox3 m_estim_proj_box; // used for outlier removal in the bounding box computation
     std::vector<double> & m_errors_hist;
     double m_max_valid_triangulation_error; // used for outlier removal based on thresh
     Mutex& m_mutex;
@@ -125,7 +126,9 @@ namespace asp{
                          BBox2i const& image_bbox,
                          BBox3       & global_bbox, 
                          std::vector<BBoxPair>& boundaries,
-                         ImageViewRef<double> const& error_image, double estim_max_error,
+                         ImageViewRef<double> const& error_image,
+                         double estim_max_error,
+                         vw::BBox3 const& estim_proj_box,
                          std::vector<double> & errors_hist,
                          double max_valid_triangulation_error,
                          Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
@@ -133,6 +136,7 @@ namespace asp{
       m_image_bbox(image_bbox),
       m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
       m_error_image(error_image), m_estim_max_error(estim_max_error),
+      m_estim_proj_box(estim_proj_box),
       m_errors_hist(errors_hist), m_max_valid_triangulation_error(max_valid_triangulation_error),
       m_mutex( mutex ), m_progress( progress ), m_inc_amt( inc_amt ) {}
       
@@ -151,31 +155,38 @@ namespace asp{
       std::list<BBoxPair> solutions;
       std::vector<double> local_hist(m_errors_hist.size(), 0);
 
+      bool nonempty_estim_proj_box = (!m_estim_proj_box.empty());
+      
       for ( size_t i = 0; i < blocks.size(); i++ ) {
         BBox3 pts_bdbox;
         ImageView<Vector3> local_image2 = crop(local_image, blocks[i] - m_image_bbox.min());
-        if (m_max_valid_triangulation_error <= 0){
-          GrowBBoxAccumulator accum;
-          for_each_pixel( local_image2, accum );
-          pts_bdbox = accum.bbox;
-        }else{
-          // Skip points with error > m_max_valid_triangulation_error
-          ImageView<double> local_error2 =
-            crop( local_error, blocks[i] - m_image_bbox.min() );
-          for (int col = 0; col < local_image2.cols(); col++){
-            for (int row = 0; row < local_image2.rows(); row++){
-              if (boost::math::isnan(local_image2(col, row).z()))
-                continue;
-              if (local_error2(col, row) > m_max_valid_triangulation_error)
-                continue;
 
-              // TODO(oalexan1): Put here check that before growing must be in the pre-estimated
-              // boundary box.
-              pts_bdbox.grow(local_image2(col, row));
-            }
+        // See if to filter by user-provided m_max_valid_triangulation_error.
+        // If this is not provided we will later estimate and use such a value automatically
+        // when doing the gridding.
+        ImageView<double> local_error2;
+        if (m_max_valid_triangulation_error > 0)
+          local_error2 = crop(local_error, blocks[i] - m_image_bbox.min());
+
+        for (int col = 0; col < local_image2.cols(); col++){
+          for (int row = 0; row < local_image2.rows(); row++){
+            
+            // Skip invalid points
+            if (boost::math::isnan(local_image2(col, row).z()))
+              continue;
+            
+            // Skip outliers, points not in the estimated bounding box
+            if (nonempty_estim_proj_box && !m_estim_proj_box.contains(local_image2(col, row))) 
+              continue;
+
+            if (m_max_valid_triangulation_error > 0 &&
+                local_error2(col, row) > m_max_valid_triangulation_error)
+              continue;
+            
+            pts_bdbox.grow(local_image2(col, row));
           }
         }
-
+        
         if ( pts_bdbox.min().x() <= pts_bdbox.max().x() &&
              pts_bdbox.min().y() <= pts_bdbox.max().y() ) {
           // pts_bdbox has at least one point. A box of just one
@@ -184,7 +195,7 @@ namespace asp{
           // Note: for local_union, which will end up contributing
           // to the global bounding box, we don't use the float_next
           // gimmick, as we need the precise box.
-          local_union.grow( pts_bdbox );
+          local_union.grow(pts_bdbox);
           pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
           pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
           solutions.push_back( std::make_pair( pts_bdbox, blocks[i] ) );
@@ -194,13 +205,12 @@ namespace asp{
           ErrorHistAccumulator error_accum(local_hist, m_estim_max_error);
           for_each_pixel( crop( local_error, blocks[i] - m_image_bbox.min() ),
                           error_accum );
-
         }
 
       }
 
-      // Append to the global list of boxes and expand the point
-      // cloud bounding box.
+      // Append to the global list of boxes and expand the point cloud
+      // bounding box.
       if ( local_union != BBox3() ) {
         Mutex::Lock lock( m_mutex );
         for ( std::list<BBoxPair>::const_iterator it = solutions.begin();
@@ -347,7 +357,8 @@ namespace asp{
    double search_radius_factor, double sigma_factor, bool use_surface_sampling, int pc_tile_size,
    vw::BBox2 const& projwin,
    bool remove_outliers_with_pct, Vector2 const& remove_outliers_params,
-   ImageViewRef<double> const& error_image, double estim_max_error,
+   ImageViewRef<double> const& error_image,
+   double estim_max_error, vw::BBox3 const& estim_proj_box,
    double max_valid_triangulation_error,
    Vector2 median_filter_params, int erode_len, bool has_las_or_csv,
    std::string const& filter,
@@ -427,7 +438,7 @@ namespace asp{
       boost::shared_ptr<task_type>
         task(new task_type(m_point_image, sub_block_size, blocks[i],
                            m_bbox, m_point_image_boundaries,
-                           error_image, estim_max_error, errors_hist,
+                           error_image, estim_max_error, estim_proj_box, errors_hist,
                            max_valid_triangulation_error,
                            mutex, progress, inc_amt));
       queue.add_task(task);
