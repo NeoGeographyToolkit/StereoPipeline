@@ -189,16 +189,6 @@ set(REQUIRED_QT_COMPONENTS  Core                Concurrent
 find_package(Qt5 5.9.6 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
 
 if(Qt5_FOUND)
-
-    #message("QT_USE_FILE = ${QT_USE_FILE}")
-    #include(${QT_USE_FILE}) # Required after using QT find command
-    #message("QT include dirs  " ${QT_INCLUDES})
-
-    ## By default only QtCore and QtGui modules are enabled
-    ## other modules must be enabled like this:
-    #SET( QT_USE_QT3SUPPORT TRUE )   
-    #SET( QT_USE_QTXML TRUE )
-
     # We need this to be able to include headers produced by uic in our
     # code (CMAKE_BINARY_DIR holds a path to the build directory, while
     # INCLUDE_DIRECTORIES() works just like INCLUDEPATH from qmake)

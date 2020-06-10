@@ -342,9 +342,6 @@ namespace asp{
       image = copy(buffer);
   }
 
-
-
-
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
    double search_radius_factor, double sigma_factor, bool use_surface_sampling, int pc_tile_size,
@@ -417,8 +414,7 @@ namespace asp{
     sub_block_size = int(round(pow(2.0, floor(log(sub_block_size)/log(2.0)))));
     sub_block_size = std::max(16, sub_block_size);
     sub_block_size = std::min(max_subblock_size(), sub_block_size);
-    std::vector<BBox2i> blocks =
-      subdivide_bbox( m_point_image, m_block_size, m_block_size );
+    std::vector<BBox2i> blocks = subdivide_bbox(m_point_image, m_block_size, m_block_size);
 
     // Find the bounding box of each subblock, stored in
     // m_point_image_boundaries, together with other info by
@@ -429,12 +425,12 @@ namespace asp{
     float inc_amt = 1.0 / float(blocks.size());
     for ( size_t i = 0; i < blocks.size(); i++ ) {
       boost::shared_ptr<task_type>
-        task( new task_type( m_point_image, sub_block_size, blocks[i],
-                             m_bbox, m_point_image_boundaries,
-                             error_image, estim_max_error, errors_hist,
-                             max_valid_triangulation_error,
-                             mutex, progress, inc_amt ) );
-      queue.add_task( task );
+        task(new task_type(m_point_image, sub_block_size, blocks[i],
+                           m_bbox, m_point_image_boundaries,
+                           error_image, estim_max_error, errors_hist,
+                           max_valid_triangulation_error,
+                           mutex, progress, inc_amt));
+      queue.add_task(task);
     }
     queue.join_all();
     progress.report_finished();
