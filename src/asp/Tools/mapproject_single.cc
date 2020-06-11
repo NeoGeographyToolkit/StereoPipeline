@@ -322,7 +322,6 @@ void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraMode
 
 }
 
-
 /// Compute output georeference to use
 void calc_target_geom(// Inputs
                       bool calc_target_res,
@@ -349,7 +348,7 @@ void calc_target_geom(// Inputs
                           target_georef, 
                           camera_model,
                           image_size.x(), image_size.y(), auto_res, quick);
-  }catch(std::exception const& e){
+  } catch (std::exception const& e) {
     if (opt.target_projwin == BBox2() || calc_target_res) {
       vw_throw( ArgumentErr()
                 << e.what() << "\n"
@@ -580,24 +579,22 @@ void project_image_nodata_pick_transform(Options & opt,
     // A DEM file was provided
     return project_image_nodata<ImagePixelT>(opt, croppedGeoRef,
                                              virtual_image_size, croppedImageBB,
-                                             Map2CamTrans( // Converts coordinates in DEM
-                                                           // georeference to camera pixels
+                                             Map2CamTrans(// Converts coordinates in DEM
+                                                          // georeference to camera pixels
                                                           camera_model.get(), target_georef,
                                                           dem_georef, opt.dem_file, image_size,
                                                           call_from_mapproject,
-                                                          opt.nearest_neighbor)
-                                            );
+                                                          opt.nearest_neighbor));
   } else {
     // A constant datum elevation was provided
     return project_image_nodata<ImagePixelT>(opt, croppedGeoRef,
                                              virtual_image_size, croppedImageBB,
-                                             Datum2CamTrans( // Converts coordinates in DEM
-                                                             // georeference to camera pixels
+                                             Datum2CamTrans(// Converts coordinates in DEM
+                                                            // georeference to camera pixels
                                                             camera_model.get(), target_georef,
                                                             dem_georef, opt.datum_offset, image_size,
                                                             call_from_mapproject,
-                                                            opt.nearest_neighbor)
-                                            );
+                                                            opt.nearest_neighbor));
   }
 }
 
@@ -632,7 +629,7 @@ void project_image_alpha_pick_transform(Options & opt,
                                                            dem_georef, opt.datum_offset, image_size,
                                                            call_from_mapproject,
                                                            opt.nearest_neighbor)
-                                           );
+                                            );
   }
 }
 
