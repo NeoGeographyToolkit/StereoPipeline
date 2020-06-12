@@ -154,7 +154,6 @@ namespace asp{
       BBox3 local_union;
       std::list<BBoxPair> solutions;
       std::vector<double> local_hist(m_errors_hist.size(), 0);
-
       bool nonempty_estim_proj_box = (!m_estim_proj_box.empty());
       
       for ( size_t i = 0; i < blocks.size(); i++ ) {
@@ -176,9 +175,10 @@ namespace asp{
               continue;
             
             // Skip outliers, points not in the estimated bounding box
-            if (nonempty_estim_proj_box && !m_estim_proj_box.contains(local_image2(col, row))) 
+            if (nonempty_estim_proj_box && !m_estim_proj_box.contains(local_image2(col, row))) {
               continue;
-
+            }
+            
             if (m_max_valid_triangulation_error > 0 &&
                 local_error2(col, row) > m_max_valid_triangulation_error)
               continue;
@@ -817,7 +817,6 @@ namespace asp{
                                              -bbox_1.min().y(), cols(), rows()));
   }
 
-
   // Return the affine georeferencing transform.
   vw::Matrix<double,3,3> OrthoRasterizerView::geo_transform() {
     vw::Matrix<double,3,3> geo_transform;
@@ -827,58 +826,6 @@ namespace asp{
     geo_transform(0,2) = m_snapped_bbox.min().x();
     geo_transform(1,2) = m_snapped_bbox.max().y();
     return geo_transform;
-  }
-
-  // To do: This code is not enabled yet.
-  void OrthoRasterizerView::find_bdbox_robust_to_outliers
-  (std::vector<BBoxPair> const& point_image_boundaries, BBox3 & bbox){
-
-    using namespace vw::math;
-
-    double pct = 0.1;
-    double outlier_factor = 1.5;
-    double ctrx_min, ctrx_max, ctry_min, ctry_max;
-    double widx_min, widx_max, widy_min, widy_max;
-
-    int len = point_image_boundaries.size();
-    std::vector<double> vx, vy;
-
-    // Find the reasonable box widths
-    vx.reserve(len); vx.clear();
-    vy.reserve(len); vy.clear();
-    BOOST_FOREACH( BBoxPair const& boundary, point_image_boundaries ) {
-      if (boundary.first.empty()) continue;
-      vx.push_back(boundary.first.width());
-      vy.push_back(boundary.first.height());
-    }
-    find_outlier_brackets(vx, pct, outlier_factor, widx_min, widx_max);
-    find_outlier_brackets(vy, pct, outlier_factor, widy_min, widy_max);
-
-    // Find the reasonable box centers. Note: We reuse the same
-    // vectors vx and vy to save on memory, as they can be very
-    // large.
-    vx.reserve(len); vx.clear();
-    vy.reserve(len); vy.clear();
-    BOOST_FOREACH( BBoxPair const& boundary, point_image_boundaries ) {
-      if (boundary.first.empty()) continue;
-      vx.push_back(boundary.first.center().x());
-      vy.push_back(boundary.first.center().y());
-    }
-    find_outlier_brackets(vx, pct, outlier_factor, ctrx_min, ctrx_max);
-    find_outlier_brackets(vy, pct, outlier_factor, ctry_min, ctry_max);
-
-    // Redo the bounding box computation, excluding outliers
-    bbox = BBox3();
-    BOOST_FOREACH( BBoxPair const& boundary, point_image_boundaries ) {
-      BBox3 b = boundary.first;
-      if (b.empty()) continue;
-      if ( b.width()  < widx_min || b.width()  > widx_max ) continue;
-      if ( b.height() < widy_min || b.height() > widy_max ) continue;
-      if ( b.center().x()  < ctrx_min || b.center().x() > ctrx_max ) continue;
-      if ( b.center().y()  < ctry_min || b.center().y() > ctry_max ) continue;
-      bbox.grow(b);
-    }
-
   }
 
 } // namespace asp

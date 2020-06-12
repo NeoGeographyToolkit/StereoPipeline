@@ -1217,9 +1217,10 @@ double estim_max_tri_error_and_proj_box(ImageViewRef<Vector3> const& proj_points
   // Initialize the outputs
   double estim_max_error = 0.0;
   estim_proj_box = BBox3();
-  
+
+  // Start with a 256 (2^8) by 256 sampling of the cloud
   bool success = false;
-  for (int attempt = 7; attempt <= 18; attempt++){
+  for (int attempt = 8; attempt <= 18; attempt++){
     
     double sample = (1 << attempt);
     int32 subsample_amt = int32(norm_2(Vector2(error_image.cols(), error_image.rows()))/sample);
@@ -1242,7 +1243,7 @@ double estim_max_tri_error_and_proj_box(ImageViewRef<Vector3> const& proj_points
     asp::estimate_points_bdbox(subsample(proj_points, subsample_amt),  
                                remove_outliers_params,  
                                estim_proj_box);
-
+    
     if (estim_proj_box.empty()) 
       success = false;
     

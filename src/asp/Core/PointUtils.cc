@@ -1211,6 +1211,11 @@ void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points
   double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
   double factor = remove_outliers_params[1];       // e.g., 3.0.
 
+  // Make these more generous, as we want to throw out only the worst
+  // outliers.
+  pct = (1.0 + pct)/2.0;
+  factor *= 2.0;
+
   double bx, ex, by, ey, bz, ez;
   if (!vw::math::find_outlier_brackets(x_vals, pct, factor, bx, ex))
     return;
@@ -1227,7 +1232,7 @@ void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points
 
   estim_bdbox.grow(Vector3(bx, by, bz));
   estim_bdbox.grow(Vector3(ex, ey, ez));
-  
+
   return;
 }
 

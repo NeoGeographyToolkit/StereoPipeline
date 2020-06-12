@@ -185,13 +185,6 @@ namespace asp{
     // Return the affine georeferencing transform.
     vw::Matrix<double,3,3> geo_transform();
 
-    /// Do some kind of percentile-based statistics to remove points in the cloud
-    /// whose (x, y) coordinates are way off. This was not tested and may not be the
-    /// right solution. Ideally we will estimate decent (x, y) bounds at the same
-    /// time when we estimate the max valid triangulation error.
-    void find_bdbox_robust_to_outliers(std::vector<BBoxPair > const& point_image_boundaries,
-                                       BBox3 & bbox);
-
     ImageViewRef<Vector3> get_point_image() { return m_point_image; }
     
     void set_point_image(ImageViewRef<Vector3> point_image) {m_point_image = point_image;}
