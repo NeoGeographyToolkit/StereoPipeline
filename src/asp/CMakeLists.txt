@@ -7,8 +7,11 @@ include(Utilities) # Contains functions
 # Configuration options
 
 # --- Directory paths ---
-set(BINARYBUILDER_INSTALL_DIR "" CACHE FILEPATH "Path to Binary Builder installation directory")
-set(VISIONWORKBENCH_INSTALL_DIR "" CACHE FILEPATH "Path to Binary Builder installation directory")
+set(BINARYBUILDER_INSTALL_DIR "" CACHE FILEPATH "Path to the Binary Builder installation directory containing user-compiled dependencies")
+set(VISIONWORKBENCH_INSTALL_DIR "" CACHE FILEPATH "Path to the user-built and installed VisionWorkbench")
+set(ISIS_DEPS_DIR "" CACHE FILEPATH "Path to the conda environment that has the ISIS dependencies")
+set(ASP_DEPS_DIR "" CACHE FILEPATH "Path to the conda environment that has additional conda dependencies specific to ASP")
+
 set(ASP_ENABLE_SSE "1" CACHE BOOL "Allow SSE optimizations.")
 
 if ("${BINARYBUILDER_INSTALL_DIR}" STREQUAL "")
@@ -30,29 +33,18 @@ message("--------------------------------------------------------------")
 message("Searching for boost...")
 set(BOOST_MIN_VERSION "1.65")
 set(REQUIRED_BOOST_LIBS program_options system filesystem regex date_time thread iostreams)
-#set(Boost_DEBUG 1) # Uncomment for useful finding boost debug output
-#if(BINARYBUILDER_INSTALL_DIR) # Look in BinaryBuilder directory
 if(ISIS_DEPS_DIR) # Look in BinaryBuilder directory
   set(BOOST_ROOT       "${ISIS_DEPS_DIR}")
   set(BOOST_LIBRARYDIR "${ISIS_DEPS_DIR}/lib")
   set(BOOST_INCLUDEDIR "${ISIS_DEPS_DIR}/include")
-
-  #DBoost_INCLUDE_DIR=$HOME/projects/BinaryBuilder/build_asp/install/include/boost-1_67
-
-  #set(BOOST_ROOT       "${BINARYBUILDER_INSTALL_DIR}")
-  #set(BOOST_LIBRARYDIR "${BINARYBUILDER_INSTALL_DIR}/lib")
-  #set(BOOST_INCLUDEDIR "${BINARYBUILDER_INSTALL_DIR}/include/boost-1_67")
-
   set(Boost_DEBUG ON)
   set(Boost_DETAILED_FAILURE_MSG ON)
   #set(CMAKE_CXX_COMPILER_ARCHITECTURE_ID "x64")
-  #set(Boost_NO_SYSTEM_PATHS ON) #This seems to confuse boost
 endif()  
 # Now search for Boost using the available information
 find_package(Boost ${BOOST_MIN_VERSION} REQUIRED COMPONENTS ${REQUIRED_BOOST_LIBS})
 
 if(Boost_FOUND)
-    #set(Boost_LIBRARY_DIR ${BINARYBUILDER_INSTALL_DIR}/lib) # Override this value
     message("Successfully found Boost version ${Boost_VERSION}.")
     message("Boost include dir = ${Boost_INCLUDE_DIR}")
     message("Boost library dir = ${Boost_LIBRARY_DIRS}")
@@ -66,9 +58,17 @@ message("--------------------------------------------------------------")
 #link_directories(${BINARYBUILDER_INSTALL_DIR}/lib)
 #link_directories(${BINARYBUILDER_INSTALL_DIR}/lib64)
 
-# If VW path is provided, use that instead of the BB install dir.
+# If ASP dependencies are not installed via conda, they were built by
+# the user in BINARYBUILDER_INSTALL_DIR.
+if (NOT ASP_DEPS_DIR)
+  set(ASP_DEPS_DIR ${BINARYBUILDER_INSTALL_DIR})
+endif()
+
+# If VW was not built and installed separately, it was either fetched
+# with conda in ASP_DEPS_DIR or built and installed by the user in
+# BINARYBUILDER_INSTALL_DIR.
 if (NOT VISIONWORKBENCH_INSTALL_DIR)
-  set(VISIONWORKBENCH_INSTALL_DIR ${BINARYBUILDER_INSTALL_DIR})
+  set(VISIONWORKBENCH_INSTALL_DIR ${ASP_DEPS_DIR})
 endif()
 
 # Add BB folders to CMAKE paths
@@ -224,7 +224,7 @@ find_external_library(FLANN ${ISIS_DEPS_DIR} "" "flann_cpp" REQUIRED)
 find_external_library(Z ${ISIS_DEPS_DIR} "" "z" REQUIRED)
 find_external_library(PROJ4 ${ISIS_DEPS_DIR} "" "proj"      REQUIRED)
 
-find_external_library(GDAL ${bbdir} "" "gdal"      REQUIRED)
+find_external_library(GDAL ${ASP_DEPS_DIR} "" "gdal"      REQUIRED)
 set(ILMBASE_LIB_NAMES Half Iex Imath IlmThread)
 find_external_library(ILMBASE ${ISIS_DEPS_DIR} "" "${ILMBASE_LIB_NAMES}" REQUIRED)
 find_external_library(OPENEXR ${ISIS_DEPS_DIR} "OpenEXR" "IlmImf;IlmThread" REQUIRED)
@@ -239,8 +239,8 @@ find_external_library(EIGEN ${ISIS_DEPS_DIR} "eigen3" "" REQUIRED)
 find_external_library(CERES ${ISIS_DEPS_DIR} "ceres" "ceres" REQUIRED)
 find_external_library(LIBPOINTMATCHER ${bbdir} "" "pointmatcher" REQUIRED)
 find_external_library(FASTGLOBALREGISTRATION ${bbdir} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
-find_external_library(LIBLAS ${bbdir} "" "las" REQUIRED)
-find_external_library(LASZIP ${bbdir} "laszip" "laszip" REQUIRED)
+find_external_library(LIBLAS ${ASP_DEPS_DIR} "" "las" REQUIRED)
+find_external_library(LASZIP ${ASP_DEPS_DIR} "laszip" "laszip" REQUIRED)
 find_external_library(GFLAGS ${ISIS_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ISIS_DEPS_DIR} "glog" "glog" REQUIRED)
 find_external_library(ARMADILLO ${ISIS_DEPS_DIR} "" "armadillo" REQUIRED)
