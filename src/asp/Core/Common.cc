@@ -29,6 +29,8 @@
 #include <unistd.h>
 
 #include <gdal_version.h>
+// Proj.4
+#define ACCEPT_USE_OF_DEPRECATED_PROJ_API_H // TODO(oalexan1): Deal with deprecation
 #include <proj_api.h>
 
 #include <boost/algorithm/string.hpp>
