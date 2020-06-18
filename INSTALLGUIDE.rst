@@ -306,6 +306,10 @@ Install more dependencies, as:
   conda install -c conda-forge ilmbase==2.3.0 openexr==2.3.0  openjpeg==2.1.0 \
     cmake==3.14.5 pbzip2 gflags glog ceres-solver parallel
 
+To be able to build the documentation with sphinx, fetch it as:
+
+  conda install -c conda-forge sphinx sphinxcontrib-bibtex
+
 On Linux, install in addition chrpath:
 
   conda install -c conda-forge chrpath
@@ -390,7 +394,17 @@ The ASP documentation is encoded in ReStructured Text and is built
 with the Sphinx-Doc system (https://www.sphinx-doc.org) with 
 sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
 
-The ``docs`` directory contains the root of the documentation and
-``make html`` and ``make latexpdf`` will create the HTML and PDF
-versions of the documentation.
+See the note earlier in the text for how to use conda to fetch these
+packages. Note that in order to build the PDF (but not the
+HTML) document a full LaTeX distribution is also necessary, which is
+not installable with conda at this time, and whose installation may be
+specific to your system.
+
+The ``docs`` directory contains the root of the documentation. Running
+``make html`` and ``make latexpdf`` there will create the HTML and PDF
+versions of the documentation in the _build subdirectory. In
+particular, the PDF document will be at
+
+  ./_build/latex/asp_book.pdf
+
 
