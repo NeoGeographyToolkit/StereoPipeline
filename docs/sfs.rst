@@ -510,7 +510,7 @@ Here we will illustrate how SfS can be run in a very difficult
 situation. We chose a site very close to the Lunar South Pole, at around
 89.7° South. We used an external DEM as an initial guess
 terrain, in this case the LOLA gridded DEM, as such a DEM has values in
-in permanently shadowed regions. The terrain size is 5 km by 5 km at 1
+permanently shadowed regions. The terrain size is 5 km by 5 km at 1
 meter/pixel (we also ran a 10 km by 10 km region in the same location).
 
 Here the topography is very steep, the shadows are very long and vary
@@ -597,7 +597,7 @@ and correct camera errors.
 ::
 
         parallel_bundle_adjust --processes 8 --ip-per-tile 1000 --overlap-limit 30   \
-          --num-iterations 10 --num-passes 2 --min-matches 1                         \
+          --num-iterations 100 --num-passes 2 --min-matches 1 --datum D_MOON         \
           <images> --mapprojected-data '<mapprojected images> ref.tif' -o ba/run
 
 For bundle adjustment we in fact used even more images that overlap with
@@ -605,14 +605,28 @@ this area, but likely this set is sufficient, and it is this set that
 was used later for shape-from-shading. Here more bundle adjustment
 iterations are desirable, but this step takes too long. And a large
 ``--ip-per-tile`` can make a difference in images with rather different
-illumination conditions.
+different illumination conditions but it can also slow down the process
+a lot.
 
-It is very important to keep a lot of images in bundle adjustment, to
-ensure that there are enough overlaps and sufficiently similar
-illumination conditions among them for bundle adjustment to succeed.
-Later, just a subset can be used for shape-from-shading, enough to cover
-the entire region, preferable with multiple illumination conditions at
-each location.
+It is very important to have a lot of images during bundle adjustment,
+to ensure that there are enough overlaps and sufficiently similar
+illumination conditions among them for bundle adjustment to
+succeed. Later, just a subset can be used for shape-from-shading, enough
+to cover the entire region, preferable with multiple illumination
+conditions at each location.
+
+Towards the poles the sun may describe a full loop in the sky, and hence
+the earliest images (sorted by azimuth) may become similar to the latest
+ones. To find matches between these, one could re-run the command above
+with say 15 images from the beginning of the list and 15 images from the
+end of the list, using again 30 as the overlap limit, just to create
+extra matches. Then, one can run the bundle adjust command again,
+setting this time the overlap limit to something very large, and in
+addition using the option ``--skip-matching``. This won't create
+new matches, but will ensure, due to the earlier commands, that each
+image is matched to a few subsequent images in the list, and images from
+the top of the list are also matched to images from the bottom of the
+list. In the future a less manual way of achieving this may be used.
 
 A very critical part of the process is aligning the obtained cameras to
 the ground::
@@ -643,21 +657,24 @@ The images should now be projected onto this DEM as::
       mapproject --tr 1 --bundle-adjust-prefix ba_align/run \
         ref.tif image.cub image.map.tif
 
-It is very important to overlay the obtained images and ensure that they
-are precisely on top of each other and on top of the LOLA DEM.
+are precisely on top of each other and on top of the LOLA DEM. If any
+shifts are noticed, with the images relative to each other, or to this
+DEM, that is a sign of some issues.  If the shift is relative to this
+DEM, perhaps one can try the alignment above with a different value of
+the max displacement.
 
 There are occasions in which the alignment transform is still not
 accurate enough. Then, one can refine the cameras using the reference
 terrain as a constraint in bundle adjustment::
 
        mkdir -p ba_align_ref
-       /bin/cp -fv ba_alin/run* ba_align_ref
+       /bin/cp -fv ba_align/run* ba_align_ref
        bundle_adjust --skip-matching --num-iterations 5 --force-reuse-match-files   \
          --num-passes 1 --input-adjustments-prefix ba_align/run <images>            \
          --camera-weight 0 --heights-from-dem ref.tif --heights-from-dem-weight 0.1 \ 
-         -o ba_align_ref/run
+          --heights-from-dem-robust-threshold 10 -o ba_align_ref/run
 
-After mapprojecting with the newly refined cameras in ``ba_align_ref``
+After mapprojecting with the newly refined cameras in ``ba_align_ref``,
 any residual alignment errors should go away. The value used for
 ``--heights-from-dem-weight`` may need some experimentation. The
 reference DEM has vertical error as well, so of this value is too high,
@@ -684,6 +701,17 @@ difference is found as::
 Some of the differences that will be saved to disk are likely outliers,
 but mostly they should be small, perhaps on the order of 1 meter.
 
+The file 
+
+   ba_align_ref/run-final_residuals_no_loss_function_raw_pixels.txt
+
+should also be examined. It has the ``x`` and ``y`` pixel residuals for each pixel.
+The norm of each pixel residual can be computed, and their median 
+can be found (at some point this will be done automatically). Images
+for which the median pixel residual is larger than 1 pixel or which 
+have too few such residuals should be excluded from running SfS,
+as likely for those the cameras are not correctly positioned. 
+
 If, even after this step, the mapprojected images fail to be perfectly
 on top of each other, or areas with poor coverage exist, more images
 with intermediate illumination conditions and more terrain coverage
@@ -697,7 +725,7 @@ Next, SfS follows::
         --bundle-adjust-prefix ba_align_ref/run -o sfs/run                 \ 
         --use-approx-camera-models --crop-input-images                     \
         --blending-dist 10 --min-blend-size 100 --threads 4                \
-        --smoothness-weight 0.12 --initial-dem-constraint-weight 0.0001    \
+        --smoothness-weight 0.08 --initial-dem-constraint-weight 0.0001    \
         --reflectance-type 1 --max-iterations 5  --save-sparingly          \
         --tile-size 200 --padding 50 --num-processes 20                    \
         --nodes-list <machine list>
@@ -712,22 +740,46 @@ computed exposures can be passed to the command above via the
 
 The obtained shape-from-shading terrain should be studied carefully to
 see if it shows any systematic shift or rotation compared to the initial
-LOLA gridded terrain. If necessary, it can be re-aligned to it using
-``pc_align`` (perhaps using only the compute translation flag).
+LOLA gridded terrain. If that is the case, another step of alignment can
+be used. This time one can do features-based alignment rather than based
+on point-to-point calculations. This one works better on
+lower-resolution versions of the inputs (say at sub8 versions of the
+DEMs, as created ``stereo_gui``), as follows:
 
-If SfS is run on multiple overlapping terrains, it is unavoidable that
-the output terrains will be offset in respect to each other, hopefully
-by no more than several meters or tens of meters. After aligning them to
-LOLA as well as possible, they can also be aligned to each other if they
-have enough overlap, using the ``pc_align`` option
-``--initial-transform-from-hillshading`` (whose value should be either
-’translation’ or ’rigid’, unless a scale change is suspected). One
-should consider using zero iterations here or disabling the rotations in
-case it appears that this tool is overeager and the aligned DEM moves in
-unacceptable ways.
+  pc_align --initial-transform-from-hillshading rigid                   \
+     ref_sub8.tif sfs_dem_sub8.tif -o align_sub8/run --num-iterations 0 \
+     --max-displacement -1
 
-Lastly, the ``geodiff`` tool can be deployed to see how the SfS DEM
-compares to the initial guess or to the raw ungridded LOLA measurements.
+That alignment transform can then be applied to the full SfS DEM:
+
+ pc_align --initial-transform align_sub8/run-transform.txt \
+   ref.tif sfs_dem.tif -o align/run --num-iterations 0     \
+   --max-displacement -1 --save-transformed-source-points
+
+The aligned SfS DEM can be regenerated from the obtained cloud as:
+
+  point2dem --tr 1 --search-radius-factor 2 --t_srs projection_str \
+    align/run-trans_source.tif
+
+Here, the projection string should be the same one as in the reference 
+LOLA DEM named ref.tif. It can be found by invoking 
+
+  gdalinfo -proj4 ref.tif
+
+and looking for the value of the ``PROJ.4`` field.
+
+The obtained alignment transform can also be applied to the camera
+adjustments, as done earlier in the text, and one can regenerate the SfS
+DEM and mapprojected images using the updated cameras.
+
+The ``geodiff`` tool can be deployed to see how the SfS DEM compares
+to the initial guess or to the raw ungridded LOLA measurements.
+
+To create a maximally lit mosaic one can mosaic together all the mapprojected
+images using the same camera adjustments that were used for SfS. That is
+done as follows:
+
+  dem_mosaic --max -o max_lit.tif image1.map.tif .... imageN.map.tif
 
 .. _sfsinsights:
 
