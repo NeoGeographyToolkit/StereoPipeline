@@ -390,7 +390,7 @@ The ASP documentation is encoded in ReStructured Text and is built
 with the Sphinx-Doc system (https://www.sphinx-doc.org) with 
 sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
 
-The ``docs\`` directory contains the root of the documentation and
+The ``docs`` directory contains the root of the documentation and
 ``make html`` and ``make latexpdf`` will create the HTML and PDF
 versions of the documentation.
 
