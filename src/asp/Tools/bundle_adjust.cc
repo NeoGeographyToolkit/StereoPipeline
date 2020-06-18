@@ -1962,8 +1962,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     
   }
   
-  // Based on the cameras, try to guess the session, if not specified. If the session is isis,
-  // then we can pull the datum from the .cub files. 
+  // Based on the cameras, try to guess the session, if not
+  // specified. If the session is isis or csm, then we can pull the
+  // datum from the .cub files.
   {
     SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, // may change
                                                          opt,
@@ -1971,12 +1972,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                                                          opt.camera_files[0], opt.camera_files[0],
                                                          opt.out_prefix));
     
-    if (opt.datum_str == "" && opt.stereo_session_string == "isis"){
+    if (opt.datum_str == "" &&
+        (opt.stereo_session_string == "isis" || opt.stereo_session_string == "csm")) {
       try {
-        bool use_sphere_for_isis = false;
+        bool use_sphere_for_datum = false;
         opt.datum = session->get_datum(session->camera_model(opt.image_files [0],
                                                              opt.camera_files[0]).get(),
-                                       use_sphere_for_isis);
+                                       use_sphere_for_datum);
         opt.datum_str = opt.datum.name();
         guessed_datum = true;
       }catch(...){}
@@ -2001,6 +2003,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.datum_str != ""){
     // If the user set the datum, use it.
+    // TODO(oalexan1): This looks wrong. The user datum must override the guessed datum
     if (!guessed_datum)
       opt.datum.set_well_known_datum(opt.datum_str);
   }else if (opt.semi_major > 0 && opt.semi_minor > 0){
@@ -2013,12 +2016,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }else{ // Datum not specified
     if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() )
       vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
-                              << "the datum must be specified.\n" << usage << general_options );
-
+                << "the datum must be specified.\n" << usage << general_options );
+    
     if ( opt.elevation_limit[0] < opt.elevation_limit[1] )
       vw_throw( ArgumentErr() << "When filtering by elevation limit, the datum must be specified.\n"
                 << usage << general_options );
   }
+
+  // TODO(oalexan1): This looks wrong. May need to set the datum itself,
+  // not its name. Test this with CSM.
+  asp::stereo_settings().datum = opt.datum.name(); // for RPC
+
+  vw_out() << "Will use the datum:\n" << opt.datum << std::endl;
 
   // This is a little clumsy, but need to see whether the user set --max-iterations
   // or --num-iterations. They are aliases to each other.
@@ -2026,10 +2035,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Cannot set both --num-iterations and --max-iterations.\n");
   if (!vm["max-iterations"].defaulted())
     opt.num_iterations = max_iterations_tmp;
-  
-  vw_out() << "Will use the datum:\n" << opt.datum << std::endl;
-  
-  asp::stereo_settings().datum = opt.datum.name(); // for RPC
   
   if ( opt.out_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix.\n" << usage << general_options  );

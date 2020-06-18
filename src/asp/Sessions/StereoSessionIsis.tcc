@@ -212,23 +212,27 @@ bool StereoSessionIsis::supports_multi_threading () const {
           asp::CsmModel::file_has_isd_extension(m_right_camera_file)   );
 }
 
-
-vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam, bool use_sphere_for_isis) const
-{
+/// Returns the target datum to use for a given camera model.
+/// Note the parameter use_sphere_for_datum.
+/// During alignment, we'd like to use the most accurate
+/// non-spherical datum, hence radii[2]. However, for the purpose
+/// of creating a DEM on non-Earth planets people usually just use
+/// a spherrical datum, which we'll do as well.  Maybe at some
+/// point this needs to change.
+vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam,
+                                                      bool use_sphere_for_datum) const {
   const IsisCameraModel * isis_cam
     = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
-  VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n");
+  VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid camera.\n");
   Vector3 radii = isis_cam->target_radii();
-  double radius1 = (radii[0] + radii[1]) / 2;
+  double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
   double radius2 = radius1;
-  if (!use_sphere_for_isis) {
-    // During alignment, we'd like to use the most accurate
-    // non-spherical datum, hence radii[2]. However, for the purpose
-    // of creating a DEM on non-Earth planets (that is, when ISIS is
-    // used) people usually just use a sphere, which we'll do as well.
-    radius2 = radii[2];
+  if (!use_sphere_for_datum) {
+    radius2 = radii[2]; // the z radius (semi-minor axis)
   }
-  cartography::Datum datum("D_" + isis_cam->target_name(), isis_cam->target_name(), "Reference Meridian", radius1, radius2, 0);
+
+  cartography::Datum datum("D_" + isis_cam->target_name(), isis_cam->target_name(),
+                           "Reference Meridian", radius1, radius2, 0);
   return datum;
 }
 

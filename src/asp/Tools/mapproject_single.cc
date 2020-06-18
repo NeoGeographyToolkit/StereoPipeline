@@ -160,7 +160,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 
     // Store the datum from the DEM
-    asp::stereo_settings().datum = dem_georef.datum().name(); // TODO: Not robust
+    // TODO (oalexan1): Fix here
+    asp::stereo_settings().datum = dem_georef.datum().name(); 
   }
   
 }
@@ -633,12 +634,12 @@ void project_image_alpha_pick_transform(Options & opt,
   }
 }
 
-int main( int argc, char* argv[] ) {
+int main(int argc, char* argv[]) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
-
+    handle_arguments(argc, argv, opt);
+  
     // TODO: Replace this using the new CameraModelLoader functions
 
     // We create a stereo session where both of the cameras and images

@@ -55,6 +55,9 @@ namespace asp {
     /// Return the size of the associated image.
     vw::Vector2 get_image_size() const;
 
+    // Read the ellipsoid (datum) axes from the json file
+    void read_ellipsoid(std::string const& isd_path);
+    
     virtual vw::Vector2 point_to_pixel (vw::Vector3 const& point) const;
 
     virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;
@@ -78,6 +81,14 @@ namespace asp {
     /// Print the CSM models that have been loaded into the main CSM plugin.
     static void print_available_models();
 
+    /// Get the semi-axes of the datum. 
+    vw::Vector3 target_radii() const {
+      return vw::Vector3(m_semi_major_axis, // x
+                         m_semi_major_axis, // y
+                         m_semi_minor_axis  // z
+                         );
+    }
+    
   private:
     // TODO: Is it always going to be this type (RasterGM)?
     boost::shared_ptr<csm::RasterGM> m_csm_model;
@@ -89,9 +100,10 @@ namespace asp {
     /// Throw an exception if we have not loaded the model yet.
     void throw_if_not_init() const;
 
+    // These are read from the json camera file
+    double m_semi_major_axis, m_semi_minor_axis;
+    
   }; // End class CsmModel
-
-
 
 }      // namespace asp
 

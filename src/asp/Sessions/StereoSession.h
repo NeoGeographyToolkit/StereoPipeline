@@ -134,9 +134,9 @@ namespace asp {
                         vw::Vector2 const& pixel_offset);
 
 
-    /// Returns the target datum to use for a given camera model
+    /// Returns the target datum to use for a given camera model.
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
-                                             bool use_sphere_for_isis) const {
+                                             bool use_sphere_for_datum) const {
       return vw::cartography::Datum(asp::stereo_settings().datum);
     }
 

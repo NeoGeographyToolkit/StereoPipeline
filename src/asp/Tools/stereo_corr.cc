@@ -493,8 +493,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     opt.session->camera_models(left_camera_model, right_camera_model);
     
     // Obtain the datum
-    const bool use_sphere_for_isis = false;
-    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), use_sphere_for_isis);
+    const bool use_sphere_for_datum = false;
+    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), use_sphere_for_datum);
 
     // Since these are epipolar aligned images it should be small
     double epipolar_threshold = 5;
@@ -627,7 +627,6 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
   cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
-
 
   // Filter out IPs which fall outside the specified elevation and lonlat range
   // TODO: Don't do this with cropped input images!!!!!

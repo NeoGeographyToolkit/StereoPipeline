@@ -31,6 +31,7 @@
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
+#include <asp/Camera/CsmModel.h>
 
 namespace asp {
 
@@ -121,11 +122,32 @@ namespace asp {
     /// Simple factory function
     static StereoSession* construct() { return new StereoSessionCsm;}
 
+    /// Returns the target datum to use for a given camera model
+    virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
+                                             bool use_sphere_for_datum) const {
+      const CsmModel * csm_cam
+        = dynamic_cast<const CsmModel*>(vw::camera::unadjusted_model(cam));
+      VW_ASSERT(csm_cam != NULL, vw::ArgumentErr() << "StereoSessionCsm: Invalid camera.\n");
+      vw::Vector3 radii = csm_cam->target_radii();
+      double radius1 = (radii[0] + radii[1]) / 2; // average the x and y radii (semi-major axis)
+      double radius2 = radius1;
+      if (!use_sphere_for_datum) {
+        radius2 = radii[2]; // the z radius (semi-minor axis)
+      }
+      
+      // TODO(oalexan1): Find here a datum name based on the radii
+      vw::cartography::Datum datum("Unspecified", "Unspecified", "Reference Meridian",
+                                   radius1, radius2, 0.0);
+      return datum;
+    }
+    
+  
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
-                                                                         std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) const {
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const {
       return load_adjusted_model(m_camera_loader.load_csm_camera_model(camera_file),
                                  image_file, camera_file, pixel_offset);
     }

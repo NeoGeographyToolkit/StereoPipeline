@@ -208,8 +208,8 @@ namespace asp {
     if (nadir_facing) {
       // Run an IP matching function that takes the camera and datum info into account
 
-      bool use_sphere_for_isis = false; // Assume Mars is not a sphere
-      cartography::Datum datum = this->get_datum(cam1, use_sphere_for_isis);
+      bool use_sphere_for_datum = false; // Assume Mars is not a sphere
+      cartography::Datum datum = this->get_datum(cam1, use_sphere_for_datum);
 
       // This is a bugfix. For RPC models, we must never intersect with
       // a datum whose height is outside of the domain of applicability
@@ -327,8 +327,8 @@ namespace asp {
 
       boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
                                                                           m_left_camera_file);
-      bool use_sphere_for_isis = true;       // Spherical datum for non-Earth, as done usually
-      georef.set_datum(this->get_datum(cam.get(), use_sphere_for_isis));
+      bool use_sphere_for_datum = true;       // Spherical datum for non-Earth, as done usually
+      georef.set_datum(this->get_datum(cam.get(), use_sphere_for_datum));
     }
 
     return georef;
