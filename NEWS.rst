@@ -31,8 +31,18 @@ hiedr2mosaic.py
      assuming that there is no jitter correction between the two
      CCDs that had no matches.
 
+poin2dem:
+   * Use outlier filtering when computing the bounding box of a DEM.
+     The same option ``--remove-outliers-params`` controls this 
+     just as for removing outliers by triangulation error.
+
+mapproject:
+
+   * Fixed a bug when finding the extent of the mapprojected
+     image when the DEM to project onto spans the whole planet.
+  
 Misc
-   * Compiled against ISIS version 3.8.0.
+   * Compiled against ISIS version 4.1.10.
    * Updated to C++ 11.
    * The Linux build system upgraded to CentOS 7.6, using conda
      for many dependencies, with gcc 5, glibc 2.17, and Python version
