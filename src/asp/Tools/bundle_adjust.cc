@@ -1964,7 +1964,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   // Based on the cameras, try to guess the session, if not
   // specified. If the session is isis or csm, then we can pull the
-  // datum from the .cub files.
+  // datum from the .cub or .json files.
   {
     SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, // may change
                                                          opt,
