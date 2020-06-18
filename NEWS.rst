@@ -4,6 +4,7 @@ RELEASE 2.7.0, Upcoming!
 New functionality
    * Support for the Community Sensor Model
      (https://github.com/USGS-Astrogeology/usgscsm)
+   * Support for ISIS version 4.1.10.
 
 bundle_adjust
    * Can first create interest point matches among mapprojected images
@@ -33,7 +34,7 @@ hiedr2mosaic.py
 
 poin2dem:
    * Use outlier filtering when computing the bounding box of a DEM.
-     The same option ``--remove-outliers-params`` controls this 
+     The same option ``--remove-outliers-params`` controls this
      just as for removing outliers by triangulation error.
 
 mapproject:
@@ -42,7 +43,6 @@ mapproject:
      image when the DEM to project onto spans the whole planet.
   
 Misc
-   * Compiled against ISIS version 4.1.10.
    * Updated to C++ 11.
    * The Linux build system upgraded to CentOS 7.6, using conda
      for many dependencies, with gcc 5, glibc 2.17, and Python version
