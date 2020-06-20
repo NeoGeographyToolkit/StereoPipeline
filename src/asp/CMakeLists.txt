@@ -10,7 +10,6 @@ include(Utilities) # Contains functions
 set(BINARYBUILDER_INSTALL_DIR "" CACHE FILEPATH "Path to the Binary Builder installation directory containing user-compiled dependencies")
 set(VISIONWORKBENCH_INSTALL_DIR "" CACHE FILEPATH "Path to the user-built and installed VisionWorkbench")
 set(ISIS_DEPS_DIR "" CACHE FILEPATH "Path to the conda environment that has the ISIS dependencies")
-set(ASP_DEPS_DIR "" CACHE FILEPATH "Path to the conda environment that has additional conda dependencies specific to ASP")
 
 set(ASP_ENABLE_SSE "1" CACHE BOOL "Allow SSE optimizations.")
 
@@ -24,6 +23,17 @@ set(bbdir ${BINARYBUILDER_INSTALL_DIR})
 if ("${ISIS_DEPS_DIR}" STREQUAL "")
   message(FATAL_ERROR "You need to set ISIS_DEPS_DIR")
 endif()
+
+# assume built-in pthreads on MacOS
+IF(APPLE)
+    set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+    set(CMAKE_HAVE_THREADS_LIBRARY 1)
+    set(CMAKE_USE_WIN32_THREADS_INIT 0)
+    set(CMAKE_USE_PTHREADS_INIT 1)
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+ENDIF()
+    
+find_package(Threads REQUIRED)
 
 # Put the search for Boost early on, to ensure that the Conda version
 # is found before we point to the BB folder.
@@ -58,17 +68,10 @@ message("--------------------------------------------------------------")
 #link_directories(${BINARYBUILDER_INSTALL_DIR}/lib)
 #link_directories(${BINARYBUILDER_INSTALL_DIR}/lib64)
 
-# If ASP dependencies are not installed via conda, they were built by
-# the user in BINARYBUILDER_INSTALL_DIR.
-if (NOT ASP_DEPS_DIR)
-  set(ASP_DEPS_DIR ${BINARYBUILDER_INSTALL_DIR})
-endif()
-
-# If VW was not built and installed separately, it was either fetched
-# with conda in ASP_DEPS_DIR or built and installed by the user in
-# BINARYBUILDER_INSTALL_DIR.
+# If VW was not built and installed separately, it should have been
+# built and installed in BINARYBUILDER_INSTALL_DIR.
 if (NOT VISIONWORKBENCH_INSTALL_DIR)
-  set(VISIONWORKBENCH_INSTALL_DIR ${ASP_DEPS_DIR})
+  set(VISIONWORKBENCH_INSTALL_DIR ${BINARYBUILDER_INSTALL_DIR})
 endif()
 
 # Add BB folders to CMAKE paths
@@ -159,16 +162,6 @@ endforeach(n)
 include_directories(${VISIONWORKBENCH_INCLUDE_DIR})
 #link_directories(${VISIONWORKBENCH_LIBRARY_DIR})
 
-
-# TODO: Add DLL to our main Boost installation.
-#include_directories("/home6/oalexan1/projects/usgscsm/boost_1_70_0/boost")
-#include_directories("/home/smcmich1/repo/CSM-CameraModel/install/include")
-#include_directories("/home/smcmich1/repo/CSM-Swig/install/include")
-#set(CSM_LIBRARIES "/home/smcmich1/repo/CSM-Swig/install/lib/libfixturecsm.so")
-
-#include_directories("/home/smcmich1/repo/csm-3.0.3.1/linux64/include")
-#set(CSM_LIBRARIES "/home/smcmich1/repo/csm-3.0.3.1/linux64/lib/libcsmapi.so.3")
-
 message("--------------------------------------------------------------")
 message("Searching for QT...")
 # QT is complicated to use and should go through find_package
@@ -209,22 +202,25 @@ endif()
 
 # Dependencies for VW
 
-if (APPLE) # Use the system version
-  find_package(LAPACK)
-  find_package(BLAS)
-else() # Use our BB compiled version
-  find_external_library(LAPACK ${ISIS_DEPS_DIR} "" "lapack;blas" REQUIRED)
-endif()
-if(LAPACK_FOUND)
-  set(VW_HAVE_PKG_FLAPACK 1) # --> This specifies that it is a Fortran derived version
-                             #      How to check this if the user provides Fortran?
-endif()
+# if (APPLE) # Use the system version
+#   find_package(LAPACK)
+#   find_package(BLAS)
+# else() # Use our BB compiled version
+find_external_library(LAPACK ${ISIS_DEPS_DIR} "" "lapack;blas" REQUIRED)
+#endif()
+#if(LAPACK_FOUND)
+set(VW_HAVE_PKG_FLAPACK 1) # --> This specifies that it is a Fortran derived version
+#                            #      How to check this if the user provides Fortran?
+#endif()
 
-find_external_library(FLANN ${ISIS_DEPS_DIR} "" "flann_cpp" REQUIRED)
-find_external_library(Z ${ISIS_DEPS_DIR} "" "z" REQUIRED)
-find_external_library(PROJ4 ${ISIS_DEPS_DIR} "" "proj"      REQUIRED)
-
-find_external_library(GDAL ${ASP_DEPS_DIR} "" "gdal"      REQUIRED)
+find_external_library(FLANN   ${ISIS_DEPS_DIR} "" "flann_cpp" REQUIRED)
+find_external_library(Z       ${ISIS_DEPS_DIR} "" "z"         REQUIRED)
+find_external_library(PROJ4   ${ISIS_DEPS_DIR} "" "proj"      REQUIRED)
+find_external_library(JPEG    ${ISIS_DEPS_DIR} "" "jpeg"      REQUIRED)
+find_external_library(PNG     ${ISIS_DEPS_DIR} "" "png;png16" REQUIRED)
+find_external_library(TIFF    ${ISIS_DEPS_DIR} "" "tiff"      REQUIRED)
+find_external_library(GEOTIFF ${ISIS_DEPS_DIR} "" "geotiff"   REQUIRED)
+find_external_library(GDAL    ${ISIS_DEPS_DIR} "" "gdal"      REQUIRED)
 set(ILMBASE_LIB_NAMES Half Iex Imath IlmThread)
 find_external_library(ILMBASE ${ISIS_DEPS_DIR} "" "${ILMBASE_LIB_NAMES}" REQUIRED)
 find_external_library(OPENEXR ${ISIS_DEPS_DIR} "OpenEXR" "IlmImf;IlmThread" REQUIRED)
@@ -237,10 +233,11 @@ find_external_library(PROTOBUF ${ISIS_DEPS_DIR} "" "protobuf" REQUIRED)
 find_external_library(EMBREE ${ISIS_DEPS_DIR} "" "embree" REQUIRED)
 find_external_library(EIGEN ${ISIS_DEPS_DIR} "eigen3" "" REQUIRED)
 find_external_library(CERES ${ISIS_DEPS_DIR} "ceres" "ceres" REQUIRED)
-find_external_library(LIBPOINTMATCHER ${bbdir} "" "pointmatcher" REQUIRED)
+find_external_library(LIBNABO ${ISIS_DEPS_DIR} "nabo" "nabo" REQUIRED)
+find_external_library(LIBPOINTMATCHER ${ISIS_DEPS_DIR} "" "pointmatcher" REQUIRED)
 find_external_library(FASTGLOBALREGISTRATION ${bbdir} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
-find_external_library(LIBLAS ${ASP_DEPS_DIR} "" "las" REQUIRED)
-find_external_library(LASZIP ${ASP_DEPS_DIR} "laszip" "laszip" REQUIRED)
+find_external_library(LIBLAS ${ISIS_DEPS_DIR} "" "las" REQUIRED)
+find_external_library(LASZIP ${ISIS_DEPS_DIR} "laszip" "laszip" REQUIRED)
 find_external_library(GFLAGS ${ISIS_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ISIS_DEPS_DIR} "glog" "glog" REQUIRED)
 find_external_library(ARMADILLO ${ISIS_DEPS_DIR} "" "armadillo" REQUIRED)
@@ -260,19 +257,12 @@ endif()
 
 find_external_library(CSM ${bbdir} "libusgscsm" "csmapi" REQUIRED)
 #include_directories("${bbdir}/include")
-#set(CSM_LIBRARIES "/home6/oalexan1/projects/usgscsm/build/csm/libcsmapi.so.3")
 
 set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
                   pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition
                   pcl_registration pcl_sample_consensus pcl_search pcl_segmentation
                   pcl_stereo pcl_surface pcl_tracking)
 find_external_library(PCL ${ISIS_DEPS_DIR} "pcl" "${PCL_LIB_NAMES}" REQUIRED)
-
-# TODO: Which do we actually need!
-#find_external_library(JPEG ${bbdir} "" "jpeg" NOT_REQUIRED)
-#find_external_library(PNG ${bbdir} "" "png;png16" NOT_REQUIRED)
-#find_external_library(TIFF ${bbdir} "" "tiff" NOT_REQUIRED)
-
 
 set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_core        opencv_shape
@@ -288,10 +278,11 @@ set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
 find_external_library(OPENCV ${ISIS_DEPS_DIR} "" "${OPENCV_LIB_NAMES}" NOT_REQUIRED)
 
 # For convenience, list some libraries that VW and ISIS depend on.
-set(VW_3RD_PARTY_LIBS   ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} ${OPENEXR_LIBRARIES}
-                        ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  ${PROJ4_LIBRARIES}
-                        ${FLANN_LIBRARIES} )
-set(ISIS_3RD_PARTY_LIBS Qt5::Core  ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES})
+set(VW_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES} ${ILMBASE_LIBRARIES} ${OPENEXR_LIBRARIES}
+    ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  ${PROJ4_LIBRARIES}
+    ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${PNG_LIBRARIES}
+    ${FLANN_LIBRARIES})
+set(ISIS_3RD_PARTY_LIBS Qt5::Core ${EMBREE_LIBRARIES} ${PROTOBUF_LIBRARIES} ${QWT_LIBRARIES} ${ARMADILLO_LIBRARIES})
 
 message("--------------------------------------------------------------")
 

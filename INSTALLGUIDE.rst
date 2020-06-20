@@ -303,19 +303,27 @@ Install ISIS:
 
 Install more dependencies, as:
 
-  conda install -c conda-forge ilmbase==2.3.0 openexr==2.3.0  openjpeg==2.1.0 \
-    cmake==3.14.5 pbzip2 gflags glog ceres-solver parallel
+  conda install -c conda-forge ilmbase==2.3.0 openexr==2.3.0 \
+    openjpeg==2.1.0 cmake==3.14.5 pbzip2 gflags glog         \
+    ceres-solver parallel
 
-To be able to build the documentation with sphinx, fetch it as:
+Install dependencies from our own channel (many of these
+will be gradually replaced with versions from conda-forge).
 
-  conda install -c conda-forge sphinx sphinxcontrib-bibtex
+ conda install -c nasa-ames-stereo-pipeline gdal==2.0.2 \
+   imagemagick==6.8.6_10 laszip==2.1.0 liblas==1.8.1    \
+   libnabo==2df86e0 libpointmatcher==bcf4b04
 
 On Linux, install in addition chrpath:
 
   conda install -c conda-forge chrpath
 
+To be able to build the documentation with sphinx, fetch it as:
+
+  conda install -c conda-forge sphinx sphinxcontrib-bibtex
+
 Some of the .la files created by conda point to other .la files that
-are not available.  For that reason, those files should be edited to
+are not available. For that reason, those files should be edited to
 replace::
 
     /path/to/libmylibrary.la
@@ -335,7 +343,6 @@ At some point in the near future likely all dependencies, including
 the ones installed so far in a system location using apt-get or yum,
 can likely be transitioned to using conda and having them in user
 space.
-
 
 Invoking Binary Builder
 ~~~~~~~~~~~~~~~~~~~~~~~

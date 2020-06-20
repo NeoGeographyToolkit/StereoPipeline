@@ -114,12 +114,12 @@ install(TARGETS pc_merge DESTINATION bin)
 
 add_executable(pc_align pc_align.cc pc_align_utils.h pc_align_utils.tcc)
 target_link_libraries(pc_align AspSessions ${SOLVER_LIBRARIES} 
-  ${LIBPOINTMATCHER_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} )
+  ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} )
 install(TARGETS pc_align DESTINATION bin)
 
 add_executable(n_align n_align.cc pc_align_utils.h pc_align_utils.tcc)
 target_link_libraries(n_align AspSessions ${SOLVER_LIBRARIES} 
-  ${LIBPOINTMATCHER_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} )
+  ${LIBPOINTMATCHER_LIBRARIES} ${LIBNABO_LIBRARIES} ${FASTGLOBALREGISTRATION_LIBRARIES} )
 install(TARGETS n_align DESTINATION bin)
 
 add_executable(pansharp pansharp.cc)
