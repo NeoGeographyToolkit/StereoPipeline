@@ -357,20 +357,8 @@ add_subdirectory(Sessions)
 add_subdirectory(GUI)
 
 # Add the non-library subdirectories
-
 add_subdirectory(Python)
 add_subdirectory(Tools)
 add_subdirectory(WVCorrect)
 add_subdirectory(Hidden)
 add_subdirectory(IceBridge)
-
-
-
-
-
-
-
-
-
-
-

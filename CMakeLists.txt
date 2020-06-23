@@ -1,6 +1,8 @@
-project(StereoPipeline)
-
+cmake_policy(SET CMP0025 NEW) # needed for conda build on OSX
+ 
 cmake_minimum_required (VERSION 3.2)
+ 
+project(StereoPipeline)
 
 # Make it possible to append to these from the command line
 set(CMAKE_CXX_FLAGS "" CACHE STRING "")
