@@ -17,9 +17,6 @@ if ("${BINARYBUILDER_INSTALL_DIR}" STREQUAL "")
   message(FATAL_ERROR "You need to set BINARYBUILDER_INSTALL_DIR")
 endif()
 
-# Make an abbreviation for this long name
-set(bbdir ${BINARYBUILDER_INSTALL_DIR})
-
 if ("${ISIS_DEPS_DIR}" STREQUAL "")
   message(FATAL_ERROR "You need to set ISIS_DEPS_DIR")
 endif()
@@ -227,7 +224,7 @@ find_external_library(OPENEXR ${ISIS_DEPS_DIR} "OpenEXR" "IlmImf;IlmThread" REQU
 
 # Dependencies for ASP and ISIS
 find_external_library(SPICE ${ISIS_DEPS_DIR} "cspice" "cspice" REQUIRED)
-find_external_library(GEOID ${bbdir} "" "egm2008" REQUIRED)
+find_external_library(GEOID ${ISIS_DEPS_DIR} "" "egm2008" REQUIRED)
 find_external_library(XERCESC ${ISIS_DEPS_DIR} "" "xerces-c" REQUIRED)
 find_external_library(PROTOBUF ${ISIS_DEPS_DIR} "" "protobuf" REQUIRED)
 find_external_library(EMBREE ${ISIS_DEPS_DIR} "" "embree" REQUIRED)
@@ -235,16 +232,14 @@ find_external_library(EIGEN ${ISIS_DEPS_DIR} "eigen3" "" REQUIRED)
 find_external_library(CERES ${ISIS_DEPS_DIR} "ceres" "ceres" REQUIRED)
 find_external_library(LIBNABO ${ISIS_DEPS_DIR} "nabo" "nabo" REQUIRED)
 find_external_library(LIBPOINTMATCHER ${ISIS_DEPS_DIR} "" "pointmatcher" REQUIRED)
-find_external_library(FASTGLOBALREGISTRATION ${bbdir} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
+find_external_library(FASTGLOBALREGISTRATION ${ISIS_DEPS_DIR} "FastGlobalRegistration" "FastGlobalRegistrationLib" REQUIRED)
 find_external_library(LIBLAS ${ISIS_DEPS_DIR} "" "las" REQUIRED)
 find_external_library(LASZIP ${ISIS_DEPS_DIR} "laszip" "laszip" REQUIRED)
 find_external_library(GFLAGS ${ISIS_DEPS_DIR} "gflags" "gflags" REQUIRED)
 find_external_library(GLOG ${ISIS_DEPS_DIR} "glog" "glog" REQUIRED)
 find_external_library(ARMADILLO ${ISIS_DEPS_DIR} "" "armadillo" REQUIRED)
 
-find_external_library(ISIS ${ISIS_DEPS_DIR} "isis" "isis3" REQUIRED)
-include_directories("${ISIS_DEPS_DIR}/include/isis")
-include_directories("${bbdir}/include/isis") # temporary, remove when ISIS folks put it above
+find_external_library(ISIS ${ISIS_DEPS_DIR} "isis" "isis" REQUIRED)
 
 if(ASP_HAVE_PKG_ISIS)
   # Pull the ISIS version. It is on the first line before the first space.
@@ -255,8 +250,8 @@ if(ASP_HAVE_PKG_ISIS)
   message(STATUS "Found ISIS version: ${ASP_ISIS_VERSION}")
 endif()
 
-find_external_library(CSM ${bbdir} "libusgscsm" "csmapi" REQUIRED)
-#include_directories("${bbdir}/include")
+find_external_library(CSM ${ISIS_DEPS_DIR} "libusgscsm" "csmapi" REQUIRED)
+#include_directories("${ISIS_DEPS_DIR}/include")
 
 set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
                   pcl_kdtree pcl_keypoints pcl_ml pcl_octree pcl_recognition

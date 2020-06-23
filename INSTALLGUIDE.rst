@@ -312,7 +312,13 @@ will be gradually replaced with versions from conda-forge).
 
  conda install -c nasa-ames-stereo-pipeline gdal==2.0.2 \
    imagemagick==6.8.6_10 laszip==2.1.0 liblas==1.8.1    \
-   libnabo==2df86e0 libpointmatcher==bcf4b04
+   libnabo==2df86e0 libpointmatcher==bcf4b04 geoid==1.0 \
+   htdp==1.0 fgr==bfcb9f9 theia==37f8270 \
+   isis-headers==4.1.0 usgscsm==a53f9cf
+
+Note that above we install the isis-headers package containing
+the ISIS 4.1.0 headers. That is temporary and will be removed
+once ISIS ships its own headers.
 
 On Linux, install in addition chrpath:
 

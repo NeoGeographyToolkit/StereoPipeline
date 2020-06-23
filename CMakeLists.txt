@@ -1,3 +1,5 @@
+project(StereoPipeline)
+
 cmake_minimum_required (VERSION 3.2)
 
 # Make it possible to append to these from the command line
