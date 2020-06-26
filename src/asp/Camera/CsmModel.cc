@@ -25,6 +25,8 @@
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/version.hpp>
+#include <boost/config.hpp>
 
 // From the CSM base interface library
 #include <csm/csm.h>
@@ -111,19 +113,19 @@ bool CsmModel::file_has_isd_extension(std::string const& path) {
 std::string CsmModel::get_csm_plugin_folder(){
 
   // Look up the CSM_PLUGIN_PATH environmental variable.
-  // - It is set in the "libexec/libexec-funcs.sh" deployed file.
+  // It is set in the "libexec/libexec-funcs.sh" deploy file.
 
   std::string plugin_path;
   char * plugin_path_arr = getenv("CSM_PLUGIN_PATH");
   if (plugin_path_arr != NULL && std::string(plugin_path_arr) != ""){
     plugin_path = std::string(plugin_path_arr);
   }else{
-    // This is for the installed but not packaged build.
-    vw_out() << "The environmental variable CSM_PLUGIN_PATH was not set.\n";
+    // This is for when ASP is installed without the deploy file.
+    // vw_out() << "The environmental variable CSM_PLUGIN_PATH was not set.\n";
     fs::path try_path = boost::dll::program_location().parent_path().parent_path();
-    try_path /= "lib64";
+    try_path /= "lib";
     plugin_path = try_path.string();
-    vw_out() << "Looking in " << plugin_path << ".\n";
+    //vw_out() << "Looking in " << plugin_path << ".\n";
   }
 
   if (!fs::exists(plugin_path)){
@@ -134,22 +136,50 @@ std::string CsmModel::get_csm_plugin_folder(){
   return plugin_path;
 }
 
-
+// The original idea here was to look at every library in the plugins
+// directory and load the valid plugins. For now however there is just
+// one plugin, libusgscsm, and it is stored in 'lib', among thousands
+// of other inapplicable libraries. Hence just pick that one.  One day
+// we will have a dedicated plugins directory.
 size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
+
   plugins.clear();
+
   const std::string folder = get_csm_plugin_folder();
 
-  size_t num_dlls = vw::get_files_in_folder(folder, plugins, ".so");
-  if (num_dlls == 0) // Try again using the Mac extension.
-    num_dlls = vw::get_files_in_folder(folder, plugins, ".dylib");
+  std::string ext;
+  std::vector<std::string> potential_plugins;
+  std::string platform = std::string(BOOST_PLATFORM);
+  boost::to_lower(platform);
+  if (std::string(BOOST_PLATFORM).find("linux") != std::string::npos)
+    ext = ".so";
+  else if (std::string(BOOST_PLATFORM).find("mac") != std::string::npos) 
+    ext = ".dylib";
+  else
+    vw_throw( ArgumentErr() << "Unknown operating system: " << BOOST_PLATFORM << "\n");
 
-  for (size_t i=0; i<num_dlls; ++i) {
+#if 0
+  size_t potential_num_dlls = vw::get_files_in_folder(folder, potential_plugins, ext);
+  for (size_t i = 0; i < potential_num_dlls; i++) {
+    if (potential_plugins[i] != "libusgscsm" + ext) {
+      continue;
+    }
+    
     fs::path p(folder);
-    p /= plugins[i];
-    plugins[i] = p.string();
+    p /= potential_plugins[i];
+    plugins.push_back(p.string());
   }
+#endif
 
-  return num_dlls;
+  fs::path p(folder);
+  p /= "libusgscsm" + ext;
+  std::string plugin = p.string();
+  if (!fs::exists(plugin)) 
+    vw_throw( ArgumentErr() << "Cannot find plugin: " <<plugin <<
+              ". Set CSM_PLUGIN_PATH to the directory where the plugins are stored.\n");
+  plugins.push_back(plugin);
+
+  return plugins.size();
 }
 
 
@@ -289,7 +319,7 @@ void CsmModel::read_ellipsoid(std::string const& isd_path) {
                   << m_semi_major_axis << ' ' << m_semi_minor_axis);
 }
 
-bool CsmModel::load_model(std::string const& isd_path) {
+void CsmModel::load_model(std::string const& isd_path) {
 
   // This only happens the first time it is called.
   initialize_plugins();

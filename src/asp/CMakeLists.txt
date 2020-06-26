@@ -20,15 +20,14 @@ endif()
 if ("${ISIS_DEPS_DIR}" STREQUAL "")
   message(FATAL_ERROR "You need to set ISIS_DEPS_DIR")
 endif()
-
-# assume built-in pthreads on MacOS
-IF(APPLE)
-    set(CMAKE_THREAD_LIBS_INIT "-lpthread")
-    set(CMAKE_HAVE_THREADS_LIBRARY 1)
-    set(CMAKE_USE_WIN32_THREADS_INIT 0)
-    set(CMAKE_USE_PTHREADS_INIT 1)
-    set(THREADS_PREFER_PTHREAD_FLAG ON)
-ENDIF()
+# # assume built-in pthreads on MacOS
+# IF(APPLE)
+#     set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+#     set(CMAKE_HAVE_THREADS_LIBRARY 1)
+#     set(CMAKE_USE_WIN32_THREADS_INIT 0)
+#     set(CMAKE_USE_PTHREADS_INIT 1)
+#     set(THREADS_PREFER_PTHREAD_FLAG ON)
+# ENDIF()
     
 find_package(Threads REQUIRED)
 
@@ -314,7 +313,7 @@ endforeach()
 # --- ASP_CORE ------------------------------------------------------------
 get_all_source_files( "Core"       ASP_CORE_SRC_FILES)
 get_all_source_files( "Core/tests" ASP_CORE_TEST_FILES)
-set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES} ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES})
+set(ASP_CORE_LIB_DEPENDENCIES ${VW_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES} ${LIBLAS_LIBRARIES} ${LASZIP_LIBRARIES} ${CMAKE_DL_LIBS})
 
 # --- ASP_SPICEIO ------------------------------------------------------------
 get_all_source_files( "SpiceIO"       ASP_SPICEIO_SRC_FILES)
@@ -330,7 +329,7 @@ set(ASP_ISISIO_LIB_DEPENDENCIES  AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES
 # --- ASP_CAMERA ------------------------------------------------------------
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES AspCore ${XERCESC_LIBRARIES} ${CSM_LIBRARIES} ${CMAKE_DL_LIBS})
+set(ASP_CAMERA_LIB_DEPENDENCIES AspCore ${XERCESC_LIBRARIES} ${CSM_LIBRARIES})
 
 # --- ASP_SESSIONS ------------------------------------------------------------
 ## This code is more complicated and is specified in the lower level file

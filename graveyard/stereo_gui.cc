@@ -59,7 +59,7 @@ namespace vw {
 
 void print_usage(po::options_description const& visible_options) {
   std::cout << "\nUsage: stereo_gui [options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix>\n"
-            << "  Extensions are automaticaly added to the output files.\n"
+            << "  Extensions are automatically added to the output files.\n"
             << "  Camera model arguments may be optional for some stereo session types (e.g. isis).\n"
             << "  Stereo parameters should be set in the stereo.default file.\n\n";
   std::cout << visible_options << std::endl;

@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     usage = '''parallel_stereo [options] <images> [<cameras>]
                   <output_file_prefix> [DEM]
-        Extensions are automaticaly added to the output files.
+        Extensions are automatically added to the output files.
         Camera model arguments may be optional for some stereo
         session types (e.g. isis). Stereo parameters should be
         set in the stereo.default file.\n''' + get_asp_version()

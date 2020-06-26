@@ -1,14 +1,18 @@
-cmake_policy(SET CMP0025 NEW) # needed for conda build on OSX with conda
-
+if(APPLE)
+    # Needed for conda build on OSX with conda
+    cmake_policy(SET CMP0025 NEW) 
+endif(APPLE)
+    
 cmake_minimum_required (VERSION 3.2)
 
 # Make it possible to append to these from the command line
 set(CMAKE_CXX_FLAGS "" CACHE STRING "")
 set(CMAKE_C_FLAGS "" CACHE STRING "")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g -std=c++11")
+# cmake fails without the -L flag in CMAKE_CXX_FLAGS, oddly enough.
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g -std=c++11 -L${BINARYBUILDER_INSTALL_DIR}/lib")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g")
-set(CMAKE_EXE_LINKER_FLAGS "-L${BINARYBUILDER_INSTALL_DIR}/lib -lm -pthread -lpthread")
+set(CMAKE_EXE_LINKER_FLAGS "-lm -pthread -lpthread")
 
 if(APPLE)
     # A workaround for the clang included with conda build

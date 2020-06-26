@@ -176,31 +176,28 @@ struct Options : vw::cartography::GdalWriteOptions {
   bool   reverse_adjustment;
 };
 
-string get_geoid_full_path(string geoid_file){
+// Get the absolute path to the geoid. It is normally in the share/geoids
+// directory of the ASP distribution, but in dev mode the directory
+// having the geoids can be set via the ASP_GEOID_DIR env var.
+string get_geoid_full_path(std::string const& prog_name, std::string const& geoid_file){
 
-  // We try two ways of finding the path to the geoid file.
+  // Convert to absolute path first, to avoid issues when prog_name
+  // is simply "dem_geoid" with no path, when subsequent operations on
+  // it will fail.
+  char * geoid_dir_ptr = getenv("ASP_GEOID_DIR");
+  fs::path geoid_dir;
+  if (geoid_dir_ptr != NULL && std::string(geoid_dir_ptr) != "")
+    geoid_dir = fs::path(std::string(geoid_dir_ptr));
+  else
+    geoid_dir = fs::absolute(prog_name).parent_path().parent_path() / fs::path("share")
+      / fs::path("geoids");
+  
+  fs::path geoid_path = geoid_dir / fs::path(geoid_file);
+  if (!fs::exists(geoid_path)) 
+    vw_throw( ArgumentErr() << "Could not find the geoid: " << geoid_path.string()
+              << ". Set export ASP_GEOID_DIR=/path/to/share/geoids\n");
 
-  // 1. Using the compile flag, from the GEOID_PATH macro.
-#define STR_EXPAND(tok) #tok
-#define STR_QUOTE(tok) STR_EXPAND(tok)
-  string full_path = string(STR_QUOTE(GEOID_PATH)) + "/" + geoid_file;
-  if (fs::exists(full_path))
-    return full_path;
-
-  // 2. Using the ASP_DATA path.
-  char * asp_data = getenv("ASP_DATA");
-  if (asp_data == NULL){
-    vw_throw( ArgumentErr() << "The environmental variable ASP_DATA was not set. "
-              << "It should point to the 'share' directory of your ASP distribution.\n" );
-  }
-
-  full_path = string(asp_data) + "/geoids/" + geoid_file;
-  if (!fs::exists(full_path)){
-    vw_throw( ArgumentErr() << "Could not find geoid: " << full_path << ".\n"
-              << "The value of environmental variable ASP_DATA is '" << asp_data << "'.\n");
-  }
-
-  return full_path;
+  return geoid_path.string();
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ){
@@ -299,6 +296,7 @@ int main( int argc, char *argv[] ) {
 
   Options opt;
   try {
+    std::string prog_name = argv[0];
     handle_arguments( argc, argv, opt );
 
     bool reverse_adjustment = opt.reverse_adjustment;
@@ -377,7 +375,7 @@ int main( int argc, char *argv[] ) {
       geoid_file = "mola_areoid.tif";
 
     // Find where we keep the information for this geoid
-    geoid_file = get_geoid_full_path(geoid_file);
+    geoid_file = get_geoid_full_path(prog_name, geoid_file);
     vw_out() << "Adjusting the DEM using the geoid: " << geoid_file << endl;
 
     // Read the geoid containing the adjustments. Read it in memory

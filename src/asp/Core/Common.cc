@@ -40,10 +40,15 @@
 #include <boost/filesystem/path_traits.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
+#include <boost/dll.hpp>
 
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
 #include "ogr_spatialref.h"
 #endif
+
+// These variables must never go out of scope or else the environmental
+// variables set by them using putenv() will disappear.
+std::string ISISROOT_ENV_STR, QT_PLUGIN_PATH_ENV_STR, GDAL_DATA_ENV_STR;
 
 using namespace vw;
 namespace po = boost::program_options;
@@ -427,18 +432,68 @@ void asp::log_to_file(int argc, char *argv[],
   vw_log().add(current_log);
 }
 
+namespace asp {
+  // A function to set an environmental variable pointing to some
+  // directory where a file must exist. Need to handle the release
+  // mode and development mode.
+  // TODO(oalexan1): Remove the cout statements once things are
+  // verified to work.
+  void set_env_var(std::string const& guess_var_name,
+                   std::string const& var_name,
+                   std::string const& check_file,
+                   std::string & var_holder,
+                   bool add_file_to_var) {
+    
+    char * guess_val = getenv(guess_var_name.c_str());
+    std::string var_path;
+    if (guess_val && std::string(guess_val) != "") {
+      var_path = std::string(guess_val); 
+    } else{
+      var_path = boost::dll::program_location().parent_path().parent_path().string();
+      if (add_file_to_var) {
+        var_path += "/" + check_file;
+      }
+    }
+        
+    std::cout << "Base path is " << var_path << std::endl;
+    std::string check_path;
+    if (add_file_to_var) {
+      check_path = var_path; // already appended the file
+    }else{
+      check_path = var_path + "/" + check_file;
+    }
+    std::cout << "Check path is " << check_path << std::endl;
+
+    std::string text;
+    if (add_file_to_var) 
+      text = " to it.";
+    else
+      text = " to the directory having it.";
+    
+    if (!fs::exists(check_path)) 
+      vw::vw_throw( vw::ArgumentErr() << "Cannot find: " << check_path << ".\n"
+                    << "In development mode, set " << guess_var_name << text);
+    
+    // Have to put up with the putenv() API.
+    var_holder = var_name + "=" + var_path;
+    if (putenv((char*)var_holder.c_str()) != 0) 
+      vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << var_holder << "\n");
+    std::cout << "Setting: " << var_name << "=" << getenv(var_name.c_str()) << std::endl;
+  }
+  
+}
 
 // User should only put the arguments to their application in the
 // usage_comment argument. We'll finish filling in the repeated information.
 po::variables_map
-asp::check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
-                         po::options_description const& public_options,
-                         po::options_description const& all_public_options,
-                         po::options_description const& positional_options,
-                         po::positional_options_description const& positional_desc,
-                         std::string & usage_comment,
-                         bool allow_unregistered,
-                         std::vector<std::string> & unregistered) {
+asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
+                        po::options_description const& public_options,
+                        po::options_description const& all_public_options,
+                        po::options_description const& positional_options,
+                        po::positional_options_description const& positional_desc,
+                        std::string & usage_comment,
+                        bool allow_unregistered,
+                        std::vector<std::string> & unregistered) {
 
   unregistered.clear();
 
@@ -452,6 +507,26 @@ asp::check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptio
   ostr << "  [ASP " << ASP_VERSION << "]\n\n";
   usage_comment = ostr.str();
 
+  // Set ISISROOT for all ASP executables. This should point to
+  // the directory having "lib", "IsisPreferences", etc. This variable
+  // must overwrite whatever the user set, as that may point to an
+  // ISIS installation different than the ISIS we ship with and count
+  // on. In dev mode, when ASP is not yet installed where ISIS is, use
+  // the variable ISISROOT_DEV to point to our ISIS location.
+  bool add_file_to_var = false;
+  asp::set_env_var("ISISROOT_DEV", "ISISROOT", "IsisPreferences", ISISROOT_ENV_STR,
+                   add_file_to_var);
+
+  // Similar logic for the QT plugins
+  add_file_to_var = true;
+  asp::set_env_var("QT_PLUGIN_PATH", "QT_PLUGIN_PATH", "plugins", QT_PLUGIN_PATH_ENV_STR,
+                   add_file_to_var);
+
+  // Similar logic for GDAL_DATA
+  add_file_to_var = true;
+  asp::set_env_var("GDAL_DATA", "GDAL_DATA", "share/gdal", GDAL_DATA_ENV_STR,
+                   add_file_to_var);
+  
   // We distinguish between all_public_options, which is all the
   // options we must parse, even if we don't need some of them, and
   // public_options, which are the options specifically used by the
@@ -462,7 +537,7 @@ asp::check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptio
     all_options.add(all_public_options).add(positional_options);
 
     if ( allow_unregistered ) {
-      po::parsed_options parsed = po::command_line_parser( argc, argv ).options(all_options).allow_unregistered().style( po::command_line_style::unix_style ).run();
+      po::parsed_options parsed = po::command_line_parser(argc, argv).options(all_options).allow_unregistered().style( po::command_line_style::unix_style ).run();
       unregistered = collect_unrecognized(parsed.options, po::include_positional);
       po::store( parsed, vm );
     } else {

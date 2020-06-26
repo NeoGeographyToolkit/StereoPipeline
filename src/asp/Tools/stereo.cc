@@ -253,8 +253,8 @@ namespace asp {
       ASPGlobalOptions opt;
       bool is_multiview = false;
       vector<string> files;
-      handle_arguments( largc, &largv[0], opt, additional_options,
-                        is_multiview, files, usage, exit_early);
+      handle_arguments(largc, &largv[0], opt, additional_options,
+                       is_multiview, files, usage, exit_early);
       opt_vec[p-1] = opt;
 
       if (verbose){
@@ -332,7 +332,7 @@ namespace asp {
       positional_desc.add("input-dem",          1);
     }
 
-    usage = "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.";
+    usage = "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n  Extensions are automatically added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.";
     bool allow_unregistered = false;
     std::vector<std::string> unregistered;
     po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,

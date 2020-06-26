@@ -135,149 +135,14 @@ location for ``ISISDATA``.
 You need to add the ``bin`` directory of your deployed Stereo Pipeline
 installation to the environmental variable ``PATH``.
 
+Fetching ASP with conda
+-----------------------
 
-Building from Source
---------------------
+Get conda from:
 
-This method is for advanced users. Building Stereo Pipeline from
-source can be difficult, due to the large number of dependencies, and
-the variety of Linux and Mac architectures that Stereo Pipeline
-supports. We strongly suggest you use the pre-existing built software
-rather than compiling it yourself.
+ https://docs.conda.io/en/latest/miniconda.html
 
-Base Dependencies
-~~~~~~~~~~~~~~~~~
-
-Linux
-.....
-
-It may be potentially easier to build Stereo Pipeline and its
-dependencies in a virtual machine. How to set one up is described
-in the file VIRTMACHINES.
-
-The following packages need to be installed in order to build
-Stereo Pipeline (this list is not exhaustive, see the precise
-commands to install dependencies below):
-
-It is very important to note that the only GCC version that 
-ASP can be built with is gcc 5. Version 4 is too old, and some 
-dependencies do not build with version 6.
-
-- Python (version >= 3 preferred, version >= 2.7 supported--but not for long)
-- gcc, g++, gfortran, version 5
-- cmake (version >= 3.11)
-- csh
-- libtool
-- autoconf
-- automake
-- openssl-dev
-- wget
-- curl
-- git (version >= 1.6) 
-- subversion
-- zip
-- xserver-xorg-dev
-- xorg-dev
-- libx11-dev
-- libxext-dev
-- libxmu
-- libxmu-dev
-- libxi-dev
-- libxcb-dev
-- libgl1-mesa-dev
-- libglu1-mesa-dev
-- freeglut3-dev
-- gtk2-dev
-
-If you have root access on your machine you can install them on a
-Debian-based distribution (for example Ubuntu version >= 16) using the
-following command (note that sometimes the precise names of packages
-may change and perhaps some new repository may need to be added)::
-
-     sudo apt-get update -y
-     sudo apt-get install -y gcc g++ gfortran tcsh libtool binutils     \
-        m4 autoconf automake libssl-dev wget curl git subversion zip    \
-        xorg-dev libx11-dev libxext-dev libxmu6 libxmu-dev libxi-dev    \
-        '^libxcb.*-dev' libx11-xcb-dev libgl1-mesa-dev libglu1-mesa-dev \
-        freeglut3-dev libgtk2.0-dev texlive-latex-base graphviz texinfo
-
-For Red Hat-based distributions (CentOS/RHEL version >= 7) one can 
-do instead::
-
-     sudo yum update -y
-     sudo yum -y install python gcc-c++ gcc-gfortran tcsh libtool m4 \
-        autoconf automake openssl-devel wget curl git subversion     \
-        xorg-x11-server-Xorg libX11-devel libXext-devel libXmu       \
-        libXmu-devel libXi-devel libxcb libxcb-devel xcb-util        \
-        xcb-util-devel mesa-libGL-devel freeglut-devel gtk2-devel    \
-        patch texlive texlive-latex texlive-latexextra               \
-        texlive-collection\* graphviz texinfo texinfo-tex            \
-
-If your git install fails on Red Hat, you may need to enable the EPEL
-repository. 
-
-On Linux, gcc 5 can be built from scratch. Here is an example for CentOS 7::
-
-     sudo yum -y install gmp-devel mpfr-devel libmpc-devel glibc-devel \
-        glibc-devel.i686 zip unzip jar
-     wget https://ftp.gnu.org/gnu/gcc/gcc-5.4.0/gcc-5.4.0.tar.bz2
-
-Then unzip the archive and run in the extracted directory::
-
-     ./configure --prefix=$HOME/projects/gcc5 --enable-gold=yes \
-        --enable-ld=yes --disable-multilib 
-
-followed by running make and installing it.
-
-Set::
-
-     export LD_LIBRARY_PATH=<path to libstdc++ for your version compliant gcc>:$LD_LIBRARY_PATH
-
-
-macOS
-.....
-
-First install Homebrew or Macports, if you do not already have it.
-
-Next you need the following packages:
-
-- automake
-- libtool
-- openssl
-- git
-- wget 
-- curl
-- xz
-
-Here's an example for how to install some of these. First read
-http://superuser.com/questions/619498/can-i-install-homebrew-without-sudo-privileges
-about how to install Homebrew without sudo. Then do::
-
-    export HOMEBREW_PREFIX=$HOME/usr/local
-    export PATH=$HOMEBREW_PREFIX/bin:$PATH
-
-    brew update
-    brew doctor
-    brew install automake libtool openssl git wget curl xz
-
-All our software is built with clang on the Mac.
-
-
-Setting up ISIS dependencies via conda
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-ASP depends heavily on :term:`ISIS` and its dependencies. The
-dependencies should be installed using conda based on the 
-instructions at: 
-
-  https://github.com/USGS-Astrogeology/ISIS3
-
-This is needed even if it is desired to build Vision Workbench only.
-
-Adapted for our needs, and further expanded, those instructions go as
-follows:
-
-Fetch and run
+Run
 
   ./Miniconda3-latest-Linux-x86_64.sh
 
@@ -285,17 +150,39 @@ on Linux, and the appropriate version on OSX. Use the suggested
 
   $HOME/miniconda3
 
-directory for installation. Then, run:
+directory for installation. 
 
-  conda create -n isis python=3.6
-  conda activate isis
+Create an environment for ASP as:
+
+  conda create -n asp python=3.6
+  conda activate asp
+
+Add relevant channels:
 
   conda config --env --add channels conda-forge
   conda config --env --add channels usgs-astrogeology
+  conda config --env --add channels nasa-ames-stereo-pipeline
 
-Ensure that the usgs-astrogeology channel is on top by running:
+Run
 
   conda config --show channels
+
+to ensure that the order of channels is:
+
+ nasa-ames-stereo-pipeline, usgs-astrogeology, conda-forge
+
+Install ASP with the command:
+
+  conda install stereo-pipeline
+
+Building from source
+--------------------
+
+(This section is work in progress.)
+
+This entails downloading all the ASP dependencies with conda first, then
+pulling the VisionWorkbench and Stereo Pipeline code from GitHub, and
+building locally.
 
 Install ISIS:
 
@@ -350,8 +237,10 @@ the ones installed so far in a system location using apt-get or yum,
 can likely be transitioned to using conda and having them in user
 space.
 
-Invoking Binary Builder
-~~~~~~~~~~~~~~~~~~~~~~~
+Packaging locally built ASP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(This section is work in progress.)
 
 Having installed the tools, base libraries, and ISIS, the following
 lines of code will start the build of Stereo Pipeline in the
@@ -401,7 +290,7 @@ BinaryBuilder directory::
 
 
 Building the Documentation
-----------------------
+--------------------------
 
 The ASP documentation is encoded in ReStructured Text and is built
 with the Sphinx-Doc system (https://www.sphinx-doc.org) with 

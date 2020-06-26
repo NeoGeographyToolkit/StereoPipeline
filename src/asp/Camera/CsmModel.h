@@ -50,7 +50,7 @@ namespace asp {
     virtual std::string type() const { return "CSM"; }
 
     /// Load the camera model from an ISD file.
-    bool load_model(std::string const& isd_path);
+    void load_model(std::string const& isd_path);
 
     /// Return the size of the associated image.
     vw::Vector2 get_image_size() const;
