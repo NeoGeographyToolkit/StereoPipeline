@@ -1,16 +1,18 @@
 name: asp_deps
 channels:
   - nasa-ames-stereo-pipeline
-  - conda-forge
   - usgs-astrogeology
+  - conda-forge
   - defaults
 dependencies:
+  - alabaster=0.7.12=py_0
   - ale=0.7.2=py36h855b5bd_1
   - anaconda-client=1.7.2=py_0
   - armadillo=9.200.4=hcb88e47_1205
   - arpack=3.6.3=h06d5271_1005
   - asn1crypto=1.3.0=py36h9f0ad1d_1
   - attrs=19.3.0=py_0
+  - babel=2.8.0=py_0
   - beautifulsoup4=4.9.1=py36h9f0ad1d_0
   - blas=1.1=openblas
   - boost=1.68.0=py36h9888f84_1001
@@ -37,6 +39,7 @@ dependencies:
   - cspice=66=h0b31af3_1007
   - curl=7.64.0=heae2a1f_0
   - decorator=4.4.2=py_0
+  - docutils=0.16=py36h9f0ad1d_1
   - eigen=3.3.7=ha1b3eb9_1001
   - embree=2.16.0=h6834224_0
   - expat=2.2.9=h4a8c4bd_2
@@ -68,6 +71,7 @@ dependencies:
   - idna=2.9=py_1
   - ilmbase=2.5.2=hd174df1_0
   - imagemagick=6.8.6_10=h0a44026_0
+  - imagesize=1.2.0=py_0
   - importlib-metadata=1.6.1=py36h9f0ad1d_0
   - importlib_metadata=1.6.1=0
   - ipython_genutils=0.2.0=py_1
@@ -82,6 +86,7 @@ dependencies:
   - kakadu=1=0
   - krb5=1.16.3=h24a3359_1000
   - laszip=2.1.0=h0a44026_1
+  - latexcodec=2.0.1=pyh9f0ad1d_0
   - libarchive=3.3.3=hb60c381_1000
   - libblas=3.8.0=11_openblas
   - libcblas=3.8.0=11_openblas
@@ -124,6 +129,7 @@ dependencies:
   - openexr=2.5.2=h7475705_0
   - openjpeg=2.1.0=6
   - openssl=1.0.2u=h0b31af3_0
+  - oset=0.1.3=py_1
   - packaging=20.4=pyh9f0ad1d_0
   - parallel=20200522=0
   - pbzip2=1.1.13=h9d27c22_1
@@ -140,8 +146,11 @@ dependencies:
   - pthread-stubs=0.4=h1de35cc_1001
   - pvl=0.3.0=py_1
   - py-lief=0.9.0=py36h0ceac7d_1
+  - pybtex=0.22.2=py36h9f0ad1d_1
+  - pybtex-docutils=0.2.2=py36h9f0ad1d_1
   - pycosat=0.6.3=py36h37b9a7d_1004
   - pycparser=2.20=py_0
+  - pygments=2.6.1=py_0
   - pyopenssl=17.0.0=py36_0
   - pyparsing=2.4.7=pyh9f0ad1d_0
   - pyrsistent=0.16.0=py36h37b9a7d_0
@@ -162,13 +171,22 @@ dependencies:
   - scipy=1.2.1=py36hbd7caa9_1
   - setuptools=47.3.1=py36_0
   - six=1.15.0=pyh9f0ad1d_0
+  - snowballstemmer=2.0.0=py_0
   - soupsieve=2.0.1=py36h9f0ad1d_0
+  - sphinx=3.1.1=py_0
+  - sphinxcontrib-applehelp=1.0.2=py_0
+  - sphinxcontrib-bibtex=1.0.0=py_0
+  - sphinxcontrib-devhelp=1.0.2=py_0
+  - sphinxcontrib-htmlhelp=1.0.3=py_0
+  - sphinxcontrib-jsmath=1.0.1=py_0
+  - sphinxcontrib-qthelp=1.0.3=py_0
+  - sphinxcontrib-serializinghtml=1.1.4=py_0
   - spiceypy=2.3.2=py_0
   - sqlite=3.28.0=h9721f7c_0
   - suitesparse=5.7.2=h0e59142_0
   - superlu=5.2.1=hbced767_1205
   - tbb=2019.9=ha1b3eb9_1
-  - theia=37f8270=h0a44026_1000
+  - theia=f5d93f5=h0a44026_1000
   - tk=8.6.10=hb0a8c7a_0
   - tnt=126=0
   - tqdm=4.46.1=pyh9f0ad1d_0

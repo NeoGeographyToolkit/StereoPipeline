@@ -59,7 +59,7 @@ dependencies:
   - libblas=3.8.0=11_openblas
   - libcblas=3.8.0=11_openblas
   - libcurl=7.64.0=h76de61e_0
-  - libcxx=10.0.0=h1af66ff_2
+  - libcxx=10.0.0=1
   - libedit=3.1.20191231=hed1e85f_0
   - libffi=3.2.1=h4a8c4bd_1007
   - libgcc=4.8.5=hdbeacc1_10
@@ -99,7 +99,7 @@ dependencies:
   - pcl=1.9.1=hdd77166_1002
   - pcre=8.44=h4a8c4bd_0
   - perl=5.26.2=haec8ef5_1006
-  - pip=20.1.1=py_1
+  - pip=20.1.1=py36_1
   - pixman=0.34.0=h1de35cc_1003
   - postgresql=10.6=ha1bbaa7_1000
   - proj4=4.9.3=h01d97ff_9
@@ -116,21 +116,21 @@ dependencies:
   - qwt=6.1.3=0
   - readline=7.0=hcfe32e1_1001
   - scipy=1.2.1=py36hbd7caa9_1
-  - setuptools=47.3.1=py36h9f0ad1d_0
+  - setuptools=47.3.1=py36_0
   - six=1.15.0=pyh9f0ad1d_0
   - spiceypy=2.3.2=py_0
   - sqlite=3.28.0=h9721f7c_0
-  - stereo-pipeline=3676473=0
+  - stereo-pipeline=f76c499=0
   - suitesparse=5.7.2=h0e59142_0
   - superlu=5.2.1=hbced767_1205
   - tbb=2019.9=ha1b3eb9_1
-  - theia=37f8270=h0a44026_1000
-  - tk=8.6.10=hbbe82c9_0
+  - theia=f5d93f5=h0a44026_1000
+  - tk=8.6.10=hb0a8c7a_0
   - tnt=126=0
   - tzcode=2020a=h0b31af3_0
   - usgscsm=a53f9cf=h04f5b5a_0
-  - visionworkbench=4e30ed9=0
-  - wheel=0.34.2=py_1
+  - visionworkbench=02f1f9f=0
+  - wheel=0.34.2=py36_0
   - x264=20131218=0
   - xerces-c=3.1.4=h10f7eb2_0
   - xorg-fixesproto=5.0=h1de35cc_1002
@@ -146,8 +146,7 @@ dependencies:
   - xorg-libxi=1.7.10=h01d97ff_0
   - xorg-xextproto=7.3.0=h1de35cc_1002
   - xorg-xproto=7.0.31=h1de35cc_1007
-  - xz=5.2.5=h0b31af3_0
+  - xz=5.2.5=h1de35cc_0
   - yaml=0.2.5=h0b31af3_0
-  - zlib=1.2.11=h0b31af3_1006
-prefix: /Users/oalexan1/miniconda3/envs/isis/envs/asp
+  - zlib=1.2.11=h1de35cc_3
 

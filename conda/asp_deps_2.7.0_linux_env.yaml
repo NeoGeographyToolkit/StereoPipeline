@@ -7,12 +7,14 @@ channels:
 dependencies:
   - _libgcc_mutex=0.1=conda_forge
   - _openmp_mutex=4.5=0_gnu
+  - alabaster=0.7.12=py_0
   - ale=0.7.2=py36h9e03d57_1
   - anaconda-client=1.7.2=py_0
   - armadillo=9.200.7=hf4e8f56_0
   - arpack=3.7.0=hc6cf775_1
   - asn1crypto=1.3.0=py36h9f0ad1d_1
   - attrs=19.3.0=py_0
+  - babel=2.8.0=py_0
   - beautifulsoup4=4.9.1=py36h9f0ad1d_0
   - binutils_impl_linux-64=2.34=h53a641e_5
   - binutils_linux-64=2.34=hc952b39_20
@@ -43,6 +45,7 @@ dependencies:
   - curl=7.64.0=h646f8bb_0
   - dbus=1.13.0=h4e0c4b3_1000
   - decorator=4.4.2=py_0
+  - docutils=0.16=py36h9f0ad1d_1
   - eigen=3.3.7=hc9558a2_1001
   - embree=2.16.0=0
   - expat=2.2.9=he1b5a44_2
@@ -82,6 +85,7 @@ dependencies:
   - idna=2.9=py_1
   - ilmbase=2.5.2=h8b12597_0
   - imagemagick=6.8.6_10=hf484d3e_0
+  - imagesize=1.2.0=py_0
   - importlib-metadata=1.6.1=py36h9f0ad1d_0
   - importlib_metadata=1.6.1=0
   - ipython_genutils=0.2.0=py_1
@@ -96,6 +100,7 @@ dependencies:
   - kakadu=1=0
   - krb5=1.16.3=hc83ff2d_1000
   - laszip=2.1.0=hf484d3e_1
+  - latexcodec=2.0.1=pyh9f0ad1d_0
   - ld_impl_linux-64=2.34=h53a641e_5
   - libarchive=3.3.3=ha149a29_1000
   - libblas=3.8.0=11_openblas
@@ -145,6 +150,8 @@ dependencies:
   - openjpeg=2.1.0=6
   - openmp=8.0.1=0
   - openssl=1.0.2u=h516909a_0
+  - oset=0.1.3=py_1
+  - packaging=20.4=pyh9f0ad1d_0
   - parallel=20200522=0
   - patchelf=0.11=he1b5a44_0
   - pbzip2=1.1.13=0
@@ -161,9 +168,13 @@ dependencies:
   - pthread-stubs=0.4=h14c3975_1001
   - pvl=0.3.0=py_1
   - py-lief=0.9.0=py36he1b5a44_1
+  - pybtex=0.22.2=py36h9f0ad1d_1
+  - pybtex-docutils=0.2.2=py36h9f0ad1d_1
   - pycosat=0.6.3=py36h8c4c3a4_1004
   - pycparser=2.20=py_0
+  - pygments=2.6.1=py_0
   - pyopenssl=19.0.0=py36_0
+  - pyparsing=2.4.7=pyh9f0ad1d_0
   - pyrsistent=0.16.0=py36h8c4c3a4_0
   - pysocks=1.7.1=py36h9f0ad1d_1
   - python=3.6.7=hd21baee_1002
@@ -183,13 +194,22 @@ dependencies:
   - scipy=1.2.1=py36h09a28d5_1
   - setuptools=47.3.1=py36h9f0ad1d_0
   - six=1.15.0=pyh9f0ad1d_0
+  - snowballstemmer=2.0.0=py_0
   - soupsieve=2.0.1=py36h9f0ad1d_0
+  - sphinx=3.1.1=py_0
+  - sphinxcontrib-applehelp=1.0.2=py_0
+  - sphinxcontrib-bibtex=1.0.0=py_0
+  - sphinxcontrib-devhelp=1.0.2=py_0
+  - sphinxcontrib-htmlhelp=1.0.3=py_0
+  - sphinxcontrib-jsmath=1.0.1=py_0
+  - sphinxcontrib-qthelp=1.0.3=py_0
+  - sphinxcontrib-serializinghtml=1.1.4=py_0
   - spiceypy=2.3.2=py_0
   - sqlite=3.28.0=h8b20d00_0
   - suitesparse=5.7.2=h717dc36_0
   - superlu=5.2.1=hfe2efc7_1207
   - tbb=2020.1=hc9558a2_0
-  - theia=37f8270=hf484d3e_1000
+  - theia=f5d93f5=hf484d3e_1000
   - tk=8.6.10=hed695b0_0
   - tnt=126=0
   - tqdm=4.46.1=pyh9f0ad1d_0
