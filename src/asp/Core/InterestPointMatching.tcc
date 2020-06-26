@@ -264,7 +264,8 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
     ip_it->ix = ip_it->x = pt.x();
     ip_it->iy = ip_it->y = pt.y();
   }
-  
+
+  return true;
 } // End function detect_ip_aligned_pair
 
 
