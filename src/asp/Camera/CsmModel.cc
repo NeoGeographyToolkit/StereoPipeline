@@ -151,9 +151,9 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
   std::vector<std::string> potential_plugins;
   std::string platform = std::string(BOOST_PLATFORM);
   boost::to_lower(platform);
-  if (std::string(BOOST_PLATFORM).find("linux") != std::string::npos)
+  if (std::string(platform).find("linux") != std::string::npos)
     ext = ".so";
-  else if (std::string(BOOST_PLATFORM).find("mac") != std::string::npos) 
+  else if (std::string(platform).find("mac") != std::string::npos) 
     ext = ".dylib";
   else
     vw_throw( ArgumentErr() << "Unknown operating system: " << BOOST_PLATFORM << "\n");

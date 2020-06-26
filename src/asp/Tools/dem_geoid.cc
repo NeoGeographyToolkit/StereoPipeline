@@ -33,6 +33,7 @@ extern "C" {
 #include <asp/Core/Common.h>
 
 #include <boost/filesystem.hpp>
+#include <boost/dll.hpp>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -189,7 +190,7 @@ string get_geoid_full_path(std::string const& prog_name, std::string const& geoi
   if (geoid_dir_ptr != NULL && std::string(geoid_dir_ptr) != "")
     geoid_dir = fs::path(std::string(geoid_dir_ptr));
   else
-    geoid_dir = fs::absolute(prog_name).parent_path().parent_path() / fs::path("share")
+    geoid_dir = boost::dll::program_location().parent_path().parent_path() / fs::path("share")
       / fs::path("geoids");
   
   fs::path geoid_path = geoid_dir / fs::path(geoid_file);
