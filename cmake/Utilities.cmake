@@ -48,16 +48,18 @@ function(find_external_library name search_folder inc_subfolder libNameList requ
       set(FULL_NAME "lib${lib}${ext}")
       set(FULL_PATH "${search_folder}/lib/${FULL_NAME}")
       if (NOT EXISTS ${FULL_PATH})
-          message(STATUS "Missing library file: ${FULL_PATH}")
-	  set(FULL_PATH "${search_folder}/lib64/${FULL_NAME}")
-	  if (NOT EXISTS ${FULL_PATH})
-	      message(STATUS "Missing library file: ${FULL_PATH}")
-	      set(${FOUND_NAME} 0)
-	      continue()
-	  endif()
+          # Try to see if maybe the lib is with an extension
+          file(GLOB LIB_FILES ${FULL_PATH}*)
+          list(GET LIB_FILES 0 FULL_PATH2) # get zero-th element
+          if (EXISTS ${FULL_PATH2})
+              set(FULL_PATH ${FULL_PATH2})
+          else()
+              message(STATUS "Missing library file: ${FULL_PATH}")
+              set(${FOUND_NAME} 0)
+              continue()
+          endif()
       endif()
-	      
-    set(${LIB_NAME} ${${LIB_NAME}} ${FULL_PATH})
+      set(${LIB_NAME} ${${LIB_NAME}} ${FULL_PATH})
     endforeach()
     
     set(${INC_NAME} ${search_folder}/include/${inc_subfolder})

@@ -5,7 +5,7 @@ Precompiled binaries are available for the stable releases and the
 current development build.  Stereo Pipeline can also be compiled 
 from source, but this is not recommended.
 
-Precompiled Binaries (Linux and macOS)
+Precompiled binaries (Linux and macOS)
 --------------------------------------
 
 Simply download the appropriate distribution for your operating
@@ -25,7 +25,7 @@ you can add the following line to your shell configuration (e.g.,
 on your filesystem: ``export PATH=${PATH}:/path/to/StereoPipeline/bin``
 
 
-Planetary Images
+Planetary images
 ~~~~~~~~~~~~~~~~
 
 If you plan to process images from NASA's spacecraft that are
@@ -68,7 +68,7 @@ appropriately set the ``ISISDATA`` environment variable. This is
 normally performed for the user by starting up the conda ISIS 
 environment.
 
-Quick Start for ISIS Users
+Quick start for ISIS users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #. Fetch Stereo Pipeline from
@@ -92,7 +92,7 @@ Quick Start for ISIS Users
 #. Try It Out: See :numref:`moc_tutorial` for an example.
 
 
-Quick Start for Digital Globe Users
+Quick start for Digital Globe users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #. Fetch Stereo Pipeline from
@@ -106,14 +106,14 @@ Quick Start for Digital Globe Users
    tutorial in :numref:`dg_tutorial`.
 
 
-Quick Start for Aerial and Historical Images
+Quick start for aerial and historical images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Fetch the software as above. Processing images without accurate camera
 pose information is described in :numref:`sfm`.
 
 
-Common Errors
+Common errors
 -------------
 
 Here are some errors you might see, and what it could mean. Treat these
@@ -173,47 +173,48 @@ to ensure that the order of channels is:
 
 Install ASP with the command:
 
-  conda install stereo-pipeline
+  conda install stereo-pipeline==2.7.0
 
-Building from source
---------------------
+Some variability may exist in the precise dependencies fetched by
+conda. For the record, the full environment for this release can be
+found as a set of .yaml files in our GitHub repository in the
+subdirectory `conda`. So, alternatively, the installation can happen
+as:
 
-(This section is work in progress.)
+  conda env create -f asp_2.7.0_linux_env.yaml
 
-This entails downloading all the ASP dependencies with conda first, then
-pulling the VisionWorkbench and Stereo Pipeline code from GitHub, and
-building locally.
+or 
 
-Install ISIS:
+  conda env create -f asp_2.7.0_osx_env.yaml
 
-  conda install -c usgs-astrogeology isis==4.1.0
+depending on your platform. Then invoke, as earlier:
 
-Install more dependencies, as:
+  conda activate asp
 
-  conda install -c conda-forge ilmbase==2.3.0 openexr==2.3.0 \
-    openjpeg==2.1.0 cmake==3.14.5 pbzip2 gflags glog         \
-    ceres-solver parallel
+Also set:
 
-Install dependencies from our own channel (many of these
-will be gradually replaced with versions from conda-forge).
+  export PATH=$HOME/miniconda3/envs/asp/bin:$PATH
 
- conda install -c nasa-ames-stereo-pipeline gdal==2.0.2 \
-   imagemagick==6.8.6_10 laszip==2.1.0 liblas==1.8.1    \
-   libnabo==2df86e0 libpointmatcher==bcf4b04 geoid==1.0 \
-   htdp==1.0 fgr==bfcb9f9 theia==37f8270 \
-   isis-headers==4.1.0 usgscsm==a53f9cf
+Building ASP from source
+------------------------
 
-Note that above we install the isis-headers package containing
-the ISIS 4.1.0 headers. That is temporary and will be removed
-once ISIS ships its own headers.
+This entails downloading all the ASP dependencies with conda first,
+then pulling the VisionWorkbench and Stereo Pipeline code from GitHub,
+and building locally.
 
-On Linux, install in addition chrpath:
+The environments having the ASP dependencies are in the `conda`
+directory of our repository, as above. After downloading those, 
+one can run on Linux:
 
-  conda install -c conda-forge chrpath
+  conda env create -f asp_deps_2.7.0_linux_env.yaml
 
-To be able to build the documentation with sphinx, fetch it as:
+or on the Mac:
 
-  conda install -c conda-forge sphinx sphinxcontrib-bibtex
+  conda env create -f asp_deps_2.7.0_osx_env.yaml
+
+This will create an `asp_deps` environment. Activate it with
+
+  conda activate asp_deps
 
 Some of the .la files created by conda point to other .la files that
 are not available. For that reason, those files should be edited to
@@ -227,15 +228,90 @@ with::
 
 This can be done with the following commands::
 
-    cd ~/miniconda3/envs/isis/lib
+    cd ~/miniconda3/envs/asp_deps/lib
     mkdir -p  backup
     cp -fv  *la backup
     perl -pi -e "s#(/[^\s]*?lib)/lib([^\s]+).la#-L\$1 -l\$2#g" *la
 
-At some point in the near future likely all dependencies, including
-the ones installed so far in a system location using apt-get or yum,
-can likely be transitioned to using conda and having them in user
-space.
+The Linux environment will contain also the needed C and C++
+compilers. On the Mac, the compilers provided with conda did not build
+ASP correctly, hence it is suggested to use the Apple-provided clang
+and clang++.
+
+Next, set up a work directory:
+
+  buildDir=$HOME/build_asp
+  mkdir -p $buildDir
+
+Building VisionWorkbench on Linux:
+
+  cd $buildDir
+  ~/miniconda3/envs/asp_deps/bin/git clone \
+    git@github.com:visionworkbench/visionworkbench.git
+  cd visionworkbench
+  git checkout v2.7.0 # check out the desired commit
+  mkdir -p build
+  cd build
+  ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
+    -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+    -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
+    -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
+    -DBINARYBUILDER_INSTALL_DIR=$buildDir/install                                         \
+    -DCMAKE_C_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-gcc \
+    -DCMAKE_CXX_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-g++
+  make -j10
+  make install
+
+Building Stereo Pipeline on Linux:
+
+  cd $buildDir
+  ~/miniconda3/envs/asp_deps/bin/git clone \
+    git@github.com:NeoGeographyToolkit/StereoPipeline.git
+  git checkout v2.7.0 # check out the desired commit
+  cd StereoPipeline
+  mkdir -p build
+  cd build
+  ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
+    -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+    -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
+    -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
+    -DBINARYBUILDER_INSTALL_DIR=$buildDir/install                                         \
+    -DCMAKE_C_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-gcc \
+    -DCMAKE_CXX_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-g++
+  make -j10
+  make install
+
+Building VisionWorkbench and ASP on OSX (just as above, but omitting the compilers):
+
+  cd $buildDir
+  ~/miniconda3/envs/asp_deps/bin/git clone \
+    git@github.com:visionworkbench/visionworkbench.git
+  cd visionworkbench
+  git checkout v2.7.0 # check out the desired commit
+  mkdir -p build
+  cd build
+  ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
+    -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+    -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
+    -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
+    -DBINARYBUILDER_INSTALL_DIR=$buildDir/install
+  make -j10
+  make install
+
+  cd $buildDir
+  ~/miniconda3/envs/asp_deps/bin/git clone \
+    git@github.com:NeoGeographyToolkit/StereoPipeline.git
+  git checkout v2.7.0 # check out the desired commit
+  cd StereoPipeline
+  mkdir -p build
+  cd build
+  ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
+    -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+    -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
+    -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
+    -DBINARYBUILDER_INSTALL_DIR=$buildDir/install
+  make -j10
+  make install
 
 Packaging locally built ASP
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -259,8 +335,6 @@ things to work.
 One can specify the compilers as::
 
     ./build.py --cc=/path/to/gcc --cxx=/path/to/g++ --gfortran=/path/to/gfortran
-
-Note that for now only GCC 5 is supported.
 
 If the conda packages were installed in a location other than
 ``$HOME/miniconda3/envs/isis``, the path to that directory should be
@@ -289,18 +363,19 @@ BinaryBuilder directory::
     ./make-dist.py last-completed-run/install
 
 
-Building the Documentation
+Building the documentation
 --------------------------
 
 The ASP documentation is encoded in ReStructured Text and is built
 with the Sphinx-Doc system (https://www.sphinx-doc.org) with 
 sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
+These packages are already part of the `asp_deps` environment,
+but can be downloaded separately.
 
-See the note earlier in the text for how to use conda to fetch these
-packages. Note that in order to build the PDF (but not the
-HTML) document a full LaTeX distribution is also necessary, which is
-not installable with conda at this time, and whose installation may be
-specific to your system.
+Note that in order to build the PDF (but not the HTML) document a full
+LaTeX distribution is also necessary, which is not installable with
+conda at this time, and whose installation may be specific to your
+system.
 
 The ``docs`` directory contains the root of the documentation. Running
 ``make html`` and ``make latexpdf`` there will create the HTML and PDF
@@ -310,3 +385,14 @@ particular, the PDF document will be at
   ./_build/latex/asp_book.pdf
 
 
+Building the ASP dependencies
+-----------------------------
+
+All the recipes (feedstocks) that are custom-built for ASP are at:
+
+  https://github.com/NeoGeographyToolkit
+
+Care must be taken to ensure that all the entries in the meta.yaml
+files in each recipe have versions that are consistent among
+themselves and with what ISIS expects, or else conda will fail to
+build things properly (and often very late in the process).
