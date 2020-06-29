@@ -15,8 +15,8 @@ appropriately (see https://semver.org for guidance).
 
 
 2.) Look up the latest ISIS version and update it in
-    StereoPipeline/README.rst (see the "version" file in the packaged ASP
-    tarball).
+    StereoPipeline/README.rst (see the "version" file in the packaged
+    ASP tarball).
 
 3.) Update NEWS.rst.
 
@@ -24,12 +24,12 @@ appropriately (see https://semver.org for guidance).
 
 5.) Commit all changes.
 
+TODO(oalexan1): Steps 6 and 7 need to be updated.
+
 6.) Build and package the software and documentation:
 
-  - Modify BinaryBuilder to deal with any changes in dependencies.
-  - Build the dependenices, see BinaryBuilder/README, section 3.B, 
-    part 1.
-  - Ensure that the latest ISIS gets built.
+  - Fetch the latest ISIS. If necessary, update or rebuild our 
+    conda dependencies to sync up with ISIS. (See INSTALLGUIDE.rst).
   - Build the documentation in StereoPipeline/docs/.
 
 	make html
@@ -40,14 +40,14 @@ appropriately (see https://semver.org for guidance).
 
   - Copy the obtained pdf file from docs/_build/latex/asp_book.pdf to
     BinaryBuilder/dist-add/asp_book.pdf.
-  - Build the ASP release tarball, see BinaryBuilder/README,
-    section 3.B, part 2.
 
-7.) Test all binary releases on different machines by running
+7.) Build and package the ASP release tarball, see
+    BinaryBuilder/README, section 3.B, part 2.
+
+    Test all binary releases on different machines by running
     StereoPipelineTest.
 
-NOTE: Steps 6 and 7 are done automatically by running on lunokhod1
-the script
+NOTE: Step 7 is done automatically by running on lunokhod2 the script
 
   $HOME/projects/BinaryBuilder/auto_build/launch_master.sh
 
@@ -57,49 +57,46 @@ The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
     file and that the documentation is searchable (this is a bug in
     some gs versions).
 
-9.) Test on both Linux and Mac if point2mesh works and if the 
-    'osgviewer' included with the release can load its output.
+9.) Commit and tag the release in the ASP repo. Example: 
 
-10.) Commit and tag the release in the ASP repo. Example: 
-
-  git tag 2.6.0 
+  git tag 2.7.0 
 
 Push the tags to the remote server with: 
 
- git push origin 2.6.0 # commit to your branch
- git push god    2.6.0 # commit to main branch
+ git push origin 2.7.0 # commit to your branch
+ git push god    2.7.0 # commit to main branch
 
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with:
 
-  git tag -d 2.6.0
-  git push origin :refs/tags/2.6.0
-  git push god    :refs/tags/2.6.0
+  git tag -d 2.7.0
+  git push origin :refs/tags/2.7.0
+  git push god    :refs/tags/2.7.0
 
-11.) Upload the builds and the pdf documentation to GitHub, in
-the release area.
+10.) Upload the builds and the pdf documentation to GitHub, in the
+release area.
 
 The 'forever' DOI on Zenodo is https://zenodo.org/badge/latestdoi/714891
 which should resolve to the 'latest' DOI.  A new DOI for *this* release of
 ASP should be minted when the new tag is pushed to GitHub.
 
-12.) Ask fellow ASP developers to do some tests and review the
+11.) Ask fellow ASP developers to do some tests and review the
 documentation.
 
-13.) Send an announcement of the new release to the mailing list, at
+12.) Send an announcement of the new release to the mailing list, at
 https://groups.google.com/forum/\#!forum/ames-stereo-pipeline-support
 and the old stereo-pipeline@lists.nasa.gov, listing the changes
 specified in NEWS.rst.
 
-14.) Modify the build system:
+13.) Modify the build system:
 
-As a final step, after the release has been done, prep the repo for the next
-phase of development, by updating the version number in:
+As a final step, after the release has been done, prep the repo for
+the next phase of development, by updating the version number in:
 
 	- configure.ac 
 	- src/CMakeLists.txt
 
-If you just released version 2.6.0, we expect that the next feature
+If you just released version 2.7.0, we expect that the next feature
 release will be 2.7.0, so the version tag should be updated to
 "2.7.0-alpha" in anticipation (see https://semver.org for guidance).
 If we decide to push a bugfix, then this would get changed to
@@ -112,6 +109,6 @@ of the next release.  At this time, only the release versions are tagged
 in the repo, so we can be flexible with these release numbers in the 
 above files.
 
-15.) Reflect any changes in release policy by modifying this document.
+14.) Reflect any changes in release policy by modifying this document.
 
-16.) Commit changes.
+15.) Commit changes.
