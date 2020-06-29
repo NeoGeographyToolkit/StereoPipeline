@@ -49,9 +49,20 @@ import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils, asp_str
 import asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
-# Try this up front so the user gets a good error message if it is missing
-from osgeo import gdal
+# Get the path to where GDAL is installed
+if 'ASP_PYTHON_MODULES_PATH' not in os.environ:
+    print("Must set the environental variable ASP_PYTHON_MODULES_PATH as in the documentation.")
+    sys.exit(1)
+sys.path.insert(0, os.environ['ASP_PYTHON_MODULES_PATH']) # prepend to Python path
 
+# Try this up front so the user gets a good error message if it is missing
+try:
+    from osgeo import gdal
+except Exception as e:
+    print(str(e))
+    print("The osgeo package should have been in " + os.environ['ASP_PYTHON_MODULES_PATH'])
+    sys.exit(1)
+    
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 

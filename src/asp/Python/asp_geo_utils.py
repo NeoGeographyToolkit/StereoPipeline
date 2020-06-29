@@ -22,10 +22,6 @@
 """
 from __future__ import print_function
 import sys, os, glob, re, shutil, string, time, errno, subprocess
-try:
-    import subprocess32 # More features, if installed.
-except:
-    pass
 import asp_string_utils, asp_image_utils, asp_system_utils
 
 def getGdalInfoTagValue(text, tag):
@@ -46,17 +42,12 @@ def getGdalInfoTagValue(text, tag):
 def convertCoordinate(input_srs_string, output_srs_string, x, y):
     '''Convert a single 2D coordinate between proj.4 coordinate systems.'''
 
-    cmd = [asp_system_utils.which('gdaltransform'), '-s_srs', input_srs_string, '-t_srs', output_srs_string]
-    try:
-        # Fancier way, if installed.
-        p = subprocess32.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False,
-                               universal_newlines=True)
-        text, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.5 )
-    except:
-        # Simpler way.
-        p = subprocess.Popen(cmd, stdin=subprocess.PIPE,stdout=subprocess.PIPE)
-        text = p.communicate("%f %f" % (x, y))[0]
-    parts = text.split()
+    cmd = [asp_system_utils.which('gdaltransform'), '-s_srs',
+           input_srs_string, '-t_srs', output_srs_string]
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding = 'utf8')
+    input_str = str(x) + " " + str(y)
+    out, err = p.communicate(input = input_str)
+    parts = out.split()
     return (float(parts[0]), float(parts[1]))
 
 def getLonLatProjString(inputString):

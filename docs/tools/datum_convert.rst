@@ -41,9 +41,10 @@ critical that you have a very accurate conversion we recommend that you
 attempt to verify results obtained using ``datum_convert`` with another
 conversion method.
 
-This tool requires the gdal and numpy Python packages to run. One way to
-get these is to install the ASP Python tools, described at the end of
-:numref:`sparse-disp`.
+This tool requires the GDAL and NumPy Python packages to run. One way
+to get these is to install the ASP Python tools, described at the end
+of :numref:`sparse-disp`, and by setting ASP_PYTHON_MODULES_PATH as
+mentioned in that section.
 
 Usage::
 

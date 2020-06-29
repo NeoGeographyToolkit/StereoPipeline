@@ -455,14 +455,14 @@ namespace asp {
       }
     }
         
-    std::cout << "Base path is " << var_path << std::endl;
+    // std::cout << "Base path is " << var_path << std::endl;
     std::string check_path;
     if (add_file_to_var) {
       check_path = var_path; // already appended the file
     }else{
       check_path = var_path + "/" + check_file;
     }
-    std::cout << "Check path is " << check_path << std::endl;
+    // std::cout << "Check path is " << check_path << std::endl;
 
     std::string text;
     if (add_file_to_var) 
@@ -478,7 +478,7 @@ namespace asp {
     var_holder = var_name + "=" + var_path;
     if (putenv((char*)var_holder.c_str()) != 0) 
       vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << var_holder << "\n");
-    std::cout << "Setting: " << var_name << "=" << getenv(var_name.c_str()) << std::endl;
+    // std::cout << "Setting: " << var_name << "=" << getenv(var_name.c_str()) << std::endl;
   }
   
 }
