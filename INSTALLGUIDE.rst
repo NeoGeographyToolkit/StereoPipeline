@@ -267,8 +267,8 @@ Building Stereo Pipeline on Linux:
   cd $buildDir
   ~/miniconda3/envs/asp_deps/bin/git clone \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
-  git checkout v2.7.0 # check out the desired commit
   cd StereoPipeline
+  git checkout v2.7.0 # check out the desired commit
   mkdir -p build
   cd build
   ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
@@ -301,8 +301,8 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
   cd $buildDir
   ~/miniconda3/envs/asp_deps/bin/git clone \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
-  git checkout v2.7.0 # check out the desired commit
   cd StereoPipeline
+  git checkout v2.7.0 # check out the desired commit
   mkdir -p build
   cd build
   ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \

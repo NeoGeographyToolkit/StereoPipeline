@@ -516,45 +516,29 @@ options which can be passed into ``stereo`` through the
 been tested with ``affineepipolar`` image alignment so you may not get
 good results with other alignment methods.
 
-Since ``sparse_disp`` is written in Python it depends on a variety of
-binary Python modules. These modules cannot be distributed with Stereo
-Pipeline as they depend on the version of Python installed on your
-system. One way to get these Python modules is to install them yourself.
-We recommend the Conda Python management system
-(https://docs.conda.io/en/latest/miniconda.html) as an easy way
-to install these dependencies.
+The ``sparse_disp`` tool is written in Python, and it depends on a
+version of GDAL that is newer than what we support in ASP and on other
+Python modules that we don't ship. It is suggested to to use the Conda
+Python management system at
 
-Here’s a recipe that was tested to work on CentOS 7::
+  https://docs.conda.io/en/latest/miniconda.html
+
+to install these dependencies. This can be done as follows:
 
      conda create --name sparse_disp -c conda-forge python=3.6 gdal
      conda activate sparse_disp
-     conda install -c conda-forge scipy
-     conda install -c conda-forge pyfftw
+     conda install -c conda-forge scipy pyfftw
 
-One should use the version of python installed with the above when
-running stereo, hence the path should be set as::
+Then set 
 
-     export PATH=/path/to/your/miniconda/envs/sparse_disp/bin:$PATH
+  export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.6/site-packages
 
-It is very important to note that if gdal is fetched from a different
+if you used the default installation path for conda before running
+`stereo`.
+
+It is very important to note that if GDAL is fetched from a different
 repository than conda-forge, one may run into issues with dependencies
-not being correct and then it fail at runtime.
-
-Another way to get these dependencies is to use an installation script
-provided by ASP. It will download and compile the dependencies of this
-tool for your platform. The script and instructions are at
-https://github.com/NeoGeographyToolkit/BinaryBuilder/tree/master/build_python_modules
-
-After building the ``sparse_disp`` dependencies, per the instructions,
-the path to the Python modules must be set, for example as::
-
-     export ASP_PYTHON_MODULES_PATH=<path to python modules>
-
-(once the script from the above location will finish, it will print the
-value of this variable that must then be set).
-
-This path does not need to be set if you are relying on your own Python
-installation such as from Conda.
+not being correct and then it will fail at runtime.
 
 Processing Multi-Spectral Images
 --------------------------------

@@ -189,7 +189,9 @@ message("--------------------------------------------------------------")
 
 find_external_library(QWT ${ISIS_DEPS_DIR} "" "qwt" REQUIRED)
 
-find_package(OpenMP REQUIRED)
+# For Apple this somehow still gets picked up even though
+# it figures as not found.
+find_package(OpenMP)
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
