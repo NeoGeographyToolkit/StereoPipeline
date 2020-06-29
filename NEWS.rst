@@ -5,7 +5,8 @@ New functionality
    * Support for the Community Sensor Model
      (https://github.com/USGS-Astrogeology/usgscsm)
    * Support for ISIS version 4.1.10.
-
+   * Ability to install ASP with conda. See INSTALLGUIDE.rst for details.
+ 
 bundle_adjust
    * Can first create interest point matches among mapprojected images
      (automatically or manually) and use those to create matches among
