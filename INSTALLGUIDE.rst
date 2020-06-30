@@ -138,44 +138,44 @@ installation to the environmental variable ``PATH``.
 Fetching ASP with conda
 -----------------------
 
-Get conda from:
+Get conda from::
 
     https://docs.conda.io/en/latest/miniconda.html
 
-Run
+Run::
 
     ./Miniconda3-latest-Linux-x86_64.sh
 
-on Linux, and the appropriate version on OSX. Use the suggested 
+on Linux, and the appropriate version on OSX. Use the suggested::
 
     $HOME/miniconda3
 
 directory for installation. 
 
-Create an environment for ASP as:
+Create an environment for ASP as::
 
     conda create -n asp python=3.6
     conda activate asp
 
-Add relevant channels:
+Add relevant channels::
 
     conda config --env --add channels conda-forge
     conda config --env --add channels usgs-astrogeology
     conda config --env --add channels nasa-ames-stereo-pipeline
 
-Run
+Run::
 
     conda config --show channels
 
-to ensure that the order of channels is:
+to ensure that the order of channels is::
 
     nasa-ames-stereo-pipeline, usgs-astrogeology, conda-forge
 
-Install ASP with the command:
+Install ASP with the command::
 
     conda install stereo-pipeline==2.7.0
 
-Also set:
+Also set::
 
     export PATH=$HOME/miniconda3/envs/asp/bin:$PATH
 
@@ -185,15 +185,15 @@ Some variability may exist in the precise dependencies fetched by
 conda. For the record, the full environment for this release can be
 found as a set of .yaml files in our GitHub repository in the
 subdirectory `conda`. So, alternatively, the installation can happen
-as:
+as::
 
     conda env create -f asp_2.7.0_linux_env.yaml
 
-or 
+or::
 
     conda env create -f asp_2.7.0_osx_env.yaml
 
-depending on your platform. Then invoke, as earlier:
+depending on your platform. Then invoke, as earlier::
 
     conda activate asp
 
@@ -206,15 +206,15 @@ and building locally.
 
 The environments having the ASP dependencies are in the `conda`
 directory of the Stere Pipeline, as above. After downloading those, 
-one can run on Linux:
+one can run on Linux::
 
     conda env create -f asp_deps_2.7.0_linux_env.yaml
 
-or on the Mac:
+or on the Mac::
 
     conda env create -f asp_deps_2.7.0_osx_env.yaml
 
-This will create an `asp_deps` environment. Activate it with
+This will create an `asp_deps` environment. Activate it with::
 
     conda activate asp_deps
 
@@ -240,12 +240,12 @@ compilers. On the Mac, the compilers provided with conda did not build
 ASP correctly, hence it is suggested to use the Apple-provided clang
 and clang++.
 
-Next, set up a work directory:
+Next, set up a work directory::
 
     buildDir=$HOME/build_asp
     mkdir -p $buildDir
 
-Building VisionWorkbench and Stereo Pipeline on Linux:
+Building VisionWorkbench and Stereo Pipeline on Linux::
 
     cd $buildDir
     ~/miniconda3/envs/asp_deps/bin/git clone \
@@ -281,7 +281,7 @@ Building VisionWorkbench and Stereo Pipeline on Linux:
     make -j10
     make install
 
-Building VisionWorkbench and ASP on OSX (just as above, but omitting the compilers):
+Building VisionWorkbench and ASP on OSX (just as above, but omitting the compilers)::
 
     cd $buildDir
     ~/miniconda3/envs/asp_deps/bin/git clone \
