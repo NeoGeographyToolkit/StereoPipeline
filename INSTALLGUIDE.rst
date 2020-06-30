@@ -184,7 +184,7 @@ if desired to put the ASP tools in the path.
 Some variability may exist in the precise dependencies fetched by
 conda. For the record, the full environment for this release can be
 found as a set of .yaml files in our GitHub repository in the
-subdirectory `conda`. So, alternatively, the installation can happen
+subdirectory ``conda``. So, alternatively, the installation can happen
 as::
 
     conda env create -f asp_2.7.0_linux_env.yaml
@@ -204,7 +204,7 @@ This entails downloading all the ASP dependencies with conda first,
 then pulling the VisionWorkbench and Stereo Pipeline code from GitHub,
 and building locally.
 
-The environments having the ASP dependencies are in the `conda`
+The environments having the ASP dependencies are in the ``conda``
 directory of the Stere Pipeline, as above. After downloading those, 
 one can run on Linux::
 
@@ -214,7 +214,7 @@ or on the Mac::
 
     conda env create -f asp_deps_2.7.0_osx_env.yaml
 
-This will create an `asp_deps` environment. Activate it with::
+This will create an ``asp_deps`` environment. Activate it with::
 
     conda activate asp_deps
 
