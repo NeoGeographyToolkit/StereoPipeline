@@ -175,6 +175,12 @@ Install ASP with the command:
 
   conda install stereo-pipeline==2.7.0
 
+Also set:
+
+  export PATH=$HOME/miniconda3/envs/asp/bin:$PATH
+
+if desired to put the ASP tools in the path.
+
 Some variability may exist in the precise dependencies fetched by
 conda. For the record, the full environment for this release can be
 found as a set of .yaml files in our GitHub repository in the
@@ -191,10 +197,6 @@ depending on your platform. Then invoke, as earlier:
 
   conda activate asp
 
-Also set:
-
-  export PATH=$HOME/miniconda3/envs/asp/bin:$PATH
-
 Building ASP from source
 ------------------------
 
@@ -203,7 +205,7 @@ then pulling the VisionWorkbench and Stereo Pipeline code from GitHub,
 and building locally.
 
 The environments having the ASP dependencies are in the `conda`
-directory of our repository, as above. After downloading those, 
+directory of the Stere Pipeline, as above. After downloading those, 
 one can run on Linux:
 
   conda env create -f asp_deps_2.7.0_linux_env.yaml
@@ -243,13 +245,13 @@ Next, set up a work directory:
   buildDir=$HOME/build_asp
   mkdir -p $buildDir
 
-Building VisionWorkbench on Linux:
+Building VisionWorkbench and Stereo Pipeline on Linux:
 
   cd $buildDir
   ~/miniconda3/envs/asp_deps/bin/git clone \
     git@github.com:visionworkbench/visionworkbench.git
   cd visionworkbench
-  git checkout v2.7.0 # check out the desired commit
+  git checkout 2.7.0 # check out the desired commit
   mkdir -p build
   cd build
   ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
@@ -262,13 +264,11 @@ Building VisionWorkbench on Linux:
   make -j10
   make install
 
-Building Stereo Pipeline on Linux:
-
   cd $buildDir
   ~/miniconda3/envs/asp_deps/bin/git clone \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
   cd StereoPipeline
-  git checkout v2.7.0 # check out the desired commit
+  git checkout 2.7.0 # check out the desired commit
   mkdir -p build
   cd build
   ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
@@ -287,7 +287,7 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
   ~/miniconda3/envs/asp_deps/bin/git clone \
     git@github.com:visionworkbench/visionworkbench.git
   cd visionworkbench
-  git checkout v2.7.0 # check out the desired commit
+  git checkout 2.7.0 # check out the desired commit
   mkdir -p build
   cd build
   ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
@@ -302,7 +302,7 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
   ~/miniconda3/envs/asp_deps/bin/git clone \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
   cd StereoPipeline
-  git checkout v2.7.0 # check out the desired commit
+  git checkout 2.7.0 # check out the desired commit
   mkdir -p build
   cd build
   ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \

@@ -21,10 +21,11 @@ project (StereoPipeline)
 
 # The line below is used by the docs/ so don't change it
 # without testing the result.  Versioning is based on https://semver.org
-set(PACKAGE_VERSION "2.7.0-alpha")
+set(PACKAGE_VERSION "2.7.0")
+#set(PACKAGE_VERSION "2.7.1-alpha")
 set(PACKAGE_NAME "NASA Ames Stereo Pipeline")
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
-set(PACKAGE_BUGREPORT "scott.t.mcmichael@nasa.gov")
+set(PACKAGE_BUGREPORT "scott.t.mcmichael@nasa.gov, oleg.alexandrov@nasa.gov")
 
 # Fetch the Git hash and store in ASP_COMMIT_ID
 execute_process(

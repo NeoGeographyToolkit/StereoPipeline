@@ -29,7 +29,7 @@ dependencies:
   - chardet=3.0.4=py36h9f0ad1d_1006
   - click=7.1.2=pyh9f0ad1d_0
   - clyent=1.2.2=py_1
-  - cmake=3.3.1=0
+  - cmake=3.14.5=hdd2e4aa_0
   - conda=4.8.3=py36h9f0ad1d_1
   - conda-build=3.19.2=py36h9f0ad1d_2
   - conda-package-handling=1.6.0=py36h37b9a7d_2
@@ -108,6 +108,7 @@ dependencies:
   - libprotobuf=3.9.1=hfbae3c0_0
   - libssh2=1.8.0=hf30b1f0_1003
   - libtiff=4.0.9=he6b73bb_1
+  - libuv=1.38.0=h0b31af3_0
   - libwebp=0.5.2=7
   - libxcb=1.13=h1de35cc_1002
   - libxml2=2.9.9=hd80cff7_2
@@ -166,6 +167,7 @@ dependencies:
   - qwt=6.1.3=0
   - readline=7.0=hcfe32e1_1001
   - requests=2.24.0=pyh9f0ad1d_0
+  - rhash=1.3.6=h1de35cc_1001
   - ripgrep=12.1.1=h0b31af3_0
   - ruamel_yaml=0.15.80=py36h37b9a7d_1001
   - scipy=1.2.1=py36hbd7caa9_1
