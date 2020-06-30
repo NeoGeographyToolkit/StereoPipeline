@@ -140,44 +140,44 @@ Fetching ASP with conda
 
 Get conda from:
 
- https://docs.conda.io/en/latest/miniconda.html
+    https://docs.conda.io/en/latest/miniconda.html
 
 Run
 
-  ./Miniconda3-latest-Linux-x86_64.sh
+    ./Miniconda3-latest-Linux-x86_64.sh
 
 on Linux, and the appropriate version on OSX. Use the suggested 
 
-  $HOME/miniconda3
+    $HOME/miniconda3
 
 directory for installation. 
 
 Create an environment for ASP as:
 
-  conda create -n asp python=3.6
-  conda activate asp
+    conda create -n asp python=3.6
+    conda activate asp
 
 Add relevant channels:
 
-  conda config --env --add channels conda-forge
-  conda config --env --add channels usgs-astrogeology
-  conda config --env --add channels nasa-ames-stereo-pipeline
+    conda config --env --add channels conda-forge
+    conda config --env --add channels usgs-astrogeology
+    conda config --env --add channels nasa-ames-stereo-pipeline
 
 Run
 
-  conda config --show channels
+    conda config --show channels
 
 to ensure that the order of channels is:
 
- nasa-ames-stereo-pipeline, usgs-astrogeology, conda-forge
+    nasa-ames-stereo-pipeline, usgs-astrogeology, conda-forge
 
 Install ASP with the command:
 
-  conda install stereo-pipeline==2.7.0
+    conda install stereo-pipeline==2.7.0
 
 Also set:
 
-  export PATH=$HOME/miniconda3/envs/asp/bin:$PATH
+    export PATH=$HOME/miniconda3/envs/asp/bin:$PATH
 
 if desired to put the ASP tools in the path.
 
@@ -187,15 +187,15 @@ found as a set of .yaml files in our GitHub repository in the
 subdirectory `conda`. So, alternatively, the installation can happen
 as:
 
-  conda env create -f asp_2.7.0_linux_env.yaml
+    conda env create -f asp_2.7.0_linux_env.yaml
 
 or 
 
-  conda env create -f asp_2.7.0_osx_env.yaml
+    conda env create -f asp_2.7.0_osx_env.yaml
 
 depending on your platform. Then invoke, as earlier:
 
-  conda activate asp
+    conda activate asp
 
 Building ASP from source
 ------------------------
@@ -208,15 +208,15 @@ The environments having the ASP dependencies are in the `conda`
 directory of the Stere Pipeline, as above. After downloading those, 
 one can run on Linux:
 
-  conda env create -f asp_deps_2.7.0_linux_env.yaml
+    conda env create -f asp_deps_2.7.0_linux_env.yaml
 
 or on the Mac:
 
-  conda env create -f asp_deps_2.7.0_osx_env.yaml
+    conda env create -f asp_deps_2.7.0_osx_env.yaml
 
 This will create an `asp_deps` environment. Activate it with
 
-  conda activate asp_deps
+    conda activate asp_deps
 
 Some of the .la files created by conda point to other .la files that
 are not available. For that reason, those files should be edited to
@@ -242,76 +242,76 @@ and clang++.
 
 Next, set up a work directory:
 
-  buildDir=$HOME/build_asp
-  mkdir -p $buildDir
+    buildDir=$HOME/build_asp
+    mkdir -p $buildDir
 
 Building VisionWorkbench and Stereo Pipeline on Linux:
 
-  cd $buildDir
-  ~/miniconda3/envs/asp_deps/bin/git clone \
-    git@github.com:visionworkbench/visionworkbench.git
-  cd visionworkbench
-  git checkout 2.7.0 # check out the desired commit
-  mkdir -p build
-  cd build
-  ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-    -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
-    -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
-    -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
-    -DBINARYBUILDER_INSTALL_DIR=$buildDir/install                                         \
-    -DCMAKE_C_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-gcc \
-    -DCMAKE_CXX_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-g++
-  make -j10
-  make install
+    cd $buildDir
+    ~/miniconda3/envs/asp_deps/bin/git clone \
+        git@github.com:visionworkbench/visionworkbench.git
+    cd visionworkbench
+    git checkout 2.7.0 # check out the desired commit
+    mkdir -p build
+    cd build
+    ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
+      -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+      -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
+      -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
+      -DBINARYBUILDER_INSTALL_DIR=$buildDir/install                                         \
+      -DCMAKE_C_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-gcc \
+      -DCMAKE_CXX_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-g++
+    make -j10
+    make install
 
-  cd $buildDir
-  ~/miniconda3/envs/asp_deps/bin/git clone \
+    cd $buildDir
+    ~/miniconda3/envs/asp_deps/bin/git clone \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
-  cd StereoPipeline
-  git checkout 2.7.0 # check out the desired commit
-  mkdir -p build
-  cd build
-  ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-    -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
-    -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
-    -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
-    -DBINARYBUILDER_INSTALL_DIR=$buildDir/install                                         \
-    -DCMAKE_C_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-gcc \
-    -DCMAKE_CXX_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-g++
-  make -j10
-  make install
+    cd StereoPipeline
+    git checkout 2.7.0 # check out the desired commit
+    mkdir -p build
+    cd build
+    ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
+      -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+      -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
+      -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
+      -DBINARYBUILDER_INSTALL_DIR=$buildDir/install                                         \
+      -DCMAKE_C_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-gcc \
+      -DCMAKE_CXX_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-g++
+    make -j10
+    make install
 
 Building VisionWorkbench and ASP on OSX (just as above, but omitting the compilers):
 
-  cd $buildDir
-  ~/miniconda3/envs/asp_deps/bin/git clone \
-    git@github.com:visionworkbench/visionworkbench.git
-  cd visionworkbench
-  git checkout 2.7.0 # check out the desired commit
-  mkdir -p build
-  cd build
-  ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-    -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
-    -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
-    -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
-    -DBINARYBUILDER_INSTALL_DIR=$buildDir/install
-  make -j10
-  make install
+    cd $buildDir
+    ~/miniconda3/envs/asp_deps/bin/git clone \
+      git@github.com:visionworkbench/visionworkbench.git
+    cd visionworkbench
+    git checkout 2.7.0 # check out the desired commit
+    mkdir -p build
+    cd build
+    ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
+      -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+      -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
+      -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
+      -DBINARYBUILDER_INSTALL_DIR=$buildDir/install
+    make -j10
+    make install
 
-  cd $buildDir
-  ~/miniconda3/envs/asp_deps/bin/git clone \
-    git@github.com:NeoGeographyToolkit/StereoPipeline.git
-  cd StereoPipeline
-  git checkout 2.7.0 # check out the desired commit
-  mkdir -p build
-  cd build
-  ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-    -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
-    -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
-    -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
-    -DBINARYBUILDER_INSTALL_DIR=$buildDir/install
-  make -j10
-  make install
+    cd $buildDir
+    ~/miniconda3/envs/asp_deps/bin/git clone \
+      git@github.com:NeoGeographyToolkit/StereoPipeline.git
+    cd StereoPipeline
+    git checkout 2.7.0 # check out the desired commit
+    mkdir -p build
+    cd build
+    ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
+      -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+      -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
+      -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
+      -DBINARYBUILDER_INSTALL_DIR=$buildDir/install
+    make -j10
+    make install
 
 Packaging locally built ASP
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
