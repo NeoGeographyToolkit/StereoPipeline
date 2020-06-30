@@ -32,42 +32,15 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Image/MaskViews.h>
 #include <asp/Core/PointUtils.h>
+#include <vw/Image/Manipulation.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 using namespace vw;
 using namespace vw::cartography;
 namespace po = boost::program_options;
 
-// //OpenSceneGraph
-// #include <osg/Geode>
-// #include <osg/Group>
-// #include <osg/ShapeDrawable>
-// #include <osgUtil/Optimizer>
-// #include <osgUtil/SmoothingVisitor>
-// #include <osgUtil/Simplifier>
-// #include <osg/Node>
-// #include <osg/Texture1D>
-// #include <osg/Texture2D>
-// #include <osg/TexGen>
-// #include <osg/Material>
-// #include <osgViewer/Viewer>
-// #include <osgDB/Registry>
-// #include <osgDB/WriteFile>
-// #include <osgDB/ReadFile>
-// #include <osgSim/Version>
-// #include <osgFX/Version>
-// #include <osgTerrain/Version>
-// #include <osgVolume/Version>
-
-
-// ---------------------------------------------------------
-// UTILITIES
-// ---------------------------------------------------------
-
-
 struct Options : vw::cartography::GdalWriteOptions {
-  Options() : // root( new osg::Group() ),
-              simplify_percent(0) {};
+  Options() : simplify_percent(0) {};
   // Input
   std::string pointcloud_filename, texture_file_name;
 
@@ -75,87 +48,21 @@ struct Options : vw::cartography::GdalWriteOptions {
   uint32 step_size;
   //osg::ref_ptr<osg::Group> root;
   float simplify_percent;
-  //osg::Vec3f dataNormal;
   std::string rot_order;
   double phi_rot, omega_rot, kappa_rot;
   bool center, enable_lighting, smooth_mesh, simplify_mesh;
-  //std::string osg_version;
 
   // Output
   std::string output_prefix, output_file_type;
 };
-
-#if 0
-// ---------------------------------------------------------
-// BUILD MESH
-//
-// Calculates a way to build color data on the DEM.
-// ---------------------------------------------------------
-osg::StateSet* create1DTexture( osg::Node* loadedModel , const osg::Vec3f& Direction ){
-  const osg::BoundingSphere& bs = loadedModel->getBound();
-
-  osg::Image* image = new osg::Image;
-  int noPixels = 1000;
-  int divider = 200;
-
-  // Now I am going to build the image data
-  image->allocateImage( noPixels , 1 , 1 , GL_RGBA , GL_FLOAT );
-  image->setInternalTextureFormat( GL_RGBA );
-
-  std::vector< osg::Vec4 > colour;
-  colour.push_back( osg::Vec4( 0.0f , 1.0f , 0.0f , 1.0f ) );
-  colour.push_back( osg::Vec4( 0.0f , 0.0f , 0.0f , 1.0f ) );
-
-  // file in the image data
-  osg::Vec4* dataPtr = (osg::Vec4*)image->data();
-  for ( int i = 0 ; i < divider ; ++i ){
-    osg::Vec4 color = colour[0];
-    *dataPtr++ = color;
-  }
-  for ( int i=divider ; i < noPixels ; ++i ) {
-    osg::Vec4 color = colour[1];
-    *dataPtr++ = color;
-  }
-
-  // Texture 1D
-  osg::Texture1D* texture = new osg::Texture1D;
-  texture->setWrap( osg::Texture1D::WRAP_S , osg::Texture1D::MIRROR );
-  texture->setFilter( osg::Texture1D::MIN_FILTER , osg::Texture1D::LINEAR );
-  texture->setFilter( osg::Texture1D::MAG_FILTER , osg::Texture1D::LINEAR );
-  texture->setImage( image );
-
-  float zBase = bs.center().z() - bs.radius();
-  float zScale = 0.04;
-
-  // Texture Coordinate Generator
-  osg::TexGen* texgen = new osg::TexGen;
-  texgen->setMode( osg::TexGen::OBJECT_LINEAR );
-  vw_out() << "Direction Vector being used " << Direction.x() << " " << Direction.y() << " " << Direction.z() << std::endl;
-  texgen->setPlane( osg::TexGen::S , osg::Plane( zScale*Direction.x() , zScale*Direction.y() , zScale*Direction.z() , -zBase ) );
-
-  osg::Material* material = new osg::Material;
-
-  osg::StateSet* stateset = new osg::StateSet;
-  stateset->setTextureAttribute( 0 , texture , osg::StateAttribute::OVERRIDE );
-  stateset->setTextureMode( 0 , GL_TEXTURE_1D , osg::StateAttribute::ON  | osg::StateAttribute::OVERRIDE );
-  stateset->setTextureMode( 0 , GL_TEXTURE_2D , osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE );
-  stateset->setTextureMode( 0 , GL_TEXTURE_3D , osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE );
-
-  stateset->setTextureAttribute( 0 , texgen , osg::StateAttribute::OVERRIDE );
-  stateset->setTextureMode( 0 , GL_TEXTURE_GEN_S , osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE );
-
-  stateset->setAttribute( material , osg::StateAttribute::OVERRIDE );
-
-  return stateset;
-}
 
 // ---------------------------------------------------------
 // BUILD MESH
 //
 // Takes in an image and builds geodes for every triangle strip.
 // ---------------------------------------------------------
-template <class ViewT>
-osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
+#if 0
+void build_mesh( vw::ImageViewBase<ViewT> const& point_image,
                        Options& opt ) {
 
   //const ViewT& point_image_impl = point_image.impl();
@@ -430,11 +337,6 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("simplify-mesh", po::value(&opt.simplify_percent),
-       "Run OSG Simplifier on mesh, 1.0 = 100%")
-    ("smooth-mesh", po::bool_switch(&opt.smooth_mesh)->default_value(false),
-     "Run OSG Smoother on mesh")
-    ("use-delaunay", "Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with serious noise issues.")
     ("step,s", po::value(&opt.step_size)->default_value(10),
      "Step size for mesher, sets the polygons size per point")
     ("output-prefix,o", po::value(&opt.output_prefix),
@@ -464,13 +366,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+                             allow_unregistered, unregistered);
 
-  if ( opt.pointcloud_filename.empty() )
-    vw_throw( ArgumentErr() << "Missing point cloud.\n"
-              << usage << general_options );
+  if (opt.pointcloud_filename.empty())
+    vw_throw(ArgumentErr() << "Missing point cloud.\n"
+              << usage << general_options);
   if ( opt.output_prefix.empty() )
     opt.output_prefix =
       asp::prefix_from_pointcloud_filename( opt.pointcloud_filename );
@@ -482,24 +384,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::log_to_file(argc, argv, "", opt.output_prefix);
 
   opt.simplify_mesh = vm.count("simplify-mesh");
-
-#if 0
-  // The purpose of this is to force ASP to link to the OSG libraries
-  // at link-time, otherwise it fails to find them at run-time
-  // due to peculiarities in OSG's functionality for library search.
-  opt.osg_version = std::string("")
-    + osgSimGetVersion()
-    + osgFXGetVersion()
-    + osgTerrainGetVersion();
-  + osgVolumeGetVersion();
-#endif
 }
 
-int main( int argc, char *argv[] ){
+int main(int argc, char *argv[]){
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     std::string input_file = opt.pointcloud_filename;
     int num_channels = get_num_channels(input_file);
@@ -523,7 +414,7 @@ int main( int argc, char *argv[] ){
       vw_throw( ArgumentErr() << "The input must be a point cloud or a DEM.\n");
     }
 
-    // Centering Option (helpful if you are experiencing round-off error...)
+    // Centering option (helpful if you are experiencing round-off error...)
     if (opt.center) {
       bool is_geodetic = false; // raw xyz values
       BBox3 bbox = asp::pointcloud_bbox(point_image, is_geodetic);
@@ -534,36 +425,10 @@ int main( int argc, char *argv[] ){
       point_image = asp::point_image_offset(point_image, -midpoint);
     }
 
+    if ( !opt.texture_file_name.empty() ) {
+    } else {
+    }
 #if 0
-    {
-      vw_out() << "\nGenerating 3D mesh from point cloud:\n";
-      opt.root->addChild(build_mesh(point_image, opt));
-
-      if ( !opt.texture_file_name.empty() ) {
-        // Turning off lighting and other likes
-        osg::StateSet* stateSet = new osg::StateSet();
-        if ( !opt.enable_lighting )
-          stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
-        stateSet->setMode( GL_BLEND , osg::StateAttribute::ON );
-        opt.root->setStateSet( stateSet );
-
-      } else {
-        vw_out() << "Adding contour coloring\n";
-        osg::StateSet* stateSet =
-          create1DTexture( opt.root.get() , opt.dataNormal );
-        if ( !opt.enable_lighting )
-          stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
-        stateSet->setMode( GL_BLEND , osg::StateAttribute::ON );
-        opt.root->setStateSet( stateSet );
-      }
-    }
-
-    if ( opt.smooth_mesh ) {
-      vw_out() << "Smoothing data\n";
-      osgUtil::SmoothingVisitor sv;
-      opt.root->accept(sv);
-    }
-
     if ( opt.simplify_mesh ) {
       if ( opt.simplify_percent == 0.0 )
         opt.simplify_percent = 1.0;

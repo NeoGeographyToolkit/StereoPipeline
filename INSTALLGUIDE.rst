@@ -205,8 +205,8 @@ then pulling the VisionWorkbench and Stereo Pipeline code from GitHub,
 and building locally.
 
 The environments having the ASP dependencies are in the ``conda``
-directory of the Stere Pipeline, as above. After downloading those, 
-one can run on Linux::
+directory of the Stere Pipeline repository, as above. After
+downloading those, one can run on Linux::
 
     conda env create -f asp_deps_2.7.0_linux_env.yaml
 
@@ -232,11 +232,11 @@ This can be done with the following commands::
 
     cd ~/miniconda3/envs/asp_deps/lib
     mkdir -p  backup
-    cp -fv  *la backup
-    perl -pi -e "s#(/[^\s]*?lib)/lib([^\s]+).la#-L\$1 -l\$2#g" *la
+    cp -fv  *.la backup # back these up
+    perl -pi -e "s#(/[^\s]*?lib)/lib([^\s]+).la#-L\$1 -l\$2#g" *.la
 
-The Linux environment will contain also the needed C and C++
-compilers. On the Mac, the compilers provided with conda did not build
+The Linux environment will also contain the needed C and C++
+compilers. On the Mac the compilers provided with conda did not build
 ASP correctly, hence it is suggested to use the Apple-provided clang
 and clang++.
 
@@ -255,7 +255,7 @@ Building VisionWorkbench and Stereo Pipeline on Linux::
     mkdir -p build
     cd build
     ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-      -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+      -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
       -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
       -DBINARYBUILDER_INSTALL_DIR=$buildDir/install                                         \
@@ -272,7 +272,7 @@ Building VisionWorkbench and Stereo Pipeline on Linux::
     mkdir -p build
     cd build
     ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-      -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+      -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
       -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
       -DBINARYBUILDER_INSTALL_DIR=$buildDir/install                                         \
@@ -291,7 +291,7 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
     mkdir -p build
     cd build
     ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-      -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+      -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
       -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
       -DBINARYBUILDER_INSTALL_DIR=$buildDir/install
@@ -306,7 +306,7 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
     mkdir -p build
     cd build
     ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-      -DISIS_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                        \
+      -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
       -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
       -DBINARYBUILDER_INSTALL_DIR=$buildDir/install
@@ -338,7 +338,7 @@ One can specify the compilers as::
 
 If the conda packages were installed in a location other than
 ``$HOME/miniconda3/envs/isis``, the path to that directory should be
-set via ``--isis-deps-dir``.
+set via ``--asp-deps-dir``.
 
 Due to the amount of code that must be downloaded and built,
 BinaryBuilder will take quite a while to finish.  If you see the
