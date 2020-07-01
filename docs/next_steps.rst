@@ -636,31 +636,21 @@ this point, many kinds of data products can be built from the
 .. _p19-osg:
 
 .. figure:: images/p19-osg_400px.png
-   :alt:  The ``results/output.osgb`` file displayed in the OSG Viewer.
+   :alt:  A visualization of a mesh.
 
-   The ``results/output.osgb`` file displayed in the OSG Viewer.
+   A visualization of a mesh.
 
 Building a 3D Mesh Model
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you wish to see the data in an interactive 3D browser, then you
-can generate a 3D object file using the ``point2mesh`` command
-(:numref:`point2mesh`). The resulting file is stored in Open Scene
-Graph binary format (http://www.openscenegraph.org/projects/osg). It can be
-viewed with ``osgviewer`` (the Open Scene Graph Viewer program,
-distributed with the binary version of the Stereo Pipeline). The
-``point2mesh`` program takes the point cloud file and the left
-normalized image as inputs::
+The ``point2mesh`` command (:numref:`point2mesh`) can be used to
+create a 3D textured mesh in the plain text ``.obj`` format that can be
+opened in a mesh viewer such as MeshLab. The ``point2mesh`` program
+takes the point cloud file and the left normalized image as inputs::
 
      > point2mesh results/output-PC.tif results/output-L.tif
-     > osgviewer results/output.osgb
 
-The image displayed by ``osgviewer`` is shown in :numref:`p19-osg`.
-
-When the ``osgviewer`` program starts, you may want to toggle the
-lighting with the :kbd:`L` key, toggle texturing with the :kbd:`T`
-key, and toggle wireframe mode with the :kbd:`W`. Press :kbd:`?`
-to see a variety of other interactive options.
+An example visualization is shown in :numref:`p19-osg`.
 
 If you already have a DEM and an ortho image (:numref:`builddem`),
 they can be used to build a mesh as well, in the same way as done
@@ -980,26 +970,25 @@ tool can be used to explore large digital terrain models, like those
 created by the Ames Stereo Pipeline. For more information, visit
 https://github.com/nasa/DERT.
 
+.. _blender:
 
 Using Blender to Visualize Meshes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The :ref:`point2mesh` program can take a ``-t obj`` option.  This
-will create ``.obj`` and ``.mtl`` files that you can import directly
-into Blender (https://www.blender.org/).  Remember that ``.obj``
-files don’t particularly have a way to specify 'units' but the
-'units' of an ``.obj`` file written out by ASP are going to be
-'meters.'  If you open a large .obj model created by ASP (like
-HiRISE), you’ll need to remember to move the default viewpoint away
-from the origin, and extend the clipping distance to a few thousand
-(which will be a few kilometers), otherwise it may ‘appear’ that
-the model hasn’t loaded (because your viewpoint is inside of it,
-and you can’t see far enough).
+The :ref:`point2mesh` program will create ``.obj`` and ``.mtl`` files
+that you can import directly into Blender (https://www.blender.org/).
+Remember that ``.obj`` files don’t particularly have a way to
+specify 'units' but the 'units' of an ``.obj`` file written out by ASP
+are going to be 'meters.'  If you open a large .obj model created by
+ASP (like HiRISE), you’ll need to remember to move the default
+viewpoint away from the origin, and extend the clipping distance to a
+few thousand (which will be a few kilometers), otherwise it may
+‘appear’ that the model hasn’t loaded (because 
+your viewpoint is inside of it, and you can’t see far enough).
 
 The default step size for :ref:`point2mesh` is 10, which only samples
 every 10th point, so you may want to read the documentation which
-talks more about the ``--step`` argument to :ref:`point2mesh` (and
-also ``--simplify-mesh`` and ``--smooth-mesh``).  Depending on how
+talks more about the ``-s`` argument to :ref:`point2mesh`.  Depending on how
 big your model is, even that might be too small, and I’d be very
 cautious about using ``-s 1`` on a HiRISE model that isn’t cropped
 somehow first.
@@ -1012,6 +1001,19 @@ you have a DEM as a GeoTIFF, or an ISIS cube which is a terrain
 model (you can use ``gdal_translate`` to convert them to GeoTIFFs),
 then you can run :ref:`point2mesh` on them to get ``.obj`` and
 ``.mtl`` files.
+
+.. _meshlab:
+
+Using MeshLab to Visualize Meshes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Alternatively, MeshLab is another program that can view meshes in 
+``.obj`` files. It can be downloaded from::
+
+  https://github.com/cnr-isti-vclab/meshlab/releases
+
+and can be installed and run in user's directory without needing
+administrative priveledges.
 
 
 Using QGIS to Visualize Terrain Models

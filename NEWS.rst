@@ -33,16 +33,26 @@ hiedr2mosaic.py
      assuming that there is no jitter correction between the two
      CCDs that had no matches.
 
-poin2dem:
+point2dem:
    * Use outlier filtering when computing the bounding box of a DEM.
      The same option ``--remove-outliers-params`` controls this
      just as for removing outliers by triangulation error.
 
 mapproject:
-
    * Fixed a bug when finding the extent of the mapprojected
      image when the DEM to project onto spans the whole planet.
-  
+
+point2mesh:
+   * Only meshes in .obj format are created. This format can be opened
+     in Meshlab, Blender, or some other mesh viewer.
+   * The osgviewer program is no longer shipped.
+   * Fixed a bug with invalid points not being filtered.
+   * Fixed a bug with insufficient precision (now it can be set 
+     by the user and defaults to 17 digits).
+   * Added the option --texture-step-size to control the sampling
+     rate for the texture, in addition to the -s option that controls
+     the sampling rate for the point cloud.
+
 Misc
    * Updated to C++ 11.
    * The Linux build system upgraded to CentOS 7.6, using conda

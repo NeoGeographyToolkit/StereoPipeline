@@ -183,9 +183,9 @@ if desired to put the ASP tools in the path.
 
 Some variability may exist in the precise dependencies fetched by
 conda. For the record, the full environment for this release can be
-found as a set of .yaml files in our GitHub repository in the
-subdirectory ``conda``. So, alternatively, the installation can happen
-as::
+found as a set of .yaml files the Stereo Pipeline GitHub repository in
+the subdirectory ``conda``. So, alternatively, the installation can
+happen as::
 
     conda env create -f asp_2.7.0_linux_env.yaml
 
@@ -380,7 +380,7 @@ system.
 The ``docs`` directory contains the root of the documentation. Running
 ``make html`` and ``make latexpdf`` there will create the HTML and PDF
 versions of the documentation in the _build subdirectory. In
-particular, the PDF document will be at
+particular, the PDF document will be at::
 
   ./_build/latex/asp_book.pdf
 
@@ -388,7 +388,8 @@ particular, the PDF document will be at
 Building the ASP dependencies
 -----------------------------
 
-All the recipes (feedstocks) that are custom-built for ASP are at:
+The feedstocks for all the the conda packages are custom-built for ASP
+are at::
 
   https://github.com/NeoGeographyToolkit
 

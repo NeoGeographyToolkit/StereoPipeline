@@ -261,7 +261,7 @@ namespace asp {
 
     template <class T>
     T operator()(T const& p) const {
-      if (p == T()) return p;
+      if (p == T()) return p; // Zero points are invalid. This is buggy.
       return p + m_offset;
     }
   }; // End class PointOffsetFunc
