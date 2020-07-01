@@ -99,6 +99,22 @@ inline bool is_valid_pt(Vector3 const& P) {
   return true;
 }
 
+// Add a given vertex to the .obj file unless already present
+inline void add_vertex(Vector3 const& V, std::pair<int, int> const& pix,
+                       int cloud_cols, int cloud_rows,
+                       std::ofstream & ofs,
+                       std::map<std::pair<int, int>, int> & pix_to_vertex,
+                       int & vertex_count) {
+  if (pix_to_vertex.find(pix) == pix_to_vertex.end()) {
+    ofs << "v " << V[0] << " " << V[1] << " " << V[2] << '\n';
+    double u = double(pix.first)/cloud_cols;
+    double v = double(pix.second)/cloud_rows;
+    ofs << "vt " << u  << ' ' << 1.0 - v << std::endl;
+    pix_to_vertex[pix] = vertex_count;
+    vertex_count++;
+  }
+}
+
 void save_mesh(std::string const& output_prefix,
                std::string const& output_prefix_no_dir,
                ImageViewRef<Vector3> point_cloud,
@@ -124,67 +140,41 @@ void save_mesh(std::string const& output_prefix,
   std::map<std::pair<int, int>, int> pix_to_vertex;
     
   std::vector<Vector3i> faces;
-  int vertex_count = 0;
+  int vertex_count = 1; // The obj spec calls for the starting vertex to have index 1.
   for (int col = 0; col < cloud_cols - 1; col++) {
     vertex_progress.report_progress(col*vertex_progress_mult);
     
     for (int row = 0; row < cloud_rows - 1; row++) {
-      // We have a square that needs to be split into two triangles
+      // We have a square that needs to be split into two triangles.
       // Here the image is viewed as having the origin on the upper-left,
       // the column axis going right, and the row axis going down.
-      Vector3 UL = point_cloud(col,     row);
-      Vector3 UR = point_cloud(col + 1, row);
-      Vector3 LL = point_cloud(col,     row + 1);
-      Vector3 LR = point_cloud(col + 1, row + 1);
+      std::pair<int, int> pix_ul = std::make_pair(col,     row);
+      std::pair<int, int> pix_ur = std::make_pair(col + 1, row);
+      std::pair<int, int> pix_ll = std::make_pair(col,     row + 1);
+      std::pair<int, int> pix_lr = std::make_pair(col + 1, row + 1);
+      Vector3 UL = point_cloud(pix_ul.first, pix_ul.second);
+      Vector3 UR = point_cloud(pix_ur.first, pix_ur.second);
+      Vector3 LL = point_cloud(pix_ll.first, pix_ll.second);
+      Vector3 LR = point_cloud(pix_lr.first, pix_lr.second);
 
-      double u, v;
       if (is_valid_pt(UL) && is_valid_pt(LL) && is_valid_pt(UR)) {
 
-        std::pair<int, int> pix0 = std::make_pair(col, row);
-        if (pix_to_vertex.find(pix0) == pix_to_vertex.end()) {
-          ofs << "v " << UL[0] - C[0] << " " << UL[1] - C[1] << " " << UL[2] - C[2]<< '\n';
-          u = double(pix0.first)/cloud_cols; v = double(pix0.second)/cloud_rows;
-          ofs << "vt " << u  << ' ' << 1.0 - v << std::endl;
-          pix_to_vertex[pix0] = vertex_count;
-          vertex_count++;
-        }
-        
-        std::pair<int, int> pix1 = std::make_pair(col, row + 1);
-        if (pix_to_vertex.find(pix1) == pix_to_vertex.end()) {
-          ofs << "v " << LL[0] - C[0] << " " << LL[1] - C[1] << " " << LL[2] - C[2]<< '\n';
-          u = double(pix1.first)/cloud_cols; v = double(pix1.second)/cloud_rows;
-          ofs << "vt " << u  << ' ' << 1.0 - v << std::endl;
-          pix_to_vertex[pix1] = vertex_count;
-          vertex_count++;
-        }
-        
-        std::pair<int, int> pix2 = std::make_pair(col + 1, row);
-        if (pix_to_vertex.find(pix2) == pix_to_vertex.end()) {
-          ofs << "v " << UR[0] - C[0] << " " << UR[1] - C[1] << " " << UR[2] - C[2]<< '\n';
-          u = double(pix2.first)/cloud_cols; v = double(pix2.second)/cloud_rows;
-          ofs << "vt " << u  << ' ' << 1.0 - v << std::endl;
-        }
-        
-        Vector3 face(vertex_count + 1, vertex_count + 2, vertex_count + 3);
+        add_vertex(UL - C, pix_ul, cloud_cols, cloud_rows, ofs, pix_to_vertex, vertex_count);
+        add_vertex(LL - C, pix_ll, cloud_cols, cloud_rows, ofs, pix_to_vertex, vertex_count);
+        add_vertex(UR - C, pix_ur, cloud_cols, cloud_rows, ofs, pix_to_vertex, vertex_count);
+
+        Vector3 face(pix_to_vertex[pix_ul], pix_to_vertex[pix_ll], pix_to_vertex[pix_ur]);
         faces.push_back(face);
       }
       
       if (is_valid_pt(UR) && is_valid_pt(LL) && is_valid_pt(LR)) {
-        ofs << "v " << UR[0] - C[0] << " " << UR[1] - C[1] << " " << UR[2] - C[2]<< '\n';
-        u = double(col + 1)/cloud_cols; v = double(row)/cloud_rows;
-        ofs << "vt " << u  << ' ' << 1.0 - v << std::endl;
-        
-        ofs << "v " << LL[0] - C[0] << " " << LL[1] - C[1] << " " << LL[2] - C[2]<< '\n';
-        u = double(col)/cloud_cols; v = double(row + 1)/cloud_rows;
-        ofs << "vt " << u  << ' ' << 1.0 - v << std::endl;
 
-        ofs << "v " << LR[0] - C[0] << " " << LR[1] - C[1] << " " << LR[2] - C[2]<< '\n';
-        u = double(col + 1)/cloud_cols; v = double(row + 1)/cloud_rows;
-        ofs << "vt " << u  << ' ' << 1.0 - v << std::endl;
+        add_vertex(UR - C, pix_ur, cloud_cols, cloud_rows, ofs, pix_to_vertex, vertex_count);
+        add_vertex(LL - C, pix_ll, cloud_cols, cloud_rows, ofs, pix_to_vertex, vertex_count);
+        add_vertex(LR - C, pix_lr, cloud_cols, cloud_rows, ofs, pix_to_vertex, vertex_count);
 
-        Vector3 face(vertex_count + 1, vertex_count + 2, vertex_count + 3);
+        Vector3 face(pix_to_vertex[pix_ur], pix_to_vertex[pix_ll], pix_to_vertex[pix_lr]);
         faces.push_back(face);
-        vertex_count += 3;
       }
       
     }
