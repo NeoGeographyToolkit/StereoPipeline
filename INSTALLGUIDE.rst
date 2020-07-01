@@ -43,7 +43,7 @@ Pipeline, you will need to install :term:`ISIS`.  Just as with our
 binaries, you can use the ISIS binaries as-is.
 
 If you need to recompile, you can follow the instructions for
-`Building from Source`_ (but we don't recommend it).  If the
+`Building ASP from Source`_ (but we don't recommend it).  If the
 current version of ISIS is newer than the version of ISIS that the
 Stereo Pipeline is compiled against (listed in the ASP Release
 Notes), be assured that we're working on rolling out a new version.
@@ -71,38 +71,38 @@ environment.
 Quick start for ISIS users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#. Fetch Stereo Pipeline from
+#. Fetch Stereo Pipeline from
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
 
-#. Fetch ISIS Binaries and install, following
+#. Fetch ISIS Binaries and install, following
    https://github.com/USGS-Astrogeology/ISIS3#installation
 
-#. Fetch ISIS Data, as detailed at
+#. Fetch ISIS Data, as detailed at
    https://github.com/USGS-Astrogeology/ISIS3#the-isis-data-area
 
-#. Untar Stereo Pipeline::
+#. Untar Stereo Pipeline::
 
      tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
 
-#. Add Stereo Pipeline to Path (optional):
+#. Add Stereo Pipeline to Path (optional):
 
    - bash: ``export PATH="</path/to/StereoPipeline>/bin:${PATH}"``
    - csh: ``setenv PATH "</path/to/StereoPipeline>/bin:${PATH}"``
 
-#. Try It Out: See :numref:`moc_tutorial` for an example.
+#. Try It Out: See :numref:`moc_tutorial` for an example.
 
 
 Quick start for Digital Globe users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#. Fetch Stereo Pipeline from
+#. Fetch Stereo Pipeline from
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
 
-#. Untar Stereo Pipeline::
+#. Untar Stereo Pipeline::
 
      tar xzvf StereoPipeline-<VERSION>-<ARCH>-<OS>.tar.gz
 
-#. Try It Out: Processing Earth images is described in the data processing
+#. Try It Out: Processing Earth images is described in the data processing
    tutorial in :numref:`dg_tutorial`.
 
 
