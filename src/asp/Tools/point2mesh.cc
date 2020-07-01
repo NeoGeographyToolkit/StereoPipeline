@@ -87,9 +87,7 @@ void save_texture(std::string const& output_prefix, ImageViewRef<float> texture_
   ImageViewRef<float> normalized_image =
     normalize(texture_image, image_min, image_max, 0.0, 1.0);
 
-  std::cout << "--image is normalzied!" << std::endl;
   write_image(texture_file, normalized_image);
-  
 }
 
 // A point at the center of the planet or which has NaN elements cannot be valid
@@ -107,9 +105,23 @@ inline void add_vertex(Vector3 const& V, std::pair<int, int> const& pix,
                        int & vertex_count) {
   if (pix_to_vertex.find(pix) == pix_to_vertex.end()) {
     ofs << "v " << V[0] << " " << V[1] << " " << V[2] << '\n';
+
     double u = double(pix.first)/cloud_cols;
+    
+    // TODO(oalexan1). Study this. The second option looks more accurate.
+    // In the second option the lower-left pixel (0, cloud_rows - 1)
+    // gets mapped to (u, v) = (0, 0). This seems correct per:
+    // https://computergraphics.stackexchange.com/questions/9339/convert-image-pixel-dimensions-to-uv
+    // In some places on the net I even saw a subpixel shift of (0.5, 0.5)
+    // which makes things even more complicated.
+#if 0
     double v = double(pix.second)/cloud_rows;
     ofs << "vt " << u  << ' ' << 1.0 - v << std::endl;
+#else
+    double v = double(cloud_rows - 1 - pix.second)/cloud_rows;
+    ofs << "vt " << u  << ' ' << v << std::endl;
+#endif
+    
     pix_to_vertex[pix] = vertex_count;
     vertex_count++;
   }
@@ -130,8 +142,6 @@ void save_mesh(std::string const& output_prefix,
   int cloud_cols = point_cloud.cols();
   int cloud_rows = point_cloud.rows();
   
-  std::cout << "cloud cols and rows are " << cloud_cols << ' ' << cloud_rows << std::endl;
-
   TerminalProgressCallback vertex_progress("asp", "\tVertices:   ");
   double vertex_progress_mult = 1.0/double(std::max(cloud_cols - 1, 1));
 
@@ -203,11 +213,10 @@ void save_mesh(std::string const& output_prefix,
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("cloud-step-size,s", po::value(&opt.point_cloud_step_size)->default_value(10),
+    ("point-cloud-step-size,s", po::value(&opt.point_cloud_step_size)->default_value(10),
      "Sampling step for the point cloud. Pick one out of these many samples.")
     ("texture-step-size", po::value(&opt.texture_step_size)->default_value(2),
      "Sampling step for the texture. Pick one out of these many samples.")
-    
     ("output-prefix,o", po::value(&opt.output_prefix),
      "Specify the output prefix.")
     ("center", po::bool_switch(&opt.center)->default_value(false),
@@ -251,6 +260,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw(ArgumentErr() << "Precision must be positive.\n"
              << usage << general_options);
 
+  // It is useful to have this to make the p
+  if (opt.point_cloud_step_size % opt.texture_step_size != 0) 
+    vw_throw(ArgumentErr() << "The point cloud step size must be a multiple "
+             << "of the texture step size.\n"
+             << usage << general_options);
+
   // Create the output directory
   vw::create_out_dir(opt.output_prefix);
 
@@ -287,7 +302,8 @@ int main(int argc, char *argv[]){
                                   opt.point_cloud_step_size);
     }else if (num_channels >= 3){
       // The input DEM is a point cloud
-      point_cloud = vw::subsample(asp::read_asp_point_cloud<3>(input_file), opt.point_cloud_step_size);
+      point_cloud = vw::subsample(asp::read_asp_point_cloud<3>(input_file),
+                                  opt.point_cloud_step_size);
     }else{
       vw_throw( ArgumentErr() << "The input must be a point cloud or a DEM.\n");
     }
@@ -307,8 +323,6 @@ int main(int argc, char *argv[]){
     }
     
     ImageViewRef<float> texture_image;
-    std::cout << "--texturex size " << texture_image.cols() << ' ' << texture_image.rows()
-              << std::endl;
     
     // Resample the image if it is too fine.
     if ( !opt.texture_file_name.empty() ) {
@@ -319,9 +333,6 @@ int main(int argc, char *argv[]){
       texture_image = per_pixel_filter(point_cloud, BlankImage());
     }
     
-    std::cout << "--texture size " << texture_image.cols() << ' ' << texture_image.rows()
-              << std::endl;
-
     boost::filesystem::path p(opt.output_prefix);
     std::string output_prefix_no_dir = p.filename().string();
   
