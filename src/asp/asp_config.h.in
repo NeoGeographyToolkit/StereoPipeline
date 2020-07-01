@@ -267,9 +267,6 @@
 /* Define to 1 if the OPENEXR package is available. */
 #cmakedefine ASP_HAVE_PKG_OPENEXR 1
 
-/* Define to 1 if the OPENSCENEGRAPH package is available. */
-#cmakedefine ASP_HAVE_PKG_OPENSCENEGRAPH 1
-
 /* Define to 1 if the OPEN_MPI package is available. */
 #cmakedefine ASP_HAVE_PKG_OPEN_MPI 1
 
