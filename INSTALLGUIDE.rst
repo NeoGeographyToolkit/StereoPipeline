@@ -200,13 +200,13 @@ depending on your platform. Then invoke, as earlier::
 Building ASP from source
 ------------------------
 
-This entails downloading all the ASP dependencies with conda first,
-then pulling the VisionWorkbench and Stereo Pipeline code from GitHub,
-and building locally. This is suggested only for the very adventurous
-user.
+This entails downloading all the ASP dependencies with conda first as
+pre-compiled binaries, then pulling the VisionWorkbench and Stereo
+Pipeline source code from GitHub, and building locally. This is
+suggested only for the very adventurous user.
 
 The environments having the ASP dependencies are in the ``conda``
-directory of the Stere Pipeline repository, as above. After
+directory of the Stereo Pipeline repository, as above. After
 downloading those, one can run on Linux::
 
     conda env create -f asp_deps_2.7.0_linux_env.yaml
@@ -338,8 +338,8 @@ particular, the PDF document will be at::
 Building the ASP dependencies
 -----------------------------
 
-The feedstocks for all the the conda packages are custom-built for ASP
-are at::
+The feedstocks for all the the conda packages that are custom-built
+for ASP are at::
 
   https://github.com/NeoGeographyToolkit
 
