@@ -135,8 +135,8 @@ location for ``ISISDATA``.
 You need to add the ``bin`` directory of your deployed Stereo Pipeline
 installation to the environmental variable ``PATH``.
 
-Fetching ASP with conda
------------------------
+Fetching pre-compiled ASP with conda
+------------------------------------
 
 Get conda from::
 
@@ -202,7 +202,8 @@ Building ASP from source
 
 This entails downloading all the ASP dependencies with conda first,
 then pulling the VisionWorkbench and Stereo Pipeline code from GitHub,
-and building locally.
+and building locally. This is suggested only for the very adventurous
+user.
 
 The environments having the ASP dependencies are in the ``conda``
 directory of the Stere Pipeline repository, as above. After
@@ -313,56 +314,6 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
     make -j10
     make install
 
-Packaging locally built ASP
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-(This section is work in progress.)
-
-Having installed the tools, base libraries, and ISIS, the following
-lines of code will start the build of Stereo Pipeline in the
-directory ``~/projects/BinaryBuilder``::
-
-    cd ~; mkdir projects; cd projects
-    git clone https://github.com/NeoGeographyToolkit/BinaryBuilder.git
-    cd BinaryBuilder
-    conda activate isis
-    source ./auto_build/utils.sh
-    ./build.py 
-
-One may need to set some paths in ``./auto_build/utils.sh`` to get
-things to work.
-   
-One can specify the compilers as::
-
-    ./build.py --cc=/path/to/gcc --cxx=/path/to/g++ --gfortran=/path/to/gfortran
-
-If the conda packages were installed in a location other than
-``$HOME/miniconda3/envs/isis``, the path to that directory should be
-set via ``--asp-deps-dir``.
-
-Due to the amount of code that must be downloaded and built,
-BinaryBuilder will take quite a while to finish.  If you see the
-message "All done!" then it has succeeded.  Otherwise something has
-gone wrong and must be fixed before the build can continue. Often this
-is due to one of the dependencies listed earlier being too old or
-missing.
-
-If the build failed and you need to restart it after finding a fix,
-the name of the individual package that needs to be built can be
-passed to ``build.py`` as an argument. Note that this tool keeps track of
-built packages in::
-
-    build_asp/done.txt
-
-so to force one to rebuild one can remove its entry from there.
-
-Once the build is successful you should make a distribution tarball to
-store the completed build. Do so using the following command from the
-BinaryBuilder directory::
-
-    ./make-dist.py last-completed-run/install
-
-
 Building the documentation
 --------------------------
 
@@ -383,7 +334,6 @@ versions of the documentation in the _build subdirectory. In
 particular, the PDF document will be at::
 
   ./_build/latex/asp_book.pdf
-
 
 Building the ASP dependencies
 -----------------------------
