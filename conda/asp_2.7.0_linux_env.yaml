@@ -135,7 +135,7 @@ dependencies:
   - suitesparse=5.7.2=h717dc36_0
   - superlu=5.2.1=hfe2efc7_1207
   - tbb=2020.1=hc9558a2_0
-  - theia=f5d93f5=hf484d3e_1000
+  - theia=f5d93f5=hf484d3e_1001
   - tk=8.6.10=hed695b0_0
   - tnt=126=0
   - tzcode=2020a=h516909a_0
