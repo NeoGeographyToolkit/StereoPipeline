@@ -175,11 +175,9 @@ Install ASP with the command::
 
     conda install stereo-pipeline==2.7.0
 
-Also set::
+Check that the ``stereo`` command can be found as::
 
-    export PATH=$HOME/miniconda3/envs/asp/bin:$PATH
-
-if desired to put the ASP tools in the path.
+    which stereo
 
 Some variability may exist in the precise dependencies fetched by
 conda. For the record, the full environment for this release can be
