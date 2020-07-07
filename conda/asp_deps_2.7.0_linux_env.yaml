@@ -50,7 +50,7 @@ dependencies:
   - embree=2.16.0=0
   - expat=2.2.9=he1b5a44_2
   - ffmpeg=3.4.1=0
-  - fgr=bfcb9f9=hf484d3e_0
+  - fgr=e78ce15=hf484d3e_0
   - filelock=3.0.12=pyh9f0ad1d_0
   - flann=1.9.1=0
   - fontconfig=2.12.1=4

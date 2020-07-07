@@ -29,7 +29,7 @@ dependencies:
   - embree=2.16.0=0
   - expat=2.2.9=he1b5a44_2
   - ffmpeg=3.4.1=0
-  - fgr=bfcb9f9=hf484d3e_0
+  - fgr=e78ce15=hf484d3e_0
   - flann=1.9.1=0
   - fontconfig=2.12.1=4
   - freetype=2.7=1
@@ -131,7 +131,7 @@ dependencies:
   - six=1.15.0=pyh9f0ad1d_0
   - spiceypy=2.3.2=py_0
   - sqlite=3.28.0=h8b20d00_0
-  - stereo-pipeline=2.7.0
+  - stereo-pipeline=2.7.0=hf484d3e_0
   - suitesparse=5.7.2=h717dc36_0
   - superlu=5.2.1=hfe2efc7_1207
   - tbb=2020.1=hc9558a2_0
@@ -140,7 +140,7 @@ dependencies:
   - tnt=126=0
   - tzcode=2020a=h516909a_0
   - usgscsm=a53f9cf=h6bb024c_0
-  - visionworkbench=2.7.0
+  - visionworkbench=2.7.0=hf484d3e_0
   - wheel=0.34.2=py_1
   - x264=20131218=0
   - xerces-c=3.1.4=0
