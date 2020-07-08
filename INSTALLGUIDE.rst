@@ -163,13 +163,35 @@ Add relevant channels::
     conda config --env --add channels usgs-astrogeology
     conda config --env --add channels nasa-ames-stereo-pipeline
 
+Do not skip doing each of these three, even if you think you already
+have some of these channels.
+
 Run::
 
     conda config --show channels
 
 to ensure that the order of channels is::
 
-    nasa-ames-stereo-pipeline, usgs-astrogeology, conda-forge
+    - nasa-ames-stereo-pipeline
+    - usgs-astrogeology
+    - conda-forge
+    - defaults
+
+It is possible that you may already have some of these channels in
+a global ``~/.condarc`` file, and you may be tempted to just run
+the final add channels command.  If you aren't familiar with conda
+channel management, this may have unintended consequences.  Please
+inspect the order of the output of the ``--show channels`` command
+carefully, if it is not exactly like the above, you can either edit
+the ``$CONDA_PREFIX/.condarc`` file, or delete it completely, and
+then run each of the three ``conda config --env -add channels``
+commands exactly as shown.
+
+We do not recommend using the ``--prepend channels`` argument, as that will
+add the ``nasa-ames-stereo-pipeline`` to your default ``~/.condarc`` file
+and will have consequences for *all* of your conda environments, which you don't
+want.
+
 
 Install ASP with the command::
 
@@ -181,8 +203,8 @@ Check that the ``stereo`` command can be found as::
 
 Some variability may exist in the precise dependencies fetched by
 conda. For the record, the full environment for this release can be
-found as a set of .yaml files the Stereo Pipeline GitHub repository in
-the subdirectory ``conda``. So, alternatively, the installation can
+found as a set of .yaml files in the ``conda/`` subdirectory of the 
+Stereo Pipeline GitHub repository. So, alternatively, the installation can
 happen as::
 
     conda env create -f asp_2.7.0_linux_env.yaml
@@ -194,6 +216,20 @@ or::
 depending on your platform. Then invoke, as earlier::
 
     conda activate asp
+
+
+Finally, if you are working with planetary data, you need to complete
+the ISIS installation steps from this new ``asp`` conda environment.
+Your new ``asp`` environment already has the base ISIS software
+installed, but you must run the script which sets the ISIS environment
+variables and install the appropriate ISIS data files (if you also
+have a separate ISIS conda environment, you can use the set-up
+script to point the ``asp`` conda environment's ``$ISISDATA``
+environment variable to your existing data area).  For more information
+on those latter parts of ISIS installation, please find the
+`installation instructions at their repo
+<https://github.com/USGS-Astrogeology/ISIS3>`_.
+
 
 Building ASP from source
 ------------------------
