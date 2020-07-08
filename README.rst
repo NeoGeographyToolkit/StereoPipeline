@@ -11,17 +11,17 @@ Ames Stereo Pipeline (ASP)
    :alt: Documentation Status
 
 
-The NASA Ames Stereo Pipeline (ASP) is a suite of free and open
-source automated geodesy and stereogrammetry tools designed for
-processing stereo images captured from satellites (around Earth and
-other planets), robotic rovers, aerial cameras, and historical
-images, with and without accurate camera pose information.
+The NASA Ames Stereo Pipeline (ASP) is a suite of free and open source
+automated geodesy and stereogrammetry tools designed for processing
+stereo images captured from satellites (around Earth and other
+planets), robotic rovers, aerial cameras, and historical images, with
+and without accurate camera pose information.
 
 ASP produces cartographic products, including digital terrain models
-(DTMs, synonymus with digital elevation models, DEMs), ortho-projected
-images, 3D models, and bundle-adjusted networks of cameras. These
-data products are suitable for science analysis, mission planning,
-and public outreach.
+(DTMs, synonymous with digital elevation models, DEMs),
+ortho-projected images, 3D models, and bundle-adjusted networks of
+cameras. These data products are suitable for science analysis,
+mission planning, and public outreach.
 
 * Free software: Apache Software License 2.0
 * Documentation: https://stereopipeline.readthedocs.io
@@ -38,12 +38,12 @@ Precompiled binaries (Linux and macOS)
 Simply download the appropriate distribution for your operating
 system, extract, and run the executables in the ``bin`` subdirectory.
 
-- `Stable Releases
+- `Stable releases
   <https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
-  (`Book <https://github.com/NeoGeographyToolkit/StereoPipeline/releases/latest/download/asp_book.pdf>`_)
+  (`pdf documentation <https://github.com/NeoGeographyToolkit/StereoPipeline/releases/latest/download/asp_book.pdf>`_)
 
-- `Development Build <http://byss.arc.nasa.gov/stereopipeline/daily_build/>`_
-  (`Book <https://byss.arc.nasa.gov/stereopipeline/daily_build/asp_book.pdf>`_)
+- `Development build <http://byss.arc.nasa.gov/stereopipeline/daily_build/>`_
+  (`pdf documentation <https://byss.arc.nasa.gov/stereopipeline/daily_build/asp_book.pdf>`_)
 
 See the NEWS.rst file for the most recent additions.
 
@@ -57,7 +57,7 @@ would like to process NASA non-terrestrial images. Users wishing to
 process Earth images, such as Digital Globe, satellites with RPC
 cameras, or various frame/pinhole cameras do not need to download
 anything else. If ASP is installed with conda, it will install ISIS in
-the same enviornment as well, though it may not be the latest version.
+the same environment as well, though it may not be the latest version.
 
 Fetching ASP with conda or compiling from source
 ------------------------------------------------
@@ -67,19 +67,16 @@ See INSTALLGUIDE.rst for details.
 Documentation
 =============
 
-The primary source of documentation is the Stereo Pipeline Book,
-the versions for the Latest Stable and Current Development versions
-are linked above.  The contents of the book are provided as PDFs
-with each distribution, but are also available at
-https://stereopipeline.readthedocs.io.
+The documentation is provided in PDF format, linked to above, and in
+HTML format at https://stereopipeline.readthedocs.io.
 
-The book includes a gentle introduction to using the Stereo Pipeline,
-documentation for each tool, and example processing workflows for many
-supported sensors.
+The documentation includes a gentle introduction to using the Stereo
+Pipeline, an entry for each tool, and example processing workflows for
+many supported sensors.
 
-A PDF version of the book is bundled with the binary distributions
-(named ``asp_book.pdf``), and the ReStructured Text source files
-are distributed in the `docs/` subdirectory.
+The PDF documentation is bundled with the binary distributions (named
+``asp_book.pdf``), and the ReStructured Text source files are
+distributed in the `docs/` subdirectory.
 
 Support and user community
 ==========================
