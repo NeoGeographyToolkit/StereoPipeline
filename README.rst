@@ -23,7 +23,7 @@ ortho-projected images, 3D models, and bundle-adjusted networks of
 cameras. These data products are suitable for science analysis,
 mission planning, and public outreach.
 
-* Free software: Apache Software License 2.0
+* ASP is free software released under the Apache Software License 2.0.
 * Documentation: https://stereopipeline.readthedocs.io
 
 Installation
@@ -153,7 +153,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 implied. See the License for the specific language governing
 permissions and limitations under the License.
 
-Third-Party libraries
+Third-party libraries
 =====================
 
 This distribution may include some bundled third-party software as a
