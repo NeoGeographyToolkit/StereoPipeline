@@ -20,8 +20,8 @@ if(APPLE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mlinker-version=305")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mlinker-version=305")
 else(APPLE)
-    # On Linux need to link to rt
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lrt")
+    # On Linux need to link to rt and libgcc_s
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lrt -lgcc_s")
 endif(APPLE)
 
 # Tell cmake to look in the /cmake folder.
