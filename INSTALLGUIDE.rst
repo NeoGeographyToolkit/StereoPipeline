@@ -372,8 +372,8 @@ particular, the PDF document will be at::
 Building the ASP dependencies
 -----------------------------
 
-The feedstocks for all the the conda packages that are custom-built
-for ASP are at::
+The feedstocks for all the conda packages that are custom-built for
+ASP are at::
 
   https://github.com/NeoGeographyToolkit
 
