@@ -4,7 +4,8 @@ RELEASE 2.7.0, Upcoming!
 New functionality
    * Support for the Community Sensor Model
      (https://github.com/USGS-Astrogeology/usgscsm)
-   * Support for ISIS version 4.1.10.
+   * Support for ISIS version 4.1.10. Please set ISISDATA instead of
+     ISIS3DATA with this version of ISIS and ASP.
    * Ability to install ASP with conda. See INSTALLGUIDE.rst for details.
  
 bundle_adjust
