@@ -37,18 +37,19 @@ find_package(Threads REQUIRED)
 # Define boost requirements
 message("--------------------------------------------------------------")
 message("Searching for boost...")
-set(BOOST_MIN_VERSION "1.65")
+set(BOOST_VERSION "1.68") # This is fragile, but it keeps on finding Boost 1.72.
 set(REQUIRED_BOOST_LIBS program_options system filesystem regex date_time thread iostreams)
-if(ASP_DEPS_DIR) # Look in BinaryBuilder directory
+if (ASP_DEPS_DIR) # Look in BinaryBuilder directory
   set(BOOST_ROOT       "${ASP_DEPS_DIR}")
   set(BOOST_LIBRARYDIR "${ASP_DEPS_DIR}/lib")
   set(BOOST_INCLUDEDIR "${ASP_DEPS_DIR}/include")
+  set(Boost_NO_SYSTEM_PATHS ON) # Do not search anywhere else
   set(Boost_DEBUG ON)
   set(Boost_DETAILED_FAILURE_MSG ON)
   #set(CMAKE_CXX_COMPILER_ARCHITECTURE_ID "x64")
 endif()  
 # Now search for Boost using the available information
-find_package(Boost ${BOOST_MIN_VERSION} REQUIRED COMPONENTS ${REQUIRED_BOOST_LIBS})
+find_package(Boost ${BOOST_VERSION} EXACT REQUIRED COMPONENTS ${REQUIRED_BOOST_LIBS})
 
 if(Boost_FOUND)
     message("Successfully found Boost version ${Boost_VERSION}.")
