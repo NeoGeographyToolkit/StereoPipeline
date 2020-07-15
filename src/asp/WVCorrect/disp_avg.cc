@@ -24,8 +24,11 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Stereo/DisparityMap.h>
 
+#include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
+#include <vw/Image/Statistics.h>
+
 using namespace vw;
-using namespace std;
 
 // Average the rows in a given disparity image. Save them to disk as
 // two text files (x and y values), with as many entries as there
@@ -60,13 +63,14 @@ int main( int argc, char *argv[] ){
   if (argc > 6) col_start = atoi(argv[6]);
   if (argc > 7) col_stop  = col_start + atoi(argv[7]);
 
-  // TODO: Add a progress bar.
-  vector<double> Dx(cols, 0), Dy(cols, 0); // Always full sized, even if crop is used.
+  TerminalProgressCallback disp_progress("asp", "\tAveraging:   ");
+  double disp_progress_mult = 1.0/double(std::max(col_stop - col_start, 1));
+
+  std::vector<double> Dx(cols, 0), Dy(cols, 0); // Always full-sized, even if crop is used.
   for (int col = col_start; col < col_stop; col++){
-    if (col%100 == 0){
-      std::cout << "column " << col << std::endl;
-    }
-    vector<double> px, py;
+    disp_progress.report_progress((col - col_start) * disp_progress_mult);
+
+    std::vector<double> px, py;
     for (int row = row_start; row < row_stop; row++){
       PixelMask<Vector2f> p = D(col, row);
       if (! is_valid(p)) continue;
@@ -75,11 +79,25 @@ int main( int argc, char *argv[] ){
     }
     std::sort(px.begin(), px.end());
     std::sort(py.begin(), py.end());
+
+    double pct_factor     = 0.75;
+    double outlier_factor = 3.0;
+    double bx, ex;
+    if (!vw::math::find_outlier_brackets(px, pct_factor, outlier_factor, bx, ex))
+      continue;
+    double by, ey;
+    if (!vw::math::find_outlier_brackets(py, pct_factor, outlier_factor, by, ey))
+      continue;
+    
     int len = px.size();
     int num_valid = 0;
     Dx[col] = 0;
     Dy[col] = 0;
     for (int k = 0; k < len; k++){
+
+      // TODO(oalexan1): This was tested only with WV3 pan to color disparity.
+      // if (px[k] < bx || px[k] > ex || py[k] < by || py[k] > ey) continue;
+      
       num_valid++;
       Dx[col] += px[k];
       Dy[col] += py[k];
@@ -91,21 +109,25 @@ int main( int argc, char *argv[] ){
     }
   }
 
+  disp_progress.report_finished();
+  
   // Write dx file
-  ofstream dx(outx.c_str());
+  std::ofstream dx(outx.c_str());
   dx.precision(16);
   std::cout << "Writing: " << outx << std::endl;
   dx << col_start << std::endl << col_stop << std::endl; // Column crop on header lines
   for (int col = 0; col < cols; col++) 
     dx << Dx[col] << std::endl;
-
+  dx.close();
+  
   // Write dy file
-  ofstream dy(outy.c_str());
+  std::ofstream dy(outy.c_str());
   dy.precision(16);
   std::cout << "Writing: " << outy << std::endl;
   dy << col_start << std::endl << col_stop << std::endl; // Column crop on header lines
   for (int col = 0; col < cols; col++) 
     dy << Dy[col] << std::endl;
-
+  dy.close();
+  
   return 0;
 }
