@@ -46,6 +46,9 @@
 #include "ogr_spatialref.h"
 #endif
 
+// TODO(oalexan1): Set these based on the location of libisis rather
+// than have the user set them by hand.
+
 // These variables must never go out of scope or else the environmental
 // variables set by them using putenv() will disappear.
 std::string ISISROOT_ENV_STR, QT_PLUGIN_PATH_ENV_STR, GDAL_DATA_ENV_STR;
@@ -536,18 +539,18 @@ asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOption
     po::options_description all_options;
     all_options.add(all_public_options).add(positional_options);
 
-    if ( allow_unregistered ) {
-      po::parsed_options parsed = po::command_line_parser(argc, argv).options(all_options).allow_unregistered().style( po::command_line_style::unix_style ).run();
+    if (allow_unregistered) {
+      po::parsed_options parsed = po::command_line_parser(argc, argv).options(all_options).allow_unregistered().style(po::command_line_style::unix_style).run();
       unregistered = collect_unrecognized(parsed.options, po::include_positional);
-      po::store( parsed, vm );
+      po::store(parsed, vm);
     } else {
-      po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).style( po::command_line_style::unix_style ).run(), vm );
+      po::store(po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).style( po::command_line_style::unix_style ).run(), vm);
     }
 
-    po::notify( vm );
+    po::notify(vm);
   } catch (po::error const& e) {
-    vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
-                  << e.what() << "\n" << usage_comment << public_options );
+    vw::vw_throw(vw::ArgumentErr() << "Error parsing input:\n"
+                  << e.what() << "\n" << usage_comment << public_options);
   }
 
   // We really don't want to use BIGTIFF unless we have to. It's
@@ -559,7 +562,7 @@ asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOption
   }
 
   if ( vm.count("help") )
-    vw::vw_throw( vw::ArgumentErr() << usage_comment << public_options );
+    vw::vw_throw(vw::ArgumentErr() << usage_comment << public_options);
 
   if ( vm.count("version") ) {
     std::ostringstream ostr;

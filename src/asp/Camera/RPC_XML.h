@@ -56,7 +56,7 @@ namespace asp {
   class ImageXML : public BitChecker {
 
     void parse_meta      ( xercesc::DOMElement* node );
-    void parse_band_p    ( xercesc::DOMElement* node );
+    void parse_band_tdi  ( xercesc::DOMElement* node, int & out_tdi);
     void parse_tlc_list  ( xercesc::DOMElement* node );
     void parse_image_size( xercesc::DOMElement* node );
 
@@ -68,9 +68,10 @@ namespace asp {
     std::string  tlc_start_time;
     std::string  first_line_start_time;
     std::vector<std::pair<double,double> > tlc_vec; // Line -> time offset pairings
-    std::string  sat_id;
+    std::string  sat_id, band_id;
     std::string  scan_direction;
     int          tdi;
+    std::vector<int> tdi_multi; // for multi-spectral images
     double       avg_line_rate;
     vw::Vector2i image_size;
   };

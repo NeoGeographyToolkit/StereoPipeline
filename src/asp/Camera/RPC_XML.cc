@@ -48,7 +48,7 @@ using asp::XmlUtils::cast_xmlch;
 // ImageXML class
 
 
-void asp::ImageXML::parse_meta( xercesc::DOMElement* node ) {
+void asp::ImageXML::parse_meta(xercesc::DOMElement* node) {
   // Note: dg_mosaic wipes most image tags. If it is desired to parse
   // more tags here, ensure they are not wiped by dg_mosaic and use
   // sensible values when creating them for the combined mosaics.
@@ -62,8 +62,8 @@ void asp::ImageXML::parse_meta( xercesc::DOMElement* node ) {
   tlc_vec.resize( num_tlc );
 }
 
-void asp::ImageXML::parse_band_p( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "TDILEVEL" )->getTextContent(), tdi );
+void asp::ImageXML::parse_band_tdi( xercesc::DOMElement* node, int & out_tdi ) {
+  cast_xmlch( get_node<DOMElement>( node, "TDILEVEL" )->getTextContent(), out_tdi );
 }
 
 void asp::ImageXML::parse_tlc_list( xercesc::DOMElement* node ) {
@@ -114,13 +114,31 @@ asp::ImageXML::ImageXML() : BitChecker(4) {}
 
 void asp::ImageXML::parse( xercesc::DOMElement* node ) {
   DOMElement* image = get_node<DOMElement>( node, "IMAGE" );
-  parse_meta( image );
+  parse_meta(image);
   check_argument(0);
 
+  cast_xmlch(get_node<DOMElement>(node, "BANDID")->getTextContent(), band_id);
+
+  // Multispectral or panchromatic
+  if (band_id != "P" && band_id != "Multi") 
+    vw_throw(ArgumentErr() << "Expecting BANDID in the XML file to be 'P' or 'Multi'.\n");
+  
   tdi = 0;
   try{
-    DOMElement* band_p = get_node<DOMElement>( node, "BAND_P" );
-    parse_band_p( band_p );
+    if (band_id == "P") {
+      DOMElement* band = get_node<DOMElement>(node, "BAND_P");
+      parse_band_tdi(band, tdi);
+    } else {
+      // Multispectral
+      const int num_bands = 8;
+      char * bands[num_bands] = {"BAND_C", "BAND_B", "BAND_G", "BAND_Y", "BAND_R",
+                                 "BAND_RE", "BAND_N", "BAND_N2"};
+      tdi_multi.resize(num_bands);
+      for (int it = 0; it < num_bands; it++) {
+        DOMElement* band = get_node<DOMElement>(node, bands[it]);
+        parse_band_tdi(band, tdi_multi[it]);
+      }
+    }
   }catch(...){
     // An XML file after being processed by dg_mosaic may not have the tdi field.
   }

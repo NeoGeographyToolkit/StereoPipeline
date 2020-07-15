@@ -31,6 +31,7 @@
 #include <vw/Image/Algorithms2.h>
 #include <vw/Image/Interpolation.h>
 #include <vw/Image/Filter.h>
+#include <vw/FileIO/DiskImageUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Camera/RPC_XML.h>
@@ -48,20 +49,24 @@ using namespace std;
 
 
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string camera_image_file, camera_model_file, output_image, output_type;
+  std::string image_file, camera_file, output_image, output_type,
+    band, dx, dy;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   po::options_description general_options("");
   general_options.add_options()
-    ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.");
+    ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.")
+    ("band",  po::value(&opt.band)->default_value(""), "For multi-spectral images, specify which band to apply corrections to. Supported options are BAND_N and BAND_N2. These correspond to bands 7 and 8 in the multispectral image")
+    ("dx",  po::value(&opt.dx)->default_value(""), "For multi-spectral images, specify the plain text file having per-column corrections in the x direction, one per line.")
+    ("dy",  po::value(&opt.dy)->default_value(""), "For multi-spectral images, specify the plain text file having per-column corrections in the y direction, one per line.");
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   
   po::options_description positional("");
   positional.add_options()
-    ("camera-image", po::value(&opt.camera_image_file))
-    ("camera-model", po::value(&opt.camera_model_file))
+    ("camera-image", po::value(&opt.image_file))
+    ("camera-model", po::value(&opt.camera_file))
     ("output-image", po::value(&opt.output_image));
   
   po::positional_options_description positional_desc;
@@ -111,7 +116,7 @@ void get_offsets(int tdi, bool is_wv01, bool is_forward,
 
       // Forward scan direction
       
-      if (tdi == 8){ // NEW 
+      if (tdi == 8){
 
         double posx_arr[] = {686,1389,2091,2796,3499,4203,4905,5608,6311,7018,7721,8425,9130,9833,10540,11246,11948,12653,13359,14060,14771,15476,16179,16879,17591,18296,18997,19704,20413,21119,21828,22528,23236,23938,24642,25347,26050,26757,27459,28165,28871,29571,30277,30980,31686,32388,33090,33795,34497};
         arr_to_vec(posx_arr, sizeof(posx_arr)/sizeof(double), posx);
@@ -189,7 +194,7 @@ void get_offsets(int tdi, bool is_wv01, bool is_forward,
       
       // Reverse scan direction for WV02
       
-      if (tdi == 8){ // NEW 
+      if (tdi == 8){
 
         double posx_arr[] = {686,1390,2092,2796,3499,4203,4906,5611,6312,7019,7723,8428,9130,9836,10541,11247,11950,12655,13361,14064,14771,15478,16181,16882,17595,18298,19001,19707,20413,21118,21824,22526,23233,23939,24641,25349,26052,26759,27462,28165,28868,29576,30279,30980,31686,32389,33092,33797,34496};
         arr_to_vec(posx_arr, sizeof(posx_arr)/sizeof(double), posx);
@@ -363,7 +368,7 @@ void get_offsets(int tdi, bool is_wv01, bool is_forward,
 
       // Reverse scan for WV01
 
-      if (tdi == 8){ // NEW
+      if (tdi == 8){
 
         double posx_arr[] = {690,1384,2077,2773,3485,4167,4867,5567,6267,6971,7676,8381,9085,9790,10497,11199,11912,12622,13333,14039,14750,15461,16173,16836,17592,18302,19004,19714,20430,21093,21847,22560,23267,23976,24680,25390,26095,26805,27502,28207,28911,29611,30308,31012,31708,32404,33099,33792,34483};
         arr_to_vec(posx_arr, sizeof(posx_arr)/sizeof(double), posx);
@@ -466,8 +471,10 @@ void get_offsets(int tdi, bool is_wv01, bool is_forward,
   
 }
 
+// Apply WorldView corrections to each vertical block as high as the image
+// corresponding to one CCD sensor.
 template <class ImageT>
-class WVCorrectView: public ImageViewBase< WVCorrectView<ImageT> >{
+class WVPerBlockCorrectView: public ImageViewBase< WVPerBlockCorrectView<ImageT> >{
   ImageT m_img;
   int m_tdi;
   bool m_is_wv01, m_is_forward;
@@ -477,7 +484,7 @@ class WVCorrectView: public ImageViewBase< WVCorrectView<ImageT> >{
   typedef typename ImageT::pixel_type PixelT;
 
 public:
-  WVCorrectView( ImageT const& img, int tdi, bool is_wv01, bool is_forward,
+  WVPerBlockCorrectView( ImageT const& img, int tdi, bool is_wv01, bool is_forward,
                  double pitch_ratio):
     m_img(img), m_tdi(tdi), m_is_wv01(is_wv01), m_is_forward(is_forward),
     m_pitch_ratio(pitch_ratio){
@@ -497,7 +504,7 @@ public:
   
   typedef PixelT pixel_type;
   typedef PixelT result_type;
-  typedef ProceduralPixelAccessor<WVCorrectView> pixel_accessor;
+  typedef ProceduralPixelAccessor<WVPerBlockCorrectView> pixel_accessor;
 
   inline int32 cols() const { return m_img.cols(); }
   inline int32 rows() const { return m_img.rows(); }
@@ -506,7 +513,7 @@ public:
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
 
   inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
-    vw_throw(NoImplErr() << "WVCorrectView::operator()(...) is not implemented");
+    vw_throw(NoImplErr() << "WVPerBlockCorrectView::operator()(...) is not implemented");
     return pixel_type();
   }
 
@@ -565,46 +572,175 @@ public:
   }
 };
 template <class ImageT>
-WVCorrectView<ImageT> wv_correct(ImageT const& img,
+WVPerBlockCorrectView<ImageT> wv_correct(ImageT const& img,
                                  int tdi, bool is_wv01, bool is_forward,
                                  double pitch_ratio){
-  return WVCorrectView<ImageT>(img, tdi, is_wv01, is_forward, pitch_ratio);
+  return WVPerBlockCorrectView<ImageT>(img, tdi, is_wv01, is_forward, pitch_ratio);
+}
+
+// Apply WorldView corrections to each column individually. This is more precise
+// but works only for some select World View-3 multispectral images.
+template <class ImageT>
+class WVPerColumnCorrectView: public ImageViewBase< WVPerColumnCorrectView<ImageT> >{
+  ImageT m_img;
+  std::vector<double> m_dx, m_dy;
+  typedef typename ImageT::pixel_type PixelT;
+
+public:
+  WVPerColumnCorrectView(ImageT const& img,
+                         std::vector<double> const& dx,
+                         std::vector<double> const& dy):
+    m_img(img), m_dx(dx), m_dy(dy){
+
+    if (m_img.cols() != dx.size() || m_img.cols() != dy.size()) {
+      vw_throw( ArgumentErr() << "Expecting as many corrections as columns.\n" );
+    }
+  }
+  
+  typedef PixelT pixel_type;
+  typedef PixelT result_type;
+  typedef ProceduralPixelAccessor<WVPerColumnCorrectView> pixel_accessor;
+
+  inline int32 cols() const { return m_img.cols(); }
+  inline int32 rows() const { return m_img.rows(); }
+  inline int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+
+  inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+    vw_throw(NoImplErr() << "WVPerColumnCorrectView::operator()(...) is not implemented");
+    return pixel_type();
+  }
+
+  typedef CropView<ImageView<pixel_type> > prerasterize_type;
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+    // Need to see a bit more of the input image for the purpose
+    // of interpolation.
+    int max_offset = 5; // CCD offsets are always under 1 pix
+    int bias = BilinearInterpolation::pixel_buffer + max_offset;
+    BBox2i biased_box = bbox;
+    biased_box.expand(bias);
+    biased_box.crop(bounding_box(m_img));
+    
+    ImageView<result_type> cropped_img = crop(m_img, biased_box);
+    InterpolationView<EdgeExtensionView< ImageView<result_type>,
+      ConstantEdgeExtension >, BilinearInterpolation> interp_img
+      = interpolate(cropped_img, BilinearInterpolation(),
+                    ConstantEdgeExtension());
+
+    
+    ImageView<result_type> tile(bbox.width(), bbox.height());
+
+    for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
+      for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
+        // Note that the same correction is used for an entire column
+        tile(col - bbox.min().x(), row - bbox.min().y() )
+          = interp_img(col - biased_box.min().x() - m_dx[col],
+                       row - biased_box.min().y() - m_dy[col]);
+      }
+    }
+
+    return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
+                             cols(), rows() );
+  }
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, BBox2i bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
+template <class ImageT>
+WVPerColumnCorrectView<ImageT> wv_correct(ImageT const& img,
+                                          std::vector<double> const& dx,
+                                          std::vector<double> const& dy){
+  return WVPerColumnCorrectView<ImageT>(img, dx, dy);
+}
+
+void read_vec(std::string const& filename, std::vector<double> & vals) {
+  vals.clear();
+  std::ifstream ifs(filename.c_str());
+  if (!ifs.good()) 
+    vw_throw(ArgumentErr() << "Could not open file: " << filename);
+  
+  double val;
+  while (ifs >> val)
+    vals.push_back(val);
+  ifs.close();
 }
 
 int main( int argc, char *argv[] ) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     GeometricXML geo;
     AttitudeXML att;
     EphemerisXML eph;
     ImageXML img;
     RPCXML rpc;
-    std::string scan_dir, sat_id;
-    double det_pitch;
-    int tdi;
+    std::string scan_dir, sat_id, band_id;
+    double det_pitch = 0.0;
+    int tdi = 0;
     try{
       XMLPlatformUtils::Initialize();
-      read_xml( opt.camera_model_file, geo, att, eph, img, rpc );
+      read_xml(opt.camera_file, geo, att, eph, img, rpc);
       
       scan_dir = boost::to_lower_copy( img.scan_direction );
       if (scan_dir != "forward" && scan_dir != "reverse")
-        vw_throw( ArgumentErr() << "XML file \"" << opt.camera_model_file
+        vw_throw( ArgumentErr() << "XML file \"" << opt.camera_file
                   << "\" is lacking a valid image scan direction.\n" );
 
+      // Read XML parameters and sanity checks
       sat_id = img.sat_id;
-      if (sat_id != "WV01" && sat_id != "WV02")
-        vw_throw( ArgumentErr() << "Can apply CCD artifacts corrections only "
-                  << "for WV01 and WV02 camera images.\n" );
+      band_id = img.band_id;
+
+      if (band_id == "P") {
+        
+        tdi = img.tdi;
+        if (sat_id != "WV01" && sat_id != "WV02")
+          vw_throw( ArgumentErr() << "PAN image detected. Can apply CCD artifacts corrections only "
+                    << "for WV01 and WV02 satellites.\n" );
+        
+      } else if (band_id == "Multi") {
+        
+        if (sat_id != "WV03")
+          vw_throw( ArgumentErr() << "Multispectral image detected. Can apply CCD artifacts "
+                    << "corrections only for WV03 satellites.\n" );
+
+        if (scan_dir != "forward")
+          vw_throw( ArgumentErr() << "Multispectral image detected. Only the forward "
+                    << "scan direction is supported.\n" );
+
+        if (img.tdi_multi.size() != 8) 
+          vw_throw( ArgumentErr() << "Expecting 8 TDI values, one per multispectral band.\n" );
+
+        if (opt.band == "BAND_N" ) {
+          tdi = img.tdi_multi[6];
+          if (tdi != 10) 
+            vw_throw( ArgumentErr() << "For BAND_N only corrections for TDI = 10 "
+                      << "are implemented.\n" );
+        } else if (opt.band == "BAND_N2") {
+          tdi = img.tdi_multi[7];
+          if (tdi != 24) 
+            vw_throw( ArgumentErr() << "For BAND_N2 only corrections for TDI = 24 "
+                      << "are implemented.\n" );
+        } else {
+          vw_throw( ArgumentErr() << "Corrections are implemented only for BAND_N and BAND_N2.\n" );
+        }
+
+        if (opt.dx == "" || opt.dy == "") {
+          vw_throw( ArgumentErr() << "For multispectral images must provide files with "
+                    << "per-column corrections in x and y.\n" );
+        }
+      }
       
       det_pitch = geo.detector_pixel_pitch;
       if (det_pitch <= 0.0)
-        vw_throw( ArgumentErr() << "XML file \"" << opt.camera_model_file
+        vw_throw( ArgumentErr() << "XML file \"" << opt.camera_file
                   << "\" has a non-positive pixel pitch.\n" );
 
-      tdi = img.tdi;
+      
     } catch ( const std::exception& e ) {                
       vw_throw( ArgumentErr() << e.what() );
     }
@@ -615,11 +751,16 @@ int main( int argc, char *argv[] ) {
     // Adjust for detector pitch
     double pitch_ratio = 8.0e-3/det_pitch;
 
-    DiskImageView<float> input_img(opt.camera_image_file);
+    int num_bands = vw::get_num_channels(opt.image_file);
+    if (num_bands != 1) 
+      vw_throw( ArgumentErr() << "Unsupported image with " << num_bands
+                << " bands. Use gdal_translate to pick the desired band.\n\n");
+    
+    DiskImageView<float> input_img(opt.image_file);
     bool has_nodata = false;
     double nodata = numeric_limits<double>::quiet_NaN();
     boost::shared_ptr<DiskImageResource> img_rsrc
-      ( new DiskImageResourceGDAL(opt.camera_image_file) );
+      ( new DiskImageResourceGDAL(opt.image_file) );
     if (img_rsrc->has_nodata_read()){
       has_nodata = true;
       nodata = img_rsrc->nodata_read();
@@ -629,12 +770,24 @@ int main( int argc, char *argv[] ) {
     bool has_georef = false;
     
     ImageViewRef<float> corr_img;
-    if (has_nodata) 
-      corr_img = apply_mask(wv_correct(create_mask(input_img, nodata),
-                                       tdi, is_wv01, is_forward,
-                                       pitch_ratio), nodata);
-    else
-      corr_img = wv_correct(input_img, tdi, is_wv01, is_forward, pitch_ratio);
+    std::vector<double> dx, dy;
+    if (sat_id != "WV03") {
+      // WV01 or WV02
+      if (has_nodata) 
+        corr_img = apply_mask(wv_correct(create_mask(input_img, nodata),
+                                         tdi, is_wv01, is_forward,
+                                         pitch_ratio), nodata);
+      else
+        corr_img = wv_correct(input_img, tdi, is_wv01, is_forward, pitch_ratio);
+    } else {
+      // WV03
+      read_vec(opt.dx, dx);
+      read_vec(opt.dy, dy);
+      if (has_nodata) 
+        corr_img = apply_mask(wv_correct(create_mask(input_img, nodata), dx, dy), nodata);
+      else
+        corr_img = wv_correct(input_img, dx, dy);
+    }
     
     vw_out() << "Writing: " << opt.output_image << std::endl;
     TerminalProgressCallback tpc("asp", "\t--> ");
