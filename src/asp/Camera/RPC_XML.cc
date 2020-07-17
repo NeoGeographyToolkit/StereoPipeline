@@ -119,19 +119,20 @@ void asp::ImageXML::parse( xercesc::DOMElement* node ) {
 
   cast_xmlch(get_node<DOMElement>(node, "BANDID")->getTextContent(), band_id);
 
-  // Multispectral or panchromatic
-  if (band_id != "P" && band_id != "Multi") 
-    vw_throw(ArgumentErr() << "Expecting BANDID in the XML file to be 'P' or 'Multi'.\n");
+  // Multispectral or panchromatic, or maybe MS1 or something else
+  //if (band_id != "P" && band_id != "Multi" && band_id != "MS1") 
+  //  vw_throw(ArgumentErr() << "Expecting BANDID in the XML file to be 'P', 'Multi', or 'MS1'.\n");
   
   tdi = 0;
-  try{
+  try {
     if (band_id == "P") {
+      std::cout << "--try 2" << std::endl;
       DOMElement* band = get_node<DOMElement>(node, "BAND_P");
       parse_band_tdi(band, tdi);
-    } else {
+    } else if (band_id == "Multi") {
       // Multispectral
       const int num_bands = 8;
-      char * bands[num_bands] = {"BAND_C", "BAND_B", "BAND_G", "BAND_Y", "BAND_R",
+      const char * bands[num_bands] = {"BAND_C", "BAND_B", "BAND_G", "BAND_Y", "BAND_R",
                                  "BAND_RE", "BAND_N", "BAND_N2"};
       tdi_multi.resize(num_bands);
       for (int it = 0; it < num_bands; it++) {
@@ -499,8 +500,10 @@ void asp::RPCXML::parse_bbox( xercesc::DOMElement* root_node ) {
   DOMElement* imd_node  = get_node<DOMElement>( root_node, "IMD" );
   DOMElement* bbox_node;
   try {
+    std::cout << "---try 1" << std::endl;
     bbox_node = get_node<DOMElement>( imd_node, "BAND_P");
   } catch (...) { // Try one more channel if we can't find BAND_P
+    std::cout << "--now in catch" << std::endl;
     bbox_node = get_node<DOMElement>( imd_node, "BAND_R");
   }
   // Start by initializing the box with the first point
