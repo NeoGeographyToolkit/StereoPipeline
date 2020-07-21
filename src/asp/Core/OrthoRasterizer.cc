@@ -196,8 +196,11 @@ namespace asp{
           // to the global bounding box, we don't use the float_next
           // gimmick, as we need the precise box.
           local_union.grow(pts_bdbox);
-          pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
-          pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
+          // Check for inf, that causes problems
+          if (!std::isinf(pts_bdbox.max()[0]) && !std::isinf(pts_bdbox.max()[1])) {
+            pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
+            pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
+          }
           solutions.push_back( std::make_pair( pts_bdbox, blocks[i] ) );
         }
 
