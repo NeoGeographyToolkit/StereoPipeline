@@ -1,13 +1,17 @@
-RELEASE 2.7.0, Upcoming!
-------------------------
+RELEASE 2.7.0
+-------------
 
 New functionality
-   * Support for the Community Sensor Model
-     (https://github.com/USGS-Astrogeology/usgscsm)
    * Support for ISIS version 4.1.10. Please set ISISDATA instead of
      ISIS3DATA with this version of ISIS and ASP.
+   * Support for the Community Sensor Model
+     (https://github.com/USGS-Astrogeology/usgscsm)
    * Ability to install ASP with conda. See INSTALLGUIDE.rst for details.
- 
+   * Moved the documentation to ReStructured Text, and Sphinx-Doc. See
+     the documentation at: https://stereopipeline.readthedocs.io
+   * As of this release, we have transitioned to the `Semantic Versioning 2.0.0
+     standard <https://semver.org>`_ for ASP.
+
 bundle_adjust
    * Can first create interest point matches among mapprojected images
      (automatically or manually) and use those to create matches among
@@ -56,14 +60,7 @@ point2mesh:
 
 Misc
    * Updated to C++ 11.
-   * The Linux build system upgraded to CentOS 7.6, using conda
-     for many dependencies, with gcc 5, glibc 2.17, and Python version
-     >= 3 or 2.7. Tested on SUSE Linux Enterprise Server 12 and Ubuntu
-     18.04.
    * Added phase subpixel correlation accuracy parameter.
-   * Updated documentation to ReStructured Text, and Sphinx-Doc.
-   * As of this release, we have transitioned to the `Semantic Versioning 2.0.0
-     standard <https://semver.org>`_ for ASP.
 
 RELEASE 2.6.2, June 15, 2019
 ----------------------------
