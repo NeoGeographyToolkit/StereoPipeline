@@ -177,21 +177,20 @@ to ensure that the order of channels is::
     - conda-forge
     - defaults
 
-It is possible that you may already have some of these channels in
-a global ``~/.condarc`` file, and you may be tempted to just run
-the final add channels command.  If you aren't familiar with conda
-channel management, this may have unintended consequences.  Please
-inspect the order of the output of the ``--show channels`` command
-carefully, if it is not exactly like the above, you can either edit
-the ``$CONDA_PREFIX/.condarc`` file, or delete it completely, and
-then run each of the three ``conda config --env -add channels``
-commands exactly as shown.
+It is possible that you may already have some of these channels in a
+global ``~/.condarc`` file, and you may be tempted to just run the
+final add channels command.  If you aren't familiar with conda channel
+management, this may have unintended consequences.  Please inspect the
+order of the output of the ``--show channels`` command carefully, if
+it is not exactly like the above, you can either edit the
+``$CONDA_PREFIX/.condarc`` file, or delete it completely, and then run
+each of the three ``conda config --env -add channels`` commands
+exactly as shown.
 
-We do not recommend using the ``--prepend channels`` argument, as that will
-add the ``nasa-ames-stereo-pipeline`` to your default ``~/.condarc`` file
-and will have consequences for *all* of your conda environments, which you don't
-want.
-
+We do not recommend using the ``--prepend channels`` argument, as that
+will add the ``nasa-ames-stereo-pipeline`` to your default
+``~/.condarc`` file and will have consequences for *all* of your conda
+environments, which you don't want.
 
 Install ASP with the command::
 
@@ -203,9 +202,9 @@ Check that the ``stereo`` command can be found as::
 
 Some variability may exist in the precise dependencies fetched by
 conda. For the record, the full environment for this release can be
-found as a set of .yaml files in the ``conda/`` subdirectory of the 
-Stereo Pipeline GitHub repository. So, alternatively, the installation can
-happen as::
+found as a set of .yaml files in the ``conda/`` subdirectory of the
+Stereo Pipeline GitHub repository. So, alternatively, the installation
+can happen as::
 
     conda env create -f asp_2.7.0_linux_env.yaml
 

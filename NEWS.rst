@@ -38,16 +38,16 @@ hiedr2mosaic.py
      assuming that there is no jitter correction between the two
      CCDs that had no matches.
 
-point2dem:
+point2dem
    * Use outlier filtering when computing the bounding box of a DEM.
      The same option ``--remove-outliers-params`` controls this
      just as for removing outliers by triangulation error.
 
-mapproject:
+mapproject
    * Fixed a bug when finding the extent of the mapprojected
      image when the DEM to project onto spans the whole planet.
 
-point2mesh:
+point2mesh
    * Only meshes in .obj format are created. This format can be opened
      in Meshlab, Blender, or some other mesh viewer.
    * The osgviewer program is no longer shipped.
