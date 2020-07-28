@@ -31,7 +31,12 @@ dependencies:
   - ffmpeg=3.4.1=0
   - fgr=e78ce15=hf484d3e_0
   - flann=1.9.1=0
+  - font-ttf-dejavu-sans-mono=2.37=hab24e00_0
+  - font-ttf-inconsolata=2.001=hab24e00_0
+  - font-ttf-source-code-pro=2.030=hab24e00_0
+  - font-ttf-ubuntu=0.83=hab24e00_0
   - fontconfig=2.12.1=4
+  - fonts-conda-forge=1=0
   - freetype=2.7=1
   - gdal=2.0.2=hf484d3e_0
   - geoid=1.0=1
@@ -131,7 +136,7 @@ dependencies:
   - six=1.15.0=pyh9f0ad1d_0
   - spiceypy=2.3.2=py_0
   - sqlite=3.28.0=h8b20d00_0
-  - stereo-pipeline=2.7.0=hf484d3e_0
+  - stereo-pipeline=2.7.0=hf484d3e_20200727
   - suitesparse=5.7.2=h717dc36_0
   - superlu=5.2.1=hfe2efc7_1207
   - tbb=2020.1=hc9558a2_0
