@@ -1,5 +1,5 @@
-RELEASE 2.7.0
--------------
+RELEASE 2.7.0, July 27, 2020
+----------------------------
 
 New functionality
    * Support for ISIS version 4.1.10. Please set ISISDATA instead of
@@ -9,8 +9,8 @@ New functionality
    * Ability to install ASP with conda. See INSTALLGUIDE.rst for details.
    * Moved the documentation to ReStructured Text, and Sphinx-Doc. See
      the documentation at: https://stereopipeline.readthedocs.io
-   * As of this release, we have transitioned to the `Semantic Versioning 2.0.0
-     standard <https://semver.org>`_ for ASP.
+   * As of this release, we have transitioned to the 
+     `Semantic Versioning 2.0.0 standard <https://semver.org>`_ for ASP.
 
 bundle_adjust
    * Can first create interest point matches among mapprojected images
