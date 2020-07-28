@@ -126,7 +126,6 @@ void asp::ImageXML::parse( xercesc::DOMElement* node ) {
   tdi = 0;
   try {
     if (band_id == "P") {
-      std::cout << "--try 2" << std::endl;
       DOMElement* band = get_node<DOMElement>(node, "BAND_P");
       parse_band_tdi(band, tdi);
     } else if (band_id == "Multi") {
@@ -500,10 +499,8 @@ void asp::RPCXML::parse_bbox( xercesc::DOMElement* root_node ) {
   DOMElement* imd_node  = get_node<DOMElement>( root_node, "IMD" );
   DOMElement* bbox_node;
   try {
-    std::cout << "---try 1" << std::endl;
     bbox_node = get_node<DOMElement>( imd_node, "BAND_P");
   } catch (...) { // Try one more channel if we can't find BAND_P
-    std::cout << "--now in catch" << std::endl;
     bbox_node = get_node<DOMElement>( imd_node, "BAND_R");
   }
   // Start by initializing the box with the first point
