@@ -3,8 +3,8 @@ Ames Stereo Pipeline (ASP)
 ==========================
 
 .. The following Zenodo badge is for the 'current' version of ASP, 2.6.2:
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.3247734.svg
-   :target: https://doi.org/10.5281/zenodo.3247734
+.. image:: https://zenodo.org/badge/DOI/latest.svg
+   :target: https://doi.org/10.5281/zenodo.598174
 
 .. image:: https://readthedocs.org/projects/stereopipeline/badge/?version=latest
    :target: https://stereopipeline.readthedocs.io/en/latest/?badge=latest
@@ -128,7 +128,7 @@ which details the quality of the output, then we suggest also referencing:
 In addition to the recommended citation, we ask that you also cite the
 DOI for the specific version of ASP that you used for processing.
 Every new release of ASP will have its own unique DOI, which can be
-found at this URL: https://zenodo.org/badge/latestdoi/714891
+found `here <https://doi.org/10.5281/zenodo.598174>`_.
 
 Additional details for how to cite ASP in your published work can be found
 in the ASP documentation.

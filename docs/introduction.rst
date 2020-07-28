@@ -263,7 +263,7 @@ can cite it like this:
 
 Of course, every new release of ASP will have its own unique DOI, and
 this link should always point to the `latest
-DOI <https://zenodo.org/badge/latestdoi/714891>`__ for ASP.
+DOI <https://doi.org/10.5281/zenodo.598174>`__ for ASP.
 
 If you publish a paper using ASP, please let us know. We’ll cite your
 work in this document, in :numref:`papersusingasp`.
