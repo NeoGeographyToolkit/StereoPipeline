@@ -46,7 +46,7 @@ Get Started!
 Ready to contribute? 
 
 You'll need to follow the instructions for building ASP from source 
-in the `INSTALLGUIDE.rst`_ file.
+in the `Installation Guide <INSTALLGUIDE.rst>`_ file.
 
 
 1. Fork the `StereoPipeline` repo on GitHub.
