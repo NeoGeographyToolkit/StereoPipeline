@@ -336,7 +336,10 @@ def find_bands(node):
     # panchromatic data, that corresponds to BAND_P. The
     # other ones are for multispectral data.
     bands = []
-    for b in ["BAND_P", "BAND_B", "BAND_G", "BAND_R", "BAND_N"]:
+    for b in ["BAND_P",                     # pan
+              "BAND_B", "BAND_G", "BAND_R", # rgb
+              "BAND_N", "BAND_C", "BAND_Y", "BAND_RE", "BAND_N2" # other
+              ]:
         p = node.find(b)
         if p is not None:
             bands.append(p)
@@ -1002,15 +1005,15 @@ def main():
         scale_xml_element(image.find("EXPOSUREDURATION"), 1.0/scale)
         # Update detector pitch. Verify that pitch is consistent
         # accross multiple bands.
-        pitch = None
+        first_pitch_val = None
         for band in find_bands(root.find("GEO").find("DETECTOR_MOUNTING")):
-            curr_pitch = band.find("DETECTOR_ARRAY").find("DETPITCH")
-            if pitch is None: pitch = curr_pitch
-            if pitch.text != curr_pitch.text:
-                raise Exception('InputError', "File " + xml_name(filename)
-                                + " has inconsistent pitch info across bands.")
-
-        scale_xml_element(pitch, 1.0/scale)
+            pitch = band.find("DETECTOR_ARRAY").find("DETPITCH")
+            if first_pitch_val is None:
+                first_pitch_val = pitch.text
+            if first_pitch_val != pitch.text:
+                raise Exception('InputError', "Found inconsistent pitch info across bands.")
+            scale_xml_element(pitch, 1.0/scale)
+            
         # Scale the RPC model
         if not options.skip_rpc_gen:
             RPI = root.find("RPB").find("IMAGE")
