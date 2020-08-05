@@ -1,3 +1,5 @@
+.. _installation:
+
 .. include:: ../INSTALLGUIDE.rst
 
 Settings Optimization

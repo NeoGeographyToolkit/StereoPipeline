@@ -46,7 +46,11 @@ Get Started!
 Ready to contribute? 
 
 You'll need to follow the instructions for building ASP from source 
-in the `Installation Guide <INSTALLGUIDE.rst>`_ file.
+in the INSTALLGUIDE.rst file.
+
+.. only:: html or latex
+
+    The installation guide can also be found in :numref:`installation`.
 
 
 1. Fork the `StereoPipeline` repo on GitHub.
@@ -114,9 +118,9 @@ remains true:
     Administrator of the National Aeronautics and Space Administration.
     All rights reserved.
 
-There is an `Individual CLA <docs/ASP_Individual_CLA.doc>`_ (`PDF
-Version <docs/ASP_Individual_CLA.pdf>`_) and a `Corporate CLA
-<docs/ASP_Corporate_CLA.doc>`_.
+There is an `Individual CLA <https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/docs/ASP_Individual_CLA.doc>`_ (`PDF
+Version <https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/docs/ASP_Individual_CLA.pdf>`_) and a `Corporate CLA
+<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/docs/ASP_Corporate_CLA.doc>`_.
 
 
 ASP People
