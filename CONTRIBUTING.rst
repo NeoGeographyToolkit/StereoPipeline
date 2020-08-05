@@ -46,11 +46,8 @@ Get Started!
 Ready to contribute? 
 
 You'll need to follow the instructions for building ASP from source 
-in the INSTALLGUIDE.rst file.
-
-.. only:: html or latex
-
-    The installation guide can also be found in :numref:`installation`.
+(which can be found in the INSTALLGUIDE.rst file or the Installation
+chapter of the documentation).
 
 
 1. Fork the `StereoPipeline` repo on GitHub.
