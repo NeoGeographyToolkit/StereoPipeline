@@ -1254,13 +1254,13 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   opt.cnet.reset( new ControlNetwork("BundleAdjust") );
   ControlNetwork & cnet = *(opt.cnet.get());
 
-  bool success = vw::ba::build_control_network( true, // Always have input cameras
-                                                cnet, opt.camera_models,
-                                                opt.image_files,
-                                                opt.match_files,
-                                                opt.min_matches,
-                                                opt.min_triangulation_angle*(M_PI/180),
-                                                opt.forced_triangulation_distance);
+  bool success = vw::ba::build_control_network(true, // Always have input cameras
+                                               cnet, opt.camera_models,
+                                               opt.image_files,
+                                               opt.match_files,
+                                               opt.min_matches,
+                                               opt.min_triangulation_angle*(M_PI/180),
+                                               opt.forced_triangulation_distance);
   if (!success) {
     vw_out() << "Failed to build a control network. Consider removing "
              << "the currently found interest point matches and increasing "
@@ -1710,7 +1710,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-num-ransac-iterations", po::value(&opt.ip_num_ransac_iterations)->default_value(1000),
      "How many RANSAC iterations to do in interest point matching.")
     ("min-triangulation-angle",      po::value(&opt.min_triangulation_angle)->default_value(0.1),
-            "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
+            "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid. It must be a positive value.")
     ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
      "When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.")
     ("use-lon-lat-height-gcp-error",
@@ -1718,8 +1718,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "When having GCP, interpret the three standard deviations in the GCP file as applying not to x, y, and z, but rather to latitude, longitude, and height.")
     ("force-reuse-match-files", po::bool_switch(&opt.force_reuse_match_files)->default_value(false)->implicit_value(true),
      "Force reusing the match files even if older than the images or cameras.")
-    ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
-            "Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. An example is in the documentation.")
+    ("disable-correct-velocity-aberration", po::bool_switch(&opt.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
+     "Turn off velocity aberration correction for non-ISIS linescan cameras.")
+    ("disable-correct-atmospheric-refraction", po::bool_switch(&opt.disable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
+     "Turn off atmospheric refraction correction for non-ISIS linescan cameras.")
+  
+  ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
+   "Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. An example is in the documentation.")
     ("save-cnet-as-csv", po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
      "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
     ("gcp-from-mapprojected-images", po::value(&opt.gcp_from_mapprojected)->default_value(""),
@@ -1873,6 +1878,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "The translation weight must be non-negative.\n" << usage
                             << general_options );
 
+  // NOTE(oalexan1): The reason min_triangulation_angle cannot be 0 is deep inside
+  // StereoModel.cc. Better keep it this way than make too many changes there.
+  if ( opt.min_triangulation_angle <= 0.0 )
+    vw_throw( ArgumentErr() << "The minimum triangulation angle must be positive.\n"
+                            << usage << general_options );
+  
   // TODO: Make sure the normal model loading catches this error.
   //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
   //  vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");

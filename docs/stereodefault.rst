@@ -614,8 +614,8 @@ bundle-adjust-prefix (*string*)
 
 min-triangulation-angle (*double*)
     The minimum angle, in degrees, at which rays must meet at a
-    triangulated point to accept this point as valid. The internal
-    default is somewhat less than 1 degree.
+    triangulated point to accept this point as valid. It must be 
+    positive. The internal default is somewhat less than 1 degree.
 
 point-cloud-rounding-error (*double*)
     How much to round the output point cloud values, in meters (more

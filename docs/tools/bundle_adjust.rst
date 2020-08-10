@@ -421,7 +421,8 @@ Command-line options for bundle_adjust:
 
 --min-triangulation-angle <degrees (default: 0.1)>
     The minimum angle, in degrees, at which rays must meet at a
-    triangulated point to accept this point as valid.
+    triangulated point to accept this point as valid. It must
+    be a positive value.
 
 --ip-triangulation-max-error <float>
     When matching IP, filter out any pairs with a triangulation
