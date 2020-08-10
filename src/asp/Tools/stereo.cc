@@ -714,7 +714,20 @@ namespace asp {
       vw_throw( ArgumentErr() << "For this kernel size, use --cost-mode 2, 1, or 0, "
                 << "with 2 preferred.\n" );
     }
-    
+
+    if (stereo_settings().min_triangulation_angle <= 0 &&
+        stereo_settings().min_triangulation_angle != -1) {
+      // This means the user modified it. Then it must be positive.
+      vw_throw( ArgumentErr() << "The min triangulation angle must be positive.\n" );
+    }
+    if (stereo_settings().min_triangulation_angle == -1) {
+      // This means that the user did not set it. Set it to 0.
+      // Deep inside StereoModel.cc it will be overwritten with some
+      // positive value.
+      // This is a bit awkward but is done so for backward compatibility.
+      stereo_settings().min_triangulation_angle = 0;
+    }
+      
     // Camera checks
     bool force_throw = false;
     try {
