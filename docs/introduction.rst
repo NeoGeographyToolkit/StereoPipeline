@@ -137,7 +137,7 @@ The USGS Integrated Software for Imagers and Spectrometers
 For processing non-terrestrial NASA satellite images, Stereo Pipeline
 must be installed alongside a copy of the Integrated Software for
 Imagers and Spectrometers (:term:`ISIS`). ISIS is however not required for
-processing terrestrial images (Digital Globe, World View, etc.).
+processing terrestrial images (DigitalGlobe/Maxar WorldView, etc.).
 
 ISIS is widely used in the planetary science community for processing raw
 spacecraft images into high level data products of scientific interest

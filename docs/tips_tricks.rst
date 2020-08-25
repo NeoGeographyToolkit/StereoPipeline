@@ -27,7 +27,7 @@ amount of time.
    accurately (:numref:`baasp`). CCD artifact correction
    can be used to remove artifacts from WorldView images
    (:numref:`wvcorrect-example`). Jitter correction can be used for
-   Digital Globe images (:numref:`jitter`).
+   DigitalGlobe/Maxar images (:numref:`jitter`).
 
 -  Align the output point cloud to some known absolute reference with
    ``pc_align`` (:numref:`pc-align-example`).
@@ -66,8 +66,8 @@ amount of time.
    (:numref:`search_range`).
 
 -  To increase speed, the image pair can be subsampled. For ISIS
-   images, the ISIS ``reduce`` command can be used, while for Digital
-   Globe data one can invoke the ``dg_mosaic`` tool (:numref:`dg_mosaic`,
+   images, the ISIS ``reduce`` command can be used, while for DigitalGlobe/Maxar 
+   data one can invoke the ``dg_mosaic`` tool (:numref:`dg_mosaic`,
    though note that this tool may introduce
    aliasing). With subsampling, you are trading resolution for speed, so
    this probably only makes sense for debugging or “previewing” 3D

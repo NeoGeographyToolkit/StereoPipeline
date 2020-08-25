@@ -227,22 +227,21 @@ Now you may skip to chapter :numref:`nextsteps` which will discuss the
 
 .. _dg_tutorial:
 
-Tutorial: Processing Earth Digital Globe Images
+Tutorial: Processing Earth DigitalGlobe/Maxar Images
 ================================================
 
 In this chapter we will focus on how to process Earth images, or more
-specifically Digital Globe data. This is different from our previous
+specifically DigitalGlobe/Maxar data. This is different from our previous
 chapter in that at no point will we be using ISIS utilities. This is
 because ISIS only supports NASA instruments, while most Earth images
 comes from commercial providers.
 
-In addition to Digital Globe’s satellites, ASP supports any Earth
+In addition to DigitalGlobe/Maxar’s satellites, ASP supports any Earth
 images that uses the RPC camera model format. How to process such data
 is described in :numref:`rpc`, although following this
-tutorial may still be insightful even if your data is not from Digital
-Globe.
+tutorial may still be insightful even if your data is not from DigitalGlobe/Maxar.
 
-Digital Globe provides images from Quick Bird and the three World View
+DigitalGlobe/Maxar provides images from QuickBird and the three WorldView
 satellites. These are the hardest images to process with Ames Stereo
 Pipeline because they are exceedingly large, much larger than HiRISE
 images (the GUI interface can be used to run stereo on just a portion
@@ -250,16 +249,16 @@ of the images). There is also a wide range of terrain challenges and
 atmospheric effects that can confuse ASP. Trees are particularly
 difficult for us since their texture is nearly nadir and perpendicular
 to our line of sight. It is important to know that the driving force
-behind our support for Digital Globe images is to create models of ice
+behind our support for DigitalGlobe/Maxar images is to create models of ice
 and bare rock. Those are the type of images that we have tested with and
 have focused on. If we can make models of wooded or urban areas, that is
 a bonus, but we can’t provide any advice for how to perform or improve
 the results if you choose to use ASP in that way.
 
 ASP can only process Level 1B satellite images, and cannot process
-Digital Globe’s aerial images.
+DigitalGlobe/Maxar’s aerial images.
 
-The camera information for Digital Globe images is contained in an XML
+The camera information for DigitalGlobe/Maxar images is contained in an XML
 file for each image. In addition to the exact linear camera model, the
 XML file also has its RPC approximation. In this chapter we will focus
 only on processing data using the linear camera model. For more detail
@@ -277,9 +276,9 @@ can be used to align the terrain obtained
 from ASP to an accurate set of ground measurements.
 
 In the next two sections we will show how to process unmodified and
-map-projected variants of World View images. The images we are using
+map-projected variants of WorldView images. The images we are using
 is from the free stereo pair labeled "System-Ready (1B) Stereo, 50cm"
-which captures the city of Stockholm, found on Digital Globe’s website 
+which captures the city of Stockholm, found on DigitalGlobe/Maxar’s website 
 (https://www.digitalglobe.com/samples). These images represent a
 non-ideal problem for us since this is an urban location, but at least
 you should be able to download these images yourself and follow along.
@@ -299,7 +298,7 @@ just displayed in different formats. We are interested only in the TIF
 or NTF images and the similarly named XML files.
 
 Some Worldview folders will contain multiple image files. This is
-because Digital Globe breaks down a single observation into multiple
+because DigitalGlobe/Maxar breaks down a single observation into multiple
 files for what we assume are size reasons. These files have a pattern
 string of “\_R[N]C1-”, where N increments for every subframe of the full
 observation. The tool named ``dg_mosaic`` can be used to mosaic (and
@@ -360,11 +359,11 @@ guess. This process is described in :numref:`mapproj-example`.
 Handling CCD Boundary Artifacts
 -------------------------------
 
-Digital Globe World View images :cite:`digital-globe:camera`
+DigitalGlobe/Maxar WorldView images :cite:`digital-globe:camera`
 may exhibit slight subpixel artifacts which manifest themselves as
 discontinuities in the 3D terrain obtained using ASP. We provide a tool
 named ``wv_correct``, that can largely correct such artifacts for World
-View-1 and World View-2 images for most TDI. It can be invoked as
+View-1 and WorldView-2 images for most TDI. It can be invoked as
 follows::
 
        > wv_correct image_in.ntf image.xml image_out.tif
@@ -391,7 +390,7 @@ Managing Camera Jitter
 ----------------------
 
 In this section we will talk about the second largest source of
-inaccuracies in Digital Globe images, after CCD artifacts, namely
+inaccuracies in DigitalGlobe/Maxar images, after CCD artifacts, namely
 jitter, and how to correct it.
 
 It is important to note that jitter correction is highly experimental,
@@ -542,12 +541,12 @@ not being correct and then it will fail at runtime.
 Processing Multi-Spectral Images
 --------------------------------
 
-In addition to panchromatic (grayscale) images, the Digital Globe
+In addition to panchromatic (grayscale) images, the DigitalGlobe/Maxar
 satellites also produce lower-resolution multi-spectral (multi-band)
 images. Stereo Pipeline is designed to process single-band images only.
 If invoked on multi-spectral data, it will quietly process the first
 band and ignore the rest. To use one of the other bands it can be
 singled out by invoking ``dg_mosaic`` (:numref:`rawdg`) with
-the ``--band <num>`` option. We have evaluated ASP with Digital Globe’s
+the ``--band <num>`` option. We have evaluated ASP with DigitalGlobe/Maxar’s
 multi-spectral images, but support for it is still experimental. We
 recommend using the panchromatic images whenever possible.

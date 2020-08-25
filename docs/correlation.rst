@@ -596,7 +596,7 @@ supports. Each ISIS “cube” file contains all of the information that is
 required by the Stereo Pipeline to find and use the appropriate camera
 model for that observation.
 
-Other sessions such as DG (*Digital Globe*) or Pinhole, require that
+Other sessions such as DG (*DigitalGlobe*) or Pinhole, require that
 their camera model be provided as additional arguments to the ``stereo``
 command. Those camera models come in the form of an XML document for DG
 and as ``*.pinhole, *.tsai, *.cahv, *.cahvor`` for Pinhole sessions.
