@@ -265,11 +265,10 @@ XML file also has its RPC approximation. In this chapter we will focus
 only on processing data using the linear camera model. For more detail
 on RPC camera models we refer as before to :numref:`rpc`.
 
-Our implementation of the linear camera model only models the geometry
-of the imaging hardware itself and velocity aberration. We do not
-currently model refraction due to light bending in Earth’s atmosphere.
-It is our understanding that this could represent misplacement of points
-up to a meter for some images. However this is still smaller error than
+Our implementation of the linear camera model accounts for the sensor geometry, 
+velocity aberration and atmospheric refraction.
+These corrections will shift point locations by over a meter for some images. 
+However this is still smaller error than
 the error from measurement of the spacecraft’s position and orientation.
 The latter can be corrected using bundle adjustment, ideally used with
 ground control points (:numref:`bundle_adjust`).
