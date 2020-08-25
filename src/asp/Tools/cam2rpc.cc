@@ -63,7 +63,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   Datum datum;
   Options(): penalty_weight(-1.0), no_crop(false),
              skip_computing_rpc(false), save_tif(false), has_output_nodata(false),
-	     gsd(-1.0), num_samples(-1) {}
+             gsd(-1.0), num_samples(-1) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -122,8 +122,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
-			    positional, positional_desc, usage,
-			    allow_unregistered, unregistered);
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
   if ( opt.image_file.empty() )
     vw_throw( ArgumentErr() << "Missing input image.\n" << usage << general_options );
@@ -140,7 +140,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     std::swap( opt.lon_lat_range.min().x(), opt.lon_lat_range.max().x() );
   if ( opt.lon_lat_range.min().y() > opt.lon_lat_range.max().y() )
     std::swap( opt.lon_lat_range.min().y(), opt.lon_lat_range.max().y() );
-  
+
   // If we cannot read the data from a DEM, must specify a lot of things.
   if (opt.dem_file.empty()) {
 
@@ -153,19 +153,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       asp::set_srs_string(opt.target_srs_string, have_user_datum, opt.datum, georef);
       opt.datum = georef.datum();
     }
-    
+
     if (opt.datum_str.empty() && !have_user_datum && opt.target_srs_string.empty())
       vw_throw( ArgumentErr() << "Missing input datum. Must set one of: --datum,  --t_srs, --semi-major-axis, and --semi-minor-axis, --t_srs, or --dem-file.\n" << usage << general_options );
 
     if (opt.height_range[0] >= opt.height_range[1])
       vw_throw( ArgumentErr() << "Must specify a valid range of heights.\n"
                 << usage << general_options );
-    
+
     if (opt.lon_lat_range.empty())
       vw_throw( ArgumentErr() << "Must specify a valid range for longitude and latitude.\n"
                 << usage << general_options );
   }
-  
+
   vw_out() << "Height range is " << opt.height_range[0] << ' ' << opt.height_range[1] << std::endl;
   vw_out() << "Lon-lat range is " << opt.lon_lat_range.min() << ' ' << opt.lon_lat_range.max()
            << std::endl;
@@ -192,14 +192,14 @@ int main( int argc, char *argv[] ) {
 
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     SessionPtr session(asp::StereoSessionFactory::create
-		       (opt.stereo_session, // may change inside
+                       (opt.stereo_session, // may change inside
                         opt,
-			opt.image_file, opt.image_file,
+                        opt.image_file, opt.image_file,
                         opt.camera_file, opt.camera_file,
                         opt.output_rpc,
                         opt.dem_file,
                         false) ); // Do not allow promotion from normal to map projected session
-    
+
     // If the session was passed in or guessed isis or rpc, adjust for the fact
     // that the isis .cub file also has camera info.
     if ( opt.output_rpc.empty() &&
@@ -221,7 +221,7 @@ int main( int argc, char *argv[] ) {
 
     // Create the output directory
     vw::create_out_dir(opt.output_rpc);
-    
+
     boost::shared_ptr<CameraModel> cam = session->camera_model(opt.image_file, opt.camera_file);
 
     // Get the input nodata value from the image file, unless the
@@ -247,15 +247,13 @@ int main( int argc, char *argv[] ) {
       opt.has_output_nodata = false;
     }
 
-    // Read the image as float and mask it right away
-    ImageViewRef< PixelMask<float> > input_img
-      = create_mask_less_or_equal(DiskImageView<float>(opt.image_file), opt.input_nodata_value);
+    DiskImageView<float> disk_view(opt.image_file);
 
     // The bounding box
-    BBox2 image_box = bounding_box(input_img);
+    BBox2 image_box = bounding_box(disk_view);
     if (!opt.image_crop_box.empty()) 
       image_box.crop(opt.image_crop_box);
-    
+
     // TODO: Merge this code with what is in sfs.cc!
     // Generate point pairs
     std::vector<Vector3> all_llh;
@@ -264,11 +262,16 @@ int main( int argc, char *argv[] ) {
     vw_out() << "Projecting pixels into the camera to generate the RPC model.\n";
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
     double inc_amount = 1.0 / double(opt.num_samples);
-    
+
+
+    // Mask the input image
+    ImageViewRef< PixelMask<float> > input_img
+      = create_mask_less_or_equal(disk_view, opt.input_nodata_value);
+
     if (opt.dem_file.empty()) {
 
       vw_out() << "Using datum: " << opt.datum << std::endl;
-      
+
       BBox2   & ll = opt.lon_lat_range; // shortcut
       Vector2 & H  = opt.height_range;
       double delta_lon = (ll.max()[0] - ll.min()[0])/double(opt.num_samples);
@@ -281,21 +284,21 @@ int main( int argc, char *argv[] ) {
 
             Vector3 llh(lon, lat, ht);
             Vector3 xyz = opt.datum.geodetic_to_cartesian(llh);
-            
+
             // Go back to llh. This is a bugfix for the 360 deg offset problem.
             llh = opt.datum.cartesian_to_geodetic(xyz);
-            
+
             Vector2 cam_pix = cam->point_to_pixel(xyz);
             if (image_box.contains(cam_pix)) {
               all_llh.push_back(llh);
               all_pixels.push_back(cam_pix);
             }
-            
+
           }
         }
         tpc.report_incremental_progress(inc_amount);
       }
-      
+
     }else{
       vw_out() << "Sampling the surface of the DEM: " << opt.dem_file  << std::endl;
 
@@ -303,12 +306,12 @@ int main( int argc, char *argv[] ) {
       vw::read_nodata_val(opt.dem_file, dem_nodata_val);
       ImageView< PixelMask<double> > dem = create_mask
         (channel_cast<double>(DiskImageView<float>(opt.dem_file)), dem_nodata_val);
-      
+
       GeoReference dem_geo;
       if (!read_georeference(dem_geo, opt.dem_file))
         vw_throw( ArgumentErr() << "Missing georef.\n");
-      
-      
+
+
       // If the DEM is too big, we need to skip points. About
       // 40,000 points should be good enough to determine 78 RPC
       // coefficients.
@@ -318,17 +321,17 @@ int main( int argc, char *argv[] ) {
       for (double dcol = 0; dcol < dem.cols(); dcol += delta_col) {
         for (double drow = 0; drow < dem.rows(); drow += delta_row) {
           int col = dcol, row = drow; // cast to int
-          
+
           if (!is_valid(dem(col, row))) continue;
-          
+
           Vector2 pix(col, row);
           Vector2 lonlat = dem_geo.pixel_to_lonlat(pix);
-          
+
           // Lon lat height
           Vector3 llh;
           llh[0] = lonlat[0]; llh[1] = lonlat[1]; llh[2] = dem(col, row).child();
           Vector3 xyz = dem_geo.datum().geodetic_to_cartesian(llh);
-          
+
           // Go back to llh. This is a bugfix for the 360 deg offset problem.
           llh = dem_geo.datum().cartesian_to_geodetic(xyz);
 
@@ -339,12 +342,12 @@ int main( int argc, char *argv[] ) {
           }catch(...){
             continue;
           }
-          
+
           if (image_box.contains(cam_pix) && is_valid(input_img(cam_pix[0], cam_pix[1]))) {
             all_llh.push_back(llh);
             all_pixels.push_back(cam_pix);
           }
-          
+
         }
         tpc.report_incremental_progress(inc_amount);
       }
@@ -384,13 +387,13 @@ int main( int argc, char *argv[] ) {
     vw_out() << "crop_box "
              << crop_box.min().x() << ' ' << crop_box.min().y() << ' '
              << crop_box.max().x() << ' ' << crop_box.max().y() << std::endl;
-    
+
     if (opt.save_tif) {
-      
-      ImageView< PixelMask<float> > output_img = input_img;
+
+      ImageViewRef< PixelMask<float> > output_img = input_img;
       if (!opt.no_crop) 
         output_img = crop(input_img, crop_box);
-      
+
       std::string out_img_file = fs::path(opt.output_rpc).replace_extension("tif").string();
       vw_out() << "Writing: " << out_img_file << std::endl;
 
@@ -398,8 +401,8 @@ int main( int argc, char *argv[] ) {
       bool has_img_geo = false;
       vw::cartography::block_write_gdal_image(out_img_file,
                                               apply_mask(output_img, opt.output_nodata_value),
-					      has_img_geo, img_geo,
-					      opt.has_output_nodata,
+                                              has_img_geo, img_geo,
+                                              opt.has_output_nodata,
                                               opt.output_nodata_value,
                                               opt,
                                               TerminalProgressCallback("asp", "\t-->: "));
@@ -407,13 +410,13 @@ int main( int argc, char *argv[] ) {
 
     if (opt.skip_computing_rpc) 
       return 0;
-    
+
     Vector3 llh_scale  = (llh_box.max() - llh_box.min())/2.0; // half range
     Vector3 llh_offset = (llh_box.max() + llh_box.min())/2.0; // center point
-      
+
     Vector2 pixel_scale  = (pixel_box.max() - pixel_box.min())/2.0; // half range 
     Vector2 pixel_offset = (pixel_box.max() + pixel_box.min())/2.0; // center point
-      
+
     vw_out() << "Lon-lat-height box for the RPC approx: " << llh_box   << std::endl;
     vw_out() << "Camera pixel box for the RPC approx:   " << pixel_box << std::endl;
 
@@ -422,21 +425,21 @@ int main( int argc, char *argv[] ) {
     int num_total_pts = all_llh.size();
     normalized_llh.set_size(asp::RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
     normalized_pixels.set_size(asp::RPCModel::IMAGE_COORD_SIZE*num_total_pts
-			       + asp::RpcSolveLMA::NUM_PENALTY_TERMS);
+                               + asp::RpcSolveLMA::NUM_PENALTY_TERMS);
     for (size_t i = 0; i < normalized_pixels.size(); i++) {
       // Important: The extra penalty terms are all set to zero here.
       normalized_pixels[i] = 0.0; 
     }
-      
+
     // Form the arrays of normalized pixels and normalized llh
     for (int pt = 0; pt < num_total_pts; pt++) {
       // Normalize the pixel to -1 <> 1 range
       Vector3 llh_n   = elem_quot(all_llh[pt]    - llh_offset,   llh_scale);
       Vector2 pixel_n = elem_quot(all_pixels[pt] - pixel_offset, pixel_scale);
       subvector(normalized_llh, asp::RPCModel::GEODETIC_COORD_SIZE*pt,
-		asp::RPCModel::GEODETIC_COORD_SIZE) = llh_n;
+                asp::RPCModel::GEODETIC_COORD_SIZE) = llh_n;
       subvector(normalized_pixels, asp::RPCModel::IMAGE_COORD_SIZE*pt,
-		asp::RPCModel::IMAGE_COORD_SIZE   ) = pixel_n;
+                asp::RPCModel::IMAGE_COORD_SIZE   ) = pixel_n;
     }
 
     // Find the RPC coefficients
@@ -444,11 +447,11 @@ int main( int argc, char *argv[] ) {
     std::string output_prefix = "";
     vw_out() << "Generating the RPC approximation using " << num_total_pts << " point pairs.\n";
     asp::gen_rpc(// Inputs
-		 opt.penalty_weight, output_prefix,
-		 normalized_llh, normalized_pixels,  
-		 llh_scale, llh_offset, pixel_scale, pixel_offset,
-		 // Outputs
-		 line_num, line_den, samp_num, samp_den);
+                 opt.penalty_weight, output_prefix,
+                 normalized_llh, normalized_pixels,
+                 llh_scale, llh_offset, pixel_scale, pixel_offset,
+                 // Outputs
+                 line_num, line_den, samp_num, samp_den);
 
     // TODO: Integrate this with aster2asp existing functionality!
     // Have a generic function for saving WV RPC files. 
@@ -457,7 +460,7 @@ int main( int argc, char *argv[] ) {
     std::string latoffset    = vw::num_to_str(llh_offset.y());
     std::string longoffset   = vw::num_to_str(llh_offset.x());
     std::string heightoffset = vw::num_to_str(llh_offset.z());
-  
+
     std::string linescale   = vw::num_to_str(pixel_scale.y());
     std::string sampscale   = vw::num_to_str(pixel_scale.x());
     std::string latscale    = vw::num_to_str(llh_scale.y());
@@ -468,9 +471,9 @@ int main( int argc, char *argv[] ) {
     std::string linedencoef = vw::vec_to_str(line_den);
     std::string sampnumcoef = vw::vec_to_str(samp_num);
     std::string sampdencoef = vw::vec_to_str(samp_den);
-  
+
     std::string gsd_str = vw::num_to_str(opt.gsd);
-  
+
     vw_out() << "Writing: " << opt.output_rpc << std::endl;
     std::ofstream ofs(opt.output_rpc.c_str());
     ofs.precision(18);
@@ -480,8 +483,8 @@ int main( int argc, char *argv[] ) {
     ofs << "<isd>\n";
 
     // Image params
-    int image_cols = input_img.cols();
-    int image_rows = input_img.rows();
+    int image_cols = disk_view.cols();
+    int image_rows = disk_view.rows();
     ofs << "   <IMD>\n";
     ofs << "        <NUMROWS>" << image_rows << "</NUMROWS>\n";
     ofs << "        <NUMCOLUMNS>" << image_cols << "</NUMCOLUMNS>\n";
@@ -489,7 +492,7 @@ int main( int argc, char *argv[] ) {
     ofs << "                    <ULLON>" << llh_box.min()[0] << "</ULLON>\n";
     ofs << "                    <ULLAT>" << llh_box.max()[1] << "</ULLAT>\n";
     ofs << "                    <ULHAE>" << llh_box.min()[2] << "</ULHAE>\n";
-  
+
     ofs << "                    <URLON>" << llh_box.max()[0] << "</URLON>\n";
     ofs << "                    <URLAT>" << llh_box.max()[1] << "</URLAT>\n";
     ofs << "                    <URHAE>" << llh_box.max()[2] << "</URHAE>\n";
@@ -565,8 +568,8 @@ int main( int argc, char *argv[] ) {
     // Footer
     ofs << "</isd>\n";
     ofs.close();
-    
-    
+
+
   } ASP_STANDARD_CATCHES;
 
   return 0;

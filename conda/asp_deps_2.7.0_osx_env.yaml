@@ -196,6 +196,7 @@ dependencies:
   - tzcode=2020a=h0b31af3_0
   - urllib3=1.25.9=py_0
   - usgscsm=a53f9cf=h04f5b5a_0
+  - wget=1.18=0
   - wheel=0.34.2=py36_0
   - x264=20131218=0
   - xerces-c=3.1.4=h10f7eb2_0

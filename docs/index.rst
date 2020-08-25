@@ -23,6 +23,7 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
    pinholemodels
    papersusingasp
    news
+   contributing
    acknowledgements
    glossary
    zzreferences
