@@ -143,7 +143,7 @@ images as::
      ISIS> stereo left_image.cub right_image.cub \
                -s stereo.default results/output
 
-For Digital Globe images the cameras need to be specified separately:
+For DigitalGlobe/Maxar images the cameras need to be specified separately:
 
 ::
 
@@ -360,11 +360,11 @@ while ``cam2map`` is restricted to one process and one thread.
 
 .. _dg-mapproj:
 
-Example for Digital Globe Images
+Example for DigitalGlobe/Maxar Images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In this section we will describe how to run stereo with map-projected
-images for Digital Globe cameras for Earth. The same process can be used
+images for DigitalGlobe/Maxar cameras for Earth. The same process can be used
 with very minor modifications for any satellite images that use the
 the RPC camera model. All that is needed is to replace the stereo
 session when invoking ``stereo`` below with ``rpcmaprpc`` from
@@ -445,7 +445,7 @@ same terrain with the same resolution, thus no additional alignment is
 necessary. More details about how to set these and other ``stereo``
 parameters can be found in :numref:`settingoptionsinstereodefault`.
 
-It is important to note here that any Digital Globe camera file has two
+It is important to note here that any DigitalGlobe/Maxar camera file has two
 models in it, the exact linescan model (which we name ``DG``), and its
 ``RPC`` approximation. Above, we have used the approximate RPC model for
 map-projection, since map-projection is just a pre-processing step to
@@ -493,7 +493,7 @@ Example (for ISIS with three images)::
 
      stereo file1.cub file2.cub file3.cub results/run
 
-Example (for Digital Globe data with three map-projected images)::
+Example (for DigitalGlobe/Maxar data with three map-projected images)::
 
      stereo file1.tif file2.tif file3.tif file1.xml file2.xml file3.xml \
        results/run input-DEM.tif

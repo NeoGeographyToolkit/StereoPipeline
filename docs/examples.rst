@@ -716,10 +716,10 @@ followed by mapprojecting onto it and redoing stereo::
 
 .. _digital_globe_data:
 
-Digital Globe Images
+DigitalGlobe/Maxar Images
 ---------------------
 
-Processing of Digital Globe images is described extensively in the
+Processing of DigitalGlobe/Maxar images is described extensively in the
 tutorial in :numref:`dg_tutorial`.
 
 .. _rpc:
@@ -730,7 +730,7 @@ RPC Images, including GeoEye, Astrium, Cartosat-1, and PeruSat-1
 Some vendors, such as GeoEye with its Ikonos and two GeoEye satellites,
 and Astrium, with its SPOT and Pleiades satellites, the Indian
 Cartosat-1 satellite provide only Rational Polynomial Camera (RPC)
-models. Digital Globe provides both exact linescan camera models and
+models. DigitalGlobe/Maxar provides both exact linescan camera models and
 their RPC approximations and ASP supports both. Apparently such is the
 case as well for PeruSat-1, but ASP supports only the RPC model for this
 satellite.
@@ -758,12 +758,12 @@ likely be able to see it as well. This means that sometimes we can get
 away with only providing a left and right image, with no extra files
 containing camera information. This is specifically the case for GeoEye,
 and Cartosat-1. Otherwise, the camera files must be specified separately
-in XML files, as done for Digital Globe images (:numref:`rawdg`) and PeruSat-1.
+in XML files, as done for DigitalGlobe/Maxar images (:numref:`rawdg`) and PeruSat-1.
 
 For a first test, you can download an example stereo pair from GeoEye’s
 website at :cite:`geoeye:samples`. When we accessed the
 site, we downloaded a GeoEye-1 image of Hobart, Australia. As previously
-stated in the Digital Globe section, these types of images are not ideal
+stated in the DigitalGlobe/Maxar section, these types of images are not ideal
 for ASP. This is both a forest and a urban area which makes correlation
 difficult. ASP was designed more for modeling bare rock and ice. Any
 results we produce in other environments is a bonus but is not our

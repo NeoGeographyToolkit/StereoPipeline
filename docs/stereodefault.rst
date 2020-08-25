@@ -641,7 +641,7 @@ compute-error-vector (default = false)
     the North-East-Down coordinate system.
 
     The next several parameters are used for jitter correction for
-    Digital Globe images. A usage tutorial is given in :numref:`jitter`.
+    DigitalGlobe/Maxar images. A usage tutorial is given in :numref:`jitter`.
 
 image-lines-per-piecewise-adjustment (*integer*) (default = 0)
     A positive value, e.g., 1000, will turn on using piecewise camera
