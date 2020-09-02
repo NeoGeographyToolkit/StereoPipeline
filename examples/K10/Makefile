@@ -16,7 +16,7 @@ $(PREFIX)-F-H.tif: $(PREFIX)-PC.tif
 	cd $(RESULTSDIR); disparitydebug $(OUT)-F.tif
 
 $(PREFIX).ive: $(PREFIX)-PC.tif
-	cd $(RESULTSDIR); point2mesh -s 1 $(OUT)-PC.tif $(OUT)-L.tif
+	cd $(RESULTSDIR); point2mesh -s 2 $(OUT)-PC.tif $(OUT)-L.tif
 
 clean:
 	rm -rf $(RESULTSDIR)
