@@ -33,7 +33,7 @@ Not every combination of datums has been tested so be careful when using this to
 '''
 
 import sys, subprocess
-import os, glob, re, shutil, string, time, errno, optparse, math
+import os, glob, re, shutil, string, time, errno, argparse, math
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -272,95 +272,90 @@ def main(argsIn):
         return -1
 
     try:
-        try:
-            # Get the help text from the base C++ tool so we can append it to the python help
-            cmd = ['datum_convert_cpp',  '--help']
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-            baseHelp, err = p.communicate()
-        except OSError:
-            print("Error: Unable to find required datum_convert_cpp tool!")
-            return -1
+        # Get the help text from the base C++ tool so we can append it to the python help
+        cmd = ['datum_convert_cpp',  '--help']
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        baseHelp, err = p.communicate()
+    except OSError:
+        print("Error: Unable to find required datum_convert_cpp tool!")
+        return -1
 
-        # Extract the version and help text
-        vStart       = baseHelp.find('[ASP')
-        vEnd         = baseHelp.find(']', vStart)+1
-        version      = baseHelp[vStart:vEnd]
-        baseHelpRaw  = baseHelp[vEnd:]
-        baseHelpText = ''
-        
-        # Filter out some lines from the c++ help text that we want to hide from the user.
-        next = False
-        for line in baseHelpRaw.split('\n'):
-            if next:
-                next = False
-                continue
-            if ('-h [ --help ]' in line) or ('--version' in line):
-                continue
-            if ('--input-grid' in line) or ('--output-info-string' in line):
-                next = True
-                continue
-            baseHelpText += line + '\n'
+    # Extract the version and help text
+    vStart       = baseHelp.find('[ASP')
+    vEnd         = baseHelp.find(']', vStart)+1
+    version      = baseHelp[vStart:vEnd]
+    baseHelpRaw  = baseHelp[vEnd:]
+    baseHelpText = ''
+    
+    # Filter out some lines from the c++ help text that we want to hide from the user.
+    next = False
+    for line in baseHelpRaw.split('\n'):
+        if next:
+            next = False
+            continue
+        if ('-h [ --help ]' in line) or ('--version' in line):
+            continue
+        if ('--input-grid' in line) or ('--output-info-string' in line):
+            next = True
+            continue
+        baseHelpText += line + '\n'
 
-        # Use parser that ignores unknown options
-        usage  = "usage: datum_convert [options] <input_dem> <output_dem>"
-        parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog=baseHelpText)
+    # Use parser that ignores unknown options
+    usage  = "datum_convert [options] <input_dem> <output_dem>"
+    parser = argparse.ArgumentParser(usage=usage, epilog=baseHelpText,
+                                     formatter_class=argparse.RawTextHelpFormatter)
 
-        # These two options are duplicated in the cpp file but we also want to use them
-        #  in the python script.
-        parser.add_option('--output-datum',  dest='output_datum_name', default='',
-                 help=optparse.SUPPRESS_HELP)
-        parser.add_option('--input-datum',  dest='input_datum_name', default='',
-                 help=optparse.SUPPRESS_HELP)
-        parser.add_option('--t_srs',  dest='target_srs_string', default='',
-                 help=optparse.SUPPRESS_HELP)
+    # These two options are duplicated in the cpp file but we also want to use them
+    #  in the python script.
+    parser.add_argument('--output-datum',  dest='output_datum_name', default='',
+              help=argparse.SUPPRESS)
+    parser.add_argument('--input-datum',  dest='input_datum_name', default='',
+              help=argparse.SUPPRESS)
+    parser.add_argument('--t_srs',  dest='target_srs_string', default='',
+              help=argparse.SUPPRESS)
 
-        parser.add_option("--input-datum-year", dest="input_datum_year", default='2000.0',
-               help="The year to evaluate the input datum, fractional format.",type="float")
+    parser.add_argument("--input-datum-year", dest="input_datum_year", default='2000.0',
+            help="The year to evaluate the input datum, fractional format.",type=float)
 
-        parser.add_option("--output-datum-year", dest="output_datum_year", default='2000.0',
-               help="The year to evaluate the output datum, fractional format.",type="float")
+    parser.add_argument("--output-datum-year", dest="output_datum_year", default='2000.0',
+            help="The year to evaluate the output datum, fractional format.",type=float)
 
-        parser.add_option("--grid-size-lon", dest="grid_size_lon", default='256',
-               help="Number of posts in longitude direction for grid correction file.",type="float")
-               
-        parser.add_option("--grid-size-lat", dest="grid_size_lat", default='256',
-               help="Number of posts in latitude direction for grid correction file.",type="float")
+    parser.add_argument("--grid-size-lon", dest="grid_size_lon", default='256',
+            help="Number of posts in longitude direction for grid correction file.",type=float)
 
-        parser.add_option("--show-grid-calc", action="store_true", default=False,
-                 dest="show_grid_calc",  help="Display the output of the grid creation step.")
-        parser.add_option("--keep-working-files", action="store_true", default=False,
-                 dest="keep_temp_files",  help="Suppress output of sub-calls.")
-                 
-        parser.add_option("--show-all-datums", action="store_true", default=False,
-                 dest="show_all_datums",  help="Display a list of all recognized datums.")
+    parser.add_argument("--grid-size-lat", dest="grid_size_lat", default='256',
+            help="Number of posts in latitude direction for grid correction file.",type=float)
 
-        # This call handles all the parallel_mapproject specific options.
-        (options, args) = parser.parse_args(argsIn)
+    parser.add_argument("--show-grid-calc", action="store_true", default=False,
+              dest="show_grid_calc",  help="Display the output of the grid creation step.")
+    parser.add_argument("--keep-working-files", action="store_true", default=False,
+              dest="keep_temp_files",  help="Suppress output of sub-calls.")
 
-        # This will parse all the mapproject options.
-        requiredList, optionsList = handleArguments(args)
+    parser.add_argument("--show-all-datums", action="store_true", default=False,
+              dest="show_all_datums",  help="Display a list of all recognized datums.")
 
-        if options.show_all_datums:
-            printFullDatumList()
-            return 0
+    (options, args) = parser.parse_known_args(argsIn)
 
-        # Check the required positional arguments.
-        if len(requiredList) < 2:
-            parser.print_help()
-            parser.error("Missing input/output DEMs.\n" );
+    requiredList, optionsList = handleArguments(args)
 
-        if (not options.output_datum_name) and (not options.target_srs_string):
-            parser.print_help()
-            parser.error("Need to specify --output-datum or --t_srs.\n" );
+    if options.show_all_datums:
+        printFullDatumList()
+        return 0
 
-        options.input_image  = requiredList[0]
-        options.output_image = requiredList[1]
+    # Check the required positional arguments.
+    if len(requiredList) < 2:
+        parser.print_help()
+        parser.error("Missing input/output DEMs.\n" );
 
-        # Any additional arguments need to be forwarded to the datum_convert_cpp function
-        options.extraArgs = optionsList
+    if (not options.output_datum_name) and (not options.target_srs_string):
+        parser.print_help()
+        parser.error("Need to specify --output-datum or --t_srs.\n" );
 
-    except optparse.OptionError as msg:
-        raise Usage(msg)
+    options.input_image  = requiredList[0]
+    options.output_image = requiredList[1]
+
+    # Any additional arguments need to be forwarded to the datum_convert_cpp function
+    options.extraArgs = optionsList
 
     # Get the proj string from the input file
     input_image_info  = asp_geo_utils.getImageGeoInfo(options.input_image, getStats=False)
@@ -374,11 +369,11 @@ def main(argsIn):
 
     grid_path = os.path.abspath(options.output_image + '_temp_grid.ct2')
     (use_grid, grid_path) = createShiftFile(input_proj_string, lonlat_bounds, options, grid_path)
-            
+
     print('Converting image datum...')
 
     cmd = ('datum_convert_cpp %s %s ' % (options.input_image, options.output_image))
-    
+
     if use_grid:  # Append the grid command to the input grid.
         cmd += ' --input-grid "+nadgrids=' + grid_path + '"'
 
@@ -386,7 +381,7 @@ def main(argsIn):
     output_info_string = ''
     if options.input_datum_name:
         cmd += " --input-datum " + getCppName(options.input_datum_name)
-        
+
     if options.output_datum_name:
         cmd += " --output-datum " + getCppName(options.output_datum_name)
         output_info_string += 'Name: ' + options.output_datum_name + ', '
@@ -401,14 +396,14 @@ def main(argsIn):
         cmd += ' ' + o
     print(cmd)
     os.system(cmd)
-    
+
     print('Conversion complete!')
-    
+
     # Cleanup grid files we generated ourself, not ASP-packaged files.
     if use_grid and (not options.keep_temp_files) and grid_path[0] != '@':
         print('Removing temporary files...')
         os.remove(grid_path)
-        
+
     print('Finished!')
 
 

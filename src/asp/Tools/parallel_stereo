@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-import sys, optparse, subprocess, re, os, math, time, tempfile, glob,\
+import sys, argparse, subprocess, re, os, math, time, tempfile, glob,\
        shutil, math
 import os.path as P
 
@@ -565,61 +565,61 @@ if __name__ == '__main__':
     # Those scripts in turn start actual jobs on those nodes.
     # For the other steps, the script does the work itself.
 
-    p = PassThroughOptionParser(usage=usage)
-    p.add_option('--nodes-list',           dest='nodes_list', default=None,
-                 help='The list of computing nodes, one per line. ' + \
-                 'If not provided, run on the local machine.')
-    p.add_option('--ssh',                  dest='ssh', default=None,
-                 help='The path to ssh program to use to connect to other nodes')
-    p.add_option('--processes',            dest='processes', default=None,
-                 type='int', help='The number of processes to use per node.')
-    p.add_option('--threads-multiprocess', dest='threads_multi', default=None,
-                 type='int', help='The number of threads to use per process.')
-    p.add_option('--threads-singleprocess',dest='threads_single', default=None,
-                 type='int',
-                 help='The number of threads to use when running a single process (PPRC and FLTR).')
-    p.add_option('--corr-seed-mode',       dest='seed_mode', default=None,
-                 help='Correlation seed strategy. See stereo_corr for options.',
-                 type='int')
-    p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
-                 help='Stereo Pipeline entry point (an integer from 0-5).',
-                 type='int')
-    p.add_option('--stop-point',           dest='stop_point',  default=6,
-                 help='Stereo Pipeline stop point (an integer from 1-6).',
-                 type='int')
-    p.add_option('--job-size-w',           dest='job_size_w',  default=2048,
-                 help='Pixel width of input image tile for a single process.',
-                 type='int')
-    p.add_option('--job-size-h',           dest='job_size_h',  default=2048,
-                 help='Pixel height of input image tile for a single process.',
-                 type='int')
-    p.add_option('--sparse-disp-options', dest='sparse_disp_options',
-                 help='Options to pass directly to sparse_disp.')
-    p.add_option('-v', '--version',        dest='version', default=False,
-                 action='store_true', help='Display the version of software.')
-    p.add_option('-s', '--stereo-file',    dest='stereo_file', default='./stereo.default',
-                 help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
-    p.add_option('--verbose', dest='verbose', default=False, action='store_true',
-                 help='Display the commands being executed.')
+    p = argparse.ArgumentParser(usage=usage)
+    p.add_argument('--nodes-list',           dest='nodes_list', default=None,
+                   help='The list of computing nodes, one per line. ' + \
+                   'If not provided, run on the local machine.')
+    p.add_argument('--ssh',                  dest='ssh', default=None,
+                   help='The path to ssh program to use to connect to other nodes')
+    p.add_argument('--processes',            dest='processes', default=None,
+                   type=int, help='The number of processes to use per node.')
+    p.add_argument('--threads-multiprocess', dest='threads_multi', default=None,
+                   type=int, help='The number of threads to use per process.')
+    p.add_argument('--threads-singleprocess',dest='threads_single', default=None,
+                   type=int,
+                   help='The number of threads to use when running a single process (PPRC and FLTR).')
+    p.add_argument('--corr-seed-mode',       dest='seed_mode', default=None,
+                   help='Correlation seed strategy. See stereo_corr for options.',
+                   type=int)
+    p.add_argument('-e', '--entry-point',    dest='entry_point', default=0,
+                   help='Stereo Pipeline entry point (an integer from 0-5).',
+                   type=int)
+    p.add_argument('--stop-point',           dest='stop_point',  default=6,
+                   help='Stereo Pipeline stop point (an integer from 1-6).',
+                   type=int)
+    p.add_argument('--job-size-w',           dest='job_size_w',  default=2048,
+                   help='Pixel width of input image tile for a single process.',
+                   type=int)
+    p.add_argument('--job-size-h',           dest='job_size_h',  default=2048,
+                   help='Pixel height of input image tile for a single process.',
+                   type=int)
+    p.add_argument('--sparse-disp-options', dest='sparse_disp_options',
+                   help='Options to pass directly to sparse_disp.')
+    p.add_argument('-v', '--version',        dest='version', default=False,
+                   action='store_true', help='Display the version of software.')
+    p.add_argument('-s', '--stereo-file',    dest='stereo_file', default='./stereo.default',
+                   help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
+    p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
+                   help='Display the commands being executed.')
 
     # Internal variables below.
     # The id of the tile to process, 0 <= tile_id < num_tiles.
-    p.add_option('--tile-id', dest='tile_id', default=None, type='int',
-                 help=optparse.SUPPRESS_HELP)
+    p.add_argument('--tile-id', dest='tile_id', default=None, type=int,
+                   help=argparse.SUPPRESS)
     # Directory where the job is running
-    p.add_option('--work-dir', dest='work_dir', default=None,
-                 help=optparse.SUPPRESS_HELP)
+    p.add_argument('--work-dir', dest='work_dir', default=None,
+                   help=argparse.SUPPRESS)
     # ISIS settings
-    p.add_option('--isisroot', dest='isisroot', default=None,
-                 help=optparse.SUPPRESS_HELP)
-    p.add_option('--isisdata', dest='isisdata', default=None,
-                 help=optparse.SUPPRESS_HELP)
+    p.add_argument('--isisroot', dest='isisroot', default=None,
+                   help=argparse.SUPPRESS)
+    p.add_argument('--isisdata', dest='isisdata', default=None,
+                   help=argparse.SUPPRESS)
     # Debug options
-    p.add_option('--dry-run', dest='dryrun', default=False, action='store_true',
-                 help=optparse.SUPPRESS_HELP)
+    p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
+                   help=argparse.SUPPRESS)
 
     global opt
-    (opt, args) = p.parse_args()
+    (opt, args) = p.parse_known_args()
     args = clean_args(args)
 
     if opt.version:

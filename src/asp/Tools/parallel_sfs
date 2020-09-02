@@ -23,7 +23,7 @@ into tiles with padding, sfs runs on each tile, and the outputs are mosaicked.
 '''
 
 import sys
-import os, glob, re, shutil, subprocess, string, time, errno, optparse, math
+import os, glob, re, shutil, subprocess, string, time, errno, argparse, math
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -220,95 +220,93 @@ def write_cmd_output(output_prefix, cmd, out, err, status):
         f.write(out)
         f.write(err)
         f.write('Command return status: ' + str(status))
-    
+
 def main(argsIn):
 
     cameras = []
     sfsPath = asp_system_utils.bin_path('sfs')
+
     try:
-        try:
-            # Get the help text from the base C++ tool so we can append it to the python help
-            cmd = [sfsPath,  '--help']
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
-            baseHelp, err = p.communicate()
-        except OSError:
-            print("Error: Unable to find the required sfs tool!")
-            return -1
+        # Get the help text from the base C++ tool so we can append it to the python help
+        cmd = [sfsPath,  '--help']
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+        baseHelp, err = p.communicate()
+    except OSError:
+        print("Error: Unable to find the required sfs tool!")
+        return -1
 
-        # Extract the version and help text
-        vStart = baseHelp.find('[ASP')
-        vEnd   = baseHelp.find(']', vStart)+1
-        version = baseHelp[vStart:vEnd]
-        baseHelpText = baseHelp[vEnd:]
+    # Extract the version and help text
+    vStart  = baseHelp.find('[ASP')
+    vEnd    = baseHelp.find(']', vStart)+1
+    version = baseHelp[vStart:vEnd]
+    baseHelpText = baseHelp[vEnd:]
 
-        # Use parser that ignores unknown options
-        usage  = "usage: parallel_sfs -i <input DEM> -n <max iterations> -o <output prefix> <images> [other options]"
+    # Use parser that ignores unknown options
+    usage  = "parallel_sfs -i <input DEM> -n <max iterations> -o <output prefix> <images> [other options]"
 
-        parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog=baseHelpText)
+    parser = argparse.ArgumentParser(usage=usage, epilog=baseHelpText,
+                                     formatter_class=argparse.RawTextHelpFormatter)
 
-        parser.add_option('-i', '--input-dem',  dest='input_dem', default='',
-                     help='The input DEM to refine using SfS.')
-        
-        parser.add_option('-o', '--output-prefix',  dest='output_prefix', default='',
-                     help='Prefix for output filenames.')
-        
+    parser.add_argument('-i', '--input-dem',  dest='input_dem', default='',
+                  help='The input DEM to refine using SfS.')
 
-        parser.add_option('--tile-size',  dest='tileSize', default=300, type='int',
-                                           help='Size of approximately square tiles to break up processing into (not counting the padding).')
+    parser.add_argument('-o', '--output-prefix',  dest='output_prefix', default='',
+                  help='Prefix for output filenames.')
 
-        parser.add_option('--padding',  dest='padding', default=50, type='int',
-                                           help='How much to expand a tile in each direction. This helps with reducing artifacts in the final mosaicked SfS output.')
+    parser.add_argument('--tile-size',  dest='tileSize', default=300, type=int,
+                                        help='Size of approximately square tiles to break up processing into (not counting the padding).')
 
-        parser.add_option("--num-processes",  dest="numProcesses", type='int', default=None,
-                                              help="Number of processes to use per machine (the default program tries to choose best).")
+    parser.add_argument('--padding',  dest='padding', default=50, type=int,
+                                        help='How much to expand a tile in each direction. This helps with reducing artifacts in the final mosaicked SfS output.')
 
-        parser.add_option('--nodes-list',  dest='nodesListPath', default=None,
-                                           help='A file containing the list of computing nodes, one per line. If not provided, run on the local machine.')
+    parser.add_argument("--num-processes",  dest="numProcesses", type=int, default=None,
+                                          help="Number of processes to use per machine (the default program tries to choose best).")
 
-        parser.add_option('--threads',  dest='threads', default=1, type='int',
-                          help='How many threads each process should use. The sfs executable is single-threaded in most of its execution, so a large number will not help here.')
+    parser.add_argument('--nodes-list',  dest='nodesListPath', default=None,
+                                        help='A file containing the list of computing nodes, one per line. If not provided, run on the local machine.')
 
-        parser.add_option("--resume", action="store_true", default=False,
-                          dest="resume", help="Only run tiles for which the final DEM is missing or invalid.")
+    parser.add_argument('--threads',  dest='threads', default=1, type=int,
+                      help='How many threads each process should use. The sfs executable is single-threaded in most of its execution, so a large number will not help here.')
 
-        parser.add_option("--suppress-output", action="store_true", default=False,
-                                               dest="suppressOutput",  help="Suppress output of sub-calls.")
+    parser.add_argument("--resume", action="store_true", default=False,
+                      dest="resume", help="Only run tiles for which the final DEM is missing or invalid.")
 
-        # Private options
-        # These specify the tile location to request, bypassing the need to query mapproject.
-        parser.add_option('--pixelStartX', dest='pixelStartX', default=None, type='int',
-                                           help=optparse.SUPPRESS_HELP)
-        parser.add_option('--pixelStartY', dest='pixelStartY', default=None, type='int',
-                                           help=optparse.SUPPRESS_HELP)
-        parser.add_option('--pixelStopX',  dest='pixelStopX', default=None, type='int',
-                                           help=optparse.SUPPRESS_HELP)
-        parser.add_option('--pixelStopY',  dest='pixelStopY', default=None, type='int',
-                                           help=optparse.SUPPRESS_HELP)
+    parser.add_argument("--suppress-output", action="store_true", default=False,
+                                            dest="suppressOutput",  help="Suppress output of sub-calls.")
+
+    # Private options
+    # These specify the tile location to request, bypassing the need to query mapproject.
+    parser.add_argument('--pixelStartX', dest='pixelStartX', default=None, type=int,
+                                        help=argparse.SUPPRESS)
+    parser.add_argument('--pixelStartY', dest='pixelStartY', default=None, type=int,
+                                        help=argparse.SUPPRESS)
+    parser.add_argument('--pixelStopX',  dest='pixelStopX', default=None, type=int,
+                                        help=argparse.SUPPRESS)
+    parser.add_argument('--pixelStopY',  dest='pixelStopY', default=None, type=int,
+                                        help=argparse.SUPPRESS)
 
 
-        # This call handles all the parallel_sfs specific options.
-        (options, args) = parser.parse_args(argsIn)
+    # This call handles all the parallel_sfs specific options.
+    (options, args) = parser.parse_known_args(argsIn)
 
-        # This will parse all the parallel_sfs options.
-        cameras, optionsList = handleArguments(args)
+    # This will parse all the parallel_sfs options.
+    cameras, optionsList = handleArguments(args)
 
-        # The parallel_sfs tool must not take the option --crop-win as it will
-        # work on the entire input DEM.
-        if '--crop-win' in argsIn:
-            parser.print_help()
-            parser.error("parallel_sfs cannot take the --crop-win option. " +
-                         "Use the sfs tool directly if this is desired.\n" );
+    # The parallel_sfs tool must not take the option --crop-win as it will
+    # work on the entire input DEM.
+    if '--crop-win' in argsIn:
+        parser.print_help()
+        parser.error("parallel_sfs cannot take the --crop-win option. " +
+                      "Use the sfs tool directly if this is desired.\n" );
 
-        # Check the cameras.
-        if len(cameras) < 1:
-            parser.print_help()
-            parser.error("Missing inputs.\n" );
+    # Check the cameras.
+    if len(cameras) < 1:
+        parser.print_help()
+        parser.error("Missing inputs.\n" );
 
-        # Any additional arguments need to be forwarded to the sfs function
-        options.extraArgs = optionsList
+    # Any additional arguments need to be forwarded to the sfs function
+    options.extraArgs = optionsList
 
-    except optparse.OptionError as msg:
-        raise Usage(msg)
 
     # Pass to the sfs executable the -i and -o options we filtered out
     options.extraArgs = ['-i', options.input_dem, '-o', options.output_prefix,

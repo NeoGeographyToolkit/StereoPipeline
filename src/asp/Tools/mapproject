@@ -23,7 +23,7 @@ greatly increase the speed of map projecting ISIS images.
 '''
 
 import sys
-import os, glob, re, shutil, subprocess, string, time, errno, optparse, math
+import os, glob, re, shutil, subprocess, string, time, errno, argparse, math
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -177,7 +177,7 @@ def writeSingleTile(options):
 # of the output tif file has been competed. Otherwise something wipes it.
 def maybe_copy_rpc(inputPath, outputPath):
     for ext in ['_RPC.TXT', '_rpc.txt', '.RPB', '.rpb']:
-        input_rpc = os.path.splitext(inputPath)[0] + ext
+        input_rpc  = os.path.splitext(inputPath )[0] + ext
         output_rpc = os.path.splitext(outputPath)[0] + ext
         if os.path.exists(input_rpc):
             print("Copied " + input_rpc + " to " + output_rpc)
@@ -187,97 +187,95 @@ def main(argsIn):
 
     relOutputPath = ""
     try:
-        try:
-            # Get the help text from the base C++ tool so we can append it to the python help
-            cmd = ['mapproject_single',  '--help']
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
-            baseHelp, err = p.communicate()
-        except OSError:
-            print("Error: Unable to find required mapproject_single tool!")
-            return -1
+        # Get the help text from the base C++ tool so we can append it to the python help
+        cmd = ['mapproject_single',  '--help']
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+        baseHelp, err = p.communicate()
+    except OSError:
+        print("Error: Unable to find required mapproject_single tool!")
+        return -1
 
-        # Extract the version and help text
-        vStart = baseHelp.find('[ASP')
-        vEnd   = baseHelp.find(']', vStart)+1
-        version = baseHelp[vStart:vEnd]
-        baseHelpText = baseHelp[vEnd:]
+    # Extract the version and help text
+    vStart  = baseHelp.find('[ASP')
+    vEnd    = baseHelp.find(']', vStart)+1
+    version = baseHelp[vStart:vEnd]
+    baseHelpText = baseHelp[vEnd:]
 
-        # Use parser that ignores unknown options
-        usage  = "usage: mapproject [options] <dem> <camera-image> <camera-model> <output-image>\nInstead of the DEM file, a datum can be provided, such as\nWGS84, NAD83, NAD27, D_MOON, D_MARS, and MOLA."
-        parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog=baseHelpText)
+    # Use parser that ignores unknown options
+    usage  = "mapproject [options] <dem> <camera-image> <camera-model> <output-image>\nInstead of the DEM file, a datum can be provided, such as\nWGS84, NAD83, NAD27, D_MOON, D_MARS, and MOLA."
+    parser = argparse.ArgumentParser(usage=usage, epilog=baseHelpText,
+                                     formatter_class=argparse.RawTextHelpFormatter)
 
-        parser.add_option("--num-processes",  dest="numProcesses", type='int', default=None,
-                                              help="Number of processes per machine to use (default program tries to choose best)")
+    parser.add_argument("--num-processes",  dest="numProcesses", type=int, default=None,
+                        help="Number of processes per machine to use (default program tries to choose best)")
 
-        parser.add_option('--nodes-list',  dest='nodesListPath', default=None,
-                                           help='The list of computing nodes, one per line. ' + \
-                                                'If not provided, run on the local machine.')
+    parser.add_argument('--nodes-list',  dest='nodesListPath', default=None,
+                                         help='The list of computing nodes, one per line. ' + \
+                                         'If not provided, run on the local machine.')
 
-        parser.add_option('--tile-size',  dest='tileSize', default=1024, type='int',
-                                           help='Size of square tiles to break up processing into.')
+    parser.add_argument('--tile-size',  dest='tileSize', default=1024, type=int,
+                                        help='Size of square tiles to break up processing into.')
 
-        # Directory where the job is running
-        parser.add_option('--work-dir',  dest='workDir', default=None,
-                                         help='Working directory to assemble the tiles in')
+    # Directory where the job is running
+    parser.add_argument('--work-dir',  dest='workDir', default=None,
+                                        help='Working directory to assemble the tiles in')
 
-        parser.add_option("--suppress-output", action="store_true", default=False,
-                                               dest="suppressOutput",  help="Suppress output of sub-calls.")
+    parser.add_argument("--suppress-output", action="store_true", default=False,
+                        dest="suppressOutput",  help="Suppress output of sub-calls.")
 
-        parser.add_option("--no-geoheader-info", action="store_true", default=False,
-                          dest="noGeoHeaderInfo",  help="Suppress writing some auxialliary information in geoheaders.")
+    parser.add_argument("--no-geoheader-info", action="store_true", default=False,
+                      dest="noGeoHeaderInfo",
+                      help="Suppress writing some auxialliary information in geoheaders.")
 
-        # DEBUG options
-        parser.add_option("--keep", action="store_true", dest="keep", default=False,
-                                    help="Do not delete the temporary files.")
-        parser.add_option("--convert-tiles",  action="store_true", dest="convertTiles",
-                                              help="Generate a uint8 version of each tile")
-
-
-        # PRIVATE options
-        # These specify the tile location to request, bypassing the need to query mapproject.
-        parser.add_option('--pixelStartX', dest='pixelStartX', default=None, type='int',
-                                           help=optparse.SUPPRESS_HELP)
-        parser.add_option('--pixelStartY', dest='pixelStartY', default=None, type='int',
-                                           help=optparse.SUPPRESS_HELP)
-        parser.add_option('--pixelStopX',  dest='pixelStopX', default=None, type='int',
-                                           help=optparse.SUPPRESS_HELP)
-        parser.add_option('--pixelStopY',  dest='pixelStopY', default=None, type='int',
-                                           help=optparse.SUPPRESS_HELP)
+    # DEBUG options
+    parser.add_argument("--keep", action="store_true", dest="keep", default=False,
+                                  help="Do not delete the temporary files.")
+    parser.add_argument("--convert-tiles",  action="store_true", dest="convertTiles",
+                                            help="Generate a uint8 version of each tile")
 
 
-        # This call handles all the parallel_mapproject specific options.
-        (options, args) = parser.parse_args(argsIn)
+    # PRIVATE options
+    # These specify the tile location to request, bypassing the need to query mapproject.
+    parser.add_argument('--pixelStartX', dest='pixelStartX', default=None, type=int,
+                                         help=argparse.SUPPRESS)
+    parser.add_argument('--pixelStartY', dest='pixelStartY', default=None, type=int,
+                                         help=argparse.SUPPRESS)
+    parser.add_argument('--pixelStopX',  dest='pixelStopX', default=None, type=int,
+                                         help=argparse.SUPPRESS)
+    parser.add_argument('--pixelStopY',  dest='pixelStopY', default=None, type=int,
+                                         help=argparse.SUPPRESS)
 
-        # This will parse all the mapproject options.
-        requiredList, optionsList = handleArguments(args)
 
-        # Check the required positional arguments.
-        if len(requiredList) < 1:
-            parser.print_help()
-            parser.error("Missing input DEM.\n" );
-        if len(requiredList) < 2:
-            parser.print_help()
-            parser.error("Missing input image.\n" );
-        if len(requiredList) < 3:
-            parser.print_help()
-            parser.error("Missing output filename.\n" );
+    # This call handles all the parallel_mapproject specific options.
+    (options, args) = parser.parse_known_args(argsIn)
 
-        options.demPath    = requiredList[0]
-        options.imagePath  = requiredList[1]
-        if len(requiredList) == 3:
-            options.cameraPath = ''
-            relOutputPath = requiredList[2]
-            options.outputPath = relOutputPath
-        else: # == 4
-            relOutputPath = requiredList[3]
-            options.cameraPath = requiredList[2]
-            options.outputPath = relOutputPath
+    # This will parse all the mapproject options.
+    requiredList, optionsList = handleArguments(args)
 
-        # Any additional arguments need to be forwarded to the mapproject function
-        options.extraArgs = optionsList
+    # Check the required positional arguments.
+    if len(requiredList) < 1:
+        parser.print_help()
+        parser.error("Missing input DEM.\n" );
+    if len(requiredList) < 2:
+        parser.print_help()
+        parser.error("Missing input image.\n" );
+    if len(requiredList) < 3:
+        parser.print_help()
+        parser.error("Missing output filename.\n" );
 
-    except optparse.OptionError as msg:
-        raise Usage(msg)
+    options.demPath    = requiredList[0]
+    options.imagePath  = requiredList[1]
+    if len(requiredList) == 3:
+        options.cameraPath = ''
+        relOutputPath = requiredList[2]
+        options.outputPath = relOutputPath
+    else: # == 4
+        relOutputPath = requiredList[3]
+        options.cameraPath = requiredList[2]
+        options.outputPath = relOutputPath
+
+    # Any additional arguments need to be forwarded to the mapproject function
+    options.extraArgs = optionsList
 
     startTime = time.time()
 
@@ -469,12 +467,12 @@ def main(argsIn):
                 break
             if not isGood:
                 continue
-            
+
             m = re.match("^\s*(.*?)\s*=\s*(.*?)\s*$", gdal_settings[v])
             if not m:
                 continue
             meta_dict[m.group(1)] = m.group(2)
-            
+
         meta = ["  <Metadata>\n"]
         for v in sorted(meta_dict.keys()):
             line = "    <MDI key=\"" + v + "\">" + meta_dict[v] + "</MDI>\n"
@@ -491,7 +489,8 @@ def main(argsIn):
         f.close()
 
     # Convert VRT file to final output file
-    cmd = "gdal_translate -co compress=lzw -co bigtiff=yes -co TILED=yes -co INTERLEAVE=BAND -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 " + vrtPath + " " + options.outputPath;
+    cmd = ("gdal_translate -co compress=lzw -co bigtiff=yes -co TILED=yes -co INTERLEAVE=BAND -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 "
+           + vrtPath + " " + options.outputPath)
     print(cmd)
     ans = os.system(cmd)
 

@@ -80,24 +80,6 @@ def clean_args(args):
         argsout.append(arg.replace('//','/'))
     return argsout
 
-# Custom option parser that will ignore unknown options
-class PassThroughOptionParser(optparse.OptionParser):
-    def _process_args( self, largs, rargs, values ):
-
-        rargs=escape_vals(rargs)
-        largs=escape_vals(largs)
-
-        while rargs:
-            try:
-                optparse.OptionParser._process_args(self,largs,rargs,values)
-            except (optparse.BadOptionError) as e:
-                if sys.version_info < (2, 6, 0):
-                    # Port to Python 2.4
-                    p = re.match("^.*?no such option:\s*(.*?)$", e.msg)
-                    if p:
-                        largs.append(p.group(1))
-                else:
-                    largs.append(e.opt_str)
 
 # TODO: Move this to asp_system_utils
 # A very simple wrapper around subprocess
@@ -105,7 +87,7 @@ def generic_run(cmd, verbose):
     cmd_str = asp_string_utils.argListToString(cmd)
     if verbose:
         print(cmd_str)
-        
+
     try:
         code = subprocess.call(cmd)
     except OSError as e:
@@ -156,7 +138,7 @@ def set_option(options, opt, new_values):
 # This is a bugfix for OpenBLAS on the Mac. It cannot handle
 # too many threads.
 def reduce_num_threads_in_pprc(cmd):
-    
+
     prog = cmd[0]
     if os.path.basename(prog) == 'stereo_pprc' and sys.platform == 'darwin':
 

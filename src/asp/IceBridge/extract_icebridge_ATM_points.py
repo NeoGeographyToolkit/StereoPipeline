@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, os, optparse
+import sys, os, argparse
 
 # The path to the ASP qi2txt file
 basepath    = os.path.abspath(sys.path[0])
@@ -101,10 +101,9 @@ def main(argsIn):
 
     # Use parser that ignores unknown options
     usage  = "usage: " + os.path.basename(__file__) + " <input cloud>"
-    parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog="")
+    parser = argparse.ArgumentParser(usage=usage, epilog="")
 
-    # This call handles all the parallel_mapproject specific options.
-    (options, args) = parser.parse_args(argsIn)
+    (options, args) = parser.parse_known_args(argsIn)
 
     if len(args) < 1:
         parser.print_help()

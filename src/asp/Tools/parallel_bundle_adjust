@@ -22,7 +22,7 @@
 # find them in the subdirectory for each subtask even though they
 # exist in the final location.
 
-import sys, optparse, subprocess, re, os, math, time, tempfile, glob,\
+import sys, argparse, subprocess, re, os, math, time, tempfile, glob,\
        shutil, math, copy
 import os.path as P
 
@@ -36,14 +36,6 @@ sys.path.insert(0, libexecpath)
 
 import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()
-
-# The path to the ASP python files
-basepath    = os.path.abspath(sys.path[0])
-pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
-libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
-sys.path.insert(0, basepath) # prepend to Python path
-sys.path.insert(0, pythonpath)
-sys.path.insert(0, libexecpath)
 
 from stereo_utils import * # must be after the path is altered above
 
@@ -278,46 +270,46 @@ if __name__ == '__main__':
     # Those scripts in turn start actual jobs on those nodes.
     # For step 3 (optimization), the script does the work itself.
 
-    p = PassThroughOptionParser(usage=usage)
-    p.add_option('--nodes-list',           dest='nodes_list', default=None,
+    p = argparse.ArgumentParser(usage=usage)
+    p.add_argument('--nodes-list',           dest='nodes_list', default=None,
                  help='The list of computing nodes, one per line. ' + \
                  'If not provided, run on the local machine.')
-    p.add_option('--processes',            dest='processes', default=None,
-                 type='int', help='The number of processes to use per node.')
-    p.add_option('--threads-multiprocess', dest='threads_multi', default=None,
-                 type='int', help='The number of threads to use per process.')
-    p.add_option('--threads-singleprocess',dest='threads_single', default=None,
-                 type='int',
+    p.add_argument('--processes',            dest='processes', default=None,
+                 type=int, help='The number of processes to use per node.')
+    p.add_argument('--threads-multiprocess', dest='threads_multi', default=None,
+                 type=int, help='The number of threads to use per process.')
+    p.add_argument('--threads-singleprocess',dest='threads_single', default=None,
+                 type=int,
                  help='The number of threads to use when running a single process (PPRC and FLTR).')
-    p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
+    p.add_argument('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Step to start with (statistics=0, matching=1, optimization=2).',
-                 type='int')
-    p.add_option('--stop-point',           dest='stop_point',  default=3,
+                 type=int)
+    p.add_argument('--stop-point',           dest='stop_point',  default=3,
                  help='Step to stop after (statistics=1, matching=2, optimization=3).',
-                 type='int')
-    p.add_option('-v', '--version',        dest='version', default=False,
+                 type=int)
+    p.add_argument('-v', '--version',        dest='version', default=False,
                  action='store_true', help='Display the version of software.')
-    p.add_option('--verbose', dest='verbose', default=False, action='store_true',
+    p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
                  help='Display the commands being executed.')
 
     # Internal variables below.
     # The index of the spawned process, 0 <= instance_index < processes.
-    p.add_option('--instance-index', dest='instance_index', default=None, type='int',
-                 help=optparse.SUPPRESS_HELP)
+    p.add_argument('--instance-index', dest='instance_index', default=None, type=int,
+                 help=argparse.SUPPRESS)
     # Directory where the job is running
-    p.add_option('--work-dir', dest='work_dir', default=None,
-                 help=optparse.SUPPRESS_HELP)
+    p.add_argument('--work-dir', dest='work_dir', default=None,
+                 help=argparse.SUPPRESS)
     # ISIS settings
-    p.add_option('--isisroot', dest='isisroot', default=None,
-                 help=optparse.SUPPRESS_HELP)
-    p.add_option('--isisdata', dest='isisdata', default=None,
-                 help=optparse.SUPPRESS_HELP)
+    p.add_argument('--isisroot', dest='isisroot', default=None,
+                 help=argparse.SUPPRESS)
+    p.add_argument('--isisdata', dest='isisdata', default=None,
+                 help=argparse.SUPPRESS)
     # Debug options
-    p.add_option('--dry-run', dest='dryrun', default=False, action='store_true',
-                 help=optparse.SUPPRESS_HELP)
+    p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
+                 help=argparse.SUPPRESS)
 
     global opt
-    (opt, args) = p.parse_args()
+    (opt, args) = p.parse_known_args()
     args = clean_args(args)
 
     if opt.version:
