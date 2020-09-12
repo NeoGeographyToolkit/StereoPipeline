@@ -7,15 +7,10 @@ include(Utilities) # Contains functions
 # Configuration options
 
 # --- Directory paths ---
-set(BINARYBUILDER_INSTALL_DIR "" CACHE FILEPATH "Path to the Binary Builder installation directory containing user-compiled dependencies")
 set(VISIONWORKBENCH_INSTALL_DIR "" CACHE FILEPATH "Path to the user-built and installed VisionWorkbench")
 set(ASP_DEPS_DIR "" CACHE FILEPATH "Path to the conda environment that has the ASP dependencies")
 
 set(ASP_ENABLE_SSE "1" CACHE BOOL "Allow SSE optimizations.")
-
-if ("${BINARYBUILDER_INSTALL_DIR}" STREQUAL "")
-  message(FATAL_ERROR "You need to set BINARYBUILDER_INSTALL_DIR")
-endif()
 
 if ("${ASP_DEPS_DIR}" STREQUAL "")
   message(FATAL_ERROR "You need to set ASP_DEPS_DIR")
@@ -28,7 +23,7 @@ endif()
 #     set(CMAKE_USE_PTHREADS_INIT 1)
 #     set(THREADS_PREFER_PTHREAD_FLAG ON)
 # ENDIF()
-    
+
 find_package(Threads REQUIRED)
 
 # Put the search for Boost early on, to ensure that the Conda version
@@ -39,7 +34,7 @@ message("--------------------------------------------------------------")
 message("Searching for boost...")
 set(BOOST_VERSION "1.68") # This is fragile, but it keeps on finding Boost 1.72.
 set(REQUIRED_BOOST_LIBS program_options system filesystem regex date_time thread iostreams)
-if (ASP_DEPS_DIR) # Look in BinaryBuilder directory
+if (ASP_DEPS_DIR) # Look in that directory
   set(BOOST_ROOT       "${ASP_DEPS_DIR}")
   set(BOOST_LIBRARYDIR "${ASP_DEPS_DIR}/lib")
   set(BOOST_INCLUDEDIR "${ASP_DEPS_DIR}/include")
@@ -61,20 +56,11 @@ if(Boost_FOUND)
 endif(Boost_FOUND)
 message("--------------------------------------------------------------")
 
-# Look for libraries in both of these BB locations.
-#link_directories(${BINARYBUILDER_INSTALL_DIR}/lib)
-#link_directories(${BINARYBUILDER_INSTALL_DIR}/lib64)
-
 # If VW was not built and installed separately, it should have been
-# built and installed in BINARYBUILDER_INSTALL_DIR.
+# built and installed in ASP_DEPS_DIR.
 if (NOT VISIONWORKBENCH_INSTALL_DIR)
-  set(VISIONWORKBENCH_INSTALL_DIR ${BINARYBUILDER_INSTALL_DIR})
+  set(VISIONWORKBENCH_INSTALL_DIR ${ASP_DEPS_DIR})
 endif()
-
-# Add BB folders to CMAKE paths
-set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${BINARYBUILDER_INSTALL_DIR})
-set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${BINARYBUILDER_INSTALL_DIR})
-SET(CMAKE_PREFIX_PATH  ${CMAKE_PREFIX_PATH}  ${BINARYBUILDER_INSTALL_DIR})
 
 # Libraries use paths like "asp/blah/blah.h" so we just need to add this one include path
 include_directories( ../ )
