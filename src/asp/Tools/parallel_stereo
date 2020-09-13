@@ -745,8 +745,9 @@ if __name__ == '__main__':
 
             # Map from option, say --job-size-w, to the variable name, say, job_size_w.
             opt2var = {}
-            for x in p._get_all_options()[1:]:
-                opt2var[x.get_opt_string()] = x.dest
+            for x in p._actions:
+                opt_str = getattr(x, 'option_strings')[-1] # For cases like ['-l', '--long'] get the second entry
+                opt2var[opt_str] = getattr(x, 'dest')
 
             # Find the options used by parallel_stereo which are not
             # passed to the stereo executables. This is a bit fragile.
