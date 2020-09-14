@@ -724,11 +724,11 @@ tutorial in :numref:`dg_tutorial`.
 
 .. _rpc:
 
-RPC Images, including GeoEye, Astrium, Cartosat-1, and PeruSat-1
+RPC Images, including GeoEye, Airbus, Cartosat-1, and PeruSat-1
 ----------------------------------------------------------------
 
 Some vendors, such as GeoEye with its Ikonos and two GeoEye satellites,
-and Astrium, with its SPOT and Pleiades satellites, the Indian
+and Airbus, with its SPOT and Pleiades satellites, the Indian
 Cartosat-1 satellite provide only Rational Polynomial Camera (RPC)
 models. DigitalGlobe/Maxar provides both exact linescan camera models and
 their RPC approximations and ASP supports both. Apparently such is the
@@ -811,6 +811,19 @@ stereo.default
 The stereo.default example file (:numref:`stereodefault`) works
 generally well with all GeoEye pairs. Just set ``alignment-method``
 to ``affineepipolar`` or ``homography``.
+
+Airbus tiled images
+~~~~~~~~~~~~~~~~~~~
+
+With recent Airbus Pleiades data, each of the the left and right
+images may arrive broken up into .JP2 tiles, and they would need to be
+mosaicked before being used. That can be done as follows (individually
+for the left and right stereo image):
+
+::
+
+      gdalbuildvrt mosaic.vrt *.JP2
+      gdal_translate -co TILED=YES -co BIGTIFF=IF_SAFER mosaic.vrt image.tif
 
 .. _spot5:
 
