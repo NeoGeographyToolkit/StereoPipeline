@@ -292,7 +292,6 @@ Building VisionWorkbench and Stereo Pipeline on Linux::
       -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
       -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
-      -DBINARYBUILDER_INSTALL_DIR=$buildDir/install                                         \
       -DCMAKE_C_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-gcc \
       -DCMAKE_CXX_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-g++
     make -j10
@@ -309,7 +308,6 @@ Building VisionWorkbench and Stereo Pipeline on Linux::
       -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
       -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
-      -DBINARYBUILDER_INSTALL_DIR=$buildDir/install                                         \
       -DCMAKE_C_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-gcc \
       -DCMAKE_CXX_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-g++
     make -j10
@@ -327,8 +325,7 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
     ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
       -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
-      -DBINARYBUILDER_INSTALL_DIR=$buildDir/install
+      -DCMAKE_INSTALL_PREFIX=$buildDir/install
     make -j10
     make install
 
@@ -342,8 +339,7 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
     ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
       -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
       -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
-      -DBINARYBUILDER_INSTALL_DIR=$buildDir/install
+      -DCMAKE_INSTALL_PREFIX=$buildDir/install
     make -j10
     make install
 

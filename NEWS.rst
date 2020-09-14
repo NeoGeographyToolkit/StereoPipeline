@@ -1,3 +1,10 @@
+RELEASE x.y.z, TBD
+----------------------------
+
+parallel_stereo
+   * Will now throw an error if --threads is passed in, whose behavior
+     was not defined.
+
 RELEASE 2.7.0, July 27, 2020
 ----------------------------
 
