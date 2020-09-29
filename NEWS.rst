@@ -1,9 +1,14 @@
-RELEASE x.y.z, TBD
-----------------------------
+RELEASE 2.8.0, upcoming!
 
-parallel_stereo
-   * Will now throw an error if --threads is passed in, whose behavior
-     was not defined.
+Misc
+
+ * Added the option --ip-per-image to stereo, to detect roughly how many
+   interest points should be found per image (only a small fraction of
+   them may eventually match across images).
+ * The --min-triangulation-angle in stereo must be always positive if 
+   set by the user. Can be set to something very small if desired.
+   This is a bug fix for this rarely used option (before, when set to
+   0 it would just reset itself to some internal non-small value).  
 
 RELEASE 2.7.0, July 27, 2020
 ----------------------------
@@ -181,7 +186,7 @@ bundle_adjust
      parameters as well.
    * Added the option --forced-triangulation-distance for when one
      really needs to triangulate with poor cameras. Can be used with 
-     --min-triangulation-angle 0.
+     a very small but positive value of --min-triangulation-angle.
    * Added the option --transform-cameras-using-gcp. If there
      are at least two images with each having at least 3 GCP
      (each GCP need not show in more than one image), use this
