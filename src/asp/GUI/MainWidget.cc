@@ -508,7 +508,12 @@ namespace vw { namespace gui {
       for (int i = 0; i < num_images; i++)
         m_filesOrder[i] = i;
     }
-
+    
+    // Force the horizontal scrollbar in the table to go left, so one can see
+    // the checkboxes.
+    QScrollBar * hScrollBar = filesTable->horizontalScrollBar();
+    hScrollBar->triggerAction(QScrollBar::SliderToMinimum);
+    
     refreshPixmap();
   }
 
