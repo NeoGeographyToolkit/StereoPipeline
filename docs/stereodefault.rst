@@ -98,6 +98,11 @@ ip-per-tile
     How many interest points to detect in each :math:`1024^2` image
     tile (default: automatic determination).
 
+ip-per-image
+    How many interest points to detect in each image (default: automatic 
+    determination, usually 5000). It is overridden by --ip-per-tile if
+    provided.
+
 ip-detect-method
     What type of interest point detection algorithm to use for image
     alignment. 0 = Custom OBAloG implementation (default) 1 = SIFT

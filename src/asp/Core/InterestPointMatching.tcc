@@ -58,15 +58,21 @@ void detect_ip(vw::ip::InterestPointList& ip,
   Stopwatch sw;
   sw.start();
 
-  // Automatically determine how many ip we need
-  const float  tile_size = 1024;
+  // Automatically determine how many ip we need. Can be overridden below
+  // either by --ip-per-image or --ip-per-tile (the latter takes priority).
+  double tile_size = 1024.0;
   BBox2i box = bounding_box(image.impl());
-  float  number_tiles    = (box.width() / tile_size) * (box.height() / tile_size);
-  size_t points_per_tile = 5000.f / number_tiles;
+  double number_tiles = (box.width() / tile_size) * (box.height() / tile_size);
+
+  int ip_per_image = 5000; // default
+  if (stereo_settings().ip_per_image > 0) 
+    ip_per_image = stereo_settings().ip_per_image; 
+  
+  size_t points_per_tile = double(ip_per_image) / number_tiles;
   if (points_per_tile > 5000) points_per_tile = 5000;
   if (points_per_tile < 50  ) points_per_tile = 50;
 
-  // See if to override with manual value
+  // See if to override with ip per tile
   if (ip_per_tile != 0)
     points_per_tile = ip_per_tile;
 

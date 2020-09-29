@@ -118,6 +118,8 @@ namespace asp {
                      "Individually normalize the input images between 0.0-1.0 using +- 2.5 sigmas about their mean values.")
       ("ip-per-tile",              po::value(&global.ip_per_tile)->default_value(0),
                      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
+      ("ip-per-image",              po::value(&global.ip_per_image)->default_value(0),
+                     "How many interest points to detect in each image (default: automatic determination). It is overridden by --ip-per-tile if provided.")
       ("ip-detect-method",          po::value(&global.ip_matching_method)->default_value(0),
        "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
       ("epipolar-threshold",       po::value(&global.epipolar_threshold)->default_value(-1),
