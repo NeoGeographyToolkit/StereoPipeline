@@ -169,6 +169,14 @@ namespace asp {
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       return true;
     }
+
+    // If having to rebuild then wipe the old data
+    if (boost::filesystem::exists(left_ip_file)) 
+      boost::filesystem::remove(left_ip_file);
+    if (boost::filesystem::exists(right_ip_file)) 
+      boost::filesystem::remove(right_ip_file);
+    if (boost::filesystem::exists(match_filename)) 
+      boost::filesystem::remove(match_filename);
     
     // Create DiskImageResource objects
     // - A little messy to make sure it works with SPOT5 which will not work without the camera file
