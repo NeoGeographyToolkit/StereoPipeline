@@ -16,9 +16,9 @@
 // __END_LICENSE__
 
 
-/// \file LinescanDGModel.h
+/// \file LinescanSpotModel.h
 ///
-/// A generic linescan camera model object
+/// SPOT 5 camera model
 ///
 ///
 #ifndef __STEREO_CAMERA_LINESCAN_SPOT_MODEL_H__
