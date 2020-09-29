@@ -763,6 +763,10 @@ int main( int argc, char *argv[] ) {
     if (per_column_correction && sat_id != "WV03")
       vw_throw( ArgumentErr() << "Per column correction is supported only for WV03." );
     
+    if (sat_id == "WV03" && !per_column_correction)
+      vw_throw( ArgumentErr() << "For WV03 only externally-provided per-column "
+                << "correction is supported, specified with --dx and --dy." );
+
     bool is_wv01 = (sat_id == "WV01");
     bool is_forward = (scan_dir == "forward");
 
