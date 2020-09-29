@@ -1,5 +1,10 @@
 RELEASE 2.8.0, upcoming!
 
+parallel_stereo
+
+   * Will now throw an error if --threads is passed in, whose behavior
+     was not defined.
+
 Misc
 
  * Added the option --ip-per-image to stereo, to detect roughly how many
