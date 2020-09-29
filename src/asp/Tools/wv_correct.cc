@@ -595,7 +595,6 @@ public:
     // TODO(oalexan1): This is not safe long-term.
     while (m_dx.size() < m_img.cols()) 
       m_dx.push_back(0);
-    }
     while (m_dy.size() < m_img.cols()) 
       m_dy.push_back(0);
     
