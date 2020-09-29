@@ -393,6 +393,9 @@ void asp::log_to_file(int argc, char *argv[],
   vw_out() << "Writing log info to: " << log_file << std::endl;
   std::ofstream lg(log_file.c_str());
 
+  // Write the version
+  lg << "ASP " << ASP_VERSION << "\n\n";
+
   // Write the program name and its arguments
   for (int s = 0; s < argc; s++)
     lg << std::string(argv[s]) + " ";
