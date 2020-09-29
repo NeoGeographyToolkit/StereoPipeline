@@ -78,9 +78,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+                             allow_unregistered, unregistered);
 
   if ( !vm.count("camera-image") || !vm.count("camera-model") ||
        !vm.count("output-image") )
@@ -89,7 +89,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << usage << general_options );
 
   vw::create_out_dir(opt.output_image);
-  
 }
 
 void arr_to_vec(double arr[], int len, vector<double> & vec){
@@ -458,7 +457,6 @@ void get_offsets(int tdi, bool is_wv01, bool is_forward,
       }
     }
   }
-
   
   std::string wv = "WV01";
   if (!is_wv01) wv = "WV02";
@@ -468,7 +466,6 @@ void get_offsets(int tdi, bool is_wv01, bool is_forward,
       << wv << " for TDI " << tdi << ". A copy of the input image will be created."
       << std::endl;
   }
-  
 }
 
 // Apply WorldView corrections to each vertical block as high as the image
@@ -592,8 +589,18 @@ public:
                          std::vector<double> const& dy):
     m_img(img), m_dx(dx), m_dy(dy){
 
-    if (m_img.cols() != dx.size() || m_img.cols() != dy.size()) {
-      vw_throw( ArgumentErr() << "Expecting as many corrections as columns.\n" );
+    // Add more zeros if the corrections are too short.
+    // This is needed because different WV images can have
+    // different widths.
+    // TODO(oalexan1): This is not safe long-term.
+    while (m_dx.size() < m_img.cols()) 
+      m_dx.push_back(0);
+    }
+    while (m_dy.size() < m_img.cols()) 
+      m_dy.push_back(0);
+    
+    if (m_img.cols() != m_dx.size() || m_img.cols() != m_dy.size()) {
+      // vw_throw( ArgumentErr() << "Expecting as many corrections as columns.\n" );
     }
   }
   
@@ -682,6 +689,11 @@ int main( int argc, char *argv[] ) {
     std::string scan_dir, sat_id, band_id;
     double det_pitch = 0.0;
     int tdi = 0;
+
+    // Use per-column corrections (most recent) or per block of columns
+    // corrections, which is coarser-grained (the older approach).
+    bool per_column_correction = false;
+    
     try{
       XMLPlatformUtils::Initialize();
       read_xml(opt.camera_file, geo, att, eph, img, rpc);
@@ -698,15 +710,16 @@ int main( int argc, char *argv[] ) {
       if (band_id == "P") {
         
         tdi = img.tdi;
-        if (sat_id != "WV01" && sat_id != "WV02")
-          vw_throw( ArgumentErr() << "PAN image detected. Can apply CCD artifacts corrections only "
-                    << "for WV01 and WV02 satellites.\n" );
+        if (opt.dx != "" || opt.dy != "") 
+          per_column_correction = true;
         
       } else if (band_id == "Multi") {
         
+        per_column_correction = true;
+        
         if (sat_id != "WV03")
           vw_throw( ArgumentErr() << "Multispectral image detected. Can apply CCD artifacts "
-                    << "corrections only for WV03 satellites.\n" );
+                    << "corrections only for the WV03 satellite.\n" );
 
         if (scan_dir != "forward")
           vw_throw( ArgumentErr() << "Multispectral image detected. Only the forward "
@@ -745,6 +758,12 @@ int main( int argc, char *argv[] ) {
       vw_throw( ArgumentErr() << e.what() );
     }
 
+    if (sat_id != "WV01" && sat_id != "WV02" && sat_id != "WV03") 
+      vw_throw( ArgumentErr() << "Only WV01, WV02, and WV03 satellites are supported." );
+
+    if (per_column_correction && sat_id != "WV03")
+      vw_throw( ArgumentErr() << "Per column correction is supported only for WV03." );
+    
     bool is_wv01 = (sat_id == "WV01");
     bool is_forward = (scan_dir == "forward");
 
@@ -771,8 +790,8 @@ int main( int argc, char *argv[] ) {
     
     ImageViewRef<float> corr_img;
     std::vector<double> dx, dy;
-    if (sat_id != "WV03") {
-      // WV01 or WV02
+    if (!per_column_correction) {
+      // Per block correction
       if (has_nodata) 
         corr_img = apply_mask(wv_correct(create_mask(input_img, nodata),
                                          tdi, is_wv01, is_forward,
@@ -780,7 +799,13 @@ int main( int argc, char *argv[] ) {
       else
         corr_img = wv_correct(input_img, tdi, is_wv01, is_forward, pitch_ratio);
     } else {
-      // WV03
+      // Per column correction
+      std::cout << "Reading per column correction: " << opt.dx << ' ' << opt.dy << std::endl;
+      if (opt.dx == "" || opt.dy == "") {
+        vw_throw( ArgumentErr() << "Per-column correction was requested. "
+                  << "Please specify --dx and --dy.");
+      }
+      
       read_vec(opt.dx, dx);
       read_vec(opt.dy, dy);
       if (has_nodata) 
