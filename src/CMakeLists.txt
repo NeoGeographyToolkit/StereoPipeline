@@ -39,12 +39,11 @@ execute_process(
 
 # Set the install path if not specified by the user.
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install" CACHE PATH "default install path" FORCE )
+  set (CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install" CACHE PATH "default install path" FORCE)
 endif()
 message("Cmake install directory set to: ${CMAKE_INSTALL_PREFIX}")
 
 enable_testing() # Needed for unit tests to work
-
 
 # Add command to build the instructions pdf file
 add_custom_target(workbook make

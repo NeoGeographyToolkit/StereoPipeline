@@ -438,57 +438,53 @@ void asp::log_to_file(int argc, char *argv[],
   vw_log().add(current_log);
 }
 
-namespace asp {
-  // A function to set an environmental variable pointing to some
-  // directory where a file must exist. Need to handle the release
-  // mode and development mode.
-  // TODO(oalexan1): Remove the cout statements once things are
-  // verified to work.
-  void set_env_var(std::string const& guess_var_name,
-                   std::string const& var_name,
-                   std::string const& check_file,
-                   std::string & var_holder,
-                   bool add_file_to_var) {
+// A function to set the environmental variables ISISROOT, QT_PLUGIN_PATH,
+// and GDAL_DATA. In packaged build mode, set these with the help of the
+// base directory of the distribution.
+// In dev mode, use the ASP_DEPS_DIR macro or otherwise the
+// ASP_DEPS_DIR environmental variable.
+void asp::set_asp_env_vars() {
     
-    char * guess_val = getenv(guess_var_name.c_str());
-    std::string var_path;
-    if (guess_val && std::string(guess_val) != "") {
-      var_path = std::string(guess_val); 
-    } else{
-      var_path = boost::dll::program_location().parent_path().parent_path().string();
-      if (add_file_to_var) {
-        var_path += "/" + check_file;
+  // Find the path to the base of the package and see if it works.
+  std::string base_dir = boost::dll::program_location().parent_path().parent_path().string();
+  if (!fs::exists(base_dir + "/IsisPreferences")) {
+    base_dir = ASP_DEPS_DIR; // This is defined at compile time
+    if (!fs::exists(base_dir + "/IsisPreferences")) {
+      // If nothing works, try the ASP_DEPS_DIR env variable
+      char * ptr = getenv("ASP_DEPS_DIR");
+      if (ptr) 
+        base_dir = ptr;
+      if (ptr == NULL || !fs::exists(base_dir + "/IsisPreferences")) {
+        vw::vw_throw(vw::ArgumentErr() << "Cannot find the directory having IsisPreferences. "
+                     << "Try setting it as the environmental variable ASP_DEPS_DIR.");
       }
     }
-        
-    // std::cout << "Base path is " << var_path << std::endl;
-    std::string check_path;
-    if (add_file_to_var) {
-      check_path = var_path; // already appended the file
-    }else{
-      check_path = var_path + "/" + check_file;
-    }
-    // std::cout << "Check path is " << check_path << std::endl;
-
-    std::string text;
-    if (add_file_to_var) 
-      text = " to it.";
-    else
-      text = " to the directory having it.";
-    
-    if (!fs::exists(check_path)) 
-      vw::vw_throw( vw::ArgumentErr() << "Cannot find: " << check_path << ".\n"
-                    << "In development mode, set " << guess_var_name << text);
-    
-    // Have to put up with the putenv() API.
-    var_holder = var_name + "=" + var_path;
-    if (putenv((char*)var_holder.c_str()) != 0) 
-      vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << var_holder << "\n");
-    // std::cout << "Setting: " << var_name << "=" << getenv(var_name.c_str()) << std::endl;
   }
-  
-}
 
+  // Set ISISROOT and check for IsisPreferences
+  ISISROOT_ENV_STR = "ISISROOT=" + base_dir;
+  if (putenv((char*)ISISROOT_ENV_STR.c_str()) != 0) 
+    vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << ISISROOT_ENV_STR << "\n");
+  if (!fs::exists( std::string(getenv("ISISROOT")) + "/IsisPreferences" )) 
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find IsisPreferences in "
+                 << getenv("ISISROOT"));
+
+  // Set QT_PLUGIN_PATH as the path to /plugins
+  QT_PLUGIN_PATH_ENV_STR = "QT_PLUGIN_PATH=" + base_dir + "/plugins";
+  if (putenv((char*)QT_PLUGIN_PATH_ENV_STR.c_str()) != 0) 
+    vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << QT_PLUGIN_PATH_ENV_STR << "\n");
+  if (!fs::exists(std::string(getenv("QT_PLUGIN_PATH"))))
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in " << getenv("QT_PLUGIN_PATH"));
+  
+  // Set GDAL_DATA and check for share/gdal
+  GDAL_DATA_ENV_STR = "GDAL_DATA=" + base_dir;
+  if (putenv((char*)GDAL_DATA_ENV_STR.c_str()) != 0) 
+    vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << GDAL_DATA_ENV_STR << "\n");
+  if (!fs::exists( std::string(getenv("GDAL_DATA")) + "/share/gdal" )) 
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find share/gdal in "
+                 << getenv("GDAL_DATA"));
+}
+  
 // User should only put the arguments to their application in the
 // usage_comment argument. We'll finish filling in the repeated information.
 po::variables_map
@@ -513,25 +509,7 @@ asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOption
   ostr << "  [ASP " << ASP_VERSION << "]\n\n";
   usage_comment = ostr.str();
 
-  // Set ISISROOT for all ASP executables. This should point to
-  // the directory having "lib", "IsisPreferences", etc. This variable
-  // must overwrite whatever the user set, as that may point to an
-  // ISIS installation different than the ISIS we ship with and count
-  // on. In dev mode, when ASP is not yet installed where ISIS is, use
-  // the variable ISISROOT_DEV to point to our ISIS location.
-  bool add_file_to_var = false;
-  asp::set_env_var("ISISROOT_DEV", "ISISROOT", "IsisPreferences", ISISROOT_ENV_STR,
-                   add_file_to_var);
-
-  // Similar logic for the QT plugins
-  add_file_to_var = true;
-  asp::set_env_var("QT_PLUGIN_PATH", "QT_PLUGIN_PATH", "plugins", QT_PLUGIN_PATH_ENV_STR,
-                   add_file_to_var);
-
-  // Similar logic for GDAL_DATA
-  add_file_to_var = true;
-  asp::set_env_var("GDAL_DATA", "GDAL_DATA", "share/gdal", GDAL_DATA_ENV_STR,
-                   add_file_to_var);
+  set_asp_env_vars();
   
   // We distinguish between all_public_options, which is all the
   // options we must parse, even if we don't need some of them, and

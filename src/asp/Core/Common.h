@@ -108,6 +108,9 @@ namespace asp {
                    std::string stereo_default_filename,
                    std::string output_prefix);
 
+  /// Set env variables for some of ASP's dependencies
+  void set_asp_env_vars();
+  
   boost::program_options::variables_map
   check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
                       boost::program_options::options_description const& public_options,

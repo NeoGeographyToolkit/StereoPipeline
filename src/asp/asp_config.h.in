@@ -536,29 +536,32 @@
 /* Building on OSX? */
 #cmakedefine ASP_OSX_BUILD 1
 
-/* Name of package */
+/* Name of the package */
 #define ASP_PACKAGE StereoPipeline
 
-/* Define to the address where bug reports for this package should be sent. */
+/* Define the address where bug reports for this package should be sent. */
 #define ASP_PACKAGE_BUGREPORT "@PACKAGE_BUGREPORT@"
 
-/* Define to the full name of this package. */
+/* Define the full name of this package. */
 #define ASP_PACKAGE_NAME "@PACKAGE_NAME@"
 
-/* Define to the full name and version of this package. */
+/* Define the full name and version of this package. */
 #define ASP_PACKAGE_STRING "@PACKAGE_STRING@"
 
-/* Define to the one symbol short name of this package. */
+/* Define the one symbol short name of this package. */
 #define ASP_PACKAGE_TARNAME StereoPipeline
 
-/* Define to the version of this package. */
+/* Define the version of this package. */
 #define ASP_PACKAGE_VERSION "@PACKAGE_VERSION@"
 
-/* Define to 1 if you have the ANSI C header files. */
+/* Set to 1 if you have the ANSI C header files. */
 #cmakedefine STDC_HEADERS 1
 
 /* Version number of package */
 #define ASP_VERSION "@PACKAGE_VERSION@"
+
+/* The path to the ASP dependencies (useful in dev mode). */
+#define ASP_DEPS_DIR "@ASP_DEPS_DIR@"
 
 // Check to make sure the user is using the same version of Boost
 // headers that the software was built with.
