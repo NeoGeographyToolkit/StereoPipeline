@@ -501,6 +501,9 @@ Command-line options for bundle_adjust:
     the DEM as a string in quotes, separated by spaces. An example
     is in the documentation.
 
+--save-intermediate-cameras
+    Save the values for the cameras at each iteration.
+
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined
     in the program or in the ``.vwrc`` file. Note that when using more

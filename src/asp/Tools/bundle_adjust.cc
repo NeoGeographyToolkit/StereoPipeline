@@ -46,7 +46,52 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 typedef CameraRelationNetwork<JFeature> CRNJ;
 
-//=========================================================================
+// These will be used in the callback and should be used overall sparingly
+BAParamStorage * g_param_storage = NULL;
+Options *g_opt = NULL;
+
+// Write the results to disk.
+void saveResults(Options const& opt, BAParamStorage const& param_storage) {
+  int num_cameras = opt.image_files.size();
+
+  for (int icam = 0; icam < num_cameras; icam++){
+
+    switch(opt.camera_type) {
+      case BaCameraType_Pinhole:
+        write_pinhole_output_file(opt, icam, param_storage);
+        break;
+      case BaCameraType_OpticalBar:
+        write_optical_bar_output_file(opt, icam, param_storage);
+        break;
+      default:
+        std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                              opt.image_files[icam],
+                                                              opt.camera_files[icam]);
+        vw_out() << "Writing: " << adjust_file << std::endl;
+        
+        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+        asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
+    }
+  } // End loop through cameras
+  
+}
+
+// If the user wants to, invoke this at each iteration
+class BaCallback: public ceres::IterationCallback {
+public:
+  virtual ceres::CallbackReturnType operator()
+    (const ceres::IterationSummary& summary) {
+
+    if (g_param_storage == NULL || g_opt == NULL) {
+      vw::vw_throw( vw::ArgumentErr()
+                    << "The pointer to options and param storage were not initialized.");
+    }
+
+    saveResults(*g_opt, *g_param_storage);
+    return ceres::SOLVER_CONTINUE;
+  }
+};
+
 
 /// Add error source for projecting a 3D point into the camera.
 void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& pixel_sigma,
@@ -1172,6 +1217,13 @@ int do_ba_ceres_one_pass(Options             & opt,
   else
     options.num_threads = opt.num_threads;
 
+  // Use a callback function at every iteration, if desired to save the intermediate results
+  BaCallback callback;
+  if (opt.save_intermediate_cameras) {
+    options.callbacks.push_back(&callback);
+    options.update_state_every_iteration = true;
+  }
+  
   // Set solver options according to the recommendations in the Ceres solving FAQs
   options.linear_solver_type = ceres::SPARSE_SCHUR;
   if (num_cameras < 100)
@@ -1340,6 +1392,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                num_lens_distortion_params, 
                                opt.intrinisc_options);
 
+  // Get the pointer to this right away
+  g_param_storage = &param_storage; 
+  
   // Fill in the camera and intrinsic parameters.
   std::vector<boost::shared_ptr<camera::CameraModel> > new_cam_models;
   bool ans = false;
@@ -1485,29 +1540,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   opt.out_prefix = orig_out_prefix; // So the cameras are written to the expected paths.
 
   // Write the results to disk.
-  for (int icam = 0; icam < num_cameras; icam++){
-
-    switch(opt.camera_type) {
-      case BaCameraType_Pinhole:
-        write_pinhole_output_file(opt, icam, *best_params_ptr);
-        break;
-      case BaCameraType_OpticalBar:
-        write_optical_bar_output_file(opt, icam, *best_params_ptr);
-        break;
-      default:
-        std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                              opt.image_files[icam],
-                                                              opt.camera_files[icam]);
-        vw_out() << "Writing: " << adjust_file << std::endl;
-
-        CameraAdjustment cam_adjust(best_params_ptr->get_camera_ptr(icam));
-        asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
-    };
-  } // End loop through cameras
+  saveResults(opt, *best_params_ptr);
 
 } // end do_ba_ceres
-
-
 
 /// Looks in the input camera position file to generate a GCC position for
 /// each input camera.
@@ -1742,9 +1777,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-debug-images",        po::value(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
             "Write debug images to disk when detecting and matching interest points.")
     
+    ("save-intermediate-cameras", po::value(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
+     "Save the values for the cameras at each iteration.")
     ("report-level,r",     po::value(&opt.report_level)->default_value(10),
-            "Use a value >= 20 to get increasingly more verbose output.");
-//     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
+     "Use a value >= 20 to get increasingly more verbose output.");
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   // TODO: When finding the min and max bounds, do a histogram, throw away 5% of points
@@ -2061,7 +2097,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   opt.parse_intrinsics_limits(intrinsics_limit_str);
 
-  opt.save_iteration = vm.count("save-iteration-data");
   boost::to_lower( opt.cost_function );
 
   if (opt.initial_transform_file != "") {
@@ -2378,6 +2413,8 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 int main(int argc, char* argv[]) {
 
   Options opt;
+  g_opt = &opt; // Save a pointer to it right away
+  
   try {
     xercesc::XMLPlatformUtils::Initialize();
 
@@ -2387,7 +2424,7 @@ int main(int argc, char* argv[]) {
 
     // Assign the images which this instance should compute statistics for.
     std::vector<size_t> image_stats_indices;
-    for (size_t i=opt.instance_index; i<num_images; i+=opt.instance_count)
+    for (size_t i = opt.instance_index; i < num_images; i += opt.instance_count)
       image_stats_indices.push_back(i);
     
     // Compute statistics for the designated images
@@ -2425,9 +2462,6 @@ int main(int argc, char* argv[]) {
     }
     // Done computing image statistics.
       
-    
-    
-    
     // Create the stereo session. This will attempt to identify the session type.
     // Read in the camera model and image info for the input images.
     for (int i = 0; i < num_images; i++){

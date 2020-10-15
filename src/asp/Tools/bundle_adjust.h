@@ -70,7 +70,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     ip_triangulation_max_error;
   int    report_level, min_matches, num_iterations, overlap_limit,
          instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
-  bool   save_iteration, approximate_pinhole_intrinsics,
+  bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
     disable_pinhole_gcp_init, transform_cameras_using_gcp, fix_gcp_xyz, solve_intrinsics,
          ip_normalize_tiles, ip_debug_images,
          stop_after_stats, stop_after_matching, skip_matching;
@@ -110,7 +110,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              lambda(-1.0), camera_weight(-1),
              rotation_weight(0), translation_weight(0), overlap_exponent(0), 
              robust_threshold(0), report_level(0), min_matches(0),
-             num_iterations(0), overlap_limit(0), save_iteration(false),
+             num_iterations(0), overlap_limit(0), save_intermediate_cameras(false),
              fix_gcp_xyz(false), solve_intrinsics(false), camera_type(BaCameraType_Other),
              semi_major(0), semi_minor(0), position_filter_dist(-1),
              num_ba_passes(2), max_num_reference_points(-1),
@@ -276,6 +276,7 @@ bool init_cams(Options & opt, BAParamStorage & param_storage,
       std::string adjust_file = asp::bundle_adjust_file_name(opt.input_prefix,
                                                              opt.image_files[icam],
                                                              opt.camera_files[icam]);
+      vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
       double * cam_ptr = param_storage.get_camera_ptr(icam);
       CameraAdjustment adjustment;
       adjustment.read_from_adjust_file(adjust_file);

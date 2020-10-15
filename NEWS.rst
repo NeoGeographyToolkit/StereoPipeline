@@ -14,6 +14,8 @@ Misc
    set by the user. Can be set to something very small if desired.
    This is a bug fix for this rarely used option (before, when set to
    0 it would just reset itself to some internal non-small value).  
+ * Added the option --save-intermediate-cameras to bundle adjustment
+   to save the cameras at each iteration.
 
 RELEASE 2.7.0, July 27, 2020
 ----------------------------
