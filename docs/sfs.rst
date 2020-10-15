@@ -669,10 +669,17 @@ terrain as a constraint in bundle adjustment::
 
        mkdir -p ba_align_ref
        /bin/cp -fv ba_align/run* ba_align_ref
-       bundle_adjust --skip-matching --num-iterations 5 --force-reuse-match-files   \
-         --num-passes 1 --input-adjustments-prefix ba_align/run <images>            \
-         --camera-weight 0 --heights-from-dem ref.tif --heights-from-dem-weight 0.1 \ 
-          --heights-from-dem-robust-threshold 10 -o ba_align_ref/run
+       bundle_adjust --skip-matching --num-iterations 15 --force-reuse-match-files   \
+         --num-passes 1 --input-adjustments-prefix ba_align/run <images>             \
+         --save-intermediate-cameras --camera-weight 1 --heights-from-dem ref.tif    \
+         --heights-from-dem-weight 0.1 --heights-from-dem-robust-threshold 10        \
+         -o ba_align_ref/run
+
+Note that this invocation may run for more than a day, or even
+more. And it may be necessary to get good convergence. If the process
+gets interrupted, or the user gives up on waiting, the adjustments
+obtained so far can still be usable, if invokding bundle adjustment,
+as above, with ``--save-intermediate-cameras.``
 
 After mapprojecting with the newly refined cameras in ``ba_align_ref``,
 any residual alignment errors should go away. The value used for
@@ -768,10 +775,19 @@ LOLA DEM named ref.tif. It can be found by invoking
 
 and looking for the value of the ``PROJ.4`` field.
 
-The obtained alignment transform can also be applied to the camera
-adjustments, as done earlier in the text, and one can regenerate the SfS
-DEM and mapprojected images using the updated cameras.
+It is very recommended to redo the whole process using this improved
+alignment. First, the alignment transform must be applied to the
+camera adjustments, by invoking bundle adjustment as earlier, with the
+best cameras so far provided via ``--input-adjustments-prefix`` and
+the latest transform passed to ``--initial-transform``. Then, another
+pass of bundle adjustment while doing registration to the ground
+should take place as earlier, with the ``--heights-from-dem`` and
+other related options. Lastly mapprojection and SfS should be
+repeated.
 
+Ideally, after all this, there should be no systematic offset
+between the SfS terrain and the reference LOLA terrain.
+ 
 The ``geodiff`` tool can be deployed to see how the SfS DEM compares
 to the initial guess or to the raw ungridded LOLA measurements.
 
@@ -780,6 +796,16 @@ images using the same camera adjustments that were used for SfS. That is
 done as follows:
 
   dem_mosaic --max -o max_lit.tif image1.map.tif .... imageN.map.tif
+
+After an SfS solution was found, with the cameras well-adjusted to
+each other and to the ground, and it is desired to add new camera
+images (or perhaps fix some of the existing poorly aligned cameras),
+one can create .adjust files for the new camera images (by perhaps
+using the identity adjustment), run bundle adjustment again with the
+supplemented set of camera adjustments as initial guess using
+``--input-adjustments-prefix``, and one may keep fixed the cameras for
+which the adjustment is already good using the option
+```--fixed-camera-indices``.
 
 .. _sfsinsights:
 

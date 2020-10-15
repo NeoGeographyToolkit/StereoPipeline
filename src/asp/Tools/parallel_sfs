@@ -285,11 +285,10 @@ def main(argsIn):
     parser.add_argument('--pixelStopY',  dest='pixelStopY', default=None, type=int,
                                         help=argparse.SUPPRESS)
 
-
     # This call handles all the parallel_sfs specific options.
     (options, args) = parser.parse_known_args(argsIn)
 
-    # This will parse all the parallel_sfs options.
+    # Split up arguments into input cameras and the rest
     cameras, optionsList = handleArguments(args)
 
     # The parallel_sfs tool must not take the option --crop-win as it will
@@ -333,7 +332,9 @@ def main(argsIn):
 
     # Otherwise this is the original called process and there are multiple steps to go through
 
-    # Compute the exposures if not specified and missing
+    # Compute the exposures based on the full DEM if not specified and
+    # missing. Save them to disk. They will be read when SfS runs on
+    # each small DEM tile.
     if '--image-exposures-prefix' not in options.extraArgs:
         print("Computing exposures.\n")
         cmd = timeCmd + [sfsPath] + cameras + options.extraArgs + ['--compute-exposures-only']
@@ -382,7 +383,8 @@ def main(argsIn):
 
     # Indicate to GNU Parallel that there are multiple tab-seperated
     # variables in the text file we just wrote
-    parallelArgs = ['--colsep', "\\t"]
+    parallelArgs = ['--colsep', "\\t", '--will-cite', '--env', 'ASP_DEPS_DIR',
+                    '--env', 'PATH', '--env', 'LD_LIBRARY_PATH']
 
     # Get the number of available nodes and CPUs per node
     numNodes = asp_system_utils.getNumNodesInList(options.nodesListPath)
@@ -432,13 +434,20 @@ def main(argsIn):
                                       argumentFilePath, parallelArgs,
                                       options.nodesListPath, True)#not options.suppressOutput)
 
-
-    mosaic_results(tileList, outputFolder, outputName, options,
-                   'DEM-final', 'DEM-final')
-    if '--float-albedo' in argsIn:
+    if '--estimate-slope-errors' not in argsIn:
+        # Mosaic the computed DEM
         mosaic_results(tileList, outputFolder, outputName, options,
-                       'comp-albedo-final', 'albedo-final')
-    
+                       'DEM-final', 'DEM-final')
+        
+        # Mosaic the albedo computed albedo
+        if '--float-albedo' in argsIn:
+            mosaic_results(tileList, outputFolder, outputName, options,
+                           'comp-albedo-final', 'albedo-final')
+    else:
+        # Here we just mosaic the slope errors
+        mosaic_results(tileList, outputFolder, outputName, options,
+                       'slope-error', 'slope-error')
+        
     endTime = time.time()
     print("Finished in " + str(endTime - startTime) + " seconds.")
 

@@ -54,7 +54,6 @@
 // TODO: Loop over all images when doing sfs.
 // TODO: Check that we are within image boundaries when interpolating.
 // TODO: Radiometric calibration of images.
-// TODO: Handle the case when the DEM has no-data values.
 // TODO: Add various kind of loss function.
 // TODO: Study the normal computation formula.
 // TODO: Move some code to Core.
@@ -1246,7 +1245,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels,
     blending_dist, blending_power, min_blend_size, num_haze_coeffs;
   bool float_albedo, float_exposure, float_cameras, float_all_cameras, model_shadows,
-    save_computed_intensity_only, compute_exposures_only,
+    save_computed_intensity_only, estimate_slope_errors, compute_exposures_only,
     save_dem_with_nodata, use_approx_camera_models, use_approx_adjusted_camera_models,
     use_rpc_approximation, use_semi_approx,
     crop_input_images, float_dem_at_boundary, boundary_fix, fix_dem, 
@@ -1263,6 +1262,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
             float_all_cameras(false),
 	    model_shadows(false), 
 	    save_computed_intensity_only(false),
+            estimate_slope_errors(false),
             compute_exposures_only(false),
 	    save_dem_with_nodata(false),
 	    use_approx_camera_models(false),
@@ -1719,6 +1719,171 @@ double ComputeReflectance(Vector3 const& cameraPosition,
   return input_img_reflectance;
 }
 
+// Use this struct to keep track of slope errors.
+struct SlopeErrEstim {
+
+  SlopeErrEstim(int num_cols, int num_rows, int num_a_samples_in, int num_b_samples_in,
+                ImageView<double> * albedo_in, Options * opt_in) {
+    num_a_samples = num_a_samples_in;
+    num_b_samples = num_b_samples_in;
+    albedo = albedo_in;
+    opt = opt_in;
+
+    image_iter = 0; // will be modified later
+
+    // The maximum possible deviation from the normal in degrees
+    max_angle = 90.0; 
+    
+    slope_errs.resize(num_cols);
+    for (int col = 0; col < num_cols; col++) {
+      slope_errs[col].resize(num_rows);
+      for (int row = 0; row < num_rows; row++) {
+        slope_errs[col][row].resize(num_b_samples, max_angle);
+      }
+    }
+  }
+  
+  int num_a_samples, num_b_samples;
+  ImageView<double> * albedo;
+  Options * opt;
+  std::vector< std::vector< std::vector<double> > > slope_errs;
+  int image_iter;
+  double max_angle;
+};
+
+// Given the normal (slope) to the SfS DEM, find how different
+// a slope can be from this before the computed intensity
+// due to that slope is bigger than max_intensity_err.
+void estimateSlopeError(Vector3 const& cameraPosition,
+                        Vector3 const& normal, Vector3 const& xyz,
+                        ModelParams const& local_model_params,
+                        GlobalParams const& global_params,
+                        double & phase_angle,
+                        const double * reflectance_model_coeffs,
+                        double meas_intensity,
+                        double max_intensity_err,
+                        int col, int row, int image_iter,
+                        Options & opt,
+                        ImageView<double> & albedo,
+                        SlopeErrEstim * slopeErrEstim){
+  
+  // Find the angle u from the normal to the z axis, and the angle v
+  // from the x axis to the projection of the normal in the xy plane.
+  double u = acos(normal[2]);
+  double v = 0.0;
+  if (normal[0] != 0.0 || normal[1] != 0.0) 
+    v = atan2(normal[1], normal[0]);
+
+  double cv = cos(v), sv = sin(v), cu = cos(u), su = sin(u);
+  Vector3 n(cv*su, sv*su, cu);
+
+  // Sanity check, these angles should give us back the normal
+  if (norm_2(normal - n) > 1e-8) 
+    vw_throw( LogicErr() << "Book-keeping error in slope estimation.\n" );
+    
+  //std::cout << "1zzzz --normal is === " << normal << ' '
+  //          << n  << ' ' << norm_2(normal - n) << std::endl;
+  
+  // Find the rotation R that transforms the vector (0, 0, 1) to the normal
+  vw::Matrix3x3 R1, R2, R;
+  
+  R1[0][0] = cv;  R1[0][1] = -sv; R1[0][2] = 0;
+  R1[1][0] = sv;  R1[1][1] =  cv; R1[1][2] = 0;
+  R1[2][0] = 0;   R1[2][1] =  0;  R1[2][2] = 1;
+  
+  R2[0][0] = cu;  R2[0][1] =  0;  R2[0][2] = su;
+  R2[1][0] = 0;   R2[1][1] =  1;  R2[1][2] = 0;
+  R2[2][0] = -su; R2[2][1] =  0;  R2[2][2] = cu;
+
+  R = R1 * R2;
+
+  // We must have R * n0 = n
+  Vector3 n0(0, 0, 1);
+  if (norm_2(R*n0 - n) > 1e-8) 
+    vw_throw( LogicErr() << "Book-keeping error in slope estimation.\n" );
+  
+  //std::cout << "2zzz transform === " << R*n0 << ' ' << n  << ' ' << norm_2(R*n0 - n) << std::endl;
+  
+  int num_a_samples = slopeErrEstim->num_a_samples;
+  int num_b_samples = slopeErrEstim->num_b_samples;
+
+  int num_cols = slopeErrEstim->slope_errs.size();
+  int num_rows = slopeErrEstim->slope_errs[0].size();
+  int num_b_samples2 = slopeErrEstim->slope_errs[0][0].size();
+
+  if (num_b_samples != num_b_samples2)
+    vw_throw( LogicErr()
+              << "Book-keeping failure in estimating the slope error!\n");
+  
+  // Sample the set of unit vectors w which make the angle 'a' with
+  // the normal. For that, start with w having angle 'a' with the z
+  // axis, and angle 'b' between the projection of w onto the xy plane
+  // and the x axis. Then apply the rotation R to it which will make
+  // the angle between w and the normal be 'a'. By varying 'b' we will
+  // sample all such angles.
+  double deg2rad = M_PI/180.0;
+  for (int b_iter = 0; b_iter < num_b_samples; b_iter++) {
+    
+    double b = 360.0 * double(b_iter)/num_b_samples;
+    double cb = cos(deg2rad * b), sb = sin(deg2rad * b);
+    
+    for (int a_iter = 0; a_iter < num_a_samples; a_iter++) {
+      
+      double a = 90.0 * double(a_iter)/num_a_samples;
+
+      if (slopeErrEstim->slope_errs[col][row][b_iter] < a) {
+        // We already determined that the slope error can't be as big as
+        // a, so there is no point to explore bigger angles
+        break;
+      }
+
+      double ca = cos(deg2rad * a), sa = sin(deg2rad * a);
+
+      //std::cout << "--angle a and b is " << a << ' ' << b << std::endl;
+      //std::cout << "--ca and cb is " << ca << ' ' << cb << std::endl;
+      
+      Vector3 w(cb*sa, sb*sa, ca);
+      w = R*w;
+
+      // Compute here dot product from w to n. Should be cos(a) for all b.
+      double prod = dot_prod(w, normal);
+      if (std::abs(prod - ca) > 1e-8)
+        vw_throw( LogicErr() << "Book-keeping error in slope estimation.\n" );
+
+      //std::cout << "--3zzzz product === " << prod << ' ' << ca << ' ' <<
+      //  std::abs(prod - ca) << std::endl;
+      //std::cout << "--normal is " << normal << std::endl;
+      //std::cout << "--w is " << w << std::endl;
+      //std::cout << "--normal diff is " << norm_2(normal - w) << std::endl;
+      
+      // Compute the reflectance with the given normal
+      double phase_angle = 0.0;
+      PixelMask<double> reflectance = ComputeReflectance(cameraPosition,
+                                                         w, xyz, local_model_params,
+                                                         global_params, phase_angle,
+                                                         reflectance_model_coeffs);
+      reflectance.validate();
+
+      double comp_intensity = albedo(col, row) *
+        nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
+                           &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
+
+      //std::cout << "55 meas and comp " << meas_intensity << ' '
+      // << comp_intensity  << ' ' << std::abs(meas_intensity - comp_intensity) << std::endl;
+      
+      if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
+        //std::cout << "--exceeded budget at "
+        //          << std::abs(comp_intensity - meas_intensity) << " > "
+        //          << max_intensity_err << std::endl;
+        // We exceeded the error budget, hence this is an upper bound on the slope
+        slopeErrEstim->slope_errs[col][row][b_iter] = a;
+        break;
+      }
+      
+    }
+  }
+}
+
 bool computeReflectanceAndIntensity(double left_h, double center_h, double right_h,
 				    double bottom_h, double top_h,
                                     bool use_pq, double p, double q, // dem partial derivatives
@@ -1738,7 +1903,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 				    PixelMask<double>  & reflectance,
 				    PixelMask<double>  & intensity,
 				    double             & weight,
-                                    const double       * reflectance_model_coeffs) {
+                                    const double       * reflectance_model_coeffs,
+                                    SlopeErrEstim      * slopeErrEstim = NULL) {
 
   // Set output values
   reflectance = 0.0; reflectance.invalidate();
@@ -1801,14 +1967,14 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     local_model_params.sunPosition[it] = scaled_sun_posn[it] * model_params.sunPosition[it]; 
     
   // Update the camera position for the given pixel (camera position
-  // is pixel-dependent for linescan cameras.
+  // is pixel-dependent for linescan cameras).
   Vector2 pix;
   Vector3 cameraPosition;
   try {
     pix = camera->point_to_pixel(base);
     
     // Need camera center only for Lunar Lambertian
-    if ( global_params.reflectanceType != LAMBERT ) {
+    if (global_params.reflectanceType != LAMBERT) {
       cameraPosition = camera->camera_center(pix);
     }
     
@@ -1819,7 +1985,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     return false;
   }
   
-  double phase_angle;
+  double phase_angle = 0.0;
   reflectance = ComputeReflectance(cameraPosition,
 				   normal, base, local_model_params,
 				   global_params, phase_angle,
@@ -1831,8 +1997,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   pix -= crop_box.min();
 
   // Check for out of range
-  if (pix[0] < 0 || pix[0] >= image.cols()-1 ||
-      pix[1] < 0 || pix[1] >= image.rows()-1) {
+  if (pix[0] < 0 || pix[0] >= image.cols()-1 || pix[1] < 0 || pix[1] >= image.rows()-1) {
     reflectance = 0.0; reflectance.invalidate();
     intensity   = 0.0; intensity.invalidate();
     weight      = 0.0;
@@ -1861,7 +2026,6 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     return false;
   }
 
-
   if (model_shadows) {
     bool inShadow = isInShadow(col, row, local_model_params.sunPosition,
 			       dem, max_dem_height, gridx, gridy,
@@ -1874,6 +2038,32 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     }
   }
 
+  if (slopeErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
+    int image_iter = slopeErrEstim->image_iter;
+    Options & opt = *slopeErrEstim->opt; // alias
+    ImageView<double> & albedo = *slopeErrEstim->albedo; // alias
+    double comp_intensity = albedo(col, row) *
+      nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
+                         &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
+
+    // We use twice the discrepancy between the computed and measured intensity
+    // as a measure for how far is overall the computed intensity allowed
+    // to diverge from the measured intensity
+    double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
+
+    //std::cout << "intensity and err " << intensity.child() << ' '
+    //          << comp_intensity << ' ' << max_intensity_err << std::endl;
+    estimateSlopeError(cameraPosition,
+                       normal, base, local_model_params,
+                       global_params, phase_angle,
+                       reflectance_model_coeffs,
+                       intensity.child(),
+                       max_intensity_err,
+                       col, row, image_iter,
+                       opt, albedo,
+                       slopeErrEstim);
+  }
+  
   return true;
 }
 
@@ -1894,7 +2084,8 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				    ImageView< PixelMask<double> > & reflectance,
 				    ImageView< PixelMask<double> > & intensity,
 				    ImageView< double            > & weight,
-                                    const double * reflectance_model_coeffs) {
+                                    const double  * reflectance_model_coeffs,
+                                    SlopeErrEstim * slopeErrEstim = NULL) {
 
   // Update max_dem_height
   max_dem_height = -std::numeric_limits<double>::max();
@@ -1943,7 +2134,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                      scaled_sun_posn, 
 				     reflectance(col, row), intensity(col, row),
                                      weight(col, row),
-                                     reflectance_model_coeffs);
+                                     reflectance_model_coeffs, slopeErrEstim);
     }
   }
 
@@ -2129,9 +2320,10 @@ public:
     vw_out() << "Finished iteration: " << g_iter << std::endl;
     callTop();
 
-    save_exposures(g_opt->out_prefix, g_opt->input_images, *g_exposures);
+    if (!g_opt->save_computed_intensity_only)
+      save_exposures(g_opt->out_prefix, g_opt->input_images, *g_exposures);
 
-    if (g_opt->num_haze_coeffs > 0) {
+    if (g_opt->num_haze_coeffs > 0 && !g_opt->save_computed_intensity_only) {
       std::string haze_file = haze_file_name(g_opt->out_prefix);
       vw_out() << "Writing: " << haze_file << std::endl;
       std::ofstream hzf(haze_file.c_str());
@@ -2147,17 +2339,20 @@ public:
     }
     
     std::string model_coeffs_file = model_coeffs_file_name(g_opt->out_prefix);
-    vw_out() << "Writing: " << model_coeffs_file << std::endl;
-    std::ofstream mcf(model_coeffs_file.c_str());
-    mcf.precision(18);
-    for (size_t coeff_iter = 0; coeff_iter < g_num_model_coeffs; coeff_iter++){
-      mcf << g_reflectance_model_coeffs[coeff_iter] << " ";
+    if (!g_opt->save_computed_intensity_only) {
+      vw_out() << "Writing: " << model_coeffs_file << std::endl;
+      std::ofstream mcf(model_coeffs_file.c_str());
+      mcf.precision(18);
+      for (size_t coeff_iter = 0; coeff_iter < g_num_model_coeffs; coeff_iter++){
+        mcf << g_reflectance_model_coeffs[coeff_iter] << " ";
+      }
+      mcf << "\n";
+      mcf.close();
     }
-    mcf << "\n";
-    mcf.close();
-
+    
     vw_out() << "Model coefficients: "; 
-    for (size_t i = 0; i < g_num_model_coeffs; i++) vw_out() << g_reflectance_model_coeffs[i] << " ";
+    for (size_t i = 0; i < g_num_model_coeffs; i++)
+      vw_out() << g_reflectance_model_coeffs[i] << " ";
     vw_out() << std::endl;
     
     if (!g_opt->use_approx_adjusted_camera_models) {
@@ -2168,11 +2363,10 @@ public:
       vw_out() << std::endl;
     }
     
-    vw_out() << "scaled sun position: ";
-    for (int s = 0; s < int((*g_scaled_sun_posns).size()); s++) {
-      vw_out() << (*g_scaled_sun_posns)[s] << " ";
-    }
-    vw_out() << std::endl;
+    //vw_out() << "scaled sun position: ";
+    //for (int s = 0; s < int((*g_scaled_sun_posns).size()); s++) 
+    //  vw_out() << (*g_scaled_sun_posns)[s] << " ";
+    //vw_out() << std::endl;
 
     int num_dems = (*g_dem).size();
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
@@ -2226,7 +2420,7 @@ public:
         
       bool has_georef = true, has_nodata = true;
       TerminalProgressCallback tpc("asp", ": ");
-      if ( !g_opt->save_sparingly || g_final_iter ) {
+      if ( (!g_opt->save_sparingly || g_final_iter) && !g_opt->save_computed_intensity_only ) {
         std::string out_dem_file = g_opt->out_prefix + "-DEM"
           + iter_str + ".tif";
         vw_out() << "Writing: " << out_dem_file << std::endl;
@@ -2235,8 +2429,9 @@ public:
                                *g_opt, tpc);
       }
       
-      if (!g_opt->save_sparingly || (g_final_iter && g_opt->float_albedo) ) {
-        std::string out_albedo_file = g_opt->out_prefix + "-comp-albedo"
+      if ((!g_opt->save_sparingly || (g_final_iter && g_opt->float_albedo)) &&
+          !g_opt->save_computed_intensity_only ) {
+            std::string out_albedo_file = g_opt->out_prefix + "-comp-albedo"
           + iter_str + ".tif";
         vw_out() << "Writing: " << out_albedo_file << std::endl;
         block_write_gdal_image(out_albedo_file, (*g_albedo)[dem_iter], has_georef,
@@ -2547,7 +2742,9 @@ calc_intensity_residual(const F* const exposure,
     }
       
     if (success && is_valid(intensity) && is_valid(reflectance))
-      residuals[0] = weight*( intensity - albedo[0]*nonlin_reflectance(reflectance.child(), exposure[0], haze, g_opt->num_haze_coeffs) );
+      residuals[0] = weight*( intensity - albedo[0] *
+                              nonlin_reflectance(reflectance.child(), exposure[0],
+                                                 haze, g_opt->num_haze_coeffs) );
     
 
   } catch (const camera::PointToPixelErr& e) {
@@ -3316,6 +3513,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Do not run any optimization. Simply compute the intensity for a given DEM with exposures, camera positions, etc, coming from a previous SfS run. Useful with --model-shadows.")
     ("compute-exposures-only",   po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
      "Quit after saving the exposures. This should be done once for a big DEM, before using these for small sub-clips without recomputing them.")
+    ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
+     "Estimate the error for each slope (normal to the DEM).")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
     ("max-valid-image-vals", po::value(&opt.max_valid_image_vals)->default_value(""),
@@ -3717,7 +3916,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.skip_images[dem_iter] = curr_skip_images;
   }
 
-  if (opt.save_computed_intensity_only){
+  if (opt.save_computed_intensity_only || opt.estimate_slope_errors){
     if (opt.max_iterations > 0 || opt.max_coarse_iterations > 0){
       vw_out(WarningMessage) << "Using 0 iterations.\n";
       opt.max_iterations = 0;
@@ -3744,9 +3943,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.use_semi_approx = false;
     }
     
-    if (opt.image_exposures_vec.empty())
-      vw_throw( ArgumentErr()
-		<< "Expecting the exposures to be computed and passed in.\n" );
+    //if (opt.image_exposures_vec.empty())
+    //  vw_throw( ArgumentErr()
+    // << "Expecting the exposures to be computed and passed in.\n" );
     
     if (opt.num_haze_coeffs > 0 && opt.image_haze_vec.empty())
       vw_throw( ArgumentErr()
@@ -4323,7 +4522,6 @@ inline nodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
 
   // Blur with a given sigma
   double sigma = atof(getenv("SIGMA"));
-  std::cout << "--sigma is " << sigma << std::endl;
   //blur_weights(grass, sigma);
   ImageView<double> blurred_grass;
   if (sigma > 0) 
@@ -4879,8 +5077,7 @@ int main(int argc, char* argv[]) {
           masked_images_vec[0][dem_iter][image_iter]
             = create_pixel_range_mask2(DiskImageView<float>(img_file),
 				       std::max(img_nodata_val, shadow_thresh),
-				       opt.max_valid_image_vals_vec[image_iter]
-				       );
+				       opt.max_valid_image_vals_vec[image_iter]);
         }
       }
     }
@@ -4946,83 +5143,86 @@ int main(int argc, char* argv[]) {
       }
     }
     
-    // We have intensity = albedo * double nonlin_reflectance(reflectance,
-    // exposure, haze, num_haze_coeffs)
+    // We have intensity = albedo * nonlin_reflectance(reflectance, exposure, haze, num_haze_coeffs)
     // Assume that haze is 0 to start with. Find the exposure as
     // mean(intensity)/mean(reflectance)/albedo. Use this to compute an
     // initial exposure and decide based on that which images to
     // skip. If the user provided initial exposures and haze, use those, but
     // still go through the motions to find the images to skip.
-    if (!opt.save_computed_intensity_only) {
-
-      vw_out() << "Computing exposures.\n";
-      std::vector<double> local_exposures_vec(num_images, 0);
-      for (int image_iter = 0; image_iter < num_images; image_iter++) {
-
-	std::vector<double> exposures_per_dem;
-	for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
+    vw_out() << "Computing exposures.\n";
+    std::vector<double> local_exposures_vec(num_images, 0);
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
       
-	  if (opt.skip_images[dem_iter].find(image_iter) !=
-	      opt.skip_images[dem_iter].end()) continue;
-      
-	  ImageView< PixelMask<double> > reflectance, intensity;
-	  ImageView<double> weight;
-          ImageView<Vector2> pq; // no need for these just for initialization
-
-          // Sample the large DEMs. Keep about 200 row and column samples.
-          int sample_col_rate = std::max((int)round(dems[0][dem_iter].cols()/200.0), 1);
-          int sample_row_rate = std::max((int)round(dems[0][dem_iter].rows()/200.0), 1);
-          computeReflectanceAndIntensity(dems[0][dem_iter], pq, geos[0][dem_iter],
-					 opt.model_shadows, max_dem_height[dem_iter],
-					 gridx, gridy, sample_col_rate, sample_row_rate,
-					 model_params[image_iter],
-					 global_params,
-					 crop_boxes[0][dem_iter][image_iter],
-					 masked_images_vec[0][dem_iter][image_iter],
-					 blend_weights_vec[0][dem_iter][image_iter],
-					 cameras[dem_iter][image_iter].get(),
-                                         &scaled_sun_posns[3*image_iter],
-					 reflectance, intensity, weight,
-					 &opt.model_coeffs_vec[0]);
-
-          // TODO: Below is not the optimal way of finding the exposure!
-          // Find it as the analytical minimum using calculus.
-	  double imgmean, imgstdev, refmean, refstdev;
-	  compute_image_stats(intensity, reflectance, imgmean, imgstdev, refmean, refstdev);
-	  double exposure = imgmean/refmean/initial_albedo;
-	  vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
-	  vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
-	  vw_out() << "Local exposure for image " << image_iter << " and clip "
-		   << dem_iter << ": " << exposure << std::endl;
+      std::vector<double> exposures_per_dem;
+      for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
+        
+        if (opt.skip_images[dem_iter].find(image_iter) !=
+            opt.skip_images[dem_iter].end()) continue;
+        
+        ImageView< PixelMask<double> > reflectance, intensity;
+        ImageView<double> weight;
+        ImageView<Vector2> pq; // no need for these just for initialization
+        
+        // Sample the large DEMs. Keep about 200 row and column samples.
+        int sample_col_rate = std::max((int)round(dems[0][dem_iter].cols()/200.0), 1);
+        int sample_row_rate = std::max((int)round(dems[0][dem_iter].rows()/200.0), 1);
+        computeReflectanceAndIntensity(dems[0][dem_iter], pq, geos[0][dem_iter],
+                                       opt.model_shadows, max_dem_height[dem_iter],
+                                       gridx, gridy, sample_col_rate, sample_row_rate,
+                                       model_params[image_iter],
+                                       global_params,
+                                       crop_boxes[0][dem_iter][image_iter],
+                                       masked_images_vec[0][dem_iter][image_iter],
+                                       blend_weights_vec[0][dem_iter][image_iter],
+                                       cameras[dem_iter][image_iter].get(),
+                                       &scaled_sun_posns[3*image_iter],
+                                       reflectance, intensity, weight,
+                                       &opt.model_coeffs_vec[0]);
+        
+        // TODO: Below is not the optimal way of finding the exposure!
+        // Find it as the analytical minimum using calculus.
+        double imgmean, imgstdev, refmean, refstdev;
+        compute_image_stats(intensity, reflectance, imgmean, imgstdev, refmean, refstdev);
+        double exposure = imgmean/refmean/initial_albedo;
+        vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
+        vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
+        vw_out() << "Local exposure for image " << image_iter << " and clip "
+                 << dem_iter << ": " << exposure << std::endl;
 	
-	  double big = 1e+100; // There's no way image exposure can be bigger than this
-	  bool is_good = ( 0 < exposure && exposure < big );
-	  if (is_good) {
-	    exposures_per_dem.push_back(exposure);
-	  }else{
-	    // Skip images with bad exposure. Apparently there is no good
-	    // imagery in the area.
-	    opt.skip_images[dem_iter].insert(image_iter);
-	    vw_out() << "Skip image " << image_iter << " for clip " << dem_iter << std::endl;
-	  }
-	}
-
-	// Out the exposures for this image on all clips, pick the median
-	int len = exposures_per_dem.size();
-	if (len > 0) {
-	  std::sort(exposures_per_dem.begin(), exposures_per_dem.end());
-	  local_exposures_vec[image_iter] = 
-	    0.5*(exposures_per_dem[(len-1)/2] + exposures_per_dem[len/2]);
-	  //vw_out() << "Median exposure for image " << image_iter << " on all clips: "
-	  //	 << local_exposures_vec[image_iter] << std::endl;
-	}
+        double big = 1e+100; // There's no way image exposure can be bigger than this
+        bool is_good = ( 0 < exposure && exposure < big );
+        if (is_good) {
+          exposures_per_dem.push_back(exposure);
+        }else{
+          // Skip images with bad exposure. Apparently there is no good
+          // imagery in the area.
+          opt.skip_images[dem_iter].insert(image_iter);
+          vw_out() << "Skip image " << image_iter << " for clip " << dem_iter << std::endl;
+        }
       }
+      
+      // Out the exposures for this image on all clips, pick the median
+      int len = exposures_per_dem.size();
+      if (len > 0) {
+        std::sort(exposures_per_dem.begin(), exposures_per_dem.end());
+        local_exposures_vec[image_iter] = 
+          0.5*(exposures_per_dem[(len-1)/2] + exposures_per_dem[len/2]);
+        //vw_out() << "Median exposure for image " << image_iter << " on all clips: "
+        //	 << local_exposures_vec[image_iter] << std::endl;
+      }
+      
+    }
     
-      if (opt.image_exposures_vec.empty()) opt.image_exposures_vec = local_exposures_vec;
+    // Only overwrite the exposures if we don't have them supplied
+    if (opt.image_exposures_vec.empty()) opt.image_exposures_vec = local_exposures_vec;
+
+    for (size_t image_iter = 0; image_iter < opt.image_exposures_vec.size(); image_iter++) {
+      vw_out() << "Image exposure for " << opt.input_images[image_iter] << ' '
+               << opt.image_exposures_vec[image_iter] << std::endl;
     }
 
     // Initialize the haze as 0.
-    if ( (!opt.image_haze_vec.empty()) && (int)opt.image_haze_vec.size() != num_images )
+    if ((!opt.image_haze_vec.empty()) && (int)opt.image_haze_vec.size() != num_images)
       vw_throw(ArgumentErr() << "Expecting as many haze values as images.\n");
     if (opt.image_haze_vec.empty()) {
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
@@ -5032,17 +5232,127 @@ int main(int argc, char* argv[]) {
         opt.image_haze_vec.push_back(haze_vec);
       }
     }
-    
-    for (size_t image_iter = 0; image_iter < opt.image_exposures_vec.size(); image_iter++) {
-      vw_out() << "Image exposure for " << opt.input_images[image_iter] << ' '
-               << opt.image_exposures_vec[image_iter] << std::endl;
-    }
-
     if (opt.compute_exposures_only){
       save_exposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
+      // all done
       return 0;
     }
+    
+    // Note that below we may use the exposures computed at the previous step
+    if (opt.save_computed_intensity_only || opt.estimate_slope_errors) {
+      // In this case simply save the computed and actual intensity and quit
+      ImageView< PixelMask<double> > reflectance, meas_intensity, comp_intensity;
+      ImageView<double> weight;
+      ImageView<Vector2> pq; // no need for these just for initialization
+      int sample_col_rate = 1, sample_row_rate = 1;
 
+      boost::shared_ptr<SlopeErrEstim> slopeErrEstim = boost::shared_ptr<SlopeErrEstim>(NULL);
+      if (opt.estimate_slope_errors) {
+        int num_a_samples = 90; // 30;  // Sample the 0 to 90 degree range with this many samples
+        int num_b_samples = 360; // 120; // sample the 0 to 360 degree range with this many samples
+        slopeErrEstim = boost::shared_ptr<SlopeErrEstim>
+          (new SlopeErrEstim(dems[0][0].cols(), dems[0][0].rows(),
+                             num_a_samples, num_b_samples, &albedos[0][0], &opt));
+      }
+      
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        
+        if (opt.estimate_slope_errors) 
+          slopeErrEstim->image_iter = image_iter;
+
+        // Find the reflectance and measured intensity (and work towards estimating the slopes
+        // if asked to).
+        computeReflectanceAndIntensity(dems[0][0], pq, geos[0][0],
+                                       opt.model_shadows, max_dem_height[0],
+                                       gridx, gridy, sample_col_rate, sample_row_rate,
+                                       model_params[image_iter],
+                                       global_params,
+                                       crop_boxes[0][0][image_iter],
+                                       masked_images_vec[0][0][image_iter],
+                                       blend_weights_vec[0][0][image_iter],
+                                       cameras[0][image_iter].get(),
+                                       &scaled_sun_posns[3*image_iter],
+                                       reflectance, meas_intensity, weight,
+                                       &opt.model_coeffs_vec[0], slopeErrEstim.get());
+
+        // Find the computed intensity. 
+        comp_intensity.set_size(reflectance.cols(), reflectance.rows());
+        for (int col = 0; col < comp_intensity.cols(); col++) {
+          for (int row = 0; row < comp_intensity.rows(); row++) {
+            comp_intensity(col, row)
+              = albedos[0][0](col, row) *
+              nonlin_reflectance(reflectance(col, row), opt.image_exposures_vec[image_iter],
+                                 &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
+          }
+        }
+
+        if (opt.save_computed_intensity_only) {
+          TerminalProgressCallback tpc("asp", ": ");
+          bool has_georef = true, has_nodata = true;
+          std::string out_camera_file
+            = asp::bundle_adjust_file_name(opt.out_prefix,
+                                           opt.input_images[image_iter],
+                                           opt.input_cameras[image_iter]);
+          std::string iter_str2 = fs::path(out_camera_file).replace_extension("").string();
+          std::string out_meas_intensity_file = iter_str2 + "-meas-intensity.tif";
+          vw_out() << "Writing: " << out_meas_intensity_file << std::endl;
+          block_write_gdal_image(out_meas_intensity_file,
+                                 apply_mask(meas_intensity, img_nodata_val),
+                                 has_georef, geos[0][0], has_nodata,
+                                 img_nodata_val, opt, tpc);
+          
+          std::string out_comp_intensity_file = iter_str2 + "-comp-intensity.tif";
+          vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
+          block_write_gdal_image(out_comp_intensity_file,
+                                 apply_mask(comp_intensity, img_nodata_val),
+                                 has_georef, geos[0][0], has_nodata, img_nodata_val,
+                                 opt, tpc);
+        }
+          
+      }// End iterating over images
+
+      if (opt.estimate_slope_errors) {
+        // Find the slope error as the maximum of slope errors in all directions
+        // from the given slope.
+        ImageView<float> slope_error;
+        slope_error.set_size(reflectance.cols(), reflectance.rows());
+        double nodata_slope_value = -1.0;
+        for (int col = 0; col < slope_error.cols(); col++) {
+          for (int row = 0; row < slope_error.rows(); row++) {
+            slope_error(col, row) = nodata_slope_value;
+            int num_samples = slopeErrEstim->slope_errs[col][row].size();
+            for (int sample = 0; sample < num_samples; sample++) {
+              slope_error(col, row)
+                = std::max(double(slope_error(col, row)),
+                           slopeErrEstim->slope_errs[col][row][sample]);
+            }
+          }
+        }
+        
+        // Slope errors that are stuck at 90 degrees could not be estimated
+        for (int col = 0; col < slope_error.cols(); col++) {
+          for (int row = 0; row < slope_error.rows(); row++) {
+            if (slope_error(col, row) == slopeErrEstim->max_angle)
+              slope_error(col, row) = nodata_slope_value;
+          }
+        }
+        
+        TerminalProgressCallback tpc("asp", ": ");
+        bool has_georef = true, has_nodata = true;
+        std::string slope_error_file = opt.out_prefix + "-slope-error.tif";
+        vw_out() << "Writing: " << slope_error_file << std::endl;
+        block_write_gdal_image(slope_error_file,
+                               slope_error, has_georef, geos[0][0], has_nodata,
+                               nodata_slope_value, opt, tpc);
+      }
+    } // End estimating the slope error
+      
+    if (opt.save_computed_intensity_only || opt.estimate_slope_errors){
+      save_exposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
+      // All done
+      return 0;
+    }
+    
     if (opt.num_haze_coeffs > 0) {
       for (size_t image_iter = 0; image_iter < opt.image_haze_vec.size(); image_iter++) {
         vw_out() << "Image haze for " << opt.input_images[image_iter] << ':';
