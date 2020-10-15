@@ -46,10 +46,6 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 typedef CameraRelationNetwork<JFeature> CRNJ;
 
-// These will be used in the callback and should be used overall sparingly
-BAParamStorage * g_param_storage = NULL;
-Options *g_opt = NULL;
-
 // Write the results to disk.
 void saveResults(Options const& opt, BAParamStorage const& param_storage) {
   int num_cameras = opt.image_files.size();
@@ -76,22 +72,23 @@ void saveResults(Options const& opt, BAParamStorage const& param_storage) {
   
 }
 
-// If the user wants to, invoke this at each iteration
+// A callback to invoke at each iteration if desiring to save the cameras
+// at that time.
 class BaCallback: public ceres::IterationCallback {
 public:
-  virtual ceres::CallbackReturnType operator()
-    (const ceres::IterationSummary& summary) {
+  
+  BaCallback(Options const& opt, BAParamStorage const& param_storage):
+    m_opt(opt), m_param_storage(param_storage){}
 
-    if (g_param_storage == NULL || g_opt == NULL) {
-      vw::vw_throw( vw::ArgumentErr()
-                    << "The pointer to options and param storage were not initialized.");
-    }
-
-    saveResults(*g_opt, *g_param_storage);
+  virtual ceres::CallbackReturnType operator() (const ceres::IterationSummary& summary) {
+    saveResults(m_opt, m_param_storage);
     return ceres::SOLVER_CONTINUE;
   }
+  
+private:
+  Options const& m_opt;
+  BAParamStorage const& m_param_storage;
 };
-
 
 /// Add error source for projecting a 3D point into the camera.
 void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& pixel_sigma,
@@ -1218,7 +1215,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     options.num_threads = opt.num_threads;
 
   // Use a callback function at every iteration, if desired to save the intermediate results
-  BaCallback callback;
+  BaCallback callback(opt, param_storage);
   if (opt.save_intermediate_cameras) {
     options.callbacks.push_back(&callback);
     options.update_state_every_iteration = true;
@@ -1392,9 +1389,6 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                num_lens_distortion_params, 
                                opt.intrinisc_options);
 
-  // Get the pointer to this right away
-  g_param_storage = &param_storage; 
-  
   // Fill in the camera and intrinsic parameters.
   std::vector<boost::shared_ptr<camera::CameraModel> > new_cam_models;
   bool ans = false;
@@ -2413,8 +2407,6 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 int main(int argc, char* argv[]) {
 
   Options opt;
-  g_opt = &opt; // Save a pointer to it right away
-  
   try {
     xercesc::XMLPlatformUtils::Initialize();
 

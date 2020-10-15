@@ -49,9 +49,6 @@
 
 // This file contains the bundle adjust options and some other needed functions.
 
-
-//==========================================================================
-
 /// These are the different camera modes that bundle_adjust supports.
 enum BACameraType {BaCameraType_Pinhole    = 0,
                    BaCameraType_OpticalBar = 1,
@@ -273,9 +270,9 @@ bool init_cams(Options & opt, BAParamStorage & param_storage,
   // Read the adjustments from a previous run, if present
   if (opt.input_prefix != "") {
     for (size_t icam = 0; icam < num_cameras; icam++){
-      std::string adjust_file = asp::bundle_adjust_file_name(opt.input_prefix,
-                                                             opt.image_files[icam],
-                                                             opt.camera_files[icam]);
+      std::string adjust_file
+        = asp::bundle_adjust_file_name(opt.input_prefix, opt.image_files[icam],
+                                       opt.camera_files[icam]);
       vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
       double * cam_ptr = param_storage.get_camera_ptr(icam);
       CameraAdjustment adjustment;
