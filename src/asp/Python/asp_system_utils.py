@@ -332,7 +332,7 @@ def executeCommand(cmd,
         return (out, err, status)
 
     # Convert the input to list format if needed
-    if not asp_string_utils.isNotString(cmd):
+    if asp_string_utils.isString(cmd):
         cmd = asp_string_utils.stringToArgList(cmd)
     
     for attempt in range(numAttempts):

@@ -407,7 +407,7 @@ def getCubeCenterLatitude(cubePath, workDir='tmp'):
             centerLatitude = asp_string_utils.getNumberAfterEqualSign(line, )
             break
     # Make sure we found the desired value
-    if (centerLatitude == -9999) or (isinstance(centerLatitude, basestring)):
+    if (centerLatitude == -9999) or (asp_string_utils.isString(centerLatitude)):
         raise Exception("Unable to find CenterLatitude from file " + cubePath)
 
     # Clean up temporary file

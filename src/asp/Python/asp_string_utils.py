@@ -100,8 +100,8 @@ def getNumberAfterEqualSign(text, lineStart=0):
 
 # The following functions are useful for going between string and list
 #  representations of command line arguments
-def isNotString(a):
-    """Returns true if the object is not a string"""
+def isString(a):
+    """Returns true if the object is a string"""
 
     # Python 2/3 compatibilty
     try:
@@ -109,7 +109,7 @@ def isNotString(a):
     except NameError:
         basestring = str
         
-    return (not isinstance(a, basestring))
+    return isinstance(a, basestring)
 
 def argListToString(argList):
     """Converts a list of arguments into a single argument string"""

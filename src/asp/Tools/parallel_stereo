@@ -30,7 +30,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-import asp_system_utils
+import asp_system_utils, asp_string_utils
 asp_system_utils.verify_python_version_is_supported()
 
 # The path to the ASP python files
@@ -781,7 +781,7 @@ if __name__ == '__main__':
 
                 if (isinstance(option_dict[var], int)    or
                     isinstance(option_dict[var], float)  or
-                    isinstance(option_dict[var], basestring)):
+                    asp_string_utils.isString(option_dict[var])):
                     # For int, float, and string, append together with value
                     extra_args.append(arg)
                     extra_args.append(str(option_dict[var]))
