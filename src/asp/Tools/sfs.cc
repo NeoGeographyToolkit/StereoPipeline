@@ -1255,7 +1255,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
     initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
     rpc_penalty_weight, rpc_max_error, unreliable_intensity_threshold, robust_threshold, shadow_threshold;
   vw::BBox2 crop_win;
-
+  vw::Vector2 height_error_params;
+  
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
 	    coarse_levels(0), blending_dist(0), blending_power(2),
             min_blend_size(0), num_haze_coeffs(0),
@@ -1734,10 +1735,6 @@ struct HeightErrEstim {
     
     albedo = albedo_in;
     opt = opt_in;
-
-    std::cout << "--num height samples " << num_height_samples << std::endl;
-    std::cout << "--max height error "   << max_height_error << std::endl;
-    std::cout << "nodata height value "  << nodata_height_val << std::endl;
     
     image_iter = 0; // will be modified later
 
@@ -1820,9 +1817,6 @@ void estimateSlopeError(Vector3 const& cameraPosition,
   if (norm_2(normal - n) > 1e-8) 
     vw_throw( LogicErr() << "Book-keeping error in slope estimation.\n" );
     
-  //std::cout << "1zzzz --normal is === " << normal << ' '
-  //          << n  << ' ' << norm_2(normal - n) << std::endl;
-  
   // Find the rotation R that transforms the vector (0, 0, 1) to the normal
   vw::Matrix3x3 R1, R2, R;
   
@@ -1840,8 +1834,6 @@ void estimateSlopeError(Vector3 const& cameraPosition,
   Vector3 n0(0, 0, 1);
   if (norm_2(R*n0 - n) > 1e-8) 
     vw_throw( LogicErr() << "Book-keeping error in slope estimation.\n" );
-  
-  //std::cout << "2zzz transform === " << R*n0 << ' ' << n  << ' ' << norm_2(R*n0 - n) << std::endl;
   
   int num_a_samples = slopeErrEstim->num_a_samples;
   int num_b_samples = slopeErrEstim->num_b_samples;
@@ -1878,9 +1870,6 @@ void estimateSlopeError(Vector3 const& cameraPosition,
 
       double ca = cos(deg2rad * a), sa = sin(deg2rad * a);
 
-      //std::cout << "--angle a and b is " << a << ' ' << b << std::endl;
-      //std::cout << "--ca and cb is " << ca << ' ' << cb << std::endl;
-      
       Vector3 w(cb*sa, sb*sa, ca);
       w = R*w;
 
@@ -1889,12 +1878,6 @@ void estimateSlopeError(Vector3 const& cameraPosition,
       if (std::abs(prod - ca) > 1e-8)
         vw_throw( LogicErr() << "Book-keeping error in slope estimation.\n" );
 
-      //std::cout << "--3zzzz product === " << prod << ' ' << ca << ' ' <<
-      //  std::abs(prod - ca) << std::endl;
-      //std::cout << "--normal is " << normal << std::endl;
-      //std::cout << "--w is " << w << std::endl;
-      //std::cout << "--normal diff is " << norm_2(normal - w) << std::endl;
-      
       // Compute the reflectance with the given normal
       double phase_angle = 0.0;
       PixelMask<double> reflectance = ComputeReflectance(cameraPosition,
@@ -1907,13 +1890,7 @@ void estimateSlopeError(Vector3 const& cameraPosition,
         nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
                            &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
 
-      //std::cout << "55 meas and comp " << meas_intensity << ' '
-      // << comp_intensity  << ' ' << std::abs(meas_intensity - comp_intensity) << std::endl;
-      
       if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
-        //std::cout << "--exceeded budget at "
-        //          << std::abs(comp_intensity - meas_intensity) << " > "
-        //          << max_intensity_err << std::endl;
         // We exceeded the error budget, hence this is an upper bound on the slope
         slopeErrEstim->slope_errs[col][row][b_iter] = a;
         break;
@@ -1943,12 +1920,9 @@ void estimateHeightError(ImageView<double> const& dem,
   int cols[] = {col - 1, col,     col,     col + 1};
   int rows[] = {row,     row - 1, row + 1, row};
   
-  //if (colx == 5 && rowx == 5) std::cout << "--col row image iter " << col << ' ' << row << ' ' << image_iter << std::endl;
-
   for (int it = 0; it < 4; it++) {
 
     int colx = cols[it], rowx = rows[it];
-    // if (colx == 5 && rowx == 5) std::cout << "colx rowx col row iter meas inten and error budget " << colx << ' ' << rowx << ' ' << col << ' ' << row  << ' ' << image_iter << " " << meas_intensity << ' ' << max_intensity_err << std::endl;
 
     // Can't be at edges as need to compute normals
     if (colx <= 0 || rowx <= 0 || colx >= dem.cols() - 1 || rowx >= dem.rows() - 1)
@@ -1956,21 +1930,17 @@ void estimateHeightError(ImageView<double> const& dem,
 
     // Perturb the height down and up
     for (int sign = -1; sign <= 1; sign += 2) {
-      // if (colx == 5 && rowx == 5) std::cout << "--sign is " << sign << std::endl;
       for (int height_it = 0; height_it < heightErrEstim->num_height_samples; height_it++) {
         double dh = sign * heightErrEstim->max_height_error
           * double(height_it)/double(heightErrEstim->num_height_samples);
-        // if (colx == 5 && rowx == 5) std::cout << "--dh is " << dh << std::endl;
 
         if (sign == -1) {
           if (dh < heightErrEstim->height_error_vec(colx, rowx)[0]) {
-            // if (colx == 5 && rowx == 5) std::cout << "---hit prev value dh < prev" << dh << ' ' <<  heightErrEstim->height_error_vec(colx, rowx)[0] << std::endl;
             // We already determined dh can't go as low, so stop here
             break;
           }
         } else if (sign == 1) {
           if (dh > heightErrEstim->height_error_vec(colx, rowx)[1]) {
-            // if (colx == 5 && rowx == 5) std::cout << "---hit prev value dh > prev" << dh << ' ' <<  heightErrEstim->height_error_vec(colx, rowx)[1] << std::endl;
             break;
           }
         }
@@ -2039,13 +2009,7 @@ void estimateHeightError(ImageView<double> const& dem,
           nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
                              &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
 
-        
-          // if (colx == 5 && rowx == 5) std::cout << "meas and comp intensity and err for dh " << dh << ' ' << meas_intensity << ' ' << comp_intensity << ' ' << std::abs(comp_intensity - meas_intensity) << std::endl;
-
           if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
-
-          // if (colx == 5 && rowx == 5) std::cout << "--hit the error budget at dh = " << dh << std::endl;
-          
           // We exceeded the error budget, record the dh at which it happens
           if (sign == -1) {
             heightErrEstim->height_error_vec(colx, rowx)[0] = dh;
@@ -2228,9 +2192,6 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     // as a measure for how far is overall the computed intensity allowed
     // to diverge from the measured intensity
     double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
-
-    //std::cout << "intensity and err " << intensity.child() << ' '
-    //          << comp_intensity << ' ' << max_intensity_err << std::endl;
     estimateSlopeError(cameraPosition,
                        normal, base, local_model_params,
                        global_params,
@@ -3718,7 +3679,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
      "Estimate the error for each slope (normal to the DEM). This is experimental.")
     ("estimate-height-errors",   po::bool_switch(&opt.estimate_height_errors)->default_value(false)->implicit_value(true),
-     "Estimate the SfS DEM height uncertainty by finding the height perturbation at each grid point which will make at least one of the simulated images at that point change by more than twice the discrepancy between the unperturbed simulated image and the measured image. The SfS DEM must be provided via the -i option.")
+     "Estimate the SfS DEM height uncertainty by finding the height perturbation (in meters) at each grid point which will make at least one of the simulated images at that point change by more than twice the discrepancy between the unperturbed simulated image and the measured image. The SfS DEM must be provided via the -i option.")
+    ("height-error-params", po::value(&opt.height_error_params)->default_value(Vector2(5.0,1000.0), "5.0 1000"),
+     "Specify the largest height deviation to examine (in meters), and how many samples to use from 0 to that height.")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
     ("shadow-threshold", po::value(&opt.shadow_threshold)->default_value(-1),
@@ -3946,7 +3909,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     std::string image;
     double val;
     while (ifs >> image >> val) {
-      std::cout << "--read " << image << ' ' << val << std::endl;
       custom_thresh[image] = val;
     }
     
@@ -4671,7 +4633,6 @@ inline nodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
   std::vector<std::string> image;
 
   std::string dem_file = argv[argc - 1];
-  std::cout << "dem file is " << dem_file << std::endl;
   
   float dem_nodata_val = -std::numeric_limits<float>::max();
   if (vw::read_nodata_val(dem_file, dem_nodata_val)){
@@ -4679,7 +4640,6 @@ inline nodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
   }
 
   ImageView< PixelMask<float> > dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
-  std::cout << "cols and rows are " << dem.cols() << ' ' << dem.rows() << std::endl;
 
   vw::cartography::GeoReference georef;
   if (!read_georeference(georef, dem_file))
@@ -4695,7 +4655,6 @@ inline nodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
   }
   
   for (int i = 1; i < argc - 1; i++) {
-    std::cout << "Reading " << argv[i] << std::endl;
 
     std::string img_file = argv[i];
     float img_nodata_val = -std::numeric_limits<float>::max();
@@ -5200,8 +5159,6 @@ int main(int argc, char* argv[]) {
                   
                   Vector2 pix2 = apcam->point_to_pixel(xyz);
                   max_curr_err = std::max(max_curr_err, norm_2(pix1 - pix2));
-                  //std::cout << "orig and approx1 " << pix1 << ' ' << pix2 << ' '
-                  //          << norm_2(pix1-pix2) << std::endl;
                   
                   // Use these pixels to expand the crop box, as we now also know the adjustments.
                   // This is a bug fix.
@@ -5214,8 +5171,6 @@ int main(int argc, char* argv[]) {
                 //if (!img_bbox.contains(pix3)) continue;
                 Vector2 pix4 = cameras[dem_iter][image_iter]->point_to_pixel(xyz);
                 max_curr_err = std::max(max_curr_err, norm_2(pix3 - pix4));
-                //std::cout << "orig and approx2 " << pix3 << ' ' << pix4 << ' '
-                //          << norm_2(pix3-pix4) << std::endl;
 
                 cam_ptr->crop_box().grow(pix3);
                 cam_ptr->crop_box().grow(pix4);
@@ -5520,8 +5475,12 @@ int main(int argc, char* argv[]) {
       
       boost::shared_ptr<HeightErrEstim> heightErrEstim = boost::shared_ptr<HeightErrEstim>(NULL);
       if (opt.estimate_height_errors) {
-        int num_height_samples   = 2000;  // TODO(oalexan1): These must be parameters
-        double max_height_error  = 5.0;
+        double max_height_error  = opt.height_error_params[0];
+        int num_height_samples   = opt.height_error_params[1];
+        vw_out() << "Maximum height error to examine: " << max_height_error << "\n";
+        vw_out() << "Number of samples to use from 0 to that height: " << num_height_samples
+                 << "\n";
+          
         double nodata_height_val = -1.0;
         heightErrEstim = boost::shared_ptr<HeightErrEstim>
           (new HeightErrEstim(dems[0][0].cols(), dems[0][0].rows(),
@@ -5632,11 +5591,9 @@ int main(int argc, char* argv[]) {
                               heightErrEstim->height_error_vec.rows());
         for (int col = 0; col < height_error.cols(); col++) {
           for (int row = 0; row < height_error.rows(); row++) {
-            //std::cout << "--range is " << heightErrEstim->height_error_vec(col, row)[0] << ' ' << heightErrEstim->height_error_vec(col, row)[1] << std::endl;
             height_error(col, row)
               = std::max(-heightErrEstim->height_error_vec(col, row)[0],
                          heightErrEstim->height_error_vec(col, row)[1]);
-            //std::cout << "--total is " << height_error(col, row) << std::endl;
             
             // When we are stuck at the highest error that means we could not
             // find it

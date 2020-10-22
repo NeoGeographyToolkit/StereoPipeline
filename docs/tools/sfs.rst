@@ -86,11 +86,15 @@ Command-line options:
     loss). Any difference much larger than this will be penalized.
 
 --estimate-height-errors
-    Estimate the SfS DEM height uncertainty by finding the height
-    perturbation at each grid point which will make at least one of
-    the simulated images at that point change by more than twice the
-    discrepancy between the unperturbed simulated image and the
-    measured image. The SfS DEM must be provided via the -i option.
+    Estimate the SfS DEM height uncertainty (in meters) by finding the
+    height perturbation at each grid point which will make at least
+    one of the simulated images at that point change by more than
+    twice the discrepancy between the unperturbed simulated image and
+    the measured image. The SfS DEM must be provided via the -i option.
+
+--height-error-params (*double integer*) (default = 5.0 1000)
+    Specify the largest height deviation to examine (in meters), and
+    how many samples to use from 0 to that height.
 
 --save-dem-with-nodata
     Save a copy of the DEM while using a no-data value at a DEM
