@@ -4,8 +4,8 @@ sfs
 ---
 
 The ``sfs`` tool can improve a DEM using shape-from-shading. Examples
-for how to use it are in :numref:`sfs`. The tool
-``parallel_sfs`` (next section) extends ``sfs`` to run using multiple
+for how to invoke it are in the :ref:`SfS usage <sfs_usage>` chapter. The tool
+``parallel_sfs`` (:numref:`parallel_sfs`) extends ``sfs`` to run using multiple
 processes and potentially on multiple machines.
 
 Usage::
@@ -71,6 +71,27 @@ Command-line options:
     Optional shadow thresholds for the input images (a list of real
     values in quotes, one per image).
 
+--shadow-threshold <arg>
+    A shadow threshold to apply to all images instead of using
+    individual thresholds. (Must be positive.)
+
+--custom-shadow-threshold-list <arg> 
+    A list having one image and one shadow threshold per line. For the
+    images specified there, override the shadow threshold supplied by
+    other means with this value.
+
+--robust-threshold <arg>
+    If positive, set the threshold for the robust
+    measured-to-simulated intensity difference (using the Cauchy
+    loss). Any difference much larger than this will be penalized.
+
+--estimate-height-errors
+    Estimate the SfS DEM height uncertainty by finding the height
+    perturbation at each grid point which will make at least one of
+    the simulated images at that point change by more than twice the
+    discrepancy between the unperturbed simulated image and the
+    measured image. The SfS DEM must be provided via the -i option.
+
 --save-dem-with-nodata
     Save a copy of the DEM while using a no-data value at a DEM
     grid point where all images show shadows. To be used if shadow
@@ -107,7 +128,7 @@ Command-line options:
     values. Enabled only when crop-input-images is true, for
     performance reasons. Blend over this many pixels.
 
---blending-power <integer (defaul: 2)>
+--blending-power <integer (default: 2)>
     A higher value will result in smoother blending.
 
 --min-blend-size <integer (default: 0)>

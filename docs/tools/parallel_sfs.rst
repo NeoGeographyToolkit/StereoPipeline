@@ -3,11 +3,15 @@
 parallel_sfs
 ------------
 
-The program ``parallel_sfs`` is a wrapper around ``sfs`` meant to divide
-the input DEM into tiles with overlap, run ``sfs`` on each tile as
-multiple processes, potentially on multiple machines, and then merge the
-results into a single output DEM. It has the same options as ``sfs``,
-and a few additional ones, as outlined below.
+The program ``parallel_sfs`` is a wrapper around ``sfs``
+(:numref:`sfs`) meant to divide the input DEM into tiles with overlap,
+run ``sfs`` on each tile as multiple processes, potentially on
+multiple machines, and then merge the results into a single output
+DEM. It has the same options as ``sfs``, and a few additional ones, as
+outlined below.
+
+Examples for how to invoke it are in the :ref:`SfS usage <sfs_usage>`
+chapter.
 
 Usage::
 

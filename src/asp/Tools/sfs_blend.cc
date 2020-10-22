@@ -236,7 +236,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("sfs-dem", po::value<string>(&opt.sfs_dem),
      "The SfS DEM to process.")
     ("lola-dem", po::value<string>(&opt.lola_dem),
-     "The LOLA DEM to fill in the regions in permanent shadow.")
+     "The LOLA DEM to use to fill in the regions in permanent shadow.")
     ("max-lit-image-mosaic", po::value<string>(&opt.max_lit_image_mosaic),
      "The maximally lit image mosaic to use to determine the permanently shadowed regions.")
     ("image-threshold",  po::value<double>(&opt.image_threshold)->default_value(0.0),
@@ -244,15 +244,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("blend-length", po::value<double>(&opt.blend_length)->default_value(0.0),
      "The length, in pixels, over which to blend the SfS and LOLA DEMs at the boundary of the permanently shadowed region.")
     ("weight-blur-sigma", po::value<double>(&opt.weight_blur_sigma)->default_value(0.0),
-     "The standard deviation of the Gaussian used to blur the weight that performs the transition from the SfS to the LOLA DEM. A higher value results in a smoother transition (this does not smooth the DEMs). The extent of the blur is about 7 times this deviation. Set to 0 to not use this operation.")
+     "The standard deviation of the Gaussian used to blur the weight that performs the transition from the SfS to the LOLA DEM. A higher value results in a smoother transition (this does not smooth the DEMs). The extent of the blur is about 7 times this deviation, though it tapers fast to 0 before that. Set to 0 to not use this operation.")
     ("min-blend-size", po::value<double>(&opt.min_blend_size)->default_value(0.0),
-     "Do not apply blending in shadowed areas of dimensions less than this.")
+     "Do not apply blending in shadowed areas of dimensions less than this, hence keeping there the SfS DEM.")
     ("output-dem", po::value(&opt.output_dem), "The blended output DEM to save.")
-    ("sfs-mask", po::value(&opt.sfs_mask), "The output mask having 1 for pixels obtained with SfS (and some LOLA blending at interfaces) and 0 for pixels purely from LOLA.")
-    //("blending-weight", po::value(&opt.blending_weight),
-    // "Save here the weight being used to blend the SfS and LOLA DEMs (optional).")
-    ;
-  
+    ("sfs-mask", po::value(&opt.sfs_mask), "The output mask having 1 for pixels obtained with SfS (and some LOLA blending at interfaces) and 0 for pixels purely from LOLA.");
+
+  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
+
   po::options_description positional("");
   po::positional_options_description positional_desc;
 

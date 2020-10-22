@@ -434,7 +434,7 @@ def main(argsIn):
                                       argumentFilePath, parallelArgs,
                                       options.nodesListPath, True)#not options.suppressOutput)
 
-    if '--estimate-slope-errors' not in argsIn:
+    if '--estimate-slope-errors' not in argsIn and '--estimate-height-errors' not in argsIn:
         # Mosaic the computed DEM
         mosaic_results(tileList, outputFolder, outputName, options,
                        'DEM-final', 'DEM-final')
@@ -443,11 +443,17 @@ def main(argsIn):
         if '--float-albedo' in argsIn:
             mosaic_results(tileList, outputFolder, outputName, options,
                            'comp-albedo-final', 'albedo-final')
-    else:
+
+    elif '--estimate-slope-errors' in argsIn:
         # Here we just mosaic the slope errors
         mosaic_results(tileList, outputFolder, outputName, options,
                        'slope-error', 'slope-error')
         
+    elif '--estimate-height-errors' in argsIn:
+        # Here we just mosaic the height errors
+        mosaic_results(tileList, outputFolder, outputName, options,
+                       'height-error', 'height-error')
+
     endTime = time.time()
     print("Finished in " + str(endTime - startTime) + " seconds.")
 

@@ -1234,7 +1234,7 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string input_dems_str, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_dems, input_images, input_cameras;
-  std::string shadow_thresholds, max_valid_image_vals, skip_images_str, image_exposure_prefix,
+  std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposure_prefix,
     model_coeffs_prefix, model_coeffs, image_haze_prefix;
   std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
   std::vector<double> image_exposures_vec;
@@ -1253,7 +1253,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     float_reflectance_model, float_sun_position, query, save_sparingly, float_haze;
   double smoothness_weight, integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
     initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
-    rpc_penalty_weight, rpc_max_error, unreliable_intensity_threshold, shadow_threshold;
+    rpc_penalty_weight, rpc_max_error, unreliable_intensity_threshold, robust_threshold, shadow_threshold;
   vw::BBox2 crop_win;
 
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
@@ -1753,7 +1753,7 @@ struct HeightErrEstim {
   int num_height_samples;
   ImageView<double> * albedo;
   Options * opt;
-  ImageView<Vector2f> height_error_vec;
+  ImageView<Vector2> height_error_vec;
   int image_iter;
   double max_height_error;
   double nodata_height_val;
@@ -1798,7 +1798,6 @@ void estimateSlopeError(Vector3 const& cameraPosition,
                         Vector3 const& normal, Vector3 const& xyz,
                         ModelParams const& local_model_params,
                         GlobalParams const& global_params,
-                        double & phase_angle,
                         const double * reflectance_model_coeffs,
                         double meas_intensity,
                         double max_intensity_err,
@@ -1924,6 +1923,144 @@ void estimateSlopeError(Vector3 const& cameraPosition,
   }
 }
 
+// Given the normal (height) to the SfS DEM, find how different
+// a height can be from this before the computed intensity
+// due to that height is bigger than max_intensity_err.
+void estimateHeightError(ImageView<double> const& dem,
+                         cartography::GeoReference const& geo,
+                         Vector3 const& cameraPosition,
+                         ModelParams const& local_model_params,
+                         GlobalParams const& global_params,
+                         const double * reflectance_model_coeffs,
+                         double meas_intensity,
+                         double max_intensity_err,
+                         int col, int row, int image_iter,
+                         Options & opt,
+                         ImageView<double> & albedo,
+                         HeightErrEstim * heightErrEstim){
+
+  // Look at the neighbors
+  int cols[] = {col - 1, col,     col,     col + 1};
+  int rows[] = {row,     row - 1, row + 1, row};
+  
+  //if (colx == 5 && rowx == 5) std::cout << "--col row image iter " << col << ' ' << row << ' ' << image_iter << std::endl;
+
+  for (int it = 0; it < 4; it++) {
+
+    int colx = cols[it], rowx = rows[it];
+    // if (colx == 5 && rowx == 5) std::cout << "colx rowx col row iter meas inten and error budget " << colx << ' ' << rowx << ' ' << col << ' ' << row  << ' ' << image_iter << " " << meas_intensity << ' ' << max_intensity_err << std::endl;
+
+    // Can't be at edges as need to compute normals
+    if (colx <= 0 || rowx <= 0 || colx >= dem.cols() - 1 || rowx >= dem.rows() - 1)
+      continue;
+
+    // Perturb the height down and up
+    for (int sign = -1; sign <= 1; sign += 2) {
+      // if (colx == 5 && rowx == 5) std::cout << "--sign is " << sign << std::endl;
+      for (int height_it = 0; height_it < heightErrEstim->num_height_samples; height_it++) {
+        double dh = sign * heightErrEstim->max_height_error
+          * double(height_it)/double(heightErrEstim->num_height_samples);
+        // if (colx == 5 && rowx == 5) std::cout << "--dh is " << dh << std::endl;
+
+        if (sign == -1) {
+          if (dh < heightErrEstim->height_error_vec(colx, rowx)[0]) {
+            // if (colx == 5 && rowx == 5) std::cout << "---hit prev value dh < prev" << dh << ' ' <<  heightErrEstim->height_error_vec(colx, rowx)[0] << std::endl;
+            // We already determined dh can't go as low, so stop here
+            break;
+          }
+        } else if (sign == 1) {
+          if (dh > heightErrEstim->height_error_vec(colx, rowx)[1]) {
+            // if (colx == 5 && rowx == 5) std::cout << "---hit prev value dh > prev" << dh << ' ' <<  heightErrEstim->height_error_vec(colx, rowx)[1] << std::endl;
+            break;
+          }
+        }
+
+        // Determine where to add the dh. Recall that we compute the intensity
+        // at (col, row), while perturbing the dem height at (colx, rowx)
+        double left_dh = 0, center_dh = 0, right_dh = 0, bottom_dh = 0, top_dh = 0;
+        if      (colx == col - 1 && rowx == row    ) left_dh   = dh; 
+        else if (colx == col     && rowx == row    ) center_dh = dh; // won't be reached
+        else if (colx == col + 1 && rowx == row    ) right_dh  = dh; 
+        else if (colx == col     && rowx == row + 1) bottom_dh = dh; 
+        else if (colx == col     && rowx == row - 1) top_dh    = dh; 
+        
+        double left_h   = dem(col - 1, row)     + left_dh;
+        double center_h = dem(col,     row)     + center_dh;
+        double right_h  = dem(col + 1, row)     + right_dh;
+        double bottom_h = dem(col,     row + 1) + bottom_dh;
+        double top_h    = dem(col,     row - 1) + top_dh;
+
+        // TODO(oalexan1): Make this into a function to avoid code duplication!
+        
+        // The xyz position at the center grid point
+        Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
+        double h = center_h;
+        Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+        Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
+
+        // The xyz position at the left grid point
+        lonlat = geo.pixel_to_lonlat(Vector2(col-1, row));
+        h = left_h;
+        lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+        Vector3 left = geo.datum().geodetic_to_cartesian(lonlat3);
+
+        // The xyz position at the right grid point
+        lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
+        h = right_h;
+        lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+        Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
+
+        // The xyz position at the bottom grid point
+        lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
+        h = bottom_h;
+        lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+        Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
+
+        // The xyz position at the top grid point
+        lonlat = geo.pixel_to_lonlat(Vector2(col, row-1));
+        h = top_h;
+        lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+        Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
+
+        // four-point normal (centered)
+        Vector3 dx = right - left;
+        Vector3 dy = bottom - top;
+
+        Vector3 normal = -normalize(cross_prod(dx, dy)); // so normal points up
+
+        double phase_angle = 0.0;
+        PixelMask<double> reflectance = ComputeReflectance(cameraPosition,
+                                                           normal, base, local_model_params,
+                                                           global_params, phase_angle,
+                                                           reflectance_model_coeffs);
+        reflectance.validate();
+
+        double comp_intensity = albedo(col, row) *
+          nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
+                             &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
+
+        
+          // if (colx == 5 && rowx == 5) std::cout << "meas and comp intensity and err for dh " << dh << ' ' << meas_intensity << ' ' << comp_intensity << ' ' << std::abs(comp_intensity - meas_intensity) << std::endl;
+
+          if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
+
+          // if (colx == 5 && rowx == 5) std::cout << "--hit the error budget at dh = " << dh << std::endl;
+          
+          // We exceeded the error budget, record the dh at which it happens
+          if (sign == -1) {
+            heightErrEstim->height_error_vec(colx, rowx)[0] = dh;
+          } else if (sign == 1) {
+            heightErrEstim->height_error_vec(colx, rowx)[1] = dh;
+          }
+                
+          break;
+        }
+
+      }
+    }
+  }
+}
+
 bool computeReflectanceAndIntensity(double left_h, double center_h, double right_h,
 				    double bottom_h, double top_h,
                                     bool use_pq, double p, double q, // dem partial derivatives
@@ -1944,7 +2081,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 				    PixelMask<double>  & intensity,
 				    double             & weight,
                                     const double       * reflectance_model_coeffs,
-                                    SlopeErrEstim      * slopeErrEstim = NULL) {
+                                    SlopeErrEstim      * slopeErrEstim = NULL,
+                                    HeightErrEstim     * heightErrEstim = NULL) {
 
   // Set output values
   reflectance = 0.0; reflectance.invalidate();
@@ -2078,6 +2216,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   }
 
   if (slopeErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
+    
     int image_iter = slopeErrEstim->image_iter;
     Options & opt = *slopeErrEstim->opt; // alias
     ImageView<double> & albedo = *slopeErrEstim->albedo; // alias
@@ -2094,7 +2233,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     //          << comp_intensity << ' ' << max_intensity_err << std::endl;
     estimateSlopeError(cameraPosition,
                        normal, base, local_model_params,
-                       global_params, phase_angle,
+                       global_params,
                        reflectance_model_coeffs,
                        intensity.child(),
                        max_intensity_err,
@@ -2103,176 +2242,28 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                        slopeErrEstim);
   }
   
-  return true;
-}
-
-// Estimate how much we can perturb the height at a given column and
-// row before the computed intensity at neighboring grid points
-// differs too much from the measured intensity at the those points.
-void estimateHeightError(int col, int row,
-                         ImageView<double> const& dem,
-                         bool use_pq, double pval, double qval, // dem partial derivatives
-                         cartography::GeoReference const& geo,
-                         bool model_shadows,
-                         double & max_dem_height, // alias
-                         double gridx, double gridy,
-                         int sample_col_rate, int sample_row_rate,
-                         ModelParams const& model_params,
-                         GlobalParams const& global_params,
-                         BBox2i const& crop_box,
-                         MaskedImgT const  & image,
-                         DoubleImgT const  & blend_weight,
-                         CameraModel const * camera,
-                         double     const  * scaled_sun_posn,
-                         const double  * reflectance_model_coeffs,
-                         HeightErrEstim * heightErrEstim) {
-  
-  int image_iter = heightErrEstim->image_iter;
-  Options & opt = *heightErrEstim->opt; // alias
-  ImageView<double> & albedo = *heightErrEstim->albedo; // alias
-
-  // Look at the neighbors
-  int cols[] = {col - 1, col,     col,     col + 1};
-  int rows[] = {row,     row - 1, row + 1, row};
-
-  // std::cout << "--col row " << col << ' ' << row << std::endl;
-  for (int it = 0; it < 4; it++) {
-
-    int colx = cols[it], rowx = rows[it];
-    // std::cout << "colx rowx " << colx << ' ' << rowx << std::endl;
-
-    // Can't be at edges as need to compute normals
-    if (colx <= 0 || rowx <= 0 || colx >= dem.cols() - 1 || rowx >= dem.rows() - 1)
-      continue;
-
-    // Compute the unperturbed simulated intensity
-    PixelMask<double> reflectance_0, meas_intensity_0;
-    double weight_0;
-    if (use_pq) 
-      vw_throw(ArgumentErr() << "Cannot use p and q in slope error estimate.\n");
-    computeReflectanceAndIntensity(dem(colx-1, rowx), dem(colx, rowx), dem(colx+1, rowx),
-                                   dem(colx, rowx+1), dem(colx, rowx-1),
-                                   use_pq, pval, qval,
-                                   colx, rowx, dem, geo,
-                                   model_shadows, max_dem_height,
-                                   gridx, gridy,
-                                   model_params, global_params,
-                                   crop_box, image, blend_weight, camera,
-                                   scaled_sun_posn, 
-                                   reflectance_0, meas_intensity_0,
-                                   weight_0,
-                                   reflectance_model_coeffs);
-
-    if (!is_valid(reflectance_0) || !is_valid(meas_intensity_0) || weight_0 <= 0.0)
-      continue;
-    double comp_intensity_0 = albedo(colx, rowx) *
-      nonlin_reflectance(reflectance_0, opt.image_exposures_vec[image_iter],
+  if (heightErrEstim != NULL && is_valid(intensity) && is_valid(reflectance)) {
+    
+    int image_iter = heightErrEstim->image_iter;
+    Options & opt = *heightErrEstim->opt; // alias
+    ImageView<double> & albedo = *heightErrEstim->albedo; // alias
+    double comp_intensity = albedo(col, row) *
+      nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
                          &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
-          
+    
     // We use twice the discrepancy between the computed and measured intensity
-    // as a measure for how far is overall the computed intensity is allowed
-    // to diverge from the measured intensity.
-    double max_intensity_err = 2.0 * std::abs(meas_intensity_0.child() - comp_intensity_0);
-          
-    // std::cout << "inten and 2x diff " << meas_intensity_0.child() << ' ' << comp_intensity_0 << ' ' << max_intensity_err << std::endl;
-          
-    // Perturb the height down and up
-    for (int sign = -1; sign <= 1; sign += 2) {
-      // std::cout << "--sign is " << sign << std::endl;
-      for (int height_it = 0; height_it < heightErrEstim->num_height_samples; height_it++) {
-        double dh = sign * heightErrEstim->max_height_error
-          * double(height_it)/double(heightErrEstim->num_height_samples);
-        // std::cout << "--dh is " << dh << std::endl;
+    // as a measure for how far is overall the computed intensity allowed
+    // to diverge from the measured intensity
+    double max_intensity_err = 2.0 * std::abs(intensity.child() - comp_intensity);
 
-        if (sign == -1) {
-          if (dh < heightErrEstim->height_error_vec(col, row)[0]) {
-            // std::cout << "--past the prev error budget col row sign colx rowx " << col << ' ' << row << ' ' << sign << " " << colx << ' ' << rowx << ' ' << heightErrEstim->height_error_vec(col, row)[0] << std::endl;
-            // We already determined dh can't go as low, so stop here
-            break;
-          }
-        } else if (sign == 1) {
-          if (dh > heightErrEstim->height_error_vec(col, row)[1]) {
-            // We already determined dh can't go as high, so stop here
-            // std::cout << "--past the prev error budget col row sign colx rowx " << col << ' ' << row << ' ' << sign << " " << colx << ' ' << rowx << ' ' << heightErrEstim->height_error_vec(col, row)[1] << std::endl;
-            break;
-          }
-        }
-
-        // Determine where to add the dh. Recall that we compute the intensity
-        // at (colx, rowx), while perturbing the dem height at (col, row)
-        double left_dh = 0, center_dh = 0, right_dh = 0, bottom_dh = 0, top_dh = 0;
-        if      (colx - 1 == col && rowx     == row) left_dh   = dh; 
-        else if (colx     == col && rowx     == row) center_dh = dh; // won't be reached
-        else if (colx + 1 == col && rowx     == row) right_dh  = dh; 
-        else if (colx     == col && rowx + 1 == row) bottom_dh = dh; 
-        else if (colx     == col && rowx - 1 == row) top_dh    = dh; 
-
-        // std::cout << "dh values are " << left_dh << ' ' << center_dh << ' ' << right_dh << ' ' << bottom_dh << ' ' << top_dh << std::endl;
-        
-        PixelMask<double> reflectance_1, meas_intensity_1;
-        double weight_1;
-        if (use_pq) 
-          vw_throw( ArgumentErr() << "Cannot use p and q in slope error estimate.\n" );
-
-        // Add to the current height the value dh
-        computeReflectanceAndIntensity(dem(colx - 1, rowx)     + left_dh,
-                                       dem(colx,     rowx)     + center_dh,
-                                       dem(colx + 1, rowx)     + right_dh,
-                                       dem(colx,     rowx + 1) + bottom_dh,
-                                       dem(colx,     rowx - 1) + top_dh,
-                                       use_pq, pval, qval,
-                                       colx, rowx, dem, geo,
-                                       model_shadows, max_dem_height,
-                                       gridx, gridy,
-                                       model_params, global_params,
-                                       crop_box, image, blend_weight, camera,
-                                       scaled_sun_posn, 
-                                       reflectance_1, meas_intensity_1,
-                                       weight_1,
-                                       reflectance_model_coeffs);
-              
-        if (!is_valid(reflectance_1) || !is_valid(meas_intensity_1) || weight_1 <= 0.0)
-          continue;
-              
-        double comp_intensity_1 = albedo(colx, rowx) *
-          nonlin_reflectance(reflectance_1, opt.image_exposures_vec[image_iter],
-                             &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
-
-        // These intensities must be the same as the height perturbation is at a
-        // neighbor rather than at this grid point.
-        if (std::abs(meas_intensity_0.child() - meas_intensity_1.child()) > 1e-10)
-          vw_throw( ArgumentErr()
-                    << "Logic error in height error estimation.\n");
-        
-        // std::cout << "--meas inten 0 and 1 and diff " << meas_intensity_0 << ' ' << meas_intensity_1 << ' ' << meas_intensity_0 - meas_intensity_1 << std::endl;
-              
-        // std::cout << "--comp inten 0 and 1 and diff " << comp_intensity_0 << ' ' << comp_intensity_1 << ' ' << comp_intensity_0 - comp_intensity_1 << std::endl;
-
-        // std::cout << "err vs budget " << std::abs(comp_intensity_1 - meas_intensity_0) << ' ' << max_intensity_err << std::endl;
-              
-        // Note that we compare the unperturbed measured intensity
-        // to the perturbed computed intensity.
-        if (std::abs(comp_intensity_1 - meas_intensity_0) > max_intensity_err) {
-
-          // std::cout << "--hit the error budget at dh = " << dh << std::endl;
-          
-          // We exceeded the error budget, record the dh at which it happens
-          if (sign == -1) {
-            // std::cout << "--before col row sign colx rowx " << col << ' ' << row << ' ' << sign << " " << colx << ' ' << rowx << ' ' << heightErrEstim->height_error_vec(col, row)[0] << std::endl;
-            heightErrEstim->height_error_vec(col, row)[0] = dh;
-            // std::cout << "--after col row sign colx rowx " << col << ' ' << row << ' ' << sign << " " << colx << ' ' << rowx << ' ' << heightErrEstim->height_error_vec(col, row)[0] << std::endl;
-          } else if (sign == 1) {
-            // std::cout << "--before col row sign colx rowx " << col << ' ' << row << ' ' << sign << " " << colx << ' ' << rowx << ' ' << heightErrEstim->height_error_vec(col, row)[1] << std::endl;
-            heightErrEstim->height_error_vec(col, row)[1] = dh;
-            // std::cout << "--after col row sign colx rowx " << col << ' ' << row << ' ' << sign << " " << colx << ' ' << rowx << ' ' << heightErrEstim->height_error_vec(col, row)[1] << std::endl;
-          }
-                
-          break;
-        }
-              
-      }
-    }
+    estimateHeightError(dem, geo,  
+                        cameraPosition, local_model_params,  global_params,  
+                        reflectance_model_coeffs, intensity.child(),  
+                        max_intensity_err, col, row, image_iter, opt,  albedo,  
+                        heightErrEstim);
   }
+  
+  return true;
 }
 
 void computeReflectanceAndIntensity(ImageView<double> const& dem,
@@ -2343,18 +2334,10 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                      scaled_sun_posn, 
 				     reflectance(col, row), intensity(col, row),
                                      weight(col, row),
-                                     reflectance_model_coeffs, slopeErrEstim);
+                                     reflectance_model_coeffs,
+                                     slopeErrEstim,
+                                     heightErrEstim);
 
-      // Perturb the height dem(col, row) and see how it affects nearby computed intensities
-      if (heightErrEstim != NULL) 
-        estimateHeightError(col, row, dem,  
-                            use_pq, pval, qval,  // dem partial derivatives
-                            geo, model_shadows,  
-                            max_dem_height,  // alias
-                            gridx, gridy, sample_col_rate, sample_row_rate,  
-                            model_params,  global_params, crop_box, image,  
-                            blend_weight, camera, scaled_sun_posn, reflectance_model_coeffs,  
-                            heightErrEstim);
     }
   }
   
@@ -2493,7 +2476,6 @@ void sun_angles(Options const& opt,
 
   double L = norm_2(subvector(sun_dir_ned, 0, 2));
   elevation = (180.0/M_PI) * atan2(-sun_dir_ned[2], L);
-  
 }
 
 // A function to invoke at every iteration of ceres.
@@ -3734,15 +3716,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("compute-exposures-only",   po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
      "Quit after saving the exposures. This should be done once for a big DEM, before using these for small sub-clips without recomputing them.")
     ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
-     "Estimate the error for each slope (normal to the DEM).")
+     "Estimate the error for each slope (normal to the DEM). This is experimental.")
     ("estimate-height-errors",   po::bool_switch(&opt.estimate_height_errors)->default_value(false)->implicit_value(true),
-     "Estimate the error for each DEM height.")
+     "Estimate the SfS DEM height uncertainty by finding the height perturbation at each grid point which will make at least one of the simulated images at that point change by more than twice the discrepancy between the unperturbed simulated image and the measured image. The SfS DEM must be provided via the -i option.")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
     ("shadow-threshold", po::value(&opt.shadow_threshold)->default_value(-1),
      "A shadow threshold to apply to all images instead of using individual thresholds. (Must be positive.)")
+    ("custom-shadow-threshold-list", po::value(&opt.custom_shadow_threshold_list)->default_value(""),
+     "A list having one image and one shadow threshold per line. For the images specified here, override the shadow threshold supplied by other means with this value.")
     ("max-valid-image-vals", po::value(&opt.max_valid_image_vals)->default_value(""),
      "Optional values for the largest valid image value in each image (a list of real values in quotes, one per image).")
+    ("robust-threshold", po::value(&opt.robust_threshold)->default_value(-1.0),
+     "If positive, set the threshold for the robust measured-to-simulated intensity difference (using the Cauchy loss). Any difference much larger than this will be penalized. ")
     ("unreliable-intensity-threshold", po::value(&opt.unreliable_intensity_threshold)->default_value(0.0),
      "Intensities lower than this will be considered unreliable and given less weight.")
     ("skip-images", po::value(&opt.skip_images_str)->default_value(""), "Skip images with these indices (indices start from 0).")
@@ -3944,7 +3930,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     while (opt.shadow_threshold_vec.size() < opt.input_images.size())
       opt.shadow_threshold_vec.push_back(opt.shadow_threshold);
   }
-  
+
   // Default thresholds are the smallest float.
   // Maybe it should be 0?
   if (opt.shadow_threshold_vec.empty()) {
@@ -3953,6 +3939,31 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
 
+  // Override some shadow thresholds with custom versions
+  if (!opt.custom_shadow_threshold_list.empty()) {
+    std::map<std::string, double> custom_thresh;
+    std::ifstream ifs(opt.custom_shadow_threshold_list);
+    std::string image;
+    double val;
+    while (ifs >> image >> val) {
+      std::cout << "--read " << image << ' ' << val << std::endl;
+      custom_thresh[image] = val;
+    }
+    
+    if (custom_thresh.empty()) 
+      vw_throw(ArgumentErr() << "Could not read any data from: "
+               << opt.custom_shadow_threshold_list << "\n");
+    
+    for (size_t it = 0; it < opt.input_images.size(); it++) {
+      auto key = custom_thresh.find(opt.input_images[it]);
+      if (key != custom_thresh.end()) {
+        vw_out() << "Over-riding the shadow threshold for " << opt.input_images[it]
+                 << " with: " << key->second << std::endl;
+        opt.shadow_threshold_vec[it] = key->second;
+      }
+    }
+  }
+  
   // Parse max valid image vals
   std::istringstream ism(opt.max_valid_image_vals);
   opt.max_valid_image_vals_vec.clear();
@@ -4311,6 +4322,9 @@ void run_sfs_level(// Fixed inputs
           }
           
           ceres::LossFunction* loss_function_img = NULL;
+          if (opt.robust_threshold > 0) 
+            loss_function_img = new ceres::CauchyLoss(opt.robust_threshold);
+          
           if (float_dem_only) {
             ceres::CostFunction* cost_function_img =
               IntensityErrorFloatDemOnly::Create(col, row,
@@ -4876,10 +4890,16 @@ int main(int argc, char* argv[]) {
     double dem_nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
     if (vw::read_nodata_val(opt.input_dems[0], dem_nodata_val)){
       vw_out() << "Found DEM nodata value: " << dem_nodata_val << std::endl;
+      if (std::isnan(dem_nodata_val)) {
+        dem_nodata_val = -std::numeric_limits<float>::max(); // bugfix for NaN
+        vw_out() << "Overwriting the nodata-value with: " << dem_nodata_val << "\n";
+      }
     }
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       double curr_nodata_val = -std::numeric_limits<float>::max(); 
       if (vw::read_nodata_val(opt.input_dems[dem_iter], curr_nodata_val)){
+        if (std::isnan(curr_nodata_val)) 
+          curr_nodata_val = dem_nodata_val; // bugfix for NaN
         if (dem_nodata_val != curr_nodata_val) {
           vw_throw( ArgumentErr() << "All DEMs must have the same nodata value.\n" );
         }
@@ -4946,31 +4966,8 @@ int main(int argc, char* argv[]) {
                << dems[0][dem_iter].rows() << std::endl;
     }
     
-    // Replace no-data values with the min valid value. That is because
-    // no-data values usually come from shadows, and those are low-lying.
-    // This works better than using the mean value.
-    // TODO: Maybe do hole-filling instead.
     int min_dem_size = 5;
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
-      double min_val = std::numeric_limits<double>::max(), mean = 0, num = 0;
-      for (int col = 0; col < dems[0][dem_iter].cols(); col++) {
-        for (int row = 0; row < dems[0][dem_iter].rows(); row++) {
-          if (dems[0][dem_iter](col, row) != dem_nodata_val) {
-            mean += dems[0][dem_iter](col, row);
-            num += 1;
-            min_val = std::min(min_val, dems[0][dem_iter](col, row));
-          }
-        }
-      }
-      if (num > 0) mean /= num;
-      for (int col = 0; col < dems[0][dem_iter].cols(); col++) {
-        for (int row = 0; row < dems[0][dem_iter].rows(); row++) {
-          if (dems[0][dem_iter](col, row) == dem_nodata_val) {
-            dems[0][dem_iter](col, row) = min_val;
-          }
-        }
-      }
-
       // See if to use a constant init value
       if (!boost::math::isnan(opt.init_dem_height)) {
         for (int col = 0; col < dems[0][dem_iter].cols(); col++) {
@@ -4979,7 +4976,18 @@ int main(int argc, char* argv[]) {
           }
         }
       }
-  
+
+      // Refuse to run if there are no-data values
+      for (int col = 0; col < dems[0][dem_iter].cols(); col++) {
+        for (int row = 0; row < dems[0][dem_iter].rows(); row++) {
+          if (dems[0][dem_iter](col, row) == dem_nodata_val ||
+              std::isnan(dems[0][dem_iter](col, row))) {
+            vw_throw( ArgumentErr() << "Found a no-data or NaN pixel in the DEM. Cannot continue. "
+                      << "The dem_mosaic tool can be used to fill in holes.");
+          }
+        }
+      }
+      
       if (dems[0][dem_iter].cols() < min_dem_size ||
           dems[0][dem_iter].rows() < min_dem_size) {
         vw_throw( ArgumentErr() << "The input DEM with index "
@@ -5015,10 +5023,26 @@ int main(int argc, char* argv[]) {
           double azimuth, elevation;
           sun_angles(opt, dems[0][dem_iter], dem_nodata_val, geos[0][dem_iter],
                      cameras[dem_iter][image_iter], azimuth, elevation);
-          // This line is being parsed outside this tool
-          vw_out() << "Sun azimuth and elevation for: "
-                   << opt.input_images[image_iter] << " are " << azimuth
-                   << " and " << elevation << " degrees.\n";
+          
+          if (opt.query) {
+            // This line is being parsed outside this tool
+            vw_out().precision(17);
+            vw_out() << "Sun azimuth and elevation for: "
+                     << opt.input_images[image_iter] << " are " << azimuth
+                     << " and " << elevation << " degrees.\n";
+
+            // Print the sun position
+            bool allow_unadjusted = true; // At this stage we don't care about adjustments
+            boost::shared_ptr<CameraModel> ucam = get_isis_cam(opt, cameras[dem_iter][image_iter],
+                                                               allow_unadjusted);
+            IsisCameraModel* isis_cam = dynamic_cast<IsisCameraModel*>(ucam.get());
+            if (isis_cam == NULL)
+              vw_throw( ArgumentErr()
+                        << "Expecting an ISIS camera model.\n");
+            Vector3 sun_pos = isis_cam->sun_position();
+            vw_out() << "Sun position for: " << opt.input_images[image_iter] << " is "
+                     << sun_pos << "\n";
+          }
         }
       }
     }
@@ -5331,8 +5355,8 @@ int main(int argc, char* argv[]) {
 	IsisCameraModel* icam
 	  = dynamic_cast<IsisCameraModel*>(get_isis_cam(opt, cameras[dem_iter][image_iter]).get());
 	model_params[image_iter].sunPosition = icam->sun_position();
-        vw_out() << "Sun position for image: " << image_iter << " "
-	       << model_params[image_iter].sunPosition << std::endl;
+        //vw_out() << "Sun position for image: " << image_iter << " "
+	//       << model_params[image_iter].sunPosition << std::endl;
       }
     }
 
@@ -5496,7 +5520,7 @@ int main(int argc, char* argv[]) {
       
       boost::shared_ptr<HeightErrEstim> heightErrEstim = boost::shared_ptr<HeightErrEstim>(NULL);
       if (opt.estimate_height_errors) {
-        int num_height_samples   = 500;  // TODO(oalexan1): These must be parameters
+        int num_height_samples   = 2000;  // TODO(oalexan1): These must be parameters
         double max_height_error  = 5.0;
         double nodata_height_val = -1.0;
         heightErrEstim = boost::shared_ptr<HeightErrEstim>

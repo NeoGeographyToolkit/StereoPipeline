@@ -1,12 +1,14 @@
-.. sfs:
+.. _sfs_usage:
 
-Shape-from-Shading
-==================
+Shape-from-Shading usage examples
+=================================
 
-ASP provides a tool, named ``sfs``, that can improve the level of detail
-of DEMs created by ASP or any other source using *shape-from-shading*
-(SfS). The tool takes as input one or more camera images, a DEM at
-roughly the same resolution as the images, and returns a refined DEM.
+ASP provides a tool, named ``sfs`` (:numref:`sfs`), that can improve
+the level of detail of DEMs created by ASP or any other source using
+*shape-from-shading* (SfS). The tool takes as input one or more camera
+images, a DEM at roughly the same resolution as the images, and
+returns a refined DEM. This chapter shows in a lot of detail 
+how this tool is to be used.
 
 ``sfs`` works only with ISIS cub images. It has been tested thoroughly
 with Lunar LRO NAC datasets, and some experiments were done with Mars
@@ -321,7 +323,7 @@ iterated.
        --float-cameras --use-approx-camera-models                        \
        --max-iterations 10  --crop-input-images                          \
        --bundle-adjust-prefix run_ba_sub10/run                           \
-       --shadow-thresholds "0.00162484 0.0012166 0.000781663"
+       --shadow-thresholds '0.00162484 0.0012166 0.000781663'
 
 We compare the initial guess to ``sfs`` to the “ground truth” DEM
 obtained earlier and the same for the final refined DEM using
@@ -598,7 +600,8 @@ and correct camera errors.
 
         parallel_bundle_adjust --processes 8 --ip-per-tile 1000 --overlap-limit 30   \
           --num-iterations 100 --num-passes 2 --min-matches 1 --datum D_MOON         \
-          <images> --mapprojected-data '<mapprojected images> ref.tif' -o ba/run
+          <images> --mapprojected-data '<mapprojected images> ref.tif' -o ba/run     \
+          --save-intermediate-cameras --match-first-to-last
 
 For bundle adjustment we in fact used even more images that overlap with
 this area, but likely this set is sufficient, and it is this set that
@@ -615,18 +618,18 @@ succeed. Later, just a subset can be used for shape-from-shading, enough
 to cover the entire region, preferable with multiple illumination
 conditions at each location.
 
-Towards the poles the sun may describe a full loop in the sky, and hence
-the earliest images (sorted by azimuth) may become similar to the latest
-ones. To find matches between these, one could re-run the command above
-with say 15 images from the beginning of the list and 15 images from the
-end of the list, using again 30 as the overlap limit, just to create
-extra matches. Then, one can run the bundle adjust command again,
-setting this time the overlap limit to something very large, and in
-addition using the option ``--skip-matching``. This won't create
-new matches, but will ensure, due to the earlier commands, that each
-image is matched to a few subsequent images in the list, and images from
-the top of the list are also matched to images from the bottom of the
-list. In the future a less manual way of achieving this may be used.
+Towards the poles the Sun may describe a full loop in the sky, and
+hence the earliest images (sorted by azimuth) may become similar to
+the latest ones. That is the reason above we used the option
+``--match-first-to-last``.
+
+Note that this invocation may run for more than a day, or even
+more. And it may be necessary to get good convergence. If the process
+gets interrupted, or the user gives up on waiting, the adjustments
+obtained so far can still be usable, if invoking bundle adjustment,
+as above, with ``--save-intermediate-cameras.`` One may also
+consider reducing ``--overlap-limit`` to perhaps 20 though
+there is some risk in doing that if images fail to overlap enough.
 
 A very critical part of the process is aligning the obtained cameras to
 the ground::
@@ -675,11 +678,9 @@ terrain as a constraint in bundle adjustment::
          --heights-from-dem-weight 0.1 --heights-from-dem-robust-threshold 10        \
          -o ba_align_ref/run
 
-Note that this invocation may run for more than a day, or even
-more. And it may be necessary to get good convergence. If the process
-gets interrupted, or the user gives up on waiting, the adjustments
-obtained so far can still be usable, if invokding bundle adjustment,
-as above, with ``--save-intermediate-cameras.``
+
+As before, the process may take forever, and if interrupted, perhaps the 
+adjustments saved so far may be good enough.
 
 After mapprojecting with the newly refined cameras in ``ba_align_ref``,
 any residual alignment errors should go away. The value used for
@@ -708,7 +709,7 @@ difference is found as::
 Some of the differences that will be saved to disk are likely outliers,
 but mostly they should be small, perhaps on the order of 1 meter.
 
-The file 
+The file::
 
    ba_align_ref/run-final_residuals_no_loss_function_raw_pixels.txt
 
@@ -728,16 +729,21 @@ consideration for the shape-from-shading step.
 
 Next, SfS follows::
 
-      parallel_sfs -i ref.tif <images> --shadow-thresholds '<thresholds>'  \
+      parallel_sfs -i ref.tif <images> --shadow-threshold 0.003            \
         --bundle-adjust-prefix ba_align_ref/run -o sfs/run                 \ 
         --use-approx-camera-models --crop-input-images                     \
         --blending-dist 10 --min-blend-size 100 --threads 4                \
-        --smoothness-weight 0.08 --initial-dem-constraint-weight 0.0001    \
+        --smoothness-weight 0.08 --initial-dem-constraint-weight 0.001     \
         --reflectance-type 1 --max-iterations 5  --save-sparingly          \
         --tile-size 200 --padding 50 --num-processes 20                    \
         --nodes-list <machine list>
 
-The shadow thresholds were chosen here to be 0.003.
+It was found empirically that a shadow threshold of 0.003 was good
+enough.  It is also possible to specify individual shadow thresholds
+if desired, via ``--custom-shadow-threshold-list``. This may be useful
+for images having difuse shadows cast from elevated areas that are
+far-off. For those, the threshold may need to be raised to as much as
+0.01.
 
 The first step that will happen when this is launched is computing the
 exposures. That one can be a bit slow, and can be done offline, using
@@ -751,27 +757,31 @@ LOLA gridded terrain. If that is the case, another step of alignment can
 be used. This time one can do features-based alignment rather than based
 on point-to-point calculations. This one works better on
 lower-resolution versions of the inputs (say at sub8 versions of the
-DEMs, as created ``stereo_gui``), as follows:
+DEMs, as created ``stereo_gui``), as follows::
 
   pc_align --initial-transform-from-hillshading rigid                   \
      ref_sub8.tif sfs_dem_sub8.tif -o align_sub8/run --num-iterations 0 \
      --max-displacement -1
 
-That alignment transform can then be applied to the full SfS DEM:
+That alignment transform can then be applied to the full SfS DEM::
 
- pc_align --initial-transform align_sub8/run-transform.txt \
-   ref.tif sfs_dem.tif -o align/run --num-iterations 0     \
-   --max-displacement -1 --save-transformed-source-points
+   pc_align --initial-transform align_sub8/run-transform.txt      \
+     ref.tif sfs_dem.tif -o align/run --num-iterations 0          \
+     --max-displacement -1 --save-transformed-source-points       \
+     --max-num-reference-points 1000 --max-num-source-points 1000
 
-The aligned SfS DEM can be regenerated from the obtained cloud as:
+(The number of points being used is not important since we will just
+apply the alignment.)
 
-  point2dem --tr 1 --search-radius-factor 2 --t_srs projection_str \
-    align/run-trans_source.tif
+The aligned SfS DEM can be regenerated from the obtained cloud as::
+
+   point2dem --tr 1 --search-radius-factor 2 --t_srs projection_str \
+     align/run-trans_source.tif
 
 Here, the projection string should be the same one as in the reference 
-LOLA DEM named ref.tif. It can be found by invoking 
+LOLA DEM named ref.tif. It can be found by invoking::
 
-  gdalinfo -proj4 ref.tif
+   gdalinfo -proj4 ref.tif
 
 and looking for the value of the ``PROJ.4`` field.
 
@@ -793,9 +803,9 @@ to the initial guess or to the raw ungridded LOLA measurements.
 
 To create a maximally lit mosaic one can mosaic together all the mapprojected
 images using the same camera adjustments that were used for SfS. That is
-done as follows:
+done as follows::
 
-  dem_mosaic --max -o max_lit.tif image1.map.tif .... imageN.map.tif
+   dem_mosaic --max -o max_lit.tif image1.map.tif .... imageN.map.tif
 
 After an SfS solution was found, with the cameras well-adjusted to
 each other and to the ground, and it is desired to add new camera
@@ -806,6 +816,44 @@ supplemented set of camera adjustments as initial guess using
 ``--input-adjustments-prefix``, and one may keep fixed the cameras for
 which the adjustment is already good using the option
 ```--fixed-camera-indices``.
+
+If, in some low-light locations, the SfS DEM still has seams, one may
+consider invoking ``sfs`` with ``--robust-threshold 0.004``, removing
+some of the offending images, or with a larger value for
+``--shadow-threshold`` (such as 0.007) for those images, or a larger
+value for ``--blending-dist``. A per-image shadow threshold which
+overrides the globally set value can be specified via
+``--custom-shadow-threshold-list``. Sometimes this improves the
+solution in some locations while introducing artifacts in other. In
+that case a clip with a good solution (which may be cut from a larger
+SfS DEM solution that has problems in other locations) may be blended
+into a second SfS DEM which is better in other places using
+``dem_mosaic`` with the ``--priority-blending-length`` option.
+
+After computing a satisfactory SfS DEM, it can be processed to replace
+the values in the permanently shadowed areas with values from the
+original LOLA DEM, with a transition region. That can be done as::
+
+   sfs_blend --lola-dem lola_dem.tif --sfs-dem sfs_dem.tif         \
+    --max-lit-image-mosaic max_lit.tif --output-dem sfs_blend.tif  \
+    --image-threshold 0.003 --blend-length 10 --min-blend-size 100 \
+    --weight-blur-sigma 2 --sfs-mask sfs_mask.tif
+
+Here, the inputs are the LOLA and SfS DEMs, the maximally lit mosaic
+provided as before, the shadow threshold (the same value as in
+invoking SfS should be used. The outputs are the blended DEM as
+described earlier, and the mask which tells where each pixel cam
+from. See this tool's :ref:`manual page <sfs_blend>` for more
+details.
+
+The error in the SfS DEM (before or after the blending with LOLA) 
+can be estimated as::
+
+   parallel_sfs --estimate-height-errors -i sfs_dem.tif \
+    -o sfs_error/run <other options as above>
+
+See the :ref:`sfs manual page <sfs>` describing how the estimation is
+implemented.
 
 .. _sfsinsights:
 
