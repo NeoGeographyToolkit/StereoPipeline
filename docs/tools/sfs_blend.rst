@@ -4,14 +4,14 @@ sfs_blend
 ---------
 
 The ``sfs_blend`` tool is a very specialized DEM blending program
-developed for use in conjunction with shape-from-shading ``sfs``
+developed for use in conjunction with Shape-from-Shading
 (:numref:`sfs`). It replaces in an SfS-produced DEM height values that
 are in permanent shadow with values from the initial guess DEM used
 for SfS (which is typically the LOLA gridded DEM), with a transition
-region between the two DEM.
+region between the two DEMs.
 
-Motivation and an example of an invocation of this
-tool is given in the :ref:`SfS usage <sfs_usage>` chapter.
+Motivation and an example of an invocation of this tool are given in
+the :ref:`SfS usage <sfs_usage>` chapter.
 
 Command-line options:
 

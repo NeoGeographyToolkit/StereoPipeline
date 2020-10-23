@@ -841,8 +841,8 @@ original LOLA DEM, with a transition region. That can be done as::
 
 Here, the inputs are the LOLA and SfS DEMs, the maximally lit mosaic
 provided as before, the shadow threshold (the same value as in
-invoking SfS should be used. The outputs are the blended DEM as
-described earlier, and the mask which tells where each pixel cam
+invoking SfS should be used). The outputs are the blended DEM as
+described earlier, and the mask which tells where each pixel came
 from. See this tool's :ref:`manual page <sfs_blend>` for more
 details.
 

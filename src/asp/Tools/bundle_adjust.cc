@@ -1878,7 +1878,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << usage << general_options );
 
   if (opt.overlap_list_file != "" && opt.match_first_to_last > 0)
-    vw_throw( ArgumentErr() << "Cannot specify both the overlap limit --match-first-to-last.\n"
+    vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and --match-first-to-last.\n"
               << usage << general_options );
     
   if ( opt.overlap_limit < 0 )
