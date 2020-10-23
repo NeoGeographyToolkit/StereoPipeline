@@ -20,10 +20,11 @@ simply pass two image files to the ``stereo`` command::
 
     ISIS> stereo left_input_image.cub right_input_image.cub stereo-output
 
-Alternatively, the ``stereo_gui`` frontend can be invoked, with the
-same options, as described in :numref:`stereo_gui`.
-This tool makes it possible to select smaller clips or cropped
-images on which to run ``stereo``.
+Alternatively, the ``parallel_stereo`` tool can be used, which is
+very recommended for large images. Or the ``stereo_gui`` frontend can
+be invoked, with the same options, as described in
+:numref:`stereo_gui`.  This tool makes it possible to select smaller
+clips or cropped images on which to run ``stereo``.
 
 The string ``stereo-output`` is an arbitrary output prefix, it is used
 when generating names for ``stereo`` output files. For example, it can
@@ -95,7 +96,7 @@ Aligning Images
 Once the ``.cub`` files are obtained, it is possible to run stereo right
 away::
 
-     ISIS> stereo E0201461.cub M0100115.cub    \
+     ISIS> stereo E0201461.cub M0100115.cub      \
                --alignment-method affineepipolar \
                -s stereo.default.example results/output
 
@@ -228,7 +229,7 @@ Now you may skip to chapter :numref:`nextsteps` which will discuss the
 .. _dg_tutorial:
 
 Tutorial: Processing Earth DigitalGlobe/Maxar Images
-================================================
+====================================================
 
 In this chapter we will focus on how to process Earth images, or more
 specifically DigitalGlobe/Maxar data. This is different from our previous
@@ -442,7 +443,7 @@ values are by default 5 and 95, and could be set for example to 10 and
 90. For very tall images, it may be desirable to use instead values
 closer to 0 and 100.
 
-:numref:`triangulation_options` has the full list of parameters
+See :numref:`triangulation_options` for the full list of parameters
 used in jitter correction.
 
 In order for jitter correction to be successful, the disparity map
