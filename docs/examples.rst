@@ -163,7 +163,7 @@ Download all 20 of the RED EDR ``.IMG`` files for each observation.
      ISIS> hiedr2mosaic.py PSP_001777_1650_RED*.IMG
      ISIS> cam2map4stereo.py PSP_001777_1650_RED.mos_hijitreged.norm.cub \
                              PSP_001513_1655_RED.mos_hijitreged.norm.cub
-     ISIS> stereo PSP_001513_1655.map.cub \
+     ISIS> parallel_stereo PSP_001513_1655.map.cub                       \
                     PSP_001777_1650.map.cub result/output
 
 stereo.default
@@ -220,9 +220,15 @@ P03_002258_1817_XI_01N356W.IMG from the PDS.
      ISIS> spiceinit from=P03_002258_1817.cub
      ISIS> ctxcal from=P02_001981_1823.cub to=P02_001981_1823.cal.cub
      ISIS> ctxcal from=P03_002258_1817.cub to=P03_002258_1817.cal.cub
-       \textnormal{you can also optionally run} ctxevenodd \textnormal{on the} cal.cub \textnormal{files, if needed}
+
+(Here one can optionally run ``ctxevenodd`` on the ``cal.cub`` files, if needed.)
+
+::
+
      ISIS> cam2map4stereo.py P02_001981_1823.cal.cub P03_002258_1817.cal.cub
-     ISIS> stereo P02_001981_1823.map.cub P03_002258_1817.map.cub results/out
+     ISIS> parallel_stereo P02_001981_1823.map.cub P03_002258_1817.map.cub \
+             results/out
+
 
 .. _stereo.default-1:
 
@@ -246,14 +252,14 @@ https://github.com/USGS-Astrogeology/asp_scripts
 Mars Global Surveyor MOC-NA
 ---------------------------
 
-In the Stereo Pipeline Tutorial in
-:numref:`moc_tutorial`, we showed you how to
-process a narrow angle MOC stereo pair that covered a portion of Hrad
-Vallis. In this section we will show you more examples, some of which
-exhibit a problem common to stereo pairs from linescan imagers:
-“spacecraft jitter” is caused by oscillations of the spacecraft due to
-the movement of other spacecraft hardware. All spacecraft wobble around
-to some degree but some are particularly susceptible.
+In the Stereo Pipeline Tutorial in :numref:`moc_tutorial`, we showed
+you how to process a narrow angle MOC stereo pair that covered a
+portion of Hrad Vallis. In this section we will show you more
+examples, some of which exhibit a problem common to stereo pairs from
+linescan imagers: “spacecraft jitter” is caused by oscillations of
+the spacecraft due to the movement of other spacecraft hardware. All
+spacecraft wobble around to some degree but some are particularly
+susceptible.
 
 Jitter causes wave-like distortions along the track of the satellite
 orbit in DEMs produced from linescan camera images. This effect can be
@@ -294,7 +300,7 @@ Download the M08/06047 and R07/01361 images from the PDS.
      ISIS> spiceinit from=M0806047.cub
      ISIS> spiceinit from=R0701361.cub
      ISIS> cam2map4stereo.py M0806047.cub R0701361.cub
-     ISIS> stereo M0806047.map.cub R0701361.map.cub result/output
+     ISIS> parallel_stereo M0806047.map.cub R0701361.map.cub result/output
 
 .. _stereo.default-2:
 
@@ -353,8 +359,10 @@ Download 2f194370083effap00p1214l0m1.img and
 
      ISIS> mer2camera 2f194370083effap00p1214l0m1.img
      ISIS> mer2camera 2f194370083effap00p1214r0m1.img
-     ISIS> stereo 2f194370083effap00p1214l0m1.img 2f194370083effap00p1214r0m1.img \
-                    2f194370083effap00p1214l0m1.cahvore 2f194370083effap00p1214r0m1.cahvore \
+     ISIS> parallel_stereo 2f194370083effap00p1214l0m1.img     \
+                           2f194370083effap00p1214r0m1.img     \
+                           2f194370083effap00p1214l0m1.cahvore \
+                           2f194370083effap00p1214r0m1.cahvore \
                     fh01/fh01
 
 .. _stereo.default-3:
@@ -428,8 +436,9 @@ step.
 
        ISIS> lronac2mosaic.py M104318871LE.img M104318871RE.img
        ISIS> lronac2mosaic.py M104311715LE.img M104311715RE.img
-       ISIS> stereo M104318871LE*.mosaic.norm.cub M104311715LE*.mosaic.norm.cub \
-                 result/output --alignment-method affineepipolar
+       ISIS> parallel_stereo M104318871LE*.mosaic.norm.cub      \
+                 M104311715LE*.mosaic.norm.cub result/output    \
+                 --alignment-method affineepipolar
 
 .. _stereo.default-4:
 
@@ -485,7 +494,7 @@ Process Apollo TIFF files into ISIS.
      ISIS> reduce from=AS15-M-2381.cub to=sub4-AS15-M-2381.cub sscale=4 lscale=4
      ISIS> spiceinit from=sub4-AS15-M-2380.cub
      ISIS> spiceinit from=sub4-AS15-M-2381.cub
-     ISIS> stereo sub4-AS15-M-2380.cub sub4-AS15-M-2381.cub result/output
+     ISIS> parallel_stereo sub4-AS15-M-2380.cub sub4-AS15-M-2381.cub result/output
 
 .. _stereo.default-5:
 
@@ -552,7 +561,7 @@ than block matching with subpixel mode 3.
      ISIS> hrsc2isis from=h1995_0000_s22.img to=h1995_0000_s22.cub
      ISIS> spiceinit from=h1995_0000_s12.cub ckpredicted=true
      ISIS> spiceinit from=h1995_0000_s22.cub ckpredicted=true
-     ISIS> stereo h1995_0000_s12.cub  h1995_0000_s22.cub \
+     ISIS> parallel_stereo h1995_0000_s12.cub  h1995_0000_s22.cub \
               --stereo-algorithm 2 --cost-mode 3 mgm/out
 
 [fig:hrsc_example]
@@ -614,7 +623,7 @@ label (.LBL) files from the PDS.
      ISIS> cam2map from=N1511700120_1.norm.cub to=N1511700120_1.map.cub
      ISIS> cam2map from=W1567133629_1.norm.cub map=N1511700120_1.map.cub \
      ISIS>           to=W1567133629_1.map.cub matchmap=true
-     ISIS> stereo N1511700120_1.map.equ.cub W1567133629_1.map.equ.cub result/rhea
+     ISIS> parallel_stereo N1511700120_1.map.equ.cub W1567133629_1.map.equ.cub result/rhea
 
 .. _stereo.default-6:
 
@@ -690,7 +699,7 @@ and the same for the associated camera files.
 
 One runs the stereo and terrain generation steps as usual::
 
-     stereo left.cub right.cub left.json right.json run/run    
+     parallel_stereo left.cub right.cub left.json right.json run/run    
      point2dem -r mars --stereographic --proj-lon 77.4 --proj-lat 18.4 run/run-PC.tif
 
 The actual stereo session used is ``csm``, and here it will be
@@ -711,13 +720,13 @@ followed by mapprojecting onto it and redoing stereo::
 
      mapproject run/run-smooth-DEM.tif left.cub left.json left.map.tif
      mapproject run/run-smooth-DEM.tif right.cub right.json right.map.tif
-     stereo left.map.tif right.map.tif left.json right.json \
+     parallel_stereo left.map.tif right.map.tif left.json right.json \
        run_map/run run/run-smooth-DEM.tif
 
 .. _digital_globe_data:
 
 DigitalGlobe/Maxar Images
----------------------
+-------------------------
 
 Processing of DigitalGlobe/Maxar images is described extensively in the
 tutorial in :numref:`dg_tutorial`.
@@ -780,7 +789,8 @@ Command
 
 ::
 
-      stereo -t rpc po_312012_pan_0000000.tif po_312012_pan_0010000.tif geoeye/geoeye
+      parallel_stereo -t rpc po_312012_pan_0000000.tif \
+         po_312012_pan_0010000.tif geoeye/geoeye
 
 (For Cartosat data sometimes one should overwrite the \*RPC.TXT files
 that are present with the ones that end in RPC_ORG.TXT.)
@@ -791,7 +801,8 @@ follows. This example is for Mars, with the RPC models created with
 
 ::
 
-     stereo -t rpc --datum D_MARS left.tif right.tif left.xml right.xml run/run
+     parallel_stereo -t rpc --datum D_MARS left.tif right.tif \
+       left.xml right.xml run/run
 
 For terrains having steep slopes, we recommend that images be
 map-projected onto an existing DEM before running stereo. This is
@@ -862,10 +873,10 @@ the original header files with different names::
 
        > ln -s  front/SEGMT01/METADATA.DIM front/SEGMT01/METADATA_FRONT.DIM
        > ln -s  back/SEGMT01/METADATA.DIM  back/SEGMT01/METADATA_BACK.DIM
-       > bundle_adjust -t spot5 front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL \
+       > bundle_adjust -t spot5 front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL   \
          front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM -o ba_run/out
-       > stereo -t spot5 front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL  \ 
-         front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM \ 
+       > parallel_stereo -t spot5 front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL \ 
+         front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM             \ 
          st_run/out --bundle-adjust-prefix ba_run/out
 
 You can also map project the SPOT5 images before they are passed to the
@@ -882,7 +893,7 @@ running stereo on the map projected images.
          front_map_proj.tif -t rpc
        > mapproject sample_dem.tif back/SEGMT01/IMAGERY.BIL back/SEGMT01/METADATA.DIM 
          back_map_proj.tif -t rpc
-       > stereo -t spot5maprpc front_map_proj.tif back_map_proj.tif  \ 
+       > parallel_stereo -t spot5maprpc front_map_proj.tif back_map_proj.tif  \ 
          front/SEGMT01/METADATA.DIM back/SEGMT01/METADATA.DIM \ 
          st_run/out sample_dem.tif
 
@@ -935,7 +946,7 @@ First you must download the Dawn FC images from PDS.
                          to=FC21A0010192_11286212639F1T.cub
        ISIS> spiceinit from=FC21A0010191_11286212239F1T.cub
        ISIS> spiceinit from=FC21A0010192_11286212639F1T.cub
-       ISIS> stereo FC21A0010191_11286212239F1T.cub \
+       ISIS> parallel_stereo FC21A0010191_11286212239F1T.cub \
                     FC21A0010192_11286212639F1T.cub stereo/stereo
        ISIS> point2dem stereo-PC.tif --orthoimage stereo-L.tif \
       --t_srs "+proj=eqc +lat_ts=-11.5 +a=280000 +b=229000 +units=m"
@@ -991,14 +1002,14 @@ much slower but more accurate.
 
 ::
 
-     stereo -t aster --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
+     parallel_stereo -t aster --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
         out-Band3N.xml out-Band3B.xml out_stereo/run
 
 or
 
 ::
 
-     stereo -t rpc --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
+     parallel_stereo -t rpc --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
         out-Band3N.xml out-Band3B.xml out_stereo/run
 
 This is followed by DEM creation::
@@ -1018,7 +1029,7 @@ in :numref:`tips`). Using ``--subpixel-mode 2``, while much
 slower, yields the best results. The flow is as follows::
 
      # Initial stereo
-     stereo -t aster --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
+     parallel_stereo -t aster --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
         out-Band3N.xml out-Band3B.xml out_stereo/run               
 
      # Create a coarse and smooth DEM at 300 meters/pixel
@@ -1032,7 +1043,8 @@ slower, yields the best results. The flow is as follows::
        out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif            
      
      # Run stereo with the map-projected images with subpixel-mode 2
-     stereo -t aster --subpixel-mode 2 out-Band3N_proj.tif out-Band3B_proj.tif \
+     parallel_stereo -t aster --subpixel-mode 2                       \
+       out-Band3N_proj.tif out-Band3B_proj.tif                        \
        out-Band3N.xml out-Band3B.xml out_stereo_proj/run              \
        out_stereo/run-300m-DEM.tif
 
@@ -1294,7 +1306,7 @@ reuse the filtered match points created by bundle adjustment.
      cp -fv ba/run-v${i}__v${j}-clean.match $st/run-v${i}__v${j}.match
      parallel_stereo --skip-rough-homography -t nadirpinhole --stereo-algorithm 2 \
        v${i}.tif v${j}.tif ba/run-run-v${i}.tsai ba/run-run-v${j}.tsai $st/run
-     point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 --tr 4  \
+     point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 --tr 4    \
        --errorimage $st/run-PC.tif
 
 (Repeat this for other values of :math:`i`.)
@@ -1394,13 +1406,14 @@ and then run stereo with the mapprojected images, such as::
      i=1
      ((j=i+1))
      rm -rfv stereo_map_v${i}${j}
-     stereo v${i}_map.tif v${j}_map.tif                                         \
-       ba/run-run-run-v${i}.tsai ba/run-run-run-v${j}.tsai                      \
-       stereo_map_v${i}${j}/run ref_dem.tif --session-type pinhole              \
-       --cost-mode 4 --stereo-algorithm 2 --corr-seed-mode 1                    \
-       --alignment-method none --corr-tile-size 9000                            
-     point2dem --stereographic --proj-lon 253.90793 --proj-lat 39.47021 --tr 4  \
-       --errorimage stereo_map_v${i}${j}/run-PC.tif
+     parallel_stereo v${i}_map.tif v${j}_map.tif                   \
+       ba/run-run-run-v${i}.tsai ba/run-run-run-v${j}.tsai         \
+       stereo_map_v${i}${j}/run ref_dem.tif --session-type pinhole \
+       --cost-mode 4 --stereo-algorithm 2 --corr-seed-mode 1       \
+       --alignment-method none --corr-tile-size 9000                          
+     point2dem --stereographic --proj-lon 253.90793                \
+       --proj-lat 39.47021 --tr 4 --errorimage                     \
+       stereo_map_v${i}${j}/run-PC.tif
 
 It is important to note that here we used the cameras that were aligned
 with the reference DEM. We could have as well mapprojected onto a
@@ -1842,7 +1855,7 @@ Followed by stereo and DEM creation::
      parallel_stereo for_small.tif aft_small.tif                        \
        ba_small/run-for_small.tsai ba_small/run-aft_small.tsai          \
        stereo_small_mgm/run --alignment-method affineepipolar           \
-       -t opticalbar --skip-rough-homography --disable-tri-ip-filter  \
+       -t opticalbar --skip-rough-homography --disable-tri-ip-filter    \
        --skip-low-res-disparity-comp --ip-detect-method 1               \
        --stereo-algorithm 2 
 
@@ -1916,17 +1929,18 @@ coefficients. We will float the RPC coefficients of the left and right
 images independently, as they are unrelated. Hence the command we will
 use is::
 
-     bundle_adjust for_small.tif aft_small.tif for_small_rpc.tsai aft_small_rpc.tsai \
-       -o ba_rpc/run --max-iterations 200 --camera-weight 0                          \
-       --disable-tri-ip-filter --disable-pinhole-gcp-init                            \
-       --skip-rough-homography --inline-adjustments                                  \
-       --ip-detect-method 1 -t nadirpinhole --datum WGS84                            \
-       --force-reuse-match-files --reference-terrain-weight 1000                     \
-       --parameter-tolerance 1e-12 --max-disp-error 100                              \
-       --disparity-list stereo/run-unaligned-D.tif                                   \
-       --max-num-reference-points 40000 --reference-terrain srtm.tif                 \
-       --solve-intrinsics --intrinsics-to-share 'focal_length optical_center'        \
-       --intrinsics-to-float other_intrinsics --robust-threshold 10                  \
+     bundle_adjust for_small.tif aft_small.tif                                \
+       for_small_rpc.tsai aft_small_rpc.tsai                                  \
+       -o ba_rpc/run --max-iterations 200 --camera-weight 0                   \
+       --disable-tri-ip-filter --disable-pinhole-gcp-init                     \
+       --skip-rough-homography --inline-adjustments                           \
+       --ip-detect-method 1 -t nadirpinhole --datum WGS84                     \
+       --force-reuse-match-files --reference-terrain-weight 1000              \
+       --parameter-tolerance 1e-12 --max-disp-error 100                       \
+       --disparity-list stereo/run-unaligned-D.tif                            \
+       --max-num-reference-points 40000 --reference-terrain srtm.tif          \
+       --solve-intrinsics --intrinsics-to-share 'focal_length optical_center' \
+       --intrinsics-to-float other_intrinsics --robust-threshold 10           \
        --initial-transform pc_align/run-transform.txt
 
 Here it is suggested to use a match file with dense interest points. The
@@ -2015,14 +2029,14 @@ of the order of coordinates.
 
 ::
 
-     cam_gen --pixel-pitch 7.0e-06 --focal-length 1.96                                 \
-       --optical-center 0.2082535  0.1082305                                           \
-       --lon-lat-values '113.25 22.882  113.315 23.315  113.6 23.282  113.532 22.85'   \
+     cam_gen --pixel-pitch 7.0e-06 --focal-length 1.96                             \
+       --optical-center 0.2082535 0.1082305                                        \
+       --lon-lat-values '113.25 22.882 113.315 23.315 113.6 23.282 113.532 22.85'  \
        5001.tif --reference-dem srtm_dem.tif --refine-camera -o 5001.tsai
-     cam_gen --pixel-pitch 7.0e-06 --focal-length 1.96                                 \
-       --optical-center 0.216853 0.108227                                              \
-       --lon-lat-values '113.2 22.95  113.265 23.382  113.565 23.35  113.482 22.915'   \
-       6001.tif --reference-dem srtm_dem.tif --refine-camera  -o 6001.tsai
+     cam_gen --pixel-pitch 7.0e-06 --focal-length 1.96                             \
+       --optical-center 0.216853 0.108227                                          \
+       --lon-lat-values '113.2 22.95 113.265 23.382 113.565 23.35 113.482 22.915'  \
+       6001.tif --reference-dem srtm_dem.tif --refine-camera -o 6001.tsai
 
 A quick way to evaluate the camera models is to use the
 ``camera_footprint`` tool to create KML footprint files, then look at
@@ -2076,15 +2090,15 @@ downsampling applied to the input images.
 ::
 
      bundle_adjust 5001_small.tif 6001_small.tif bundle_5001/out-5001_small.tsai \
-       bundle_6001/out-6001_small.tsai gcp_small.gcp -t nadirpinhole               \
+       bundle_6001/out-6001_small.tsai gcp_small.gcp -t nadirpinhole             \
        -o bundle_small_new/out --force-reuse-match-files --max-iterations 30     \
        --camera-weight 0 --disable-tri-ip-filter --disable-pinhole-gcp-init      \
        --skip-rough-homography --inline-adjustments --ip-detect-method 1         \
        --datum WGS84 --num-passes 2
 
-     stereo --alignment-method homography --skip-rough-homography              \
+     parallel_stereo --alignment-method homography --skip-rough-homography       \
        --disable-tri-ip-filter --ip-detect-method 1 --session-type nadirpinhole  \
-        5001_small.tif 6001_small.tif bundle_small_new/out-out-5001_small.tsai \
+        5001_small.tif 6001_small.tif bundle_small_new/out-out-5001_small.tsai   \
        bundle_small_new/out-out-6001_small.tsai st_small_new/out
 
      gdal_translate -b 4 st_small_new/out-PC.tif st_small_new/error.tif
