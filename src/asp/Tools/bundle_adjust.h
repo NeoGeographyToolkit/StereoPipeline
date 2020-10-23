@@ -60,7 +60,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, input_prefix, stereo_session_string,
     cost_function, mapprojected_data, gcp_from_mapprojected;
-  int    ip_per_tile, ip_edge_buffer_percent;
+  int    ip_per_tile, ip_per_image, ip_edge_buffer_percent;
   double min_triangulation_angle, forced_triangulation_distance,
     lambda, camera_weight, rotation_weight, 
     translation_weight, overlap_exponent, robust_threshold, parameter_tolerance,
@@ -70,7 +70,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
     disable_pinhole_gcp_init, transform_cameras_using_gcp, fix_gcp_xyz, solve_intrinsics,
          ip_normalize_tiles, ip_debug_images,
-         stop_after_stats, stop_after_matching, skip_matching;
+    stop_after_stats, stop_after_matching, skip_matching, match_first_to_last;
   BACameraType camera_type;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, reference_terrain, disparity_list,
@@ -103,7 +103,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   
   // Make sure all values are initialized, even though they will be
   // over-written later.
-  Options(): ip_per_tile(0), min_triangulation_angle(0), forced_triangulation_distance(-1),
+  Options(): ip_per_tile(0), ip_per_image(0), min_triangulation_angle(0),
+             forced_triangulation_distance(-1),
              lambda(-1.0), camera_weight(-1),
              rotation_weight(0), translation_weight(0), overlap_exponent(0), 
              robust_threshold(0), report_level(0), min_matches(0),
@@ -128,6 +129,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
       = disable_correct_atmospheric_refraction;
     asp::stereo_settings().disable_correct_velocity_aberration
       = disable_correct_velocity_aberration;
+    asp::stereo_settings().ip_per_image = ip_per_image;
 
     // Note that by default rough homography and tri filtering are disabled
     // as input cameras may be too inaccurate for that.

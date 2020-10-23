@@ -1593,7 +1593,7 @@ int load_estimated_camera_positions(Options &opt,
 void handle_arguments(int argc, char *argv[], Options& opt) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str,
-              intrinsics_limit_str;
+    intrinsics_limit_str;
   float auto_overlap_buffer;
   bool  inline_adjustments;
   int   max_iterations_tmp;
@@ -1601,127 +1601,132 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   general_options.add_options()
     ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")
     ("cost-function",    po::value(&opt.cost_function)->default_value("Cauchy"),
-            "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2, Trivial.")
+     "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2, Trivial.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
-            "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
+     "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
     ("inline-adjustments",   po::bool_switch(&inline_adjustments)->default_value(false),
      "If this is set, and the input cameras are of the pinhole or panoramic type, apply the adjustments directly to the cameras, rather than saving them separately as .adjust files.")
     ("approximate-pinhole-intrinsics", po::bool_switch(&opt.approximate_pinhole_intrinsics)->default_value(false),
-            "If it reduces computation time, approximate the lens distortion model.")
+     "If it reduces computation time, approximate the lens distortion model.")
     ("solve-intrinsics",    po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
-            "Optimize intrinsic camera parameters.  Only used for pinhole cameras.")
+     "Optimize intrinsic camera parameters.  Only used for pinhole cameras.")
     ("intrinsics-to-float", po::value(&intrinsics_to_float_str)->default_value(""),
-            "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
+     "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
-            "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
+     "If solving for intrinsics and desired to share only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, other_intrinsics.")
     ("intrinsics-limits", 
-            po::value(&intrinsics_limit_str)->default_value(""),
-            "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to dermine how many intrinsic parameters are used for your cameras.")
+     po::value(&intrinsics_limit_str)->default_value(""),
+     "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in min max pairs and are applied in the order [focal length, optical center, other intrinsics] until all of the limits are used. Check the documentation to dermine how many intrinsic parameters are used for your cameras.")
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
-            "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the inline-adjustments option.")
+     "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the inline-adjustments option.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
-            "Don't try to initialize the positions of pinhole cameras based on input GCPs.")
+     "Don't try to initialize the positions of pinhole cameras based on input GCPs.")
     ("transform-cameras-using-gcp",  po::bool_switch(&opt.transform_cameras_using_gcp)->default_value(false)->implicit_value(true),
-            "Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each. If at least three GCP each show up in at least two images, the transform will happen even without this option using a more robust algorithm.")
+     "Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each. If at least three GCP each show up in at least two images, the transform will happen even without this option using a more robust algorithm.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
-            "Prefix to read initial adjustments from, written by a previous invocation of this program.")
+     "Prefix to read initial adjustments from, written by a previous invocation of this program.")
     ("initial-transform",   po::value(&opt.initial_transform_file)->default_value(""),
-            "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. If --input-adjustments-prefix is specified, the transform gets applied after the adjustments are read.")
+     "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as written by pc_align's source-to-reference or reference-to-source alignment transform. Set the number of iterations to 0 to stop at this step. If --input-adjustments-prefix is specified, the transform gets applied after the adjustments are read.")
     ("fixed-camera-indices",    po::value(&opt.fixed_cameras_indices_str)->default_value(""),
-            "A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.")
+     "A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.")
     ("fix-gcp-xyz",       po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
-            "If the GCP are highly accurate, use this option to not float them during the optimization.")
+     "If the GCP are highly accurate, use this option to not float them during the optimization.")
 
     ("csv-format",        po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",         po::value(&opt.csv_proj4_str)->default_value(""),
-            "The PROJ.4 string to use to interpret the entries in input CSV files.")
+     "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("reference-terrain", po::value(&opt.reference_terrain)->default_value(""),
-            "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras.")
+     "An externally provided trustworthy 3D terrain, either as a DEM or as a lidar file, very close (after alignment) to the stereo result from the given images and cameras that can be used as a reference, instead of GCP, to optimize the intrinsics of the cameras.")
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) points from the reference terrain to use.")
     ("disparity-list",           po::value(&opt.disparity_list)->default_value(""),
-            "The unaligned disparity files to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two images, second is for the second and third images, etc. If an image pair has no disparity file, use 'none'.")
+     "The unaligned disparity files to use when optimizing the intrinsics based on a reference terrain. Specify them as a list in quotes separated by spaces. First file is for the first two images, second is for the second and third images, etc. If an image pair has no disparity file, use 'none'.")
     ("max-disp-error",           po::value(&opt.max_disp_error)->default_value(-1),
-            "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
+     "When using a reference terrain as an external control, ignore as outliers xyz points which projected in the left image and transported by disparity to the right image differ by the projection of xyz in the right image by more than this value in pixels.")
     ("reference-terrain-weight", po::value(&opt.reference_terrain_weight)->default_value(1.0),
-            "How much weight to give to the cost function terms involving the reference terrain.")
+     "How much weight to give to the cost function terms involving the reference terrain.")
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
-            "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this DEM, and fix those points unless --heights-from-dem-weight is positive.")
+     "If the cameras have already been bundle-adjusted and aligned to a known high-quality DEM, in the triangulated xyz points replace the heights with the ones from this DEM, and fix those points unless --heights-from-dem-weight is positive.")
     ("heights-from-dem-weight", po::value(&opt.heights_from_dem_weight)->default_value(-1.0),
      "How much weight to give to keep the triangulated points close to the DEM if specified via --heights-from-dem. If the weight is not positive, keep the triangulated points fixed.")
     ("heights-from-dem-robust-threshold", po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.0),
-     "If positive, the robust threshold to use keep the triangulated points close to the DEM if specified via --heights-from-dem. This is applied after the point differences are multiplied by --heights-from-dem-weight.")
+     "If positive, this is the robust threshold to use keep the triangulated points close to the DEM if specified via --heights-from-dem. This is applied after the point differences are multiplied by --heights-from-dem-weight. It should help with attenuating large height difference outliers.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
-            "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+     "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
-            "Explicitly set the datum semi-major axis in meters (see above).")
+     "Explicitly set the datum semi-major axis in meters (see above).")
     ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
-            "Explicitly set the datum semi-minor axis in meters (see above).")
+     "Explicitly set the datum semi-minor axis in meters (see above).")
     ("session-type,t",   po::value(&opt.stereo_session_string)->default_value(""),
-            "Select the stereo session type to use for processing. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm. Usually the program can select this automatically by the file extension.")
+     "Select the stereo session type to use for processing. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm. Usually the program can select this automatically by the file extension.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
-            "Set the minimum  number of matches between images that will be considered.")
+     "Set the minimum  number of matches between images that will be considered.")
     ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
-            "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
+     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
     ("epipolar-threshold",      po::value(&opt.epipolar_threshold)->default_value(-1),
-            "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation. A higher values will result in more matches.")
+     "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation. A higher values will result in more matches.")
     ("ip-inlier-factor",        po::value(&opt.ip_inlier_factor)->default_value(0.2),
-            "A higher factor will result in more interest points, but perhaps also more outliers. This is used only with homography alignment, such as for the pinhole session.")
+     "A higher factor will result in more interest points, but perhaps also more outliers. This is used only with homography alignment, such as for the pinhole session.")
     ("ip-uniqueness-threshold", po::value(&opt.ip_uniqueness_thresh)->default_value(0.8),
-            "A higher threshold will result in more interest points, but perhaps less unique ones.")
+     "A higher threshold will result in more interest points, but perhaps less unique ones.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1),
-            "Remove matched IPs this percentage from the image left/right sides.")
+     "Remove matched IPs this percentage from the image left/right sides.")
     ("normalize-ip-tiles", 
-            po::bool_switch(&opt.ip_normalize_tiles)->default_value(false)->implicit_value(true),
-            "Individually normalize tiles used for IP detection.")
+     po::bool_switch(&opt.ip_normalize_tiles)->default_value(false)->implicit_value(true),
+     "Individually normalize tiles used for IP detection.")
     ("num-obalog-scales",      po::value(&opt.num_scales)->default_value(-1),
-            "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")
+     "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")
     ("nodata-value",           po::value(&opt.nodata_value)->default_value(nan),
-            "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
+     "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
     ("num-iterations",       po::value(&opt.num_iterations)->default_value(1000),
      "Set the maximum number of iterations.") 
     ("max-iterations",       po::value(&max_iterations_tmp)->default_value(1000),
-            "Set the maximum number of iterations.") // alias for num-iterations
+     "Set the maximum number of iterations.") // alias for num-iterations
     ("parameter-tolerance",  po::value(&opt.parameter_tolerance)->default_value(1e-8),
-            "Stop when the relative error in the variables being optimized is less than this.")
+     "Stop when the relative error in the variables being optimized is less than this.")
     ("overlap-limit",        po::value(&opt.overlap_limit)->default_value(0),
-            "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
+     "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
     ("overlap-list",         po::value(&opt.overlap_list_file)->default_value(""),
-            "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
+     "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
     ("auto-overlap-buffer",  po::value(&auto_overlap_buffer)->default_value(-1),
-            "Try to automatically guess which images overlap with the provided buffer in lonlat degrees.")
+     "Try to automatically guess which images overlap with the provided buffer in lonlat degrees.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
-            "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
+     "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
+    ("match-first-to-last", po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
+     "Match the first several images to several last images by extending the logic of --overlap-limit past the last image to the earliest ones.")
+    
     ("rotation-weight",      po::value(&opt.rotation_weight)->default_value(0.0),
-            "A higher weight will penalize more rotation deviations from the original configuration.")
+     "A higher weight will penalize more rotation deviations from the original configuration.")
     ("translation-weight",   po::value(&opt.translation_weight)->default_value(0.0),
-            "A higher weight will penalize more translation deviations from the original configuration.")
+     "A higher weight will penalize more translation deviations from the original configuration.")
     ("camera-weight",        po::value(&opt.camera_weight)->default_value(1.0),
-            "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A higher weight means that the values will change less. The options --rotation-weight and --translation-weight can be used for finer-grained control and a stronger response.")
+     "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A higher weight means that the values will change less. The options --rotation-weight and --translation-weight can be used for finer-grained control and a stronger response.")
     ("overlap-exponent",     po::value(&opt.overlap_exponent)->default_value(0.0),
-            "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
+     "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
     ("ip-per-tile",          po::value(&opt.ip_per_tile)->default_value(0),
-            "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
+     "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
+    ("ip-per-image",              po::value(&opt.ip_per_image)->default_value(0),
+     "How many interest points to detect in each image (default: automatic determination). It is overridden by --ip-per-tile if provided.")
     ("num-passes",           po::value(&opt.num_ba_passes)->default_value(2),
-            "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params and --remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.")
+     "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params and --remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.")
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
-            "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
+     "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
     ("remove-outliers-params", 
-            po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
-            "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points (that are not GCP) with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.")
+     po::value(&opt.remove_outliers_params_str)->default_value("75.0 3.0 2.0 3.0", "'pct factor err1 err2'"),
+     "Outlier removal based on percentage, when more than one bundle adjustment pass is used. Triangulated points (that are not GCP) with reprojection error in pixels larger than min(max('pct'-th percentile * 'factor', err1), err2) will be removed as outliers. Hence, never remove errors smaller than err1 but always remove those bigger than err2. Specify as a list in quotes. Default: '75.0 3.0 2.0 3.0'.")
     ("remove-outliers-by-disparity-params",  
-            po::value(&opt.remove_outliers_by_disp_params)->default_value(Vector2(90.0,3.0), "pct factor"),
-            "Outlier removal based on the disparity of interest points (difference between right and left pixel), when more than one bundle adjustment pass is used. For example, the 10% and 90% percentiles of disparity are computed, and this interval is made three times bigger. Interest points (that are not GCP) whose disparity falls outside the expanded interval are removed as outliers. Instead of the default 90 and 3 one can specify pct and factor, without quotes.")
+     po::value(&opt.remove_outliers_by_disp_params)->default_value(Vector2(90.0,3.0), "pct factor"),
+     "Outlier removal based on the disparity of interest points (difference between right and left pixel), when more than one bundle adjustment pass is used. For example, the 10% and 90% percentiles of disparity are computed, and this interval is made three times bigger. Interest points (that are not GCP) whose disparity falls outside the expanded interval are removed as outliers. Instead of the default 90 and 3 one can specify pct and factor, without quotes.")
     ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
-            "Remove as outliers interest points (that are not GCP) for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.")
+     "Remove as outliers interest points (that are not GCP) for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.")
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
     ("lon-lat-limit",          po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
-            "Remove as outliers interest points (that are not GCP) for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min_lon min_lat max_lon max_lat.")
+     "Remove as outliers interest points (that are not GCP) for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min_lon min_lat max_lon max_lat.")
     ("enable-rough-homography",
-            po::bool_switch(&opt.enable_rough_homography)->default_value(false)->implicit_value(true),
+     po::bool_switch(&opt.enable_rough_homography)->default_value(false)->implicit_value(true),
      "Enable the step of performing datum-based rough homography for interest point matching. This is best used with reasonably reliable input cameras and a wide footprint on the ground.")
     ("skip-rough-homography",
-            po::bool_switch(&opt.skip_rough_homography)->default_value(false)->implicit_value(true),
+     po::bool_switch(&opt.skip_rough_homography)->default_value(false)->implicit_value(true),
      "Skip the step of performing datum-based rough homography. This obsolete option is ignored as is the default.")
     ("enable-tri-ip-filter",
      po::bool_switch(&opt.enable_tri_filtering)->default_value(false)->implicit_value(true),
@@ -1732,14 +1737,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("no-datum", po::bool_switch(&opt.no_datum)->default_value(false)->implicit_value(true),
      "Do not assume a reliable datum exists, such as for irregularly shaped bodies.")
     ("individually-normalize", 
-            po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
-            "Individually normalize the input images instead of using common values.")
+     po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
+     "Individually normalize the input images instead of using common values.")
     ("ip-triangulation-max-error",  po::value(&opt.ip_triangulation_max_error)->default_value(-1),
      "When matching IP, filter out any pairs with a triangulation error higher than this.")
     ("ip-num-ransac-iterations", po::value(&opt.ip_num_ransac_iterations)->default_value(1000),
      "How many RANSAC iterations to do in interest point matching.")
     ("min-triangulation-angle",      po::value(&opt.min_triangulation_angle)->default_value(0.1),
-            "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid. It must be a positive value.")
+     "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid. It must be a positive value.")
     ("forced-triangulation-distance",      po::value(&opt.forced_triangulation_distance)->default_value(-1),
      "When triangulation fails, for example, when input cameras are inaccurate, artificially create a triangulation point this far ahead of the camera, in units of meter.")
     ("use-lon-lat-height-gcp-error",
@@ -1751,25 +1756,25 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Turn off velocity aberration correction for non-ISIS linescan cameras.")
     ("disable-correct-atmospheric-refraction", po::bool_switch(&opt.disable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
      "Turn off atmospheric refraction correction for non-ISIS linescan cameras.")
-  
-  ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
-   "Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. An example is in the documentation.")
+    
+    ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
+     "Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. An example is in the documentation.")
     ("save-cnet-as-csv", po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
      "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
     ("gcp-from-mapprojected-images", po::value(&opt.gcp_from_mapprojected)->default_value(""),
      "Given map-projected versions of the input images, the DEM the were mapprojected onto, and interest point matches among all of these created in stereo_gui, create GCP for the input images to align them better to the DEM. This is experimental and not documented.")
     ("instance-count",      po::value(&opt.instance_count)->default_value(1),
-            "The number of bundle_adjustment processes being run in parallel.")
+     "The number of bundle_adjustment processes being run in parallel.")
     ("instance-index",      po::value(&opt.instance_index)->default_value(0),
-            "The index of this parallel bundle adjustment process.")
+     "The index of this parallel bundle adjustment process.")
     ("stop-after-statistics",    po::bool_switch(&opt.stop_after_stats)->default_value(false)->implicit_value(true),
-            "Quit after computing image statistics.")
+     "Quit after computing image statistics.")
     ("stop-after-matching",    po::bool_switch(&opt.stop_after_matching)->default_value(false)->implicit_value(true),
-            "Quit after writing all match files.")
+     "Quit after writing all match files.")
     ("skip-matching",    po::bool_switch(&opt.skip_matching)->default_value(false)->implicit_value(true),
-            "Only use image matches which can be loaded from disk.")
+     "Only use image matches which can be loaded from disk.")
     ("ip-debug-images",        po::value(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
-            "Write debug images to disk when detecting and matching interest points.")
+     "Write debug images to disk when detecting and matching interest points.")
     
     ("save-intermediate-cameras", po::value(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
      "Save the values for the cameras at each iteration.")
@@ -1871,7 +1876,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
     vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and the overlap list.\n"
               << usage << general_options );
-  
+
+  if (opt.overlap_list_file != "" && opt.match_first_to_last > 0)
+    vw_throw( ArgumentErr() << "Cannot specify both the overlap limit --match-first-to-last.\n"
+              << usage << general_options );
+    
   if ( opt.overlap_limit < 0 )
     vw_throw( ArgumentErr() << "Must allow search for matches between "
               << "at least each image and its subsequent one.\n" << usage << general_options );
@@ -2494,7 +2503,12 @@ int main(int argc, char* argv[]) {
     // Make a list of all of the image pairs to find matches for.
     std::vector<std::pair<int,int> > all_pairs;
     for (int i = 0; i < num_images; i++){
-      for (int j = i+1; j <= std::min(num_images-1, i+opt.overlap_limit); j++){
+
+      int start = i + 1;
+      if (opt.match_first_to_last)
+        start = 0;
+
+      for (int j = start; j <= std::min(num_images-1, i + opt.overlap_limit); j++){
 
         // Apply the overlap list if manually specified.
         if (!opt.overlap_list.empty()) {
@@ -2504,6 +2518,28 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
+        if (opt.match_first_to_last) {
+          // When i < j, match i to j if j <= i + opt.overlap_limit.
+          // But when i > j, such as i = num_images - 1 and j = 0,
+          // then also may match i to j. Add num_images to j and check
+          // if j + num_images <= i + opt.overlap_limit. In effect,
+          // after the last image assume we have the first image, then
+          // second, etc. Do not allow i == j.
+          if (i == j) 
+            continue;
+          if (i < j) {
+            if (j > i + opt.overlap_limit) 
+              continue;
+          }else if (j < i) {
+            if (j + num_images > i + opt.overlap_limit) 
+              continue;
+            if (i <= j + opt.overlap_limit) {
+              // this means that we already picked (j, i), so don't pick (i, j)
+              continue;
+            }
+          }
+        }
+        
         // If this option is set, don't try to match cameras that are too far apart.
         if (got_est_cam_positions && (opt.position_filter_dist > 0)) {
           Vector3 this_pos  = estimated_camera_gcc[i];
@@ -2517,7 +2553,7 @@ int main(int argc, char* argv[]) {
             continue; // Skip this image pair
           }
         }
-
+        
         all_pairs.push_back(std::pair<int,int>(i,j));
       }
     }

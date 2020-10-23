@@ -2,21 +2,42 @@ RELEASE 2.8.0, upcoming!
 
 parallel_stereo
 
-   * Will now throw an error if --threads is passed in, whose behavior
-     was not defined.
+  * Will now throw an error if --threads is passed in, whose behavior
+    was not defined.
+  * Bugfix for Python 3.
+
+bundle_adjust:
+
+  * Added the option --heights-from-dem-robust-threshold.
+  * Added the option --save-intermediate-cameras to save the cameras
+    at each iteration.
+  * Added the option --match-first-to-last to match the first several
+    images to several last images by extending the logic of
+    --overlap-limit past the last image to the earliest ones.
+
+sfs:
+  * Added the option --shadow-threshold to be able to specify
+    a single shadow threshold for all images. Also added
+    --custom-shadow-threshold-list.
+  * Added the option --robust-threshold for situations when the
+    measured image intensity is unreliable.
+  * Added the option --estimate-height-errors to estimate the 
+    uncertainty in height at each computed SfS DEM pixel.
+    It can be customized via --height-error-params.
+  * Added an auxiliary tool named sfs_blend to replace SfS
+    pixels with ones from the original LOLA DEM in permanently
+    shadowed regions.
 
 Misc
 
- * Added the option --ip-per-image to stereo, to detect roughly how many
-   interest points should be found per image (only a small fraction of
-   them may eventually match across images).
+ * Added the option --ip-per-image to bundle adjustment and stereo, to
+   detect roughly how many interest points should be found per image
+   (only a small fraction of them may eventually match across images).
  * The --min-triangulation-angle in stereo must be always positive if 
    set by the user. Can be set to something very small if desired.
    This is a bug fix for this rarely used option (before, when set to
    0 it would just reset itself to some internal non-small value).  
- * Added the option --save-intermediate-cameras to bundle adjustment
-   to save the cameras at each iteration.
-
+ 
 RELEASE 2.7.0, July 27, 2020
 ----------------------------
 

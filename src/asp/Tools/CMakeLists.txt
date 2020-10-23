@@ -158,6 +158,10 @@ add_executable(sfs sfs.cc)
 target_link_libraries(sfs AspSessions ${SOLVER_LIBRARIES} )
 install(TARGETS sfs DESTINATION bin)
 
+add_executable(sfs_blend sfs_blend.cc)
+target_link_libraries(sfs_blend AspSessions)
+install(TARGETS sfs_blend DESTINATION bin)
+
 add_executable(stereo_blend stereo_blend.cc stereo.h stereo.cc)
 target_link_libraries(stereo_blend AspSessions)
 install(TARGETS stereo_blend DESTINATION bin)

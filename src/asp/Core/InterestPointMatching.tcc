@@ -78,13 +78,16 @@ void detect_ip(vw::ip::InterestPointList& ip,
 
   const bool has_nodata = !boost::math::isnan(nodata);
 
-  vw_out() << "\t    Using " << points_per_tile << " interest points per tile (1024^2 px).\n";
-
+  if (ip_per_tile == 0 && stereo_settings().ip_per_image > 0)
+    vw_out() << "\t    Using " << stereo_settings().ip_per_image << " interest points per image.\n";
+  else 
+    vw_out() << "\t    Using " << points_per_tile << " interest points per tile (1024^2 px).\n";
+  
   // Load the detection method from stereo_settings.
   // - This relies on a direct match in the enum integer value.
   DetectIpMethod detect_method = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
 
-  // Detect Interest Points
+  // Detect interest points.
   // - Due to templated types we need to duplicate a bunch of code here
   if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
     // Zack's custom detector

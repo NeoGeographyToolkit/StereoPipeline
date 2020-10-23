@@ -213,6 +213,11 @@ Command-line options for bundle_adjust:
     Try to automatically determine which images overlap. Only
     supports Worldview style XML camera files.
 
+--match-first-to-last
+    Match the first several images to several last images by extending
+    the logic of --overlap-limit past the last image to the earliest
+    ones.
+
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more rotation deviations from the
     original configuration.
@@ -232,6 +237,11 @@ Command-line options for bundle_adjust:
 --ip-per-tile <integer>
     How many interest points to detect in each :math:`1024^2` image tile.
     If this option isn't given, it will default to an automatic determination.
+
+--ip-per-image <integer>
+    How many interest points to detect in each image (default:
+    automatic determination). It is overridden by --ip-per-tile if
+    provided.
 
 --ip-detect-method <integer (default: 0)>
     Choose an interest point detection method from: 0=OBAloG, 1=SIFT,
@@ -401,6 +411,13 @@ Command-line options for bundle_adjust:
     How much weight to give to keep the triangulated points close
     to the DEM if specified via ``--heights-from-dem``. If the weight
     is not positive, keep the triangulated points fixed.
+
+--heights-from-dem-robust-threshold <double (default: -1)> If
+    positive, this is the robust threshold to use keep the
+    triangulated points close to the DEM if specified via
+    --heights-from-dem. This is applied after the point differences
+    are multiplied by --heights-from-dem-weight. It should
+    help with attenuating large height difference outliers.
 
 --csv-format <string>
     Specify the format of input CSV files as a list of entries
