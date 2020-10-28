@@ -25,8 +25,6 @@
 // It uses the Euclidean distance to the boundary, which is better
 // than the Manhattan distance employed by grassfire.
 
-// TODO(oalexan1): Check in and document this tool!
-
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -70,8 +68,10 @@ GeoReference read_georef(std::string const& file){
 
 struct Options: vw::cartography::GdalWriteOptions {
   string sfs_dem, lola_dem, max_lit_image_mosaic, output_dem, sfs_mask;
-  double image_threshold, weight_blur_sigma, blend_length, min_blend_size;
-  Options(): image_threshold(0.0), weight_blur_sigma(0.0), blend_length(0.0), min_blend_size(0.0) {}
+  double image_threshold, weight_blur_sigma, lit_blend_length,
+    shadow_blend_length, min_blend_size;
+  Options(): image_threshold(0.0), weight_blur_sigma(0.0), lit_blend_length(0.0),
+             shadow_blend_length(0.0), min_blend_size(0.0) {}
 };
 
 // The workhorse of this code, do the blending
@@ -122,63 +122,99 @@ public:
     ImageView<pixel_type> lola_dem_crop = crop(m_lola_dem, biased_box);
     ImageView<pixel_type> image_mosaic_crop = crop(m_image_mosaic, biased_box);
 
-    // Find the grassfire weight (Manhattan distance to the boundary
-    // of the nodata-region). It will tell us on what areas to focus.
+    // The mask of lit pixels
+    ImageView< PixelMask<pixel_type> > mask = create_mask_less_or_equal(image_mosaic_crop,
+                                                                        m_opt.image_threshold);
+    
+    // The mask of unlit pixels
+    ImageView< PixelMask<pixel_type> > inv_mask = vw::copy(mask);
+    for (int col = 0; col < inv_mask.cols(); col++) {
+      for (int row = 0; row < inv_mask.rows(); row++) {
+        if (is_valid(mask(col, row))) {
+          inv_mask(col, row) = 0;
+          inv_mask(col, row).invalidate();
+        } else {
+          inv_mask(col, row) = 1;
+          inv_mask(col, row).validate();
+        }
+      }
+    }
+    
+    // The grassfire weight positive in the lit region, with zero at the light-shadow
+    // boundary
     bool no_zero_at_border = true; // don't decrease the weights to zero at image border
-    ImageView<pixel_type> grass_dist
-      = vw::grassfire
-      (vw::copy(vw::fill_holes_grass
-                (vw::copy(create_mask_less_or_equal(image_mosaic_crop, m_opt.image_threshold)),
-                 m_opt.min_blend_size)),
-       no_zero_at_border);
+    ImageView<pixel_type> lit_grass_dist
+      = vw::grassfire(vw::copy(vw::fill_holes_grass(mask, m_opt.min_blend_size)),
+                      no_zero_at_border);
 
-    // The clamped distance to the boundary
+    // The grassfire weights positive in the shadow region, with zero at the light-shadow
+    // boundary
+    ImageView<pixel_type> shadow_grass_dist = vw::grassfire(inv_mask, no_zero_at_border);
+
+    // Find the clamped signed distance to the boundary. Note that our
+    // boundary is in fact two pixel wide at the light-shadow
+    // interface, given how lit_grass_dist and shadow_grass_dist are
+    // defined as the negation of each other. The boundary is the set
+    // of pixels where both of these are <= 1.
     ImageView<float> dist_to_bd;
     dist_to_bd.set_size(sfs_dem_crop.cols(), sfs_dem_crop.rows());
     for (int col = 0; col < sfs_dem_crop.cols(); col++) {
       
       for (int row = 0; row < sfs_dem_crop.rows(); row++) {
 
-        if (grass_dist(col, row) >= 1.5*m_opt.blend_length) { // Too far from the boundary
-          dist_to_bd(col, row) = m_opt.blend_length; // clamp at the blending length
+        if (lit_grass_dist(col, row) > 1.5*m_opt.lit_blend_length) {
+          // Too far in the lit region
+          dist_to_bd(col, row) = m_opt.lit_blend_length; // clamp at the blending length
           continue;
         }
         
-        if (grass_dist(col, row) == 0) {
-          // On the boundary or inside the nodata region
-          dist_to_bd(col, row) = 0;
+        if (shadow_grass_dist(col, row) > 1.5*m_opt.shadow_blend_length) {
+          // Too far in the shadow region
+          dist_to_bd(col, row) = -m_opt.shadow_blend_length;
           continue;
         }
         
         // Find the shortest Euclidean distance to the no-data region.
-        double dist = m_opt.blend_length;
-        for (int col2 = std::max(0.0, col - m_opt.blend_length);
-             col2 <= std::min(sfs_dem_crop.cols() - 1.0, col + m_opt.blend_length);
+        double max_dist = std::max(m_opt.lit_blend_length, m_opt.shadow_blend_length);
+        double signed_dist = 0.0;
+        if (lit_grass_dist(col, row) > 0) {
+          signed_dist = m_opt.lit_blend_length;
+        } else if (shadow_grass_dist(col, row) > 0) {
+          signed_dist = -m_opt.shadow_blend_length;
+        }
+        
+        for (int col2 = std::max(0.0, col - max_dist);
+             col2 <= std::min(sfs_dem_crop.cols() - 1.0, col + max_dist);
              col2++) {
 
           // Estimate the range of rows for the circle with given radius
           // at given col value.
-          double ht_val = ceil(sqrt(double(m_opt.blend_length * m_opt.blend_length) -
+          double ht_val = ceil(sqrt(double(max_dist * max_dist) -
                                     double((col - col2) * (col - col2))));
           
           for (int row2 = std::max(0.0, row - ht_val);
                row2 <= std::min(sfs_dem_crop.rows() - 1.0, row + ht_val);
                row2++) {
 
-            if (grass_dist(col2, row2) > 0) 
-              continue; // not at boundary and not inside the no-data region
+            if (lit_grass_dist(col2, row2) > 1 || shadow_grass_dist(col2, row2) > 1) 
+              continue; // not at the boundary
 
             // See if the current point is closer than anything so far
             double curr_dist = sqrt( double(col - col2) * (col - col2) +
                                      double(row - row2) * (row - row2) );
-            if (curr_dist < dist) 
-              dist = curr_dist;
+            if (lit_grass_dist(col, row) > 0) {
+              if (curr_dist < signed_dist) 
+                signed_dist = curr_dist;
+            } else if (shadow_grass_dist(col, row) > 0) {
+              if (curr_dist < -signed_dist) 
+                signed_dist = -curr_dist;
+            }
             
           }
         }
 
         // The closest we've got
-        dist_to_bd(col, row) = dist;
+        dist_to_bd(col, row) = signed_dist;
       }
     }
 
@@ -197,7 +233,8 @@ public:
         else
           blended_dem(col, row) = m_mask_nodata;
           
-        double weight = dist_to_bd(col, row)/m_opt.blend_length;
+        float weight = (dist_to_bd(col, row) + m_opt.shadow_blend_length) /
+          (m_opt.shadow_blend_length + m_opt.lit_blend_length);
 
         // These are not strictly necessary but enforce them
         if (weight > 1.0)
@@ -207,7 +244,8 @@ public:
           
         // Handle no-data values. These are not meant to happen, but do this just in case.
         if (sfs_dem_crop(col, row) == m_sfs_nodata)
-          continue;
+          weight = 0.0; // Use LOLA
+        
         if (lola_dem_crop(col, row) == m_lola_nodata) 
           continue;
 
@@ -215,7 +253,7 @@ public:
           blended_dem(col, row)
             = weight * sfs_dem_crop(col, row) + (1.0 - weight) * lola_dem_crop(col, row);
         else
-          blended_dem(col, row) = float( weight != 0.0 );
+          blended_dem(col, row) = float(weight >= 1e-7); // due to limited precision of float
       }
     }
     
@@ -241,8 +279,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The maximally lit image mosaic to use to determine the permanently shadowed regions.")
     ("image-threshold",  po::value<double>(&opt.image_threshold)->default_value(0.0),
      "The value separating permanently shadowed pixels from lit pixels in the maximally lit image mosaic.")
-    ("blend-length", po::value<double>(&opt.blend_length)->default_value(0.0),
-     "The length, in pixels, over which to blend the SfS and LOLA DEMs at the boundary of the permanently shadowed region.")
+    ("lit-blend-length", po::value<double>(&opt.lit_blend_length)->default_value(0.0),
+     "The length, in pixels, over which to blend the SfS and LOLA DEMs at the boundary of the permanently shadowed region towards the lit region.")
+    ("shadow-blend-length", po::value<double>(&opt.shadow_blend_length)->default_value(0.0),
+     "The length, in pixels, over which to blend the SfS and LOLA DEMs at the boundary of the permanently shadowed region towards the shadowed region.")
     ("weight-blur-sigma", po::value<double>(&opt.weight_blur_sigma)->default_value(0.0),
      "The standard deviation of the Gaussian used to blur the weight that performs the transition from the SfS to the LOLA DEM. A higher value results in a smoother transition (this does not smooth the DEMs). The extent of the blur is about 7 times this deviation, though it tapers fast to 0 before that. Set to 0 to not use this operation.")
     ("min-blend-size", po::value<double>(&opt.min_blend_size)->default_value(0.0),
@@ -268,8 +308,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.max_lit_image_mosaic == "" || opt.output_dem == "" || opt.sfs_mask == "")
     vw_throw(ArgumentErr() << "Not all input or output files were specified.\n"
                            << usage << general_options );
-  if (opt.blend_length <= 0)
-    vw_throw(ArgumentErr() << "The blending length must be positive.\n"
+  if (opt.lit_blend_length <= 0)
+    vw_throw(ArgumentErr() << "The lit blending length must be positive.\n"
+                           << usage << general_options );
+  if (opt.shadow_blend_length <= 0)
+    vw_throw(ArgumentErr() << "The shadow blending length must be positive.\n"
                            << usage << general_options );
   if (opt.image_threshold <= 0)
     vw_throw(ArgumentErr() << "The image threshold must be positive.\n"
@@ -330,7 +373,7 @@ int main(int argc, char *argv[]) {
     
     // When processing the DEM tile by tile, need to see further in
     // each tile because of blending and blurring
-    int extra = 2*opt.blend_length + opt.min_blend_size;
+    int extra = 2*opt.lit_blend_length + 2*opt.shadow_blend_length + opt.min_blend_size;
     if (opt.weight_blur_sigma > 0)
       extra += vw::compute_kernel_size(opt.weight_blur_sigma);
 

@@ -536,7 +536,27 @@ meter/pixel one, resampled to 1 meter/pixel, creating a DEM named
       gdalwarp -r cubicspline -tr 1 1 ldem_80s_20m_scale_crop.tif ref.tif
 
 Note that we scaled its heights by 0.5 per the information in the LBL
-file.
+file. The documentation of your DEM needs to be carefully studied to
+see if this applies in your case.
+
+Later when we mapproject images onto this DEM at 1 m/pixel, those will
+be computed at integer multiples of this grid. Given that the grid
+size is 1 m, the extent of those images as displayed by ``gdalinfo``
+will have a fractional value of 0.5. It is very recommended to have
+``gdalwarp`` above produce a result on the same grid (for when
+``sfs_blend`` is used later). Hence, as an example (taken from a
+different dataset), if the extent of the file output by this command
+is::
+
+     638.299 -2350.859 1596.299 -1493.859 
+
+(the order is xmin, ymin, xmax, ymax), the gdalwarp command better
+be rerun with the option::
+
+    -te 638.5 -2350.5 1595.5 -1494.5
+
+so we increase the min values to have a fractional value of 0.5 and
+decrease the max values for the same purpose.
 
 By far the hardest part of this exercise is choosing the images. We
 downloaded several hundred of them by visiting the web site noted
@@ -729,7 +749,7 @@ consideration for the shape-from-shading step.
 
 Next, SfS follows::
 
-      parallel_sfs -i ref.tif <images> --shadow-threshold 0.003            \
+      parallel_sfs -i ref.tif <images> --shadow-threshold 0.005            \
         --bundle-adjust-prefix ba_align_ref/run -o sfs/run                 \ 
         --use-approx-camera-models --crop-input-images                     \
         --blending-dist 10 --min-blend-size 100 --threads 4                \
@@ -738,10 +758,10 @@ Next, SfS follows::
         --tile-size 200 --padding 50 --num-processes 20                    \
         --nodes-list <machine list>
 
-It was found empirically that a shadow threshold of 0.003 was good
+It was found empirically that a shadow threshold of 0.005 was good
 enough.  It is also possible to specify individual shadow thresholds
 if desired, via ``--custom-shadow-threshold-list``. This may be useful
-for images having difuse shadows cast from elevated areas that are
+for images having diffuse shadows cast from elevated areas that are
 far-off. For those, the threshold may need to be raised to as much as
 0.01.
 
@@ -756,16 +776,16 @@ see if it shows any systematic shift or rotation compared to the initial
 LOLA gridded terrain. If that is the case, another step of alignment can
 be used. This time one can do features-based alignment rather than based
 on point-to-point calculations. This one works better on
-lower-resolution versions of the inputs (say at sub8 versions of the
+lower-resolution versions of the inputs (say at sub4 versions of the
 DEMs, as created ``stereo_gui``), as follows::
 
   pc_align --initial-transform-from-hillshading rigid                   \
-     ref_sub8.tif sfs_dem_sub8.tif -o align_sub8/run --num-iterations 0 \
+     ref_sub4.tif sfs_dem_sub4.tif -o align_sub4/run --num-iterations 0 \
      --max-displacement -1
 
 That alignment transform can then be applied to the full SfS DEM::
 
-   pc_align --initial-transform align_sub8/run-transform.txt      \
+   pc_align --initial-transform align_sub4/run-transform.txt      \
      ref.tif sfs_dem.tif -o align/run --num-iterations 0          \
      --max-displacement -1 --save-transformed-source-points       \
      --max-num-reference-points 1000 --max-num-source-points 1000
@@ -784,6 +804,12 @@ LOLA DEM named ref.tif. It can be found by invoking::
    gdalinfo -proj4 ref.tif
 
 and looking for the value of the ``PROJ.4`` field.
+
+It is worth experimenting repeating this experiment at sub2 and sub8,
+and examine visually the obtained hillshaded DEMs overlaid on top of
+the reference DEM and see which agree with the reference the most
+(even though the SfS DEM and the reference DEM can be quite different,
+it is possible to notice subtle shifts upon careful inspection).
 
 It is very recommended to redo the whole process using this improved
 alignment. First, the alignment transform must be applied to the
@@ -835,9 +861,10 @@ the values in the permanently shadowed areas with values from the
 original LOLA DEM, with a transition region. That can be done as::
 
    sfs_blend --lola-dem lola_dem.tif --sfs-dem sfs_dem.tif         \
-    --max-lit-image-mosaic max_lit.tif --output-dem sfs_blend.tif  \
-    --image-threshold 0.003 --blend-length 10 --min-blend-size 100 \
-    --weight-blur-sigma 2 --sfs-mask sfs_mask.tif
+    --max-lit-image-mosaic max_lit.tif --image-threshold 0.005     \
+    --lit-blend-length 25 --shadow-blend-length 5                  \
+    --min-blend-size 100 --weight-blur-sigma 5                     \
+    --output-dem sfs_blend.tif --sfs-mask sfs_mask.tif
 
 Here, the inputs are the LOLA and SfS DEMs, the maximally lit mosaic
 provided as before, the shadow threshold (the same value as in

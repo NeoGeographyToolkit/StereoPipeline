@@ -1176,12 +1176,12 @@ bool isInShadow(int col, int row, Vector3 & sunPos,
   // Ensure that we advance by at most half a grid point each time
   double delta = 0.5*std::min(gridx, gridy)/std::max(norm_2(dir2), 1e-16);
 
-  // go along the ray. Don't allow the loop to go forever.
+  // Go along the ray. Don't allow the loop to go forever.
   for (int i = 1; i < 10000000; i++) {
     Vector3 ray_P = xyz + i * delta * dir;
     Vector3 ray_llh = geo.datum().cartesian_to_geodetic(ray_P);
     if (ray_llh[2] > max_dem_height) {
-      // We're above the terrain, no point in continuing
+      // We're above the highest terrain, no point in continuing
       return false;
     }
 

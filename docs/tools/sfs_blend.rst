@@ -29,9 +29,15 @@ Command-line options:
     The value separating permanently shadowed pixels from lit pixels
     in the maximally lit image mosaic.
 
---blend-length <int>
+--lit-blend-length <float>
     The length, in pixels, over which to blend the SfS and LOLA DEMs
-    at the boundary of the permanently shadowed region.
+    at the boundary of the permanently shadowed region towards the lit
+    region.
+
+--shadow-blend-length <float>
+    The length, in pixels, over which to blend the SfS and LOLA DEMs
+    at the boundary of the permanently shadowed region towards the
+    shadowed region.
 
 --weight-blur-sigma <float (default 0)> 
     The standard deviation of the Gaussian used to blur the weight
