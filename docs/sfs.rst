@@ -91,13 +91,14 @@ with one of the first two images) can be used for SfS.
 
 To locate the area of spatial overlap, the images can be map-projected
 (either with ``cam2map`` with a coarse resolution) or with
-``mapproject``, using for example the LOLA DEM as the terrain to project
-onto, or the DEM obtained from running ``stereo`` on those images. Then
-the images can be overlayed in ``stereo_gui``. A good sanity check is to
-examine the shadows in various images. If they point in different
-directions in the images and perhaps also have different lengths, that
-means that illumination conditions are different enough, which will help
-constrain the ``sfs`` problem better.
+``mapproject``, using for example the LOLA DEM as the terrain to
+project onto, or the DEM obtained from running ``stereo`` on those
+images. Then the images can be overlayed as georeferenced images in
+``stereo_gui``. A good sanity check is to examine the shadows in
+various images. If they point in different directions in the images
+and perhaps also have different lengths, that means that illumination
+conditions are different enough, which will help constrain the ``sfs``
+problem better.
 
 Running sfs at 1 meter/pixel using a single image
 -------------------------------------------------
@@ -680,14 +681,15 @@ The images should now be projected onto this DEM as::
       mapproject --tr 1 --bundle-adjust-prefix ba_align/run \
         ref.tif image.cub image.map.tif
 
-are precisely on top of each other and on top of the LOLA DEM. If any
-shifts are noticed, with the images relative to each other, or to this
-DEM, that is a sign of some issues.  If the shift is relative to this
-DEM, perhaps one can try the alignment above with a different value of
-the max displacement.
+One should verify if they are precisely on top of each other and on
+top of the LOLA DEM in ``stereo_gui``. If any shifts are noticed, with
+the images relative to each other, or to this DEM, that is a sign of
+some issues. If the shift is relative to this DEM, perhaps one can
+try the alignment above with a different value of the max
+displacement.
 
-There are occasions in which the alignment transform is still not
-accurate enough. Then, one can refine the cameras using the reference
+There are occasions in which the alignment transform is still slightly
+inaccurate. Then, one can refine the cameras using the reference
 terrain as a constraint in bundle adjustment::
 
        mkdir -p ba_align_ref
@@ -717,9 +719,10 @@ It is suggested that the user examine the file::
      ba_align_ref/run-final_residuals_no_loss_function_pointmap_point_log.csv
 
 to see if the reprojection errors (column 4) are reasonably small, say
-mostly on the order of 0.1 pixels. The triangulated point cloud from
-this file should also hopefully be close to the reference DEM. Their
-difference is found as::
+mostly on the order of 0.1 pixels (some outliers are expected
+though). The triangulated point cloud from this file should also
+hopefully be close to the reference DEM. Their difference is found
+as::
 
      geodiff --absolute                                                         \
        --csv-format '1:lon 2:lat 3:height_above_datum' ref.tif                  \
@@ -733,12 +736,13 @@ The file::
 
    ba_align_ref/run-final_residuals_no_loss_function_raw_pixels.txt
 
-should also be examined. It has the ``x`` and ``y`` pixel residuals for each pixel.
-The norm of each pixel residual can be computed, and their median 
-can be found (at some point this will be done automatically). Images
-for which the median pixel residual is larger than 1 pixel or which 
-have too few such residuals should be excluded from running SfS,
-as likely for those the cameras are not correctly positioned. 
+should also be examined. It has the ``x`` and ``y`` pixel residuals
+for each pixel.  The norm of each pixel residual can be computed, and
+their median can be found (at some point this will be done
+automatically). Images for which the median pixel residual is larger
+than 1 pixel or which have too few such residuals should be excluded
+from running SfS, as likely for those the cameras are not correctly
+positioned.
 
 If, even after this step, the mapprojected images fail to be perfectly
 on top of each other, or areas with poor coverage exist, more images
@@ -826,6 +830,9 @@ between the SfS terrain and the reference LOLA terrain.
  
 The ``geodiff`` tool can be deployed to see how the SfS DEM compares
 to the initial guess or to the raw ungridded LOLA measurements.
+One can use the ``--absolute`` option for this tool and then invoke
+``colormap`` to colorize the difference map. By and large, the SfS
+DEM should not differ from the reference DEM by more than 1-2 meters.
 
 To create a maximally lit mosaic one can mosaic together all the mapprojected
 images using the same camera adjustments that were used for SfS. That is
