@@ -67,7 +67,7 @@ GeoReference read_georef(std::string const& file){
 }
 
 struct Options: vw::cartography::GdalWriteOptions {
-  string sfs_dem, lola_dem, max_lit_image_mosaic, output_dem, sfs_mask;
+  string sfs_dem, lola_dem, max_lit_image_mosaic, output_dem, output_weight;
   double image_threshold, weight_blur_sigma, lit_blend_length,
     shadow_blend_length, min_blend_size;
   Options(): image_threshold(0.0), weight_blur_sigma(0.0), lit_blend_length(0.0),
@@ -78,9 +78,9 @@ struct Options: vw::cartography::GdalWriteOptions {
 class SfsBlendView: public ImageViewBase<SfsBlendView>{
   
   ImageViewRef<float> m_sfs_dem, m_lola_dem, m_image_mosaic;
-  float m_sfs_nodata, m_lola_nodata, m_mask_nodata;
+  float m_sfs_nodata, m_lola_nodata, m_weight_nodata;
   int m_extra;
-  bool m_save_mask;
+  bool m_save_weight;
   Options const& m_opt;
   
   typedef float PixelT;
@@ -88,12 +88,12 @@ class SfsBlendView: public ImageViewBase<SfsBlendView>{
 public:
   SfsBlendView(ImageViewRef<float> sfs_dem, ImageViewRef<float> lola_dem,
                ImageViewRef<float> image_mosaic,
-               float sfs_nodata, float lola_nodata, float mask_nodata, int extra,
-               bool save_mask, Options const& opt):
+               float sfs_nodata, float lola_nodata, float weight_nodata, int extra,
+               bool save_weight, Options const& opt):
     m_sfs_dem(sfs_dem), m_lola_dem(lola_dem), m_image_mosaic(image_mosaic),
     m_sfs_nodata(sfs_nodata), m_lola_nodata(lola_nodata),
-    m_mask_nodata(mask_nodata), m_extra(extra),
-    m_save_mask(save_mask), m_opt(opt) {}
+    m_weight_nodata(weight_nodata), m_extra(extra),
+    m_save_weight(save_weight), m_opt(opt) {}
 
   typedef PixelT pixel_type;
   typedef PixelT result_type;
@@ -228,10 +228,10 @@ public:
     for (int col = 0; col < sfs_dem_crop.cols(); col++) {
       for (int row = 0; row < sfs_dem_crop.rows(); row++) {
 
-        if (!m_save_mask)
+        if (!m_save_weight)
           blended_dem(col, row) = m_sfs_nodata;
         else
-          blended_dem(col, row) = m_mask_nodata;
+          blended_dem(col, row) = m_weight_nodata;
           
         float weight = (dist_to_bd(col, row) + m_opt.shadow_blend_length) /
           (m_opt.shadow_blend_length + m_opt.lit_blend_length);
@@ -239,7 +239,7 @@ public:
         // These are not strictly necessary but enforce them
         if (weight > 1.0)
           weight = 1.0;
-        if (weight < 0.0)
+        if (weight < 1e-7) // take into account the float error 
           weight = 0.0;
           
         // Handle no-data values. These are not meant to happen, but do this just in case.
@@ -249,11 +249,11 @@ public:
         if (lola_dem_crop(col, row) == m_lola_nodata) 
           continue;
 
-        if (!m_save_mask) 
+        if (!m_save_weight) 
           blended_dem(col, row)
             = weight * sfs_dem_crop(col, row) + (1.0 - weight) * lola_dem_crop(col, row);
         else
-          blended_dem(col, row) = float(weight >= 1e-7); // due to limited precision of float
+          blended_dem(col, row) = weight;
       }
     }
     
@@ -288,7 +288,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("min-blend-size", po::value<double>(&opt.min_blend_size)->default_value(0.0),
      "Do not apply blending in shadowed areas of dimensions less than this, hence keeping there the SfS DEM.")
     ("output-dem", po::value(&opt.output_dem), "The blended output DEM to save.")
-    ("sfs-mask", po::value(&opt.sfs_mask), "The output mask having 1 for pixels obtained with SfS (and some LOLA blending at interfaces) and 0 for pixels purely from LOLA.");
+    ("output-weight", po::value(&opt.output_weight), "The weight showing the proportion of the SfS DEM in the blend with the LOLA DEM (1 is for purely SfS and 0 is for purely LOLA).");
 
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
 
@@ -305,7 +305,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   // Error checking
   if (opt.sfs_dem == "" || opt.lola_dem == "" ||
-      opt.max_lit_image_mosaic == "" || opt.output_dem == "" || opt.sfs_mask == "")
+      opt.max_lit_image_mosaic == "" || opt.output_dem == "" || opt.output_weight == "")
     vw_throw(ArgumentErr() << "Not all input or output files were specified.\n"
                            << usage << general_options );
   if (opt.lit_blend_length <= 0)
@@ -385,27 +385,28 @@ int main(int argc, char *argv[]) {
     vw_out() << "Writing: " << opt.output_dem << std::endl;
     bool has_georef = true, has_nodata = true;
     TerminalProgressCallback tpc("asp", ": ");
-    float mask_nodata = -1.0;
-    bool save_mask = false;
+    float weight_nodata = -1.0;
+    bool save_weight = false;
     asp::save_with_temp_big_blocks(block_size,
                                    opt.output_dem,
                                    SfsBlendView(sfs_dem, lola_dem, image_mosaic,
-                                                sfs_nodata, lola_nodata, mask_nodata,
-                                                extra, save_mask, opt),
+                                                sfs_nodata, lola_nodata, weight_nodata,
+                                                extra, save_weight, opt),
                                    has_georef, sfs_georef,
                                    has_nodata, sfs_nodata, opt, tpc);
 
-    // Write the mask. Have to rerun the same logic due to ASP's limitations,
+    // Write the weight. Have to rerun the same logic due to ASP's limitations,
     // it cannot write two large files at the same time.
-    vw_out() << "Writing the mask showing the (blended) SfS pixels: " << opt.sfs_mask << std::endl;
-    save_mask = true;
+    vw_out() << "Writing the blending weight: "
+             << opt.output_weight << std::endl;
+    save_weight = true;
     asp::save_with_temp_big_blocks(block_size,
-                                   opt.sfs_mask,
+                                   opt.output_weight,
                                    SfsBlendView(sfs_dem, lola_dem, image_mosaic,
-                                                sfs_nodata, lola_nodata, mask_nodata,
-                                                extra, save_mask, opt),
+                                                sfs_nodata, lola_nodata, weight_nodata,
+                                                extra, save_weight, opt),
                                    has_georef, sfs_georef,
-                                   has_nodata, mask_nodata, opt, tpc);
+                                   has_nodata, weight_nodata, opt, tpc);
     
     
   } ASP_STANDARD_CATCHES;

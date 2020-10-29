@@ -54,9 +54,9 @@ Command-line options:
 --output-dem <arg>
     The blended output DEM to save.
 
---sfs-mask <arg>
-    The output mask having 1 for pixels obtained with SfS (and some
-    LOLA blending at interfaces) and 0 for pixels purely from LOLA.
+--output-weight <arg>
+    The weight showing the proportion of the SfS DEM in the blend with
+    the LOLA DEM (1 is for purely SfS and 0 is for purely LOLA).
 
 -v, --version
     Display the version of software.

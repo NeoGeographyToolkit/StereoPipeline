@@ -298,6 +298,14 @@ def main(argsIn):
         parser.error("parallel_sfs cannot take the --crop-win option. " +
                       "Use the sfs tool directly if this is desired.\n" );
 
+    if options.resume:
+        if '--compute-exposures-only' in options.extraArgs or \
+               '--estimate-slope-errors' in argsIn or \
+               '--estimate-height-errors' not in argsIn:
+            parser.print_help()
+            parser.error("The --resume option cannot be used unless this " + \
+                         "tool is invoked to produce a DEM.\n" )
+        
     # Check the cameras.
     if len(cameras) < 1:
         parser.print_help()

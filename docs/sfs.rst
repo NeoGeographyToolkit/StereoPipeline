@@ -871,14 +871,14 @@ original LOLA DEM, with a transition region. That can be done as::
     --max-lit-image-mosaic max_lit.tif --image-threshold 0.005     \
     --lit-blend-length 25 --shadow-blend-length 5                  \
     --min-blend-size 100 --weight-blur-sigma 5                     \
-    --output-dem sfs_blend.tif --sfs-mask sfs_mask.tif
+    --output-dem sfs_blend.tif --output-weight sfs_weight.tif
 
 Here, the inputs are the LOLA and SfS DEMs, the maximally lit mosaic
 provided as before, the shadow threshold (the same value as in
 invoking SfS should be used). The outputs are the blended DEM as
-described earlier, and the mask which tells where each pixel came
-from. See this tool's :ref:`manual page <sfs_blend>` for more
-details.
+described earlier, and the weight which tells how much the SfS DEM
+contributed to the blended DEM. See this tool's :ref:`manual page
+<sfs_blend>` for more details.
 
 The error in the SfS DEM (before or after the blending with LOLA) 
 can be estimated as::
