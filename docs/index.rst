@@ -15,8 +15,8 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
    correlation
    bundle_adjustment
    sfm
-   sfs
    examples
+   sfs
    tools
    stereodefault
    outputfiles

@@ -1,7 +1,7 @@
 .. _sfs_usage:
 
-Shape-from-Shading usage examples
-=================================
+Shape-from-Shading Examples
+===========================
 
 ASP provides a tool, named ``sfs`` (:numref:`sfs`), that can improve
 the level of detail of DEMs created by ASP or any other source using
@@ -235,11 +235,14 @@ during optimization and by using a coarse-to-fine scheme, where the
 problem is first solved using subsampled images and terrain then it is
 successively refined.
 
-If possible, it may still be desirable to bundle-adjust the cameras
-first (:numref:`bundle_adjust`). It is important to
-note that bundle adjustment may fail if the images have sufficiently
+Yet this process can be unreliable. It is suggested to bundle-adjust
+the cameras first (:numref:`bundle_adjust`). It is important to note
+that bundle adjustment may fail if the images have sufficiently
 different illumination, as it will not be able to find matches among
-images. A solution to this is discussed in :numref:`sfs-lola`.
+images. A solution to this is discussed in :numref:`sfs-lola`, and it
+amounts to bridging the gap between images with dis-similar
+illumination with more images of intermediate illumination, and
+sorting those by Sun azimuth angle.
 
 To make bundle adjustment and stereo faster, we first crop the images,
 such as shown below (the crop parameters can be determined via
@@ -371,9 +374,8 @@ SfS is very sensitive to errors in camera positions and orientations.
 These can be optimized as part of the problem, but if they are too far
 off, the solution will not be correct. In the previous section we used
 bundle adjustment to correct these errors, and then we passed the
-adjusted cameras to ``sfs``. However, bundle adjustment may often fail,
-simply because the illumination conditions can be very different among
-the images, and interest point matching may not succeed.
+adjusted cameras to ``sfs``. However, bundle adjustment may fail,
+because of illumination differences.
 
 The option ``-–coarse-levels int`` can be passed to ``sfs``, to solve
 for the terrain using a multi-resolution approach, first starting at a
@@ -384,12 +386,14 @@ large and pronounced features on the scale bigger than the errors in the
 cameras.
 
 The approach that we found to work all the time is to find interest
-points in the images, first automatically, and if that fails then
-manually, as the human eye is much more skilled at identifying a given
-landmark in multiple images, even when the lightning changes
-drastically. Picking about 4 landmarks in each image (if doing it
-manually) is sufficient. Ideally they should be positioned far from each
-other, to improve the accuracy.
+points in the images, first automatically (by adding more images with
+intermediate illumination if the illumination between the given images
+is too different), and if that fails then manually, as the human eye
+is much more skilled at identifying a given landmark in multiple
+images, even when the lightning changes drastically. Picking about 4
+landmarks in each image (if doing it manually, which should be rarely
+necessary with enough data) is sufficient. Ideally they should be
+positioned far from each other, to improve the accuracy.
 
 Below is one example of how we select interest points, run SfS, and then
 compare to LOLA, which is an independently acquired sparse dataset of 3D
@@ -444,7 +448,7 @@ An illustration is shown in :numref:`sfs3`.
 
 .. figure:: images/sfs3.jpg
    :name: sfs3
-   :alt: interest points manually picked manually
+   :alt: interest points picked manually
 
    An illustration of how interest points are picked manually for the
    purpose of bundle adjustment and then SfS.
@@ -522,6 +526,10 @@ up only in some images. All this makes it very hard to register images
 to each other and to the ground. We solved this by choosing very
 carefully a large set of representative images.
 
+We recommend that the process outlined below first be practiced
+with just a couple of images on a small region, which will make it much
+faster to iron out any issues.
+
 The first step is to fetch the underlying LOLA DEM. We use the 20
 meter/pixel one, resampled to 1 meter/pixel, creating a DEM named
 ``ref.tif``.
@@ -538,7 +546,13 @@ meter/pixel one, resampled to 1 meter/pixel, creating a DEM named
 
 Note that we scaled its heights by 0.5 per the information in the LBL
 file. The documentation of your DEM needs to be carefully studied to
-see if this applies in your case.
+see if this applies in your case. 
+
+The site::
+
+    https://core2.gsfc.nasa.gov/PGDA/LOLA_5mpp/
+
+has higher-accuracy LOLA DEMs but only for a few locations.
 
 Later when we mapproject images onto this DEM at 1 m/pixel, those will
 be computed at integer multiples of this grid. Given that the grid

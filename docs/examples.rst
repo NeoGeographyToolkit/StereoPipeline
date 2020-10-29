@@ -1,7 +1,7 @@
 .. _examples:
 
-Data Processing Examples
-========================
+Stereo Processing Examples
+==========================
 
 This chapter showcases a variety of results that are possible when
 processing different data sets with the Stereo Pipeline. It is also a
