@@ -917,14 +917,15 @@ Here are a few suggestions we have found helpful when running ``sfs``:
    to something small, like :math:`0.0001.` This can be increased to
    :math:`0.001` if noticing that the output DEM strays too far.
 
--  As stated before, more images with more diverse illumination
-   conditions result in more accurate terrain. Ideally there should be
-   at least 3 images, with the shadows being, respectively, on the left,
-   right, and then perhaps missing or small.
-
 -  Bundle-adjustment for multiple images is crucial, to eliminate camera
    errors which will result in ``sfs`` converging to a local minimum.
    This is described in :numref:`sfs-lola`.
+
+- More images with more diverse illumination conditions result in more 
+  accurate terrain. Ideally there should be at least 3 images, with the 
+  shadows being, respectively, on the left, right, and then perhaps 
+  missing or small. Images with intermediate illumination conditions may 
+  be needed for bundle adjustment to work.
 
 -  Floating the albedo (option ``--float-albedo``) can introduce
    instability and divergence, it should be avoided unless obvious
@@ -938,23 +939,7 @@ Here are a few suggestions we have found helpful when running ``sfs``:
    gradually add images and float more variables and select whichever
    approach seems to give better results.
 
--  If an input DEM is large, it may not be completely covered by a
-   single set of images with various illumination conditions. It should
-   then be broken up into smaller regions (with overlap), the SfS
-   problem can be solved on each region, and then every output terrain
-   can be transformed using ``pc_align`` into LOLA’s global coordinate
-   system, where they can be mosaicked together using ``dem_mosaic``.
-   Or, ``sfs`` can be run not on one clip, but on an entire collection
-   of clips covering this area to get the adjustments, and then
-   ``parallel_sfs`` can be run as described in the previous section.
-
-   The easier case is when at least the two images in the stereo pair
-   cover the entire terrain. Then, portions of this terrain can be used
-   as an initial guess for each SfS sub-problem (even as the other
-   images used for SfS change), the results can be mosaicked, and the
-   alignment to LOLA can happen just once, after mosaicking. This
-   approach is preferable, if feasible, as alignment to LOLA is more
-   accurate if the terrain to align is larger in extent.
+- If an input DEM is large, see the earlier section for a detailed recipe.
 
 -  The ``mapproject`` program can be used to map-project each image onto
    the resulting SfS DEM (with the camera adjustments solved using SfS).
