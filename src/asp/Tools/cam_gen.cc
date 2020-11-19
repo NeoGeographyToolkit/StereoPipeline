@@ -371,20 +371,30 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.frame_index != "") {
     // Parse the frame index to extract opt.lon_lat_values_str.
-    // Look for a line having this image, and search for "POLYGON".
+    // Look for a line having this image, and search for "POLYGON" followed by spaces and "((".
     boost::filesystem::path p(opt.image_file); 
     std::string image_base = p.stem().string(); // strip the directory name and suffix
     std::ifstream file( opt.frame_index.c_str() );
     std::string line;
-    std::string beg = "POLYGON((";
+    std::string beg1 = "POLYGON";
+    std::string beg2 = "((";
     std::string end = "))";
     while ( getline(file, line, '\n') ) {
       if (line.find(image_base) == 0) {
-        int beg_pos = line.find(beg);
+        // Find POLYGON first.
+        int beg_pos = line.find(beg1);
         if (beg_pos == std::string::npos)
-          vw_throw( ArgumentErr() << "Cannot find " << beg << " in line: " << line << ".\n");
-        beg_pos += beg.size();
-        int end_pos = line.find(end);
+          vw_throw( ArgumentErr() << "Cannot find " << beg1 << " in line: " << line << ".\n");
+        beg_pos += beg1.size();
+
+        // Move forward skipping any spaces until finding "(("
+        beg_pos = line.find(beg2, beg_pos);
+        if (beg_pos == std::string::npos)
+          vw_throw( ArgumentErr() << "Cannot find " << beg2 << " in line: " << line << ".\n");
+        beg_pos += beg2.size();
+
+        // Find "))"
+        int end_pos = line.find(end, beg_pos);
         if (end_pos == std::string::npos)
           vw_throw( ArgumentErr() << "Cannot find " << end << " in line: " << line << ".\n");
         opt.lon_lat_values_str = line.substr(beg_pos, end_pos - beg_pos);
@@ -482,6 +492,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Parse the lon-lat values
   if (opt.input_camera == "") {
     parse_values<double>(opt.lon_lat_values_str, opt.lon_lat_values);
+    // Bug fix for some frame_index files repeating the first point at the end
+    int len = opt.lon_lat_values.size();
+    if (opt.frame_index != "" && opt.lon_lat_values.size() == opt.pixel_values.size() + 2 &&
+        len >= 2 && opt.lon_lat_values[0] == opt.lon_lat_values[len - 2] &&
+        opt.lon_lat_values[1] == opt.lon_lat_values[len - 1]) {
+      opt.lon_lat_values.pop_back();
+      opt.lon_lat_values.pop_back();
+    }
   }
   
   // Note that optical center can be negative (for some SkySat products).
