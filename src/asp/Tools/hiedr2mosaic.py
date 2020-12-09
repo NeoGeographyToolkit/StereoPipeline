@@ -239,7 +239,7 @@ def noproj( CCD_object, threads, delete=False ):
     return CCDs( noproj_CCDs, CCD_object.match )
 
 # Check for failure for hijitreg.  Sometimes bombs?  Default to zeros.
-def hijitreg( noproj_CCDs, threads ):
+def hijitreg( noproj_CCDs, threads, delete=False ):
     for i in noproj_CCDs.keys():
         j = i + 1
         if( j not in noproj_CCDs ): continue
@@ -256,7 +256,8 @@ def hijitreg( noproj_CCDs, threads ):
         if( j not in noproj_CCDs ): continue
         flat_file = 'flat_'+str(i)+'_'+str(j)+'.txt'
         averages[i] = read_flatfile( flat_file )
-        os.remove( flat_file )
+        if delete:
+            os.remove( flat_file )
 
     return averages
 
@@ -440,7 +441,7 @@ def main():
         noprojed_CCDs = noproj( CCD_files, options.threads, options.delete )
 
         # hijitreg
-        averages = hijitreg( noprojed_CCDs, options.threads )
+        averages = hijitreg( noprojed_CCDs, options.threads, options.delete )
 
         # mosaic handmos
         mosaicked = mosaic( noprojed_CCDs, averages )
