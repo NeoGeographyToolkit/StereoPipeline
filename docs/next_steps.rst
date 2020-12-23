@@ -361,7 +361,7 @@ while ``cam2map`` is restricted to one process and one thread.
 .. _dg-mapproj:
 
 Example for DigitalGlobe/Maxar Images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In this section we will describe how to run stereo with map-projected
 images for DigitalGlobe/Maxar cameras for Earth. The same process can be used

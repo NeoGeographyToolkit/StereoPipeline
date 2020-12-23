@@ -53,6 +53,7 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinxcontrib.bibtex',
 ]
+bibtex_bibfiles = ['bibliography.bib', 'papersusingasp.bib']
 
 numfig = True
 
