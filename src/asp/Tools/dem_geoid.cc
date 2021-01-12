@@ -464,18 +464,19 @@ int main( int argc, char *argv[] ) {
 
     std::map<std::string, std::string> keywords;
     keywords["GEOID"] = opt.geoid;
-    GdalWriteOptions geo_opt;
+    // GdalWriteOptions geo_opt; // this will crash with big tiffs
+    // Why even use a separate GdalWriteOptions object here?
 
     if ( opt.use_double ) {
       // Output as double
-      block_write_gdal_image(adj_dem_file, adj_dem, true, dem_georef,true, dem_nodata_val, geo_opt,
+      block_write_gdal_image(adj_dem_file, adj_dem, true, dem_georef,true, dem_nodata_val, opt,
                              TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: "),
                              keywords);
     }else{
       // Output as float
       ImageViewRef<float> adj_dem_float = channel_cast<float>( adj_dem );
 
-      block_write_gdal_image(adj_dem_file, adj_dem_float, true, dem_georef,true, dem_nodata_val, geo_opt,
+      block_write_gdal_image(adj_dem_file, adj_dem_float, true, dem_georef,true, dem_nodata_val, opt,
                              TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: "),
                              keywords);
     }
