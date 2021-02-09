@@ -11,7 +11,7 @@ resolution.
 
 The detailed reasons for doing this, and a manual step-by-step
 walkthrough of what ``cam2map4stereo.py`` does is provided in the
-discussion on aligning images on page .
+discussion on aligning images in the Tutorial.
 
 The ``cam2map4stereo.py`` is also useful for selecting a subsection
 and/or reduced resolution portion of the full image. You can inspect a

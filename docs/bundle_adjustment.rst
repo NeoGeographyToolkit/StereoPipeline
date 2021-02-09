@@ -696,7 +696,7 @@ pixel errors in the control network. In our run, the initial error was
 1065 px and the final solution had an error of 1.1 px.
 
 Producing a DEM using the newly created camera corrections is the same
-as covered in the Tutorial on page . When using ``jigsaw``, it modifies
+as covered in the Tutorial. When using ``jigsaw``, it modifies
 a copy of the spice data that is stored internally to the cube file.
 Thus when we want to create a DEM using the correct camera geometry, no
 extra information needs to be given to ``stereo`` since it is already
