@@ -386,7 +386,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("remove-outliers",               po::bool_switch(&opt.remove_outliers_with_pct)->default_value(true),
             "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
     ("remove-outliers-params",        po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
-            "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
+            "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor and points too far from the cluster of most points will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0),
             "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
     ("max-output-size",          po::value(&opt.max_output_size)->default_value(Vector2(9999999, 9999999)),

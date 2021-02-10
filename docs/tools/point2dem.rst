@@ -354,7 +354,8 @@ Command-line options for point2dem:
 
 --remove-outliers-params <pct factor (default: 75.0 3.0)>
     Outlier removal based on percentage. Points with triangulation
-    error larger than pct-th percentile times factor will be removed
+    error larger than pct-th percentile times factor and points
+    too far from the cluster of most points will be removed
     as outliers.
 
 --max-valid-triangulation-error <float (default: 0)>
