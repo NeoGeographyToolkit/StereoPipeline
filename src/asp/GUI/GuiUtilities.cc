@@ -27,6 +27,8 @@
 #include <QtWidgets>
 #include <ogrsf_frmts.h>
 
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 
 
 #include <vw/Math/EulerAngles.h>
@@ -528,10 +530,71 @@ void read_shapefile(std::string const& file,
   GDALClose( poDS );
 }
 
+  void contour_image(DiskImagePyramidMultiChannel const& img,
+                     vw::cartography::GeoReference const & georef,
+                     double threshold,
+                     std::vector<vw::geometry::dPoly> & polyVec) {
+
+  std::vector<std::vector<cv::Point> > contours;
+  std::vector<cv::Vec4i> hierarchy;
+
+  // Create the open cv matrix. We will have issues for huge images.
+  cv::Mat cv_img = cv::Mat::zeros(img.rows(), img.cols(), CV_8UC1);
+  
+  // Form the binary image. Values above threshold become 1, and less
+  // than equal to the threshold become 0.
+  for (int row = 0; row < img.rows(); row++) {
+    for (int col = 0; col < img.cols(); col++) {
+      uchar val = (std::max(img.get_value_as_double(row, col), threshold) - threshold > 0);
+      cv_img.at<uchar>(row, col) = val;
+    }    
+  }
+
+  // Find the contour
+  cv::findContours(cv_img, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+
+  // Add the contour to the list of polygons to display
+  polyVec.clear();
+  polyVec.resize(1);
+  vw::geometry::dPoly & poly = polyVec[0]; // alias
+
+  // Copy the polygon for export
+  for (size_t k = 0; k < contours.size(); k++) {
+
+    if (contours[k].empty()) 
+      continue;
+
+    // Copy from float to double
+    std::vector<double> xv(contours[k].size()), yv(contours[k].size());
+    for (size_t vIter = 0; vIter < contours[k].size(); vIter++) {
+
+      // We would like the contour to go through the center of the
+      // pixels not through their upper-left corners. Hence add 0.5.
+      double bias = 0.5;
+      
+      // Note how we flip x and y, because in our GUI the first
+      // coordinate is the column.
+      Vector2 S(contours[k][vIter].y + bias, contours[k][vIter].x + bias);
+
+      // The GUI expects the contours to be in georeferenced coordinates
+      S = georef.pixel_to_point(S);
+      
+      xv[vIter] = S.x();
+      yv[vIter] = S.y();
+    }
+    
+    bool isPolyClosed = true;
+    std::string color = "green";
+    std::string layer = "0";
+    poly.appendPolygon(contours[k].size(), &xv[0], &yv[0],  
+                       isPolyClosed, color, layer);
+  }
+}
+  
 void write_shapefile(std::string const& file,
-		       bool has_geo,
-		       vw::cartography::GeoReference const& geo, 
-		       std::vector<vw::geometry::dPoly> const& polyVec){
+                     bool has_geo,
+                     vw::cartography::GeoReference const& geo, 
+                     std::vector<vw::geometry::dPoly> const& polyVec){
 
   std::string layer_str = fs::path(file).stem().string();
 

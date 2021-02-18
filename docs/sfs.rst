@@ -311,12 +311,15 @@ We repeat the same steps for the initial guess for SfS::
        run_sub10/run-DEM.tif run_sub10/run-crop-DEM.tif
 
 After this, we run ``sfs`` itself. Since our dataset has many shadows,
-we found that specifying the shadow thresholds for the tool improves the
-results. The thresholds can be determined using ``stereo_gui``. This can
-be done by turning on shadow-threshold mode from the GUI menu, and then
-clicking on a few points in the shadows. Then the thresholded images can
-be visualized/updated from the menu as well, and this process can be
-iterated.
+we found that specifying the shadow thresholds for the tool improves
+the results. The thresholds can be determined using
+``stereo_gui``. This can be done by turning on threshold mode from the
+GUI menu, and then clicking on a few points in the shadows. The
+largest of the determined pixel values will be the used as the shadow
+threshold. Then, the thresholded images can be visualized/updated from
+the menu as well, and this process can be iterated. We also found that
+for LRO NAC a shadow threshold value of 0.003 works well enough
+usually.
 
 ::
 

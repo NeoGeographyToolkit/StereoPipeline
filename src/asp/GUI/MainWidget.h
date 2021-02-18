@@ -110,7 +110,7 @@ namespace vw { namespace gui {
     void zoom       (double scale);
     void viewMatches(bool   hide);
 
-    void setShadowThreshMode(bool turnOn) { m_shadow_thresh_calc_mode = turnOn;}
+    void setThreshMode(bool turnOn) { m_thresh_calc_mode = turnOn;}
     void plotProfile(std::vector<imageData> const& images,
                      std::vector<double> const& profileX, 
                      std::vector<double> const& profileY);
@@ -133,8 +133,8 @@ namespace vw { namespace gui {
 
     std::set<int> & indicesWithAction() { return m_indicesWithAction; }
 
-    void   setThreshold(double thresh); ///< Set the shadow threshold 
-    double getThreshold();            ///< Get the shadow threshold
+    void   setThreshold(double thresh); ///< Set the image threshold 
+    double getThreshold();            ///< Get the image threshold
 
     void  setZoomAllToSameRegion(bool zoom_all_to_same_region);
     vw::BBox2 current_view();
@@ -167,7 +167,7 @@ public slots:
 
     void addMatchPoint          (); ///< Add a new interest point (from right click menu)
     void deleteMatchPoint       (); ///< Delete an interest point (from right click menu)
-    void setThreshold           (); ///< Set change shadow threshold (from right click menu)
+    void setThreshold           (); ///< Set change image threshold (from right click menu)
     void setHillshadeParams     (); ///< Set the azimuth and elevation for hillshaded images.
     void toggleHillshade        (); ///< Turn on/off hillshading per image (from right click menu)
     void refreshHillshade       (); ///< We modified m_hillshade_mode. Update the display.
@@ -179,6 +179,7 @@ public slots:
     void deleteSelection        (); ///< Delete an area selected with the mouse at current point
     void hideImagesNotInRegion  (); ///< Hide images not intersecting a given region 
     void saveVectorLayer        (); ///< Delete current vector layer
+    bool contourImage           (); ///< Contour an image at a specified threshold
     void setProfileMode (bool profile_mode); ///< Turn on and off the 1D profile tool
     void setPolyEditMode(bool polyEditMode); ///< Turn on and off the vector layer drawing
     void deleteVertex           (); ///< Delete a vertex from a vector layer
@@ -338,10 +339,10 @@ public slots:
     QAction* m_mergePolys;
     QAction* m_showPolysFilled;
     
-    double m_shadow_thresh;
-    bool   m_shadow_thresh_calc_mode;
-    bool   m_shadow_thresh_view_mode;
-    std::vector<imageData> m_shadow_thresh_images;
+    double m_thresh;
+    bool   m_thresh_calc_mode;
+    bool   m_thresh_view_mode;
+    std::vector<imageData> m_thresh_images;
 
     std::vector<imageData> m_hillshaded_images;
     std::set<int> m_indicesWithAction;

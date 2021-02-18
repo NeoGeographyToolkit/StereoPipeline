@@ -127,12 +127,55 @@ namespace vw { namespace gui {
 
   template<class PixelT>
   typename boost::disable_if<boost::mpl::or_< boost::is_same<PixelT,double>,
-                                              boost::is_same<PixelT, vw::Vector<vw::uint8, 2> > >, void >::type
+                                              boost::is_same<PixelT, vw::Vector<vw::uint8, 2> > >,
+                             void >::type
   formQimage(bool highlight_nodata,
              bool scale_pixels, double nodata_val,
 	     vw::Vector2 const& bounds,
 	     ImageView<PixelT> const& clip, QImage & qimg);
   
+  // An image class that supports 1 to 3 channels.  We use
+  // DiskImagePyramid<double> to be able to use some of the
+  // pre-defined member functions for an image class. This class
+  // is not a perfect solution, but there seem to be no easy way
+  // in ASP to handle images with variable numbers of channels.
+  // TODO: Add the case when multi-channel images also have float or double pixels
+  struct DiskImagePyramidMultiChannel{
+    vw::cartography::GdalWriteOptions m_opt;
+    vw::mosaic::DiskImagePyramid< double               > m_img_ch1_double;
+    vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 2> > m_img_ch2_uint8;
+    vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 3> > m_img_ch3_uint8;
+    vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 4> > m_img_ch4_uint8;
+    int m_num_channels;
+    int m_rows, m_cols;
+    ImgType m_type; // keeps track of which of the above images we use
+
+    // Constructor
+    DiskImagePyramidMultiChannel(std::string const& base_file = "",
+                                 vw::cartography::GdalWriteOptions const&
+                                 opt = vw::cartography::GdalWriteOptions(),
+                                 int top_image_max_pix = 1000*1000,
+                                 int subsample = 2);
+
+    // This function will return a QImage to be shown on screen.
+    // How we create it, depends on the type of image we want to display.
+    void get_image_clip(double scale_in, vw::BBox2i region_in,
+                      bool highlight_nodata,
+                      QImage & qimg, double & scale_out, vw::BBox2i & region_out) const;
+    double get_nodata_val() const;
+    
+    int32 cols  () const { return m_cols;  }
+    int32 rows  () const { return m_rows;  }
+    int32 planes() const { return m_num_channels; }
+
+    /// Return the element at this location (at the lowest level) cast to double.
+    /// - Only works for single channel pyramids!
+    double get_value_as_double( int32 x, int32 y) const;
+
+    // Return value as string
+    std::string get_value_as_str( int32 x, int32 y) const;
+  };
+
   /// Convert a QRect object to a BBox2 object.
   inline BBox2 qrect2bbox(QRect const& R){
     return BBox2( Vector2(R.left(), R.top()), Vector2(R.right(), R.bottom()) );
@@ -168,7 +211,7 @@ namespace vw { namespace gui {
 		      bool & has_geo, 
 		      vw::cartography::GeoReference & geo,
 		      std::vector<vw::geometry::dPoly> & polyVec);
-  
+
   void write_shapefile(std::string const& file,
 		       bool has_geo,
 		       vw::cartography::GeoReference const& geo, 
@@ -199,8 +242,7 @@ namespace vw { namespace gui {
 			     double & minX, double & minY,
 			     double & minDist
 			     );
-  
-  
+
   // Find the closest edge in a given vector of polygons to a given point.
   void findClosestPolyEdge(// inputs
 			   double x0, double y0,
@@ -212,48 +254,13 @@ namespace vw { namespace gui {
 			   double & minX, double & minY,
 			   double & minDist
 			   );
+
+  // Create contours from given image
+  void contour_image(DiskImagePyramidMultiChannel const& img,
+                     vw::cartography::GeoReference const & georef,
+                     double threshold,
+                     std::vector<vw::geometry::dPoly> & polyVec);
   
-  // An image class that supports 1 to 3 channels.  We use
-  // DiskImagePyramid<double> to be able to use some of the
-  // pre-defined member functions for an image class. This class
-  // is not a perfect solution, but there seem to be no easy way
-  // in ASP to handle images with variable numbers of channels.
-  // TODO: Add the case when multi-channel images also have float or double pixels
-  struct DiskImagePyramidMultiChannel{
-    vw::cartography::GdalWriteOptions m_opt;
-    vw::mosaic::DiskImagePyramid< double               > m_img_ch1_double;
-    vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 2> > m_img_ch2_uint8;
-    vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 3> > m_img_ch3_uint8;
-    vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 4> > m_img_ch4_uint8;
-    int m_num_channels;
-    int m_rows, m_cols;
-    ImgType m_type; // keeps track of which of the above images we use
-
-    // Constructor
-    DiskImagePyramidMultiChannel(std::string const& base_file = "",
-                                 vw::cartography::GdalWriteOptions const& opt = vw::cartography::GdalWriteOptions(),
-                                 int top_image_max_pix = 1000*1000,
-                                 int subsample = 2);
-
-    // This function will return a QImage to be shown on screen.
-    // How we create it, depends on the type of image we want to display.
-    void get_image_clip(double scale_in, vw::BBox2i region_in,
-                      bool highlight_nodata,
-                      QImage & qimg, double & scale_out, vw::BBox2i & region_out) const;
-    double get_nodata_val() const;
-    
-    int32 cols  () const { return m_cols;  }
-    int32 rows  () const { return m_rows;  }
-    int32 planes() const { return m_num_channels; }
-
-    /// Return the element at this location (at the lowest level) cast to double.
-    /// - Only works for single channel pyramids!
-    double get_value_as_double( int32 x, int32 y) const;
-
-    // Return value as string
-    std::string get_value_as_str( int32 x, int32 y) const;
-  };
-
   /// A class to keep all data associated with an image file
   struct imageData{
     std::string      name;

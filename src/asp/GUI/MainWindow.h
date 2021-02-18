@@ -80,10 +80,11 @@ namespace vw { namespace gui {
     void select_region              ();
     void run_stereo                 ();
     void run_parallel_stereo        ();
-    void shadowThresholdCalc        ();
-    void shadowThresholdGetSet      ();
+    void thresholdCalc              ();
+    void thresholdGetSet            ();
     void viewThreshImages           ();
     void viewUnthreshImages         ();
+    void contourImages              ();
     void viewHillshadedImages       ();
     void viewGeoreferencedImages    ();
     void viewOverlayedImages        ();
@@ -128,8 +129,8 @@ namespace vw { namespace gui {
     QMenu *m_help_menu;
 
     QAction *m_about_action;
-    QAction *m_shadowCalc_action;
-    QAction *m_shadowGetSet_action;
+    QAction *m_thresholdCalc_action;
+    QAction *m_thresholdGetSet_action;
     QAction *m_sizeToFit_action;
     QAction *m_viewSingleWindow_action;
     QAction *m_viewSideBySide_action;
@@ -138,6 +139,7 @@ namespace vw { namespace gui {
     QAction *m_viewGeoreferencedImages_action;
     QAction *m_viewOverlayedImages_action;
     QAction *m_viewThreshImages_action;
+    QAction *m_contourImages_action;
     QAction *m_viewUnthreshImages_action;
     QAction *m_zoomAllToSameRegion_action;
     QAction *m_viewMatches_action;

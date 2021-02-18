@@ -448,26 +448,27 @@ void MainWindow::createMenus() {
   m_writeGcp_action->setStatusTip(tr("Save interest point matches in a GCP format for bundle_adjust"));
   connect(m_writeGcp_action, SIGNAL(triggered()), this, SLOT(writeGroundControlPoints()));
 
-  // Shadow threshold calculation
-  m_shadowCalc_action = new QAction(tr("Shadow threshold detection"), this);
-  m_shadowCalc_action->setStatusTip(tr("Shadow threshold detection"));
-  m_shadowCalc_action->setCheckable(true);
-  connect(m_shadowCalc_action, SIGNAL(triggered()), this, SLOT(shadowThresholdCalc()));
+  // Threshold calculation by clicking on pixels and setting the threshold
+  // as the largest determined pixel value
+  m_thresholdCalc_action = new QAction(tr("Threshold detection"), this);
+  m_thresholdCalc_action->setStatusTip(tr("Threshold detection"));
+  m_thresholdCalc_action->setCheckable(true);
+  connect(m_thresholdCalc_action, SIGNAL(triggered()), this, SLOT(thresholdCalc()));
 
-  // Shadow threshold visualization
-  m_viewThreshImages_action = new QAction(tr("View shadow-thresholded images"), this);
-  m_viewThreshImages_action->setStatusTip(tr("View shadow-thresholded images"));
+  // Thresholded image visualization
+  m_viewThreshImages_action = new QAction(tr("View thresholded images"), this);
+  m_viewThreshImages_action->setStatusTip(tr("View thresholded images"));
   connect(m_viewThreshImages_action, SIGNAL(triggered()), this, SLOT(viewThreshImages()));
 
-  // Shadow threshold visualization
+  // Image threshold visualization
   m_viewUnthreshImages_action = new QAction(tr("View un-thresholded images"), this);
   m_viewUnthreshImages_action->setStatusTip(tr("View un-thresholded images"));
   connect(m_viewUnthreshImages_action, SIGNAL(triggered()), this, SLOT(viewUnthreshImages()));
 
-  // View/set shadow threshold
-  m_shadowGetSet_action = new QAction(tr("View/set shadow thresholds"), this);
-  m_shadowGetSet_action->setStatusTip(tr("View/set shadow thresholds"));
-  connect(m_shadowGetSet_action, SIGNAL(triggered()), this, SLOT(shadowThresholdGetSet()));
+  // View/set image threshold
+  m_thresholdGetSet_action = new QAction(tr("View/set thresholds"), this);
+  m_thresholdGetSet_action->setStatusTip(tr("View/set thresholds"));
+  connect(m_thresholdGetSet_action, SIGNAL(triggered()), this, SLOT(thresholdGetSet()));
 
   // 1D profile mode
   m_profileMode_action = new QAction(tr("1D profile mode"), this);
@@ -476,13 +477,18 @@ void MainWindow::createMenus() {
   m_profileMode_action->setChecked(false);
   connect(m_profileMode_action, SIGNAL(triggered()), this, SLOT(profileMode()));
 
-  // Vector layer mode
+  // Polygon edit mode
   m_polyEditMode_action = new QAction(tr("Polygon edit mode"), this);
   m_polyEditMode_action->setStatusTip(tr("Polygon edit mode"));
   m_polyEditMode_action->setCheckable(true);
   m_polyEditMode_action->setChecked(false);
   connect(m_polyEditMode_action, SIGNAL(triggered()), this, SLOT(polyEditMode()));
 
+  // Contour image
+  m_contourImages_action = new QAction(tr("Find contour at threshold"), this);
+  m_contourImages_action->setStatusTip(tr("Find contour at threshold"));
+  connect(m_contourImages_action, SIGNAL(triggered()), this, SLOT(contourImages()));
+  
   // The About box
   m_about_action = new QAction(tr("About stereo_gui"), this);
   m_about_action->setStatusTip(tr("Show the stereo_gui about box"));
@@ -519,10 +525,10 @@ void MainWindow::createMenus() {
 
   // Threshold menu
   m_threshold_menu = menu->addMenu(tr("&Threshold"));
-  m_threshold_menu->addAction(m_shadowCalc_action);
+  m_threshold_menu->addAction(m_thresholdCalc_action);
   m_threshold_menu->addAction(m_viewThreshImages_action);
   m_threshold_menu->addAction(m_viewUnthreshImages_action);
-  m_threshold_menu->addAction(m_shadowGetSet_action);
+  m_threshold_menu->addAction(m_thresholdGetSet_action);
 
   // Profile menu
   m_profile_menu = menu->addMenu(tr("Profile"));
@@ -531,6 +537,7 @@ void MainWindow::createMenus() {
   // Vector layer menu
   m_vector_layer_menu = menu->addMenu(tr("Vector Layer"));
   m_vector_layer_menu->addAction(m_polyEditMode_action);
+  m_vector_layer_menu->addAction(m_contourImages_action);
 
   // Help menu
   m_help_menu = menu->addMenu(tr("&Help"));
@@ -1026,14 +1033,13 @@ void MainWindow::run_parallel_stereo(){
   MainWindow::run_stereo_or_parallel_stereo("parallel_stereo");
 }
 
-// Toggle on or of the tool for detecting the shadow threshold in images
-void MainWindow::shadowThresholdCalc() {
-  bool on = m_shadowCalc_action->isChecked();
+// Toggle on or of the tool for detecting a threshold in images
+void MainWindow::thresholdCalc() {
+  bool on = m_thresholdCalc_action->isChecked();
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
-      m_widgets[i]->setShadowThreshMode(on);
+      m_widgets[i]->setThreshMode(on);
   }
-
 }
 
 void MainWindow::viewThreshImages() {
@@ -1053,11 +1059,33 @@ void MainWindow::viewUnthreshImages() {
   }
 }
 
-void MainWindow::shadowThresholdGetSet() {
+void MainWindow::contourImages() {
+  // Sanity checks
+  if (m_widgets.size() != m_image_files.size()) {
+    popUp("Each image must be in its own window to be able to find the contour.");
+    return;
+  }
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]->getThreshold() == -std::numeric_limits<double>::max()) {
+      popUp("Set the threshold via the Threshold menu before finding the contour.");
+      return;
+    }
+  }
+  
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    // If we fail at one of the contouring operations, presumably a
+    // pop-up will be shown, and then it is not worth continuing,
+    // which may just result in more pop-ups.
+    if (!m_widgets[i]->contourImage()) 
+      return;
+  }
+}
+
+void MainWindow::thresholdGetSet() {
 
   if (m_widgets.size() != m_image_files.size()) {
     if (std::isnan(asp::stereo_settings().nodata_value))
-      popUp("Each image must be in its own window to set the shadow thresholds.");
+      popUp("Each image must be in its own window to set the image thresholds.");
     else
       popUp("Each image must be in its own window to use the nodata option.");
     return;
@@ -1070,16 +1098,15 @@ void MainWindow::shadowThresholdGetSet() {
     if (m_widgets[i])
       oss << m_widgets[i]->getThreshold() << " ";
   }
-  std::string shadowThresh = oss.str();
+  std::string thresh = oss.str();
   bool ans = getStringFromGui(this,
-                              "Shadow thresholds",
-                              "Shadow thresholds",
-                              shadowThresh,
-                              shadowThresh);
+                              "Image thresholds",
+                              "Image thresholds",
+                              thresh, thresh);
   if (!ans)
     return;
 
-  std::istringstream iss(shadowThresh.c_str());
+  std::istringstream iss(thresh.c_str());
   std::vector<double> thresholds;
   double val;
   while (iss >> val)

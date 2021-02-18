@@ -264,10 +264,10 @@ namespace vw { namespace gui {
     m_hillshade_azimuth   = asp::stereo_settings().hillshade_azimuth;
     m_hillshade_elevation = asp::stereo_settings().hillshade_elevation;
     
-    // Shadow threshold
-    m_shadow_thresh = -std::numeric_limits<double>::max();
-    m_shadow_thresh_calc_mode = false;
-    m_shadow_thresh_view_mode = false;
+    // Image threshold
+    m_thresh = -std::numeric_limits<double>::max();
+    m_thresh_calc_mode = false;
+    m_thresh_view_mode = false;
 
     // To do: Warn the user if some images have georef while others don't.
 
@@ -342,7 +342,7 @@ namespace vw { namespace gui {
     m_toggleHillshade    = m_ContextMenu->addAction("Toggle hillshaded display");
     m_setHillshadeParams = m_ContextMenu->addAction("View/set hillshade azimuth and elevation");
     m_saveScreenshot     = m_ContextMenu->addAction("Save screenshot");
-    m_setThreshold       = m_ContextMenu->addAction("View/set shadow threshold");
+    m_setThreshold       = m_ContextMenu->addAction("View/set threshold");
     m_allowMultipleSelections_action = m_ContextMenu->addAction("Allow multiple selected regions");
     m_allowMultipleSelections_action->setCheckable(true);
     m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
@@ -567,7 +567,7 @@ namespace vw { namespace gui {
   }
 
   void MainWidget::viewUnthreshImages(){
-    m_shadow_thresh_view_mode = false;
+    m_thresh_view_mode = false;
     MainWidget::setHillshadeMode(false);
     refreshPixmap();
   }
@@ -594,7 +594,7 @@ namespace vw { namespace gui {
   }
   
   void MainWidget::viewThreshImages(bool refresh_pixmap){
-    m_shadow_thresh_view_mode = true;
+    m_thresh_view_mode = true;
     MainWidget::setHillshadeMode(false);
 
     if (m_images.size() != 1) {
@@ -603,29 +603,29 @@ namespace vw { namespace gui {
       else
         popUp("Must have just one image in each window to use the nodata option.");
         
-      m_shadow_thresh_view_mode = false;
+      m_thresh_view_mode = false;
 
       refreshPixmap();
       return;
     }
 
     int num_images = m_images.size();
-    m_shadow_thresh_images.clear(); // wipe the old copy
-    m_shadow_thresh_images.resize(num_images);
+    m_thresh_images.clear(); // wipe the old copy
+    m_thresh_images.resize(num_images);
 
     // Create the thresholded images and save them to disk. We have to do it each
-    // time as perhaps the shadow threshold changed.
+    // time as perhaps the image threshold changed.
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       std::string input_file = m_image_files[image_iter];
 
       double nodata_val = -std::numeric_limits<double>::max();
       vw::read_nodata_val(input_file, nodata_val);
-      nodata_val = std::max(nodata_val, m_shadow_thresh);
+      nodata_val = std::max(nodata_val, m_thresh);
 
       int num_channels = m_images[image_iter].img.planes();
       if (num_channels != 1) {
         popUp("Thresholding makes sense only for single-channel images.");
-        m_shadow_thresh_view_mode = false;
+        m_thresh_view_mode = false;
         return;
       }
 
@@ -644,7 +644,7 @@ namespace vw { namespace gui {
                                     has_nodata, nodata_val);
 
       // Read it back right away
-      m_shadow_thresh_images[image_iter].read(output_file, m_opt, m_use_georef);
+      m_thresh_images[image_iter].read(output_file, m_opt, m_use_georef);
       temporary_files().files.insert(output_file);
     }
 
@@ -723,8 +723,8 @@ namespace vw { namespace gui {
       bringImageOnTop(*it); 
     }
 
-    m_shadow_thresh_calc_mode = false;
-    m_shadow_thresh_view_mode = false;
+    m_thresh_calc_mode = false;
+    m_thresh_view_mode = false;
     MainWidget::maybeGenHillshade();
 
     m_indicesWithAction.clear();
@@ -965,15 +965,15 @@ namespace vw { namespace gui {
         std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
       double scale_out;
       BBox2i region_out;
-      bool   highlight_nodata = m_shadow_thresh_view_mode;
+      bool   highlight_nodata = m_thresh_view_mode;
       if (!std::isnan(asp::stereo_settings().nodata_value)) {
         // When the user specifies --nodata-value, we will show
         // nodata pixels as transparent.
         highlight_nodata = false;
       }
       
-      if (m_shadow_thresh_view_mode){
-        m_shadow_thresh_images[i].img.get_image_clip(scale, image_box,
+      if (m_thresh_view_mode){
+        m_thresh_images[i].img.get_image_clip(scale, image_box,
                                                      highlight_nodata,
                                                      qimg, scale_out, region_out);
       }else if (m_hillshade_mode[i]){
@@ -1767,6 +1767,24 @@ namespace vw { namespace gui {
     write_shapefile(shapefile, has_geo, geo, m_polyVec);
   }
   
+  // Contour the current image
+  bool MainWidget::contourImage(){
+    
+    int num_channels = m_images[m_polyVecIndex].img.planes();
+    if (num_channels != 1) {
+      popUp("Contouring images makes sense only for single-channel images.");
+      return false;
+    }
+
+    contour_image(m_images[m_polyVecIndex].img, m_images[m_polyVecIndex].georef,
+                  m_thresh, m_polyVec);
+    
+    // This will call paintEvent which will draw the contour
+    update();
+    
+    return true;
+  }
+  
   void MainWidget::drawOneVertex(int x0, int y0, QColor color, int lineWidth,
                                  int drawVertIndex, QPainter &paint){
 
@@ -2240,7 +2258,7 @@ namespace vw { namespace gui {
     if (std::abs(m_mousePrsX - mouseRelX) < m_pixelTol &&
         std::abs(m_mousePrsY - mouseRelY) < m_pixelTol ) {
 
-      if (!m_shadow_thresh_calc_mode){
+      if (!m_thresh_calc_mode){
 
         Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
         
@@ -2342,25 +2360,25 @@ namespace vw { namespace gui {
         }
 
       }else{
-        // Shadow threshold mode. If we released the mouse where we
-        // pressed it, that means we want the current point to be
-        // marked as shadow.
+        // Image threshold mode. If we released the mouse where we
+        // pressed it, that means we want the current pixel value
+        // to be the threshold if larger than the existing threshold.
         if (m_images.size() != 1) {
-          popUp("Must have just one image in each window to do shadow threshold detection.");
-          m_shadow_thresh_calc_mode = false;
+          popUp("Must have just one image in each window to do image threshold detection.");
+          m_thresh_calc_mode = false;
           refreshPixmap();
           return;
         }
 
         if (m_images[0].img.planes() != 1) {
           popUp("Thresholding makes sense only for single-channel images.");
-          m_shadow_thresh_calc_mode = false;
+          m_thresh_calc_mode = false;
           return;
         }
 
         if (m_use_georef) {
           popUp("Thresholding is not supported when using georeference information to show images.");
-          m_shadow_thresh_calc_mode = false;
+          m_thresh_calc_mode = false;
           return;
         }
 
@@ -2373,11 +2391,11 @@ namespace vw { namespace gui {
         if (col >= 0 && row >= 0 && col < m_images[0].img.cols() &&
             row < m_images[0].img.rows() ) {
           double val      = m_images[0].img.get_value_as_double(col, row);
-          m_shadow_thresh = std::max(m_shadow_thresh, val);
+          m_thresh = std::max(m_thresh, val);
         }
-        vw_out() << "Shadow threshold for "
+        vw_out() << "Image threshold for "
                  << m_image_files[0]
-                 << ": " << m_shadow_thresh << std::endl;
+                 << ": " << m_thresh << std::endl;
         return;
       }
 
@@ -2828,41 +2846,41 @@ namespace vw { namespace gui {
     return;
   }
 
-  // Show the current shadow threshold, and allow the user to change it.
+  // Show the current image threshold, and allow the user to change it.
   void MainWidget::setThreshold(){
 
     std::ostringstream oss;
     oss.precision(18);
-    oss << m_shadow_thresh;
-    std::string shadowThresh = oss.str();
+    oss << m_thresh;
+    std::string imageThresh = oss.str();
     bool ans = getStringFromGui(this,
-				"Shadow threshold",
-				"Shadow threshold",
-				shadowThresh,
-				shadowThresh);
+				"Image threshold",
+				"Image threshold",
+				imageThresh,
+				imageThresh);
     if (!ans)
       return;
 
-    double thresh = atof(shadowThresh.c_str());
+    double thresh = atof(imageThresh.c_str());
     MainWidget::setThreshold(thresh);
   }
 
   void MainWidget::setThreshold(double thresh){
     if (m_images.size() != 1){
       if (std::isnan(asp::stereo_settings().nodata_value)) 
-        popUp("Must have just one image in each window to set the shadow threshold.");
+        popUp("Must have just one image in each window to set the image threshold.");
       else
         popUp("Must have just one image in each window to use the nodata value option.");
       return;
     }
 
-    m_shadow_thresh = thresh;
-    vw_out() << "Shadow threshold for " << m_image_files[0]
-	     << ": " << m_shadow_thresh << std::endl;
+    m_thresh = thresh;
+    vw_out() << "Image threshold for " << m_image_files[0]
+	     << ": " << m_thresh << std::endl;
   }
 
   double MainWidget::getThreshold(){
-    return m_shadow_thresh;
+    return m_thresh;
   }
 
   // Set the azimuth and elevation for hillshaded images
