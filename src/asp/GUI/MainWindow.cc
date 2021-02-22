@@ -1060,11 +1060,7 @@ void MainWindow::viewUnthreshImages() {
 }
 
 void MainWindow::contourImages() {
-  // Sanity checks
-  if (m_widgets.size() != m_image_files.size()) {
-    popUp("Each image must be in its own window to be able to find the contour.");
-    return;
-  }
+  
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]->getThreshold() == -std::numeric_limits<double>::max()) {
       popUp("Set the threshold via the Threshold menu before finding the contour.");
@@ -1083,14 +1079,6 @@ void MainWindow::contourImages() {
 
 void MainWindow::thresholdGetSet() {
 
-  if (m_widgets.size() != m_image_files.size()) {
-    if (std::isnan(asp::stereo_settings().nodata_value))
-      popUp("Each image must be in its own window to set the image thresholds.");
-    else
-      popUp("Each image must be in its own window to use the nodata option.");
-    return;
-  }
-  
   std::ostringstream oss;
   oss.precision(18);
   

@@ -366,7 +366,6 @@ namespace vw { namespace gui {
     connect(m_mergePolys,            SIGNAL(triggered()), this, SLOT(mergePolys()));
 
     MainWidget::maybeGenHillshade();
-
     
   } // End constructor
 
@@ -597,7 +596,14 @@ namespace vw { namespace gui {
     m_thresh_view_mode = true;
     MainWidget::setHillshadeMode(false);
 
-    if (m_images.size() != 1) {
+    int num_non_poly_images = 0;
+    int num_images = m_images.size();
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+      if (!m_images[image_iter].isPoly())
+        num_non_poly_images++;
+    }
+
+    if (num_non_poly_images > 1) {
       if (std::isnan(asp::stereo_settings().nodata_value))
         popUp("Must have just one image in each window to view thresholded images.");
       else
@@ -609,7 +615,6 @@ namespace vw { namespace gui {
       return;
     }
 
-    int num_images = m_images.size();
     m_thresh_images.clear(); // wipe the old copy
     m_thresh_images.resize(num_images);
 
@@ -618,6 +623,9 @@ namespace vw { namespace gui {
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       std::string input_file = m_image_files[image_iter];
 
+      if (m_images[image_iter].isPoly())
+        continue;
+      
       double nodata_val = -std::numeric_limits<double>::max();
       vw::read_nodata_val(input_file, nodata_val);
       nodata_val = std::max(nodata_val, m_thresh);
@@ -671,6 +679,10 @@ namespace vw { namespace gui {
         m_hillshade_mode[image_iter] = false;
         return;
       }
+
+      // Cannot hillshade a polygon
+      if (m_images[image_iter].isPoly()) 
+        continue;
 
       std::string input_file = m_image_files[image_iter];
       int num_channels = m_images[image_iter].img.planes();
@@ -974,8 +986,8 @@ namespace vw { namespace gui {
       
       if (m_thresh_view_mode){
         m_thresh_images[i].img.get_image_clip(scale, image_box,
-                                                     highlight_nodata,
-                                                     qimg, scale_out, region_out);
+                                              highlight_nodata,
+                                              qimg, scale_out, region_out);
       }else if (m_hillshade_mode[i]){
         m_hillshaded_images[i].img.get_image_clip(scale, image_box,
                                                   highlight_nodata,
@@ -1770,14 +1782,34 @@ namespace vw { namespace gui {
   // Contour the current image
   bool MainWidget::contourImage(){
     
-    int num_channels = m_images[m_polyVecIndex].img.planes();
-    if (num_channels != 1) {
-      popUp("Contouring images makes sense only for single-channel images.");
+    int non_poly_image = -1;
+    int num_non_poly_images = 0;
+    int num_images = m_images.size();
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+      if (!m_images[image_iter].isPoly())
+        num_non_poly_images++;
+      non_poly_image = image_iter;
+    }
+
+    if (num_non_poly_images > 1) {
+      popUp("Must have just one image in window to contour an image.");
       return false;
     }
 
-    contour_image(m_images[m_polyVecIndex].img, m_images[m_polyVecIndex].georef,
-                  m_thresh, m_polyVec);
+    if (non_poly_image < 0) 
+      return true; // Will quietly skip this
+
+    m_polyVecIndex = non_poly_image;
+    
+    int num_channels = m_images[m_polyVecIndex].img.planes();
+    if (num_channels > 1) {
+      popUp("Contouring images makes sense only for single-channel images.");
+      return false;
+    }
+    
+    if (num_channels == 1) 
+      contour_image(m_images[m_polyVecIndex].img, m_images[m_polyVecIndex].georef,
+                    m_thresh, m_polyVec);
     
     // This will call paintEvent which will draw the contour
     update();
@@ -2866,7 +2898,17 @@ namespace vw { namespace gui {
   }
 
   void MainWidget::setThreshold(double thresh){
-    if (m_images.size() != 1){
+
+    int non_poly_image = 0;
+    int num_non_poly_images = 0;
+    int num_images = m_images.size();
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+      if (!m_images[image_iter].isPoly())
+        num_non_poly_images++;
+      non_poly_image = image_iter;
+    }
+    
+    if (num_non_poly_images > 1){
       if (std::isnan(asp::stereo_settings().nodata_value)) 
         popUp("Must have just one image in each window to set the image threshold.");
       else
@@ -2875,7 +2917,7 @@ namespace vw { namespace gui {
     }
 
     m_thresh = thresh;
-    vw_out() << "Image threshold for " << m_image_files[0]
+    vw_out() << "Image threshold for " << m_image_files[non_poly_image]
 	     << ": " << m_thresh << std::endl;
   }
 

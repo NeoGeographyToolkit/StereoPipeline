@@ -56,7 +56,7 @@ When the images are shown side-by-side, the GUI can zoom in all images
 to the same region, for easier comparison among them.
 
 When the images are in a single window, an individual image can be
-turned on or off via a checkbox. Clicking on an image’s name will zoom
+turned on or off via a checkbox. Clicking on an image's name will zoom
 to it and display it on top of other images. By right-clicking the list
 of images, other operations can be performed, such as deleting an image
 from the view, etc.
@@ -203,41 +203,54 @@ One can then run::
      stereo_gui A.tif B.tif C.tif run/run
 
 and turn on viewing of interest point matches to study if they were
-“unmapped” to the right locations.
+``unmapped`` the right locations.
 
-Polygon editing
+Polygon editing and contouring
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``stereo_gui`` can be used to draw and edit polygonal shapes on top of
+georeferenced images, save them as shape files (``*.shp``), and load such
+files from the command line (including ones produced with external
+tools). The editing functionality can be accessed by turning on
+polygon editing from the ``Vector Layer`` menu, and then right-clicking
+with the mouse to access the various functions.
+
+To create polygons, click with the left mouse button on points
+to be added. When clicking close to the starting point, the polygon
+becomes closed and a new one can be drawn.
+
+Subsequently, the ``gdal_rasterize`` command can be used to keep or
+exclude the portion of a given image/DEM that is within or outside the
+polygonal shape.
+
+This tool can be used to find the polygonal contour at a given image
+threshold (which can be either set or computed from the ``Threshold``
+menu). This option is accessible from the ``Vector Layer`` menu as well,
+with or without the polygon editing mode being on.
+
+Image threshold
 ^^^^^^^^^^^^^^^
 
-``stereo_gui`` is able to draw and edit polygonal shapes on top of
-georeferenced images, and load/save them as shape files (*.shp). This
-functionality can be accessed by turning on polygon editing from the
-*Vector Layer* menu, and then right-clicking with the mouse to access
-the various functions. Subsequently, one can use ``gdal_rasterize`` to
-keep or exclude the portion of a given image/DEM that is within or
-outside the selected polygon.
+``stereo_gui`` can be used to compute an image threshold for each of a
+given set of images based on sampling pixels (useful for
+shape-from-shading, see :numref:`sfs_usage`). This can be done by turning on
+from the menu the ``Threshold detection`` mode, and then
+clicking on pixels in the image. The largest of the chosen pixel
+values will be set to the threshold for each image and printed
+to the screen.  To highlight in the images the pixels at or below the image
+threshold, select from the menu the ``View thresholded images`` option.
+Those pixels will show up in red.
 
-Shadow threshold
-^^^^^^^^^^^^^^^^
+Related to this, if the viewer is invoked with ``--nodata-value
+<double>``, it will display pixels with values less than or equal to
+this as transparent, and will set the image threshold to that no-data
+value.
 
-``stereo_gui`` can be used to find the shadow threshold for each
-of a given set of images (useful for shape-from-shading, see
-:numref:`sfs`). This can be done by turning on from the menu the
-``Shadow threshold detection`` mode, and then clicking on pixels
-in the shadow. The largest of the chosen pixel values will be set
-to the shadow threshold for each image and printed to the screen.
-To see the images with the pixels below the shadow threshold
-highlighted, select from the menu the ``View shadow-thresholded
-images`` option.
+Command line options for ``stereo_gui``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Somewhat related to this, if the viewer is invoked with
-``--nodata-value double``, it will display any pixels (presumably in the
-background) with values less than or equal to this as transparent.
-
-Listed below are the options specific to ``stereo_gui``. It will accept
-all other ``stereo`` options as well.
-
-
-Command line options for ``stereo_gui``:
+Listed below are the options specific to ``stereo_gui``. It will
+accept all other ``stereo`` options as well.
 
 -h, --help  Display this help message.
 

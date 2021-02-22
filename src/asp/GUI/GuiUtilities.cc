@@ -232,8 +232,8 @@ void toOGR(vw::geometry::dPoly const& poly, OGRPolygon & P){
     }
   }
   
+  return;
 }
-  
   
 void fromOGR(OGRPolygon *poPolygon, std::string const& poly_color,
              std::string const& layer_str, vw::geometry::dPoly & poly){
@@ -539,24 +539,30 @@ void read_shapefile(std::string const& file,
   std::vector<cv::Vec4i> hierarchy;
 
   // Create the open cv matrix. We will have issues for huge images.
-  cv::Mat cv_img = cv::Mat::zeros(img.rows(), img.cols(), CV_8UC1);
+  cv::Mat cv_img = cv::Mat::zeros(img.cols(), img.rows(), CV_8UC1);
   
   // Form the binary image. Values above threshold become 1, and less
   // than equal to the threshold become 0.
-  for (int row = 0; row < img.rows(); row++) {
-    for (int col = 0; col < img.cols(); col++) {
-      uchar val = (std::max(img.get_value_as_double(row, col), threshold) - threshold > 0);
-      cv_img.at<uchar>(row, col) = val;
+  long long int num_pixels_above_thresh = 0;
+  for (int col = 0; col < img.cols(); col++) {
+    for (int row = 0; row < img.rows(); row++) {
+      uchar val = (std::max(img.get_value_as_double(col, row), threshold) - threshold > 0);
+      cv_img.at<uchar>(col, row) = val;
+      if (val > 0) 
+        num_pixels_above_thresh++;
     }    
   }
-
-  // Find the contour
-  cv::findContours(cv_img, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 
   // Add the contour to the list of polygons to display
   polyVec.clear();
   polyVec.resize(1);
   vw::geometry::dPoly & poly = polyVec[0]; // alias
+
+  if (num_pixels_above_thresh == 0) 
+    return; // Return early, nothing to do
+  
+  // Find the contour
+  cv::findContours(cv_img, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 
   // Copy the polygon for export
   for (size_t k = 0; k < contours.size(); k++) {

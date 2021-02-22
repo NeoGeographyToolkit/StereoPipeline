@@ -28,6 +28,10 @@ sfs:
     pixels with ones from the original LOLA DEM in permanently
     shadowed regions.
 
+ stereo_gui:
+  * Added the ability to find the contour of an image at a given
+    threshold. (It can be later edited, saved to disk, etc.) 
+   
 Misc
 
  * Added the option --ip-per-image to bundle adjustment and stereo, to
