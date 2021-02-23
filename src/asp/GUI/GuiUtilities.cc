@@ -528,6 +528,31 @@ void read_shapefile(std::string const& file,
   }
 
   GDALClose( poDS );
+
+  // See if the georef should have lon in [-180, 180], or in [0, 360]. This is fragile.
+  if (!geo.is_projected()) {
+
+    // Find the bounding box of all polygons
+    BBox2 lon_lat_box;
+    for (int s = 0; s < (int)polyVec.size(); s++) {
+      vw::geometry::dPoly const& poly = polyVec[s];
+      double xll, yll, xur, yur;
+      poly.bdBox(xll, yll, xur, yur);
+      lon_lat_box.grow(Vector2(xll, yll));
+      lon_lat_box.grow(Vector2(xur, yur));
+    }
+
+    // Change it only if we have to. 
+    if (lon_lat_box.min().x() < 0.0) {
+      bool centered_on_lon_zero = true;
+      geo.set_lon_center(centered_on_lon_zero);
+    }
+    if (lon_lat_box.max().x() > 180.0) {
+      bool centered_on_lon_zero = false;
+      geo.set_lon_center(centered_on_lon_zero);
+    }
+  }  
+  
 }
 
   void contour_image(DiskImagePyramidMultiChannel const& img,

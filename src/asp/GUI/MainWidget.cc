@@ -2091,7 +2091,7 @@ namespace vw { namespace gui {
       emit turnOnViewMatchesSignal(); // Update IP draw color
     } // End match point update case
 
-    // If the user is currently editing polygons...
+    // If the user is currently editing polygons
     if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode){
 
       // Ensure these are always initialized
