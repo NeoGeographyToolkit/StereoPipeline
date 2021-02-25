@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file MainWidget.cc
 ///
 ///
@@ -26,8 +25,6 @@
 #include <QtGui>
 #include <QtWidgets>
 
-
-
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Core/RunOnce.h>
@@ -35,6 +32,7 @@
 #include <vw/Cartography/GeoTransform.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
+#include <vw/Geometry/shapeFile.h>
 
 using namespace vw;
 using namespace vw::gui;
@@ -1572,8 +1570,7 @@ namespace vw { namespace gui {
 					      poly.get_xv(), poly.get_yv());
 
 
-#if 1
-    // If conversion to world units flip the orientation, that means
+    // If conversion to world units flips the orientation, that means
     // reverse the original polygon.
     // TODO: This looks like a hack. But it works. 
     vw::geometry::dPoly poly2 = poly;
@@ -1595,8 +1592,7 @@ namespace vw { namespace gui {
 					poly2.get_xv(), poly2.get_yv());
     if (val1*val2 < 0)
       poly.reverse();
-#endif
-
+    
     appendToPolyVec(poly);
     
     m_currPolyX.clear();
@@ -2316,6 +2312,7 @@ namespace vw { namespace gui {
           
           std::string val = "none";
           Vector2 q = world2image(p, it);
+          
           int col = floor(q[0]), row = floor(q[1]);
           
           if (col >= 0 && row >= 0 && col < m_images[it].img.cols() &&
@@ -2407,7 +2404,7 @@ namespace vw { namespace gui {
           m_thresh_calc_mode = false;
           return;
         }
-
+        
         if (m_use_georef) {
           popUp("Thresholding is not supported when using georeference information to show images.");
           m_thresh_calc_mode = false;

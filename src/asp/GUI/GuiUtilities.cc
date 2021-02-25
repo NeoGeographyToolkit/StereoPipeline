@@ -15,10 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file GuiUtilities.cc
-///
-///
 
 #include <string>
 #include <vector>
@@ -30,7 +27,6 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 
-
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Cartography/GeoTransform.h>
@@ -38,10 +34,14 @@
 #include <vw/Core/RunOnce.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/InterestPoint/Matcher.h> // Needed for vw::ip::match_filename
+#include <vw/Geometry/dPoly.h>
+#include <vw/Geometry/shapeFile.h>
+
 #include <asp/GUI/GuiUtilities.h>
 
 using namespace vw;
 using namespace vw::gui;
+using namespace vw::geometry;
 using namespace std;
 
 namespace vw { namespace gui {
@@ -179,177 +179,71 @@ bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
 }
 
 
-// Convert a single polygon in a set of polygons to an ORG ring.  
-void toOGR(const double * xv, const double * yv, int startPos, int numVerts,
-	     OGRLinearRing & R){
+  void contour_image(DiskImagePyramidMultiChannel const& img,
+                     vw::cartography::GeoReference const & georef,
+                     double threshold,
+                     std::vector<vw::geometry::dPoly> & polyVec) {
 
-  R = OGRLinearRing(); // init
+  std::vector<std::vector<cv::Point> > contours;
+  std::vector<cv::Vec4i> hierarchy;
 
-  for (int vIter = 0; vIter < numVerts; vIter++){
-    double x = xv[startPos + vIter], y = yv[startPos + vIter];
-    R.addPoint(x, y);
+  // Create the open cv matrix. We will have issues for huge images.
+  cv::Mat cv_img = cv::Mat::zeros(img.cols(), img.rows(), CV_8UC1);
+  
+  // Form the binary image. Values above threshold become 1, and less
+  // than equal to the threshold become 0.
+  long long int num_pixels_above_thresh = 0;
+  for (int col = 0; col < img.cols(); col++) {
+    for (int row = 0; row < img.rows(); row++) {
+      uchar val = (std::max(img.get_value_as_double(col, row), threshold) - threshold > 0);
+      cv_img.at<uchar>(col, row) = val;
+      if (val > 0) 
+        num_pixels_above_thresh++;
+    }    
   }
-  
-  // An OGRLinearRing must end with the same point as what it starts with
-  double x = xv[startPos], y = yv[startPos];
-  if (numVerts >= 2 &&
-      x == xv[startPos + numVerts - 1] &&
-      y == yv[startPos + numVerts - 1]) {
-    // Do nothing, the polygon already starts and ends with the same point 
-  }else{
-    // Ensure the ring is closed
-    R.addPoint(x, y);
-  }
 
-  // A ring must have at least 4 points (but the first is same as last)
-  if (R.getNumPoints() <= 3) 
-    R = OGRLinearRing(); 
-  
-}
-  
-void toOGR(vw::geometry::dPoly const& poly, OGRPolygon & P){
-  
-  P = OGRPolygon(); // reset
+  // Add the contour to the list of polygons to display
+  polyVec.clear();
+  polyVec.resize(1);
+  vw::geometry::dPoly & poly = polyVec[0]; // alias
 
-  const double * xv        = poly.get_xv();
-  const double * yv        = poly.get_yv();
-  const int    * numVerts  = poly.get_numVerts();
-  int numPolys             = poly.get_numPolys();
+  if (num_pixels_above_thresh == 0) 
+    return; // Return early, nothing to do
   
-  // Iterate over polygon rings, adding them one by one
-  int startPos = 0;
-  for (int pIter = 0; pIter < numPolys; pIter++){
-    
-    if (pIter > 0) startPos += numVerts[pIter - 1];
-    int numCurrPolyVerts = numVerts[pIter];
-    
-    OGRLinearRing R;
-    toOGR(xv, yv, startPos, numCurrPolyVerts, R);
+  // Find the contour
+  cv::findContours(cv_img, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 
-    if (R.getNumPoints() >= 4 ){
-      if (P.addRing(&R) != OGRERR_NONE )
-        vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
-    }
-  }
-  
-  return;
-}
-  
-void fromOGR(OGRPolygon *poPolygon, std::string const& poly_color,
-             std::string const& layer_str, vw::geometry::dPoly & poly){
+  // Copy the polygon for export
+  for (size_t k = 0; k < contours.size(); k++) {
 
-  bool isPolyClosed = true; // only closed polygons are supported
-  
-  poly.reset();
-  
-  int numInteriorRings = poPolygon->getNumInteriorRings();
-  
-  // Read exterior and interior rings
-  int count = -1;
-  while (1){
-    
-    count++;
-    OGRLinearRing *ring;
-    
-    if (count == 0){
-      // Exterior ring
-      ring = poPolygon->getExteriorRing();
-      if (ring == NULL || ring->IsEmpty ()){
-	// No exterior ring, that means no polygon
-	break;
-      }
-    }else{
-      // Interior rings
-      int iRing = count - 1;
-      if (iRing >= numInteriorRings)
-	break; // no more rings
-      ring = poPolygon->getInteriorRing(iRing);
-      if (ring == NULL || ring->IsEmpty ()) continue; // go to the next ring
+    if (contours[k].empty()) 
+      continue;
+
+    // Copy from float to double
+    std::vector<double> xv(contours[k].size()), yv(contours[k].size());
+    for (size_t vIter = 0; vIter < contours[k].size(); vIter++) {
+
+      // We would like the contour to go through the center of the
+      // pixels not through their upper-left corners. Hence add 0.5.
+      double bias = 0.5;
+      
+      // Note how we flip x and y, because in our GUI the first
+      // coordinate is the column.
+      Vector2 S(contours[k][vIter].y + bias, contours[k][vIter].x + bias);
+
+      // The GUI expects the contours to be in georeferenced coordinates
+      S = georef.pixel_to_point(S);
+      
+      xv[vIter] = S.x();
+      yv[vIter] = S.y();
     }
     
-    int numPoints = ring->getNumPoints();
-    std::vector<double> x, y;
-    x.clear(); y.clear();
-    for (int iPt = 0; iPt < numPoints; iPt++){
-      OGRPoint poPoint;
-      ring->getPoint(iPt, &poPoint);
-      x.push_back(poPoint.getX());
-      y.push_back(poPoint.getY());
-    }
-
-    // Don't record the last element if the same as the first
-    int len = x.size();
-    if (len >= 2 && x[0] == x[len-1] && y[0] == y[len-1]){
-      len--;
-      x.resize(len);
-      y.resize(len);
-    }
-    
-    poly.appendPolygon(len, vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
-                       isPolyClosed, poly_color, layer_str);
-    
+    bool isPolyClosed = true;
+    std::string color = "green";
+    std::string layer = "0";
+    poly.appendPolygon(contours[k].size(), &xv[0], &yv[0],  
+                       isPolyClosed, color, layer);
   }
-}
-
-void fromOGR(OGRMultiPolygon *poMultiPolygon, std::string const& poly_color,
-             std::string const& layer_str, std::vector<vw::geometry::dPoly> & polyVec,
-             bool append){
-
-
-  if (!append) polyVec.clear();
-
-  int numGeom = poMultiPolygon->getNumGeometries();
-  for (int iGeom = 0; iGeom < numGeom; iGeom++){
-    
-    const OGRGeometry *currPolyGeom = poMultiPolygon->getGeometryRef(iGeom);
-    if (wkbFlatten(currPolyGeom->getGeometryType()) != wkbPolygon) continue;
-    
-    OGRPolygon *poPolygon = (OGRPolygon *) currPolyGeom;
-    vw::geometry::dPoly poly;
-    fromOGR(poPolygon, poly_color, layer_str, poly);
-    polyVec.push_back(poly);
-  }
-}
-
-void fromOGR(OGRGeometry *poGeometry, std::string const& poly_color,
-	     std::string const& layer_str, std::vector<vw::geometry::dPoly> & polyVec,
-	     bool append){
-  
-  if (!append) polyVec.clear();
-  
-  if( poGeometry == NULL) {
-    
-    // nothing to do
-    
-  } else if (wkbFlatten(poGeometry->getGeometryType()) == wkbPoint ) {
-    
-    // Create a polygon with just one point
-    
-    OGRPoint *poPoint = (OGRPoint *) poGeometry;
-    std::vector<double> x, y;
-    x.push_back(poPoint->getX());
-    y.push_back(poPoint->getY());
-    
-    vw::geometry::dPoly poly;
-    bool isPolyClosed = true; // only closed polygons are supported
-    poly.setPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
-                    isPolyClosed, poly_color, layer_str);
-    polyVec.push_back(poly);
-    
-  } else if (wkbFlatten(poGeometry->getGeometryType()) == wkbMultiPolygon){
-    
-    bool append = true; 
-    OGRMultiPolygon *poMultiPolygon = (OGRMultiPolygon *) poGeometry;
-    fromOGR(poMultiPolygon, poly_color, layer_str, polyVec, append);
-    
-  } else if (wkbFlatten(poGeometry->getGeometryType()) == wkbPolygon){
-    
-    OGRPolygon *poPolygon = (OGRPolygon *) poGeometry;
-    vw::geometry::dPoly poly;
-    fromOGR(poPolygon, poly_color, layer_str, poly);
-    polyVec.push_back(poly);
-  }
-  
 }
   
 // Here we assume that each dPoly is a set of polygons.
@@ -454,263 +348,10 @@ void mergePolys(std::vector<vw::geometry::dPoly> & polyVec){
   }
 }
   
-void read_shapefile(std::string const& file,
-		    std::string const& poly_color,
-		    bool & has_geo, 
-		    vw::cartography::GeoReference & geo,
-		    std::vector<vw::geometry::dPoly> & polyVec){
-  
-  // Make sure the outputs are initialized
-  has_geo = false;
-  geo = vw::cartography::GeoReference();
-  polyVec.clear();
-  
-  std::string layer_str = fs::path(file).stem().string();
-
-  vw_out() << "Reading layer: " << layer_str << " from: " << file << "\n";
-  
-  GDALAllRegister();
-  GDALDataset * poDS;
-  poDS = (GDALDataset*) GDALOpenEx(file.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
-  if (poDS == NULL) 
-    vw_throw(ArgumentErr() << "Could not open file: " << file << ".\n");
-  
-  OGRLayer  *poLayer;
-  poLayer = poDS->GetLayerByName( layer_str.c_str() );
-  if (poLayer == NULL)
-    vw_throw(ArgumentErr() << "Could not find layer " << layer_str << " in file: "
-	     << file << ".\n");
-
-  // Read the georef.
-  int nGeomFieldCount = poLayer->GetLayerDefn()->GetGeomFieldCount();
-  char *pszWKT = NULL;
-  if (nGeomFieldCount > 1) {
-    for(int iGeom = 0; iGeom < nGeomFieldCount; iGeom ++ ){
-      OGRGeomFieldDefn* poGFldDefn =
-	poLayer->GetLayerDefn()->GetGeomFieldDefn(iGeom);
-      OGRSpatialReference* poSRS = poGFldDefn->GetSpatialRef();
-      if( poSRS == NULL )
-        pszWKT = CPLStrdup( "(unknown)" );
-      else {
-        has_geo = true;
-        poSRS->exportToPrettyWkt( &pszWKT );
-        // Stop at the first geom
-        break;
-      }
-    }
-  }else{
-    if( poLayer->GetSpatialRef() == NULL )
-      pszWKT = CPLStrdup( "(unknown)" );
-    else{
-      has_geo = true;
-      poLayer->GetSpatialRef()->exportToPrettyWkt( &pszWKT );
-    }
-  }
-  geo.set_wkt(pszWKT);
-  if (pszWKT != NULL)
-    CPLFree( pszWKT );
-
-  // There is no georef per se, as there is no image. The below forces
-  // that the map from projected coordinates to pixel coordinates (point_to_pixel())
-  // to be the identity.
-  geo.set_pixel_interpretation(vw::cartography::GeoReference::PixelAsPoint);
-
-  OGRFeature *poFeature;
-  poLayer->ResetReading();
-  while ( (poFeature = poLayer->GetNextFeature()) != NULL ) {
-
-    OGRGeometry *poGeometry = poFeature->GetGeometryRef();
-
-    bool append = true; 
-    fromOGR(poGeometry, poly_color, layer_str, polyVec,  append);
-    
-    OGRFeature::DestroyFeature( poFeature );
-  }
-
-  GDALClose( poDS );
-
-  // See if the georef should have lon in [-180, 180], or in [0, 360]. This is fragile.
-  if (!geo.is_projected()) {
-
-    // Find the bounding box of all polygons
-    BBox2 lon_lat_box;
-    for (int s = 0; s < (int)polyVec.size(); s++) {
-      vw::geometry::dPoly const& poly = polyVec[s];
-      double xll, yll, xur, yur;
-      poly.bdBox(xll, yll, xur, yur);
-      lon_lat_box.grow(Vector2(xll, yll));
-      lon_lat_box.grow(Vector2(xur, yur));
-    }
-
-    // Change it only if we have to. 
-    if (lon_lat_box.min().x() < 0.0) {
-      bool centered_on_lon_zero = true;
-      geo.set_lon_center(centered_on_lon_zero);
-    }
-    if (lon_lat_box.max().x() > 180.0) {
-      bool centered_on_lon_zero = false;
-      geo.set_lon_center(centered_on_lon_zero);
-    }
-  }  
-  
-}
-
-  void contour_image(DiskImagePyramidMultiChannel const& img,
-                     vw::cartography::GeoReference const & georef,
-                     double threshold,
-                     std::vector<vw::geometry::dPoly> & polyVec) {
-
-  std::vector<std::vector<cv::Point> > contours;
-  std::vector<cv::Vec4i> hierarchy;
-
-  // Create the open cv matrix. We will have issues for huge images.
-  cv::Mat cv_img = cv::Mat::zeros(img.cols(), img.rows(), CV_8UC1);
-  
-  // Form the binary image. Values above threshold become 1, and less
-  // than equal to the threshold become 0.
-  long long int num_pixels_above_thresh = 0;
-  for (int col = 0; col < img.cols(); col++) {
-    for (int row = 0; row < img.rows(); row++) {
-      uchar val = (std::max(img.get_value_as_double(col, row), threshold) - threshold > 0);
-      cv_img.at<uchar>(col, row) = val;
-      if (val > 0) 
-        num_pixels_above_thresh++;
-    }    
-  }
-
-  // Add the contour to the list of polygons to display
-  polyVec.clear();
-  polyVec.resize(1);
-  vw::geometry::dPoly & poly = polyVec[0]; // alias
-
-  if (num_pixels_above_thresh == 0) 
-    return; // Return early, nothing to do
-  
-  // Find the contour
-  cv::findContours(cv_img, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
-
-  // Copy the polygon for export
-  for (size_t k = 0; k < contours.size(); k++) {
-
-    if (contours[k].empty()) 
-      continue;
-
-    // Copy from float to double
-    std::vector<double> xv(contours[k].size()), yv(contours[k].size());
-    for (size_t vIter = 0; vIter < contours[k].size(); vIter++) {
-
-      // We would like the contour to go through the center of the
-      // pixels not through their upper-left corners. Hence add 0.5.
-      double bias = 0.5;
-      
-      // Note how we flip x and y, because in our GUI the first
-      // coordinate is the column.
-      Vector2 S(contours[k][vIter].y + bias, contours[k][vIter].x + bias);
-
-      // The GUI expects the contours to be in georeferenced coordinates
-      S = georef.pixel_to_point(S);
-      
-      xv[vIter] = S.x();
-      yv[vIter] = S.y();
-    }
-    
-    bool isPolyClosed = true;
-    std::string color = "green";
-    std::string layer = "0";
-    poly.appendPolygon(contours[k].size(), &xv[0], &yv[0],  
-                       isPolyClosed, color, layer);
-  }
-}
-  
-void write_shapefile(std::string const& file,
-                     bool has_geo,
-                     vw::cartography::GeoReference const& geo, 
-                     std::vector<vw::geometry::dPoly> const& polyVec){
-
-  std::string layer_str = fs::path(file).stem().string();
-
-  vw_out() << "Writing layer: " << layer_str << " to: " << file << "\n";
-
-  const char *pszDriverName = "ESRI Shapefile";
-  GDALDriver *poDriver;
-  GDALAllRegister();
-  poDriver = GetGDALDriverManager()->GetDriverByName(pszDriverName);
-  if (poDriver == NULL ) 
-    vw_throw(ArgumentErr() << "Could not find driver: " << pszDriverName << ".\n");
-
-  GDALDataset *poDS;
-  poDS = poDriver->Create(file.c_str(), 0, 0, 0, GDT_Unknown, NULL );
-  if (poDS == NULL) 
-    vw_throw(ArgumentErr() << "Failed writing file: " << file << ".\n");
-  
-  // Write the georef
-  OGRSpatialReference spatial_ref;
-  OGRSpatialReference * spatial_ref_ptr = NULL;
-  if (has_geo){
-    std::string srs_string = geo.get_wkt();
-    if (spatial_ref.SetFromUserInput( srs_string.c_str() ))
-      vw_throw( ArgumentErr() << "Failed to parse: \"" << srs_string << "\"." );
-    spatial_ref_ptr = &spatial_ref;
-  }
-  
-  OGRLayer *poLayer = poDS->CreateLayer(layer_str.c_str(),
-					spatial_ref_ptr, wkbPolygon, NULL );
-  if (poLayer == NULL)
-    vw_throw(ArgumentErr() << "Failed creating layer: " << layer_str << ".\n");
-
-#if 0
-  OGRFieldDefn oField( "Name", OFTString );
-  oField.SetWidth(32);
-  if( poLayer->CreateField( &oField ) != OGRERR_NONE ) 
-    vw_throw(ArgumentErr() << "Failed creating name field for layer: " << layer_str
-	     << ".\n");
-#endif
-  
-  for (size_t vecIter = 0; vecIter < polyVec.size(); vecIter++){
-
-    vw::geometry::dPoly const& poly = polyVec[vecIter]; // alias
-    if (poly.get_totalNumVerts() == 0) continue;
-      
-    OGRFeature *poFeature = OGRFeature::CreateFeature( poLayer->GetLayerDefn() );
-#if 0
-    poFeature->SetField( "Name", "ToBeFilledIn" );
-#endif
-    
-    OGRPolygon P;
-    toOGR(poly, P);
-    poFeature->SetGeometry(&P); 
-    
-    if (poLayer->CreateFeature( poFeature ) != OGRERR_NONE)
-      vw_throw(ArgumentErr() << "Failed to create feature in shape file.\n");
-    
-    OGRFeature::DestroyFeature( poFeature );
-  }
-  
-  GDALClose( poDS );
-}
-
-void shapefile_bdbox(const std::vector<vw::geometry::dPoly> & polyVec,
-		     // outputs
-		     double & xll, double & yll,
-		     double & xur, double & yur){
-  
-  double big = std::numeric_limits<double>::max();
-  xll = big; yll = big; xur = -big; yur = -big;
-  for (size_t p = 0; p < polyVec.size(); p++){
-    if (polyVec[p].get_totalNumVerts() == 0) continue;
-    double xll0, yll0, xur0, yur0;
-    polyVec[p].bdBox(xll0, yll0, xur0, yur0);
-    xll = std::min(xll, xll0); xur = std::max(xur, xur0);
-    yll = std::min(yll, yll0); yur = std::max(yur, yur0);
-  }
-
-  return;
-}
-
 // This will tweak the georeference so that point_to_pixel() is the identity.
 bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
-				std::string const& file){
-  
+                                std::string const& file){
+
   if (!asp::has_shp_extension(file))
     vw_throw(ArgumentErr() << "Expecting a shapefile as input, got: " << file << ".\n");
   
@@ -721,7 +362,7 @@ bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
   
   return has_georef;
 }
-
+  
 bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
 					 std::string const& file){
   

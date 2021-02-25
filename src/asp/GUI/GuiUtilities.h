@@ -204,32 +204,6 @@ namespace vw { namespace gui {
                                         bool has_nodata,
                                         double nodata_val);
 
-  // Shape file (vector layer) functions
-
-  void read_shapefile(std::string const& file,
-		      std::string const& poly_color,
-		      bool & has_geo, 
-		      vw::cartography::GeoReference & geo,
-		      std::vector<vw::geometry::dPoly> & polyVec);
-
-  void write_shapefile(std::string const& file,
-		       bool has_geo,
-		       vw::cartography::GeoReference const& geo, 
-		       std::vector<vw::geometry::dPoly> const& polyVec);
-  
-  void shapefile_bdbox(const std::vector<vw::geometry::dPoly> & polyVec,
-		       // outputs
-		       double & xll, double & yll,
-		       double & xur, double & yur);
-  
-  void mergePolys(std::vector<vw::geometry::dPoly> & polyVec);
-  
-  // This will tweak the georeference so that point_to_pixel() is the identity.
-  bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
-				  std::string const& file);
-  
-  bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
-					   std::string const& file);
   
   // Find the closest point in a given vector of polygons to a given point.
   void findClosestPolyVertex(// inputs
@@ -254,6 +228,15 @@ namespace vw { namespace gui {
 			   double & minX, double & minY,
 			   double & minDist
 			   );
+
+  void mergePolys(std::vector<vw::geometry::dPoly> & polyVec);
+  
+  // This will tweak the georeference so that point_to_pixel() is the identity.
+  bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
+				  std::string const& file);
+  
+  bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
+					   std::string const& file);
 
   // Create contours from given image
   void contour_image(DiskImagePyramidMultiChannel const& img,
