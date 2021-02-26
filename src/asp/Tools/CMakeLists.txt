@@ -218,3 +218,6 @@ add_executable(bathy_correct bathy_correct.cc)
 target_link_libraries(bathy_correct AspSessions)
 install(TARGETS bathy_correct DESTINATION bin)
 
+add_executable(gen_bathy_mask gen_bathy_mask.cc) 
+target_link_libraries(gen_bathy_mask AspSessions)
+install(TARGETS gen_bathy_mask DESTINATION bin)

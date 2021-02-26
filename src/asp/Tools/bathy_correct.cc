@@ -98,7 +98,7 @@ void find_xyz_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
 std::pair<Eigen::Vector3d, Eigen::Vector3d>
 best_plane_from_points(const std::vector<Eigen::Vector3d> & c) {
   
-  // Copy coordinates to  matrix in Eigen format
+  // Copy coordinates to a matrix in Eigen format
   size_t num_points = c.size();
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic > coord(3, num_points);
   for (size_t i = 0; i < num_points; i++)
@@ -162,18 +162,27 @@ struct BestFitPlaneFunctor {
     }
 };
 
+// Given a 1x4 matrix H = (a, b, c, d) determining the plane
+// a * x + b * y + c * z + d = 0, find the distance to this plane
+// from a point xyz.
+
+template<class Vec3>
+double dist_to_plane(vw::Matrix<double, 1, 4> const& H, Vec3 const& xyz) {
+
+  double ans = 0.0;
+  for (unsigned col = 0; col < 3; col++) {
+      ans += H(0, col) * xyz[col];
+  }
+  ans += H(0, 3);
+  
+  return std::abs(ans);
+}
+
+// The value p2 is needed by the interface but we don't use it
 struct BestFitPlaneErrorMetric {
   template <class RelationT, class ContainerT>
   double operator() (RelationT  const& H, ContainerT const& p1, ContainerT const& p2) const {
-
-    // Compute abs(a*x + b*y + c*z + d), where p1 = (x, y, z) and H = (a, b, c, d).
-    double ans = 0.0;
-    for (unsigned col = 0; col < 3; col++) {
-      ans += H(0, col) * p1[col];
-    }
-    ans += H(0, 3);
-
-    return std::abs(ans);
+    return dist_to_plane(H, p1);
   }
 };
 
@@ -194,7 +203,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem",   po::value(&opt.dem),
      "Specify the dem to correct.")
     ("water-surface-outlier-threshold",
-     po::value(&opt.water_surface_outlier_threshold)->default_value(2.0),
+     po::value(&opt.water_surface_outlier_threshold)->default_value(0.2),
      "A value, in meters, to determine the distance from a water edge sample point to the "
      "best-fit water surface plane to determine if it will be marked as outlier and not "
      "included in the calculation of that plane.")
@@ -242,6 +251,7 @@ int main( int argc, char *argv[] ) {
       vw_throw( ArgumentErr() << "The input shapefile has no georeference.\n" );
 
     // Read the DEM and its associated data
+    // TODO(oalexan1): Think more about the interpolation method
     std::cout << "Reading the DEM: " << opt.dem << std::endl;
     vw::cartography::GeoReference dem_georef;
     if (!read_georeference(dem_georef, opt.dem))
@@ -254,7 +264,7 @@ int main( int argc, char *argv[] ) {
     std::cout << "The DEM width and height are: " << dem.cols() << ' ' << dem.rows() << std::endl;
     ImageViewRef< PixelMask<float> > interp_dem
       = interpolate(create_mask(dem, dem_nodata_val),
-                    BicubicInterpolation(), ConstantEdgeExtension());
+                    BilinearInterpolation(), ConstantEdgeExtension());
 
 
     // Find the ECEF coordinates of the shape corners
@@ -279,9 +289,18 @@ int main( int argc, char *argv[] ) {
     } catch (const vw::math::RANSACErr& e ) {
       vw_out() << "RANSAC Failed: " << e.what() << "\n";
     }
-    vw_out() << "Found " << inlier_indices.size() << " final matches.\n";
+    vw_out() << "Found " << inlier_indices.size() << " / " << xyz_vec.size() << " inliers.\n";
+    
     std::cout << "Final matrix is " << H << std::endl;
+    double max_error = - 1.0, max_inlier_error = -1.0;
+    for (size_t it = 0; it < xyz_vec.size(); it++) 
+      max_error = std::max(max_error, dist_to_plane(H, xyz_vec[it]));
 
+    for (size_t it = 0; it < inlier_indices.size(); it++) 
+      max_inlier_error = std::max(max_inlier_error, dist_to_plane(H, xyz_vec[inlier_indices[it]]));
+
+    std::cout << "Max plane error: " << max_error << std::endl;
+    std::cout << "Max inlier error: " << max_inlier_error << std::endl;
     
   } ASP_STANDARD_CATCHES;
   
