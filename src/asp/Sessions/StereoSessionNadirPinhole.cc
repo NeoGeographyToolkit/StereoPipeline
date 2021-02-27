@@ -75,24 +75,46 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   Vector6f right_stats = gather_stats(right_masked_image, "right",
                                       this->m_out_prefix, right_cropped_file);
 
+  ImageViewRef< PixelMask<int> > left_bathy_mask, right_bathy_mask;
+  bool do_bathy = StereoSession::do_bathymetry();
+  int bathy_nodata = 0;
+  if (do_bathy)
+    StereoSession::read_bathy_masks(left_masked_image, right_masked_image,
+                                    bathy_nodata,
+                                    left_bathy_mask, right_bathy_mask);
+  
   ImageViewRef< PixelMask<float> > Limg, Rimg;
-  std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
+  ImageViewRef< PixelMask<int> >   left_aligned_bathy_mask, right_aligned_bathy_mask;
 
   // Use no-data in interpolation and edge extension.
-  PixelMask<float> nodata_pix(0);
-  nodata_pix.invalidate();
+  PixelMask<float> nodata_pix(0); nodata_pix.invalidate();
+  PixelMask<int> bathy_nodata_pix(bathy_nodata); bathy_nodata_pix.invalidate();
+  
   ValueEdgeExtension< PixelMask<float> > ext_nodata(nodata_pix); 
+  ValueEdgeExtension< PixelMask<int> > bathy_ext_nodata(bathy_nodata_pix); 
 
   if ( stereo_settings().alignment_method == "epipolar" ) {
 
+    if (do_bathy) {
+      // I could not code and test in reasonable time bathymery with cropped
+      // images
+      bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+      bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+      if (crop_left || crop_right) 
+        vw_throw(NoImplErr() << "Bathymetry computation is not supported with epipolar "
+                 << "alignment while using --left-image-crop-win or --right-image-crop-win. "
+                 << "Use the full images.");
+    }
+    
     vw_out() << "\t--> Performing epipolar alignment\n";
 
     // Load the two images and fetch the two camera models
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
 
-    if ( boost::ends_with(lcase_file, ".pinhole") ||
-         boost::ends_with(lcase_file, ".tsai"   )   ) {
-
+    std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
+    if (boost::ends_with(lcase_file, ".pinhole") ||
+        boost::ends_with(lcase_file, ".tsai"   ) ) {
+      
       // This loads epipolar-aligned camera models.
       // - The out sizes incorporate the crop amount if any, the camera models 
       Vector2i left_out_size, right_out_size;
@@ -121,14 +143,35 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                                               Limg, Rimg,
                                               ext_nodata,
                                               BilinearInterpolation());
+
+      if (do_bathy)
+        get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
+                                                left_cam, right_cam,
+                                                left_bathy_mask, right_bathy_mask,
+                                                left_image_in_roi, right_image_in_roi,
+                                                left_out_size, right_out_size,
+                                                left_aligned_bathy_mask,
+                                                right_aligned_bathy_mask,
+                                                bathy_ext_nodata,
+                                                BilinearInterpolation());
+        
+        
     } else { // Handle CAHV derived models
 
-      camera_models( left_cam, right_cam );
+      camera_models(left_cam, right_cam);
 
       get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
                                       left_cam, right_cam,
                                       left_masked_image, right_masked_image,
                                       Limg, Rimg, ext_nodata);
+
+      if (do_bathy)
+      get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
+                                      left_cam, right_cam,
+                                      left_bathy_mask, right_bathy_mask,
+                                      left_aligned_bathy_mask,
+                                      right_aligned_bathy_mask,
+                                      bathy_ext_nodata);
     }
 
   } else if ( stereo_settings().alignment_method == "homography" ||
@@ -153,11 +196,10 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                       stereo_settings().ip_per_tile,
                       left_nodata_value, right_nodata_value,
                       left_cam.get(), right_cam.get(),
-                      match_filename, left_ip_filename, right_ip_filename
-                     );
+                      match_filename, left_ip_filename, right_ip_filename);
 
     std::vector<ip::InterestPoint> left_ip, right_ip;
-    ip::read_binary_match_file( match_filename, left_ip, right_ip  );
+    ip::read_binary_match_file(match_filename, left_ip, right_ip);
 
     Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
                    align_right_matrix = math::identity_matrix<3>();
@@ -188,15 +230,30 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     Limg = transform(left_masked_image,
                      HomographyTransform(align_left_matrix),
                      left_size.x(), left_size.y() );
+    if (do_bathy) 
+      left_aligned_bathy_mask = transform(left_bathy_mask,
+                                          HomographyTransform(align_left_matrix),
+                                          left_size.x(), left_size.y() );
+    
+    
     Rimg = transform(right_masked_image,
                      HomographyTransform(align_right_matrix),
                      right_size.x(), right_size.y() );
+    if (do_bathy) 
+      right_aligned_bathy_mask = transform(right_bathy_mask,
+                                           HomographyTransform(align_right_matrix),
+                                           right_size.x(), right_size.y() );
+    
   } else {
     // Do nothing just provide the original files.
     Limg = left_masked_image;
     Rimg = right_masked_image;
+    if (do_bathy) {
+      left_aligned_bathy_mask = left_bathy_mask;
+      right_aligned_bathy_mask = right_bathy_mask;
+    }
   }
-
+  
   // Apply our normalization options.
   normalize_images(stereo_settings().force_use_entire_range,
                    stereo_settings().individually_normalize,
@@ -208,21 +265,44 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   float output_nodata = -32768.0;
 
   vw_out() << "\t--> Writing pre-aligned images.\n";
+
   vw_out() << "\t--> Writing: " << left_output_file << ".\n";
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
                           has_left_georef, left_georef,
                           has_nodata, output_nodata,
                           options,
                           TerminalProgressCallback("asp","\t  L:  ") );
+  if (do_bathy) {
+    std::string left_aligned_bathy_mask_file = StereoSession::left_aligned_bathy_mask();
+    vw_out() << "\t--> Writing: " << left_aligned_bathy_mask_file << ".\n";
+    block_write_gdal_image(left_output_file, apply_mask(left_aligned_bathy_mask, bathy_nodata),
+                           has_left_georef, left_georef,
+                           has_nodata, bathy_nodata,
+                           options,
+                           TerminalProgressCallback("asp","\t  L mask:  ") );
+  }
+  
   vw_out() << "\t--> Writing: " << right_output_file << ".\n";
-  block_write_gdal_image( right_output_file,
-                          apply_mask(crop(edge_extend(Rimg, ext_nodata), // Force -R.tif to be the same size as -L.tif! ???
-                                          bounding_box(Limg)), output_nodata),
-                          has_right_georef, right_georef,
-                          has_nodata, output_nodata,
-                          options,
-                          TerminalProgressCallback("asp","\t  R:  ") );
-
+  block_write_gdal_image(right_output_file,
+                         // Force -R.tif to be the same size as -L.tif?
+                         apply_mask(crop(edge_extend(Rimg, ext_nodata), 
+                                         bounding_box(Limg)), output_nodata),
+                         has_right_georef, right_georef,
+                         has_nodata, output_nodata,
+                         options,
+                         TerminalProgressCallback("asp","\t  R:  ") );
+  if (do_bathy) {
+    std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
+    vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
+    block_write_gdal_image(right_aligned_bathy_mask_file,
+                           // Force -R.tif to be the same size as -L.tif?
+                           apply_mask(crop(edge_extend(right_aligned_bathy_mask, bathy_ext_nodata), 
+                                           bounding_box(Limg)), bathy_nodata),
+                           has_right_georef, right_georef,
+                           has_nodata, bathy_nodata,
+                           options,
+                           TerminalProgressCallback("asp","\t  R mask:  ") );
+  }
 }
 
 

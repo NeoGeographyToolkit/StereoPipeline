@@ -582,6 +582,42 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
   return false; // don't exit early
 }
 
+void StereoSession::read_bathy_masks(ImageViewRef< PixelMask<float> > const& left_masked_image,
+                                     ImageViewRef< PixelMask<float> > const& right_masked_image,
+                                     int bathy_nodata,
+                                     ImageViewRef< PixelMask<int> > & left_bathy_mask,
+                                     ImageViewRef< PixelMask<int> > & right_bathy_mask) {
+
+  left_bathy_mask = create_mask(DiskImageView<int>(stereo_settings().left_bathy_mask),
+                                bathy_nodata);
+  right_bathy_mask = create_mask(DiskImageView<int>(stereo_settings().right_bathy_mask),
+                                 bathy_nodata);
+  
+  // The left image (after crop) better needs to have the same dims
+  // as the left bathy mask, and same on the right
+  if (left_bathy_mask.cols() != left_masked_image.cols()   || 
+      left_bathy_mask.rows() != left_masked_image.rows()   || 
+      right_bathy_mask.cols() != right_masked_image.cols() || 
+      right_bathy_mask.rows() != right_masked_image.rows() ) {
+    vw_throw( ArgumentErr() << "The dimensions of bathymetry masks don't agree "
+              << "with the image sizes (after crop win, if applicable)." );
+  }
+  
+}
+
+bool StereoSession::do_bathymetry() const {
+  return (stereo_settings().left_bathy_mask != "" && 
+          stereo_settings().right_bathy_mask != "");
+}
+
+std::string StereoSession::left_aligned_bathy_mask() const {
+  return m_out_prefix + "-L_aligned_bathy_mask.tif";
+}
+  
+std::string StereoSession::right_aligned_bathy_mask() const {
+  return m_out_prefix + "-R_aligned_bathy_mask.tif";
+}
+
 void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop, vw::BBox2i &right_image_crop) const {
 
   // Set the ROIs to the entire image if the input crop windows are not set.

@@ -727,6 +727,15 @@ namespace asp {
       // This is a bit awkward but is done so for backward compatibility.
       stereo_settings().min_triangulation_angle = 0;
     }
+
+    if (opt.session->do_bathymetry()) {
+      if (opt.session->name() != "dg" &&
+          opt.session->name() != "rpc" &&
+          opt.session->name() != "nadirpinhole")
+        vw_throw( ArgumentErr() << "Bathymetry correction only works with dg, rpc, "
+                  << "and nadirpinhole sessions. Got: "
+                  << opt.session->name() << ".\n" );
+    }
       
     // Camera checks
     bool force_throw = false;

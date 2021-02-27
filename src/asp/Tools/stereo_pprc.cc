@@ -134,6 +134,15 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   // images if the user chose not to normalize.
   string left_image_file, right_image_file;
   bool skip_img_norm = asp::skip_image_normalization(opt);
+
+  // Bathymetry will not work with skipping image normalization.
+  // It could be made to work, but it is an obscure scenario not
+  // worth testing.
+  if (skip_img_norm && opt.session->do_bathymetry()) 
+    vw_throw( ArgumentErr() << "\nCannot do bathymery when skipping image normalization.\n");
+
+  // Need to also write the transformed bathy masks to disk, those
+  // will be used in stereo_tri.
   if (skip_img_norm)
     create_sym_links(opt.in_file1, opt.in_file2, opt.out_prefix,
                      left_image_file, right_image_file);
@@ -308,25 +317,21 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       }
     }
 
-    // Handle cropped images
-    std::string left_cropped_file  = opt.in_file1;
-    std::string right_cropped_file = opt.in_file2;
-    if (crop_left)  left_cropped_file  = opt.out_prefix + "-L-cropped.tif";
-    if (crop_right) right_cropped_file = opt.out_prefix + "-R-cropped.tif";
-
     // Intersect the left mask with the warped version of the right
     // mask, and vice-versa to reduce noise, if the images
     // are map-projected.
     vw_out() << "Writing masks: " << left_mask_file << ' ' << right_mask_file << ".\n";
     if (has_left_georef && has_right_georef && !opt.input_dem.empty()){
-      ImageViewRef< PixelMask<uint8> > warped_left_mask // Left image mask transformed into right coordinates
+      // Left image mask transformed into right coordinates
+      ImageViewRef< PixelMask<uint8> > warped_left_mask
         = crop(vw::cartography::geo_transform
                (left_mask, left_georef, right_georef,
                 ConstantEdgeExtension(),NearestPixelInterpolation()
                ),
                bounding_box(right_mask)
               );
-      ImageViewRef< PixelMask<uint8> > warped_right_mask // Right image mask transformed into left coordinates
+      // Right image mask transformed into left coordinates
+      ImageViewRef< PixelMask<uint8> > warped_right_mask
         = crop(vw::cartography::geo_transform
                (right_mask, right_georef, left_georef,
                 ConstantEdgeExtension(), NearestPixelInterpolation()

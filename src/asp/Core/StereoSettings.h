@@ -87,6 +87,9 @@ namespace asp {
     vw::BBox2 left_image_crop_win;
     vw::BBox2 right_image_crop_win;
 
+    // Masks to use when doing bathymetry
+    std::string left_bathy_mask, right_bathy_mask;
+    
     bool   force_use_entire_range;          /// Use entire dynamic range of image
     bool   individually_normalize;          /// If > 1, normalize the images
                                             ///         individually with their

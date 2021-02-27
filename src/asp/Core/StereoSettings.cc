@@ -154,6 +154,10 @@ namespace asp {
        "Mask out pixels from regions where the local standard deviation score is less than this value. If set < 0, debug files will be written containing the filter output instead of masking out pixels.")
       ("stddev-mask-kernel",  po::value(&global.nodata_stddev_kernel)->default_value(-1),
        "Size of kernel to be used in standard deviation filtering, must be odd and > 2 (default -1).")
+      ("left-bathy-mask", po::value(&global.left_bathy_mask),
+       "Mask to use for the left image when doing bathymetry.")
+      ("right-bathy-mask", po::value(&global.right_bathy_mask),
+       "Mask to use for the right image when doing bathymetry.")
       ("skip-rough-homography", po::bool_switch(&global.skip_rough_homography)->default_value(false)->implicit_value(true),
        "Skip the step of performing datum-based rough homography if it fails.")
       ("no-datum", po::bool_switch(&global.no_datum)->default_value(false)->implicit_value(true),

@@ -35,7 +35,7 @@
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/InterestPoint/Matcher.h> // Needed for vw::ip::match_filename
 #include <vw/Geometry/dPoly.h>
-#include <vw/Geometry/shapeFile.h>
+#include <vw/Cartography/shapeFile.h>
 
 #include <asp/GUI/GuiUtilities.h>
 

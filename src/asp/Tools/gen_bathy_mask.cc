@@ -36,7 +36,7 @@
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/FileIO/DiskImageUtils.h>
-#include <vw/Geometry/shapeFile.h>
+#include <vw/Cartography/shapeFile.h>
 #include <vw/Image/InpaintView.h>
 
 #include <Eigen/Dense>
@@ -49,9 +49,8 @@ namespace fs = boost::filesystem;
 typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string dem_file, image_file, camera_file, output_mask_file;
-  int num_samples_per_dem_pixel;
-  int hole_fill_len;
+  std::string dem_file, image_file, camera_file, output_mask_file, stereo_session_string;
+  int num_samples_per_dem_pixel, hole_fill_len, mask_padding;
   Options() {}
 };
 
@@ -65,8 +64,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "How many samples to pick between two DEM pixels when projecting into the camera to find the mask corresponding to the DEM. The value 0 means pick only the pixel itself.")
     ("hole-fill-len",   po::value(&opt.hole_fill_len)->default_value(20),
      "Fill small holes in the mask of these dimensions.")
+    ("mask-padding",   po::value(&opt.mask_padding)->default_value(100),
+     "How many pixels to use to pad the mask in order to avoid boundary artifacts.")
     ("output-mask",   po::value(&opt.output_mask_file),
-     "The name of the output mask.");
+     "The name of the output mask.")
+    ("session-type,t",   po::value(&opt.stereo_session_string)->default_value(""),
+     "Select the stereo session type to use for processing. Options: nadirpinhole dg rpc. Usually the program can select this automatically by the file extension but needs to be made explicit for rpc.");
     
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   
@@ -93,7 +96,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.num_samples_per_dem_pixel < 0) 
     vw_throw( ArgumentErr() << "Must specify a non-negative number of samples.\n" );
-  
+
 }
 
 int main( int argc, char *argv[] ) {
@@ -124,15 +127,22 @@ int main( int argc, char *argv[] ) {
                                                               ConstantEdgeExtension());
     
     // Load the camera
-    std::string stereo_session_string = "dg"; // Only dg is supported
     std::string out_prefix;
-    SessionPtr session(asp::StereoSessionFactory::create(stereo_session_string, // may change
+    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, // may change
                                                          opt,
                                                          opt.image_file, opt.image_file,
                                                          opt.camera_file, opt.camera_file,
                                                          out_prefix));
     boost::shared_ptr<vw::camera::CameraModel> camera_model
       = session->camera_model(opt.image_file, opt.camera_file);
+
+    // Sanity check, to be used after the camera is loaded
+    if (opt.stereo_session_string != "dg" &&
+        opt.stereo_session_string != "rpc" &&
+        opt.stereo_session_string != "nadirpinhole") 
+      vw_throw( ArgumentErr() << "Bathymetry correction only works with dg, rpc, "
+                << "and nadirpinhole sessions. Got: "
+                << opt.stereo_session_string << ".\n" );
 
     // Project the DEM into the camera image, and record where it gets projected
     // TODO(oalexan1): This code must be made multi-threaded
@@ -205,11 +215,10 @@ int main( int argc, char *argv[] ) {
     }
     
     // Leave some padding at the boundary
-    int padding = 10;
-    min_col = std::max(0, min_col - padding);
-    min_row = std::max(0, min_row - padding);
-    max_col = std::min(input_image.cols() - 1, max_col + padding);
-    max_row = std::min(input_image.rows() - 1, max_row + padding);
+    min_col = std::max(0, min_col - opt.mask_padding);
+    min_row = std::max(0, min_row - opt.mask_padding);
+    max_col = std::min(input_image.cols() - 1, max_col + opt.mask_padding);
+    max_row = std::min(input_image.rows() - 1, max_row + opt.mask_padding);
 
     ImageView< PixelMask<int> > Mask(max_col - min_col + 1, max_row - min_row + 1);
     for (int col = 0; col < Mask.cols(); col++) {

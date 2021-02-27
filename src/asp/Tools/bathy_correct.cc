@@ -26,7 +26,7 @@
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/FileIO/DiskImageUtils.h>
-#include <vw/Geometry/shapeFile.h>
+#include <vw/Cartography/shapeFile.h>
 
 #include <vw/Math/RANSAC.h>
 

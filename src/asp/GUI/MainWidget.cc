@@ -32,7 +32,7 @@
 #include <vw/Cartography/GeoTransform.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
-#include <vw/Geometry/shapeFile.h>
+#include <vw/Cartography/shapeFile.h>
 
 using namespace vw;
 using namespace vw::gui;

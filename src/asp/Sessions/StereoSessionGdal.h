@@ -190,6 +190,14 @@ namespace asp {
     ImageViewRef< PixelMask<float> > right_masked_image
       = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
+    ImageViewRef< PixelMask<int> > left_bathy_mask, right_bathy_mask;
+    bool do_bathy = StereoSession::do_bathymetry();
+    int bathy_nodata = 0;
+    if (do_bathy)
+      StereoSession::read_bathy_masks(left_masked_image, right_masked_image,
+                                      bathy_nodata,
+                                      left_bathy_mask, right_bathy_mask);
+
     // Compute input image statistics
     Vector6f left_stats  = gather_stats(left_masked_image,  "left",
                                         this->m_out_prefix, left_cropped_file);
@@ -197,7 +205,7 @@ namespace asp {
                                         this->m_out_prefix, right_cropped_file);
 
     ImageViewRef< PixelMask<float> > Limg, Rimg;
-    std::string lcase_file = boost::to_lower_copy(this->m_left_camera_file);
+    ImageViewRef< PixelMask<int> >   left_aligned_bathy_mask, right_aligned_bathy_mask;
 
     // Image alignment block - Generate aligned versions of the input
     // images according to the options.
@@ -258,15 +266,30 @@ namespace asp {
       Limg = transform(left_masked_image,
 		       HomographyTransform(align_left_matrix),
 		       left_size.x(), left_size.y() );
+      if (do_bathy) 
+        left_aligned_bathy_mask = transform(left_bathy_mask,
+                                            HomographyTransform(align_left_matrix),
+                                            left_size.x(), left_size.y() );
+      
       Rimg = transform(right_masked_image,
 		       HomographyTransform(align_right_matrix),
 		       left_size.x(), left_size.y() );
-    } else if ( stereo_settings().alignment_method == "epipolar" ) {
-      vw_throw( NoImplErr() << "StereoSessionGdal does not support epipolar rectification" );
+      if (do_bathy) 
+        right_aligned_bathy_mask = transform(right_bathy_mask,
+                                             HomographyTransform(align_right_matrix),
+                                             left_size.x(), left_size.y() );
+      
+      
+    } else if (stereo_settings().alignment_method == "epipolar") {
+      vw_throw(NoImplErr() << "StereoSessionGdal does not support epipolar rectification");
     } else {
       // No alignment, just provide the original files.
       Limg = left_masked_image;
       Rimg = right_masked_image;
+      if (do_bathy) {
+        left_aligned_bathy_mask  = left_bathy_mask;
+        right_aligned_bathy_mask = right_bathy_mask;
+      }
     } // End of image alignment block
 
     // Apply our normalization options.
@@ -279,27 +302,61 @@ namespace asp {
     bool has_nodata = true;
     float output_nodata = -32768.0;
 
+    std::string left_aligned_bathy_mask_file = StereoSession::left_aligned_bathy_mask();
+    std::string right_aligned_bathy_mask_file = StereoSession::right_aligned_bathy_mask();
+    
     // The left image is written out with no alignment warping.
     vw_out() << "\t--> Writing pre-aligned images.\n";
     vw_out() << "\t--> Writing: " << left_output_file << ".\n";
-    block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
-                            has_left_georef, left_georef,
-                            has_nodata, output_nodata, options,
-                            TerminalProgressCallback("asp","\t  L:  ") );
-
-    vw_out() << "\t--> Writing: " << right_output_file << ".\n";
-    if ( stereo_settings().alignment_method == "none" )
-      block_write_gdal_image( right_output_file, apply_mask(Rimg, output_nodata),
-                              has_right_georef, right_georef,
-                              has_nodata, output_nodata, options,
-                              TerminalProgressCallback("asp","\t  R:  ") );
-    else // Write out the right image cropped to align with the left image.
+    block_write_gdal_image(left_output_file, apply_mask(Limg, output_nodata),
+                           has_left_georef, left_georef,
+                           has_nodata, output_nodata, options,
+                           TerminalProgressCallback("asp","\t  L:  ") );
+    if (do_bathy) {
+      vw_out() << "\t--> Writing: " << left_aligned_bathy_mask_file << ".\n";
+      block_write_gdal_image(left_aligned_bathy_mask_file,
+                             apply_mask(left_aligned_bathy_mask, bathy_nodata),
+                             has_left_georef, left_georef,
+                             has_nodata, bathy_nodata, options,
+                             TerminalProgressCallback("asp","\t  L mask:  ") );
+    }
+    
+    if (stereo_settings().alignment_method == "none") {
+      vw_out() << "\t--> Writing: " << right_output_file << ".\n";
+      block_write_gdal_image(right_output_file, apply_mask(Rimg, output_nodata),
+                             has_right_georef, right_georef,
+                             has_nodata, output_nodata, options,
+                             TerminalProgressCallback("asp","\t  R:  "));
+      if (do_bathy) {
+            vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
+            block_write_gdal_image(right_aligned_bathy_mask_file,
+                                   apply_mask(right_aligned_bathy_mask, bathy_nodata),
+                                   has_right_georef, right_georef,
+                                   has_nodata, bathy_nodata, options,
+                                   TerminalProgressCallback("asp","\t  R mask:  ") );
+      }
+      
+    } else {
+      // Write out the right image cropped to align with the left image.
+      vw_out() << "\t--> Writing: " << right_output_file << ".\n";
       block_write_gdal_image( right_output_file,
                               apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()),
-                                         bounding_box(Limg)), output_nodata),
+                                              bounding_box(Limg)), output_nodata),
                               has_right_georef, right_georef,
                               has_nodata, output_nodata, options,
                               TerminalProgressCallback("asp","\t  R:  ") );
+
+      if (do_bathy) {
+        vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
+        block_write_gdal_image(right_aligned_bathy_mask_file,
+                               apply_mask(crop(edge_extend(right_aligned_bathy_mask,
+                                                           ConstantEdgeExtension()),
+                                               bounding_box(Limg)), bathy_nodata),
+                               has_right_georef, right_georef,
+                               has_nodata, bathy_nodata, options,
+                               TerminalProgressCallback("asp","\t  R mask:  ") );
+      }
+    }
   } // End function pre_preprocessing_hook
 
 

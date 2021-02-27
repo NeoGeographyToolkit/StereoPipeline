@@ -209,6 +209,11 @@ namespace asp {
                            float & left_nodata_value,
                            float & right_nodata_value);
 
+    bool do_bathymetry() const;
+
+    std::string left_aligned_bathy_mask() const;
+    std::string right_aligned_bathy_mask() const;
+  
   protected: // Variables
 
     vw::cartography::GdalWriteOptions m_options;
@@ -255,16 +260,24 @@ namespace asp {
     tx_type tx_right_map_trans () const;
 
     /// Function to load a specific type of camera model with a pixel offset.
-    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
-                                                                         std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) const = 0;
-
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const = 0;
+    
     /// Load an RPC camera model with a pixel offset
     /// - We define it here so it can be used for reading RPC map projection models and also
     ///   so it does not get duplicated in derived RPC sessions.
-    boost::shared_ptr<vw::camera::CameraModel> load_rpc_camera_model(std::string const& image_file, 
-                                                                     std::string const& camera_file,
-                                                                     vw::Vector2 pixel_offset) const;
+    boost::shared_ptr<vw::camera::CameraModel>
+    load_rpc_camera_model(std::string const& image_file, 
+                          std::string const& camera_file,
+                          vw::Vector2 pixel_offset) const;
+    
+    void read_bathy_masks(vw::ImageViewRef< vw::PixelMask<float> > const& left_masked_image,
+                          vw::ImageViewRef< vw::PixelMask<float> > const& right_masked_image,
+                          int bathy_nodata,
+                          vw::ImageViewRef< vw::PixelMask<int> > & left_bathy_mask,
+                          vw::ImageViewRef< vw::PixelMask<int> > & right_bathy_mask); 
   };
 
 // ===========================================================================

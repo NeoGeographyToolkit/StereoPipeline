@@ -1080,8 +1080,8 @@ void stereo_triangulation( string          const& output_prefix,
     // Convert the angle tol to be in terms of dot product and pass it
     // to the stereo model.
     double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
-    StereoModelT stereo_model( camera_ptrs, stereo_settings().use_least_squares,
-                               angle_tol);
+    StereoModelT stereo_model(camera_ptrs, stereo_settings().use_least_squares,
+                              angle_tol);
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << endl;
