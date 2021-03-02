@@ -65,6 +65,10 @@ class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<Disparity
   vector<TXT>  m_transforms; // e.g., map-projection or homography to undo
   StereoModelT m_stereo_model;
   bool         m_is_map_projected;
+  bool         m_bathy_correct;
+  ImageViewRef<int> m_left_aligned_bathy_mask;
+  ImageViewRef<int> m_right_aligned_bathy_mask;
+
   typedef typename DisparityImageT::pixel_type DPixelT;
 
 public:
@@ -77,17 +81,23 @@ public:
   StereoTXAndErrorView( vector<DisparityImageT> const& disparity_maps,
                         vector<TXT>             const& transforms,
                         StereoModelT            const& stereo_model,
-                        bool is_map_projected) :
+                        bool is_map_projected, bool bathy_correct,
+                        ImageViewRef<int> left_aligned_bathy_mask,
+                        ImageViewRef<int> right_aligned_bathy_mask):
     m_disparity_maps(disparity_maps),
     m_transforms(transforms),
     m_stereo_model(stereo_model),
-    m_is_map_projected(is_map_projected) {
+    m_is_map_projected(is_map_projected),
+    m_bathy_correct(bathy_correct),
+    m_left_aligned_bathy_mask(left_aligned_bathy_mask),
+    m_right_aligned_bathy_mask(right_aligned_bathy_mask) {
 
     // Sanity check
     for (int p = 1; p < (int)m_disparity_maps.size(); p++){
       if (m_disparity_maps[0].cols() != m_disparity_maps[p].cols() ||
           m_disparity_maps[0].rows() != m_disparity_maps[p].rows()   )
-        vw_throw( ArgumentErr() << "In multi-view triangulation, all disparities must have the same dimensions.\n" );
+        vw_throw( ArgumentErr() << "In multi-view triangulation, all disparities "
+                  << "must have the same dimensions.\n" );
     }
   }
 
@@ -100,7 +110,7 @@ public:
   /// Compute the 3D coordinate corresponding to a pixel location.
   /// - p is not actually used here, it should always be zero!
   inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
-      
+
     // For each input image, de-warp the pixel in to the native camera coordinates
     int num_disp = m_disparity_maps.size();
     vector<Vector2> pixVec(num_disp + 1);
@@ -115,15 +125,45 @@ public:
                       std::numeric_limits<double>::quiet_NaN());
       pixVec[c+1] = pix;
     }
-
+    
     // Compute the location of the 3D point observed by each input pixel
+    // when no bathymetry correction is needed.
     Vector3 errorVec;
     pixel_type result;
-    subvector(result,0,3) = m_stereo_model(pixVec, errorVec);
-    subvector(result,3,3) = errorVec;
+    bool do_bathy = false;
+    if (!m_bathy_correct) {
+      subvector(result,0,3) = m_stereo_model(pixVec, errorVec, do_bathy);
+      subvector(result,3,3) = errorVec;
+
+      return result; // Contains location and error vector
+    }
+
+    // Continue with bathymetry correction. Note how we assume no
+    // multi-view stereo happens.
+    Vector2 lpix(i, j);
+    DPixelT disp = m_disparity_maps[0](i, j, p);
+    if (!is_valid(disp)) {
+      subvector(result, 0, 3) = Vector3(0, 0, 0);
+      subvector(result, 3, 3) = Vector3(0, 0, 0);
+      return result;
+    }
+
+    // See if both the left and right matching pixels are in the aligned
+    // bathymetry masks which means bathymetry correction should happen.
+    Vector2 rpix = lpix + stereo::DispHelper(disp);
+    Vector2 irpix(round(rpix.x()), round(rpix.y())); // integer version
+
+    do_bathy = (m_left_aligned_bathy_mask(lpix.x(), lpix.y()) > 0 &&
+                0 <= irpix.x() && irpix.x() < m_right_aligned_bathy_mask.cols() &&
+                0 <= irpix.y() && irpix.y() < m_right_aligned_bathy_mask.rows() &&
+                m_right_aligned_bathy_mask(irpix.x(), irpix.y()) > 0);
+
+    subvector(result, 0, 3) = m_stereo_model(pixVec, errorVec, do_bathy);
+    subvector(result, 3, 3) = errorVec;
+
     return result; // Contains location and error vector
   }
-
+  
   typedef StereoTXAndErrorView<ImageViewRef<DPixelT>, StereoModelT> prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
     return PreRasterHelper( bbox, m_transforms );
@@ -144,14 +184,21 @@ private:
       // We explicitly bring in-memory the disparities for the current box
       // to speed up processing later, and then we pretend this is the entire
       // image by virtually enlarging it using a CropView.
+
+      // TODO(oalexan1): Must bring in memory the masks for bathymetry as well
+      
       vector< ImageViewRef<DPixelT> > disparity_cropviews;
       for (int p = 0; p < (int)m_disparity_maps.size(); p++){
         ImageView<DPixelT> clip( crop( m_disparity_maps[p], bbox ) );
-        ImageViewRef<DPixelT> cropview_clip = crop(clip, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
+        ImageViewRef<DPixelT> cropview_clip = crop(clip, -bbox.min().x(), -bbox.min().y(),
+                                                   cols(), rows() );
         disparity_cropviews.push_back(cropview_clip);
       }
 
-      return prerasterize_type(disparity_cropviews, transforms, m_stereo_model, m_is_map_projected);
+      return prerasterize_type(disparity_cropviews, transforms, m_stereo_model,
+                               m_is_map_projected, m_bathy_correct,
+                               m_left_aligned_bathy_mask,
+                               m_right_aligned_bathy_mask);
     }
 
     // Code for MAP-PROJECTED session types.
@@ -182,8 +229,12 @@ private:
       // We explicitly bring in-memory the disparities for the current
       // box to speed up processing later, and then we pretend this is
       // the entire image by virtually enlarging it using a CropView.
+
+      // TODO(oalexan1): Must bring in memory the masks for bathymetry as well
+
       ImageView<DPixelT> clip( crop( m_disparity_maps[p], bbox ) );
-      ImageViewRef<DPixelT> cropview_clip = crop(clip, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
+      ImageViewRef<DPixelT> cropview_clip = crop(clip, -bbox.min().x(), -bbox.min().y(),
+                                                 cols(), rows() );
       disparity_cropviews.push_back(cropview_clip);
 
       // Work out what spots in the right image we'll be touching.
@@ -197,7 +248,9 @@ private:
       transforms_copy[p+1]->reverse_bbox(right_bbox); 
     }
 
-    return prerasterize_type(disparity_cropviews, transforms_copy, m_stereo_model, m_is_map_projected);
+    return prerasterize_type(disparity_cropviews, transforms_copy, m_stereo_model,
+                             m_is_map_projected, m_bathy_correct,
+                             m_left_aligned_bathy_mask, m_right_aligned_bathy_mask);
   } // End function PreRasterHelper() DGMapRPC version
 
 }; // End class StereoTXAndErrorView
@@ -208,12 +261,15 @@ StereoTXAndErrorView<DisparityT, StereoModelT>
 stereo_error_triangulate( vector<DisparityT> const& disparities,
                           vector<TXT>        const& transforms,
                           StereoModelT       const& model,
-                          bool is_map_projected ) {
+                          bool is_map_projected,
+                          bool bathy_correct,
+                          ImageViewRef<int> left_aligned_bathy_mask,
+                          ImageViewRef<int> right_aligned_bathy_mask) {
 
   typedef StereoTXAndErrorView<DisparityT, StereoModelT> result_type;
-  return result_type( disparities, transforms, model, is_map_projected );
+  return result_type(disparities, transforms, model, is_map_projected,
+                     bathy_correct, left_aligned_bathy_mask, right_aligned_bathy_mask);
 }
-
 
 /// Compute an unwarped disparity image from the input disparity image
 /// and the image transforms.
@@ -1079,15 +1135,39 @@ void stereo_triangulation( string          const& output_prefix,
 
     // Convert the angle tol to be in terms of dot product and pass it
     // to the stereo model.
-    double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
+    double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
+      (stereo_settings().min_triangulation_angle*M_PI/180);
     StereoModelT stereo_model(camera_ptrs, stereo_settings().use_least_squares,
                               angle_tol);
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << endl;
+    bool bathy_correct = opt_vec[0].session->do_bathymetry();
+
+    ImageViewRef<int> left_aligned_bathy_mask, right_aligned_bathy_mask;
+    std::vector<double> bathy_plane;
+    if (bathy_correct) {
+
+      if (disparity_maps.size() != 1)
+        vw_throw(ArgumentErr() << "Bathymetry correction does not work with multiview stereo\n");
+
+      asp::read_vec(stereo_settings().bathy_plane, bathy_plane);
+      left_aligned_bathy_mask = DiskImageView<int>(opt_vec[0].session->left_aligned_bathy_mask());
+      right_aligned_bathy_mask = DiskImageView<int>(opt_vec[0].session->right_aligned_bathy_mask());
+
+      if (left_aligned_bathy_mask.cols() != disparity_maps[0].cols() ||
+          left_aligned_bathy_mask.rows() != disparity_maps[0].rows() )
+        vw_throw( ArgumentErr() << "The dimensions of disparity and left "
+                  << "aligned bathymetry mask must agree.\n");
+      
+      // Pass bathy data to the stereo model
+      stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane);
+    }
+    
     ImageViewRef<Vector6> point_cloud = per_pixel_filter
       (stereo_error_triangulate
-       (disparity_maps, transforms, stereo_model, is_map_projected),
+       (disparity_maps, transforms, stereo_model, is_map_projected, bathy_correct,
+        left_aligned_bathy_mask, right_aligned_bathy_mask),
        universe_radius_func);
 
     // If we crop the left and right images, at each run we must

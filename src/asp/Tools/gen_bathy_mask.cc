@@ -240,9 +240,20 @@ int main( int argc, char *argv[] ) {
 
     // Fill holes. Let the number of pixels to fill be the area of the
     // specified input fill length.
-    ImageViewRef< PixelMask<int> > filledMask
+    // TODO(oalexan1): This will not scale for large images.
+    ImageView< PixelMask<int> > filledMask
       = vw::fill_holes_grass(Mask, opt.hole_fill_len * opt.hole_fill_len);
 
+    // Make the mask have the value 1 where it is valid
+    for (int col = 0; col < filledMask.cols(); col++) {
+      for (int row = 0; row < filledMask.rows(); row++) {
+        if (is_valid(filledMask(col, row))) {
+          filledMask(col, row) = 1;
+          filledMask(col, row).validate();
+        }
+      }
+    }
+    
     // Save the mask channel (after filling holes the value of the filled mask is still
     // 0, but its mask channel now has 1).
     bool has_mask_georef = false, has_mask_nodata = false;
@@ -250,7 +261,7 @@ int main( int argc, char *argv[] ) {
     vw::cartography::GeoReference mask_georef;
     std::cout << "Writing: " << opt.output_mask_file << std::endl;
     TerminalProgressCallback tpc("asp", ": ");
-    block_write_gdal_image(opt.output_mask_file, select_channel(filledMask, 1),
+    block_write_gdal_image(opt.output_mask_file, select_channel(filledMask, 0),
                            has_mask_georef, mask_georef,
                            has_mask_nodata, mask_nodata, opt, tpc);
 

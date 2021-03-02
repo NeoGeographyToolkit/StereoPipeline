@@ -228,8 +228,7 @@ namespace asp {
                         stereo_settings().ip_per_tile,
                         left_nodata_value, right_nodata_value,
                         left_cam.get(),    right_cam.get(),
-                        match_filename, left_ip_filename, right_ip_filename
-                       );
+                        match_filename, left_ip_filename, right_ip_filename);
 
       // Load the interest points results from the file we just wrote.
       std::vector<ip::InterestPoint> left_ip, right_ip;

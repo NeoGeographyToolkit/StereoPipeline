@@ -186,9 +186,8 @@ struct BestFitPlaneErrorMetric {
   }
 };
 
-
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string shapefile, dem;
+  std::string shapefile, dem, bathy_plane;
   double water_surface_outlier_threshold;
   int num_ransac_iterations;
   Options():water_surface_outlier_threshold(2.0), num_ransac_iterations(1000) {}
@@ -202,6 +201,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Specify the shapefile enclosing the region in which to do bathymetry.")
     ("dem",   po::value(&opt.dem),
      "Specify the dem to correct.")
+    ("bathy-plane",   po::value(&opt.bathy_plane),
+     "The output file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0.")
     ("water-surface-outlier-threshold",
      po::value(&opt.water_surface_outlier_threshold)->default_value(0.2),
      "A value, in meters, to determine the distance from a water edge sample point to the "
@@ -232,6 +233,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Missing the input shapefile.\n" << usage << general_options );
   if (opt.dem == "")
     vw_throw( ArgumentErr() << "Missing the input dem.\n" << usage << general_options );
+  if (opt.bathy_plane == "")
+    vw_throw( ArgumentErr() << "Missing the output bathy plane file.\n"
+              << usage << general_options );
 }
 
 int main( int argc, char *argv[] ) {
@@ -301,6 +305,18 @@ int main( int argc, char *argv[] ) {
 
     std::cout << "Max plane error: " << max_error << std::endl;
     std::cout << "Max inlier error: " << max_inlier_error << std::endl;
+
+    std::cout << "Writing: " << opt.bathy_plane << std::endl;
+    std::ofstream bp(opt.bathy_plane.c_str());
+    bp.precision(17);
+    for (int col = 0; col < H.cols(); col++) {
+      bp << H(0, col);
+      if (col < H.cols() - 1)
+        bp << " ";
+      else
+        bp << "\n";
+    }
+    bp.close();
     
   } ASP_STANDARD_CATCHES;
   

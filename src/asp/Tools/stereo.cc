@@ -131,7 +131,7 @@ namespace asp {
     opt_vec.push_back(opt);
 
     if (files.size() < 3)
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
+      vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
 
     // If a file shows up more than once as input, that will confuse
     // the logic at the next step, so forbid that.
@@ -140,9 +140,9 @@ namespace asp {
       vals[argv[s]]++;
     for (int s = 0; s < (int)files.size(); s++){
       if (vals[files[s]] > 1){
-        vw_throw( ArgumentErr() << "The following input argument shows up more than "
+        vw_throw(ArgumentErr() << "The following input argument shows up more than "
                   << "once and hence cannot be parsed correctly: "
-                  << files[s] << ".\n\n" << usage );
+                  << files[s] << ".\n\n" << usage);
       }
     }
 
@@ -160,12 +160,38 @@ namespace asp {
     vector<string> images, cameras;
     string input_dem;
     if (!parse_multiview_cmd_files(files, images, cameras, output_prefix, input_dem))
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
+      vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
 
     int num_pairs = (int)images.size() - 1;
     if (num_pairs <= 0)
       vw_throw(ArgumentErr() << "Insufficient number of images provided.\n");
 
+    if (opt.session->do_bathymetry()) {
+      if (num_pairs > 1) 
+        vw_throw(ArgumentErr() << "Bathymetry correction does not work with multiview stereo.\n");
+
+      if (stereo_settings().refraction_index <= 1.0) 
+        vw_throw(ArgumentErr() << "The water index of refraction to be used in "
+                 << "bathymetry correction must be bigger than 1.\n");
+
+      if (stereo_settings().bathy_plane == "") 
+        vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
+
+      std::vector<double> bathy_plane;
+      if (!fs::exists(stereo_settings().bathy_plane)) 
+        vw_throw(ArgumentErr() << "The water plane needed for bathymetry was not found.\n");
+        
+      asp::read_vec(stereo_settings().bathy_plane, bathy_plane);
+
+      if (bathy_plane.size() != 4)
+        vw_throw(ArgumentErr() << "Could not read a plane as four values from: "
+                 << stereo_settings().bathy_plane << "\n");
+
+      if (bathy_plane[3] >= 0)
+        vw_throw(ArgumentErr() << "The last value in the bathy plane file "
+                  << "(the free coefficient) is supposed to be negative.\n");
+    }
+    
     // Must signal to the children runs that they are part of a multiview run
     if (num_pairs > 1){
       std::string opt_str = "--part-of-multiview-run";
@@ -272,9 +298,9 @@ namespace asp {
 
     if (num_pairs > 1 && prog_name != "stereo_parse" &&
         prog_name != "stereo_tri" && prog_name != "stereo_gui")
-      vw_throw( ArgumentErr() << "The executable " << prog_name
+      vw_throw(ArgumentErr() << "The executable " << prog_name
                 << " is not meant to be used directly with more than two images. "
-                << "Use instead the stereo/parallel_stereo scripts with desired entry points.\n" );
+                << "Use instead the stereo/parallel_stereo scripts with desired entry points.\n");
   }
 
   // Parse input command line arguments
@@ -369,7 +395,7 @@ namespace asp {
     // For multiview, just store the files and return
     if (is_multiview){
       if (vm.count("input-files") == 0)
-        vw_throw(ArgumentErr() << "Missing input arguments.\n" << usage );
+        vw_throw(ArgumentErr() << "Missing input arguments.\n" << usage);
       input_files = vm["input-files"].as< std::vector<std::string> >();
       return;
     }
@@ -386,7 +412,7 @@ namespace asp {
     if (!parse_multiview_cmd_files(files, // inputs
                                    images, cameras, opt.out_prefix, opt.input_dem // outputs
                                    ))
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
+      vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
 
     opt.in_file1 = "";  if (images.size() >= 1)  opt.in_file1  = images[0];
     opt.in_file2 = "";  if (images.size() >= 2)  opt.in_file2  = images[1];
@@ -394,7 +420,7 @@ namespace asp {
     opt.cam_file2 = ""; if (cameras.size() >= 2) opt.cam_file2 = cameras[1];
 
     if (opt.in_file1.empty() || opt.in_file2.empty() || opt.out_prefix.empty())
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
+      vw_throw(ArgumentErr() << "Missing all of the correct input files.\n\n" << usage);
 
     // Create the output directory
     vw::create_out_dir(opt.out_prefix);
@@ -475,7 +501,7 @@ namespace asp {
          stereo_settings().trans_crop_win.height() <= 0) &&
         !fs::exists(opt.out_prefix+"-L-cropped.tif")     &&
         !fs::exists(opt.out_prefix+"-R-cropped.tif") ){
-      vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n" << usage << general_options );
+      vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n" << usage << general_options);
     }
 
     // Ensure good order
@@ -490,10 +516,10 @@ namespace asp {
     
     // Verify that there is only one channel per input image
     if ( (left_resource->channels() > 1) || (right_resource->channels() > 1) )
-      vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n" << usage << general_options );
+      vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n" << usage << general_options);
 
     if ((stereo_settings().bundle_adjust_prefix != "") && (stereo_settings().alignment_method == "epipolar"))
-      vw_throw(ArgumentErr() << "Error: Epipolar alignment does not support bundle adjust prefixes.\n\n" << usage << general_options );
+      vw_throw(ArgumentErr() << "Error: Epipolar alignment does not support bundle adjust prefixes.\n\n" << usage << general_options);
     
     // Replace normal default values with these when SGM is enabled.
     // - TODO: Move these somewhere easier to find!
@@ -584,24 +610,25 @@ namespace asp {
     // Local homography needs D_sub
     if (stereo_settings().seed_mode == 0 &&
         stereo_settings().use_local_homography){
-      vw_throw( ArgumentErr() << "Cannot use local homography without computing low-resolution disparity.\n");
+      vw_throw(ArgumentErr() << "Cannot use local homography without computing low-resolution disparity.\n");
     }
 
     // D_sub from DEM needs a positive disparity_estimation_dem_error
     if (stereo_settings().seed_mode == 2 &&
         stereo_settings().disparity_estimation_dem_error <= 0.0){
-      vw_throw( ArgumentErr() << "For seed-mode 2, the value of disparity-estimation-dem-error must be positive." );
+      vw_throw(ArgumentErr() << "For seed-mode 2, the value of disparity-estimation-dem-error "
+               << "must be positive.");
     }
 
     // D_sub from DEM needs a DEM
     if (stereo_settings().seed_mode == 2 &&
         stereo_settings().disparity_estimation_dem.empty()){
-      vw_throw( ArgumentErr() << "For seed-mode 2, an input DEM must be provided.\n" );
+      vw_throw(ArgumentErr() << "For seed-mode 2, an input DEM must be provided.\n");
     }
 
     // D_sub from DEM does not work with map-projected images
     if (dem_provided && stereo_settings().seed_mode == 2)
-      vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
+      vw_throw(NoImplErr() << "Computation of low-resolution disparity from "
                 << "DEM is not implemented for map-projected images.\n");
 
     // Must use map-projected images if input DEM is provided
@@ -609,14 +636,14 @@ namespace asp {
     bool has_georef1 = vw::cartography::read_georeference(georef1, opt.in_file1);
     bool has_georef2 = vw::cartography::read_georeference(georef2, opt.in_file2);
     if (dem_provided && (!has_georef1 || !has_georef2)){
-      vw_throw( ArgumentErr() << "The images are not map-projected, "
+      vw_throw(ArgumentErr() << "The images are not map-projected, "
                 << "cannot use the provided DEM: " << opt.input_dem << "\n");
     }
 
     // If the images are map-projected, they need to use the same projection.
     if (dem_provided &&
         georef1.overall_proj4_str() != georef2.overall_proj4_str()){
-      vw_throw( ArgumentErr() << "The left and right images must use the same projection.\n");
+      vw_throw(ArgumentErr() << "The left and right images must use the same projection.\n");
     }
 
     //TODO: Clean up these conditional using some kind of enum system
@@ -701,24 +728,25 @@ namespace asp {
     bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM);
     if (!using_sgm) {
       if (stereo_settings().cost_mode == 3)
-        vw_throw( ArgumentErr() << "Cannot use the census transform without SGM!\n" );
+        vw_throw(ArgumentErr() << "Cannot use the census transform without SGM!\n" );
       if (stereo_settings().cost_mode == 4)
-        vw_throw( ArgumentErr() << "Cannot use the ternary census transform without SGM!\n" );
+        vw_throw(ArgumentErr() << "Cannot use the ternary census transform without SGM!\n" );
     }
     if (stereo_settings().cost_mode > 4)
-      vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode << " for cost-mode.\n" );
+      vw_throw(ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
+               << " for cost-mode.\n");
 
     if ( using_sgm &&
          (stereo_settings().cost_mode == 3 || stereo_settings().cost_mode == 4) &&
          (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 9) ){
-      vw_throw( ArgumentErr() << "For this kernel size, use --cost-mode 2, 1, or 0, "
-                << "with 2 preferred.\n" );
+      vw_throw(ArgumentErr() << "For this kernel size, use --cost-mode 2, 1, or 0, "
+                << "with 2 preferred.\n");
     }
 
     if (stereo_settings().min_triangulation_angle <= 0 &&
         stereo_settings().min_triangulation_angle != -1) {
       // This means the user modified it. Then it must be positive.
-      vw_throw( ArgumentErr() << "The min triangulation angle must be positive.\n" );
+      vw_throw(ArgumentErr() << "The min triangulation angle must be positive.\n");
     }
     if (stereo_settings().min_triangulation_angle == -1) {
       // This means that the user did not set it. Set it to 0.
@@ -732,9 +760,9 @@ namespace asp {
       if (opt.session->name() != "dg" &&
           opt.session->name() != "rpc" &&
           opt.session->name() != "nadirpinhole")
-        vw_throw( ArgumentErr() << "Bathymetry correction only works with dg, rpc, "
+        vw_throw(ArgumentErr() << "Bathymetry correction only works with dg, rpc, "
                   << "and nadirpinhole sessions. Got: "
-                  << opt.session->name() << ".\n" );
+                  << opt.session->name() << ".\n");
     }
       
     // Camera checks
@@ -759,13 +787,16 @@ namespace asp {
 
       // Developer friendly help
       VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << cam1_ctr << "\n"
-             << "   in estimated Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius_estimate(cam1_ctr) << "\n";
+                                 << "   in estimated Lon Lat Rad: "
+                                 << cartography::xyz_to_lon_lat_radius_estimate(cam1_ctr) << "\n";
       VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << cam2_ctr << "\n"
              << "   in estimated Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius_estimate(cam2_ctr) << "\n";
       VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << cam1_vec << "\n"
-                                 << "      dot against pos: " << dot_prod(cam1_vec, cam1_ctr) << "\n";
+                                 << "      dot against pos: " << dot_prod(cam1_vec, cam1_ctr)
+                                 << "\n";
       VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << cam2_vec << "\n"
-                                 << "      dot against pos: " << dot_prod(cam2_vec, cam2_ctr) << "\n";
+                                 << "      dot against pos: " << dot_prod(cam2_vec, cam2_ctr)
+                                 << "\n";
       vw_out() << "Distance between camera centers in meters: "
 	       << norm_2(cam1_ctr - cam2_ctr) << ".\n";
 	
@@ -814,7 +845,7 @@ namespace asp {
       if (!force_throw)
         vw_out(DebugMessage,"asp") << e.what() << endl;
       else
-        vw_throw( ArgumentErr() << e.what() );
+        vw_throw(ArgumentErr() << e.what() );
     }
   } // End user_safety_checks
 

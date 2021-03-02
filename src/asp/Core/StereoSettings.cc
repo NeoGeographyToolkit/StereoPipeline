@@ -158,6 +158,10 @@ namespace asp {
        "Mask to use for the left image when doing bathymetry.")
       ("right-bathy-mask", po::value(&global.right_bathy_mask),
        "Mask to use for the right image when doing bathymetry.")
+      ("bathy-plane", po::value(&global.bathy_plane),
+       "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0.")
+      ("refraction-index", po::value(&global.refraction_index)->default_value(0),
+       "The index of refraction of water to be used in bathymetry correction.")
       ("skip-rough-homography", po::bool_switch(&global.skip_rough_homography)->default_value(false)->implicit_value(true),
        "Skip the step of performing datum-based rough homography if it fails.")
       ("no-datum", po::bool_switch(&global.no_datum)->default_value(false)->implicit_value(true),

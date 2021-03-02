@@ -606,7 +606,7 @@ void StereoSession::read_bathy_masks(ImageViewRef< PixelMask<float> > const& lef
 }
 
 bool StereoSession::do_bathymetry() const {
-  return (stereo_settings().left_bathy_mask != "" && 
+  return (stereo_settings().left_bathy_mask != "" || 
           stereo_settings().right_bathy_mask != "");
 }
 
