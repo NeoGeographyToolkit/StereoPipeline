@@ -111,6 +111,9 @@ namespace asp {
   /// Set env variables for some of ASP's dependencies
   void set_asp_env_vars();
   
+  /// Read a vector from a file  
+  void read_vec(std::string const& filename, std::vector<double> & vals);
+  
   boost::program_options::variables_map
   check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
                       boost::program_options::options_description const& public_options,

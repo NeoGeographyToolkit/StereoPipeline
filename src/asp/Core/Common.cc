@@ -642,6 +642,18 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
 
 }
 
+// Read a vector from a file
+void asp::read_vec(std::string const& filename, std::vector<double> & vals) {
+  vals.clear();
+  std::ifstream ifs(filename.c_str());
+  if (!ifs.good()) 
+    vw_throw(ArgumentErr() << "Could not open file: " << filename);
+  
+  double val;
+  while (ifs >> val)
+    vals.push_back(val);
+  ifs.close();
+}
 
 void asp::BitChecker::check_argument( vw::uint8 arg ) {
   // Turn on the arg'th bit in m_checksum

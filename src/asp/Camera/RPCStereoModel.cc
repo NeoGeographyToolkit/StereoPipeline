@@ -26,6 +26,8 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPCStereoModel.h>
 
+// TODO(oalexan1): See if to wipe all this code as it is no longer in use.
+
 using namespace vw;
 using namespace std;
 namespace asp {

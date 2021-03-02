@@ -75,7 +75,7 @@ dependencies:
   - libgcc=7.2.0=h69d50b8_2
   - libgcc-ng=9.2.0=h24d8f2e_2
   - libgfortran=3.0.0=1
-  - libgfortran-ng=7.5.0=hdf63c60_6
+  - libgfortran-ng=7.5.0
   - libgomp=9.2.0=h24d8f2e_2
   - libiconv=1.15=h516909a_1006
   - liblapack=3.8.0=11_openblas

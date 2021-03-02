@@ -662,18 +662,6 @@ WVPerColumnCorrectView<ImageT> wv_correct(ImageT const& img,
   return WVPerColumnCorrectView<ImageT>(img, dx, dy);
 }
 
-void read_vec(std::string const& filename, std::vector<double> & vals) {
-  vals.clear();
-  std::ifstream ifs(filename.c_str());
-  if (!ifs.good()) 
-    vw_throw(ArgumentErr() << "Could not open file: " << filename);
-  
-  double val;
-  while (ifs >> val)
-    vals.push_back(val);
-  ifs.close();
-}
-
 int main( int argc, char *argv[] ) {
 
   Options opt;
@@ -809,8 +797,8 @@ int main( int argc, char *argv[] ) {
                   << "Please specify --dx and --dy.");
       }
       
-      read_vec(opt.dx, dx);
-      read_vec(opt.dy, dy);
+      asp::read_vec(opt.dx, dx);
+      asp::read_vec(opt.dy, dy);
       if (has_nodata) 
         corr_img = apply_mask(wv_correct(create_mask(input_img, nodata), dx, dy), nodata);
       else

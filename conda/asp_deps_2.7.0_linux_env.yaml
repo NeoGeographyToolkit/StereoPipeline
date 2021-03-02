@@ -114,7 +114,7 @@ dependencies:
   - libgcc-devel_linux-64=7.5.0=h42c25f5_16
   - libgcc-ng=9.2.0=h24d8f2e_2
   - libgfortran=3.0.0=1
-  - libgfortran-ng=7.5.0=hdf63c60_6
+  - libgfortran-ng=7.5.0
   - libglvnd-cos7-x86_64=1.0.1=h9d98e8f_1104
   - libglvnd-glx-cos7-x86_64=1.0.1=h9d98e8f_1104
   - libgomp=9.2.0=h24d8f2e_2
