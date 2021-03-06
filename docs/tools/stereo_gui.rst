@@ -205,6 +205,8 @@ One can then run::
 and turn on viewing of interest point matches to study if they were
 ``unmapped`` the right locations.
 
+.. _poly:
+
 Polygon editing and contouring
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -227,6 +229,8 @@ This tool can be used to find the polygonal contour at a given image
 threshold (which can be either set or computed from the ``Threshold``
 menu). This option is accessible from the ``Vector Layer`` menu as well,
 with or without the polygon editing mode being on.
+
+.. _thresh:
 
 Image threshold
 ^^^^^^^^^^^^^^^

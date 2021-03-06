@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file stereo_tri.cc
 ///
 
@@ -66,8 +65,8 @@ class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<Disparity
   StereoModelT m_stereo_model;
   bool         m_is_map_projected;
   bool         m_bathy_correct;
-  ImageViewRef<int> m_left_aligned_bathy_mask;
-  ImageViewRef<int> m_right_aligned_bathy_mask;
+  ImageViewRef< PixelMask<float> > m_left_aligned_bathy_mask;
+  ImageViewRef< PixelMask<float> > m_right_aligned_bathy_mask;
 
   typedef typename DisparityImageT::pixel_type DPixelT;
 
@@ -82,8 +81,8 @@ public:
                         vector<TXT>             const& transforms,
                         StereoModelT            const& stereo_model,
                         bool is_map_projected, bool bathy_correct,
-                        ImageViewRef<int> left_aligned_bathy_mask,
-                        ImageViewRef<int> right_aligned_bathy_mask):
+                        ImageViewRef< PixelMask<float> > left_aligned_bathy_mask,
+                        ImageViewRef< PixelMask<float> > right_aligned_bathy_mask):
     m_disparity_maps(disparity_maps),
     m_transforms(transforms),
     m_stereo_model(stereo_model),
@@ -153,10 +152,11 @@ public:
     Vector2 rpix = lpix + stereo::DispHelper(disp);
     Vector2 irpix(round(rpix.x()), round(rpix.y())); // integer version
 
-    do_bathy = (m_left_aligned_bathy_mask(lpix.x(), lpix.y()) > 0 &&
+    // Do bathy only when the mask is invalid (under water)
+    do_bathy = (!is_valid(m_left_aligned_bathy_mask(lpix.x(), lpix.y())) &&
                 0 <= irpix.x() && irpix.x() < m_right_aligned_bathy_mask.cols() &&
                 0 <= irpix.y() && irpix.y() < m_right_aligned_bathy_mask.rows() &&
-                m_right_aligned_bathy_mask(irpix.x(), irpix.y()) > 0);
+                !is_valid(m_right_aligned_bathy_mask(irpix.x(), irpix.y())));
 
     subvector(result, 0, 3) = m_stereo_model(pixVec, errorVec, do_bathy);
     subvector(result, 3, 3) = errorVec;
@@ -263,8 +263,8 @@ stereo_error_triangulate( vector<DisparityT> const& disparities,
                           StereoModelT       const& model,
                           bool is_map_projected,
                           bool bathy_correct,
-                          ImageViewRef<int> left_aligned_bathy_mask,
-                          ImageViewRef<int> right_aligned_bathy_mask) {
+                          ImageViewRef< PixelMask<float> > left_aligned_bathy_mask,
+                          ImageViewRef< PixelMask<float> > right_aligned_bathy_mask) {
 
   typedef StereoTXAndErrorView<DisparityT, StereoModelT> result_type;
   return result_type(disparities, transforms, model, is_map_projected,
@@ -401,7 +401,6 @@ public:
       local_right_transform = make_transform_copy(m_right_transform);
     }
 
-    
     // We will do some averaging
     int KERNEL_SIZE = 1;
     
@@ -1144,7 +1143,9 @@ void stereo_triangulation( string          const& output_prefix,
     vw_out() << "\t--> Generating a 3D point cloud." << endl;
     bool bathy_correct = opt_vec[0].session->do_bathymetry();
 
-    ImageViewRef<int> left_aligned_bathy_mask, right_aligned_bathy_mask;
+    std::cout << "--bathy mode is " << bathy_correct << std::endl;
+    
+    ImageViewRef< PixelMask<float> > left_aligned_bathy_mask, right_aligned_bathy_mask;
     std::vector<double> bathy_plane;
     if (bathy_correct) {
 
@@ -1152,9 +1153,9 @@ void stereo_triangulation( string          const& output_prefix,
         vw_throw(ArgumentErr() << "Bathymetry correction does not work with multiview stereo\n");
 
       asp::read_vec(stereo_settings().bathy_plane, bathy_plane);
-      left_aligned_bathy_mask = DiskImageView<int>(opt_vec[0].session->left_aligned_bathy_mask());
-      right_aligned_bathy_mask = DiskImageView<int>(opt_vec[0].session->right_aligned_bathy_mask());
-
+      opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
+                                                   right_aligned_bathy_mask); 
+      
       if (left_aligned_bathy_mask.cols() != disparity_maps[0].cols() ||
           left_aligned_bathy_mask.rows() != disparity_maps[0].rows() )
         vw_throw( ArgumentErr() << "The dimensions of disparity and left "

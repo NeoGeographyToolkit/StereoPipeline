@@ -190,12 +190,13 @@ namespace asp {
     ImageViewRef< PixelMask<float> > right_masked_image
       = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
-    ImageViewRef< PixelMask<int> > left_bathy_mask, right_bathy_mask;
+    ImageViewRef< PixelMask<float> > left_bathy_mask, right_bathy_mask;
     bool do_bathy = StereoSession::do_bathymetry();
-    int bathy_nodata = 0;
-    if (do_bathy)
+    float left_bathy_nodata = -std::numeric_limits<float>::max();
+    float right_bathy_nodata = -std::numeric_limits<float>::max();
+    if (do_bathy) 
       StereoSession::read_bathy_masks(left_masked_image, right_masked_image,
-                                      bathy_nodata,
+                                      left_bathy_nodata, right_bathy_nodata,
                                       left_bathy_mask, right_bathy_mask);
 
     // Compute input image statistics
@@ -205,7 +206,7 @@ namespace asp {
                                         this->m_out_prefix, right_cropped_file);
 
     ImageViewRef< PixelMask<float> > Limg, Rimg;
-    ImageViewRef< PixelMask<int> >   left_aligned_bathy_mask, right_aligned_bathy_mask;
+    ImageViewRef< PixelMask<float> > left_aligned_bathy_mask, right_aligned_bathy_mask;
 
     // Image alignment block - Generate aligned versions of the input
     // images according to the options.
@@ -222,12 +223,12 @@ namespace asp {
       DiskImageView<float> left_orig_image(left_input_file);
       boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
       this->camera_models(left_cam, right_cam);
-      this->ip_matching(left_cropped_file,   right_cropped_file,
+      this->ip_matching(left_cropped_file, right_cropped_file,
                         bounding_box(left_orig_image).size(),
                         left_stats, right_stats,
                         stereo_settings().ip_per_tile,
                         left_nodata_value, right_nodata_value,
-                        left_cam.get(),    right_cam.get(),
+                        left_cam.get(), right_cam.get(),
                         match_filename, left_ip_filename, right_ip_filename);
 
       // Load the interest points results from the file we just wrote.
@@ -299,6 +300,7 @@ namespace asp {
 
     // The output no-data value must be < 0 as we scale the images to [0, 1].
     bool has_nodata = true;
+    bool has_bathy_nodata = true;
     float output_nodata = -32768.0;
 
     std::string left_aligned_bathy_mask_file = StereoSession::left_aligned_bathy_mask();
@@ -314,9 +316,9 @@ namespace asp {
     if (do_bathy) {
       vw_out() << "\t--> Writing: " << left_aligned_bathy_mask_file << ".\n";
       block_write_gdal_image(left_aligned_bathy_mask_file,
-                             apply_mask(left_aligned_bathy_mask, bathy_nodata),
+                             apply_mask(left_aligned_bathy_mask, left_bathy_nodata),
                              has_left_georef, left_georef,
-                             has_nodata, bathy_nodata, options,
+                             has_bathy_nodata, left_bathy_nodata, options,
                              TerminalProgressCallback("asp","\t  L mask:  ") );
     }
     
@@ -329,9 +331,9 @@ namespace asp {
       if (do_bathy) {
             vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
             block_write_gdal_image(right_aligned_bathy_mask_file,
-                                   apply_mask(right_aligned_bathy_mask, bathy_nodata),
+                                   apply_mask(right_aligned_bathy_mask, right_bathy_nodata),
                                    has_right_georef, right_georef,
-                                   has_nodata, bathy_nodata, options,
+                                   has_bathy_nodata, right_bathy_nodata, options,
                                    TerminalProgressCallback("asp","\t  R mask:  ") );
       }
       
@@ -350,9 +352,9 @@ namespace asp {
         block_write_gdal_image(right_aligned_bathy_mask_file,
                                apply_mask(crop(edge_extend(right_aligned_bathy_mask,
                                                            ConstantEdgeExtension()),
-                                               bounding_box(Limg)), bathy_nodata),
+                                               bounding_box(Limg)), right_bathy_nodata),
                                has_right_georef, right_georef,
-                               has_nodata, bathy_nodata, options,
+                               has_bathy_nodata, right_bathy_nodata, options,
                                TerminalProgressCallback("asp","\t  R mask:  ") );
       }
     }

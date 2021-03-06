@@ -256,7 +256,7 @@ In the Stereo Pipeline Tutorial in :numref:`moc_tutorial`, we showed
 you how to process a narrow angle MOC stereo pair that covered a
 portion of Hrad Vallis. In this section we will show you more
 examples, some of which exhibit a problem common to stereo pairs from
-linescan imagers: “spacecraft jitter” is caused by oscillations of
+linescan imagers: ``spacecraft jitter`` is caused by oscillations of
 the spacecraft due to the movement of other spacecraft hardware. All
 spacecraft wobble around to some degree but some are particularly
 susceptible.
@@ -277,7 +277,7 @@ Ceraunius Tholus
 ~~~~~~~~~~~~~~~~
 
 Ceraunius Tholus is a volcano in northern Tharsis on Mars. It can be
-found at 23.96 N and 262.60 E. This DEM crosses the volcano’s caldera.
+found at 23.96 N and 262.60 E. This DEM crosses the volcano's caldera.
 
 .. figure:: images/examples/mocna/ceraunius_tholus_mocna_ge_combined.png
    :name: mocna_ceraunius_example
@@ -2281,3 +2281,182 @@ which the random initial parameter values are chosen from. Note that
 ``--num-passes`` is intended to filter out bad interest points while
 ``--num-random-passes`` tries out multiple random starting seeds to see
 which one leads to the result with the lowest error.
+
+Shallow-water bathymetry
+------------------------
+
+ASP supports creation of terrain models where parts of the terrain are
+under water. Assuming that the water is shallow, still, clear, with
+sufficient texture to match at the water bottom between the left and
+right images, the rays emanating from the cameras and converging
+at those features will be bent according to Snell's law at the water
+interface, hence determining correctly the position of underwater
+terrain. 
+
+ASP supports this shallow-water bathymetry only with the ``dg``,
+``rpc``, and ``nadirpinhole`` sessions, so with Digital Globe linescan
+cameras, RPC cameras, or pinhole cameras, all for Earth. Both raw and
+mapprojected images can be used, with or without bundle adjustment.
+
+Physics considerations
+~~~~~~~~~~~~~~~~~~~~~~
+
+Shallow water does not appear equally transparent at all wavelengths,
+which will affect the quality of the results. While the process we
+outline below will work, in principle, with any data, we will focus on
+stereo with the G band (green, stored at band 3) of Digital Globe
+multispectral imagery, and we will use the N band (near-infrared 1,
+stored at band 7), to determine a mask of the ground vs water.
+
+These or any other bands can be extracted from a multi-band image as follows:
+
+::
+     
+     b=3
+     gdal_translate -b ${b} -co compress=lzw -co TILED=yes \
+       -co BLOCKXSIZE=256 -co BLOCKYSIZE=256               \
+       input.TIF input_b${b}.tif
+
+The extra options, in addition to ``-b ${b}`` to extract a given band,
+are needed to create a compressed and tiled output image, which helps
+with the performance of ASP later.
+
+.. _water_surface:
+
+Determination of the water surface
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The first requirement towards solving this problem is to find the water surface.
+Here we assume that the Earth curvature is not important, and that the water
+surface will be a plane, whose equation we will compute in the ECEF coordinate system.
+
+This plane need not be perfectly horizontal from a ground perspective, due to slight
+orientation errors in the input camera models. The plane will be found by first creating
+a DEM and orthoimage from the input data, for example as follows:
+
+::
+
+     stereo left.tif right.tif left.xml right.xml -t dg run/run
+     point2dem --orthoimage run/run-PC.tif run/run-L.tif
+
+Here, the two input images can be, for example, a single band
+extracted from Digital Globe multispectral images, such as band
+7. (Note that all these bands have the same XML camera model.)
+
+Then, few vertices on the water-ground boundary can be picked in the
+ortho image ``run/run-DRG.tif`` and saved as an ``Esri shapefile,``
+for example, named ``shoreline.shp``.  This can be accomplished in any
+GIS tool, for example, in QGIS. The ASP ``stereo_gui`` program can be
+used as well, as described in :numref:`poly`.
+
+It is very important to pick such vertices, say about 15-25 of them
+(the more the better), over the full extent of the area of interest,
+or else the plane may not be accurate. It is not important for the
+obtained polygonal shape to be "pretty", or if the edges cross land or
+go in deep water, as only the locations of the vertices will be
+considered.
+
+.. figure:: images/examples/bathy/water_outline.png
+   :name: bathy_water_plane_example
+
+   Example of a shapefile whose vertices are at the water-land boundary.
+
+Then, the ``bathy_plane_calc`` ASP program will be invoked, which will
+fit a plane through the points obtained by sampling the DEM at the
+vertices of the shapefile, while using outlier removal, as follows:
+
+::
+
+     bathy_plane_calc --shapefile shoreline.shp --dem run/run-DEM.tif \
+       --outlier-threshold 0.1 --bathy-plane bathy_plane.txt
+
+This will produce the following output:
+
+::
+
+     Found 17 / 32 inliers.
+     Max distance to the plane (meters): 2.60551
+     Max inlier distance to the plane (meters): 0.0986373
+     Writing: bathy_plane.txt
+
+and will save to disk the file ``bathy_plane.txt`` which has four
+values, giving the equation of the plane ``ax + by + cz + d = 0.`` Note
+the messages about how many of the points picked by the user were kept
+as inliers and the distance from those points to the plane, which
+ideally should be zero. (The value ``d`` in that file should be about
+the Earth radius, as we use ECEF coordinates.)
+
+Above we assume that the DEM and DRG files are created together with
+``point2dem`` and are one-to-one, or else the results will be
+inaccurate.
+
+The manual page for this tool showing the full list of options is in 
+:numref:`bathy_plane_calc`.
+
+Determination of the above-water pixels
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In order to distinguish points on land from those under the water, a
+mask needs to be computed for each of the left and right input images,
+with the masks having the same dimensions as those images.
+
+The convention we will use is that each mask image will have a no-data
+value as part of its metadata, and any pixels in that mask that are
+above the no-data value are considered to be over land.
+
+If a threshold can be determined so that pixels over land have values
+above the threshold and those in the water are at or below the
+threshold, such a mask can be computed as follows:
+
+::
+    
+    thresh=0.5 
+    image_calc -c "max($thresh, var_0)" --output-nodata-value $thresh \
+      left.tif -o left_mask.tif
+
+and analogously for the right image. 
+
+Later, when doing stereo, if, based on the masks, a pixel in the left
+image is under water, while the corresponding pixel in the right image
+is not, for noise or other reasons, that pixel pair will be declared
+to be on land and hence no correction will take place. Hence some
+inspection and potentially cleanup of the masks may be necessary.
+
+It was experimentally found that it is best to use band 7 for Digital
+Globe multispectral images to find the water threshold, as in them the
+water appears universally darker than the land. 
+
+A simple way of finding the desired threshold in an image is pick
+some sample pixels in ``stereo_gui``.  How to do this is described in
+:numref:`thresh`.
+
+In the future a tool for finding the threshold in automated way based
+on histogram analysis will be provided. The ``stereo_gui`` tool can be
+used with this threshold to highlight the regions at or below
+threshold, as described in the section mentioned earlier.
+
+A tool will also be provided to create a mask only in a region
+delimited by a given shapefile, if desired to do bathymetry with a
+precisely selected area.
+
+Stereo with bathymetry correction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Having these in place, stereo can then happen as follows:
+
+::
+
+    stereo left.tif right.tif left.xml right.xml                      \
+    --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
+    --refraction-index 1.333 --bathy-plane bathy_plane.txt            \
+    run_bathy/run 
+    
+    point2dem run_bathy/run-PC.tif --orthoimage run_bathy/run-L.tif 
+
+Note that we specified the two masks, the water index of refraction,
+and the water plane found before. 
+
+As in usual invocations of stereo, the input images may be
+map-projected, and then a DEM is expected, stero may happen only in
+certain regions as chosen in the GUI, bundle adjustment may be used,
+the output point cloud may be converted to LAS, etc.

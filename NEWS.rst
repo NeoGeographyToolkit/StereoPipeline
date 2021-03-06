@@ -1,5 +1,11 @@
 RELEASE 2.8.0, upcoming!
 
+New functionality:
+
+  * Added support for shallow-water bathymetry, so creation of terrain models
+    with correct depth determination for well-resolved areas under
+    shallow water. To be used with dg, rpc, and nadirpinhole cameras.
+
 parallel_stereo
 
   * Will now throw an error if --threads is passed in, whose behavior

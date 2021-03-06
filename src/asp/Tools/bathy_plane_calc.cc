@@ -158,6 +158,13 @@ struct BestFitPlaneFunctor {
         
       result(0, 3) = -normal.dot(centroid);
 
+      // Make the normal always point "up", away from the origin,
+      // which means that the free term must be negative
+      if (result(0, 3) > 0) {
+        for (int col = 0; col < 4; col++) 
+          result(0, col) *= -1.0;
+      }
+      
       return result;
     }
 };
@@ -188,9 +195,9 @@ struct BestFitPlaneErrorMetric {
 
 struct Options : vw::cartography::GdalWriteOptions {
   std::string shapefile, dem, bathy_plane;
-  double water_surface_outlier_threshold;
+  double outlier_threshold;
   int num_ransac_iterations;
-  Options():water_surface_outlier_threshold(2.0), num_ransac_iterations(1000) {}
+  Options(): outlier_threshold(2.0), num_ransac_iterations(1000) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -198,19 +205,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("General Options");
   general_options.add_options()
     ("shapefile",   po::value(&opt.shapefile),
-     "Specify the shapefile enclosing the region in which to do bathymetry.")
+     "The shapefile with vertices whose coordinates will be looked up in the DEM.")
     ("dem",   po::value(&opt.dem),
-     "Specify the dem to correct.")
+     "The DEM to use.")
     ("bathy-plane",   po::value(&opt.bathy_plane),
-     "The output file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0.")
-    ("water-surface-outlier-threshold",
-     po::value(&opt.water_surface_outlier_threshold)->default_value(0.2),
-     "A value, in meters, to determine the distance from a water edge sample point to the "
-     "best-fit water surface plane to determine if it will be marked as outlier and not "
+     "The output file storing the computed plane as four coefficients a, b, c, d, "
+     "with the plane being a*x + b*y + c*z + d = 0.")
+    ("outlier-threshold",
+     po::value(&opt.outlier_threshold)->default_value(0.2),
+     "A value, in meters, to determine the distance from a sampled point on the DEM to the "
+     "best-fit plane to determine if it will be marked as outlier and not "
      "included in the calculation of that plane.")
     ("num-ransac-iterations", 
      po::value(&opt.num_ransac_iterations)->default_value(1000),
-     "Number of RANSAC iterations to use to find the plane fitting best the water surface.");
+     "Number of RANSAC iterations to use to find the best-fitting plane.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -270,7 +278,6 @@ int main( int argc, char *argv[] ) {
       = interpolate(create_mask(dem, dem_nodata_val),
                     BilinearInterpolation(), ConstantEdgeExtension());
 
-
     // Find the ECEF coordinates of the shape corners
     std::vector<Eigen::Vector3d> xyz_vec;
     find_xyz_at_shape_corners(polyVec,shape_georef, dem_georef, interp_dem, xyz_vec);
@@ -278,7 +285,7 @@ int main( int argc, char *argv[] ) {
     // Compute the water surface using RANSAC
     std::vector<Eigen::Vector3d> dummy_vec(xyz_vec.size()); // Required by the interface
     std::vector<size_t> inlier_indices;
-    double inlier_threshold = opt.water_surface_outlier_threshold;
+    double inlier_threshold = opt.outlier_threshold;
     int    min_num_output_inliers = std::max(xyz_vec.size()/2, size_t(3));
     bool   reduce_min_num_output_inliers_if_no_fit = true;
     vw::Matrix<double> H;
@@ -289,13 +296,14 @@ int main( int argc, char *argv[] ) {
                min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
     
       H = ransac(xyz_vec, dummy_vec);
+      
       inlier_indices = ransac.inlier_indices(H, xyz_vec, dummy_vec);
     } catch (const vw::math::RANSACErr& e ) {
       vw_out() << "RANSAC Failed: " << e.what() << "\n";
     }
     vw_out() << "Found " << inlier_indices.size() << " / " << xyz_vec.size() << " inliers.\n";
     
-    std::cout << "Final matrix is " << H << std::endl;
+    //std::cout << "Final matrix is " << H << std::endl;
     double max_error = - 1.0, max_inlier_error = -1.0;
     for (size_t it = 0; it < xyz_vec.size(); it++) 
       max_error = std::max(max_error, dist_to_plane(H, xyz_vec[it]));
@@ -303,8 +311,8 @@ int main( int argc, char *argv[] ) {
     for (size_t it = 0; it < inlier_indices.size(); it++) 
       max_inlier_error = std::max(max_inlier_error, dist_to_plane(H, xyz_vec[inlier_indices[it]]));
 
-    std::cout << "Max plane error: " << max_error << std::endl;
-    std::cout << "Max inlier error: " << max_inlier_error << std::endl;
+    std::cout << "Max distance to the plane (meters): " << max_error << std::endl;
+    std::cout << "Max inlier distance to the plane (meters): " << max_inlier_error << std::endl;
 
     std::cout << "Writing: " << opt.bathy_plane << std::endl;
     std::ofstream bp(opt.bathy_plane.c_str());

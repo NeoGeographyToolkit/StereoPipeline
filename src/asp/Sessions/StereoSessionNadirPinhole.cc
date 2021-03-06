@@ -35,9 +35,8 @@ using namespace vw;
 using namespace asp;
 using namespace vw::camera;
 
-//TODO: There is a lot of duplicate code here with the Pinhole
-//class. Common functionality must be factored out.
-
+// TODO: There is a lot of duplicate code here with the Pinhole
+// class. Common functionality must be factored out.
 
 void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
                                                             std::string const& left_input_file,
@@ -75,24 +74,25 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   Vector6f right_stats = gather_stats(right_masked_image, "right",
                                       this->m_out_prefix, right_cropped_file);
 
-  ImageViewRef< PixelMask<int> > left_bathy_mask, right_bathy_mask;
+  ImageViewRef< PixelMask<float> > left_bathy_mask, right_bathy_mask;
   bool do_bathy = StereoSession::do_bathymetry();
-  int bathy_nodata = 0;
-  if (do_bathy)
+  float left_bathy_nodata = -std::numeric_limits<float>::max();
+  float right_bathy_nodata = -std::numeric_limits<float>::max();
+  if (do_bathy) 
     StereoSession::read_bathy_masks(left_masked_image, right_masked_image,
-                                    bathy_nodata,
+                                    left_bathy_nodata, right_bathy_nodata,
                                     left_bathy_mask, right_bathy_mask);
   
   ImageViewRef< PixelMask<float> > Limg, Rimg;
-  ImageViewRef< PixelMask<int> >   left_aligned_bathy_mask, right_aligned_bathy_mask;
+  ImageViewRef< PixelMask<float> > left_aligned_bathy_mask, right_aligned_bathy_mask;
 
   // Use no-data in interpolation and edge extension.
   PixelMask<float> nodata_pix(0); nodata_pix.invalidate();
-  PixelMask<int> bathy_nodata_pix(bathy_nodata); bathy_nodata_pix.invalidate();
+  PixelMask<float> bathy_nodata_pix(0); bathy_nodata_pix.invalidate();
   
   ValueEdgeExtension< PixelMask<float> > ext_nodata(nodata_pix); 
-  ValueEdgeExtension< PixelMask<int> > bathy_ext_nodata(bathy_nodata_pix); 
-
+  ValueEdgeExtension< PixelMask<float> > bathy_ext_nodata(bathy_nodata_pix); 
+  
   if ( stereo_settings().alignment_method == "epipolar" ) {
 
     if (do_bathy) {
@@ -118,7 +118,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
       // This loads epipolar-aligned camera models.
       // - The out sizes incorporate the crop amount if any, the camera models 
       Vector2i left_out_size, right_out_size;
-      load_camera_models( left_cam, right_cam, left_out_size, right_out_size );
+      load_camera_models(left_cam, right_cam, left_out_size, right_out_size);
       
       // Write out the camera models used to generate the aligned images.
       // - Currently this won't work if we used .adjust files from bundle_adjust!
@@ -166,12 +166,12 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                                       Limg, Rimg, ext_nodata);
 
       if (do_bathy)
-      get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
-                                      left_cam, right_cam,
-                                      left_bathy_mask, right_bathy_mask,
-                                      left_aligned_bathy_mask,
-                                      right_aligned_bathy_mask,
-                                      bathy_ext_nodata);
+        get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
+                                        left_cam, right_cam,
+                                        left_bathy_mask, right_bathy_mask,
+                                        left_aligned_bathy_mask,
+                                        right_aligned_bathy_mask,
+                                        bathy_ext_nodata);
     }
 
   } else if ( stereo_settings().alignment_method == "homography" ||
@@ -190,7 +190,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     DiskImageView<float> left_orig_image(left_input_file);
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     camera_models(left_cam, right_cam);
-    this->ip_matching(left_cropped_file,   right_cropped_file,
+    this->ip_matching(left_cropped_file, right_cropped_file,
                       bounding_box(left_orig_image).size(),
                       left_stats, right_stats,
                       stereo_settings().ip_per_tile,
@@ -223,8 +223,8 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     }
     write_matrix(m_out_prefix + "-align-L.exr", align_left_matrix );
     write_matrix(m_out_prefix + "-align-R.exr", align_right_matrix);
-    right_size = left_size; // Because the images are now aligned
-                            // .. they are the same size.
+    // Because the images are now aligned they are the same size
+    right_size = left_size;
 
     // Applying alignment transform
     Limg = transform(left_masked_image,
@@ -261,8 +261,9 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                    left_stats, right_stats, Limg, Rimg);
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
-  bool  has_nodata    = true;
-  float output_nodata = -32768.0;
+  bool  has_nodata        = true;
+  bool  has_bathy_nodata  = true;
+  float output_nodata     = -32768.0;
 
   vw_out() << "\t--> Writing pre-aligned images.\n";
 
@@ -275,9 +276,10 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   if (do_bathy) {
     std::string left_aligned_bathy_mask_file = StereoSession::left_aligned_bathy_mask();
     vw_out() << "\t--> Writing: " << left_aligned_bathy_mask_file << ".\n";
-    block_write_gdal_image(left_output_file, apply_mask(left_aligned_bathy_mask, bathy_nodata),
+    block_write_gdal_image(left_aligned_bathy_mask_file, apply_mask(left_aligned_bathy_mask,
+                                                                    left_bathy_nodata),
                            has_left_georef, left_georef,
-                           has_nodata, bathy_nodata,
+                           has_bathy_nodata, left_bathy_nodata,
                            options,
                            TerminalProgressCallback("asp","\t  L mask:  ") );
   }
@@ -297,9 +299,9 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     block_write_gdal_image(right_aligned_bathy_mask_file,
                            // Force -R.tif to be the same size as -L.tif?
                            apply_mask(crop(edge_extend(right_aligned_bathy_mask, bathy_ext_nodata), 
-                                           bounding_box(Limg)), bathy_nodata),
+                                           bounding_box(Limg)), right_bathy_nodata),
                            has_right_georef, right_georef,
-                           has_nodata, bathy_nodata,
+                           has_bathy_nodata, right_bathy_nodata,
                            options,
                            TerminalProgressCallback("asp","\t  R mask:  ") );
   }

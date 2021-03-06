@@ -528,11 +528,13 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
     }
   } // End check for existing output files
 
+  bool do_bathy = StereoSession::do_bathymetry();
+  
   // See if to crop the images
   if (crop_left) {
     // Crop the image, will use them from now on. Crop the georef as well, if available.
     left_cropped_file = this->m_out_prefix + "-L-cropped.tif";
-
+    
     has_left_georef = read_georeference(left_georef, left_input_file);
     bool has_nodata = true;
 
@@ -547,7 +549,34 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
                            has_nodata, left_nodata_value,
                            options,
                            TerminalProgressCallback("asp", "\t:  "));
+
+    if (do_bathy) {
+      std::string left_bathy_mask_file = stereo_settings().left_bathy_mask;
+      if (left_bathy_mask_file == "") 
+        vw_throw( ArgumentErr() << "The left bathy mask file was not specified.");
+
+      DiskImageView<float> left_bathy_mask(left_bathy_mask_file);
+      if (left_bathy_mask.cols() != left_orig_image.cols() ||
+          left_bathy_mask.rows() != left_orig_image.rows()) 
+        vw_throw(ArgumentErr() << "The left image and left bathy "
+                 << "mask don't have the same dimensions.");
+      
+      float left_mask_nodata_value = -std::numeric_limits<float>::max();
+      if (!vw::read_nodata_val(left_bathy_mask_file, left_mask_nodata_value))
+        vw_throw(ArgumentErr() << "Unable to read the nodata value from " << left_bathy_mask_file);
+      
+      bool has_mask_nodata = true;
+      std::string left_cropped_mask_file = left_cropped_bathy_mask();
+      vw_out() << "\t--> Writing cropped image: " << left_cropped_mask_file << "\n";
+      block_write_gdal_image(left_cropped_mask_file,
+                             crop(left_bathy_mask, left_win),
+                             has_left_georef, crop(left_georef, left_win),
+                             has_mask_nodata, left_mask_nodata_value,
+                             options,
+                             TerminalProgressCallback("asp", "\t:  "));
+    }
   }
+  
   if (crop_right) {
     // Crop the image, will use them from now on. Crop the georef as well, if available.
     right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
@@ -567,8 +596,33 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
                            has_nodata, right_nodata_value,
                            options,
                            TerminalProgressCallback("asp", "\t:  "));
-  }
 
+    if (do_bathy) {
+      std::string right_bathy_mask_file = stereo_settings().right_bathy_mask;
+      if (right_bathy_mask_file == "") 
+        vw_throw( ArgumentErr() << "The right bathy mask file was not specified.");
+
+      DiskImageView<float> right_bathy_mask(right_bathy_mask_file);
+      if (right_bathy_mask.cols() != right_orig_image.cols() ||
+          right_bathy_mask.rows() != right_orig_image.rows()) 
+        vw_throw(ArgumentErr() << "The right image and right bathy "
+                 << "mask don't have the same dimensions.");
+      
+      float right_mask_nodata_value = -std::numeric_limits<float>::max();
+      if (!vw::read_nodata_val(right_bathy_mask_file, right_mask_nodata_value))
+        vw_throw(ArgumentErr() << "Unable to read the nodata value from " << right_bathy_mask_file);
+      
+      bool has_mask_nodata = true;
+      std::string right_cropped_mask_file = right_cropped_bathy_mask();
+      vw_out() << "\t--> Writing cropped image: " << right_cropped_mask_file << "\n";
+      block_write_gdal_image(right_cropped_mask_file,
+                             crop(right_bathy_mask, right_win),
+                             has_right_georef, crop(right_georef, right_win),
+                             has_mask_nodata, right_mask_nodata_value,
+                             options,
+                             TerminalProgressCallback("asp", "\t:  "));
+    }
+  }
 
   // Re-read the georef, since it changed above.
   has_left_georef  = read_georeference(left_georef,  left_cropped_file);
@@ -584,17 +638,27 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
 
 void StereoSession::read_bathy_masks(ImageViewRef< PixelMask<float> > const& left_masked_image,
                                      ImageViewRef< PixelMask<float> > const& right_masked_image,
-                                     int bathy_nodata,
-                                     ImageViewRef< PixelMask<int> > & left_bathy_mask,
-                                     ImageViewRef< PixelMask<int> > & right_bathy_mask) {
+                                     float & left_bathy_nodata, 
+                                     float & right_bathy_nodata, 
+                                     vw::ImageViewRef< vw::PixelMask<float> > & left_bathy_mask,
+                                     vw::ImageViewRef< vw::PixelMask<float> > & right_bathy_mask) {
 
-  left_bathy_mask = create_mask(DiskImageView<int>(stereo_settings().left_bathy_mask),
-                                bathy_nodata);
-  right_bathy_mask = create_mask(DiskImageView<int>(stereo_settings().right_bathy_mask),
-                                 bathy_nodata);
+  std::string left_cropped_mask_file = left_cropped_bathy_mask();
+  left_bathy_nodata = -std::numeric_limits<float>::max();
+  if (!vw::read_nodata_val(left_cropped_mask_file, left_bathy_nodata))
+    vw_throw(ArgumentErr() << "Unable to read the nodata value from " << left_cropped_mask_file);
+  left_bathy_mask = create_mask(DiskImageView<float>(left_cropped_mask_file),
+                                left_bathy_nodata);
+
+  std::string right_cropped_mask_file = right_cropped_bathy_mask();
+  right_bathy_nodata = -std::numeric_limits<float>::max();
+  if (!vw::read_nodata_val(right_cropped_mask_file, right_bathy_nodata))
+    vw_throw(ArgumentErr() << "Unable to read the nodata value from " << right_cropped_mask_file);
+  right_bathy_mask = create_mask(DiskImageView<float>(right_cropped_mask_file),
+                                right_bathy_nodata);
   
   // The left image (after crop) better needs to have the same dims
-  // as the left bathy mask, and same on the right
+  // as the left mask after crop, and same for the right
   if (left_bathy_mask.cols() != left_masked_image.cols()   || 
       left_bathy_mask.rows() != left_masked_image.rows()   || 
       right_bathy_mask.cols() != right_masked_image.cols() || 
@@ -605,9 +669,52 @@ void StereoSession::read_bathy_masks(ImageViewRef< PixelMask<float> > const& lef
   
 }
 
+void StereoSession::read_aligned_bathy_masks
+(vw::ImageViewRef< vw::PixelMask<float> > & left_aligned_bathy_mask_image,
+ vw::ImageViewRef< vw::PixelMask<float> > & right_aligned_bathy_mask_image) {
+
+  std::string left_aligned_mask_file = left_aligned_bathy_mask();
+  float left_bathy_nodata = -std::numeric_limits<float>::max();
+  if (!vw::read_nodata_val(left_aligned_mask_file, left_bathy_nodata))
+    vw_throw(ArgumentErr() << "Unable to read the nodata value from " << left_aligned_mask_file);
+  left_aligned_bathy_mask_image = create_mask(DiskImageView<float>(left_aligned_mask_file),
+                                              left_bathy_nodata);
+  
+  std::string right_aligned_mask_file = right_aligned_bathy_mask();
+  float right_bathy_nodata = -std::numeric_limits<float>::max();
+  if (!vw::read_nodata_val(right_aligned_mask_file, right_bathy_nodata))
+    vw_throw(ArgumentErr() << "Unable to read the nodata value from " << right_aligned_mask_file);
+  right_aligned_bathy_mask_image = create_mask(DiskImageView<float>(right_aligned_mask_file),
+                                right_bathy_nodata);
+}
+
 bool StereoSession::do_bathymetry() const {
   return (stereo_settings().left_bathy_mask != "" || 
           stereo_settings().right_bathy_mask != "");
+}
+
+std::string StereoSession::left_cropped_bathy_mask() const {
+  if (!do_bathymetry()) 
+    vw_throw( ArgumentErr() << "The left cropped bathy mask is requested when "
+              << "bathymetry mode is not on." );
+
+  bool crop_left = (stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0));
+  if (!crop_left) 
+    return stereo_settings().left_bathy_mask;
+
+  return this->m_out_prefix + "-L_cropped_bathy_mask.tif";
+}
+  
+std::string StereoSession::right_cropped_bathy_mask() const {
+  if (!do_bathymetry()) 
+    vw_throw( ArgumentErr() << "The right cropped bathy mask is requested when "
+              << "bathymetry mode is not on." );
+
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  if (!crop_right) 
+    return stereo_settings().right_bathy_mask;
+
+  return this->m_out_prefix + "-R_cropped_bathy_mask.tif";
 }
 
 std::string StereoSession::left_aligned_bathy_mask() const {
@@ -618,7 +725,8 @@ std::string StereoSession::right_aligned_bathy_mask() const {
   return m_out_prefix + "-R_aligned_bathy_mask.tif";
 }
 
-void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop, vw::BBox2i &right_image_crop) const {
+void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop,
+                                          vw::BBox2i &right_image_crop) const {
 
   // Set the ROIs to the entire image if the input crop windows are not set.
   Vector2i left_size  = file_image_size(m_left_image_file );
@@ -665,14 +773,14 @@ getTransformFromMapProject(const std::string &input_dem_path,
 
 // Return the left and right map-projected images. These are the same
 // as the input images unless it is desired to use cropped images.
-inline std::string left_mapproj(std::string const& left_image,
+inline std::string left_cropped_image(std::string const& left_image,
                                 std::string const& out_prefix){
-  if ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)){
+  if ( stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0)){
     return out_prefix + "-L-cropped.tif";
   }
   return left_image;
 }
-inline std::string right_mapproj(std::string const& right_image,
+inline std::string right_cropped_image(std::string const& right_image,
                                       std::string const& out_prefix){
   if ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ){
     return out_prefix + "-R-cropped.tif";
@@ -710,16 +818,18 @@ StereoSession::tx_identity() const {
 
 typename StereoSession::tx_type
 StereoSession::tx_left_map_trans() const {
-  std::string left_map_proj_image = left_mapproj(m_left_image_file, m_out_prefix);
+  std::string left_map_proj_image = left_cropped_image(m_left_image_file, m_out_prefix);
   if (!m_left_map_proj_model)
-    vw_throw( ArgumentErr() << "Map projection model not loaded for image " << left_map_proj_image);
+    vw_throw( ArgumentErr() << "Map projection model not loaded for image "
+              << left_map_proj_image);
   return getTransformFromMapProject(m_input_dem, left_map_proj_image, m_left_map_proj_model);
 }
 typename StereoSession::tx_type
 StereoSession::tx_right_map_trans() const {
-  std::string right_map_proj_image = right_mapproj(m_right_image_file, m_out_prefix);
+  std::string right_map_proj_image = right_cropped_image(m_right_image_file, m_out_prefix);
   if (!m_right_map_proj_model)
-    vw_throw( ArgumentErr() << "Map projection model not loaded for image " << right_map_proj_image);
+    vw_throw( ArgumentErr() << "Map projection model not loaded for image "
+              << right_map_proj_image);
   return getTransformFromMapProject(m_input_dem, right_map_proj_image, m_right_map_proj_model);
 }
 

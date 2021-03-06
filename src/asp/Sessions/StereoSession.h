@@ -213,7 +213,11 @@ namespace asp {
 
     std::string left_aligned_bathy_mask() const;
     std::string right_aligned_bathy_mask() const;
-  
+
+    void read_aligned_bathy_masks
+    (vw::ImageViewRef< vw::PixelMask<float> > & left_aligned_bathy_mask_image,
+     vw::ImageViewRef< vw::PixelMask<float> > & right_aligned_bathy_mask_image);
+    
   protected: // Variables
 
     vw::cartography::GdalWriteOptions m_options;
@@ -275,9 +279,14 @@ namespace asp {
     
     void read_bathy_masks(vw::ImageViewRef< vw::PixelMask<float> > const& left_masked_image,
                           vw::ImageViewRef< vw::PixelMask<float> > const& right_masked_image,
-                          int bathy_nodata,
-                          vw::ImageViewRef< vw::PixelMask<int> > & left_bathy_mask,
-                          vw::ImageViewRef< vw::PixelMask<int> > & right_bathy_mask); 
+                          float & left_bathy_nodata, 
+                          float & right_bathy_nodata, 
+                          vw::ImageViewRef< vw::PixelMask<float> > & left_bathy_mask,
+                          vw::ImageViewRef< vw::PixelMask<float> > & right_bathy_mask);
+
+    std::string left_cropped_bathy_mask() const;
+    std::string right_cropped_bathy_mask() const;
+    
   };
 
 // ===========================================================================
