@@ -1143,8 +1143,6 @@ void stereo_triangulation( string          const& output_prefix,
     vw_out() << "\t--> Generating a 3D point cloud." << endl;
     bool bathy_correct = opt_vec[0].session->do_bathymetry();
 
-    std::cout << "--bathy mode is " << bathy_correct << std::endl;
-    
     ImageViewRef< PixelMask<float> > left_aligned_bathy_mask, right_aligned_bathy_mask;
     std::vector<double> bathy_plane;
     if (bathy_correct) {

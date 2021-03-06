@@ -2293,10 +2293,10 @@ at those features will be bent according to Snell's law at the water
 interface, hence determining correctly the position of underwater
 terrain. 
 
-ASP supports this shallow-water bathymetry only with the ``dg``,
-``rpc``, and ``nadirpinhole`` sessions, so with Digital Globe linescan
-cameras, RPC cameras, or pinhole cameras, all for Earth. Both raw and
-mapprojected images can be used, with or without bundle adjustment.
+ASP supports this mode only with the ``dg``, ``rpc``, and
+``nadirpinhole`` sessions, so with Digital Globe linescan cameras, RPC
+cameras, and pinhole cameras, all for Earth. Both raw and mapprojected
+images can be used, with or without bundle adjustment.
 
 Physics considerations
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -2326,13 +2326,16 @@ with the performance of ASP later.
 Determination of the water surface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The first requirement towards solving this problem is to find the water surface.
-Here we assume that the Earth curvature is not important, and that the water
-surface will be a plane, whose equation we will compute in the ECEF coordinate system.
+The first requirement towards solving this problem is to find the
+water surface.  Here we assume that the Earth curvature is not
+important, and that the water surface will be a plane, whose equation
+we will compute in the ECEF coordinate system.  (This assumption is to
+be revisited shortly.)
 
-This plane need not be perfectly horizontal from a ground perspective, due to slight
-orientation errors in the input camera models. The plane will be found by first creating
-a DEM and orthoimage from the input data, for example as follows:
+The water plane need not be perfectly horizontal from a ground
+perspective, due to slight orientation errors in the input camera
+models. The plane will be found by first creating a DEM and orthoimage
+from the input data, for example as follows:
 
 ::
 
@@ -2343,13 +2346,13 @@ Here, the two input images can be, for example, a single band
 extracted from Digital Globe multispectral images, such as band
 7. (Note that all these bands have the same XML camera model.)
 
-Then, few vertices on the water-ground boundary can be picked in the
+Then, vertices on the water-ground boundary can be picked in the
 ortho image ``run/run-DRG.tif`` and saved as an ``Esri shapefile,``
 for example, named ``shoreline.shp``.  This can be accomplished in any
 GIS tool, for example, in QGIS. The ASP ``stereo_gui`` program can be
 used as well, as described in :numref:`poly`.
 
-It is very important to pick such vertices, say about 15-25 of them
+It is very important to pick many such vertices, say about 15-25 of them
 (the more the better), over the full extent of the area of interest,
 or else the plane may not be accurate. It is not important for the
 obtained polygonal shape to be "pretty", or if the edges cross land or
