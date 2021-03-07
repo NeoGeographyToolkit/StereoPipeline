@@ -197,7 +197,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string shapefile, dem, bathy_plane;
   double outlier_threshold;
   int num_ransac_iterations;
-  Options(): outlier_threshold(2.0), num_ransac_iterations(1000) {}
+  Options(): outlier_threshold(0.2), num_ransac_iterations(1000) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
