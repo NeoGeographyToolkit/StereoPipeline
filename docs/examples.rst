@@ -2409,7 +2409,7 @@ above the no-data value are considered to be over land.
 
 If a threshold can be determined so that pixels over land have values
 above the threshold and those in the water are at or below the
-threshold, such a mask can be computed as follows:
+threshold, such a mask can be computed as follows from the input image:
 
 ::
     
@@ -2427,15 +2427,15 @@ inspection and potentially cleanup of the masks may be necessary.
 
 It was experimentally found that it is best to use band 7 for Digital
 Globe multispectral images to find the water threshold, as in them the
-water appears universally darker than the land. 
+water appears universally darker than the land.
 
-A simple way of finding the desired threshold in an image is pick
-some sample pixels in ``stereo_gui``.  How to do this is described in
-:numref:`thresh`.
+A simple way of finding the desired threshold in an image is pick some
+sample pixels in ``stereo_gui`` over the water region. How to do this
+is described in :numref:`thresh`.
 
-In the future a tool for finding the threshold in automated way based
+In the future, a tool for finding the threshold in automated way based
 on histogram analysis will be provided. The ``stereo_gui`` tool can be
-used with this threshold to highlight the regions at or below
+used with any given threshold to visualize the regions at or below
 threshold, as described in the section mentioned earlier.
 
 A tool will also be provided to create a mask only in a region
@@ -2459,7 +2459,41 @@ Having these in place, stereo can then happen as follows:
 Note that we specified the two masks, the water index of refraction,
 and the water plane found before. 
 
+The obtained point cloud will have both triangulated points above water,
+so with no correction, and below water, with the correction applied.
+If desired to have only one of the two, call the ``stereo`` command
+with the option ``--output-cloud-type`` with the value ``topo``
+or ``bathy`` respectively (the default for this option is ``all``).
+
+The bathymetry correction happens at the triangulation stage
+(though the necessary transformations on the bathymetry masks are done
+in pre-processing). Hence, after a stereo run finished, it is only
+necessary to re-run the ``stereo_tri`` step if desired to apply this
+correction or not, or if to change the value of
+``--output-cloud-type``.
+
 As in usual invocations of stereo, the input images may be
-map-projected, and then a DEM is expected, stero may happen only in
+map-projected, and then a DEM is expected, stereo may happen only in
 certain regions as chosen in the GUI, bundle adjustment may be used,
-the output point cloud may be converted to LAS, etc.
+the output point cloud may be converted to LAS, etc. 
+
+Effect of bathymetry correction on the output DEM
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is instructive to compare the DEMs with and without the bathymetry
+correction.
+
+The bathymetry correction results in the points in the output
+triangulated cloud being pushed "down", as the rays emanating from the
+cameras become "steeper" after meeting the water.
+
+Yet, a DEM is obtained by binning and doing weighted averaging of the
+points in the cloud. It can happen that with the bathymetry
+correction on, a point may end up in a different bin than with it off,
+with the result being that a handful of heights in the
+bathymetry-corrected DEM can be slightly above the same heights in the
+DEM without the correction, which is counter-intuitive.
+
+This however will happen only close to the water-land interface and is
+an expected gridding artifact. (A different DEM grid size may result
+in the artifacts changing location and magnitude.)

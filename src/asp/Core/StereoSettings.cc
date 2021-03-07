@@ -154,14 +154,6 @@ namespace asp {
        "Mask out pixels from regions where the local standard deviation score is less than this value. If set < 0, debug files will be written containing the filter output instead of masking out pixels.")
       ("stddev-mask-kernel",  po::value(&global.nodata_stddev_kernel)->default_value(-1),
        "Size of kernel to be used in standard deviation filtering, must be odd and > 2 (default -1).")
-      ("left-bathy-mask", po::value(&global.left_bathy_mask),
-       "Mask to use for the left image when doing bathymetry.")
-      ("right-bathy-mask", po::value(&global.right_bathy_mask),
-       "Mask to use for the right image when doing bathymetry.")
-      ("bathy-plane", po::value(&global.bathy_plane),
-       "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0.")
-      ("refraction-index", po::value(&global.refraction_index)->default_value(0),
-       "The index of refraction of water to be used in bathymetry correction.")
       ("skip-rough-homography", po::bool_switch(&global.skip_rough_homography)->default_value(false)->implicit_value(true),
        "Skip the step of performing datum-based rough homography if it fails.")
       ("no-datum", po::bool_switch(&global.no_datum)->default_value(false)->implicit_value(true),
@@ -175,7 +167,19 @@ namespace asp {
 //      ("correct-atmospheric-refraction", po::bool_switch(&global.correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
 //       "Apply the experimental atmospheric refraction for linescan cameras.")
       ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),
-       "Set the datum to use with RPC camera models. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).");
+       "Set the datum to use with RPC camera models. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+
+      // For bathymetry correction
+      ("left-bathy-mask", po::value(&global.left_bathy_mask),
+       "Mask to use for the left image when doing bathymetry.")
+      ("right-bathy-mask", po::value(&global.right_bathy_mask),
+       "Mask to use for the right image when doing bathymetry.")
+      ("bathy-plane", po::value(&global.bathy_plane),
+       "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0.")
+      ("refraction-index", po::value(&global.refraction_index)->default_value(0),
+       "The index of refraction of water to be used in bathymetry correction. (Must be specified and bigger than 1.)")
+      ("output-cloud-type", po::value(&global.output_cloud_type)->default_value("all"),
+       "When bathymetry correction is used, return only the triangulated cloud of points where bathymetry correction was applied (option: 'bathy'), where it was not applied (option: 'topo', or the full cloud (option: 'all'). The default is 'all'.");
   }
 
   CorrelationDescription::CorrelationDescription() : po::options_description("Correlation Options") {

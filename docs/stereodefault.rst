@@ -681,4 +681,33 @@ skip-computing-piecewise-adjustments (default = false)
     Skip computing the piecewise adjustments for jitter, they should
     have been done by now.
 
+
+Bathymetry correction options
+-----------------------------
+
+Pre-processing stage
+~~~~~~~~~~~~~~~~~~~~
+left-bathy-mask (*string*)
+    Mask to use for the left image when doing bathymetry.
+
+right-bathy-mask (*string*)
+    Mask to use for the right image when doing bathymetry.
+
+
+Triangulation stage
+~~~~~~~~~~~~~~~~~~~
+
+bathy-plane (*string*)
+    The file storing the water plane used for bathymetry having the coefficients 
+    a, b, c, d with the plane being a*x + b*y + c*z + d = 0.
+
+refraction-index (*double*) (default = 0.0) 
+    The index of refraction of water to be used in bathymetry correction.
+    (Must be specified and bigger than 1.)
+
+output-cloud-type arg (*string*) (default = all)
+    When bathymetry correction is used, return only the triangulated cloud of 
+    points where bathymetry correction was applied (option: 'bathy'), where it was
+    not applied (option: 'topo', or the full cloud (option: 'all').
+
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
