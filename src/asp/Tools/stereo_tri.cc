@@ -80,13 +80,13 @@ public:
   typedef ProceduralPixelAccessor<StereoTXAndErrorView> pixel_accessor;
 
   /// Constructor
-  StereoTXAndErrorView( vector<DisparityImageT> const& disparity_maps,
-                        vector<TXT>             const& transforms,
-                        StereoModelT            const& stereo_model,
-                        bool is_map_projected,
-                        bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
-                        ImageViewRef< PixelMask<float> > left_aligned_bathy_mask,
-                        ImageViewRef< PixelMask<float> > right_aligned_bathy_mask):
+  StereoTXAndErrorView(vector<DisparityImageT> const& disparity_maps,
+                       vector<TXT>             const& transforms,
+                       StereoModelT            const& stereo_model,
+                       bool is_map_projected,
+                       bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
+                       ImageViewRef< PixelMask<float> > left_aligned_bathy_mask,
+                       ImageViewRef< PixelMask<float> > right_aligned_bathy_mask):
     m_disparity_maps(disparity_maps),
     m_transforms(transforms),
     m_stereo_model(stereo_model),
@@ -123,7 +123,7 @@ public:
       Vector2 pix;
       DPixelT disp = m_disparity_maps[c](i,j,p); // Disparity value at this pixel
       if (is_valid(disp)) // De-warp the "right" pixel
-        pix = m_transforms[c+1]->reverse( Vector2(i,j) + stereo::DispHelper(disp));
+        pix = m_transforms[c+1]->reverse(Vector2(i,j) + stereo::DispHelper(disp));
       else // Insert flag values
         pix = Vector2(std::numeric_limits<double>::quiet_NaN(),
                       std::numeric_limits<double>::quiet_NaN());
@@ -224,7 +224,7 @@ private:
       // to speed up processing later, and then we pretend this is the entire
       // image by virtually enlarging it using a CropView.
 
-      vector< ImageViewRef<DPixelT> > disparity_cropviews;
+      vector<ImageViewRef<DPixelT>> disparity_cropviews;
       for (int p = 0; p < (int)m_disparity_maps.size(); p++){
         ImageView<DPixelT> clip( crop( m_disparity_maps[p], bbox ));
         ImageViewRef<DPixelT> cropview_clip = crop(clip, -bbox.min().x(), -bbox.min().y(),
@@ -235,12 +235,18 @@ private:
           // Bring the needed parts of the bathy masks in memory as well.
           // We assume no multiview for stereo with bathy correction.
           BBox2i right_bbox = calc_right_bbox(bbox, clip);
-          ImageView<PixelMask<float>> l_mask_clip(crop(m_left_aligned_bathy_mask, bbox));
-          ImageView<PixelMask<float>> r_mask_clip(crop(m_right_aligned_bathy_mask, right_bbox));
+          
+          // Bring the needed parts of the bathy masks in memory as well
+          BBox2i cropped_right_bbox = right_bbox;
+          cropped_right_bbox.crop(bounding_box(m_right_aligned_bathy_mask));
+          ImageView<PixelMask<float>> l_mask_clip = crop(m_left_aligned_bathy_mask, bbox);
+          ImageView<PixelMask<float>> r_mask_clip = crop(m_right_aligned_bathy_mask,
+                                                         cropped_right_bbox);
           in_memory_left_aligned_bathy_mask
             = crop(l_mask_clip, -bbox.min().x(), -bbox.min().y(), cols(), rows());
           in_memory_right_aligned_bathy_mask
-            = crop(r_mask_clip, -right_bbox.min().x(), -right_bbox.min().y(), cols(), rows());
+            = crop(r_mask_clip, -cropped_right_bbox.min().x(),
+                   -cropped_right_bbox.min().y(), cols(), rows());
         }
       }
 
@@ -289,12 +295,16 @@ private:
 
       if (m_bathy_correct) {
         // Bring the needed parts of the bathy masks in memory as well
-        ImageView<PixelMask<float>> l_mask_clip(crop(m_left_aligned_bathy_mask, bbox));
-        ImageView<PixelMask<float>> r_mask_clip(crop(m_right_aligned_bathy_mask, right_bbox));
+        BBox2i cropped_right_bbox = right_bbox;
+        cropped_right_bbox.crop(bounding_box(m_right_aligned_bathy_mask));
+        ImageView<PixelMask<float>> l_mask_clip = crop(m_left_aligned_bathy_mask, bbox);
+        ImageView<PixelMask<float>> r_mask_clip = crop(m_right_aligned_bathy_mask,
+                                                       cropped_right_bbox);
         in_memory_left_aligned_bathy_mask
           = crop(l_mask_clip, -bbox.min().x(), -bbox.min().y(), cols(), rows());
         in_memory_right_aligned_bathy_mask
-          = crop(r_mask_clip, -right_bbox.min().x(), -right_bbox.min().y(), cols(), rows());
+          = crop(r_mask_clip, -cropped_right_bbox.min().x(),
+                 -cropped_right_bbox.min().y(), cols(), rows());
       }
       
       // Also cache the data for subsequent transforms
@@ -841,7 +851,6 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
           trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
           right_pix       = right_trans->reverse(trans_right_pix);
 
-
           // If the right pixel is a multiple of the bin size, keep
           // it.
           right_pix = round(right_pix); // very important
@@ -867,7 +876,6 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
       }
       tpc.report_finished();
     }
-
     
   } // end considering multi-image friendly ip
 
@@ -895,14 +903,13 @@ namespace asp{
   template <class ImageT>
   UnaryPerPixelView<ImageT, PointAndErrorNorm>
   inline point_and_error_norm( ImageViewBase<ImageT> const& image ) {
-    return UnaryPerPixelView<ImageT, PointAndErrorNorm>( image.impl(),
-                                                         PointAndErrorNorm() );
+    return UnaryPerPixelView<ImageT, PointAndErrorNorm>(image.impl(), PointAndErrorNorm());
   }
 
   template <class ImageT>
   void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
                         string const& point_cloud_file,
-                        ASPGlobalOptions const& opt){
+                        ASPGlobalOptions const& opt) {
 
     vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
     bool has_georef = true;
@@ -911,23 +918,22 @@ namespace asp{
     bool has_nodata = false;
     double nodata = -std::numeric_limits<float>::max(); // smallest float
 
-    if ( opt.session->supports_multi_threading() ){
+    if (opt.session->supports_multi_threading()){
       asp::block_write_approx_gdal_image
-        ( point_cloud_file, shift,
-          stereo_settings().point_cloud_rounding_error,
-          point_cloud,
-          has_georef, georef, has_nodata, nodata,
-          opt, TerminalProgressCallback("asp", "\t--> Triangulating: "));
+        (point_cloud_file, shift,
+         stereo_settings().point_cloud_rounding_error,
+         point_cloud,
+         has_georef, georef, has_nodata, nodata,
+         opt, TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }else{
       // ISIS does not support multi-threading
       asp::write_approx_gdal_image
-        ( point_cloud_file, shift,
-          stereo_settings().point_cloud_rounding_error,
-          point_cloud,
-          has_georef, georef, has_nodata, nodata,
-          opt, TerminalProgressCallback("asp", "\t--> Triangulating: "));
+        (point_cloud_file, shift,
+         stereo_settings().point_cloud_rounding_error,
+         point_cloud,
+         has_georef, georef, has_nodata, nodata,
+         opt, TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }
-
   }
 
   Vector3 find_approx_points_median(vector<Vector3> const& points){
@@ -1287,7 +1293,7 @@ void stereo_triangulation( string          const& output_prefix,
 } // End function stereo_triangulation()
 
 
-int main( int argc, char* argv[] ) {
+int main(int argc, char* argv[]) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
