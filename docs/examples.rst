@@ -2282,6 +2282,8 @@ which the random initial parameter values are chosen from. Note that
 ``--num-random-passes`` tries out multiple random starting seeds to see
 which one leads to the result with the lowest error.
 
+.. _shallow_water_bathy:
+
 Shallow-water bathymetry
 ------------------------
 
@@ -2399,28 +2401,80 @@ inaccurate.
 The manual page for this tool showing the full list of options is in 
 :numref:`bathy_plane_calc`.
 
-Determination of the above-water pixels
+Computation of the water-land threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In order to distinguish points on land from those under the water, a
+In order to distinguish points on land from those under water, a
 mask needs to be computed for each of the left and right input images,
 with the masks having the same dimensions as those images.
 
-The convention we will use is that each mask image will have a no-data
-value as part of its metadata, and any pixels in that mask that are
-above the no-data value are considered to be over land.
+A simple way of creating such a mask is to first determine a threshold
+such that pixels at or below threshold are under water, and those
+above threshold are on land.
 
-If a threshold can be determined so that pixels over land have values
-above the threshold and those in the water are at or below the
-threshold, such a mask can be computed as follows from the input image:
+It was experimentally found that it is best to use band 7 for Digital
+Globe multispectral images to find the water threshold, as in them the
+water appears universally darker than the land.
+
+A manual approach for finding this threshold in an image is pick some
+sample pixels in ``stereo_gui`` over the water region. How to do this
+is described in :numref:`thresh`.
+
+ASP provides a tool for finding the threshold in automated way based
+on histogram analysis. Its reference page, together with some details
+about its implementation and dependencies, can be found in
+:numref:`bathy_threshold_calc`.
+
+It can be invoked for each of the left and right images as follows:
+
+::
+
+    ~/miniconda3/envs/bathy/bin/python bathy_threshold_calc.py \
+      --image left.tif --num-samples 1000000
+
+It will produce the following output:
+
+::
+
+    Image file is left.tif
+    Number of samples is 1000000
+    Number of image rows and columns: 7276, 8820
+    Picking a uniform sample of dimensions 908, 1101
+    Please be patient. It make take several minutes to find the answer.
+    Positions of the minima:  [ 155.18918919  802.7027027 ... ]
+    Suggested threshold is the position of the first minimum:  155.1891891891892
+    Please verify with the graph. There is a chance the second minimum may work better.
+    Elapsed time in seconds: 275.2
+
+.. figure:: images/examples/bathy/bathy_threshold_calc.png
+   :name: bathy_water_threshold_example
+
+   Example of the graph plotted by bathy_threshold_calc.py
+
+Once the threshold is found, either manually or automatically, the
+``stereo_gui`` tool can be used with any given threshold to visualize
+the regions at or below threshold, see again :numref:`thresh`.
+
+A tool will also be provided to create a mask only in a region
+delimited by a given shapefile, if desired to do bathymetry with a
+precisely selected area.
+
+Creation of masks based on the threshold
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Having determined the water-land threshold, the left and right image
+masks will be found from the corresponding images as follows:
 
 ::
     
-    thresh=0.5 
+    thresh=155.1891891891892 
     image_calc -c "max($thresh, var_0)" --output-nodata-value $thresh \
       left.tif -o left_mask.tif
 
 and analogously for the right image. 
+
+This tool sets the pixel values at or below threshold to the no-data
+value, while keeping unchanged the values above the threshold.
 
 Later, when doing stereo, if, based on the masks, a pixel in the left
 image is under water, while the corresponding pixel in the right image
@@ -2428,22 +2482,6 @@ is not, for noise or other reasons, that pixel pair will be declared
 to be on land and hence no correction will take place. Hence some
 inspection and potentially cleanup of the masks may be necessary.
 
-It was experimentally found that it is best to use band 7 for Digital
-Globe multispectral images to find the water threshold, as in them the
-water appears universally darker than the land.
-
-A simple way of finding the desired threshold in an image is pick some
-sample pixels in ``stereo_gui`` over the water region. How to do this
-is described in :numref:`thresh`.
-
-In the future, a tool for finding the threshold in automated way based
-on histogram analysis will be provided. The ``stereo_gui`` tool can be
-used with any given threshold to visualize the regions at or below
-threshold, as described in the section mentioned earlier.
-
-A tool will also be provided to create a mask only in a region
-delimited by a given shapefile, if desired to do bathymetry with a
-precisely selected area.
 
 Stereo with bathymetry correction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
