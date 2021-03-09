@@ -43,7 +43,10 @@ parser.add_argument('--image',  dest = 'image', default = "",
 
 parser.add_argument("--num-samples",  dest="num_samples", type=int, default = 1000000,
                     help="The number of samples to pick from the image (more samples " +
-                    "will result in more accuracy but will be slower.")
+                    "will result in more accuracy but will be slower).")
+
+parser.add_argument("--no-plot", action="store_true", default=False,
+                        dest="no_plot",  help="Do not show the plot.")
 
 # This call handles all the parallel_mapproject specific options.
 (options, args) = parser.parse_known_args(sys.argv)
@@ -130,9 +133,10 @@ print("Please verify with the graph. There is a chance the second minimum may wo
 print("Elapsed time in seconds:", round(10.0*(end - beg))/10.0)
 
 # Plot the kernel-density estimate and highlight the minima
-plt.figure(1)
-plt.hist(data, bins=100, density=True, label="Data histogram")
-plt.plot(xvals, yvals, label="KDE", c="red")
-plt.vlines(min_vals, ymin=0, ymax=yvals.max(),colors='g', ls="--", label="Minima", alpha=0.7)
-plt.legend()
-plt.show()
+if not options.no_plot:
+    plt.figure(1)
+    plt.hist(data, bins=100, density=True, label="Data histogram")
+    plt.plot(xvals, yvals, label="KDE", c="red")
+    plt.vlines(min_vals, ymin=0, ymax=yvals.max(),colors='g', ls="--", label="Minima", alpha=0.7)
+    plt.legend()
+    plt.show()

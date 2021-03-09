@@ -2401,6 +2401,8 @@ inaccurate.
 The manual page for this tool showing the full list of options is in 
 :numref:`bathy_plane_calc`.
 
+.. _bathy_threshold_use:
+
 Computation of the water-land threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2413,19 +2415,42 @@ such that pixels at or below threshold are under water, and those
 above threshold are on land.
 
 It was experimentally found that it is best to use band 7 for Digital
-Globe multispectral images to find the water threshold, as in them the
+Globe multispectral images to find this water threshold, as in them the
 water appears universally darker than the land.
 
 A manual approach for finding this threshold in an image is pick some
-sample pixels in ``stereo_gui`` over the water region. How to do this
-is described in :numref:`thresh`.
+sample pixels in ``stereo_gui`` over the water region, with the pixel
+of the largest value declared as the threshold. How to do this is
+described in :numref:`thresh`.
 
 ASP provides a tool for finding the threshold in automated way based
-on histogram analysis. Its reference page, together with some details
-about its implementation and dependencies, can be found in
+on histogram analysis. Its reference page, which explains how to
+install its dependencies and its command-line options, can be found in
 :numref:`bathy_threshold_calc`.
 
-It can be invoked for each of the left and right images as follows:
+This program works based on the observation that in such an image the
+water appears darker than the land, hence, in a histogram of the
+pixels in the image, the water and land appear as two noticeable
+peaks, with a good value for the threshold then being the image value
+at the bottom of the valley between those peaks.
+
+For robustness to noise, this histogram is approximated by a
+kernel-density estimate (``KDE``) using Gaussian kernels. It is very
+important to note that even then this tool may return the wrong
+minimum, which it assumes to be the first one.
+
+Therefore, this tool plots the histogram, its kernel density estimate,
+the positions of the minima, and prints their locations on screen. The
+user is responsible for validating visually where the most appropriate
+position of the minimum is (along the horizontal axis).
+ 
+The kernel-density estimate calculation is very time-consuming for
+large images, hence it is suggested to pass to the tool the number of
+samples to use (it will pick the samples uniformly in the image). For
+example, if a million samples are used, the calculation should take
+a few minutes to complete.
+
+This program can be invoked for each of the left and right images as follows:
 
 ::
 
@@ -2452,7 +2477,7 @@ It will produce the following output:
    Example of the graph plotted by bathy_threshold_calc.py
 
 Once the threshold is found, either manually or automatically, the
-``stereo_gui`` tool can be used with any given threshold to visualize
+``stereo_gui`` tool can be used to visualize
 the regions at or below threshold, see again :numref:`thresh`.
 
 A tool will also be provided to create a mask only in a region
@@ -2479,8 +2504,9 @@ value, while keeping unchanged the values above the threshold.
 Later, when doing stereo, if, based on the masks, a pixel in the left
 image is under water, while the corresponding pixel in the right image
 is not, for noise or other reasons, that pixel pair will be declared
-to be on land and hence no correction will take place. Hence some
-inspection and potentially cleanup of the masks may be necessary.
+to be on land and hence no bathymetry correction will take place for
+this pair. Hence, some inspection and potentially cleanup of the
+masks may be necessary.
 
 
 Stereo with bathymetry correction

@@ -241,9 +241,13 @@ shape-from-shading, see :numref:`sfs_usage`). This can be done by turning on
 from the menu the ``Threshold detection`` mode, and then
 clicking on pixels in the image. The largest of the chosen pixel
 values will be set to the threshold for each image and printed
-to the screen.  To highlight in the images the pixels at or below the image
-threshold, select from the menu the ``View thresholded images`` option.
-Those pixels will show up in red.
+to the screen.  
+
+From the same menu it is possible to see or change the current threshold.
+
+To highlight in the images the pixels at or below the image threshold,
+select from the menu the ``View thresholded images`` option. Those
+pixels will show up in red.
 
 Related to this, if the viewer is invoked with ``--nodata-value
 <double>``, it will display pixels with values less than or equal to
