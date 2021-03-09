@@ -33,6 +33,14 @@ import scipy.stats as st
 from osgeo import gdal
 from scipy.signal import argrelextrema
 
+# Try to use sklearn as well, gives very similar results in very similar time.
+# Install this with:
+# conda install -c conda-forge scikit-learn
+
+use_sklearn = False # off by default
+if use_sklearn:
+    from sklearn.neighbors import KernelDensity
+
 usage  = "python bathy_threshold_calc.py --image <image> --num-samples <num>."
 
 parser = argparse.ArgumentParser(usage=usage,
@@ -114,29 +122,43 @@ sub_image = image[sub_rows, :][:, sub_cols]
 
 # Make it into an array
 data = sub_image.reshape(-1)
+xvals = np.linspace(data.min(), data.max(), 1000)
 
 beg = time.time()
 kde = st.gaussian_kde(data)
-xvals = np.linspace(data.min(), data.max(), 1000)
 yvals = kde(xvals)
-
-min_pos = argrelextrema(yvals, np.less)
-min_vals = xvals[min_pos]
+min_pos  = argrelextrema(yvals, np.less);  min_vals = xvals[min_pos]
 end = time.time()
-
 # Note that it is not universal for it to be first minimum. Sometimes
 # the second minimum is better!
 print("Positions of the minima: ", min_vals)
-
 print("Suggested threshold is the position of the first minimum: ", min_vals[0])
 print("Please verify with the graph. There is a chance the second minimum may work better.")
 print("Elapsed time in seconds:", round(10.0*(end - beg))/10.0)
 
+# sklearn, with similar results
+if use_sklearn:
+    beg2 = time.time()
+    kernel = 'gaussian'
+    kde2 = KernelDensity(kernel = kernel, bandwidth = 10).fit(data[:, np.newaxis])
+    log_dens = kde2.score_samples(xvals[:, np.newaxis])
+    yvals2 = np.exp(log_dens).reshape(-1)
+    min_pos2 = argrelextrema(yvals2, np.less); min_vals2 = xvals[min_pos2]
+    end2 = time.time()
+    print("Elapsed time for sklearn kernel estimation in seconds:", round(10.0*(end2 - beg2))/10.0)
+    print("Suggested threshold is the position of the first minimum2: ", min_vals2[0])
+    print("Positions of the minima2: ", min_vals2)
+    
 # Plot the kernel-density estimate and highlight the minima
 if not options.no_plot:
     plt.figure(1)
     plt.hist(data, bins=100, density=True, label="Data histogram")
     plt.plot(xvals, yvals, label="KDE", c="red")
     plt.vlines(min_vals, ymin=0, ymax=yvals.max(),colors='g', ls="--", label="Minima", alpha=0.7)
+    
+    if use_sklearn:
+        plt.plot(xvals, yvals2, color = 'green', lw = 2,
+                 linestyle='-', label="kernel = '{0}'".format(kernel))
+    
     plt.legend()
     plt.show()

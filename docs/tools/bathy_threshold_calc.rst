@@ -11,8 +11,8 @@ pixels.
 See :numref:`bathy_threshold_use` for further context, and a sample
 output and graph.
 
-This tool needs Python 3 and the numpy, scipy, matplotlib, and gdal
-packages. Those can be installed in a conda environment as follows:
+This tool needs Python 3 some Python packages. Those can be installed
+in a conda environment as follows:
 
 ::
 
