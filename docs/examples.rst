@@ -2459,6 +2459,10 @@ This program can be invoked for each of the left and right images as follows:
 
 Here it is assumed that ASP's ``bin`` directory is in the path.
 
+It is suggested to experiment a bit with the number of samples, using,
+for example, double of this amount, and see the difference. Normally
+the outcome should be rather similar.
+
 It will produce the following output:
 
 ::
@@ -2527,6 +2531,14 @@ Having these in place, stereo can then happen as follows:
 
 Note that we specified the two masks, the water index of refraction,
 and the water plane found before. 
+
+The water refraction index was set to 1.3333 
+:cite:`thormahlen1985refractive,harvey1998calibration`.
+Alternatively, one could use 1.34 :cite:`jerlov1976marine`, or 
+use a more precise value that depends wavelength,
+and temperature, and if the water is salty or not (`Parrish (2020) 
+<http://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_, 
+:cite:`austin1976index,mobley1995optical`).
 
 The obtained point cloud will have both triangulated points above water,
 so with no correction, and below water, with the correction applied.
