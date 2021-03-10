@@ -11,8 +11,26 @@ pixels.
 See :numref:`bathy_threshold_use` for further context, and a sample
 output and graph.
 
-This tool needs Python 3 some Python packages. Those can be installed
-in a conda environment as follows:
+This tool needs Python 3 and some additional Python packages to be installed with 
+``conda``. 
+
+Conda can be obtained from 
+
+    https://docs.conda.io/en/latest/miniconda.html
+
+Run::
+
+    ./Miniconda3-latest-Linux-x86_64.sh
+
+on Linux, and the appropriate version on OSX (this script needs to be
+made executable first). Use the suggested::
+
+    $HOME/miniconda3
+
+directory for installation. 
+
+Next, with the conda environment activated, the needed packages can be installed
+as follows:
 
 ::
 
@@ -20,12 +38,15 @@ in a conda environment as follows:
      conda activate bathy
      conda install -c conda-forge numpy scipy matplotlib
 
-Example usage:
+This program can be invoked as:
 
 ::
 
-    ~/miniconda3/envs/bathy/bin/python bathy_threshold_calc.py \
+    ~/miniconda3/envs/bathy/bin/python $(which bathy_threshold_calc.py) \
         --image image.tif --num-samples 1000000
+
+Here it is assumed that ASP's ``bin`` directory is in the path, otherwise
+the full path to this Python script must be specified above.
 
 Command-line options for bathy_threshold_calc.py:
 

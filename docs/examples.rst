@@ -2454,8 +2454,10 @@ This program can be invoked for each of the left and right images as follows:
 
 ::
 
-    ~/miniconda3/envs/bathy/bin/python bathy_threshold_calc.py \
+    ~/miniconda3/envs/bathy/bin/python $(which bathy_threshold_calc.py) \
       --image left.tif --num-samples 1000000
+
+Here it is assumed that ASP's ``bin`` directory is in the path.
 
 It will produce the following output:
 
