@@ -1199,11 +1199,12 @@ int main( int argc, char *argv[] ) {
     if (opt.remove_outliers_with_pct || opt.max_valid_triangulation_error > 0.0){
       error_image = asp::point_cloud_error_image(opt.pointcloud_files);
       
-      if (error_image.rows() == 0 || error_image.cols() == 0) 
+      if (error_image.rows() == 0 || error_image.cols() == 0) {
         vw_out() << "The point cloud files must have an equal number of channels which "
                  << "must be 4 or 6 to be able to remove outliers.\n";
-      opt.remove_outliers_with_pct      = false;
-      opt.max_valid_triangulation_error = 0.0;
+        opt.remove_outliers_with_pct      = false;
+        opt.max_valid_triangulation_error = 0.0;
+      }
     }
     
     // Determine if we should be using a longitude range between
