@@ -182,7 +182,8 @@ namespace vw { namespace gui {
       m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region),
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
       m_polyEditMode(false), m_polyVecIndex(0),
-      m_pixelTol(6), m_backgroundColor(QColor("black")) {
+      m_pixelTol(6), m_backgroundColor(QColor("black")),
+      m_lineWidth(1), m_polyColor("green") {
 
     installEventFilter(this);
 
@@ -1204,7 +1205,7 @@ namespace vw { namespace gui {
 
     QColor      rubberBandColor = QColor("yellow");
     QColor      cropWinColor    = QColor("red");
-    std::string polyColorStr    = "green";
+    std::string polyColorStr    = m_polyColor;
     QColor      polyColor       = QColor(polyColorStr.c_str());
 
     // We will color the rubberband in the crop win color if we are
@@ -1235,7 +1236,7 @@ namespace vw { namespace gui {
     }
     
     bool plotPoints    = false, plotEdges = true, plotFilled = false;
-    int  drawVertIndex = 0, lineWidth = 1;
+    int  drawVertIndex = 0, lineWidth = m_lineWidth;
     bool isPolyClosed  = false;
     std::string layer  = "";
     
@@ -1546,7 +1547,7 @@ namespace vw { namespace gui {
       S = screen2world(S);                    // world coordinates
       m_world_box.grow(S); // to not cut when plotting later
       S = world2projpoint(S, m_polyVecIndex); // projected units
-
+      
       m_currPolyX.push_back(S.x());
       m_currPolyY.push_back(S.y());
       pSize = m_currPolyX.size();
@@ -1823,7 +1824,7 @@ namespace vw { namespace gui {
     int len = 2*(drawVertIndex+1);
     len = min(len, 8); // limit how big this can get
 
-    paint.setPen( QPen(color, lineWidth) );
+    paint.setPen(QPen(color, lineWidth));
 
     int numTypes = 4;
     if (drawVertIndex < 0){
@@ -1984,7 +1985,7 @@ namespace vw { namespace gui {
         }else if (isPolyClosed[pIter]){
 
           if (plotFilled){
-            paint.drawPolygon( pa );
+            paint.drawPolygon(pa);
           }else{
             // In some versions of Qt, drawPolygon is buggy when not
             // called to fill polygons. Don't use it, just draw the
@@ -2922,6 +2923,24 @@ namespace vw { namespace gui {
     return m_thresh;
   }
 
+  void MainWidget::setPolyColor(std::string const& polyColor){
+    m_polyColor = polyColor;
+    update();
+  }
+  
+  std::string MainWidget::getPolyColor() {
+    return m_polyColor;
+  }
+  
+  void MainWidget::setLineWidth(int lineWidth){
+    m_lineWidth = lineWidth;
+    update();
+  }
+
+  int MainWidget::getLineWidth() {
+    return m_lineWidth;
+  }
+  
   // Set the azimuth and elevation for hillshaded images
   void MainWidget::setHillshadeParams(){
 

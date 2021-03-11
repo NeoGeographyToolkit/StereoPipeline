@@ -82,6 +82,8 @@ namespace vw { namespace gui {
     void run_parallel_stereo        ();
     void thresholdCalc              ();
     void thresholdGetSet            ();
+    void setPolyColor               ();
+    void setLineWidth               ();
     void viewThreshImages           ();
     void viewUnthreshImages         ();
     void contourImages              ();
@@ -131,6 +133,8 @@ namespace vw { namespace gui {
     QAction *m_about_action;
     QAction *m_thresholdCalc_action;
     QAction *m_thresholdGetSet_action;
+    QAction *m_setLineWidth_action;
+    QAction *m_setPolyColor_action;
     QAction *m_sizeToFit_action;
     QAction *m_viewSingleWindow_action;
     QAction *m_viewSideBySide_action;

@@ -136,6 +136,12 @@ namespace vw { namespace gui {
     void   setThreshold(double thresh); ///< Set the image threshold 
     double getThreshold();            ///< Get the image threshold
 
+    void   setLineWidth(int lineWidth); ///< Set the line width for polygons
+    int  getLineWidth(); ///< Get the line width for polygons
+    
+    void   setPolyColor(std::string const& polyColor); ///< Set the color of polygons
+    std::string getPolyColor(); ///< Get the color of polygons
+    
     void  setZoomAllToSameRegion(bool zoom_all_to_same_region);
     vw::BBox2 current_view();
     void  zoomToRegion (vw::BBox2 const& region);
@@ -270,6 +276,9 @@ public slots:
     bool m_bilinear_filter;
     bool m_use_colormap;
 
+    std::string m_polyColor;
+    int m_lineWidth;
+    
     std::vector<imageData> m_images;
 
     // We will render in this image's pixel or projected domain.

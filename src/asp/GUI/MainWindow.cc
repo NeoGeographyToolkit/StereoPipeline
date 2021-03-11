@@ -484,6 +484,16 @@ void MainWindow::createMenus() {
   m_polyEditMode_action->setChecked(false);
   connect(m_polyEditMode_action, SIGNAL(triggered()), this, SLOT(polyEditMode()));
 
+  // Set line width
+  m_setLineWidth_action = new QAction(tr("Set line width"), this);
+  m_setLineWidth_action->setStatusTip(tr("Set line width"));
+  connect(m_setLineWidth_action, SIGNAL(triggered()), this, SLOT(setLineWidth()));
+
+  // Set poly color
+  m_setPolyColor_action = new QAction(tr("Set poly color"), this);
+  m_setPolyColor_action->setStatusTip(tr("Set poly color"));
+  connect(m_setPolyColor_action, SIGNAL(triggered()), this, SLOT(setPolyColor()));
+
   // Contour image
   m_contourImages_action = new QAction(tr("Find contour at threshold"), this);
   m_contourImages_action->setStatusTip(tr("Find contour at threshold"));
@@ -537,6 +547,8 @@ void MainWindow::createMenus() {
   // Vector layer menu
   m_vector_layer_menu = menu->addMenu(tr("Vector Layer"));
   m_vector_layer_menu->addAction(m_polyEditMode_action);
+  m_vector_layer_menu->addAction(m_setLineWidth_action);
+  m_vector_layer_menu->addAction(m_setPolyColor_action);
   m_vector_layer_menu->addAction(m_contourImages_action);
 
   // Help menu
@@ -1108,6 +1120,69 @@ void MainWindow::thresholdGetSet() {
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
       m_widgets[i]->setThreshold(thresholds[i]);
+  }
+  
+}
+
+void MainWindow::setLineWidth() {
+
+  std::ostringstream oss;
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) {
+      oss << m_widgets[i]->getLineWidth();
+      // All widgets will have the same line width
+      break;
+    }
+  }
+  
+  std::string lineWidthStr = oss.str();
+  bool ans = getStringFromGui(this,
+                              "Polygonal line width",
+                              "Polygonal line width",
+                              lineWidthStr, lineWidthStr);
+  if (!ans)
+    return;
+
+  int lineWidth = atoi(lineWidthStr.c_str());
+
+  if (lineWidth <= 0) {
+    popUp("The line width must be a positive integer.");
+    return;
+  }
+  
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i])
+      m_widgets[i]->setLineWidth(lineWidth);
+  }
+  
+}
+
+void MainWindow::setPolyColor() {
+
+  std::string polyColor;
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) {
+      polyColor = m_widgets[i]->getPolyColor();
+      // All widgets will have the same poly color
+      break;
+    }
+  }
+  
+  bool ans = getStringFromGui(this,
+                              "Polygonal line color",
+                              "Polygonal line color",
+                              polyColor, polyColor);
+  if (!ans)
+    return;
+
+  if (polyColor == "") {
+    popUp("The polygonal line color must be set.");
+    return;
+  }
+  
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i])
+      m_widgets[i]->setPolyColor(polyColor);
   }
   
 }
