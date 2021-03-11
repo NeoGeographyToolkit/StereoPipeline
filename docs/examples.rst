@@ -2532,11 +2532,11 @@ Having these in place, stereo can then happen as follows:
 Note that we specified the two masks, the water index of refraction,
 and the water plane found before. 
 
-The water refraction index was set to 1.3333 
+The water refraction index was set to 1.333 
 :cite:`thormahlen1985refractive,harvey1998calibration`.
 Alternatively, one could use 1.34 :cite:`jerlov1976marine`, or 
-use a more precise value that depends wavelength,
-and temperature, and if the water is salty or not (`Parrish (2020) 
+a more precise value that depends on wavelength,
+temperature, and if the water is salty or not (`Parrish (2020) 
 <http://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_, 
 :cite:`austin1976index,mobley1995optical`).
 

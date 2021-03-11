@@ -51,8 +51,8 @@ Command-line options for point2las:
     This option takes precedence over --remove-outliers-params.
 
 --num-samples-for-outlier-estimation <integer (default: 1000000)>
-    Number of samples to pick from the input cloud to find the outlier cutoff 
-    based on triangulation error.
+    Approximate number of samples to pick from the input cloud to find the 
+    outlier cutoff based on triangulation error.
 
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined

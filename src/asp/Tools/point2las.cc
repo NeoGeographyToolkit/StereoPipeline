@@ -132,7 +132,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0.0),
      "Outlier removal based on threshold. Points with triangulation error larger than this, if positive (measured in meters) will be removed from the cloud. This option takes precedence over --remove-outliers-params.")
     ("num-samples-for-outlier-estimation", po::value(&opt.num_samples)->default_value(1000000),
-     "Number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.");
+     "Approximate number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
