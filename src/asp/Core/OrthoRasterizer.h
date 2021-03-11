@@ -84,9 +84,8 @@ namespace asp{
     typedef PixelGray<float> pixel_type;
     typedef const PixelGray<float> result_type;
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
-    static int max_subblock_size(){ return 128;} // is used in point2dem and below
 
-    /// Constructor.  You must call initialize_spacing before using the object!!
+    /// Constructor. Must call initialize_spacing before using the object!!!
     OrthoRasterizerView(ImageViewRef<Vector3> point_image,
                         ImageViewRef<double > texture,
                         double  search_radius_factor,

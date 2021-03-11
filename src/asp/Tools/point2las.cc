@@ -30,37 +30,110 @@
 #include <asp/Core/PointUtils.h>
 
 #include <vw/Cartography/PointImageManipulation.h>
+#include <vw/Core/Stopwatch.h>
+#include <vw/Math/Statistics.h>
 
 using namespace vw;
 namespace po = boost::program_options;
 
+// A class to collect some positive errors, and return the error at
+// given percentile multiplied by given factor.
+class PercentileErrorAccum : public ReturnFixedType<void> {
+  typedef double accum_type;
+  std::vector<accum_type> m_vals;
+public:
+  typedef accum_type value_type;
+  
+  PercentileErrorAccum() { m_vals.clear(); }
+  
+  void operator()( accum_type const& value ) {
+    // Don't add zero errors, those most likely came from invalid points
+    if (value > 0)
+      m_vals.push_back(value);
+  }
+  
+  int size(){
+    return m_vals.size();
+  }
+  
+  value_type value(Vector2 const& remove_outliers_params){
+    
+    // Care here with empty sets
+    if (m_vals.empty()) {
+      vw_out() << "Found no positive triangulation errors in the sample.\n";
+      return 0.0;
+    }
+    
+    std::sort(m_vals.begin(), m_vals.end());
+
+    int    len    = m_vals.size();
+    double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
+    double factor = remove_outliers_params[1];
+
+    vw_out() << "Collected a sample of " << len << " positive triangulation errors.\n";
+
+    double mean = vw::math::mean(m_vals);
+    
+    vw_out() << "For this sample: "
+             << "min = "     << m_vals.front()
+             << ", mean = "  << mean
+             << ", stdev = " << vw::math::standard_deviation(m_vals, mean)
+             << ", max = " << m_vals.back() << "." << std::endl;
+
+    int i25 = round((len - 1) * 0.25);
+    int i50 = round((len - 1) * 0.50);
+    int i75 = round((len - 1) * 0.75);
+
+    vw_out() << "Error percentiles: " 
+             << "25%: "  << m_vals[i25]
+             << ", 50%: " << m_vals[i50]
+             << ", 75%: " << m_vals[i75] << "." << std::endl;
+    
+    vw_out() << "Using as outlier cutoff the " << remove_outliers_params[0] << " percentile times "
+             << factor << "." << std::endl;
+    
+    int k = (int)round((len - 1) * pct);
+    
+    return m_vals[k] * factor;
+  }
+
+};
 
 struct Options : vw::cartography::GdalWriteOptions {
   // Input
   std::string reference_spheroid, datum;
   std::string pointcloud_file;
   std::string target_srs_string;
-  bool compressed;
+  bool        compressed;
+  Vector2     remove_outliers_params;
+  double      max_valid_triangulation_error;
+  int         num_samples;
+  
   // Output
   std::string out_prefix;
-  Options() : compressed(false){}
+  Options() : compressed(false), max_valid_triangulation_error(0.0), num_samples(0) {}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("compressed,c",    po::bool_switch(&opt.compressed)->default_value(false)->implicit_value(true),
-           "Compress using laszip.")
+    ("compressed,c", po::bool_switch(&opt.compressed)->default_value(false)->implicit_value(true),
+     "Compress using laszip.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
-    ("datum",           po::value(&opt.datum),
+    ("datum", po::value(&opt.datum),
           "Create a geo-referenced LAS file in respect to this datum. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),
-          "This is identical to the datum option.")
-
+     "This is identical to the datum option.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
-     "Specify a custom projection (PROJ.4 string).");
-
+     "Specify a custom projection (PROJ.4 string).")
+    ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
+     "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
+    ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0.0),
+     "Outlier removal based on threshold. Points with triangulation error larger than this, if positive (measured in meters) will be removed from the cloud. This option takes precedence over --remove-outliers-params.")
+    ("num-samples-for-outlier-estimation", po::value(&opt.num_samples)->default_value(1000000),
+     "Number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.");
+  
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -94,22 +167,82 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.datum == "")
     opt.datum = opt.reference_spheroid;
 
+  double pct = opt.remove_outliers_params[0], factor = opt.remove_outliers_params[1];
+  if (pct <= 0 || pct > 100 || factor <= 0.0){
+    vw_throw( ArgumentErr() << "Invalid values were provided for remove-outliers-params.\n");
+  }
+
+  if (opt.max_valid_triangulation_error < 0.0) 
+    vw_throw( ArgumentErr() << "The maximum valid triangulation error must be non-negative.\n");
+
+  if (opt.num_samples <= 0) 
+    vw_throw( ArgumentErr() << "Must pick a positive number of samples.\n");
+
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
+}
 
+void find_error_image_and_do_stats(Options& opt, ImageViewRef<double> & error_image) {
+      
+  std::vector<std::string> pointcloud_files;
+  pointcloud_files.push_back(opt.pointcloud_file);
+  error_image = asp::point_cloud_error_image(pointcloud_files);
+  
+  if (error_image.rows() == 0 || error_image.cols() == 0) {
+    vw_out() << "The point cloud files must have an equal number of channels which "
+             << "must be 4 or 6 to be able to remove outliers.\n";
+    opt.max_valid_triangulation_error = 0.0;
+    return;
+  }
+
+  if (opt.max_valid_triangulation_error > 0.0) {
+    vw_out() << "Using the set maximum valid triangulation error: "
+             << opt.max_valid_triangulation_error << "." << std::endl;
+    return;
+  }
+    
+  vw_out() << "Estimating the maximum valid triangulation error (outlier cutoff).\n";
+    
+  int num_err_cols = error_image.cols();
+  int num_err_rows = error_image.rows();
+    
+  double area = std::max(num_err_cols * num_err_rows, 1);
+  int sample_rate = round(sqrt(double(area) / double(opt.num_samples)));
+  if (sample_rate < 1) 
+    sample_rate = 1;
+    
+  Stopwatch sw;
+  sw.start();
+  PixelAccumulator<PercentileErrorAccum> error_accum;
+  for_each_pixel(subsample(error_image, sample_rate),
+                 error_accum,
+                 TerminalProgressCallback
+                 ("asp","Error estim : ") );
+  if (error_accum.size() > 0)
+    opt.max_valid_triangulation_error = error_accum.value(opt.remove_outliers_params);
+    
+  sw.stop();
+  vw_out(DebugMessage, "asp") << "Elapsed time: " << sw.elapsed_seconds() << std::endl;
+  vw_out() << "Found the maximum valid triangulation error: "
+           << opt.max_valid_triangulation_error << "." << std::endl;
 }
 
 int main( int argc, char *argv[] ) {
-
-  // To do: need to understand what is the optimal strategy for
-  // traversing the input point cloud file to minimize the reading time.
+  
+  // TODO(oalexan1): need to understand what is the optimal strategy
+  // for traversing the input point cloud file to minimize the reading
+  // time.
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
+
+    ImageViewRef<double> error_image;
+    if (opt.remove_outliers_params[0] < 100.0 || opt.max_valid_triangulation_error > 0.0)
+      find_error_image_and_do_stats(opt, error_image);
 
     // Save the las file in respect to a reference spheroid if provided
     // by the user.
@@ -185,6 +318,9 @@ int main( int argc, char *argv[] ) {
     liblas::Writer writer(ofs, header);
 
     TerminalProgressCallback tpc("asp", "\t--> ");
+    long long int num_total_points = 0;
+    long long int num_kept_points = 0;
+    
     for (int row = 0; row < point_image.rows(); row++){
       tpc.report_fractional_progress(row, point_image.rows());
       for (int col = 0; col < point_image.cols(); col++){
@@ -196,6 +332,13 @@ int main( int argc, char *argv[] ) {
                          (is_geodetic  && !boost::math::isnan(point.z())) );
         if (!is_good) continue;
 
+        num_total_points++;
+        
+        if (opt.max_valid_triangulation_error > 0.0 &&
+            error_image(col, row) > opt.max_valid_triangulation_error) 
+          continue;
+
+        num_kept_points++;
 #if 0
         // For comparison later with las2txt.
         std::cout.precision(16);
@@ -211,6 +354,16 @@ int main( int argc, char *argv[] ) {
     }
     tpc.report_finished();
 
+    vw_out () << "Saved: " << num_kept_points << " points." << std::endl;
+    
+    if (opt.max_valid_triangulation_error > 0.0) {
+      long long int num_excluded = num_total_points - num_kept_points;
+      double percent = 100.0 * double(num_excluded)/num_total_points;
+      percent = round(percent * 100.0)/100.0; // don't keep too many digits
+      vw_out() << "Excluded based on triangulation error " << num_excluded << " points ("
+               << percent << "%)." << std::endl;
+    }
+    
   } ASP_STANDARD_CATCHES;
 
   return 0;

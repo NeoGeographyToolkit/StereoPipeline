@@ -35,6 +35,7 @@
 #include <vw/Image/InpaintView.h>
 
 #include <asp/Core/SoftwareRenderer.h>
+#include <asp/Core/PointUtils.h>
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/next.hpp>
 #include <asp/Core/OrthoRasterizer.h>
@@ -112,7 +113,7 @@ namespace asp{
         if (err == 0) return; // null errors come from invalid pixels
         int len = m_hist.size();
         int k = round((len-1)*std::min(err, m_max_val)/m_max_val);
-        if (k >= 0 && k < len) {
+        if (k >= 0 && k < len && m_max_val > 0) {
           // This is a bugfix for an observed situation when err is NaN.
           // In that case the rounding returns a negative integer.
           m_hist[k]++;
@@ -427,7 +428,7 @@ namespace asp{
     sub_block_size = std::max(1, sub_block_size);
     sub_block_size = int(round(pow(2.0, floor(log(sub_block_size)/log(2.0)))));
     sub_block_size = std::max(16, sub_block_size);
-    sub_block_size = std::min(max_subblock_size(), sub_block_size);
+    sub_block_size = std::min(ASP_MAX_SUBBLOCK_SIZE, sub_block_size);
     std::vector<BBox2i> blocks = subdivide_bbox(m_point_image, m_block_size, m_block_size);
 
     // Find the bounding box of each subblock, stored in

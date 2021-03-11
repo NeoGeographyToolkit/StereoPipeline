@@ -306,7 +306,7 @@ Command-line options for point2dem:
     The DEM height at a given grid point is obtained as a weighted
     average of heights of all points in the cloud within search
     radius of the grid point, with the weights given by a Gaussian.
-    If not specified, the defaul search radius is max(``dem-spacing``,
+    If not specified, the default search radius is max(``dem-spacing``,
     default_dem_spacing), so the default factor is about 1.
 
 --gaussian-sigma-factor <float (default: 0)>
@@ -360,8 +360,9 @@ Command-line options for point2dem:
 
 --max-valid-triangulation-error <float (default: 0)>
     Outlier removal based on threshold. Points with triangulation
-    error larger than this (in meters) will be removed from the
-    cloud.
+    error larger than this, if positive (measured in meters) will be 
+    removed from the cloud. This option takes precedence over 
+    --remove-outliers-params.
 
 --max-output-size <columns rows>
     Creating of the DEM will be aborted if it is calculated to

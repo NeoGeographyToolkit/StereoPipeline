@@ -143,7 +143,7 @@ template <class PixelT>
 typename boost::enable_if<boost::is_same<PixelT, vw::PixelGray<float> >, void >::type
 do_work(Vector3 const& shift, Options const& opt) {
   // The spacing is selected to be compatible with the point2dem convention.
-  const int spacing = asp::OrthoRasterizerView::max_subblock_size();
+  const int spacing = ASP_MAX_SUBBLOCK_SIZE;
   ImageViewRef<PixelT> merged_cloud = asp::form_point_cloud_composite<PixelT>(opt.pointcloud_files, spacing);
 
   vw_out() << "Writing image: " << opt.out_file << "\n";
@@ -162,7 +162,7 @@ template <class PixelT>
 typename boost::disable_if<boost::is_same<PixelT, vw::PixelGray<float> >, void >::type
 do_work(Vector3 const& shift, Options const& opt) {
   // The spacing is selected to be compatible with the point2dem convention.
-  const int spacing = asp::OrthoRasterizerView::max_subblock_size();
+  const int spacing = ASP_MAX_SUBBLOCK_SIZE;
   ImageViewRef<PixelT> merged_cloud = asp::form_point_cloud_composite<PixelT>(opt.pointcloud_files, spacing);
 
   // See if we can pull a georeference from somewhere. Of course it will be wrong

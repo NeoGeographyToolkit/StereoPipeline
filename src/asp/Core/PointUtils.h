@@ -41,6 +41,8 @@ namespace vw{
   }
 }
 
+const int ASP_MAX_SUBBLOCK_SIZE = 128;
+
 namespace asp {
 
   class BaseOptions;
@@ -431,8 +433,50 @@ void estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points,
                            vw::Vector2 const& remove_outliers_params,
                            vw::BBox3 & estim_bdbox);
   
+double estim_max_tri_error_and_proj_box(vw::ImageViewRef<vw::Vector3> const& proj_points,
+                                        vw::ImageViewRef<double> const& error_image,
+                                        vw::Vector2 const& remove_outliers_params,
+                                        vw::BBox3 & estim_proj_box);
+  
 std::string get_cloud_type(std::string const& file_name);
   
+// Find the number of channels in the point clouds.
+// If the point clouds have inconsistent number of channels,
+// return the minimum of 3 and the minimum number of channels.
+// This will be used to flag that we cannot reliable extract the
+// error channels, which start at channel 4.
+int num_channels(std::vector<std::string> const& pc_files);
+
+// Per pixel operator returning the norm of a vector  
+template<class VectorT>
+struct VectorNorm: public vw::ReturnFixedType<double> {
+  VectorNorm(){}
+  double operator() (VectorT const& vec) const {
+    return norm_2(vec);
+  }
+};
+  
+// Read the error channels from the point clouds, and take their norm
+template<int num_ch>
+vw::ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files){
+
+  using namespace vw;
+  VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
+
+  const int beg_ech = 3; // errors start at this channel
+  const int num_ech = num_ch - beg_ech; // number of error channels
+  ImageViewRef< Vector<double, num_ch> > point_disk_image
+    = asp::form_point_cloud_composite<Vector<double, num_ch> >
+    (pc_files, ASP_MAX_SUBBLOCK_SIZE);
+  ImageViewRef< Vector<double, num_ech> > error_channels =
+    select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
+
+  return per_pixel_filter(error_channels, VectorNorm< Vector<double, num_ech> >());
+}
+
+// Get a handle to the error image given a set of point clouds with 4 or 6 bands
+vw::ImageViewRef<double> point_cloud_error_image(std::vector<std::string> const& pointcloud_files);
+
 } // End namespace asp
 
 #endif

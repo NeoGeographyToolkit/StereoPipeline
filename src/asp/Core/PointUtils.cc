@@ -904,7 +904,8 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
 
   if (asp::is_csv(in_file)){ // CSV
 
-    reader_ptr = boost::shared_ptr<asp::CsvReader>( new asp::CsvReader(in_file, csv_conv, csv_georef) );
+    reader_ptr = boost::shared_ptr<asp::CsvReader>
+      (new asp::CsvReader(in_file, csv_conv, csv_georef));
 
   }else if (asp::is_pcd(in_file)){ // PCD
 
@@ -914,20 +915,20 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
 
     ifs.open(in_file.c_str(), std::ios::in | std::ios::binary);
     laslib_reader_ptr.reset(new liblas::Reader(las_reader_factory.CreateWithStream(ifs)));
-    reader_ptr = boost::shared_ptr<asp::LasReader>( new asp::LasReader(*laslib_reader_ptr) );
+    reader_ptr = boost::shared_ptr<asp::LasReader>(new asp::LasReader(*laslib_reader_ptr));
 
   }else
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
 
   ImageViewRef<Vector3> Img
-    = asp::LasOrCsvToTif_Class< ImageView<Vector3> > (reader_ptr.get(), num_rows, TILE_LEN, block_size);
+    = asp::LasOrCsvToTif_Class< ImageView<Vector3> >(reader_ptr.get(), num_rows,
+                                                     TILE_LEN, block_size);
 
   // Must use a thread only, as we read the input file serially.
   vw::cartography::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
 
   // Restore the original tile size
   opt->raster_tile_size = original_tile_size;
-
 }
 
 
@@ -1236,4 +1237,143 @@ void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points
   return;
 }
 
+namespace asp {
+  
+  // A class to pick some samples to estimate the range of values
+  // of a given dataset
+  class ErrorRangeEstimAccum : public ReturnFixedType<void> {
+    typedef double accum_type;
+    std::vector<accum_type> m_vals;
+  public:
+    typedef accum_type value_type;
+  
+    ErrorRangeEstimAccum() { m_vals.clear(); }
+  
+    void operator()( accum_type const& value ) {
+      // Don't add zero errors, those most likely came from invalid points
+      if (value > 0)
+        m_vals.push_back(value);
+    }
+  
+    int size(){
+      return m_vals.size();
+    }
+  
+    value_type value(Vector2 const& remove_outliers_params){
+      VW_ASSERT(!m_vals.empty(), ArgumentErr() << "ErrorRangeEstimAccum: no valid samples");
+    
+      // How to pick a representative value for maximum error?  The
+      // maximum error itself may be no good, as it could be very
+      // huge, and then sampling the range of errors will be distorted
+      // by that.  The solution adopted here: Find a percentile of the
+      // range of errors, mulitply it by the outlier factor, and
+      // multiply by another factor to ensure we don't underestimate
+      // the maximum. This value may end up being larger than the
+      // largest error, but at least it is is not grossly huge
+      // if just a few of the errors are very large.
+      std::sort(m_vals.begin(), m_vals.end());
+      int    len    = m_vals.size();
+      double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
+      double factor = remove_outliers_params[1];
+      int    k      = std::min(len - 1, (int)(pct*len));
 
+      // Care here with empty sets
+      if (k >= 0) 
+        return m_vals[k]*factor*4.0;
+        
+      return 0;
+    }
+  
+  };
+
+}
+
+// Sample the image and get generous estimates (but without outliers)
+// of the maximum triangulation error and of the 3D box containing the
+// projected points. These will be tightened later.
+double asp::estim_max_tri_error_and_proj_box(vw::ImageViewRef<vw::Vector3> const& proj_points,
+                                             vw::ImageViewRef<double> const& error_image,
+                                             vw::Vector2 const& remove_outliers_params,
+                                             vw::BBox3 & estim_proj_box) {
+
+  // Initialize the outputs
+  double estim_max_error = 0.0;
+  estim_proj_box = BBox3();
+
+  // Start with a 256 (2^8) by 256 sampling of the cloud
+  bool success = false;
+  for (int attempt = 8; attempt <= 18; attempt++){
+    
+    double sample = (1 << attempt);
+    int32 subsample_amt = int32(norm_2(Vector2(error_image.cols(), error_image.rows()))/sample);
+    if (subsample_amt < 1 )
+      subsample_amt = 1;
+    
+    Stopwatch sw2;
+    sw2.start();
+    PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
+    for_each_pixel(subsample(error_image, subsample_amt),
+                   error_accum,
+                   TerminalProgressCallback
+                   ("asp","Bounding box and triangulation error range estimation: ") );
+    if (error_accum.size() > 0){
+      success = true;
+      estim_max_error = error_accum.value(remove_outliers_params);
+    }
+    sw2.stop();
+
+    asp::estimate_points_bdbox(subsample(proj_points, subsample_amt),  
+                               remove_outliers_params,  
+                               estim_proj_box);
+    
+    if (estim_proj_box.empty()) 
+      success = false;
+    
+    vw_out(DebugMessage,"asp") << "Elapsed time: " << sw2.elapsed_seconds() << std::endl;
+    if (success || subsample_amt == 1) break;
+    vw_out() << "Estimation failed. Check if your cloud is valid. "
+             << "Trying again with finer sampling.\n";
+  }
+  return estim_max_error;
+}
+
+// Find the number of channels in the point clouds.
+// If the point clouds have inconsistent number of channels,
+// return the minimum of 3 and the minimum number of channels.
+// This will be used to flag that we cannot reliable extract the
+// error channels, which start at channel 4.
+int asp::num_channels(std::vector<std::string> const& pc_files){
+
+  VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
+
+  int num_channels0 = get_num_channels(pc_files[0]);
+  int min_num_channels = num_channels0;
+  for (int i = 1; i < (int)pc_files.size(); i++){
+    int num_channels = get_num_channels(pc_files[i]);
+    min_num_channels = std::min(min_num_channels, num_channels);
+    if (num_channels != num_channels0)
+      min_num_channels = std::min(min_num_channels, 3);
+  }
+  return min_num_channels;
+}
+
+// Get a handle to the error image given a set of point clouds with 4 or 6 bands
+vw::ImageViewRef<double> asp::point_cloud_error_image
+(std::vector<std::string> const& pointcloud_files) {
+
+  ImageViewRef<double> error_image;
+  int num_channels = asp::num_channels(pointcloud_files);
+  
+  if      (num_channels == 4) {
+    error_image = asp::error_norm<4>(pointcloud_files);
+  } else if (num_channels == 6) {
+    error_image = asp::error_norm<6>(pointcloud_files);
+  } else {
+    // Return an empty image
+    ImageView<double> image;
+    image.set_size(0, 0);
+    error_image = image;
+  }
+
+  return error_image;
+}

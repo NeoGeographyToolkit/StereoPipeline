@@ -26,6 +26,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/PointUtils.h>
 
 #include <vw/Core/StringUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
@@ -38,15 +39,6 @@ using namespace vw;
 using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
-// TODO: Duplicate from point2dem.cc!!!
-template<class VectorT>
-struct VectorNorm: public ReturnFixedType<double> {
-  VectorNorm(){}
-  double operator() (VectorT const& vec) const {
-    return norm_2(vec);
-  }
-};
 
 /// Compute the error norm from a point cloud image file.
 /// - This is a simpler version of the function in point2dem.cc
@@ -65,7 +57,7 @@ ImageViewRef<double> error_norm(std::string const& pc_file){
   ImageViewRef<PixelErrT> error_channels =
     select_channels<num_ech, num_ch, double>(I, beg_ech);
 
-  return per_pixel_filter(error_channels, VectorNorm<PixelErrT>());
+  return per_pixel_filter(error_channels, asp::VectorNorm<PixelErrT>());
 }
 
 
@@ -101,7 +93,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   opt.input_prefix = vm["input-prefix"].as<std::string>();
 
 }
-
 
 /// Count the number of pixels above a threshold on a per-block basis.
 class ValidPixelCounterFunctor {

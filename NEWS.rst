@@ -5,6 +5,8 @@ New functionality:
   * Added support for shallow-water bathymetry, so creation of terrain models
     with correct depth determination for well-resolved areas under
     shallow water. To be used with dg, rpc, and nadirpinhole cameras.
+  * Added two supporting tools for this: bathy_plane_calc and
+    bathy_threshold_calc.py.
 
 parallel_stereo
 
@@ -21,6 +23,10 @@ bundle_adjust:
     images to several last images by extending the logic of
     --overlap-limit past the last image to the earliest ones.
 
+point2las
+  * Remove outliers by using a percentile times a factor, in a way
+    analogous to point2dem.
+   
 sfs:
   * Added the option --shadow-threshold to be able to specify
     a single shadow threshold for all images. Also added
@@ -34,10 +40,15 @@ sfs:
     pixels with ones from the original LOLA DEM in permanently
     shadowed regions.
 
+  * (not yet in) 
+    point2dem: Make it less likely to throw out good points when
+    filtering outlier by spatial extent. Can be controlled as 
+    before via --remove-outliers-params.
+
  stereo_gui:
-  * Added the ability to find the contour of an image at a given
-    threshold. (It can be later edited, saved to disk, etc.) 
-   
+  * Added the ability to find the contour of a georeferenced image at
+    a given threshold. (It can be later edited, saved to disk, etc.) 
+
 Misc
 
  * Added the option --ip-per-image to bundle adjustment and stereo, to

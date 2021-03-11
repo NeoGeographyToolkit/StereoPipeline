@@ -41,6 +41,19 @@ Command-line options for point2las:
 -o, --output-prefix <filename>
     Specify the output file prefix.
 
+--remove-outliers-params <pct factor (default: 75.0 3.0)>
+    Outlier removal based on percentage. Points with triangulation error larger
+    than pct-th percentile times factor will be removed as outliers.
+
+--max-valid-triangulation-error <float (default: 0)>
+    Outlier removal based on threshold. Points with triangulation error larger 
+    than this, if positive (measured in meters) will be removed from the cloud.
+    This option takes precedence over --remove-outliers-params.
+
+--num-samples-for-outlier-estimation <integer (default: 1000000)>
+    Number of samples to pick from the input cloud to find the outlier cutoff 
+    based on triangulation error.
+
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined
     in the program or in the .vwrc file.

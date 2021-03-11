@@ -258,7 +258,7 @@ void las_or_csv_or_pcd_to_tifs(Options& opt,
 
   // This is very important. For efficiency later, we don't want to
   // create blocks smaller than what OrthoImageView will use later.
-  int block_size = asp::OrthoRasterizerView::max_subblock_size();
+  int block_size = ASP_MAX_SUBBLOCK_SIZE;
 
   // For csv and las files, create temporary tif files. In those files
   // we'll have the points binned so that nearby points have nearby
@@ -388,7 +388,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("remove-outliers-params",        po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
             "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor and points too far from the cluster of most points will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0),
-            "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
+            "Outlier removal based on threshold. Points with triangulation error larger than this, if positive (measured in meters) will be removed from the cloud. This option takes precedence over --remove-outliers-params.")
     ("max-output-size",          po::value(&opt.max_output_size)->default_value(Vector2(9999999, 9999999)),
             "Don't write the output DEM if it is calculated to be this size or greater.")
     ("median-filter-params",          po::value(&opt.median_filter_params)->default_value(Vector2(0, 0),
@@ -827,96 +827,7 @@ namespace asp{
       ( image.impl(), RoundImagePixelsSkipNoData<typename ImageT::pixel_type>(scale, nodata) );
   }
 
-  template<class VectorT>
-  struct VectorNorm: public ReturnFixedType<double> {
-    VectorNorm(){}
-    double operator() (VectorT const& vec) const {
-      return norm_2(vec);
-    }
-  };
-
-  class ErrorRangeEstimAccum : public ReturnFixedType<void> {
-    typedef double accum_type;
-    std::vector<accum_type> m_vals;
-  public:
-    typedef accum_type value_type;
-
-    ErrorRangeEstimAccum() { m_vals.clear(); }
-
-    void operator()( accum_type const& value ) {
-      // Don't add zero errors, those most likely came from invalid points
-      if (value > 0)
-        m_vals.push_back(value);
-    }
-
-    int size(){
-      return m_vals.size();
-    }
-
-    value_type value(Vector2 const& remove_outliers_params){
-      VW_ASSERT(!m_vals.empty(), ArgumentErr() << "ErrorRangeEstimAccum: no valid samples");
-
-      // How to pick a representative value for maximum error?  The
-      // maximum error itself may be no good, as it could be very
-      // huge, and then sampling the range of errors will be distorted
-      // by that.  The solution adopted here: Find a percentile of the
-      // range of errors, mulitply it by the outlier factor, and
-      // multiply by another factor to ensure we don't underestimate
-      // the maximum. This value may end up being larger than the
-      // largest error, but at least it is is not grossly huge
-      // if just a few of the errors are very large.
-      std::sort(m_vals.begin(), m_vals.end());
-      int    len    = m_vals.size();
-      double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
-      double factor = remove_outliers_params[1];
-      int    k      = std::min(len-1, (int)(pct*len));
-      double val    = m_vals[k]*factor*4.0;
-      return val;
-    }
-
-  };
-
-  template<int num_ch>
-  ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files){
-
-    // Read the error channels from the point clouds, and take their norm
-
-    VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
-
-    const int beg_ech = 3; // errors start at this channel
-    const int num_ech = num_ch - beg_ech; // number of error channels
-    ImageViewRef< Vector<double, num_ch> > point_disk_image
-      = asp::form_point_cloud_composite<Vector<double, num_ch> >(pc_files,
-          asp::OrthoRasterizerView::max_subblock_size());
-    ImageViewRef< Vector<double, num_ech> > error_channels =
-      select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
-
-    return per_pixel_filter(error_channels, asp::VectorNorm< Vector<double, num_ech> >());
-  }
-
-  int num_channels(std::vector<std::string> const& pc_files){
-
-    // Find the number of channels in the point clouds.
-    // If the point clouds have inconsistent number of channels,
-    // return the minimum of 3 and the minimum number of channels.
-    // This will be used to flag that we cannot reliable extract the
-    // error channels, which start at channel 4.
-
-    VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
-
-    int num_channels0 = get_num_channels(pc_files[0]);
-    int min_num_channels = num_channels0;
-    for (int i = 1; i < (int)pc_files.size(); i++){
-      int num_channels = get_num_channels(pc_files[i]);
-      min_num_channels = std::min(min_num_channels, num_channels);
-      if (num_channels != num_channels0)
-        min_num_channels = std::min(min_num_channels, 3);
-    }
-    return min_num_channels;
-  }
-
 } // end namespace asp
-
 
 void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
                                Options& opt,
@@ -1021,7 +932,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
       // The error is a scalar.
       ImageViewRef<Vector4> point_disk_image
         = asp::form_point_cloud_composite<Vector4>
-        (opt.pointcloud_files, asp::OrthoRasterizerView::max_subblock_size());
+        (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
       ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
       rasterizer.set_texture( error_channel );
       rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
@@ -1032,7 +943,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     }else if (num_channels == 6){
       // The error is a 3D vector. Convert it to NED coordinate system, and rasterize it.
       ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>
-        (opt.pointcloud_files, asp::OrthoRasterizerView::max_subblock_size());
+        (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
       std::vector< ImageViewRef< PixelGray<float> > >  rasterized(3);
       for (int ch_index = 0; ch_index < 3; ch_index++){
@@ -1077,7 +988,7 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     sw3.start();
     ImageViewRef< PixelGray<float> > texture
       = asp::form_point_cloud_composite< PixelGray<float> >
-      (opt.texture_files, asp::OrthoRasterizerView::max_subblock_size());
+      (opt.texture_files, ASP_MAX_SUBBLOCK_SIZE);
     rasterizer.set_texture(texture);
 
     if (opt.ortho_hole_fill_len > 0) {
@@ -1206,55 +1117,6 @@ void do_software_rasterization_multi_spacing(const ImageViewRef<Vector3>& proj_p
   opt.out_prefix = base_out_prefix; // Restore the original value
 }
 
-// Sample the image and get generous estimates (but without outliers)
-// of the maximum triangulation error and of the 3D box containing the
-// projected points. These will be tightened later.
-double estim_max_tri_error_and_proj_box(ImageViewRef<Vector3> const& proj_points,
-                                        ImageViewRef<double> const& error_image,
-                                        Vector2 const& remove_outliers_params,
-                                        BBox3 & estim_proj_box) {
-
-  // Initialize the outputs
-  double estim_max_error = 0.0;
-  estim_proj_box = BBox3();
-
-  // Start with a 256 (2^8) by 256 sampling of the cloud
-  bool success = false;
-  for (int attempt = 8; attempt <= 18; attempt++){
-    
-    double sample = (1 << attempt);
-    int32 subsample_amt = int32(norm_2(Vector2(error_image.cols(), error_image.rows()))/sample);
-    if (subsample_amt < 1 )
-      subsample_amt = 1;
-    
-    Stopwatch sw2;
-    sw2.start();
-    PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
-    for_each_pixel(subsample(error_image, subsample_amt),
-                   error_accum,
-                   TerminalProgressCallback
-                   ("asp","Bounding box and triangulation error range estimation: ") );
-    if (error_accum.size() > 0){
-      success = true;
-      estim_max_error = error_accum.value(remove_outliers_params);
-    }
-    sw2.stop();
-
-    asp::estimate_points_bdbox(subsample(proj_points, subsample_amt),  
-                               remove_outliers_params,  
-                               estim_proj_box);
-    
-    if (estim_proj_box.empty()) 
-      success = false;
-    
-    vw_out(DebugMessage,"asp") << "Elapsed time: " << sw2.elapsed_seconds() << std::endl;
-    if (success || subsample_amt == 1) break;
-    vw_out() << "Estimation failed. Check if your cloud is valid. "
-             << "Trying again with finer sampling.\n";
-  }
-  return estim_max_error;
-}
-
 //-----------------------------------------------------------------------------------
 
 int main( int argc, char *argv[] ) {
@@ -1320,7 +1182,7 @@ int main( int argc, char *argv[] ) {
     // - By now, each input exists in xyz tif format.
     ImageViewRef<Vector3> point_image
       = asp::form_point_cloud_composite<Vector3>(opt.pointcloud_files,
-                                                 asp::OrthoRasterizerView::max_subblock_size());
+                                                 ASP_MAX_SUBBLOCK_SIZE);
     
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
@@ -1335,18 +1197,13 @@ int main( int argc, char *argv[] ) {
     // Set up the error image
     ImageViewRef<double> error_image;
     if (opt.remove_outliers_with_pct || opt.max_valid_triangulation_error > 0.0){
-      int num_channels = asp::num_channels(opt.pointcloud_files);
-
-      if      (num_channels == 4) {
-        error_image = asp::error_norm<4>(opt.pointcloud_files);
-      } else if (num_channels == 6) {
-        error_image = asp::error_norm<6>(opt.pointcloud_files);
-      } else {
+      error_image = asp::point_cloud_error_image(opt.pointcloud_files);
+      
+      if (error_image.rows() == 0 || error_image.cols() == 0) 
         vw_out() << "The point cloud files must have an equal number of channels which "
                  << "must be 4 or 6 to be able to remove outliers.\n";
-        opt.remove_outliers_with_pct      = false;
-        opt.max_valid_triangulation_error = 0.0;
-      }
+      opt.remove_outliers_with_pct      = false;
+      opt.max_valid_triangulation_error = 0.0;
     }
     
     // Determine if we should be using a longitude range between
@@ -1392,9 +1249,9 @@ int main( int argc, char *argv[] ) {
       if (error_image.cols() != point_image.cols() || error_image.rows() != point_image.rows()) 
         vw_throw(ArgumentErr() << "The error image and point image must have the same size.");
 
-      estim_max_error = estim_max_tri_error_and_proj_box(proj_points, error_image,
-                                                         opt.remove_outliers_params,
-                                                         estim_proj_box);
+      estim_max_error = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
+                                                              opt.remove_outliers_params,
+                                                              estim_proj_box);
     }
 
     // Create the DEM
