@@ -26,7 +26,7 @@ Outlier removal
 The ``point2las`` program filters out outliers in the input point
 cloud using the ray triangulation error (the fourth band in the
 cloud), hence points with an error above a certain threshold are not
-included in the output las file.
+included in the output LAS file.
 
 It first picks a desired number of samples from the cloud, sorts the
 positive triangulation errors from the sample (the errors equal to 0
@@ -41,17 +41,17 @@ With the default settings, this amounts to 3*Q3.
 This value is used as the cutoff threshold to remove outliers. 
 
 If the option ``--use-tukey-outlier-removal`` is set, the outlier
-cutoff is computed simply as Q3 + 1.5*(Q3 - Q1).
+cutoff is computed as Q3 + 1.5*(Q3 - Q1).
 :cite:`tukey1977exploratory`. This takes precedence over the earlier approach.
 
-Alternatively, the use can specify a custom outlier cutoff via
+Alternatively, the user can specify a custom outlier cutoff via
 ``--max-valid-triangulation-error``, when it will be used instead of
 any of the above.
 
 If it is desired to not remove any outliers, the percentage in 
 ``--remove-outliers-params`` can be set to 100.
 
-After the las file is saved, the number of outliers and their
+After the LAS file is saved, the number of outliers and their
 percentage from the total number of points are printed on the
 screen. Generally, the outlier threshold should not be so restrictive
 that more than approximately 30% of the points are eliminated.
