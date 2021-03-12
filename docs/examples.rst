@@ -2341,7 +2341,7 @@ from the input data, for example as follows:
 
 ::
 
-     stereo left.tif right.tif left.xml right.xml -t dg run/run
+     stereo -t dg left.tif right.tif left.xml right.xml run/run
      point2dem --orthoimage run/run-PC.tif run/run-L.tif
 
 Here, the two input images can be, for example, a single band
@@ -2498,11 +2498,16 @@ masks will be found from the corresponding images as follows:
 
 ::
     
-    thresh=155.1891891891892 
-    image_calc -c "max($thresh, var_0)" --output-nodata-value $thresh \
-      left.tif -o left_mask.tif
+    left_thresh=155.1891891891892 
+    image_calc -c "max($left_thresh, var_0)" \
+      --output-nodata-value $left_thresh     \
+      left_b7.tif -o left_mask.tif
 
-and analogously for the right image. 
+Here, ``left_b7.tif`` is suggestive of the fact that the band 7 of
+WorldView multispectral imagery was used.
+
+It is important to remember to use the right image threshold when repeating
+this process for the right image. 
 
 This tool sets the pixel values at or below threshold to the no-data
 value, while keeping unchanged the values above the threshold.
@@ -2522,7 +2527,7 @@ Having these in place, stereo can then happen as follows:
 
 ::
 
-    stereo left.tif right.tif left.xml right.xml                      \
+    stereo -t dg left.tif right.tif left.xml right.xml                \
     --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
     --refraction-index 1.333 --bathy-plane bathy_plane.txt            \
     run_bathy/run 
@@ -2557,6 +2562,60 @@ As in usual invocations of stereo, the input images may be
 map-projected, and then a DEM is expected, stereo may happen only in
 certain regions as chosen in the GUI, bundle adjustment may be used,
 the output point cloud may be converted to LAS, etc. 
+
+Bathymetry correction with mapprojected images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Given an external DEM, the left and right images can be mapprojected onto this DEM, for example as:
+
+::
+
+  mapproject external_dem.tif left.tif left.xml left_map.tif
+
+and the same for the right image. One should mapproject the same way
+the left and right band 7 Digital Globe multispectral images (if
+applicable), obtaining two images, ``left_map_b7.tif`` and
+``right_map_b7.tif``. These two can be used to find the masks, as earlier:
+
+::
+
+    left_thresh=155.1891891891892 
+    image_calc -c "max($left_thresh, var_0)" \
+      --output-nodata-value $left_thresh     \
+      left_map_b7.tif -o left_map_mask.tif
+
+(and the same for the right image.)
+
+The threshold determined with the original non-mapprojected images
+should still work, and the same water plane can be used.
+
+Then, stereo happens as above, with the only differences being the
+addition of the external DEM and the new names for the images and the
+masks:
+
+:: 
+
+    stereo -t dg left_map.tif right_map.tif left.xml right.xml \
+      --left-bathy-mask left_map_mask.tif                      \
+      --right-bathy-mask right_map_mask.tif                    \
+      --refraction-index 1.333                                 \
+      --bathy-plane bathy_plane.txt                            \
+      run_map/run external_dem.tif                       
+
+
+Using non-Digital Globe images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Stereo with bathymetry was tested with RPC cameras. In fact, the
+above examples can be re-run by just replacing ``dg`` with ``rpc`` for
+the ``-t`` option. (It is suggested that the shoreline shapefile and
+the water plane be redone for the RPC case. It is expected that the
+results will change to a certain extent.)
+
+Experiments were also done with pinhole cameras (using the
+``nadirpinhole`` session) with both raw and mapprojected images, and
+using the alignment methods 'epipolar', 'affineepipolar',
+'homography', and 'none', giving plausible results.
 
 Effect of bathymetry correction on the output DEM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

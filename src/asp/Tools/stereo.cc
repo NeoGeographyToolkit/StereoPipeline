@@ -759,12 +759,15 @@ namespace asp {
     if (opt.session->do_bathymetry()) {
       if (opt.session->name() != "dg" &&
           opt.session->name() != "rpc" &&
-          opt.session->name() != "nadirpinhole")
-        vw_throw(ArgumentErr() << "Bathymetry correction only works with dg, rpc, "
-                  << "and nadirpinhole sessions. Got: "
-                  << opt.session->name() << ".\n");
+          opt.session->name() != "dgmaprpc" &&
+          opt.session->name() != "rpcmaprpc" &&
+          opt.session->name() != "nadirpinhole" &&
+          opt.session->name() != "pinholemappinhole")
+        vw_throw(ArgumentErr() << "Bathymetry correction only works with dg, rpc, and "
+                 << "nadirpinhole sessions, and mapprojected images for these. Got: "
+                 << opt.session->name() << ".\n");
     }
-      
+    
     // Camera checks
     bool force_throw = false;
     try {

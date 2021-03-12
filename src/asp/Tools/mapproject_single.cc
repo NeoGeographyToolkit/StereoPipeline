@@ -227,12 +227,14 @@ void write_parallel_cond( std::string              const& filename,
   // Save the session type. Later in stereo we will check that we use
   // only images written by mapproject with the -t rpc session.
   // - Write the type of sensor model used, not the underlying session class.
+  // There is no difference between pinhole and nadirpinhole when it comes
+  // to how mapprojection happens, that becomes important only in stereo.
   std::string session_type = opt.stereo_session;
   if (session_type == "isismapisis")
     session_type = "isis";
   if (session_type == "rpcmaprpc")
     session_type = "rpc";
-  if (session_type == "pinholemappinhole")
+  if (session_type == "pinholemappinhole" || session_type == "nadirpinhole")
     session_type = "pinhole";
 
   // Save some keywords that we will check later when using the mapprojected file
