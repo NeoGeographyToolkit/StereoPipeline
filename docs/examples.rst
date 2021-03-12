@@ -1,3 +1,5 @@
+..    include:: <isonum.txt>
+
 .. _examples:
 
 Stereo Processing Examples
@@ -2537,13 +2539,17 @@ Having these in place, stereo can then happen as follows:
 Note that we specified the two masks, the water index of refraction,
 and the water plane found before. 
 
-The water refraction index was set to 1.333 
+The water refraction index was set to 1.333
 :cite:`thormahlen1985refractive,harvey1998calibration`.
-Alternatively, one could use 1.34 :cite:`jerlov1976marine`, or 
-a more precise value that depends on wavelength,
-temperature, and if the water is salty or not (`Parrish (2020) 
-<http://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_, 
-:cite:`austin1976index,mobley1995optical`).
+Alternatively, one could use 1.34 :cite:`jerlov1976marine`, or a more
+precise value that depends on wavelength, temperature, and if having
+saltwater or freshwater (`Parrish (2020)
+<http://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_,
+:cite:`austin1976index,mobley1995optical`).  For example, using the
+equation and coefficients found in Parrish (2020), and the green
+wavelength for saltwater, the water refraction index is 1.395706 when
+the water temperature is 27 |deg| C (this was applied to a Florida
+Keys test site for the month of May).
 
 The obtained point cloud will have both triangulated points above water,
 so with no correction, and below water, with the correction applied.

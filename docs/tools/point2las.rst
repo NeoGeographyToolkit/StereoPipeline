@@ -10,8 +10,54 @@ If the input cloud has a datum, or the ``--datum`` option is specified,
 then the output LAS file will be created in respect to this datum.
 Otherwise raw :math:`x,y,z` values will be saved.
 
-Command-line options for point2las:
+Example usage:
 
+::
+
+     point2las output-prefix-PC.tif -o output-prefix
+
+This will create the file ``output-prefix.las``. If the
+``--compressed`` option is used, it will write instead
+``output-prefix.laz``
+
+Outlier removal
+~~~~~~~~~~~~~~~
+
+The ``point2las`` program filters out outliers in the input point
+cloud using the ray triangulation error (the fourth band in the
+cloud), hence points with an error above a certain threshold are not
+included in the output las file.
+
+It first picks a desired number of samples from the cloud, sorts the
+positive triangulation errors from the sample (the errors equal to 0
+correspond to invalid points, so these are ignored), and computes some
+statistical measures which are printed to the screen.  Those include
+the minimum, mean, standard deviation, maximum, and the error
+percentiles at 25% (Q1), 50% (median, Q2) and 75% (Q3).
+
+Then, given the desired percentile and factor in ``--remove-outliers-params``,
+it computes the error for this percentile and multiplies it by the factor.
+With the default settings, this amounts to 3*Q3. 
+This value is used as the cutoff threshold to remove outliers. 
+
+If the option ``--use-tukey-outlier-removal`` is set, the outlier
+cutoff is computed simply as Q3 + 1.5*(Q3 - Q1).
+:cite:`tukey1977exploratory`. This takes precedence over the earlier approach.
+
+Alternatively, the use can specify a custom outlier cutoff via
+``--max-valid-triangulation-error``, when it will be used instead of
+any of the above.
+
+If it is desired to not remove any outliers, the percentage in 
+``--remove-outliers-params`` can be set to 100.
+
+After the las file is saved, the number of outliers and their
+percentage from the total number of points are printed on the
+screen. Generally, the outlier threshold should not be so restrictive
+that more than approximately 30% of the points are eliminated.
+
+Command-line options for point2las
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -h, --help
     Display the help message.
 
@@ -42,13 +88,18 @@ Command-line options for point2las:
     Specify the output file prefix.
 
 --remove-outliers-params <pct factor (default: 75.0 3.0)>
-    Outlier removal based on percentage. Points with triangulation error larger
-    than pct-th percentile times factor will be removed as outliers.
+    Outlier removal based on percentage. Points with triangulation
+    error larger than pct-th percentile times factor will be removed
+    as outliers.
+
+--use-tukey-outlier-removal
+    Remove outliers above Q3 + 1.5*(Q3 - Q1). Takes precedence over
+    the above approach.
 
 --max-valid-triangulation-error <float (default: 0)>
     Outlier removal based on threshold. Points with triangulation error larger 
     than this, if positive (measured in meters) will be removed from the cloud.
-    This option takes precedence over --remove-outliers-params.
+    Takes precedence over the above options.
 
 --num-samples-for-outlier-estimation <integer (default: 1000000)>
     Approximate number of samples to pick from the input cloud to find the 
@@ -57,6 +108,3 @@ Command-line options for point2las:
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined
     in the program or in the .vwrc file.
-
---tif-compress <None|LZW|Deflate|Packbits>
-    TIFF compression method.

@@ -56,8 +56,8 @@ public:
     return m_vals.size();
   }
   
-  value_type value(Vector2 const& remove_outliers_params){
-    
+  value_type value(Vector2 const& remove_outliers_params, bool use_tukey_outlier_removal){
+
     // Care here with empty sets
     if (m_vals.empty()) {
       vw_out() << "Found no positive triangulation errors in the sample.\n";
@@ -66,9 +66,7 @@ public:
     
     std::sort(m_vals.begin(), m_vals.end());
 
-    int    len    = m_vals.size();
-    double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
-    double factor = remove_outliers_params[1];
+    int len = m_vals.size();
 
     vw_out() << "Collected a sample of " << len << " positive triangulation errors.\n";
 
@@ -84,15 +82,26 @@ public:
     int i50 = round((len - 1) * 0.50);
     int i75 = round((len - 1) * 0.75);
 
+    double Q1 = m_vals[i25];
+    double Q2 = m_vals[i50];
+    double Q3 = m_vals[i75];
     vw_out() << "Error percentiles: " 
-             << "25%: "  << m_vals[i25]
-             << ", 50%: " << m_vals[i50]
-             << ", 75%: " << m_vals[i75] << "." << std::endl;
+             << "Q1 (25%): " << Q1 << ", "
+             << "Q2 (50%): " << Q2 << ", "
+             << "Q3 (75%): " << Q3 << "."
+             << std::endl;
+
+    if (use_tukey_outlier_removal) {
+      vw_out() << "Using as outlier cutoff the Tukey formula Q3 + 1.5*(Q3 - Q1)." << std::endl;
+      return Q3 + 1.5*(Q3 - Q1);
+    }
+    
+    double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
+    double factor = remove_outliers_params[1];
+    int k         = (int)round((len - 1) * pct);
     
     vw_out() << "Using as outlier cutoff the " << remove_outliers_params[0] << " percentile times "
              << factor << "." << std::endl;
-    
-    int k = (int)round((len - 1) * pct);
     
     return m_vals[k] * factor;
   }
@@ -104,7 +113,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string reference_spheroid, datum;
   std::string pointcloud_file;
   std::string target_srs_string;
-  bool        compressed;
+  bool        compressed, use_tukey_outlier_removal;
   Vector2     remove_outliers_params;
   double      max_valid_triangulation_error;
   int         num_samples;
@@ -129,8 +138,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Specify a custom projection (PROJ.4 string).")
     ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
      "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
+    ("use-tukey-outlier-removal", po::bool_switch(&opt.use_tukey_outlier_removal)->default_value(false)->implicit_value(true),
+     "Remove outliers above Q3 + 1.5*(Q3 - Q1). Takes precedence over the above approach.")
+
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0.0),
-     "Outlier removal based on threshold. Points with triangulation error larger than this, if positive (measured in meters) will be removed from the cloud. This option takes precedence over --remove-outliers-params.")
+     "Outlier removal based on threshold. Points with triangulation error larger than this, if positive (measured in meters) will be removed from the cloud. Takes precedence over the above methods.")
     ("num-samples-for-outlier-estimation", po::value(&opt.num_samples)->default_value(1000000),
      "Approximate number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.");
   
@@ -199,7 +211,7 @@ void find_error_image_and_do_stats(Options& opt, ImageViewRef<double> & error_im
   }
 
   if (opt.max_valid_triangulation_error > 0.0) {
-    vw_out() << "Using the set maximum valid triangulation error: "
+    vw_out() << "Using the set maximum valid triangulation error as outlier cutoff: "
              << opt.max_valid_triangulation_error << "." << std::endl;
     return;
   }
@@ -221,12 +233,13 @@ void find_error_image_and_do_stats(Options& opt, ImageViewRef<double> & error_im
                  error_accum,
                  TerminalProgressCallback
                  ("asp","Error estim : ") );
-  if (error_accum.size() > 0)
-    opt.max_valid_triangulation_error = error_accum.value(opt.remove_outliers_params);
-    
+
+  opt.max_valid_triangulation_error = error_accum.value(opt.remove_outliers_params,
+                                                        opt.use_tukey_outlier_removal);
+  
   sw.stop();
   vw_out(DebugMessage, "asp") << "Elapsed time: " << sw.elapsed_seconds() << std::endl;
-  vw_out() << "Found the maximum valid triangulation error: "
+  vw_out() << "Found the maximum valid triangulation error (outlier cutoff): "
            << opt.max_valid_triangulation_error << "." << std::endl;
 }
 
