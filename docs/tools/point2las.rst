@@ -41,7 +41,7 @@ With the default settings, this amounts to 3*Q3.
 This value is used as the cutoff threshold to remove outliers. 
 
 If the option ``--use-tukey-outlier-removal`` is set, the outlier
-cutoff is computed as Q3 + 1.5*(Q3 - Q1).
+cutoff is computed as Q3 + 1.5*(Q3 - Q1)
 :cite:`tukey1977exploratory`. This takes precedence over the earlier approach.
 
 Alternatively, the user can specify a custom outlier cutoff via
