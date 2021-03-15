@@ -238,6 +238,7 @@ private:
           
           // Bring the needed parts of the bathy masks in memory as well
           BBox2i cropped_right_bbox = right_bbox;
+          cropped_right_bbox.expand(1); // will be needed later during triangulation
           cropped_right_bbox.crop(bounding_box(m_right_aligned_bathy_mask));
           ImageView<PixelMask<float>> l_mask_clip = crop(m_left_aligned_bathy_mask, bbox);
           ImageView<PixelMask<float>> r_mask_clip = crop(m_right_aligned_bathy_mask,
@@ -296,10 +297,12 @@ private:
       if (m_bathy_correct) {
         // Bring the needed parts of the bathy masks in memory as well
         BBox2i cropped_right_bbox = right_bbox;
+        cropped_right_bbox.expand(1); // will be needed later during triangulation
         cropped_right_bbox.crop(bounding_box(m_right_aligned_bathy_mask));
         ImageView<PixelMask<float>> l_mask_clip = crop(m_left_aligned_bathy_mask, bbox);
         ImageView<PixelMask<float>> r_mask_clip = crop(m_right_aligned_bathy_mask,
                                                        cropped_right_bbox);
+        
         in_memory_left_aligned_bathy_mask
           = crop(l_mask_clip, -bbox.min().x(), -bbox.min().y(), cols(), rows());
         in_memory_right_aligned_bathy_mask
