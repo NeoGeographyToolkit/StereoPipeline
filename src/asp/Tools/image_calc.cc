@@ -44,6 +44,8 @@
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
+#include <boost/math/special_functions/sign.hpp>
+
 namespace po = boost::program_options;
 
 using namespace vw;
@@ -70,6 +72,7 @@ enum OperationType {
   OP_variable,
   OP_negate,
   OP_abs,
+  OP_sign,
   // BINARY operations
   OP_add,
   OP_subtract,
@@ -95,6 +98,7 @@ std::string getTagName(const OperationType o) {
     case OP_variable: return "VARIABLE";
     case OP_negate:   return "NEGATE";
     case OP_abs:      return "ABS";
+    case OP_sign:     return "SIGN";
     case OP_add:      return "ADD";
     case OP_subtract: return "SUBTRACT";
     case OP_divide:   return "DIVIDE";
@@ -226,6 +230,7 @@ struct calc_operation {
           vw_throw(LogicErr() << "Insufficient inputs for this operation.\n");
         case OP_negate:   return T(-1 * inputResults[0]);
         case OP_abs:      return T(std::abs(inputResults[0])); // regular abs casts to integer.
+        case OP_sign:     return T(boost::math::sign(inputResults[0]));
 
         // Binary
         if (numInputs < 2)
@@ -321,6 +326,7 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
         ( ("pow(" > expression > ',' > expression > ')')
                 [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), at_c<OP>(_val)=OP_power] ) |
         ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | // Absolute value
+        ("sign(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_sign] > ')') | // Sign function
         ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | // Something in parenthesis
         ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]    ) | // Negative sign
         //('+' >> factor    [handler]      );  // Positive sign
@@ -576,7 +582,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     "The operation to be performed on the input images. "
     "Input images must all be the same size and type. "
     "Currently only single channel images are supported. "
-    "Recognized operators: +, -, /, *, (), pow(), abs(), min(), max(), var_0, var_1, ..."
+    "Recognized operators: +, -, /, *, (), pow(), abs(), sign(), min(), max(), var_0, var_1, ..."
     "Use var_n to refer to the pixel of the n-th input image. "
     "Order of operations is parsed with RIGHT priority, use parenthesis "
     "to assure the order you want. "
