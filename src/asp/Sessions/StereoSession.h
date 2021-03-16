@@ -33,7 +33,6 @@
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/CameraModelLoader.h>
-
 namespace asp {
 
   typedef vw::Vector<vw::float32,6> Vector6f;
@@ -293,9 +292,11 @@ namespace asp {
 // --- Template function definitions ---
 
 template <class ViewT>
-Vector6f StereoSession::gather_stats( vw::ImageViewBase<ViewT> const& view_base, std::string const& tag,
-                                      std::string const& prefix, std::string const& image_path) {
+Vector6f StereoSession::gather_stats(vw::ImageViewBase<ViewT> const& view_base,
+                                     std::string const& tag,
+                                     std::string const& prefix, std::string const& image_path) {
   using namespace vw;
+  namespace fs = boost::filesystem;
   Vector6f result;
 
   vw_out(InfoMessage) << "\t--> Computing statistics for " + tag << std::endl;
@@ -303,12 +304,21 @@ Vector6f StereoSession::gather_stats( vw::ImageViewBase<ViewT> const& view_base,
 
   const bool use_cache = ((prefix != "") && (image_path != ""));
   std::string cache_path = "";
-  if (use_cache)
-    cache_path = prefix + '-' + boost::filesystem::path(image_path).stem().string() + "-stats.tif";
-
+  if (use_cache) {
+    if (image_path.find(prefix) == 0) {
+      // If the image is, for example, run/run-L.tif,
+      // then cache_path = run/run-L-stats.tif.
+      cache_path =  fs::change_extension(image_path, "").string() + "-stats.tif";
+    }else {
+      // If the image is left_image.tif, 
+      // then cache_path = run/run-left_image.tif
+      cache_path = prefix + '-' + fs::path(image_path).stem().string() + "-stats.tif";
+    }
+  }
+  
   // Check if this stats file was computed after any image modifications.
   if ((use_cache && asp::is_latest_timestamp(cache_path, image_path)) ||
-      (stereo_settings().force_reuse_match_files && boost::filesystem::exists(cache_path))) {
+      (stereo_settings().force_reuse_match_files && fs::exists(cache_path))) {
     vw_out(InfoMessage) << "\t--> Reading statistics from file " + cache_path << std::endl;
     Vector<float32> stats;
     read_vector(stats, cache_path); // Just fetch the stats from the file on disk.

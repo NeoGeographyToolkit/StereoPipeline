@@ -45,9 +45,13 @@ sfs:
     filtering outlier by spatial extent. Can be controlled as 
     before via --remove-outliers-params.
 
- stereo_gui:
+stereo_gui:
   * Added the ability to find the contour of a georeferenced image at
     a given threshold. (It can be later edited, saved to disk, etc.) 
+  * Bugfixes for polygon drawing logic.
+
+image_calc:
+  * Support the sign function (can help in creating masks).
 
 Misc
 

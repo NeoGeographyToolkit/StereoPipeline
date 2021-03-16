@@ -37,9 +37,8 @@ https://semver.org for guidance).
 
   https://anaconda.org/nasa-ames-stereo-pipeline  
 
-  - Update the environments in StereoPipeline/conda, both
-    for the ASP dependencies and for ASP itself.
-    TODO(oalexan1): This needs to be explained in more detail.
+   This is described in detail in :numref:`conda_build` in the
+   documentation.
 
   - Build the documentation in StereoPipeline/docs/.
 
@@ -59,6 +58,12 @@ https://semver.org for guidance).
 
         BinaryBuilder/README.
 
+    Ideally all the dependencies are already built and installed
+    with conda as above. VisionWorkbench can be built and installed
+    either with conda or with BinaryBuilder.
+
+    Use the compilers provided by conda (on Linux).
+ 
     Test all binary releases on different machines by running
     StereoPipelineTest.
 
@@ -123,7 +128,7 @@ specified in NEWS.rst.
 After the release has been done, prep the repo for the next phase of
 development, by updating the version number in:
 
-	- src/CMakeLists.txt
+ - src/CMakeLists.txt
 
 in both the VW and ASP repositories. 
 

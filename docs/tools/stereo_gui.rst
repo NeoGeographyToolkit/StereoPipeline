@@ -221,6 +221,10 @@ To create polygons, click with the left mouse button on points
 to be added. When clicking close to the starting point, the polygon
 becomes closed and a new one can be drawn.
 
+Polygons can be saved from the right-click menu. When reading polygons
+and georeferenced images from disk, choose "View as Georeferenced
+Images" to plot the polygons on top of the images.
+
 Subsequently, the ``gdal_rasterize`` command can be used to keep or
 exclude the portion of a given image/DEM that is within or outside the
 polygonal shape.

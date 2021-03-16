@@ -24,6 +24,7 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
    papersusingasp
    news
    contributing
+   conda_build
    acknowledgements
    glossary
    zzreferences

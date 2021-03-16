@@ -135,6 +135,8 @@ location for ``ISISDATA``.
 You need to add the ``bin`` directory of your deployed Stereo Pipeline
 installation to the environmental variable ``PATH``.
 
+.. _conda_intro:
+
 Fetching pre-compiled ASP with conda
 ------------------------------------
 
@@ -366,15 +368,8 @@ particular, the PDF document will be at::
 
   ./_build/latex/asp_book.pdf
 
-Building the ASP dependencies
------------------------------
+Building ASP and its dependencies with conda
+--------------------------------------------
 
-The feedstocks for all the conda packages that are custom-built for
-ASP are at::
+This is an advanced topic discussed in :numref:`conda_build`.
 
-  https://github.com/NeoGeographyToolkit
-
-Care must be taken to ensure that all the entries in the meta.yaml
-files in each recipe have versions that are consistent among
-themselves and with what ISIS expects, or else conda will fail to
-build things properly (and often very late in the process).

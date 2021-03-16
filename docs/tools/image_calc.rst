@@ -10,7 +10,7 @@ The tool supports multiple input images but each must be the same size
 and data type. Input images are restricted to one channel.
 
 The following symbols are allowed in the arithmetic string: +, -, \*, /,
-(), min(), max(), pow(), abs(), and var_N where N is the index of one of
+(), min(), max(), pow(), abs(), sign(), and var_N where N is the index of one of
 the input images (N\ :math:`\ge`\ 0). The tool also supports certain conditional
 operations: lt, gt, lte, gte, eq (<, >, <=, >=, == respectively).  These must be
 used in a format like "lt(var_0, 0.003, var_1, 0)", which translates to
