@@ -32,7 +32,7 @@
 #include <csm/csm.h>
 #include <csm/Plugin.h>
 #include <csm/RasterGM.h>
-#include <json/json.hpp>
+#include <nlohmann/json.hpp>
 
 namespace dll = boost::dll;
 namespace fs = boost::filesystem;
