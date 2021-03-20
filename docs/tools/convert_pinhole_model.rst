@@ -29,12 +29,19 @@ lower-degree polynomials may be easier to interpret.
 
 Usage::
 
-     convert_pinhole_model [options] <input image> <input camera> -o <output camera>
+     convert_pinhole_model [options] <input image> <input camera> \
+       -o <output camera>
 
 Example (convert a camera model to the RPC type)::
 
      convert_pinhole_model input.jpg input.tsai --output-type RPC \
        --rpc-degree 2 -o output_rpc.tsai
+
+Example (specify the image dimensions instead of the image, and
+convert to BrownConradyDistortion)::
+
+     convert_pinhole_model input.tsai --output-type BrownConradyDistortion \
+       --image-size "5000 4000" -o output.tsai
 
 Command-line options for convert_pinhole_model:
 
@@ -59,3 +66,7 @@ Command-line options for convert_pinhole_model:
 --camera-to-ground-dist <double (default: 0)>
     The distance from the camera to the ground, in meters. This is
     necessary to convert an optical bar model to pinhole.
+
+--image-size <"int int" (default: "")>
+    Image width and height, specified as two numbers in quotes and separated 
+    by a space, unless the input image file is provided.
