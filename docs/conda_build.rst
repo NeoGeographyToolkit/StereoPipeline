@@ -25,9 +25,9 @@ Search for the latest available ISIS conda package:
   
   conda search -c usgs-astrogeology --override-channels isis
 
-Here it was found that ISIS version 4.4.0 was the latest, which
-we will assume throughout the rest of of your document. This
-needs to be adjusted for your circumstances.
+Here it was found that ISIS version 4.4.0 was the latest, which we
+will assume throughout the rest of this document. This needs to be
+adjusted for your circumstances.
 
 Fetch the ISIS environment ``environment.yml`` from 
 
@@ -142,8 +142,15 @@ script in the ASP repository:
  python StereoPipeline/conda/update_versions.py isis4.4.yaml \
    gdal-feedstock
 
-and the same for the other packages. It is suggested to examine the changed
-``meta.yaml`` file to ensure the script updated things correctly. 
+and the same for the other packages. 
+
+It is very important to note that this script is not fool-proof. For
+example, the ``eigen`` version which seems to agree with the current
+version of ``ceres`` is 3.3.7 rather than 3.3.9.
+
+It is suggested to examine the changed ``meta.yaml`` with great care,
+and if in doubt, leave the values as they were before modified by this
+script.
 
 In each of those files manually modify the string ``isis4.4.0`` to
 reflect the current ISIS version.
@@ -152,8 +159,7 @@ In the ``visionworkbench`` and ``stereopipeline`` recipes update the
 ``git_tag`` value to reflect the desired commit from the Git
 history. (When making an ASP release, one can tag the commit based on
 which the release happens in the VisionWorkbench and StereoPipeline
-repositories, and then that tag can be used in the ``git_tag``
-field.)
+repositories, and then that tag can be used in the ``git_tag`` field.)
 
 Later on, after the packages are built and tested, ensure that all the
 feedstock repositories are committed back.
@@ -184,11 +190,20 @@ and specifying the channel as the user name, and then running a command along th
 
 (Use above the path echoed on the screen by the ``conda build`` command.)
 
+Use the ``--force`` option if desired to overwrite any existing package
+with the same name and version.
+
 After a package is uploaded, it can be installed in the existing ``isis4.4`` environment as:
  
 ::
 
   conda install -c nasa-ames-stereo-pipeline gdal==isis4.4.0
+
+To list all packages in that channel, do:
+
+::
+
+  conda search -c nasa-ames-stereo-pipeline --override-channels
 
 Order of building the packages
 ------------------------------
@@ -197,5 +212,3 @@ It is suggested to build the above packages in the order listed earlier, as some
 of them depend on others.
 
 Note that ``libpointmatcher`` depends on ``libnabo``, while ``liblas`` depends on ``laszip`` and ``gdal``, ``theia`` depends on ``imagemagick``, and ``visionworkbench`` depends on ``gdal``. The ``stereopipeline`` package depends on all of these so it should be built the last.
-
-

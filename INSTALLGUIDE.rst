@@ -144,7 +144,7 @@ Get conda from::
 
     https://docs.conda.io/en/latest/miniconda.html
 
-Run::
+Make it executable, and run::
 
     ./Miniconda3-latest-Linux-x86_64.sh
 

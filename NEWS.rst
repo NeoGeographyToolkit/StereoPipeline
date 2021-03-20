@@ -27,6 +27,10 @@ point2las
   * Remove outliers by using a percentile times a factor, in a way
     analogous to point2dem.
    
+convert_pinhole_model:
+  * Improve the RPC approximation for the distortion and undistortion
+    operations.
+
 sfs:
   * Added the option --shadow-threshold to be able to specify
     a single shadow threshold for all images. Also added
