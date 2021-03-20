@@ -43,7 +43,7 @@ void printShaderInfoLog(GLuint obj)
       infoLog = (char *)malloc(infologLength);
       glGetShaderInfoLog(obj, infologLength, &charsWritten, infoLog);
       std::ostringstream err;
-      err << "<h4>An error occured while compiling the GLSL shader:</h4><p><h5><tt>" << infoLog << "</tt></h5>";
+      err << "<h4>An error occurred while compiling the GLSL shader:</h4><p><h5><tt>" << infoLog << "</tt></h5>";
       QMessageBox::critical(0, "GLSL Shader Error", 
                             err.str().c_str());
       free(infoLog);
@@ -63,7 +63,7 @@ void printProgramInfoLog(GLuint obj)
       infoLog = (char *)malloc(infologLength);
       glGetProgramInfoLog(obj, infologLength, &charsWritten, infoLog);
       std::ostringstream err;
-      err << "<h4>An error occured while linking the GLSL program:</h4><p><h5><tt>" << infoLog << "</tt></h5>";
+      err << "<h4>An error occurred while linking the GLSL program:</h4><p><h5><tt>" << infoLog << "</tt></h5>";
       QMessageBox::critical(0, "GLSL Program Error", 
                             err.str().c_str());
       printf("%s\n",infoLog);

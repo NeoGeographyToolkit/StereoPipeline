@@ -394,8 +394,7 @@ public slots:
 
     // For polygon drawing
     bool        m_polyEditMode;
-    std::vector<vw::geometry::dPoly> m_polyVec;
-    int         m_polyVecIndex; // which of the current images owns the poly vector layer
+    int         m_polyLayerIndex; // which of the current images owns the poly vector layer
     vw::Vector2 m_startPix; // The first poly vertex being drawn in world coords
     std::vector<double> m_currPolyX, m_currPolyY;
     int         m_editPolyVecIndex, m_editIndexInCurrPoly, m_editVertIndexInCurrPoly; 

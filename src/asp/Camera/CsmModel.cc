@@ -186,7 +186,7 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
 void CsmModel::print_available_models() {
 
   csm::PluginList available_plugins = csm::Plugin::getList();
-  vw_out() << "Detected " << available_plugins.size() << " available CSM plugin(s).\n";
+  //vw_out() << "Detected " << available_plugins.size() << " available CSM plugin(s).\n";
 
   csm::PluginList::iterator iter;
   for (iter=available_plugins.begin(); iter!=available_plugins.end(); ++iter) {
@@ -252,12 +252,12 @@ void CsmModel::initialize_plugins() {
   if (!plugins.empty())
     return;
 
-  vw_out() << "Initializing CSM plugins...\n";
+  //vw_out() << "Initializing CSM plugins...\n";
 
   // Find all of the available CSM plugin DLL files.
   std::vector<std::string> plugin_files;
   size_t num_plugin_files = find_csm_plugins(plugin_files);
-  vw_out() << "Found " << num_plugin_files << " CSM plugin files.\n";
+  //vw_out() << "Found " << num_plugin_files << " CSM plugin files.\n";
 
   // Load all of the plugins.
   for (size_t i=0; i<num_plugin_files; ++i) {
@@ -368,7 +368,7 @@ void CsmModel::load_model(std::string const& isd_path) {
 
   m_csm_model.reset(raster_model); // We will handle cleanup of the model.
 
-  std::cout << "Done setting up the CSM model\n";
+  //std::cout << "Done setting up the CSM model\n";
 }
 
 void CsmModel::throw_if_not_init() const {

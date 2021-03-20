@@ -275,7 +275,7 @@ void do_run( Options& opt ) {
 
     delete rsrc;
   } catch (vw::Exception const& e) {
-    vw_throw( ArgumentErr() << "An error occured while finding pixel type: " << e.what() << "\n" );
+    vw_throw( ArgumentErr() << "An error occurred while finding pixel type: " << e.what() << "\n" );
   }
 
   string tile_filetype;

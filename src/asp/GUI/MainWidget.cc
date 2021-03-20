@@ -18,6 +18,8 @@
 /// \file MainWidget.cc
 ///
 ///
+// TODO(oalexan1): Each layer must have just a dPoly, rather
+// than a vector of them.
 /// TODO: Test with empty images and images having just one pixel.
 
 #include <string>
@@ -181,7 +183,7 @@ namespace vw { namespace gui {
       m_use_georef(use_georef),
       m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region),
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
-      m_polyEditMode(false), m_polyVecIndex(0),
+      m_polyEditMode(false), m_polyLayerIndex(0),
       m_pixelTol(6), m_backgroundColor(QColor("black")),
       m_lineWidth(1), m_polyColor("green") {
 
@@ -230,7 +232,7 @@ namespace vw { namespace gui {
     m_filesOrder.resize(num_images);
     m_world2image_geotransforms.resize(num_images);
     m_image2world_geotransforms.resize(num_images);
-    for (int i = 0; i < num_images; i++){
+    for (int i = 0; i < num_images; i++) {
       m_images[i].read(image_files[i], m_opt, m_use_georef);
 
       // Read the base image, if different from the current image
@@ -250,13 +252,13 @@ namespace vw { namespace gui {
       BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
       m_world_box.grow(B);
 
-      // The first encountered vector layer becomes the one we draw.
-      // This needs to be cleaned up. Ideally each image has its own vector layer.
-      if (m_images[i].isPoly() && m_polyVec.empty()){
-        m_polyVec = m_images[i].polyVec;
-        m_polyVecIndex = i;
-      }
-    }
+      // The first existing vector layer becomes the one we draw on.
+      // Otherwise we keep m_polyLayerIndex at 0 so we store any new
+      // polygons in m_images[0].
+      if (m_images[i].isPoly() && m_polyLayerIndex == 0)
+        m_polyLayerIndex = i;
+      
+    } // end iterating over the images
 
     // Each image can be hillshaded independently of the other ones
     m_hillshade_mode      = hillshade;
@@ -1253,64 +1255,87 @@ namespace vw { namespace gui {
                             drawVertIndex, polyColor, paint,  
                             poly);
     }
-    
-    // Plot the polygon being drawn now, and pre-existing polygons
-    for (size_t polyIter = 0; polyIter < m_polyVec.size() + 1; polyIter++){
-      
-      vw::geometry::dPoly poly;
-      
-      if (polyIter == 0) {
 
-        if (m_currPolyX.empty() || !m_polyEditMode)
+    // Loop through the input images. Plot the polygons. Note how we
+    // add one more fake image at the end to take care of the polygon
+    // we are in the middle of drawing.
+    for (size_t j = 0; j < m_images.size() + 1; j++){
+
+      bool currDrawnPoly = (j == m_images.size());
+      
+      int i = j;
+      if (!currDrawnPoly) {
+        i = m_filesOrder[j];
+      
+        // Don't show files the user wants hidden
+        string fileName = m_images[i].name;
+        if (m_filesToHide.find(fileName) != m_filesToHide.end())
           continue;
-
-        if (!m_images[m_polyVecIndex].has_georef) // this should not happen
-          vw_throw(ArgumentErr() << "Expecting images with georeference.\n");
-
-        poly.reset();
-        poly.appendPolygon(m_currPolyX.size(),  
-                           vw::geometry::vecPtr(m_currPolyX),  
-                           vw::geometry::vecPtr(m_currPolyY),  
-                           isPolyClosed, polyColorStr, layer);
-      }else{
-        poly = m_polyVec[polyIter-1]; // make a deep copy
       }
 
-      double val1 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
-                                                 poly.get_xv(), poly.get_yv());
-
-      // Convert to world units
-      int            numVerts  = poly.get_totalNumVerts();
-      double *             xv  = poly.get_xv();
-      double *             yv  = poly.get_yv();
-      for (int vIter = 0; vIter < numVerts; vIter++){
-        Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyVecIndex); 
-        xv[vIter] = P.x();
-        yv[vIter] = P.y();
+      // Let polyVec be the polygons for the current image, or,
+      // at the end, the polygon we are in the middle of drawing
+      // TODO(oalexan1): How to avoid a deep copy?
+      std::vector<vw::geometry::dPoly> polyVec;
+      if (!currDrawnPoly) {
+        polyVec = m_images[i].polyVec; // deep copy
+      } else {
+          if (m_currPolyX.empty() || !m_polyEditMode)
+            continue;
+          
+          if (!m_images[m_polyLayerIndex].has_georef) // this should not happen
+            vw_throw(ArgumentErr() << "Expecting images with georeference.\n");
+          
+          vw::geometry::dPoly poly;
+          poly.reset();
+          poly.appendPolygon(m_currPolyX.size(),  
+                             vw::geometry::vecPtr(m_currPolyX),  
+                             vw::geometry::vecPtr(m_currPolyY),  
+                             isPolyClosed, polyColorStr, layer);
+          polyVec.push_back(poly);
       }
+      
+      // Plot the polygon being drawn now, and pre-existing polygons
+      for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++){
+      
+        vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
+      
+        double val1 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
+                                                   poly.get_xv(), poly.get_yv());
 
-      if (polyIter > 0 && m_polyEditMode && m_moveVertex->isChecked()) {
-        drawVertIndex = 1; // to draw a little square at each movable vertex
-        plotPoints = true;
-      }else{
-        drawVertIndex = 0;
-        plotPoints = false;
+        // Convert to world units
+        int            numVerts  = poly.get_totalNumVerts();
+        double *             xv  = poly.get_xv();
+        double *             yv  = poly.get_yv();
+        for (int vIter = 0; vIter < numVerts; vIter++){
+          Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyLayerIndex); 
+          xv[vIter] = P.x();
+          yv[vIter] = P.y();
+        }
+
+        if (m_polyEditMode && m_moveVertex->isChecked()) {
+          drawVertIndex = 1; // to draw a little square at each movable vertex
+          plotPoints = true;
+        }else{
+          drawVertIndex = 0;
+          plotPoints = false;
+        }
+
+        double val2 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
+                                                   poly.get_xv(), poly.get_yv());
+
+        // If the conversion to world coords flips the orientation, correct for that.
+        // TODO: This seems necessary. More thought is needed. 
+        if (val1 * val2 < 0)
+          poly.reverse();
+
+        MainWidget::plotDPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
+                              m_showIndices->isChecked(),
+                              lineWidth,  
+                              drawVertIndex, polyColor, paint, poly);
       }
-
-      double val2 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
-                                                 poly.get_xv(), poly.get_yv());
-
-      // If the conversion to world coords flips the orientation, correct for that.
-      // TODO: This seems necessary. More thought is needed. 
-      if (val1 * val2 < 0)
-        poly.reverse();
-
-      MainWidget::plotDPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
-                            m_showIndices->isChecked(),
-                            lineWidth,  
-			    drawVertIndex, polyColor, paint, poly);
-    }
-
+    } // end iterating over polygons for all images
+    
     // Call another function to handle drawing the interest points
     if ((static_cast<size_t>(m_image_id) < m_matchlist.getNumImages()) && m_view_matches) 
       drawInterestPoints(&paint);
@@ -1480,11 +1505,10 @@ namespace vw { namespace gui {
     m_showIndices->setChecked(false);
 
     if (!m_polyEditMode) {
-      // Clean up any vector layer mode
+      // Clean up any unfinished polygon
       // Need to put here pop-up asking to save
       m_currPolyX.clear();
       m_currPolyY.clear();
-      //m_polyVec.clear();
 
       // Call back to the main window and tell it to uncheck the profile
       // mode checkbox.
@@ -1512,19 +1536,19 @@ namespace vw { namespace gui {
     // Append the new polygon to the list of polygons. If we have several
     // clips already, append it to the last clip. If we have no clips,
     // create a new clip.
-    if (m_polyVec.size() == 0){
-      m_polyVec.push_back(P);
+    if (m_images[m_polyLayerIndex].polyVec.size() == 0){
+      m_images[m_polyLayerIndex].polyVec.push_back(P);
     }else{
-      m_polyVec.back().appendPolygons(P);
+      m_images[m_polyLayerIndex].polyVec.back().appendPolygons(P);
     }
     
     return;
   }
   
   // Add a point to the polygon being drawn or stop drawing and append
-  // the drawn polygon to the list of polygons. This polygon
-  // is in the world coordinate system. When we append it to m_polyVec,
-  // we will convert it to points in the desired geodetic projection. 
+  // the drawn polygon to the list of polygons. This polygon is in the
+  // world coordinate system. When we append it, we will convert it to
+  // points in the desired geodetic projection.
   void MainWidget::addPolyVert(double px, double py){
 
     Vector2 S(px, py); // current point in screen pixels
@@ -1541,12 +1565,12 @@ namespace vw { namespace gui {
       // We did not arrive yet at the starting point of the polygon being
       // drawn. Add the current point.
 
-      if (!m_images[m_polyVecIndex].has_georef) // this should not happen
+      if (!m_images[m_polyLayerIndex].has_georef) // this should not happen
         vw_throw(ArgumentErr() << "Expecting images with georeference.\n"); 
       
       S = screen2world(S);                    // world coordinates
       m_world_box.grow(S); // to not cut when plotting later
-      S = world2projpoint(S, m_polyVecIndex); // projected units
+      S = world2projpoint(S, m_polyLayerIndex); // projected units
       
       m_currPolyX.push_back(S.x());
       m_currPolyY.push_back(S.y());
@@ -1584,7 +1608,7 @@ namespace vw { namespace gui {
     double *             xv  = poly2.get_xv();
     double *             yv  = poly2.get_yv();
     for (int vIter = 0; vIter < numVerts; vIter++){
-      Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyVecIndex); 
+      Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyLayerIndex); 
       xv[vIter] = P.x();
       yv[vIter] = P.y();
     }
@@ -1610,27 +1634,28 @@ namespace vw { namespace gui {
   void MainWidget::deleteVertex(){
 
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-    P = world2projpoint(P, m_polyVecIndex); // projected units
+    P = world2projpoint(P, m_polyLayerIndex); // projected units
     
-    if (m_polyVec.size() == 0) return;
+    if (m_images[m_polyLayerIndex].polyVec.size() == 0) return;
 
+    // TODO(oalexan1): Must look here at all the layers!
     double min_x, min_y, min_dist;
     int polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
     findClosestPolyVertex(// inputs
-                          P.x(), P.y(), m_polyVec,
+                          P.x(), P.y(), m_images[m_polyLayerIndex].polyVec,
                           // outputs
                           polyVecIndex,
                           polyIndexInCurrPoly,
                           vertIndexInCurrPoly,
-                          min_x, min_y, min_dist
-                         );
+                          min_x, min_y, min_dist);
 
     if (polyVecIndex        < 0 ||
         polyIndexInCurrPoly < 0 ||
         vertIndexInCurrPoly < 0)
       return;
 
-    m_polyVec[polyVecIndex].eraseVertex(polyIndexInCurrPoly, vertIndexInCurrPoly);
+    m_images[m_polyLayerIndex].polyVec[polyVecIndex].eraseVertex
+      (polyIndexInCurrPoly, vertIndexInCurrPoly);
 
     // This will redraw just the polygons, not the pixmap
     update();
@@ -1645,11 +1670,11 @@ namespace vw { namespace gui {
       return;
     }
 
-    for (size_t layerIter = 0; layerIter < m_polyVec.size(); layerIter++) {
+    for (size_t layerIter = 0; layerIter < m_images[m_polyLayerIndex].polyVec.size(); layerIter++) {
 
       // TODO: This lower level code should be moved to VW
 
-      vw::geometry::dPoly & poly     = m_polyVec[layerIter]; // alias
+      vw::geometry::dPoly & poly     = m_images[m_polyLayerIndex].polyVec[layerIter]; // alias
       int                   numPolys = poly.get_numPolys();
       const int           * numVerts = poly.get_numVerts();
       const double        * xv       = poly.get_xv();
@@ -1668,7 +1693,7 @@ namespace vw { namespace gui {
         for (int vIter = 0; vIter < pSize; vIter++){
           double  x = xv[start + vIter];
           double  y = yv[start + vIter];
-          Vector2 P = projpoint2world(Vector2(x, y), m_polyVecIndex);
+          Vector2 P = projpoint2world(Vector2(x, y), m_polyLayerIndex);
 
           // This vertex will be deleted
           if (m_stereoCropWin.contains(P))
@@ -1690,7 +1715,7 @@ namespace vw { namespace gui {
       }
 
       // Overwrite the polygon
-      m_polyVec[layerIter] = poly_out;
+      m_images[m_polyLayerIndex].polyVec[layerIter] = poly_out;
     }
 
     // The selection has done its job
@@ -1707,11 +1732,12 @@ namespace vw { namespace gui {
 
     m_world_box.grow(P); // to not cut when plotting later
     
-    P = world2projpoint(P, m_polyVecIndex); // projected units
+    P = world2projpoint(P, m_polyLayerIndex); // projected units
     
     // If there is absolutely no polygon, start by creating one
     // with just one point.
-    if (m_polyVec.size() == 0 || m_polyVec[0].get_totalNumVerts() == 0) {
+    if (m_images[m_polyLayerIndex].polyVec.size() == 0 ||
+        m_images[m_polyLayerIndex].polyVec[0].get_totalNumVerts() == 0) {
       addPolyVert(m_mousePrsX, m_mousePrsY); // init the polygon
       addPolyVert(m_mousePrsX, m_mousePrsY); // declare the polygon finished
       return;
@@ -1722,7 +1748,7 @@ namespace vw { namespace gui {
     double min_x, min_y, min_dist;
     int polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
     findClosestPolyEdge(// inputs
-                        P.x(), P.y(), m_polyVec,
+                        P.x(), P.y(), m_images[m_polyLayerIndex].polyVec,
                         // outputs
                         polyVecIndex,
                         polyIndexInCurrPoly,
@@ -1735,7 +1761,7 @@ namespace vw { namespace gui {
         vertIndexInCurrPoly < 0) return;
 
     // Need +1 below as we insert AFTER current vertex.
-    m_polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
+    m_images[m_polyLayerIndex].polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
                                          vertIndexInCurrPoly + 1,
                                          P.x(), P.y());
     
@@ -1747,19 +1773,19 @@ namespace vw { namespace gui {
 
   // Merge existing polygons
   void MainWidget::mergePolys(){
-    vw::gui::mergePolys(m_polyVec);
+    vw::gui::mergePolys(m_images[m_polyLayerIndex].polyVec);
   }
   
   // Save the currently created vector layer
   void MainWidget::saveVectorLayer(){
     
     // TODO: What if some images got deleted?
-    if (m_polyVecIndex >= int(m_images.size())){
+    if (m_polyLayerIndex >= int(m_images.size())){
       popUp("Images are inconsistent. Cannot save vector layer.");
       return;
     }
     
-    std::string shapefile = m_images[m_polyVecIndex].name;
+    std::string shapefile = m_images[m_polyLayerIndex].name;
     shapefile =  boost::filesystem::path(shapefile).replace_extension(".shp").string();
     QString qshapefile = QFileDialog::getSaveFileName(this,
                                                     tr("Save shapefile"), shapefile.c_str(),
@@ -1770,10 +1796,12 @@ namespace vw { namespace gui {
     if (shapefile == "") 
       return;
 
-    bool has_geo = m_images[m_polyVecIndex].has_georef;
-    vw::cartography::GeoReference const& geo = m_images[m_polyVecIndex].georef;
-    
-    write_shapefile(shapefile, has_geo, geo, m_polyVec);
+    bool has_geo = m_images[m_polyLayerIndex].has_georef;
+    vw::cartography::GeoReference const& geo = m_images[m_polyLayerIndex].georef;
+
+    // TODO(oalexan1): What if there are polygons for many images?
+    //std::cout << "Writing: " << shapefile << std::endl;
+    write_shapefile(shapefile, has_geo, geo, m_images[m_polyLayerIndex].polyVec);
   }
   
   // Contour the current image
@@ -1796,17 +1824,17 @@ namespace vw { namespace gui {
     if (non_poly_image < 0) 
       return true; // Will quietly skip this
 
-    m_polyVecIndex = non_poly_image;
+    m_polyLayerIndex = non_poly_image;
     
-    int num_channels = m_images[m_polyVecIndex].img.planes();
+    int num_channels = m_images[m_polyLayerIndex].img.planes();
     if (num_channels > 1) {
       popUp("Contouring images makes sense only for single-channel images.");
       return false;
     }
     
     if (num_channels == 1) 
-      contour_image(m_images[m_polyVecIndex].img, m_images[m_polyVecIndex].georef,
-                    m_thresh, m_polyVec);
+      contour_image(m_images[m_polyLayerIndex].img, m_images[m_polyLayerIndex].georef,
+                    m_thresh, m_images[m_polyLayerIndex].polyVec);
     
     // This will call paintEvent which will draw the contour
     update();
@@ -2098,21 +2126,21 @@ namespace vw { namespace gui {
 
       Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
       m_world_box.grow(P); // to not cut when plotting later
-      P = world2projpoint(P, m_polyVecIndex); // projected units
+      P = world2projpoint(P, m_polyLayerIndex); // projected units
 
-      if (m_polyVec.size() == 0)
+      if (m_images[m_polyLayerIndex].polyVec.size() == 0)
         return;
 
+      // TODO(oalexan1): Must look here at all the layers!
       // Find the vertex we want to move
       double min_x, min_y, min_dist;
       findClosestPolyVertex(// inputs
-                            P.x(), P.y(), m_polyVec,
+                            P.x(), P.y(), m_images[m_polyLayerIndex].polyVec,
                             // outputs
                             m_editPolyVecIndex,
                             m_editIndexInCurrPoly,
                             m_editVertIndexInCurrPoly,
-                            min_x, min_y, min_dist
-                            );
+                            min_x, min_y, min_dist);
 
       // This will redraw just the polygons, not the pixmap
       update();
@@ -2213,10 +2241,10 @@ namespace vw { namespace gui {
       Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
 
       m_world_box.grow(P); // to not cut when plotting later
-      P = world2projpoint(P, m_polyVecIndex); // projected units
-      m_polyVec[m_editPolyVecIndex].changeVertexValue(m_editIndexInCurrPoly,
-                                                      m_editVertIndexInCurrPoly,
-                                                      P.x(), P.y());
+      P = world2projpoint(P, m_polyLayerIndex); // projected units
+      m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex].changeVertexValue(m_editIndexInCurrPoly,
+                                                                             m_editVertIndexInCurrPoly,
+                                                                             P.x(), P.y());
       // This will redraw just the polygons, not the pixmap
       update();
       return;
@@ -2371,8 +2399,8 @@ namespace vw { namespace gui {
 
           Vector2 P = screen2world(Vector2(mouseRelX, mouseRelY));
           m_world_box.grow(P); // to not cut when plotting later
-          P = world2projpoint(P, m_polyVecIndex); // projected units
-          m_polyVec[m_editPolyVecIndex].changeVertexValue(m_editIndexInCurrPoly,
+          P = world2projpoint(P, m_polyLayerIndex); // projected units
+          m_images[m_polyLayerIndex].polyVec[m_editPolyVecIndex].changeVertexValue(m_editIndexInCurrPoly,
                                                           m_editVertIndexInCurrPoly,
                                                           P.x(), P.y());
 

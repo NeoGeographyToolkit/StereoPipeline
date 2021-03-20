@@ -129,7 +129,7 @@ struct ColorIterator
 };
 
 // A fragment is a collection of all the data needed after
-// rasterization of a primitive has occured, but before the data is
+// rasterization of a primitive has occurred, but before the data is
 // entered into various framebuffers.  The data contained in the
 // fragment has been normalized into a form for immediate storage into
 // the framebuffer.

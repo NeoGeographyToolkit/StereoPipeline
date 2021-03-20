@@ -305,7 +305,7 @@ void MOCImageMetadata::read_ephemeris_supplement(std::string const& filename) {
     //   R_moc(2,0) = -0.0002;   R_moc(2,1) = -0.0012;  R_moc(2,2) = 1.0000;
 
   } catch (EphemerisErr &e) {
-    throw IOErr() << "An error occured while parsing the ephemeris file.\n";
+    throw IOErr() << "An error occurred while parsing the ephemeris file.\n";
   }
 }
 

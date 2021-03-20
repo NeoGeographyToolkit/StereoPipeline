@@ -164,7 +164,7 @@ void HRSCImageMetadata::read_ephemeris_supplement(std::string const& filename) {
     m_quat = parser.read_quaternions("QUATERNIONS", (int)n_quat, 4);
 
   } catch (EphemerisErr &e) {
-    throw vw::IOErr() << "An error occured while parsing the ephemeris file.\n";
+    throw vw::IOErr() << "An error occurred while parsing the ephemeris file.\n";
   }
 }
 

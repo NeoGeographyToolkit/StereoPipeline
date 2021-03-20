@@ -56,10 +56,10 @@ namespace spice {
       for (int i = LONG_MSG_LEN-1; (i >= 0) && (longms[i] == ' '); --i)
         longms[i] = 0;
       cout
-        << "SPICE: An error occured when accessing the SPICE information:\n\n"
+        << "SPICE: An error occurred when accessing the SPICE information:\n\n"
         << longms;
       throw spice::SpiceErr()
-        << "SPICE: An error occured when accessing the SPICE information:\n\n"
+        << "SPICE: An error occurred when accessing the SPICE information:\n\n"
         << longms;
     }
   }
@@ -259,7 +259,7 @@ namespace spice {
     std::ifstream input_file;
     input_file.open(kernels_file.c_str(), std::ios::in);
     if (!input_file.good())
-      vw_throw(IOErr() << "An error occured while opening the kernels file for reading.");
+      vw_throw(IOErr() << "An error occurred while opening the kernels file for reading.");
 
     std::list<std::string> kernel_list;
     char line[1024];

@@ -303,7 +303,7 @@ namespace vw
 
       if (image_file.bad())
         throw IOErr() << "DiskImageResourceDDD::read():"
-          " An unrecoverable error occured while reading the image data.";
+          " An unrecoverable error occurred while reading the image data.";
     }
 
 

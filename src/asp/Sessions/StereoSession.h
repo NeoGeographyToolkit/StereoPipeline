@@ -331,7 +331,7 @@ Vector6f StereoSession::gather_stats(vw::ImageViewBase<ViewT> const& view_base,
     float num_pixels = float(image.cols())*float(image.rows());
     int   stat_scale = int(ceil(sqrt(num_pixels / TARGET_NUM_PIXELS)));
 
-    vw_out(InfoMessage) << " using downsample scale: " << stat_scale << std::endl;
+    vw_out(InfoMessage) << "Using downsample scale: " << stat_scale << std::endl;
 
     ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
     for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),

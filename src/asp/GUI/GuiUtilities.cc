@@ -179,11 +179,11 @@ bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
 }
 
 
-  void contour_image(DiskImagePyramidMultiChannel const& img,
-                     vw::cartography::GeoReference const & georef,
-                     double threshold,
-                     std::vector<vw::geometry::dPoly> & polyVec) {
-
+void contour_image(DiskImagePyramidMultiChannel const& img,
+                   vw::cartography::GeoReference const & georef,
+                   double threshold,
+                   std::vector<vw::geometry::dPoly> & polyVec) {
+  
   std::vector<std::vector<cv::Point> > contours;
   std::vector<cv::Vec4i> hierarchy;
 

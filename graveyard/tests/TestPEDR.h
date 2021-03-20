@@ -92,7 +92,7 @@ class TestPEDR : public CxxTest::TestSuite {
     } catch (MOLA_PEDR_NotFound_Err &e) {
       printf("No matching entry found in the MOLA database... Exiting.\n");
     } catch (MOLA_PEDR_Err &e) {
-      printf("\n\nAn error occured:\n");
+      printf("\n\nAn error occurred:\n");
       e.print();
       exit(1);
     }  
@@ -137,7 +137,7 @@ class TestPEDR : public CxxTest::TestSuite {
     } catch (MOLA_PEDR_NotFound_Err &e) {
       printf("No matching entry found in the MOLA database... Exiting.\n");
     } catch (MOLA_PEDR_Err &e) {
-      printf("\n\nAn error occured:\n");
+      printf("\n\nAn error occurred:\n");
       e.print();
       exit(1);
     }  

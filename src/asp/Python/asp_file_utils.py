@@ -37,7 +37,7 @@ def removeIfExists(path):
         os.remove(path)
     except OSError as e: 
         if e.errno != errno.ENOENT: # Continue if the error is "no such file or directory"
-            raise # Re-raise the exception if a different error occured
+            raise # Re-raise the exception if a different error occurred
 
 def removeFolderIfExists(directory):
     """Removes a directory and everything in it"""
@@ -45,7 +45,7 @@ def removeFolderIfExists(directory):
         shutil.rmtree(directory)
     except OSError as e: 
         if e.errno != errno.ENOENT: # Continue if the error is "no such file or directory"
-            raise # Re-raise the exception if a different error occured
+            raise # Re-raise the exception if a different error occurred
 
 def replaceExtensionAndFolder(inputPath, outputFolder, newExtension):
     """Convenience function to replace the extension and the folder of a file path"""
