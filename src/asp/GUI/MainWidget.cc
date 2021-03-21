@@ -35,6 +35,7 @@
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
 #include <vw/Cartography/shapeFile.h>
+#include <vw/Core/Stopwatch.h>
 
 using namespace vw;
 using namespace vw::gui;
@@ -233,14 +234,19 @@ namespace vw { namespace gui {
     m_world2image_geotransforms.resize(num_images);
     m_image2world_geotransforms.resize(num_images);
     for (int i = 0; i < num_images; i++) {
-      m_images[i].read(image_files[i], m_opt, m_use_georef);
+      m_images[i].read(image_files[i], m_opt);
 
+      if (m_use_georef && !m_images[i].has_georef){
+        popUp("No georeference present in: " + m_images[i].name + ".");
+        vw_throw(ArgumentErr() << "Missing georeference.\n");
+      }
+          
       // Read the base image, if different from the current image
       if (i == 0){
         if (image_files[i] == base_image_file) {
           m_base_image = m_images[i];
         }else{
-          m_base_image.read(base_image_file, m_opt, m_use_georef);
+          m_base_image.read(base_image_file, m_opt);
         }
       }
       
@@ -622,7 +628,7 @@ namespace vw { namespace gui {
     // Create the thresholded images and save them to disk. We have to do it each
     // time as perhaps the image threshold changed.
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
-      std::string input_file = m_image_files[image_iter];
+      std::string input_file = m_images[image_iter].name;
 
       if (m_images[image_iter].isPoly())
         continue;
@@ -653,7 +659,7 @@ namespace vw { namespace gui {
                                     has_nodata, nodata_val);
 
       // Read it back right away
-      m_thresh_images[image_iter].read(output_file, m_opt, m_use_georef);
+      m_thresh_images[image_iter].read(output_file, m_opt);
       temporary_files().files.insert(output_file);
     }
 
@@ -685,7 +691,7 @@ namespace vw { namespace gui {
       if (m_images[image_iter].isPoly()) 
         continue;
 
-      std::string input_file = m_image_files[image_iter];
+      std::string input_file = m_images[image_iter].name;
       int num_channels = m_images[image_iter].img.planes();
       if (num_channels != 1) {
         popUp("Hill-shading makes sense only for single-channel images.");
@@ -705,7 +711,7 @@ namespace vw { namespace gui {
       }
 
       vw_out() << "Reading: " << hillshaded_file << std::endl;
-      m_hillshaded_images[image_iter].read(hillshaded_file, m_opt, m_use_georef);
+      m_hillshaded_images[image_iter].read(hillshaded_file, m_opt);
       temporary_files().files.insert(hillshaded_file);
     }
   }
@@ -795,7 +801,7 @@ namespace vw { namespace gui {
   }
 
   void MainWidget::toggleHillshade(){
-    m_hillshade_mode.resize(m_image_files.size());
+    m_hillshade_mode.resize(m_images.size());
     for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
       m_hillshade_mode[image_iter] = !m_hillshade_mode[image_iter];
 
@@ -815,7 +821,7 @@ namespace vw { namespace gui {
 
   // Each image can be hillshaded independently of the others
   void MainWidget::setHillshadeMode(bool hillshade_mode){
-    m_hillshade_mode.resize(m_image_files.size());
+    m_hillshade_mode.resize(m_images.size());
     for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
       m_hillshade_mode[image_iter] = hillshade_mode;
   }
@@ -925,9 +931,15 @@ namespace vw { namespace gui {
     // determined. Then, there is nothing to do.
     if (m_current_view.empty()) return;
 
+    Stopwatch sw1;
+    sw1.start();
+
     // Loop through input images
     // - These images get drawn in the same
     for (size_t j = 0; j < m_images.size(); j++){
+
+      //Stopwatch sw2;
+      //sw2.start();
 
       int i = m_filesOrder[j];
 
@@ -985,6 +997,12 @@ namespace vw { namespace gui {
         highlight_nodata = false;
       }
       
+      //sw2.stop();
+      //vw_out() << "Render time 2 (seconds): " << sw2.elapsed_seconds() << std::endl;
+
+      //Stopwatch sw3;
+      //sw3.start();
+      
       if (m_thresh_view_mode){
         m_thresh_images[i].img.get_image_clip(scale, image_box,
                                               highlight_nodata,
@@ -1000,13 +1018,25 @@ namespace vw { namespace gui {
                                        qimg, scale_out, region_out);
       }
 
+      //sw3.stop();
+      //vw_out() << "Render time 3 (seconds): " << sw3.elapsed_seconds() << std::endl;
+
       // Draw on image screen
       if (!m_use_georef){
+        //Stopwatch sw4;
+        //sw4.start();
         // This is a regular image, no georeference, just pass it to the QT painter
         QRect rect(screen_box.min().x(), screen_box.min().y(),
                    screen_box.width(), screen_box.height());
-        paint->drawImage (rect, qimg);
+        paint->drawImage(rect, qimg);
+        //sw4.stop();
+        //vw_out() << "Render time 4 (seconds): " << sw4.elapsed_seconds() << std::endl;
+        
       }else{
+
+        //Stopwatch sw5;
+        //sw5.start();
+        
         // We fetched a bunch of pixels at some scale.
         // Need to place them on the screen at given projected position.
         // - To do that we will fill up this QImage object with interpolated data, then paint it.
@@ -1020,7 +1050,13 @@ namespace vw { namespace gui {
           }
         }
 
-        // Loop through pixels
+        //sw5.stop();
+        //vw_out() << "Render time 5 (seconds): " << sw5.elapsed_seconds() << std::endl;
+        
+        //Stopwatch sw6;
+        //sw6.start();
+    
+#pragma omp parallel for
         for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
           for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
 
@@ -1055,18 +1091,30 @@ namespace vw { namespace gui {
           }
         } // End loop through pixels
 
+        //sw6.stop();
+        //vw_out() << "Render time 6 (seconds): " << sw6.elapsed_seconds() << std::endl;
+
+        //Stopwatch sw7;
+        //sw7.start();
+        
         // Send the temp QImage object to the painter
         QRect rect(screen_box.min().x(), screen_box.min().y(),
                    screen_box.width(), screen_box.height());
-        paint->drawImage (rect, qimg2);
+        paint->drawImage(rect, qimg2);
+
+        //sw7.stop();
+        //vw_out() << "Render time 7 (seconds): " << sw7.elapsed_seconds() << std::endl;
+        
       }
 
     } // End loop through input images
 
+    sw1.stop();
+    vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
+    
     return;
   } // End function drawImage()
-
-
+  
   void MainWidget::drawInterestPoints(QPainter* paint){
 
     // Highlight colors for various actions
@@ -2156,53 +2204,7 @@ namespace vw { namespace gui {
     m_curr_pixel_pos = QPoint2Vec(event->pos());
     updateCurrentMousePosition();
 
-    if (event->modifiers() & Qt::AltModifier) {
-#if 0
-      // Diff variables are just the movement of the mouse normalized to
-      // 0.0-1.0;
-      double x_diff = double(mouseMoveX - m_curr_pixel_pos.x()) / m_window_width;
-      double y_diff = double(mouseMoveY - m_curr_pixel_pos.y()) / m_window_height;
-      double width = m_current_view.width();
-      double height = m_current_view.height();
-
-      // TODO: Support other adjustment modes
-      m_adjust_mode = TransformAdjustment;
-
-      std::ostringstream s;
-      switch (m_adjust_mode) {
-      case NoAdjustment:
-        break;
-      case TransformAdjustment:
-        // This code does not work
-        m_current_view.min().x() = m_last_view.min().x() + x_diff;
-        m_current_view.max().x() = m_last_view.max().x() + x_diff;
-        m_current_view.min().y() = m_last_view.min().y() + y_diff;
-        m_current_view.max().y() = m_last_view.max().y() + y_diff;
-        refreshPixmap();
-        break;
-
-      case GainAdjustment:
-        m_gain = m_last_gain * pow(2.0,x_diff);
-        s << "Gain: " << (log(m_gain)/log(2)) << " f-stops\n";
-        break;
-
-      case OffsetAdjustment:
-        m_offset = m_last_offset +
-          (pow(100,fabs(x_diff))-1.0)*(x_diff > 0 ? 0.1 : -0.1);
-        s << "Offset: " << m_offset << "\n";
-        break;
-
-      case GammaAdjustment:
-        m_gamma = m_last_gamma * pow(2.0,x_diff);
-        s << "Gamma: " << m_gamma << "\n";
-        break;
-      }
-#endif
-      return;
-      
-    }
-
-    if (! ((event->buttons() & Qt::LeftButton)) )
+    if (!((event->buttons() & Qt::LeftButton)))
       return;
 
     // The mouse is pressed and moving
@@ -2349,7 +2351,7 @@ namespace vw { namespace gui {
             val = m_images[it].img.get_value_as_str(col, row);
           }
 
-          vw_out() << "Pixel and value for " << m_image_files[it] << ": "
+          vw_out() << "Pixel and value for " << m_images[it].name << ": "
                    << col << ' ' << row << ' ' << val << std::endl;
 
           update();
@@ -2452,7 +2454,7 @@ namespace vw { namespace gui {
           m_thresh = std::max(m_thresh, val);
         }
         vw_out() << "Image threshold for "
-                 << m_image_files[0]
+                 << m_images[0].name
                  << ": " << m_thresh << std::endl;
         return;
       }
@@ -2506,7 +2508,7 @@ namespace vw { namespace gui {
         BBox2i image_box = world2image(m_stereoCropWin, i);
         vw_out().precision(8);
         vw_out() << "Crop src win for  "
-                 << m_image_files[i]
+                 << m_images[i].name
                  << ": "
                  << image_box.min().x() << ' '
                  << image_box.min().y() << ' '
@@ -2520,7 +2522,7 @@ namespace vw { namespace gui {
           proj_max = point_box.max();
           // Below we flip in y to make gdal happy
           vw_out() << "Crop proj win for "
-                   << m_image_files[i] << ": "
+                   << m_images[i].name << ": "
                    << proj_min.x() << ' ' << proj_max.y() << ' '
                    << proj_max.x() << ' ' << proj_min.y() << std::endl;
 
@@ -2530,7 +2532,7 @@ namespace vw { namespace gui {
           lonlat_max = lonlat_box.max();
           // Again, miny and maxy are flipped on purpose
           vw_out() << "lonlat win for    "
-                   << m_image_files[i] << ": "
+                   << m_images[i].name << ": "
                    << lonlat_min.x() << ' ' << lonlat_max.y() << ' '
                    << lonlat_max.x() << ' ' << lonlat_min.y() << std::endl;
         }
@@ -2943,7 +2945,7 @@ namespace vw { namespace gui {
     }
 
     m_thresh = thresh;
-    vw_out() << "Image threshold for " << m_image_files[non_poly_image]
+    vw_out() << "Image threshold for " << m_images[non_poly_image].name
 	     << ": " << m_thresh << std::endl;
   }
 
@@ -2999,7 +3001,7 @@ namespace vw { namespace gui {
     MainWidget::maybeGenHillshade();
     refreshPixmap();
 
-    vw_out() << "Hillshade azimuth and elevation for " << m_image_files[0]
+    vw_out() << "Hillshade azimuth and elevation for " << m_images[0].name
 	     << ": "
              << m_hillshade_azimuth << ' '
              << m_hillshade_elevation << std::endl;

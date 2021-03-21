@@ -36,6 +36,7 @@
 #include <vw/InterestPoint/Matcher.h> // Needed for vw::ip::match_filename
 #include <vw/Geometry/dPoly.h>
 #include <vw/Cartography/shapeFile.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <asp/GUI/GuiUtilities.h>
 
@@ -451,8 +452,7 @@ void findClosestPolyEdge(// inputs
 
 
 void imageData::read(std::string const& name_in,
-		     vw::cartography::GdalWriteOptions const& opt,
-                     bool use_georef){
+		     vw::cartography::GdalWriteOptions const& opt){
   m_opt = opt;
   name = name_in;
   std::string poly_color = "red";
@@ -478,11 +478,6 @@ void imageData::read(std::string const& name_in,
     img = DiskImagePyramidMultiChannel(name, m_opt, top_image_max_pix, subsample);
     
     has_georef = vw::cartography::read_georeference(georef, name);
-    
-    if (use_georef && !has_georef){
-      popUp("No georeference present in: " + name + ".");
-      vw_throw(ArgumentErr() << "Missing georeference.\n");
-    }
     
     image_bbox = BBox2(0, 0, img.cols(), img.rows());
   }
@@ -669,31 +664,74 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
   // Extract the clip, then convert it from VW format to QImage format.
   if (m_type == CH1_DOUBLE) {
 
+    //Stopwatch sw0;
+    //sw0.start();
     bounds = m_img_ch1_double.get_approx_bounds();
+    //sw0.stop();
+    //vw_out() << "Render time sw0 (seconds): " << sw0.elapsed_seconds() << std::endl;
     
     ImageView<double> clip;
+    //Stopwatch sw1;
+    //sw1.start();
     m_img_ch1_double.get_image_clip(scale_in, region_in, clip,
 				    scale_out, region_out);
+    //sw1.stop();
+    //vw_out() << "Render time sw1 (seconds): " << sw1.elapsed_seconds() << std::endl;
+
+    //Stopwatch sw2;
+    //sw2.start();
     formQimage(highlight_nodata, scale_pixels, m_img_ch1_double.get_nodata_val(), bounds,
 	       clip, qimg);
+    //sw2.stop();
+    //vw_out() << "Render time sw2 (seconds): " << sw2.elapsed_seconds() << std::endl;
   } else if (m_type == CH2_UINT8) {
+    
     ImageView<Vector<vw::uint8, 2> > clip;
+    //Stopwatch sw4;
+    //sw4.start();
     m_img_ch2_uint8.get_image_clip(scale_in, region_in, clip,
                                  scale_out, region_out);
+    //sw4.stop();
+    //vw_out() << "Render time sw4 (seconds): " << sw4.elapsed_seconds() << std::endl;
+
+    //Stopwatch sw5;
+    //sw5.start();
     formQimage(highlight_nodata, scale_pixels, m_img_ch2_uint8.get_nodata_val(), bounds,
 	       clip, qimg);
+    //sw5.stop();
+    //vw_out() << "Render time sw5 (seconds): " << sw5.elapsed_seconds() << std::endl;
+    
   } else if (m_type == CH3_UINT8) {
     ImageView<Vector<vw::uint8, 3> > clip;
+    //Stopwatch sw6;
+    //sw6.start();
     m_img_ch3_uint8.get_image_clip(scale_in, region_in, clip,
                                  scale_out, region_out);
+    //sw6.stop();
+    //vw_out() << "Render time sw6 (seconds): " << sw6.elapsed_seconds() << std::endl;
+
+    //Stopwatch sw7;
+    //sw7.start();
     formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(), bounds,
 	       clip, qimg);
+    //sw7.stop();
+    //vw_out() << "Render time sw7 (seconds): " << sw7.elapsed_seconds() << std::endl;
+
   } else if (m_type == CH4_UINT8) {
+    //Stopwatch sw8;
+    //sw8.start();
     ImageView<Vector<vw::uint8, 4> > clip;
     m_img_ch4_uint8.get_image_clip(scale_in, region_in, clip,
           scale_out, region_out);
+    //sw8.stop();
+    //vw_out() << "Render time sw8 (seconds): " << sw8.elapsed_seconds() << std::endl;
+
+    //Stopwatch sw9;
+    //sw9.start();
     formQimage(highlight_nodata, scale_pixels, m_img_ch4_uint8.get_nodata_val(), bounds,
 	       clip, qimg);
+    //sw9.stop();
+    //vw_out() << "Render time sw9 (seconds): " << sw9.elapsed_seconds() << std::endl;
   }else{
     vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
   }

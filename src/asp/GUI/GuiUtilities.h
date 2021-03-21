@@ -31,6 +31,9 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/mpl/or.hpp>
+#if !__APPLE__
+#include <omp.h>
+#endif
 
 // Qt
 #include <QWidget>
@@ -256,8 +259,7 @@ namespace vw { namespace gui {
     
     /// Load an image from disk into img and set the other variables.
     void read(std::string const& image,
-	      vw::cartography::GdalWriteOptions const& opt,
-	      bool use_georef);
+	      vw::cartography::GdalWriteOptions const& opt);
 
     bool isPoly() const { return asp::has_shp_extension(name); }
   };
@@ -408,6 +410,7 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
   double min_val = std::numeric_limits<double>::max();
   double max_val = -std::numeric_limits<double>::max();
   if (scale_pixels) {
+    // No multi-threading here since we modify shared values
     for (int col = 0; col < clip.cols(); col++){
       for (int row = 0; row < clip.rows(); row++){
         if (clip(col, row) <= nodata_val) continue;
@@ -431,6 +434,7 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
   }
 
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
+#pragma omp parallel for
   for (int col = 0; col < clip.cols(); col++){
     for (int row = 0; row < clip.rows(); row++){
 
@@ -465,6 +469,7 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
            ImageView<PixelT> const& clip, QImage & qimg){
 
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
+#pragma omp parallel for
   for (int col = 0; col < clip.cols(); col++){
     for (int row = 0; row < clip.rows(); row++){
       Vector<vw::uint8, 2> v = clip(col, row);
@@ -487,6 +492,7 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
            ImageView<PixelT> const& clip, QImage & qimg){
 
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
+#pragma omp parallel for
   for (int col = 0; col < clip.cols(); col++){
     for (int row = 0; row < clip.rows(); row++){
       PixelT v = clip(col, row);

@@ -176,24 +176,18 @@ message("--------------------------------------------------------------")
 
 find_external_library(QWT ${ASP_DEPS_DIR} "" "qwt" REQUIRED)
 
-if (APPLE)
-    # For Apple this somehow still gets picked up even though
-    # it figures as not found.
-    find_package(OpenMP)
-else()
+# TODO(oalexan1): Figure out why clang does not find OpenMP
+if (NOT APPLE)
     # For Linux, need to do:
     # ln -s $HOME/miniconda3/envs/asp_deps/x86_64-conda_cos6-linux-gnu/sysroot/lib/libgomp.so.1 $HOME/miniconda3/envs/asp_deps/bin/../x86_64-conda-linux-gnu/sysroot/lib/../lib/libgomp.so
     # I tried to figure out why this is necessary and could not.
     find_package(OpenMP REQUIRED)
-endif()
-
-if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-endif()
-
-# Dependencies for VW
+    if (OpenMP_FOUND)
+        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+    endif(OPENMP_FOUND)
+endif(NOT APPLE)
 
 # if (APPLE) # Use the system version
 #   find_package(LAPACK)

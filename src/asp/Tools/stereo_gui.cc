@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file stereo_gui.cc
 ///
 
@@ -35,6 +34,7 @@
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/GuiUtilities.h>
 #include <xercesc/util/PlatformUtils.hpp>
+#include <thread>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -198,7 +198,7 @@ int main(int argc, char** argv) {
       // Just create the image pyramids and exit.
       for (size_t i = 0; i < images.size(); i++) {
         vw::gui::imageData img;
-        img.read(images[i], opt_vec[0], stereo_settings().use_georef);
+        img.read(images[i], opt_vec[0]);
       }
       return 0;
     }
@@ -208,7 +208,13 @@ int main(int argc, char** argv) {
     // Create the application. Must be done before trying to read
     // images as that call uses pop-ups.
     StereoApplication app(argc, argv);
-    
+
+    // Set the number of threads
+    // TODO(oalexan1): Figure out if this is better than
+    // following the defaults
+    int processor_count = std::thread::hardware_concurrency();
+    omp_set_dynamic(0);
+    omp_set_num_threads(processor_count);
     
     // Start up the Qt GUI
     vw::gui::MainWindow main_window(opt_vec[0],

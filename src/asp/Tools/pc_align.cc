@@ -48,9 +48,6 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <limits>
-#include <cstring>
-
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 #include <FastGlobalRegistration/app.h>
@@ -69,6 +66,13 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Tools/pc_align_utils.h>
+
+#include <limits>
+#include <cstring>
+#include <thread>
+#if !__APPLE__
+#include <omp.h>
+#endif
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -1147,13 +1151,14 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments(argc, argv, opt);
 
-    // TODO: Enable on OSX when clang supports OpenMP!
-#if (defined(ASP_OSX_BUILD) && ASP_OSX_BUILD==1)
-#else
-    // Set the number of threads for OpenMP
-    omp_set_num_threads(opt.num_threads);
+#if !__APPLE__
+    // Set the number of threads for OpenMP. 
+    int processor_count = std::thread::hardware_concurrency();
+    std::cout << "num cores is " << processor_count << std::endl;
+    omp_set_dynamic(0);     // Explicitly disable dynamic teams
+    omp_set_num_threads(processor_count);
 #endif
-
+    
     // Parse the csv format string and csv projection string
     asp::CsvConv csv_conv;
     csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
