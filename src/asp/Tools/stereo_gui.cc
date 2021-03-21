@@ -209,12 +209,15 @@ int main(int argc, char** argv) {
     // images as that call uses pop-ups.
     StereoApplication app(argc, argv);
 
+#if !__APPLE__
+    // TODO(oalexan1): Figure out why clang cannot find OpenMP.
     // Set the number of threads
     // TODO(oalexan1): Figure out if this is better than
     // following the defaults
     int processor_count = std::thread::hardware_concurrency();
     omp_set_dynamic(0);
     omp_set_num_threads(processor_count);
+#endif
     
     // Start up the Qt GUI
     vw::gui::MainWindow main_window(opt_vec[0],
