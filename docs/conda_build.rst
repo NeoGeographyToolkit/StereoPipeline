@@ -53,9 +53,9 @@ Run:
 
   conda config --show channels
 
-and verify that ``usgs-astrogeology`` and ``conda-forge``
-are in this order and above all other channels, except perhaps
-the ``nasa-ames-stereo-pipeline`` channel.
+and verify that ``usgs-astrogeology`` and ``conda-forge`` are in this
+order and above all other channels, except perhaps the
+``nasa-ames-stereo-pipeline`` channel.
 
 Install the desired version of ISIS:
 
@@ -85,9 +85,9 @@ Fetching the build tools
 ------------------------
 
 We will create a new ``tools`` environment to have all the tools we
-will need. These could be appended to the earlier environment,
-but it is less likely to to have issues with dependency conflicts
-if these are kept separate. 
+will need. These could be appended to the earlier environment, but it
+is less likely to to have issues with dependency conflicts if these
+are kept separate.
 
 ::
 
@@ -110,8 +110,8 @@ our experiments.
 Fetch the recipes to build
 --------------------------
 
-The additional recipes that need to be built can be fetched with ``git clone``
-from:
+The additional recipes that need to be built can be fetched with ``git
+clone`` from:
 
 ::
 
@@ -128,7 +128,6 @@ from:
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
   https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
 
-
 Synchronize the versions with the existing environment
 ------------------------------------------------------
 
@@ -142,7 +141,7 @@ script in the ASP repository:
  python StereoPipeline/conda/update_versions.py isis4.4.yaml \
    gdal-feedstock
 
-and the same for the other packages. 
+and the same for the other packages.
 
 It is very important to note that this script is not fool-proof. For
 example, the ``eigen`` version which seems to agree with the current
@@ -174,26 +173,29 @@ Each of the packages above can be built as follows:
  conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
     -c conda-forge gdal-feedstock
 
-and then uploaded to the ``nasa-ames-stereo-pipeline`` channel by first logging in,
-via the command:
+and then uploaded to the ``nasa-ames-stereo-pipeline`` channel by
+first logging in, via the command:
 
 ::
     
   anaconda login
 
-and specifying the channel as the user name, and then running a command along the lines:
+and specifying the channel as the user name, and then running a
+command along the lines:
 
 ::
 
   anaconda upload \
     $HOME/miniconda3/envs/tools/conda-bld/linux-64/mypackage.tar.bz2
 
-(Use above the path echoed on the screen by the ``conda build`` command.)
+(Use above the path echoed on the screen by the ``conda build``
+command.)
 
-Use the ``--force`` option if desired to overwrite any existing package
-with the same name and version.
+Use the ``--force`` option if desired to overwrite any existing
+package with the same name and version.
 
-After a package is uploaded, it can be installed in the existing ``isis4.4`` environment as:
+After a package is uploaded, it can be installed in the existing
+``isis4.4`` environment as:
  
 ::
 
@@ -208,7 +210,11 @@ To list all packages in that channel, do:
 Order of building the packages
 ------------------------------
 
-It is suggested to build the above packages in the order listed earlier, as some
-of them depend on others.
+It is suggested to build the above packages in the order listed
+earlier, as some of them depend on others.
 
-Note that ``libpointmatcher`` depends on ``libnabo``, while ``liblas`` depends on ``laszip`` and ``gdal``, ``theia`` depends on ``imagemagick``, and ``visionworkbench`` depends on ``gdal``. The ``stereopipeline`` package depends on all of these so it should be built the last.
+Note that ``libpointmatcher`` depends on ``libnabo``, while ``liblas``
+depends on ``laszip`` and ``gdal``, ``theia`` depends on
+``imagemagick``, and ``visionworkbench`` depends on ``gdal``. The
+``stereopipeline`` package depends on all of these so it should be
+built the last.

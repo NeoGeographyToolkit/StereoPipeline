@@ -2,11 +2,14 @@ RELEASE 2.8.0, upcoming!
 
 New functionality:
 
-  * Added support for shallow-water bathymetry, so creation of terrain models
-    with correct depth determination for well-resolved areas under
+  * Added support for shallow-water bathymetry, so creation of terrain
+    models with correct depth determination for well-resolved areas under
     shallow water. To be used with dg, rpc, and nadirpinhole cameras.
   * Added two supporting tools for this: bathy_plane_calc and
     bathy_threshold_calc.py.
+
+isis:
+  * Upgrade to ISIS 4.4.0 and CSM 1.5.1.
 
 parallel_stereo
 
@@ -28,8 +31,8 @@ point2las
     analogous to point2dem.
    
 convert_pinhole_model:
-  * Improve the RPC approximation for the distortion and undistortion
-    operations.
+  * Improve the acuracy of the RPC approximation distortion and
+    undistortion.
 
 sfs:
   * Added the option --shadow-threshold to be able to specify
@@ -53,12 +56,12 @@ stereo_gui:
   * Added the ability to find the contour of a georeferenced image at
     a given threshold. (It can be later edited, saved to disk, etc.) 
   * Bugfixes for polygon drawing logic.
+  * Much more responsive for overlaying many images.
 
 image_calc:
   * Support the sign function (can help in creating masks).
 
 Misc
-
  * Added the option --ip-per-image to bundle adjustment and stereo, to
    detect roughly how many interest points should be found per image
    (only a small fraction of them may eventually match across images).
@@ -66,6 +69,9 @@ Misc
    set by the user. Can be set to something very small if desired.
    This is a bug fix for this rarely used option (before, when set to
    0 it would just reset itself to some internal non-small value).  
+ * Bug fix for the VisionWorkbench implementation of the
+   Levenberg-Marquardt algorithm, it was giving up prematurely in
+   challenging situations.
  
 RELEASE 2.7.0, July 27, 2020
 ----------------------------

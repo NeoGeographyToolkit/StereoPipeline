@@ -2488,10 +2488,6 @@ Once the threshold is found, either manually or automatically, the
 ``stereo_gui`` tool can be used to visualize
 the regions at or below threshold, see again :numref:`thresh`.
 
-A tool will also be provided to create a mask only in a region
-delimited by a given shapefile, if desired to do bathymetry with a
-precisely selected area.
-
 Creation of masks based on the threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2608,6 +2604,60 @@ masks:
       --bathy-plane bathy_plane.txt                            \
       run_map/run external_dem.tif                       
 
+
+Using Digital Globe PAN images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The bathymetry mode can be used with Digital Globe PAN images as well,
+though likely the water bottom may not be as transparent in this case
+as for the green band.
+
+Yet, if desired to do so, a modification is necessary if the mask
+for pixels above water is obtained not from the PAN image itself,
+but from a band of the corresponding multispectral image,
+because those are acquired with a different sensor. 
+
+Starting with a multispectral image mask, one has to first 
+increase its resolution by a factor of 4 to make it comparable
+to the PAN image, which can be done as follows:
+
+::
+
+  gdal_translate -co compress=lzw -co TILED=yes -co INTERLEAVE=BAND \
+    -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 -outsize 400% 400%        \
+    mask.tif mask_4x.tif
+
+To inspect the dimensions of the magnified mask and of 
+the PAN image, do:
+
+::
+
+  gdalinfo image.tif | grep Size
+
+Then, one has to crop 50 columns from the left and right sides, which
+can be accomplished, for example, as:
+
+::
+
+  gdal_translate -co compress=lzw -co TILED=yes -co INTERLEAVE=BAND \
+    -co BLOCKXSIZE=256 -co BLOCKYSIZE=256                           \
+    -srcwin 50 0 35180 29072 mask_4x.tif mask_4x_crop.tif
+
+Some calculation is needed to get the above four numbers passed to
+``-srcwin``.  They represent the starting column and row of the crop,
+and its width and height (from left to right). The PAN image and the
+magnified mask hopefully have the same heights, though for a different
+image collection that height may not be 29072, so that will need to be
+adjusted for any specific dataset. The width of the magnified mask
+image should be 35280, and above we used 100 less than this value.
+
+The above flow was tested for WV-2, and for other sensors adjustments
+may be needed.
+
+The result of this command must be a mask image which has precisely
+the same dimensions as the PAN image, and the two must agree perfectly 
+(with no offsets) if they are drawn on top of each other in
+``stereo_gui`` in the ``View->Single window`` mode.
 
 Using non-Digital Globe images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
