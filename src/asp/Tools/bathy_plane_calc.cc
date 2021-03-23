@@ -308,12 +308,39 @@ int main( int argc, char *argv[] ) {
     for (size_t it = 0; it < xyz_vec.size(); it++) 
       max_error = std::max(max_error, dist_to_plane(H, xyz_vec[it]));
 
-    for (size_t it = 0; it < inlier_indices.size(); it++) 
-      max_inlier_error = std::max(max_inlier_error, dist_to_plane(H, xyz_vec[inlier_indices[it]]));
+    // Do estimates for the mean height and angle of the plane
+    Vector3 mean_xyz(0, 0, 0);
+    double mean_height = 0.0;
+    int num = 0;
+    for (size_t it = 0; it < inlier_indices.size(); it++) {
+      Eigen::Vector3d p = xyz_vec[inlier_indices[it]];
+      Vector3 xyz(p[0], p[1], p[2]); 
+      max_inlier_error = std::max(max_inlier_error, dist_to_plane(H, xyz));
+
+      Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
+      mean_height += llh[2];
+      mean_xyz += xyz;
+      num++;
+    }
+    
+    mean_height /= num;
+    mean_xyz /= num;
+
+    Vector3 plane_normal(H(0, 0), H(0, 1), H(0, 2));
+    Vector3 surface_normal = mean_xyz / norm_2(mean_xyz); // ignore the datum flattening
+    double plane_angle = (180.0 / M_PI) * acos(dot_prod(plane_normal, surface_normal));
 
     std::cout << "Max distance to the plane (meters): " << max_error << std::endl;
     std::cout << "Max inlier distance to the plane (meters): " << max_inlier_error << std::endl;
-
+    
+    std::cout << std::endl;                                     
+    std::cout << "Mean plane height above datum (meters): " << mean_height << std::endl;
+    std::cout << "Plane inclination (degrees): " << plane_angle << std::endl;
+    std::cout << "The plane inclination is defined as the angle between the plane\n"
+              << "normal and the ray going from the Earth center to the mean of\n"
+              << "all inlier measurements in ECEF coordinates." << std::endl;
+    std::cout << "" << std::endl;
+    
     std::cout << "Writing: " << opt.bathy_plane << std::endl;
     std::ofstream bp(opt.bathy_plane.c_str());
     bp.precision(17);
