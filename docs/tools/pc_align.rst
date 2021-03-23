@@ -5,7 +5,7 @@ pc_align
 
 This tool can be used to align two point clouds. The algorithms employed
 are one of the several flavors of Iterative Closest Point (ICP), based
-on the ``libpointmatcher`` library :cite:`Pomerleau12comp`
+on the ``libpointmatcher`` library�:cite:`Pomerleau12comp`
 
 https://github.com/ethz-asl/libpointmatcher
 
@@ -426,8 +426,8 @@ Command-line options for pc_align:
     their hillshaded versions, and use them to compute an initial
     transform to apply to the source cloud before proceeding with
     alignment.  Specify here the type of transform, as one of:
-    ’similarity’ (rotation + translation + scale), ’rigid’ (rotation
-    + translation) or ’translation’.
+    'similarity' (rotation + translation + scale), 'rigid' (rotation
+    + translation) or 'translation'.
 
 --hillshade-options
     Options to pass to the ``hillshade`` program when computing the
@@ -449,6 +449,13 @@ Command-line options for pc_align:
     point cloud using manually selected point correspondences
     (obtained for example using stereo_gui). The type of transform
     can be set via ``--initial-transform-from-hillshading string``
+
+--initial-transform-outlier-removal-params <pct factor (default: 75.0 3.0)>
+    When computing an initial transform based on features, either
+    via the ``--initial-transform-from-hillshading`` or ``--match-file``
+    options, remove outliers when this transform is applied by
+    excluding the errors larger than this percentile times this
+    factor.
 
 --fgr-options
     Options to pass to the Fast Global Registration algorithm, if

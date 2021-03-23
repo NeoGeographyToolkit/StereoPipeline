@@ -31,7 +31,7 @@ point2las
     analogous to point2dem.
    
 convert_pinhole_model:
-  * Improve the acuracy of the RPC approximation distortion and
+  * Improve the accuracy of the RPC approximation distortion and
     undistortion.
 
 sfs:
@@ -60,6 +60,12 @@ stereo_gui:
 
 image_calc:
   * Support the sign function (can help in creating masks).
+
+pc_align: 
+  * Add the --initial-transform-outlier-removal-params to control
+    outlier removal when finding matches between DEMs to align
+    using features detected in hillshaded images or selected
+    manually. 
 
 Misc
  * Added the option --ip-per-image to bundle adjustment and stereo, to

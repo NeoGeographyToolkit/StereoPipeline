@@ -526,9 +526,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
 
   double pct = opt.remove_outliers_params[0], factor = opt.remove_outliers_params[1];
-  if (pct <= 0 || pct > 100 || factor <= 0.0){
+  if (pct <= 0.0 || pct > 100.0 || factor <= 0.0){
     vw_throw( ArgumentErr()
-              << "Invalid values were provided for remove-outliers-params.\n");
+              << "Invalid values were provided for outlier removal params.\n");
   }
 
   if (opt.max_valid_triangulation_error > 0){
@@ -1251,8 +1251,8 @@ int main( int argc, char *argv[] ) {
         vw_throw(ArgumentErr() << "The error image and point image must have the same size.");
 
       estim_max_error = asp::estim_max_tri_error_and_proj_box(proj_points, error_image,
-                                                              opt.remove_outliers_params,
-                                                              estim_proj_box);
+                                                         opt.remove_outliers_params,
+                                                         estim_proj_box);
     }
 
     // Create the DEM

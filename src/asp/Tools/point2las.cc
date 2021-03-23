@@ -56,7 +56,7 @@ public:
     return m_vals.size();
   }
   
-  value_type value(Vector2 const& remove_outliers_params, bool use_tukey_outlier_removal){
+  value_type value(Vector2 const& outlier_removal_params, bool use_tukey_outlier_removal){
 
     // Care here with empty sets
     if (m_vals.empty()) {
@@ -96,11 +96,11 @@ public:
       return Q3 + 1.5*(Q3 - Q1);
     }
     
-    double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
-    double factor = remove_outliers_params[1];
+    double pct    = outlier_removal_params[0]/100.0; // e.g., 0.75
+    double factor = outlier_removal_params[1];
     int k         = (int)round((len - 1) * pct);
     
-    vw_out() << "Using as outlier cutoff the " << remove_outliers_params[0] << " percentile times "
+    vw_out() << "Using as outlier cutoff the " << outlier_removal_params[0] << " percentile times "
              << factor << "." << std::endl;
     
     return m_vals[k] * factor;
@@ -114,7 +114,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string pointcloud_file;
   std::string target_srs_string;
   bool        compressed, use_tukey_outlier_removal;
-  Vector2     remove_outliers_params;
+  Vector2     outlier_removal_params;
   double      max_valid_triangulation_error;
   int         num_samples;
   
@@ -136,7 +136,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "This is identical to the datum option.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Specify a custom projection (PROJ.4 string).")
-    ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
+    ("remove-outliers-params", po::value(&opt.outlier_removal_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
      "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("use-tukey-outlier-removal", po::bool_switch(&opt.use_tukey_outlier_removal)->default_value(false)->implicit_value(true),
      "Remove outliers above Q3 + 1.5*(Q3 - Q1). Takes precedence over the above approach.")
@@ -179,9 +179,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.datum == "")
     opt.datum = opt.reference_spheroid;
 
-  double pct = opt.remove_outliers_params[0], factor = opt.remove_outliers_params[1];
-  if (pct <= 0 || pct > 100 || factor <= 0.0){
-    vw_throw( ArgumentErr() << "Invalid values were provided for remove-outliers-params.\n");
+  double pct = opt.outlier_removal_params[0], factor = opt.outlier_removal_params[1];
+  if (pct <= 0.0 || pct > 100.0 || factor <= 0.0){
+    vw_throw( ArgumentErr() << "Invalid values were provided for outlier removal parameters.\n");
   }
 
   if (opt.max_valid_triangulation_error < 0.0) 
@@ -234,7 +234,7 @@ void find_error_image_and_do_stats(Options& opt, ImageViewRef<double> & error_im
                  TerminalProgressCallback
                  ("asp","Error estim : ") );
 
-  opt.max_valid_triangulation_error = error_accum.value(opt.remove_outliers_params,
+  opt.max_valid_triangulation_error = error_accum.value(opt.outlier_removal_params,
                                                         opt.use_tukey_outlier_removal);
   
   sw.stop();
@@ -254,7 +254,7 @@ int main( int argc, char *argv[] ) {
     handle_arguments(argc, argv, opt);
 
     ImageViewRef<double> error_image;
-    if (opt.remove_outliers_params[0] < 100.0 || opt.max_valid_triangulation_error > 0.0)
+    if (opt.outlier_removal_params[0] < 100.0 || opt.max_valid_triangulation_error > 0.0)
       find_error_image_and_do_stats(opt, error_image);
 
     // Save the las file in respect to a reference spheroid if provided
