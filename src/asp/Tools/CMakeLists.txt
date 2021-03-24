@@ -219,3 +219,7 @@ install(TARGETS bathy_plane_calc DESTINATION bin)
 add_executable(csm_test csm_test.cc) 
 target_link_libraries(csm_test AspSessions)
 install(TARGETS csm_test DESTINATION bin)
+
+add_executable(ccd_solve ccd_solve.cc) 
+target_link_libraries(ccd_solve AspSessions ${SOLVER_LIBRARIES})
+install(TARGETS ccd_solve DESTINATION bin)
