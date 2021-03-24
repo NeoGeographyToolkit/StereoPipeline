@@ -6,7 +6,7 @@ Tutorial: Processing Mars Orbiter Camera Images
 Quick Start
 -----------
 
-The Stereo Pipeline package contains GUI and command-line programs that
+The Stereo Pipeline package contains command-line and GUI programs that
 convert a stereo pair in the ISIS ``.cub`` format into a 3D "point
 cloud" image (its format is described in :numref:`outputfiles`). This is an
 intermediate format that can be passed along to one of several programs
@@ -18,26 +18,34 @@ results, but ultimately this software suite takes images and builds
 models in a mostly automatic way. To create a point cloud file, you
 simply pass two image files to the ``stereo`` command::
 
-    ISIS> stereo left_input_image.cub right_input_image.cub stereo-output
+    ISIS> stereo left_input_image.cub right_input_image.cub results/run
 
-Alternatively, the ``parallel_stereo`` tool can be used, which is
-very recommended for large images. Or the ``stereo_gui`` frontend can
-be invoked, with the same options, as described in
-:numref:`stereo_gui`.  This tool makes it possible to select smaller
-clips or cropped images on which to run ``stereo``.
+Alternatively, one can run::
 
-The string ``stereo-output`` is an arbitrary output prefix, it is used
-when generating names for ``stereo`` output files. For example, it can
-be set to ``results/output``, in which case all output files will be in
-the ``results`` directory and start with the prefix ``output``. See
-:numref:`running-stereo` for a more detailed discussion.
+    ISIS> parallel_stereo --stereo-algorithm 2                  \
+      left_input_image.cub right_input_image.cub results2/run
+
+This will decompose the images in tiles to run in parallel,
+and will use the higher-quality but slower MGM algorithm. Both
+of these will benefit from adding ``--subpixel-mode 3``
+which will be even slower but will create better results.
+For more details, see  :numref:`nextsteps`.
+
+Or the ``stereo_gui`` frontend can be invoked, with the same options,
+as described in :numref:`stereo_gui`.  This tool makes it possible to
+select smaller clips or cropped images on which to run ``stereo``.
+
+The string ``results/run`` is an arbitrary output prefix. All
+``stereo`` output files will be in the ``results`` directory and start
+with ``output``. See :numref:`nextsteps` for a more detailed
+discussion.
 
 You can then make a visualizable mesh or a DTM file with the following
-commands (the ``stereo-output-PC.tif`` and ``stereo-output-L.tif`` files
+commands (the ``results/run-PC.tif`` and ``results/run-L.tif`` files
 are created by the ``stereo`` program above)::
 
-     ISIS> point2mesh stereo-output-PC.tif stereo-output-L.tif
-     ISIS> point2dem  stereo-output-PC.tif
+     ISIS> point2mesh results/run-PC.tif results/run-L.tif
+     ISIS> point2dem  results/run-PC.tif
 
 More details are provided in :numref:`visualising`.
 
@@ -80,7 +88,7 @@ the ISIS Session Log, usually written out to a file named ``print.prt``).
    :alt: MOC images after initial processing.
 
    This figure shows ``E0201461.cub`` and
-   ``M0100115.cub`` open in ISIS’s qview program. The view on the left
+   ``M0100115.cub`` open in ISIS's qview program. The view on the left
    shows their full extents at the same zoom level, showing how they have
    different ground scales. The view on the right shows both images zoomed
    in on the same feature.
@@ -148,17 +156,17 @@ The above procedure is in the case of two images which cover similar
 real estate on the ground. If you have a pair of images where one image
 has a footprint on the ground that is much larger than the other, only
 the area that is common to both (the intersection of their areas) should
-be kept to perform correlation (since non-overlapping regions don’t
+be kept to perform correlation (since non-overlapping regions don't
 contribute to the stereo solution). If the image with the larger
 footprint size also happens to be the image with the better resolution
 (i.e. the image run through ``cam2map`` second with the ``map=``
 parameter), then the above ``cam2map`` procedure with ``matchmap=true``
-will take care of it just fine. Otherwise you’ll need to figure out the
+will take care of it just fine. Otherwise you'll need to figure out the
 latitude and longitude boundaries of the intersection boundary (with the
 ISIS ``camrange`` program). Then use that smaller boundary as the
 arguments to the ``MINLAT``, ``MAXLAT``, ``MINLON``, and ``MAXLON``
 parameters of the first run of ``cam2map``. So in the above example,
-after ``mocproc`` with ``Mapping= NO`` you’d do this:
+after ``mocproc`` with ``Mapping= NO`` you'd do this:
 
 ::
 
@@ -237,7 +245,7 @@ chapter in that at no point will we be using ISIS utilities. This is
 because ISIS only supports NASA instruments, while most Earth images
 comes from commercial providers.
 
-In addition to DigitalGlobe/Maxar’s satellites, ASP supports any Earth
+In addition to DigitalGlobe/Maxar's satellites, ASP supports any Earth
 images that uses the RPC camera model format. How to process such data
 is described in :numref:`rpc`, although following this
 tutorial may still be insightful even if your data is not from DigitalGlobe/Maxar.
@@ -253,11 +261,11 @@ to our line of sight. It is important to know that the driving force
 behind our support for DigitalGlobe/Maxar images is to create models of ice
 and bare rock. Those are the type of images that we have tested with and
 have focused on. If we can make models of wooded or urban areas, that is
-a bonus, but we can’t provide any advice for how to perform or improve
+a bonus, but we can't provide any advice for how to perform or improve
 the results if you choose to use ASP in that way.
 
 ASP can only process Level 1B satellite images, and cannot process
-DigitalGlobe/Maxar’s aerial images.
+DigitalGlobe/Maxar's aerial images.
 
 The camera information for DigitalGlobe/Maxar images is contained in an XML
 file for each image. In addition to the exact linear camera model, the
@@ -269,7 +277,7 @@ Our implementation of the linear camera model accounts for the sensor geometry,
 velocity aberration and atmospheric refraction.
 These corrections will shift point locations by over a meter for some images. 
 However this is still smaller error than
-the error from measurement of the spacecraft’s position and orientation.
+the error from measurement of the spacecraft's position and orientation.
 The latter can be corrected using bundle adjustment, ideally used with
 ground control points (:numref:`bundle_adjust`).
 Alternatively, the ``pc_align`` tool discussed in :numref:`pc-align-example`
@@ -279,7 +287,7 @@ from ASP to an accurate set of ground measurements.
 In the next two sections we will show how to process unmodified and
 map-projected variants of WorldView images. The images we are using
 is from the free stereo pair labeled "System-Ready (1B) Stereo, 50cm"
-which captures the city of Stockholm, found on DigitalGlobe/Maxar’s website 
+which captures the city of Stockholm, found on DigitalGlobe/Maxar's website 
 (https://www.digitalglobe.com/samples). These images represent a
 non-ideal problem for us since this is an urban location, but at least
 you should be able to download these images yourself and follow along.
@@ -306,7 +314,7 @@ observation. The tool named ``dg_mosaic`` can be used to mosaic (and
 optionally reduce the resolution of) such a set of sub-observations into
 a single image file and create an appropriate camera file::
 
-  > dg_mosaic 12FEB16101327*TIF --output-prefix 12FEB16101327 --reduce-percent 50
+  > dg_mosaic 12FEB16101327*TIF --output-prefix 12FEB16101327
 
 and analogously for the second set. See :numref:`dg_mosaic` for more
 details. The ``stereo`` program can use either the original or the
@@ -319,14 +327,15 @@ you use affine epipolar alignment to reduce the search range. The
 
 ::
 
-       > stereo -t dg --subpixel-mode 1 --alignment-method affineepipolar \
-                12FEB16101327.r50.tif  12FEB16101426.r50.tif         \
-                12FEB16101327.r50.xml  12FEB16101426.r50.xml  dg/out
+    stereo -t dg --subpixel-mode 1 --alignment-method affineepipolar \
+      12FEB16101327.r50.tif 12FEB16101426.r50.tif                    \
+      12FEB16101327.r50.xml 12FEB16101426.r50.xml  dg/out
 
-Alternatively, the ``stereo_gui`` frontend can be invoked, with the same
-options, as described in :numref:`stereo_gui`.
+As in :numref:`moc_tutorial`, one can experiment with various tradeoffs of quality
+versus run time, and use stereo in parallel or from a GUI. For more details, see 
+:numref:`nextsteps`.
 
-How to create a DEM and visualize the results of stereo is desribed in
+How to create a DEM and visualize the results of stereo is described in
 :numref:`visualising`.
 
 .. figure:: images/examples/dg/wv_tutorial.png
@@ -334,16 +343,12 @@ How to create a DEM and visualize the results of stereo is desribed in
 
    Example WorldView image section and colorized height map.
 
-Above, we have used ``subpixel-mode 1`` which is less accurate but
-reasonably fast. More details about how to set this and other ``stereo``
-parameters can be found in :numref:`settingoptionsinstereodefault`.
-
 It is important to note that we could have performed stereo using the
 approximate RPC model instead of the exact linear camera model (both
 models are in the same XML file), by switching the session in the
 ``stereo`` command above from ``-t dg`` to ``-t rpc``. The RPC model is
 somewhat less accurate, so the results will not be the same, in our
-experiments we’ve seen differences in the 3D terrains using the two
+experiments we've seen differences in the 3D terrains using the two
 approaches of 5 meters or more.
 
 .. _mapproj:
@@ -385,90 +390,16 @@ example of using it is in :numref:`ccd-artifact-example`.
    and with (right) CCD boundary artifact corrections applied using
    ``wv_correct``.
 
-.. _jitter:
-
-Managing Camera Jitter
-----------------------
-
-In this section we will talk about the second largest source of
-inaccuracies in DigitalGlobe/Maxar images, after CCD artifacts, namely
-jitter, and how to correct it.
-
-It is important to note that jitter correction is highly experimental,
-and while it usually works, it may not be production-ready.
-
-The order in which these corrections need to be handled is the
-following. First, CCD artifacts are corrected. Then, optionally, images
-are mosaicked with ``dg_mosaic`` and map-projected. And jitter should be
-handled last, during stereo. An exception is made for WV03 images, for
-which CCD artifacts do not appear to have a significant effect.
-
-Camera jitter has its origin in the fact that the measured position and
-orientation of the image-acquiring line sensor as specified in a camera
-XML file is usually not perfectly accurate, the sensor in fact wiggles
-slightly from where it is assumed to be as it travels through space and
-appends rows of pixels to the image. This results in slight errors in
-the final DEM created using stereo. Those are most clearly seen in the
-intersection error map output by invoking ``point2dem --errorimage``.
-
-ASP provides support for correcting this jitter, at least its
-lower-frequency component. During stereo, right before the triangulation
-step, so after the left-to-right image disparity is computed, it can
-solve for adjustments to apply to the satellite position and
-orientation. Those adjustments are placed along-track (hence at several
-lines in the image) with interpolation between them. This is quite
-analogous to what ``bundle_adjust`` is doing, except that the latter
-uses just one adjustment for each image.
-
-This process can be triggered by invoking ``stereo`` with
-``--image-lines-per-piecewise-adjustment arg``. A recommended value here
-is 1000, though it is suggested to try several values. A smaller value
-of ``arg`` will result in more adjustments being used (each adjustment
-being responsible for fewer image lines), hence providing finer-grained
-control, though making this number too small may result in over-fitting
-and instability. A smaller value here will also require overall more
-interest point matches (as computed from the disparity), which is set
-via ``--num-matches-for-piecewise-adjustment``.
-
-Jitter correction is more effective if ``stereo`` is preceded by bundle
-adjustment, with the adjusted cameras then being passed to ``stereo``
-via ``--bundle-adjust-prefix``.
-
-If it appears that the adjustments show some instability at the starting
-and ending lines due to not enough matches being present (as deduced
-from examining the intersection error image), the locations of the first
-and last adjustment (and everything in between) may be brought closer to
-each other, by modifying ``--piecewise-adjustment-percentiles``. Its
-values are by default 5 and 95, and could be set for example to 10 and
-90. For very tall images, it may be desirable to use instead values
-closer to 0 and 100.
-
-See :numref:`triangulation_options` for the full list of parameters
-used in jitter correction.
-
-In order for jitter correction to be successful, the disparity map
-(``*-F.tif``) should be of good quality. If that is not the case, it is
-suggested to redo stereo, and use, for example, map-projected images,
-and in the case of terrain lacking large scale features, the value
-``corr-seed-mode 3`` (:numref:`sparse-disp`).
-
-An illustration of jitter correction is given in :numref:`jitter-example`.
-
-.. _jitter-example:
-
-.. figure:: images/jitter.jpg
-   :alt: Intersection error map before (left) and after jitter correction.
-   :name: fig:jitter-example
-
-   Example of a colorized intersection error map before (left) and after
-   jitter correction.
-
 .. _sparse-disp:
+
+Another source of artifacts in Digital Globe images is jitter.
+ASP has some logic for dealing with it but it is not ready for
+production use at this stage. See (:numref:`jitter`).
 
 Dealing with Terrain Lacking Large-Scale Features
 -------------------------------------------------
 
-Stereo Pipeline’s approach to performing correlation is a two-step
+Stereo Pipeline's approach to performing correlation is a two-step
 pyramid algorithm, in which low-resolution versions of the input images
 are created, the disparity map (``output_prefix-D_sub.tif``) is found,
 and then this disparity map is refined using increasingly
@@ -548,6 +479,6 @@ images. Stereo Pipeline is designed to process single-band images only.
 If invoked on multi-spectral data, it will quietly process the first
 band and ignore the rest. To use one of the other bands it can be
 singled out by invoking ``dg_mosaic`` (:numref:`rawdg`) with
-the ``--band <num>`` option. We have evaluated ASP with DigitalGlobe/Maxar’s
+the ``--band <num>`` option. We have evaluated ASP with DigitalGlobe/Maxar's
 multi-spectral images, but support for it is still experimental. We
 recommend using the panchromatic images whenever possible.

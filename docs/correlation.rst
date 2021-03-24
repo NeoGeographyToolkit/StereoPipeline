@@ -482,9 +482,10 @@ stereo modes. The DEM on the left was generated using the default stereo
 parameters and ``--subpixel-mode 3``. The DEM on the right was generated
 using the command::
 
-     stereo --stereo-algorithm 1 --threads 1 --xcorr-threshold -1 --corr-kernel 7 7 \
-     --corr-tile-size 6400 --cost-mode 4 --median-filter-size 3   \
-     --texture-smooth-size 13 --texture-smooth-scale 0.13
+     stereo --stereo-algorithm 1 --threads 1 --xcorr-threshold -1 \
+       --corr-kernel 7 7 --corr-tile-size 6400 --cost-mode 4      \
+       --median-filter-size 3  --texture-smooth-size 13           \
+       --texture-smooth-scale 0.13
 
 Some grid pattern noise is visible in the image produced using SGM.
 Using ``--stereo-algorithm 2`` should reduce it. And, as mentioned

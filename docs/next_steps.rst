@@ -3,7 +3,7 @@
 The Next Steps
 ==============
 
-This chapter will discuss in more detail ASP’s stereo process and other
+This chapter will discuss in more detail ASP's stereo process and other
 tools available to either pre-process the input images/cameras or to
 manipulate ``stereo``'s outputs, both in the context of planetary ISIS
 data and for Earth images. This includes how to (a) customize
@@ -20,11 +20,30 @@ Stereo Pipeline in More Detail
 Stereo Algorithms
 ~~~~~~~~~~~~~~~~~
 
-The default stereo algorithm in ASP is block-matching, with various
-values for subpixel refinement, as seen below. The latest version of ASP
-includes the SGM and MGM algorithms, which overall can perform better,
-but are more experimental. For details about how to invoke these
-algorithms, see :numref:`sgm`.
+The most important choice a user has to make when running ASP is the tradeoff
+between runtime and quality. By default, ASP runs as if invoked with:
+
+::
+
+   stereo --stereo-algorithm 0 --subpixel-mode 1 <other options>
+    
+This invokes block-matching stereo with parabola subpixel mode, which
+can be fast but not of high quality. The best results are likely
+produced with
+
+::
+
+   parallel_stereo --stereo-algorithm 2 --subpixel-mode 3 <other options>
+    
+which invokes the MGM algorithm and the higher quality subpixel option
+(both are slower). One can also experiment with the SGM algorithm,
+which is ``--stereo-algorithm 1``, and no subpixel mode, when an
+internal default is used, and also with ``--subpixel-mode 2``, which
+will be much slower. For more details about SGM and MGM see
+:numref:`sgm`.
+
+Next we will discuss more advanced parameters which rarely need to be
+set in practice.
 
 .. _settingoptionsinstereodefault:
 
@@ -51,11 +70,11 @@ important values in that file.
 
 ::
 
-           alignment-method affineepipolar
-           cost-mode 2
-           corr-kernel 21 21
-           subpixel-mode 1
-           subpixel-kernel 21 21
+    alignment-method affineepipolar
+    cost-mode 2
+    corr-kernel 21 21
+    subpixel-mode 1
+    subpixel-kernel 21 21
 
 All these options can be overridden from the command line, as described
 in :numref:`cmdline`.

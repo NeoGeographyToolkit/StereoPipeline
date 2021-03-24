@@ -17,6 +17,7 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
    sfm
    examples
    sfs
+   experimental
    tools
    stereodefault
    outputfiles
