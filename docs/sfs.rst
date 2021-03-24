@@ -792,6 +792,15 @@ the flag ``--compute-exposures-only`` in this tool, and then the
 computed exposures can be passed to the command above via the
 ``--image-exposures-prefix`` option.
 
+When it comes to selecting the number of nodes to use, it is good to
+notice how many tiles the ``parallel_sfs`` program produces (the tool
+prints that), as a process will be launched for each tile. Since above
+it is chosen to run 20 processes on each node, the number of nodes can
+be the number of tiles over 20, or perhaps half or a quarter of that,
+in which case it will take longer to run things. One should examine
+how much memory these processes use and adjust this number
+accordingly.
+
 The obtained shape-from-shading terrain should be studied carefully to
 see if it shows any systematic shift or rotation compared to the initial
 LOLA gridded terrain. If that is the case, another step of alignment can
