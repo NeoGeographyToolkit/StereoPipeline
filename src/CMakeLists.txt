@@ -21,7 +21,7 @@ project (StereoPipeline)
 
 # The line below is used by the docs/ so don't change it
 # without testing the result.  Versioning is based on https://semver.org
-set(PACKAGE_VERSION "2.7.0")
+set(PACKAGE_VERSION "3.0.0")
 #set(PACKAGE_VERSION "2.7.1-alpha")
 set(PACKAGE_NAME "NASA Ames Stereo Pipeline")
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
