@@ -43,9 +43,11 @@ void find_xyz_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
                                vw::cartography::GeoReference const& shape_georef,
                                vw::cartography::GeoReference const& dem_georef,
                                ImageViewRef< PixelMask<float> > interp_dem,
-                               std::vector<Eigen::Vector3d> & xyz_vec) {
+                               std::vector<Eigen::Vector3d> & xyz_vec,
+                               std::vector<vw::Vector2> & used_shape_vertices) {
 
   xyz_vec.clear();
+  used_shape_vertices.clear();
   
   for (size_t p = 0; p < polyVec.size(); p++){
     vw::geometry::dPoly const& poly = polyVec[p];
@@ -88,9 +90,9 @@ void find_xyz_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
           eigen_xyz[coord] = xyz[coord];
 
         xyz_vec.push_back(eigen_xyz);
+        used_shape_vertices.push_back(proj_pt);
       }
     }
-      
   }
 }
 
@@ -194,7 +196,7 @@ struct BestFitPlaneErrorMetric {
 };
 
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string shapefile, dem, bathy_plane;
+  std::string shapefile, dem, bathy_plane, output_inlier_shapefile;
   double outlier_threshold;
   int num_ransac_iterations;
   Options(): outlier_threshold(0.2), num_ransac_iterations(1000) {}
@@ -218,7 +220,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "included in the calculation of that plane.")
     ("num-ransac-iterations", 
      po::value(&opt.num_ransac_iterations)->default_value(1000),
-     "Number of RANSAC iterations to use to find the best-fitting plane.");
+     "Number of RANSAC iterations to use to find the best-fitting plane.")
+    ("output-inlier-shapefile", po::value(&opt.output_inlier_shapefile)->default_value(""),
+     "Save at this location the shape file with the inlier vertices.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -273,14 +277,16 @@ int main( int argc, char *argv[] ) {
       vw_throw( ArgumentErr() << "Could not read the DEM nodata value.\n");
     std::cout << "Read DEM nodata value: " << dem_nodata_val << std::endl;
     DiskImageView<float> dem(opt.dem);
-    std::cout << "The DEM width and height are: " << dem.cols() << ' ' << dem.rows() << std::endl;
+    
     ImageViewRef< PixelMask<float> > interp_dem
       = interpolate(create_mask(dem, dem_nodata_val),
                     BilinearInterpolation(), ConstantEdgeExtension());
 
     // Find the ECEF coordinates of the shape corners
     std::vector<Eigen::Vector3d> xyz_vec;
-    find_xyz_at_shape_corners(polyVec,shape_georef, dem_georef, interp_dem, xyz_vec);
+    std::vector<vw::Vector2> used_shape_vertices;
+    find_xyz_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, xyz_vec,
+                              used_shape_vertices);
 
     // Compute the water surface using RANSAC
     std::vector<Eigen::Vector3d> dummy_vec(xyz_vec.size()); // Required by the interface
@@ -332,14 +338,8 @@ int main( int argc, char *argv[] ) {
 
     std::cout << "Max distance to the plane (meters): " << max_error << std::endl;
     std::cout << "Max inlier distance to the plane (meters): " << max_inlier_error << std::endl;
-    
-    std::cout << std::endl;                                     
     std::cout << "Mean plane height above datum (meters): " << mean_height << std::endl;
     std::cout << "Plane inclination (degrees): " << plane_angle << std::endl;
-    std::cout << "The plane inclination is defined as the angle between the plane\n"
-              << "normal and the ray going from the Earth center to the mean of\n"
-              << "all inlier measurements in ECEF coordinates." << std::endl;
-    std::cout << "" << std::endl;
     
     std::cout << "Writing: " << opt.bathy_plane << std::endl;
     std::ofstream bp(opt.bathy_plane.c_str());
@@ -352,6 +352,29 @@ int main( int argc, char *argv[] ) {
         bp << "\n";
     }
     bp.close();
+
+    // Save the shape having the inliers
+    if (opt.output_inlier_shapefile != "") {
+      std::vector<double> inlier_x, inlier_y;
+      for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) {
+        Vector2 p = used_shape_vertices[inlier_indices[inlier_it]];
+        inlier_x.push_back(p.x());
+        inlier_y.push_back(p.y());
+      }
+      bool isPolyClosed = true;
+      std::string layer = "";
+      vw::geometry::dPoly inlierPoly;
+      inlierPoly.setPolygon(inlier_x.size(),
+                            vw::geometry::vecPtr(inlier_x),
+                            vw::geometry::vecPtr(inlier_y),
+                            isPolyClosed,
+                            poly_color,
+                            layer);
+      std::vector<vw::geometry::dPoly> inlierPolyVec;
+      inlierPolyVec.push_back(inlierPoly);
+      std::cout << "Writing inlier shapefile: " << opt.output_inlier_shapefile << std::endl;
+      write_shapefile(opt.output_inlier_shapefile, has_shape_georef, shape_georef, inlierPolyVec);
+    }
     
   } ASP_STANDARD_CATCHES;
   

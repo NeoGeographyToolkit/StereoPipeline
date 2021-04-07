@@ -2375,7 +2375,8 @@ vertices of the shapefile, while using outlier removal, as follows:
 ::
 
      bathy_plane_calc --shapefile shoreline.shp --dem run/run-DEM.tif \
-       --outlier-threshold 0.2 --bathy-plane bathy_plane.txt
+       --outlier-threshold 0.2 --bathy-plane bathy_plane.txt          \
+       --output-inlier-shapefile shoreline_inliers.shp
 
 This will produce the following output:
 
@@ -2393,8 +2394,12 @@ as inliers and the distance from those points to the plane, which
 ideally should be zero. (The value ``d`` in that file should be about
 the Earth radius, as we use ECEF coordinates.)
 
-It is important to keep an eye on the number of inliers. If too few, that may 
-mean that the outlier threshold is too strict. 
+It is important to keep an eye on the number of inliers. If too few,
+that may mean that the outlier threshold is too strict. Above, the
+inliers are saved as a shape file and can be inspected. Ideally the
+inliers bound the desired region well, or else the number of sample
+points can be increased or the outlier threshold can be relaxed by
+making it bigger.
 
 Above we assume that the DEM and DRG files are created together with
 ``point2dem`` and are one-to-one, or else the results will be
