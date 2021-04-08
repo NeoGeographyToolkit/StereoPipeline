@@ -15,7 +15,8 @@ practice is given in :numref:`water_surface`.
 Example::
 
      bathy_plane_calc --shapefile shape.shp --dem dem.tif     \
-       --bathy-plane plane.txt
+        --output-inlier-shapefile out_shape.shp               \
+        --bathy-plane plane.txt 
 
 It will produce output as follows:
 
@@ -46,15 +47,15 @@ Command-line options for bathy_plane_calc:
 --dem <filename>
     The DEM to use.
 
---bathy-plane arg                     
-    The output file storing the computed plane as four coefficients
-    a, b, c, d, with the plane being a*x + b*y + c*z + d = 0.
-
 --outlier-threshold <double>
     A value, in meters, to determine the distance from a sampled point
     on the DEM to the best-fit plane to determine if it will be marked as 
     outlier and not included in the calculation of that plane. The default
     is 0.2.
+
+--bathy-plane arg                     
+    The output file storing the computed plane as four coefficients
+    a, b, c, d, with the plane being a*x + b*y + c*z + d = 0.
 
 --output-inlier-shapefile <string>
     Save at this location the shape file with the inlier vertices.
