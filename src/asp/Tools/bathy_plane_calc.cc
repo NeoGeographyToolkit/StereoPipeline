@@ -171,18 +171,18 @@ struct BestFitPlaneFunctor {
     }
 };
 
-// Given a 1x4 matrix H = (a, b, c, d) determining the plane
-// a * x + b * y + c * z + d = 0, find the distance to this plane
-// from a point xyz.
+// Given a 1x4 matrix named 'plane', with values (a, b, c, d),
+// determining the plane a * x + b * y + c * z + d = 0, find the
+// distance to this plane from a point xyz.
 
 template<class Vec3>
-double dist_to_plane(vw::Matrix<double, 1, 4> const& H, Vec3 const& xyz) {
+double dist_to_plane(vw::Matrix<double, 1, 4> const& plane, Vec3 const& xyz) {
 
   double ans = 0.0;
   for (unsigned col = 0; col < 3; col++) {
-      ans += H(0, col) * xyz[col];
+      ans += plane(0, col) * xyz[col];
   }
-  ans += H(0, 3);
+  ans += plane(0, 3);
   
   return std::abs(ans);
 }
@@ -190,13 +190,14 @@ double dist_to_plane(vw::Matrix<double, 1, 4> const& H, Vec3 const& xyz) {
 // The value p2 is needed by the interface but we don't use it
 struct BestFitPlaneErrorMetric {
   template <class RelationT, class ContainerT>
-  double operator() (RelationT  const& H, ContainerT const& p1, ContainerT const& p2) const {
-    return dist_to_plane(H, p1);
+  double operator() (RelationT  const& plane, ContainerT const& p1, ContainerT const& p2) const {
+    return dist_to_plane(plane, p1);
   }
 };
 
+
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string shapefile, dem, bathy_plane, output_inlier_shapefile;
+  std::string shapefile, dem, bathy_plane, output_inlier_shapefile, output_dem_minus_plane;
   double outlier_threshold;
   int num_ransac_iterations;
   Options(): outlier_threshold(0.2), num_ransac_iterations(1000) {}
@@ -222,7 +223,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      po::value(&opt.num_ransac_iterations)->default_value(1000),
      "Number of RANSAC iterations to use to find the best-fitting plane.")
     ("output-inlier-shapefile", po::value(&opt.output_inlier_shapefile)->default_value(""),
-     "Save at this location the shape file with the inlier vertices.");
+     "If specified, save at this location the shape file with the inlier vertices.")
+    ("output-dem-minus-plane", po::value(&opt.output_dem_minus_plane)->default_value(""),
+     "If specified, save at this location the input DEM with the computed "
+     "plane heights subtracted from it.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -248,6 +252,110 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.bathy_plane == "")
     vw_throw( ArgumentErr() << "Missing the output bathy plane file.\n"
               << usage << general_options );
+}
+
+// Given a DEM surface and a planar surface (with potentially some
+// inclination) subtract from each DEM height the height at that
+// plane. The height of the plane is obtained by considering the
+// current DEM grid point, and another point at same lon-lat but with
+// a height 100 meters less, converting these to ECEF, tracing a ray through them,
+// seeing where it intersects the plane, converting that xyz point to
+// geodetic, and taking the height difference.
+class DemMinusPlaneView: public ImageViewBase<DemMinusPlaneView>{
+  ImageViewRef<float> m_dem;
+  vw::cartography::GeoReference m_dem_georef;
+  vw::Matrix<double> m_plane;
+  double m_dem_nodata_val;
+  
+  typedef float PixelT;
+
+public:
+  DemMinusPlaneView(ImageViewRef<float> const& dem,
+                    vw::cartography::GeoReference const& dem_georef,
+                    vw::Matrix<double> plane, 
+                    double dem_nodata_val):
+    m_dem(dem), m_dem_georef(dem_georef), m_plane(plane), 
+    m_dem_nodata_val(dem_nodata_val){}
+  
+  typedef PixelT pixel_type;
+  typedef PixelT result_type;
+  typedef ProceduralPixelAccessor<DemMinusPlaneView> pixel_accessor;
+
+  inline int32 cols() const { return m_dem.cols(); }
+  inline int32 rows() const { return m_dem.rows(); }
+  inline int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+
+  inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+    vw_throw(NoImplErr() << "DemMinusPlaneView::operator()(...) is not implemented");
+    return pixel_type();
+  }
+
+  typedef CropView< ImageView<pixel_type> > prerasterize_type;
+  
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+
+    // Bring this portion in memory
+    ImageView<result_type> cropped_dem = crop(m_dem, bbox);
+    
+    ImageView<result_type> tile(bbox.width(), bbox.height());
+    
+    for (int col = 0; col < bbox.width(); col++){
+      for (int row = 0; row < bbox.height(); row++){
+        
+        // Handle the case when the DEM is not valid
+        if (cropped_dem(col, row) == m_dem_nodata_val) {
+          tile(col, row) = m_dem_nodata_val;
+          continue;
+        }
+
+        Vector2 pix(col + bbox.min().x(), row + bbox.min().y());
+        Vector2 lon_lat = m_dem_georef.pixel_to_lonlat(pix);
+
+        Vector3 llh;
+        subvector(llh, 0, 2) = lon_lat;
+        llh[2] = cropped_dem(col, row);
+
+        // The DEM point in ECEF
+        Vector3 xyz1 = m_dem_georef.datum().geodetic_to_cartesian(llh);
+
+        // A point at different height but same lon and lat
+        llh[2] -= 100.0;
+        Vector3 xyz2 = m_dem_georef.datum().geodetic_to_cartesian(llh);
+
+        // The ray is P = xyz1 + t * (xyz2 - xyz1), where t is real.
+        // The plane is a*x + b*y + c*z + d = 0, where plane = (a, b, c, d).
+        // Then, dot(P, plane_normal) + plane_intercept = 0.
+        // Use that to find t.
+        Vector3 plane_normal(m_plane(0, 0), m_plane(0, 1), m_plane(0, 2));
+        double plane_intercept = m_plane(0, 3);
+
+        double t = -(dot_prod(xyz1, plane_normal) + plane_intercept) /
+          dot_prod(xyz2 - xyz1, plane_normal);
+
+        Vector3 P = xyz1 + t * (xyz2 - xyz1);
+        llh = m_dem_georef.datum().cartesian_to_geodetic(P);
+
+        tile(col, row) = cropped_dem(col, row) - llh[2];
+      }
+    }
+    
+    return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
+                             cols(), rows() );
+  }
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, BBox2i bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
+
+DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
+                                  vw::cartography::GeoReference const& dem_georef,
+                                  vw::Matrix<double> plane, 
+                                  double dem_nodata_val){
+  return DemMinusPlaneView(dem, dem_georef, plane, dem_nodata_val);
 }
 
 int main( int argc, char *argv[] ) {
@@ -294,25 +402,25 @@ int main( int argc, char *argv[] ) {
     double inlier_threshold = opt.outlier_threshold;
     int    min_num_output_inliers = std::max(xyz_vec.size()/2, size_t(3));
     bool   reduce_min_num_output_inliers_if_no_fit = true;
-    vw::Matrix<double> H;
+    vw::Matrix<double> plane;
     try {
       math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric> 
         ransac(BestFitPlaneFunctor(), BestFitPlaneErrorMetric(),
                opt.num_ransac_iterations, inlier_threshold,
                min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
     
-      H = ransac(xyz_vec, dummy_vec);
+      plane = ransac(xyz_vec, dummy_vec);
       
-      inlier_indices = ransac.inlier_indices(H, xyz_vec, dummy_vec);
+      inlier_indices = ransac.inlier_indices(plane, xyz_vec, dummy_vec);
     } catch (const vw::math::RANSACErr& e ) {
       vw_out() << "RANSAC Failed: " << e.what() << "\n";
     }
     vw_out() << "Found " << inlier_indices.size() << " / " << xyz_vec.size() << " inliers.\n";
     
-    //std::cout << "Final matrix is " << H << std::endl;
+    //std::cout << "Final matrix is " << plane << std::endl;
     double max_error = - 1.0, max_inlier_error = -1.0;
     for (size_t it = 0; it < xyz_vec.size(); it++) 
-      max_error = std::max(max_error, dist_to_plane(H, xyz_vec[it]));
+      max_error = std::max(max_error, dist_to_plane(plane, xyz_vec[it]));
 
     // Do estimates for the mean height and angle of the plane
     Vector3 mean_xyz(0, 0, 0);
@@ -321,7 +429,7 @@ int main( int argc, char *argv[] ) {
     for (size_t it = 0; it < inlier_indices.size(); it++) {
       Eigen::Vector3d p = xyz_vec[inlier_indices[it]];
       Vector3 xyz(p[0], p[1], p[2]); 
-      max_inlier_error = std::max(max_inlier_error, dist_to_plane(H, xyz));
+      max_inlier_error = std::max(max_inlier_error, dist_to_plane(plane, xyz));
 
       Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
       mean_height += llh[2];
@@ -332,7 +440,7 @@ int main( int argc, char *argv[] ) {
     mean_height /= num;
     mean_xyz /= num;
 
-    Vector3 plane_normal(H(0, 0), H(0, 1), H(0, 2));
+    Vector3 plane_normal(plane(0, 0), plane(0, 1), plane(0, 2));
     Vector3 surface_normal = mean_xyz / norm_2(mean_xyz); // ignore the datum flattening
     double plane_angle = (180.0 / M_PI) * acos(dot_prod(plane_normal, surface_normal));
 
@@ -344,9 +452,9 @@ int main( int argc, char *argv[] ) {
     std::cout << "Writing: " << opt.bathy_plane << std::endl;
     std::ofstream bp(opt.bathy_plane.c_str());
     bp.precision(17);
-    for (int col = 0; col < H.cols(); col++) {
-      bp << H(0, col);
-      if (col < H.cols() - 1)
+    for (int col = 0; col < plane.cols(); col++) {
+      bp << plane(0, col);
+      if (col < plane.cols() - 1)
         bp << " ";
       else
         bp << "\n";
@@ -374,6 +482,18 @@ int main( int argc, char *argv[] ) {
       inlierPolyVec.push_back(inlierPoly);
       std::cout << "Writing inlier shapefile: " << opt.output_inlier_shapefile << std::endl;
       write_shapefile(opt.output_inlier_shapefile, has_shape_georef, shape_georef, inlierPolyVec);
+    }
+
+    if (opt.output_dem_minus_plane != "") {
+      bool has_georef = true;
+      bool has_nodata = true;
+      TerminalProgressCallback tpc("asp", ": ");
+      vw_out() << "Writing: " << opt.output_dem_minus_plane << std::endl;
+      block_write_gdal_image(opt.output_dem_minus_plane,
+                             dem_minus_plane(dem, dem_georef, plane, dem_nodata_val),
+                             has_georef, dem_georef,
+                             has_nodata, dem_nodata_val,
+                             opt, tpc);
     }
     
   } ASP_STANDARD_CATCHES;

@@ -14,9 +14,9 @@ practice is given in :numref:`water_surface`.
 
 Example::
 
-     bathy_plane_calc --shapefile shape.shp --dem dem.tif     \
-        --output-inlier-shapefile out_shape.shp               \
-        --bathy-plane plane.txt 
+     bathy_plane_calc --shapefile shape.shp --dem dem.tif    \
+       --output-inlier-shapefile out_shape.shp               \
+       --bathy-plane plane.txt 
 
 It will produce output as follows:
 
@@ -58,7 +58,12 @@ Command-line options for bathy_plane_calc:
     a, b, c, d, with the plane being a*x + b*y + c*z + d = 0.
 
 --output-inlier-shapefile <string>
-    Save at this location the shape file with the inlier vertices.
+    If specified, save at this location the shape file with the inlier
+    vertices.
+
+--output-dem-minus-plane <string>
+    If specified, save at this location the input DEM with the computed
+    plane heights subtracted from it. 
 
 --num-ransac-iterations <integer>
     Number of RANSAC iterations to use to find the best-fitting plane.
