@@ -540,11 +540,24 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
 
     DiskImageView<float> left_orig_image(left_input_file);
     BBox2i left_win = stereo_settings().left_image_crop_win;
-    left_win.crop (bounding_box(left_orig_image));
+    left_win.crop(bounding_box(left_orig_image));
 
+    ImageViewRef<float> left_cropped_image = crop(left_orig_image, left_win);
+
+    if (stereo_settings().left_image_clip != "") {
+      // Replace the crop with a given clip. This is a very rarely used option.
+      // It can be handy when investigating CCD artifacts correction.
+      left_cropped_image = DiskImageView<float>(stereo_settings().left_image_clip);
+      if (left_cropped_image.cols() != left_win.width() ||
+          left_cropped_image.rows() != left_win.height() ) {
+        vw_throw( ArgumentErr() << "The image specified via --left-image-clip has different "
+                  << "dimensions than set via --left-image-crop-win.");
+      }
+    }
+    
     vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
     block_write_gdal_image(left_cropped_file,
-                           crop(left_orig_image, left_win),
+                           left_cropped_image,
                            has_left_georef, crop(left_georef, left_win),
                            has_nodata, left_nodata_value,
                            options,
@@ -588,9 +601,22 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
     BBox2i right_win = stereo_settings().right_image_crop_win;
     right_win.crop(bounding_box(right_orig_image));
 
+    ImageViewRef<float> right_cropped_image = crop(right_orig_image, right_win);
+
+    if (stereo_settings().right_image_clip != "") {
+      // Replace the crop with a given clip. This is a very rarely used option.
+      // It can be handy when investigating CCD artifacts correction.
+      right_cropped_image = DiskImageView<float>(stereo_settings().right_image_clip);
+      if (right_cropped_image.cols() != right_win.width() ||
+          right_cropped_image.rows() != right_win.height() ) {
+        vw_throw( ArgumentErr() << "The image specified via --right-image-clip has different "
+                  << "dimensions than set via --right-image-crop-win.");
+      }
+    }
+    
     vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
     block_write_gdal_image(right_cropped_file,
-                           crop(right_orig_image, right_win),
+                           right_cropped_image,
                            has_right_georef,
                            crop(right_georef, right_win),
                            has_nodata, right_nodata_value,

@@ -146,10 +146,6 @@ namespace asp {
     /// Get the crop ROI applied to the two input images.
     void get_input_image_crops(vw::BBox2i &left_image_crop, vw::BBox2i &right_image_crop) const;
 
-    // All Stereo Session children must define the following which are not defined in the the parent:
-    //   typedef VWStereoModel stereo_model_type;
-    typedef vw::stereo::StereoModel stereo_model_type; // Currently this is the only option!
-
     /// Transform from image coordinates on disk to original untransformed image pixels.
     typedef boost::shared_ptr<vw::Transform> tx_type;
 
