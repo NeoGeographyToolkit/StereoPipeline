@@ -459,7 +459,7 @@ void imageData::read(std::string const& name_in,
   
   if (asp::has_shp_extension(name)){
     read_shapefile(name, poly_color, has_georef, georef, polyVec);
-    
+
     double xll, yll, xur, yur;
     shapefile_bdbox(polyVec,  
 		    xll, yll, xur, yur // outputs
@@ -468,9 +468,11 @@ void imageData::read(std::string const& name_in,
     world_bbox.min() = Vector2(xll, yll);
     world_bbox.max() = Vector2(xur, yur);
 
-    // There is no definition of pixel for shapefiles. 
+    if (!has_georef) {
+      vw_throw(ArgumentErr() << "Expecting the shapefile to have a georeference.\n");
+    }
+
     image_bbox = world_bbox;
-    
   }else{
     
     int top_image_max_pix = 1000*1000;

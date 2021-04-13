@@ -113,6 +113,10 @@ namespace vw { namespace gui {
     if (!m_use_georef)
       return P;
 
+    // There is no pixel concept in that case
+    if (m_images[imageIndex].isPoly())
+      return flip_in_y(P);
+      
     return m_world2image_geotransforms[imageIndex].point_to_pixel(flip_in_y(P));
   }
 
@@ -125,7 +129,13 @@ namespace vw { namespace gui {
     if (!m_use_georef)
       return R;
 
+    // There is no pixel concept in that case
+    if (m_images[imageIndex].isPoly()) {
+      return flip_in_y(R);
+    }
+
     BBox2 pixel_box = m_world2image_geotransforms[imageIndex].point_to_pixel_bbox(flip_in_y(R));
+
     return pixel_box;
   }
 
@@ -134,6 +144,10 @@ namespace vw { namespace gui {
 
     if (!m_use_georef)
       return P;
+
+    // There is no pixel concept in that case
+    if (m_images[imageIndex].isPoly())
+      return flip_in_y(P);
 
     return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point(P));
   }
@@ -147,7 +161,13 @@ namespace vw { namespace gui {
     if (!m_use_georef)
       return R;
 
+    // There is no pixel concept in that case
+    if (m_images[imageIndex].isPoly()) {
+      return flip_in_y(R);
+    }
+      
     BBox2 B = flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point_bbox(R));
+
     return B;
   }
 
@@ -929,8 +949,9 @@ namespace vw { namespace gui {
 
     // Sometimes we arrive here prematurely, before the window geometry was
     // determined. Then, there is nothing to do.
-    if (m_current_view.empty()) return;
 
+    if (m_current_view.empty()) return;
+    
     Stopwatch sw1;
     sw1.start();
 
@@ -949,8 +970,10 @@ namespace vw { namespace gui {
         continue;
 
       // The portion of the image in the current view. 
-      BBox2 curr_world_box = m_current_view; 
+      BBox2 curr_world_box = m_current_view;
+
       BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
+
       curr_world_box.crop(B);
 
       // This is a bugfix for the case when the world boxes 
@@ -979,7 +1002,7 @@ namespace vw { namespace gui {
 
       if (m_images[i].isPoly())
         continue;
-      
+
       QImage qimg;
       // Since the image portion contained in image_box could be huge,
       // but the screen area small, render a sub-sampled version of
@@ -1110,7 +1133,7 @@ namespace vw { namespace gui {
     } // End loop through input images
 
     sw1.stop();
-    vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
+    //vw_out() << "Render time (seconds): " << sw1.elapsed_seconds() << std::endl;
     
     return;
   } // End function drawImage()
@@ -1304,6 +1327,10 @@ namespace vw { namespace gui {
                             poly);
     }
 
+    // TODO(oalexan1): Should the persistent polygons be drawn
+    // as part of the drawImage() call? How about polygons
+    // actively being edited?
+    
     // Loop through the input images. Plot the polygons. Note how we
     // add one more fake image at the end to take care of the polygon
     // we are in the middle of drawing.
@@ -1848,7 +1875,7 @@ namespace vw { namespace gui {
     vw::cartography::GeoReference const& geo = m_images[m_polyLayerIndex].georef;
 
     // TODO(oalexan1): What if there are polygons for many images?
-    //std::cout << "Writing: " << shapefile << std::endl;
+    std::cout << "Writing: " << shapefile << std::endl;
     write_shapefile(shapefile, has_geo, geo, m_images[m_polyLayerIndex].polyVec);
   }
   
