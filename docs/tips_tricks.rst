@@ -26,8 +26,7 @@ amount of time.
    Bundle-adjustment can be used to find out the camera positions more
    accurately (:numref:`baasp`). CCD artifact correction
    can be used to remove artifacts from WorldView images
-   (:numref:`wvcorrect-example`). Jitter correction can be used for
-   DigitalGlobe/Maxar images (:numref:`jitter`).
+   (:numref:`wvcorrect-example`). 
 
 -  Align the output point cloud to some known absolute reference with
    ``pc_align`` (:numref:`pc-align-example`).

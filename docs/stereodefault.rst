@@ -51,19 +51,6 @@ alignment-method (= affineepipolar, homography, epipolar, none) (default = affin
     ``stereo -t pinhole``), and cannot be used when processing ISIS
     images at this time.*
 
-left-image-crop-win xoff yoff xsize ysize
-    Do stereo in a sub-region of the left image [default: use the
-    entire image].
-
-right-image-crop-win xoff yoff xsize ysize
-    When combined with ``left-image-crop-win``, do stereo in given
-    subregions of left and right images. The crop windows can be
-    determined using ``stereo_gui``. It is important to note that when
-    both of these are specified, we explicitly crop the input images to
-    these regions, which does not happen when ``left-image-crop-win``
-    alone is specified. In that case we use the full images but only
-    restrict the computation to the specified region.
-
 force-use-entire-range (default = false)
     By default, the Stereo Pipeline will normalize ISIS images so that
     their maximum and minimum channel values are :math:`\pm`\ 2
@@ -160,7 +147,26 @@ skip-rough-homography
     Skip the step of performing datum-based rough homography if it
     fails.
 
-.. _corr_section:
+left-image-crop-win xoff yoff xsize ysize
+    Do stereo in a sub-region of the left image [default: use the
+    entire image].
+
+right-image-crop-win xoff yoff xsize ysize
+    When combined with ``left-image-crop-win``, do stereo in given
+    subregions of left and right images. The crop windows can be
+    determined using ``stereo_gui``. It is important to note that when
+    both of these are specified, we explicitly crop the input images to
+    these regions, which does not happen when ``left-image-crop-win``
+    alone is specified. In that case we use the full images but only
+    restrict the computation to the specified region.
+
+left-image-clip: (*string*) (default = "")
+    If --left-image-crop-win is used, replaced the left image
+    cropped to that window with this clip.  .. _corr_section:
+
+right-image-clip: (*string*) (default = "")
+    If --right-image-crop-win is used, replaced the right image
+    cropped to that window with this clip.  .. _corr_section:
 
 Correlation
 -----------

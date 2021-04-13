@@ -61,10 +61,6 @@ Command-line options for bathy_plane_calc:
     If specified, save at this location the shape file with the inlier
     vertices.
 
---output-dem-minus-plane <string>
-    If specified, save at this location the input DEM with the computed
-    plane heights subtracted from it. 
-
 --num-ransac-iterations <integer>
     Number of RANSAC iterations to use to find the best-fitting plane.
     The default is 1000.

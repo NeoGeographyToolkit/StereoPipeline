@@ -62,6 +62,8 @@ image_calc:
   * Support the sign function (can help in creating masks).
 
 pc_align: 
+  *  Bugfix for --initial-transform-from-hillshading with outlier
+     removal.
   * Add the --initial-transform-outlier-removal-params to control
     outlier removal when finding matches between DEMs to align
     using features detected in hillshaded images or selected

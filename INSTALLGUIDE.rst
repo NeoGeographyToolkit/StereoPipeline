@@ -57,9 +57,9 @@ To do so, follow the ISIS installation instructions, but create a
 new conda environment (not the one with your current ISIS), and right
 before you would run ``conda install isis``, run ``conda search
 isis`` to find all of the versions of ISIS available for installation.
-For example, if you wanted to install ISIS 4.1.0, and it is available
+For example, if you wanted to install ISIS 4.4.0, and it is available
 in the ``conda search isis`` listing, you can run ``conda install
-isis=4.1.0`` (to install that specific version of ISIS) and then
+isis=4.4.0`` (to install that specific version of ISIS) and then
 follow the remainder of the ISIS installation instructions.
 
 In closing, running the Stereo Pipeline executables only requires

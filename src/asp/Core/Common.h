@@ -338,7 +338,7 @@ namespace program_options {
                  vw::BBox3*, long );
 
 } // end namespace program_options
-} // end nampspace boost
+} // end namespace boost
 
 
 #include <asp/Core/Common.tcc>

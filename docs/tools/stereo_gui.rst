@@ -135,14 +135,14 @@ either improve the alignment of these cameras to the DEM, or create
 new Pinhole cameras from scratch (the latter is shown in
 :numref:`imagecorners`).
 
-One starts by opening these desired images and the georeferenced image
+One starts by opening these desired camera images and the georeferenced image
 in the GUI, in this order (hence the georeferenced image is the last).
 If no georeferenced image exists, one can use the given DEM instead (and
 it can be hillshaded after loading to easier identify features).
 
 Next, a feature is identified and manually added as an interest point in
 all open images, using the right-click menu, and this process is
-repeated a few times. Thus created interest points can also be moved
+repeated a few times. These newly created interest points can also be moved
 around by right-clicking to turn on this mode, and then dragging them
 with the mouse (this can be slow).
 
