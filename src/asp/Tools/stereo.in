@@ -38,8 +38,7 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
 if __name__ == '__main__':
 
-    usage = '''parallel_stereo [options] <images> [<cameras>]
-                  <output_file_prefix> [DEM]
+    usage = '''stereo [options] <images> [<cameras>] <output_file_prefix> [DEM]
         Extensions are automatically added to the output files.
         Camera model arguments may be optional for some stereo
         session types (e.g. isis). Stereo parameters should be

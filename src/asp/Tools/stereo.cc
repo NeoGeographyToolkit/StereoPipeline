@@ -27,11 +27,16 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Camera/RPCModel.h>
+#include <asp/Core/Bathymetry.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/InterestPointMatching.h>
 
+// Can't do much about warnings in boost except to hide them
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
+#pragma GCC diagnostic pop
 
 using namespace vw;
 using namespace vw::cartography;
@@ -168,7 +173,8 @@ namespace asp {
 
     if (opt.session->do_bathymetry()) {
       if (num_pairs > 1) 
-        vw_throw(ArgumentErr() << "Bathymetry correction does not work with multiview stereo.\n");
+        vw_throw(ArgumentErr() << "Bathymetry correction does not work with "
+                 << "multiview stereo.\n");
 
       if (stereo_settings().refraction_index <= 1.0) 
         vw_throw(ArgumentErr() << "The water index of refraction to be used in "
@@ -177,19 +183,16 @@ namespace asp {
       if (stereo_settings().bathy_plane == "") 
         vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
 
-      std::vector<double> bathy_plane;
       if (!fs::exists(stereo_settings().bathy_plane)) 
         vw_throw(ArgumentErr() << "The water plane needed for bathymetry was not found.\n");
-        
-      asp::read_vec(stereo_settings().bathy_plane, bathy_plane);
 
-      if (bathy_plane.size() != 4)
-        vw_throw(ArgumentErr() << "Could not read a plane as four values from: "
-                 << stereo_settings().bathy_plane << "\n");
-
-      if (bathy_plane[3] >= 0)
-        vw_throw(ArgumentErr() << "The last value in the bathy plane file "
-                  << "(the free coefficient) is supposed to be negative.\n");
+      // Sanity check reading the bathy plane
+      std::vector<double> bathy_plane;
+      bool use_curved_water_surface = false; // may change below
+      vw::cartography::GeoReference water_surface_projection;
+      read_bathy_plane(stereo_settings().bathy_plane,
+                       bathy_plane, use_curved_water_surface,
+                       water_surface_projection);
     }
     
     // Must signal to the children runs that they are part of a multiview run

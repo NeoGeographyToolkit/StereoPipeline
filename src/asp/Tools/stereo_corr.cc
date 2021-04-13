@@ -19,11 +19,16 @@
 /// \file stereo_corr.cc
 ///
 
+// Can't do much about warnings in boost except to hide them
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <boost/core/null_deleter.hpp>
-#include <vw/Camera/CameraTransform.h>
-#include <vw/Camera/PinholeModel.h>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
+#pragma GCC diagnostic pop
+
+#include <vw/Camera/CameraTransform.h>
+#include <vw/Camera/PinholeModel.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
@@ -368,6 +373,10 @@ std::string strip_path(std::string out_prefix, std::string filename){
 /// - The binary interest point file will be written to disk.
 double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
+    bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+    bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+    bool rebuild = crop_left || crop_right;
+
   vw_out() << "\t    * Loading images for IP detection.\n";
 
   // Choose whether to use the full or _sub images
@@ -380,7 +389,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   const std::string left_image_path_sub   = opt.out_prefix+"-L_sub.tif";
   const std::string right_image_path_sub  = opt.out_prefix+"-R_sub.tif";
 
-  const std::string full_match_file       = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
+  const std::string full_match_file       = ip::match_filename(opt.out_prefix,
+                                                               opt.in_file1, opt.in_file2);
   const std::string sub_match_file        = opt.out_prefix + "-L_sub__R_sub.match";
   const std::string aligned_match_file    = opt.out_prefix + "-L__R.match";
 
@@ -400,7 +410,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     in_file_list.push_back(opt.cam_file2);
 
   // Try the full match file first
-  if (fs::exists(full_match_file) && is_latest_timestamp(full_match_file, in_file_list)) {
+  if (fs::exists(full_match_file) && is_latest_timestamp(full_match_file, in_file_list) &&
+      !rebuild) {
     vw_out() << "Cached IP match file found: " << full_match_file << std::endl;
     match_filename = full_match_file;
     return 1.0;
@@ -420,7 +431,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   match_names.push_back(opt.out_prefix + "-L-cropped__"+name2+".match");
   match_names.push_back(aligned_match_file);
   for (size_t i=0; i<match_names.size(); ++i) {
-    if (fs::exists(match_names[i]) && is_latest_timestamp(match_names[i], in_file_list)) {
+    if (fs::exists(match_names[i]) && is_latest_timestamp(match_names[i], in_file_list) &&
+        !rebuild) {
       vw_out() << "Cached IP match file found: " << match_names[i] << std::endl;
       match_filename = match_names[i];
       return 1.0;
@@ -450,7 +462,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     match_filename = sub_match_file; // If not using full size we should expect this file
 
     // Check for the file.
-    if (fs::exists(sub_match_file) && is_latest_timestamp(sub_match_file, in_file_list)) {
+    if (fs::exists(sub_match_file) && is_latest_timestamp(sub_match_file, in_file_list) &&
+        !rebuild) {
       vw_out() << "Cached IP match file found: " << sub_match_file << std::endl;
       return ip_scale;
     }
@@ -479,7 +492,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   ImageView<float> right_image = DiskImageView<float>(right_rsrc);
 
   // No interest point operations have been performed before
-  vw_out() << "\t    * Locating Interest Points\n";
+  vw_out() << "\t    * Detecting interest points\n";
 
   // Use this code in a relatively specific case
   // - Only tested with IceBridge data so far!
@@ -494,7 +507,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     
     // Obtain the datum
     const bool use_sphere_for_datum = false;
-    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), use_sphere_for_datum);
+    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
+                                                      use_sphere_for_datum);
 
     // Since these are epipolar aligned images it should be small
     double epipolar_threshold = 5;
@@ -533,8 +547,6 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
   return ip_scale;
 }
-
-
 
 BBox2i get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
                                       vw::math::Histogram const& hist_y,
@@ -805,7 +817,7 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
                            Rmask(opt.out_prefix + "-rMask.tif");
 
   // Performing disparity on sub images
-  if ( stereo_settings().seed_mode > 0 ) {
+  if (stereo_settings().seed_mode > 0) {
 
     // Reuse prior existing D_sub if it exists, unless we
     // are cropping the images each time, when D_sub must
@@ -853,8 +865,6 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
 
   vw_out() << "\n[ " << current_posix_time_string() << " ] : LOW-RESOLUTION CORRELATION FINISHED \n";
 } // End lowres_correlation
-
-
 
 /// This correlator takes a low resolution disparity image as an input
 /// so that it may narrow its search range for each tile that is processed.

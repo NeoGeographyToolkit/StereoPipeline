@@ -56,7 +56,6 @@ parser.add_argument("--num-samples",  dest="num_samples", type=int, default = 10
 parser.add_argument("--no-plot", action="store_true", default=False,
                         dest="no_plot",  help="Do not show the plot.")
 
-# This call handles all the parallel_mapproject specific options.
 (options, args) = parser.parse_known_args(sys.argv)
 
 if options.image == "":

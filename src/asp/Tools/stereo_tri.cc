@@ -24,6 +24,7 @@
 #include <vw/InterestPoint/InterestData.h>
 
 #include <asp/Camera/RPCModel.h>
+#include <asp/Core/Bathymetry.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Tools/jitter_adjust.h>
 #include <asp/Tools/ccd_adjust.h>
@@ -325,15 +326,15 @@ private:
 /// Just a wrapper function for StereoTXAndErrorView view construction
 template <class DisparityT, class StereoModelT>
 StereoTXAndErrorView<DisparityT, StereoModelT>
-stereo_error_triangulate( vector<DisparityT> const& disparities,
-                          vector<TXT>        const& transforms,
-                          StereoModelT       const& model,
-                          bool is_map_projected,
-                          bool bathy_correct,
-                          OUTPUT_CLOUD_TYPE cloud_type,
-                          ImageViewRef< PixelMask<float> > left_aligned_bathy_mask,
-                          ImageViewRef< PixelMask<float> > right_aligned_bathy_mask) {
-
+stereo_error_triangulate(vector<DisparityT> const& disparities,
+                         vector<TXT>        const& transforms,
+                         StereoModelT       const& model,
+                         bool is_map_projected,
+                         bool bathy_correct,
+                         OUTPUT_CLOUD_TYPE cloud_type,
+                         ImageViewRef< PixelMask<float> > left_aligned_bathy_mask,
+                         ImageViewRef< PixelMask<float> > right_aligned_bathy_mask) {
+  
   typedef StereoTXAndErrorView<DisparityT, StereoModelT> result_type;
   return result_type(disparities, transforms, model, is_map_projected,
                      bathy_correct, cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask);
@@ -1045,12 +1046,11 @@ namespace asp{
 } // End namespace asp
 
 /// Main triangulation function
-void stereo_triangulation( string          const& output_prefix,
-                           vector<ASPGlobalOptions> const& opt_vec ) {
-
-  typedef          StereoSession                       SessionT;
-  typedef          ImageViewRef<PixelMask<Vector2f> >  PVImageT;
-  typedef typename SessionT::stereo_model_type         StereoModelT;
+void stereo_triangulation(string const& output_prefix,
+                          vector<ASPGlobalOptions> const& opt_vec ) {
+  
+  typedef StereoSession                       SessionT;
+  typedef ImageViewRef<PixelMask<Vector2f> >  PVImageT;
 
   try { // Outer try/catch
 
@@ -1200,9 +1200,15 @@ void stereo_triangulation( string          const& output_prefix,
     // to the stereo model.
     double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
       (stereo_settings().min_triangulation_angle*M_PI/180);
-    StereoModelT stereo_model(camera_ptrs, stereo_settings().use_least_squares,
-                              angle_tol);
 
+    // Create both a regular stereo model and a bathy stereo model. Will use
+    // the latter only if we do bathymetry. There seems to be no elegant
+    // way of doing that.
+    vw::stereo::StereoModel stereo_model(camera_ptrs, stereo_settings().use_least_squares,
+                                         angle_tol);
+    asp::BathyStereoModel bathy_stereo_model(camera_ptrs, stereo_settings().use_least_squares,
+                                             angle_tol);
+    
     // See if to return all triangulated points, the ones where bathy correction took
     // place, or the ones were it did not take place. Switch to an enum
     // as that is faster to check for later than a string.
@@ -1217,15 +1223,22 @@ void stereo_triangulation( string          const& output_prefix,
       vw_throw(ArgumentErr() << "Unknown value for --output-cloud-type.\n");
       
     ImageViewRef< PixelMask<float> > left_aligned_bathy_mask, right_aligned_bathy_mask;
+    
     std::vector<double> bathy_plane;
-
+    bool use_curved_water_surface = false; // may change below
+    vw::cartography::GeoReference water_surface_projection;
     bool bathy_correct = opt_vec[0].session->do_bathymetry();
     if (bathy_correct) {
 
       if (disparity_maps.size() != 1)
         vw_throw(ArgumentErr() << "Bathymetry correction does not work with multiview stereo\n");
 
+      read_bathy_plane(stereo_settings().bathy_plane,
+                       bathy_plane, use_curved_water_surface,
+                       water_surface_projection);
+
       asp::read_vec(stereo_settings().bathy_plane, bathy_plane);
+      
       opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
                                                    right_aligned_bathy_mask); 
       
@@ -1235,17 +1248,26 @@ void stereo_triangulation( string          const& output_prefix,
                   << "aligned bathymetry mask must agree.\n");
       
       // Pass bathy data to the stereo model
-      stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane);
+      bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane,
+                                   use_curved_water_surface, water_surface_projection);
     }
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << endl;
-    ImageViewRef<Vector6> point_cloud = per_pixel_filter
-      (stereo_error_triangulate
-       (disparity_maps, transforms, stereo_model, is_map_projected, bathy_correct,
-        cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask),
-       universe_radius_func);
-
+    ImageViewRef<Vector6> point_cloud;
+    if (!bathy_correct) 
+      point_cloud = per_pixel_filter
+        (stereo_error_triangulate
+         (disparity_maps, transforms, stereo_model, is_map_projected, bathy_correct,
+          cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask),
+         universe_radius_func);
+    else
+      point_cloud = per_pixel_filter
+        (stereo_error_triangulate
+         (disparity_maps, transforms, bathy_stereo_model, is_map_projected, bathy_correct,
+          cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask),
+         universe_radius_func);
+    
     // If we crop the left and right images, at each run we must
     // recompute the cloud center, as the cropping windows may have changed.
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
@@ -1255,6 +1277,7 @@ void stereo_triangulation( string          const& output_prefix,
     Vector3 cloud_center = Vector3();
     if (!stereo_settings().save_double_precision_point_cloud){
       string cloud_center_file = output_prefix + "-PC-center.txt";
+      
       if (!read_point(cloud_center_file, cloud_center) || crop_left || crop_right){
         if (!stereo_settings().skip_point_cloud_center_comp) {
           cloud_center = find_point_cloud_center(opt_vec[0].raster_tile_size, point_cloud);
