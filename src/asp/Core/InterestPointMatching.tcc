@@ -47,8 +47,15 @@ void detect_ip(vw::ip::InterestPointList& ip,
   using namespace vw;
   ip.clear();
 
+  // If the images are cropped, redo the ip
+  // TODO(oalexan1): This won't handle well the case when the input
+  // images changed on disk. 
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  bool rebuild = crop_left || crop_right;
+  
   // If a valid file_path was provided, just try to read in the IP's from that file.
-  if ((file_path != "") && (boost::filesystem::exists(file_path))) {
+  if ((file_path != "") && (boost::filesystem::exists(file_path)) && !rebuild) {
     vw_out() << "\t    Reading interest points from file: " << file_path << std::endl;
     ip = ip::read_binary_ip_file_list(file_path);
     vw_out() << "\t    Found interest points: " << ip.size() << std::endl;
