@@ -129,7 +129,8 @@ namespace asp {
     bool   force_reuse_match_files;         ///< Force reusing the match files even if older than the images or cameras
     bool   part_of_multiview_run;           ///< If this run is part of a larger multiview run
     std::string datum;                      ///< The datum to use with RPC camera models
-
+    std::string left_image_clip, right_image_clip;
+    
     // Correlation Options
     float slogW;                      ///< Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None

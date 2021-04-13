@@ -169,6 +169,11 @@ namespace asp {
       ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),
        "Set the datum to use with RPC camera models. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
 
+      ("left-image-clip", po::value(&global.left_image_clip)->default_value(""),
+       "If --left-image-crop-win is used, replaced the left image cropped to that window with this clip.")
+      ("right-image-clip", po::value(&global.right_image_clip)->default_value(""),
+       "If --right-image-crop-win is used, replaced the right image cropped to that window with this clip.")
+
       // For bathymetry correction
       ("left-bathy-mask", po::value(&global.left_bathy_mask),
        "Mask to use for the left image when doing bathymetry.")
