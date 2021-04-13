@@ -12,18 +12,13 @@ feature release.  If this is a bugfix release or a major release
 instead, then set the version number of the release appropriately (see
 https://semver.org for guidance).
 
+2.) Update NEWS.rst.
 
-2.) Look up the latest ISIS version and update it in
-    StereoPipeline/README.rst (see the "version" file in the packaged
-    ASP tarball).
-
-3.) Update NEWS.rst.
+3.) Commit all changes.
 
 4.) Read and update the documentation.
 
-5.) Commit all changes.
-
-6.) Build and package the software and documentation:
+5.) Build and package the software and documentation:
 
   - Fetch the latest ISIS using conda. 
 
@@ -40,6 +35,9 @@ https://semver.org for guidance).
    This is described in detail in :numref:`conda_build` in the
    documentation.
 
+  - Update the ISIS version in README.rst, INSTALLGUIDE.rst, and 
+    conda_build.rst.
+
   - Build the documentation in StereoPipeline/docs/.
 
 	make html
@@ -54,7 +52,7 @@ https://semver.org for guidance).
   - Copy the pdf book from docs/_build/latex/asp_book.pdf to
     $HOME/BinaryBuilder/dist-add/asp_book.pdf.
 
-7.) Build and package the ASP release tarball. See:
+6.) Build and package the ASP release tarball. See:
 
         BinaryBuilder/README.
 
@@ -67,17 +65,17 @@ https://semver.org for guidance).
     Test all binary releases on different machines by running
     StereoPipelineTest.
 
-NOTE: Step 7 is done automatically by running on lunokhod2 the script
+NOTE: The step above is done automatically by running on lunokhod2 the script
 
   $HOME/projects/BinaryBuilder/auto_build/launch_master.sh
 
 The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
 
-8.) Check that the ASP version is correct in the documentation
+7.) Check that the ASP version is correct in the documentation
     file and that the documentation is searchable (this is a bug in
     some gs versions).
 
-9.) Commit and tag the release in the VW and ASP repos. Example: 
+8.) Commit and tag the release in the VW and ASP repos. Example: 
 
   git tag 2.7.0
 
@@ -93,7 +91,7 @@ different commit, first remove the exiting tag with:
   git push origin :refs/tags/2.7.0
   git push god    :refs/tags/2.7.0
 
-10.) Upload the builds and the pdf documentation to GitHub, in the
+9.) Upload the builds and the pdf documentation to GitHub, in the
 release area.
 
 The 'forever' DOI on Zenodo is https://zenodo.org/badge/latestdoi/714891
@@ -115,15 +113,15 @@ Update:
    * Source code release link
    * Documentation link
 
-11.) Ask fellow ASP developers to do some tests and review the
+10.) Ask fellow ASP developers to do some tests and review the
 documentation.
 
-12.) Send an announcement of the new release to the mailing list, at
+11.) Send an announcement of the new release to the mailing list, at
 https://groups.google.com/forum/\#!forum/ames-stereo-pipeline-support
 and the old stereo-pipeline@lists.nasa.gov, listing the changes
 specified in NEWS.rst.
 
-13.) Modify the build system:
+12.) Modify the build system:
 
 After the release has been done, prep the repo for the next phase of
 development, by updating the version number in:
@@ -137,6 +135,6 @@ release will be 2.8.0, if a major release, or 2.7.1 if a minor
 release, so the version tag should be updated to 2.8.0-alpha in
 anticipation (see https://semver.org for guidance).
 
-14.) Reflect any changes in release policy by modifying this document.
+13.) Reflect any changes in release policy by modifying this document.
 
-15.) Commit changes.
+14.) Commit changes.
