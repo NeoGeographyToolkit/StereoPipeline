@@ -90,8 +90,6 @@ namespace asp {
     /// - CAHV* type models are not currently supported!
     void pinhole_cam_trans(tx_type & left_trans, tx_type & right_trans);
     
-   //typedef vw::stereo::StereoModel stereo_model_type;
-
   protected:
     /// Function to load a camera model of the particular type.
     virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 

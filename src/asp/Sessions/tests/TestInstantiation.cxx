@@ -58,8 +58,6 @@ TYPED_TEST( InstantiationTest, Typedefs ) {
     // Verify object for right transform
     typename TestFixture::SessionT::tx_type right_tx =
       this->session.tx_right();
-    // Verify object for stereo model
-    typename TestFixture::SessionT::stereo_model_type stereo_model();
   } catch ( const vw::Exception& e ) {}
 }
 
