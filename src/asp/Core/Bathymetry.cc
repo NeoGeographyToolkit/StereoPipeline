@@ -54,9 +54,6 @@ namespace asp {
                  << "line of the bathy plane.\n");
     }
     
-    std::cout << "read " << bathy_plane[0] << ' ' << bathy_plane[1]  << ' '
-              << bathy_plane[2]  << ' ' << bathy_plane[3] << std::endl;
-
     // The second line must start with a comment for the plane to be a curved surface
     if (lines.size() <= 1 || lines[1][0] != '#')
       use_curved_water_surface = false;
@@ -148,22 +145,12 @@ namespace asp {
     /// Given the camera, project xyz into it
     inline result_type operator()(domain_type const& t) const {
 
-//       std::cout.precision(18);
-//       std::cout << std::endl;
-//       std::cout << "--input value is " << t << std::endl;
-      
       // Get the current point along the ray
       Vector3 xyz = m_ray_pt + t[0] * m_ray_dir;
 
       // Convert to projected coordinates
       Vector3 proj_pt = proj_point(m_projection, xyz);
 
-//       std::cout << "--xyz is " << xyz << std::endl;
-//       std::cout << "--proj pt is " << proj_pt << std::endl;
-      
-      // Return the residual
-//       std::cout << "--residual is " << t << ' '
-//                 << signed_dist_to_plane(m_proj_plane, proj_pt) << std::endl;
       result_type ans;
       ans[0] = signed_dist_to_plane(m_proj_plane, proj_pt);
       return ans;
@@ -192,14 +179,13 @@ namespace asp {
   
   }
 
-  // Given a ray going down towards Earth, starting at point c and with
-  // unit direction d, a plane 'p' to the water surface with four
-  // coefficients such that the plane equation is p[0] * x + p[1] * y +
-  // p[2] * z + p[3] = 0, with p[3] < 0, the normal (p[0], p[1],
-  // p[2]) pointing upwards away from Earth, and water refraction index,
-  // find where this ray meets the water plane named c2, and the ray
-  // direction d2 after it bends according to Snell's law. Return true
-  // on success.
+  // Given a ray going down towards Earth, starting at point c and
+  // with unit direction d, a plane 'p' to the water surface with four
+  // coefficients such that the plane equation is p[0] * x + p[1] * y
+  // + p[2] * z + p[3] = 0, the normal (p[0], p[1], p[2]) pointing
+  // upwards away from Earth, and water refraction index, find where
+  // this ray meets the water plane named c2, and the ray direction d2
+  // after it bends according to Snell's law. Return true on success.
   bool BathyStereoModel::snells_law(Vector3 const& c, Vector3 const& d,
                                     std::vector<double> const& p,
                                     double refraction_index, 
@@ -413,7 +399,7 @@ namespace asp {
           Vector3 proj_pt = proj_point(m_water_surface_projection, guess_xyz);
           double err = signed_dist_to_plane(m_bathy_plane, proj_pt);
 
-          //std::cout << "Initial plane error " << err << "\n";
+          // std::cout << "Initial plane error " << err << "\n";
 
           // Refine t so see where the intersection on the surface happens
           Vector<double, 1> initial_t, observation;
