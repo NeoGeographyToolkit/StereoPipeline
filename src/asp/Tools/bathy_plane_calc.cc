@@ -38,16 +38,27 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 // Compute the 3D locations at the shape corners based on interpolating
-// into the DEM and converting to ECEF.
-void find_xyz_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
-                               vw::cartography::GeoReference const& shape_georef,
-                               vw::cartography::GeoReference const& dem_georef,
-                               ImageViewRef< PixelMask<float> > interp_dem,
-                               std::vector<Eigen::Vector3d> & xyz_vec,
-                               std::vector<vw::Vector2> & used_shape_vertices) {
-
-  xyz_vec.clear();
+// into the DEM and converting either to ECEF or to local projected
+// stereographic coordinates.
+// If using a curved water surface, compute the stereographic georeference
+// with the projection center being the mean lon and lat, and make the 3D locations
+// in reference to this projection
+void find_points_at_shape_corners(bool use_curved_water_surface,
+                                  std::vector<vw::geometry::dPoly> const& polyVec,
+                                  vw::cartography::GeoReference const& shape_georef,
+                                  vw::cartography::GeoReference const& dem_georef,
+                                  ImageViewRef< PixelMask<float> > interp_dem,
+                                  std::vector<Eigen::Vector3d> & point_vec,
+                                  std::vector<vw::Vector2> & used_shape_vertices,
+                                  double & proj_lat, double & proj_lon) {
+  
+  // Ensure that the outputs are initialized
+  point_vec.clear();
   used_shape_vertices.clear();
+  proj_lat = -1.0;
+  proj_lon = -1.0;
+  
+  std::vector<vw::Vector3> llh_vec;
   
   for (size_t p = 0; p < polyVec.size(); p++){
     vw::geometry::dPoly const& poly = polyVec[p];
@@ -83,15 +94,52 @@ void find_xyz_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
         llh[1] = lonlat[1];
         llh[2] = h.child();
 
-        Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
-
-        Eigen::Vector3d eigen_xyz;
+        Vector3 point = dem_georef.datum().geodetic_to_cartesian(llh);
+        Eigen::Vector3d eigen_point;
         for (size_t coord = 0; coord < 3; coord++) 
-          eigen_xyz[coord] = xyz[coord];
+          eigen_point[coord] = point[coord];
 
-        xyz_vec.push_back(eigen_xyz);
+        point_vec.push_back(eigen_point);
         used_shape_vertices.push_back(proj_pt);
+        llh_vec.push_back(llh);
       }
+    }
+  }
+
+  // See if to convert to local stereographic projection
+  if (use_curved_water_surface) {
+
+    Vector3 mean_llh;
+    for (size_t it = 0; it < llh_vec.size(); it++) 
+      mean_llh += llh_vec[it];
+
+    mean_llh /= llh_vec.size();
+
+    std::cout << "--replace bathy plane with water_surface!" << std::endl;
+    std::cout << "--need to test with lon > 180!" << std::endl;
+    
+    // ASP is having a hard time with saving and reading a georef as a wkt string
+    // So be conservative and use a WGS_1984 datum only with given lat and lon.
+    if (dem_georef.datum().name() != "WGS_1984")
+      vw_throw( ArgumentErr() << "Only an input DEM with the WGS_1984 datum is supported.\n");
+
+    vw::cartography::GeoReference stereographic_georef;
+    vw::cartography::Datum datum("WGS_1984");
+    stereographic_georef.set_datum(datum);
+    double scale = 1.0;
+    proj_lat = mean_llh[1];
+    proj_lon = mean_llh[0];
+    stereographic_georef.set_stereographic(proj_lat, proj_lon, scale);
+    
+    // Convert the points to projected coordinates with this georeference
+    for (size_t it = 0; it < llh_vec.size(); it++) {
+      Vector3 point = stereographic_georef.geodetic_to_point(llh_vec[it]);
+
+      Eigen::Vector3d eigen_point;
+      for (size_t coord = 0; coord < 3; coord++) 
+        eigen_point[coord] = point[coord];
+      
+      point_vec[it] = eigen_point;
     }
   }
 }
@@ -125,62 +173,77 @@ best_plane_from_points(const std::vector<Eigen::Vector3d> & c) {
 // with RANSAC to remove outliers.
 
 struct BestFitPlaneFunctor {
+
+  BestFitPlaneFunctor(bool use_curved_water_surface):
+    m_use_curved_water_surface(use_curved_water_surface) {}
+  
   typedef vw::Matrix<double, 1, 4> result_type;
 
-    /// A best fit plane requires pairs of data points to make a fit.
-    template <class ContainerT>
-    size_t min_elements_needed_for_fit(ContainerT const& /*example*/) const { return 3; }
+  bool m_use_curved_water_surface;
+  
+  /// A best fit plane requires pairs of data points to make a fit.
+  template <class ContainerT>
+  size_t min_elements_needed_for_fit(ContainerT const& /*example*/) const { return 3; }
+  
+  /// This function can match points in any container that supports
+  /// the size() and operator[] methods.  The container is usually a
+  /// vw::Vector<>, but you could substitute other classes here as
+  /// well.
+  template <class ContainerT>
+  vw::Matrix<double> operator() (std::vector<ContainerT> const& p1,
+                                 std::vector<ContainerT> const& p2,
+                                 vw::Matrix<double> const& /*seed_input*/
+                                 = vw::Matrix<double>() ) const {
+    
+    // check consistency
+    VW_ASSERT( p1.size() == p2.size(),
+               vw::ArgumentErr() << "Cannot compute similarity transformation. "
+               << "p1 and p2 are not the same size." );
+    VW_ASSERT( !p1.empty() && p1.size() >= min_elements_needed_for_fit(p1[0]),
+               vw::ArgumentErr() << "Cannot compute similarity transformation. "
+               << "Insufficient data.\n");
+    
+    std::pair<Eigen::Vector3d, Eigen::Vector3d> plane = best_plane_from_points(p1);
+    
+    Eigen::Vector3d & centroid = plane.first;
+    Eigen::Vector3d & normal = plane.second;
+    
+    Matrix<double> result(1, 4);
+    for (int col = 0; col < 3; col++)
+      result(0, col) = normal[col];
+    
+    result(0, 3) = -normal.dot(centroid);
 
-    /// This function can match points in any container that supports
-    /// the size() and operator[] methods.  The container is usually a
-    /// vw::Vector<>, but you could substitute other classes here as
-    /// well.
-    template <class ContainerT>
-    vw::Matrix<double> operator() (std::vector<ContainerT> const& p1,
-                                   std::vector<ContainerT> const& p2,
-                                   vw::Matrix<double> const& /*seed_input*/
-                                   = vw::Matrix<double>() ) const {
-
-      // check consistency
-      VW_ASSERT( p1.size() == p2.size(),
-                 vw::ArgumentErr() << "Cannot compute similarity transformation. "
-                 << "p1 and p2 are not the same size." );
-      VW_ASSERT( !p1.empty() && p1.size() >= min_elements_needed_for_fit(p1[0]),
-                 vw::ArgumentErr() << "Cannot compute similarity transformation. "
-                 << "Insufficient data.\n");
-
-      std::pair<Eigen::Vector3d, Eigen::Vector3d> plane = best_plane_from_points(p1);
-
-      Eigen::Vector3d & centroid = plane.first;
-      Eigen::Vector3d & normal = plane.second;
-      
-      Matrix<double> result(1, 4);
-      for (int col = 0; col < 3; col++)
-        result(0, col) = normal[col];
-        
-      result(0, 3) = -normal.dot(centroid);
-
-      // Make the normal always point "up", away from the origin,
-      // which means that the free term must be negative
+    if (!m_use_curved_water_surface) {
+      // Make the normal always point "up", away from the Earth origin,
+      // which means that the free term must be negative.
       if (result(0, 3) > 0) {
         for (int col = 0; col < 4; col++) 
           result(0, col) *= -1.0;
       }
-      
-      return result;
+    }else {
+      // Make the z coefficient positive, which will make the normal
+      // point "up" in the projected coordinate system.
+      if (result(0, 2) < 0) {
+        for (int col = 0; col < 4; col++) 
+          result(0, col) *= -1.0;
+      }
     }
+    
+    return result;
+  }
 };
 
 // Given a 1x4 matrix named 'plane', with values (a, b, c, d),
 // determining the plane a * x + b * y + c * z + d = 0, find the
-// distance to this plane from a point xyz.
+// distance to this plane from a given point.
 
 template<class Vec3>
-double dist_to_plane(vw::Matrix<double, 1, 4> const& plane, Vec3 const& xyz) {
+double dist_to_plane(vw::Matrix<double, 1, 4> const& plane, Vec3 const& point) {
 
   double ans = 0.0;
   for (unsigned col = 0; col < 3; col++) {
-      ans += plane(0, col) * xyz[col];
+      ans += plane(0, col) * point[col];
   }
   ans += plane(0, 3);
   
@@ -197,9 +260,10 @@ struct BestFitPlaneErrorMetric {
 
 
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string shapefile, dem, bathy_plane, output_inlier_shapefile, output_dem_minus_plane;
+  std::string shapefile, dem, bathy_plane, output_inlier_shapefile;
   double outlier_threshold;
   int num_ransac_iterations;
+  bool use_flat_water_surface;
   Options(): outlier_threshold(0.2), num_ransac_iterations(1000) {}
 };
 
@@ -224,9 +288,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Number of RANSAC iterations to use to find the best-fitting plane.")
     ("output-inlier-shapefile", po::value(&opt.output_inlier_shapefile)->default_value(""),
      "If specified, save at this location the shape file with the inlier vertices.")
-    ("output-dem-minus-plane", po::value(&opt.output_dem_minus_plane)->default_value(""),
-     "If specified, save at this location the input DEM with the computed "
-     "plane heights subtracted from it.");
+    ("use-flat-water-surface",
+     po::bool_switch(&opt.use_flat_water_surface)->default_value(false),
+     "Compute the best fit plane in ECEF coordinates rather than in the local stereographic "
+     "projection. Hence don't model the Earth curvature. Not recommended.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -254,13 +319,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << usage << general_options );
 }
 
+# if 0
+// This was not updated for a curved bathy plane.
+
 // Given a DEM surface and a planar surface (with potentially some
 // inclination) subtract from each DEM height the height at that
 // plane. The height of the plane is obtained by considering the
 // current DEM grid point, and another point at same lon-lat but with
-// a height 100 meters less, converting these to ECEF, tracing a ray through them,
-// seeing where it intersects the plane, converting that xyz point to
-// geodetic, and taking the height difference.
+// a height 100 meters less, converting these to ECEF, tracing a ray
+// through them, seeing where it intersects the plane, converting that
+// xyz point to geodetic, and taking the height difference.
 class DemMinusPlaneView: public ImageViewBase<DemMinusPlaneView>{
   ImageViewRef<float> m_dem;
   vw::cartography::GeoReference m_dem_georef;
@@ -318,6 +386,7 @@ public:
         llh[2] = cropped_dem(col, row);
 
         // The DEM point in ECEF
+        // fix here!
         Vector3 xyz1 = m_dem_georef.datum().geodetic_to_cartesian(llh);
 
         // A point at different height but same lon and lat
@@ -358,12 +427,16 @@ DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
   return DemMinusPlaneView(dem, dem_georef, plane, dem_nodata_val);
 }
 
+#endif
+
 int main( int argc, char *argv[] ) {
 
   Options opt;
   try {
     handle_arguments(argc, argv, opt);
 
+    bool use_curved_water_surface = !opt.use_flat_water_surface;
+    
     // Read the shapefile
     std::cout << "Reading the shapefile: " << opt.shapefile << std::endl;
     bool has_shape_georef;
@@ -391,63 +464,82 @@ int main( int argc, char *argv[] ) {
                     BilinearInterpolation(), ConstantEdgeExtension());
 
     // Find the ECEF coordinates of the shape corners
-    std::vector<Eigen::Vector3d> xyz_vec;
+    std::vector<Eigen::Vector3d> point_vec;
     std::vector<vw::Vector2> used_shape_vertices;
-    find_xyz_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, xyz_vec,
-                              used_shape_vertices);
+    double proj_lat, proj_lon; // only for curved water surface
+    find_points_at_shape_corners(use_curved_water_surface,
+                                 polyVec, shape_georef, dem_georef, interp_dem, point_vec,
+                                 used_shape_vertices, proj_lat, proj_lon);
 
     // Compute the water surface using RANSAC
-    std::vector<Eigen::Vector3d> dummy_vec(xyz_vec.size()); // Required by the interface
+    std::vector<Eigen::Vector3d> dummy_vec(point_vec.size()); // Required by the interface
     std::vector<size_t> inlier_indices;
     double inlier_threshold = opt.outlier_threshold;
-    int    min_num_output_inliers = std::max(xyz_vec.size()/2, size_t(3));
+    int    min_num_output_inliers = std::max(point_vec.size()/2, size_t(3));
     bool   reduce_min_num_output_inliers_if_no_fit = true;
     vw::Matrix<double> plane;
     try {
+      // Must first create the functor and metric, then pass these to ransac. If
+      // created as inline arguments to ransac, these may go go out
+      // of scope prematurely, which will result in incorrect behavior.
+      BestFitPlaneFunctor func(use_curved_water_surface);
+      BestFitPlaneErrorMetric error_metric;
       math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric> 
-        ransac(BestFitPlaneFunctor(), BestFitPlaneErrorMetric(),
+        ransac(func, error_metric,
                opt.num_ransac_iterations, inlier_threshold,
                min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
     
-      plane = ransac(xyz_vec, dummy_vec);
+      plane = ransac(point_vec, dummy_vec);
       
-      inlier_indices = ransac.inlier_indices(plane, xyz_vec, dummy_vec);
+      inlier_indices = ransac.inlier_indices(plane, point_vec, dummy_vec);
     } catch (const vw::math::RANSACErr& e ) {
-      vw_out() << "RANSAC Failed: " << e.what() << "\n";
+      vw_out() << "RANSAC failed: " << e.what() << "\n";
     }
-    vw_out() << "Found " << inlier_indices.size() << " / " << xyz_vec.size() << " inliers.\n";
+    vw_out() << "Found " << inlier_indices.size() << " / " << point_vec.size() << " inliers.\n";
     
-    //std::cout << "Final matrix is " << plane << std::endl;
     double max_error = - 1.0, max_inlier_error = -1.0;
-    for (size_t it = 0; it < xyz_vec.size(); it++) 
-      max_error = std::max(max_error, dist_to_plane(plane, xyz_vec[it]));
+    for (size_t it = 0; it < point_vec.size(); it++) 
+      max_error = std::max(max_error, dist_to_plane(plane, point_vec[it]));
 
     // Do estimates for the mean height and angle of the plane
-    Vector3 mean_xyz(0, 0, 0);
+    Vector3 mean_point(0, 0, 0);
     double mean_height = 0.0;
     int num = 0;
     for (size_t it = 0; it < inlier_indices.size(); it++) {
-      Eigen::Vector3d p = xyz_vec[inlier_indices[it]];
-      Vector3 xyz(p[0], p[1], p[2]); 
-      max_inlier_error = std::max(max_inlier_error, dist_to_plane(plane, xyz));
+      Eigen::Vector3d p = point_vec[inlier_indices[it]];
+      Vector3 point(p[0], p[1], p[2]); 
+      max_inlier_error = std::max(max_inlier_error, dist_to_plane(plane, point));
 
-      Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
-      mean_height += llh[2];
-      mean_xyz += xyz;
+      if (!use_curved_water_surface) {
+        // the point is xyz in ecef
+        Vector3 llh = dem_georef.datum().cartesian_to_geodetic(point);
+        mean_height += llh[2];
+      } else {
+        // the point is in the stereographic projection
+        mean_height += point[2];
+      }
+      
       num++;
+      
+      if (!use_curved_water_surface) 
+        mean_point += point;
     }
     
     mean_height /= num;
-    mean_xyz /= num;
-
-    Vector3 plane_normal(plane(0, 0), plane(0, 1), plane(0, 2));
-    Vector3 surface_normal = mean_xyz / norm_2(mean_xyz); // ignore the datum flattening
-    double plane_angle = (180.0 / M_PI) * acos(dot_prod(plane_normal, surface_normal));
+    
+    if (!use_curved_water_surface) 
+      mean_point /= num;
 
     std::cout << "Max distance to the plane (meters): " << max_error << std::endl;
     std::cout << "Max inlier distance to the plane (meters): " << max_inlier_error << std::endl;
     std::cout << "Mean plane height above datum (meters): " << mean_height << std::endl;
-    std::cout << "Plane inclination (degrees): " << plane_angle << std::endl;
+    if (!use_curved_water_surface) {
+      // This does not make sense for a curved surface
+      Vector3 plane_normal(plane(0, 0), plane(0, 1), plane(0, 2));
+      Vector3 surface_normal = mean_point / norm_2(mean_point); // ignore the datum flattening
+      double plane_angle = (180.0 / M_PI) * acos(dot_prod(plane_normal, surface_normal));
+      std::cout << "Plane inclination (degrees): " << plane_angle << std::endl;
+    }
     
     std::cout << "Writing: " << opt.bathy_plane << std::endl;
     std::ofstream bp(opt.bathy_plane.c_str());
@@ -458,6 +550,11 @@ int main( int argc, char *argv[] ) {
         bp << " ";
       else
         bp << "\n";
+    }
+    if (use_curved_water_surface) {
+      bp << "# Use a stereographic projection with the WGS_1984 datum "
+         << "and these latitude and longitude values:\n";
+      bp << proj_lat << " " << proj_lon << "\n";
     }
     bp.close();
 
@@ -475,27 +572,14 @@ int main( int argc, char *argv[] ) {
       inlierPoly.setPolygon(inlier_x.size(),
                             vw::geometry::vecPtr(inlier_x),
                             vw::geometry::vecPtr(inlier_y),
-                            isPolyClosed,
-                            poly_color,
-                            layer);
+                            isPolyClosed, poly_color, layer);
       std::vector<vw::geometry::dPoly> inlierPolyVec;
       inlierPolyVec.push_back(inlierPoly);
       std::cout << "Writing inlier shapefile: " << opt.output_inlier_shapefile << std::endl;
-      write_shapefile(opt.output_inlier_shapefile, has_shape_georef, shape_georef, inlierPolyVec);
+      write_shapefile(opt.output_inlier_shapefile, has_shape_georef, shape_georef,
+                      inlierPolyVec);
     }
 
-    if (opt.output_dem_minus_plane != "") {
-      bool has_georef = true;
-      bool has_nodata = true;
-      TerminalProgressCallback tpc("asp", ": ");
-      vw_out() << "Writing: " << opt.output_dem_minus_plane << std::endl;
-      block_write_gdal_image(opt.output_dem_minus_plane,
-                             dem_minus_plane(dem, dem_georef, plane, dem_nodata_val),
-                             has_georef, dem_georef,
-                             has_nodata, dem_nodata_val,
-                             opt, tpc);
-    }
-    
   } ASP_STANDARD_CATCHES;
   
   return 0;
