@@ -43,7 +43,7 @@ namespace fs = boost::filesystem;
 // If using a curved water surface, compute the stereographic georeference
 // with the projection center being the mean lon and lat, and make the 3D locations
 // in reference to this projection
-void find_points_at_shape_corners(bool use_curved_water_surface,
+void find_points_at_shape_corners(bool use_proj_water_surface,
                                   std::vector<vw::geometry::dPoly> const& polyVec,
                                   vw::cartography::GeoReference const& shape_georef,
                                   vw::cartography::GeoReference const& dem_georef,
@@ -107,17 +107,15 @@ void find_points_at_shape_corners(bool use_curved_water_surface,
   }
 
   // See if to convert to local stereographic projection
-  if (use_curved_water_surface) {
+  if (use_proj_water_surface) {
 
+    // Find the mean water height
     Vector3 mean_llh;
     for (size_t it = 0; it < llh_vec.size(); it++) 
       mean_llh += llh_vec[it];
 
     mean_llh /= llh_vec.size();
 
-    std::cout << "--replace bathy plane with water_surface!" << std::endl;
-    std::cout << "--need to test with lon > 180!" << std::endl;
-    
     // ASP is having a hard time with saving and reading a georef as a wkt string
     // So be conservative and use a WGS_1984 datum only with given lat and lon.
     if (dem_georef.datum().name() != "WGS_1984")
@@ -174,12 +172,12 @@ best_plane_from_points(const std::vector<Eigen::Vector3d> & c) {
 
 struct BestFitPlaneFunctor {
 
-  BestFitPlaneFunctor(bool use_curved_water_surface):
-    m_use_curved_water_surface(use_curved_water_surface) {}
+  BestFitPlaneFunctor(bool use_proj_water_surface):
+    m_use_proj_water_surface(use_proj_water_surface) {}
   
   typedef vw::Matrix<double, 1, 4> result_type;
 
-  bool m_use_curved_water_surface;
+  bool m_use_proj_water_surface;
   
   /// A best fit plane requires pairs of data points to make a fit.
   template <class ContainerT>
@@ -214,7 +212,7 @@ struct BestFitPlaneFunctor {
     
     result(0, 3) = -normal.dot(centroid);
 
-    if (!m_use_curved_water_surface) {
+    if (!m_use_proj_water_surface) {
       // Make the normal always point "up", away from the Earth origin,
       // which means that the free term must be negative.
       if (result(0, 3) > 0) {
@@ -263,7 +261,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string shapefile, dem, bathy_plane, output_inlier_shapefile;
   double outlier_threshold;
   int num_ransac_iterations;
-  bool use_flat_water_surface;
+  bool use_ecef_water_surface;
   Options(): outlier_threshold(0.2), num_ransac_iterations(1000) {}
 };
 
@@ -288,9 +286,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Number of RANSAC iterations to use to find the best-fitting plane.")
     ("output-inlier-shapefile", po::value(&opt.output_inlier_shapefile)->default_value(""),
      "If specified, save at this location the shape file with the inlier vertices.")
-    ("use-flat-water-surface",
-     po::bool_switch(&opt.use_flat_water_surface)->default_value(false),
-     "Compute the best fit plane in ECEF coordinates rather than in the local stereographic "
+    ("use-ecef-water-surface",
+     po::bool_switch(&opt.use_ecef_water_surface)->default_value(false),
+     "Compute the best fit plane in ECEF coordinates rather than in a local stereographic "
      "projection. Hence don't model the Earth curvature. Not recommended.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
@@ -435,7 +433,7 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments(argc, argv, opt);
 
-    bool use_curved_water_surface = !opt.use_flat_water_surface;
+    bool use_proj_water_surface = !opt.use_ecef_water_surface;
     
     // Read the shapefile
     std::cout << "Reading the shapefile: " << opt.shapefile << std::endl;
@@ -455,8 +453,10 @@ int main( int argc, char *argv[] ) {
       vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
     double dem_nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
     if (!vw::read_nodata_val(opt.dem, dem_nodata_val))
-      vw_throw( ArgumentErr() << "Could not read the DEM nodata value.\n");
-    std::cout << "Read DEM nodata value: " << dem_nodata_val << std::endl;
+      std::cout << "Warning: Could not read the DEM nodata value. "
+                << "Using: " << dem_nodata_val << ".\n";
+    else
+      std::cout << "Read DEM nodata value: " << dem_nodata_val << ".\n";
     DiskImageView<float> dem(opt.dem);
     
     ImageViewRef< PixelMask<float> > interp_dem
@@ -467,7 +467,7 @@ int main( int argc, char *argv[] ) {
     std::vector<Eigen::Vector3d> point_vec;
     std::vector<vw::Vector2> used_shape_vertices;
     double proj_lat, proj_lon; // only for curved water surface
-    find_points_at_shape_corners(use_curved_water_surface,
+    find_points_at_shape_corners(use_proj_water_surface,
                                  polyVec, shape_georef, dem_georef, interp_dem, point_vec,
                                  used_shape_vertices, proj_lat, proj_lon);
 
@@ -482,7 +482,7 @@ int main( int argc, char *argv[] ) {
       // Must first create the functor and metric, then pass these to ransac. If
       // created as inline arguments to ransac, these may go go out
       // of scope prematurely, which will result in incorrect behavior.
-      BestFitPlaneFunctor func(use_curved_water_surface);
+      BestFitPlaneFunctor func(use_proj_water_surface);
       BestFitPlaneErrorMetric error_metric;
       math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric> 
         ransac(func, error_metric,
@@ -493,9 +493,9 @@ int main( int argc, char *argv[] ) {
       
       inlier_indices = ransac.inlier_indices(plane, point_vec, dummy_vec);
     } catch (const vw::math::RANSACErr& e ) {
-      vw_out() << "RANSAC failed: " << e.what() << "\n";
+      std::cout << "RANSAC failed: " << e.what() << "\n";
     }
-    vw_out() << "Found " << inlier_indices.size() << " / " << point_vec.size() << " inliers.\n";
+    std::cout << "Found " << inlier_indices.size() << " / " << point_vec.size() << " inliers.\n";
     
     double max_error = - 1.0, max_inlier_error = -1.0;
     for (size_t it = 0; it < point_vec.size(); it++) 
@@ -510,7 +510,7 @@ int main( int argc, char *argv[] ) {
       Vector3 point(p[0], p[1], p[2]); 
       max_inlier_error = std::max(max_inlier_error, dist_to_plane(plane, point));
 
-      if (!use_curved_water_surface) {
+      if (!use_proj_water_surface) {
         // the point is xyz in ecef
         Vector3 llh = dem_georef.datum().cartesian_to_geodetic(point);
         mean_height += llh[2];
@@ -521,19 +521,19 @@ int main( int argc, char *argv[] ) {
       
       num++;
       
-      if (!use_curved_water_surface) 
+      if (!use_proj_water_surface) 
         mean_point += point;
     }
     
     mean_height /= num;
     
-    if (!use_curved_water_surface) 
+    if (!use_proj_water_surface) 
       mean_point /= num;
 
     std::cout << "Max distance to the plane (meters): " << max_error << std::endl;
     std::cout << "Max inlier distance to the plane (meters): " << max_inlier_error << std::endl;
     std::cout << "Mean plane height above datum (meters): " << mean_height << std::endl;
-    if (!use_curved_water_surface) {
+    if (!use_proj_water_surface) {
       // This does not make sense for a curved surface
       Vector3 plane_normal(plane(0, 0), plane(0, 1), plane(0, 2));
       Vector3 surface_normal = mean_point / norm_2(mean_point); // ignore the datum flattening
@@ -551,7 +551,7 @@ int main( int argc, char *argv[] ) {
       else
         bp << "\n";
     }
-    if (use_curved_water_surface) {
+    if (use_proj_water_surface) {
       bp << "# Use a stereographic projection with the WGS_1984 datum "
          << "and these latitude and longitude values:\n";
       bp << proj_lat << " " << proj_lon << "\n";

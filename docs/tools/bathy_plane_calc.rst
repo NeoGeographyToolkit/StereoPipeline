@@ -5,9 +5,15 @@ bathy_plane_calc
 
 The ``bathy_plane_calc`` program takes as input a shapefile and a DEM,
 finds the 3D positions of the vertices of the shapefile in the DEM in
-ECEF coordinates using bilinear interpolation, and fits a plane
-through those 3D points. This would give the surface of the water
-to be used for bathymetry correction.
+ECEF coordinates using bilinear interpolation, converts those points
+to a local stereographic projection, and fits a plane through
+them. 
+
+When the veritces in the shapefile are picked at the water-land
+interface in the DEM, this would give the surface of the water to be
+used for bathymetry correction. The obtained plane can be slighty
+non-horizontal due to imperfectios in the camera positons and
+oreintations, and in the input DEM.
 
 Further motivation for this tool and an example of how to use it in
 practice is given in :numref:`water_surface`.
@@ -26,14 +32,6 @@ It will produce output as follows:
     Max distance to the plane (meters): 2.26214
     Max inlier distance to the plane (meters): 0.0131818
     Mean plane height above datum (meters): -21.3521
-    Plane inclination (degrees): 0.225995
-
-Here, the plane inclination is defined as the angle between the plane
-normal and the ray going from the Earth center to the mean of all
-inlier measurements in ECEF coordinates. The reason the plane
-inclination is not zero, so the water surface is not perfectly
-horizontal in the local coordinate system, is because of orientation
-errors in the input images.
 
 Command-line options for bathy_plane_calc:
 
@@ -64,5 +62,10 @@ Command-line options for bathy_plane_calc:
 --num-ransac-iterations <integer>
     Number of RANSAC iterations to use to find the best-fitting plane.
     The default is 1000.
+
+--use-ecef-water-surface
+    Compute the best fit plane in ECEF coordinates rather than in a
+    local stereographic projection. Hence don't model the Earth
+    curvature. Not recommended.
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
