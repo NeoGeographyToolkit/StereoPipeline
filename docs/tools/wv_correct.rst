@@ -28,11 +28,8 @@ for the forward and reverse scan directions (if a certain combination
 is not supported, the tool will print a warning and will write on
 output the uncorrected input image).
 
-For muti-spectral images, corrections for the Green band (band 3)
-are supported for a handful of TDI for WV02.
-
-For WV03 PAN images, CCD artifacts appear to not be as significant, hence
-no corrections are planned for the near future.
+For WV03 PAN images, CCD artifacts are less noticeable than for 
+WV01 and WV02, and they are not corrected at this time.
 
 Usage::
 
