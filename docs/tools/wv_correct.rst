@@ -23,14 +23,16 @@ the offset amounts were determined empirically without knowledge of
 Digital Globe’s mosaicking process; this is why we are not able to
 remove these artifacts completely.
 
-Presently, ``wv_correct`` works for WV01 images for TDI of 8, 16, 32,
-48, 56 and 64, and for WV02 images for TDI of 8, 16, 48, and 64 (both
-the forward and reverse scan directions for both cameras). In addition,
-the WV02 TDI 32 forward scan direction is supported. These are by far
-the most often encountered TDI. We plan to extend the tool to support
-other TDI when we get more such data to be able to compute the
-corrections. For WV03 images, CCD artifacts appear to not be
-significant, hence no corrections are planned for the near future.
+For PAN images, the WV01 and WV02 datasets are supported, for most TDI
+for the forward and reverse scan directions (if a certain combination
+is not supported, the tool will print a warning and will write on
+output the uncorrected input image).
+
+For muti-spectral images, corrections for the Green band (band 3)
+are supported for a handful of TDI for WV02.
+
+For WV03 PAN images, CCD artifacts appear to not be as significant, hence
+no corrections are planned for the near future.
 
 Usage::
 

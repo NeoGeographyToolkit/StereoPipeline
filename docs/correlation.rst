@@ -186,15 +186,16 @@ of the second tier of pyramid searching with
 limitation.
 
 Any large failure in the low-resolution disparity image will be
-detrimental to the performance of the higher resolution disparity.
-In the event that the low-resolution disparity is completely
-unhelpful, it can be skipped by adding ``corr-seed-mode 0`` in the
+detrimental to the performance of the higher resolution disparity.  In
+the event that the low-resolution disparity is completely unhelpful,
+it can be skipped by adding ``corr-seed-mode 0`` in the
 ``stereo.default`` file and using a manual search range
 (:numref:`search_range`). This should only be considered in cases
-where the texture in an image is completely lost when subsampled.
-An example would be satellite images of fresh snow in the Arctic.
-Alternatively, ``output_prefix-D_sub.tif`` can be computed at a
-sparse set of pixels at full resolution, as described in :numref:`sparse-disp`.
+where the texture in an image is completely lost when subsampled.  An
+example would be satellite images of fresh snow in the Arctic.
+Alternatively, ``output_prefix-D_sub.tif`` can be computed at a sparse
+set of pixels at full resolution, as described in
+:numref:`sparse-disp`.
 
 An alternative to computing ``output_prefix-D.tif`` from sub-sampled
 images (``corr-seed-mode 1``) or skipping it altogether

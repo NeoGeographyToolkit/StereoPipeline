@@ -162,11 +162,13 @@ right-image-crop-win xoff yoff xsize ysize
 
 left-image-clip: (*string*) (default = "")
     If --left-image-crop-win is used, replaced the left image
-    cropped to that window with this clip.  .. _corr_section:
+    cropped to that window with this clip.
 
 right-image-clip: (*string*) (default = "")
     If --right-image-crop-win is used, replaced the right image
-    cropped to that window with this clip.  .. _corr_section:
+    cropped to that window with this clip.
+
+.. _corr_section:
 
 Correlation
 -----------

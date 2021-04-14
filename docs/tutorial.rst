@@ -390,11 +390,11 @@ example of using it is in :numref:`ccd-artifact-example`.
    and with (right) CCD boundary artifact corrections applied using
    ``wv_correct``.
 
-.. _sparse-disp:
-
 Another source of artifacts in Digital Globe images is jitter.
 ASP has some logic for dealing with it but it is not ready for
 production use at this stage. See (:numref:`jitter`).
+
+.. _sparse-disp:
 
 Dealing with Terrain Lacking Large-Scale Features
 -------------------------------------------------
