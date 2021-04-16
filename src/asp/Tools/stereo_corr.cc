@@ -373,10 +373,6 @@ std::string strip_path(std::string out_prefix, std::string filename){
 /// - The binary interest point file will be written to disk.
 double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
-    bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-    bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-    bool rebuild = crop_left || crop_right;
-
   vw_out() << "\t    * Loading images for IP detection.\n";
 
   // Choose whether to use the full or _sub images
@@ -410,8 +406,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     in_file_list.push_back(opt.cam_file2);
 
   // Try the full match file first
-  if (fs::exists(full_match_file) && is_latest_timestamp(full_match_file, in_file_list) &&
-      !rebuild) {
+  if (fs::exists(full_match_file) && is_latest_timestamp(full_match_file, in_file_list)) {
     vw_out() << "Cached IP match file found: " << full_match_file << std::endl;
     match_filename = full_match_file;
     return 1.0;
@@ -431,8 +426,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   match_names.push_back(opt.out_prefix + "-L-cropped__"+name2+".match");
   match_names.push_back(aligned_match_file);
   for (size_t i=0; i<match_names.size(); ++i) {
-    if (fs::exists(match_names[i]) && is_latest_timestamp(match_names[i], in_file_list) &&
-        !rebuild) {
+    if (fs::exists(match_names[i]) && is_latest_timestamp(match_names[i], in_file_list)) {
       vw_out() << "Cached IP match file found: " << match_names[i] << std::endl;
       match_filename = match_names[i];
       return 1.0;
@@ -462,8 +456,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     match_filename = sub_match_file; // If not using full size we should expect this file
 
     // Check for the file.
-    if (fs::exists(sub_match_file) && is_latest_timestamp(sub_match_file, in_file_list) &&
-        !rebuild) {
+    if (fs::exists(sub_match_file) && is_latest_timestamp(sub_match_file, in_file_list)) {
       vw_out() << "Cached IP match file found: " << sub_match_file << std::endl;
       return ip_scale;
     }
