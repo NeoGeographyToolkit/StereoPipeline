@@ -179,6 +179,23 @@ namespace vw { namespace gui {
     std::string get_value_as_str( int32 x, int32 y) const;
   };
 
+  /// A class to keep all data associated with an image file
+  struct imageData{
+    std::string      name;
+    vw::cartography::GdalWriteOptions m_opt;
+    bool             has_georef;
+    vw::cartography::GeoReference georef;
+    BBox2            image_bbox;
+    DiskImagePyramidMultiChannel img;
+    std::vector<vw::geometry::dPoly> polyVec; // a shapefile
+    
+    /// Load an image from disk into img and set the other variables.
+    void read(std::string const& image,
+	      vw::cartography::GdalWriteOptions const& opt);
+
+    bool isPoly() const { return asp::has_shp_extension(name); }
+  };
+
   /// Convert a QRect object to a BBox2 object.
   inline BBox2 qrect2bbox(QRect const& R){
     return BBox2( Vector2(R.left(), R.top()), Vector2(R.right(), R.bottom()) );
@@ -208,10 +225,22 @@ namespace vw { namespace gui {
                                         double nodata_val);
 
   
+  // Find the closest point in a given set of imageData structures to a given point.
+  void findClosestPolyVertex(// inputs
+                             double x0, double y0,
+                             std::vector<imageData> const& imageData,
+                             // outputs
+                             int & clipIndex, 
+                             int & polyVecIndex,
+                             int & polyIndexInCurrPoly,
+                             int & vertIndexInCurrPoly,
+                             double & minX, double & minY,
+                             double & minDist);
+  
   // Find the closest point in a given vector of polygons to a given point.
   void findClosestPolyVertex(// inputs
 			     double x0, double y0,
-			     const std::vector<vw::geometry::dPoly> & polyVec,
+			     std::vector<vw::geometry::dPoly> const& polyVec,
 			     // outputs
 			     int & polyVecIndex,
 			     int & polyIndexInCurrPoly,
@@ -220,10 +249,22 @@ namespace vw { namespace gui {
 			     double & minDist
 			     );
 
+  // Find the closest edge in a given set of imageData structures to a given point.
+  void findClosestPolyEdge(// inputs
+                           double x0, double y0,
+                           std::vector<imageData> const& imageData,
+                           // outputs
+                           int & clipIndex,
+                           int & polyVecIndex,
+                           int & polyIndexInCurrPoly,
+                           int & vertIndexInCurrPoly,
+                           double & minX, double & minY,
+                           double & minDist);
+  
   // Find the closest edge in a given vector of polygons to a given point.
   void findClosestPolyEdge(// inputs
 			   double x0, double y0,
-			   const std::vector<vw::geometry::dPoly> & polyVec,
+			   std::vector<vw::geometry::dPoly> const& polyVec,
 			   // outputs
 			   int & polyVecIndex,
 			   int & polyIndexInCurrPoly,
@@ -231,8 +272,9 @@ namespace vw { namespace gui {
 			   double & minX, double & minY,
 			   double & minDist
 			   );
-
-  void mergePolys(std::vector<vw::geometry::dPoly> & polyVec);
+  
+  // Merge some polygons and save them in imageData[outIndex]
+  void mergePolys(std::vector<imageData> & imageData, int outIndex);
   
   // This will tweak the georeference so that point_to_pixel() is the identity.
   bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
@@ -247,23 +289,6 @@ namespace vw { namespace gui {
                      double threshold,
                      std::vector<vw::geometry::dPoly> & polyVec);
   
-  /// A class to keep all data associated with an image file
-  struct imageData{
-    std::string      name;
-    vw::cartography::GdalWriteOptions m_opt;
-    bool             has_georef;
-    vw::cartography::GeoReference georef;
-    BBox2            image_bbox;
-    DiskImagePyramidMultiChannel img;
-    std::vector<vw::geometry::dPoly> polyVec; // a shapefile
-    
-    /// Load an image from disk into img and set the other variables.
-    void read(std::string const& image,
-	      vw::cartography::GdalWriteOptions const& opt);
-
-    bool isPoly() const { return asp::has_shp_extension(name); }
-  };
-
   // QT conversion functions
   vw::Vector2 QPoint2Vec(QPoint      const& qpt);
   QPoint      Vec2QPoint(vw::Vector2 const& V  );

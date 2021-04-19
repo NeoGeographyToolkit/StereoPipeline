@@ -1705,7 +1705,9 @@ namespace vw { namespace gui {
     return;
   }
 
-  // Delete a vertex from a vector layer
+  // Delete a vertex closest to where the user clicked.
+  // TODO(oalexan1): This will fail when different polygons have
+  // different georeferences.
   void MainWidget::deleteVertex(){
 
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
@@ -1713,23 +1715,24 @@ namespace vw { namespace gui {
     
     if (m_images[m_polyLayerIndex].polyVec.size() == 0) return;
 
-    // TODO(oalexan1): Must look here at all the layers!
     double min_x, min_y, min_dist;
-    int polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
+    int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
     findClosestPolyVertex(// inputs
-                          P.x(), P.y(), m_images[m_polyLayerIndex].polyVec,
+                          P.x(), P.y(), m_images,
                           // outputs
+                          clipIndex,
                           polyVecIndex,
                           polyIndexInCurrPoly,
                           vertIndexInCurrPoly,
                           min_x, min_y, min_dist);
 
-    if (polyVecIndex        < 0 ||
+    if (clipIndex           < 0 ||
+        polyVecIndex        < 0 ||
         polyIndexInCurrPoly < 0 ||
         vertIndexInCurrPoly < 0)
       return;
 
-    m_images[m_polyLayerIndex].polyVec[polyVecIndex].eraseVertex
+    m_images[clipIndex].polyVec[polyVecIndex].eraseVertex
       (polyIndexInCurrPoly, vertIndexInCurrPoly);
 
     // This will redraw just the polygons, not the pixmap
@@ -1745,54 +1748,58 @@ namespace vw { namespace gui {
       return;
     }
 
-    for (size_t layerIter = 0; layerIter < m_images[m_polyLayerIndex].polyVec.size(); layerIter++) {
+    // This code cannot be moved out to utilities since it calls the
+    // function projpoint2world().
+    
+    for (size_t clipIter = 0; clipIter < m_images.size(); clipIter++) {
+    
+      for (size_t layerIter = 0; layerIter < m_images[clipIter].polyVec.size(); layerIter++) {
+      
+        vw::geometry::dPoly & poly     = m_images[clipIter].polyVec[layerIter]; // alias
+        int                   numPolys = poly.get_numPolys();
+        const int           * numVerts = poly.get_numVerts();
+        const double        * xv       = poly.get_xv();
+        const double        * yv       = poly.get_yv();
+        std::vector<string>   colors   = poly.get_colors();
+        std::vector<string>   layers   = poly.get_layers();
 
-      // TODO: This lower level code should be moved to VW
-
-      vw::geometry::dPoly & poly     = m_images[m_polyLayerIndex].polyVec[layerIter]; // alias
-      int                   numPolys = poly.get_numPolys();
-      const int           * numVerts = poly.get_numVerts();
-      const double        * xv       = poly.get_xv();
-      const double        * yv       = poly.get_yv();
-      std::vector<string>   colors   = poly.get_colors();
-      std::vector<string>   layers   = poly.get_layers();
-
-      vw::geometry::dPoly poly_out;
-      int start = 0;
-      for (int polyIter = 0; polyIter < numPolys; polyIter++){
+        vw::geometry::dPoly poly_out;
+        int start = 0;
+        for (int polyIter = 0; polyIter < numPolys; polyIter++){
         
-        if (polyIter > 0) start += numVerts[polyIter - 1];
-        int pSize = numVerts[polyIter];
+          if (polyIter > 0) start += numVerts[polyIter - 1];
+          int pSize = numVerts[polyIter];
 
-        std::vector<double> out_xv, out_yv;
-        for (int vIter = 0; vIter < pSize; vIter++){
-          double  x = xv[start + vIter];
-          double  y = yv[start + vIter];
-          Vector2 P = projpoint2world(Vector2(x, y), m_polyLayerIndex);
+          std::vector<double> out_xv, out_yv;
+          for (int vIter = 0; vIter < pSize; vIter++){
+            double  x = xv[start + vIter];
+            double  y = yv[start + vIter];
+            Vector2 P = projpoint2world(Vector2(x, y), clipIter);
 
-          // This vertex will be deleted
-          if (m_stereoCropWin.contains(P))
-            continue;
+            // This vertex will be deleted
+            if (m_stereoCropWin.contains(P))
+              continue;
 
-          out_xv.push_back(x);
-          out_yv.push_back(y);
+            out_xv.push_back(x);
+            out_yv.push_back(y);
+          }
+
+          // If no viable polygon is left
+          if (out_xv.size() < 3)
+            continue; 
+
+          bool isPolyClosed = true;
+          poly_out.appendPolygon(out_xv.size(),  
+                                 vw::geometry::vecPtr(out_xv),  
+                                 vw::geometry::vecPtr(out_yv),  
+                                 isPolyClosed, colors[polyIter], layers[layerIter]);
         }
 
-        // If no viable polygon is left
-        if (out_xv.size() < 3)
-          continue; 
-
-        bool isPolyClosed = true;
-        poly_out.appendPolygon(out_xv.size(),  
-                               vw::geometry::vecPtr(out_xv),  
-                               vw::geometry::vecPtr(out_yv),  
-                               isPolyClosed, colors[polyIter], layers[layerIter]);
+        // Overwrite the polygon
+        m_images[clipIter].polyVec[layerIter] = poly_out;
       }
-
-      // Overwrite the polygon
-      m_images[m_polyLayerIndex].polyVec[layerIter] = poly_out;
     }
-
+  
     // The selection has done its job
     m_stereoCropWin = BBox2();
     
@@ -1800,7 +1807,9 @@ namespace vw { namespace gui {
     update();
   }
     
-  // Insert intermediate vertex where the mouse right-clicks
+  // Insert intermediate vertex where the mouse right-clicks.
+  // TODO(oalexan1): This will fail when different polygons have
+  // different georeferences.
   void MainWidget::insertVertex(){
 
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
@@ -1811,8 +1820,16 @@ namespace vw { namespace gui {
     
     // If there is absolutely no polygon, start by creating one
     // with just one point.
-    if (m_images[m_polyLayerIndex].polyVec.size() == 0 ||
-        m_images[m_polyLayerIndex].polyVec[0].get_totalNumVerts() == 0) {
+    bool allEmpty = true;
+    for (size_t clipIter = 0; clipIter < m_images.size(); clipIter++) {
+      if (m_images[clipIter].polyVec.size() > 0 && 
+          m_images[clipIter].polyVec[0].get_totalNumVerts() > 0) {
+        allEmpty = false;
+        break;
+      }
+    }
+    
+    if (allEmpty) {
       addPolyVert(m_mousePrsX, m_mousePrsY); // init the polygon
       addPolyVert(m_mousePrsX, m_mousePrsY); // declare the polygon finished
       return;
@@ -1821,24 +1838,25 @@ namespace vw { namespace gui {
     // The location of the point to be inserted looks more reasonable
     // when one searches for closest edge, not vertex. 
     double min_x, min_y, min_dist;
-    int polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
+    int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
     findClosestPolyEdge(// inputs
-                        P.x(), P.y(), m_images[m_polyLayerIndex].polyVec,
+                        P.x(), P.y(), m_images,
                         // outputs
+                        clipIndex,
                         polyVecIndex,
                         polyIndexInCurrPoly,
                         vertIndexInCurrPoly,
-                        min_x, min_y, min_dist
-                       );
+                        min_x, min_y, min_dist);
 
-    if (polyVecIndex        < 0 ||
+    if (clipIndex           < 0 ||
+        polyVecIndex        < 0 ||
         polyIndexInCurrPoly < 0 ||
         vertIndexInCurrPoly < 0) return;
 
     // Need +1 below as we insert AFTER current vertex.
-    m_images[m_polyLayerIndex].polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
-                                         vertIndexInCurrPoly + 1,
-                                         P.x(), P.y());
+    m_images[clipIndex].polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
+                                                           vertIndexInCurrPoly + 1,
+                                                           P.x(), P.y());
     
     // This will redraw just the polygons, not the pixmap
     update();
@@ -1848,7 +1866,7 @@ namespace vw { namespace gui {
 
   // Merge existing polygons
   void MainWidget::mergePolys(){
-    vw::gui::mergePolys(m_images[m_polyLayerIndex].polyVec);
+    vw::gui::mergePolys(m_images, m_polyLayerIndex);
   }
   
   // Save the currently created vector layer
@@ -2206,17 +2224,24 @@ namespace vw { namespace gui {
       if (m_images[m_polyLayerIndex].polyVec.size() == 0)
         return;
 
-      // TODO(oalexan1): Must look here at all the layers!
       // Find the vertex we want to move
+      // TODO(oalexan1): This will fail if different layers of polygons have different
+      // georef.
       double min_x, min_y, min_dist;
       findClosestPolyVertex(// inputs
-                            P.x(), P.y(), m_images[m_polyLayerIndex].polyVec,
+                            P.x(), P.y(), m_images,
                             // outputs
+                            m_polyLayerIndex,
                             m_editPolyVecIndex,
                             m_editIndexInCurrPoly,
                             m_editVertIndexInCurrPoly,
                             min_x, min_y, min_dist);
 
+      // When all the polygons are empty, make sure that at least
+      // m_polyLayerIndex is valid.
+      if (m_polyLayerIndex < 0) 
+        m_polyLayerIndex = 0;
+      
       // This will redraw just the polygons, not the pixmap
       update();
     } // End polygon update case

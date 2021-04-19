@@ -247,106 +247,118 @@ void contour_image(DiskImagePyramidMultiChannel const& img,
   }
 }
   
-// Here we assume that each dPoly is a set of polygons.
-// So, polyVec holds several such sets, like layers.   
-void mergePolys(std::vector<vw::geometry::dPoly> & polyVec){
+// Merge some polygons and save them in imageData[outIndex]
+void mergePolys(std::vector<imageData> & imageData, int outIndex){
+
+  std::vector<vw::geometry::dPoly> polyVec;
 
   try {
-  // We will infer these from existing polygons
-  std::string poly_color, layer_str;
-  
-  // We must first organize all those user-drawn curves into meaningful polygons.
-  // This can flip orientations and order of polygons. 
-  std::vector<OGRGeometry*> ogr_polys;
-  
-  for (size_t vecIter = 0; vecIter < polyVec.size(); vecIter++) {
+    // We will infer these from existing polygons
+    std::string poly_color, layer_str;
+    
+    // We must first organize all those user-drawn curves into meaningful polygons.
+    // This can flip orientations and order of polygons. 
+    std::vector<OGRGeometry*> ogr_polys;
 
-    if (poly_color == ""){
-      std::vector<std::string> colors = polyVec[vecIter].get_colors();
-      if (!colors.empty()) 
-        poly_color = colors[0];
+    for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++) {
+
+      auto & polyVec = imageData[clipIter].polyVec;
+      for (size_t vecIter = 0; vecIter < polyVec.size(); vecIter++) {
+
+        if (poly_color == ""){
+          std::vector<std::string> colors = polyVec[vecIter].get_colors();
+          if (!colors.empty()) 
+            poly_color = colors[0];
+        }
+      
+        if (layer_str == "") {
+          std::vector<std::string> layers = polyVec[vecIter].get_layers();
+          if (!layers.empty()) 
+            layer_str = layers[0];
+        }
+
+        // We story in poly a set of polygons
+        vw::geometry::dPoly & poly = polyVec[vecIter]; // alias
+    
+        const double * xv        = poly.get_xv();
+        const double * yv        = poly.get_yv();
+        const int    * numVerts  = poly.get_numVerts();
+        int numPolys             = poly.get_numPolys();
+    
+        // Iterate over polygon rings in the given polygon set
+        int startPos = 0;
+        for (int pIter = 0; pIter < numPolys; pIter++){
+      
+          if (pIter > 0) startPos += numVerts[pIter - 1];
+          int numCurrPolyVerts = numVerts[pIter];
+      
+          OGRLinearRing R;
+          toOGR(xv, yv, startPos, numCurrPolyVerts, R);
+
+          OGRPolygon * P = new OGRPolygon;
+          if (P->addRing(&R) != OGRERR_NONE )
+            vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
+
+          ogr_polys.push_back(P);
+        }
+    
+      }
     }
+    
+    // The doc of this function says that the elements in ogr_polys will
+    // be taken care of. We are responsible only for the vector of pointers
+    // and for the output of this function.
+    int pbIsValidGeometry = 0;
+    const char** papszOptions = NULL; 
+    OGRGeometry* good_geom
+      = OGRGeometryFactory::organizePolygons(vw::geometry::vecPtr(ogr_polys),
+                                             ogr_polys.size(),
+                                             &pbIsValidGeometry,
+                                             papszOptions);
+    
+    // Single polygon, nothing to do
+    if (wkbFlatten(good_geom->getGeometryType()) == wkbPolygon || 
+        wkbFlatten(good_geom->getGeometryType()) == wkbPoint) {
+      bool append = false; 
+      fromOGR(good_geom, poly_color, layer_str, polyVec, append);
+    }else if (wkbFlatten(good_geom->getGeometryType()) == wkbMultiPolygon) {
       
-    if (layer_str == "") {
-      std::vector<std::string> layers = polyVec[vecIter].get_layers();
-      if (!layers.empty()) 
-	layer_str = layers[0];
+      // We can merge
+      OGRGeometry * merged_geom = new OGRPolygon;
+      
+      OGRMultiPolygon *poMultiPolygon = (OGRMultiPolygon*)good_geom;
+      
+      int numGeom = poMultiPolygon->getNumGeometries();
+      for (int iGeom = 0; iGeom < numGeom; iGeom++){
+        
+        const OGRGeometry *currPolyGeom = poMultiPolygon->getGeometryRef(iGeom);
+        if (wkbFlatten(currPolyGeom->getGeometryType()) != wkbPolygon) continue;
+        
+        OGRPolygon *poPolygon = (OGRPolygon *) currPolyGeom;
+        OGRGeometry * local_merged = merged_geom->Union(poPolygon);
+        
+        // Keep the pointer to the new geometry
+        if (merged_geom != NULL)
+          OGRGeometryFactory::destroyGeometry(merged_geom);
+        merged_geom = local_merged;
+      }    
+      
+      bool append = false;
+      fromOGR(merged_geom, poly_color, layer_str, polyVec, append);
+      OGRGeometryFactory::destroyGeometry(merged_geom);
     }
-
-    // We story in poly a set of polygons
-    vw::geometry::dPoly & poly = polyVec[vecIter]; // alias
     
-    const double * xv        = poly.get_xv();
-    const double * yv        = poly.get_yv();
-    const int    * numVerts  = poly.get_numVerts();
-    int numPolys             = poly.get_numPolys();
-    
-    // Iterate over polygon rings in the given polygon set
-    int startPos = 0;
-    for (int pIter = 0; pIter < numPolys; pIter++){
-      
-      if (pIter > 0) startPos += numVerts[pIter - 1];
-      int numCurrPolyVerts = numVerts[pIter];
-      
-      OGRLinearRing R;
-      toOGR(xv, yv, startPos, numCurrPolyVerts, R);
-
-      OGRPolygon * P = new OGRPolygon;
-      if (P->addRing(&R) != OGRERR_NONE )
-        vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
-
-      ogr_polys.push_back(P);
-    }
-    
-  }
-
-  // The doc of this function says that the elements in ogr_polys will
-  // be taken care of. We are responsible only for the vector of pointers
-  // and for the output of this function.
-  int pbIsValidGeometry = 0;
-  const char** papszOptions = NULL; 
-  OGRGeometry* good_geom
-    = OGRGeometryFactory::organizePolygons(vw::geometry::vecPtr(ogr_polys),
-					   ogr_polys.size(),
-					   &pbIsValidGeometry,
-					   papszOptions);
-  
-  // Single polygon, nothing to do
-  if (wkbFlatten(good_geom->getGeometryType()) == wkbPolygon || 
-      wkbFlatten(good_geom->getGeometryType()) == wkbPoint) {
-    bool append = false; 
-    fromOGR(good_geom, poly_color, layer_str, polyVec, append);
-  }else if (wkbFlatten(good_geom->getGeometryType()) == wkbMultiPolygon) {
-
-    // We can merge
-    OGRGeometry * merged_geom = new OGRPolygon;
-    
-    OGRMultiPolygon *poMultiPolygon = (OGRMultiPolygon*)good_geom;
-    
-    int numGeom = poMultiPolygon->getNumGeometries();
-    for (int iGeom = 0; iGeom < numGeom; iGeom++){
-      
-      const OGRGeometry *currPolyGeom = poMultiPolygon->getGeometryRef(iGeom);
-      if (wkbFlatten(currPolyGeom->getGeometryType()) != wkbPolygon) continue;
-
-      OGRPolygon *poPolygon = (OGRPolygon *) currPolyGeom;
-      OGRGeometry * local_merged = merged_geom->Union(poPolygon);
-
-      // Keep the pointer to the new geometry
-      if (merged_geom != NULL)
-        OGRGeometryFactory::destroyGeometry(merged_geom);
-      merged_geom = local_merged;
-    }    
-
-    bool append = false;
-    fromOGR(merged_geom, poly_color, layer_str, polyVec, append);
-    OGRGeometryFactory::destroyGeometry(merged_geom);
-  }
-  
-  OGRGeometryFactory::destroyGeometry(good_geom);
+    OGRGeometryFactory::destroyGeometry(good_geom);
+       
   }catch(std::exception &e ){
     vw_out() << "OGR failed at " << e.what() << std::endl;
   }
+    
+  // Wipe all existing polygons and replace with this one
+  for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++) 
+    imageData[clipIter].polyVec.clear();
+
+  imageData[outIndex].polyVec = polyVec;
 }
   
 // This will tweak the georeference so that point_to_pixel() is the identity.
@@ -372,18 +384,66 @@ bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
   
   return vw::cartography::read_georeference(georef, file);
 }
+
+// Find the closest point in a given set of imageData structures to a given point.
+void findClosestPolyVertex(// inputs
+			   double x0, double y0,
+                           std::vector<imageData> const& imageData,
+			   // outputs
+			   int & clipIndex,
+			   int & polyVecIndex,
+			   int & polyIndexInCurrPoly,
+			   int & vertIndexInCurrPoly,
+			   double & minX, double & minY,
+			   double & minDist){
+  clipIndex           = -1;
+  polyVecIndex        = -1;
+  polyIndexInCurrPoly = -1;
+  vertIndexInCurrPoly = -1;
+  minX                = x0;
+  minY                = y0;
+  minDist             = std::numeric_limits<double>::max();
+
+  for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++){
+    
+    double minX0, minY0, minDist0;
+    int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
+
+    findClosestPolyVertex(// inputs
+                          x0, y0,  
+                          imageData[clipIter].polyVec,  
+                          // outputs
+                          polyVecIndex0,  
+                          polyIndexInCurrPoly0,  
+                          vertIndexInCurrPoly0,  
+                          minX0, minY0,  
+                          minDist0);
+    
+    if (minDist0 <= minDist) {
+      clipIndex           = clipIter;
+      polyVecIndex        = polyVecIndex0;
+      polyIndexInCurrPoly = polyIndexInCurrPoly0;
+      vertIndexInCurrPoly = vertIndexInCurrPoly0;
+      minDist             = minDist0;
+      minX                = minX0;
+      minY                = minY0;
+    }
+
+  }
+  
+  return;
+}
   
 // Find the closest point in a given vector of polygons to a given point.
 void findClosestPolyVertex(// inputs
 			   double x0, double y0,
-			   const std::vector<vw::geometry::dPoly> & polyVec,
+                           std::vector<vw::geometry::dPoly> const& polyVec,
 			   // outputs
 			   int & polyVecIndex,
 			   int & polyIndexInCurrPoly,
 			   int & vertIndexInCurrPoly,
 			   double & minX, double & minY,
-			   double & minDist
-			   ){
+			   double & minDist){
   
   polyVecIndex = -1; polyIndexInCurrPoly = -1; vertIndexInCurrPoly = -1;
   minX = x0; minY = y0; minDist = std::numeric_limits<double>::max();
@@ -412,10 +472,58 @@ void findClosestPolyVertex(// inputs
   return;
 }
 
+// Find the closest edge in a given set of imageData structures to a given point.
+void findClosestPolyEdge(// inputs
+			 double x0, double y0,
+                         std::vector<imageData> const& imageData,
+			 // outputs
+                         int & clipIndex,
+			 int & polyVecIndex,
+			 int & polyIndexInCurrPoly,
+			 int & vertIndexInCurrPoly,
+			 double & minX, double & minY,
+			 double & minDist){
+
+  clipIndex           = -1;
+  polyVecIndex        = -1;
+  polyIndexInCurrPoly = -1;
+  vertIndexInCurrPoly = -1;
+  minX                = x0;
+  minY                = y0;
+  minDist             = std::numeric_limits<double>::max();
+
+  for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++){
+    
+    double minX0, minY0, minDist0;
+    int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
+    
+    findClosestPolyEdge(// inputs
+                        x0, y0,  
+                        imageData[clipIter].polyVec,  
+                        // outputs
+                        polyVecIndex0,  
+                        polyIndexInCurrPoly0,  
+                        vertIndexInCurrPoly0,  
+                        minX0, minY0,  
+                        minDist0);
+
+    if (minDist0 <= minDist) {
+      clipIndex           = clipIter;
+      polyVecIndex        = polyVecIndex0;
+      polyIndexInCurrPoly = polyIndexInCurrPoly0;
+      vertIndexInCurrPoly = vertIndexInCurrPoly0;
+      minDist             = minDist0;
+      minX                = minX0;
+      minY                = minY0;
+    }
+    
+  }  
+}
+  
 // Find the closest edge in a given vector of polygons to a given point.
 void findClosestPolyEdge(// inputs
 			 double x0, double y0,
-			 const std::vector<vw::geometry::dPoly> & polyVec,
+                         std::vector<vw::geometry::dPoly> const& polyVec,
 			 // outputs
 			 int & polyVecIndex,
 			 int & polyIndexInCurrPoly,
@@ -449,7 +557,6 @@ void findClosestPolyEdge(// inputs
 
   return;
 }
-
 
 void imageData::read(std::string const& name_in,
 		     vw::cartography::GdalWriteOptions const& opt){
