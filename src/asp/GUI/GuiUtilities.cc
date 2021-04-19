@@ -377,7 +377,7 @@ bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
 }
   
 bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
-					 std::string const& file){
+                                         std::string const& file){
   
   if (asp::has_shp_extension(file)) 
     return read_georef_from_shapefile(georef, file);
@@ -387,15 +387,15 @@ bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
 
 // Find the closest point in a given set of imageData structures to a given point.
 void findClosestPolyVertex(// inputs
-			   double x0, double y0,
+                           double x0, double y0,
                            std::vector<imageData> const& imageData,
-			   // outputs
-			   int & clipIndex,
-			   int & polyVecIndex,
-			   int & polyIndexInCurrPoly,
-			   int & vertIndexInCurrPoly,
-			   double & minX, double & minY,
-			   double & minDist){
+                           // outputs
+                           int & clipIndex,
+                           int & polyVecIndex,
+                           int & polyIndexInCurrPoly,
+                           int & vertIndexInCurrPoly,
+                           double & minX, double & minY,
+                           double & minDist){
   clipIndex           = -1;
   polyVecIndex        = -1;
   polyIndexInCurrPoly = -1;
@@ -436,14 +436,14 @@ void findClosestPolyVertex(// inputs
   
 // Find the closest point in a given vector of polygons to a given point.
 void findClosestPolyVertex(// inputs
-			   double x0, double y0,
+                           double x0, double y0,
                            std::vector<vw::geometry::dPoly> const& polyVec,
-			   // outputs
-			   int & polyVecIndex,
-			   int & polyIndexInCurrPoly,
-			   int & vertIndexInCurrPoly,
-			   double & minX, double & minY,
-			   double & minDist){
+                           // outputs
+                           int & polyVecIndex,
+                           int & polyIndexInCurrPoly,
+                           int & vertIndexInCurrPoly,
+                           double & minX, double & minY,
+                           double & minDist){
   
   polyVecIndex = -1; polyIndexInCurrPoly = -1; vertIndexInCurrPoly = -1;
   minX = x0; minY = y0; minDist = std::numeric_limits<double>::max();
@@ -474,15 +474,15 @@ void findClosestPolyVertex(// inputs
 
 // Find the closest edge in a given set of imageData structures to a given point.
 void findClosestPolyEdge(// inputs
-			 double x0, double y0,
+                         double x0, double y0,
                          std::vector<imageData> const& imageData,
-			 // outputs
+                         // outputs
                          int & clipIndex,
-			 int & polyVecIndex,
-			 int & polyIndexInCurrPoly,
-			 int & vertIndexInCurrPoly,
-			 double & minX, double & minY,
-			 double & minDist){
+                         int & polyVecIndex,
+                         int & polyIndexInCurrPoly,
+                         int & vertIndexInCurrPoly,
+                         double & minX, double & minY,
+                         double & minDist){
 
   clipIndex           = -1;
   polyVecIndex        = -1;
@@ -522,14 +522,14 @@ void findClosestPolyEdge(// inputs
   
 // Find the closest edge in a given vector of polygons to a given point.
 void findClosestPolyEdge(// inputs
-			 double x0, double y0,
+                         double x0, double y0,
                          std::vector<vw::geometry::dPoly> const& polyVec,
-			 // outputs
-			 int & polyVecIndex,
-			 int & polyIndexInCurrPoly,
-			 int & vertIndexInCurrPoly,
-			 double & minX, double & minY,
-			 double & minDist){
+                         // outputs
+                         int & polyVecIndex,
+                         int & polyIndexInCurrPoly,
+                         int & vertIndexInCurrPoly,
+                         double & minX, double & minY,
+                         double & minDist){
   
   polyVecIndex = -1; polyIndexInCurrPoly = -1; vertIndexInCurrPoly = -1;
   minX = x0; minY = y0; minDist = std::numeric_limits<double>::max();
@@ -539,10 +539,10 @@ void findClosestPolyEdge(// inputs
     double minX0, minY0, minDist0;
     int polyIndex, vertIndex;
     polyVec[s].findClosestPolyEdge(// inputs
-				   x0, y0,
-				   // outputs
-				   polyIndex, vertIndex, minX0, minY0, minDist0
-				   );
+                                   x0, y0,
+                                   // outputs
+                                   polyIndex, vertIndex, minX0, minY0, minDist0
+                                   );
     
     if (minDist0 <= minDist){
       polyVecIndex  = s;
@@ -559,7 +559,7 @@ void findClosestPolyEdge(// inputs
 }
 
 void imageData::read(std::string const& name_in,
-		     vw::cartography::GdalWriteOptions const& opt){
+                     vw::cartography::GdalWriteOptions const& opt){
   m_opt = opt;
   name = name_in;
   std::string poly_color = "red";
@@ -569,8 +569,8 @@ void imageData::read(std::string const& name_in,
 
     double xll, yll, xur, yur;
     shapefile_bdbox(polyVec,  
-		    xll, yll, xur, yur // outputs
-		   );
+                    xll, yll, xur, yur // outputs
+                   );
     BBox2 world_bbox;
     world_bbox.min() = Vector2(xll, yll);
     world_bbox.max() = Vector2(xur, yur);
@@ -783,14 +783,14 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
     //Stopwatch sw1;
     //sw1.start();
     m_img_ch1_double.get_image_clip(scale_in, region_in, clip,
-				    scale_out, region_out);
+                                    scale_out, region_out);
     //sw1.stop();
     //vw_out() << "Render time sw1 (seconds): " << sw1.elapsed_seconds() << std::endl;
 
     //Stopwatch sw2;
     //sw2.start();
     formQimage(highlight_nodata, scale_pixels, m_img_ch1_double.get_nodata_val(), bounds,
-	       clip, qimg);
+               clip, qimg);
     //sw2.stop();
     //vw_out() << "Render time sw2 (seconds): " << sw2.elapsed_seconds() << std::endl;
   } else if (m_type == CH2_UINT8) {
@@ -806,7 +806,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
     //Stopwatch sw5;
     //sw5.start();
     formQimage(highlight_nodata, scale_pixels, m_img_ch2_uint8.get_nodata_val(), bounds,
-	       clip, qimg);
+               clip, qimg);
     //sw5.stop();
     //vw_out() << "Render time sw5 (seconds): " << sw5.elapsed_seconds() << std::endl;
     
@@ -822,7 +822,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
     //Stopwatch sw7;
     //sw7.start();
     formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(), bounds,
-	       clip, qimg);
+               clip, qimg);
     //sw7.stop();
     //vw_out() << "Render time sw7 (seconds): " << sw7.elapsed_seconds() << std::endl;
 
@@ -838,7 +838,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
     //Stopwatch sw9;
     //sw9.start();
     formQimage(highlight_nodata, scale_pixels, m_img_ch4_uint8.get_nodata_val(), bounds,
-	       clip, qimg);
+               clip, qimg);
     //sw9.stop();
     //vw_out() << "Render time sw9 (seconds): " << sw9.elapsed_seconds() << std::endl;
   }else{
