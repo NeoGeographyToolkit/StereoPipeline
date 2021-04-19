@@ -140,7 +140,7 @@ namespace asp {
 
     // If a file shows up more than once as input, that will confuse
     // the logic at the next step, so forbid that.
-    map<string, int> vals;
+    std::map<string, int> vals;
     for (int s = 1; s < argc; s++)
       vals[argv[s]]++;
     for (int s = 0; s < (int)files.size(); s++){
@@ -171,30 +171,6 @@ namespace asp {
     if (num_pairs <= 0)
       vw_throw(ArgumentErr() << "Insufficient number of images provided.\n");
 
-    if (opt.session->do_bathymetry()) {
-      if (num_pairs > 1) 
-        vw_throw(ArgumentErr() << "Bathymetry correction does not work with "
-                 << "multiview stereo.\n");
-
-      if (stereo_settings().refraction_index <= 1.0) 
-        vw_throw(ArgumentErr() << "The water index of refraction to be used in "
-                 << "bathymetry correction must be bigger than 1.\n");
-
-      if (stereo_settings().bathy_plane == "") 
-        vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
-
-      if (!fs::exists(stereo_settings().bathy_plane)) 
-        vw_throw(ArgumentErr() << "The water plane needed for bathymetry was not found.\n");
-
-      // Sanity check reading the bathy plane
-      std::vector<double> bathy_plane;
-      bool use_curved_water_surface = false; // may change below
-      vw::cartography::GeoReference water_surface_projection;
-      read_bathy_plane(stereo_settings().bathy_plane,
-                       bathy_plane, use_curved_water_surface,
-                       water_surface_projection);
-    }
-    
     // Must signal to the children runs that they are part of a multiview run
     if (num_pairs > 1){
       std::string opt_str = "--part-of-multiview-run";
@@ -302,17 +278,22 @@ namespace asp {
     if (num_pairs > 1 && prog_name != "stereo_parse" &&
         prog_name != "stereo_tri" && prog_name != "stereo_gui")
       vw_throw(ArgumentErr() << "The executable " << prog_name
-                << " is not meant to be used directly with more than two images. "
-                << "Use instead the stereo/parallel_stereo scripts with desired entry points.\n");
+               << " is not meant to be used directly with more than two images. "
+               << "Use instead the stereo/parallel_stereo scripts with desired entry points.\n");
+
+    // This must not happen earlier as StereoSession is not initialized yet
+    if (num_pairs > 1 && opt.session->do_bathymetry()) 
+      vw_throw(ArgumentErr() << "Bathymetry correction does not work with "
+               << "multiview stereo.\n");
   }
 
   // Parse input command line arguments
-  void handle_arguments( int argc, char *argv[], ASPGlobalOptions& opt,
-                         boost::program_options::options_description const&
-                         additional_options,
-                         bool is_multiview, vector<string> & input_files,
-                         std::string & usage, bool exit_early ){
-
+  void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
+                        boost::program_options::options_description const&
+                        additional_options,
+                        bool is_multiview, vector<string> & input_files,
+                        std::string & usage, bool exit_early ){
+    
     po::options_description general_options_sub("");
     general_options_sub.add_options()
       ("session-type,t",      po::value(&opt.stereo_session_string),
@@ -388,6 +369,7 @@ namespace asp {
     } catch (po::error const& e) {
       vw::vw_throw(vw::ArgumentErr() << "Error parsing configuration file:\n" << e.what() << "\n");
     }
+
     asp::stereo_settings().validate();
 
     // Add the options to the usage
@@ -760,6 +742,24 @@ namespace asp {
     }
 
     if (opt.session->do_bathymetry()) {
+      if (stereo_settings().refraction_index <= 1.0) 
+        vw_throw(ArgumentErr() << "The water index of refraction to be used in "
+                 << "bathymetry correction must be bigger than 1.\n");
+
+      if (stereo_settings().bathy_plane == "") 
+        vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
+
+      if (!fs::exists(stereo_settings().bathy_plane)) 
+        vw_throw(ArgumentErr() << "The water plane needed for bathymetry was not found.\n");
+
+      // Sanity check reading the bathy plane
+      std::vector<double> bathy_plane;
+      bool use_curved_water_surface = false; // may change below
+      vw::cartography::GeoReference water_surface_projection;
+      read_bathy_plane(stereo_settings().bathy_plane,
+                       bathy_plane, use_curved_water_surface,
+                       water_surface_projection);
+      
       if (opt.session->name() != "dg" &&
           opt.session->name() != "rpc" &&
           opt.session->name() != "dgmaprpc" &&
