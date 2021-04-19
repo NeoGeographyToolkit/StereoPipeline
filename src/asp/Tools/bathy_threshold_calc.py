@@ -132,7 +132,7 @@ end = time.time()
 # the second minimum is better!
 print("Positions of the minima: ", min_vals)
 print("Suggested threshold is the position of the first minimum: ", min_vals[0])
-print("Please verify with the graph. There is a chance the second minimum may work better.")
+print("Please verify with the graph. There is a chance subsequent minima may work better.")
 print("Elapsed time in seconds:", round(10.0*(end - beg))/10.0)
 
 # sklearn, with similar results

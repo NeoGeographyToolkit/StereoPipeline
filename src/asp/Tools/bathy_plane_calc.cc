@@ -119,7 +119,8 @@ void find_points_at_shape_corners(bool use_proj_water_surface,
     // ASP is having a hard time with saving and reading a georef as a wkt string
     // So be conservative and use a WGS_1984 datum only with given lat and lon.
     if (dem_georef.datum().name() != "WGS_1984")
-      vw_throw( ArgumentErr() << "Only an input DEM with the WGS_1984 datum is supported.\n");
+      vw_throw( ArgumentErr() << "Only an input DEM with the WGS_1984 datum is supported.\n"
+                << "Got: " << dem_georef.datum().name() << ".\n");
 
     vw::cartography::GeoReference stereographic_georef;
     vw::cartography::Datum datum("WGS_1984");
