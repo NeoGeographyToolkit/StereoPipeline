@@ -290,7 +290,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem-minus-plane",
      po::value(&opt.dem_minus_plane),
      "If specified, subtract from the input DEM the best-fit plane and save the "
-     "obtained DEM to this location.")
+     "obtained DEM to this GeoTiff file.")
     ("use-ecef-water-surface",
      po::bool_switch(&opt.use_ecef_water_surface)->default_value(false),
      "Compute the best fit plane in ECEF coordinates rather than in a local stereographic "

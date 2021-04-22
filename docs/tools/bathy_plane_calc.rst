@@ -9,11 +9,11 @@ ECEF coordinates using bilinear interpolation, converts those points
 to a local stereographic projection, and fits a plane through
 them. 
 
-When the veritces in the shapefile are picked at the water-land
+When the vertices in the shapefile are picked at the water-land
 interface in the DEM, this would give the surface of the water to be
-used for bathymetry correction. The obtained plane can be slighty
-non-horizontal due to imperfectios in the camera positons and
-oreintations, and in the input DEM.
+used for bathymetry correction. The obtained plane can be slightly
+non-horizontal due to imperfections in the camera positions and
+orientations, and in the input DEM.
 
 Further motivation for this tool and an example of how to use it in
 practice is given in :numref:`water_surface`.
@@ -62,6 +62,10 @@ Command-line options for bathy_plane_calc:
 --num-ransac-iterations <integer>
     Number of RANSAC iterations to use to find the best-fitting plane.
     The default is 1000.
+
+--dem-minus-plane <string (default: "")>
+    If specified, subtract from the input DEM the best-fit plane and save the 
+    obtained DEM to this GeoTiff file.
 
 --use-ecef-water-surface
     Compute the best fit plane in ECEF coordinates rather than in a
