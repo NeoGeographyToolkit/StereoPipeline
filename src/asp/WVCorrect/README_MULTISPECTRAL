@@ -2,9 +2,13 @@
 
 This document describes how to tabulate subpixel corrections to apply
 to Digital Globe multispectral images to reduce the CCD artifacts in
-these images. See the manual page of wv_correct which shows how these
-corrections are applied. So far, corrections have been tabulated only
-for a very small number of possible scenarios.
+these images. 
+
+See README_PAN for the case of PAN images, and see the manual page of
+wv_correct which shows how these corrections are applied. 
+
+So far, corrections have been tabulated only for a very small number
+of possible scenarios.
 
 Digital Globe has several satellites, for example WorldView-1 to
 4. Each satellite collected multispectral data either in the forward
@@ -24,11 +28,11 @@ Checkout the ASP source code. Below we will assume it is in
   
   $HOME/StereoPipeline
 
-Get a binary version of ASP and prepend the path to its ``bin`` directory
+Get a binary version of ASP and prepended the path to its ``bin`` directory
 to PATH.
 
 Create a conda environment having numpy, gdal, and matplotlib. Ensure that
-when running python the verssion provided by this environment is invoked.
+when running python the version provided by this environment is invoked.
 
 # Computing the corrections
 
@@ -101,7 +105,7 @@ The obtained corrections can be visualized together as:
   python $ASP_PATH/src/asp/WVCorrect/ccd_process.py --plot-only \
     run*/run-corr-dx.txt
 
-To compute a combined correction, by averaraging, start with
+To compute a combined correction, by averaging, start with
 the earlier averaged disparity. Run:
 
   python $ASP_PATH/src/asp/WVCorrect/ccd_process.py \
@@ -123,7 +127,7 @@ To verify how the obtained corrections improve the results, do
 
 Notice how this tool is called exactly as the earlier shell script,
 but with a different output directory and the last argument having the
-obtained correction in x (the one in y will be read automatially).
+obtained correction in x (the one in y will be read automatically).
 
 It is very instructive to compare the colormaps obtained earlier from
 the ones after this step.

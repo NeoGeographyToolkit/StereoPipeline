@@ -30,7 +30,7 @@ namespace asp {
 
   // Solves for Affine Fundamental Matrix as per instructions in
   // Multiple View Geometry.
-  // TODO: Filter outliers here with RANSAC!
+  // TODO(oalexan1): Filter outliers here with RANSAC!
   Matrix<double>
   linear_affine_fundamental_matrix( std::vector<ip::InterestPoint> const& ip1,
                                     std::vector<ip::InterestPoint> const& ip2 ) {

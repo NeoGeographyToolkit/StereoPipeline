@@ -39,8 +39,10 @@
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
+#include <boost/dll.hpp>
 
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 using namespace vw;
 using namespace asp;
 using namespace vw::cartography;
@@ -49,18 +51,86 @@ using namespace std;
 
 
 struct Options : vw::cartography::GdalWriteOptions {
+  int band;
   std::string image_file, camera_file, output_image, output_type,
-    band, dx, dy;
+    dx, dy;
+  bool print_per_column_corrections;
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+// See which table has the corrections for given MS data,
+// find the right row in that table, and read the values
+void parse_ms_correction_table(std::string const& sat_id, int band,
+                               int tdi, std::string const& scan_dir,
+                               std::vector<double> & corr_x,
+                               std::vector<double> & corr_y) {
+
+  // Clear the outputs
+  corr_x.clear();
+  corr_y.clear();
+
+  std::string data_path = boost::dll::program_location().parent_path().parent_path().string()
+    + "/share/wv_correct";
+
+  std::string lookup_path = data_path + "/ms_correction_lookup.txt";
+
+  std::ifstream handle;
+  handle.open(lookup_path.c_str());
+  if (handle.fail()) 
+    vw_throw( vw::IOErr() << "Unable to open file \"" << lookup_path << "\"" );
+
+  std::string line;
+  while ( getline(handle, line, '\n') ){
+
+    if (line.size() == 0 || line[0] == '#')
+      continue; // skip comment and empty line
+
+    std::string l_sat_id, l_band, l_tdi, l_scan_dir, table_path, row_str;
+    std::istringstream is(line);
+
+    if (!(is >> l_sat_id >> l_band >> l_tdi >> l_scan_dir >> table_path >> row_str)) 
+      continue;
+
+    if (sat_id != l_sat_id || atoi(l_band.c_str()) != band || atoi(l_tdi.c_str()) != tdi ||
+        scan_dir != l_scan_dir) {
+      continue;
+    }
+
+    table_path = data_path + "/" + table_path;
+    DiskImageView<float> lookup_table(table_path);
+    int row = atoi(row_str.c_str());
+    if (lookup_table.rows() <= row) 
+      vw_throw( ArgumentErr() << "Could not find at least " << row + 1 << " rows in "
+                << table_path << "\n");
+
+    int num_vals = lookup_table.cols() / 2;
+    if (2*num_vals != lookup_table.cols())
+      vw_throw( ArgumentErr() << "Expecting an even number of columns in table "
+                << table_path << "\n");
+    
+    corr_x.resize(num_vals);
+    corr_y.resize(num_vals);
+    
+    for (int it = 0; it < num_vals; it++) {
+      corr_x[it] = lookup_table(it,            row);
+      corr_y[it] = lookup_table(it + num_vals, row);
+    }
+    
+    break;
+  }
+  
+}
+
+void handle_arguments(int argc, char *argv[], Options& opt) {
   
   po::options_description general_options("");
   general_options.add_options()
     ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type.")
-    ("band",  po::value(&opt.band)->default_value(""), "For multi-spectral images, specify which band to apply corrections to. Supported options are BAND_N and BAND_N2. These correspond to bands 7 and 8 in the multispectral image")
-    ("dx",  po::value(&opt.dx)->default_value(""), "For multi-spectral images, specify the plain text file having per-column corrections in the x direction, one per line.")
-    ("dy",  po::value(&opt.dy)->default_value(""), "For multi-spectral images, specify the plain text file having per-column corrections in the y direction, one per line.");
+    ("band",   po::value<int>(&opt.band)->default_value(0),
+     "For multi-spectral images, specify the band to correct. Required unless --dx and --dy are set.")
+    ("dx",  po::value(&opt.dx)->default_value(""), "For PAN or multi-spectral images, specify the plain text file having per-column corrections in the x direction, one per line, overriding the pre-computed table.")
+    ("dy",  po::value(&opt.dy)->default_value(""), "As above, but for the y direction.")
+    ("print-per-column-corrections", po::bool_switch(&opt.print_per_column_corrections)->default_value(false), "Print on standard output the per-column corrections about to apply (for multispectral images).");
+    
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   
   po::options_description positional("");
@@ -589,6 +659,10 @@ public:
                          std::vector<double> const& dy):
     m_img(img), m_dx(dx), m_dy(dy){
 
+    if (m_dx.size() != m_dy.size()) {
+      vw_throw( ArgumentErr() << "The x and y corrections must have the same dimensions.\n" );
+    }
+
     // Add more zeros if the corrections are too short.
     // This is needed because different WV images can have
     // different widths.
@@ -601,6 +675,7 @@ public:
     if (m_img.cols() != m_dx.size() || m_img.cols() != m_dy.size()) {
       // vw_throw( ArgumentErr() << "Expecting as many corrections as columns.\n" );
     }
+
   }
   
   typedef PixelT pixel_type;
@@ -662,7 +737,7 @@ WVPerColumnCorrectView<ImageT> wv_correct(ImageT const& img,
   return WVPerColumnCorrectView<ImageT>(img, dx, dy);
 }
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
@@ -685,7 +760,7 @@ int main( int argc, char *argv[] ) {
       XMLPlatformUtils::Initialize();
       read_xml(opt.camera_file, geo, att, eph, img, rpc);
       
-      scan_dir = boost::to_lower_copy( img.scan_direction );
+      scan_dir = boost::to_lower_copy(img.scan_direction);
       if (scan_dir != "forward" && scan_dir != "reverse")
         vw_throw( ArgumentErr() << "XML file \"" << opt.camera_file
                   << "\" is lacking a valid image scan direction.\n" );
@@ -701,38 +776,12 @@ int main( int argc, char *argv[] ) {
           per_column_correction = true;
         
       } else if (band_id == "Multi") {
-        
+
         per_column_correction = true;
         
-        if (sat_id != "WV03")
-          vw_throw( ArgumentErr() << "Multispectral image detected. Can apply CCD artifacts "
-                    << "corrections only for the WV03 satellite.\n" );
-
-        if (scan_dir != "forward")
-          vw_throw( ArgumentErr() << "Multispectral image detected. Only the forward "
-                    << "scan direction is supported.\n" );
-
         if (img.tdi_multi.size() != 8) 
           vw_throw( ArgumentErr() << "Expecting 8 TDI values, one per multispectral band.\n" );
 
-        if (opt.band == "BAND_N" ) {
-          tdi = img.tdi_multi[6];
-          if (tdi != 10) 
-            vw_throw( ArgumentErr() << "For BAND_N only corrections for TDI = 10 "
-                      << "are implemented.\n" );
-        } else if (opt.band == "BAND_N2") {
-          tdi = img.tdi_multi[7];
-          if (tdi != 24) 
-            vw_throw( ArgumentErr() << "For BAND_N2 only corrections for TDI = 24 "
-                      << "are implemented.\n" );
-        } else {
-          vw_throw( ArgumentErr() << "Corrections are implemented only for BAND_N and BAND_N2.\n" );
-        }
-
-        if (opt.dx == "" || opt.dy == "") {
-          vw_throw( ArgumentErr() << "For multispectral images must provide files with "
-                    << "per-column corrections in x and y.\n" );
-        }
       }
       
       det_pitch = geo.detector_pixel_pitch;
@@ -747,14 +796,10 @@ int main( int argc, char *argv[] ) {
 
     if (sat_id != "WV01" && sat_id != "WV02" && sat_id != "WV03") 
       vw_throw( ArgumentErr() << "Only WV01, WV02, and WV03 satellites are supported." );
-
-    if (per_column_correction && sat_id != "WV03")
-      vw_throw( ArgumentErr() << "Per column correction is supported only for WV03." );
     
-    if (sat_id == "WV03" && !per_column_correction)
-      vw_throw( ArgumentErr() << "For WV03 only externally-provided per-column "
-                << "correction is supported, specified with --dx and --dy." );
-
+    if ( (opt.dx != "" && opt.dy == "") || (opt.dx == "" && opt.dy != "") )
+      vw_throw( ArgumentErr() << "Only one of --dx and --dy was specified." );
+              
     bool is_wv01 = (sat_id == "WV01");
     bool is_forward = (scan_dir == "forward");
 
@@ -767,6 +812,11 @@ int main( int argc, char *argv[] ) {
                 << " bands. Use gdal_translate to pick the desired band.\n\n");
     
     DiskImageView<float> input_img(opt.image_file);
+    if (input_img.planes() != 1) 
+      vw_throw( ArgumentErr() << "Only single-band images are supported. "
+                << "For multispectral data, please extract first the desired "
+                << "band using gdal_translate per the documentation.\n");
+    
     bool has_nodata = false;
     double nodata = numeric_limits<double>::quiet_NaN();
     boost::shared_ptr<DiskImageResource> img_rsrc
@@ -791,14 +841,44 @@ int main( int argc, char *argv[] ) {
         corr_img = wv_correct(input_img, tdi, is_wv01, is_forward, pitch_ratio);
     } else {
       // Per column correction
-      std::cout << "Reading per column correction: " << opt.dx << ' ' << opt.dy << std::endl;
-      if (opt.dx == "" || opt.dy == "") {
-        vw_throw( ArgumentErr() << "Per-column correction was requested. "
-                  << "Please specify --dx and --dy.");
+      
+      if (band_id != "Multi" && (opt.dx == "" || opt.dy == "")) 
+        vw_throw( ArgumentErr() << "Per column corrections were not specified.\n" );
+      
+      if (band_id == "Multi" && (opt.dx == "" || opt.dy == "")) {
+        
+        if (opt.band <= 0 || opt.band > 8) 
+          vw_throw( ArgumentErr() << "For multispectral images, the band must "
+                    << "be between 1 and 8.\n" );
+        
+        tdi = img.tdi_multi[opt.band - 1];
+        parse_ms_correction_table(sat_id, opt.band, tdi, scan_dir,
+                                  // outputs
+                                  dx, dy);
+        
+        
+        if (dx.size() == 0 || dy.size() == 0)
+          vw_out(WarningMessage)
+            << "wv_correct: Corrections not implemented for satellite "
+            << sat_id << " for TDI " << tdi << ", band " << opt.band << ", "
+            << "and scan direction " << scan_dir << "."
+            << " A copy of the input image will be created." << std::endl;
+        
+      } else {
+        vw_out() << "Reading per column corrections from: "
+                  << opt.dx << ' ' << opt.dy << std::endl;
+        asp::read_vec(opt.dx, dx);
+        asp::read_vec(opt.dy, dy);
       }
       
-      asp::read_vec(opt.dx, dx);
-      asp::read_vec(opt.dy, dy);
+      if (opt.print_per_column_corrections) {
+        vw_out() << "Printing the x and y corrections as two columns." << std::endl;
+        vw_out().precision(17);
+        for (size_t it = 0; it < dx.size(); it++) {
+          vw_out() << dx[it] << ' ' << dy[it] << std::endl;
+        }
+      }
+      
       if (has_nodata) 
         corr_img = apply_mask(wv_correct(create_mask(input_img, nodata), dx, dy), nodata);
       else

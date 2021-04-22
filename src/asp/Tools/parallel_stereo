@@ -819,6 +819,10 @@ if __name__ == '__main__':
             if ( opt.stop_point <= step ):
                 sys.exit()
 
+            # This can be a stray option if reading the command from a log file
+            # for low-res disparity computation
+            wipe_option(args, '--compute-low-res-disparity-only', 0)
+
             # Do low-res correlation, this happens just once.
             calc_lowres_disp(args, opt, sep)
 

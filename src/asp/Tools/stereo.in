@@ -143,6 +143,10 @@ if __name__ == '__main__':
         if (opt.entry_point <= step):
             if ( opt.stop_point <= step ): sys.exit()
 
+            # This can be a stray option if reading the command from a log file
+            # for low-res disparity computation
+            wipe_option(args, '--compute-low-res-disparity-only', 0)
+            
             if ( opt.seed_mode == 0 ):
                 # No low resolution seed, go straight to full resolution correlation
                 stereo_run('stereo_corr', args, opt, msg='%d: Correlation' % step)           

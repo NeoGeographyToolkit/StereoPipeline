@@ -1,0 +1,22 @@
+# ASP implements CCD artifacts correction only for a handful of bands
+# for a few TDI and scan directions for certain Digital Globe
+# satellite multispectral images. The corrections are stored as rows
+# in a set of .TIF images. This lookup table shows for each TDI and
+# scan direction which row of which TIF correction image has the
+# corrections.
+
+# Multiple such images are allowed, though only one exists so far.
+
+# This lookup table is read at run-time by wv_correct and is
+# distributed with ASP, together with the correction image.
+
+# SATID BAND TDI SCANDIR  CORRECTION_IMAGE          ROW 
+                                              
+  WV02   3   10  reverse  WV02_BAND3_CCD_CORR.tif    0  
+  WV02   3   14  reverse  WV02_BAND3_CCD_CORR.tif    1  
+  WV02   3   24  reverse  WV02_BAND3_CCD_CORR.tif    2
+
+  WV02   3   10  forward  WV02_BAND3_CCD_CORR.tif    3  
+  WV02   3   14  forward  WV02_BAND3_CCD_CORR.tif    4  
+  WV02   3   18  forward  WV02_BAND3_CCD_CORR.tif    5  
+  WV02   3   24  forward  WV02_BAND3_CCD_CORR.tif    6  

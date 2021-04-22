@@ -43,3 +43,8 @@ install(FILES "README.rst" DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(FILES "stereo.default.example" DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(FILES "THIRDPARTYLICENSES.rst" DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(DIRECTORY "examples" DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+# Make a directory for wv_correct data and copy that data to it
+install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/share/wv_correct)
+install(FILES "src/asp/WVCorrect/ms_correction_lookup.txt" DESTINATION ${CMAKE_INSTALL_PREFIX}/share/wv_correct)
+install(FILES "src/asp/WVCorrect/WV02_BAND3_CCD_CORR.tif" DESTINATION ${CMAKE_INSTALL_PREFIX}/share/wv_correct)

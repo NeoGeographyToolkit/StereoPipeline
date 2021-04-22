@@ -50,7 +50,8 @@ void find_points_at_shape_corners(bool use_proj_water_surface,
                                   ImageViewRef< PixelMask<float> > interp_dem,
                                   std::vector<Eigen::Vector3d> & point_vec,
                                   std::vector<vw::Vector2> & used_shape_vertices,
-                                  double & proj_lat, double & proj_lon) {
+                                  double & proj_lat, double & proj_lon,
+                                  vw::cartography::GeoReference & stereographic_georef) {
   
   // Ensure that the outputs are initialized
   point_vec.clear();
@@ -122,7 +123,6 @@ void find_points_at_shape_corners(bool use_proj_water_surface,
       vw_throw( ArgumentErr() << "Only an input DEM with the WGS_1984 datum is supported.\n"
                 << "Got: " << dem_georef.datum().name() << ".\n");
 
-    vw::cartography::GeoReference stereographic_georef;
     vw::cartography::Datum datum("WGS_1984");
     stereographic_georef.set_datum(datum);
     double scale = 1.0;
@@ -259,7 +259,7 @@ struct BestFitPlaneErrorMetric {
 
 
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string shapefile, dem, bathy_plane, output_inlier_shapefile;
+  std::string shapefile, dem, bathy_plane, output_inlier_shapefile, dem_minus_plane;
   double outlier_threshold;
   int num_ransac_iterations;
   bool use_ecef_water_surface;
@@ -287,6 +287,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Number of RANSAC iterations to use to find the best-fitting plane.")
     ("output-inlier-shapefile", po::value(&opt.output_inlier_shapefile)->default_value(""),
      "If specified, save at this location the shape file with the inlier vertices.")
+    ("dem-minus-plane",
+     po::value(&opt.dem_minus_plane),
+     "If specified, subtract from the input DEM the best-fit plane and save the "
+     "obtained DEM to this location.")
     ("use-ecef-water-surface",
      po::bool_switch(&opt.use_ecef_water_surface)->default_value(false),
      "Compute the best fit plane in ECEF coordinates rather than in a local stereographic "
@@ -318,31 +322,37 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << usage << general_options );
 }
 
-# if 0
 // This was not updated for a curved bathy plane.
 
 // Given a DEM surface and a planar surface (with potentially some
 // inclination) subtract from each DEM height the height at that
 // plane. The height of the plane is obtained by considering the
 // current DEM grid point, and another point at same lon-lat but with
-// a height 100 meters less, converting these to ECEF, tracing a ray
+// a height 100 meters less, converting these to the given projection
+// (if m_use_proj_water_surface is true or to ECEF otherwise), tracing a ray
 // through them, seeing where it intersects the plane, converting that
-// xyz point to geodetic, and taking the height difference.
+// point to geodetic, and taking the height difference.
 class DemMinusPlaneView: public ImageViewBase<DemMinusPlaneView>{
   ImageViewRef<float> m_dem;
   vw::cartography::GeoReference m_dem_georef;
   vw::Matrix<double> m_plane;
   double m_dem_nodata_val;
-  
+  bool m_use_proj_water_surface;
+  vw::cartography::GeoReference m_stereographic_georef;
+
   typedef float PixelT;
 
 public:
   DemMinusPlaneView(ImageViewRef<float> const& dem,
                     vw::cartography::GeoReference const& dem_georef,
-                    vw::Matrix<double> plane, 
-                    double dem_nodata_val):
+                    vw::Matrix<double> const& plane, 
+                    double dem_nodata_val,
+                    bool use_proj_water_surface,
+                    vw::cartography::GeoReference const& stereographic_georef): 
     m_dem(dem), m_dem_georef(dem_georef), m_plane(plane), 
-    m_dem_nodata_val(dem_nodata_val){}
+    m_dem_nodata_val(dem_nodata_val),
+    m_use_proj_water_surface(use_proj_water_surface),
+    m_stereographic_georef(stereographic_georef){}
   
   typedef PixelT pixel_type;
   typedef PixelT result_type;
@@ -384,27 +394,39 @@ public:
         subvector(llh, 0, 2) = lon_lat;
         llh[2] = cropped_dem(col, row);
 
-        // The DEM point in ECEF
-        // fix here!
-        Vector3 xyz1 = m_dem_georef.datum().geodetic_to_cartesian(llh);
+        // Find the DEM point in local projection or ECEF.
+        // Find another point on the same ray.
+        Vector3 point1, point2;
 
-        // A point at different height but same lon and lat
-        llh[2] -= 100.0;
-        Vector3 xyz2 = m_dem_georef.datum().geodetic_to_cartesian(llh);
+        if (m_use_proj_water_surface) {
+          point1 = m_stereographic_georef.geodetic_to_point(llh);
+          llh[2] -= 100.0;
+          point2 = m_stereographic_georef.geodetic_to_point(llh);
+        } else {
+          point1 = m_dem_georef.datum().geodetic_to_cartesian(llh);
+          llh[2] -= 100.0;
+          point2 = m_dem_georef.datum().geodetic_to_cartesian(llh);
+        }
 
-        // The ray is P = xyz1 + t * (xyz2 - xyz1), where t is real.
+        // The ray is P = point1 + t * (point2 - point1), where t is real.
         // The plane is a*x + b*y + c*z + d = 0, where plane = (a, b, c, d).
         // Then, dot(P, plane_normal) + plane_intercept = 0.
         // Use that to find t.
         Vector3 plane_normal(m_plane(0, 0), m_plane(0, 1), m_plane(0, 2));
         double plane_intercept = m_plane(0, 3);
 
-        double t = -(dot_prod(xyz1, plane_normal) + plane_intercept) /
-          dot_prod(xyz2 - xyz1, plane_normal);
+        double t = -(dot_prod(point1, plane_normal) + plane_intercept) /
+          dot_prod(point2 - point1, plane_normal);
 
-        Vector3 P = xyz1 + t * (xyz2 - xyz1);
-        llh = m_dem_georef.datum().cartesian_to_geodetic(P);
+        Vector3 P = point1 + t * (point2 - point1);
 
+        // Go back to llh
+        if (m_use_proj_water_surface) {
+          llh = m_stereographic_georef.point_to_geodetic(P);
+        } else{ 
+          llh = m_dem_georef.datum().cartesian_to_geodetic(P);
+        }
+        
         tile(col, row) = cropped_dem(col, row) - llh[2];
       }
     }
@@ -422,11 +444,12 @@ public:
 DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
                                   vw::cartography::GeoReference const& dem_georef,
                                   vw::Matrix<double> plane, 
-                                  double dem_nodata_val){
-  return DemMinusPlaneView(dem, dem_georef, plane, dem_nodata_val);
+                                  double dem_nodata_val,
+                                  bool use_proj_water_surface,
+                                  vw::cartography::GeoReference const& stereographic_georef) {
+  return DemMinusPlaneView(dem, dem_georef, plane, dem_nodata_val,
+                           use_proj_water_surface, stereographic_georef);
 }
-
-#endif
 
 int main( int argc, char *argv[] ) {
 
@@ -468,9 +491,11 @@ int main( int argc, char *argv[] ) {
     std::vector<Eigen::Vector3d> point_vec;
     std::vector<vw::Vector2> used_shape_vertices;
     double proj_lat, proj_lon; // only for curved water surface
+    vw::cartography::GeoReference stereographic_georef;
     find_points_at_shape_corners(use_proj_water_surface,
                                  polyVec, shape_georef, dem_georef, interp_dem, point_vec,
-                                 used_shape_vertices, proj_lat, proj_lon);
+                                 used_shape_vertices, proj_lat, proj_lon,
+                                 stereographic_georef);
 
     // Compute the water surface using RANSAC
     std::vector<Eigen::Vector3d> dummy_vec(point_vec.size()); // Required by the interface
@@ -579,6 +604,17 @@ int main( int argc, char *argv[] ) {
       std::cout << "Writing inlier shapefile: " << opt.output_inlier_shapefile << std::endl;
       write_shapefile(opt.output_inlier_shapefile, has_shape_georef, shape_georef,
                       inlierPolyVec);
+    }
+
+    if (opt.dem_minus_plane != "") {
+      bool has_nodata = true, has_georef = true;
+      vw_out() << "Writing: " << opt.dem_minus_plane << std::endl;
+      TerminalProgressCallback tpc("asp", ": ");
+      block_write_gdal_image(opt.dem_minus_plane,
+                             dem_minus_plane(dem, dem_georef, plane,
+                                             dem_nodata_val, use_proj_water_surface,
+                                             stereographic_georef),
+                             has_georef, dem_georef, has_nodata, dem_nodata_val, opt, tpc);
     }
 
   } ASP_STANDARD_CATCHES;

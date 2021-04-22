@@ -40,6 +40,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string disparity, dx, dy;
   int beg_row, end_row;
   Vector2     remove_outliers_params;
+  bool        save_no_metadata;
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -47,7 +48,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   general_options.add_options()
     ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(95.0, 3.0), "pct factor"))
     ("beg-row",  po::value(&opt.beg_row)->default_value(-1), "Start averaging the disparity from this row.")
-    ("end-row",  po::value(&opt.end_row)->default_value(-1), "Stop the disparity before this row.");
+    ("end-row",  po::value(&opt.end_row)->default_value(-1), "Stop the disparity before this row.")
+    ("save-no-metadata", po::bool_switch(&opt.save_no_metadata)->default_value(false),
+     "Do not save in the output correction file the start and end image columns (not saving this makes processing easier).");
   
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
@@ -152,8 +155,10 @@ int main( int argc, char *argv[] ){
     std::ofstream dx(opt.dx.c_str());
     dx.precision(16);
     std::cout << "Writing: " << opt.dx << std::endl;
-    dx << col_start << std::endl;
-    dx << col_stop  << std::endl;
+    if (!opt.save_no_metadata) {
+      dx << col_start << std::endl;
+      dx << col_stop  << std::endl;
+    }
     for (int col = 0; col < cols; col++) 
       dx << Dx[col] << std::endl;
     dx.close();
@@ -162,8 +167,10 @@ int main( int argc, char *argv[] ){
     std::ofstream dy(opt.dy.c_str());
     dy.precision(16);
     std::cout << "Writing: " << opt.dy << std::endl;
-    dy << col_start << std::endl;
-    dy << col_stop  << std::endl;
+    if (!opt.save_no_metadata) {
+      dy << col_start << std::endl;
+      dy << col_stop  << std::endl;
+    }
     for (int col = 0; col < cols; col++) 
       dy << Dy[col] << std::endl;
     dy.close();
