@@ -7,6 +7,11 @@ New functionality:
     shallow water. To be used with dg, rpc, and nadirpinhole cameras.
   * Added two supporting tools for this: bathy_plane_calc and
     bathy_threshold_calc.py.
+  * Added CCD artifact corrections for a few WV02 band 3 multispectral
+    images. Apart from the systematic artifacts corrected by this
+    logic, these images have a high-frequency unique pattern, and also
+    jitter, which are not corrected for. Also added tools and
+    documentation to easily tabulate more multispectral bands and TDI.
 
 isis:
   * Upgrade to ISIS 4.4.0 and CSM 1.5.1.
