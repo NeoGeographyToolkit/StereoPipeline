@@ -1,6 +1,12 @@
-Here we describe how CCD artifacts in WorldView imagery are are
-tabulated and then corrected. This code needs more polishing,
-the goal for now is to have it documented and checked in.
+This document describes how corrections for CCD artifacts in PAN
+Digital Globe WorldView imagery (WV-1 and WV-2) are are tabulated.
+
+See README_MULTISPECTRAL for how the corrections to multispectral
+images are computed.
+
+These documents can be used if desired to compute new corrections.
+The existing corrections are already incorporated in the wv_correct
+program.
 
 Basic idea
 ----------
@@ -11,6 +17,14 @@ Average these over multiple runs. We get n Vector2 values (since each
 valid disparity pixel is a Vector2), where n is the image width. From
 these, we will extract the locations of CCD jumps and their values in
 x and in y. Those will be hard-coded in asp/Tools/wv_correct.cc.
+
+This text is applicable to WV01 and WV02. For WV03 see the text
+on top of ccd_solve.cc. Note that this directory contains
+the best corrections for WV03 TDI 32 reverse scan directions
+as wv03-tdi32-reverse-dx.txt wv03-tdi32-reverse-dy.txt 
+
+TODO(oalexan1): Move those corrections to here.
+TODO(oalexan1): Compute MS corrections for each TDI, scan direction, band, etc.
 
 Detailed instructions
 ---------------------

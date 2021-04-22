@@ -1,0 +1,186 @@
+# Overview
+
+This document describes how to tabulate subpixel corrections to apply
+to Digital Globe multispectral images to reduce the CCD artifacts in
+these images. See the manual page of wv_correct which shows how these
+corrections are applied. So far, corrections have been tabulated only
+for a very small number of possible scenarios.
+
+Digital Globe has several satellites, for example WorldView-1 to
+4. Each satellite collected multispectral data either in the forward
+or reverse scan direction. For each of these, data is accumulated with
+a certain TDI (time-delay integration), and has 8 bands.
+
+A separate correction is needed for each satellite, scan direction,
+TDI, and band, which results in a lot of cases to consider. It is
+suggested to have several datasets for each case, process them
+individually, compare them, and average them.
+
+This tool does not correct jitter or other high-frequency artifacts.
+
+# Preliminaries
+
+Checkout the ASP source code. Below we will assume it is in 
+  
+  $HOME/StereoPipeline
+
+Get a binary version of ASP and prepend the path to its ``bin`` directory
+to PATH.
+
+Create a conda environment having numpy, gdal, and matplotlib. Ensure that
+when running python the verssion provided by this environment is invoked.
+
+# Computing the corrections
+
+Given a PAN image and camera, p.tif and p.xml, and an 8-band
+multispectral image and camera, ms.tif and ms.xml, the first step is
+to apply the CCD artifact correction to the PAN image, which can go as
+follows:
+
+  gdal_translate -co TILED=YES -co COMPRESS=LZW -co BIGTIFF=IF_SAFER \
+    p.tif p_block.tif
+  wv_correct p_block.tif p.xml p_corr.tif
+
+Here, the first step rewrites the image to store it in small blocks
+(tiles) to speed up wv_correct.
+
+Next, the corrected PAN image is used as reference, the disparity from
+the PAN image rescaled by a factor of 4 to a given band of the
+multispectral image, every column of this disparity is averaged,
+producing two arrays of corrections of whose length is the image width
+(one array for the x component of the disparity and one for the y
+component).
+
+This is accomplished as follows:
+
+  band=3
+  crop_win="0 0 100000 100000"
+  ASP_PATH=$HOME/StereoPipeline 
+  $ASP_PATH/src/asp/WVCorrect/ms_ccd_solve.sh \
+    p_corr.tif m.tif p.xml m.xml $band run/run "$crop_win"
+
+Here we desire to tabulate band 3 (Green), the crop window was chosen
+big enough to contain the whole image (smaller windows may be useful
+for testing), and we invoked a script from ASP's source directory,
+which will in turn call some other scripts from that directory as well
+as ASP binaries.
+
+The result of this script will be the averaged disparities:
+
+   run/run-avg-dx.txt
+   run/run-avg-dy.txt
+
+and the corrections computed based on these disparities:
+
+  run/run-corr-dx.txt
+  run/run-corr-dy.txt
+
+The latter can be plotted as follows:
+
+  python $ASP_PATH/src/asp/WVCorrect/ccd_process.py --plot-only \
+    run/run-corr-dx.txt
+
+(The dy.txt correction need not be specified, it will be loaded
+automatically.)
+
+The script will also produced colorized disparities (in x and y)
+from the PAN image to the MS image, in which the CCD artifacts
+will be very obvious. They can be visualized as:
+
+  stereo_gui run/run-RD_b1_CMAP.tif run/run-RD_b2_CMAP.tif
+
+# Averaging the corrections
+
+If there exist several datasets for the same satellite, scan
+direction, TDI, and band, run the tool for each one, 
+with a separate output directory for each, called say 
+run1, run2, etc. 
+
+The obtained corrections can be visualized together as:
+
+  python $ASP_PATH/src/asp/WVCorrect/ccd_process.py --plot-only \
+    run*/run-corr-dx.txt
+
+To compute a combined correction, by averaraging, start with
+the earlier averaged disparity. Run:
+
+  python $ASP_PATH/src/asp/WVCorrect/ccd_process.py \
+    run*/run-avg-dx.txt --output-prefix combined
+
+One has to be careful to not combine results from different
+TDI, scan directions, etc.
+
+# Verifying the corrections
+
+To verify how the obtained corrections improve the results, do 
+
+  band=3
+  crop_win="0 0 100000 100000"
+  ASP_PATH=$HOME/StereoPipeline 
+  $ASP_PATH/src/asp/WVCorrect/ms_ccd_verify.sh                   \
+    p_corr.tif m.tif p.xml m.xml $band run_verif/run "$crop_win" \
+    combined-dx.txt
+
+Notice how this tool is called exactly as the earlier shell script,
+but with a different output directory and the last argument having the
+obtained correction in x (the one in y will be read automatially).
+
+It is very instructive to compare the colormaps obtained earlier from
+the ones after this step.
+
+# Shipping the corrections
+
+To reduce the storage space and improve the organization, the obtained
+corrections can be combined into a single TIF image which then should
+be shipped with ASP. This is accomplished as follows.
+
+Assume for the sake of argument that two corrections were found each
+for a certain combination of satellite, TDI, etc., and they are named
+corr1-dx.txt and corr2-dx.txt (with corresponding dy corrections as
+well).
+
+The TIF image is obtained as follows:
+
+  python $ASP_PATH/src/asp/WVCorrect/form_corrections_image.py \
+    corr1-dx.txt corr2-dx.txt \
+    --output-image $ASP_PATH/src/asp/WVCorrect/WVxx_CCD_CORR.tif
+
+Then, edit the file
+
+  $ASP_PATH/src/asp/WVCorrect/ms_correction_lookup.txt
+
+and carefully add more lines to correspond to the corrections
+just added. As it can be seen in that file, multiple TIF
+files can be present having corrections, and given that a TIF file
+contains multiple corrections, one has to ensure to specify
+on which row of which TIF file the correction has to be found.
+
+Any time any changes are made, the file CMakeLists.txt in the
+StereoPipeline directory must be edited and the new TIF image must be
+added. Even if no new such image is added, but any changes at all
+happened, it is very important to have the time of this CMakeLists.txt
+file be updated with the touch command, then cmake, make, and make
+install must be re-run. This will ensure the modified files are
+re-installed.
+
+All the changes must be committed to the Git repository.
+
+After this, wv_correct (from the recently updated installation
+directory) can be run with the new corrections. Since the above process
+is error-prone, it is suggested to run wv_correct in two ways, first
+by explicitly providing the corrections, such as:
+
+  wv_correct --dx dx.txt --dy dy.txt --print-per-column-corrections\
+    image.tif image.xml image_corr1.tif
+
+and second time by having them read from the TIF image:
+
+  wv_correct --band 3 --print-per-column-corrections \
+    image.tif image.xml image_corr2.tif
+
+The flag --print-per-column-corrections will print the corrections
+about to apply. They must be the same in both case up to float
+precision. (Specify the correct band in the second call.)
+
+
+
