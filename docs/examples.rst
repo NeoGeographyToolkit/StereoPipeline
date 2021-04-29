@@ -2532,7 +2532,7 @@ Having these in place, stereo can then happen as follows:
 
     stereo -t dg left.tif right.tif left.xml right.xml                \
     --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
-    --refraction-index 1.333 --bathy-plane bathy_plane.txt            \
+    --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
     run_bathy/run 
     
     point2dem run_bathy/run-PC.tif --orthoimage run_bathy/run-L.tif 
@@ -2540,9 +2540,9 @@ Having these in place, stereo can then happen as follows:
 Note that we specified the two masks, the water index of refraction,
 and the water plane found before. 
 
-The water refraction index was set to 1.333
-:cite:`thormahlen1985refractive,harvey1998calibration`.
-Alternatively, one could use 1.34 :cite:`jerlov1976marine`, or a more
+The water refraction index was set 1.34 :cite:`jerlov1976marine`. 
+Alternatively, one could use 1.333 
+:cite:`thormahlen1985refractive,harvey1998calibration`, or a more
 precise value that depends on wavelength, temperature, and if having
 saltwater or freshwater (`Parrish (2020)
 <http://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_,
@@ -2605,7 +2605,7 @@ masks:
     stereo -t dg left_map.tif right_map.tif left.xml right.xml \
       --left-bathy-mask left_map_mask.tif                      \
       --right-bathy-mask right_map_mask.tif                    \
-      --refraction-index 1.333                                 \
+      --refraction-index 1.34                                  \
       --bathy-plane bathy_plane.txt                            \
       run_map/run external_dem.tif                       
 
