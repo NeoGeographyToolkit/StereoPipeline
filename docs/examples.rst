@@ -2548,7 +2548,7 @@ saltwater or freshwater (`Parrish (2020)
 <http://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_,
 :cite:`austin1976index,mobley1995optical`).  For example, using the
 equation and coefficients found in Parrish (2020), and the green
-wavelength for saltwater, the water refraction index is 1.395706 when
+wavelength for saltwater, the water refraction index is 1.340125 when
 the water temperature is 27 |deg| C (this was applied to a Florida
 Keys test site for the month of May).
 
