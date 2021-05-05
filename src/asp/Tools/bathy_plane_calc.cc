@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file bathy_correct.cc
+/// \file bathy_plane_calc.cc
 ///
 
 #include <asp/Core/PointUtils.h>
@@ -58,7 +58,8 @@ void find_points_at_shape_corners(bool use_proj_water_surface,
   used_shape_vertices.clear();
   proj_lat = -1.0;
   proj_lon = -1.0;
-  
+
+  int total_num_pts = 0;
   std::vector<vw::Vector3> llh_vec;
   
   for (size_t p = 0; p < polyVec.size(); p++){
@@ -77,6 +78,8 @@ void find_points_at_shape_corners(bool use_proj_water_surface,
       int numV = numVerts[pIter];
       for (int vIter = 0; vIter < numV; vIter++) {
 
+        total_num_pts++;
+        
         Vector2 proj_pt(xv[start + vIter], yv[start + vIter]);
 
         // Convert from projected coordinates to lonlat
@@ -107,6 +110,9 @@ void find_points_at_shape_corners(bool use_proj_water_surface,
     }
   }
 
+  std::cout << "Read " << total_num_pts << " vertices, with " << llh_vec.size()
+            << " of them having a valid DEM height value."  << std::endl;
+  
   // See if to convert to local stereographic projection
   if (use_proj_water_surface) {
 
@@ -120,7 +126,8 @@ void find_points_at_shape_corners(bool use_proj_water_surface,
     // ASP is having a hard time with saving and reading a georef as a wkt string
     // So be conservative and use a WGS_1984 datum only with given lat and lon.
     if (dem_georef.datum().name() != "WGS_1984")
-      vw_throw( ArgumentErr() << "Only an input DEM with the WGS_1984 datum is supported.\n"
+      vw_throw( ArgumentErr() << "Only an input DEM with the "
+                << "WGS_1984 datum is supported.\n"
                 << "Got: " << dem_georef.datum().name() << ".\n");
 
     vw::cartography::Datum datum("WGS_1984");
@@ -466,6 +473,7 @@ int main( int argc, char *argv[] ) {
     std::string poly_color;
     vw::cartography::GeoReference shape_georef;
     read_shapefile(opt.shapefile, poly_color, has_shape_georef, shape_georef, polyVec);
+    
     if (!has_shape_georef) 
       vw_throw( ArgumentErr() << "The input shapefile has no georeference.\n" );
 
@@ -475,7 +483,8 @@ int main( int argc, char *argv[] ) {
     vw::cartography::GeoReference dem_georef;
     if (!read_georeference(dem_georef, opt.dem))
       vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
-    double dem_nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
+    // Note we use a float nodata
+    double dem_nodata_val = -std::numeric_limits<float>::max();
     if (!vw::read_nodata_val(opt.dem, dem_nodata_val))
       std::cout << "Warning: Could not read the DEM nodata value. "
                 << "Using: " << dem_nodata_val << ".\n";
@@ -524,16 +533,17 @@ int main( int argc, char *argv[] ) {
     std::cout << "Found " << inlier_indices.size() << " / " << point_vec.size() << " inliers.\n";
     
     double max_error = - 1.0, max_inlier_error = -1.0;
-    for (size_t it = 0; it < point_vec.size(); it++) 
+    for (size_t it = 0; it < point_vec.size(); it++) {
       max_error = std::max(max_error, dist_to_plane(plane, point_vec[it]));
-
+    }
+    
     // Do estimates for the mean height and angle of the plane
     Vector3 mean_point(0, 0, 0);
     double mean_height = 0.0;
     int num = 0;
     for (size_t it = 0; it < inlier_indices.size(); it++) {
       Eigen::Vector3d p = point_vec[inlier_indices[it]];
-      Vector3 point(p[0], p[1], p[2]); 
+      Vector3 point(p[0], p[1], p[2]);
       max_inlier_error = std::max(max_inlier_error, dist_to_plane(plane, point));
 
       if (!use_proj_water_surface) {
@@ -601,7 +611,7 @@ int main( int argc, char *argv[] ) {
                             isPolyClosed, poly_color, layer);
       std::vector<vw::geometry::dPoly> inlierPolyVec;
       inlierPolyVec.push_back(inlierPoly);
-      std::cout << "Writing inlier shapefile: " << opt.output_inlier_shapefile << std::endl;
+      std::cout << "Writing inlier shapefile: " << opt.output_inlier_shapefile << "\n";
       write_shapefile(opt.output_inlier_shapefile, has_shape_georef, shape_georef,
                       inlierPolyVec);
     }
