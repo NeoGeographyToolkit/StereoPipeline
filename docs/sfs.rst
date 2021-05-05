@@ -217,32 +217,32 @@ was used.
 SfS with multiple images in the presence of shadows
 ---------------------------------------------------
 
-In this section we will run ``sfs`` with multiple images. We would like
-to be able to see if SfS improves the accuracy of the DEM rather than
-just adding detail to it. We evaluate this using the following
-(admittedly imperfect) approach. We resample the original images by a
-factor of 10, run stereo with them, followed by SfS using the stereo
-result as an initial guess and with the resampled images. As ground
-truth, we create a DEM from the original images at 1 meter/pixel, which
-we bring closer to the initial guess for SfS using ``pc_align``. We
-would like to know if running SfS brings us even closer to this “ground
-truth” DEM.
+In this section we will run ``sfs`` with multiple images. We would
+like to be able to see if SfS improves the accuracy of the DEM rather
+than just adding detail to it. We evaluate this using the following
+(admittedly imperfect) approach. We reduce the resolution of the
+original images by a factor of 10, run stereo with them, followed by
+SfS using the stereo result as an initial guess and with the resampled
+images. As ground truth, we create a DEM from the original images at
+the higher resolution of 1 meter/pixel, which we bring closer to the
+initial guess for SfS using ``pc_align``. We would like to know if
+running SfS brings us even closer to this “ground truth” DEM.
 
 The most significant challenge in running SfS with multiple images is
-that shape-from-shading is highly sensitive to errors in camera position
-and orientation. The ``sfs`` tool can improve these by floating them
-during optimization and by using a coarse-to-fine scheme, where the
-problem is first solved using subsampled images and terrain then it is
-successively refined.
+that shape-from-shading is highly sensitive to errors in camera
+position and orientation. It is suggested to bundle-adjust the cameras
+first (:numref:`bundle_adjust`). 
 
-Yet this process can be unreliable. It is suggested to bundle-adjust
-the cameras first (:numref:`bundle_adjust`). It is important to note
-that bundle adjustment may fail if the images have sufficiently
-different illumination, as it will not be able to find matches among
-images. A solution to this is discussed in :numref:`sfs-lola`, and it
-amounts to bridging the gap between images with dis-similar
-illumination with more images of intermediate illumination, and
-sorting those by Sun azimuth angle.
+It is important to note that bundle
+adjustment may fail if the images have sufficiently different
+illumination, as it will not be able to find matches among images. 
+A solution to this is discussed in :numref:`sfs-lola`, and it amounts to
+bridging the gap between images with dis-similar illumination with
+more images of intermediate illumination. It is suggested that these
+images be sorted by Sun azimuth angle, then they should be
+mapprojected, and visual inspection be used to verify that the
+illumination is changing gradually. The bundle adjustment program
+should be invoked with the images sorted this way.
 
 To make bundle adjustment and stereo faster, we first crop the images,
 such as shown below (the crop parameters can be determined via
@@ -375,28 +375,17 @@ Dealing with large camera errors and LOLA comparison
 
 SfS is very sensitive to errors in camera positions and orientations.
 These can be optimized as part of the problem, but if they are too far
-off, the solution will not be correct. In the previous section we used
-bundle adjustment to correct these errors, and then we passed the
-adjusted cameras to ``sfs``. However, bundle adjustment may fail,
-because of illumination differences.
+off, the solution will not be correct. As discussed earlier, bundle
+adjustment should be used to correct these errors, and if the images
+have different enough illumination that bundle adjustment fails, one
+should add new images with intermediate illumination conditions (while
+sorting the full set of images by azimuth angle and verifying visually
+by mapprojection the gradual change in illumination).
 
-The option ``-–coarse-levels int`` can be passed to ``sfs``, to solve
-for the terrain using a multi-resolution approach, first starting at a
-coarse level, where camera errors have less of an impact, and then
-jointly optimizing the cameras and the terrain at ever increasing levels
-of resolution. Yet, this may still fail if the terrain does not have
-large and pronounced features on the scale bigger than the errors in the
-cameras.
-
-The approach that we found to work all the time is to find interest
-points in the images, first automatically (by adding more images with
-intermediate illumination if the illumination between the given images
-is too different), and if that fails then manually, as the human eye
-is much more skilled at identifying a given landmark in multiple
-images, even when the lightning changes drastically. Picking about 4
-landmarks in each image (if doing it manually, which should be rarely
-necessary with enough data) is sufficient. Ideally they should be
-positioned far from each other, to improve the accuracy.
+As a fallback alternative, interest point matches among the images can
+be selected manually. Picking about 4 interest pints in each image may
+be sufficient. Ideally they should be positioned far from each other,
+to improve the accuracy.
 
 Below is one example of how we select interest points, run SfS, and then
 compare to LOLA, which is an independently acquired sparse dataset of 3D
