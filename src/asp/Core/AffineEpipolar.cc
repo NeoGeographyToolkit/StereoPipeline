@@ -17,10 +17,13 @@
 
 
 #include <asp/Core/AffineEpipolar.h>
+#include <asp/Core/OpenCVUtils.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Math/LinearAlgebra.h>
 #include <vw/InterestPoint/InterestData.h>
+
+#include <opencv2/calib3d.hpp>
 
 #include <vector>
 
@@ -30,15 +33,22 @@ namespace asp {
 
   // Solves for Affine Fundamental Matrix as per instructions in
   // Multiple View Geometry.
-  // TODO(oalexan1): Filter outliers here with RANSAC!
+  // Instead of this we'll use the analogous OpenCV function which
+  // can eliminate outliers.
   Matrix<double>
   linear_affine_fundamental_matrix(std::vector<ip::InterestPoint> const& ip1,
-                                   std::vector<ip::InterestPoint> const& ip2) {
+                                   std::vector<ip::InterestPoint> const& ip2,
+                                   std::vector<uchar> & inliers) {
 
+    // This function does not eliminate outliers, so all inputs are inliers
+    inliers.resize(ip1.size());
+    for (size_t it = 0; it < ip1.size(); it++) 
+      inliers[it] = 1;
+    
     // (i) Compute the centroid of X and delta X
     Matrix<double> delta_x(ip1.size(), 4);
     Vector4 mean_x;
-    for ( size_t i = 0; i < ip1.size(); i++) {
+    for (size_t i = 0; i < ip1.size(); i++) {
       delta_x(i, 0) = ip2[i].x;
       delta_x(i, 1) = ip2[i].y;
       delta_x(i, 2) = ip1[i].x;
@@ -64,39 +74,69 @@ namespace asp {
     return f;
   }
 
-  void solve_y_scaling(std::vector<ip::InterestPoint> const& ip1,
-                       std::vector<ip::InterestPoint> const& ip2,
-                       Matrix<double>& affine_left,
-                       Matrix<double>& affine_right) {
+  void solve_y_scaling(std::vector<ip::InterestPoint> const & ip1,
+                       std::vector<ip::InterestPoint> const & ip2,
+                       std::vector<uchar>             const & inliers,
+                       Matrix<double>                       & affine_left,
+                       Matrix<double>                       & affine_right) {
+    
     Matrix<double> a(ip1.size(), 2);
     Vector<double> b(ip1.size());
+    int inlier_count = 0;
+
     for (size_t i = 0; i < ip1.size(); i++) {
-      select_row(a,i) = subvector(affine_right*Vector3(ip2[i].x,ip2[i].y,1),1,2);
-      b[i] = (affine_left*Vector3(ip1[i].x,ip1[i].y,1))(1);
+      if (inliers[i] == 0) 
+        continue;
+
+      select_row(a, inlier_count) = subvector(affine_right*Vector3(ip2[i].x, ip2[i].y, 1), 1, 2);
+      b[inlier_count]             = (affine_left*Vector3(ip1[i].x, ip1[i].y, 1))(1);
+
+      inlier_count++;
     }
+
+    // Resize to keep only the inliers
+    bool preserve = true; // keep existing values
+    a.set_size(inlier_count, a.cols(), preserve);
+    b.set_size(inlier_count, preserve);
+    
     Vector<double> scaling = least_squares(a, b);
     submatrix(affine_right,0,0,2,2) *= scaling[0];
     affine_right(1,2) = scaling[1];
   }
 
-  void solve_x_shear(std::vector<ip::InterestPoint> const& ip1,
-                     std::vector<ip::InterestPoint> const& ip2,
-                     Matrix<double>& affine_left,
-                     Matrix<double>& affine_right) {
+  void solve_x_shear(std::vector<ip::InterestPoint> const & ip1,
+                     std::vector<ip::InterestPoint> const & ip2,
+                     std::vector<uchar>             const & inliers,
+                     Matrix<double>                       & affine_left,
+                     Matrix<double>                       & affine_right) {
+    
     Matrix<double> a(ip1.size(), 3);
     Vector<double> b(ip1.size());
+    int inlier_count = 0;
+    
     for (size_t i = 0; i < ip1.size(); i++) {
-      select_row(a,i) = affine_right * Vector3(ip2[i].x,ip2[i].y,1);
-      b[i] = (affine_left*Vector3(ip1[i].x,ip1[i].y,1))(0);
+      
+      if (inliers[i] == 0) 
+        continue;
+      
+      select_row(a, inlier_count) = affine_right * Vector3(ip2[i].x, ip2[i].y, 1);
+      b[inlier_count] = (affine_left * Vector3(ip1[i].x, ip1[i].y, 1))(0);
+      inlier_count++;
     }
+
+    // Resize to keep only the inliers
+    bool preserve = true; // keep existing values
+    a.set_size(inlier_count, a.cols(), preserve);
+    b.set_size(inlier_count, preserve);
+    
     Vector<double> shear = least_squares(a, b);
     Matrix<double> interm = math::identity_matrix<3>();
-    interm(0,1) = -shear[1] / 2.0;
+    interm(0, 1) = -shear[1] / 2.0;
     affine_left = interm * affine_left;
     interm = math::identity_matrix<3>();
-    interm(0,0) = shear[0];
-    interm(0,1) = shear[1] / 2.0;
-    interm(0,2) = shear[2];
+    interm(0, 0) = shear[0];
+    interm(0, 1) = shear[1] / 2.0;
+    interm(0, 2) = shear[2];
     affine_right = interm * affine_right;
   }
 
@@ -108,9 +148,39 @@ namespace asp {
                                 std::vector<ip::InterestPoint> const& ip2,
                                 Matrix<double>& left_matrix,
                                 Matrix<double>& right_matrix) {
-    // Create affine fundamental matrix
-    Matrix<double> fund = linear_affine_fundamental_matrix(ip1, ip2);
 
+    // This will be a vector of the same size as the input interest
+    // points.  For any index i, inliers[i] is positive only if
+    // ip1[i], ip2[i] is an inlier.
+    std::vector<uchar> inliers;
+
+    // Create affine fundamental matrix
+    Matrix<double> fund;
+
+    // This does not remove outliers
+    // fund = linear_affine_fundamental_matrix(ip1, ip2, inliers);
+
+    // Use the OpenCV approach with outlier removal
+    std::vector<cv::Point2f> left_points(ip1.size()), right_points(ip1.size());
+    for (size_t i = 0; i < ip1.size(); i++) {
+      left_points[i]  = cv::Point2f(ip1[i].x, ip1[i].y);
+      right_points[i] = cv::Point2f(ip2[i].x, ip2[i].y);
+    }
+    
+    inliers.resize(ip1.size());
+    
+    double ransacReprojThreshold = 3.0;
+    double confidence = 0.99;
+    int    maxIters = 10000;
+    int    method = CV_FM_LMEDS; // Does not need an outlier threshold, unlike RANSAC
+    //int  method = CV_FM_RANSAC;
+    
+    cv::Mat g = cv::findFundamentalMat(cv::Mat(left_points), cv::Mat(right_points),
+                                       inliers, ransacReprojThreshold,
+                                       confidence);
+    
+    fund = asp::cvMatToVwMat(g);
+    
     // Solve for rotation matrices
     double Hl = sqrt(fund(2,0)*fund(2,0) + fund(2,1)*fund(2,1));
     double Hr = sqrt(fund(0,2)*fund(0,2) + fund(1,2)*fund(1,2));
@@ -134,10 +204,10 @@ namespace asp {
     right_matrix(1,1) = epipole_prime[0]/Hr;
 
     // Solve for ideal scaling and translation
-    solve_y_scaling(ip1, ip2, left_matrix, right_matrix);
+    solve_y_scaling(ip1, ip2, inliers, left_matrix, right_matrix);
 
     // Solve for ideal shear, scale, and translation of X axis
-    solve_x_shear(ip1, ip2, left_matrix, right_matrix);
+    solve_x_shear(ip1, ip2, inliers, left_matrix, right_matrix);
 
     // Work out the ideal render size.
     BBox2i output_bbox, right_bbox;

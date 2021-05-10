@@ -85,6 +85,9 @@ Misc
  * Bug fix for the VisionWorkbench implementation of the
    Levenberg-Marquardt algorithm, it was giving up prematurely in
    challenging situations.
+ * Bugfix for affine epipolar alignment. Use the OpenCV function 
+   for finding the alignment matrix instead of the ASP one as OpenCV
+   can filter outliers which cause issues on rare occasions. 
  
 RELEASE 2.7.0, July 27, 2020
 ----------------------------
