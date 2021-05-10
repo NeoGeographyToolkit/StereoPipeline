@@ -50,7 +50,7 @@ refine_disparity(Image1T const& left_image,
     static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
 
   if ((stereo_settings().subpixel_mode == 0) || 
-      (stereo_settings().subpixel_mode > 6 )   ) {
+      (stereo_settings().subpixel_mode > 6)  ) {
     // Do nothing (includes SGM specific subpixel modes)
     if (verbose)
       vw_out() << "\t--> Skipping subpixel mode.\n";
@@ -73,10 +73,10 @@ refine_disparity(Image1T const& left_image,
     if (verbose)
       vw_out() << "\t--> Using parabola subpixel mode.\n";
 
-    refined_disp = parabola_subpixel( integer_disp,
+    refined_disp = parabola_subpixel(integer_disp,
                                       left_image, right_image,
                                       prefilter_mode, stereo_settings().slogW,
-                                      stereo_settings().subpixel_kernel );
+                                      stereo_settings().subpixel_kernel);
     
   } // End parabola cases
   if (stereo_settings().subpixel_mode == 2) {
@@ -85,11 +85,11 @@ refine_disparity(Image1T const& left_image,
       vw_out() << "\t--> Using affine adaptive subpixel mode\n";
 
     refined_disp =
-      bayes_em_subpixel( integer_disp,
+      bayes_em_subpixel(integer_disp,
                          left_image, right_image,
                          prefilter_mode, stereo_settings().slogW,
                          stereo_settings().subpixel_kernel,
-                         stereo_settings().subpixel_max_levels );
+                         stereo_settings().subpixel_max_levels);
 
   } // End Bayes EM cases
   if (stereo_settings().subpixel_mode == 3) {
@@ -98,11 +98,11 @@ refine_disparity(Image1T const& left_image,
       vw_out() << "\t--> Using affine subpixel mode\n";
 
     refined_disp =
-      affine_subpixel( integer_disp,
+      affine_subpixel(integer_disp,
                        left_image, right_image,
                        prefilter_mode, stereo_settings().slogW,
                        stereo_settings().subpixel_kernel,
-                       stereo_settings().subpixel_max_levels );
+                       stereo_settings().subpixel_max_levels);
 
   } // End Fast affine cases
   if (stereo_settings().subpixel_mode == 4) {
@@ -115,7 +115,7 @@ refine_disparity(Image1T const& left_image,
     stereo_settings().subpixel_max_levels = 0;
 
     refined_disp =
-      phase_subpixel( integer_disp,
+      phase_subpixel(integer_disp,
                       left_image, right_image,
                       prefilter_mode, stereo_settings().slogW,
                       stereo_settings().subpixel_kernel,
@@ -129,11 +129,11 @@ refine_disparity(Image1T const& left_image,
       vw_out() << "\t--> Using Lucas-Kanade subpixel mode\n";
 
     refined_disp =
-      lk_subpixel( integer_disp,
+      lk_subpixel(integer_disp,
                    left_image, right_image,
                    prefilter_mode, stereo_settings().slogW,
                    stereo_settings().subpixel_kernel,
-                   stereo_settings().subpixel_max_levels );
+                   stereo_settings().subpixel_max_levels);
 
   } // End Lucas-Kanade cases
   if (stereo_settings().subpixel_mode == 6) {
@@ -149,12 +149,13 @@ refine_disparity(Image1T const& left_image,
     EMCorrelator em_correlator(channels_to_planes(left_image),
                                channels_to_planes(right_image),
                                pixel_cast<PixelMask<Vector2f> >(integer_disp), -1);
-    em_correlator.set_em_iter_max   (stereo_settings().subpixel_em_iter       );
-    em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter   );
-    em_correlator.set_kernel_size   (stereo_settings().subpixel_kernel        );
+    em_correlator.set_em_iter_max   (stereo_settings().subpixel_em_iter      );
+    em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter  );
+    em_correlator.set_kernel_size   (stereo_settings().subpixel_kernel       );
     em_correlator.set_pyramid_levels(stereo_settings().subpixel_pyramid_levels);
 
-    DiskImageResourceOpenEXR em_disparity_map_rsrc(opt.out_prefix + "-F6.exr", em_correlator.format());
+    DiskImageResourceOpenEXR em_disparity_map_rsrc(opt.out_prefix + "-F6.exr",
+                                                   em_correlator.format());
 
     block_write_image(em_disparity_map_rsrc, em_correlator,
                       TerminalProgressCallback("asp", "\t--> EM Refinement :"));
@@ -178,7 +179,8 @@ refine_disparity(Image1T const& left_image,
   } // End EM subpixel cases 
   if ((stereo_settings().subpixel_mode < 0) || (stereo_settings().subpixel_mode > 5)){
     if (verbose) {
-      vw_out() << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << endl;
+      vw_out() << "\t--> Invalid subpixel mode selection: "
+               << stereo_settings().subpixel_mode << endl;
       vw_out() << "\t--> Doing nothing\n";
     }
   }
@@ -201,7 +203,7 @@ class PerTileRfne: public ImageViewBase<PerTileRfne<Image1T, Image2T, SeedDispT>
   Vector2              m_upscale_factor;
 
 public:
-  PerTileRfne( ImageViewBase<Image1T>   const& left_image,
+  PerTileRfne(ImageViewBase<Image1T>   const& left_image,
                ImageViewBase<Image2T>   const& right_image,
                ImageViewRef <uint8>     const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
@@ -210,7 +212,7 @@ public:
                ASPGlobalOptions const& opt):
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_right_mask(right_mask),
-    m_integer_disp( integer_disp.impl() ), m_sub_disp( sub_disp.impl() ),
+    m_integer_disp(integer_disp.impl()), m_sub_disp(sub_disp.impl()),
     m_local_hom(local_hom), m_opt(opt){
 
     m_upscale_factor = Vector2(double(m_left_image.impl().cols()) / m_sub_disp.cols(),
@@ -226,9 +228,9 @@ public:
   inline int32 rows  () const { return m_left_image.rows(); }
   inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()( double /*i*/, double /*j*/, int32 /*p*/ = 0 ) const {
+  inline pixel_type operator()(double /*i*/, double /*j*/, int32 /*p*/ = 0) const {
     vw_throw(NoImplErr() << "PerTileRfne::operator()(...) is not implemented");
     return pixel_type();
   }
@@ -242,15 +244,15 @@ public:
 
       int ts = ASPGlobalOptions::corr_tile_size();
       Matrix<double>  lowres_hom = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
-      Vector3 upscale( m_upscale_factor[0],     m_upscale_factor[1],     1 );
-      Vector3 dnscale( 1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1 );
+      Vector3 upscale(m_upscale_factor[0],     m_upscale_factor[1],     1);
+      Vector3 dnscale(1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1);
       Matrix<double>  fullres_hom = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
 
       // Must transform the right image by the local disparity
       // to be in the same conditions as for stereo correlation.
       typedef typename Image2T::pixel_type right_pix_type;
       ImageViewRef< PixelMask<right_pix_type> > right_trans_masked_img
-        = transform (copy_mask( m_right_image.impl(), create_mask(m_right_mask) ),
+        = transform (copy_mask(m_right_image.impl(), create_mask(m_right_mask)),
                      HomographyTransform(fullres_hom),
                      m_left_image.impl().cols(), m_left_image.impl().rows());
       ImageViewRef<right_pix_type> right_trans_img = apply_mask(right_trans_masked_img);
@@ -271,7 +273,7 @@ public:
     
     prerasterize_type disparity = prerasterize_type(tile_disparity,
                                                     -bbox.min().x(), -bbox.min().y(),
-                                                    cols(), rows() );
+                                                    cols(), rows());
     return disparity;
   }
 
@@ -283,7 +285,7 @@ public:
 
 template <class Image1T, class Image2T, class SeedDispT>
 PerTileRfne<Image1T, Image2T, SeedDispT>
-per_tile_rfne( ImageViewBase<Image1T  > const& left,
+per_tile_rfne(ImageViewBase<Image1T  > const& left,
                ImageViewBase<Image2T  > const& right,
                ImageViewRef<uint8     > const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
@@ -291,11 +293,11 @@ per_tile_rfne( ImageViewBase<Image1T  > const& left,
                ImageView<Matrix3x3    > const& local_hom,
                ASPGlobalOptions const& opt) {
   typedef PerTileRfne<Image1T, Image2T, SeedDispT> return_type;
-  return return_type( left.impl(), right.impl(), right_mask,
-                      integer_disp.impl(), sub_disp.impl(), local_hom, opt );
+  return return_type(left.impl(), right.impl(), right_mask,
+                      integer_disp.impl(), sub_disp.impl(), local_hom, opt);
 }
 
-void stereo_refinement( ASPGlobalOptions const& opt ) {
+void stereo_refinement(ASPGlobalOptions const& opt) {
 
   ImageViewRef<PixelGray<float>    > left_image, right_image;
   ImageViewRef<uint8               > left_mask,  right_mask;
@@ -308,9 +310,9 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
   string right_mask_file  = opt.out_prefix+"-rMask.tif";
 
   try {
-    left_image   = DiskImageView< PixelGray<float> >(left_image_file );
+    left_image   = DiskImageView< PixelGray<float> >(left_image_file);
     right_image  = DiskImageView< PixelGray<float> >(right_image_file);
-    left_mask    = DiskImageView<uint8>(left_mask_file );
+    left_mask    = DiskImageView<uint8>(left_mask_file);
     right_mask   = DiskImageView<uint8>(right_mask_file);
 
     // Read the correct type of correlation file (float for SGM/MGM, otherwise integer)
@@ -330,18 +332,18 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
         input_disp = DiskImageView< PixelMask<Vector2f> >(disp_file);
     }
 
-    if ( stereo_settings().seed_mode > 0 &&
-         stereo_settings().use_local_homography ){
+    if (stereo_settings().seed_mode > 0 &&
+         stereo_settings().use_local_homography){
       if (!load_sub_disp_image(opt.out_prefix+"-D_sub.tif", sub_disp))
-        vw_throw( ArgumentErr() << "D_sub file does not exist, cannot use local homography.\n");
+        vw_throw(ArgumentErr() << "D_sub file does not exist, cannot use local homography.\n");
 
       string local_hom_file = opt.out_prefix + "-local_hom.txt";
       read_local_homographies(local_hom_file, local_hom);
     }
 
   } catch (IOErr const& e) {
-    vw_throw( ArgumentErr() << "\nUnable to start at refinement stage -- could not read input files.\n" 
-                            << e.what() << "\nExiting.\n\n" );
+    vw_throw(ArgumentErr() << "\nUnable to start at refinement stage, could not read input files.\n" 
+                            << e.what() << "\nExiting.\n\n");
   }
 
   bool skip_img_norm = asp::skip_image_normalization(opt);
@@ -357,7 +359,7 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
     string left_stats_file  = opt.out_prefix+"-lStats.tif";
     string right_stats_file = opt.out_prefix+"-rStats.tif";
     vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << endl;
-    read_vector(left_stats,  left_stats_file );
+    read_vector(left_stats,  left_stats_file);
     read_vector(right_stats, right_stats_file);
     StereoSession::normalize_images(stereo_settings().force_use_entire_range,
                                     stereo_settings().individually_normalize,
@@ -390,7 +392,7 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
   vw::cartography::block_write_gdal_image(rd_file, refined_disp,
                               has_left_georef, left_georef,
                               has_nodata, nodata, opt,
-                              TerminalProgressCallback("asp", "\t--> Refinement :") );
+                              TerminalProgressCallback("asp", "\t--> Refinement :"));
 }
 
 int main(int argc, char* argv[]) {
@@ -417,7 +419,7 @@ int main(int argc, char* argv[]) {
 
     // Internal Processes
     //---------------------------------------------------------
-    stereo_refinement( opt );
+    stereo_refinement(opt);
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : REFINEMENT FINISHED \n";

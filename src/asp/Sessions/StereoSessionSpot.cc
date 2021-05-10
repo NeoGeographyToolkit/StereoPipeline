@@ -249,8 +249,6 @@ namespace asp {
   } // End function pre_preprocessing_hook
 
 
-
-
 bool StereoSessionSpot::
 unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & options,
                             std::string const             & left_input_file,
@@ -328,8 +326,6 @@ unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & opt
       vw_settings().reload_config();
     }
   } // End check for existing output files
-
-  
 
   // See if to crop the images
   if (crop_left) {

@@ -50,13 +50,14 @@ using namespace std;
 /// Returns the properly cast cost mode type
 stereo::CostFunctionType get_cost_mode_value() {
   switch(stereo_settings().cost_mode) {
-    case 0: return stereo::ABSOLUTE_DIFFERENCE;
-    case 1: return stereo::SQUARED_DIFFERENCE;
-    case 2: return stereo::CROSS_CORRELATION;
-    case 3: return stereo::CENSUS_TRANSFORM;
-    case 4: return stereo::TERNARY_CENSUS_TRANSFORM;
-    default: 
-      vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode << " for cost-mode.\n" );
+  case 0: return stereo::ABSOLUTE_DIFFERENCE;
+  case 1: return stereo::SQUARED_DIFFERENCE;
+  case 2: return stereo::CROSS_CORRELATION;
+  case 3: return stereo::CENSUS_TRANSFORM;
+  case 4: return stereo::TERNARY_CENSUS_TRANSFORM;
+  default: 
+    vw_throw(ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
+             << " for cost-mode.\n");
   };
 }
 
@@ -64,13 +65,13 @@ stereo::CostFunctionType get_cost_mode_value() {
 SemiGlobalMatcher::SgmSubpixelMode get_sgm_subpixel_mode() {
 
   switch(stereo_settings().subpixel_mode) {
-    case  7: return SemiGlobalMatcher::SUBPIXEL_NONE;
-    case  8: return SemiGlobalMatcher::SUBPIXEL_LINEAR;
-    case  9: return SemiGlobalMatcher::SUBPIXEL_POLY4;
-    case 10: return SemiGlobalMatcher::SUBPIXEL_COSINE;
-    case 11: return SemiGlobalMatcher::SUBPIXEL_PARABOLA;
-    case 12: return SemiGlobalMatcher::SUBPIXEL_LC_BLEND;
-    default: return SemiGlobalMatcher::SUBPIXEL_NONE; // This includes stereo_rfne subpixel modes
+  case  7: return SemiGlobalMatcher::SUBPIXEL_NONE;
+  case  8: return SemiGlobalMatcher::SUBPIXEL_LINEAR;
+  case  9: return SemiGlobalMatcher::SUBPIXEL_POLY4;
+  case 10: return SemiGlobalMatcher::SUBPIXEL_COSINE;
+  case 11: return SemiGlobalMatcher::SUBPIXEL_PARABOLA;
+  case 12: return SemiGlobalMatcher::SUBPIXEL_LC_BLEND;
+  default: return SemiGlobalMatcher::SUBPIXEL_NONE; // This includes stereo_rfne subpixel modes
   };
 }
 
@@ -82,10 +83,10 @@ void read_search_range_from_dsub(ASPGlobalOptions & opt){
     return;
 
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
-                           Rmask(opt.out_prefix + "-rMask.tif");
+    Rmask(opt.out_prefix + "-rMask.tif");
 
-  DiskImageView<PixelGray<float> > left_sub ( opt.out_prefix+"-L_sub.tif" ),
-                                   right_sub( opt.out_prefix+"-R_sub.tif" );
+  DiskImageView<PixelGray<float> > left_sub (opt.out_prefix+"-L_sub.tif"),
+    right_sub(opt.out_prefix+"-R_sub.tif");
 
   std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
 
@@ -96,10 +97,10 @@ void read_search_range_from_dsub(ASPGlobalOptions & opt){
       msg += " Perhaps one should disable --skip-low-res-disparity-comp.";
     vw_throw(ArgumentErr() << msg << "\n");
   }
-  Vector2 upsample_scale( double(Lmask.cols()) / double(sub_disp.cols()) ,
-                          double(Lmask.rows()) / double(sub_disp.rows()) );
+  Vector2 upsample_scale(double(Lmask.cols()) / double(sub_disp.cols()) ,
+                         double(Lmask.rows()) / double(sub_disp.rows()));
 
-  BBox2i search_range = stereo::get_disparity_range( sub_disp );
+  BBox2i search_range = stereo::get_disparity_range(sub_disp);
   search_range.min() = floor(elem_prod(search_range.min(),upsample_scale));
   search_range.max() = ceil (elem_prod(search_range.max(),upsample_scale));
   stereo_settings().search_range = search_range;
@@ -107,34 +108,32 @@ void read_search_range_from_dsub(ASPGlobalOptions & opt){
   vw_out() << "\t--> Read search range from D_sub: " << search_range << "\n";
 }
 
-
-
 /// Produces the low-resolution disparity file D_sub
-void produce_lowres_disparity( ASPGlobalOptions & opt ) {
+void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
   // Set up handles to read the input images
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
-                           Rmask(opt.out_prefix + "-rMask.tif");
+    Rmask(opt.out_prefix + "-rMask.tif");
 
-  DiskImageView<PixelGray<float> > left_sub ( opt.out_prefix+"-L_sub.tif" ),
-                                   right_sub( opt.out_prefix+"-R_sub.tif" );
+  DiskImageView<PixelGray<float> > left_sub (opt.out_prefix+"-L_sub.tif"),
+    right_sub(opt.out_prefix+"-R_sub.tif");
 
-  DiskImageView<uint8> left_mask_sub ( opt.out_prefix+"-lMask_sub.tif" ),
-                       right_mask_sub( opt.out_prefix+"-rMask_sub.tif" );
+  DiskImageView<uint8> left_mask_sub (opt.out_prefix+"-lMask_sub.tif"),
+    right_mask_sub(opt.out_prefix+"-rMask_sub.tif");
 
-  Vector2 downsample_scale( double(left_sub.cols()) / double(Lmask.cols()),
-                            double(left_sub.rows()) / double(Lmask.rows()) );
+  Vector2 downsample_scale(double(left_sub.cols()) / double(Lmask.cols()),
+                           double(left_sub.rows()) / double(Lmask.rows()));
   double mean_scale = (downsample_scale[0] + downsample_scale[1]) / 2.0;
 
   // Compute the initial search range in the subsampled image
-  BBox2i search_range( floor(elem_prod(downsample_scale,stereo_settings().search_range.min())),
-                       ceil (elem_prod(downsample_scale,stereo_settings().search_range.max())) );
+  BBox2i search_range(floor(elem_prod(downsample_scale,stereo_settings().search_range.min())),
+                      ceil (elem_prod(downsample_scale,stereo_settings().search_range.max())));
 
-  if ( stereo_settings().seed_mode == 1 ) {
+  if (stereo_settings().seed_mode == 1) {
 
     // Use low-res correlation to get the low-res disparity
-    Vector2i expansion( search_range.width(),
-                                          search_range.height() );
+    Vector2i expansion(search_range.width(),
+                       search_range.height());
     expansion *= stereo_settings().seed_percent_pad / 2.0f;
     // Expand by the user selected amount. Default is 25%.
     search_range.min() -= expansion;
@@ -152,100 +151,105 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     SemiGlobalMatcher::SgmSubpixelMode sgm_subpixel_mode = get_sgm_subpixel_mode();
     Vector2i sgm_search_buffer = stereo_settings().sgm_search_buffer;;
 
-    if (stereo_settings().rm_quantile_multiple <= 0.0)
-    {
+    if (stereo_settings().rm_quantile_multiple <= 0.0) {
       // If we can process the entire image in one tile, don't use a collar.
       int collar_size = stereo_settings().sgm_collar_size;
       if ((opt.raster_tile_size[0] > left_sub.cols()) &&
-          (opt.raster_tile_size[1] > left_sub.rows())   )
+          (opt.raster_tile_size[1] > left_sub.rows())  )
         collar_size = 0;
     
-      // Warning: A giant function call approaches!
-      // TODO: Why the extra filtering step here? PyramidCorrelationView already performs 1-3 iterations of outlier removal.
+      // TODO: Why the extra filtering step here? 
+      // PyramidCorrelationView already performs 1-3 iterations of
+      // outlier removal.
       std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
       vw_out() << "Writing: " << d_sub_file << std::endl;
-      vw::cartography::block_write_gdal_image( // Write to disk
-          d_sub_file,
-          rm_outliers_using_thresh( // Throw out individual pixels that are far from any neighbors
-              vw::stereo::pyramid_correlate( // Compute image correlation using the PyramidCorrelationView class
-                  left_sub, right_sub,
-                  left_mask_sub, right_mask_sub,
-                  vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
-                  search_range, kernel_size, cost_mode,
-                  corr_timeout, seconds_per_op,
-                  stereo_settings().xcorr_threshold, 
-                  stereo_settings().min_xcorr_level,
-                  rm_half_kernel,
-                  stereo_settings().corr_max_levels,
-                  static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm),
-                  collar_size, sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
-                  stereo_settings().corr_blob_filter_area*mean_scale,
-                  stereo_settings().stereo_debug
-              ),
-              // To do: all these hard-coded values must be replaced with
-              // appropriate params from user's stereo.default, for
-              // consistency with how disparity is filtered in stereo_fltr,
-              // when invoking disparity_cleanup_using_thresh.
-              1, 1, // in stereo.default we have 5 5
-              // Changing below the hard-coded value from 2.0 to using a
-              // param.  The default value will still be 2.0 but is now
-              // modifiable. Need to get rid of the 2.0/3.0 factor and
-              // study how it affects the result.
-              stereo_settings().rm_threshold*2.0/3.0,
-              // Another change of hard-coded value to param. Get rid of 0.5/0.6
-              // and study the effect.
-              (stereo_settings().rm_min_matches/100.0)*0.5/0.6
+      vw::cartography::block_write_gdal_image
+        (// Write to disk
+         d_sub_file,
+         rm_outliers_using_thresh
+         (// Throw out individual pixels that are far from any neighbors
+          vw::stereo::pyramid_correlate
+          (// Compute image correlation using the PyramidCorrelationView class
+           left_sub, right_sub,
+           left_mask_sub, right_mask_sub,
+           vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
+           search_range, kernel_size, cost_mode,
+           corr_timeout, seconds_per_op,
+           stereo_settings().xcorr_threshold, 
+           stereo_settings().min_xcorr_level,
+           rm_half_kernel,
+           stereo_settings().corr_max_levels,
+           static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm),
+           collar_size, sgm_subpixel_mode, sgm_search_buffer,
+           stereo_settings().corr_memory_limit_mb,
+           stereo_settings().corr_blob_filter_area*mean_scale,
+           stereo_settings().stereo_debug
+           ),
+          // To do: all these hard-coded values must be replaced with
+          // appropriate params from user's stereo.default, for
+          // consistency with how disparity is filtered in stereo_fltr,
+          // when invoking disparity_cleanup_using_thresh.
+          1, 1, // in stereo.default we have 5 5
+          // Changing below the hard-coded value from 2.0 to using a
+          // param.  The default value will still be 2.0 but is now
+          // modifiable. Need to get rid of the 2.0/3.0 factor and
+          // study how it affects the result.
+          stereo_settings().rm_threshold*2.0/3.0,
+          // Another change of hard-coded value to param. Get rid of 0.5/0.6
+          // and study the effect.
+          (stereo_settings().rm_min_matches/100.0)*0.5/0.6
           ), // End outlier removal arguments
-          opt,
-          TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
-      );
+         opt,
+         TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
+         );
       // End of giant function call block
     }
     else { // Use quantile based filtering - This filter needs to be profiled to improve its speed.
-    
+      
       // Compute image correlation using the PyramidCorrelationView class
-      ImageView< PixelMask<Vector2f> > disp_image = vw::stereo::pyramid_correlate( 
-                  left_sub, right_sub,
-                  left_mask_sub, right_mask_sub,
-                  vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
-                  search_range, kernel_size, cost_mode,
-                  corr_timeout, seconds_per_op,
-                  stereo_settings().xcorr_threshold, 
-                  stereo_settings().min_xcorr_level,
-                  rm_half_kernel,
-                  stereo_settings().corr_max_levels,
-                  static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
-                  0, // No collar here, the entire image is written at once.
-                  sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
-                  0, // Don't combine blob filtering with quantile filtering
-                  stereo_settings().stereo_debug
-              );
-
+      ImageView< PixelMask<Vector2f> > disp_image
+        = vw::stereo::pyramid_correlate
+        (left_sub, right_sub,
+         left_mask_sub, right_mask_sub,
+         vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
+         search_range, kernel_size, cost_mode,
+         corr_timeout, seconds_per_op,
+         stereo_settings().xcorr_threshold, 
+         stereo_settings().min_xcorr_level,
+         rm_half_kernel,
+         stereo_settings().corr_max_levels,
+         static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
+         0, // No collar here, the entire image is written at once.
+         sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
+         0, // Don't combine blob filtering with quantile filtering
+         stereo_settings().stereo_debug
+         );
+      
       std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
       vw_out() << "Writing: " << d_sub_file << std::endl;
-      vw::cartography::write_gdal_image( // Write to disk while removing outliers
-          d_sub_file,
-          rm_outliers_using_quantiles( // Throw out individual pixels that are far from any neighbors
-              disp_image,
-              stereo_settings().rm_quantile_percentile, stereo_settings().rm_quantile_multiple
-          ),
-          opt,
-          TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
-      );
+      vw::cartography::write_gdal_image
+        (// Write to disk while removing outliers
+         d_sub_file,
+         rm_outliers_using_quantiles
+         (// Throw out individual pixels that are far from any neighbors
+          disp_image,
+          stereo_settings().rm_quantile_percentile, stereo_settings().rm_quantile_multiple
+          ), opt,
+         TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
+         );
     }
-
-  }else if ( stereo_settings().seed_mode == 2 ) {
+    
+  } else if (stereo_settings().seed_mode == 2) {
     // Use a DEM to get the low-res disparity
     boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
     opt.session->camera_models(left_camera_model, right_camera_model);
     produce_dem_disparity(opt, left_camera_model, right_camera_model, opt.session->name());
-  }else if ( stereo_settings().seed_mode == 3 ) {
+  }else if (stereo_settings().seed_mode == 3) {
     // D_sub is already generated by now by sparse_disp
   }
 
   read_search_range_from_dsub(opt); // TODO: We already call this when needed!
 } // End produce_lowres_disparity
-
 
 /// Adjust IP lists if alignment matrices are present.
 double adjust_ip_for_align_matrix(std::string               const& out_prefix,
@@ -268,7 +272,7 @@ double adjust_ip_for_align_matrix(std::string               const& out_prefix,
     read_matrix(align_right_matrix, out_prefix + "-align-R.exr");
 
   // Loop through all the IP we found
-  for ( size_t i = 0; i < ip_left.size(); i++ ) {
+  for (size_t i = 0; i < ip_left.size(); i++) {
     // Apply the alignment transforms to the recorded IP
     Vector3 l = align_left_matrix  * Vector3(ip_left [i].x, ip_left [i].y, 1);
     Vector3 r = align_right_matrix * Vector3(ip_right[i].x, ip_right[i].y, 1);
@@ -302,10 +306,10 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
                                       std::string               const& match_file,
                                       vector<ip::InterestPoint>      & ip_left,
                                       vector<ip::InterestPoint>      & ip_right) {
-
-  bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
-                              ( opt.session->name() == "pinhole" ||
-                                opt.session->name() == "nadirpinhole") );
+  
+  bool usePinholeEpipolar = ((stereo_settings().alignment_method == "epipolar") &&
+                             (opt.session->name() == "pinhole" ||
+                              opt.session->name() == "nadirpinhole"));
   
   if (!usePinholeEpipolar) 
     return false;
@@ -314,8 +318,8 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
   //  or if the IP were found using one of the aligned images.
   const std::string sub_match_file     = opt.out_prefix + "-L_sub__R_sub.match";
   const std::string aligned_match_file = opt.out_prefix + "-L__R.match";
-  if ( (stereo_settings().alignment_method != "epipolar") ||
-       (match_file == sub_match_file) || (match_file == aligned_match_file) )
+  if ((stereo_settings().alignment_method != "epipolar") ||
+      (match_file == sub_match_file) || (match_file == aligned_match_file))
     return false;
 
   vw_out() << "Applying epipolar adjustment to input IP match file...\n";
@@ -329,7 +333,7 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
   pinPtr->pinhole_cam_trans(trans_left, trans_right);
 
   // Apply the transforms to all the IP we found
-  for ( size_t i = 0; i < ip_left.size(); i++ ) {
+  for (size_t i = 0; i < ip_left.size(); i++) {
 
     Vector2 ip_in_left (ip_left [i].x, ip_left [i].y);
     Vector2 ip_in_right(ip_right[i].x, ip_right[i].y);
@@ -398,8 +402,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
   // Make sure the match file is newer than these files
   std::vector<std::string> in_file_list;
-  in_file_list.push_back(opt.in_file1 );
-  in_file_list.push_back(opt.in_file2 );
+  in_file_list.push_back(opt.in_file1);
+  in_file_list.push_back(opt.in_file2);
   if (fs::exists(opt.cam_file1))
     in_file_list.push_back(opt.cam_file1);
   if (fs::exists(opt.cam_file2))
@@ -439,7 +443,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   Vector2i full_size     = file_image_size(left_image_path_full);
   bool     use_full_size = (((full_size[0] < SIZE_CUTOFF) && (full_size[1] < SIZE_CUTOFF))
                             || ((stereo_settings().alignment_method != "epipolar") &&
-                                (stereo_settings().alignment_method != "none"    )   ));
+                                (stereo_settings().alignment_method != "none"   )  ));
   // Other alignment methods find IP in the stereo_pprc phase using the full size.
 
   // Compute the scale.
@@ -448,10 +452,10 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     left_image_path  = left_image_path_sub;
     right_image_path = right_image_path_sub;
 
-    ip_scale = sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-L_sub.tif" )),
-                              Vector2(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
-               sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-R_sub.tif" )),
-                              Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
+    ip_scale = sum(elem_quot(Vector2(file_image_size(opt.out_prefix+"-L_sub.tif")),
+                             Vector2(file_image_size(opt.out_prefix+"-L.tif")))) +
+      sum(elem_quot(Vector2(file_image_size(opt.out_prefix+"-R_sub.tif")),
+                    Vector2(file_image_size(opt.out_prefix+"-R.tif"))));
     ip_scale /= 4.0f;
     match_filename = sub_match_file; // If not using full size we should expect this file
 
@@ -467,10 +471,10 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   vw_out() << "No IP file found, computing IP now.\n";
   
   // Load the images
-  boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path )),
-                                       right_rsrc(DiskImageResourcePtr(right_image_path));
+  boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path)),
+    right_rsrc(DiskImageResourcePtr(right_image_path));
 
-  std::string left_ip_filename  = ip::ip_filename(opt.out_prefix, left_image_path );
+  std::string left_ip_filename  = ip::ip_filename(opt.out_prefix, left_image_path);
   std::string right_ip_filename = ip::ip_filename(opt.out_prefix, right_image_path);
 
   // Read the no-data values written to disk previously when
@@ -492,7 +496,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   // - Some changes will be required for this to work in more general cases.
   bool success = false;
   if (use_full_size && opt.session->is_nadir_facing() && 
-      (stereo_settings().alignment_method == "epipolar") ) {
+      (stereo_settings().alignment_method == "epipolar")) {
 
     // Load camera models
     boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
@@ -576,19 +580,19 @@ BBox2i get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
   search_max = search_center + max_expand;
   Vector2i search_minI(floor(search_min[0]), floor(search_min[1])); // Round outwards
   Vector2i search_maxI(ceil (search_max[0]), ceil (search_max[1]));
-/*
-   // Debug code to print all the points
+  /*
+  // Debug code to print all the points
   for (size_t i = 0; i < matched_ip1.size(); i++) {
-    Vector2f diff(i_scale * (matched_ip2[i].x - matched_ip1[i].x), 
-                  i_scale * (matched_ip2[i].y - matched_ip1[i].y));
-    //Vector2f diff(matched_ip2[i].x - matched_ip1[i].x, 
-    //              matched_ip2[i].y - matched_ip1[i].y);
-    vw_out(InfoMessage,"asp") << matched_ip1[i].x <<", "<<matched_ip1[i].y 
-              << " <> " 
-              << matched_ip2[i].x <<", "<<matched_ip2[i].y 
-               << " DIFF " << diff << endl;
+  Vector2f diff(i_scale * (matched_ip2[i].x - matched_ip1[i].x), 
+  i_scale * (matched_ip2[i].y - matched_ip1[i].y));
+  //Vector2f diff(matched_ip2[i].x - matched_ip1[i].x, 
+  //              matched_ip2[i].y - matched_ip1[i].y);
+  vw_out(InfoMessage,"asp") << matched_ip1[i].x <<", "<<matched_ip1[i].y 
+  << " <> " 
+  << matched_ip2[i].x <<", "<<matched_ip2[i].y 
+  << " DIFF " << diff << endl;
   }
-*/
+  */
   
   //vw_out(InfoMessage,"asp") << "i_scale is : "       << i_scale << endl;
   
@@ -608,7 +612,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 
   // The interest points must have been created outside this function
   if (!fs::exists(match_filename))
-    vw_throw( ArgumentErr() << "Missing IP file: " << match_filename);
+    vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
 
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
   ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
@@ -653,8 +657,8 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   // Quit if we don't have the requested number of IP.
   if (static_cast<int>(num_left) < stereo_settings().min_num_ip)
     vw_throw(ArgumentErr() << "Number of IPs left after filtering is " << num_left
-                           << " which is less than the required amount of " 
-                           << stereo_settings().min_num_ip << ", aborting stereo_corr.\n");
+             << " which is less than the required amount of " 
+             << stereo_settings().min_num_ip << ", aborting stereo_corr.\n");
 
   // Find search window based on interest point matches
   size_t num_ip = matched_ip1.size();
@@ -666,7 +670,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   const double SMALL_NUM = -99999999;
   std::vector<double> dx, dy;
   double min_dx = BIG_NUM, max_dx = SMALL_NUM,
-         min_dy = BIG_NUM, max_dy = SMALL_NUM;
+    min_dy = BIG_NUM, max_dy = SMALL_NUM;
   for (size_t i = 0; i < num_ip; i++) {
     double diffX = i_scale * (matched_ip2[i].x - matched_ip1[i].x);
     double diffY = i_scale * (matched_ip2[i].y - matched_ip1[i].y);      
@@ -679,7 +683,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   }
 
   vw_out(InfoMessage,"asp") << "Initial search range: " 
-        << BBox2i(Vector2(min_dx,min_dy),Vector2(max_dx,max_dy)) << std::endl;
+                            << BBox2i(Vector2(min_dx,min_dy),Vector2(max_dx,max_dy)) << std::endl;
 
   const int MAX_SEARCH_WIDTH = 4000; // Try to avoid searching this width
   const int MIN_SEARCH_WIDTH = 200;  // Under this width don't filter IP.
@@ -754,9 +758,10 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 
 
 /// The first step of correlation computation.
-void lowres_correlation( ASPGlobalOptions & opt ) {
+void lowres_correlation(ASPGlobalOptions & opt) {
 
-  vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> LOW-RESOLUTION CORRELATION \n";
+  vw_out() << "\n[ " << current_posix_time_string()
+           << " ] : Stage 1 --> LOW-RESOLUTION CORRELATION \n";
 
   // Working out search range if need be
   if (stereo_settings().is_search_defined()) {
@@ -799,15 +804,16 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
 
   // If the user specified a search range limit, apply it here.
   if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
-      (stereo_settings().search_range_limit.max() != Vector2i())   ) {     
+      (stereo_settings().search_range_limit.max() != Vector2i())  ) {     
     stereo_settings().search_range.crop(stereo_settings().search_range_limit);
-    vw_out() << "\t--> Detected search range constrained to: " << stereo_settings().search_range << "\n";
+    vw_out() << "\t--> Detected search range constrained to: "
+             << stereo_settings().search_range << "\n";
   }
 
   // At this point stereo_settings().search_range is populated
 
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
-                           Rmask(opt.out_prefix + "-rMask.tif");
+    Rmask(opt.out_prefix + "-rMask.tif");
 
   // Performing disparity on sub images
   if (stereo_settings().seed_mode > 0) {
@@ -822,7 +828,7 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     
     // Also need to rebuild if the inputs changed after the mask files were produced.
     bool inputs_changed = (!is_latest_timestamp(sub_disp_file, opt.in_file1,  opt.in_file2,
-                                                               opt.cam_file1, opt.cam_file2));
+                                                opt.cam_file1, opt.cam_file2));
 
     bool rebuild = crop_left || crop_right || inputs_changed;
 
@@ -833,13 +839,13 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     } catch (vw::IOErr const& e) {
       vw_settings().reload_config();
       rebuild = true;
-    } catch (vw::ArgumentErr const& e ) {
+    } catch (vw::ArgumentErr const& e) {
       // Throws on a corrupted file.
       vw_settings().reload_config();
       rebuild = true;
     }
 
-    if ( rebuild )
+    if (rebuild)
       produce_lowres_disparity(opt); // Note: This does not always remake D_sub!
     else
       vw_out() << "\t--> Using cached low-resolution disparity: " << sub_disp_file << "\n";
@@ -856,7 +862,8 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     }
   }
 
-  vw_out() << "\n[ " << current_posix_time_string() << " ] : LOW-RESOLUTION CORRELATION FINISHED \n";
+  vw_out() << "\n[ " << current_posix_time_string()
+           << " ] : LOW-RESOLUTION CORRELATION FINISHED \n";
 } // End lowres_correlation
 
 /// This correlator takes a low resolution disparity image as an input
@@ -887,16 +894,16 @@ public:
   typedef ImageViewRef<PixelMask<Vector2i> > SpreadImageType;
   typedef ImageType::pixel_type InputPixelType;
 
-  SeededCorrelatorView( ImageType             const& left_image,
-                        ImageType             const& right_image,
-                        MaskType              const& left_mask,
-                        MaskType              const& right_mask,
-                        DispSeedImageType     const& sub_disp,
-                        SpreadImageType       const& sub_disp_spread,
-                        ImageView<Matrix3x3>  const& local_hom,
-                        Vector2i const& kernel_size,
-                        stereo::CostFunctionType cost_mode,
-                        int corr_timeout, double seconds_per_op) :
+  SeededCorrelatorView(ImageType             const& left_image,
+                       ImageType             const& right_image,
+                       MaskType              const& left_mask,
+                       MaskType              const& right_mask,
+                       DispSeedImageType     const& sub_disp,
+                       SpreadImageType       const& sub_disp_spread,
+                       ImageView<Matrix3x3>  const& local_hom,
+                       Vector2i const& kernel_size,
+                       stereo::CostFunctionType cost_mode,
+                       int corr_timeout, double seconds_per_op) :
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_left_mask (left_mask.impl ()), m_right_mask (right_mask.impl ()),
     m_sub_disp(sub_disp.impl()), m_sub_disp_spread(sub_disp_spread.impl()),
@@ -905,7 +912,7 @@ public:
     m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op){
     m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disp.cols();
     m_upscale_factor[1] = double(m_left_image.rows()) / m_sub_disp.rows();
-    m_seed_bbox = bounding_box( m_sub_disp );
+    m_seed_bbox = bounding_box(m_sub_disp);
   }
 
   // Image View interface
@@ -917,7 +924,7 @@ public:
   inline int32 rows  () const { return m_left_image.rows(); }
   inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
   inline pixel_type operator()(double /*i*/, double /*j*/, int32 /*p*/ = 0) const {
     vw_throw(NoImplErr() << "SeededCorrelatorView::operator()(...) is not implemented");
@@ -939,42 +946,42 @@ public:
 
     // User strategies
     BBox2f local_search_range;
-    if ( stereo_settings().seed_mode > 0 ) {
+    if (stereo_settings().seed_mode > 0) {
 
       // The low-res version of bbox
-      BBox2i seed_bbox( elem_quot(bbox.min(), m_upscale_factor),
-                        elem_quot(bbox.max(), m_upscale_factor) );
+      BBox2i seed_bbox(elem_quot(bbox.min(), m_upscale_factor),
+                       elem_quot(bbox.max(), m_upscale_factor));
       seed_bbox.expand(1);
-      seed_bbox.crop( m_seed_bbox );
+      seed_bbox.crop(m_seed_bbox);
       // Get the disparity range in d_sub corresponding to this tile.
       VW_OUT(DebugMessage, "stereo") << "\nGetting disparity range for : " << seed_bbox << "\n";
-      DispSeedImageType disparity_in_box = crop( m_sub_disp, seed_bbox );
+      DispSeedImageType disparity_in_box = crop(m_sub_disp, seed_bbox);
 
       if (!use_local_homography){
-        local_search_range = stereo::get_disparity_range( disparity_in_box );
+        local_search_range = stereo::get_disparity_range(disparity_in_box);
       }else{ // use local homography
         int ts = ASPGlobalOptions::corr_tile_size();
         lowres_hom = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
         local_search_range = stereo::get_disparity_range
           (transform_disparities(do_round, seed_bbox,
-           lowres_hom, disparity_in_box));
+                                 lowres_hom, disparity_in_box));
       }
 
-      bool has_sub_disp_spread = ( m_sub_disp_spread.cols() != 0 &&
-                                   m_sub_disp_spread.rows() != 0 );
+      bool has_sub_disp_spread = (m_sub_disp_spread.cols() != 0 &&
+                                  m_sub_disp_spread.rows() != 0);
       // Sanity check: If m_sub_disp_spread was provided, it better have the same size as sub_disp.
-      if ( has_sub_disp_spread &&
-           m_sub_disp_spread.cols() != m_sub_disp.cols() &&
-           m_sub_disp_spread.rows() != m_sub_disp.rows() ){
-        vw_throw( ArgumentErr() << "stereo_corr: D_sub and D_sub_spread must have equal sizes.\n");
+      if (has_sub_disp_spread &&
+          m_sub_disp_spread.cols() != m_sub_disp.cols() &&
+          m_sub_disp_spread.rows() != m_sub_disp.rows()){
+        vw_throw(ArgumentErr() << "stereo_corr: D_sub and D_sub_spread must have equal sizes.\n");
       }
 
       if (has_sub_disp_spread){
         // Expand the disparity range by m_sub_disp_spread.
-        SpreadImageType spread_in_box = crop( m_sub_disp_spread, seed_bbox );
+        SpreadImageType spread_in_box = crop(m_sub_disp_spread, seed_bbox);
 
         if (!use_local_homography){
-          BBox2f spread = stereo::get_disparity_range( spread_in_box );
+          BBox2f spread = stereo::get_disparity_range(spread_in_box);
           local_search_range.min() -= spread.max();
           local_search_range.max() += spread.max();
         }else{
@@ -991,16 +998,16 @@ public:
       } //endif has_sub_disp_spread
 
       if (use_local_homography){
-        Vector3 upscale(     m_upscale_factor[0],     m_upscale_factor[1], 1 );
-        Vector3 dnscale( 1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1 );
+        Vector3 upscale(    m_upscale_factor[0],     m_upscale_factor[1], 1);
+        Vector3 dnscale(1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1);
         fullres_hom = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
 
         ImageViewRef< PixelMask<InputPixelType> >
           right_trans_masked_img
-          = transform (copy_mask( m_right_image.impl(),
-                       create_mask(m_right_mask.impl()) ),
-                         HomographyTransform(fullres_hom),
-                         m_left_image.impl().cols(), m_left_image.impl().rows());
+          = transform (copy_mask(m_right_image.impl(),
+                                 create_mask(m_right_mask.impl())),
+                       HomographyTransform(fullres_hom),
+                       m_left_image.impl().cols(), m_left_image.impl().rows());
         right_trans_img  = apply_mask(right_trans_masked_img);
         right_trans_mask = channel_cast_rescale<uint8>(select_channel(right_trans_masked_img, 1));
       } //endif use_local_homography
@@ -1017,7 +1024,7 @@ public:
 
       // If the user specified a search range limit, apply it here.
       if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
-          (stereo_settings().search_range_limit.max() != Vector2i())   ) {     
+          (stereo_settings().search_range_limit.max() != Vector2i())  ) {     
         local_search_range.crop(stereo_settings().search_range_limit);
         vw_out() << "\t--> Local search range constrained to: " << local_search_range << "\n";
       }
@@ -1039,42 +1046,43 @@ public:
     const int rm_half_kernel = 5; // Filter kernel size used by CorrelationView
     if (use_local_homography){
       typedef vw::stereo::PyramidCorrelationView<ImageType, ImageViewRef<InputPixelType>, 
-                                                 MaskType,  ImageViewRef<vw::uint8     > > CorrView;
-      CorrView corr_view( m_left_image,   right_trans_img,
-                          m_left_mask,    right_trans_mask,
-                          static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
-                          stereo_settings().slogW,
-                          local_search_range,
-                          m_kernel_size,  m_cost_mode,
-                          m_corr_timeout, m_seconds_per_op,
-                          stereo_settings().xcorr_threshold,
-                          stereo_settings().min_xcorr_level,
-                          rm_half_kernel,
-                          stereo_settings().corr_max_levels,
-                          static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
-                          stereo_settings().sgm_collar_size,
-                          sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
-                          stereo_settings().corr_blob_filter_area,
-                          stereo_settings().stereo_debug );
+        MaskType,  ImageViewRef<vw::uint8     > > CorrView;
+      CorrView corr_view(m_left_image,   right_trans_img,
+                         m_left_mask,    right_trans_mask,
+                         static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
+                         stereo_settings().slogW,
+                         local_search_range,
+                         m_kernel_size,  m_cost_mode,
+                         m_corr_timeout, m_seconds_per_op,
+                         stereo_settings().xcorr_threshold,
+                         stereo_settings().min_xcorr_level,
+                         rm_half_kernel,
+                         stereo_settings().corr_max_levels,
+                         static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
+                         stereo_settings().sgm_collar_size,
+                         sgm_subpixel_mode, sgm_search_buffer,
+                         stereo_settings().corr_memory_limit_mb,
+                         stereo_settings().corr_blob_filter_area,
+                         stereo_settings().stereo_debug);
       return corr_view.prerasterize(bbox);
     }else{
       typedef vw::stereo::PyramidCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
-      CorrView corr_view( m_left_image,   m_right_image,
-                          m_left_mask,    m_right_mask,
-                          static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
-                          stereo_settings().slogW,
-                          local_search_range,
-                          m_kernel_size,  m_cost_mode,
-                          m_corr_timeout, m_seconds_per_op,
-                          stereo_settings().xcorr_threshold,
-                          stereo_settings().min_xcorr_level,
-                          rm_half_kernel,
-                          stereo_settings().corr_max_levels,
-                          static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
-                          stereo_settings().sgm_collar_size,
-                          sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
-                          stereo_settings().corr_blob_filter_area,
-                          stereo_settings().stereo_debug );
+      CorrView corr_view(m_left_image,   m_right_image,
+                         m_left_mask,    m_right_mask,
+                         static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
+                         stereo_settings().slogW,
+                         local_search_range,
+                         m_kernel_size,  m_cost_mode,
+                         m_corr_timeout, m_seconds_per_op,
+                         stereo_settings().xcorr_threshold,
+                         stereo_settings().min_xcorr_level,
+                         rm_half_kernel,
+                         stereo_settings().corr_max_levels,
+                         static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
+                         stereo_settings().sgm_collar_size,
+                         sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
+                         stereo_settings().corr_blob_filter_area,
+                         stereo_settings().stereo_debug);
       return corr_view.prerasterize(bbox);
     }
     
@@ -1088,7 +1096,7 @@ public:
 
 
 /// Main stereo correlation function, called after parsing input arguments.
-void stereo_correlation( ASPGlobalOptions& opt ) {
+void stereo_correlation(ASPGlobalOptions& opt) {
 
   // The first thing we will do is compute the low-resolution correlation.
 
@@ -1107,7 +1115,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
   // If the user specified a search range limit, apply it here.
   if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
-      (stereo_settings().search_range_limit.max() != Vector2i())   ) {     
+      (stereo_settings().search_range_limit.max() != Vector2i())  ) {     
     stereo_settings().search_range.crop(stereo_settings().search_range_limit);
     vw_out() << "\t--> Detected search range constrained to: " << stereo_settings().search_range << "\n";
   }
@@ -1115,7 +1123,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   // Provide the user with some feedback of what we are actually going to use.
   vw_out()   << "\t--------------------------------------------------\n";
   vw_out()   << "\t   Kernel Size:    " << stereo_settings().corr_kernel << endl;
-  if ( stereo_settings().seed_mode > 0 )
+  if (stereo_settings().seed_mode > 0)
     vw_out() << "\t   Refined Search: " << stereo_settings().search_range << endl;
   else
     vw_out() << "\t   Search Range:   " << stereo_settings().search_range << endl;
@@ -1127,14 +1135,14 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
   // Load up for the actual native resolution processing
   DiskImageView<PixelGray<float> > left_disk_image (opt.out_prefix+"-L.tif"),
-                                   right_disk_image(opt.out_prefix+"-R.tif");
+    right_disk_image(opt.out_prefix+"-R.tif");
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
-                           Rmask(opt.out_prefix + "-rMask.tif");
+    Rmask(opt.out_prefix + "-rMask.tif");
   ImageViewRef<PixelMask<Vector2f> > sub_disp;
   std::string dsub_file   = opt.out_prefix+"-D_sub.tif";
   std::string spread_file = opt.out_prefix+"-D_sub_spread.tif";
   
-  if ( stereo_settings().seed_mode > 0 ) {
+  if (stereo_settings().seed_mode > 0) {
     if (!load_sub_disp_image(dsub_file, sub_disp)) {
       std::string msg = "Could not read " + dsub_file + ".";
       if (stereo_settings().skip_low_res_disparity_comp)
@@ -1143,10 +1151,10 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     }
   }
   ImageViewRef<PixelMask<Vector2i> > sub_disp_spread;
-  if ( stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3 ){
+  if (stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3){
     // D_sub_spread is mandatory for seed_mode 2 and 3.
     sub_disp_spread = DiskImageView<PixelMask<Vector2i> >(spread_file);
-  }else if ( stereo_settings().seed_mode == 1 ){
+  }else if (stereo_settings().seed_mode == 1){
     // D_sub_spread is optional for seed_mode 1, we use it only if it is provided.
     if (fs::exists(spread_file)) {
       try {
@@ -1157,7 +1165,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   }
 
   ImageView<Matrix3x3> local_hom;
-  if ( stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography ){
+  if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
     string local_hom_file = opt.out_prefix + "-local_hom.txt";
     read_local_homographies(local_hom_file, local_hom);
   }
@@ -1173,9 +1181,9 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   // Set up the reference to the stereo disparity code
   // - Processing is limited to trans_crop_win for use with parallel_stereo.
   ImageViewRef<PixelMask<Vector2f> > fullres_disparity =
-    crop(SeededCorrelatorView( left_disk_image, right_disk_image, Lmask, Rmask,
-                               sub_disp, sub_disp_spread, local_hom, kernel_size, 
-                               cost_mode, corr_timeout, seconds_per_op ), 
+    crop(SeededCorrelatorView(left_disk_image, right_disk_image, Lmask, Rmask,
+                              sub_disp, sub_disp_spread, local_hom, kernel_size, 
+                              cost_mode, corr_timeout, seconds_per_op), 
          trans_crop_win);
 
   // With SGM, we must do the entire image chunk as one tile. Otherwise,
@@ -1186,11 +1194,13 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     int max_dim = std::max(image_size[0], image_size[1]);
     if (stereo_settings().corr_tile_size_ovr < max_dim)
       vw_throw(ArgumentErr()
-               << "Error: SGM processing is not permitted with a tile size smaller than the image!\n"
+               << "Error: SGM processing is not permitted with "
+               << "a tile size smaller than the image!\n"
                << "Value of --corr-tile-size is " << stereo_settings().corr_tile_size_ovr
                << " but image size is " << image_size << ".\n" 
                << "Increase --corr-tile-size so the entire image fits in one tile, or "
-               << "use parallel_stereo. Not that making --corr-tile-size larger than 9000 or so may "
+               << "use parallel_stereo. Not that making --corr-tile-size "
+               << "larger than 9000 or so may "
                << "cause GDAL to crash.\n\n");
   }
   
@@ -1221,19 +1231,20 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     // - If we don't do this, the output image file is not tiled and handles very slowly.
     // - This is possible because with SGM the image must be small enough to fit in memory.
     ImageView<PixelMask<Vector2f> > result = fullres_disparity;
-    opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),ASPGlobalOptions::rfne_tile_size());
+    opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),
+                                    ASPGlobalOptions::rfne_tile_size());
     vw::cartography::block_write_gdal_image(d_file, result,
                                             has_left_georef, left_georef,
                                             has_nodata, nodata, opt,
-                                            TerminalProgressCallback("asp", "\t--> Correlation :") );
+                                            TerminalProgressCallback("asp", "\t--> Correlation :"));
 
   } else {
     // Otherwise cast back to integer results to save on storage space.
     vw::cartography::block_write_gdal_image(d_file, 
-              pixel_cast<PixelMask<Vector2i> >(fullres_disparity),
-              has_left_georef, left_georef,
-              has_nodata, nodata, opt,
-              TerminalProgressCallback("asp", "\t--> Correlation :") );
+                                            pixel_cast<PixelMask<Vector2i> >(fullres_disparity),
+                                            has_left_georef, left_georef,
+                                            has_nodata, nodata, opt,
+                                            TerminalProgressCallback("asp", "\t--> Correlation :"));
   }
 
   vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED \n";
@@ -1280,7 +1291,7 @@ int main(int argc, char* argv[]) {
 
     // Internal Processes
     //---------------------------------------------------------
-    stereo_correlation( opt );
+    stereo_correlation(opt);
   
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;

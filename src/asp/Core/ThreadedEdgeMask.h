@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 #include <vw/Core/System.h>
 #include <vw/Core/ThreadPool.h>
 #include <vw/Image/MaskViews.h>
@@ -227,7 +226,8 @@ namespace asp {
         search_step = 1;
       if ( search_step > 10 ) 
         search_step = 10;
-      VW_OUT(DebugMessage, "threadededgemask") << "Setting search step to " << search_step << std::endl;
+      VW_OUT(DebugMessage, "threadededgemask") << "Setting search step to "
+                                               << search_step << std::endl;
 
       // Find the outermost valid pixel coming in from each line/direction.
       BOOST_FOREACH( BBox2i const& box, bboxes ) {
@@ -290,10 +290,11 @@ namespace asp {
   };
 
   template <class ViewT>
-  ThreadedEdgeMaskView<ViewT> threaded_edge_mask( vw::ImageViewBase<ViewT> const& v,
-                                                  typename ViewT::pixel_type value,
-                                                  vw::int32 mask_buffer = 0,
-                                                  vw::int32 block_size = vw::vw_settings().default_tile_size()) {
+  ThreadedEdgeMaskView<ViewT> threaded_edge_mask(vw::ImageViewBase<ViewT> const& v,
+                                                 typename ViewT::pixel_type value,
+                                                 vw::int32 mask_buffer = 0,
+                                                 vw::int32 block_size
+                                                 = vw::vw_settings().default_tile_size()) {
     return ThreadedEdgeMaskView<ViewT>( v.impl(), value, mask_buffer, block_size );
   }
 }

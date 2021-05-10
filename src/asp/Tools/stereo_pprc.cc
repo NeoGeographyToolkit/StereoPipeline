@@ -265,6 +265,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                               << "nodata-optimal-threshold-factor at the same time.\n");
     }
     if ( !std::isnan(nodata_factor) ){
+      // TODO(oalexan1): Wipe this code.
       // Find the black pixels threshold using Otsu's optimal threshold method.
       left_threshold  = nodata_factor*optimal_threshold(left_image );
       right_threshold = nodata_factor*optimal_threshold(right_image);
@@ -281,10 +282,12 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
     // The blob holders must not go out of scope while masks are being written.
     BlobHolder LB, RB;
-
+    // TODO(oalexan1): Wipe this code.
     if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ){
-      ImageViewRef< PixelMask<uint8> > left_thresh_mask  = LB.mask_and_fill_holes(left_image,  left_threshold);
-      ImageViewRef< PixelMask<uint8> > right_thresh_mask = RB.mask_and_fill_holes(right_image, right_threshold);
+      ImageViewRef< PixelMask<uint8> > left_thresh_mask
+        = LB.mask_and_fill_holes(left_image,  left_threshold);
+      ImageViewRef< PixelMask<uint8> > right_thresh_mask
+        = RB.mask_and_fill_holes(right_image, right_threshold);
       left_mask  = intersect_mask(left_mask,  left_thresh_mask );
       right_mask = intersect_mask(right_mask, right_thresh_mask);
     }
@@ -293,27 +296,33 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     if (stereo_settings().nodata_stddev_kernel > 0) {
       Vector2i stddev_kernel(stereo_settings().nodata_stddev_kernel, stereo_settings().nodata_stddev_kernel);
 
-      // If the threshold value is negative write out a debug image instead, allowing the user to tune the threshold.
+      // If the threshold value is negative write out a debug image
+      // instead, allowing the user to tune the threshold.
+      // TODO(oalexan1): See if to wipe this code.
       if (stereo_settings().nodata_stddev_thresh < 0) {
-        vw::cartography::block_write_gdal_image(opt.out_prefix + "-L_stddev_filter_output.tif",
-                                    vw::stddev_filter_view(left_image, stddev_kernel),
-                                    has_left_georef, left_georef,
-                                    false, output_nodata,
-                                    opt, TerminalProgressCallback("asp", "\t  StdDev filter raw output (left): ")
-                                    );
-        vw::cartography::block_write_gdal_image(opt.out_prefix + "-R_stddev_filter_output.tif",
-                                    vw::stddev_filter_view(left_image, stddev_kernel),
-                                    has_left_georef, left_georef,
-                                    false, output_nodata,
-                                    opt, TerminalProgressCallback("asp", "\t  StdDev filter raw output (right): ")
-                                    );
+        vw::cartography::block_write_gdal_image
+          (opt.out_prefix + "-L_stddev_filter_output.tif",
+           vw::stddev_filter_view(left_image, stddev_kernel),
+           has_left_georef, left_georef,
+           false, output_nodata,
+           opt, TerminalProgressCallback
+           ("asp", "\t  StdDev filter raw output (left): ")
+           );
+        vw::cartography::block_write_gdal_image
+          (opt.out_prefix + "-R_stddev_filter_output.tif",
+           vw::stddev_filter_view(left_image, stddev_kernel),
+           has_left_georef, left_georef,
+           false, output_nodata,
+           opt, TerminalProgressCallback("asp", "\t  StdDev filter raw output (right): "));
       } else {
         left_mask  = intersect_mask(left_mask,
-                                    create_mask_less_or_equal(vw::stddev_filter_view(left_image, stddev_kernel),
-                                                              stereo_settings().nodata_stddev_thresh));
+                                    create_mask_less_or_equal
+                                    (vw::stddev_filter_view(left_image, stddev_kernel),
+                                     stereo_settings().nodata_stddev_thresh));
         right_mask = intersect_mask(right_mask,
-                                    create_mask_less_or_equal(vw::stddev_filter_view(right_image, stddev_kernel),
-                                                              stereo_settings().nodata_stddev_thresh));
+                                    create_mask_less_or_equal
+                                    (vw::stddev_filter_view(right_image, stddev_kernel),
+                                     stereo_settings().nodata_stddev_thresh));
       }
     }
 
@@ -328,16 +337,14 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                (left_mask, left_georef, right_georef,
                 ConstantEdgeExtension(),NearestPixelInterpolation()
                ),
-               bounding_box(right_mask)
-              );
+               bounding_box(right_mask));
       // Right image mask transformed into left coordinates
       ImageViewRef< PixelMask<uint8> > warped_right_mask
         = crop(vw::cartography::geo_transform
                (right_mask, right_georef, left_georef,
                 ConstantEdgeExtension(), NearestPixelInterpolation()
                ),
-               bounding_box(left_mask)
-              );
+               bounding_box(left_mask));
 
       vw::cartography::block_write_gdal_image(left_mask_file,
                                   apply_mask(intersect_mask(left_mask, warped_right_mask)),
@@ -349,14 +356,13 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                                   apply_mask(intersect_mask(right_mask, warped_left_mask)),
                                   has_right_georef, right_georef,
                                   has_nodata, output_nodata,
-                                  opt, TerminalProgressCallback("asp", "\t    Mask R: ")
-                                 );
+                                  opt, TerminalProgressCallback("asp", "\t    Mask R: "));
     }else{
       // No DEM to map-project to.
       // TODO: Even so, the trick above with intersecting the masks will still work,
       // if the images are map-projected (such as with cam2map-ed cubes),
       // but this would require careful research.
-      vw::cartography::block_write_gdal_image( left_mask_file, apply_mask(left_mask),
+      vw::cartography::block_write_gdal_image(left_mask_file, apply_mask(left_mask),
                                    has_left_georef, left_georef,
                                    has_nodata, output_nodata,
                                    opt, TerminalProgressCallback("asp", "\t Mask L: ") );
@@ -421,7 +427,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     uint32 tile_power  = 0;
     while (tile_power < 6 && sub_threads > 1) {
       sub_threads--;
-      tile_power = boost::numeric_cast<uint32>( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
+      tile_power = boost::numeric_cast<uint32>
+        (log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
     }
     uint32 sub_tile_size = 1u << tile_power;
     if (sub_tile_size > vw_settings().default_tile_size())
@@ -443,9 +450,11 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     if ( sub_scale > 0.5 ) {
       // When we are near the pixel input to output ratio, standard
       // interpolation gives the best possible results.
-      left_sub_image  = block_rasterize(resample(copy_mask(left_image,  create_mask(left_mask)),  sub_scale), 
+      left_sub_image  = block_rasterize(resample(copy_mask(left_image,  create_mask(left_mask)),
+                                                 sub_scale), 
                                         sub_tile_size_vec, sub_threads);
-      right_sub_image = block_rasterize(resample(copy_mask(right_image, create_mask(right_mask)), sub_scale), 
+      right_sub_image = block_rasterize(resample(copy_mask(right_image, create_mask(right_mask)),
+                                                 sub_scale), 
                                         sub_tile_size_vec, sub_threads);
     } else {
       // When we heavily reduce the image size, super sampling seems
@@ -505,7 +514,6 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
         has_nodata, output_nodata,
         opt_nopred, TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
   } // End try/catch to see if the subsampled images have content
-
 
   if (skip_img_norm && stereo_settings().subpixel_mode == 2){
     // If image normalization is not done, we still need to compute the image

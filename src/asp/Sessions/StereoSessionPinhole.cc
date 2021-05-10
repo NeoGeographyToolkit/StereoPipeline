@@ -365,8 +365,6 @@ void asp::StereoSessionPinhole::camera_models(boost::shared_ptr<vw::camera::Came
   load_camera_models(cam1, cam2, left_out_size, right_out_size);
 }
 
-
-
 void asp::StereoSessionPinhole::load_camera_models(
                    boost::shared_ptr<vw::camera::CameraModel> &left_cam,
                    boost::shared_ptr<vw::camera::CameraModel> &right_cam,

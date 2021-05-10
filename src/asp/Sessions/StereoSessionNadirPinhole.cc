@@ -19,7 +19,6 @@
 /// \file StereoSessionNadirPinhole.cc
 ///
 
-//#include <asp/Core/StereoSettings.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/StereoSessionNadirPinhole.h>
 

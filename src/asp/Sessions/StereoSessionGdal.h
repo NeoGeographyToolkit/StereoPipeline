@@ -35,30 +35,30 @@
 
 namespace asp {
 
-
-  /// Generic stereoSession implementation for images which we can read/write with GDAL.
-  /// - This class adds a "preprocessing hook" which aligns and normalizes the images using the specified methods.
-  /// - Derived classes need to set up camera model loading.
+  /// Generic stereoSession implementation for images which we can
+  /// read/write with GDAL. This class adds a "preprocessing hook"
+  /// which aligns and normalizes the images using the specified
+  /// methods. Derived classes need to set up camera model loading.
   class StereoSessionGdal : public StereoSession {
-
+    
   public:
     StereoSessionGdal(){}
     virtual ~StereoSessionGdal(){}
-
+    
     virtual std::string name() const = 0;
-
+    
     /// Stage 1: Preprocessing
     ///
-    /// Pre file is a pair of images.            ( ImageView<PixelT> )
-    /// Post file is a pair of grayscale images. ( ImageView<PixelGray<float> > )
+    /// Pre file is a pair of images.            (ImageView<PixelT>)
+    /// Post file is a pair of grayscale images. (ImageView<PixelGray<float> >)
     virtual inline void pre_preprocessing_hook(bool adjust_left_image_size,
                                                std::string const& left_input_file,
-                                               std::string const& right_input_file,
+                                             std::string const& right_input_file,
                                                std::string      & left_output_file,
                                                std::string      & right_output_file);
   };
 
-//----------------------------------------------------------
+  //----------------------------------------------------------
 
   // Stereo session for Digital Globe images.
   class StereoSessionDG : public StereoSessionGdal {
@@ -74,16 +74,16 @@ namespace asp {
     
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
-                                                                         std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) const {
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const {
       return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
                                  image_file, camera_file, pixel_offset);
     }
   };
 
-
-//----------------------------------------------------------
+  //----------------------------------------------------------
 
   /// Stereo session for optical bar cameras such as Corona and Hexagon.
   class StereoSessionOpticalBar : public StereoSessionGdal {
@@ -99,29 +99,30 @@ namespace asp {
 
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
-                                                                         std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) const {
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const {
       return load_adjusted_model(m_camera_loader.load_optical_bar_camera_model(camera_file),
                                  image_file, camera_file, pixel_offset);
     }
   };
 
-//----------------------------------------------------------
-
+  //----------------------------------------------------------
+  
   /// Stereo session for CSM camera models that use GDAL compatible image files.
   /// - CSM files can also be used with ISIS image data, in which case they use StereoSessionIsis.
   class StereoSessionCsm : public StereoSessionGdal {
-
+    
   public:
     StereoSessionCsm(){}
     virtual ~StereoSessionCsm(){}
-
+    
     virtual std::string name() const { return "csm"; }
-
+    
     /// Simple factory function
     static StereoSession* construct() { return new StereoSessionCsm;}
-
+    
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
                                              bool use_sphere_for_datum) const {
@@ -141,7 +142,7 @@ namespace asp {
       return datum;
     }
     
-  
+    
   protected:
     /// Function to load a camera model of the particular type.
     virtual boost::shared_ptr<vw::camera::CameraModel>
@@ -152,18 +153,18 @@ namespace asp {
                                  image_file, camera_file, pixel_offset);
     }
   };
-
-//========= Function definitions ======================================
-
+  
+  //========= Function definitions ======================================
+  
   inline void StereoSessionGdal::
   pre_preprocessing_hook(bool adjust_left_image_size,
                          std::string const& left_input_file,
                          std::string const& right_input_file,
                          std::string      & left_output_file,
                          std::string      & right_output_file) {
-
+    
     using namespace vw;
-
+    
     std::string left_cropped_file, right_cropped_file;
     vw::cartography::GdalWriteOptions options;
     float left_nodata_value, right_nodata_value;
@@ -181,8 +182,8 @@ namespace asp {
     if (exit_early) return;
 
     // Load the cropped images
-    DiskImageView<float> left_disk_image (left_cropped_file ),
-                         right_disk_image(right_cropped_file);
+    DiskImageView<float> left_disk_image (left_cropped_file),
+      right_disk_image(right_cropped_file);
 
     // Set up image masks
     ImageViewRef< PixelMask<float> > left_masked_image
@@ -210,12 +211,12 @@ namespace asp {
 
     // Image alignment block - Generate aligned versions of the input
     // images according to the options.
-    if ( stereo_settings().alignment_method == "homography" ||
-         stereo_settings().alignment_method == "affineepipolar" ) {
+    if (stereo_settings().alignment_method == "homography" ||
+        stereo_settings().alignment_method == "affineepipolar") {
       // Define the file name containing IP match information.
       std::string match_filename    = ip::match_filename(this->m_out_prefix,
                                                          left_cropped_file, right_cropped_file);
-      std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file );
+      std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file);
       std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
 
       // Detect matching interest points between the left and right input images.
@@ -237,12 +238,12 @@ namespace asp {
 
       // Initialize alignment matrices and get the input image sizes.
       Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
-                     align_right_matrix = math::identity_matrix<3>();
-      Vector2i left_size  = file_image_size(left_cropped_file ),
-               right_size = file_image_size(right_cropped_file);
+        align_right_matrix = math::identity_matrix<3>();
+      Vector2i left_size  = file_image_size(left_cropped_file),
+        right_size = file_image_size(right_cropped_file);
 
       // Compute the appropriate alignment matrix based on the input points
-      if ( stereo_settings().alignment_method == "homography" ) {
+      if (stereo_settings().alignment_method == "homography") {
         left_size = homography_rectification(adjust_left_image_size,
                                              left_size,         right_size,
                                              left_ip,           right_ip,
@@ -250,7 +251,7 @@ namespace asp {
         vw_out() << "\t--> Aligning right image to left using matrices:\n"
                  << "\t      " << align_left_matrix  << "\n"
                  << "\t      " << align_right_matrix << "\n";
-            } else {
+      } else {
         left_size = affine_epipolar_rectification(left_size,         right_size,
                                                   left_ip,           right_ip,
                                                   align_left_matrix, align_right_matrix);
@@ -259,25 +260,25 @@ namespace asp {
                  << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
       }
       // Write out both computed matrices to disk
-      write_matrix(this->m_out_prefix + "-align-L.exr", align_left_matrix );
+      write_matrix(this->m_out_prefix + "-align-L.exr", align_left_matrix);
       write_matrix(this->m_out_prefix + "-align-R.exr", align_right_matrix);
 
       // Apply the alignment transform to both input images
       Limg = transform(left_masked_image,
 		       HomographyTransform(align_left_matrix),
-		       left_size.x(), left_size.y() );
+		       left_size.x(), left_size.y());
       if (do_bathy) 
         left_aligned_bathy_mask = transform(left_bathy_mask,
                                             HomographyTransform(align_left_matrix),
-                                            left_size.x(), left_size.y() );
+                                            left_size.x(), left_size.y());
       
       Rimg = transform(right_masked_image,
 		       HomographyTransform(align_right_matrix),
-		       left_size.x(), left_size.y() );
+		       left_size.x(), left_size.y());
       if (do_bathy) 
         right_aligned_bathy_mask = transform(right_bathy_mask,
                                              HomographyTransform(align_right_matrix),
-                                             left_size.x(), left_size.y() );
+                                             left_size.x(), left_size.y());
       
       
     } else if (stereo_settings().alignment_method == "epipolar") {
@@ -312,14 +313,14 @@ namespace asp {
     block_write_gdal_image(left_output_file, apply_mask(Limg, output_nodata),
                            has_left_georef, left_georef,
                            has_nodata, output_nodata, options,
-                           TerminalProgressCallback("asp","\t  L:  ") );
+                           TerminalProgressCallback("asp","\t  L:  "));
     if (do_bathy) {
       vw_out() << "\t--> Writing: " << left_aligned_bathy_mask_file << ".\n";
       block_write_gdal_image(left_aligned_bathy_mask_file,
                              apply_mask(left_aligned_bathy_mask, left_bathy_nodata),
                              has_left_georef, left_georef,
                              has_bathy_nodata, left_bathy_nodata, options,
-                             TerminalProgressCallback("asp","\t  L mask:  ") );
+                             TerminalProgressCallback("asp","\t  L mask:  "));
     }
     
     if (stereo_settings().alignment_method == "none") {
@@ -329,23 +330,23 @@ namespace asp {
                              has_nodata, output_nodata, options,
                              TerminalProgressCallback("asp","\t  R:  "));
       if (do_bathy) {
-            vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
-            block_write_gdal_image(right_aligned_bathy_mask_file,
-                                   apply_mask(right_aligned_bathy_mask, right_bathy_nodata),
-                                   has_right_georef, right_georef,
-                                   has_bathy_nodata, right_bathy_nodata, options,
-                                   TerminalProgressCallback("asp","\t  R mask:  ") );
+        vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
+        block_write_gdal_image(right_aligned_bathy_mask_file,
+                               apply_mask(right_aligned_bathy_mask, right_bathy_nodata),
+                               has_right_georef, right_georef,
+                               has_bathy_nodata, right_bathy_nodata, options,
+                               TerminalProgressCallback("asp","\t  R mask:  "));
       }
       
     } else {
       // Write out the right image cropped to align with the left image.
       vw_out() << "\t--> Writing: " << right_output_file << ".\n";
-      block_write_gdal_image( right_output_file,
-                              apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()),
-                                              bounding_box(Limg)), output_nodata),
-                              has_right_georef, right_georef,
-                              has_nodata, output_nodata, options,
-                              TerminalProgressCallback("asp","\t  R:  ") );
+      block_write_gdal_image(right_output_file,
+                             apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()),
+                                             bounding_box(Limg)), output_nodata),
+                             has_right_georef, right_georef,
+                             has_nodata, output_nodata, options,
+                             TerminalProgressCallback("asp","\t  R:  "));
 
       if (do_bathy) {
         vw_out() << "\t--> Writing: " << right_aligned_bathy_mask_file << ".\n";
@@ -355,7 +356,7 @@ namespace asp {
                                                bounding_box(Limg)), right_bathy_nodata),
                                has_right_georef, right_georef,
                                has_bathy_nodata, right_bathy_nodata, options,
-                               TerminalProgressCallback("asp","\t  R mask:  ") );
+                               TerminalProgressCallback("asp","\t  R mask:  "));
       }
     }
   } // End function pre_preprocessing_hook
