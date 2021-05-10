@@ -551,9 +551,14 @@ BBox2i get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
 
   const double min_percentile = edge_discard_percentile;
   const double max_percentile = 1.0 - edge_discard_percentile;
-
-  const Vector2 FORCED_EXPANSION = Vector2(30,2); // Must expand range by at least this much
   double search_scale = 2.0;
+
+  vw_out() << "Filtering IP using box-and-whisker plot. "
+           << "Using the values corresponding to percentiles " << min_percentile * 100.0 << " and "
+           << max_percentile * 100.0 << ", with a factor of "
+           << search_scale << " to get the whiskers.\n";
+    
+  const Vector2 FORCED_EXPANSION = Vector2(30,2); // Must expand range by at least this much
   size_t min_bin_x = hist_x.get_percentile(min_percentile);
   size_t min_bin_y = hist_y.get_percentile(min_percentile);
   size_t max_bin_x = hist_x.get_percentile(max_percentile);
@@ -563,21 +568,24 @@ BBox2i get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
   Vector2 search_center = (search_max + search_min) / 2.0;
   Vector2 d_min = search_min - search_center; // TODO: Make into a bbox function!
   Vector2 d_max = search_max - search_center;
+
+  vw_out(InfoMessage,"asp") << "Range based on percentiles: " << BBox2(d_min, d_max) << std::endl;
   
-  vw_out(InfoMessage,"asp") << "Percentile filtered range: " 
-                            << BBox2i(d_min, d_max) << std::endl;
   // Enforce a minimum expansion on the search range in each direction
   Vector2 min_expand = d_min*search_scale;
   Vector2 max_expand = d_max*search_scale;
+
   for (int i=0; i<2; ++i) {
     if (min_expand[i] > -1*FORCED_EXPANSION[i])
       min_expand[i] = -1*FORCED_EXPANSION[i];
     if (max_expand[i] < FORCED_EXPANSION[i])
       max_expand[i] = FORCED_EXPANSION[i];
   }
+
   
   search_min = search_center + min_expand;
   search_max = search_center + max_expand;
+
   Vector2i search_minI(floor(search_min[0]), floor(search_min[1])); // Round outwards
   Vector2i search_maxI(ceil (search_max[0]), ceil (search_max[1]));
   /*
@@ -683,7 +691,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   }
 
   vw_out(InfoMessage,"asp") << "Initial search range: " 
-                            << BBox2i(Vector2(min_dx,min_dy),Vector2(max_dx,max_dy)) << std::endl;
+                            << BBox2(Vector2(min_dx,min_dy), Vector2(max_dx,max_dy)) << std::endl;
 
   const int MAX_SEARCH_WIDTH = 4000; // Try to avoid searching this width
   const int MIN_SEARCH_WIDTH = 200;  // Under this width don't filter IP.
@@ -701,7 +709,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   }
   
   // Compute histograms
-  const int NUM_BINS = 2000; // Accuracy is important with scaled pixels
+  const int NUM_BINS = 1000000; // Accuracy is important with scaled pixels
   vw::math::Histogram hist_x(NUM_BINS, min_dx, max_dx);
   vw::math::Histogram hist_y(NUM_BINS, min_dy, max_dy);
   for (size_t i = 0; i < dx.size(); ++i){
@@ -709,9 +717,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
     hist_y.add_value(dy[i]);
   }
 
-
   //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
-  
   //for (int i=0; i<NUM_BINS; ++i) {
   //  printf("%d => X: %lf: %lf,   Y:  %lf: %lf\n", i, centers_x[i], hist_x[i], centers_y[i], hist_y[i]);
   //}
@@ -724,9 +730,8 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   int search_width = MAX_SEARCH_WIDTH + 1;
   BBox2i search_range;
   while (true) {
-    vw_out() << "Filtering IP with percentile cutoff " << current_percentile_cutoff << std::endl;
     search_range = get_search_range_from_ip_hists(hist_x, hist_y, current_percentile_cutoff);
-    vw_out() << "Scaled search range = " << search_range << std::endl;
+    vw_out() << "Computed search range: " << search_range << std::endl;
     search_width = search_range.width();
     
     // Increase the percentile cutoff in case we need to filter out more IP
