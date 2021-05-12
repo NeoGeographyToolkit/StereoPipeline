@@ -115,9 +115,8 @@ remains true:
     Administrator of the National Aeronautics and Space Administration.
     All rights reserved.
 
-There is an `Individual CLA <https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/docs/ASP_Individual_CLA.doc>`_ (`PDF
-Version <https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/docs/ASP_Individual_CLA.pdf>`_) and a `Corporate CLA
-<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/docs/ASP_Corporate_CLA.doc>`_.
+There is an `Individual CLA <https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/docs/ASP_Individual_CLA.pdf>`_ and a `Corporate CLA
+<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/docs/ASP_Corporate_CLA.pdf>`_.
 
 
 ASP People
