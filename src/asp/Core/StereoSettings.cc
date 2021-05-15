@@ -164,6 +164,9 @@ namespace asp {
        "Force reusing the match files even if older than the images or cameras.")
       ("part-of-multiview-run", po::bool_switch(&global.part_of_multiview_run)->default_value(false)->implicit_value(true),
        "If the current run is part of a larger multiview run.")
+      ("local-alignment-threshold",       po::value(&global.local_alignment_threshold)->default_value(2),
+       "Maximum distance from interest point matches to the epipolar line when performing local alignment.")
+      
 //      ("correct-atmospheric-refraction", po::bool_switch(&global.correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
 //       "Apply the experimental atmospheric refraction for linescan cameras.")
       ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),

@@ -130,7 +130,8 @@ namespace asp {
     bool   part_of_multiview_run;           ///< If this run is part of a larger multiview run
     std::string datum;                      ///< The datum to use with RPC camera models
     std::string left_image_clip, right_image_clip;
-    
+    double local_alignment_threshold;        /// Max distance from the epipolar line when doing local alignment
+
     // Correlation Options
     float slogW;                      ///< Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None
