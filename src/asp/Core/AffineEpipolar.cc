@@ -120,11 +120,10 @@ namespace asp {
 
     typedef vw::Matrix<double, 3, 6> result_type;
 
-    /// A best fit plane requires pairs of data points to make a fit.
+    /// The fundamental matrix needs 8 points.
+    // TODO(oalexan1): Should a bigger minimum be used for robustness?
     template <class InterestPointT>
     size_t min_elements_needed_for_fit(InterestPointT const& /*example*/) const {
-      // The fundamental matrix needs 8 points
-      // TODO(oalexan1): Should a bigger minimum be used for robustness?
       return 8;
     }
   
