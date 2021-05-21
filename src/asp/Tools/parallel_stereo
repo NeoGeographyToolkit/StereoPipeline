@@ -698,27 +698,35 @@ if __name__ == '__main__':
     # Set the job size by default when using SGM
     corr_tile_size = int(settings['corr_tile_size'][0])
     if (settings['stereo_algorithm'][0] > VW_CORRELATION_BM):
-        # If the user did not manually specify the job size, set it equal
-        #  to the correlation tile size.
         if ('--job-size-w' not in sys.argv[1:]) and ('--job-size-h' not in sys.argv[1:]):
+            # If the user did not manually specify the job size, set it equal
+            #  to the correlation tile size. 
             opt.job_size_w = corr_tile_size
             opt.job_size_h = opt.job_size_w
             print ('Setting SGM job size to: ' + str(opt.job_size_w))
         else:
-            # The current code does not work correctly if these numbers differ
-            if '--job-size-w' in sys.argv[1:] and opt.job_size_w != corr_tile_size:
+            # If the user specified these, they better be equal, and equal to corr_tile_size
+            if opt.job_size_h != opt.job_size_w:
                 raise Exception('If --stereo-algorithm is not 0, must use the same value ' + \
-                                'for --job-size-w and --corr-tile-size.')
-            if '--job-size-h' in sys.argv[1:] and opt.job_size_h != corr_tile_size:
-                raise Exception('If --stereo-algorithm is not 0, must use the same value ' + \
-                      'for --job-size-h and --corr-tile-size.')
-    else:
-        if corr_tile_size > opt.job_size_h or corr_tile_size > opt.job_size_w:
-            raise Exception('Cannot use larger --corr-tile-size than ' + \
-                            '--job-size-w and --job-size-h. Values of these are currently: ' + \
-                            str(corr_tile_size) + ' ' + str(opt.job_size_h) + ' ' + \
-                            str(opt.job_size_w) + '.')
+                                'for --job-size-h and --job-size-w.')
+            if opt.job_size_w != corr_tile_size:
+                print("Making --corr-tile-size equal to --job-size-h, that is equal to " \
+                      + str(opt.job_size_h) + ".")
 
+                # Must apply the changes to 3 places
+                corr_tile_size = opt.job_size_h
+                set_option(args, '--corr-tile-size', [str(corr_tile_size)])
+                settings['corr_tile_size'] = [str(corr_tile_size)]
+    else:
+        # Make corr_tile_size the minimum of opt.job_size_h and opt.job_size_w
+        if corr_tile_size > opt.job_size_h or corr_tile_size > opt.job_size_w:
+
+            # Must apply the changes to three places
+            corr_tile_size = min([opt.job_size_h, opt.job_size_w])
+            set_option(args, '--corr-tile-size', [str(corr_tile_size)])
+            settings['corr_tile_size'] = [str(corr_tile_size)]
+            print("Making --corr-tile-size the minimum of --job-size-h and --job-size-w, " \
+                  "that is equal to " + str(corr_tile_size) + ".")
 
     check_system_memory(opt, args, settings)
 
