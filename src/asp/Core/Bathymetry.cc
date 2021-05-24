@@ -252,7 +252,10 @@ namespace asp {
       return false; // must not happen
   
     alpha = (-v + sqrt(delta)) / (2.0 * u); // pick the positive quadratic root
-            
+
+    if (alpha < 0) 
+      return false; // must not happen
+    
     // The normalized direction after the ray is bent
     d2 = -Vector3(p[0], p[1], p[2]) + alpha * d;
     d2 = d2 / norm_2(d2);
