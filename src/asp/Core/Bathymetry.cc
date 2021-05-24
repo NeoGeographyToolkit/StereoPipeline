@@ -20,6 +20,11 @@
 #include <vw/Core/Exception.h>
 #include <vw/Math/LevenbergMarquardt.h>
 
+// Turn this on to verify if Snell's law holds given the incoming and
+// outgoing rays to a plane. Then stereo_tri needs to be run with one
+// thread as this will print a lot of text.
+#define DEBUG_BATHY 0
+
 namespace asp {
 
   using namespace vw;
@@ -446,6 +451,7 @@ namespace asp {
           // If Snell's law failed to work, return the result before it
           if (!ans)
             return result;
+
           
           Vector3 next_pt = out_pt + 1.0 * out_dir;
 
@@ -457,6 +463,42 @@ namespace asp {
           waterCtrs[it] = out_xyz;
           waterDirs[it] = next_xyz - out_xyz;
           waterDirs[it] /= norm_2(waterDirs[it]);
+
+#if DEBUG_BATHY
+          // Test Snell's law in projected and unprojected coordinates
+          
+          // Projected coordinates
+          Vector3 plane_normal(m_bathy_plane[0], m_bathy_plane[1], m_bathy_plane[2]);
+          double sin_in = sin(acos(dot_prod(plane_normal, -in_dir)));
+          double sin_out = sin(acos(dot_prod(-plane_normal, out_dir)));
+          std::cout << "proj sin_in, sin_out, sin_in - index * sin_out "
+                    << sin_in << ' ' << sin_out << ' '
+                    << sin_in - m_refraction_index * sin_out << std::endl;
+          
+          // Unprojected coordinates
+          Vector3 pt_above_normal = out_pt + 1.0 * plane_normal; // go up a bit along the normal
+          Vector3 xyz_above_normal = unproj_point(m_water_surface_projection, pt_above_normal);
+          Vector3 unproj_normal = xyz_above_normal - out_xyz;
+          unproj_normal /= norm_2(unproj_normal); // normalize
+          sin_in = sin(acos(dot_prod(unproj_normal, -camDirs[it])));
+          sin_out = sin(acos(dot_prod(-unproj_normal, waterDirs[it])));
+          std::cout << "unproj sin_in, sin_out, sin_in - index * sin_out "
+                    << sin_in << ' ' << sin_out << ' '
+                    << sin_in - m_refraction_index * sin_out << std::endl;
+
+          // Verify that the incoming ray, outgoing ray, and the
+          // normal are in the same plane in projected coordinates
+          Vector3 in_out_normal = cross_prod(in_dir, out_dir);
+          double plane_error = dot_prod(in_out_normal, plane_normal);
+          std::cout << "proj plane error " << plane_error << std::endl;
+
+          // In unprojected coordinates
+          in_out_normal = cross_prod(camDirs[it], waterDirs[it]);
+          plane_error = dot_prod(in_out_normal, unproj_normal);
+          std::cout << "unproj plane error " << plane_error << std::endl;
+          
+          std::cout << std::endl;
+#endif
         }
         
       } 
