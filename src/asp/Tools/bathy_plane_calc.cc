@@ -203,10 +203,10 @@ struct BestFitPlaneFunctor {
     
     // check consistency
     VW_ASSERT( p1.size() == p2.size(),
-               vw::ArgumentErr() << "Cannot compute similarity transformation. "
+               vw::ArgumentErr() << "Cannot compute best fit plane. "
                << "p1 and p2 are not the same size." );
     VW_ASSERT( !p1.empty() && p1.size() >= min_elements_needed_for_fit(p1[0]),
-               vw::ArgumentErr() << "Cannot compute similarity transformation. "
+               vw::ArgumentErr() << "Cannot compute best fit plane. "
                << "Insufficient data.\n");
     
     std::pair<Eigen::Vector3d, Eigen::Vector3d> plane = best_plane_from_points(p1);
@@ -259,7 +259,7 @@ double dist_to_plane(vw::Matrix<double, 1, 4> const& plane, Vec3 const& point) {
 // The value p2 is needed by the interface but we don't use it
 struct BestFitPlaneErrorMetric {
   template <class RelationT, class ContainerT>
-  double operator() (RelationT  const& plane, ContainerT const& p1, ContainerT const& p2) const {
+  double operator() (RelationT const& plane, ContainerT const& p1, ContainerT const& p2) const {
     return dist_to_plane(plane, p1);
   }
 };
