@@ -164,11 +164,14 @@ namespace asp {
        "Force reusing the match files even if older than the images or cameras.")
       ("part-of-multiview-run", po::bool_switch(&global.part_of_multiview_run)->default_value(false)->implicit_value(true),
        "If the current run is part of a larger multiview run.")
+      ("global-alignment-threshold",       po::value(&global.global_alignment_threshold)->default_value(2),
+       "Maximum distance from inlier interest point matches to the epipolar line when calculating the global affine epipolar alignment.")
       ("local-alignment-threshold",       po::value(&global.local_alignment_threshold)->default_value(2),
-       "Maximum distance from interest point matches to the epipolar line when performing local alignment.")
-      
-//      ("correct-atmospheric-refraction", po::bool_switch(&global.correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-//       "Apply the experimental atmospheric refraction for linescan cameras.")
+       "Maximum distance from inlier interest point matches to the epipolar line when calculating the local affine epipolar alignment.")
+      ("alignment-num-ransac-iterations", po::value(&global.alignment_num_ransac_iterations)->default_value(1000),
+       "How many RANSAC iterations to use for global or local epipolar alignment.")
+      ("disparity-range-expansion-percent", po::value(&global.disparity_range_expansion_percent)->default_value(20),
+       "Expand the disparity range estimated from interest points by this percentage before computing the stereo correlation with local epipolar alignment.")
       ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),
        "Set the datum to use with RPC camera models. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
 
@@ -187,7 +190,7 @@ namespace asp {
       ("refraction-index", po::value(&global.refraction_index)->default_value(0),
        "The index of refraction of water to be used in bathymetry correction. (Must be specified and bigger than 1.)")
       ("output-cloud-type", po::value(&global.output_cloud_type)->default_value("all"),
-       "When bathymetry correction is used, return only the triangulated cloud of points where bathymetry correction was applied (option: 'bathy'), where it was not applied (option: 'topo', or the full cloud (option: 'all'). The default is 'all'.");
+       "When bathymetry correction is used, return only the triangulated cloud of points where the bathymetry correction was applied (option: 'bathy'), where it was not applied (option: 'topo'), or the full cloud (option: 'all'). The default is 'all'.");
   }
 
   CorrelationDescription::CorrelationDescription() : po::options_description("Correlation Options") {

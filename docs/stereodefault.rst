@@ -1,6 +1,6 @@
 .. _stereodefault:
 
-The ``stereo.default`` File
+The ``stereo.default`` file
 ===========================
 
 The ``stereo.default`` file contains configuration parameters that the
@@ -24,62 +24,8 @@ processing stage.
 Preprocessing
 -------------
 
-alignment-method (= affineepipolar, homography, epipolar, none) (default = affineepipolar)
-    When ``alignment-method`` is set to ``homography``, ``stereo`` will
-    attempt to pre-align the images by automatically detecting
-    tie-points between images using a feature based image matching
-    technique. Tie points are stored in a ``*.match`` file that is used
-    to compute a linear homography transformation of the right image so
-    that it closely matches the left image. Note: the user may exercise
-    more control over this process by using the ``ipfind`` and
-    ``ipmatch`` tools.
-
-    When ``alignment-method`` is set to ``affineepipolar``, ``stereo``
-    will attempt to pre-align the images by detecting tie-points, as
-    earlier, and using those to transform the images such that pairs of
-    conjugate epipolar lines become collinear and parallel to one of the
-    image axes. The effect of this is equivalent to rotating the original
-    cameras which took the pictures.
-
-    When ``alignment-method`` is set to ``epipolar``, ``stereo`` will
-    apply a 3D transform to both images so that their epipolar lines will
-    be horizontal. This speeds of stereo correlation as it greatly
-    reduces the area required for searching.
-
-    *Epipolar alignment is only available when performing stereo
-    matches using the pinhole stereo session (i.e. when using
-    ``stereo -t pinhole``), and cannot be used when processing ISIS
-    images at this time.*
-
-force-use-entire-range (default = false)
-    By default, the Stereo Pipeline will normalize ISIS images so that
-    their maximum and minimum channel values are :math:`\pm`\ 2
-    standard deviations from a mean value of 1.0. Use this option if
-    you want to *disable* normalization and force the raw values to
-    pass directly to the stereo correlations algorithms.
-
-    For example, if ISIS’s ``histeq`` has already been used to normalize
-    the images, then use this option to disable normalization as a
-    (redundant) pre-processing step.
-
-individually-normalize (default = false)
-    By default, the maximum and minimum valid pixel value is determined
-    by looking at both images. Normalized with the same “global” min
-    and max guarantees that the two images will retain their brightness
-    and contrast relative to each other.
-
-   This option forces each image to be normalized to its own maximum and
-   minimum valid pixel value. This is useful in the event that images
-   have different and non-overlapping dynamic ranges. You can sometimes
-   tell when this option is needed: after a failed stereo attempt one of
-   the rectified images (``*-L.tif`` and ``*-R.tif``) may be either
-   mostly white or black. Activating this option may correct this
-   problem.
-
-   Note: Photometric calibration and image normalization are steps that
-   can and should be carried out beforehand using ISIS’s own utilities.
-   This provides the best possible input to the stereo pipeline and
-   yields the best stereo matching results.
+Interest point determination
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ip-per-tile
     How many interest points to detect in each :math:`1024^2` image
@@ -96,20 +42,6 @@ ip-detect-method
     implementation from OpenCV 2 = ORB implementation from OpenCV If
     the default method does not perform well, try out one of the other
     two methods.
-
-nodata-value (default = none)
-    Pixels with values less than or equal to this number are treated as
-    no-data. This overrides the nodata values from input images.
-
-datum (default = WGS_1984)
-    Set the datum to use with RPC camera models. Options: WGS_1984,
-    D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA
-    (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth
-    (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).
-
-no-datum
-    Do not assume a reliable datum exists, such as for irregularly
-    shaped bodies.
 
 epipolar-threshold
     Maximum distance in pixels from the epipolar line to search for
@@ -142,6 +74,103 @@ ip-num-ransac-iterations *int(=100)*
 force-reuse-match-files
     Force reusing the match files even if older than the images or
     cameras.
+
+Image alignment
+~~~~~~~~~~~~~~~~
+
+alignment-method (= affineepipolar, homography, epipolar, none) (default = affineepipolar)
+    When ``alignment-method`` is set to ``affineepipolar``, ``stereo``
+    will attempt to pre-align the images by detecting tie-points using
+    feature matching, and using those to transform the images such
+    that pairs of conjugate epipolar lines become collinear and
+    parallel to one of the image axes. The effect of this is
+    equivalent to rotating the original cameras which took the
+    pictures.
+
+    When ``alignment-method`` is set to ``homography``, ``stereo`` will
+    attempt to pre-align the images by automatically detecting
+    tie-points between images using a feature matching. Tie points are
+    stored in a ``*.match`` file that is used to compute a linear
+    homography transformation of the right image so that it closely
+    matches the left image. Note: the user may exercise more control
+    over this process by using the ``ipfind`` and
+    ``ipmatch`` tools.
+
+    When ``alignment-method`` is set to ``epipolar``, ``stereo`` will
+    apply a 3D transform to both images so that their epipolar lines will
+    be horizontal. This speeds of stereo correlation as it greatly
+    reduces the area required for searching.
+
+    *Epipolar alignment is only available when calculating the stereo
+    matches using the pinhole stereo session (i.e. when using
+    ``stereo -t pinhole``), and cannot be used when processing other
+    camera types.*
+
+global-alignment-threshold (*float*) (default = 2)
+    Maximum distance from inlier interest point matches to the
+    epipolar line when calculating the global affine epipolar
+    alignment.
+
+local-alignment-threshold (*float*) (default = 2)
+    Maximum distance from inlier interest point matches to the
+    epipolar line when calculating the local affine epipolar
+    alignment.
+
+alignment-num-ransac-iterations (*integer*) (default = 1000)
+    How many RANSAC iterations to use for global or local epipolar
+    alignment.
+
+disparity-range-expansion-percent (*integer*) (default = 20)
+    Expand the disparity range estimated from interest points by this
+    percentage before computing the stereo correlation with local
+    epipolar alignment.
+
+Other pre-processing options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+force-use-entire-range (default = false)
+    By default, the Stereo Pipeline will normalize ISIS images so that
+    their maximum and minimum channel values are :math:`\pm`\ 2
+    standard deviations from a mean value of 1.0. Use this option if
+    you want to *disable* normalization and force the raw values to
+    pass directly to the stereo correlations algorithms.
+
+    For example, if the ISIS ``histeq`` tool has already been used to
+    normalize the images, then use this option to disable
+    normalization as a (redundant) pre-processing step.
+
+individually-normalize (default = false)
+    By default, the maximum and minimum valid pixel value is determined
+    by looking at both images. Normalized with the same “global” min
+    and max guarantees that the two images will retain their brightness
+    and contrast relative to each other.
+
+   This option forces each image to be normalized to its own maximum and
+   minimum valid pixel value. This is useful in the event that images
+   have different and non-overlapping dynamic ranges. You can sometimes
+   tell when this option is needed: after a failed stereo attempt one of
+   the rectified images (``*-L.tif`` and ``*-R.tif``) may be either
+   mostly white or black. Activating this option may correct this
+   problem.
+
+   Note: Photometric calibration and image normalization are steps that
+   can and should be carried out beforehand using ISIS’s own utilities.
+   This provides the best possible input to the stereo pipeline and
+   yields the best stereo matching results.
+
+nodata-value (default = none)
+    Pixels with values less than or equal to this number are treated as
+    no-data. This overrides the nodata values from input images.
+
+datum (default = WGS_1984)
+    Set the datum to use with RPC camera models. Options: WGS_1984,
+    D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA
+    (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth
+    (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).
+
+no-datum
+    Do not assume a reliable datum exists, such as for irregularly
+    shaped bodies.
 
 skip-rough-homography 
     Skip the step of performing datum-based rough homography if it
@@ -180,13 +209,13 @@ prefilter-mode (= 0,1,2) (default = 2)
 
     0 - None
 
-    1 - Subtracted Mean
+    1 - Subtracted mean
        This takes a preferably large Gaussian kernel and subtracts its
        value from the input image. This effectively reduces low frequency
        content in the image. The result is correlation that is immune to
        translations in image intensity.
 
-    2 - LoG Filter
+    2 - LoG filter
        Takes the Laplacian of Gaussian of the image, This provides some
        immunity to differences in lighting conditions between a pair of
        images by isolating and matching on blob features in the image.
@@ -211,7 +240,7 @@ corr-seed-mode (=0,1,2,3)
     the full-resolution disparity later on.
 
     0 - None
-       Don’t calculate a low-resolution variant of the disparity image.
+       Don't calculate a low-resolution variant of the disparity image.
        The search range provided by ``corr-search`` is used directly in
        computing the full-resolution disparity.
 
@@ -693,6 +722,9 @@ skip-computing-piecewise-adjustments (default = false)
 Bathymetry correction options
 -----------------------------
 
+These are options are used to infer the depth of shallow-water bodies
+(see :numref:`shallow_water_bathy`).
+
 Pre-processing stage
 ~~~~~~~~~~~~~~~~~~~~
 left-bathy-mask (*string*)
@@ -715,7 +747,8 @@ refraction-index (*double*) (default = 0.0)
 
 output-cloud-type arg (*string*) (default = all)
     When bathymetry correction is used, return only the triangulated cloud of 
-    points where bathymetry correction was applied (option: 'bathy'), where it was
-    not applied (option: 'topo', or the full cloud (option: 'all').
+    points where the bathymetry correction was applied (option:
+    'bathy'), where it was not applied (option: 'topo'), or the full
+    cloud (option: 'all').
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

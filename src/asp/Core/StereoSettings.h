@@ -130,7 +130,10 @@ namespace asp {
     bool   part_of_multiview_run;           ///< If this run is part of a larger multiview run
     std::string datum;                      ///< The datum to use with RPC camera models
     std::string left_image_clip, right_image_clip;
-    double local_alignment_threshold;        /// Max distance from the epipolar line when doing local alignment
+    double global_alignment_threshold;        /// Max distance from the epipolar line when doing global affine epipolar alignment
+    double local_alignment_threshold;         /// Max distance from the epipolar line when doing local affine epipolar alignment
+    int    alignment_num_ransac_iterations;   ///< How many ransac iterations to do in global or local epipolar alignment transform computation
+    int    disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 
     // Correlation Options
     float slogW;                      ///< Preprocessing filter width
