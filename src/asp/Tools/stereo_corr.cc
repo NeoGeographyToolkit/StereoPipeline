@@ -32,15 +32,17 @@
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <asp/Tools/stereo.h>
+#include <vw/Stereo/StereoModel.h>
+#include <xercesc/util/PlatformUtils.hpp>
+
+#include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/DemDisparity.h>
+#include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/LocalAlignment.h>
 #include <asp/Core/LocalHomography.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionPinhole.h>
-#include <xercesc/util/PlatformUtils.hpp>
-
-#include <asp/Core/InterestPointMatching.h>
-#include <vw/Stereo/StereoModel.h>
+#include <asp/Tools/stereo.h>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -352,7 +354,7 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
 
 
 
-// TODO: Duplicate of hidden function in vw/src/InterestPoint/Matcher.cc!
+// TODO(oalexan1): Duplicate of hidden function in vw/src/InterestPoint/Matcher.cc!
 std::string strip_path(std::string out_prefix, std::string filename){
 
   // If filename starts with out_prefix followed by dash, strip both.
@@ -607,8 +609,6 @@ BBox2i get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
   return BBox2i(search_minI, search_maxI);
 }
   
-
-
 /// Use existing interest points to compute a search range
 /// - This function could use improvement!
 /// - Should it be used in all cases?
@@ -670,8 +670,8 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 
   // Find search window based on interest point matches
   size_t num_ip = matched_ip1.size();
-  vw_out(InfoMessage,"asp") << "Estimating search range with: " 
-                            << num_ip << " interest points.\n";
+  vw_out(InfoMessage, "asp") << "Estimating search range with " 
+                             << num_ip << " interest points.\n";
 
   // Record the disparities for each point pair
   const double BIG_NUM   =  99999999;
@@ -1100,8 +1100,9 @@ public:
 }; // End class SeededCorrelatorView
 
 
-/// Main stereo correlation function, called after parsing input arguments.
-void stereo_correlation(ASPGlobalOptions& opt) {
+/// Stereo correlation function using ASP's block-matching and MGM/SGM
+/// algorithms which can handle a 2D disparity.
+void stereo_correlation_2D(ASPGlobalOptions& opt) {
 
   // The first thing we will do is compute the low-resolution correlation.
 
@@ -1113,8 +1114,6 @@ void stereo_correlation(ASPGlobalOptions& opt) {
 
   if (stereo_settings().compute_low_res_disparity_only) 
     return; // Just computed the low-res disparity, so quit.
-
-  vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION \n";
 
   read_search_range_from_dsub(opt);
 
@@ -1139,8 +1138,19 @@ void stereo_correlation(ASPGlobalOptions& opt) {
   vw_out() << "\t--------------------------------------------------\n";
 
   // Load up for the actual native resolution processing
-  DiskImageView<PixelGray<float> > left_disk_image (opt.out_prefix+"-L.tif"),
-    right_disk_image(opt.out_prefix+"-R.tif");
+
+  std::string left_image_file = opt.out_prefix + "-L.tif";
+  std::string right_image_file = opt.out_prefix + "-R.tif";
+  
+  boost::shared_ptr<DiskImageResource>
+    left_rsrc (vw::DiskImageResourcePtr(left_image_file)),
+    right_rsrc(vw::DiskImageResourcePtr(right_image_file));
+
+  // Load the normalized images.
+  DiskImageView<PixelGray<float> > left_disk_image (left_rsrc ),
+                                   right_disk_image(right_rsrc);
+
+  
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
   ImageViewRef<PixelMask<Vector2f> > sub_disp;
@@ -1169,6 +1179,7 @@ void stereo_correlation(ASPGlobalOptions& opt) {
     }
   }
 
+  // Wipe the local hom logic!
   ImageView<Matrix3x3> local_hom;
   if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
     string local_hom_file = opt.out_prefix + "-local_hom.txt";
@@ -1176,20 +1187,20 @@ void stereo_correlation(ASPGlobalOptions& opt) {
   }
 
   stereo::CostFunctionType cost_mode = get_cost_mode_value();
-  Vector2i kernel_size    = stereo_settings().corr_kernel;
-  BBox2i   trans_crop_win = stereo_settings().trans_crop_win;
-  int      corr_timeout   = stereo_settings().corr_timeout;
-  double   seconds_per_op = 0.0;
+  Vector2i kernel_size = stereo_settings().corr_kernel;
+  BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
+  int corr_timeout   = stereo_settings().corr_timeout;
+  double seconds_per_op = 0.0;
   if (corr_timeout > 0)
     seconds_per_op = calc_seconds_per_op(cost_mode, left_disk_image, right_disk_image, kernel_size);
 
   // Set up the reference to the stereo disparity code
-  // - Processing is limited to trans_crop_win for use with parallel_stereo.
+  // - Processing is limited to left_trans_crop_win for use with parallel_stereo.
   ImageViewRef<PixelMask<Vector2f> > fullres_disparity =
     crop(SeededCorrelatorView(left_disk_image, right_disk_image, Lmask, Rmask,
                               sub_disp, sub_disp_spread, local_hom, kernel_size, 
                               cost_mode, corr_timeout, seconds_per_op), 
-         trans_crop_win);
+         left_trans_crop_win);
 
   // With SGM, we must do the entire image chunk as one tile. Otherwise,
   // if it gets done in smaller tiles, there will be artifacts at tile boundaries.
@@ -1252,9 +1263,313 @@ void stereo_correlation(ASPGlobalOptions& opt) {
                                             TerminalProgressCallback("asp", "\t--> Correlation :"));
   }
 
-  vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED \n";
+} // End function stereo_correlation_2D
 
-} // End function stereo_correlation
+/// Stereo correlation function using external 1D correlation algorithms. Local alignment
+// will be performed before those algorithms are invoked.
+void stereo_correlation_1D(ASPGlobalOptions& opt) {
+
+  std::cout << "--Make this code modular!" << std::endl;
+  
+  // Read the globally aligned left and right images
+  std::string left_image_file = opt.out_prefix + "-L.tif";
+  std::string right_image_file = opt.out_prefix + "-R.tif";
+  boost::shared_ptr<DiskImageResource>
+    left_rsrc (vw::DiskImageResourcePtr(left_image_file)),
+    right_rsrc(vw::DiskImageResourcePtr(right_image_file));
+
+  DiskImageView<PixelGray<float> > left_disk_image (left_rsrc ),
+                                   right_disk_image(right_rsrc);
+
+  vw_out() << "\t--> Reading global interest points.\n";
+  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+
+  std::string left_unaligned_file = opt.in_file1;
+  std::string right_unaligned_file = opt.in_file2;
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  if (crop_left) 
+    left_unaligned_file = opt.out_prefix + "-L-cropped.tif";
+  if (crop_right) 
+    right_unaligned_file = opt.out_prefix + "-R-cropped.tif";
+
+  std::string match_filename = vw::ip::match_filename(opt.out_prefix,
+                                                      left_unaligned_file,
+                                                      right_unaligned_file);
+  
+  if (!fs::exists(match_filename))
+    vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
+
+  vw_out() << "\t    * Loading match file: " << match_filename << "\n";
+  vw::ip::read_binary_match_file(match_filename, left_ip, right_ip);
+
+  BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
+  
+  Matrix<double> left_global_mat  = math::identity_matrix<3>();
+  Matrix<double> right_global_mat = math::identity_matrix<3>();
+  vw::HomographyTransform left_trans(left_global_mat), right_trans(right_global_mat);
+  if (stereo_settings().alignment_method == "affineepipolar" ) {
+    read_matrix(left_global_mat, opt.out_prefix + "-align-L.exr");
+    read_matrix(right_global_mat, opt.out_prefix + "-align-R.exr");
+
+    left_trans = vw::HomographyTransform(left_global_mat);
+    right_trans = vw::HomographyTransform(right_global_mat);
+  }  
+
+  // Apply the transforms to all the IP we found
+  std::vector<vw::ip::InterestPoint> left_trans_ip, right_trans_ip;
+
+  // Estimate the search range based on ip
+  BBox2i right_trans_crop_win;
+
+  for (size_t i = 0; i < left_ip.size(); i++) {
+
+    Vector2 left_pt (left_ip [i].x, left_ip [i].y);
+    Vector2 right_pt(right_ip[i].x, right_ip[i].y);
+
+    left_pt  = left_trans.forward(left_pt);
+    right_pt = right_trans.forward(right_pt);
+
+    if (!left_trans_crop_win.contains(left_pt)) 
+      continue;
+    
+    right_trans_crop_win.grow(right_pt);
+    
+    // First copy all the data from the input ip, then apply the transform
+    left_trans_ip.push_back(left_ip[i]);
+    right_trans_ip.push_back(right_ip[i]);
+    left_trans_ip.back().x  = left_pt.x();
+    left_trans_ip.back().y  = left_pt.y();
+    right_trans_ip.back().x = right_pt.x();
+    right_trans_ip.back().y = right_pt.y();
+  }
+
+  // Round up
+  right_trans_crop_win.expand(1);
+  right_trans_crop_win.crop(bounding_box(right_disk_image));
+  
+  //std::string out_match_filename = vw::ip::match_filename(opt.out_prefix + "-aligned",
+  //                                                        opt.in_file1, opt.in_file2);
+  
+  //vw_out() << "Writing match file: " << out_match_filename << ".\n";
+  //vw::ip::write_binary_match_file(out_match_filename, left_trans_ip, right_trans_ip);
+
+  // TODO(oalexan1): Should we find the search range based on IP or based on D_sub?
+  vw_out() << "IP-based search range: " << right_trans_crop_win << std::endl;
+
+  // Redo ip matching in the current tile. It should be more accurate after alignment
+  // and cropping
+  
+  float left_nodata_value  = numeric_limits<float>::quiet_NaN();
+  float right_nodata_value = numeric_limits<float>::quiet_NaN();
+  if ( left_rsrc->has_nodata_read() )
+    left_nodata_value  = left_rsrc->nodata_read();
+  if ( right_rsrc->has_nodata_read() )
+    right_nodata_value = right_rsrc->nodata_read();
+  
+  std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
+
+  // TODO(oalexan1): See if perhaps more IP per tile are needed.
+  // This does not seem to help a lot.
+  detect_match_ip(left_local_ip, right_local_ip,
+                  crop(left_disk_image, left_trans_crop_win),
+                  crop(right_disk_image, right_trans_crop_win), 
+                  stereo_settings().ip_per_tile,  
+                  "", "", // do not save any results to disk  
+                  left_nodata_value, right_nodata_value,
+                  "" // do not save any match file to disk
+                  );
+
+  //std::string local_match_filename = vw::ip::match_filename(opt.out_prefix + "-local",
+  //                                                          "L.tif", "R.tif");
+  //vw_out() << "Writing match file: " << local_match_filename << ".\n";
+  //vw::ip::write_binary_match_file(local_match_filename, left_local_ip, right_local_ip);
+
+  // The matrices which take care of the crop to the current tile
+  Matrix<double> left_crop_mat  = math::identity_matrix<3>();
+  Matrix<double> right_crop_mat = math::identity_matrix<3>();
+
+  left_crop_mat (0, 2) = -left_trans_crop_win.min().x();
+  left_crop_mat (1, 2) = -left_trans_crop_win.min().y();
+  right_crop_mat(0, 2) = -right_trans_crop_win.min().x();
+  right_crop_mat(1, 2) = -right_trans_crop_win.min().y();
+
+  Matrix<double> left_local_mat  = math::identity_matrix<3>();
+  Matrix<double> right_local_mat = math::identity_matrix<3>();
+
+  // TODO(oalexan1): Use a different distance to epipolar line and number of ransac attempts?
+  std::vector<size_t> ip_inlier_indices;
+  Vector2i local_trans_aligned_size =
+    affine_epipolar_rectification(left_trans_crop_win.size(), right_trans_crop_win.size(),
+                                  stereo_settings().local_alignment_threshold,
+                                  stereo_settings().alignment_num_ransac_iterations,
+                                  left_local_ip, right_local_ip,
+                                  left_local_mat, right_local_mat, &ip_inlier_indices);
+
+  // Now need to go back to the original left and right images, find the right
+  // bounds, and compose the local align matrix with the global one,
+  // then do 1D stereo on the combined transform.
+  
+  // Combination of global alignment, crop to current tile, and local alignment
+  Matrix<double> combined_left_mat  = left_local_mat * left_crop_mat * left_global_mat;
+  Matrix<double> combined_right_mat = right_local_mat * right_crop_mat * right_global_mat;
+
+  // Apply the combined transforms to the original unscaled and unaligned images,
+  // then scale them too.
+  Vector<float32> left_stats, right_stats;
+  string left_stats_file  = opt.out_prefix + "-lStats.tif";
+  string right_stats_file = opt.out_prefix + "-rStats.tif";
+  vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << endl;
+  read_vector(left_stats,  left_stats_file);
+  read_vector(right_stats, right_stats_file);
+
+  float left_unaligned_nodata_value = -32768.0;
+  float right_unaligned_nodata_value = -32768.0;
+  {
+    // Retrieve nodata values and let the handles go out of scope right away.
+    // For this to work, the ISIS type must be registered with the
+    // DiskImageResource class.  This happens in "stereo.cc", so
+    // these calls will create DiskImageResourceIsis objects.
+    boost::shared_ptr<DiskImageResource>
+      left_unaligned_rsrc (DiskImageResourcePtr(left_unaligned_file)),
+      right_unaligned_rsrc(DiskImageResourcePtr(right_unaligned_file));
+    opt.session->get_nodata_values(left_unaligned_rsrc, right_unaligned_rsrc,
+                                   left_unaligned_nodata_value, right_unaligned_nodata_value);
+  }
+
+  // Set up image masks
+  DiskImageView<float> left_unaligned_image (left_unaligned_file);
+  DiskImageView<float> right_unaligned_image (right_unaligned_file);
+  ImageViewRef< PixelMask<float> > left_masked_image
+    = create_mask_less_or_equal(left_unaligned_image,  left_unaligned_nodata_value);
+  ImageViewRef< PixelMask<float> > right_masked_image
+    = create_mask_less_or_equal(right_unaligned_image, right_unaligned_nodata_value);
+
+  // Apply the combined transform to original left and right images,
+  // rather than to already transformed images. This way we avoid
+  // double interpolation.
+  // Still does not work with ISIS!
+  std::cout << "--Does not work for ISIS!" << std::endl;
+  
+  ImageViewRef< PixelMask<float> > left_aligned_image  
+    = transform(left_masked_image,
+                HomographyTransform(combined_left_mat),
+                local_trans_aligned_size.x(), local_trans_aligned_size.y());
+  ImageViewRef< PixelMask<float> > right_aligned_image  
+    = transform(right_masked_image,
+                HomographyTransform(combined_right_mat),
+                local_trans_aligned_size.x(), local_trans_aligned_size.y());
+  
+  StereoSession::normalize_images(stereo_settings().force_use_entire_range,
+                                  stereo_settings().individually_normalize,
+                                  false, // Use std stretch
+                                  left_stats, right_stats,
+                                  left_aligned_image, right_aligned_image);
+
+  PixelMask<float> nodata_mask = PixelMask<float>(); // invalid value for a PixelMask
+  
+  // The S2P MGM algorithm needs NaN data
+  float nan_nodata = std::numeric_limits<float>::quiet_NaN();
+  vw::cartography::GeoReference georef;
+  bool has_georef = false, has_aligned_nodata = true;
+
+  std::string left_tile = "left-aligned-tile.tif";
+  std::string right_tile = "right-aligned-tile.tif";
+  std::string left_aligned_file = opt.out_prefix + "-" + left_tile; 
+  vw_out() << "\t--> Writing: " << left_aligned_file << ".\n";
+  block_write_gdal_image(left_aligned_file, apply_mask(left_aligned_image, nan_nodata),
+                         has_georef, georef,
+                         has_aligned_nodata, nan_nodata, opt,
+                         TerminalProgressCallback("asp","\t  Left:  "));
+  
+  std::string right_aligned_file = opt.out_prefix + "-" + right_tile;
+  vw_out() << "\t--> Writing: " << right_aligned_file << ".\n";
+  block_write_gdal_image(right_aligned_file,
+                         apply_mask
+                         (crop
+                          (edge_extend(right_aligned_image,
+                                       ValueEdgeExtension<PixelMask<float>>(nodata_mask)),
+                           bounding_box(left_aligned_image)), // note the left bounding box
+                          nan_nodata),
+                         has_georef, georef,
+                         has_aligned_nodata, nan_nodata, opt,
+                         TerminalProgressCallback("asp","\t  Right:  "));
+  
+  std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
+  
+  // Apply local alignment to ip
+  std::vector<vw::ip::InterestPoint> left_trans_local_ip;
+  std::vector<vw::ip::InterestPoint> right_trans_local_ip;
+  vw::HomographyTransform left_local_trans (left_local_mat);
+  vw::HomographyTransform right_local_trans(right_local_mat);
+  BBox2 disp_range;
+  for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
+    int i = ip_inlier_indices[it];
+    Vector2 left_pt (left_local_ip [i].x, left_local_ip [i].y);
+    Vector2 right_pt(right_local_ip[i].x, right_local_ip[i].y);
+
+    left_pt  = left_local_trans.forward(left_pt);
+    right_pt = right_local_trans.forward(right_pt);
+    
+    // First copy all the data from the input ip, then apply the transform
+    left_trans_local_ip.push_back(left_local_ip[i]);
+    right_trans_local_ip.push_back(right_local_ip[i]);
+    left_trans_local_ip.back().x  = left_pt.x();
+    left_trans_local_ip.back().y  = left_pt.y();
+    right_trans_local_ip.back().x = right_pt.x();
+    right_trans_local_ip.back().y = right_pt.y();
+
+    disp_range.grow(right_pt - left_pt);
+  }
+
+  std::string local_aligned_match_filename
+    = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
+  
+  vw_out() << "Writing match file: " << local_aligned_match_filename << ".\n";
+  vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
+                                  right_trans_local_ip);
+
+  double disp_width = disp_range.width();
+  double disp_extra = disp_width * stereo_settings().disparity_range_expansion_percent / 100.0;
+  int min_disp = floor(disp_range.min().x() - disp_extra/2.0);
+  int max_disp = ceil(disp_range.max().x() + disp_extra/2.0);
+
+  int num_dirs = 8;
+  std::ostringstream oss;
+  oss << "MEDIAN=1 CENSUS_NCC_WIN=3 USE_TRUNCATED_LINEAR_POTENTIALS=1 "
+      << "TSGM=3 LD_LIBRARY_PATH=/home/oalexan1/miniconda3/envs/gdal/lib "
+      << "/home/oalexan1/miniconda3/envs/gdal/lib/python3.6/site-packages/bin/mgm "
+      << "-r " << min_disp << " -R " << max_disp << " -s vfit -t census -O " << num_dirs
+      << " " << left_aligned_file << " " << right_aligned_file << " " << disp_file;
+  
+  std::string cmd = oss.str();
+  std::cout << cmd << std::endl;
+  system(cmd.c_str());
+
+  // Read the 1D disparity and undo the alignment
+  ImageView<PixelMask<Vector2f>> disp_2d;
+  asp::unalign_disparity(// Inputs
+                         DiskImageView<float>(disp_file),  
+                         left_trans_crop_win, right_trans_crop_win,  
+                         left_local_mat,  right_local_mat,  
+                         // Output
+                         disp_2d);
+
+  cartography::GeoReference left_georef;
+  bool   has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
+  bool   has_nodata      = false;
+  double nodata          = -32768.0;
+
+  string d_file = opt.out_prefix + "-D.tif";
+  vw_out() << "Writing: " << d_file << "\n";
+    
+  opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),
+                                  ASPGlobalOptions::rfne_tile_size());
+  vw::cartography::block_write_gdal_image(d_file, disp_2d,
+                                          has_left_georef, left_georef,
+                                          has_nodata, nodata, opt,
+                                          TerminalProgressCallback("asp", "\t--> Correlation :"));
+} // End function stereo_correlation_1D
 
 int main(int argc, char* argv[]) {
 
@@ -1294,10 +1609,16 @@ int main(int argc, char* argv[]) {
       
     opt.raster_tile_size = Vector2i(ts, ts);
 
-    // Internal Processes
-    //---------------------------------------------------------
-    stereo_correlation(opt);
-  
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION \n";
+
+    std::cout << "---hack!!!" << std::endl;
+    if (stereo_settings().compute_low_res_disparity_only) 
+      stereo_correlation_2D(opt);
+    else
+      stereo_correlation_1D(opt);
+
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED \n";
+    
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 

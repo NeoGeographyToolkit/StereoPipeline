@@ -23,10 +23,21 @@
 #define __LOCAL_ALIGNMENT_H__
 
 #include <vw/Math/BBox.h>
-#include <vector>
-#include <string>
+#include <vw/Math/Matrix.h>
+#include <vw/Image/ImageViewRef.h>
 
 namespace asp {
+
+  // Go from 1D disparity of images with affine epipolar alignment to the 2D
+  // disparity by undoing the transforms that applied this alignment.
+  void unalign_disparity(// Inputs
+                         vw::ImageViewRef<float> disp_1d, 
+                         vw::BBox2i const& left_crop_win, 
+                         vw::BBox2i const& right_crop_win,
+                         vw::math::Matrix<double> const& left_align_mat,
+                         vw::math::Matrix<double> const& right_align_mat,
+                         // Output
+                         vw::ImageView<vw::PixelMask<vw::Vector2f>> & disp_2d);
 
   } // end namespace asp
 
