@@ -49,62 +49,65 @@ typedef ImageView    <PixelMask<Vector2f> > DispImageType;
 typedef ImageView    <double              > WeightsType;
 
 const size_t NUM_NEIGHBORS = 8;
-enum Position {TL = 0, T = 1, TR = 2,
-                L = 3, M = 8,  R = 4,
-               BL = 5, B = 6, BR = 7};
-// M is the central non-buffered area.
+
+enum TilePosition {TILE_TL = 0, TILE_T = 1, TILE_TR = 2,
+                   TILE_L = 3, TILE_M = 8,  TILE_R = 4,
+                   TILE_BL = 5, TILE_B = 6, TILE_BR = 7};
+// TILE_M is the central non-buffered area.
 
 /// Debugging aid
 std::string position_string(int p) {
   switch(p) {
-    case TL: return "TL";
-    case T:  return "T";
-    case TR: return "TR";
-    case L:  return "L";
-    case R:  return "R";
-    case BL: return "BL";
-    case B:  return "B";
-    case BR: return "BR";
-    default: return "M";
+  case TILE_TL: return "TILE_TL";
+  case TILE_T:  return "TILE_T";
+  case TILE_TR: return "TILE_TR";
+  case TILE_L:  return "TILE_L";
+  case TILE_R:  return "TILE_R";
+  case TILE_BL: return "TILE_BL";
+  case TILE_B:  return "TILE_B";
+  case TILE_BR: return "TILE_BR";
+  default: return "TILE_M";
   };
 }
 
 /// Returns the opposite position (what it is in the neighbor)
-Position get_opposed_position(Position p) {
+TilePosition get_opposed_position(TilePosition p) {
   switch(p) {
-    case TL: return BR;
-    case T:  return B;
-    case TR: return BL;
-    case L:  return R;
-    case R:  return L;
-    case BL: return TR;
-    case B:  return T;
-    case BR: return TL;
-    default: return M;
+  case TILE_TL: return TILE_BR;
+  case TILE_T:  return TILE_B;
+  case TILE_TR: return TILE_BL;
+  case TILE_L:  return TILE_R;
+  case TILE_R:  return TILE_L;
+  case TILE_BL: return TILE_TR;
+  case TILE_B:  return TILE_T;
+  case TILE_BR: return TILE_TL;
+  default: return TILE_M;
   };
 }
 
 /// Given "out-2048_0_1487_2048" return "2048_0_1487_2048"
-std::string extract_process_folder_bbox_string(std::string  s) {
+std::string extract_process_folder_bbox_string(std::string s) {
+
   // If the filename was included, throw it out first.
   if (s.find("-Dnosym.tif") != std::string::npos) {
     size_t pt = s.rfind("/");
     s = s.substr(0, pt);
   }
+
   size_t num_start = s.rfind("-");
   if (num_start == std::string::npos)
     vw_throw( ArgumentErr() << "Error parsing folder string: " << s );
   return s.substr(num_start+1);
 }
-
+  
 /// Constructs a BBox2i from a parallel_stereo formatted folder.
 BBox2i bbox_from_folder(std::string const& s) {
   std::string cropped = extract_process_folder_bbox_string(s);
+
   int x, y, width, height;
   sscanf(cropped.c_str(), "%d_%d_%d_%d", &x, &y, &width, &height);
   return BBox2i(x, y, width, height);
 }
-
 
 /// Returns one of eight possible ROI locations for the given tile.
 /// - If get_buffer is set, fetch the ROI from the buffer region,
@@ -118,10 +121,10 @@ BBox2i bbox_from_folder(std::string const& s) {
 ///   with get_bufer==true, as there is no buffer area to fetch
 /// - Generally you would get the non-buffer region for the main tile,
 ///   and the opposed buffer region for the neighboring tile.
-bool get_roi_from_tile(std::string const& tile_path, Position pos,
-		       int buffer_size, bool get_buffer,
-		       BBox2i &output_roi,
-		       bool buffers_stripped=false) {
+bool get_roi_from_tile(std::string const& tile_path, TilePosition pos,
+                       int buffer_size, bool get_buffer,
+                       BBox2i &output_roi,
+                       bool buffers_stripped = false) {
   
   // Initialize the output
   output_roi = BBox2i();
@@ -172,7 +175,7 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
   int right_diff = image_width  - right_offset;
   int bot_diff   = image_height - top_offset;
   switch(pos) {
-  case TL: 
+  case TILE_TL: 
     if (get_buffer) {
       if (left_edge || top_edge)
         return false;
@@ -181,7 +184,7 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
       output_roi = BBox2i(Vector2i(left_offset, top_offset), dummy);
     output_roi.set_size(corner_size);
     break;
-  case T:
+  case TILE_T:
     if (get_buffer) {
       if (top_edge)
         return false;
@@ -190,16 +193,16 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
       output_roi = BBox2i(Vector2i(left_offset, top_offset), dummy);
     output_roi.set_size(horizontal_edge_size);
     break;             
-  case TR:
+  case TILE_TR:
     if (get_buffer) {
       if (top_edge)
-          return false;
+        return false;
       output_roi = BBox2i(Vector2i(right_diff, 0), dummy);
     } else
       output_roi = BBox2i(Vector2i(right_diff - buffer_size, top_offset), dummy);
     output_roi.set_size(corner_size);
     break;
-  case L:
+  case TILE_L:
     if (get_buffer) {
       if (left_edge)
         return false;
@@ -208,14 +211,14 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
       output_roi = BBox2i(Vector2i(left_offset, top_offset), dummy);
     output_roi.set_size(vertical_edge_size);
     break;
-  case R:
+  case TILE_R:
     if (get_buffer) {
       output_roi = BBox2i(Vector2i(right_diff, top_offset), dummy);
     } else
       output_roi = BBox2i(Vector2i(right_diff - buffer_size, top_offset), dummy);
     output_roi.set_size(vertical_edge_size);
     break;
-  case BL:
+  case TILE_BL:
     if (get_buffer) {
       if (left_edge)
         return false;
@@ -224,21 +227,21 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
       output_roi = BBox2i(Vector2i(left_offset, bot_diff - buffer_size), dummy);
     output_roi.set_size(corner_size);
     break;
-  case B:
+  case TILE_B:
     if (get_buffer) {
       output_roi = BBox2i(Vector2i(left_offset, bot_diff), dummy);
     } else
       output_roi = BBox2i(Vector2i(left_offset, bot_diff - buffer_size), dummy);
     output_roi.set_size(horizontal_edge_size);
     break;
-  case BR:
+  case TILE_BR:
     if (get_buffer) {
       output_roi = BBox2i(Vector2i(right_diff, bot_diff), dummy);
     } else
       output_roi = BBox2i(Vector2i(right_diff - buffer_size, bot_diff - buffer_size), dummy);
     output_roi.set_size(corner_size);
     break;
-  default: // M (central area, everything except for the buffers)
+  default: // TILE_M (central area, everything except for the buffers)
     if (get_buffer)
       return false; // Central area is never a buffer
     output_roi = BBox2i(Vector2i(left_offset, top_offset), dummy);
@@ -310,16 +313,16 @@ struct BlendOptions {
   
   // Helper functions to indicate which directions tiles are present in
   bool has_upper_tiles() const { 
-    return ((tile_paths[TL] != "") || (tile_paths[T] != "") || (tile_paths[TR] != ""));
+    return ((tile_paths[TILE_TL] != "") || (tile_paths[TILE_T] != "") || (tile_paths[TILE_TR] != ""));
   };
   bool has_lower_tiles() const { 
-    return ((tile_paths[BL] != "") || (tile_paths[B] != "") || (tile_paths[BR] != ""));
+    return ((tile_paths[TILE_BL] != "") || (tile_paths[TILE_B] != "") || (tile_paths[TILE_BR] != ""));
   };
   bool has_left_tiles() const { 
-    return ((tile_paths[TL] != "") || (tile_paths[L] != "") || (tile_paths[BL] != ""));
+    return ((tile_paths[TILE_TL] != "") || (tile_paths[TILE_L] != "") || (tile_paths[TILE_BL] != ""));
   };
   bool has_right_tiles() const { 
-    return ((tile_paths[TR] != "") || (tile_paths[R] != "") || (tile_paths[BR] != ""));
+    return ((tile_paths[TILE_TR] != "") || (tile_paths[TILE_R] != "") || (tile_paths[TILE_BR] != ""));
   };
 };
 
@@ -352,9 +355,7 @@ void check_roi_bounds(BBox2i & input_roi, BBox2i & tile_roi, BBox2i const& image
 
 
 /// Blend the borders of an input disparity tile using the adjacent disparity tiles.
-DispImageType
-tile_blend( DispImageType const& input_image,
-            BlendOptions       & opt) {
+DispImageType tile_blend(DispImageType const& input_image, BlendOptions & opt) {
 
   const bool debug = false;
 
@@ -367,7 +368,7 @@ tile_blend( DispImageType const& input_image,
 
   // Retrieve the output bounding box in the input image
   BBox2i output_bbox;
-  bool ans = get_roi_from_tile(opt.main_path, M, buff_size, NOT_BUFFER, output_bbox);
+  bool ans = get_roi_from_tile(opt.main_path, TILE_M, buff_size, NOT_BUFFER, output_bbox);
   if (!ans) 
     vw_throw(ArgumentErr() << "stereo_blend: central region cannot be empty.");
 
@@ -402,11 +403,11 @@ tile_blend( DispImageType const& input_image,
 
     try {
       // Get the ROI from the cropped input image
-      bool ans1 = get_roi_from_tile(opt.main_path, Position(i),
+      bool ans1 = get_roi_from_tile(opt.main_path, TilePosition(i),
                                     buff_size, NOT_BUFFER, input_rois[i],
                                     BUFFERS_GONE);
       // Get the ROI from the neighboring tile
-      bool ans2 = get_roi_from_tile(opt.tile_paths[i], get_opposed_position(Position(i)), 
+      bool ans2 = get_roi_from_tile(opt.tile_paths[i], get_opposed_position(TilePosition(i)), 
                                     buff_size, GET_BUFFER, tile_rois[i]);
       if (!ans1 || !ans2) continue; // nothing to blend
 
@@ -476,7 +477,8 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
   }
   ifs.close();
   if (folder_list.empty()) 
-    vw_throw( ArgumentErr() << "Something is corrupted. Found an empty file: " << dirList << ".\n" );
+    vw_throw( ArgumentErr() << "Something is corrupted. Found an empty file: "
+              << dirList << ".\n" );
   
   // Get the main tile bbox from the subfolder name
   boost::filesystem::path mpath(blend_options.main_path);
@@ -498,47 +500,47 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
 
     if (bbox.max().x() == main_bbox.min().x()) { // Tiles one column to left
       if (bbox.max().y() == main_bbox.min().y()) { // Top left
-        blend_options.tile_paths[TL] = abs_path;
-        blend_options.rois      [TL] = bbox;
+        blend_options.tile_paths[TILE_TL] = abs_path;
+        blend_options.rois      [TILE_TL] = bbox;
         continue;
       }
       if (bbox.min().y() == main_bbox.min().y()) { // Left
-        blend_options.tile_paths[L] = abs_path;
-        blend_options.rois      [L] = bbox;
+        blend_options.tile_paths[TILE_L] = abs_path;
+        blend_options.rois      [TILE_L] = bbox;
         continue;
       }
       if (bbox.min().y() == main_bbox.max().y()) { // Bot left
-        blend_options.tile_paths[BL] = abs_path;
-        blend_options.rois      [BL] = bbox;
+        blend_options.tile_paths[TILE_BL] = abs_path;
+        blend_options.rois      [TILE_BL] = bbox;
         continue;
       }
     } // End left tiles
     if (bbox.min().x() == main_bbox.max().x()) { // Tiles one column to right
       if (bbox.max().y() == main_bbox.min().y()) { // Top right
-        blend_options.tile_paths[TR] = abs_path;
-        blend_options.rois      [TR] = bbox;
+        blend_options.tile_paths[TILE_TR] = abs_path;
+        blend_options.rois      [TILE_TR] = bbox;
         continue;
       }
       if (bbox.min().y() == main_bbox.min().y()) { // Right
-        blend_options.tile_paths[R] = abs_path;
-        blend_options.rois      [R] = bbox;
+        blend_options.tile_paths[TILE_R] = abs_path;
+        blend_options.rois      [TILE_R] = bbox;
         continue;
       }
       if (bbox.min().y() == main_bbox.max().y()) { // Bot right
-        blend_options.tile_paths[BR] = abs_path;
-        blend_options.rois      [BR] = bbox;
+        blend_options.tile_paths[TILE_BR] = abs_path;
+        blend_options.rois      [TILE_BR] = bbox;
         continue;
       }
     } // End right tiles
     if (bbox.min().x() == main_bbox.min().x()) { // Tiles in same column
       if (bbox.max().y() == main_bbox.min().y()) { // Top
-        blend_options.tile_paths[T] = abs_path;
-        blend_options.rois      [T] = bbox;
+        blend_options.tile_paths[TILE_T] = abs_path;
+        blend_options.rois      [TILE_T] = bbox;
         continue;
       }
       if (bbox.min().y() == main_bbox.max().y()) { // Bottom
-        blend_options.tile_paths[B] = abs_path;
-        blend_options.rois      [B] = bbox;
+        blend_options.tile_paths[TILE_B] = abs_path;
+        blend_options.rois      [TILE_B] = bbox;
         continue;
       }
     }
@@ -575,7 +577,7 @@ void stereo_blending( ASPGlobalOptions const& opt ) {
     
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at blending stage -- could not read input files.\n" 
-                            << e.what() << "\nExiting.\n\n" );
+              << e.what() << "\nExiting.\n\n" );
   }
   
   cartography::GeoReference left_georef;
@@ -586,8 +588,10 @@ void stereo_blending( ASPGlobalOptions const& opt ) {
   DispImageType output = tile_blend(integer_disp, blend_options);
 
   string out_file = opt.out_prefix + "-B.tif";
-  if (stereo_settings().subpixel_mode > 6 ) // No further subpixel refinement, skip to the -RD output.
+  if (stereo_settings().subpixel_mode > 6 ){
+    // No further subpixel refinement, skip to the -RD output.
     out_file = opt.out_prefix + "-RD.tif";
+  }
   vw_out() << "Writing: " << out_file << "\n";
   vw::cartography::block_write_gdal_image(out_file, output,
                                           has_left_georef, left_georef,
