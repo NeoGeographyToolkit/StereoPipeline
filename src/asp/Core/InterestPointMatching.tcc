@@ -446,7 +446,6 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                  left_file_path, right_file_path, nodata1, nodata2);
   
   // Match the interset points using the default matcher
-  vw_out() << "\t--> Matching interest points using homography.\n";
 
   // Replace the IP lists with IP vectors
   std::vector<vw::ip::InterestPoint> ip1_copy, ip2_copy;
@@ -512,6 +511,8 @@ bool homography_ip_matching(vw::ImageViewBase<Image1T> const& image1,
 
   using namespace vw;
 
+  vw_out() << "\t--> Matching interest points using homography.\n";
+  
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   detect_match_ip(matched_ip1, matched_ip2,
 		  image1.impl(), image2.impl(),

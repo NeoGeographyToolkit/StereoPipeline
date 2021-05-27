@@ -19,8 +19,8 @@
 /// \file LocalHomography.h
 ///
 
-#ifndef __LOCAL_DISPARITY_H__
-#define __LOCAL_DISPARITY_H__
+#ifndef __LOCAL_HOMOGRAPHY_H__
+#define __LOCAL_HOMOGRAPHY_H__
 
 #include <vw/Image/ImageView.h>
 #include <vector>
@@ -46,6 +46,6 @@ namespace asp {
                                vw::ImageView<vw::Matrix3x3> & local_hom);
 
 
-} // namespace asp
+} // end namespace asp
 
-#endif
+#endif // __LOCAL_HOMOGRAPHY_H__
