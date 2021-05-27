@@ -23,6 +23,7 @@
 #include <vw/Math/RANSAC.h>
 #include <vw/Math/LinearAlgebra.h>
 #include <vw/InterestPoint/InterestData.h>
+#include <vw/Core/Stopwatch.h>
 
 #include <opencv2/calib3d.hpp>
 
@@ -261,17 +262,21 @@ namespace asp {
   // Main function that other parts of ASP should use
   Vector2i affine_epipolar_rectification(Vector2i const& left_image_dims,
                                          Vector2i const& right_image_dims,
+                                         double inlier_threshold,
+                                         int num_ransac_iterations,
                                          std::vector<ip::InterestPoint> const& ip1,
                                          std::vector<ip::InterestPoint> const& ip2,
                                          Matrix<double>& left_matrix,
-                                         Matrix<double>& right_matrix) {
+                                         Matrix<double>& right_matrix,
+                                         // optionally return the inliers
+                                         std::vector<size_t> * inliers_ptr) {
   
     int  min_num_output_inliers = ip1.size() / 2;
     bool reduce_min_num_output_inliers_if_no_fit = true;
-    int  num_ransac_iterations = 10000;
 
     vw::Matrix<double> T;
-    double inlier_threshold = stereo_settings().local_alignment_threshold;
+    Stopwatch sw;
+    sw.start();
 
     vw_out() << "Computing the epipolar rectification matrices "
              << "using RANSAC with " << num_ransac_iterations
@@ -294,6 +299,10 @@ namespace asp {
     }
     vw_out() << "Found " << inlier_indices.size() << " / " << ip1.size() << " inliers.\n";
 
+    sw.stop();
+    vw_out(DebugMessage,"asp") << "Elapsed time in computing rectification matrices: "
+                               << sw.elapsed_seconds() << " seconds.\n";
+
     // Extract the matrices and the cropped transformed box from the computed transform
     left_matrix  = submatrix(T, 0, 0, 3, 3);
     right_matrix = submatrix(T, 0, 3, 3, 3);
@@ -308,7 +317,11 @@ namespace asp {
         
     vw_out() << "The maximum absolute difference of the y components of the "
              << "inlier interest points with the alignment matrices applied to them: "
-             << max_err << "." << std::endl;
+             << max_err << " pixels." << std::endl;
+
+    // Optionally return the inliers
+    if (inliers_ptr != NULL)
+      *inliers_ptr = inlier_indices;
     
     return trans_crop_box;
   }

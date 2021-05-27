@@ -34,14 +34,16 @@ namespace asp {
   // transforms in left_matrix and right_matrix. This function returns
   // the ideal image size. (It reduces the image sizes to only the
   // intersect of the two images.)
-  vw::Vector2i
-  affine_epipolar_rectification( vw::Vector2i const& left_size,
-                                 vw::Vector2i const& right_size,
-                                 std::vector<vw::ip::InterestPoint> const& left,
-                                 std::vector<vw::ip::InterestPoint> const& right,
-                                 vw::Matrix<double>& left_matrix,
-                                 vw::Matrix<double>& right_matrix );
-
+  vw::Vector2i affine_epipolar_rectification(vw::Vector2i const& left_size,
+                                             vw::Vector2i const& right_size,
+                                             double inlier_threshold,
+                                             int num_ransac_iterations,
+                                             std::vector<vw::ip::InterestPoint> const& left,
+                                             std::vector<vw::ip::InterestPoint> const& right,
+                                             vw::Matrix<double>& left_matrix,
+                                             vw::Matrix<double>& right_matrix,
+                                             // optionally return the inliers
+                                             std::vector<size_t> * inliers_ptr = NULL);
 }
 
 #endif//__ASP_CORE_AFFINEEPIPOLAR_H__
