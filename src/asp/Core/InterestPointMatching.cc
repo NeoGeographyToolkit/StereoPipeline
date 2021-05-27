@@ -29,10 +29,9 @@ namespace asp {
   int g_ip_num_errors = 0;
   Mutex g_ip_mutex;
 
-
-//-------------------------------------------------------------------------------------------------
-// Class EpipolarLinePointMatcher
-
+  //-------------------------------------------------------------------------------------------------
+  // Class EpipolarLinePointMatcher
+  
   EpipolarLinePointMatcher::EpipolarLinePointMatcher( bool   single_threaded_camera,
                                                       double uniqueness_threshold,
                                                       double epipolar_threshold,
