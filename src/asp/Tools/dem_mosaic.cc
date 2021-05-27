@@ -164,10 +164,7 @@ void centerline_weights2(ImageT const& img, ImageView<double> & weights,
     }
   }
 
-} // End function weights_from_centerline
-
-
-
+} // End function centerline_weights2
 
 // An S-shaped function. Value at 0 is 0. Value at M is M.
 // Flat before 0 and after M. Higher value of L means

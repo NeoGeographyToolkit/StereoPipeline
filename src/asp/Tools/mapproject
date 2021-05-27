@@ -207,7 +207,7 @@ def main(argsIn):
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument("--num-processes",  dest="numProcesses", type=int, default=None,
-                        help="Number of processes per machine to use (default program tries to choose best)")
+                        help="Number of processes per machine to use (default: program tries to choose best)")
 
     parser.add_argument('--nodes-list',  dest='nodesListPath', default=None,
                                          help='The list of computing nodes, one per line. ' + \
@@ -287,9 +287,12 @@ def main(argsIn):
     if spawnedCopy: # This copy was spawned to process a single tile
         return writeSingleTile(options) # Just call a function to handle this and then we are done!
 
-    # If the input image is NOT an ISIS image AND we are running on a single machine we can
-    #  just use the multi-threading capability of the ordinary mapproject call.
-    if (not asp_image_utils.isIsisFile(options.imagePath)) and (not options.nodesListPath):
+    # If the input image is not an ISIS image, and we are running on a
+    # single machine, and the user did not specify how many processes
+    # to use, we can just use the multi-threading capability of the
+    # ordinary mapproject call.
+    if (not asp_image_utils.isIsisFile(options.imagePath)) and (not options.nodesListPath)\
+           and (options.numProcesses is None):
         cmd = ['mapproject_single',  options.demPath,
                 options.imagePath, options.cameraPath, options.outputPath]
         cmd = cmd + options.extraArgs
@@ -316,7 +319,6 @@ def main(argsIn):
     if not options.suppressOutput:
         print(projectionInfo)
 
-
     # Now find the image size in the output
     startPos    = projectionInfo.find('Output image size:')
     widthStart  = projectionInfo.find('width:', startPos)
@@ -329,7 +331,7 @@ def main(argsIn):
     # Extract values
     fullWidth   = int(projectionInfo[widthStart+7  : heightStart-1])
     fullHeight  = int(projectionInfo[heightStart+8 : heightEnd])
-    print('Output image size is ' + str(fullWidth) + ' by ' + str(fullHeight) + ' pixels.')
+    print('bbbbOutput image size is ' + str(fullWidth) + ' by ' + str(fullHeight) + ' pixels.')
 
     # For now we just break up the image into a user-specified tile size (default 1000x1000)
     numTilesX, numTilesY, tileList = generateTileList(fullWidth, fullHeight, options.tileSize)
