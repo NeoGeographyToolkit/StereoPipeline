@@ -259,11 +259,11 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   bool use_percentile_stretch = false;
   bool do_not_exceed_min_max = (this->name() == "isis" ||
                                 this->name() == "isismapisis");
-  normalize_images(stereo_settings().force_use_entire_range,
-                   stereo_settings().individually_normalize,
-                   use_percentile_stretch, 
-                   do_not_exceed_min_max,
-                   left_stats, right_stats, Limg, Rimg);
+  asp::normalize_images(stereo_settings().force_use_entire_range,
+                        stereo_settings().individually_normalize,
+                        use_percentile_stretch, 
+                        do_not_exceed_min_max,
+                        left_stats, right_stats, Limg, Rimg);
   
   // TODO(oalexan1): Modify this to local_epipolar.  This needs to
   // be done for all sessions, and it will be very tricky for

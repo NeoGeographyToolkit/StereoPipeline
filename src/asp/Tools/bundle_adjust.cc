@@ -2169,7 +2169,7 @@ void ba_match_ip(Options & opt,
 						       camera1_path, camera2_path,
 						       opt.out_prefix));
   
-  session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
+  asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
   // IP matching may not succeed for all pairs
   
   // Get masked views of the images to get statistics from
@@ -2444,7 +2444,7 @@ int main(int argc, char* argv[]) {
                                                             opt.out_prefix));
       boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
       float nodata, dummy;
-      session->get_nodata_values(rsrc, rsrc, nodata, dummy);
+      asp::get_nodata_values(rsrc, rsrc, nodata, dummy);
       if (!session->supports_multi_threading())
         opt.single_threaded_cameras = true;
 
@@ -2647,7 +2647,7 @@ int main(int argc, char* argv[]) {
                                                             camera1_path, camera2_path,
                                                             opt.out_prefix));
 
-      session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
+      asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
 
       // IP matching may not succeed for all pairs
       try{

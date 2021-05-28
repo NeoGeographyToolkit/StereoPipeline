@@ -365,11 +365,11 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
     bool use_percentile_stretch = false;
     bool do_not_exceed_min_max = (opt.session->name() == "isis" ||
                                   opt.session->name() == "isismapisis");
-    StereoSession::normalize_images(stereo_settings().force_use_entire_range,
-                                    stereo_settings().individually_normalize,
-                                    use_percentile_stretch, 
-                                    do_not_exceed_min_max,
-                                    left_stats, right_stats, Limg, Rimg);
+    asp::normalize_images(stereo_settings().force_use_entire_range,
+                          stereo_settings().individually_normalize,
+                          use_percentile_stretch, 
+                          do_not_exceed_min_max,
+                          left_stats, right_stats, Limg, Rimg);
     left_image  = apply_mask(Limg);
     right_image = apply_mask(Rimg);
   }

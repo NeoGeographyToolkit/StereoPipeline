@@ -45,9 +45,7 @@
 
 using namespace vw;
 
-
 namespace asp {
-
 
   // Pass over all the string variables we use
   void StereoSession::initialize( vw::cartography::GdalWriteOptions const& options,
@@ -199,14 +197,14 @@ namespace asp {
        (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!
       vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
       bool do_not_exceed_min_max = false;
-      normalize_images(stereo_settings().force_use_entire_range,
-                       stereo_settings().individually_normalize,
-                       true, // Use percentile based stretch for ip matching
-                       do_not_exceed_min_max,
-                       stats1,      stats2,
-                       image1_norm, image2_norm);
+      asp::normalize_images(stereo_settings().force_use_entire_range,
+                            stereo_settings().individually_normalize,
+                            true, // Use percentile based stretch for ip matching
+                            do_not_exceed_min_max,
+                            stats1,      stats2,
+                            image1_norm, image2_norm);
     }
-
+    
     bool nadir_facing = this->is_nadir_facing();
 
     // If cameras are null then we cannot use them
@@ -420,36 +418,6 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
     output_file = input_file;
   }
 
-
-
-  void StereoSession::get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
-                                        boost::shared_ptr<vw::DiskImageResource> right_rsrc,
-                                        float & left_nodata_value,
-                                        float & right_nodata_value){
-
-    // The no-data value read from options overrides the value present in the image files.
-    left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
-    right_nodata_value = std::numeric_limits<float>::quiet_NaN();
-    if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read();
-    if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
-
-    float opt_nodata = stereo_settings().nodata_value;
-    if (!std::isnan(opt_nodata)){
-
-      if ( opt_nodata < left_nodata_value )
-        vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than"
-                               << " the no-data value of left image. This may not be what was intended.\n";
-      if ( opt_nodata < right_nodata_value )
-        vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than"
-                               << " the no-data value of right image. This may not be what was intended.\n";
-
-      left_nodata_value  = opt_nodata;
-      right_nodata_value = opt_nodata;
-    }
-
-    return;
-  }
-
 bool StereoSession::
 shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
                           std::string const                 & left_input_file,
@@ -474,8 +442,8 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
     boost::shared_ptr<DiskImageResource>
       left_rsrc (DiskImageResourcePtr(left_input_file )),
       right_rsrc(DiskImageResourcePtr(right_input_file));
-    this->get_nodata_values(left_rsrc,         right_rsrc,
-                            left_nodata_value, right_nodata_value);
+    asp::get_nodata_values(left_rsrc,         right_rsrc,
+                           left_nodata_value, right_nodata_value);
   }
 
   // Set output file paths

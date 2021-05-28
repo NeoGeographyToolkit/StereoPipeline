@@ -28,6 +28,30 @@
 
 namespace asp {
 
+  // Algorithm to perform local alignment. Approach:
+  //  - Given the global interest points and the left crop window, find
+  //    the right crop window.
+  //  - Crop the globally aligned images to these crop windows and find
+  //    the interest points for the crops
+  //  - Use the interest points to find the local alignment
+  //  - Apply the composition of the global and local alignment to the
+  //    original unaligned images to find the locally aligned images
+  //  - Save the locally aligned images to disk
+  //  - Estimate the search range for the locally aligned images
+
+  class ASPGlobalOptions; // forward declaration
+  
+  void local_alignment(ASPGlobalOptions   & opt,
+                       std::string const  & session_name,
+                       vw::BBox2i const   & left_trans_crop_win,
+                       vw::BBox2i         & right_trans_crop_win,
+                       vw::Matrix<double> & left_local_mat,
+                       vw::Matrix<double> & right_local_mat,
+                       std::string        & left_aligned_file,
+                       std::string        & right_aligned_file,
+                       int                & min_disp,
+                       int                & max_disp); 
+  
   // Go from 1D disparity of images with affine epipolar alignment to the 2D
   // disparity by undoing the transforms that applied this alignment.
   void unalign_disparity(// Inputs
