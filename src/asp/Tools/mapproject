@@ -331,7 +331,7 @@ def main(argsIn):
     # Extract values
     fullWidth   = int(projectionInfo[widthStart+7  : heightStart-1])
     fullHeight  = int(projectionInfo[heightStart+8 : heightEnd])
-    print('bbbbOutput image size is ' + str(fullWidth) + ' by ' + str(fullHeight) + ' pixels.')
+    print('Output image size is ' + str(fullWidth) + ' by ' + str(fullHeight) + ' pixels.')
 
     # For now we just break up the image into a user-specified tile size (default 1000x1000)
     numTilesX, numTilesY, tileList = generateTileList(fullWidth, fullHeight, options.tileSize)

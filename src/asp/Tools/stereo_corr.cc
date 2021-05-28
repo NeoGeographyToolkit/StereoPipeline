@@ -1172,7 +1172,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
     }
   }
 
-  // Wipe the local hom logic!
+  // TODO(oalexan1): Wipe the local hom logic.
   ImageView<Matrix3x3> local_hom;
   if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
     string local_hom_file = opt.out_prefix + "-local_hom.txt";
