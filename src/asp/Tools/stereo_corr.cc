@@ -1356,10 +1356,10 @@ int main(int argc, char* argv[]) {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION \n";
 
-    if (stereo_settings().compute_low_res_disparity_only) 
-      stereo_correlation_2D(opt);
-    else
-      stereo_correlation_1D(opt);
+    //if (stereo_settings().compute_low_res_disparity_only) 
+    stereo_correlation_2D(opt);
+    //else
+    //stereo_correlation_1D(opt);
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED \n";
     
