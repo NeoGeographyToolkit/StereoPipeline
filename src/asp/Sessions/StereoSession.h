@@ -112,9 +112,10 @@ namespace asp {
     void normalize_images(bool force_use_entire_range,
                           bool individually_normalize,
                           bool use_percentile_stretch,
+                          bool do_not_exceed_min_max,
                           Vector6f const& left_stats,
                           Vector6f const& right_stats,
-                          ImageT & Limg, ImageT & Rimg);
+                          ImageT & left_img, ImageT & right_img);
 
     // If both left-image-crop-win and right-image-crop win are specified,
     // we crop the images to these boxes, and hence the need to keep
@@ -363,14 +364,14 @@ Vector6f StereoSession::gather_stats(vw::ImageViewBase<ViewT> const& view_base,
   return result;
 }
 
-
 template<class ImageT>
 void StereoSession::normalize_images(bool force_use_entire_range,
                                      bool individually_normalize,
                                      bool use_percentile_stretch,
+                                     bool do_not_exceed_min_max,
                                      Vector6f const& left_stats,
                                      Vector6f const& right_stats,
-                                     ImageT & Limg, ImageT & Rimg){
+                                     ImageT & left_img, ImageT & right_img){
 
   // These arguments must contain: (min, max, mean, std)
   VW_ASSERT(left_stats.size() == 6 && right_stats.size() == 6,
@@ -381,17 +382,17 @@ void StereoSession::normalize_images(bool force_use_entire_range,
   if ((left_stats[3] == 0) || (right_stats[3] == 0))
     force_use_entire_range = true;
 
-  if ( force_use_entire_range ) { // Stretch between the min and max values
-    if ( individually_normalize ) {
+  if (force_use_entire_range) { // Stretch between the min and max values
+    if (individually_normalize) {
       vw::vw_out() << "\t--> Individually normalize images to their respective min max\n";
-      Limg = normalize( Limg, left_stats [0], left_stats [1], 0.0, 1.0 );
-      Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
+      left_img = normalize(left_img, left_stats [0], left_stats [1], 0.0, 1.0);
+      right_img = normalize(right_img, right_stats[0], right_stats[1], 0.0, 1.0);
     } else { // Normalize using the same stats
-      float low = std::min(left_stats[0], right_stats[0]);
-      float hi  = std::max(left_stats[1], right_stats[1]);
+      double low = std::min(left_stats[0], right_stats[0]);
+      double hi  = std::max(left_stats[1], right_stats[1]);
       vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-      Limg = normalize( Limg, low, hi, 0.0, 1.0 );
-      Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
+      left_img = normalize(left_img, low, hi, 0.0, 1.0);
+      right_img = normalize(right_img, low, hi, 0.0, 1.0);
     }
   } else { // Don't force the entire range
     double left_min, left_max, right_min, right_max;
@@ -407,22 +408,41 @@ void StereoSession::normalize_images(bool force_use_entire_range,
       left_max  = left_stats [2] + 2*left_stats [3];
       right_min = right_stats[2] - 2*right_stats[3];
       right_max = right_stats[2] + 2*right_stats[3];
+
+      if (do_not_exceed_min_max) {
+        // This is important for ISIS which may have special pixels beyond the min and max
+        left_min = std::max(left_min,   (double)left_stats[0]);
+        left_max = std::min(left_max,   (double)left_stats[1]);
+        right_min = std::max(right_min, (double)right_stats[0]);
+        right_max = std::min(right_max, (double)right_stats[1]);
+      }
     }
 
+    std::cout << "--left min max " << left_min << ' ' << left_max << std::endl;
+    std::cout << "--right min max " << right_min << ' ' << right_max << std::endl;
+    
     // The images are normalized so most pixels fall into this range,
     // but the data is not clamped so some pixels can fall outside this range.
-    if ( individually_normalize > 0 ) {
+    if (individually_normalize > 0) {
       vw::vw_out() << "\t--> Individually normalize images\n";
-      Limg = normalize( Limg, left_min,  left_max,  0.0, 1.0 );
-      Rimg = normalize( Rimg, right_min, right_max, 0.0, 1.0 );
+      left_img = normalize(left_img, left_min,  left_max,  0.0, 1.0);
+      right_img = normalize(right_img, right_min, right_max, 0.0, 1.0);
     } else { // Normalize using the same stats
-      float low = std::min(left_min, right_min);
-      float hi  = std::max(left_max, right_max);
+      double low = std::min(left_min, right_min);
+      double hi  = std::max(left_max, right_max);
       vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-      Limg = normalize( Limg, low, hi, 0.0, 1.0 );
-      Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
+      if (!do_not_exceed_min_max) {
+        left_img = normalize(left_img, low, hi, 0.0, 1.0);
+        right_img = normalize(right_img, low, hi, 0.0, 1.0);
+      }else{
+        left_img  = normalize(left_img,  std::max(low, left_min),  std::min(hi, left_max),
+                              0.0, 1.0);
+        right_img = normalize(right_img, std::max(low, right_min), std::min(hi, right_max),
+                              0.0, 1.0);
+      }
     }
   }
+  
   return;
 }
 

@@ -76,7 +76,8 @@ find_ideal_isis_range(DiskImageView<float> const& image,
                       float nodata_value,
                       std::string const& tag,
                       bool & will_apply_user_nodata,
-                      float & isis_lo, float & isis_hi) {
+                      float & isis_lo, float & isis_hi,
+                      float & isis_mean, float& isis_std) {
 
   will_apply_user_nodata = false;
   isis_lo = isis_rsrc->valid_minimum();
@@ -94,8 +95,8 @@ find_ideal_isis_range(DiskImageView<float> const& image,
   ImageViewRef< PixelMask<float> > masked_image = create_mask(image, isis_lo, isis_hi);
 
   // TODO: Is this same process a function in DG?
-  // Calculating statistics. We subsample the images so statistics only does about a million samples.
-  float isis_mean, isis_std;
+  // Calculating statistics. We subsample the images so statistics
+  // only does about a million samples.
   {
     vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + "\n";
     int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
@@ -116,6 +117,7 @@ find_ideal_isis_range(DiskImageView<float> const& image,
   if (stereo_settings().force_use_entire_range == 0) {
     vw_out(InfoMessage) << "\t--> Adjusting hi and lo to -+2 sigmas around mean.\n";
 
+    // Do not exceed isis_lo and isis_hi as there we may have special pixels
     if (isis_lo < isis_mean - 2*isis_std)
       isis_lo = isis_mean - 2*isis_std;
     if (isis_hi > isis_mean + 2*isis_std)
@@ -290,13 +292,16 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   boost::shared_ptr<DiskImageResourceIsis>
     left_isis_rsrc (new DiskImageResourceIsis(left_input_file)),
     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
-  float left_lo, left_hi, right_lo, right_hi;
+  float left_lo, left_hi, left_mean, left_std;
+  float right_lo, right_hi, right_mean, right_std;
   ImageViewRef< PixelMask <float> > left_masked_image
     = find_ideal_isis_range(left_disk_image, left_isis_rsrc, left_nodata_value,
-                            "left", will_apply_user_nodata_left, left_lo, left_hi);
+                            "left", will_apply_user_nodata_left,
+                            left_lo, left_hi, left_mean, left_std);
   ImageViewRef< PixelMask <float> > right_masked_image
     = find_ideal_isis_range(right_disk_image, right_isis_rsrc, right_nodata_value,
-                            "right", will_apply_user_nodata_right, right_lo, right_hi);
+                            "right", will_apply_user_nodata_right,
+                            right_lo, right_hi, right_mean, right_std);
 
   // Handle mutual normalization if requested
   float left_lo_out  = left_lo,  left_hi_out  = left_hi,
@@ -315,32 +320,51 @@ pre_preprocessing_hook(bool adjust_left_image_size,
     vw_out() << "\t--> Individually normalizing.\n";
   }
 
-  // Fill in a stats block for ip_matching. Because we don't have all
-  // the stats, we will have to use the entire range.
+  // Fill in the stats blocks. No percentile stretch is available, so
+  // just use the min and max for positions 4 and 5.
   Vector6f left_stats;
-  Vector6f right_stats;
   left_stats [0] = left_lo;
   left_stats [1] = left_hi;
+  left_stats [2] = left_mean;
+  left_stats [3] = left_std;
+  left_stats [4] = left_lo;
+  left_stats [5] = left_hi;
+  
+  Vector6f right_stats;
   right_stats[0] = right_lo;
   right_stats[1] = right_hi;
-  for (size_t i=2; i<6; ++i) {
-    left_stats [i] = 0;
-    right_stats[i] = 0;
-  }
+  right_stats[2] = right_mean;
+  right_stats[3] = right_std;
+  right_stats[4] = right_lo;
+  right_stats[5] = right_hi;
 
+  // TODO(oalexan1): Modify this to local_epipolar.  This needs to
+  // be done for all sessions, and it will be very tricky for
+  // ISIS. Also note that one more such call exists in
+  // stereo_pprc.cc.
+  if (stereo_settings().alignment_method == "affineepipolar") {
+    std::string left_stats_file  = this->m_out_prefix + "-lStats.tif";
+    std::string right_stats_file = this->m_out_prefix + "-rStats.tif";
+    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
+    vw::Vector<float32> left_stats2  = left_stats;  // cast
+    vw::Vector<float32> right_stats2 = right_stats; // cast
+    write_vector(left_stats_file,  left_stats2 );
+    write_vector(right_stats_file, right_stats2);
+  }
+  
   // Image alignment block. Generate aligned versions of the input
   // images according to the options.
   Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
-                 align_right_matrix = math::identity_matrix<3>();
+    align_right_matrix = math::identity_matrix<3>();
   if (stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar") {
-
+      stereo_settings().alignment_method == "affineepipolar") {
+    
     // Define the file name containing IP match information.
     std::string match_filename    = ip::match_filename(this->m_out_prefix,
                                                        left_cropped_file, right_cropped_file);
     std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file);
     std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
-
+    
     // Find matching interest points between the two input images
     DiskImageView<float> left_orig_image(left_input_file);
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
@@ -367,6 +391,8 @@ pre_preprocessing_hook(bool adjust_left_image_size,
                << "\t      " << align_right_matrix << "\n";
     } else {
       left_size = affine_epipolar_rectification(left_size, right_size,
+                                                stereo_settings().global_alignment_threshold,
+                                                stereo_settings().alignment_num_ransac_iterations,
                                                 left_ip,   right_ip,
                                                 align_left_matrix,
                                                 align_right_matrix);

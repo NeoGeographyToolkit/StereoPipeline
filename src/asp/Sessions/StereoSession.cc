@@ -198,9 +198,11 @@ namespace asp {
     if ( (stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
        (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!
       vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
+      bool do_not_exceed_min_max = false;
       normalize_images(stereo_settings().force_use_entire_range,
                        stereo_settings().individually_normalize,
                        true, // Use percentile based stretch for ip matching
+                       do_not_exceed_min_max,
                        stats1,      stats2,
                        image1_norm, image2_norm);
     }

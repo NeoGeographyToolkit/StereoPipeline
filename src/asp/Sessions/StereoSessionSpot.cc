@@ -190,6 +190,8 @@ namespace asp {
 	         << "\t      " << align_right_matrix << "\n";
       } else {
         left_size = affine_epipolar_rectification(left_size,         right_size,
+                                                  stereo_settings().global_alignment_threshold,
+                                                  stereo_settings().alignment_num_ransac_iterations,
                                                   left_ip,           right_ip,
                                                   align_left_matrix, align_right_matrix);
         vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
@@ -216,10 +218,28 @@ namespace asp {
     } // End of image alignment block
 
     // Apply our normalization options.
+    bool use_percentile_stretch = false;
+    bool do_not_exceed_min_max = (this->name() == "isis" ||
+                                  this->name() == "isismapisis");
     normalize_images(stereo_settings().force_use_entire_range,
                      stereo_settings().individually_normalize,
-                     false, // Use std stretch
+                     use_percentile_stretch, 
+                     do_not_exceed_min_max,
                      left_stats, right_stats, Limg, Rimg);
+
+    // TODO(oalexan1): Modify this to local_epipolar.  This needs to
+    // be done for all sessions, and it will be very tricky for
+    // ISIS. Also note that one more such call exists in
+    // stereo_pprc.cc.
+    if (stereo_settings().alignment_method == "affineepipolar") {
+      std::string left_stats_file  = this->m_out_prefix + "-lStats.tif";
+      std::string right_stats_file = this->m_out_prefix + "-rStats.tif";
+      vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
+      vw::Vector<float32> left_stats2  = left_stats;  // cast
+      vw::Vector<float32> right_stats2 = right_stats; // cast
+      write_vector(left_stats_file,  left_stats2 );
+      write_vector(right_stats_file, right_stats2);
+    }
 
     // The output no-data value must be < 0 as we scale the images to [0, 1].
     bool  has_nodata    = true;

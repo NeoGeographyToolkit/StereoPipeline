@@ -20,7 +20,7 @@ parallel_stereo
 
   * Will now throw an error if --threads is passed in, whose behavior
     was not defined.
-  * Bugfix for Python 3.
+  * Bug fix for Python 3.
 
 bundle_adjust:
 
@@ -52,23 +52,18 @@ sfs:
     pixels with ones from the original LOLA DEM in permanently
     shadowed regions.
 
-  * (not yet in) 
-    point2dem: Make it less likely to throw out good points when
-    filtering outlier by spatial extent. Can be controlled as 
-    before via --remove-outliers-params.
-
 stereo_gui:
   * Added the ability to find the contour of a georeferenced image at
     a given threshold. (It can be later edited, saved to disk, etc.) 
-  * Bugfixes for polygon drawing logic.
+  * Bug fixes for polygon drawing logic.
   * Much more responsive for overlaying many images.
 
 image_calc:
   * Support the sign function (can help in creating masks).
 
 pc_align: 
-  *  Bugfix for --initial-transform-from-hillshading with outlier
-     removal.
+  * Bug fix for --initial-transform-from-hillshading with outlier
+    removal.
   * Add the --initial-transform-outlier-removal-params to control
     outlier removal when finding matches between DEMs to align
     using features detected in hillshaded images or selected
@@ -85,7 +80,7 @@ Misc
  * Bug fix for the VisionWorkbench implementation of the
    Levenberg-Marquardt algorithm, it was giving up prematurely in
    challenging situations.
- * Bugfix for affine epipolar alignment. Use the OpenCV function 
+ * Bug fix for affine epipolar alignment. Use the OpenCV function 
    for finding the alignment matrix instead of the ASP one as OpenCV
    can filter outliers which cause issues on rare occasions. 
  
@@ -110,7 +105,7 @@ bundle_adjust
      perspective that the direct approach fails. See --mapprojected-data.
   
 stereo_gui
-   * Bugfix when zooming all images to same region when the region is
+   * Bug fix when zooming all images to same region when the region is
      such that all images are seen fully.
 
 sfs
@@ -207,7 +202,7 @@ pc_align
    * Added the expression of the Euler angles in the North-East-Down
      coordinate system around the center of gravity of the source
      cloud.
-   * Bugfix: intersection of bounding boxes of the clouds takes
+   * Bug fix: intersection of bounding boxes of the clouds takes
      into account the initial transform applied to the source points.
    * Added a new alignment algorithm, based on 
      https://github.com/IntelVCL/FastGlobalRegistration
@@ -490,9 +485,9 @@ Misc
    * Added --max-output-size option to point2dem to prevent against
      creation of too large DEMs.
    * Added image download option in hiedr2mosaic.py.
-   * Bugfix in cam2map4stereo.py when the longitude crosses 180 degrees.
+   * Bug fix in cam2map4stereo.py when the longitude crosses 180 degrees.
    * Added support for running sparse_disp with your own Python installation.
-   * Bugfix for image cropping with epipolar aligned images.
+   * Bug fix for image cropping with epipolar aligned images.
    * The sfs tool supports the integrability constraint weight from Horn 1990.
    * The software works with both Python versions >= 2.6 and 3. 
 
@@ -750,7 +745,7 @@ Highlights:
 
 stereo
     * Added jitter correction for Digital Globe linescan imagery.
-    * Bugfix for stereo with map-projected images using the RPC
+    * Bug fix for stereo with map-projected images using the RPC
       session (e.g, for map-projected Pleiades imagery).
     * Added OpenCV-based SIFT and ORB interest point finding options.
 
@@ -846,7 +841,7 @@ pc_align
     comment lines with the datum and projection to CSV files.
 
 geodiff
-   * Bugfix when the two DEMs have longitudes offset by 360 degrees.
+   * Bug fix when the two DEMs have longitudes offset by 360 degrees.
 
 colormap
    * Default style is binary-red-blue. Works better than jet when 
@@ -924,7 +919,7 @@ stereo
      --left-image-crop-win is specified, as then no actual cropping 
      happens, the domain of computation is just restricted to the desired
      area). 
-   * Bugfix, remove outliers during search range determination.
+   * Bug fix, remove outliers during search range determination.
    * Added the option --ip-per-tile, to search for more interest points 
      if the default is insufficient.
    * If the input images are georeferenced, the good pixel map will be
@@ -997,7 +992,7 @@ cam2map4stereo.py
 mapproject
    * Can run on multiple machines.
    * Use multiple processes for ISIS images, for a huge speedup.
-   * Bugfix, the mapprojected image should not go much beyond the DEM
+   * Bug fix, the mapprojected image should not go much beyond the DEM
      it is mapprojected onto (where it would have no valid pixels).
 
 dg_mosaic
@@ -1030,7 +1025,7 @@ dg_mosaic
      to pick a band to mosaic.
       
 stereo
-   * Bugfix in interest point matching in certain circumstances.
+   * Bug fix in interest point matching in certain circumstances.
    * Set the correlation timeout to 600 seconds. This is generous
      and ensures runs don't stall. 
  
@@ -1075,7 +1070,7 @@ pc_align
     * Support LAS files on input and output.
 
 point2las
-    * Bugfix when saving LAS files in respect to a datum.
+    * Bug fix when saving LAS files in respect to a datum.
 
 Documentation
     * Move the non-ISIS-specific tutorial sections onto its own
@@ -1100,7 +1095,7 @@ stereo_fltr
       disparity with --erode-max-size.
 
 stereo_tri
-    * Bugfixes for MER cameras.
+    * Bug fixes for MER cameras.
 
 stereo_tri and mapproject
     * Added the option --bundle-adjust-prefix to read adjusted
@@ -1112,7 +1107,7 @@ point2las
       to a specified datum (option --reference-spheroid).
  
 point2dem
-    * Bugfix, longitude could be off by 360 degrees.
+    * Bug fix, longitude could be off by 360 degrees.
     * Robustness to large jumps in point cloud values.
 
 pc_align
@@ -1255,7 +1250,7 @@ GENERAL:
   low-resolution DEM generation has been improved as to remove the
   erosion of of valid data close to no-data values.
 
-- Bugfixes for parallel_stereo, point2dem, etc. 
+- Bug fixes for parallel_stereo, point2dem, etc. 
 
 RELEASE 2.2.2, 17 MAY 2013
 --------------------------
@@ -1268,7 +1263,7 @@ TOOLS:
   supercomputers using Intel's MPI library. Bug fixes for
   homography and affine epipolar alignment modes, etc.
 
-- Bugfix for dem_geoid path to geoids, more robust datum
+- Bug fix for dem_geoid path to geoids, more robust datum
   identification.
 
 RELEASE 2.2.0, 6 MAY 2013

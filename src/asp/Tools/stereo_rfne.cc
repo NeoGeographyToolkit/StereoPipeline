@@ -361,9 +361,14 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
     vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << endl;
     read_vector(left_stats,  left_stats_file);
     read_vector(right_stats, right_stats_file);
+
+    bool use_percentile_stretch = false;
+    bool do_not_exceed_min_max = (opt.session->name() == "isis" ||
+                                  opt.session->name() == "isismapisis");
     StereoSession::normalize_images(stereo_settings().force_use_entire_range,
                                     stereo_settings().individually_normalize,
-                                    false, // Use std stretch
+                                    use_percentile_stretch, 
+                                    do_not_exceed_min_max,
                                     left_stats, right_stats, Limg, Rimg);
     left_image  = apply_mask(Limg);
     right_image = apply_mask(Rimg);

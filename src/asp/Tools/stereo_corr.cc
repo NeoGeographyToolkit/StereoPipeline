@@ -1269,21 +1269,8 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 // will be performed before those algorithms are invoked.
 void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
-  std::cout << "--Make this code modular!" << std::endl;
+  // Read the unaligned images and interest points
   
-  // Read the globally aligned left and right images
-  std::string left_image_file = opt.out_prefix + "-L.tif";
-  std::string right_image_file = opt.out_prefix + "-R.tif";
-  boost::shared_ptr<DiskImageResource>
-    left_rsrc (vw::DiskImageResourcePtr(left_image_file)),
-    right_rsrc(vw::DiskImageResourcePtr(right_image_file));
-
-  DiskImageView<PixelGray<float> > left_disk_image (left_rsrc ),
-                                   right_disk_image(right_rsrc);
-
-  vw_out() << "\t--> Reading global interest points.\n";
-  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
-
   std::string left_unaligned_file = opt.in_file1;
   std::string right_unaligned_file = opt.in_file2;
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
@@ -1293,17 +1280,34 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   if (crop_right) 
     right_unaligned_file = opt.out_prefix + "-R-cropped.tif";
 
+  vw_out() << "\t--> Reading global interest points.\n";
+  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
   std::string match_filename = vw::ip::match_filename(opt.out_prefix,
                                                       left_unaligned_file,
                                                       right_unaligned_file);
-  
   if (!fs::exists(match_filename))
     vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
 
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
   vw::ip::read_binary_match_file(match_filename, left_ip, right_ip);
 
-  BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
+  // Read the globally aligned images and alignment transforms
+  
+  std::string left_globally_aligned_file = opt.out_prefix + "-L.tif";
+  std::string right_globally_aligned_file = opt.out_prefix + "-R.tif";
+  boost::shared_ptr<DiskImageResource>
+    left_rsrc (vw::DiskImageResourcePtr(left_globally_aligned_file)),
+    right_rsrc(vw::DiskImageResourcePtr(right_globally_aligned_file));
+
+  DiskImageView<PixelGray<float> > left_globally_aligned_image (left_rsrc ),
+                                   right_globally_aligned_image(right_rsrc);
+
+  float left_nodata_value  = numeric_limits<float>::quiet_NaN();
+  float right_nodata_value = numeric_limits<float>::quiet_NaN();
+  if ( left_rsrc->has_nodata_read() )
+    left_nodata_value  = left_rsrc->nodata_read();
+  if ( right_rsrc->has_nodata_read() )
+    right_nodata_value = right_rsrc->nodata_read();
   
   Matrix<double> left_global_mat  = math::identity_matrix<3>();
   Matrix<double> right_global_mat = math::identity_matrix<3>();
@@ -1320,6 +1324,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   std::vector<vw::ip::InterestPoint> left_trans_ip, right_trans_ip;
 
   // Estimate the search range based on ip
+  BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
   BBox2i right_trans_crop_win;
 
   for (size_t i = 0; i < left_ip.size(); i++) {
@@ -1346,7 +1351,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
   // Round up
   right_trans_crop_win.expand(1);
-  right_trans_crop_win.crop(bounding_box(right_disk_image));
+  right_trans_crop_win.crop(bounding_box(right_globally_aligned_image));
   
   //std::string out_match_filename = vw::ip::match_filename(opt.out_prefix + "-aligned",
   //                                                        opt.in_file1, opt.in_file2);
@@ -1359,21 +1364,11 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
   // Redo ip matching in the current tile. It should be more accurate after alignment
   // and cropping
-  
-  float left_nodata_value  = numeric_limits<float>::quiet_NaN();
-  float right_nodata_value = numeric_limits<float>::quiet_NaN();
-  if ( left_rsrc->has_nodata_read() )
-    left_nodata_value  = left_rsrc->nodata_read();
-  if ( right_rsrc->has_nodata_read() )
-    right_nodata_value = right_rsrc->nodata_read();
-  
-  std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
 
-  // TODO(oalexan1): See if perhaps more IP per tile are needed.
-  // This does not seem to help a lot.
+  std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
   detect_match_ip(left_local_ip, right_local_ip,
-                  crop(left_disk_image, left_trans_crop_win),
-                  crop(right_disk_image, right_trans_crop_win), 
+                  crop(left_globally_aligned_image, left_trans_crop_win),
+                  crop(right_globally_aligned_image, right_trans_crop_win), 
                   stereo_settings().ip_per_tile,  
                   "", "", // do not save any results to disk  
                   left_nodata_value, right_nodata_value,
@@ -1397,7 +1392,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   Matrix<double> left_local_mat  = math::identity_matrix<3>();
   Matrix<double> right_local_mat = math::identity_matrix<3>();
 
-  // TODO(oalexan1): Use a different distance to epipolar line and number of ransac attempts?
+  // Find the local alignment
   std::vector<size_t> ip_inlier_indices;
   Vector2i local_trans_aligned_size =
     affine_epipolar_rectification(left_trans_crop_win.size(), right_trans_crop_win.size(),
@@ -1406,10 +1401,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                                   left_local_ip, right_local_ip,
                                   left_local_mat, right_local_mat, &ip_inlier_indices);
 
-  // Now need to go back to the original left and right images, find the right
-  // bounds, and compose the local align matrix with the global one,
-  // then do 1D stereo on the combined transform.
-  
   // Combination of global alignment, crop to current tile, and local alignment
   Matrix<double> combined_left_mat  = left_local_mat * left_crop_mat * left_global_mat;
   Matrix<double> combined_right_mat = right_local_mat * right_crop_mat * right_global_mat;
@@ -1448,9 +1439,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   // Apply the combined transform to original left and right images,
   // rather than to already transformed images. This way we avoid
   // double interpolation.
-  // Still does not work with ISIS!
-  std::cout << "--Does not work for ISIS!" << std::endl;
-  
   ImageViewRef< PixelMask<float> > left_aligned_image  
     = transform(left_masked_image,
                 HomographyTransform(combined_left_mat),
@@ -1459,10 +1447,15 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     = transform(right_masked_image,
                 HomographyTransform(combined_right_mat),
                 local_trans_aligned_size.x(), local_trans_aligned_size.y());
-  
+
+  // Normalize the locally aligned images
+  bool use_percentile_stretch = false;
+  bool do_not_exceed_min_max = (opt.session->name() == "isis" ||
+                                opt.session->name() == "isismapisis");
   StereoSession::normalize_images(stereo_settings().force_use_entire_range,
                                   stereo_settings().individually_normalize,
-                                  false, // Use std stretch
+                                  use_percentile_stretch, 
+                                  do_not_exceed_min_max,
                                   left_stats, right_stats,
                                   left_aligned_image, right_aligned_image);
 
@@ -1470,9 +1463,10 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   
   // The S2P MGM algorithm needs NaN data
   float nan_nodata = std::numeric_limits<float>::quiet_NaN();
+
+  // Write the locally aligned images to disk
   vw::cartography::GeoReference georef;
   bool has_georef = false, has_aligned_nodata = true;
-
   std::string left_tile = "left-aligned-tile.tif";
   std::string right_tile = "right-aligned-tile.tif";
   std::string left_aligned_file = opt.out_prefix + "-" + left_tile; 
@@ -1495,9 +1489,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                          has_aligned_nodata, nan_nodata, opt,
                          TerminalProgressCallback("asp","\t  Right:  "));
   
-  std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
-  
-  // Apply local alignment to ip
+  // Apply local alignment to inlier ip and estimate the search range
   std::vector<vw::ip::InterestPoint> left_trans_local_ip;
   std::vector<vw::ip::InterestPoint> right_trans_local_ip;
   vw::HomographyTransform left_local_trans (left_local_mat);
@@ -1522,18 +1514,19 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     disp_range.grow(right_pt - left_pt);
   }
 
-  std::string local_aligned_match_filename
-    = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
-  
-  vw_out() << "Writing match file: " << local_aligned_match_filename << ".\n";
-  vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
-                                  right_trans_local_ip);
+  // std::string local_aligned_match_filename
+  //  = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
+  // vw_out() << "Writing match file: " << local_aligned_match_filename << ".\n";
+  // vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
+  //                                   right_trans_local_ip);
 
   double disp_width = disp_range.width();
   double disp_extra = disp_width * stereo_settings().disparity_range_expansion_percent / 100.0;
   int min_disp = floor(disp_range.min().x() - disp_extra/2.0);
   int max_disp = ceil(disp_range.max().x() + disp_extra/2.0);
 
+  std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
+  
   int num_dirs = 8;
   std::ostringstream oss;
   oss << "MEDIAN=1 CENSUS_NCC_WIN=3 USE_TRUNCATED_LINEAR_POTENTIALS=1 "
@@ -1611,7 +1604,6 @@ int main(int argc, char* argv[]) {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION \n";
 
-    std::cout << "---hack!!!" << std::endl;
     if (stereo_settings().compute_low_res_disparity_only) 
       stereo_correlation_2D(opt);
     else
