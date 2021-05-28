@@ -18,6 +18,10 @@
 
 /// \file StereoSessionSpot.cc
 ///
+
+/// Session for SPOT5 cameras.
+/// TODO(oalexan1): Integrate with StereoSessionNadirPinhole.
+
 #include <vw/Image/ImageMath.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/MaskViews.h>
@@ -140,8 +144,9 @@ namespace asp {
 
     // Image alignment block - Generate aligned versions of the input
     // images according to the options.
-    if ( stereo_settings().alignment_method == "homography" ||
-	 stereo_settings().alignment_method == "affineepipolar" ) {
+  if (stereo_settings().alignment_method == "homography"     ||
+      stereo_settings().alignment_method == "affineepipolar" ||
+      stereo_settings().alignment_method == "local_epipolar") {
       // Define the file name containing IP match information.
       std::string match_filename    = ip::match_filename(this->m_out_prefix,
                                                          left_cropped_file, right_cropped_file);
@@ -189,6 +194,7 @@ namespace asp {
 	         << "\t      " << align_left_matrix  << "\n"
 	         << "\t      " << align_right_matrix << "\n";
       } else {
+        // affineepipolar and local_epipolar
         left_size = affine_epipolar_rectification(left_size,         right_size,
                                                   stereo_settings().global_alignment_threshold,
                                                   stereo_settings().alignment_num_ransac_iterations,
@@ -210,7 +216,7 @@ namespace asp {
                        HomographyTransform(align_right_matrix),
                        left_size.x(), left_size.y() );
     } else if ( stereo_settings().alignment_method == "epipolar" ) {
-      vw_throw( NoImplErr() << "StereoSessionGdal does not support epipolar rectification" );
+      vw_throw( NoImplErr() << "StereoSessionSpot does not support epipolar rectification" );
     } else {
       // No alignment, just provide the original files.
       Limg = left_masked_image;
@@ -227,11 +233,9 @@ namespace asp {
                           do_not_exceed_min_max,
                           left_stats, right_stats, Limg, Rimg);
 
-    // TODO(oalexan1): Modify this to local_epipolar.  This needs to
-    // be done for all sessions, and it will be very tricky for
-    // ISIS. Also note that one more such call exists in
-    // stereo_pprc.cc.
-    if (stereo_settings().alignment_method == "affineepipolar") {
+    if (stereo_settings().alignment_method == "local_epipolar") {
+      // Save these stats for local epipolar alignment, as they will be used
+      // later in each tile.
       std::string left_stats_file  = this->m_out_prefix + "-lStats.tif";
       std::string right_stats_file = this->m_out_prefix + "-rStats.tif";
       vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
@@ -270,23 +274,22 @@ namespace asp {
 
 
 bool StereoSessionSpot::
-unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & options,
-                            std::string const             & left_input_file,
-                            std::string const             & right_input_file,
-                            std::string                   & left_output_file,
-                            std::string                   & right_output_file,
-                            std::string                   & left_cropped_file,
-                            std::string                   & right_cropped_file,
-                            float                         & left_nodata_value,
-                            float                         & right_nodata_value,
-                            bool                          & has_left_georef,
-                            bool                          & has_right_georef,
-                            vw::cartography::GeoReference & left_georef,
-                            vw::cartography::GeoReference & right_georef){
+unshared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
+                            std::string const                 & left_input_file,
+                            std::string const                 & right_input_file,
+                            std::string                       & left_output_file,
+                            std::string                       & right_output_file,
+                            std::string                       & left_cropped_file,
+                            std::string                       & right_cropped_file,
+                            float                             & left_nodata_value,
+                            float                             & right_nodata_value,
+                            bool                              & has_left_georef,
+                            bool                              & has_right_georef,
+                            vw::cartography::GeoReference     & left_georef,
+                            vw::cartography::GeoReference     & right_georef){
 
   // To simplify reintegration later, most of this function has been left the same
   //  as the general purpose function even if it could be simplified for the SPOT5 case.
- 
 
   // Retrieve nodata values and let the handles go out of scope right away.
   // - SPOT5 does not support nodata values, but this will handle user-provided values.

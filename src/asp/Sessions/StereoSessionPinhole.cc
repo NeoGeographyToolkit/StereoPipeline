@@ -40,14 +40,10 @@ using namespace vw;
 using namespace vw::ip;
 using namespace vw::camera;
 
-//TODO: There is a lot of duplicate code here with the Pinhole
-//class. Common functionality must be factored out.
+// This class assumes pinhole cameras with no datum, such as on a rover.
+// For pinhole satellite images the nadirpinhole mode is suggested.
 
-
-// TODO: The other Session classes use functions like affine_epipolar_rectification
-//        and homograhy_rectification (in the IP file) to perform this task.
-//       Why does the Pinhole Session need to use something different?
-
+// TODO(oalexan1): Integrate this with StereoSessionNadirPinhole.
 
 boost::shared_ptr<vw::camera::CameraModel>
 asp::StereoSessionPinhole::load_camera_model
@@ -58,8 +54,6 @@ asp::StereoSessionPinhole::load_camera_model
                                 m_left_camera_file, m_right_camera_file,
                                 m_input_dem);
 }
-
-
 
 // Helper function for determining image alignment.
 vw::Matrix3x3
@@ -107,10 +101,10 @@ asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
                                                   ransac_ip1.size()/2, true);
     T = ransac( ransac_ip2, ransac_ip1 );
     std::vector<size_t> indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
-    vw_out(DebugMessage,"asp") << "\t--> AlignMatrix: " << T << std::endl;
+    vw_out(DebugMessage,"asp") << "\t--> Alignment matrix: " << T << std::endl;
 
   } catch (...) {
-    vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
+    vw_out(WarningMessage,"console") << "Automatic alignment failed! Proceed with caution.\n";
     T = vw::math::identity_matrix<3>();
   }
 
@@ -240,11 +234,9 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
                         do_not_exceed_min_max,
                         left_stats, right_stats, Limg, Rimg);
 
-  // TODO(oalexan1): Modify this to local_epipolar.  This needs to
-  // be done for all sessions, and it will be very tricky for
-  // ISIS. Also note that one more such call exists in
-  // stereo_pprc.cc.
-  if (stereo_settings().alignment_method == "affineepipolar") {
+  if (stereo_settings().alignment_method == "local_epipolar") {
+    // Save these stats for local epipolar alignment, as they will be used
+    // later in each tile.
     std::string left_stats_file  = this->m_out_prefix + "-lStats.tif";
     std::string right_stats_file = this->m_out_prefix + "-rStats.tif";
     vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
@@ -297,12 +289,16 @@ void StereoSessionPinhole::get_unaligned_camera_models(
 
 
 boost::shared_ptr<vw::camera::CameraModel>
-StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
-                                             std::string const& left_image_file,  std::string const& right_image_file,
-                                             std::string const& left_camera_file, std::string const& right_camera_file,
+StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,
+                                             std::string const& camera_file,
+                                             std::string const& left_image_file,
+                                             std::string const& right_image_file,
+                                             std::string const& left_camera_file,
+                                             std::string const& right_camera_file,
                                              std::string const& input_dem){
 
-  // Unfortunately the pinhole case is more complicated since the left and right files are inter-dependent.
+  // Unfortunately the pinhole case is more complicated since the left
+  // and right files are inter-dependent.
 
   // Retrieve the pixel offset (if any) to cropped images
   vw::Vector2 pixel_offset = camera_pixel_offset(input_dem,
@@ -323,12 +319,12 @@ StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,     
   else if (image_file == right_image_file)
     is_left_camera = false;
   else
-    (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
+    (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename "
+     << "does not match the name supplied in the constructor.");
 
 
   std::string lcase_file = boost::to_lower_copy(left_camera_file);
-  if ( boost::ends_with(lcase_file, ".pinhole") ||
-       boost::ends_with(lcase_file, ".tsai"   )   ) {
+  if (boost::ends_with(lcase_file, ".pinhole") || boost::ends_with(lcase_file, ".tsai")) {
     // Use PinholeModel epipolar code
 
     PinholeModel left_pin (left_camera_file );
@@ -357,8 +353,10 @@ StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,     
   } else { // Not PinholeModel, use CAHV epipolar code.
 
     // Fetch CAHV version of the two input pinhole files
-    boost::shared_ptr<CAHVModel> left_cahv  = vw::camera::load_cahv_pinhole_camera_model(left_image_file,  left_camera_file );
-    boost::shared_ptr<CAHVModel> right_cahv = vw::camera::load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
+    boost::shared_ptr<CAHVModel> left_cahv
+      = vw::camera::load_cahv_pinhole_camera_model(left_image_file,  left_camera_file );
+    boost::shared_ptr<CAHVModel> right_cahv
+      = vw::camera::load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
 
     // Create epipolar rectified camera views
     boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);

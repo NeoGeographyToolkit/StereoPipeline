@@ -172,13 +172,15 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                                         right_aligned_bathy_mask,
                                         bathy_ext_nodata);
     }
-
-  } else if ( stereo_settings().alignment_method == "homography" ||
-              stereo_settings().alignment_method == "affineepipolar" ) {
-    // Getting left image size. Later alignment options can choose to
-    // change this parameters. (Affine Epipolar).
+    
+  } else if (stereo_settings().alignment_method == "homography"     ||
+             stereo_settings().alignment_method == "affineepipolar" ||
+             stereo_settings().alignment_method == "local_epipolar") {
+    
+    // Getting the image sizes. Later alignment options can choose to
+    // change this parameters (such as affine epipolar alignment).
     Vector2i left_size  = file_image_size(left_cropped_file ),
-             right_size = file_image_size(right_cropped_file);
+      right_size = file_image_size(right_cropped_file);
     
     // Define the file name containing IP match information.
     std::string match_filename    = ip::match_filename(this->m_out_prefix,
@@ -265,11 +267,9 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                         do_not_exceed_min_max,
                         left_stats, right_stats, Limg, Rimg);
   
-  // TODO(oalexan1): Modify this to local_epipolar.  This needs to
-  // be done for all sessions, and it will be very tricky for
-  // ISIS. Also note that one more such call exists in
-  // stereo_pprc.cc.
-  if (stereo_settings().alignment_method == "affineepipolar") {
+  if (stereo_settings().alignment_method == "local_epipolar") {
+    // Save these stats for local epipolar alignment, as they will be used
+    // later in each tile.
     std::string left_stats_file  = this->m_out_prefix + "-lStats.tif";
     std::string right_stats_file = this->m_out_prefix + "-rStats.tif";
     vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
@@ -278,7 +278,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     write_vector(left_stats_file,  left_stats2 );
     write_vector(right_stats_file, right_stats2);
   }
-
+  
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   bool  has_nodata        = true;
   bool  has_bathy_nodata  = true;

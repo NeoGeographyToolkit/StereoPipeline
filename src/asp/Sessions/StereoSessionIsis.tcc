@@ -277,8 +277,8 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   DiskImageView<float> left_disk_image (left_cropped_file),
                        right_disk_image(right_cropped_file);
 
-  // Getting image sizes. Later alignment options can choose to change
-  // this parameters. (Affine Epipolar).
+  // Get the image sizes. Later alignment options can choose to change
+  // this parameters, such as affine epipolar.
   Vector2i left_size  = file_image_size(left_cropped_file),
            right_size = file_image_size(right_cropped_file);
 
@@ -338,11 +338,9 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   right_stats[4] = right_lo;
   right_stats[5] = right_hi;
 
-  // TODO(oalexan1): Modify this to local_epipolar.  This needs to
-  // be done for all sessions, and it will be very tricky for
-  // ISIS. Also note that one more such call exists in
-  // stereo_pprc.cc.
-  if (stereo_settings().alignment_method == "affineepipolar") {
+  if (stereo_settings().alignment_method == "local_epipolar") {
+    // Save these stats for local epipolar alignment, as they will be used
+    // later in each tile.
     std::string left_stats_file  = this->m_out_prefix + "-lStats.tif";
     std::string right_stats_file = this->m_out_prefix + "-rStats.tif";
     vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
@@ -354,10 +352,11 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   
   // Image alignment block. Generate aligned versions of the input
   // images according to the options.
-  Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
-    align_right_matrix = math::identity_matrix<3>();
-  if (stereo_settings().alignment_method == "homography" ||
-      stereo_settings().alignment_method == "affineepipolar") {
+  Matrix<double> align_left_matrix  = math::identity_matrix<3>();
+  Matrix<double> align_right_matrix = math::identity_matrix<3>();
+  if (stereo_settings().alignment_method == "homography"     ||
+      stereo_settings().alignment_method == "affineepipolar" ||
+      stereo_settings().alignment_method == "local_epipolar") {
     
     // Define the file name containing IP match information.
     std::string match_filename    = ip::match_filename(this->m_out_prefix,
@@ -386,10 +385,11 @@ pre_preprocessing_hook(bool adjust_left_image_size,
       left_size = homography_rectification(adjust_left_image_size,
                                            left_size, right_size, left_ip, right_ip,
                                            align_left_matrix, align_right_matrix);
-      vw_out() << "\t--> Aligning right image to left using matrices:\n"
+      vw_out() << "\t--> Aligning left and right images using matrices:\n"
                << "\t      " << align_left_matrix  << "\n"
                << "\t      " << align_right_matrix << "\n";
     } else {
+      // affineepipolar and local_epipolar
       left_size = affine_epipolar_rectification(left_size, right_size,
                                                 stereo_settings().global_alignment_threshold,
                                                 stereo_settings().alignment_num_ransac_iterations,

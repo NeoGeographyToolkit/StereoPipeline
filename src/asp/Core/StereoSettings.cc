@@ -107,7 +107,7 @@ namespace asp {
 
     (*this).add_options()
       ("alignment-method",         po::value(&global.alignment_method)->default_value("affineepipolar"),
-                     "Rough alignment for input images. [AffineEpipolar, Homography, Epipolar, None]")
+                     "Alignment for input images. [affineepipolar, local_epipolar, homography, epipolar, none]")
       ("left-image-crop-win", po::value(&global.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
                       "Do stereo in a subregion of the left image [default: use the entire image].")
       ("right-image-crop-win", po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
@@ -465,19 +465,20 @@ namespace asp {
 
   void StereoSettings::validate() {
     using namespace boost::algorithm;
-    to_lower( alignment_method );
-    trim( alignment_method );
+    to_lower(alignment_method);
+    trim(alignment_method);
     VW_ASSERT( alignment_method == "none"     || alignment_method == "homography" ||
-               alignment_method == "epipolar" || alignment_method == "affineepipolar",
+               alignment_method == "epipolar" || alignment_method == "affineepipolar" ||
+               alignment_method == "local_epipolar",
                ArgumentErr() << "\"" <<  alignment_method
-               << "\" is not a valid option for ALIGNMENT_METHOD." );
+               << "\" is not a valid option for alignment-method." );
 
     to_lower( universe_center );
     trim( universe_center );
     VW_ASSERT( universe_center == "camera" || universe_center == "zero" ||
                universe_center == "none",
                ArgumentErr() << "\"" << universe_center
-               << "\" is not a valid option for UNIVERSE_CENTER." );
+               << "\" is not a valid option for universe_center." );
   }
 
   void StereoSettings::write_copy( int argc, char *argv[],
@@ -488,7 +489,7 @@ namespace asp {
     ofstream out( output_file.c_str() );
 
     // Write some log information
-    out << "# ASP Stereo Configuration Copy:" << endl;
+    out << "# ASP stereo configuration copy:" << endl;
     out << "# " << current_posix_time_string() << endl;
     out << "# > ";
     for ( int i = 0; i < argc; i++ ) {

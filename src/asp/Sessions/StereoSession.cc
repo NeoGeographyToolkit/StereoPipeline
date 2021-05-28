@@ -789,7 +789,8 @@ typename StereoSession::tx_type
 StereoSession::tx_left_homography() const {
   Matrix<double> tx = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ) {
+       stereo_settings().alignment_method == "affineepipolar" ||
+       stereo_settings().alignment_method == "local_epipolar" ) {
     read_matrix( tx, m_out_prefix + "-align-L.exr" );
   }
   return tx_type( new vw::HomographyTransform(tx) );
@@ -799,7 +800,8 @@ typename StereoSession::tx_type
 StereoSession::tx_right_homography() const {
   Matrix<double> tx = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ) {
+       stereo_settings().alignment_method == "affineepipolar" ||
+       stereo_settings().alignment_method == "local_epipolar" ) {
     read_matrix( tx, m_out_prefix + "-align-R.exr" );
   }
   return tx_type( new vw::HomographyTransform(tx) );

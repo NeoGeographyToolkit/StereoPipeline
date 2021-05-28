@@ -1114,20 +1114,21 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
       (stereo_settings().search_range_limit.max() != Vector2i())  ) {     
     stereo_settings().search_range.crop(stereo_settings().search_range_limit);
-    vw_out() << "\t--> Detected search range constrained to: " << stereo_settings().search_range << "\n";
+    vw_out() << "\t--> Detected search range constrained to: "
+             << stereo_settings().search_range << "\n";
   }
 
   // Provide the user with some feedback of what we are actually going to use.
   vw_out()   << "\t--------------------------------------------------\n";
-  vw_out()   << "\t   Kernel Size:    " << stereo_settings().corr_kernel << endl;
+  vw_out()   << "\t   Kernel size:    " << stereo_settings().corr_kernel << endl;
   if (stereo_settings().seed_mode > 0)
-    vw_out() << "\t   Refined Search: " << stereo_settings().search_range << endl;
+    vw_out() << "\t   Refined search: " << stereo_settings().search_range << endl;
   else
-    vw_out() << "\t   Search Range:   " << stereo_settings().search_range << endl;
-  vw_out()   << "\t   Cost Mode:      " << stereo_settings().cost_mode << endl;
-  vw_out(DebugMessage) << "\t   XCorr Threshold: " << stereo_settings().xcorr_threshold << endl;
+    vw_out() << "\t   Search range:   " << stereo_settings().search_range << endl;
+  vw_out()   << "\t   Cost mode:      " << stereo_settings().cost_mode << endl;
+  vw_out(DebugMessage) << "\t   XCorr threshold: " << stereo_settings().xcorr_threshold << endl;
   vw_out(DebugMessage) << "\t   Prefilter:       " << stereo_settings().pre_filter_mode << endl;
-  vw_out(DebugMessage) << "\t   Prefilter Size:  " << stereo_settings().slogW << endl;
+  vw_out(DebugMessage) << "\t   Prefilter size:  " << stereo_settings().slogW << endl;
   vw_out() << "\t--------------------------------------------------\n";
 
   // Load up for the actual native resolution processing

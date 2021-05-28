@@ -661,10 +661,13 @@ namespace asp {
                              << "as the images are map-projected." << endl;
     }
 
-    if ((opt.session->name() == "pinhole") && (stereo_settings().alignment_method == "affineepipolar")) {
+    if ((opt.session->name() == "pinhole") &&
+        (stereo_settings().alignment_method == "affineepipolar" || 
+         stereo_settings().alignment_method == "local_epipolar")) {
       stereo_settings().alignment_method  = "homography";
-      vw_out(WarningMessage) << "The pinhole session type does not support affineepipolar alignment,"
-                             << " changing the alignment method to 'homography'\n";
+      vw_out(WarningMessage) << "The pinhole session type does not support "
+                             << "affineepipolar or local epipolar alignment, "
+                             << "changing the alignment method to 'homography'.\n";
     }
 
     // Ensure that for dgmaprpc and rpcmaprpc sessions the images were

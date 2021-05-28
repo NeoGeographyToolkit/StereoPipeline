@@ -78,7 +78,8 @@ force-reuse-match-files
 Image alignment
 ~~~~~~~~~~~~~~~~
 
-alignment-method (= affineepipolar, homography, epipolar, none) (default = affineepipolar)
+alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none) 
+    (default = affineepipolar)
     When ``alignment-method`` is set to ``affineepipolar``, ``stereo``
     will attempt to pre-align the images by detecting tie-points using
     feature matching, and using those to transform the images such
@@ -86,6 +87,13 @@ alignment-method (= affineepipolar, homography, epipolar, none) (default = affin
     parallel to one of the image axes. The effect of this is
     equivalent to rotating the original cameras which took the
     pictures.
+
+    When ``alignment-method`` is set to ``local_epipolar``, 
+    the images are divided into tiles, local epipolar alignment
+    is applied to each pair of tiles, making the stereo disparity 
+    horizontal, then a desired 1D correlation algorithm (specified via
+    --stereo-algorithm) finds this disparity. This mode works only with 
+    ``parallel_stereo``.
 
     When ``alignment-method`` is set to ``homography``, ``stereo`` will
     attempt to pre-align the images by automatically detecting

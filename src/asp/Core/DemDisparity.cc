@@ -326,19 +326,20 @@ namespace asp {
     }
 
     Vector2f downsample_scale( float(left_image_sub.cols()) / float(left_image.cols()),
-                               float(left_image_sub.rows()) / float(left_image.rows()) );
+                               float(left_image_sub.rows()) / float(left_image.rows()));
 
     Matrix<double> align_left_matrix  = math::identity_matrix<3>();
     Matrix<double> align_right_matrix = math::identity_matrix<3>();
-    bool do_align = (stereo_settings().alignment_method == "homography" ||
-                     stereo_settings().alignment_method == "affineepipolar");
-    if ( do_align ){
+    bool do_align = (stereo_settings().alignment_method == "homography"     ||
+                     stereo_settings().alignment_method == "affineepipolar" ||
+                     stereo_settings().alignment_method == "local_epipolar");
+    if (do_align){
       // We used a transform to align the images, so we have to make
       // sure to apply that transform to the disparity we are about to
       // compute as well.
-      if ( fs::exists(opt.out_prefix+"-align-L.exr") )
+      if (fs::exists(opt.out_prefix+"-align-L.exr"))
         read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
-      if ( fs::exists(opt.out_prefix+"-align-R.exr") )
+      if (fs::exists(opt.out_prefix+"-align-R.exr"))
         read_matrix(align_right_matrix, opt.out_prefix + "-align-R.exr");
       vw_out(DebugMessage,"asp") << "Left alignment matrix: "  << align_left_matrix  << "\n";
       vw_out(DebugMessage,"asp") << "Right alignment matrix: " << align_right_matrix << "\n";
