@@ -835,7 +835,7 @@ if __name__ == '__main__':
             calc_lowres_disp(args, opt, sep)
 
             # symlink D_sub
-            create_subproject_dirs( settings )
+            create_subproject_dirs(settings)
 
             # Run full-res stereo using multiple processes.
             self_args.extend(['--skip-low-res-disparity-comp'])

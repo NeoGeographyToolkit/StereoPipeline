@@ -304,11 +304,13 @@ namespace asp {
 
     std::string dem_file = stereo_settings().disparity_estimation_dem;
     if (dem_file == ""){
-      vw_throw( ArgumentErr() << "dem_disparity: No value was provided for: disparity-estimation-dem.\n" );
+      vw_throw( ArgumentErr() << "dem_disparity: No value was provided for "
+                << "disparity-estimation-dem.\n" );
     }
     double dem_error = stereo_settings().disparity_estimation_dem_error;
     if (dem_error < 0.0){
-      vw_throw( ArgumentErr() << "dem_disparity: Invalid value for disparity-estimation-dem-error: " << dem_error << ".\n" );
+      vw_throw( ArgumentErr() << "dem_disparity: Invalid value for "
+                << "disparity-estimation-dem-error: " << dem_error << ".\n" );
     }
 
     GeoReference dem_georef;
@@ -365,24 +367,26 @@ namespace asp {
     vw_out() << "Writing low-resolution disparity: " << disparity_file << "\n";
     if ( session_name == "isis" ){
       // ISIS does not support multi-threading
-      boost::scoped_ptr<DiskImageResource> drsrc( vw::cartography::build_gdal_rsrc( disparity_file,
-                                                                        lowres_disparity, opt ) );
+      boost::scoped_ptr<DiskImageResource> drsrc(vw::cartography::build_gdal_rsrc( disparity_file,
+                                                                        lowres_disparity, opt));
       write_image(*drsrc, lowres_disparity,
                   TerminalProgressCallback("asp", "\t--> Low-resolution disparity: "));
     }else{
-      vw::cartography::block_write_gdal_image( disparity_file,
-                                   lowres_disparity,
-                                   opt,
-                                   TerminalProgressCallback("asp", "\t--> Low-resolution disparity:") );
+      vw::cartography::block_write_gdal_image(disparity_file,
+                                              lowres_disparity,
+                                              opt,
+                                              TerminalProgressCallback
+                                              ("asp", "\t--> Low-resolution disparity:") );
     }
 
     std::string disp_spread_file = opt.out_prefix + "-D_sub_spread.tif";
     vw_out() << "Writing low-resolution disparity spread: " << disp_spread_file << "\n";
-    vw::cartography::block_write_gdal_image( disp_spread_file,
-                                 disparity_spread,
-                                 opt,
-                                 TerminalProgressCallback("asp", "\t--> Low-resolution disparity spread:") );
-
+    vw::cartography::block_write_gdal_image(disp_spread_file,
+                                            disparity_spread,
+                                            opt,
+                                            TerminalProgressCallback
+                                            ("asp", "\t--> Low-resolution disparity spread:") );
+    
     // Go back to the original tile size
     opt.raster_tile_size = orig_tile_size;
 
@@ -396,9 +400,10 @@ namespace asp {
       }
     }
     vw::cartography::block_write_gdal_image( opt.out_prefix + "-D_sub2.tif",
-                                 lowres_disparity2,
-                                 opt,
-                                 TerminalProgressCallback("asp", "\t--> Low-resolution disparity:") );
+                                             lowres_disparity2,
+                                             opt,
+                                             TerminalProgressCallback
+                                             ("asp", "\t--> Low-resolution disparity:") );
 #endif
 
   }

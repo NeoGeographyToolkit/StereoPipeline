@@ -314,14 +314,14 @@ namespace asp {
   
   // Go from 1D disparity of images with affine epipolar alignment to the 2D
   // disparity by undoing the transforms that applied this alignment.
-  void unalign_disparity(// Inputs
-                         vw::ImageViewRef<float> disp_1d, 
-                         vw::BBox2i const& left_crop_win, 
-                         vw::BBox2i const& right_crop_win,
-                         vw::math::Matrix<double> const& left_align_mat,
-                         vw::math::Matrix<double> const& right_align_mat,
-                         // Output
-                         vw::ImageView<vw::PixelMask<vw::Vector2f>> & disp_2d) {
+  void unalign_1d_disparity(// Inputs
+                            vw::ImageViewRef<float> aligned_disp_1d, 
+                            vw::BBox2i const& left_crop_win, 
+                            vw::BBox2i const& right_crop_win,
+                            vw::math::Matrix<double> const& left_align_mat,
+                            vw::math::Matrix<double> const& right_align_mat,
+                            // Output
+                            vw::ImageView<vw::PixelMask<vw::Vector2f>> & unaligned_disp_2d) {
 
     vw::HomographyTransform left_align_trans (left_align_mat);
     vw::HomographyTransform right_align_trans(right_align_mat);
@@ -329,26 +329,27 @@ namespace asp {
     float nan_nodata = std::numeric_limits<float>::quiet_NaN(); // NaN value
     PixelMask<float> nodata_mask = PixelMask<float>(); // invalid value for a PixelMask
 
-    ImageViewRef<PixelMask<float>> masked_disp_1d = create_mask(disp_1d, nan_nodata);
+    ImageViewRef<PixelMask<float>> masked_aligned_disp_1d = create_mask(aligned_disp_1d, nan_nodata);
 
     // TODO(oalexan1): Here bilinear interpolation is used. This will
     // make the holes a little bigger where there is no data. Need
     // to figure out if it is desired to fill holes.
-    ImageViewRef<PixelMask<float>> interp_disp_1d
-      = interpolate(masked_disp_1d, BilinearInterpolation(),
+    ImageViewRef<PixelMask<float>> interp_aligned_disp_1d
+      = interpolate(masked_aligned_disp_1d, BilinearInterpolation(),
                     ValueEdgeExtension<PixelMask<float>>(nodata_mask));
     
-    disp_2d.set_size(left_crop_win.width(), left_crop_win.height());
+    unaligned_disp_2d.set_size(left_crop_win.width(), left_crop_win.height());
 
-    for (int col = 0; col < disp_2d.cols(); col++) {
-      for (int row = 0; row < disp_2d.rows(); row++) {
+    for (int col = 0; col < unaligned_disp_2d.cols(); col++) {
+      for (int row = 0; row < unaligned_disp_2d.rows(); row++) {
         Vector2 left_pix(col, row);
         Vector2 left_trans_pix = left_align_trans.forward(left_pix);
-        PixelMask<float> interp_disp = interp_disp_1d(left_trans_pix.x(), left_trans_pix.y());
+        PixelMask<float> interp_disp
+          = interp_aligned_disp_1d(left_trans_pix.x(), left_trans_pix.y());
 
         if (!is_valid(interp_disp)) {
-          disp_2d(col, row) = PixelMask<Vector2f>();
-          disp_2d(col, row).invalidate();
+          unaligned_disp_2d(col, row) = PixelMask<Vector2f>();
+          unaligned_disp_2d(col, row).invalidate();
           continue;
         }
 
@@ -366,11 +367,71 @@ namespace asp {
         // were crops from larger images
         disp_pix += (right_crop_win.min() - left_crop_win.min());
       
-        disp_2d(col, row).child() = Vector2f(disp_pix.x(), disp_pix.y());
-        disp_2d(col, row).validate();
+        unaligned_disp_2d(col, row).child() = Vector2f(disp_pix.x(), disp_pix.y());
+        unaligned_disp_2d(col, row).validate();
       }   
     }
   
   }
 
+  // Go from 2D disparity of images with affine epipolar alignment to the 2D
+  // disparity by undoing the transforms that applied this alignment.
+  void unalign_2d_disparity(// Inputs
+                            vw::ImageView<vw::PixelMask<vw::Vector2f>> const& aligned_disp_2d,
+                            vw::BBox2i const& left_crop_win, 
+                            vw::BBox2i const& right_crop_win,
+                            vw::math::Matrix<double> const& left_align_mat,
+                            vw::math::Matrix<double> const& right_align_mat,
+                            // Output
+                            vw::ImageView<vw::PixelMask<vw::Vector2f>> & unaligned_disp_2d) {
+    
+    vw::HomographyTransform left_align_trans (left_align_mat);
+    vw::HomographyTransform right_align_trans(right_align_mat);
+
+    PixelMask<vw::Vector2f> nodata_pix;
+    nodata_pix.invalidate();
+    
+    // TODO(oalexan1): Here bilinear interpolation is used. This will
+    // make the holes a little bigger where there is no data. Need
+    // to figure out if it is desired to fill holes.
+    ImageViewRef<vw::PixelMask<vw::Vector2f>> interp_aligned_disp_2d
+      = interpolate(aligned_disp_2d, BilinearInterpolation(),
+                    ValueEdgeExtension<PixelMask<vw::Vector2f>>(nodata_pix));
+    
+    unaligned_disp_2d.set_size(left_crop_win.width(), left_crop_win.height());
+
+    for (int col = 0; col < unaligned_disp_2d.cols(); col++) {
+      for (int row = 0; row < unaligned_disp_2d.rows(); row++) {
+        Vector2 left_pix(col, row);
+        Vector2 left_trans_pix = left_align_trans.forward(left_pix);
+        PixelMask<vw::Vector2f> interp_disp
+          = interp_aligned_disp_2d(left_trans_pix.x(), left_trans_pix.y());
+        
+        if (!is_valid(interp_disp)) {
+          unaligned_disp_2d(col, row) = PixelMask<Vector2f>();
+          unaligned_disp_2d(col, row).invalidate();
+          continue;
+        }
+
+        // Do the math with doubles rather than with floats, so cast
+        // Vector2f to Vector2.
+        Vector2 right_trans_pix = left_trans_pix + Vector2(interp_disp.child());
+
+        // Undo the transform
+        Vector2 right_pix = right_align_trans.reverse(right_trans_pix);
+
+        // Un-transformed disparity
+        Vector2 disp_pix = right_pix - left_pix;
+
+        // Adjust for the fact that the two tiles before alignment
+        // were crops from larger images
+        disp_pix += (right_crop_win.min() - left_crop_win.min());
+      
+        unaligned_disp_2d(col, row).child() = Vector2f(disp_pix.x(), disp_pix.y());
+        unaligned_disp_2d(col, row).validate();
+      }   
+    }
+    
+  }
+  
 } // namespace asp

@@ -120,10 +120,12 @@ if __name__ == '__main__':
     # Run stereo_parse with these options, to get the values of some
     # internal fields.
     sep = ","
-    settings=run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
+    settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
+
+    if settings['alignment_method'][0] == 'local_epipolar':
+        raise Exception("Alignment method 'local_epipolar' can be used only with parallel_stereo.")
 
     try:
-
         # Invoke itself for multiview if appropriate
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1 and opt.entry_point < Step.tri:

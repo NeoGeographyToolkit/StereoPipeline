@@ -248,15 +248,15 @@ def calc_lowres_disp(args, opt, sep):
     if ( opt.seed_mode == 3 ):
         run_sparse_disp(args, opt)
     else:
-        tmp_args = args[:] # deep copy
-        tmp_args.extend(['--compute-low-res-disparity-only'])
+        local_args = args[:] # deep copy to use locally
+        local_args.extend(['--compute-low-res-disparity-only'])
         # invoke here stereo_run to be able to see the output on screen
-        stereo_run('stereo_corr', tmp_args, opt, msg='')
+        stereo_run('stereo_corr', local_args, opt, msg='')
 
-    # See if to attach a georef to D_sub and D_sub_spread.
-    tmp_args = args[:]
-    tmp_args.append('--attach-georeference-to-lowres-disparity')
-    run_and_parse_output("stereo_parse", tmp_args, sep, opt.verbose)
+    # Attach a georef to D_sub and D_sub_spread if appropriate
+    local_args = args[:] # deep copy to use locally
+    local_args.append('--attach-georeference-to-lowres-disparity')
+    run_and_parse_output("stereo_parse", local_args, sep, opt.verbose)
 
 def parse_corr_seed_mode(filename):
 

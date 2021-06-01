@@ -614,10 +614,10 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   // The interest points must have been created outside this function
   if (!fs::exists(match_filename))
     vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
-
+  
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
   ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
-
+  
   // TODO: Consolidate IP adjustment
   // TODO: This logic is messed up. We __know__ from stereo_settings() what
   // alignment method is being used and what scale we are at, there is no
@@ -660,7 +660,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
     vw_throw(ArgumentErr() << "Number of IPs left after filtering is " << num_left
              << " which is less than the required amount of " 
              << stereo_settings().min_num_ip << ", aborting stereo_corr.\n");
-
+  
   // Find search window based on interest point matches
   size_t num_ip = matched_ip1.size();
   vw_out(InfoMessage, "asp") << "Estimating search range with " 
@@ -759,7 +759,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 void lowres_correlation(ASPGlobalOptions & opt) {
 
   vw_out() << "\n[ " << current_posix_time_string()
-           << " ] : Stage 1 --> LOW-RESOLUTION CORRELATION \n";
+           << " ] : Stage 1 --> LOW-RESOLUTION CORRELATION\n";
 
   // Working out search range if need be
   if (stereo_settings().is_search_defined()) {
@@ -861,16 +861,16 @@ void lowres_correlation(ASPGlobalOptions & opt) {
   }
 
   vw_out() << "\n[ " << current_posix_time_string()
-           << " ] : LOW-RESOLUTION CORRELATION FINISHED \n";
+           << " ] : LOW-RESOLUTION CORRELATION FINISHED\n";
 } // End lowres_correlation
 
 /// This correlator takes a low resolution disparity image as an input
 /// so that it may narrow its search range for each tile that is processed.
 class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView> {
-  DiskImageView<PixelGray<float> >   m_left_image;
-  DiskImageView<PixelGray<float> >   m_right_image;
-  DiskImageView<vw::uint8> m_left_mask;
-  DiskImageView<vw::uint8> m_right_mask;
+  ImageViewRef<PixelGray<float> >   m_left_image;
+  ImageViewRef<PixelGray<float> >   m_right_image;
+  ImageViewRef<vw::uint8> m_left_mask;
+  ImageViewRef<vw::uint8> m_right_mask;
   ImageViewRef<PixelMask<Vector2f> > m_sub_disp;
   ImageViewRef<PixelMask<Vector2i> > m_sub_disp_spread;
   ImageView<Matrix3x3> const& m_local_hom;
@@ -886,8 +886,8 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView> {
 public:
 
   // Set these input types here instead of making them template arguments
-  typedef DiskImageView<PixelGray<float> >   ImageType;
-  typedef DiskImageView<vw::uint8>           MaskType;
+  typedef ImageViewRef<PixelGray<float> >   ImageType;
+  typedef ImageViewRef<vw::uint8>           MaskType;
   typedef ImageViewRef<PixelMask<Vector2f> > DispSeedImageType;
   typedef ImageViewRef<PixelMask<Vector2i> > SpreadImageType;
   typedef ImageType::pixel_type InputPixelType;
@@ -1220,7 +1220,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
              << stereo_settings().slogW << " sigma blur.\n"; 
     break;
   case 1:
-    vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
+    vw_out() << "\t--> Using subtracted mean pre-processing filter with "
 	     << stereo_settings().slogW << " sigma blur.\n";
     break;
   default:
@@ -1259,11 +1259,20 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 
 } // End function stereo_correlation_2D
 
-/// Stereo correlation function using external 1D correlation
-/// algorithms. Local alignment will be performed before those
-/// algorithms are invoked.
+/// Stereo correlation function using 1D correlation algorithms
+/// (implemented in ASP and external ones). Local alignment will be
+/// performed before those algorithms are invoked.
 void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
+  // The low-res disparity computation, if desired, happens on the full images,
+  // which is incompatible with local alignment and stereo for pairs of tiles.
+  if (stereo_settings().compute_low_res_disparity_only) 
+    return;
+
+  // Sanity check until local homography is wiped
+  if (stereo_settings().use_local_homography)
+    vw_throw(ArgumentErr() << "Cannot use local homography with local_epipolar alignment.\n");
+  
   BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
   BBox2i right_trans_crop_win;
   Matrix<double> left_local_mat  = math::identity_matrix<3>();
@@ -1276,45 +1285,109 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                   left_local_mat, right_local_mat,  
                   left_aligned_file, right_aligned_file,  
                   min_disp, max_disp);
-  
-  std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
-  
-  int num_dirs = 8;
-  std::ostringstream oss;
-  oss << "MEDIAN=1 CENSUS_NCC_WIN=3 USE_TRUNCATED_LINEAR_POTENTIALS=1 "
-      << "TSGM=3 LD_LIBRARY_PATH=/home/oalexan1/miniconda3/envs/gdal/lib "
-      << "/home/oalexan1/miniconda3/envs/gdal/lib/python3.6/site-packages/bin/mgm "
-      << "-r " << min_disp << " -R " << max_disp << " -s vfit -t census -O " << num_dirs
-      << " " << left_aligned_file << " " << right_aligned_file << " " << disp_file;
-  
-  std::string cmd = oss.str();
-  std::cout << cmd << std::endl;
-  system(cmd.c_str());
 
-  // Read the 1D disparity and undo the alignment
-  ImageView<PixelMask<Vector2f>> disp_2d;
-  asp::unalign_disparity(// Inputs
-                         DiskImageView<float>(disp_file),  
-                         left_trans_crop_win, right_trans_crop_win,  
-                         left_local_mat,  right_local_mat,  
-                         // Output
-                         disp_2d);
+  vw::ImageViewRef<float> disp_1d;
+  ImageView<PixelMask<Vector2f>> unaligned_disp_2d;
 
-  // TODO(oalexan1): Temporary!
-  cartography::GeoReference lgeoref;
-  bool   has_left_georef = false;
-  bool   has_nodata      = false;
-  double nodata          = -32768.0;
+  if (stereo_settings().stereo_algorithm < 4) {
 
+    // ASP algorithms
+
+    // The locally alignment images are written with NaN nodata
+    float nan  = numeric_limits<float>::quiet_NaN();
+    ImageView<PixelMask<PixelGray<float>>> left_image
+      = vw::create_mask(DiskImageView<PixelGray<float>>(left_aligned_file), nan);
+    ImageView<PixelMask<PixelGray<float>>> right_image
+      = vw::create_mask(DiskImageView<PixelGray<float>>(right_aligned_file), nan);
+    
+    ImageView<vw::uint8> left_mask
+      = channel_cast_rescale<vw::uint8>(select_channel(left_image, 1));
+    ImageView<vw::uint8> right_mask
+      = channel_cast_rescale<vw::uint8>(select_channel(right_image, 1));
+    
+    ImageView<Matrix3x3> local_hom; // temporary
+    
+    stereo::CostFunctionType cost_mode = get_cost_mode_value();
+    Vector2i kernel_size = stereo_settings().corr_kernel;
+    BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
+    int corr_timeout = stereo_settings().corr_timeout;
+    stereo_settings().seed_mode = 0; // no seed
+
+    // The search range. Put here 2 for the upper limit as the
+    // interval in y is [lower_limit, upper_limit).
+    stereo_settings().search_range.min() = vw::Vector2i(min_disp, -1);
+    stereo_settings().search_range.max() = vw::Vector2i(max_disp, 2);
+    
+    double seconds_per_op = 0.0;
+    if (corr_timeout > 0)
+      seconds_per_op = calc_seconds_per_op(cost_mode, left_image, right_image,
+                                           kernel_size);
+
+    // Start with no seed
+    ImageView<PixelMask<Vector2f>> sub_disp;
+    ImageView<PixelMask<Vector2i>> sub_disp_spread;
+
+    // Set up the reference to the stereo disparity code
+    // Process the entire image at once, hence the crop.
+    // - Processing is limited to left_trans_crop_win for use with parallel_stereo.
+    ImageView<PixelMask<Vector2f> > aligned_disp_2d =
+      crop(SeededCorrelatorView(apply_mask(left_image, nan),    // left image
+                                apply_mask(right_image, nan),   // right image
+                                left_mask, right_mask,
+                                sub_disp, sub_disp_spread, local_hom, kernel_size, 
+                                cost_mode, corr_timeout, seconds_per_op), 
+           bounding_box(left_image));
+
+    // Undo the alignment
+    asp::unalign_2d_disparity(// Inputs
+                              aligned_disp_2d,
+                              left_trans_crop_win, right_trans_crop_win,  
+                              left_local_mat, right_local_mat,  
+                              // Output
+                              unaligned_disp_2d);
+    
+  } else if (stereo_settings().stereo_algorithm == 4) {
+    
+    // S2P MGM
+    int num_dirs = 8;
+    std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
+    std::ostringstream oss;
+    oss << "MEDIAN=1 CENSUS_NCC_WIN=3 USE_TRUNCATED_LINEAR_POTENTIALS=1 "
+        << "TSGM=3 LD_LIBRARY_PATH=/home/oalexan1/miniconda3/envs/gdal/lib "
+        << "/home/oalexan1/miniconda3/envs/gdal/lib/python3.6/site-packages/bin/mgm "
+        << "-r " << min_disp << " -R " << max_disp << " -s vfit -t census -O " << num_dirs
+        << " " << left_aligned_file << " " << right_aligned_file << " " << disp_file;
+  
+    std::string cmd = oss.str();
+    std::cout << cmd << std::endl;
+    system(cmd.c_str());
+
+    // Read the disparity from disk
+    disp_1d = DiskImageView<float>(disp_file);
+  
+    // Undo the alignment
+    asp::unalign_1d_disparity(// Inputs
+                              disp_1d,
+                              left_trans_crop_win, right_trans_crop_win,  
+                              left_local_mat, right_local_mat,  
+                              // Output
+                              unaligned_disp_2d);
+  }
+
+  // Write the disparity to disk
+  cartography::GeoReference georef;
+  bool   has_georef  = false;
+  bool   has_nodata  = false;
+  double nodata      = -32768.0;
   string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
-    
   opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),
                                   ASPGlobalOptions::rfne_tile_size());
-  vw::cartography::block_write_gdal_image(d_file, disp_2d,
-                                          has_left_georef, lgeoref,
+  vw::cartography::block_write_gdal_image(d_file, unaligned_disp_2d,
+                                          has_georef, georef,
                                           has_nodata, nodata, opt,
                                           TerminalProgressCallback("asp", "\t--> Correlation :"));
+  
 } // End function stereo_correlation_1D
 
 int main(int argc, char* argv[]) {
@@ -1355,18 +1428,17 @@ int main(int argc, char* argv[]) {
       
     opt.raster_tile_size = Vector2i(ts, ts);
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION\n";
 
-    //if (stereo_settings().compute_low_res_disparity_only) 
-    stereo_correlation_2D(opt);
-    //else
-    //stereo_correlation_1D(opt);
+    if (stereo_settings().alignment_method == "local_epipolar") 
+      stereo_correlation_1D(opt);
+    else
+      stereo_correlation_2D(opt);
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED\n";
     
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 
   return 0;
 }
-
