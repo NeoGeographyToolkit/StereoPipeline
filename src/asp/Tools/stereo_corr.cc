@@ -1268,11 +1268,15 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   // which is incompatible with local alignment and stereo for pairs of tiles.
   if (stereo_settings().compute_low_res_disparity_only) 
     return;
-
+  
+  // Read the list of plugins
+  std::map<std::string, std::string> plugins, plugin_libs;
+  asp::parse_plugins_list(plugins, plugin_libs);
+  
   // Sanity check until local homography is wiped
   if (stereo_settings().use_local_homography)
     vw_throw(ArgumentErr() << "Cannot use local homography with local_epipolar alignment.\n");
-  
+
   BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
   BBox2i right_trans_crop_win;
   Matrix<double> left_local_mat  = math::identity_matrix<3>();
@@ -1347,17 +1351,26 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                               unaligned_disp_2d);
     
   } else if (stereo_settings().stereo_algorithm == 4) {
+
+    std::string alg = "mgm";
+    auto it1 = plugins.find(alg);
+    auto it2 = plugin_libs.find(alg);
+    if (it1 == plugins.end() || it2 == plugin_libs.end()) 
+      vw_throw(ArgumentErr() << "Could not lookup plugin: " << alg << ".\n");
+
+    std::string plugin_path = it1->second;
+    std::string plugin_lib = it2->second;
     
     // S2P MGM
     int num_dirs = 8;
     std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
     std::ostringstream oss;
     oss << "MEDIAN=1 CENSUS_NCC_WIN=3 USE_TRUNCATED_LINEAR_POTENTIALS=1 "
-        << "TSGM=3 LD_LIBRARY_PATH=/home/oalexan1/miniconda3/envs/gdal/lib "
-        << "/home/oalexan1/miniconda3/envs/gdal/lib/python3.6/site-packages/bin/mgm "
+        << "TSGM=3 LD_LIBRARY_PATH=" << plugin_lib << " "
+        << plugin_path << " "
         << "-r " << min_disp << " -R " << max_disp << " -s vfit -t census -O " << num_dirs
         << " " << left_aligned_file << " " << right_aligned_file << " " << disp_file;
-  
+    
     std::string cmd = oss.str();
     std::cout << cmd << std::endl;
     system(cmd.c_str());

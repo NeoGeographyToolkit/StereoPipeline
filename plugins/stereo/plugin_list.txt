@@ -1,0 +1,9 @@
+# Specify here the external programs (plugins) that ASP can use for 
+# stereo correlation. All paths are relative to the ASP base directory.
+
+# If a plugin has library dependencies apart from the libraries shipped
+# with ASP, the path to them can be specified as well (this is optional).
+
+# Name    Executable                       Path to external library dependencies
+
+  mgm     plugins/stereo/mgm/bin/mgm       plugin/stereo/mgm/lib

@@ -29,6 +29,7 @@
 #include <asp/Core/InterestPointMatching.h>
 
 #include <boost/filesystem.hpp>
+#include <boost/dll.hpp>
 #include <limits>
 
 using namespace vw;
@@ -36,6 +37,66 @@ namespace fs = boost::filesystem;
 
 namespace asp {
 
+  // Read the list of external stereo programs (plugins) and extract
+  // the path to each such plugin and its library dependencies.
+  void parse_plugins_list(std::map<std::string, std::string> & plugins,
+                          std::map<std::string, std::string> & plugin_libs) {
+
+    // Wipe the outputs
+    plugins.clear();
+    plugin_libs.clear();
+    
+    // Get the path to the plugins from the path of the ASP stereo_corr
+    // executable asking for it.
+    std::string base_path
+      = boost::dll::program_location().parent_path().parent_path().string();
+    std::string plugin_path = base_path + "/plugins/stereo";
+    std::string plugin_list = plugin_path + "/plugin_list.txt";
+    
+    std::ifstream handle;
+    handle.open(plugin_list.c_str());
+    if (handle.fail()) 
+      vw_throw( vw::IOErr() << "Unable to open file \"" << plugin_list << "\"" );
+    
+    std::string line;
+    while ( getline(handle, line, '\n') ){
+      
+      if (line.size() == 0 || line[0] == '#')
+        continue; // skip comment and empty line
+      
+      std::string plugin_name, plugin_path, plugin_lib;
+      std::istringstream is(line);
+      
+      // Extract the plugin name and path
+      if (!(is >> plugin_name >> plugin_path)) 
+        continue;
+      
+      // The plugin lib is optional
+      is >> plugin_lib;
+
+      plugin_path = base_path + "/" + plugin_path;
+
+      if (plugin_lib != "") {
+        plugin_lib  = base_path + "/" + plugin_lib;
+        plugin_lib += ":";
+      }
+
+      // This plugin may use libraries we ship. By now the variable
+      // ISISROOT should point out to where those are (see
+      // asp::set_asp_env_vars()).
+      char * isis_root = getenv("ISISROOT");
+      if (isis_root == "")
+        vw_throw( vw::IOErr() << "The variable ISISROOT was not set.\n");
+  
+      plugin_lib += std::string(isis_root) + "/lib";
+      
+      plugins[plugin_name]     = plugin_path;
+      plugin_libs[plugin_name] = plugin_lib;
+    }
+
+    return;
+  }
+  
   // Algorithm to perform local alignment. Approach:
   //  - Given the global interest points and the left crop window, find
   //    the right crop window.

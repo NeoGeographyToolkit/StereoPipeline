@@ -28,6 +28,11 @@
 
 namespace asp {
 
+  // Read the list of external stereo programs (plugins) and extract
+  // the path to each such plugin and its library dependencies.
+  void parse_plugins_list(std::map<std::string, std::string> & plugins,
+                          std::map<std::string, std::string> & plugin_libs);
+  
   // Algorithm to perform local alignment. Approach:
   //  - Given the global interest points and the left crop window, find
   //    the right crop window.
