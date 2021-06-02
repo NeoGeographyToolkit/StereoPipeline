@@ -31,72 +31,13 @@
 #include <boost/filesystem.hpp>
 #include <boost/dll.hpp>
 #include <limits>
+#include <cctype>
 
 using namespace vw;
 namespace fs = boost::filesystem;
 
 namespace asp {
 
-  // Read the list of external stereo programs (plugins) and extract
-  // the path to each such plugin and its library dependencies.
-  void parse_plugins_list(std::map<std::string, std::string> & plugins,
-                          std::map<std::string, std::string> & plugin_libs) {
-
-    // Wipe the outputs
-    plugins.clear();
-    plugin_libs.clear();
-    
-    // Get the path to the plugins from the path of the ASP stereo_corr
-    // executable asking for it.
-    std::string base_path
-      = boost::dll::program_location().parent_path().parent_path().string();
-    std::string plugin_path = base_path + "/plugins/stereo";
-    std::string plugin_list = plugin_path + "/plugin_list.txt";
-    
-    std::ifstream handle;
-    handle.open(plugin_list.c_str());
-    if (handle.fail()) 
-      vw_throw( vw::IOErr() << "Unable to open file \"" << plugin_list << "\"" );
-    
-    std::string line;
-    while ( getline(handle, line, '\n') ){
-      
-      if (line.size() == 0 || line[0] == '#')
-        continue; // skip comment and empty line
-      
-      std::string plugin_name, plugin_path, plugin_lib;
-      std::istringstream is(line);
-      
-      // Extract the plugin name and path
-      if (!(is >> plugin_name >> plugin_path)) 
-        continue;
-      
-      // The plugin lib is optional
-      is >> plugin_lib;
-
-      plugin_path = base_path + "/" + plugin_path;
-
-      if (plugin_lib != "") {
-        plugin_lib  = base_path + "/" + plugin_lib;
-        plugin_lib += ":";
-      }
-
-      // This plugin may use libraries we ship. By now the variable
-      // ISISROOT should point out to where those are (see
-      // asp::set_asp_env_vars()).
-      char * isis_root = getenv("ISISROOT");
-      if (isis_root == "")
-        vw_throw( vw::IOErr() << "The variable ISISROOT was not set.\n");
-  
-      plugin_lib += std::string(isis_root) + "/lib";
-      
-      plugins[plugin_name]     = plugin_path;
-      plugin_libs[plugin_name] = plugin_lib;
-    }
-
-    return;
-  }
-  
   // Algorithm to perform local alignment. Approach:
   //  - Given the global interest points and the left crop window, find
   //    the right crop window.
@@ -495,4 +436,223 @@ namespace asp {
     
   }
   
+  // Read the list of external stereo programs (plugins) and extract
+  // the path to each such plugin and its library dependencies.
+  void parse_plugins_list(std::map<std::string, std::string> & plugins,
+                          std::map<std::string, std::string> & plugin_libs) {
+
+    // Wipe the outputs
+    plugins.clear();
+    plugin_libs.clear();
+    
+    // Get the path to the plugins from the path of the ASP stereo_corr
+    // executable asking for it.
+    std::string base_path
+      = boost::dll::program_location().parent_path().parent_path().string();
+    std::string plugin_path = base_path + "/plugins/stereo";
+    std::string plugin_list = plugin_path + "/plugin_list.txt";
+    
+    std::ifstream handle;
+    handle.open(plugin_list.c_str());
+    if (handle.fail()) 
+      vw_throw( vw::IOErr() << "Unable to open file \"" << plugin_list << "\"" );
+    
+    std::string line;
+    while ( getline(handle, line, '\n') ){
+      
+      if (line.size() == 0 || line[0] == '#')
+        continue; // skip comment and empty line
+      
+      std::string plugin_name, plugin_path, plugin_lib;
+      std::istringstream is(line);
+      
+      // Extract the plugin name and path
+      if (!(is >> plugin_name >> plugin_path)) 
+        continue;
+      
+      // The plugin lib is optional
+      is >> plugin_lib;
+
+      plugin_path = base_path + "/" + plugin_path;
+
+      if (plugin_lib != "") {
+        plugin_lib  = base_path + "/" + plugin_lib;
+        plugin_lib += ":";
+      }
+
+      // This plugin may use libraries we ship. By now the variable
+      // ISISROOT should point out to where those are (see
+      // asp::set_asp_env_vars()).
+      char * isis_root = getenv("ISISROOT");
+      if (isis_root == "")
+        vw_throw(vw::ArgumentErr() << "The variable ISISROOT was not set.\n");
+  
+      plugin_lib += std::string(isis_root) + "/lib";
+      
+      plugins[plugin_name]     = plugin_path;
+      plugin_libs[plugin_name] = plugin_lib;
+    }
+
+    return;
+  }
+
+  // Given a string like "mgm -O 8 -s vfit", separate the name,
+  // which is the first word, from the options, which is the rest.
+  void parse_stereo_alg_name_and_opts(std::string const& stereo_alg,
+                                      std::string      & alg_name,
+                                      std::string      & alg_opts) {
+
+    std::istringstream iss(stereo_alg);
+    if (!(iss >> alg_name)) 
+      vw_throw(vw::ArgumentErr() << "Cannot parse the stereo algorithm from string: "
+               << stereo_alg << ".\n");
+
+    alg_opts = "";
+    std::string val;
+    while (iss >> val)
+      alg_opts += val + " ";
+
+    // Make the algorithm name lower-case, but not the options
+    boost::to_lower(alg_name);
+  }
+
+  // Return true for an option name, which is a dash followed by a non-integer
+  bool is_option_name(std::string const& val) {
+    return ( val.size() >= 2 && val[0] == '-' && (val[1] < '0' || val[1] > '9') );
+  }
+
+  // Return true if looking at a string having an equal sign
+  bool is_env_var_and_val(std::string const& val) {
+    for (size_t it = 0; it < val.size(); it++) 
+      if (val[it] == '=') 
+        return true;
+  
+    return false;
+  }
+
+  // Remove spaces at the end
+  void rm_trailing_whitespace(std::string & val) {
+    while (val.size() > 0 && (val.back() == ' ' || val.back() == '\t'))
+      val.pop_back();
+  }
+  
+  // From A=b extract A as the name, and b as he value
+  void get_env_var_name_and_val(std::string const& in,
+                                std::string & name,
+                                std::string & val) {
+
+    name = "";
+    val = "";
+
+    bool found_equal = false;
+
+    for (size_t it = 0; it < in.size(); it++) {
+      if (in[it] == '=') {
+        found_equal = true;
+        continue;
+      }
+
+      if (!found_equal) 
+        name += in[it];
+      else
+        val += in[it];
+    }
+
+    if (name == "" || val == "")
+      vw_throw(vw::ArgumentErr() << "Could not extract name and value from string: "
+               << in << ".\n");
+  }
+
+  // Put option-value pairs in a string
+  std::string concatenate_optons(std::map<std::string, std::string> const& opt_map,
+                                 std::string const& sep) {
+
+    std::string out;
+
+    for (auto it = opt_map.begin(); it != opt_map.end() ; it++) {
+      out += it->first + sep + it->second + " ";
+    }
+
+    rm_trailing_whitespace(out);
+    return out;
+  }
+  
+  // Given an input string having algorithm options, like "-v 4", and
+  // environmental variables, like "VAL=5", possibly with repetitions,
+  // so VAL=5 and VAL=6 can both be present, separate the two kinds
+  // and remove the repetitions by keeping the values later in the
+  // string. Do not allow any input character except letters, numbers,
+  // space, period, underscore, plus, minus, and equal signs, for
+  // security purposes.
+  void extract_opts_and_env_vars(std::string const& input_str,
+                                 std::string & env_vars,
+                                 std::string & alg_opts) {
+
+    // Input validation
+    for (size_t it = 0; it < input_str.size(); it++) {
+      
+      if (std::isalnum(input_str[it]) || input_str[it] == ' ' || input_str[it] == '\t' ||
+          input_str[it] == '_' || input_str[it] == '+' || input_str[it] == '-' ||
+          input_str[it] == '=' || input_str[it] == '.')
+        continue;
+
+      vw_throw(vw::ArgumentErr() << "Only the alphanumeric and ' ', '_', '-', '+', '=', '.' "
+               << "characters are allowed as part of the stereo options. Got: "
+               << input_str[it] << ".\n");
+    }
+
+    // Tokenize the inputs
+    std::vector<std::string> opts;
+    std::istringstream iss(input_str);
+    std::string val;
+    while (iss >> val) 
+      opts.push_back(val);
+    
+    // Populate the env vars and the options starting with a dash
+    std::map<std::string, std::string> env_vars_map, alg_opts_map;
+
+    for (size_t it = 0; it < opts.size(); it++) {
+
+      std::string const& opt = opts[it];
+
+      if (is_env_var_and_val(opt)) {
+
+        // Is an env variable, A=b, like for MGM
+        std::string name, val;
+        get_env_var_name_and_val(opt, name, val);
+        env_vars_map[name] = val;
+        
+      } else {
+
+        // Must be an option, like -v 3.
+        if (!is_option_name(opt)) 
+          vw_throw(vw::ArgumentErr() << "Expecting an option, so something starting "
+                   << "with a dash. Got: " << opt << ".\n");
+        
+        // All the tokens that follow and which are not options or env
+        // vars must be values for this option
+        std::string val = "";
+        for (size_t it2 = it + 1; it2 < opts.size(); it2++) {
+
+          if (is_option_name(opts[it2]) || is_env_var_and_val(opts[it2])) {
+
+            // This token is not a value, so have to stop.
+            // Note how we modify the counter of the main loop.
+            it = it2 - 1;
+            break;
+          }
+
+          // Concatenate all the values
+          val += opts[it2] + " ";
+        }
+        
+        rm_trailing_whitespace(val);
+        alg_opts_map[opt] = val;
+      } 
+    }
+
+    // Now that the repeated options have been collapsed, put these back in strings
+    alg_opts = concatenate_optons(alg_opts_map, " ");
+    env_vars = concatenate_optons(env_vars_map, "=");
+  }
 } // namespace asp

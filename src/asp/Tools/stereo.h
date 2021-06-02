@@ -35,6 +35,9 @@
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #endif
 
+// This has only the definition of an enum
+#include <vw/Stereo/CorrelationAlgorithms.h>
+
 // Boost headers
 #include <boost/thread/xtime.hpp>
 // Posix time is not fully supported in the version of Boost for RHEL Workstation 4
@@ -94,6 +97,12 @@ namespace asp {
 
   bool skip_image_normalization(ASPGlobalOptions const& opt);
 
+  // Convert, for example, 'asp_mgm' to '2'. For ASP algorithms we
+  // use the numbers 0 (BM), 1 (SGM), 2 (MGM), 3 (Final MGM).  For
+  // external algorithms will have to examine closer the algorithm
+  // string. This function has a Python analog in parallel_stereo.
+  vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg);
+  
 } // end namespace vw
 
 #endif//__ASP_STEREO_H__

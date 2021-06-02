@@ -125,10 +125,17 @@ int main( int argc, char* argv[] ) {
     vw_out() << "alignment_method,"  << stereo_settings().alignment_method << endl;
 
     vw_out() << "subpixel_mode," << stereo_settings().subpixel_mode << endl;
-    if (stereo_settings().stereo_algorithm == vw::stereo::VW_CORRELATION_BM)
+
+    // Apart from default block matching, correlation will be done tiles
+    // with padding, which is called here collar_size.
+    vw::stereo::CorrelationAlgorithm stereo_alg
+      = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM);
+    if (!using_tiles)
       vw_out() << "collar_size," << 0 << endl;
     else
       vw_out() << "collar_size," << stereo_settings().sgm_collar_size << endl;
+    
     vw_out() << "corr_memory_limit_mb," << stereo_settings().corr_memory_limit_mb << endl;
 
     // This block of code should be in its own executable but I am

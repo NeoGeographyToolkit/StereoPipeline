@@ -28,11 +28,6 @@
 
 namespace asp {
 
-  // Read the list of external stereo programs (plugins) and extract
-  // the path to each such plugin and its library dependencies.
-  void parse_plugins_list(std::map<std::string, std::string> & plugins,
-                          std::map<std::string, std::string> & plugin_libs);
-  
   // Algorithm to perform local alignment. Approach:
   //  - Given the global interest points and the left crop window, find
   //    the right crop window.
@@ -79,6 +74,28 @@ namespace asp {
                             // Output
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> & unaligned_disp_2d);
   
-  } // end namespace asp
+  // Read the list of external stereo programs (plugins) and extract
+  // the path to each such plugin and its library dependencies.
+  void parse_plugins_list(std::map<std::string, std::string> & plugins,
+                          std::map<std::string, std::string> & plugin_libs);
+
+  // Given a string like "mgm -O 8 -s vfit", separate the name,
+  // which is the first word, from the options, which is the rest.
+  void parse_stereo_alg_name_and_opts(std::string const& stereo_alg,
+                                      std::string      & alg_name,
+                                      std::string      & alg_opts);
+
+  // Given an input string having algorithm options, like "-v 4", and
+  // environmental variables, like "VAL=5", possibly with repetitions,
+  // so VAL=5 and VAL=6 can both be present, separate the two kinds
+  // and remove the repetitions by keeping the values later in the
+  // string. Do not allow any input character except letters, numbers,
+  // space, period, underscore, plus, minus, and equal signs, for
+  // security purposes.
+  void extract_opts_and_env_vars(std::string const& input_str,
+                                 std::string & env_vars,
+                                 std::string & alg_opts);
+
+} // end namespace asp
 
 #endif // __LOCAL_ALIGNMENT_H__

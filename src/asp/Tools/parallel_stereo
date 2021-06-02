@@ -20,7 +20,12 @@ import sys, argparse, subprocess, re, os, math, time, tempfile, glob,\
        shutil, math
 import os.path as P
 
-VW_CORRELATION_BM = '0' # For consistency with C++
+# For consistency with C++
+VW_CORRELATION_BM        = '0'
+VW_CORRELATION_SGM       = '1'
+VW_CORRELATION_MGM       = '2'
+VW_CORRELATION_FINAL_MGM = '3'
+VW_CORRELATION_OTHER     = '4'
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -50,15 +55,38 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 # and neither the log files
 skip_symlink_expr = '^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
 
+def stereo_alg_to_num(alg):
+    '''Convert, for example, 'asp_mgm' to '2'. This function has a C++
+    analog in stereo.cc.'''
+
+    alg = alg.lower()
+    
+    if alg.startswith('0') or alg.startswith('asp_bm'):
+        return VW_CORRELATION_BM
+    
+    if alg.startswith('1') or alg.startswith('asp_sgm'):
+        return VW_CORRELATION_SGM
+
+    if alg.startswith('2') or alg.startswith('asp_mgm'):
+        return VW_CORRELATION_MGM
+
+    if alg.startswith('3') or alg.startswith('asp_final_mgm'):
+        return VW_CORRELATION_FINAL_MGM
+
+    # Use an external algorithm
+    return VW_CORRELATION_OTHER
+
 def check_system_memory(opt, args, settings):
     '''Issue a warning if our selected options are estimated to exceed available RAM.'''
 
     try:
-        # Currently only SGM/MGM have large memory requirements.
-        if (settings['stereo_algorithm'][0] == VW_CORRELATION_BM):
+        # Currently only ASP's SGM and MGM have large memory requirements.
+
+        alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
+        if alg == VW_CORRELATION_BM or alg >= VW_CORRELATION_OTHER:
             return
 
-        # Use a command line call to Estimate the amount of free memory
+        # Use a command line call to estimate the amount of free memory
         freemem_mb = list(map(int, os.popen('free -m').readlines()[-2].split()[1:]))[2]
 
         # This is the processor count code, won't work if other
@@ -481,7 +509,11 @@ def tile_run(prog, args, settings, tile, **kw):
         # When using SGM correlation, increase the output tile size.
         # - The output image will contain more populated pixels but 
         #   there will be no other change.
-        if (settings['stereo_algorithm'][0] != VW_CORRELATION_BM) and (prog == 'stereo_corr'):
+
+        alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
+        using_tiles = (alg > VW_CORRELATION_BM)
+
+        if using_tiles and prog == 'stereo_corr':
             collar_size = int(settings['collar_size'][0])
             tile.add_collar(collar_size)
 
@@ -679,10 +711,12 @@ if __name__ == '__main__':
     settings = run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
 
     # Check if we are doing SGM instead of block match processing
-    using_sgm = (settings['stereo_algorithm'][0] != VW_CORRELATION_BM)
+    alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
+    
+    using_tiles = (alg > VW_CORRELATION_BM)
 
-    # By default use 8 threads for MGM 
-    if using_sgm and opt.threads_multi is None:
+    # By default use 8 threads for SGM/MGM
+    if alg > VW_CORRELATION_BM and alg < VW_CORRELATION_OTHER and opt.threads_multi is None:
         opt.threads_multi = 8
 
     num_nodes = get_num_nodes(opt.nodes_list)
@@ -697,7 +731,7 @@ if __name__ == '__main__':
 
     # Set the job size by default when using SGM
     corr_tile_size = int(settings['corr_tile_size'][0])
-    if (settings['stereo_algorithm'][0] > VW_CORRELATION_BM):
+    if using_tiles:
         if ('--job-size-w' not in sys.argv[1:]) and ('--job-size-h' not in sys.argv[1:]):
             # If the user did not manually specify the job size, set it equal
             #  to the correlation tile size. 
@@ -707,7 +741,7 @@ if __name__ == '__main__':
         else:
             # If the user specified these, they better be equal, and equal to corr_tile_size
             if opt.job_size_h != opt.job_size_w:
-                raise Exception('If --stereo-algorithm is not 0, must use the same value ' + \
+                raise Exception('If --stereo-algorithm is not "bm", must use the same value ' + \
                                 'for --job-size-h and --job-size-w.')
             if opt.job_size_w != corr_tile_size:
                 print("Making --corr-tile-size equal to --job-size-h, that is equal to " \
@@ -849,13 +883,13 @@ if __name__ == '__main__':
             # that vrt from all tile directories.
             rename_files( settings, "-D.tif", "-Dnosym.tif" )
             build_vrt(settings, georef, "-D.tif", "-Dnosym.tif", 
-                      contract_tiles = using_sgm)
+                      contract_tiles = using_tiles)
             create_subproject_dirs( settings ) # symlink D.tif
 
         skip_refine_step = (int(settings['subpixel_mode'][0]) > 6)
 
-        # Blending (only for SGM/MGM)
-        if using_sgm:
+        # Blending (only for SGM/MGM and external tile-based algorithms)
+        if using_tiles:
             step = Step.blend
             if ( opt.entry_point <= step ):
                 if ( opt.stop_point <= step ):
@@ -876,8 +910,9 @@ if __name__ == '__main__':
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ):
                 sys.exit()
-            # If we used SGM/MGM, need to read from the blend file.
-            if using_sgm:
+            # If we used SGM/MGM or some other method making use of
+            # tiles, need to read from the blend file.
+            if using_tiles:
                 self_args.extend(['--subpix-from-blend'])
             if not skip_refine_step:
                 create_subproject_dirs( settings )

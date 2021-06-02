@@ -25,6 +25,7 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/StereoModel.h>
+#include <vw/Core/StringUtils.h>
 
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/DemDisparity.h>
@@ -124,6 +125,9 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
   BBox2i search_range(floor(elem_prod(downsample_scale,stereo_settings().search_range.min())),
                       ceil (elem_prod(downsample_scale,stereo_settings().search_range.max())));
 
+  vw::stereo::CorrelationAlgorithm stereo_alg
+    = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+  
   if (stereo_settings().seed_mode == 1) {
 
     // Use low-res correlation to get the low-res disparity
@@ -174,7 +178,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
            stereo_settings().min_xcorr_level,
            rm_half_kernel,
            stereo_settings().corr_max_levels,
-           static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm),
+           stereo_alg,
            collar_size, sgm_subpixel_mode, sgm_search_buffer,
            stereo_settings().corr_memory_limit_mb,
            stereo_settings().corr_blob_filter_area*mean_scale,
@@ -213,7 +217,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
          stereo_settings().min_xcorr_level,
          rm_half_kernel,
          stereo_settings().corr_max_levels,
-         static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
+         stereo_alg, 
          0, // No collar here, the entire image is written at once.
          sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
          0, // Don't combine blob filtering with quantile filtering
@@ -942,6 +946,9 @@ public:
 
     bool do_round = true; // round integer disparities after transform
 
+    vw::stereo::CorrelationAlgorithm stereo_alg
+      = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+    
     // User strategies
     BBox2f local_search_range;
     if (stereo_settings().seed_mode > 0) {
@@ -1056,7 +1063,7 @@ public:
                          stereo_settings().min_xcorr_level,
                          rm_half_kernel,
                          stereo_settings().corr_max_levels,
-                         static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
+                         stereo_alg, 
                          stereo_settings().sgm_collar_size,
                          sgm_subpixel_mode, sgm_search_buffer,
                          stereo_settings().corr_memory_limit_mb,
@@ -1076,9 +1083,10 @@ public:
                          stereo_settings().min_xcorr_level,
                          rm_half_kernel,
                          stereo_settings().corr_max_levels,
-                         static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
+                         stereo_alg, 
                          stereo_settings().sgm_collar_size,
-                         sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
+                         sgm_subpixel_mode, sgm_search_buffer,
+                         stereo_settings().corr_memory_limit_mb,
                          stereo_settings().corr_blob_filter_area,
                          stereo_settings().stereo_debug);
       return corr_view.prerasterize(bbox);
@@ -1198,7 +1206,11 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 
   // With SGM, we must do the entire image chunk as one tile. Otherwise,
   // if it gets done in smaller tiles, there will be artifacts at tile boundaries.
-  bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM);
+  vw::stereo::CorrelationAlgorithm stereo_alg
+    = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+  
+  bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM &&
+                    stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
   if (using_sgm) {
     Vector2i image_size = bounding_box(fullres_disparity).size();
     int max_dim = std::max(image_size[0], image_size[1]);
@@ -1234,8 +1246,10 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 
   string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
-  if (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM) {
-    // SGM performs subpixel correlation in this step, so write out floats.
+  
+  if (stereo_alg > vw::stereo::VW_CORRELATION_BM) {
+    // SGM and external algorithms perform subpixel correlation in
+    // this step, so write out floats.
     
     // Rasterize the image first as one block, then write it out using multiple blocks.
     // - If we don't do this, the output image file is not tiled and handles very slowly.
@@ -1293,11 +1307,14 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   vw::ImageViewRef<float> disp_1d;
   ImageView<PixelMask<Vector2f>> unaligned_disp_2d;
 
-  if (stereo_settings().stereo_algorithm < 4) {
+  vw::stereo::CorrelationAlgorithm stereo_alg
+    = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+  
+  if (stereo_alg < vw::stereo::VW_CORRELATION_OTHER) {
 
     // ASP algorithms
 
-    // The locally alignment images are written with NaN nodata
+    // Mask the locally alignment images which were written with NaN nodata.
     float nan  = numeric_limits<float>::quiet_NaN();
     ImageView<PixelMask<PixelGray<float>>> left_image
       = vw::create_mask(DiskImageView<PixelGray<float>>(left_aligned_file), nan);
@@ -1317,7 +1334,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     int corr_timeout = stereo_settings().corr_timeout;
     stereo_settings().seed_mode = 0; // no seed
 
-    // The search range. Put here 2 for the upper limit as the
+    // The search range. Put here 2 for the upper limit in y as the
     // interval in y is [lower_limit, upper_limit).
     stereo_settings().search_range.min() = vw::Vector2i(min_disp, -1);
     stereo_settings().search_range.max() = vw::Vector2i(max_disp, 2);
@@ -1350,34 +1367,46 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                               // Output
                               unaligned_disp_2d);
     
-  } else if (stereo_settings().stereo_algorithm == 4) {
+  } else if (stereo_alg == vw::stereo::VW_CORRELATION_OTHER) {
 
-    std::string alg = "mgm";
-    auto it1 = plugins.find(alg);
-    auto it2 = plugin_libs.find(alg);
+    std::string alg_name, user_opts;
+    asp::parse_stereo_alg_name_and_opts(stereo_settings().stereo_algorithm,  
+                                        alg_name,  
+                                        user_opts);
+
+    auto it1 = plugins.find(alg_name);
+    auto it2 = plugin_libs.find(alg_name);
     if (it1 == plugins.end() || it2 == plugin_libs.end()) 
-      vw_throw(ArgumentErr() << "Could not lookup plugin: " << alg << ".\n");
+      vw_throw(ArgumentErr() << "Could not lookup plugin: " << alg_name << ".\n");
 
     std::string plugin_path = it1->second;
     std::string plugin_lib = it2->second;
     
-    // S2P MGM
-    int num_dirs = 8;
     std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
-    std::ostringstream oss;
-    oss << "MEDIAN=1 CENSUS_NCC_WIN=3 USE_TRUNCATED_LINEAR_POTENTIALS=1 "
-        << "TSGM=3 LD_LIBRARY_PATH=" << plugin_lib << " "
-        << plugin_path << " "
-        << "-r " << min_disp << " -R " << max_disp << " -s vfit -t census -O " << num_dirs
-        << " " << left_aligned_file << " " << right_aligned_file << " " << disp_file;
+
+    std::string default_opts;
     
-    std::string cmd = oss.str();
+    if (alg_name == "mgm") {
+      default_opts = std::string("MEDIAN=1 CENSUS_NCC_WIN=5 ")
+        + "USE_TRUNCATED_LINEAR_POTENTIALS=1 TSGM=3 -s vfit -t census -O 8 "
+        + "-r " + vw::num_to_str(min_disp) + " -R " + vw::num_to_str(max_disp);
+    }
+    
+    // Parse the algorithm options and environmental variables from the default
+    // options and append the user options (the latter take precedence).
+    std::string env_vars, alg_opts;
+    asp::extract_opts_and_env_vars(default_opts + " " + user_opts,  
+                                   env_vars, alg_opts);
+    
+    std::string cmd = std::string("LD_LIBRARY_PATH=") + plugin_lib + " "
+      + env_vars + " " + plugin_path + " " + alg_opts + " " 
+      + left_aligned_file + " " + right_aligned_file + " " + disp_file;
     std::cout << cmd << std::endl;
     system(cmd.c_str());
-
+    
     // Read the disparity from disk
     disp_1d = DiskImageView<float>(disp_file);
-  
+    
     // Undo the alignment
     asp::unalign_1d_disparity(// Inputs
                               disp_1d,
@@ -1386,7 +1415,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                               // Output
                               unaligned_disp_2d);
   }
-
+  
   // Write the disparity to disk
   cartography::GeoReference georef;
   bool   has_georef  = false;
@@ -1399,7 +1428,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   vw::cartography::block_write_gdal_image(d_file, unaligned_disp_2d,
                                           has_georef, georef,
                                           has_nodata, nodata, opt,
-                                          TerminalProgressCallback("asp", "\t--> Correlation :"));
+                                          TerminalProgressCallback
+                                          ("asp", "\t--> Correlation :"));
   
 } // End function stereo_correlation_1D
 
@@ -1424,7 +1454,10 @@ int main(int argc, char* argv[]) {
     // - Thread handling is still a little confusing because opt.num_threads is ONLY used
     //   to control the number of parallel image blocks written at a time.  Everything else
     //   reads directly from vw_settings().default_num_threads()
-    const bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM);
+    vw::stereo::CorrelationAlgorithm stereo_alg
+      = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+    bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM &&
+                      stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
     opt.num_threads = vw_settings().default_num_threads();
     if (using_sgm)
       opt.num_threads = 1;

@@ -519,14 +519,17 @@ namespace asp {
     
     // TODO: Modify SGM tile sizes?
 
-    bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM);
+    vw::stereo::CorrelationAlgorithm stereo_alg
+      = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+    
+    bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM &&
+                      stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
     if (using_sgm) {
+      // If these parameters were not specified by the user, override the normal default values.
       if (vm["subpixel-mode"].defaulted()) {
         vw_out() << "Subpixel mode not specified, using the default SGM subpixel method.\n";
         stereo_settings().subpixel_mode = SGM_DEFAULT_SUBPIXEL_MODE;
       }
-      
-      // If these parameters were not specified by the user, override the normal default values.
       if (vm["cost-mode"].defaulted())
         stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
       if (vm["corr-kernel"].defaulted())
@@ -541,12 +544,20 @@ namespace asp {
         stereo_settings().disp_smooth_size = SGM_DEFAULT_TEXTURE_SMOOTH_SIZE;
       if (vm["texture-smooth-scale"].defaulted())
         stereo_settings().disp_smooth_texture = SGM_DEFAULT_TEXTURE_SMOOTH_SCALE;
-    } 
-    else{
-      // No need for a collar when we are not using SGM.
+    }
+    
+    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM);
+    if (!using_tiles) {
+      // No need for a collar when we are not using tiles.
       stereo_settings().sgm_collar_size = 0;
-    } // End SGM checks
+    } 
 
+    if (stereo_alg >= vw::stereo::VW_CORRELATION_OTHER &&
+        stereo_settings().alignment_method != "local_epipolar") {
+      vw_throw(ArgumentErr() << "External stereo algorithms can be "
+               << "used only with alignment method local_epipolar.\n");
+    }
+    
     if (exit_early) 
       return;
     
@@ -589,13 +600,15 @@ namespace asp {
 
     // Seed mode valid values
     if (stereo_settings().seed_mode > 3){
-      vw_throw(ArgumentErr() << "Invalid value for seed-mode: " << stereo_settings().seed_mode << ".\n");
+      vw_throw(ArgumentErr() << "Invalid value for seed-mode: "
+               << stereo_settings().seed_mode << ".\n");
     }
 
     // Local homography needs D_sub
     if (stereo_settings().seed_mode == 0 &&
         stereo_settings().use_local_homography){
-      vw_throw(ArgumentErr() << "Cannot use local homography without computing low-resolution disparity.\n");
+      vw_throw(ArgumentErr() << "Cannot use local homography without computing "
+               << "low-resolution disparity.\n");
     }
 
     // D_sub from DEM needs a positive disparity_estimation_dem_error
@@ -712,14 +725,20 @@ namespace asp {
       vw_throw(ArgumentErr() << "The entries of subpixel-kernel must be odd numbers.\n");
     }
 
-    // Check SGM related settings.
-    bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::VW_CORRELATION_BM);
+    // Check SGM-related settings.
+
+    vw::stereo::CorrelationAlgorithm stereo_alg
+      = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+    bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM &&
+                      stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
+
     if (!using_sgm) {
       if (stereo_settings().cost_mode == 3)
         vw_throw(ArgumentErr() << "Cannot use the census transform without SGM!\n" );
       if (stereo_settings().cost_mode == 4)
         vw_throw(ArgumentErr() << "Cannot use the ternary census transform without SGM!\n" );
     }
+    
     if (stereo_settings().cost_mode > 4)
       vw_throw(ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
                << " for cost-mode.\n");
@@ -859,19 +878,45 @@ namespace asp {
   } // End user_safety_checks
 
 
-  bool skip_image_normalization(ASPGlobalOptions const& opt ){
+  bool skip_image_normalization(ASPGlobalOptions const& opt){
 
-    bool crop_left  = ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-    bool crop_right = ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+    bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+    bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
     // Respect user's choice for skipping the normalization of the input
     // images, if feasible.
-    return(!crop_left && !crop_right                    &&
-           stereo_settings().skip_image_normalization   &&
-           stereo_settings().alignment_method == "none" &&
-           stereo_settings().cost_mode == 2             &&
-           has_tif_or_ntf_extension(opt.in_file1)       &&
-           has_tif_or_ntf_extension(opt.in_file2));
+    return (!crop_left && !crop_right                    &&
+            stereo_settings().skip_image_normalization   &&
+            stereo_settings().alignment_method == "none" &&
+            stereo_settings().cost_mode == 2             &&
+            has_tif_or_ntf_extension(opt.in_file1)       &&
+            has_tif_or_ntf_extension(opt.in_file2));
   } // End function skip_image_normalization
 
+
+  // Convert, for example, 'asp_mgm' to '2'. For ASP algorithms we
+  // use the numbers 0 (BM), 1 (SGM), 2 (MGM), 3 (Final MGM).  For
+  // external algorithms will have to examine closer the algorithm
+  // string. This function has a Python analog in parallel_stereo.
+  vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg) {
+
+    // Make it lowercase first
+    boost::to_lower(alg);
+    
+    if (alg.rfind("0", 0) == 0 || alg.rfind("asp_bm", 0) == 0) 
+      return vw::stereo::VW_CORRELATION_BM;
+    
+    if (alg.rfind("1", 0) == 0 || alg.rfind("asp_sgm", 0) == 0) 
+      return vw::stereo::VW_CORRELATION_SGM;
+    
+    if (alg.rfind("2", 0) == 0 || alg.rfind("asp_mgm", 0) == 0) 
+      return vw::stereo::VW_CORRELATION_MGM;
+    
+    if (alg.rfind("3", 0) == 0 || alg.rfind("asp_final_mgm", 0) == 0) 
+      return vw::stereo::VW_CORRELATION_FINAL_MGM;
+
+    // An external stereo algorithm
+    return vw::stereo::VW_CORRELATION_OTHER;
+  }
+  
 } // end namespace asp
