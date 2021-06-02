@@ -10,8 +10,8 @@ unless you specify a different file using the ``-s`` option. Run
 ``stereo --help`` for more information. The extension is not important
 for this file.
 
-A sample ``stereo.default.example`` file is included in the
-``examples/`` directory of the Stereo Pipeline software distribution.
+A sample ``stereo.default.example`` file is included in the top-level
+directory of the Stereo Pipeline software distribution.
 
 As mentioned in :numref:`cmdline`, all the ``stereo``
 parameters can also be specified on the command line.
@@ -400,43 +400,47 @@ rm-quantile-multiple (*double*) (default = -1)
     but that have disparities significantly greater than the rest of
     the image.
 
-use-local-homography (default = false)
-    This flag, if provided, enables using local homography during
-    correlation, as described in :numref:`local_hom`.
-
 corr-timeout (*integer*) (default = 1800)
     Correlation timeout for an image tile, in seconds. A non-positive
     value will result in no timeout enforcement. A value of 600 seconds
     should be sufficient in most cases.
 
-stereo-algorithm (default = 0)
-    Use this setting to switch between the different integer
-    correlation options supported by ASP.
+stereo-algorithm (*string*) (default = "asp_bm")
+    Use this setting to switch between the different stereo 
+    correlation algorithms supported by ASP.
 
-    0 - Local Search Window
-       The default option searches for the best match for a local
-       window around each window using the selected cost mode. This is
-       the fastest algorithm and works well for similar images with good
-       texture coverage.
+    **Algorithms implememented in ASP**
 
-    1 - Semi-Global Matching
-       Use the popular SGM algorithm
-       :cite:`hirschmuller_sgm_original`. This algorithm is
+    asp_bm (or specify the value '0')
+       The ASP implementation of Block Matching. Search in the
+       right image for the best match for a small image block in the
+       left image. This is the fastest algorithm and works well for
+       similar images with good texture coverage.
+
+    asp_sgm (or specify the value '1')
+       The ASP implementation of the Semi-Global Matching (SGM)
+       algorithm :cite:`hirschmuller_sgm_original`. This algorithm is
        slow and has high memory requirements but it performs better in
-       images with less texture. See :numref:`sgm` for
-       important details on using this algorithm.
+       images with less texture. See :numref:`sgm` for important
+       details on using this algorithm.
 
-    2 - Smooth Semi-Global Matching
-       Uses the MGM variant of the SGM algorithm
-       :cite:`facciolo2015mgm` to reduce high frequency
-       artifacts in the output image at the cost of increased run time.
-       See :numref:`sgm` for important details on
+    asp_mgm (or specify the value '2')
+       The ASP implementation of the More Global Matching (MGM)
+       variant of the SGM algorithm :cite:`facciolo2015mgm` to reduce
+       high frequency artifacts in the output image at the cost of
+       increased run time. See :numref:`sgm` for important details on
        using this algorithm.
 
-    3 - MGM Final
+    asp_final_mgm (or specify the value '3')
        Use MGM on the final resolution level and SGM on preceding
-       resolution levels. This produces a result somewhere in between the
-       pure SGM and MGM options.
+       resolution levels. This produces a result somewhere in between
+       the pure SGM and MGM options.
+
+    **External implementations (shipped with ASP)**
+
+    mgm
+       The original MGM implementation from https://github.com/gfacciol/mgm
+
 
 corr-blob-filter (*integer*) (default = 0)
     Set to apply a blob filter in each level of pyramidal integer

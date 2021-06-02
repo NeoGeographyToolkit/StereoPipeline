@@ -1,6 +1,6 @@
 .. _nextsteps:
 
-The Next Steps
+The next steps
 ==============
 
 This chapter will discuss in more detail ASP's stereo process and other
@@ -14,30 +14,27 @@ a geoid, etc.
 
 .. _running-stereo:
 
-Stereo Pipeline in More Detail
+Stereo Pipeline in more detail
 ------------------------------
 
-Stereo Algorithms
+Stereo algorithms
 ~~~~~~~~~~~~~~~~~
 
 The most important choice a user has to make when running ASP is the tradeoff
-between runtime and quality. By default, ASP runs as if invoked with:
+between runtime and quality. By default, ASP runs as if invoked with::
 
-::
-
-   stereo --stereo-algorithm 0 --subpixel-mode 1 <other options>
+   stereo --stereo-algorithm bm --subpixel-mode 1 <other options>
     
 This invokes block-matching stereo with parabola subpixel mode, which
 can be fast but not of high quality. The best results are likely
-produced with
+produced with::
 
-::
-
-   parallel_stereo --stereo-algorithm 2 --subpixel-mode 3 <other options>
+   parallel_stereo --stereo-algorithm asp_mgm --subpixel-mode 3 \
+     <other options>
     
 which invokes the MGM algorithm and the higher quality subpixel option
 (both are slower). One can also experiment with the SGM algorithm,
-which is ``--stereo-algorithm 1``, and no subpixel mode, when an
+which is ``--stereo-algorithm asp_sgm``, and no subpixel mode, when an
 internal default is used, and also with ``--subpixel-mode 2``, which
 will be much slower. For more details about SGM and MGM see
 :numref:`sgm`.
@@ -47,10 +44,10 @@ set in practice.
 
 .. _settingoptionsinstereodefault:
 
-Setting Options in the ``stereo.default`` File
+Setting options in the ``stereo.default`` file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``stereo`` program requires a ``stereo.default`` file that
+The ``stereo`` program can use a ``stereo.default`` file that
 contains settings that affect the stereo reconstruction process.
 Its contents can be altered for your needs; details are found in
 :numref:`stereodefault`. You may find it useful to save multiple
@@ -63,14 +60,15 @@ does not find ``stereo.default`` in the current working directory
 and no file was given with the ``-s`` option, ``stereo`` will assume
 default settings and continue.
 
-An example ``stereo.default`` file is available in the ``examples/``
-directory of ASP. The actual file has a lot of comments to show you what
-options and values are possible. Here’s a trimmed version of the
+An example ``stereo.default`` file is available in the top-level
+directory of ASP. The actual file has a lot of comments to show you
+what options and values are possible. Here is a trimmed version of the
 important values in that file.
 
 ::
 
     alignment-method affineepipolar
+    stereo-algorithm asp_bm 
     cost-mode 2
     corr-kernel 21 21
     subpixel-mode 1
@@ -79,7 +77,7 @@ important values in that file.
 All these options can be overridden from the command line, as described
 in :numref:`cmdline`.
 
-Alignment Method
+Alignment method
 ^^^^^^^^^^^^^^^^
 
 The most important line in ``stereo.default`` is the first one,
@@ -96,7 +94,16 @@ that terrain. This automatically brings both images into the same
 perspective, and as such, for map-projected images the alignment method
 is always set to ``none``.
 
-Correlation Parameters
+Stereo algorithm
+^^^^^^^^^^^^^^^^
+
+Here the user has the choice of several algorithms, such as
+block-matching, SGM, and MGM.  The MGM algorithm offers the best
+quality at the cost of increased computational time.  The latter two
+algorithms can be used only with ``parallel_stereo`` (see
+:numref:`sgm` and :numref:`original_mgm`).
+
+Correlation parameters
 ^^^^^^^^^^^^^^^^^^^^^^
 
 The second and third lines in ``stereo.default`` define what correlation
@@ -110,7 +117,7 @@ Making the kernel sizes smaller, such as 15 |times| 15, or even
 cliffs, at the expense of perhaps introducing more false matches or
 noise.
 
-Subpixel Refinement Parameters
+Subpixel refinement parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A highly critical parameter in ASP is the value of ``subpixel-mode``, on
@@ -123,7 +130,7 @@ between the other methods.
 The fifth line sets the kernel size to use during subpixel refinement
 *(also 21 pixels square)*.
 
-Search Range Determination
+Search range determination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Using these settings alone, ASP will attempt to work out the minimum and
@@ -138,7 +145,7 @@ correlation can be found in :numref:`correlation`.
 
 .. _perform-stereo:
 
-Performing Stereo Correlation
+Performing stereo correlation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. figure:: images/p19-stereo-output_400px.png
@@ -180,7 +187,7 @@ elevation model (DEM) or other formats.
 The ``stereo`` command can also take multiple input images, performing
 multi-view stereo (:numref:`multiview`).
 
-Running the GUI Frontend
+Running the GUI frontend
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``stereo_gui`` program is a GUI frontend to ``stereo``. It is
@@ -190,7 +197,7 @@ run stereo on. The GUI is described in :numref:`stereo_gui`.
 
 .. _cmdline:
 
-Specifying Settings on the Command Line
+Specifying settings on the command line
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 All the settings given via the ``stereo.default`` file can be
@@ -208,7 +215,7 @@ line.
                -s stereo.map --corr-search -70 -4 40 4 \
                --subpixel-mode 0 results/output
 
-Stereo on Multiple Machines
+Stereo on multiple machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If the input images are really large it may desirable to distribute
@@ -218,7 +225,7 @@ the work over several computing nodes. ASP provides a tool named
 
 .. _mapproj-example:
 
-Running Stereo with Map-projected Images
+Running stereo with map-projected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The way stereo correlation works is by matching a neighborhood of each
@@ -379,7 +386,7 @@ while ``cam2map`` is restricted to one process and one thread.
 
 .. _dg-mapproj:
 
-Example for DigitalGlobe/Maxar Images
+Example for DigitalGlobe/Maxar images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In this section we will describe how to run stereo with map-projected
@@ -476,7 +483,7 @@ which suggests that we have used the RPC model during map-projection,
 but we would like to use the accurate DG model when performing actual
 triangulation from the cameras to the ground.
 
-RPC and Pinhole Camera Models
+RPC and Pinhole camera models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Map-projected images can also be used with RPC and Pinhole camera
@@ -489,13 +496,13 @@ map-projection. The session name passed to ``stereo`` should be
 
 .. _multiview:
 
-Multi-View Stereo
+Multi-view stereo
 ~~~~~~~~~~~~~~~~~
 
 ASP supports multi-view stereo at the triangulation stage. This mode is
 somewhat experimental, and not used widely. We have obtained higher
 quality results by doing pairwise stereo and merging the result, as
-described later on in thi section.
+described later on in this section.
 
 In the multiview scenario, the first image is set as reference,
 disparities are computed from it to all the other images, and then joint
@@ -551,7 +558,7 @@ alignment) with ``dem_mosaic``, compared to multiview triangulation, is
 that this approach will not create visible seams, while likely it will
 still increase the accuracy compared to the individual input DEMs.
 
-Diagnosing Problems
+Diagnosing problems
 ~~~~~~~~~~~~~~~~~~~
 
 Once invoked, ``stereo`` proceeds through several stages that are
@@ -632,7 +639,7 @@ preserves any georeference.
 
 .. _longrun:
 
-Dealing with Long Run-times
+Dealing with long run-times
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If ``stereo_corr`` takes unreasonably long, it may have encountered a
@@ -645,7 +652,7 @@ height variations.
 
 .. _visualising:
 
-Visualizing and Manipulating the Results
+Visualizing and manipulating the results
 ----------------------------------------
 
 When ``stereo`` finishes, it will have produced a point cloud image. At
@@ -659,7 +666,7 @@ this point, many kinds of data products can be built from the
 
    A visualization of a mesh.
 
-Building a 3D Mesh Model
+Building a 3D mesh model
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``point2mesh`` command (:numref:`point2mesh`) can be used to
@@ -679,7 +686,7 @@ above::
 
 .. _builddem:
 
-Building a Digital Elevation Model and Ortho Image
+Building a digital elevation model and ortho image
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``point2dem`` program (page ) creates a Digital Elevation Model
@@ -689,7 +696,7 @@ The ``point2dem`` program (page ) creates a Digital Elevation Model
 
      >  point2dem results/output-PC.tif
 
-The resulting TIFF file is map-projected and will contain georeferencing
+The resulting TIFF file is map-projected and will contain georeference
 information stored as GeoTIFF tags.
 
 The tool will infer the datum and projection from the input images, if
@@ -763,14 +770,14 @@ complete documentation is in :numref:`point2dem`.
    right is the left input image projected onto the DEM (created using
    the ``--orthoimage`` option to ``point2dem``).
 
-Orthorectification of an Image From a Different Source
+Orthorectification of an image from a different source
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you have already obtained a DEM, using ASP or some other approach,
 and have an image and camera pair which you would like to overlay on top
 of this terrain, use the ``mapproject`` tool (:numref:`mapproject`).
 
-Correcting Camera Positions and Orientations
+Correcting camera positions and orientations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``bundle_adjust`` program can be used to adjust the camera positions
@@ -781,7 +788,7 @@ is described in :numref:`bundle_adjust`.
 
 .. _pc-align-example:
 
-Alignment to Point Clouds From a Different Source
+Alignment to point clouds from a different source
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Often the 3D terrain models output by ``stereo`` (point clouds and DEMs)
@@ -843,7 +850,7 @@ talks in more detail about the Mars datums.
 :numref:`pc-align-fig` shows an example of using ``pc_align``.
 The complete documentation for this program is in :numref:`pc_align`.
 
-Alignment and Orthoimages
+Alignment and orthoimages
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Two related issues are discussed here. The first is that sometimes,
@@ -880,7 +887,7 @@ cameras, using again the ``--bundle-adjust-prefix`` option. If all that
 is wanted is to shift the cameras, without doing any actual adjustments,
 the tool can be invoked with 0 iterations.
 
-Creating DEMs Relative to the Geoid/Areoid
+Creating DEMs Relative to the geoid/areoid
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The DEMs generated using ``point2dem`` are in reference to a datum
@@ -890,7 +897,7 @@ Example usage::
 
      >  dem_geoid results/output-DEM.tif
 
-Converting to the LAS Format
+Converting to the LAS format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If it is desired to use the ``stereo`` generated point cloud outside of
@@ -902,7 +909,7 @@ format for the interchange of 3-dimensional point cloud data. The tool
 
 .. _genhillshade:
 
-Generating Color Hillshade Maps
+Generating color hillshade maps
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Once you have generated a DEM file, you can use the ``colormap`` and
@@ -943,7 +950,7 @@ and for ``hillshade`` in :numref:`hillshade`.
    The colorized DEM, the shaded relief image, and the
    colorized hillshade.
 
-Building Overlays for Moon and Mars Mode in Google Earth
+Building overlays for Moon and Mars mode in Google Earth
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Sometimes it may be convenient to see how the DEMs and orthoimages
@@ -981,7 +988,7 @@ The complete documentation is in :numref:`image2qtree`.
 
    The colorized hillshade DEM as a KML overlay.
 
-Using DERT to Visualize Terrain Models
+Using DERT to visualize terrain models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The open source Desktop Exploration of Remote Terrain (DERT) software
@@ -991,7 +998,7 @@ https://github.com/nasa/DERT.
 
 .. _blender:
 
-Using Blender to Visualize Meshes
+Using Blender to visualize meshes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The :ref:`point2mesh` program will create ``.obj`` and ``.mtl`` files
@@ -1023,7 +1030,7 @@ then you can run :ref:`point2mesh` on them to get ``.obj`` and
 
 .. _meshlab:
 
-Using MeshLab to Visualize Meshes
+Using MeshLab to visualize meshes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Alternatively, MeshLab is another program that can view meshes in 
@@ -1032,10 +1039,9 @@ Alternatively, MeshLab is another program that can view meshes in
   https://github.com/cnr-isti-vclab/meshlab/releases
 
 and can be installed and run in user's directory without needing
-administrative priveledges.
+administrative privileges.
 
-
-Using QGIS to Visualize Terrain Models
+Using QGIS to visualize terrain models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The free and open source geographic information system QGIS
@@ -1049,7 +1055,5 @@ loaded as raster data files, and the 'New 3D Map View' under the
 View menu will create a new window, and by clicking on the wrench
 icon, you can set the DEM file as the terrain source, and are able
 to move around a perspective view of your terrain.
-
-
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

@@ -31,6 +31,17 @@ prefilter-kernel-width 1.4
 # Integer Correlation / stereo_corr
 ################################################################
 
+# Select a stereo algorithm. See the documentation describing
+# stereo.default for more details. Options are:
+#
+# asp_bm  (or use '0') - the ASP implementation of Block Matching.
+# asp_sgm (or use '1') - the ASP implementation of SGM.
+# asp_mgm (or use '2') - the ASP implementation of MGM.
+# asp_final_mgm (or use '3') - ASP MGM at the the finest level.
+# mgm - the originally published MGM implementation.
+
+stereo-algorithm asp_bm
+
 # Select a cost function to use for initialization:
 #
 # 0 - absolute difference (fast)

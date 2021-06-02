@@ -20,6 +20,7 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
    experimental
    tools
    stereodefault
+   external_algorithms 
    outputfiles
    pinholemodels
    papersusingasp
