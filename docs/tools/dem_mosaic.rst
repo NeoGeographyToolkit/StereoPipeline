@@ -9,7 +9,8 @@ default, it blends the DEMs where they overlap.
 
 Usage::
 
-     dem_mosaic [options] <dem files or -l dem_files_list.txt> -o output_file_prefix
+     dem_mosaic [options] <dem files or -l dem_files_list.txt> \
+       -o output_file_prefix
 
 The input DEMs can either be set on the command line, or if too many,
 they can be listed in a text file (one per line) and that file can be
@@ -44,8 +45,8 @@ will be different. At any location, the pixel value of the DEM earliest
 in the list present at this location will be kept, unless closer to the
 boundary of that DEM than this blending length (measured in input DEM
 pixels), only in the latter case blending will happen. This mode is
-useful when blending several high-resolution “foreground” DEMs covering
-small regions with larger “background” DEMs covering a larger extent.
+useful when blending several high-resolution "foreground" DEMs covering
+small regions with larger "background" DEMs covering a larger extent.
 Then, the pixels from the high-resolution DEMs are more desirable, yet
 at their boundary these DEMs should blend into the background.
 
@@ -58,12 +59,12 @@ written out with ``--save-dem-weight integer``.
 
 Instead of blending, ``dem_mosaic`` can compute the image of first,
 last, minimum, maximum, mean, standard deviation, median, and count of
-all encountered valid DEM heights at output grid points. For the “first”
-and “last” operations, the order in which DEMs were passed in is used.
-With any of these options, the tile names will be adjusted accordingly.
-It is important to note that with these options blending will not
-happen, since it is explicitly requested that particular values of the
-input DEMs be used.
+all encountered valid DEM heights at output grid points. For the
+"first" and "last" operations, the order in which DEMs were passed in
+is used. With any of these options, the tile names will be adjusted
+accordingly. It is important to note that with these options blending
+will not happen, since it is explicitly requested that particular
+values of the input DEMs be used.
 
 If the number of input DEMs is very large, the tool can fail as the
 operating system may refuse to load all DEMs. In that case, it is
@@ -75,21 +76,22 @@ be invoked again to merge these tiles into a single DEM.
 If the DEMs have reasonably regular boundaries and no holes, smoother
 blending may be obtained by using ``--use-centerline-weights``.
 
-Example 1 (erode 3 pixels from input DEMs and blend them)::
+Example 1. Erode 3 pixels from input DEMs and blend them::
 
      dem_mosaic --erode-length 3 dem1.tif dem2.tif -o blended
 
-Example 2 (read the DEMs from a list, and apply priority blending)::
+Example 2. Read the DEMs from a list, and apply priority blending::
 
-     echo dem1.tif dem2.tif > imagelist.txt
-     dem_mosaic -l imagelist.txt --priority-blending-length 14 -o priority_blended
+     echo dem1.tif dem2.tif > image_list.txt
+     dem_mosaic -l image_list.txt --priority-blending-length 14 \
+       -o priority_blended
 
-Example 3 (Find the mean DEM, no blending is used)::
+Example 3. Find the mean DEM, no blending is used::
 
-     dem_mosaic -l imagelist.txt --mean -o mosaic
+     dem_mosaic -l image_list.txt --mean -o mosaic
 
-Example 4 (write with the exact output name, without using the
-tile-0.tif extension)::
+Example 4. Write with the exact output name, without using the
+tile-0.tif extension::
 
      dem_mosaic dem1.tif dem2.tif -o blended.tif
 
@@ -124,8 +126,8 @@ Command-line options for dem_mosaic:
 
 --priority-blending-length <number-of-pixels (default: 0)>
     If positive, keep unmodified values from the earliest available
-    DEM at the current location except a band this wide measured
-    in pixels around its boundary where blending will happen.
+    DEM except a band this wide measured in pixels inward of its
+    boundary where blending with subsequent DEMs will happen.
 
 --hole-fill-length <number-of-pixels (default: 0)>
     Maximum dimensions of a hole in the output DEM to fill in, in
