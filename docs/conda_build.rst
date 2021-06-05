@@ -125,6 +125,7 @@ clone`` from:
   https://github.com/NeoGeographyToolkit/liblas-feedstock.git
   https://github.com/NeoGeographyToolkit/imagemagick-feedstock.git
   https://github.com/NeoGeographyToolkit/theia-feedstock.git
+  https://github.com/NeoGeographyToolkit/mgm-feedstock.git
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
   https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
 
@@ -199,7 +200,10 @@ After a package is uploaded, it can be installed in the existing
  
 ::
 
-  conda install -c nasa-ames-stereo-pipeline gdal==isis4.4.0
+  conda install -c nasa-ames-stereo-pipeline \
+    -c usgs-astrogeology                     \
+    -c conda-forge                           \
+    gdal==isis4.4.0
 
 To list all packages in that channel, do:
 

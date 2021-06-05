@@ -1258,7 +1258,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("erode-length",    po::value<int>(&opt.erode_len)->default_value(0),
 	   "Erode input DEMs by this many pixels at boundary before mosaicking them.")
     ("priority-blending-length", po::value<int>(&opt.priority_blending_len)->default_value(0),
-	   "If positive, keep unmodified values from the earliest available DEM at the current location except a band this wide measured in pixels around its boundary where blending will happen.")
+	   "If positive, keep unmodified values from the earliest available DEM except a band this wide measured in pixels inward of its boundary where blending with subsequent DEMs will happen.")
     ("no-border-blend", po::bool_switch(&opt.no_border_blend)->default_value(false),
 	   "Only apply blending around holes, don't blend at image borders.  Not compatible with centerline weights.")
     ("hole-fill-length",   po::value(&opt.hole_fill_len)->default_value(0),

@@ -25,6 +25,7 @@
 #include <string>
 
 #include <vw/Math/Matrix.h>
+#include <vw/Image/ImageViewRef.h>
 #include <opencv2/core.hpp>
 
 namespace asp {
@@ -36,5 +37,13 @@ namespace asp {
   // Implemented only for double precision matrix.
   vw::Matrix<double> cvMatToVwMat(cv::Mat const& M);
   
+  // Scale an image from [0, 1] to [0, 255], round, and clamp.
+  // NaN values are not affected.
+  void formScaledByteCVImage(vw::ImageViewRef<float> in, cv::Mat & out);
+  
+  // Insert an image as a block at a desired location in a bigger image
+  void cvInsertBlock(cv::Mat const& input_image, int extra_x,
+                     int extra_y, cv::Mat& output_image);
 }
-#endif//__ASP_CORE_OPENCVUTILS_H__
+
+#endif //__ASP_CORE_OPENCVUTILS_H__

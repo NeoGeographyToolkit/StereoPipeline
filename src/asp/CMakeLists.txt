@@ -258,7 +258,8 @@ set(OPENCV_LIB_NAMES opencv_calib3d     opencv_reg
                      opencv_imgproc     opencv_xfeatures2d
                      opencv_ml          opencv_ximgproc
                      opencv_objdetect   opencv_xobjdetect
-                     opencv_photo       opencv_xphoto)
+                     opencv_photo       opencv_xphoto
+                     opencv_stereo)
 find_external_library(OPENCV ${ASP_DEPS_DIR} "" "${OPENCV_LIB_NAMES}" NOT_REQUIRED)
 
 # For convenience, list some libraries that VW and ISIS depend on.

@@ -78,5 +78,35 @@ namespace asp {
     return VM;
   }
   
+
+  // Scale an image from [0, 1] to [0, 255], round, and clamp.
+  // NaN values are not affected.
+  void formScaledByteCVImage(vw::ImageViewRef<float> in, cv::Mat & out) {
+    
+    out = cv::Mat(in.rows(), in.cols(), CV_8UC1, cv::Scalar(0));
+
+    // Note how we read from in(col, row) but write to out(row, col)
+    
+    for (int row = 0; row < in.rows(); row++) {
+      for (int col = 0; col < in.cols(); col++) {
+        int val = round(255.0 * in(col, row));
+        if (val < 0) 
+          val = 0;
+        if (val > 255)
+          val = 255;
+      
+        out.at<uint8_t>(row, col) = val;
+      }
+    }
+
+    return;
+  }
+
+  // Insert an image as a block at a desired location in a bigger image
+  void cvInsertBlock(cv::Mat const& input_image, int extra_x,
+                     int extra_y, cv::Mat& output_image) {
+    input_image.copyTo(output_image(cv::Range(extra_y, extra_y + input_image.rows),
+                                    cv::Range(extra_x, extra_x + input_image.cols)));
+  }
   
-}
+} // end namespace asp

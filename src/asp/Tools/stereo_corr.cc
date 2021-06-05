@@ -36,11 +36,15 @@
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Tools/stereo.h>
 
+#include <opencv2/stereo.hpp>
+
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
+
+// TODO(oalexan1): Remove the std namespace.
 using namespace std;
 
 /// Returns the properly cast cost mode type
@@ -478,8 +482,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
   // Read the no-data values written to disk previously when
   // the normalized left and right sub-images were created.
-  float left_nodata_value  = numeric_limits<float>::quiet_NaN();
-  float right_nodata_value = numeric_limits<float>::quiet_NaN();
+  float left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
+  float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
   if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read ();
   if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
   
@@ -1283,10 +1287,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   if (stereo_settings().compute_low_res_disparity_only) 
     return;
   
-  // Read the list of plugins
-  std::map<std::string, std::string> plugins, plugin_libs;
-  asp::parse_plugins_list(plugins, plugin_libs);
-  
   // Sanity check until local homography is wiped
   if (stereo_settings().use_local_homography)
     vw_throw(ArgumentErr() << "Cannot use local homography with local_epipolar alignment.\n");
@@ -1371,41 +1371,101 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
     std::string alg_name, user_opts;
     asp::parse_stereo_alg_name_and_opts(stereo_settings().stereo_algorithm,  
-                                        alg_name,  
-                                        user_opts);
-
-    auto it1 = plugins.find(alg_name);
-    auto it2 = plugin_libs.find(alg_name);
-    if (it1 == plugins.end() || it2 == plugin_libs.end()) 
-      vw_throw(ArgumentErr() << "Could not lookup plugin: " << alg_name << ".\n");
-
-    std::string plugin_path = it1->second;
-    std::string plugin_lib = it2->second;
-    
-    std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
+                                        alg_name, user_opts);
 
     std::string default_opts;
-    
     if (alg_name == "mgm") {
+      
       default_opts = std::string("MEDIAN=1 CENSUS_NCC_WIN=5 ")
         + "USE_TRUNCATED_LINEAR_POTENTIALS=1 TSGM=3 -s vfit -t census -O 8 "
         + "-r " + vw::num_to_str(min_disp) + " -R " + vw::num_to_str(max_disp);
+      
+    } else if (alg_name == "opencv_bm") {
+      default_opts = std::string("-block_size 21 -texture_thresh 10 -prefilter_cap 31 ") +
+        "-uniqueness_ratio 15 -speckle_size 100 -speckle_range 32 -disp12_diff 1";
+      
+    } else if (alg_name == "opencv_sgbm") {
+      
+      default_opts = std::string("-mode hh -block_size 3 -P1 8 -P2 32 -prefilter_cap 63 ") +
+        "-uniqueness_ratio 10 -speckle_size 100 -speckle_range 32 -disp12_diff 1";
+      
+    } else {
+      // No defaults for other algorithms
     }
-    
+
     // Parse the algorithm options and environmental variables from the default
     // options and append the user options (the latter take precedence).
-    std::string env_vars, alg_opts;
+    std::string env_vars, options;
+    std::map<std::string, std::string> option_map;
     asp::extract_opts_and_env_vars(default_opts + " " + user_opts,  
-                                   env_vars, alg_opts);
+                                   env_vars, options, option_map);
+
+    std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
     
-    std::string cmd = std::string("LD_LIBRARY_PATH=") + plugin_lib + " "
-      + env_vars + " " + plugin_path + " " + alg_opts + " " 
-      + left_aligned_file + " " + right_aligned_file + " " + disp_file;
-    std::cout << cmd << std::endl;
-    system(cmd.c_str());
+    if (env_vars != "") 
+      env_vars += std::string(" ");
+
+    if (alg_name == "opencv_bm") {
+      // Call the OpenCV BM algorithm
+      std::string mode = "bm";
+      int dummy_p1 = -1, dummy_p2 = -1; // Only needed for SGBM
+      call_opencv_bm_or_sgbm(left_aligned_file, right_aligned_file,
+                             mode,
+                             atoi(option_map["-block_size"].c_str()),  
+                             min_disp, max_disp,  
+                             atoi(option_map["-prefilter_cap"].c_str()),  
+                             atoi(option_map["-uniqueness_ratio"].c_str()),  
+                             atoi(option_map["-speckle_size"].c_str()),  
+                             atoi(option_map["-speckle_range"].c_str()),  
+                             atoi(option_map["-disp12_diff"].c_str()),  
+                             atoi(option_map["-texture_thresh"].c_str()),
+                             dummy_p1, dummy_p2,
+                             opt, disp_file,  
+                             // Output
+                             disp_1d);
+
+    } else if (alg_name == "opencv_sgbm") {
+      // Call the OpenCV SGBM algorithm
+      int dummy_texture_thresh = -1; // only needed for BM
+      call_opencv_bm_or_sgbm(left_aligned_file, right_aligned_file,
+                             option_map["-mode"],
+                             atoi(option_map["-block_size"].c_str()),  
+                             min_disp, max_disp,  
+                             atoi(option_map["-prefilter_cap"].c_str()),  
+                             atoi(option_map["-uniqueness_ratio"].c_str()),  
+                             atoi(option_map["-speckle_size"].c_str()),  
+                             atoi(option_map["-speckle_range"].c_str()),  
+                             atoi(option_map["-disp12_diff"].c_str()),  
+                             dummy_texture_thresh,
+                             atoi(option_map["-P1"].c_str()),  
+                             atoi(option_map["-P2"].c_str()),  
+                             opt, disp_file,  
+                             // Output
+                             disp_1d);
+    } else {
+
+      // Read the list of plugins
+      std::map<std::string, std::string> plugins, plugin_libs;
+      asp::parse_plugins_list(plugins, plugin_libs);
+
+      auto it1 = plugins.find(alg_name);
+      auto it2 = plugin_libs.find(alg_name);
+      if (it1 == plugins.end() || it2 == plugin_libs.end()) 
+        vw_throw(ArgumentErr() << "Could not lookup plugin: " << alg_name << ".\n");
+      
+      std::string plugin_path = it1->second;
+      std::string plugin_lib = it2->second;
+          
+      // Call an external program which will write the disparity to disk
+      std::string cmd = std::string("LD_LIBRARY_PATH=") + plugin_lib + " "
+        + env_vars + plugin_path + " " + options + " " 
+        + left_aligned_file + " " + right_aligned_file + " " + disp_file;
+      std::cout << cmd << std::endl;
+      system(cmd.c_str());
     
-    // Read the disparity from disk
-    disp_1d = DiskImageView<float>(disp_file);
+      // Read the disparity from disk
+      disp_1d = DiskImageView<float>(disp_file);
+    }
     
     // Undo the alignment
     asp::unalign_1d_disparity(// Inputs

@@ -27,6 +27,9 @@
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/OpenCVUtils.h>
+
+#include <opencv2/calib3d/calib3d.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/dll.hpp>
@@ -275,11 +278,17 @@ namespace asp {
                            TerminalProgressCallback("asp","\t  Right:  "));
   
     // Apply local alignment to inlier ip and estimate the search range
-    std::vector<vw::ip::InterestPoint> left_trans_local_ip;
-    std::vector<vw::ip::InterestPoint> right_trans_local_ip;
     vw::HomographyTransform left_local_trans (left_local_mat);
     vw::HomographyTransform right_local_trans(right_local_mat);
     BBox2 disp_range;
+
+#define DEBUG_IP 0    
+#if DEBUG_IP
+    // These are needed onlu for debugging, otherwise the range only is enough.
+    std::vector<vw::ip::InterestPoint> left_trans_local_ip;
+    std::vector<vw::ip::InterestPoint> right_trans_local_ip;
+#endif
+
     for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
       int i = ip_inlier_indices[it];
       Vector2 left_pt (left_local_ip [i].x, left_local_ip [i].y);
@@ -287,7 +296,8 @@ namespace asp {
 
       left_pt  = left_local_trans.forward(left_pt);
       right_pt = right_local_trans.forward(right_pt);
-    
+
+#if DEBUG_IP
       // First copy all the data from the input ip, then apply the transform
       left_trans_local_ip.push_back(left_local_ip[i]);
       right_trans_local_ip.push_back(right_local_ip[i]);
@@ -296,15 +306,22 @@ namespace asp {
       right_trans_local_ip.back().x = right_pt.x();
       right_trans_local_ip.back().y = right_pt.y();
 
+      // TODO(oalexan1): Some of these IP can still have outliers which
+      // can result in an unreasonably large disparity range.
+      std::cout << "Diff is " << right_pt - left_pt << std::endl;
+#endif
+
       disp_range.grow(right_pt - left_pt);
     }
 
-    // std::string local_aligned_match_filename
-    //  = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
-    // vw_out() << "Writing match file: " << local_aligned_match_filename << ".\n";
-    // vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
-    //                                   right_trans_local_ip);
-
+#if DEBUG_IP
+    std::string local_aligned_match_filename
+      = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
+     vw_out() << "Writing match file: " << local_aligned_match_filename << ".\n";
+     vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
+                                     right_trans_local_ip);
+#endif
+     
     double disp_width = disp_range.width();
     double disp_extra = disp_width * stereo_settings().disparity_range_expansion_percent / 100.0;
     min_disp = floor(disp_range.min().x() - disp_extra/2.0);
@@ -583,11 +600,14 @@ namespace asp {
   // and remove the repetitions by keeping the values later in the
   // string. Do not allow any input character except letters, numbers,
   // space, period, underscore, plus, minus, and equal signs, for
-  // security purposes.
+  // security purposes. 
   void extract_opts_and_env_vars(std::string const& input_str,
                                  std::string & env_vars,
-                                 std::string & alg_opts) {
+                                 std::string & options,
+                                 std::map<std::string, std::string> & option_map) {
 
+    option_map.clear();
+    
     // Input validation
     for (size_t it = 0; it < input_str.size(); it++) {
       
@@ -602,57 +622,223 @@ namespace asp {
     }
 
     // Tokenize the inputs
-    std::vector<std::string> opts;
+    std::vector<std::string> tokens;
     std::istringstream iss(input_str);
     std::string val;
     while (iss >> val) 
-      opts.push_back(val);
+      tokens.push_back(val);
     
     // Populate the env vars and the options starting with a dash
-    std::map<std::string, std::string> env_vars_map, alg_opts_map;
+    std::map<std::string, std::string> env_vars_map;
 
-    for (size_t it = 0; it < opts.size(); it++) {
+    for (size_t it = 0; it < tokens.size(); it++) {
 
-      std::string const& opt = opts[it];
+      std::string const& token = tokens[it];
 
-      if (is_env_var_and_val(opt)) {
+      if (is_env_var_and_val(token)) {
 
         // Is an env variable, A=b, like for MGM
         std::string name, val;
-        get_env_var_name_and_val(opt, name, val);
+        get_env_var_name_and_val(token, name, val);
         env_vars_map[name] = val;
         
       } else {
 
         // Must be an option, like -v 3.
-        if (!is_option_name(opt)) 
+        if (!is_option_name(token)) 
           vw_throw(vw::ArgumentErr() << "Expecting an option, so something starting "
-                   << "with a dash. Got: " << opt << ".\n");
+                   << "with a dash. Got: " << token << ".\n");
         
         // All the tokens that follow and which are not options or env
         // vars must be values for this option
         std::string val = "";
-        for (size_t it2 = it + 1; it2 < opts.size(); it2++) {
+        for (size_t it2 = it + 1; it2 < tokens.size(); it2++) {
 
-          if (is_option_name(opts[it2]) || is_env_var_and_val(opts[it2])) {
+          if (is_option_name(tokens[it2]) || is_env_var_and_val(tokens[it2])) {
 
-            // This token is not a value, so have to stop.
-            // Note how we modify the counter of the main loop.
+            // This token is not a value, so have to stop this inner
+            // loop. Note how we modify the counter 'it' of the outer
+            // loop so we revisit tokens[it2] in that loop.
             it = it2 - 1;
             break;
           }
 
           // Concatenate all the values
-          val += opts[it2] + " ";
+          val += tokens[it2] + " ";
+
+          // Note how we modify the outer loop counter 'it'. It will
+          // be incremented further as soon as we go to the outer
+          // loop, so that loop will not examine tokens[it2] with which
+          // we just dealt. Without this line one runs into a bug if
+          // it2 is tokens.size() - 1 as the modification of 'it'
+          // further up does not kick in.
+          it = it2;
         }
         
         rm_trailing_whitespace(val);
-        alg_opts_map[opt] = val;
+        
+        if (!val.empty())
+          option_map[token] = val;
+        else
+          option_map[token] = "1"; // if an option has no value treat it as a boolean
       } 
     }
-
+    
     // Now that the repeated options have been collapsed, put these back in strings
-    alg_opts = concatenate_optons(alg_opts_map, " ");
+    options = concatenate_optons(option_map, " ");
     env_vars = concatenate_optons(env_vars_map, "=");
   }
+
+  // Call the OpenCV BM or SGBM algorithm
+  void call_opencv_bm_or_sgbm(std::string const& left_file,
+                              std::string const& right_file,
+                              std::string const& mode, // bm or a flavor of sgbm 
+                              int block_size,
+                              int min_disp,
+                              int max_disp,
+                              int prefilter_cap, 
+                              int uniqueness_ratio, 
+                              int speckle_size, 
+                              int speckle_range, 
+                              int disp12_diff, 
+                              int texture_thresh,      // only for BM
+                              int P1,                  // only for SGBM
+                              int P2,                  // only for SGBM
+                              ASPGlobalOptions const& opt,
+                              std::string const& disparity_file,
+                              // Output
+                              vw::ImageViewRef<float> & out_disp) {
+    
+    DiskImageView<float> left(left_file);
+    DiskImageView<float> right(right_file);
+
+    cv::Mat left_cv, right_cv;
+    asp::formScaledByteCVImage(left, left_cv);
+    asp::formScaledByteCVImage(right, right_cv);
+
+    // Create the bm and sgbm objects. Their parameters will be overwritten later.
+    cv::Ptr<cv::StereoBM> bm = cv::StereoBM::create(16, 9);
+    cv::Ptr<cv::StereoSGBM> sgbm = cv::StereoSGBM::create(0, 16, 3);
+  
+    if (block_size < 1 || block_size % 2 != 1)
+      vw_throw(ArgumentErr() << "The block size must be positive and odd.\n");
+    
+    int num_disp = (int) 16 * ceil((max_disp - min_disp) / 16.0);
+
+    // Set BM parameters
+    bm->setBlockSize(block_size);
+    bm->setMinDisparity(min_disp);
+    bm->setNumDisparities(num_disp);
+    bm->setTextureThreshold(texture_thresh);
+    bm->setPreFilterCap(prefilter_cap);
+    bm->setUniquenessRatio(uniqueness_ratio);
+    bm->setSpeckleWindowSize(speckle_size);
+    bm->setSpeckleRange(speckle_range);
+    bm->setDisp12MaxDiff(disp12_diff);
+    
+    // Set SGBM parameters
+    
+    int cn = 1; // Number of channels
+    sgbm->setBlockSize(block_size);
+    sgbm->setMinDisparity(min_disp);
+    sgbm->setNumDisparities(num_disp);
+    sgbm->setP1(P1*cn*block_size*block_size);
+    sgbm->setP2(P2*cn*block_size*block_size);
+    sgbm->setPreFilterCap(prefilter_cap);
+    sgbm->setUniquenessRatio(uniqueness_ratio);
+    sgbm->setSpeckleWindowSize(speckle_size);
+    sgbm->setSpeckleRange(speckle_range);
+    sgbm->setDisp12MaxDiff(disp12_diff);
+  
+    vw_out() << "Running OpenCV correlation with "
+             << "-mode " << mode << " "
+             << "-block_size " << block_size << " "
+             << "-P1 " << P1 << " "
+             << "-P2 " << P2 << " "
+             << "-prefilter_cap " << prefilter_cap << " "
+             << "-uniqueness_ratio " << uniqueness_ratio << " "
+             << "-speckle_size " << speckle_size << " "
+             << "-speckle_range " << speckle_range << " "
+             << "-disp12_diff " << disp12_diff << " "
+             << "--texture_thresh " << texture_thresh << std::endl;
+
+    if (mode == "bm") {
+      // Nothing to do here
+    } else if (mode == "hh") {
+      sgbm->setMode(cv::StereoSGBM::MODE_HH);
+    } else if (mode == "sgbm") {
+      sgbm->setMode(cv::StereoSGBM::MODE_SGBM);
+    } else if (mode == "3way") {
+      sgbm->setMode(cv::StereoSGBM::MODE_SGBM_3WAY);
+    } else {
+      vw_throw(ArgumentErr() << "Unknown OpenCV stereo mode: " << mode << ".\n");
+    }
+
+    // Expand the image with padding, or else OpenCV crops the output
+    // disparity, oddly enough. Idea copied from S2P in sgbm.cpp.
+    // Copyright (c) 2012-2013, Gabriele Facciolo
+    // This program is free software: you can use, modify and/or redistribute it
+    // under the terms of the simplified BSD License. You should have received a
+    // copy of this license along this program. If not, see
+    // <http://www.opensource.org/licenses/bsd-license.html>.
+    float nan = std::numeric_limits<float>::quiet_NaN();
+    int pad1  = std::max(max_disp, 0), pad2 = std::max(-min_disp, 0);
+    cv::Mat left_cv_extra(left_cv.rows, left_cv.cols + pad1 + pad2, left_cv.type(),
+                          cv::Scalar(nan));
+    cv::Mat right_cv_extra(right_cv.rows, right_cv.cols + pad1 + pad2, right_cv.type(),
+                           cv::Scalar(nan));
+    asp::cvInsertBlock(left_cv, pad1, 0, left_cv_extra);
+    asp::cvInsertBlock(right_cv, pad1, 0, right_cv_extra);
+
+    cv::Mat disp, disp_extra;
+
+    // Do the correlation
+    if (mode == "bm") {
+      bm->compute(left_cv_extra, right_cv_extra, disp_extra);
+    } else if (mode == "hh" || mode == "sgbm" || mode == "3way") {
+      sgbm->compute(left_cv_extra, right_cv_extra, disp_extra);
+    }
+
+    // Crop the disparity to remove the padding
+    disp = disp_extra(cv::Range::all(), cv::Range(pad1, pad1 + left_cv.cols));
+
+    // Copy to ASP's format and handle no-data
+    vw::ImageView<float> asp_disp;
+    asp_disp.set_size(disp.cols, disp.rows);
+    for (int row = 0; row < disp.rows; row++) {
+      for (int col = 0; col < disp.cols; col++) {
+        if (disp.at<int16_t>(row, col) == -16*(-min_disp+1)) {
+          // Convert from the OpenCV no-data value to NaN
+          asp_disp(col, row) = nan;
+        } else {
+          // sgbm output disparity map is a 16-bit signed single-channel
+          // image of the same size as the input image. It contains
+          // disparity values scaled by 16. So, to get the floating-point
+          // disparity map, you need to divide each disp element by 16.
+          asp_disp(col, row) = -((float) disp.at<int16_t>(row, col)) / 16.0;
+        }
+      
+        // Where the input image is nan, make the disparity nan too,
+        // removing some sgbm artifacts
+        if (std::isnan(left(col, row)))
+          asp_disp(col, row) = nan;
+      }
+    }
+
+    // Write the disparity to disk
+    vw::cartography::GeoReference georef;
+    bool   has_georef = false;
+    bool   has_nodata = true;
+    vw_out() << "Writing: " << disparity_file << "\n";
+    vw::cartography::block_write_gdal_image(disparity_file, asp_disp,
+                                            has_georef, georef,
+                                            has_nodata, nan, opt,
+                                            TerminalProgressCallback
+                                            ("asp", "\t--> Disparity :"));
+
+
+    // Assign the disparity to the output variable (this should not do a copy).
+    out_disp = asp_disp;
+  }
+  
 } // namespace asp

@@ -94,8 +94,29 @@ namespace asp {
   // security purposes.
   void extract_opts_and_env_vars(std::string const& input_str,
                                  std::string & env_vars,
-                                 std::string & alg_opts);
+                                 std::string & options,
+                                 std::map<std::string, std::string> & option_map);
 
+  // Call the OpenCV BM or SGBM algorithm
+  void call_opencv_bm_or_sgbm(std::string const& left_file,
+                              std::string const& right_file,
+                              std::string const& mode, // bm or a flavor of sgbm 
+                              int block_size,
+                              int min_disp,
+                              int max_disp,
+                              int prefilter_cap, 
+                              int uniqueness_ratio, 
+                              int speckle_size, 
+                              int speckle_range, 
+                              int disp12_diff, 
+                              int texture_thresh,      // only for BM
+                              int P1,                  // only for SGBM
+                              int P2,                  // only for SGBM
+                              ASPGlobalOptions const& opt,
+                              std::string const& disparity_file,
+                              // Output
+                              vw::ImageViewRef<float> & out_disp);
+  
 } // end namespace asp
 
 #endif // __LOCAL_ALIGNMENT_H__
