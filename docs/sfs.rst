@@ -865,18 +865,26 @@ supplemented set of camera adjustments as initial guess using
 which the adjustment is already good using the option
 ```--fixed-camera-indices``.
 
-If, in some low-light locations, the SfS DEM still has seams, one may
+If in some low-light locations the SfS DEM still has seams, one may
 consider invoking ``sfs`` with ``--robust-threshold 0.004``, removing
 some of the offending images, or with a larger value for
 ``--shadow-threshold`` (such as 0.007) for those images, or a larger
 value for ``--blending-dist``. A per-image shadow threshold which
 overrides the globally set value can be specified via
 ``--custom-shadow-threshold-list``. Sometimes this improves the
-solution in some locations while introducing artifacts in other. In
-that case a clip with a good solution (which may be cut from a larger
-SfS DEM solution that has problems in other locations) may be blended
-into a second SfS DEM which is better in other places using
-``dem_mosaic`` with the ``--priority-blending-length`` option.
+solution in some locations while introducing artifacts in other.
+
+If the SfS DEM has localized defects, those can be fixed in a small
+region and then blended in. For example, a clip around the defect,
+perhaps of dimensions 150-200 pixels, can be cut from the input
+DEM. If that clip has noise which affects the final SfS result, it can
+be blurred with ``dem_mosaic``, using for example, ``--dem-blur-sigma
+5``. Then one can try to run SfS on just this clip, and if needed vary
+some of the SfS parameters or exclude some images. If happy enough
+with the result, this SfS clip can be blended back to the larger SfS
+DEM with ``dem_mosaic`` with the ``--priority-blending-length``
+option, whose value can be set, for example, to 50, to blend over this
+many pixels inward from the boundary of the clip to be inserted.
 
 After computing a satisfactory SfS DEM, it can be processed to replace
 the values in the permanently shadowed areas with values from the
