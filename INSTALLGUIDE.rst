@@ -12,18 +12,17 @@ Simply download the appropriate distribution for your operating
 system, extract, and run the executables in the ``bin`` subdirectory.
 No other 'installation' steps or administrative rights are necessary.
 
-- `Stable Releases
+- `Stable releases and daily builds
   <https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
-
-- `Development Build <http://byss.arc.nasa.gov/stereopipeline/daily_build/>`_
 
 See the NEWS file for the most recent additions.
 
-To permanently add the ASP executable subdirectory to your PATH,
-you can add the following line to your shell configuration (e.g.,
-``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the location
-on your filesystem: ``export PATH=${PATH}:/path/to/StereoPipeline/bin``
+To permanently add the ASP executable subdirectory to your PATH, you
+can add the following line to your shell configuration (e.g.,
+``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the
+location on your filesystem::
 
+    export PATH=${PATH}:/path/to/StereoPipeline/bin
 
 Planetary images
 ~~~~~~~~~~~~~~~~

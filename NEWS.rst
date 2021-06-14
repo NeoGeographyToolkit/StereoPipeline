@@ -70,6 +70,8 @@ pc_align:
     manually. 
 
 Misc
+ * Moved the daily build to the release area on GitHub, at 
+   https://github.com/NeoGeographyToolkit/StereoPipeline/releases
  * Added the option --ip-per-image to bundle adjustment and stereo, to
    detect roughly how many interest points should be found per image
    (only a small fraction of them may eventually match across images).
@@ -1226,8 +1228,9 @@ GENERAL:
 
 - Stereo Pipeline (almost) daily and fully verified builds for all
   platforms are available for the adventurous user
-  (http://byss.arc.nasa.gov/stereopipeline/daily_build/). When
-  requesting support, please provide the output of "stereo --version".
+  (http://byss.arc.nasa.gov/stereopipeline/daily_build/, which was
+  later moved to https://github.com/NeoGeographyToolkit/StereoPipeline/releases).
+  When requesting support, please provide the output of "stereo --version".
 
 - The size of Stereo Pipeline output data has been reduced, by up to
   40%, particularly point clouds and DEMs are between 30% to 70%

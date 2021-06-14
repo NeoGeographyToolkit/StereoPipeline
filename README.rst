@@ -38,12 +38,9 @@ Precompiled binaries (Linux and macOS)
 Simply download the appropriate distribution for your operating
 system, extract, and run the executables in the ``bin`` subdirectory.
 
-- `Stable releases
+- `Stable releases and daily builds
   <https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
   (`pdf documentation <https://github.com/NeoGeographyToolkit/StereoPipeline/releases/latest/download/asp_book.pdf>`_)
-
-- `Development build <http://byss.arc.nasa.gov/stereopipeline/daily_build/>`_
-  (`pdf documentation <https://byss.arc.nasa.gov/stereopipeline/daily_build/asp_book.pdf>`_)
 
 See the [NEWS](NEWS.rst) for the most recent additions.
 
