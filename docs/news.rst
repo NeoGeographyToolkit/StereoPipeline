@@ -1,3 +1,5 @@
+.. _news:
+
 News and Development History
 ============================
 

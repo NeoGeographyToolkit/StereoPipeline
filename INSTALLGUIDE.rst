@@ -15,7 +15,7 @@ No other 'installation' steps or administrative rights are necessary.
 - `Stable releases and daily builds
   <https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
 
-See the NEWS file for the most recent additions.
+See the NEWS file (:numref:`news`) for the most recent additions.
 
 To permanently add the ASP executable subdirectory to your PATH, you
 can add the following line to your shell configuration (e.g.,
