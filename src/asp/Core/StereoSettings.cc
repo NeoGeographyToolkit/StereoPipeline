@@ -592,7 +592,7 @@ namespace asp {
     std::basic_ifstream<char> strm(filename.c_str());
     if (!strm && print_warning) {
       vw_out(WarningMessage)
-        << "Stereo file: " << filename << " could not be found. "
+        << "Stereo file " << filename << " could not be found. "
         << "Will use default settings and command line options only."
         << std::endl;
     }

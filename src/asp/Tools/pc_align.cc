@@ -946,15 +946,15 @@ std::string find_matches_from_hillshading(Options & opt, std::string const& curr
   std::string ref_ip    = fs::path(ref_hillshade).replace_extension(".vwip").string();
   std::string source_ip = fs::path(source_hillshade).replace_extension(".vwip").string();
 
-  std::string match_file_prefix = opt.out_prefix + "-reference__source";
   cmd = ipmatch_path + " " + opt.ipmatch_options + " "
     + ref_hillshade + " " + ref_ip + " " + source_hillshade + " " + source_ip + " -o "
-    + match_file_prefix;
+    + opt.out_prefix;
   vw_out() << cmd << std::endl;
   ans = vw::exec_cmd(cmd.c_str());
   vw_out() << ans << std::endl;
 
-  std::string match_file = match_file_prefix + ".match";
+  // The name of the file where the matches are written to
+  std::string match_file = vw::ip::match_filename(opt.out_prefix, ref_hillshade, source_hillshade);
   
   return match_file;
 }
