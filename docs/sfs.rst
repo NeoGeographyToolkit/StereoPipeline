@@ -791,12 +791,17 @@ how much memory these processes use and adjust this number
 accordingly.
 
 The obtained shape-from-shading terrain should be studied carefully to
-see if it shows any systematic shift or rotation compared to the initial
-LOLA gridded terrain. If that is the case, another step of alignment can
-be used. This time one can do features-based alignment rather than based
-on point-to-point calculations. This one works better on
-lower-resolution versions of the inputs (say at sub4 versions of the
-DEMs, as created ``stereo_gui``), as follows::
+see if it shows any systematic shift or rotation compared to the
+initial LOLA gridded terrain. For that, the SfS terrain can be
+overlayed as a georeferenced image on top of the initial terrain in
+``stereo_gui``, and the SfS terrain can be toggled on and off.
+
+If that is the case, another step of alignment can be used. This time
+one can do features-based alignment rather than based on
+point-to-point calculations. This works better on lower-resolution
+versions of the inputs, when the high-frequency discrepancies do not
+confuse the alignment, so, for example, at 1/4 or 1/8 resolution of
+the DEMs, as created ``stereo_gui``::
 
   pc_align --initial-transform-from-hillshading rigid                   \
      ref_sub4.tif sfs_dem_sub4.tif -o align_sub4/run --num-iterations 0 \
@@ -810,7 +815,7 @@ That alignment transform can then be applied to the full SfS DEM::
      --max-num-reference-points 1000 --max-num-source-points 1000
 
 (The number of points being used is not important since we will just
-apply the alignment.)
+apply the alignment and transform the full DEM.)
 
 The aligned SfS DEM can be regenerated from the obtained cloud as::
 
@@ -838,7 +843,9 @@ the latest transform passed to ``--initial-transform``. Then, another
 pass of bundle adjustment while doing registration to the ground
 should take place as earlier, with the ``--heights-from-dem`` and
 other related options. Lastly mapprojection and SfS should be
-repeated.
+repeated. (Any bundle adjustment operation can reuse the match files
+from previous attempts if copying them over to the new output
+directory.)
 
 Ideally, after all this, there should be no systematic offset
 between the SfS terrain and the reference LOLA terrain.
