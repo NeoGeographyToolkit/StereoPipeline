@@ -439,8 +439,16 @@ stereo-algorithm (*string*) (default = "asp_bm")
     **External implementations (shipped with ASP)**
 
     mgm
-       The original MGM implementation from https://github.com/gfacciol/mgm
+       The original MGM implementation. See :numref:`original_mgm`.
 
+    opencv_sgbm and opencv_bm
+       Semi-global block-matching and classical block-matching
+       algorithms from OpenCV 3. See :numref:`opencv_sgbm_options` and
+       :numref:`opencv_bm_options`.
+
+    msmw and msmw2
+       Multi-Scale Multi-Window algorithm (two versions provided). See
+       :numref:`msmw`.
 
 corr-blob-filter (*integer*) (default = 0)
     Set to apply a blob filter in each level of pyramidal integer

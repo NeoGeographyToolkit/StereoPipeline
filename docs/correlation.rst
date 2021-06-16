@@ -60,7 +60,7 @@ The latter option, running ``cam2map``, ``cam2map4stereo.py``, or
 ``mapproject`` must be carried out by the user prior to invoking the
 ``stereo`` command. Map-projecting the images using ISIS eliminates any
 unusual distortion in the image due to the unusual camera acquisition
-modes (e.g. pitching “ROTO” maneuvers during image acquisition for MOC,
+modes (e.g. pitching "ROTO" maneuvers during image acquisition for MOC,
 or highly elliptical orbits and changing line exposure times for the ,
 HRSC). It also eliminates some of the perspective differences in the
 image pair that are due to large terrain features by taking the existing
@@ -491,8 +491,11 @@ Original implementation of MGM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ASP ships the MGM algorithm as implemented by its authors
-(:cite:`facciolo2015mgm`) at https://github.com/gfacciol/mgm. To use
-it, run::
+(:cite:`facciolo2015mgm`) at::
+
+    https://github.com/gfacciol/mgm 
+
+To use it, run::
 
     parallel_stereo --alignment-method local_epipolar \
       --stereo-algorithm mgm                          \

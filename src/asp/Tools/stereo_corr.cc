@@ -1516,7 +1516,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
           }
         }
         
-        // Assign the images we just made to the handle
+        // Assign the image we just made to the handle
         disp_1d = local_disp;
       }
     }

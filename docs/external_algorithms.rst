@@ -12,12 +12,13 @@ provides access to externally implemented algorithms.
 Options for MGM
 ---------------
 
-This section describes the options and environemntal vaiables accepted by the
-``mgm`` program. How it is invoked by ASP is discussed in :numref:`original_mgm`.
+This section describes the options and environmental variables accepted
+by the ``mgm`` program (:cite:`facciolo2015mgm`). How it is invoked by
+ASP is discussed in :numref:`original_mgm`.
 
 Usage::
 
-  mgm <options> left_image.tif right_image.tif output_disparity.tif \
+    mgm <options> left_image.tif right_image.tif output_disparity.tif \
       [cost_function.tif [back_flow.tif]]
 
 Command-line options
@@ -87,7 +88,7 @@ TESTLRRL=1:
     If 1, do left-to-right and right-to-left consistency checks.
 
 MEDIAN=0:
-     Radius of the median filter postprocessing.
+     Radius of the median filter post-processing.
 
 TSGM=4:
     Regularity level.
@@ -110,20 +111,24 @@ USE_TRUNCATED_LINEAR_POTENTIALS=0:
     potential. Then P1 and P2 change meaning. The potential they
     describe becomes V(p,q) = min(P2, P1*\|p-q\|).
 
+
+.. _opencv_sgbm_options:
+
 Options for OpenCV SGBM
 -----------------------
 
 The ``parallel_stereo`` program can invoke the OpenCV 
 semi-global block-matching algorithm (SGBM) if called with::
 
-    --alignment-method local_homography --stereo-algorithm     \ 
-      "opencv_sgbm"
+    --alignment-method local_homography \
+    --stereo-algorithm "opencv_sgbm"
 
 Alternatively, the full string having this algorithm and its 
 options can be used, which, with default values, results in the
 invocation::
 
-    --alignment-method local_homography --stereo-algorithm     \ 
+    --alignment-method local_homography                         \
+    --stereo-algorithm                                          \ 
       "opencv_sgbm -mode hh -block_size 3 -P1 8 -P2 32          
        -prefilter_cap 63 -uniqueness_ratio 10 -speckle_size 100 
        -speckle_range 32 -disp12_diff 1"
@@ -131,8 +136,8 @@ invocation::
 Or just options that are desired to be different from the defaults can
 be specified, as this::
 
-    --alignment-method local_homography --stereo-algorithm     \ 
-      "opencv_sgbm -block_size 7" 
+    --alignment-method local_homography                 \
+    --stereo-algorithm "opencv_sgbm -block_size 7" 
 
 Options:
 
@@ -193,6 +198,8 @@ Options:
     it will be implicitly multiplied by 16. Normally, 1 or 2 is good
     enough.
 
+.. _opencv_bm_options:
+
 Options for OpenCV BM
 ---------------------
 
@@ -217,3 +224,141 @@ The full default string of options that is used by
 
 and any of these can be modified as for the SGBM algorithm. Notice
 how the BM algorithm has to use a bigger block size than SGBM.
+
+.. _msmw:
+
+Multi-Scale Multi-Window stereo matching
+----------------------------------------
+
+ASP provides access to the ``Multi-Scale Multi-Window`` (MSMW) stereo
+matching algorithm :cite:`buades2015reliable`, by invoking its two
+implementations ``msmw`` and ``msmw2`` from::
+
+    https://github.com/centreborelli/s2p
+
+(see the ``3rdparty directory). While that repository is released
+under AGPL-3.0 license and ASP is under the more permissive Apache II
+license, ASP invokes that functionality as external programs via a
+system call, so its license does not conflict with ours.
+
+Options for msmw
+^^^^^^^^^^^^^^^^
+
+To invoke the ``msmw`` algorithm, run ``parallel_stereo`` with the
+option::
+
+    --alignment-method local_homography \
+    --stereo-algorithm msmw
+
+If desired to pass any options to this algorithm, add those as follows::
+
+    --stereo-algorithm "msmw -x 7 -y 7"
+
+By default, ASP invokes this program as if it is called with::
+
+    --stereo-algorithm "msmw -i 1 -n 4 -p 4 -W 5 -x 9 -y 9 -r 1 
+      -d 1 -t -1 -s 0 -b 0 -o 0.25 -f 0 -P 32"
+
+In addition ASP, automatically calculates and passes to ``msmw``
+values for the ``-m`` and ``-M`` options which correspond to
+estimated minimum and maximum disparity values. Any options
+specified by the user overrides the ASP-provided values.
+
+The meaning of these switches is as follows.
+
+-m:
+    Minimum disparity.
+-M:
+    Maximum disparity.
+
+-x (default = 0):
+  Width of the window (block) to match from the left to right
+  image. Must be set to a positive odd value.
+
+-y (default = 0):
+    Matching window height. Must be set to a positive odd value.
+
+-w (default = 0):
+    Flag for weighting window.
+
+-W (default = 5):
+    Flag for using windows as lists (5x5 windows only). A non-zero
+    value indicates how many of the orientations should be considered.
+    (Note: Not sure what all this means.)
+
+-i (default = 1): 
+    Type of distance.
+
+-p (default = 1): 
+    Number of precisions for single scale.
+
+-P (default = 1):
+    Factor of disparity refinement by cubic interpolation.
+
+-n (default = 3):
+    Number of scales.
+
+-f (default = 0):
+    Standard deviation noise.
+
+-r (default = 0):
+    Reciprocity value.
+ 
+-g (default = 0):
+    Subpixel reciprocity flag.
+
+-R (default = 0):
+    Dual reciprocity value.
+
+-l (default = 0):
+   Inverse reciprocity value.
+
+-d (default = 0):
+    Mindist value.
+
+-t (default = 0):
+    Mindist dilatation.
+
+-s (default = 0):
+    Self-similarity value.
+ 
+-b (default = 0):
+    Integral of derivatives.
+
+-v (default = 0):
+    Variance value.
+
+-o (default = 0):
+    Remove isolated flag.
+
+-O (default = 0):
+    Remove isolated grain (number pixels).
+
+-C (default = -1):
+    Filter using the cost, train removing a fraction of the accepted
+    points (e.g. 0.05).
+
+-a (default = 0):
+    Use Laplacian of the image instead of the image itself.
+
+
+Options for msmw2
+^^^^^^^^^^^^^^^^^
+
+This flavor of the MSMW algorithm is called analogously, with::
+
+    --stereo-algorithm msmw2
+
+ASP fills in its options as if it is called as::
+
+    --stereo-algorithm "msmw2 -i 1 -n 4 -p 4 -W 5 -x 9 -y 9
+      -r 1 -d 1 -t -1 -s 0 -b 0 -o -0.25 -f 0 -P 32 -D 0 -O 25 -c 0"
+
+Compared to ``msmw`` it has the additional options:
+
+-D (default = 0):
+    Regression mindist.
+
+-c (default = 0):
+    Combine last scale with the previous one to densify the result.
+
