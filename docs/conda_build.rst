@@ -19,65 +19,50 @@ The rebuilt packages will be uploaded to ASP's anaconda channel.
 Setting up the ISIS environment
 -------------------------------
 
-Search for the latest available ISIS conda package:
-
-::
+Search for the latest available ISIS conda package::
   
-  conda search -c usgs-astrogeology --override-channels isis
+    conda search -c usgs-astrogeology --override-channels isis
 
 Here it was found that ISIS version 4.4.0 was the latest, which we
 will assume throughout the rest of this document. This needs to be
 adjusted for your circumstances.
 
-Fetch the ISIS environment ``environment.yml`` from 
+Fetch the ISIS environment ``environment.yml`` from:: 
 
     https://github.com/USGS-Astrogeology/ISIS3/tree/4.4
 
-(adjust above the version). Create a local version of this environment:
+(adjust above the version). Create a local version of this
+environment::
 
-::
+     conda env create -n isis4.4 -f environment.yml       
+     conda activate isis4.4
 
-   conda env create -n isis4.4 -f environment.yml       
-   conda activate isis4.4
+Add these channels to conda::
 
-Add these channels to conda:
+    conda config --env --add channels conda-forge
+    conda config --env --add channels usgs-astrogeology
 
-::
+Run::
 
-  conda config --env --add channels conda-forge
-  conda config --env --add channels usgs-astrogeology
-
-Run:
-
-::
-
-  conda config --show channels
+    conda config --show channels
 
 and verify that ``usgs-astrogeology`` and ``conda-forge`` are in this
 order and above all other channels, except perhaps the
 ``nasa-ames-stereo-pipeline`` channel.
 
-Install the desired version of ISIS:
+Install the desired version of ISIS::
 
-::
+    conda install isis==4.4.0
 
-  conda install isis==4.4.0
+Search for the latest version of the ``usgscsm`` package::
 
-Search for the latest version of the ``usgscsm`` package:
+    conda search -c conda-forge --override-channels usgscsm
 
-::
-
-  conda search -c conda-forge --override-channels usgscsm
-
-Here we will install the latest version of this, which is 1.5.1:
-
-::
+Here we will install the latest version of this, which is 1.5.1::
 
     conda install -c conda-forge usgscsm==1.5.1
 
-Save the current environment as follows:
-
-::
+Save the current environment as follows::
 
     conda env export > isis4.4.yaml
 
@@ -91,14 +76,12 @@ are kept separate.
 
 ::
 
-  conda create -n tools python=3.6
-  conda activate tools
-  conda install -c conda-forge anaconda-client conda-build \
-    conda-verify cmake git
+    conda create -n tools python=3.6
+    conda activate tools
+    conda install -c conda-forge anaconda-client conda-build \
+      conda-verify cmake git
 
-For Linux, install in addition the needed compilers:
-
-::
+For Linux, install in addition the needed compilers::
 
     conda install -c conda-forge gcc_linux-64 gxx_linux-64 \
       gfortran_linux-64
@@ -111,9 +94,7 @@ Fetch the recipes to build
 --------------------------
 
 The additional recipes that need to be built can be fetched with ``git
-clone`` from:
-
-::
+clone`` from::
 
   https://github.com/NeoGeographyToolkit/geoid-feedstock.git
   https://github.com/NeoGeographyToolkit/htdp-feedstock.git
@@ -125,7 +106,7 @@ clone`` from:
   https://github.com/NeoGeographyToolkit/liblas-feedstock.git
   https://github.com/NeoGeographyToolkit/imagemagick-feedstock.git
   https://github.com/NeoGeographyToolkit/theia-feedstock.git
-  https://github.com/NeoGeographyToolkit/mgm-feedstock.git
+  https://github.com/NeoGeographyToolkit/s2p-feedstock.git
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
   https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
 
@@ -135,12 +116,10 @@ Synchronize the versions with the existing environment
 For each of these, check the ``recipe/meta.yaml`` file and ensure all
 dependencies are in sync with what is in the file ``isis4.4.yaml``
 generated earlier. This can be done automatically with a provided
-script in the ASP repository:
+script in the ASP repository::
 
-::
-
- python StereoPipeline/conda/update_versions.py isis4.4.yaml \
-   gdal-feedstock
+     python StereoPipeline/conda/update_versions.py isis4.4.yaml \
+       gdal-feedstock
 
 and the same for the other packages.
 
@@ -167,27 +146,25 @@ feedstock repositories are committed back.
 Build the conda packages
 ------------------------
 
-Each of the packages above can be built as follows:
+Each of the packages above can be built as follows::
 
-::
-
- conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
-    -c conda-forge gdal-feedstock
+    conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
+      -c conda-forge gdal-feedstock
 
 and then uploaded to the ``nasa-ames-stereo-pipeline`` channel by
 first logging in, via the command:
 
 ::
     
-  anaconda login
+    anaconda login
 
 and specifying the channel as the user name, and then running a
 command along the lines:
 
 ::
 
-  anaconda upload \
-    $HOME/miniconda3/envs/tools/conda-bld/linux-64/mypackage.tar.bz2
+    anaconda upload \
+      $HOME/miniconda3/envs/tools/conda-bld/linux-64/mypackage.tar.bz2
 
 (Use above the path echoed on the screen by the ``conda build``
 command.)
@@ -196,21 +173,21 @@ Use the ``--force`` option if desired to overwrite any existing
 package with the same name and version.
 
 After a package is uploaded, it can be installed in the existing
-``isis4.4`` environment as:
- 
-::
+``isis4.4`` environment as::
 
-  conda install -c nasa-ames-stereo-pipeline \
-    -c usgs-astrogeology                     \
-    -c conda-forge                           \
-    gdal==isis4.4.0
+    conda install -c nasa-ames-stereo-pipeline \
+      -c usgs-astrogeology                     \
+      -c conda-forge                           \
+      gdal==isis4.4.0
 
-To list all packages in that channel, do:
+To list all packages in that channel, do::
 
-::
+    conda search -c nasa-ames-stereo-pipeline --override-channels
 
-  conda search -c nasa-ames-stereo-pipeline --override-channels
+To delete a package from this channel, run::
 
+    anaconda remove nasa-ames-stereo-pipeline/mypackage
+  
 Order of building the packages
 ------------------------------
 
