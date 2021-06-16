@@ -7,3 +7,5 @@
 # Name    Executable                       Path to external library dependencies
 
   mgm     plugins/stereo/mgm/bin/mgm       plugin/stereo/mgm/lib
+  msmw    plugins/stereo/msmw/bin/msmw     plugin/stereo/msmw/lib
+  msmw2   plugins/stereo/msmw2/bin/msmw2   plugin/stereo/msmw2/lib

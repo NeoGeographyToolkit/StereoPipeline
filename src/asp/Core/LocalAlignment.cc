@@ -58,6 +58,7 @@ namespace asp {
                        BBox2i            & right_trans_crop_win,
                        Matrix<double>    & left_local_mat,
                        Matrix<double>    & right_local_mat,
+                       bool                write_nodata,
                        std::string       & left_aligned_file,
                        std::string       & right_aligned_file,
                        int               & min_disp,
@@ -254,7 +255,7 @@ namespace asp {
 
     // Write the locally aligned images to disk
     vw::cartography::GeoReference georef;
-    bool has_georef = false, has_aligned_nodata = true;
+    bool has_georef = false, has_aligned_nodata = write_nodata;
     std::string left_tile = "left-aligned-tile.tif";
     std::string right_tile = "right-aligned-tile.tif";
     left_aligned_file = opt.out_prefix + "-" + left_tile; 
@@ -462,12 +463,22 @@ namespace asp {
     plugins.clear();
     plugin_libs.clear();
     
+    // The plugins are stored in ISISROOT as they are installed with
+    // conda. By now the variable ISISROOT should point out to where
+    // those are (see asp::set_asp_env_vars()).
+
+    // But note that the plugin list is in the ASP install dir, and
+    // not in ISISROOT. This only makes a difference in dev mode.
+    
+    char * isis_root = getenv("ISISROOT");
+    if (isis_root == "")
+      vw_throw(vw::ArgumentErr() << "The variable ISISROOT was not set.\n");
+    
     // Get the path to the plugins from the path of the ASP stereo_corr
     // executable asking for it.
     std::string base_path
       = boost::dll::program_location().parent_path().parent_path().string();
-    std::string plugin_path = base_path + "/plugins/stereo";
-    std::string plugin_list = plugin_path + "/plugin_list.txt";
+    std::string plugin_list = base_path + "/plugins/stereo" + "/plugin_list.txt";
     
     std::ifstream handle;
     handle.open(plugin_list.c_str());
@@ -490,20 +501,13 @@ namespace asp {
       // The plugin lib is optional
       is >> plugin_lib;
 
-      plugin_path = base_path + "/" + plugin_path;
+      plugin_path = std::string(isis_root) + "/" + plugin_path;
 
       if (plugin_lib != "") {
-        plugin_lib  = base_path + "/" + plugin_lib;
+        plugin_lib  = std::string(isis_root) + "/" + plugin_lib;
         plugin_lib += ":";
       }
 
-      // This plugin may use libraries we ship. By now the variable
-      // ISISROOT should point out to where those are (see
-      // asp::set_asp_env_vars()).
-      char * isis_root = getenv("ISISROOT");
-      if (isis_root == "")
-        vw_throw(vw::ArgumentErr() << "The variable ISISROOT was not set.\n");
-  
       plugin_lib += std::string(isis_root) + "/lib";
       
       plugins[plugin_name]     = plugin_path;
@@ -580,14 +584,21 @@ namespace asp {
                << in << ".\n");
   }
 
-  // Put option-value pairs in a string
+  // Put option-value pairs in a string. Respect the order given by pos_to_opt.
   std::string concatenate_optons(std::map<std::string, std::string> const& opt_map,
+                                 std::map<int, std::string> const& pos_to_opt,
                                  std::string const& sep) {
 
     std::string out;
+    for (auto it = pos_to_opt.begin(); it != pos_to_opt.end(); it++) {
+      
+      std::string const& opt = it->second; // alias
 
-    for (auto it = opt_map.begin(); it != opt_map.end() ; it++) {
-      out += it->first + sep + it->second + " ";
+      auto it2 = opt_map.find(opt);
+      if (it2 == opt_map.end()) 
+        continue;
+      
+      out += it2->first + sep + it2->second + " ";
     }
 
     rm_trailing_whitespace(out);
@@ -600,7 +611,7 @@ namespace asp {
   // and remove the repetitions by keeping the values later in the
   // string. Do not allow any input character except letters, numbers,
   // space, period, underscore, plus, minus, and equal signs, for
-  // security purposes. 
+  // security purposes.
   void extract_opts_and_env_vars(std::string const& input_str,
                                  std::string & env_vars,
                                  std::string & options,
@@ -627,6 +638,12 @@ namespace asp {
     std::string val;
     while (iss >> val) 
       tokens.push_back(val);
+
+    // Ensure that the order is the same as in the input If
+    // an item shows up twice in the input, keep the position of the
+    // first occurrence.
+    std::map<std::string, int> opt_to_pos;
+    std::map<int, std::string> pos_to_opt;
     
     // Populate the env vars and the options starting with a dash
     std::map<std::string, std::string> env_vars_map;
@@ -642,12 +659,24 @@ namespace asp {
         get_env_var_name_and_val(token, name, val);
         env_vars_map[name] = val;
         
+        if (opt_to_pos.find(name) == opt_to_pos.end()) {
+          // First time it is encountered
+          opt_to_pos[name] = it;
+          pos_to_opt[it] = name;
+        }
+
       } else {
 
         // Must be an option, like -v 3.
         if (!is_option_name(token)) 
           vw_throw(vw::ArgumentErr() << "Expecting an option, so something starting "
                    << "with a dash. Got: " << token << ".\n");
+        
+        if (opt_to_pos.find(token) == opt_to_pos.end()) {
+          // First time it is encountered
+          opt_to_pos[token] = it;
+          pos_to_opt[it] = token;
+        }
         
         // All the tokens that follow and which are not options or env
         // vars must be values for this option
@@ -685,8 +714,8 @@ namespace asp {
     }
     
     // Now that the repeated options have been collapsed, put these back in strings
-    options = concatenate_optons(option_map, " ");
-    env_vars = concatenate_optons(env_vars_map, "=");
+    options = concatenate_optons(option_map, pos_to_opt, " ");
+    env_vars = concatenate_optons(env_vars_map, pos_to_opt, "=");
   }
 
   // Call the OpenCV BM or SGBM algorithm

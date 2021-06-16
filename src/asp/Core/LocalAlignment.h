@@ -47,6 +47,7 @@ namespace asp {
                        vw::BBox2i         & right_trans_crop_win,
                        vw::Matrix<double> & left_local_mat,
                        vw::Matrix<double> & right_local_mat,
+                       bool                 write_nodata,
                        std::string        & left_aligned_file,
                        std::string        & right_aligned_file,
                        int                & min_disp,

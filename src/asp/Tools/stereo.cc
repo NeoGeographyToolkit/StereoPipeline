@@ -522,14 +522,22 @@ namespace asp {
     vw::stereo::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
     
-    bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM &&
-                      stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
-    if (using_sgm) {
-      // If these parameters were not specified by the user, override the normal default values.
-      if (vm["subpixel-mode"].defaulted()) {
-        vw_out() << "Subpixel mode not specified, using the default SGM subpixel method.\n";
+    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM);
+    
+    if (using_tiles) {
+      // If these parameters were not specified by the user, override
+      // the normal default values.  Note that by setting
+      // subpixel_mode to SGM_DEFAULT_SUBPIXEL_MODE, we will do no
+      // further subpixel refinement than what all algorithms except
+      // ASP's block matching are intrinsically capable of.  if the
+      // user however explicitly specifies, for example,
+      // --subpixel-mode 3, that one will be used later on.
+      if (vm["subpixel-mode"].defaulted()) 
         stereo_settings().subpixel_mode = SGM_DEFAULT_SUBPIXEL_MODE;
-      }
+      else
+        vw_out() << "Will refine the disparity using the ASP subpixel-mode: "
+                 << stereo_settings().subpixel_mode << ".\n";
+      
       if (vm["cost-mode"].defaulted())
         stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
       if (vm["corr-kernel"].defaulted())
@@ -546,7 +554,6 @@ namespace asp {
         stereo_settings().disp_smooth_texture = SGM_DEFAULT_TEXTURE_SMOOTH_SCALE;
     }
     
-    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM);
     if (!using_tiles) {
       // No need for a collar when we are not using tiles.
       stereo_settings().sgm_collar_size = 0;
@@ -729,10 +736,10 @@ namespace asp {
 
     vw::stereo::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
-    bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM &&
-                      stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
 
-    if (!using_sgm) {
+    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM);
+
+    if (!using_tiles) {
       if (stereo_settings().cost_mode == 3)
         vw_throw(ArgumentErr() << "Cannot use the census transform without SGM!\n" );
       if (stereo_settings().cost_mode == 4)
@@ -743,7 +750,7 @@ namespace asp {
       vw_throw(ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
                << " for cost-mode.\n");
 
-    if ( using_sgm &&
+    if ( using_tiles &&
          (stereo_settings().cost_mode == 3 || stereo_settings().cost_mode == 4) &&
          (stereo_settings().corr_kernel[0] < 3 || stereo_settings().corr_kernel[0] > 9) ){
       vw_throw(ArgumentErr() << "For this kernel size, use --cost-mode 2, 1, or 0, "

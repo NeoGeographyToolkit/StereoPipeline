@@ -1297,15 +1297,32 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   Matrix<double> right_local_mat = math::identity_matrix<3>();
   std::string left_aligned_file, right_aligned_file;
   int min_disp = -1, max_disp = -1;
+
+  std::string alg_name, user_opts;
+  asp::parse_stereo_alg_name_and_opts(stereo_settings().stereo_algorithm,  
+                                      alg_name, user_opts);
+  vw_out() << "Using algorithm: " << alg_name << std::endl;
+
+  // The msmw and msmw2 algorithms expects the input tif images to not
+  // be tiled.  Accommodate it, then revert to the original when this
+  // is no longer necessary.
+  Vector2 orig_tile_size = opt.raster_tile_size;
+  bool write_nodata = true;
+  if (alg_name == "msmw" || alg_name == "msmw2") {
+    opt.gdal_options["TILED"] = "NO";
+    opt.raster_tile_size = vw::Vector2(-1, -1);
+    write_nodata = false; // To avoid warnings from the tif reader in msmw
+  }
   
   local_alignment(opt, opt.session->name(),
                   left_trans_crop_win, right_trans_crop_win,  
-                  left_local_mat, right_local_mat,  
+                  left_local_mat, right_local_mat,
+                  write_nodata,
                   left_aligned_file, right_aligned_file,  
                   min_disp, max_disp);
 
   vw::ImageViewRef<float> disp_1d;
-  ImageView<PixelMask<Vector2f>> unaligned_disp_2d;
+  vw::ImageView<PixelMask<Vector2f>> unaligned_disp_2d;
 
   vw::stereo::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
@@ -1369,10 +1386,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     
   } else if (stereo_alg == vw::stereo::VW_CORRELATION_OTHER) {
 
-    std::string alg_name, user_opts;
-    asp::parse_stereo_alg_name_and_opts(stereo_settings().stereo_algorithm,  
-                                        alg_name, user_opts);
-
     std::string default_opts;
     if (alg_name == "mgm") {
       
@@ -1389,6 +1402,15 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       default_opts = std::string("-mode hh -block_size 3 -P1 8 -P2 32 -prefilter_cap 63 ") +
         "-uniqueness_ratio 10 -speckle_size 100 -speckle_range 32 -disp12_diff 1";
       
+    } else if (alg_name == "msmw") {
+      default_opts = std::string("-i 1 -n 4 -p 4 -W 5 -x 9 -y 9 -r 1 -d 1 -t -1 ")
+        + "-s 0 -b 0 -o 0.25 -f 0 -P 32 "
+        + "-m " + vw::num_to_str(min_disp) + " -M " + vw::num_to_str(max_disp);
+      
+    } else if (alg_name == "msmw2") {
+      default_opts = std::string("-i 1 -n 4 -p 4 -W 5 -x 9 -y 9 -r 1 -d 1 -t -1 ")
+        + "-s 0 -b 0 -o -0.25 -f 0 -P 32 -D 0 -O 25 -c 0 "
+        + "-m " + vw::num_to_str(min_disp) + " -M " + vw::num_to_str(max_disp);
     } else {
       // No defaults for other algorithms
     }
@@ -1401,6 +1423,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                                    env_vars, options, option_map);
 
     std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
+    std::string mask_file = opt.out_prefix + "-disparity-mask.tif";
     
     if (env_vars != "") 
       env_vars += std::string(" ");
@@ -1460,11 +1483,42 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       std::string cmd = std::string("LD_LIBRARY_PATH=") + plugin_lib + " "
         + env_vars + plugin_path + " " + options + " " 
         + left_aligned_file + " " + right_aligned_file + " " + disp_file;
+      
+      if (alg_name == "msmw" || alg_name == "msmw2") {
+        // Need to provide the output mask
+        cmd += " " + mask_file;
+      }
+      
       std::cout << cmd << std::endl;
       system(cmd.c_str());
     
       // Read the disparity from disk
       disp_1d = DiskImageView<float>(disp_file);
+
+      if (alg_name == "msmw" || alg_name == "msmw2") {
+        // Apply the mask, which for this algorithm is stored separately.
+        // For that need to read things in memory.
+        ImageView<float> local_disp(disp_1d.cols(), disp_1d.rows());
+        DiskImageView<vw::uint8> mask(mask_file);
+
+        if (local_disp.cols() != mask.cols() || local_disp.rows() != mask.rows()) 
+          vw_throw(ArgumentErr() << "Expecting that the following images would "
+                   << "have the same dimensions: "
+                   << disp_file << ' ' << mask_file << ".\n");
+          
+        float nan = numeric_limits<float>::quiet_NaN();
+        for (int col = 0; col < local_disp.cols(); col++) {
+          for (int row = 0; row < local_disp.rows(); row++) {
+            if (mask(col, row) != 0) 
+              local_disp(col, row) = disp_1d(col, row);
+            else
+              local_disp(col, row) = nan;
+          }
+        }
+        
+        // Assign the images we just made to the handle
+        disp_1d = local_disp;
+      }
     }
     
     // Undo the alignment
@@ -1474,6 +1528,12 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                               left_local_mat, right_local_mat,  
                               // Output
                               unaligned_disp_2d);
+  }
+
+  // Undo the logic needed for msmw
+  if (alg_name == "msmw" || alg_name == "msmw2") {
+    opt.gdal_options["TILED"] = "YES";
+    opt.raster_tile_size = orig_tile_size;
   }
   
   // Write the disparity to disk
