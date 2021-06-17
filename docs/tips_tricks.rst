@@ -1,6 +1,6 @@
 .. _tips:
 
-Tips and Tricks
+Tips and tricks
 ===============
 
 Here we summarize, in one place, some insights in how to get the most

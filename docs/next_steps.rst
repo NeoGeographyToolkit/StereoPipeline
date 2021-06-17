@@ -20,24 +20,36 @@ Stereo Pipeline in more detail
 Stereo algorithms
 ~~~~~~~~~~~~~~~~~
 
-The most important choice a user has to make when running ASP is the tradeoff
-between runtime and quality. By default, ASP runs as if invoked with::
+The most important choice a user has to make when running ASP is the 
+stereo algorithm to use. By default, ASP runs as if invoked with::
 
-   stereo --stereo-algorithm bm --subpixel-mode 1 <other options>
+   stereo --stereo-algorithm asp_bm --subpixel-mode 1 <other options>
     
 This invokes block-matching stereo with parabola subpixel mode, which
 can be fast but not of high quality. The best results are likely
 produced with::
 
-   parallel_stereo --stereo-algorithm asp_mgm --subpixel-mode 3 \
+   parallel_stereo --alignment-method local_epipolar \
+     --stereo-algorithm asp_mgm --subpixel-mode 3    \
+     <other options>
+
+which uses ASP's impementation of MGM (:numref:`sgm`). 
+
+ASP also ships with a handful of third-party stereo algorithms, such
+MGM as implemented by its author, OpenCV's SGBM, MSMW, etc. For a full
+list see :numref:`stereo_algos`.
+
+For example, the external MGM implementation can be called as follows::
+
+   parallel_stereo --alignment-method local_epipolar \
+     --stereo-algorithm mgm                          \
      <other options>
     
-which invokes the MGM algorithm and the higher quality subpixel option
-(both are slower). One can also experiment with the SGM algorithm,
-which is ``--stereo-algorithm asp_sgm``, and no subpixel mode, when an
-internal default is used, and also with ``--subpixel-mode 2``, which
-will be much slower. For more details about SGM and MGM see
-:numref:`sgm`.
+It is suggested to not specify here ``--subpixel-mode``, in which case
+it will use MGM's own implementation. Using ``--subpixel-mode 3`` will
+refine that result using ASP's subpixel implementation. Using
+``--subpixel-mode 2`` will be much slower but likey produce even
+better results.
 
 Next we will discuss more advanced parameters which rarely need to be
 set in practice.
@@ -80,11 +92,10 @@ in :numref:`cmdline`.
 Alignment method
 ^^^^^^^^^^^^^^^^
 
-The most important line in ``stereo.default`` is the first one,
-specifying the alignment method. For raw images, alignment is always
-necessary, as the left and right images are from different perspectives.
-Several alignment methods are supported, including ``affineepipolar``
-and ``homography`` (see :numref:`stereo-default-preprocessing` for
+For raw images, alignment is always necessary, as the left and right
+images are from different perspectives.  Several alignment methods are
+supported, including ``local_epipolar``, ``affineepipolar`` and
+``homography`` (see :numref:`stereo-default-preprocessing` for
 details).
 
 Alternatively, stereo can be performed with map-projected images
@@ -94,20 +105,20 @@ that terrain. This automatically brings both images into the same
 perspective, and as such, for map-projected images the alignment method
 is always set to ``none``.
 
+.. _stereo_algos:
+
 Stereo algorithm
 ^^^^^^^^^^^^^^^^
 
-Here the user has the choice of several algorithms, such as
-block-matching, SGM, and MGM.  The MGM algorithm offers the best
-quality at the cost of increased computational time.  The latter two
-algorithms can be used only with ``parallel_stereo`` (see
-:numref:`sgm` and :numref:`original_mgm`).
+ASP can invoke several algorithms for doing stereo, and the user can add
+their own.
+
 
 Correlation parameters
 ^^^^^^^^^^^^^^^^^^^^^^
 
 The second and third lines in ``stereo.default`` define what correlation
-metric *(normalized cross correlation)* we’ll be using and how big the
+metric *(normalized cross correlation)* we'll be using and how big the
 template or kernel size should be *(21 pixels square)*. A pixel in the
 left image will be matched to a pixel in the right image by comparing
 the windows of this size centered at them.
@@ -211,7 +222,7 @@ line.
 
 ::
 
-     ISIS> stereo E0201461.map.cub M0100115.map.cub  \
+     ISIS> stereo E0201461.map.cub M0100115.map.cub    \
                -s stereo.map --corr-search -70 -4 40 4 \
                --subpixel-mode 0 results/output
 
@@ -246,9 +257,9 @@ rather uses an existing terrain model as an initial guess, and improves
 on it.
 
 For Earth, an existing terrain model can be, for example, NASA SRTM,
-GMTED2010, USGS’s NED data, or NGA’s DTED data. There exist pre-made
-terrain models for other planets as well, for example the Moon LRO LOLA
-global DEM and the Mars MGS MOLA DEM.
+GMTED2010, USGS's NED data, or NGA's DTED data. There exist
+pre-made terrain models for other planets as well, for example the
+Moon LRO LOLA global DEM and the Mars MGS MOLA DEM.
 
 Alternatively, a low-resolution smooth DEM can be obtained by running
 ASP itself as described in previous sections. In such a run, subpixel

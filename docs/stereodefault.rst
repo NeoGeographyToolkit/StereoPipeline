@@ -210,6 +210,53 @@ right-image-clip: (*string*) (default = "")
 Correlation
 -----------
 
+stereo-algorithm (*string*) (default = "asp_bm")
+    Use this option to switch between the different stereo 
+    correlation algorithms supported by ASP. Their list and brief
+    summary is below. See :numref:`external_algorithms` for a full
+    discussion.
+
+    **Algorithms implememented in ASP**
+
+    asp_bm (or specify the value '0')
+       The ASP implementation of Block Matching. Search in the
+       right image for the best match for a small image block in the
+       left image. This is the fastest algorithm and works well for
+       similar images with good texture coverage.
+
+    asp_sgm (or specify the value '1')
+       The ASP implementation of the Semi-Global Matching (SGM)
+       algorithm :cite:`hirschmuller_sgm_original`. This algorithm is
+       slow and has high memory requirements but it performs better in
+       images with less texture. See :numref:`sgm` for important
+       details on using this algorithm.
+
+    asp_mgm (or specify the value '2')
+       The ASP implementation of the More Global Matching (MGM)
+       variant of the SGM algorithm :cite:`facciolo2015mgm` to reduce
+       high frequency artifacts in the output image at the cost of
+       increased run time. See :numref:`sgm` for important details on
+       using this algorithm.
+
+    asp_final_mgm (or specify the value '3')
+       Use MGM on the final resolution level and SGM on preceding
+       resolution levels. This produces a result somewhere in between
+       the pure SGM and MGM options.
+
+    **External implementations (shipped with ASP)**
+
+    mgm
+       The original MGM implementation. See :numref:`original_mgm`.
+
+    opencv_sgbm and opencv_bm
+       Semi-global block-matching and classical block-matching
+       algorithms from OpenCV 3. See :numref:`opencv_sgbm_options` and
+       :numref:`opencv_bm_options`.
+
+    msmw and msmw2
+       Multi-Scale Multi-Window algorithm (two versions provided). See
+       :numref:`msmw`.
+
 prefilter-mode (= 0,1,2) (default = 2)
     This selects the pre-processing filter to be used to prepare
     images before they are fed to the initialization stage of the
@@ -404,51 +451,6 @@ corr-timeout (*integer*) (default = 1800)
     Correlation timeout for an image tile, in seconds. A non-positive
     value will result in no timeout enforcement. A value of 600 seconds
     should be sufficient in most cases.
-
-stereo-algorithm (*string*) (default = "asp_bm")
-    Use this setting to switch between the different stereo 
-    correlation algorithms supported by ASP.
-
-    **Algorithms implememented in ASP**
-
-    asp_bm (or specify the value '0')
-       The ASP implementation of Block Matching. Search in the
-       right image for the best match for a small image block in the
-       left image. This is the fastest algorithm and works well for
-       similar images with good texture coverage.
-
-    asp_sgm (or specify the value '1')
-       The ASP implementation of the Semi-Global Matching (SGM)
-       algorithm :cite:`hirschmuller_sgm_original`. This algorithm is
-       slow and has high memory requirements but it performs better in
-       images with less texture. See :numref:`sgm` for important
-       details on using this algorithm.
-
-    asp_mgm (or specify the value '2')
-       The ASP implementation of the More Global Matching (MGM)
-       variant of the SGM algorithm :cite:`facciolo2015mgm` to reduce
-       high frequency artifacts in the output image at the cost of
-       increased run time. See :numref:`sgm` for important details on
-       using this algorithm.
-
-    asp_final_mgm (or specify the value '3')
-       Use MGM on the final resolution level and SGM on preceding
-       resolution levels. This produces a result somewhere in between
-       the pure SGM and MGM options.
-
-    **External implementations (shipped with ASP)**
-
-    mgm
-       The original MGM implementation. See :numref:`original_mgm`.
-
-    opencv_sgbm and opencv_bm
-       Semi-global block-matching and classical block-matching
-       algorithms from OpenCV 3. See :numref:`opencv_sgbm_options` and
-       :numref:`opencv_bm_options`.
-
-    msmw and msmw2
-       Multi-Scale Multi-Window algorithm (two versions provided). See
-       :numref:`msmw`.
 
 corr-blob-filter (*integer*) (default = 0)
     Set to apply a blob filter in each level of pyramidal integer

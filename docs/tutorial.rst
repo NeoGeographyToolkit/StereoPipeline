@@ -18,22 +18,22 @@ results, but ultimately this software suite takes images and builds
 models in a mostly automatic way. To create a point cloud file, you
 simply pass two image files to the ``stereo`` command::
 
-    ISIS> stereo left_input_image.cub right_input_image.cub results/run
+    ISIS> stereo left_image.cub right_image.cub results/run
 
-Alternatively, one can run::
+Higher quality results, at the expense of more computation, can be
+achived by running::
 
-    ISIS> parallel_stereo --stereo-algorithm 2                  \
-      left_input_image.cub right_input_image.cub results2/run
+    ISIS> parallel_stereo --alignment-method local_epipolar   \
+      --stereo-algorithm asp_mgm --subpixel-mode 3            \
+      left_image.cub right_image.cub results/run
 
 This will decompose the images in tiles to run in parallel,
-and will use the higher-quality but slower MGM algorithm. Both
-of these will benefit from adding ``--subpixel-mode 3``
-which will be even slower but will create better results.
-For more details, see  :numref:`nextsteps`.
+potentially on multiple machines. For more details, see
+:numref:`nextsteps`.
 
 Or the ``stereo_gui`` frontend can be invoked, with the same options,
 as described in :numref:`stereo_gui`.  This tool makes it possible to
-select smaller clips or cropped images on which to run ``stereo``.
+manually select smaller clips on which to run ``stereo``.
 
 The string ``results/run`` is an arbitrary output prefix. All
 ``stereo`` output files will be in the ``results`` directory and start
