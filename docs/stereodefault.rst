@@ -75,11 +75,26 @@ force-reuse-match-files
     Force reusing the match files even if older than the images or
     cameras.
 
+.. _image_alignment:
+
 Image alignment
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none) 
     (default = affineepipolar)
+
+    When ``alignment-method`` is set to ``local_epipolar``,
+    the images are divided into small tiles of size ``--corr-tile-size`` expanded by
+    a padding of ``--sgm-collar-size``, epipolar alignment is
+    applied to each pair of tiles, making the stereo disparity
+    horizontal, then a desired 1D correlation algorithm (specified via
+    ``--stereo-algorithm``) finds this disparity. Then the local alignment
+    is undone for each disparty, the resulting disparties are merged
+    and blended across the tiles, ASP's subpixel refinement is
+    applied, if set via ``--subpixel-mode``, the combined disparity is
+    filtered, and triangulation is performed. This mode works only with
+    ``parallel_stereo``.
+
     When ``alignment-method`` is set to ``affineepipolar``, ``stereo``
     will attempt to pre-align the images by detecting tie-points using
     feature matching, and using those to transform the images such
@@ -87,13 +102,6 @@ alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none)
     parallel to one of the image axes. The effect of this is
     equivalent to rotating the original cameras which took the
     pictures.
-
-    When ``alignment-method`` is set to ``local_epipolar``, 
-    the images are divided into tiles, local epipolar alignment
-    is applied to each pair of tiles, making the stereo disparity 
-    horizontal, then a desired 1D correlation algorithm (specified via
-    --stereo-algorithm) finds this disparity. This mode works only with 
-    ``parallel_stereo``.
 
     When ``alignment-method`` is set to ``homography``, ``stereo`` will
     attempt to pre-align the images by automatically detecting
@@ -148,23 +156,23 @@ force-use-entire-range (default = false)
     normalization as a (redundant) pre-processing step.
 
 individually-normalize (default = false)
-    By default, the maximum and minimum valid pixel value is determined
-    by looking at both images. Normalized with the same “global” min
-    and max guarantees that the two images will retain their brightness
-    and contrast relative to each other.
+    By default, the maximum and minimum valid pixel value is
+    determined by looking at both images. Normalized with the same
+    "global" min and max guarantees that the two images will retain
+    their brightness and contrast relative to each other.
 
-   This option forces each image to be normalized to its own maximum and
-   minimum valid pixel value. This is useful in the event that images
-   have different and non-overlapping dynamic ranges. You can sometimes
-   tell when this option is needed: after a failed stereo attempt one of
-   the rectified images (``*-L.tif`` and ``*-R.tif``) may be either
-   mostly white or black. Activating this option may correct this
-   problem.
+    This option forces each image to be normalized to its own maximum
+    and minimum valid pixel value. This is useful in the event that
+    images have different and non-overlapping dynamic ranges. You can
+    sometimes tell when this option is needed: after a failed stereo
+    attempt one of the rectified images (``*-L.tif`` and ``*-R.tif``)
+    may be either mostly white or black. Activating this option may
+    correct this problem.
 
-   Note: Photometric calibration and image normalization are steps that
-   can and should be carried out beforehand using ISIS’s own utilities.
-   This provides the best possible input to the stereo pipeline and
-   yields the best stereo matching results.
+    Note: Photometric calibration and image normalization are steps
+    that can and should be carried out beforehand using ISIS's own
+    utilities. This provides the best possible input to the stereo
+    pipeline and yields the best stereo matching results.
 
 nodata-value (default = none)
     Pixels with values less than or equal to this number are treated as
@@ -212,50 +220,10 @@ Correlation
 
 stereo-algorithm (*string*) (default = "asp_bm")
     Use this option to switch between the different stereo 
-    correlation algorithms supported by ASP. Their list and brief
-    summary is below. See :numref:`external_algorithms` for a full
-    discussion.
-
-    **Algorithms implememented in ASP**
-
-    asp_bm (or specify the value '0')
-       The ASP implementation of Block Matching. Search in the
-       right image for the best match for a small image block in the
-       left image. This is the fastest algorithm and works well for
-       similar images with good texture coverage.
-
-    asp_sgm (or specify the value '1')
-       The ASP implementation of the Semi-Global Matching (SGM)
-       algorithm :cite:`hirschmuller_sgm_original`. This algorithm is
-       slow and has high memory requirements but it performs better in
-       images with less texture. See :numref:`sgm` for important
-       details on using this algorithm.
-
-    asp_mgm (or specify the value '2')
-       The ASP implementation of the More Global Matching (MGM)
-       variant of the SGM algorithm :cite:`facciolo2015mgm` to reduce
-       high frequency artifacts in the output image at the cost of
-       increased run time. See :numref:`sgm` for important details on
-       using this algorithm.
-
-    asp_final_mgm (or specify the value '3')
-       Use MGM on the final resolution level and SGM on preceding
-       resolution levels. This produces a result somewhere in between
-       the pure SGM and MGM options.
-
-    **External implementations (shipped with ASP)**
-
-    mgm
-       The original MGM implementation. See :numref:`original_mgm`.
-
-    opencv_sgbm and opencv_bm
-       Semi-global block-matching and classical block-matching
-       algorithms from OpenCV 3. See :numref:`opencv_sgbm_options` and
-       :numref:`opencv_bm_options`.
-
-    msmw and msmw2
-       Multi-Scale Multi-Window algorithm (two versions provided). See
-       :numref:`msmw`.
+    correlation algorithms supported by ASP. Options: ``asp_bm``,
+    ``asp_sgm``, ``asp_mgm``, ``asp_final_mgm``, ``mgm``,
+    ``opencv_sgbm``, ``opencv_bm``, ``msmw``, ``msmw2``. See
+    :numref:`stereo_algos` for their description.
 
 prefilter-mode (= 0,1,2) (default = 2)
     This selects the pre-processing filter to be used to prepare
@@ -350,7 +318,7 @@ cost-mode (= 0,1,2,3,4)
     difference and about 3x slower than squared difference. The census
     transform :cite:`zabih1994census` and ternary census
     transform :cite:`hua2016texture` can only be used with
-    the SGM correlator. See :numref:`sgm` for details.
+    the SGM correlator. See :numref:`asp_sgm` for details.
 
     | 0 - absolute difference
     | 1 - squared difference
@@ -465,7 +433,7 @@ corr-tile-size (*integer*) (default = 1024)
     Manually specifies the size of image tiles used by the correlator
     for multi-threaded processing. Typically there is no need to adjust
     this value but it is very important when using semi-global
-    matching. See :numref:`sgm` for details. This
+    matching. See :numref:`asp_sgm` for details. This
     value must be a multiple of 16.
 
 sgm-collar-size (*integer*) (default = 512)

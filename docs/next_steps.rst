@@ -17,8 +17,8 @@ a geoid, etc.
 Stereo Pipeline in more detail
 ------------------------------
 
-Stereo algorithms
-~~~~~~~~~~~~~~~~~
+Choice of stereo algorithm
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The most important choice a user has to make when running ASP is the 
 stereo algorithm to use. By default, ASP runs as if invoked with::
@@ -33,7 +33,7 @@ produced with::
      --stereo-algorithm asp_mgm --subpixel-mode 3    \
      <other options>
 
-which uses ASP's impementation of MGM (:numref:`sgm`). 
+which uses ASP's implementation of MGM (:numref:`asp_sgm`). 
 
 ASP also ships with a handful of third-party stereo algorithms, such
 MGM as implemented by its author, OpenCV's SGBM, MSMW, etc. For a full
@@ -48,7 +48,7 @@ For example, the external MGM implementation can be called as follows::
 It is suggested to not specify here ``--subpixel-mode``, in which case
 it will use MGM's own implementation. Using ``--subpixel-mode 3`` will
 refine that result using ASP's subpixel implementation. Using
-``--subpixel-mode 2`` will be much slower but likey produce even
+``--subpixel-mode 2`` will be much slower but likely produce even
 better results.
 
 Next we will discuss more advanced parameters which rarely need to be
@@ -107,12 +107,58 @@ is always set to ``none``.
 
 .. _stereo_algos:
 
-Stereo algorithm
-^^^^^^^^^^^^^^^^
+Stereo algorithms
+^^^^^^^^^^^^^^^^^
 
-ASP can invoke several algorithms for doing stereo, and the user can add
-their own.
+ASP can invoke several algorithms for doing stereo, some internally
+implemented, some collected from the community, and the user can add
+their own algorithms as well (:numref:`adding_algos`).
 
+The list of algorithms is as follows. (See :numref:`stereo_algos_full`
+for a full discussion.) 
+
+**Algorithms implemented in ASP**
+
+asp_bm (or specify the value '0')
+   The ASP implementation of Block Matching. Search in the
+   right image for the best match for a small image block in the
+   left image. This is the fastest algorithm and works well for
+   similar images with good texture coverage. How to set the block
+   (kernel) size and subpixel mode is described further down.
+   See also :numref:`asp_sgm`.
+
+asp_sgm (or specify the value '1')
+   The ASP implementation of the Semi-Global Matching (SGM)
+   algorithm :cite:`hirschmuller_sgm_original`. This algorithm is
+   slow and has high memory requirements but it performs better in
+   images with less texture. See :numref:`asp_sgm` for important
+   details on using this algorithm.
+
+asp_mgm (or specify the value '2')
+   The ASP implementation of the More Global Matching (MGM)
+   variant of the SGM algorithm :cite:`facciolo2015mgm` to reduce
+   high frequency artifacts in the output image at the cost of
+   increased run time. See :numref:`asp_sgm` for important details on
+   using this algorithm.
+
+asp_final_mgm (or specify the value '3')
+   Use MGM on the final resolution level and SGM on preceding
+   resolution levels. This produces a result somewhere in between
+   the pure SGM and MGM options.
+
+**External implementations (shipped with ASP)**
+
+mgm
+   The original MGM implementation. See :numref:`original_mgm`.
+
+opencv_sgbm and opencv_bm
+   Semi-global block-matching and classical block-matching
+   algorithms from OpenCV 3. See :numref:`opencv_sgbm_options` and
+   :numref:`opencv_bm`.
+
+msmw and msmw2
+   Multi-Scale Multi-Window algorithm (two versions provided). See
+   :numref:`msmw`.
 
 Correlation parameters
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -128,15 +174,24 @@ Making the kernel sizes smaller, such as 15 |times| 15, or even
 cliffs, at the expense of perhaps introducing more false matches or
 noise.
 
+These options only to the algorithms implemented in ASP (those whose
+name is prefixed with ``asp_``). For externally implemented
+algorithms, any options to them can be passed as part of the
+``stereo-algorithm`` field, as discussed in
+:numref:`stereo_algos_full`.
+
 Subpixel refinement parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A highly critical parameter in ASP is the value of ``subpixel-mode``, on
-the fourth line. When set to 1, ``stereo`` performs parabola subpixel
-refinement, which is very fast but not very accurate. When set to 2, it
-produces very accurate results, but it is about an order of magnitude
-slower. When set to 3, the accuracy and speed will be somewhere in
-between the other methods.
+A highly critical parameter in ASP is the value of ``subpixel-mode``,
+on the fourth line. When set to 1, ``stereo`` performs parabola
+subpixel refinement, which is very fast but not very accurate. When
+set to 2, it produces very accurate results, but it is about an order
+of magnitude slower. When set to 3, the accuracy and speed will be
+somewhere in between the other methods. 
+
+For the algorithms not implemented in ASP itself, not specifying this
+field will use each algorithm's own subpixel mode.
 
 The fifth line sets the kernel size to use during subpixel refinement
 *(also 21 pixels square)*.
@@ -151,8 +206,9 @@ option::
 
     corr-search -80 -2 20 2
 
-More details about this option and the inner workings of stereo
-correlation can be found in :numref:`correlation`.
+It is suggested that this setting be used very rarely. More details
+about this option and the inner workings of stereo correlation can be
+found in :numref:`correlation`.
 
 .. _perform-stereo:
 

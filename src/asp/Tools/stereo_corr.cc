@@ -1520,6 +1520,16 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
         disp_1d = local_disp;
       }
     }
+
+    {
+      // Sanity check. Temporarily load the left image.
+      DiskImageView<float> left_image(left_aligned_file);
+      if (disp_1d.cols() != left_image.cols() || 
+          disp_1d.rows() != left_image.rows() ) 
+        vw_throw(ArgumentErr() << "Expecting that the 1D disparity " << disp_file
+                 << " would have the same dimensions as the left image " << left_aligned_file
+                 << ".\n");
+    }
     
     // Undo the alignment
     asp::unalign_1d_disparity(// Inputs

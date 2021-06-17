@@ -498,6 +498,9 @@ namespace asp {
       if (!(is >> plugin_name >> plugin_path)) 
         continue;
       
+      // Make the plugin name lower-case, but not the rest of the values
+      boost::to_lower(plugin_name);
+      
       // The plugin lib is optional
       is >> plugin_lib;
 

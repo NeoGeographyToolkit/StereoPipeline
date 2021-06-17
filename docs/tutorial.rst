@@ -1,7 +1,7 @@
 .. _moc_tutorial:
 
 Tutorial: Processing Mars Orbiter Camera Images
-================================================
+===============================================
 
 Quick Start
 -----------
@@ -331,9 +331,10 @@ you use affine epipolar alignment to reduce the search range. The
       12FEB16101327.r50.tif 12FEB16101426.r50.tif                    \
       12FEB16101327.r50.xml 12FEB16101426.r50.xml  dg/out
 
-As in :numref:`moc_tutorial`, one can experiment with various tradeoffs of quality
-versus run time, and use stereo in parallel or from a GUI. For more details, see 
-:numref:`nextsteps`.
+As in :numref:`moc_tutorial`, one can experiment with various
+tradeoffs of quality versus run time by using various stereo
+algorithms, and use stereo in parallel or from a GUI. For more
+details, see :numref:`nextsteps`.
 
 How to create a DEM and visualize the results of stereo is described in
 :numref:`visualising`.

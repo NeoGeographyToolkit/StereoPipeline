@@ -1,52 +1,75 @@
-.. _external_algorithms:
+.. _stereo_algos_full:
 
 The stereo algorithms in ASP in detail
 ======================================
 
-TODO(oalexan1): Rename this to "stereo algorithms".
+Here we will discuss in a lot of detail ASP's stereo algorithms. For a
+brief summary see :numref:`stereo_algos`. For how to add new such
+algorithms, see :numref:`adding_algos`.
 
-Here we will discuss in a lot of detail ASP's stereo algorithms. For a 
-brief summary see :numref:`stereo_algos`.
+.. _asp_bm:
 
 Block-matching
 --------------
 
-.. _sgm:
+Block-matching is ASP's oldest and default algorithm. It can be
+invoked with both ``stereo`` and ``parallel_stereo`` with the option::
 
-Semi-Global Matching
-~~~~~~~~~~~~~~~~~~~~
+    --stereo-algorithm asp_bm
 
-A new option for integer stereo correlation available in ASP is the
-popular semi-global matching algorithm introduced in
-:cite:`hirschmuller_sgm_original`. The algorithm is not
-typically used for DEM generation but it has been used successfully to
-process HRSC images :cite:`hirschmuller_hrsc_with_sgm`. The
-version of the algorithm implemented by ASP has a few modifications
-relative to the original implementation. The most significant difference
-is that ASP’s implementation performs a 2D disparity search, similar to
-what is done in the NG-fSGM algorithm
-:cite:`xiang_2016_low_complexity_fsgm`. Since ASP processes
-a wide variety of cameras with varying degrees of metadata quality, the
-standard assumption with SGM that the disparity search can be performed
-only along a one-dimensional epipolar line does not hold. The other
-major change is that ASP uses a multi- resolution hierarchical search
-combined with a compressed memory scheme similar to what is used in the
-SGM algorithm :cite:`rothermel2012sure_isgm`. With these
-two features the SGM algorithm can be used for unrectified, larger
-images. 
+and works with any alignment method (:numref:`image_alignment`).
 
-ASP also supports a mode using the MGM algorithm
-:cite:`facciolo2015mgm`, referred to in some places in the
-documentation as Smooth SGM. ASP provides both our own implementation
-and the original author implementation (see :numref:`original_mgm`
-further down).  This algorithm reduces the amount of high frequency
-artifacts in textureless regions at the cost of a longer run time. ASP
-also offers the option of a hybrid SGM/MGM mode where MGM is used only
-for the final resolution level which obtains results somewhere between
-the pure SGM and MGM options.
+For each pixel in the left image, the algorithm matches a small block
+around this pixel with another similar block in the right image. The
+block size is given by the value of ``--corr-kernel``. The obtained
+correspondence is then refined based on the value of
+``--subpixel-mode``, using a block given by ``--subpixel-kernel``. The
+option ``--corr-timeout`` can be used to ensure long-running block
+matching operations are stopped after a given time.
 
-The greatest advantage of the SGM algorithm over the normal ASP
-correlation algorithm is an improved ability to find disparity matches
+The related block-matching algorithm in OpenCV that ASP can invoke is
+discussed in :numref:`opencv_bm`.
+
+.. _asp_sgm:
+
+Semi-Global Matching and More Global Matching algorithms
+--------------------------------------------------------
+
+ASP implements the popular Semi-Global Matching (SGM) algorithm
+introduced in :cite:`hirschmuller_sgm_original`, and the More Global
+Matching (MGM) algorithm :cite:`facciolo2015mgm`, which is a
+modification of SGM, and usually produces higher quality
+results. These should be invoked with ``parallel_stereo``, with the
+option ``--stereo-algorithm`` being passed the value ``asp_sgm`` and
+``asp_mgm``, respectively.
+
+It is suggested to use these algorithms with ``--alignment-method
+local_epipolar``, when piecewise alignment between left and right
+images is computed which results in the disparity being 1D and faster
+to find (:numref:`image_alignment`).
+
+However, the versions of SGM and MGM implemented by ASP can
+perform a full 2D disparity search, similar to what is done in the
+NG-fSGM algorithm :cite:`xiang_2016_low_complexity_fsgm`. Since ASP
+processes a wide variety of cameras with varying degrees of metadata
+quality, the standard assumption with SGM that the disparity search
+can be performed only along a one-dimensional epipolar line does not
+hold when the alignment method is not ``local_epipolar`` or for
+map-projected images.
+
+The other major change is that ASP's implementation uses a
+multi-resolution hierarchical search combined with a compressed memory
+scheme similar to what is used in the SGM algorithm
+:cite:`rothermel2012sure_isgm`.
+
+The MGM algorithm reduces the amount of high frequency artifacts in
+textureless regions at the cost of a longer run time. ASP also offers
+the option of a hybrid SGM/MGM mode (``--stereo-algorithm final_mgm``)
+where MGM is used only for the final resolution level which obtains
+results somewhere between the pure SGM and MGM options.
+
+The greatest advantage of the SGM algorithm over the ASP block-matching
+algorithm is an improved ability to find disparity matches
 in areas of repetitive or low texture. SGM can also discern finer
 resolution features than the standard correlation algorithm since it
 tends to use much smaller matching kernels. Along with these advantages
@@ -56,31 +79,21 @@ noticeable artifacts at tile boundaries. Third, it can sometimes produce
 inaccurate results in textureless regions. With careful parameter
 selection and usage these disadvantages can be mitigated.
 
-In order to invoke MGM or SGM use the option ``--stereo-algorithm`` as
-described in :numref:`corr_section`. Briefly, pass to it one of the
-values ``asp_sgm``, ``asp_mgm``, or just ``mgm`` for the original
-implementation. To process large images you must use the
-``parallel_stereo`` program instead of the ``stereo``
-program. ``parallel_stereo`` replaces the refinement stage with a new
-seam blending stage to suppress artifacts along tile borders. Without
-this step SGM can produce artifacts along tile borders. The ``stereo``
-program can be used as long as the ``corr-tile-size`` command is set
-large enough to fit the entire image into a single processing
-tile. When running SGM, a single ASP process will handle only one tile
-at a time but it will use multiple threads per tile, as opposed to
-normal stereo where each tile uses its own thread. MGM is currently
-limited to using 8 simultaneous threads but SGM does not have a
-limit. When running ``parallel_stereo`` use the following options:
+MGM is currently limited to using 8 simultaneous threads but SGM does
+not have a limit. 
 
--  Specify the ``sgm-collar-size`` option or leave it at the default
-   value. Increasing this value decreases the chances of seeing
+It is suggested to use these algorithms with default options. If desired,
+customizations can be done as follows. 
+
+-  The ``sgm-collar-size`` option can be increased from the default to allow
+   for more padding for each tile. This decreases the chances of seeing
    artifacts along tile borders but increases processing time and memory
-   usage.
+   usage. With the tiles being bigger, local alignment may be less
+   effective.
 
--  Set the ``corr-tile-size`` option to determine the tile size, keeping
-   in mind that larger tile sizes produce better results but consume
-   more memory. The collar size you selected will enlarge the processed
-   tile size.
+-  Set the ``corr-tile-size`` option to determine the tile size (before
+   the padding is applied), keeping in mind that larger tile sizes
+   produce better results but consume more memory.
 
 -  Set the ``processes`` option keeping in mind memory constraints as
    discussed earlier. Each process will run one simultaneous SGM
@@ -96,9 +109,7 @@ limit. When running ``parallel_stereo`` use the following options:
    be equal to each other, and then the latter parameter will be set to
    the same value.
 
-By setting these parameters in the manner described, each process will
-generate a single SGM tile which will then be blended in the new blend
-step. Each process can use multiple threads with
+Each process spawned by ``parallel_stereo`` can use multiple threads with
 ``threads-singleprocess`` without affecting the stereo results.
 
 When SGM or MGM is specified, certain stereo parameters have their
@@ -162,21 +173,21 @@ stereo modes. The DEM on the left was generated using the default stereo
 parameters and ``--subpixel-mode 3``. The DEM on the right was generated
 using the command::
 
-     stereo --stereo-algorithm 1 --threads 1 --xcorr-threshold -1 \
+     stereo --stereo-algorithm asp_sgm --threads 1 --xcorr-threshold -1 \
        --corr-kernel 7 7 --corr-tile-size 6400 --cost-mode 4      \
        --median-filter-size 3  --texture-smooth-size 13           \
        --texture-smooth-scale 0.13
 
 Some grid pattern noise is visible in the image produced using SGM.
-Using ``--stereo-algorithm 2`` should reduce it. And, as mentioned
-earlier, for large images which won’t fit in memory,
+Using ``--stereo-algorithm asp_mgm`` should reduce it. And, as mentioned
+earlier, for large images which won't fit in memory,
 ``--corr-tile-size`` can be set to a value like 4096, and
 ``parallel_stereo`` should be used.
 
 .. _original_mgm:
 
 Original implementation of MGM
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------
 
 ASP ships the MGM algorithm as implemented by its authors
 (:cite:`facciolo2015mgm`) at::
@@ -221,25 +232,16 @@ By default, ASP uses::
 
 These are adjusted depending on which ones the user chooses to override.
 
-The ``CENSUS_NCC_WIN`` parameter is is one of the more notable ones,
+The ``CENSUS_NCC_WIN`` parameter is is one of the more notable parameters,
 as it determines the size of the window to use for correlation, so it
 corresponds to the option ``--corr-kernel`` of ASP-implemented
 algorithms.
 
-Options for MGM
----------------
+ASP automatically finds the minimum and maximum estimated disparity, 
+and it passes it to ``mgm`` via the ``-r`` and ``-R`` switches.
 
-This section describes the options and environmental variables accepted
-by the ``mgm`` program (:cite:`facciolo2015mgm`). How it is invoked by
-ASP is discussed in :numref:`original_mgm`.
-
-Usage::
-
-    mgm <options> left_image.tif right_image.tif output_disparity.tif \
-      [cost_function.tif [back_flow.tif]]
-
-Command-line options
-~~~~~~~~~~~~~~~~~~~~
+Options for mgm
+~~~~~~~~~~~~~~~
 
 -r (default = -30): 
     Minimum horizontal disparity value. (The images are assumed
@@ -331,8 +333,8 @@ USE_TRUNCATED_LINEAR_POTENTIALS=0:
 
 .. _opencv_sgbm_options:
 
-Options for OpenCV SGBM
------------------------
+OpenCV SGBM
+-----------
 
 The ``parallel_stereo`` program can invoke the OpenCV 
 semi-global block-matching algorithm (SGBM) if called with::
@@ -359,7 +361,8 @@ ASP will use the earlier values for all the options except
 specify options whose values are desired to be different than the
 default choices.
 
-Options:
+SGBM options
+~~~~~~~~~~~~
 
 -mode (default = hh):
     Choose among several flavors of SGBM. Use ``hh`` to run the
@@ -418,16 +421,16 @@ Options:
     it will be implicitly multiplied by 16. Normally, 1 or 2 is good
     enough.
 
-.. _opencv_bm_options:
+.. _opencv_bm:
 
-Options for OpenCV BM
----------------------
+OpenCV BM
+---------
 
 The simpler and not as performing block-matching (BM) algorithm of
-OpenCV can be invoked in a very similar manner, with the algorithm
-name passed to ``-stereo-algorithm`` being ``opencv_bm``. It accepts
-the same parameters except ``-P1`` and ``-P2``, and uses in addition 
-the option:
+OpenCV can be invoked in a very similar manner to SGBM, with the
+algorithm name passed to ``--stereo-algorithm`` being
+``opencv_bm``. It accepts the same parameters except ``-P1`` and
+``-P2``, and uses in addition the option:
 
 -texture_thresh (default = 10):
     The disparity is only computed for pixels whose "texture" measure
@@ -583,4 +586,65 @@ tool has the additional options:
 
 -c (default = 0):
     Combine last scale with the previous one to densify the result.
+
+.. _adding_algos:
+
+Adding new algorithms to ASP
+----------------------------
+
+ASP makes it possible for anybody to add their own algorithm to be 
+used for stereo correlation without having to recompile ASP itself.
+
+Any such algorithm must a be program to be invoked as::
+
+    myprog <options> left_image.tif right_image.tif \
+      output_disparity.tif
+
+Here, as often assumed in the computer vision community, the input
+images ``left_image.tif`` and ``right_image.tif`` are assumed to be
+small image clips with epipolar alignment applied to them so that the
+epipolar lines are horizontal and the resulting disparity only need to
+be searched in the ``x`` direction (along each row).  ASP will take
+care of preparing the images that way.
+
+The input images must be in the TIF format, with pixel values being of
+the ``float`` type, and no-data pixels being set to ``NaN``. The
+output disparity is expected to satisfy the same assumptions and be
+of dimensions equal to those of the left input image.
+
+The options passed to this program are expected to have no other
+characters except letters, numbers, space, period, underscore, plus,
+minus, and equal signs.
+
+Such a program and the libraries it depends on (if any) should be
+copied somewhere within ASP's top-level directory, then this program
+should be registered with ASP by adding a line to the file::
+
+    plugins/stereo/plugin_list.txt
+
+in that directory, in the format::
+
+    myprog plugins/stereo/myprog/bin/myprog  plugin/stereo/myprog/lib
+
+The entries here are the program name (in lowercase), path to the
+program, and path to any libraries apart from those shipped with ASP
+(the last entry is optional). All paths are relative to the ASP
+top-level directory.
+
+Then, ASP can invoke this program by calling it, for example, as::
+
+    parallel_stereo  --alignment-method local_epipolar  \
+      --stereo-algorithm "myprog <options>"             \
+      left.tif right.tif left.xml right.xml results/run
+
+The program will be called for each pair of locally aligned tiles
+obtained from these input images, with one subdirectory for each such
+pair of inputs. That subdirectory will also have the output disparity
+produced by the program. All such disparities will be read back by
+ASP, blended together, then ASP will continue with the steps of
+disparity filtering and triangulation.
+
+It may be helpful to visit one of such subdirectories, examine the
+``stereo_corr`` log file which will show how precisely the program was
+called, and also look at its input and output images stored there.
 

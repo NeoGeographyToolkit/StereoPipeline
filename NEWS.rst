@@ -1,7 +1,16 @@
-RELEASE 2.8.0, upcoming!
+RELEASE 3.0.0, upcoming!
 
 New functionality:
 
+  * Added the ability to perform picewise local epipolar alignment
+    for the input images, to be followed by a 1D disparity search.
+  * Added new stereo algorithms, including the MGM algorithm as
+    implemented by its author, also OpenCV SGBM, OpenCV BM, MSMW, and
+    MSMW2.
+  * Added the ability for a user to plug into ASP any desired stereo
+    program working on image clips to which epipolar alignment has
+    been applied (as is customary in the computer vision community)
+    without rebuilding ASP.
   * Added support for shallow-water bathymetry, so creation of terrain
     models with correct depth determination for well-resolved areas under
     shallow water. To be used with dg, rpc, and nadirpinhole cameras.
