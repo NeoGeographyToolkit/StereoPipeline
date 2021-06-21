@@ -80,10 +80,10 @@ inaccurate results in textureless regions. With careful parameter
 selection and usage these disadvantages can be mitigated.
 
 MGM is currently limited to using 8 simultaneous threads but SGM does
-not have a limit. 
+not have a limit.
 
 It is suggested to use these algorithms with default options. If desired,
-customizations can be done as follows. 
+customizations can be done as follows.
 
 -  The ``sgm-collar-size`` option can be increased from the default to allow
    for more padding for each tile. This decreases the chances of seeing
@@ -163,9 +163,9 @@ still manually specify these options.
 .. figure:: images/correlation/icebridge_example_crop.png
    :name: corr-sgm-example
 
-   A section of a NASA IceBridge image on the left with a pair of 
-   hill-shaded DEMs to the right it showing the difference between default 
-   ASP processing (upper right) and processing using the SGM algorithm 
+   A section of a NASA IceBridge image on the left with a pair of
+   hill-shaded DEMs to the right it showing the difference between default
+   ASP processing (upper right) and processing using the SGM algorithm
    (lower right).
 
 :numref:`corr-sgm-example` shows a comparison between two
@@ -192,14 +192,14 @@ Original implementation of MGM
 ASP ships the MGM algorithm as implemented by its authors
 (:cite:`facciolo2015mgm`) at::
 
-    https://github.com/gfacciol/mgm 
+    https://github.com/gfacciol/mgm
 
 To use it, run::
 
     parallel_stereo --alignment-method local_epipolar \
       --stereo-algorithm mgm                          \
       --corr-tile-size 1024 --sgm-collar-size 512     \
-      left.tif right.tif left.xml right.xml                                
+      left.tif right.tif left.xml right.xml
 
 In this mode, locally aligned portions of the input left and right
 images are saved to disk, the MGM program (named ``mgm``) is
@@ -222,13 +222,13 @@ executable on the command line, for example, ``-t census``. To
 communicate any such options to this program, invoke
 ``parallel_stereo`` (for example) with::
 
-    --stereo-algorithm 'mgm CENSUS_NCC_WIN=5 -t census' 
+    --stereo-algorithm 'mgm CENSUS_NCC_WIN=5 -t census'
 
-ASP will ensure these will be passed correctly to ``mgm``. 
+ASP will ensure these will be passed correctly to ``mgm``.
 By default, ASP uses::
 
     MEDIAN=1 CENSUS_NCC_WIN=5 USE_TRUNCATED_LINEAR_POTENTIALS=1 TSGM=3 \
-      -s vfit -t census -O 8 
+      -s vfit -t census -O 8
 
 These are adjusted depending on which ones the user chooses to override.
 
@@ -237,60 +237,60 @@ as it determines the size of the window to use for correlation, so it
 corresponds to the option ``--corr-kernel`` of ASP-implemented
 algorithms.
 
-ASP automatically finds the minimum and maximum estimated disparity, 
+ASP automatically finds the minimum and maximum estimated disparity,
 and it passes it to ``mgm`` via the ``-r`` and ``-R`` switches.
 
 Options for mgm
 ~~~~~~~~~~~~~~~
 
--r (default = -30): 
+-r (default = -30):
     Minimum horizontal disparity value. (The images are assumed
     to be rectified, which eliminates the vertical disparity.)
 
--R (default = 30): 
-    Maximum horizontal disparity value. 
+-R (default = 30):
+    Maximum horizontal disparity value.
 
 -O (default = 4):
-    Number of search directions. Options: 2, 4, 8, 16. 
+    Number of search directions. Options: 2, 4, 8, 16.
 
 -P1 (default = 8)
     SGM regularization parameter P1.
 
--P2 (default = 32): 
+-P2 (default = 32):
     SGM regularization parameter P2.
 
--p (default = none): 
+-p (default = none):
     Prefilter algorithm. Options: none, census, sobelx, gblur. The
     ``census`` mode uses the window of dimensions ``CENSUS_NCC_WIN``.
 
--t (default = ad): 
+-t (default = ad):
     Distance function. Options: census, ad, sd, ncc, btad, btsd. For
     ``ncc`` the window of dimensions ``CENSUS_NCC_WIN`` is used. The
     ``bt`` option is the Birchfield-Tomasi distance.
 
--truncDist (default = inf): 
+-truncDist (default = inf):
     Truncate distances at nch * truncDist.
 
 -s (default = none):
     Subpixel refinement algorithm. Options: none, vfit, parabola,
     cubic.
 
--aP1 (default = 1): 
+-aP1 (default = 1):
     Multiplier factor of P1 when sum \|I1 - I2\|^2 < nch * aThresh^2.
 
--aP2 (default = 1): 
+-aP2 (default = 1):
     Multiplier factor of P2 as above.
 
 -aThresh (default = 5):
    Threshold for the multiplier factors.
 
--m FILE (default = none): 
+-m FILE (default = none):
     A file with minimum input disparity.
 
 -M FILE (default = none):
     A file with maximum input disparity.
- 
--l FILE (default = none): 
+
+-l FILE (default = none):
     Write here the disparity without the left-to-right test.
 
 Environmental variables for mgm
@@ -299,11 +299,11 @@ Environmental variables for mgm
 These should be set on the command line before ``mgm`` is invoked.
 (ASP does that automatically.)
 
-CENSUS_NCC_WIN=3: 
+CENSUS_NCC_WIN=3:
     Size of the window for the census prefilter algorithm and NCC
     (normalized cross-correlation).
 
-TESTLRRL=1: 
+TESTLRRL=1:
     If 1, do left-to-right and right-to-left consistency checks.
 
 MEDIAN=0:
@@ -312,10 +312,10 @@ MEDIAN=0:
 TSGM=4:
     Regularity level.
 
-TSGM_ITER=1: 
+TSGM_ITER=1:
     Number of iterations.
 
-TSGM_FIX_OVERCOUNT=1: 
+TSGM_FIX_OVERCOUNT=1:
     If 1, fix overcounting of the data term in the energy.
 
 TSGM_DEBUG=0:
@@ -325,7 +325,7 @@ TSGM_2LMIN=0:
     Use the improved TSGM cost only for TSGM=2. Overrides the TSGM
     value.
 
-USE_TRUNCATED_LINEAR_POTENTIALS=0: 
+USE_TRUNCATED_LINEAR_POTENTIALS=0:
     If 1, use the Felzenszwalb-Huttenlocher truncated linear
     potential. Then P1 and P2 change meaning. The potential they
     describe becomes V(p,q) = min(P2, P1*\|p-q\|).
@@ -336,25 +336,25 @@ USE_TRUNCATED_LINEAR_POTENTIALS=0:
 OpenCV SGBM
 -----------
 
-The ``parallel_stereo`` program can invoke the OpenCV 
+The ``parallel_stereo`` program can invoke the OpenCV
 semi-global block-matching algorithm (SGBM) if called with::
 
     --alignment-method local_epipolar \
     --stereo-algorithm "opencv_sgbm"
 
-Alternatively, the full string having this algorithm and its 
+Alternatively, the full string having this algorithm and its
 options can be used, as::
 
     --alignment-method local_epipolar                           \
-    --stereo-algorithm                                          \ 
-      "opencv_sgbm -mode hh -block_size 3 -P1 8 -P2 32          
-       -prefilter_cap 63 -uniqueness_ratio 10 -speckle_size 100 
+    --stereo-algorithm                                          \
+      "opencv_sgbm -mode hh -block_size 3 -P1 8 -P2 32
+       -prefilter_cap 63 -uniqueness_ratio 10 -speckle_size 100
        -speckle_range 32 -disp12_diff 1"
 
 If an invocation as follows is used::
 
     --alignment-method local_epipolar                 \
-    --stereo-algorithm "opencv_sgbm -block_size 7" 
+    --stereo-algorithm "opencv_sgbm -block_size 7"
 
 ASP will use the earlier values for all the options except
 ``-block_size`` which will be set to 7. Hence, the user can explicitly
@@ -376,7 +376,7 @@ SGBM options
     must be an odd number >=1. Normally, it should be somewhere in
     the 3 - 11 range.
 
--P1 (default = 8): 
+-P1 (default = 8):
     Multiplier for the first parameter controlling the disparity
     smoothness. This parameter is used for the case of slanted
     surfaces. This is multiplied by num_image_channels block_size *
@@ -415,7 +415,7 @@ SGBM options
     speckles and invalidate. Set it to 0 to disable speckle
     filtering. Otherwise, set it somewhere in the 50 - 200 range.
 
--speckle_range (default = 32): 
+-speckle_range (default = 32):
     Maximum disparity variation within each connected component. If
     you do speckle filtering, set the parameter to a positive value,
     it will be implicitly multiplied by 16. Normally, 1 or 2 is good
@@ -441,8 +441,8 @@ algorithm name passed to ``--stereo-algorithm`` being
 The full default string of options that is used by
 ``--stereo-algorithm`` is::
 
-    "opencv_bm -block_size 21 -texture_thresh 10 -prefilter_cap 31 
-     -uniqueness_ratio 15 -speckle_size 100 -speckle_range 32 
+    "opencv_bm -block_size 21 -texture_thresh 10 -prefilter_cap 31
+     -uniqueness_ratio 15 -speckle_size 100 -speckle_range 32
      -disp12_diff 1"
 
 and any of these can be modified as for the SGBM algorithm. Notice
@@ -475,12 +475,12 @@ option::
 
 By default, ASP invokes this program as if it is called with::
 
-    --stereo-algorithm "msmw -i 1 -n 4 -p 4 -W 5 -x 9 -y 9 -r 1 
+    --stereo-algorithm "msmw -i 1 -n 4 -p 4 -W 5 -x 9 -y 9 -r 1
       -d 1 -t -1 -s 0 -b 0 -o 0.25 -f 0 -P 32"
 
 In addition ASP, automatically calculates and passes to ``msmw``
 values for the ``-m`` and ``-M`` options which correspond to
-estimated minimum and maximum disparity values. 
+estimated minimum and maximum disparity values.
 
 Any options explicitly specified by the user, such as::
 
@@ -510,10 +510,10 @@ The meaning of these switches is as follows.
     value indicates how many of the orientations should be considered.
     (Note: Not sure what all this means.)
 
--i (default = 1): 
+-i (default = 1):
     Type of distance.
 
--p (default = 1): 
+-p (default = 1):
     Number of precisions for single scale.
 
 -P (default = 1):
@@ -527,7 +527,7 @@ The meaning of these switches is as follows.
 
 -r (default = 0):
     Reciprocity value.
- 
+
 -g (default = 0):
     Subpixel reciprocity flag.
 
@@ -545,7 +545,7 @@ The meaning of these switches is as follows.
 
 -s (default = 0):
     Self-similarity value.
- 
+
 -b (default = 0):
     Integral of derivatives.
 
@@ -587,12 +587,123 @@ tool has the additional options:
 -c (default = 0):
     Combine last scale with the previous one to densify the result.
 
+.. _libelas:
+
+LIBELAS stereo algorithm
+------------------------
+
+ASP ships and can invoke the ``LIBELAS`` (Library for Efficient
+Large-scale Stereo Matching) algorithm :cite:`Geiger2010ACCV`,
+described at::
+
+    http://www.cvlibs.net/software/libelas/
+
+We implemented an interface around this library to overcome its
+assumption of the disparity being always positive, and added other
+minor changes. Our fork having these additions is at::
+
+    https://github.com/NeoGeographyToolkit/libelas
+
+This software is released under GPL. ASP does not link to it directly,
+rather it gets invoked as via a system call, with its inputs and
+outputs being on disk.
+
+To invoke it, run::
+
+    parallel_stereo --alignment-method local_epipolar \
+    --stereo-algorithm libelas                        \
+    <other options>
+
+If desired to override the values of any of its parameters, those can
+be passed as follows::
+
+    --stereo-algorithm "libelas -ipol_gap_width 100"
+
+(This particular parameter is used to fill holes in the disparity,
+with a larger value resulting in bigger holes being filled.)
+
+The algorithm options, and their defaults, as used by ASP, are as
+follows.
+
+-disp_min (default = 0):
+    Minimum disparity (ASP estimates this unless the user overrides it).
+
+-disp_max (default = 255):
+    Maximum disparity (ASP estimates this unless the user overrides it).
+
+-support_threshold (default = 0.85):
+    Maximum uniqueness ratio (best vs. second-best support match).
+
+-support_texture (default = 10):
+    Minimum texture for support points.
+
+-candidate_stepsize (default = 5):
+    Step size of regular grid on which support points are matched.
+
+-incon_window_size (default = 5):
+    Window size of inconsistent support point check.
+
+-incon_threshold (default = 5):
+    Disparity similarity threshold for support point to be considered
+    consistent.
+
+-incon_min_support (default = 5):
+    Minimum number of consistent support points.
+
+-add_corners (default = 0):
+    Add support points at image corners with nearest neighbor
+    disparities.
+
+-grid_size (default = 20):
+    Size of neighborhood for additional support point extrapolation.
+
+-beta (default = 0.02):
+    Image likelihood parameter.
+
+-gamma (default = 3):
+    Prior constant.
+
+-sigma (default = 1):
+    Prior sigma.
+
+-sradius (default = 2):
+    Prior sigma radius.
+
+-match_texture (default = 1):
+    Minimum texture for dense matching.
+
+-lr_threshold (default = 2):
+    Disparity threshold for left-right consistency check.
+
+-speckle_sim_threshold (default = 1):
+    Similarity threshold for speckle segmentation.
+
+-speckle_size (default = 200):
+    Speckles larger than this get removed.
+
+-ipol_gap_width (default = 3):
+    Fill holes in disparity of height and width at most this value.
+
+-filter_median (default = 0):
+    If non-zero, use an approximate median filter.
+
+-filter_adaptive_mean (default = 1):
+    If non-zero, use an approximate adaptive mean filter.
+
+-postprocess_only_left (default = 0):
+    If non-zero, saves time by not postprocessing the right image.
+
+-verbose (default = 0):
+    If non-zero, print some information about the values of the
+    options being used, as well as what the input and output files
+    are.
+
 .. _adding_algos:
 
 Adding new algorithms to ASP
 ----------------------------
 
-ASP makes it possible for anybody to add their own algorithm to be 
+ASP makes it possible for anybody to add their own algorithm to be
 used for stereo correlation without having to recompile ASP itself.
 
 Any such algorithm must a be program to be invoked as::
@@ -601,16 +712,16 @@ Any such algorithm must a be program to be invoked as::
       output_disparity.tif
 
 Here, as often assumed in the computer vision community, the input
-images ``left_image.tif`` and ``right_image.tif`` are assumed to be
+images ``left_image.tif`` and ``right_image.tif`` are expected to be
 small image clips with epipolar alignment applied to them so that the
 epipolar lines are horizontal and the resulting disparity only need to
-be searched in the ``x`` direction (along each row).  ASP will take
-care of preparing the images that way.
+be searched in the ``x`` direction (along each row). The images must
+have the same size. (ASP will take care of preparing these images.)
 
-The input images must be in the TIF format, with pixel values being of
-the ``float`` type, and no-data pixels being set to ``NaN``. The
-output disparity is expected to satisfy the same assumptions and be
-of dimensions equal to those of the left input image.
+The images must be in the TIF format, with pixel values being of the
+``float`` type, and no-data pixels being set to ``NaN``. The output
+disparity is expected to satisfy the same assumptions and be of
+dimensions equal to those of the input images.
 
 The options passed to this program are expected to have no other
 characters except letters, numbers, space, period, underscore, plus,
@@ -635,7 +746,7 @@ Then, ASP can invoke this program by calling it, for example, as::
 
     parallel_stereo  --alignment-method local_epipolar  \
       --stereo-algorithm "myprog <options>"             \
-      left.tif right.tif left.xml right.xml results/run
+      <images> <cameras> <output prefix>
 
 The program will be called for each pair of locally aligned tiles
 obtained from these input images, with one subdirectory for each such
@@ -646,5 +757,6 @@ disparity filtering and triangulation.
 
 It may be helpful to visit one of such subdirectories, examine the
 ``stereo_corr`` log file which will show how precisely the program was
-called, and also look at its input and output images stored there.
+called, and also look at its input image tiles and output disparity
+stored there.
 

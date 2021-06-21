@@ -107,6 +107,7 @@ clone`` from::
   https://github.com/NeoGeographyToolkit/imagemagick-feedstock.git
   https://github.com/NeoGeographyToolkit/theia-feedstock.git
   https://github.com/NeoGeographyToolkit/s2p-feedstock.git
+  https://github.com/NeoGeographyToolkit/libelas-feedstock.git
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
   https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
 

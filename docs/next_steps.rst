@@ -23,7 +23,9 @@ Choice of stereo algorithm
 The most important choice a user has to make when running ASP is the 
 stereo algorithm to use. By default, ASP runs as if invoked with::
 
-   stereo --stereo-algorithm asp_bm --subpixel-mode 1 <other options>
+   stereo --alignment-method affineepipolar      \
+     --stereo-algorithm asp_bm --subpixel-mode 1 \
+     <other options>
     
 This invokes block-matching stereo with parabola subpixel mode, which
 can be fast but not of high quality. The best results are likely
@@ -36,8 +38,8 @@ produced with::
 which uses ASP's implementation of MGM (:numref:`asp_sgm`). 
 
 ASP also ships with a handful of third-party stereo algorithms, such
-MGM as implemented by its author, OpenCV's SGBM, MSMW, etc. For a full
-list see :numref:`stereo_algos`.
+MGM (original author implementation), OpenCV SGBM, LIBELAS, MSMW,
+MSMW2, and OpenCV BM. For more details see :numref:`stereo_algos`.
 
 For example, the external MGM implementation can be called as follows::
 
@@ -151,14 +153,21 @@ asp_final_mgm (or specify the value '3')
 mgm
    The original MGM implementation. See :numref:`original_mgm`.
 
-opencv_sgbm and opencv_bm
-   Semi-global block-matching and classical block-matching
-   algorithms from OpenCV 3. See :numref:`opencv_sgbm_options` and
-   :numref:`opencv_bm`.
+opencv_sgbm
+   Semi-global block-matching algorithm from OpenCV 3. See
+   :numref:`opencv_sgbm_options`.
+
+libelas
+   The LIBELAS algorithm :cite:`Geiger2010ACCV`. See
+   :numref:`libelas`.
 
 msmw and msmw2
    Multi-Scale Multi-Window algorithm (two versions provided). See
    :numref:`msmw`.
+
+opencv_bm
+   Classical block-matching algorithm from OpenCV 3. See
+   :numref:`opencv_bm`.
 
 Correlation parameters
 ^^^^^^^^^^^^^^^^^^^^^^

@@ -44,9 +44,6 @@ using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
 
-// TODO(oalexan1): Remove the std namespace.
-using namespace std;
-
 /// Returns the properly cast cost mode type
 stereo::CostFunctionType get_cost_mode_value() {
   switch(stereo_settings().cost_mode) {
@@ -256,8 +253,8 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
 /// Adjust IP lists if alignment matrices are present.
 double adjust_ip_for_align_matrix(std::string               const& out_prefix,
-                                  vector<ip::InterestPoint>      & ip_left,
-                                  vector<ip::InterestPoint>      & ip_right,
+                                  std::vector<ip::InterestPoint>      & ip_left,
+                                  std::vector<ip::InterestPoint>      & ip_right,
                                   double                    const  ip_scale) {
 
   // Check for alignment files
@@ -307,8 +304,8 @@ double adjust_ip_for_align_matrix(std::string               const& out_prefix,
 /// - Returns true if any change was made to the interest points.
 bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
                                       std::string               const& match_file,
-                                      vector<ip::InterestPoint>      & ip_left,
-                                      vector<ip::InterestPoint>      & ip_right) {
+                                      std::vector<ip::InterestPoint>      & ip_left,
+                                      std::vector<ip::InterestPoint>      & ip_right) {
   
   bool usePinholeEpipolar = ((stereo_settings().alignment_method == "epipolar") &&
                              (opt.session->name() == "pinhole" ||
@@ -601,11 +598,11 @@ BBox2i get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
   vw_out(InfoMessage,"asp") << matched_ip1[i].x <<", "<<matched_ip1[i].y 
   << " <> " 
   << matched_ip2[i].x <<", "<<matched_ip2[i].y 
-  << " DIFF " << diff << endl;
+  << " DIFF " << diff << std::endl;
   }
   */
   
-  //vw_out(InfoMessage,"asp") << "i_scale is : "       << i_scale << endl;
+  //vw_out(InfoMessage,"asp") << "i_scale is : "       << i_scale << std::endl;
   
   return BBox2i(search_minI, search_maxI);
 }
@@ -617,7 +614,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
                                 double ip_scale, std::string const& match_filename) {
 
   vw_out() << "\t--> Using interest points to determine search window.\n";
-  vector<ip::InterestPoint> in_ip1, in_ip2, matched_ip1, matched_ip2;
+  std::vector<ip::InterestPoint> in_ip1, in_ip2, matched_ip1, matched_ip2;
 
   // The interest points must have been created outside this function
   if (!fs::exists(match_filename))
@@ -798,7 +795,7 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     // Compute new IP and write them to disk.
     // - If IP are already on disk this function will load them instead.
     // - This function will choose an appropriate IP computation based on the input images.
-    string match_filename;
+    std::string match_filename;
     double ip_scale;
     ip_scale = compute_ip(opt, match_filename);
 
@@ -830,7 +827,7 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
     
-    string sub_disp_file = opt.out_prefix+"-D_sub.tif";
+    std::string sub_disp_file = opt.out_prefix+"-D_sub.tif";
     
     // Also need to rebuild if the inputs changed after the mask files were produced.
     bool inputs_changed = (!is_latest_timestamp(sub_disp_file, opt.in_file1,  opt.in_file2,
@@ -859,7 +856,7 @@ void lowres_correlation(ASPGlobalOptions & opt) {
 
   // Create the local homographies based on D_sub
   if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
-    string local_hom_file = opt.out_prefix + "-local_hom.txt";
+    std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
     try {
       ImageView<Matrix3x3> local_hom;
       read_local_homographies(local_hom_file, local_hom);
@@ -1132,15 +1129,15 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 
   // Provide the user with some feedback of what we are actually going to use.
   vw_out()   << "\t--------------------------------------------------\n";
-  vw_out()   << "\t   Kernel size:    " << stereo_settings().corr_kernel << endl;
+  vw_out()   << "\t   Kernel size:    " << stereo_settings().corr_kernel << std::endl;
   if (stereo_settings().seed_mode > 0)
-    vw_out() << "\t   Refined search: " << stereo_settings().search_range << endl;
+    vw_out() << "\t   Refined search: " << stereo_settings().search_range << std::endl;
   else
-    vw_out() << "\t   Search range:   " << stereo_settings().search_range << endl;
-  vw_out()   << "\t   Cost mode:      " << stereo_settings().cost_mode << endl;
-  vw_out(DebugMessage) << "\t   XCorr threshold: " << stereo_settings().xcorr_threshold << endl;
-  vw_out(DebugMessage) << "\t   Prefilter:       " << stereo_settings().pre_filter_mode << endl;
-  vw_out(DebugMessage) << "\t   Prefilter size:  " << stereo_settings().slogW << endl;
+    vw_out() << "\t   Search range:   " << stereo_settings().search_range << std::endl;
+  vw_out()   << "\t   Cost mode:      " << stereo_settings().cost_mode << std::endl;
+  vw_out(DebugMessage) << "\t   XCorr threshold: " << stereo_settings().xcorr_threshold << std::endl;
+  vw_out(DebugMessage) << "\t   Prefilter:       " << stereo_settings().pre_filter_mode << std::endl;
+  vw_out(DebugMessage) << "\t   Prefilter size:  " << stereo_settings().slogW << std::endl;
   vw_out() << "\t--------------------------------------------------\n";
 
   // Load up for the actual native resolution processing
@@ -1188,7 +1185,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   // TODO(oalexan1): Wipe the local hom logic.
   ImageView<Matrix3x3> local_hom;
   if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
-    string local_hom_file = opt.out_prefix + "-local_hom.txt";
+    std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
     read_local_homographies(local_hom_file, local_hom);
   }
 
@@ -1240,7 +1237,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 	     << stereo_settings().slogW << " sigma blur.\n";
     break;
   default:
-    vw_out() << "\t--> Using NO pre-processing filter." << endl;
+    vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
   }
 
   cartography::GeoReference left_georef;
@@ -1248,7 +1245,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   bool   has_nodata      = false;
   double nodata          = -32768.0;
 
-  string d_file = opt.out_prefix + "-D.tif";
+  std::string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
   
   if (stereo_alg > vw::stereo::VW_CORRELATION_BM) {
@@ -1321,6 +1318,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                   left_aligned_file, right_aligned_file,  
                   min_disp, max_disp);
 
+  vw_out() << "Min and max disparities: " << min_disp << ' ' << max_disp << std::endl;
+  
   vw::ImageViewRef<float> disp_1d;
   vw::ImageView<PixelMask<Vector2f>> unaligned_disp_2d;
 
@@ -1332,7 +1331,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     // ASP algorithms
 
     // Mask the locally alignment images which were written with NaN nodata.
-    float nan  = numeric_limits<float>::quiet_NaN();
+    float nan  = std::numeric_limits<float>::quiet_NaN();
     ImageView<PixelMask<PixelGray<float>>> left_image
       = vw::create_mask(DiskImageView<PixelGray<float>>(left_aligned_file), nan);
     ImageView<PixelMask<PixelGray<float>>> right_image
@@ -1411,7 +1410,18 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       default_opts = std::string("-i 1 -n 4 -p 4 -W 5 -x 9 -y 9 -r 1 -d 1 -t -1 ")
         + "-s 0 -b 0 -o -0.25 -f 0 -P 32 -D 0 -O 25 -c 0 "
         + "-m " + vw::num_to_str(min_disp) + " -M " + vw::num_to_str(max_disp);
-    } else {
+    } else if (alg_name == "libelas"){
+      default_opts = std::string("-support_threshold 0.85 -support_texture 10 ")
+        + "-candidate_stepsize 5 -incon_window_size 5 "
+        + "-incon_threshold 5 -incon_min_support 5 "
+        + "-add_corners 0 -grid_size 20 "
+        + "-beta 0.02 -gamma 3 -sigma 1 -sradius 2 "
+        + "-match_texture 1 -lr_threshold 2 -speckle_sim_threshold 1 "
+        + "-speckle_size 200 -ipol_gap_width 3 -filter_median 0 "
+        + "-filter_adaptive_mean 1 -postprocess_only_left 0 "
+        + "-disp_min " + vw::num_to_str(min_disp) + " "
+        + "-disp_max " + vw::num_to_str(max_disp);
+    }else {
       // No defaults for other algorithms
     }
 
@@ -1489,7 +1499,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
         cmd += " " + mask_file;
       }
       
-      std::cout << cmd << std::endl;
+      vw_out() << cmd << std::endl;
       system(cmd.c_str());
     
       // Read the disparity from disk
@@ -1506,7 +1516,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                    << "have the same dimensions: "
                    << disp_file << ' ' << mask_file << ".\n");
           
-        float nan = numeric_limits<float>::quiet_NaN();
+        float nan = std::numeric_limits<float>::quiet_NaN();
         for (int col = 0; col < local_disp.cols(); col++) {
           for (int row = 0; row < local_disp.rows(); row++) {
             if (mask(col, row) != 0) 
@@ -1551,7 +1561,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   bool   has_georef  = false;
   bool   has_nodata  = false;
   double nodata      = -32768.0;
-  string d_file = opt.out_prefix + "-D.tif";
+  std::string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
   opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),
                                   ASPGlobalOptions::rfne_tile_size());
@@ -1571,8 +1581,8 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    vector<ASPGlobalOptions> opt_vec;
-    string output_prefix;
+    std::vector<ASPGlobalOptions> opt_vec;
+    std::string output_prefix;
     asp::parse_multiview(argc, argv, CorrelationDescription(),
                          verbose, output_prefix, opt_vec);
     ASPGlobalOptions opt = opt_vec[0];

@@ -2,11 +2,11 @@ RELEASE 3.0.0, upcoming!
 
 New functionality:
 
-  * Added the ability to perform picewise local epipolar alignment
-    for the input images, to be followed by a 1D disparity search.
-  * Added new stereo algorithms, including the MGM algorithm as
-    implemented by its author, also OpenCV SGBM, OpenCV BM, MSMW, and
-    MSMW2.
+  * Added new stereo algorithms: MGM (original author implementation),
+    OpenCV SGBM, LIBELAS, MSMW, MSMW2, and OpenCV BM.
+  * Added the ability to perform piecewise local epipolar alignment
+    for the input images, to be followed by a 1D disparity search (for
+    non-mapprojected images).
   * Added the ability for a user to plug into ASP any desired stereo
     program working on image clips to which epipolar alignment has
     been applied (as is customary in the computer vision community)
