@@ -6,7 +6,8 @@ New functionality:
     OpenCV SGBM, LIBELAS, MSMW, MSMW2, and OpenCV BM.
   * Added the ability to perform piecewise local epipolar alignment
     for the input images, to be followed by a 1D disparity search (for
-    non-mapprojected images).
+    non-mapprojected images), as suggested by the Satellite Stereo
+    Pipeline (S2P) approach.
   * Added the ability for a user to plug into ASP any desired stereo
     program working on image clips to which epipolar alignment has
     been applied (as is customary in the computer vision community)
@@ -1305,10 +1306,11 @@ TOOLS:
 - Added new interest point matching method to stereo.
 - Added new DEM seed mode for stereo.
 - Point2dem sped up by reducing over rasterization of triangles.
-- Stereo_corr has local_homography option. Homography transform
-  applied per tile.
+- Added the --use-local-homography option to stereo_corr. Homography
+  transform is applied per tile.
 - Fix point2dem where for certain projections we were setting K=0.
-- Stereo can now operate on terminal only arguments without stereo.default.
+- Stereo can now operate using command-line arguments only, without 
+  stereo.default.
 
 RELEASE 2.1.0, 8 JANUARY 2013
 -----------------------------

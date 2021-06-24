@@ -97,8 +97,7 @@ Alignment method
 For raw images, alignment is always necessary, as the left and right
 images are from different perspectives.  Several alignment methods are
 supported, including ``local_epipolar``, ``affineepipolar`` and
-``homography`` (see :numref:`stereo-default-preprocessing` for
-details).
+``homography`` (see :numref:`image_alignment` for details).
 
 Alternatively, stereo can be performed with map-projected images
 (:numref:`mapproj-example`). In effect we take a smooth
@@ -151,7 +150,7 @@ asp_final_mgm (or specify the value '3')
 **External implementations (shipped with ASP)**
 
 mgm
-   The original MGM implementation. See :numref:`original_mgm`.
+   The MGM implementation by its authors. See :numref:`original_mgm`.
 
 opencv_sgbm
    Semi-global block-matching algorithm from OpenCV 3. See

@@ -84,15 +84,17 @@ alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none)
     (default = affineepipolar)
 
     When ``alignment-method`` is set to ``local_epipolar``,
-    the images are divided into small tiles of size ``--corr-tile-size`` expanded by
-    a padding of ``--sgm-collar-size``, epipolar alignment is
+    the images are divided into small tiles of size
+    ``--corr-tile-size`` expanded by a padding of
+    ``--sgm-collar-size``, epipolar alignment is
     applied to each pair of tiles, making the stereo disparity
     horizontal, then a desired 1D correlation algorithm (specified via
-    ``--stereo-algorithm``) finds this disparity. Then the local alignment
-    is undone for each disparty, the resulting disparties are merged
-    and blended across the tiles, ASP's subpixel refinement is
-    applied, if set via ``--subpixel-mode``, the combined disparity is
-    filtered, and triangulation is performed. This mode works only with
+    ``--stereo-algorithm``) finds this disparity :cite:`de2014automatic`. 
+    Then the local alignment is undone for each disparty, the
+    resulting disparties are merged and blended across the tiles,
+    ASP's subpixel refinement is applied, if set via
+    ``--subpixel-mode``, the combined disparity is filtered, and
+    triangulation is performed. This mode works only with
     ``parallel_stereo``.
 
     When ``alignment-method`` is set to ``affineepipolar``, ``stereo``
