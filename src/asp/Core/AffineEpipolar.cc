@@ -281,22 +281,19 @@ namespace asp {
     vw_out() << "Computing the epipolar rectification matrices "
              << "using RANSAC with " << num_ransac_iterations
              << " iterations and inlier threshold " << inlier_threshold << ".\n";
-    
+
+    // If RANSAC fails, it will throw an exception
     BestFitEpipolarAlignment func(left_image_dims, right_image_dims);
     EpipolarAlignmentError error_metric;
     std::vector<size_t> inlier_indices;
-    try {
-      RandomSampleConsensus<BestFitEpipolarAlignment, EpipolarAlignmentError> 
-        ransac(func, error_metric,
-               num_ransac_iterations, inlier_threshold,
-               min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
+    RandomSampleConsensus<BestFitEpipolarAlignment, EpipolarAlignmentError> 
+      ransac(func, error_metric,
+             num_ransac_iterations, inlier_threshold,
+             min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
     
-      T = ransac(ip1, ip2);
-      
-      inlier_indices = ransac.inlier_indices(T, ip1, ip2);
-    } catch (const RANSACErr& e) {
-      vw_out() << "RANSAC failed: " << e.what() << "\n";
-    }
+    T = ransac(ip1, ip2);
+    inlier_indices = ransac.inlier_indices(T, ip1, ip2);
+
     vw_out() << "Found " << inlier_indices.size() << " / " << ip1.size() << " inliers.\n";
 
     sw.stop();

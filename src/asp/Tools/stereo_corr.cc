@@ -1255,7 +1255,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
     // Rasterize the image first as one block, then write it out using multiple blocks.
     // - If we don't do this, the output image file is not tiled and handles very slowly.
     // - This is possible because with SGM the image must be small enough to fit in memory.
-    ImageView<PixelMask<Vector2f> > result = fullres_disparity;
+    ImageView<PixelMask<Vector2f>> result = fullres_disparity;
     opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),
                                     ASPGlobalOptions::rfne_tile_size());
     vw::cartography::block_write_gdal_image(d_file, result,
@@ -1266,7 +1266,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   } else {
     // Otherwise cast back to integer results to save on storage space.
     vw::cartography::block_write_gdal_image(d_file, 
-                                            pixel_cast<PixelMask<Vector2i> >(fullres_disparity),
+                                            pixel_cast<PixelMask<Vector2i>>(fullres_disparity),
                                             has_left_georef, left_georef,
                                             has_nodata, nodata, opt,
                                             TerminalProgressCallback("asp", "\t--> Correlation :"));
@@ -1274,6 +1274,44 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 
 } // End function stereo_correlation_2D
 
+// A small function we will invoke repeatedly to save the disparity
+void save_disparity(ASPGlobalOptions& opt,
+                    ImageView<PixelMask<Vector2f>> unaligned_disp_2d,
+                    std::string const& out_disp_file) {
+  
+  vw::cartography::GeoReference georef;
+  bool   has_georef  = false;
+  bool   has_nodata  = false;
+  double nodata      = -32768.0;
+  vw_out() << "Writing: " << out_disp_file << "\n";
+  opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),
+                                  ASPGlobalOptions::rfne_tile_size());
+  opt.gdal_options["TILED"] = "YES";
+  vw::cartography::block_write_gdal_image(out_disp_file, unaligned_disp_2d,
+                                          has_georef, georef,
+                                          has_nodata, nodata, opt,
+                                          TerminalProgressCallback
+                                          ("asp", "\t--> Correlation :"));
+}
+
+// Write an empty disparity of given dimensions
+void save_empty_disparity(ASPGlobalOptions& opt,
+                          vw::BBox2i const& crop_win,
+                          std::string const& out_disp_file) {
+
+  vw::ImageView<PixelMask<Vector2f>> disp;
+  disp.set_size(crop_win.width(), crop_win.height());
+  
+  for (int col = 0; col < disp.cols(); col++) {
+    for (int row = 0; row < disp.rows(); row++) {
+      disp(col, row) = PixelMask<Vector2f>();
+      disp(col, row).invalidate();
+    }
+  }
+
+  save_disparity(opt, disp, out_disp_file);
+}
+                    
 /// Stereo correlation function using 1D correlation algorithms
 /// (implemented in ASP and external ones). Local alignment will be
 /// performed before those algorithms are invoked.
@@ -1294,6 +1332,11 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   Matrix<double> right_local_mat = math::identity_matrix<3>();
   std::string left_aligned_file, right_aligned_file;
   int min_disp = -1, max_disp = -1;
+  std::string out_disp_file = opt.out_prefix + "-D.tif";
+
+  // Ensure the disparity is always recreated
+  if (fs::exists(out_disp_file)) 
+    fs::remove(out_disp_file);  
 
   std::string alg_name, user_opts;
   asp::parse_stereo_alg_name_and_opts(stereo_settings().stereo_algorithm,  
@@ -1310,17 +1353,23 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     opt.raster_tile_size = vw::Vector2(-1, -1);
     write_nodata = false; // To avoid warnings from the tif reader in msmw
   }
-  
-  local_alignment(opt, opt.session->name(),
-                  left_trans_crop_win, right_trans_crop_win,  
-                  left_local_mat, right_local_mat,
-                  write_nodata,
-                  left_aligned_file, right_aligned_file,  
-                  min_disp, max_disp);
 
+  try {
+    local_alignment(opt, opt.session->name(),
+                    left_trans_crop_win, right_trans_crop_win,  
+                    left_local_mat, right_local_mat,
+                    write_nodata,
+                    left_aligned_file, right_aligned_file,  
+                    min_disp, max_disp);
+  } catch(std::exception const& e){
+    // If this tile fails, write an empty disparity
+    vw_out() << e.what() << std::endl;
+    save_empty_disparity(opt, left_trans_crop_win, out_disp_file);
+    return;
+  }
+  
   vw_out() << "Min and max disparities: " << min_disp << ' ' << max_disp << std::endl;
   
-  vw::ImageViewRef<float> disp_1d;
   vw::ImageView<PixelMask<Vector2f>> unaligned_disp_2d;
 
   vw::stereo::CorrelationAlgorithm stereo_alg
@@ -1346,7 +1395,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     
     stereo::CostFunctionType cost_mode = get_cost_mode_value();
     Vector2i kernel_size = stereo_settings().corr_kernel;
-    BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
     int corr_timeout = stereo_settings().corr_timeout;
     stereo_settings().seed_mode = 0; // no seed
 
@@ -1385,6 +1433,12 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     
   } else if (stereo_alg == vw::stereo::VW_CORRELATION_OTHER) {
 
+    // External algorithms using 1D disparity
+    
+    vw::ImageViewRef<float> aligned_disp;
+
+    // Set the default options for all algorithms
+    
     std::string default_opts;
     if (alg_name == "mgm") {
       
@@ -1410,6 +1464,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       default_opts = std::string("-i 1 -n 4 -p 4 -W 5 -x 9 -y 9 -r 1 -d 1 -t -1 ")
         + "-s 0 -b 0 -o -0.25 -f 0 -P 32 -D 0 -O 25 -c 0 "
         + "-m " + vw::num_to_str(min_disp) + " -M " + vw::num_to_str(max_disp);
+      
     } else if (alg_name == "libelas"){
       default_opts = std::string("-support_threshold 0.85 -support_texture 10 ")
         + "-candidate_stepsize 5 -incon_window_size 5 "
@@ -1432,8 +1487,14 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     asp::extract_opts_and_env_vars(default_opts + " " + user_opts,  
                                    env_vars, options, option_map);
 
-    std::string disp_file = opt.out_prefix + "-aligned-disparity.tif";
+    std::string aligned_disp_file = opt.out_prefix + "-aligned-disparity.tif";
     std::string mask_file = opt.out_prefix + "-disparity-mask.tif";
+
+    // Ensure the disparity is always recreated
+    if (fs::exists(aligned_disp_file)) 
+      fs::remove(aligned_disp_file);  
+    if (fs::exists(mask_file)) 
+      fs::remove(mask_file);  
     
     if (env_vars != "") 
       env_vars += std::string(" ");
@@ -1453,9 +1514,9 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                              atoi(option_map["-disp12_diff"].c_str()),  
                              atoi(option_map["-texture_thresh"].c_str()),
                              dummy_p1, dummy_p2,
-                             opt, disp_file,  
+                             opt, aligned_disp_file,  
                              // Output
-                             disp_1d);
+                             aligned_disp);
 
     } else if (alg_name == "opencv_sgbm") {
       // Call the OpenCV SGBM algorithm
@@ -1472,9 +1533,9 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                              dummy_texture_thresh,
                              atoi(option_map["-P1"].c_str()),  
                              atoi(option_map["-P2"].c_str()),  
-                             opt, disp_file,  
+                             opt, aligned_disp_file,  
                              // Output
-                             disp_1d);
+                             aligned_disp);
     } else {
 
       // Read the list of plugins
@@ -1492,7 +1553,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       // Call an external program which will write the disparity to disk
       std::string cmd = std::string("LD_LIBRARY_PATH=") + plugin_lib + " "
         + env_vars + plugin_path + " " + options + " " 
-        + left_aligned_file + " " + right_aligned_file + " " + disp_file;
+        + left_aligned_file + " " + right_aligned_file + " " + aligned_disp_file;
       
       if (alg_name == "msmw" || alg_name == "msmw2") {
         // Need to provide the output mask
@@ -1502,48 +1563,63 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       vw_out() << cmd << std::endl;
       system(cmd.c_str());
     
-      // Read the disparity from disk
-      disp_1d = DiskImageView<float>(disp_file);
-
+      // Read the disparity from disk. This may fail, for example, the
+      // disparity may time out or it may not have good data. In that
+      // case just make an empty disparity, as we don't want
+      // the processing of the full image to fail because of a tile.
+      try {
+        aligned_disp = DiskImageView<float>(aligned_disp_file);
+      } catch(std::exception const& e){
+        // If this tile fails, write an empty disparity
+        vw_out() << e.what() << std::endl;
+        save_empty_disparity(opt, left_trans_crop_win, out_disp_file);
+        return;
+      }
+      
       if (alg_name == "msmw" || alg_name == "msmw2") {
         // Apply the mask, which for this algorithm is stored separately.
         // For that need to read things in memory.
-        ImageView<float> local_disp(disp_1d.cols(), disp_1d.rows());
+        ImageView<float> local_disp(aligned_disp.cols(), aligned_disp.rows());
         DiskImageView<vw::uint8> mask(mask_file);
 
         if (local_disp.cols() != mask.cols() || local_disp.rows() != mask.rows()) 
           vw_throw(ArgumentErr() << "Expecting that the following images would "
                    << "have the same dimensions: "
-                   << disp_file << ' ' << mask_file << ".\n");
+                   << aligned_disp_file << ' ' << mask_file << ".\n");
           
         float nan = std::numeric_limits<float>::quiet_NaN();
         for (int col = 0; col < local_disp.cols(); col++) {
           for (int row = 0; row < local_disp.rows(); row++) {
             if (mask(col, row) != 0) 
-              local_disp(col, row) = disp_1d(col, row);
+              local_disp(col, row) = aligned_disp(col, row);
             else
               local_disp(col, row) = nan;
           }
         }
         
         // Assign the image we just made to the handle
-        disp_1d = local_disp;
+        aligned_disp = local_disp;
       }
     }
 
-    {
+    try {
       // Sanity check. Temporarily load the left image.
       DiskImageView<float> left_image(left_aligned_file);
-      if (disp_1d.cols() != left_image.cols() || 
-          disp_1d.rows() != left_image.rows() ) 
-        vw_throw(ArgumentErr() << "Expecting that the 1D disparity " << disp_file
+      if (aligned_disp.cols() != left_image.cols() || 
+          aligned_disp.rows() != left_image.rows() ) 
+        vw_throw(ArgumentErr() << "Expecting that the 1D disparity " << aligned_disp_file
                  << " would have the same dimensions as the left image " << left_aligned_file
                  << ".\n");
+    } catch(std::exception const& e){
+      // If this tile fails, write an empty disparity
+      vw_out() << e.what() << std::endl;
+      save_empty_disparity(opt, left_trans_crop_win, out_disp_file);
+      return;
     }
     
     // Undo the alignment
     asp::unalign_1d_disparity(// Inputs
-                              disp_1d,
+                              aligned_disp,
                               left_trans_crop_win, right_trans_crop_win,  
                               left_local_mat, right_local_mat,  
                               // Output
@@ -1556,20 +1632,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     opt.raster_tile_size = orig_tile_size;
   }
   
-  // Write the disparity to disk
-  cartography::GeoReference georef;
-  bool   has_georef  = false;
-  bool   has_nodata  = false;
-  double nodata      = -32768.0;
-  std::string d_file = opt.out_prefix + "-D.tif";
-  vw_out() << "Writing: " << d_file << "\n";
-  opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),
-                                  ASPGlobalOptions::rfne_tile_size());
-  vw::cartography::block_write_gdal_image(d_file, unaligned_disp_2d,
-                                          has_georef, georef,
-                                          has_nodata, nodata, opt,
-                                          TerminalProgressCallback
-                                          ("asp", "\t--> Correlation :"));
+  save_disparity(opt, unaligned_disp_2d, out_disp_file);
   
 } // End function stereo_correlation_1D
 
