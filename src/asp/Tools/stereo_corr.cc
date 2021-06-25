@@ -1581,7 +1581,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       // Use booost::process to run the given process with timeout.
       bp::child c(cmd, e);
       std::error_code ec;
-      if (!c.wait_for(std::chrono::seconds{timeout}, ec)) {
+      if (!c.wait_for(std::chrono::seconds(timeout), ec)) {
         vw_out() << "\nTimeout reached. Process terminated after "
                  << timeout << " seconds. See the --corr-timeout option.\n";
         c.terminate(ec);
