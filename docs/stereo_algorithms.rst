@@ -425,32 +425,116 @@ SGBM options
     it will be implicitly multiplied by 16. Normally, 1 or 2 is good
     enough.
 
-.. _opencv_bm:
+.. _libelas:
 
-OpenCV BM
----------
+LIBELAS stereo algorithm
+------------------------
 
-The simpler and not as performing block-matching (BM) algorithm of
-OpenCV can be invoked in a very similar manner to SGBM, with the
-algorithm name passed to ``--stereo-algorithm`` being
-``opencv_bm``. It accepts the same parameters except ``-P1`` and
-``-P2``, and uses in addition the option:
+ASP ships and can invoke the ``LIBELAS`` (Library for Efficient
+Large-scale Stereo Matching) algorithm :cite:`Geiger2010ACCV`,
+described at::
 
--texture_thresh (default = 10):
-    The disparity is only computed for pixels whose "texture" measure
-    is no less than this value. Hence lowering this will result in the
-    disparity being computed at more pixels but it may be more
-    erroneous.
+    http://www.cvlibs.net/software/libelas/
 
-The full default string of options that is used by
-``--stereo-algorithm`` is::
+We implemented an interface around this library to overcome its
+assumption of the disparity being always positive, and added other
+minor changes. Our fork having these additions is at::
 
-    "opencv_bm -block_size 21 -texture_thresh 10 -prefilter_cap 31
-     -uniqueness_ratio 15 -speckle_size 100 -speckle_range 32
-     -disp12_diff 1"
+    https://github.com/NeoGeographyToolkit/libelas
 
-and any of these can be modified as for the SGBM algorithm. Notice
-how the BM algorithm has to use a bigger block size than SGBM.
+This software is released under GPL. ASP does not link to it directly,
+rather it gets invoked as via a system call, with its inputs and
+outputs being on disk.
+
+To invoke it, run::
+
+    parallel_stereo --alignment-method local_epipolar \
+    --stereo-algorithm libelas                        \
+    <other options>
+
+If desired to override the values of any of its parameters, those can
+be passed as follows::
+
+    --stereo-algorithm "libelas -ipol_gap_width 100"
+
+(This particular parameter is used to fill holes in the disparity,
+with a larger value resulting in bigger holes being filled.)
+
+The algorithm options, and their defaults, as used by ASP, are as
+follows.
+
+-disp_min (default = 0):
+    Minimum disparity (ASP estimates this unless the user overrides it).
+
+-disp_max (default = 255):
+    Maximum disparity (ASP estimates this unless the user overrides it).
+
+-support_threshold (default = 0.85):
+    Maximum uniqueness ratio (best vs. second-best support match).
+
+-support_texture (default = 10):
+    Minimum texture for support points.
+
+-candidate_stepsize (default = 5):
+    Step size of regular grid on which support points are matched.
+
+-incon_window_size (default = 5):
+    Window size of inconsistent support point check.
+
+-incon_threshold (default = 5):
+    Disparity similarity threshold for support point to be considered
+    consistent.
+
+-incon_min_support (default = 5):
+    Minimum number of consistent support points.
+
+-add_corners (default = 0):
+    Add support points at image corners with nearest neighbor
+    disparities.
+
+-grid_size (default = 20):
+    Size of neighborhood for additional support point extrapolation.
+
+-beta (default = 0.02):
+    Image likelihood parameter.
+
+-gamma (default = 3):
+    Prior constant.
+
+-sigma (default = 1):
+    Prior sigma.
+
+-sradius (default = 2):
+    Prior sigma radius.
+
+-match_texture (default = 1):
+    Minimum texture for dense matching.
+
+-lr_threshold (default = 2):
+    Disparity threshold for left-right consistency check.
+
+-speckle_sim_threshold (default = 1):
+    Similarity threshold for speckle segmentation.
+
+-speckle_size (default = 200):
+    Speckles larger than this get removed.
+
+-ipol_gap_width (default = 3):
+    Fill holes in disparity of height and width at most this value.
+
+-filter_median (default = 0):
+    If non-zero, use an approximate median filter.
+
+-filter_adaptive_mean (default = 1):
+    If non-zero, use an approximate adaptive mean filter.
+
+-postprocess_only_left (default = 0):
+    If non-zero, saves time by not postprocessing the right image.
+
+-verbose (default = 0):
+    If non-zero, print some information about the values of the
+    options being used, as well as what the input and output files
+    are.
 
 .. _msmw:
 
@@ -591,116 +675,33 @@ tool has the additional options:
 -c (default = 0):
     Combine last scale with the previous one to densify the result.
 
-.. _libelas:
+.. _opencv_bm:
 
-LIBELAS stereo algorithm
-------------------------
+OpenCV BM
+---------
 
-ASP ships and can invoke the ``LIBELAS`` (Library for Efficient
-Large-scale Stereo Matching) algorithm :cite:`Geiger2010ACCV`,
-described at::
+The simpler and not as performing block-matching (BM) algorithm of
+OpenCV can be invoked in a very similar manner to OpenCV's SGBM
+(:numref:`opencv_sgbm`), with the algorithm name passed to
+``--stereo-algorithm`` being ``opencv_bm``. It accepts the same
+parameters except ``-P1`` and ``-P2``, and uses in addition the
+option:
 
-    http://www.cvlibs.net/software/libelas/
+-texture_thresh (default = 10):
+    The disparity is only computed for pixels whose "texture" measure
+    is no less than this value. Hence lowering this will result in the
+    disparity being computed at more pixels but it may be more
+    erroneous.
 
-We implemented an interface around this library to overcome its
-assumption of the disparity being always positive, and added other
-minor changes. Our fork having these additions is at::
+The full default string of options that is used by
+``--stereo-algorithm`` is::
 
-    https://github.com/NeoGeographyToolkit/libelas
+    "opencv_bm -block_size 21 -texture_thresh 10 -prefilter_cap 31
+     -uniqueness_ratio 15 -speckle_size 100 -speckle_range 32
+     -disp12_diff 1"
 
-This software is released under GPL. ASP does not link to it directly,
-rather it gets invoked as via a system call, with its inputs and
-outputs being on disk.
-
-To invoke it, run::
-
-    parallel_stereo --alignment-method local_epipolar \
-    --stereo-algorithm libelas                        \
-    <other options>
-
-If desired to override the values of any of its parameters, those can
-be passed as follows::
-
-    --stereo-algorithm "libelas -ipol_gap_width 100"
-
-(This particular parameter is used to fill holes in the disparity,
-with a larger value resulting in bigger holes being filled.)
-
-The algorithm options, and their defaults, as used by ASP, are as
-follows.
-
--disp_min (default = 0):
-    Minimum disparity (ASP estimates this unless the user overrides it).
-
--disp_max (default = 255):
-    Maximum disparity (ASP estimates this unless the user overrides it).
-
--support_threshold (default = 0.85):
-    Maximum uniqueness ratio (best vs. second-best support match).
-
--support_texture (default = 10):
-    Minimum texture for support points.
-
--candidate_stepsize (default = 5):
-    Step size of regular grid on which support points are matched.
-
--incon_window_size (default = 5):
-    Window size of inconsistent support point check.
-
--incon_threshold (default = 5):
-    Disparity similarity threshold for support point to be considered
-    consistent.
-
--incon_min_support (default = 5):
-    Minimum number of consistent support points.
-
--add_corners (default = 0):
-    Add support points at image corners with nearest neighbor
-    disparities.
-
--grid_size (default = 20):
-    Size of neighborhood for additional support point extrapolation.
-
--beta (default = 0.02):
-    Image likelihood parameter.
-
--gamma (default = 3):
-    Prior constant.
-
--sigma (default = 1):
-    Prior sigma.
-
--sradius (default = 2):
-    Prior sigma radius.
-
--match_texture (default = 1):
-    Minimum texture for dense matching.
-
--lr_threshold (default = 2):
-    Disparity threshold for left-right consistency check.
-
--speckle_sim_threshold (default = 1):
-    Similarity threshold for speckle segmentation.
-
--speckle_size (default = 200):
-    Speckles larger than this get removed.
-
--ipol_gap_width (default = 3):
-    Fill holes in disparity of height and width at most this value.
-
--filter_median (default = 0):
-    If non-zero, use an approximate median filter.
-
--filter_adaptive_mean (default = 1):
-    If non-zero, use an approximate adaptive mean filter.
-
--postprocess_only_left (default = 0):
-    If non-zero, saves time by not postprocessing the right image.
-
--verbose (default = 0):
-    If non-zero, print some information about the values of the
-    options being used, as well as what the input and output files
-    are.
+and any of these can be modified as for the SGBM algorithm. Notice
+how the BM algorithm has to use a bigger block size than SGBM.
 
 .. _adding_algos:
 

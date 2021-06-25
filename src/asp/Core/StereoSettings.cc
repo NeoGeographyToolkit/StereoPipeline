@@ -249,7 +249,7 @@ namespace asp {
       ("corr-timeout",           po::value(&global.corr_timeout)->default_value(900),
                      "Correlation timeout for an image tile, in seconds.")
       ("stereo-algorithm",       po::value(&global.stereo_algorithm)->default_value("asp_bm"),
-                     "Stereo algorithm to use. Options: asp_bm, asp_sgm, asp_mgm, asp_final_mgm, mgm.")
+                     "Stereo algorithm to use. Options: asp_bm, asp_sgm, asp_mgm, asp_final_mgm, mgm (original author implementation), opencv_sgbm, libelas, msmw, msmw2, and opencv_bm.")
       ("corr-blob-filter",       po::value(&global.corr_blob_filter_area)->default_value(0),
                      "Filter blobs this size or less in correlation pyramid step.")
       ("corr-tile-size",         po::value(&global.corr_tile_size_ovr)->default_value(ASPGlobalOptions::corr_tile_size()),
