@@ -835,17 +835,36 @@ the reference DEM and see which agree with the reference the most
 (even though the SfS DEM and the reference DEM can be quite different,
 it is possible to notice subtle shifts upon careful inspection).
 
-It is very recommended to redo the whole process using this improved
+If this approach fails to remove the visually noticeable displacement
+between the SfS and LOLA terrain, one can try to nudge the SfS terrain
+manually, by using ``pc_align`` as::
+
+   pc_align --initial-ned-translation                             \
+     "north_shift east_shift down_shift"                          \
+     ref.tif sfs_dem.tif -o align/run --num-iterations 0          \
+     --max-displacement -1 --save-transformed-source-points       \
+     --max-num-reference-points 1000 --max-num-source-points 1000
+
+Here, value of ``down_shift`` should be 0, as we attempt a horizontal
+shift. For the other ones one may try some values and observe their
+effect in moving the SfS terrain to the desired place. The transform
+obtained by using these numbers will be saved in
+``align/run-transform.txt`` (while being converted from the local
+North-East-Down coordinates to ECEF) and can be used below instead of
+the transform obtained with invoking
+``--initial-transform-from-hillshading``.
+
+It is very recommended to redo the whole process using the improved
 alignment. First, the alignment transform must be applied to the
 camera adjustments, by invoking bundle adjustment as earlier, with the
 best cameras so far provided via ``--input-adjustments-prefix`` and
-the latest transform passed to ``--initial-transform``. Then, another
-pass of bundle adjustment while doing registration to the ground
-should take place as earlier, with the ``--heights-from-dem`` and
-other related options. Lastly mapprojection and SfS should be
-repeated. (Any bundle adjustment operation can reuse the match files
-from previous attempts if copying them over to the new output
-directory.)
+the latest ``pc_align`` transform passed to
+``--initial-transform``. Then, another pass of bundle adjustment while
+doing registration to the ground should take place as earlier, with
+``--heights-from-dem`` and other related options. Lastly mapprojection
+and SfS should be repeated. (Any bundle adjustment operation can reuse
+the match files from previous attempts if copying them over to the new
+output directory.)
 
 Ideally, after all this, there should be no systematic offset
 between the SfS terrain and the reference LOLA terrain.
