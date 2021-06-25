@@ -352,10 +352,18 @@ Building the documentation
 The ASP documentation is encoded in ReStructured Text and is built
 with the Sphinx-Doc system (https://www.sphinx-doc.org) with 
 sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
-These packages are already part of the `asp_deps` environment,
-but can be downloaded separately.
+These packages can be installed and activated as follows::
 
-Note that in order to build the PDF (but not the HTML) document a full
+    conda create -n sphinx python=3.6 sphinx==3.5.4 \
+      sphinxcontrib-bibtex==2.1.4  
+    conda activate sphinx
+
+Note that we used a separate conda environment to minimize the chance
+of conflict with other dependencies. Also, sphinx version 4 seems to
+have trouble compiling our documentation, hence a lower version is
+used here.
+
+In order to build the PDF (but not the HTML) document, a full
 LaTeX distribution is also necessary, which is not installable with
 conda at this time, and whose installation may be specific to your
 system.
@@ -371,4 +379,3 @@ Building ASP and its dependencies with conda
 --------------------------------------------
 
 This is an advanced topic discussed in :numref:`conda_build`.
-

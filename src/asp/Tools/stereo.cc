@@ -17,7 +17,6 @@
 
 
 /// \file stereo.cc
-///
 
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Stereo/StereoView.h>

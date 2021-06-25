@@ -54,13 +54,11 @@ Install the desired version of ISIS::
 
     conda install isis==4.4.0
 
-Search for the latest version of the ``usgscsm`` package::
+Search and install the latest version of the ``usgscsm`` package,
+for example, as::
 
     conda search -c conda-forge --override-channels usgscsm
-
-Here we will install the latest version of this, which is 1.5.1::
-
-    conda install -c conda-forge usgscsm==1.5.1
+    conda install -c conda-forge usgscsm==1.5.2
 
 Save the current environment as follows::
 
