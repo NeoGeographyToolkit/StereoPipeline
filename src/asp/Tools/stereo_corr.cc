@@ -36,6 +36,9 @@
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Tools/stereo.h>
 
+#include <boost/process.hpp>
+#include <boost/process/env.hpp>
+
 #include <opencv2/stereo.hpp>
 
 #include <xercesc/util/PlatformUtils.hpp>
@@ -43,6 +46,7 @@
 using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
+namespace bp = boost::process;
 
 /// Returns the properly cast cost mode type
 stereo::CostFunctionType get_cost_mode_value() {
@@ -1482,10 +1486,12 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
     // Parse the algorithm options and environmental variables from the default
     // options and append the user options (the latter take precedence).
-    std::string env_vars, options;
+    std::string options, env_vars;
     std::map<std::string, std::string> option_map;
+    std::map<std::string, std::string> env_vars_map;
     asp::extract_opts_and_env_vars(default_opts + " " + user_opts,  
-                                   env_vars, options, option_map);
+                                   options, option_map,
+                                   env_vars, env_vars_map);
 
     std::string aligned_disp_file = opt.out_prefix + "-aligned-disparity.tif";
     std::string mask_file = opt.out_prefix + "-disparity-mask.tif";
@@ -1496,9 +1502,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     if (fs::exists(mask_file)) 
       fs::remove(mask_file);  
     
-    if (env_vars != "") 
-      env_vars += std::string(" ");
-
     if (alg_name == "opencv_bm") {
       // Call the OpenCV BM algorithm
       std::string mode = "bm";
@@ -1549,20 +1552,41 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       
       std::string plugin_path = it1->second;
       std::string plugin_lib = it2->second;
-          
+
+      // Set up the environemnt
+      bp::environment e = boost::this_process::environment();
+      e["LD_LIBRARY_PATH"] = plugin_lib;   // For Linux
+      e["DYLD_LIBRARY_PATH"] = plugin_lib; // For OSX
+      vw_out() << "Path to libraries: " << plugin_lib << std::endl;
+      for (auto it = env_vars_map.begin(); it != env_vars_map.end(); it++) {
+        e[it->first] = it->second;
+      }
+      
       // Call an external program which will write the disparity to disk
-      std::string cmd = std::string("LD_LIBRARY_PATH=") + plugin_lib + " "
-        + env_vars + plugin_path + " " + options + " " 
+      std::string cmd = plugin_path + " " + options + " " 
         + left_aligned_file + " " + right_aligned_file + " " + aligned_disp_file;
       
       if (alg_name == "msmw" || alg_name == "msmw2") {
         // Need to provide the output mask
         cmd += " " + mask_file;
       }
-      
+
+      int timeout = stereo_settings().corr_timeout;
+
+      if (env_vars != "") 
+        vw_out() << "Using environmental variables: " << env_vars << std::endl;
+
       vw_out() << cmd << std::endl;
-      system(cmd.c_str());
-    
+
+      // Use booost::process to run the given process with timeout.
+      bp::child c(cmd, e);
+      std::error_code ec;
+      if (!c.wait_for(std::chrono::seconds{timeout}, ec)) {
+        vw_out() << "\nTimeout reached. Process terminated after "
+                 << timeout << " seconds. See the --corr-timeout option.\n";
+        c.terminate(ec);
+      }      
+        
       // Read the disparity from disk. This may fail, for example, the
       // disparity may time out or it may not have good data. In that
       // case just make an empty disparity, as we don't want

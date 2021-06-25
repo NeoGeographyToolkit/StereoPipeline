@@ -247,7 +247,7 @@ namespace asp {
       ("use-local-homography",   po::bool_switch(&global.use_local_homography)->default_value(false)->implicit_value(true),
                      "Apply a local homography in each tile.")
       ("corr-timeout",           po::value(&global.corr_timeout)->default_value(900),
-                     "Correlation timeout for a tile, in seconds.")
+                     "Correlation timeout for an image tile, in seconds.")
       ("stereo-algorithm",       po::value(&global.stereo_algorithm)->default_value("asp_bm"),
                      "Stereo algorithm to use. Options: asp_bm, asp_sgm, asp_mgm, asp_final_mgm, mgm.")
       ("corr-blob-filter",       po::value(&global.corr_blob_filter_area)->default_value(0),

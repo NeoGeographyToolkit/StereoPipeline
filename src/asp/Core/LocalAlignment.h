@@ -94,9 +94,10 @@ namespace asp {
   // space, period, underscore, plus, minus, and equal signs, for
   // security purposes.
   void extract_opts_and_env_vars(std::string const& input_str,
-                                 std::string & env_vars,
                                  std::string & options,
-                                 std::map<std::string, std::string> & option_map);
+                                 std::map<std::string, std::string> & option_map,
+                                 std::string & env_vars,
+                                 std::map<std::string, std::string> & env_vars_map);
 
   // Call the OpenCV BM or SGBM algorithm
   void call_opencv_bm_or_sgbm(std::string const& left_file,

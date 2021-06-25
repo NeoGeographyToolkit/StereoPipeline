@@ -417,10 +417,8 @@ rm-quantile-multiple (*double*) (default = -1)
     but that have disparities significantly greater than the rest of
     the image.
 
-corr-timeout (*integer*) (default = 1800)
-    Correlation timeout for an image tile, in seconds. A non-positive
-    value will result in no timeout enforcement. A value of 600 seconds
-    should be sufficient in most cases.
+corr-timeout (*integer*) (default = 900)
+    Correlation timeout for an image tile, in seconds.
 
 corr-blob-filter (*integer*) (default = 0)
     Set to apply a blob filter in each level of pyramidal integer

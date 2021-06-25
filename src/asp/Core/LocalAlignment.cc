@@ -617,11 +617,15 @@ namespace asp {
   // space, period, underscore, plus, minus, and equal signs, for
   // security purposes.
   void extract_opts_and_env_vars(std::string const& input_str,
-                                 std::string & env_vars,
                                  std::string & options,
-                                 std::map<std::string, std::string> & option_map) {
+                                 std::map<std::string, std::string> & option_map,
+                                 std::string & env_vars,
+                                 std::map<std::string, std::string> & env_vars_map) {
 
+    options = "";
+    env_vars = "";
     option_map.clear();
+    env_vars_map.clear();
     
     // Input validation
     for (size_t it = 0; it < input_str.size(); it++) {
@@ -648,9 +652,6 @@ namespace asp {
     // first occurrence.
     std::map<std::string, int> opt_to_pos;
     std::map<int, std::string> pos_to_opt;
-    
-    // Populate the env vars and the options starting with a dash
-    std::map<std::string, std::string> env_vars_map;
 
     for (size_t it = 0; it < tokens.size(); it++) {
 
@@ -718,7 +719,7 @@ namespace asp {
     }
     
     // Now that the repeated options have been collapsed, put these back in strings
-    options = concatenate_optons(option_map, pos_to_opt, " ");
+    options  = concatenate_optons(option_map, pos_to_opt, " ");
     env_vars = concatenate_optons(env_vars_map, pos_to_opt, "=");
   }
 

@@ -196,7 +196,7 @@ ASP ships the MGM algorithm as implemented by its authors
 
 That program is released under the AGPL license. We do not link to it
 directly, rather it is called as a separate process from
-``parallel_stereo``, avoiding license compatibility issues.
+``stereo_corr``, avoiding license compatibility issues.
 
 To use it, run::
 
