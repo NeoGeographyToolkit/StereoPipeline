@@ -929,6 +929,17 @@ described earlier, and the weight which tells how much the SfS DEM
 contributed to the blended DEM. See this tool's :ref:`manual page
 <sfs_blend>` for more details.
 
+(Note that if one tries to blend an SfS terrain obtained after
+``pc_align``, that won't have the same extent as the LOLA terrain,
+which will make this command fail. It is suggested that the input LOLA
+terrain be prepared with ``gdalwarp -te <corners>`` as described
+earlier, and then the SfS terrain be regenerated starting with this
+terrain, with any desried transform applied to the cameras before
+``parallel_sfs`` is rerun, and then the extent of the LOLA and SfS
+terrains will agree. Or, though this is not recommended, the SfS
+terrain which exists so far and the LOLA terrain can both be
+interpolated using the same ``gdalwarp -te <corners>`` command.)
+
 The error in the SfS DEM (before or after the blending with LOLA) 
 can be estimated as::
 
