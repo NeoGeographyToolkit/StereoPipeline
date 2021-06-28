@@ -454,15 +454,15 @@ Python management system at
 
   https://docs.conda.io/en/latest/miniconda.html
 
-to install these dependencies. This can be done as follows:
+to install these dependencies. This can be done as follows::
 
-     conda create --name sparse_disp -c conda-forge python=3.6 gdal
-     conda activate sparse_disp
-     conda install -c conda-forge scipy pyfftw
+    conda create --name sparse_disp -c conda-forge python=3.6 gdal
+    conda activate sparse_disp
+    conda install -c conda-forge scipy pyfftw
 
-Then set 
+Then set:: 
 
-  export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.6/site-packages
+    export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.6/site-packages
 
 if you used the default installation path for conda before running
 `stereo`.
