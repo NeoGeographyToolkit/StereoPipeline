@@ -10,11 +10,6 @@ set(ASP_VERSION ${PACKAGE_VERSION})
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/stereo_utils.py.in 
                ${CMAKE_CURRENT_SOURCE_DIR}/stereo_utils.py)
 
-# Not actually changing things here, this is just done
-#  to keep compatibility with the Autotools code.
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/stereo.in 
-               ${CMAKE_CURRENT_SOURCE_DIR}/stereo)
-
 # Install all of the python files.
 set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
                  lronac2mosaic.py     #merge_orbitviz.py
@@ -37,12 +32,7 @@ foreach(p ${PYTHON_LIBS})
 endforeach()
 
 # Shorthand for a common set of libraries.
-set(SOLVER_LIBRARIES  ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
-
-
-# Does anything use this header?
-## Install common header
-#INSTALL(FILES "stereo.h" DESTINATION include/asp/Tools)
+set(SOLVER_LIBRARIES ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
 
 add_executable(aster2asp aster2asp.cc)
 target_link_libraries(aster2asp AspSessions)
