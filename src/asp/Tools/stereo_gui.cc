@@ -190,9 +190,11 @@ int main(int argc, char** argv) {
             images.push_back(file);
         }
       }catch (std::exception& e2){
-        vw_throw(ArgumentErr() << "Use either the stereo or the image viewer interface.\n"
-                 << "stereo error: " << e.what()  << "\n"
-                 << "viewer error: " << e2.what() << "\n");
+        vw_throw(ArgumentErr() << "\nWhen trying to parse the stereo options, got the error:\n"
+                 << e.what()  << "\n"
+                 "However, when trying to simply view the images, got a different error:\n"
+                 << e2.what() << "\n"
+                 "Likely the earliest error is more suggestive about what went wrong.\n");
       }
 
       // Presumably the tool was invoked with no options. Just print the help message.
