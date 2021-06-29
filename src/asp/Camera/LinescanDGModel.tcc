@@ -32,7 +32,7 @@ namespace asp {
 template <class PositionFuncT, class PoseFuncT>
 vw::camera::PinholeModel LinescanDGModel<PositionFuncT, PoseFuncT>::linescan_to_pinhole(double y) const {
 
-  double t = this->m_time_func( y );
+  double t = this->m_time_func(y);
   return vw::camera::PinholeModel(this->m_position_func(t),  this->m_pose_func(t).rotation_matrix(),
 				  this->m_focal_length, -this->m_focal_length,
 				  -this->m_detector_origin[0], y - this->m_detector_origin[1]
@@ -100,15 +100,6 @@ vw::Vector2 LinescanDGModel<PositionFuncT, PoseFuncT>::point_to_pixel_uncorrecte
   return vw::Vector2(pt.x() - m_detector_origin[0], solution[0]);
 }
 
-
-
-
-
-
-
-
-
-
 // -----------------------------------------------------------------
 // LinescanDGModel solver functions
 
@@ -154,8 +145,7 @@ inline boost::posix_time::ptime parse_time(std::string str)
   return boost::posix_time::time_from_string(str); // Never reached!
 }
 
-boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const& path)
-{
+boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const& path){
   //vw_out() << "DEBUG - Loading DG camera file: " << camera_file << std::endl;
 
   // Parse the Digital Globe XML file
@@ -166,10 +156,12 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
   RPCXML       rpc;
 
   try {
-    read_xml( path, geo, att, eph, img, rpc );
-  } catch ( const std::exception& e ){
-    vw::vw_throw(vw::ArgumentErr() << "Invalid Digital Globe XML file: " << path
-		 << ". If you are not using Digital Globe images, you may need to specify the session type, such as -t rpc, -t rpcmaprpc, -t aster, etc.\n"
+    read_xml(path, geo, att, eph, img, rpc);
+  } catch (const std::exception& e){
+    vw::vw_throw(vw::ArgumentErr() << "Invalid Digital Globe XML file: " << path << ". "
+                 << "If you are not using Digital Globe images, you may "
+                 << "need to specify the session type, such as -t rpc, "
+                 << "-t rpcmaprpc, -t aster, etc.\n"
 		 << e.what() << "\n");
   }
   

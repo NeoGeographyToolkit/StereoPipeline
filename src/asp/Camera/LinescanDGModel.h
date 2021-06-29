@@ -54,27 +54,27 @@ namespace asp {
     // Constructors / Destructors
     //------------------------------------------------------------------
     LinescanDGModel(PositionFuncT const& position,
-		                vw::camera::LinearPiecewisePositionInterpolation const& velocity,
-	                  PoseFuncT     const& pose,
-	                  vw::camera::TLCTimeInterpolation                 const& time,
-	                  vw::Vector2i  const& image_size,
-	                  vw::Vector2   const& detector_origin,
-	                  double        const  focal_length,
-	                  double        const  mean_ground_elevation=0,
-	                  bool                 correct_velocity=true,
-	                  bool                 correct_atmosphere=true
+                    vw::camera::LinearPiecewisePositionInterpolation const& velocity,
+                    PoseFuncT     const& pose,
+                    vw::camera::TLCTimeInterpolation                 const& time,
+                    vw::Vector2i  const& image_size,
+                    vw::Vector2   const& detector_origin,
+                    double        const  focal_length,
+                    double        const  mean_ground_elevation=0,
+                    bool                 correct_velocity=true,
+                    bool                 correct_atmosphere=true
 		    ) : vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
 		        m_position_func(position), m_velocity_func(velocity),
-            m_pose_func(pose),         m_time_func(time),
-            m_detector_origin(detector_origin),
-            m_focal_length(focal_length) {
-          m_mean_surface_elevation = mean_ground_elevation; // Set base class value
-        } 
+                        m_pose_func(pose),         m_time_func(time),
+                        m_detector_origin(detector_origin),
+                        m_focal_length(focal_length) {
+      m_mean_surface_elevation = mean_ground_elevation; // Set base class value
+    } 
     virtual ~LinescanDGModel() {}
     virtual std::string type() const { return "LinescanDG"; }
 
     // -- This set of functions implements virtual functions from LinescanModel.h --
-
+    
     // Implement the functions from the LinescanModel class using functors
     virtual vw::Vector3 get_camera_center_at_time  (double time) const { return m_position_func(time); }
     virtual vw::Vector3 get_camera_velocity_at_time(double time) const { return m_velocity_func(time); }
