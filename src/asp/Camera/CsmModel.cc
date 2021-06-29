@@ -117,12 +117,17 @@ std::string CsmModel::get_csm_plugin_folder(){
 
   std::string plugin_path;
   char * plugin_path_arr = getenv("CSM_PLUGIN_PATH");
+
+  char * isis_root = getenv("ISISROOT");
+  if (isis_root == "")
+    vw_throw(vw::ArgumentErr() << "The variable ISISROOT was not set.\n");
+  
   if (plugin_path_arr != NULL && std::string(plugin_path_arr) != ""){
     plugin_path = std::string(plugin_path_arr);
   }else{
     // This is for when ASP is installed without the deploy file.
     // vw_out() << "The environmental variable CSM_PLUGIN_PATH was not set.\n";
-    fs::path try_path = boost::dll::program_location().parent_path().parent_path();
+    fs::path try_path(isis_root);
     try_path /= "lib";
     plugin_path = try_path.string();
     //vw_out() << "Looking in " << plugin_path << ".\n";
@@ -130,7 +135,7 @@ std::string CsmModel::get_csm_plugin_folder(){
 
   if (!fs::exists(plugin_path)){
     vw_throw( ArgumentErr() << "Could not find CSM plugin folder: " << plugin_path << ".\n"
-              << "Check the value of environmental variable CSM_PLUGIN_PATH.");
+              << "Check the value of the environmental variable CSM_PLUGIN_PATH.");
   }
 
   return plugin_path;
