@@ -166,7 +166,7 @@ def create_subproject_dirs( settings, **kw ):
         tile_prefix    = subproject_dir + "/" + tile.name_str()
         if opt.dryrun:
             print("mkdir -p %s" % subproject_dir)
-            print("soft linking via %s %s" % (tile_prefix, out_prefix))
+            print("Soft linking via %s %s" % (tile_prefix, out_prefix))
         else:
             mkdir_p(subproject_dir)
 
@@ -602,7 +602,7 @@ if __name__ == '__main__':
                    help='The list of computing nodes, one per line. ' + \
                    'If not provided, run on the local machine.')
     p.add_argument('--ssh',                  dest='ssh', default=None,
-                   help='The path to ssh program to use to connect to other nodes')
+                   help='The path to the ssh program to use to connect to other nodes')
     p.add_argument('--processes',            dest='processes', default=None,
                    type=int, help='The number of processes to use per node.')
     p.add_argument('--threads-multiprocess', dest='threads_multi', default=None,
@@ -646,9 +646,10 @@ if __name__ == '__main__':
                    help=argparse.SUPPRESS)
     p.add_argument('--isisdata', dest='isisdata', default=None,
                    help=argparse.SUPPRESS)
-    # Debug options
+
+    # Debug option
     p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
-                   help=argparse.SUPPRESS)
+                   help="Do not launch the jobs, only print the commands that should be run.")
 
     global opt
     (opt, args) = p.parse_known_args()

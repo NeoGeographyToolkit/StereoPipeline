@@ -29,7 +29,7 @@ in the same way as regular binary TIF files.
 
 If your jobs are launched on a cluster or supercomputer, the name of the
 file containing the list of nodes may exist as an environmental
-variable. For example, on NASA’s Pleiades Supercomputer, which uses the
+variable. For example, on NASA's Pleiades Supercomputer, which uses the
 Portable Batch System (PBS), the list of nodes can be retrieved as
 $PBS_NODEFILE.
 
@@ -95,3 +95,9 @@ These can be customized as shown in the options below.
 --threads-singleprocess <integer>
     The number of threads to use when running a single process (for
     pre-processing and filtering).
+
+--dry-run
+    Do not launch the jobs, only print the commands that should be
+    run.
+
+   
