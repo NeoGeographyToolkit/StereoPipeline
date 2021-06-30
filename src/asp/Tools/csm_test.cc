@@ -44,7 +44,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("General Options");
   general_options.add_options()
     ("dem",   po::value(&opt.dem_file),
-     "Specify the dem to use for the mask, it should have no-data values only where water is.")
+     "Specify the dem to use to project points into the ISIS and CSM camera models.")
     ("sample-rate",   po::value(&opt.sample_rate)->default_value(1),
      "Use one out of these many pixels when sampling the DEM.");
     
@@ -80,9 +80,8 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments(argc, argv, opt);
 
-    std::cout << "image is " << opt.image_file << std::endl;
-    std::cout << "camera is " << opt.camera_file << std::endl;
-    std::cout << "dem is " << opt.dem_file << std::endl;
+    std::cout << "Image is " << opt.image_file << std::endl;
+    std::cout << "Camera is " << opt.camera_file << std::endl;
     
     // Read the DEM and its associated data
     // TODO(oalexan1): Think more about the interpolation method

@@ -32,6 +32,7 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/IsisIO/IsisCameraModel.h>
 
 namespace asp {
 
@@ -126,22 +127,21 @@ namespace asp {
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
                                              bool use_sphere_for_datum) const {
-      const CsmModel * csm_cam
-        = dynamic_cast<const CsmModel*>(vw::camera::unadjusted_model(cam));
-      VW_ASSERT(csm_cam != NULL, vw::ArgumentErr() << "StereoSessionCsm: Invalid camera.\n");
-      vw::Vector3 radii = csm_cam->target_radii();
-      double radius1 = (radii[0] + radii[1]) / 2; // average the x and y radii (semi-major axis)
-      double radius2 = radius1;
-      if (!use_sphere_for_datum) {
-        radius2 = radii[2]; // the z radius (semi-minor axis)
-      }
+
+      // The CSM model does not have the datum name, hence have to get it
+      // from the ISIS camera.
+      boost::shared_ptr<vw::camera::CameraModel> isis_cam
+        = m_camera_loader.load_isis_camera_model(m_left_image_file);
       
-      // TODO(oalexan1): Find here a datum name based on the radii
-      vw::cartography::Datum datum("Unspecified", "Unspecified", "Reference Meridian",
-                                   radius1, radius2, 0.0);
-      return datum;
+      const vw::camera::IsisCameraModel * cast_isis_cam
+        = dynamic_cast<const vw::camera::IsisCameraModel*>
+        (vw::camera::unadjusted_model(isis_cam.get()));
+      VW_ASSERT(cast_isis_cam != NULL,
+                vw::ArgumentErr() << "Could not load an ISIS camera from "
+                << m_left_image_file << ".\n");
+      
+      return cast_isis_cam->get_datum(use_sphere_for_datum);
     }
-    
     
   protected:
     /// Function to load a camera model of the particular type.

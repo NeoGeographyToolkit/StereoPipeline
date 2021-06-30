@@ -91,16 +91,31 @@ namespace camera {
       return m_interface->sun_position( pix );
     }
 
-    // The three main radii that make up the spheroid. Z is out the polar region.
+    // The three main radii that make up the spheroid. Z is out the polar region
     Vector3 target_radii() const {
       return m_interface->target_radii();
     }
 
-    // The spheroid name.
+    // The spheroid name
     std::string target_name() const {
       return m_interface->target_name();
     }
 
+    // The datum
+    vw::cartography::Datum get_datum(bool use_sphere_for_datum) const {
+      
+      vw::Vector3 radii = this->target_radii();
+      double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
+      double radius2 = radius1;
+      if (!use_sphere_for_datum) {
+        radius2 = radii[2]; // the z radius (semi-minor axis)
+      }
+      
+      vw::cartography::Datum datum("D_" + this->target_name(), this->target_name(),
+                                   "Reference Meridian", radius1, radius2, 0);
+      return datum;
+    }
+    
   protected:
     boost::shared_ptr<asp::isis::IsisInterface> m_interface;
 

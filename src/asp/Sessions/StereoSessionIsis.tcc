@@ -227,16 +227,8 @@ vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraMode
   const IsisCameraModel * isis_cam
     = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid camera.\n");
-  Vector3 radii = isis_cam->target_radii();
-  double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
-  double radius2 = radius1;
-  if (!use_sphere_for_datum) {
-    radius2 = radii[2]; // the z radius (semi-minor axis)
-  }
 
-  cartography::Datum datum("D_" + isis_cam->target_name(), isis_cam->target_name(),
-                           "Reference Meridian", radius1, radius2, 0);
-  return datum;
+  return isis_cam->get_datum(use_sphere_for_datum);
 }
 
 // TODO: Can we share more code with the DG implementation?

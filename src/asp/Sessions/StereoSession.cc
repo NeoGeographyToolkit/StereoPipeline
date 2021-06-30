@@ -48,13 +48,13 @@ using namespace vw;
 namespace asp {
 
   // Pass over all the string variables we use
-  void StereoSession::initialize( vw::cartography::GdalWriteOptions const& options,
-                                  std::string const& left_image_file,
-                                  std::string const& right_image_file,
-                                  std::string const& left_camera_file,
-                                  std::string const& right_camera_file,
-                                  std::string const& out_prefix,
-                                  std::string const& input_dem) {
+  void StereoSession::initialize(vw::cartography::GdalWriteOptions const& options,
+                                 std::string const& left_image_file,
+                                 std::string const& right_image_file,
+                                 std::string const& left_camera_file,
+                                 std::string const& right_camera_file,
+                                 std::string const& out_prefix,
+                                 std::string const& input_dem) {
     m_options           = options;
     m_left_image_file   = left_image_file;
     m_right_image_file  = right_image_file;
@@ -63,7 +63,7 @@ namespace asp {
     m_out_prefix        = out_prefix;
     m_input_dem         = input_dem;
     
-    // Do any other initalization steps needed
+    // Do any other initialization steps needed
     init_disk_transform();
   }
 
