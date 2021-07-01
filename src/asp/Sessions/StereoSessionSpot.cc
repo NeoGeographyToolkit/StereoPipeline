@@ -49,35 +49,13 @@ namespace fs = boost::filesystem;
 
 namespace asp {
 
-  vw::cartography::GeoReference StereoSessionSpot::get_georef() {
-
-    // SPOT5 images never have georef information!
-    // The best we can do is to set the datum to what SPOT5 always uses and
-    // stick it inside a fake georef object.
-
-    vw::cartography::GeoReference georef = vw::cartography::GeoReference();
-    Matrix3x3 transform = georef.transform();
-    // assume these are degrees, does not mater much, but it needs be small enough
-    double small = 1e-8;
-    transform(0,0) = small;
-    transform(1,1) = small;
-    transform(0,2) = small;
-    transform(1,2) = small;
-    georef.set_transform(transform);
-    georef.set_geographic();
-
-    georef.set_datum(vw::cartography::Datum("WGS84"));
-
-    return georef;
-  }
-
   boost::shared_ptr<vw::camera::CameraModel>  StereoSessionSpot::load_camera_model
-    (std::string const& image_file, std::string const& camera_file, Vector2 pixel_offset) const{
-
+  (std::string const& image_file, std::string const& camera_file, Vector2 pixel_offset) const{
+    
     return load_adjusted_model(m_camera_loader.load_spot5_camera_model(camera_file),
-                              image_file, camera_file, pixel_offset);
+                               image_file, camera_file, pixel_offset);
   }
-
+  
   void StereoSessionSpot::
   pre_preprocessing_hook(bool adjust_left_image_size,
 			 std::string const& left_input_file,
@@ -289,7 +267,7 @@ unshared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
                             vw::cartography::GeoReference     & right_georef){
 
   // To simplify reintegration later, most of this function has been left the same
-  //  as the general purpose function even if it could be simplified for the SPOT5 case.
+  // as the general purpose function even if it could be simplified for the SPOT5 case.
 
   // Retrieve nodata values and let the handles go out of scope right away.
   // - SPOT5 does not support nodata values, but this will handle user-provided values.

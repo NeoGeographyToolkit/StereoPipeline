@@ -23,11 +23,18 @@
 #ifndef __ASP_ISIS_INTERFACE_H__
 #define __ASP_ISIS_INTERFACE_H__
 
+// Must include foreach.hpp before Cube.h as otherwise there will be
+// an issue with Qt imported by Cube.h.
+#include <boost/foreach.hpp>
+
 // VW & ASP
-#include <string>
-#include <Cube.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
+
+// Isis include
+#include <Cube.h>
+
+#include <string>
 
 namespace Isis {
   class Pvl;

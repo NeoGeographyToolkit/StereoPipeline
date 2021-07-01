@@ -56,9 +56,6 @@ namespace asp {
                                         std::string      & left_output_file,
                                         std::string      & right_output_file);
 
-    /// Override the base class implementation, SPOT5 images never have georef.
-    virtual vw::cartography::GeoReference get_georef();
-
     /// Specialization of shared_preprocessing_hook currently required for this class.
     bool unshared_preprocessing_hook(vw::cartography::GdalWriteOptions  & options,
                                      std::string const             & left_input_file,
@@ -79,9 +76,10 @@ namespace asp {
 
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
-                                                                         std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) const;
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const;
   };
 
 
