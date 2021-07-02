@@ -34,6 +34,13 @@
 #include <csm/RasterGM.h>
 #include <nlohmann/json.hpp>
 
+// USGSCSM linescan
+#include <usgscsm/UsgsAstroLsSensorModel.h>
+#include <usgscsm/Utilities.h>
+
+#include <ale/Rotation.h>
+#include <Eigen/Geometry>
+
 namespace dll = boost::dll;
 namespace fs = boost::filesystem;
 using json = nlohmann::json;
@@ -93,8 +100,7 @@ Vector2 imageCoordToVector(csm::ImageCoord c) {
 
 // -----------------------------------------------------------------
 // CsmModel class functions
-
-  CsmModel::CsmModel():m_semi_major_axis(0.0), m_semi_minor_axis(0.0) {
+CsmModel::CsmModel():m_semi_major_axis(0.0), m_semi_minor_axis(0.0) {
 }
 
 CsmModel::CsmModel(std::string const& isd_path) {
@@ -114,7 +120,7 @@ std::string CsmModel::get_csm_plugin_folder(){
 
   // Look up the CSM_PLUGIN_PATH environmental variable.
   // It is set in the "libexec/libexec-funcs.sh" deploy file.
-
+  // If the plugin is not found in CSM_PLUGIN_PATH, look at ISISROOT.
   std::string plugin_path;
   char * plugin_path_arr = getenv("CSM_PLUGIN_PATH");
 
@@ -124,6 +130,7 @@ std::string CsmModel::get_csm_plugin_folder(){
   
   if (plugin_path_arr != NULL && std::string(plugin_path_arr) != ""){
     plugin_path = std::string(plugin_path_arr);
+
   }else{
     // This is for when ASP is installed without the deploy file.
     // vw_out() << "The environmental variable CSM_PLUGIN_PATH was not set.\n";
@@ -161,7 +168,7 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
   else if (std::string(platform).find("mac") != std::string::npos) 
     ext = ".dylib";
   else
-    vw_throw( ArgumentErr() << "Unknown operating system: " << BOOST_PLATFORM << "\n");
+    vw_throw(ArgumentErr() << "Unknown operating system: " << BOOST_PLATFORM << "\n");
 
 #if 0
   size_t potential_num_dlls = vw::get_files_in_folder(folder, potential_plugins, ext);
@@ -191,7 +198,7 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
 void CsmModel::print_available_models() {
 
   csm::PluginList available_plugins = csm::Plugin::getList();
-  //vw_out() << "Detected " << available_plugins.size() << " available CSM plugin(s).\n";
+  // vw_out() << "Detected " << available_plugins.size() << " available CSM plugin(s).\n";
 
   csm::PluginList::iterator iter;
   for (iter=available_plugins.begin(); iter!=available_plugins.end(); ++iter) {
@@ -221,7 +228,8 @@ const csm::Plugin* find_plugin_for_isd(csm::Isd const& support_data,
 
     // For each plugin, loop through the available models.
     size_t num_models = csm_plugin->getNumModels();
-    for (size_t i=0; i<num_models; ++i) {
+    for (size_t i = 0; i < num_models; ++i) {
+
       std::string this_model_name = (*iter)->getModelName(i);
 
       // Check if we can construct a camera with the ISD and this plugin/model.
@@ -256,7 +264,7 @@ void CsmModel::initialize_plugins() {
   csm::PluginList plugins = csm::Plugin::getList();
   if (!plugins.empty())
     return;
-
+  
   //vw_out() << "Initializing CSM plugins...\n";
 
   // Find all of the available CSM plugin DLL files.
@@ -324,6 +332,76 @@ void CsmModel::read_ellipsoid(std::string const& isd_path) {
                   << m_semi_major_axis << ' ' << m_semi_minor_axis);
 }
 
+/// Read a 4x4 rotation + translation + scale transform from disk.
+void read_rotation_translation(Eigen::MatrixXd & T, std::string const& transFile){
+
+  T = Eigen::MatrixXd::Zero(4, 4);
+    
+  vw::vw_out() << "Reading: " << transFile << std::endl;
+  std::ifstream is(transFile.c_str());
+  for (int row = 0; row < T.rows(); row++){
+    for (int col = 0; col < T.cols(); col++){
+      double a;
+      if (! (is >> a) )
+        vw_throw( vw::IOErr() << "Failed to read initial transform from: "
+                  << transFile << "\n" );
+      T(row, col) = a;
+    }
+  }
+  
+  if (T(3, 3) != 1) {
+    vw_throw( vw::ArgumentErr()
+              << "The transform must have a 1 in the lower-right corner.\n");
+  }
+  
+}
+
+// Apply a rotation to a collection of quaternions
+void applyRotationToQuatVec(ale::Rotation const& r, std::vector<double> & quaternions) {
+  int num_quat = quaternions.size();
+  
+  for (int it = 0; it < num_quat/4; it++) {
+
+    // Note that quaternions are stored in order x, y, z, w, while
+    // the rotation matrix wants them as w, x, y, z.
+    
+    double * q = &quaternions[4*it];
+    std::vector<double> trans_q = (r * ale::Rotation(q[3], q[0], q[1], q[2])).toQuaternion();
+
+    // Modify in-place
+    q[0] = trans_q[1];
+    q[1] = trans_q[2];
+    q[2] = trans_q[3];
+    q[3] = trans_q[0];
+  }
+  
+}
+
+// Apply a rotation and translation to a collection of xyz vectors
+void applyRotationTranslationToXyzVec(ale::Rotation const& r, ale::Vec3d const& t,
+                                      std::vector<double> & xyz) {
+  
+  int num_xyz = xyz.size();
+  for (int it = 0; it < num_xyz/3; it++) {
+    
+    double * p = &xyz[3*it];
+
+    ale::Vec3d p_vec(p[0], p[1], p[2]);
+    
+    // Apply the rotation
+    p_vec = r(p_vec);
+
+    // Apply the translation
+    p_vec += t;
+
+    // Modify in-place
+    p[0] = p_vec.x;
+    p[1] = p_vec.y;
+    p[2] = p_vec.z;
+    
+  }
+}
+  
 void CsmModel::load_model(std::string const& isd_path) {
 
   // This only happens the first time it is called.
@@ -333,7 +411,7 @@ void CsmModel::load_model(std::string const& isd_path) {
   csm::Isd support_data(isd_path);
 
   CsmModel::read_ellipsoid(isd_path);
-  
+
   // Check each available CSM plugin until we find one that can handle the ISD.
   std::string model_name, model_family;
   const csm::Plugin* csm_plugin = find_plugin_for_isd(support_data, model_name,
@@ -352,28 +430,82 @@ void CsmModel::load_model(std::string const& isd_path) {
 
   // Now try to construct the camera model
   csm::WarningList warnings;
-  csm::Model* new_model
+  csm::Model* csm_model
     = csm_plugin->constructModelFromISD(support_data, model_name, &warnings);
+
+  std::string modelState = csm_model->getModelState();
+
+  nlohmann::json j = stateAsJson(modelState);
 
   // Error checking
   csm::WarningList::const_iterator w_iter;
   for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
     vw_out() << "CSM Warning: " << w_iter->getMessage() << std::endl;
   }
-  if (!new_model) // Handle load failure.
+  if (!csm_model) // Handle load failure.
     vw::vw_throw( vw::ArgumentErr() << "Failed to load CSM sensor model from file: "
-                                    << isd_path);
-
+                  << isd_path);
+  
+  UsgsAstroLsSensorModel * ls_model = dynamic_cast<UsgsAstroLsSensorModel*>(csm_model);
+  if (ls_model == NULL) {
+    std::cout << "--not an ls model!" << std::endl;
+  }else{
+    std::cout << "--yes an ls model" << std::endl;
+  }
+  
+  char * mat = getenv("MAT");
+  if (mat != NULL) {
+    std::cout << "--reading " << mat << std::endl;
+    
+    Eigen::MatrixXd T;
+    read_rotation_translation(T, mat);
+    
+    Eigen::MatrixXd rot = T.block(0, 0, 3, 3);
+    
+    std::vector<double> rotation_vec;
+    for (int row = 0; row < 3; row++) {
+      for (int col = 0; col < 3; col++) {
+        rotation_vec.push_back(rot(row, col));
+      }
+    }
+    ale::Rotation r(rotation_vec);
+    
+    ale::Vec3d t(T(0, 3), T(1, 3), T(2, 3));
+    
+    ale::Vec3d zero_t(0, 0, 0);
+    
+    // Sensor rotations
+    std::vector<double> quaternions = j["m_quaternions"].get<std::vector<double>>();
+    applyRotationToQuatVec(r, quaternions);
+    j["m_quaternions"] = quaternions;
+    
+    // Sensor positions
+    std::vector<double> positions = j["m_positions"].get<std::vector<double>>();;
+    applyRotationTranslationToXyzVec(r, t, positions);
+    j["m_positions"] = positions;
+    
+    // For velocities, the translation does not get added
+    std::vector<double> velocities = j["m_velocities"].get<std::vector<double>>();;
+    applyRotationTranslationToXyzVec(r, zero_t, velocities);
+    j["m_velocities"] = velocities;
+    
+    // We do not change the sun position or velocity. The idea is that the sun is so far,
+    // that minor adjustments in camera location won't affect where the Sun is.
+    
+    std::string stateString = ls_model->getModelName() + "\n" + j.dump();
+    
+    ls_model->replaceModelState(stateString);
+  }
+  
+  
   // TODO: Are all sensor models going to be this type (RasterGM)?
   //       Otherwise we can use the result of getModelFamily() to choose the class.
   // Cast the model we got to the child class with the needed functionality.
-  csm::RasterGM* raster_model = dynamic_cast<csm::RasterGM*>(new_model);
+  csm::RasterGM* raster_model = dynamic_cast<csm::RasterGM*>(csm_model);
   if (!raster_model) // Handle load failure.
     vw::vw_throw( vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
 
   m_csm_model.reset(raster_model); // We will handle cleanup of the model.
-
-  //std::cout << "Done setting up the CSM model\n";
 }
 
 void CsmModel::throw_if_not_init() const {
