@@ -100,4 +100,6 @@ These can be customized as shown in the options below.
     Do not launch the jobs, only print the commands that should be
     run.
 
+--parallel-options    
+    Passthrough for GNU parallel options, not validate.
    

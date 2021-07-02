@@ -468,7 +468,8 @@ def spawn_to_nodes(step, settings, args):
         cmd += ['--sshloginfile', opt.nodes_list]
     if opt.ssh is not None:
         cmd += ['--ssh', opt.ssh]
-
+    if opt.parallel_options is not None:
+        cmd += opt.parallel_options.split(' ')
     # Add the options which we want GNU parallel to not mess up
     # with. Put them into a single string. Before that, put in quotes
     # any quantities having spaces, to avoid issues later.
@@ -633,7 +634,8 @@ if __name__ == '__main__':
                    help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
                    help='Display the commands being executed.')
-
+    p.add_argument('--parallel-options', dest='parallel_options', default=None,
+                   help='Passthrough for GNU parallel options, not validated. [default: None]')
     # Internal variables below.
     # The id of the tile to process, 0 <= tile_id < num_tiles.
     p.add_argument('--tile-id', dest='tile_id', default=None, type=int,
