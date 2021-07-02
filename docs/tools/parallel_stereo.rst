@@ -74,8 +74,8 @@ These can be customized as shown in the options below.
 --corr-seed-mode <integer (from 0 to 3)>  Correlation seed strategy
                                           (:numref:`corr_section`).
 
---sparse-disp-options <string>
-    Options to pass directly to sparse_disp (:numref:`sparse-disp`).
+--sparse-disp-options <string (default: "")>
+    Options to pass directly to sparse_disp (:numref:`sparse-disp`). Use quotes around this string.
 
 --verbose
     Display the commands being executed.
@@ -100,6 +100,6 @@ These can be customized as shown in the options below.
     Do not launch the jobs, only print the commands that should be
     run.
 
---parallel-options    
-    Passthrough for GNU parallel options, not validate.
+--parallel-options <string (default: "")>
+    Options to pass directly to GNU Parallel. For example, "--sshdelay 10 --controlmaster".
    
