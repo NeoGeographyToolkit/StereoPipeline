@@ -101,5 +101,5 @@ These can be customized as shown in the options below.
     run.
 
 --parallel-options <string (default: "")>
-    Options to pass directly to GNU Parallel. For example, "--sshdelay 10 --controlmaster".
+    Options to pass directly to GNU Parallel. For example, "--sshdelay 1 --controlmaster".
    
