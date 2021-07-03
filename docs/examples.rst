@@ -729,7 +729,7 @@ followed by mapprojecting onto it and redoing stereo::
 Exporting CSM model state after bundle adjustment and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-ASP's bundle adjustment program :numref:`bundle_adjust` normally
+ASP's bundle adjustment program (:numref:`bundle_adjust`) normally
 writes plain text ``.adjust`` files which encode how the position and
 orientation of the cameras were modified. If invoked for CSM cameras,
 additional files with extension ``.adjusted_state.json`` are saved in
