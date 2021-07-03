@@ -706,6 +706,10 @@ terrain as a constraint in bundle adjustment::
          --heights-from-dem-weight 0.1 --heights-from-dem-robust-threshold 10        \
          -o ba_align_ref/run
 
+It is suggested that the images be map-projected with the cameras both
+before and after this step, as on some occasions this step may make
+things worse rather than bettter. One may also attempt to vary the
+value of ``--heights-from-dem-weight``.
 
 As before, the process may take forever, and if interrupted, perhaps the 
 adjustments saved so far may be good enough.
