@@ -49,7 +49,7 @@ namespace asp {
     virtual ~CsmModel();
     virtual std::string type() const { return "CSM"; }
 
-    /// Load the camera model from an ISD file.
+    /// Load the camera model from an ISD file or model state.
     void load_model(std::string const& isd_path);
 
     /// Return the size of the associated image.
@@ -83,13 +83,23 @@ namespace asp {
 
     /// Get the semi-axes of the datum. 
     vw::Vector3 target_radii() const {
-      return vw::Vector3(m_semi_major_axis, // x
-                         m_semi_major_axis, // y
-                         m_semi_minor_axis  // z
-                         );
+      return vw::Vector3(m_semi_major_axis,  // x
+                         m_semi_major_axis,  // y
+                         m_semi_minor_axis); // z
     }
-    
+
+    void save_transformed_json_state(std::string const& json_state_file,
+                                     vw::Matrix4x4 const& transform);
   private:
+
+    /// Load the camera model from an ISD file.
+    void load_model_from_isd(std::string const& isd_path);
+    
+    /// Load the camera model from a model state written to disk.
+    /// A model state is obtained from an ISD model by pre-processing
+    /// and combining its data in a form ready to be used.
+    void load_model_from_state(std::string const& state_path);
+
     // TODO: Is it always going to be this type (RasterGM)?
     boost::shared_ptr<csm::RasterGM> m_csm_model;
 

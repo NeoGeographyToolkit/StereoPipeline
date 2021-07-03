@@ -41,6 +41,8 @@
 #include <ale/Rotation.h>
 #include <Eigen/Geometry>
 
+#include <streambuf>
+
 namespace dll = boost::dll;
 namespace fs = boost::filesystem;
 using json = nlohmann::json;
@@ -362,10 +364,11 @@ void applyRotationToQuatVec(ale::Rotation const& r, std::vector<double> & quater
   
   for (int it = 0; it < num_quat/4; it++) {
 
-    // Note that quaternions are stored in order x, y, z, w, while
+    double * q = &quaternions[4*it];
+
+    // Note that quaternion in q is stored in order x, y, z, w, while
     // the rotation matrix wants them as w, x, y, z.
     
-    double * q = &quaternions[4*it];
     std::vector<double> trans_q = (r * ale::Rotation(q[3], q[0], q[1], q[2])).toQuaternion();
 
     // Modify in-place
@@ -401,8 +404,24 @@ void applyRotationTranslationToXyzVec(ale::Rotation const& r, ale::Vec3d const& 
     
   }
 }
-  
+
+/// Load the camera model from an ISD file or model state.
 void CsmModel::load_model(std::string const& isd_path) {
+
+  std::string line;
+  {
+    // Peek inside the file to see if it is an isd or a model state.
+    std::ifstream ifs(isd_path);
+    ifs >> line;
+  }
+  
+  if (line != UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME) 
+    CsmModel::load_model_from_isd(isd_path);
+  else
+    CsmModel::load_model_from_state(isd_path);
+}
+  
+void CsmModel::load_model_from_isd(std::string const& isd_path) {
 
   // This only happens the first time it is called.
   initialize_plugins();
@@ -433,88 +452,67 @@ void CsmModel::load_model(std::string const& isd_path) {
   csm::Model* csm_model
     = csm_plugin->constructModelFromISD(support_data, model_name, &warnings);
 
-  std::string modelState = csm_model->getModelState();
-
-  nlohmann::json j = stateAsJson(modelState);
-
   // Error checking
   csm::WarningList::const_iterator w_iter;
   for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
     vw_out() << "CSM Warning: " << w_iter->getMessage() << std::endl;
   }
-  if (!csm_model) // Handle load failure.
-    vw::vw_throw( vw::ArgumentErr() << "Failed to load CSM sensor model from file: "
-                  << isd_path);
-  
-  UsgsAstroLsSensorModel * ls_model = dynamic_cast<UsgsAstroLsSensorModel*>(csm_model);
-  if (ls_model == NULL) {
-    std::cout << "--not an ls model!" << std::endl;
-  }else{
-    std::cout << "--yes an ls model" << std::endl;
-  }
-  
-  char * mat = getenv("MAT");
-  if (mat != NULL) {
-    std::cout << "--reading " << mat << std::endl;
-    
-    Eigen::MatrixXd T;
-    read_rotation_translation(T, mat);
-    
-    Eigen::MatrixXd rot = T.block(0, 0, 3, 3);
-    
-    std::vector<double> rotation_vec;
-    for (int row = 0; row < 3; row++) {
-      for (int col = 0; col < 3; col++) {
-        rotation_vec.push_back(rot(row, col));
-      }
-    }
-    ale::Rotation r(rotation_vec);
-    
-    ale::Vec3d t(T(0, 3), T(1, 3), T(2, 3));
-    
-    ale::Vec3d zero_t(0, 0, 0);
-    
-    // Sensor rotations
-    std::vector<double> quaternions = j["m_quaternions"].get<std::vector<double>>();
-    applyRotationToQuatVec(r, quaternions);
-    j["m_quaternions"] = quaternions;
-    
-    // Sensor positions
-    std::vector<double> positions = j["m_positions"].get<std::vector<double>>();;
-    applyRotationTranslationToXyzVec(r, t, positions);
-    j["m_positions"] = positions;
-    
-    // For velocities, the translation does not get added
-    std::vector<double> velocities = j["m_velocities"].get<std::vector<double>>();;
-    applyRotationTranslationToXyzVec(r, zero_t, velocities);
-    j["m_velocities"] = velocities;
-    
-    // We do not change the sun position or velocity. The idea is that the sun is so far,
-    // that minor adjustments in camera location won't affect where the Sun is.
-    
-    std::string stateString = ls_model->getModelName() + "\n" + j.dump();
-    
-    ls_model->replaceModelState(stateString);
-  }
-  
+
+  // Handle load failure
+  if (!csm_model)
+    vw::vw_throw(vw::ArgumentErr() << "Failed to load CSM sensor model from file: "
+                 << isd_path);
   
   // TODO: Are all sensor models going to be this type (RasterGM)?
   //       Otherwise we can use the result of getModelFamily() to choose the class.
   // Cast the model we got to the child class with the needed functionality.
   csm::RasterGM* raster_model = dynamic_cast<csm::RasterGM*>(csm_model);
-  if (!raster_model) // Handle load failure.
-    vw::vw_throw( vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
 
+   // Handle load failure
+  if (!raster_model)
+    vw::vw_throw( vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
+  
   m_csm_model.reset(raster_model); // We will handle cleanup of the model.
 }
 
+/// Load the camera model from a model state written to disk.
+/// A model state is obtained from an ISD model by pre-processing
+/// and combining its data in a form ready to be used.
+void CsmModel::load_model_from_state(std::string const& state_path) {
+
+  // Read the state as one string
+  std::ifstream ifs(state_path.c_str());
+  std::string model_state;
+  ifs.seekg(0, std::ios::end);   
+  model_state.reserve(ifs.tellg());
+  ifs.seekg(0, std::ios::beg);
+  model_state.assign((std::istreambuf_iterator<char>(ifs)),
+             std::istreambuf_iterator<char>());
+
+  // Create the linescan model
+  UsgsAstroLsSensorModel * ls_model = new UsgsAstroLsSensorModel;
+  ls_model->replaceModelState(model_state);
+
+  // Read the axes
+  m_semi_major_axis = ls_model->m_majorAxis;
+  m_semi_minor_axis = ls_model->m_minorAxis;
+
+  // Cast to raster model
+  csm::RasterGM* raster_model = dynamic_cast<csm::RasterGM*>(ls_model);
+
+   // Handle load failure
+  if (!raster_model)
+    vw::vw_throw( vw::ArgumentErr() << "Failed to cast linescan model to raster type!");
+  
+  m_csm_model.reset(raster_model); // We will handle cleanup of the model
+}
+  
 void CsmModel::throw_if_not_init() const {
   if (!m_csm_model)
     vw_throw( ArgumentErr() << "CsmModel: Sensor model has not been loaded yet!" );
 }
 
 // TODO: Check all of the warnings
-
 
 vw::Vector2 CsmModel::get_image_size() const {
   throw_if_not_init();
@@ -523,10 +521,10 @@ vw::Vector2 CsmModel::get_image_size() const {
   return Vector2(size.samp, size.line);
 }
 
-Vector2 CsmModel::point_to_pixel (Vector3 const& point) const {
+Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
   throw_if_not_init();
 
-  csm::EcefCoord  ecef    = vectorToEcefCoord(point);
+  csm::EcefCoord  ecef = vectorToEcefCoord(point);
 
   double desiredPrecision = 0.01;
   double achievedPrecision;
@@ -576,5 +574,69 @@ Vector3 CsmModel::camera_center(Vector2 const& pix) const {
   return ecefCoordToVector(ecef);
 }
 
+// Apply a transform to the model and save the transformed state as a JSON file  
+void CsmModel::save_transformed_json_state(std::string const& json_state_file,
+                                           vw::Matrix4x4 const& transform) {
+
+  csm::RasterGM* raster_model = dynamic_cast<csm::RasterGM*>(this->m_csm_model.get());
+
+  UsgsAstroLsSensorModel * ls_model
+    = dynamic_cast<UsgsAstroLsSensorModel*>(this->m_csm_model.get());
+  
+  if (ls_model == NULL) {
+    vw_out() << "Saving the transformed JSON state is implemented only "
+             << "for usgscsm linescan camera models.\n";
+    return;
+  }
+
+  std::string modelState = ls_model->getModelState();
+
+  nlohmann::json j = stateAsJson(modelState);
+
+  // Extract the rotation and convert it to ale::Rotation
+  vw::Matrix3x3 rotation_matrix = submatrix(transform, 0, 0, 3, 3);
+  std::vector<double> rotation_vec;
+  for (int row = 0; row < 3; row++) {
+    for (int col = 0; col < 3; col++) {
+      rotation_vec.push_back(rotation_matrix(row, col));
+    }
+  }
+  ale::Rotation r(rotation_vec);
+    
+  // Extract the translation
+  ale::Vec3d t(transform(0, 3), transform(1, 3), transform(2, 3));
+
+  // Zero translation
+  ale::Vec3d zero_t(0, 0, 0);
+  
+  // Sensor rotations
+  std::vector<double> quaternions = j["m_quaternions"].get<std::vector<double>>();
+  applyRotationToQuatVec(r, quaternions);
+  j["m_quaternions"] = quaternions;
+  
+  // Sensor positions
+  std::vector<double> positions = j["m_positions"].get<std::vector<double>>();;
+  applyRotationTranslationToXyzVec(r, t, positions);
+  j["m_positions"] = positions;
+  
+  // For velocities, the translation does not get added
+  std::vector<double> velocities = j["m_velocities"].get<std::vector<double>>();;
+  applyRotationTranslationToXyzVec(r, zero_t, velocities);
+  j["m_velocities"] = velocities;
+  
+  // We do not change the sun position or velocity. The idea is that
+  // the sun is so far, that minor adjustments in camera location
+  // won't affect where the Sun is.
+  
+  std::string stateString = ls_model->getModelName() + "\n" + j.dump();
+
+  vw_out() << "Writing transformed JSON state: " << json_state_file << std::endl;
+  std::ofstream ofs(json_state_file.c_str());
+  ofs << stateString << std::endl;
+  ofs.close();
+
+  return;
+}
+  
 } // end namespace asp
 
