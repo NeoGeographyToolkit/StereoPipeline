@@ -203,11 +203,11 @@ void CsmModel::print_available_models() {
   // vw_out() << "Detected " << available_plugins.size() << " available CSM plugin(s).\n";
 
   csm::PluginList::iterator iter;
-  for (iter=available_plugins.begin(); iter!=available_plugins.end(); ++iter) {
+  for (iter = available_plugins.begin(); iter != available_plugins.end(); iter++) {
     std::cout << "  -->  " << (*iter)->getPluginName() << std::endl;
     size_t num_models = (*iter)->getNumModels();
     std::cout << "    - Num models = " << num_models << std::endl;
-    for (size_t i=0; i<num_models; ++i) {
+    for (size_t i = 0; i < num_models; i++) {
       std::cout << "      -> " << (*iter)->getModelName(i)
                 << ", family =  " << (*iter)->getModelFamily(i) << std::endl;
     }
@@ -225,12 +225,12 @@ const csm::Plugin* find_plugin_for_isd(csm::Isd const& support_data,
   // Loop through the available plugins.
   csm::PluginList::iterator iter;
   csm::PluginList plugins = csm::Plugin::getList();
-  for (iter=plugins.begin(); iter!=plugins.end(); ++iter) {
+  for (iter = plugins.begin(); iter != plugins.end(); iter++) {
     const csm::Plugin* csm_plugin = (*iter);
 
     // For each plugin, loop through the available models.
     size_t num_models = csm_plugin->getNumModels();
-    for (size_t i = 0; i < num_models; ++i) {
+    for (size_t i = 0; i < num_models; i++) {
 
       std::string this_model_name = (*iter)->getModelName(i);
 
@@ -275,7 +275,7 @@ void CsmModel::initialize_plugins() {
   //vw_out() << "Found " << num_plugin_files << " CSM plugin files.\n";
 
   // Load all of the plugins.
-  for (size_t i=0; i<num_plugin_files; ++i) {
+  for (size_t i = 0; i < num_plugin_files; i++) {
     // Get the DLL in memory, causing it to automatically register itself
     //  with the main Plugin interface.
     vw_out() << "Loading CSM plugin: " << plugin_files[i] << std::endl;
@@ -288,7 +288,7 @@ void CsmModel::initialize_plugins() {
 }
 
 // Read the semi-major and semi-minor axes
-void CsmModel::read_ellipsoid(std::string const& isd_path) {
+void CsmModel::read_ellipsoid_from_isd(std::string const& isd_path) {
 
   // Load and parse the json file
   std::ifstream ifs(isd_path);
@@ -334,31 +334,8 @@ void CsmModel::read_ellipsoid(std::string const& isd_path) {
                   << m_semi_major_axis << ' ' << m_semi_minor_axis);
 }
 
-/// Read a 4x4 rotation + translation + scale transform from disk.
-void read_rotation_translation(Eigen::MatrixXd & T, std::string const& transFile){
-
-  T = Eigen::MatrixXd::Zero(4, 4);
-    
-  vw::vw_out() << "Reading: " << transFile << std::endl;
-  std::ifstream is(transFile.c_str());
-  for (int row = 0; row < T.rows(); row++){
-    for (int col = 0; col < T.cols(); col++){
-      double a;
-      if (! (is >> a) )
-        vw_throw( vw::IOErr() << "Failed to read initial transform from: "
-                  << transFile << "\n" );
-      T(row, col) = a;
-    }
-  }
-  
-  if (T(3, 3) != 1) {
-    vw_throw( vw::ArgumentErr()
-              << "The transform must have a 1 in the lower-right corner.\n");
-  }
-  
-}
-
-// Apply a rotation to a collection of quaternions
+// Apply a rotation to a vector of quaternions.
+// Maybe one day this will move to the usgscsm package.
 void applyRotationToQuatVec(ale::Rotation const& r, std::vector<double> & quaternions) {
   int num_quat = quaternions.size();
   
@@ -367,7 +344,7 @@ void applyRotationToQuatVec(ale::Rotation const& r, std::vector<double> & quater
     double * q = &quaternions[4*it];
 
     // Note that quaternion in q is stored in order x, y, z, w, while
-    // the rotation matrix wants them as w, x, y, z.
+    // the rotation matrix wants it as w, x, y, z.
     
     std::vector<double> trans_q = (r * ale::Rotation(q[3], q[0], q[1], q[2])).toQuaternion();
 
@@ -380,7 +357,8 @@ void applyRotationToQuatVec(ale::Rotation const& r, std::vector<double> & quater
   
 }
 
-// Apply a rotation and translation to a collection of xyz vectors
+// Apply a rotation and translation to a vector of xyz vectors.
+// Maybe one day this will move to the usgscsm package.
 void applyRotationTranslationToXyzVec(ale::Rotation const& r, ale::Vec3d const& t,
                                       std::vector<double> & xyz) {
   
@@ -429,7 +407,7 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   // Load ISD data
   csm::Isd support_data(isd_path);
 
-  CsmModel::read_ellipsoid(isd_path);
+  CsmModel::read_ellipsoid_from_isd(isd_path);
 
   // Check each available CSM plugin until we find one that can handle the ISD.
   std::string model_name, model_family;
@@ -574,7 +552,7 @@ Vector3 CsmModel::camera_center(Vector2 const& pix) const {
   return ecefCoordToVector(ecef);
 }
 
-// Apply a transform to the model and save the transformed state as a JSON file  
+// Apply a transform to the model and save the transformed state as a JSON file.
 void CsmModel::save_transformed_json_state(std::string const& json_state_file,
                                            vw::Matrix4x4 const& transform) {
 
@@ -584,7 +562,7 @@ void CsmModel::save_transformed_json_state(std::string const& json_state_file,
     = dynamic_cast<UsgsAstroLsSensorModel*>(this->m_csm_model.get());
   
   if (ls_model == NULL) {
-    vw_out() << "Saving the transformed JSON state is implemented only "
+    vw_out() << "Saving the adjusted JSON state is implemented only "
              << "for usgscsm linescan camera models.\n";
     return;
   }
@@ -611,17 +589,17 @@ void CsmModel::save_transformed_json_state(std::string const& json_state_file,
   
   // Sensor rotations
   std::vector<double> quaternions = j["m_quaternions"].get<std::vector<double>>();
-  applyRotationToQuatVec(r, quaternions);
+  asp::applyRotationToQuatVec(r, quaternions);
   j["m_quaternions"] = quaternions;
   
   // Sensor positions
   std::vector<double> positions = j["m_positions"].get<std::vector<double>>();;
-  applyRotationTranslationToXyzVec(r, t, positions);
+  asp::applyRotationTranslationToXyzVec(r, t, positions);
   j["m_positions"] = positions;
   
   // For velocities, the translation does not get added
   std::vector<double> velocities = j["m_velocities"].get<std::vector<double>>();;
-  applyRotationTranslationToXyzVec(r, zero_t, velocities);
+  asp::applyRotationTranslationToXyzVec(r, zero_t, velocities);
   j["m_velocities"] = velocities;
   
   // We do not change the sun position or velocity. The idea is that
@@ -630,7 +608,7 @@ void CsmModel::save_transformed_json_state(std::string const& json_state_file,
   
   std::string stateString = ls_model->getModelName() + "\n" + j.dump();
 
-  vw_out() << "Writing transformed JSON state: " << json_state_file << std::endl;
+  vw_out() << "Writing adjusted JSON state: " << json_state_file << std::endl;
   std::ofstream ofs(json_state_file.c_str());
   ofs << stateString << std::endl;
   ofs.close();

@@ -55,9 +55,6 @@ namespace asp {
     /// Return the size of the associated image.
     vw::Vector2 get_image_size() const;
 
-    // Read the ellipsoid (datum) axes from the json file
-    void read_ellipsoid(std::string const& isd_path);
-    
     virtual vw::Vector2 point_to_pixel (vw::Vector3 const& point) const;
 
     virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;
@@ -88,10 +85,16 @@ namespace asp {
                          m_semi_minor_axis); // z
     }
 
+    
+    // Apply a transform to the model and save the transformed state as a JSON file.
     void save_transformed_json_state(std::string const& json_state_file,
                                      vw::Matrix4x4 const& transform);
   private:
 
+    // Read the ellipsoid (datum) axes from the isd json file
+    // (does not work for reading it from a json state file).
+    void read_ellipsoid_from_isd(std::string const& isd_path);
+    
     /// Load the camera model from an ISD file.
     void load_model_from_isd(std::string const& isd_path);
     
