@@ -24,7 +24,15 @@ New functionality:
     documentation to easily tabulate more multispectral bands and TDI.
 
 isis:
-  * Upgrade to ISIS 4.4.0 and CSM 1.5.1.
+  * Upgrade to ISIS 4.4.0.
+
+csm:
+  * Upgraded to USGSCSM 1.5.2.
+  * Valided the CSM model for CTX, HiRISE, and LRO NAC cameras.
+  * Added documentation for how to create CSM models from .cub
+    cameras.
+  * Export the state of a CSM camera after bundle adjustment and
+    pc_align (only for linescan cameras suported by ISIS).
 
 parallel_stereo
 

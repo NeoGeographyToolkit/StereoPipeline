@@ -30,6 +30,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/EigenUtils.h>
+#include <asp/Camera/CsmModel.h>
 
 #include <asp/Tools/bundle_adjust.h>
 
@@ -53,21 +54,28 @@ void saveResults(Options const& opt, BAParamStorage const& param_storage) {
   for (int icam = 0; icam < num_cameras; icam++){
 
     switch(opt.camera_type) {
-      case BaCameraType_Pinhole:
-        write_pinhole_output_file(opt, icam, param_storage);
-        break;
-      case BaCameraType_OpticalBar:
-        write_optical_bar_output_file(opt, icam, param_storage);
-        break;
-      default:
-        std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                              opt.image_files[icam],
-                                                              opt.camera_files[icam]);
-        vw_out() << "Writing: " << adjust_file << std::endl;
-        
-        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-        asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
+    case BaCameraType_Pinhole:
+      write_pinhole_output_file(opt, icam, param_storage);
+      break;
+    case BaCameraType_OpticalBar:
+      write_optical_bar_output_file(opt, icam, param_storage);
+      break;
+    default:
+      std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                             opt.image_files[icam],
+                                                             opt.camera_files[icam]);
+      vw_out() << "Writing: " << adjust_file << std::endl;
+      
+      CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+      asp::write_adjustments(adjust_file, cam_adjust.position(), cam_adjust.pose());
+
+      // For CSM camera models export, in addition, the JSON state
+      // with the adjustment applied to it.
+      if (opt.stereo_session_string == "csm")
+        write_csm_output_file(opt, icam, adjust_file, param_storage);
+      
     }
+    
   } // End loop through cameras
   
 }
@@ -129,7 +137,7 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
       boost::shared_ptr<PinholeModel> pinhole_model = 
         boost::dynamic_pointer_cast<PinholeModel>(camera_model);
       if (pinhole_model.get() == 0)
-        vw::vw_throw( vw::ArgumentErr() << "Tried to add pinhole block with non-pinhole camera.");
+        vw::vw_throw(vw::ArgumentErr() << "Tried to add pinhole block with non-pinhole camera.");
       wrapper.reset(new PinholeBundleModel(pinhole_model));
 
     } else { // Optical bar
@@ -1836,7 +1844,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 
   // Work out the camera model type to use
-  boost::to_lower( opt.stereo_session_string );
+  boost::to_lower(opt.stereo_session_string);
   opt.camera_type = BaCameraType_Other;
   if (inline_adjustments) {
 

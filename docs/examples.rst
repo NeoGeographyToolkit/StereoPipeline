@@ -668,16 +668,16 @@ models for various remote sensor types :cite:`CSMTRD`. It provides
 a well-defined application program interface (API) for multiple
 types of sensors and has been widely adopted by Earth remote sensing
 software systems :cite:`hare2017community,2019EA000713`.
-ASP supports CSM by using the USGS ISIS implementation
+ASP supports CSM by using the USGS implementation
 (https://github.com/USGS-Astrogeology/usgscsm) that we ship with
 our software.
 
 CSM is handled via dynamically loaded plugins. Hence, if a user has a
-new sensor model, ASP can use it as soon as a supporting plugin is added
-to the existing software, without having to rebuild it or modify it
-otherwise. Plugins are stored in the directory ``plugins/usgscsm`` of
-the ASP distribution. New plugins should be added there and will be
-detected automatically.
+new sensor model, ASP should, in principle, be able to use it as soon
+as a supporting plugin is added to the existing software, without
+having to rebuild ASP or modify it otherwise. In practice, while this
+logic is implemented, ASP defaults to using only ``usgscsm``, though
+only minor changes are needed to support additional implementations.
 
 Each stereo pair to be processed by ASP should be made up of two images
 (for example in .cub format) and two plain text camera files with
@@ -688,9 +688,8 @@ earlier.
 
 What follows is an example of using this sensor model for Mars images,
 specifically for the CTX camera. The images are regular ``.cub`` files
-as in the tutorial in :numref:`moc_tutorial`,
-hence the only distinction is that cameras are stored as ``.json``
-files.
+as in the tutorial in :numref:`moc_tutorial`, hence the only
+distinction is that cameras are stored as ``.json`` files.
 
 We will work with the dataset pair::
 
@@ -702,7 +701,8 @@ and the same for the associated camera files.
 One runs the stereo and terrain generation steps as usual::
 
      parallel_stereo left.cub right.cub left.json right.json run/run    
-     point2dem -r mars --stereographic --proj-lon 77.4 --proj-lat 18.4 run/run-PC.tif
+     point2dem -r mars --stereographic --proj-lon 77.4 \
+       --proj-lat 18.4 run/run-PC.tif
 
 The actual stereo session used is ``csm``, and here it will be
 auto-detected based on the extension of the camera files. For
@@ -715,8 +715,9 @@ One can also run stereo with mapprojected images
 (:numref:`mapproj-example`). The first step would be to create a
 low-resolution smooth DEM from the previous cloud::
 
-     point2dem  -r mars --stereographic --proj-lon 77.4 --proj-lat 18.4 run/run-PC.tif \
-       --tr 120 -o run/run-smooth
+     point2dem  -r mars --stereographic --proj-lon 77.4 \
+       --proj-lat 18.4 run/run-PC.tif --tr 120          \
+       -o run/run-smooth
 
 followed by mapprojecting onto it and redoing stereo::
 
@@ -725,6 +726,88 @@ followed by mapprojecting onto it and redoing stereo::
      parallel_stereo left.map.tif right.map.tif left.json right.json \
        run_map/run run/run-smooth-DEM.tif
 
+Exporting CSM model state after bundle adjustment and alignment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ASP's bundle adjustment program :numref:`bundle_adjust` normally
+writes plain text ``.adjust`` files which encode how the position and
+orientation of the cameras were modified. If invoked for CSM cameras,
+additional files with extension ``.adjusted_state.json`` are saved in
+the same output directory, which contain the the model state from the
+input CSM cameras with the adjustments applied to them. This only
+applies to CSM ``linescan`` models supported by ISIS.
+
+It is important to note that the the ``model state`` of a CSM camera
+and the CSM camera itself, while both stored on disk as JSON files,
+are not the same thing. The CSM camera file (also called the ``CSM
+ISD`` file) has the transforms from sensor coordinates to J2000 and from
+J2000 to ECEF. These are then combined together to form the model
+state, which has the transforms from the sensor to ECEF. The model
+state is used to project ground points into the camera and vice-versa,
+so it is sufficient for the purposes of bundle adjustment and stereo.
+
+ASP's stereo and bundle adjustment programs can, in addition to CSM
+ISD camera model files, also load such model state files, either as
+previously written by ASP or from an external source (it will
+auto-detect the type from the format of the JSON files). Hence, the
+model state is a convenient format for data exchange, while being
+less complex than the ISD format.
+
+If ASP's ``stereo`` program is used to create a point cloud from
+images and CSM cameras, and then that point cloud has a transform
+applied to it, such as with ``pc_align``, the same transform can be
+applied to the model states for the two cameras, which is then saved
+to disk as earlier.  That is accomplished by invoking bundle
+adjustment with the input images and cameras, also with this
+transform, with zero iterations::
+
+    bundle_adjust left.cub right.cub left.json right.json \
+      --initial-transform transform.txt                   \
+       --num-iterations 0 -o ba/run
+ 
+This will save the state files ``ba/run-left.adjusted_state.json`` and
+``ba/run-right.adjusted_state.json``.
+
+In case first bundle adjustment was used, then ``stereo`` was run with
+bundle adjusted cameras, then ``pc_align`` was invoked on the
+resulting point cloud, obtaining an alignment transform, and is
+desired to create model state files having both the effect of bundle
+adjustment and subsequent alignment, one can invoke bundle adjustment
+just as above, with an initial transform and zero iterations, but use
+not the original ``left.json`` and ``right.json`` camera files, but
+the model state files after the initial bundle adjustment which encode
+that adjustment.
+
+Creating CSM cameras from ISIS .cub files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CSM camera files can be created from ISIS ``.cub`` files as follows.
+First run the ISIS ``spiceinit`` command as::
+
+    spiceinit from = camera.cub shape = ellipsoid
+
+Then create a conda environemnt for the ``ale`` package::
+
+    conda create -c conda-forge -n ale_env python=3.6 ale  
+    conda activate ale_env
+
+(other versions of Python may result in a runtime error later), and
+invoke the version of Python for this environment, whose path may be::
+
+    $HOME/miniconda3/envs/ale_env/bin/python
+
+on the Python script::
+
+    import ale
+
+    cub_file = 'camera.cub'
+    isd_file = 'camera.json'
+    usgscsm_str = ale.loads(cub_file)
+
+    print("Writing: " + isd_file)
+    with open(isd_file, 'w') as isd_file:
+      isd_file.write(usgscsm_str)
+    
 .. _digital_globe_data:
 
 DigitalGlobe/Maxar Images

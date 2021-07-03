@@ -239,7 +239,17 @@ if(ASP_HAVE_PKG_ISIS)
   message(STATUS "Found ISIS version: ${ASP_ISIS_VERSION}")
 endif()
 
-find_external_library(CSM ${ASP_DEPS_DIR} "libusgscsm" "csmapi" REQUIRED)
+find_external_library(CSM ${ASP_DEPS_DIR} "csm" "csmapi" REQUIRED)
+
+# Link to libusgscsm. This makes it disappear from the list of CSM
+# plugins, presubably because it is found at link time now,
+# but things still work. This is is necessary since we need to peek into
+# usgscsm by bypassing the csm interface.
+find_external_library(USGSCSM ${ASP_DEPS_DIR} "usgscsm" "usgscsm" REQUIRED)
+
+# Link to ale. This is needed to be able to export the CSM camera state.
+find_external_library(ALE ${ASP_DEPS_DIR} "ale" "ale" REQUIRED)
+
 #include_directories("${ASP_DEPS_DIR}/include")
 
 set(PCL_LIB_NAMES pcl_common pcl_features pcl_filters pcl_io_ply pcl_io
@@ -321,7 +331,8 @@ set(ASP_ISISIO_LIB_DEPENDENCIES  AspCore ${ISIS_3RD_PARTY_LIBS} ${ISIS_LIBRARIES
 # --- ASP_CAMERA ------------------------------------------------------------
 get_all_source_files( "Camera"       ASP_CAMERA_SRC_FILES)
 get_all_source_files( "Camera/tests" ASP_CAMERA_TEST_FILES)
-set(ASP_CAMERA_LIB_DEPENDENCIES AspCore ${XERCESC_LIBRARIES} ${CSM_LIBRARIES})
+set(ASP_CAMERA_LIB_DEPENDENCIES AspCore ${XERCESC_LIBRARIES}
+    ${CSM_LIBRARIES} ${USGSCSM_LIBRARIES} ${ALE_LIBRARIES})
 
 # --- ASP_SESSIONS ------------------------------------------------------------
 ## This code is more complicated and is specified in the lower level file
