@@ -186,6 +186,7 @@ namespace asp {
     bool use_percentile_stretch = false;
     bool do_not_exceed_min_max = (this->name() == "isis" ||
                                   this->name() == "isismapisis");
+    // TODO(oalexan1): Should one add here "csm" and "csmmapcsm"?
     asp::normalize_images(stereo_settings().force_use_entire_range,
                           stereo_settings().individually_normalize,
                           use_percentile_stretch, 

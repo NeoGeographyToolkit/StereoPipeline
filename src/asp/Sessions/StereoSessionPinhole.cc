@@ -376,7 +376,7 @@ StereoSessionPinhole::load_adj_pinhole_model(std::string const& image_file,
 
 
 void asp::StereoSessionPinhole::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                              boost::shared_ptr<vw::camera::CameraModel> &cam2) const{
+                                              boost::shared_ptr<vw::camera::CameraModel> &cam2) {
   vw::Vector2i left_out_size, right_out_size;
   load_camera_models(cam1, cam2, left_out_size, right_out_size);
 }
@@ -384,7 +384,7 @@ void asp::StereoSessionPinhole::camera_models(boost::shared_ptr<vw::camera::Came
 void asp::StereoSessionPinhole::load_camera_models(
                    boost::shared_ptr<vw::camera::CameraModel> &left_cam,
                    boost::shared_ptr<vw::camera::CameraModel> &right_cam,
-                   Vector2i &left_out_size, Vector2i &right_out_size) const{
+                   Vector2i &left_out_size, Vector2i &right_out_size) {
 
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
   if ( (stereo_settings().alignment_method != "epipolar") ||
@@ -397,9 +397,10 @@ void asp::StereoSessionPinhole::load_camera_models(
     return;
   }
 
-  // PinholeModel case is more complicated.
-  // - The camera models returned do not include a crop offset, but the aligned camera models have been shifted
-  //   so that they are aligned after the crop has been applied.
+  // PinholeModel case is more complicated.  - The camera models
+  // returned do not include a crop offset, but the aligned camera
+  // models have been shifted so that they are aligned after the crop
+  // has been applied.
 
   PinholeModel left_pin (m_left_camera_file );
   PinholeModel right_pin(m_right_camera_file);

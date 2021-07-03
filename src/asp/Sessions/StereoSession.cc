@@ -152,8 +152,8 @@ namespace asp {
       return false;
     }
 
-    bool crop_left  = ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-    bool crop_right = ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+    bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+    bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
     bool rebuild = (!is_latest_timestamp(match_filename, input_file1, input_file2,
                                          m_left_camera_file, m_right_camera_file));
@@ -344,13 +344,20 @@ namespace asp {
 
   // Default implementation of this function.  Derived classes will probably override this.
   void StereoSession::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                    boost::shared_ptr<vw::camera::CameraModel> &cam2) const{
+                                    boost::shared_ptr<vw::camera::CameraModel> &cam2) {
     cam1 = camera_model(m_left_image_file,  m_left_camera_file);
     cam2 = camera_model(m_right_image_file, m_right_camera_file);
   }
 
 boost::shared_ptr<vw::camera::CameraModel>
-StereoSession::camera_model(std::string const& image_file, std::string const& camera_file) const{
+StereoSession::camera_model(std::string const& image_file, std::string const& camera_file) {
+
+  // If the desired camera is already loaded, do not load it again.
+  std::pair<std::string, std::string> image_cam_pair = std::make_pair(image_file, camera_file);
+  
+  auto map_it = m_camera_model.find(image_cam_pair);
+  if (map_it != m_camera_model.end()) 
+    return map_it->second;
   
   vw_out() << "Loading camera model: " << image_file << ' ' << camera_file << "\n";
 
@@ -361,11 +368,12 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
                                                  image_file);
   
   if (camera_file == "") // No camera file provided, use the image file.
-    return load_camera_model(image_file, image_file, pixel_offset);
+    m_camera_model[image_cam_pair] = load_camera_model(image_file, image_file, pixel_offset);
   else // Camera file provided
-    return load_camera_model(image_file, camera_file, pixel_offset);
-}
+    m_camera_model[image_cam_pair] = load_camera_model(image_file, camera_file, pixel_offset);
 
+  return m_camera_model[image_cam_pair];
+}
 
   // Processing Hooks. The default is to do nothing.
   void StereoSession::pre_preprocessing_hook(bool adjust_left_image_size,

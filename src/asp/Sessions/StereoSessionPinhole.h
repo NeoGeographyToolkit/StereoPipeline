@@ -58,12 +58,12 @@ namespace asp {
     /// Override this function to make sure it properly generates the
     ///  aligned camera models.
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                               boost::shared_ptr<vw::camera::CameraModel> &cam2) const;
+                               boost::shared_ptr<vw::camera::CameraModel> &cam2);
 
     /// Specialized function to load both camera models and find their output sizes
     void load_camera_models(boost::shared_ptr<vw::camera::CameraModel> &left_cam,
                             boost::shared_ptr<vw::camera::CameraModel> &right_cam,
-                            vw::Vector2i &left_out_size, vw::Vector2i &right_out_size) const;
+                            vw::Vector2i &left_out_size, vw::Vector2i &right_out_size);
 
     /// Return the input camera models with no alignment applied.
     /// - This only matters in the epipolar alignment case, where the normal camera model

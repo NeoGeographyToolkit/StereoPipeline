@@ -107,8 +107,11 @@ namespace asp {
   //----------------------------------------------------------
   
   /// Stereo session for CSM camera models that use GDAL compatible image files.
-  /// - CSM files can also be used with ISIS image data, in which case they use StereoSessionIsis.
+  /// - CSM files can also be used with ISIS image data, in which case
+  /// they use StereoSessionIsis.
   class StereoSessionCsm : public StereoSessionGdal {
+
+    // TODO(oalexan1): Should one deal with ISIS special pixels like for ISIS?
     
   public:
     StereoSessionCsm(){}
@@ -149,8 +152,30 @@ namespace asp {
     }
   };
   
+  /// StereoSession instance for processing SPOT5 data.
+  class StereoSessionSpot : public StereoSessionGdal {
 
-
+  public:
+    StereoSessionSpot(){}
+    virtual ~StereoSessionSpot(){}
+    
+    virtual std::string name() const { return "spot5"; }
+    
+    /// Simple factory function
+    static StereoSession* construct() { return new StereoSessionSpot; }
+    
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file,
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const{
+      
+      return load_adjusted_model(m_camera_loader.load_spot5_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+  };
+  
 } // End namespace asp
 
 #endif//__STEREO_SESSION_GDAL_H__

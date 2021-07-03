@@ -77,12 +77,12 @@ namespace asp {
 
     /// Helper function that retrieves both cameras.
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                               boost::shared_ptr<vw::camera::CameraModel> &cam2) const;
+                               boost::shared_ptr<vw::camera::CameraModel> &cam2);
 
     /// Method that produces a Camera Model from input files.
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model(std::string const& image_file,
-                 std::string const& camera_file = "") const;
+                 std::string const& camera_file = "");
 
     /// Method to help determine what session we actually have
     virtual std::string name() const = 0;
@@ -274,6 +274,10 @@ namespace asp {
 
     std::string left_cropped_bathy_mask() const;
     std::string right_cropped_bathy_mask() const;
+
+    // Cache here the camera when loaded
+    std::map<std::pair<std::string, std::string>, boost::shared_ptr<vw::camera::CameraModel>>
+    m_camera_model;
     
   };
 
