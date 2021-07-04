@@ -28,7 +28,6 @@
 #include <asp/Sessions/StereoSessionNadirPinhole.h>
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Sessions/StereoSessionRPC.h>
-#include <asp/Sessions/StereoSessionSpot.h>
 #include <asp/Sessions/StereoSessionASTER.h>
 
 

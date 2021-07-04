@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-#include <asp/Sessions/StereoSessionSpot.h>
+#include <asp/Sessions/StereoSessionGdal.h>
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/SPOT_XML.h>
 #include <boost/scoped_ptr.hpp>
