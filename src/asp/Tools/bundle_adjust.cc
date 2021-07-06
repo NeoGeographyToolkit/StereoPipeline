@@ -43,7 +43,7 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
-typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 
 typedef CameraRelationNetwork<JFeature> CRNJ;
 
@@ -2157,7 +2157,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 // A wrapper around ip matching. Can also work with NULL cameras.
 void ba_match_ip(Options & opt,
-		 std::string const& image1_path,
+                 SessionPtr session, 
+                 std::string const& image1_path,
 		 std::string const& image2_path,
 		 std::string const& camera1_path,
 		 std::string const& camera2_path,
@@ -2172,12 +2173,8 @@ void ba_match_ip(Options & opt,
     vw_throw(ArgumentErr()
 	     << "Error: Input images can only have a single channel!\n\n");
   float nodata1, nodata2;
-  SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
-						       image1_path,  image2_path,
-						       camera1_path, camera2_path,
-						       opt.out_prefix));
-  
   asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
+
   // IP matching may not succeed for all pairs
   
   // Get masked views of the images to get statistics from
@@ -2217,7 +2214,7 @@ void ba_match_ip(Options & opt,
 /// can use. Both matches between mapprojected images and between
 /// original images are saved to files.
 void matches_from_mapproj_images(int i, int j,
-                                 Options& opt,
+                                 Options& opt, SessionPtr session,
                                  std::vector<std::string> const& map_files,
                                  vw::cartography::GeoReference const& dem_georef,
                                  ImageViewRef< PixelMask<double> > & interp_dem,
@@ -2247,7 +2244,7 @@ void matches_from_mapproj_images(int i, int j,
                                                   map_files[i], map_files[j]);
   try{
     
-    ba_match_ip(opt, map_files[i], map_files[j],
+    ba_match_ip(opt, session, map_files[i], map_files[j],
                 opt.camera_files[i], opt.camera_files[j],
                 NULL, NULL, // cameras are set to null since images are mapprojected
                 map_match_file);
@@ -2438,7 +2435,7 @@ int main(int argc, char* argv[]) {
     
     // Compute statistics for the designated images
     opt.single_threaded_cameras = false;
-    for (size_t i=0; i<image_stats_indices.size(); ++i) {
+    for (size_t i = 0; i < image_stats_indices.size(); ++i) {
       
       size_t index = image_stats_indices[i];
       
@@ -2446,15 +2443,9 @@ int main(int argc, char* argv[]) {
       std::string camera_path = opt.camera_files[index];
 
       // Call a bunch of stuff to get the nodata value
-      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
-                                                            image_path,  image_path,
-                                                            camera_path, camera_path,
-                                                            opt.out_prefix));
       boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
       float nodata, dummy;
       asp::get_nodata_values(rsrc, rsrc, nodata, dummy);
-      if (!session->supports_multi_threading())
-        opt.single_threaded_cameras = true;
 
       // Set up the image view
       DiskImageView<float> image_view(rsrc);
@@ -2486,6 +2477,10 @@ int main(int argc, char* argv[]) {
       
       opt.camera_models.push_back(session->camera_model(opt.image_files [i],
                                                         opt.camera_files[i]));
+
+      if (!session->supports_multi_threading())
+        opt.single_threaded_cameras = true;
+      
       if (opt.approximate_pinhole_intrinsics) {
         boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
                 boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models.back());
@@ -2611,7 +2606,7 @@ int main(int argc, char* argv[]) {
       this_instance_pairs.push_back(all_pairs[i+start_index]);
 
     // Now process the selected pairs
-    for (size_t k=0; k<this_instance_pairs.size(); ++k) {
+    for (size_t k = 0; k < this_instance_pairs.size(); k++) {
       const int i = this_instance_pairs[k].first;
       const int j = this_instance_pairs[k].second;
 
@@ -2651,9 +2646,9 @@ int main(int argc, char* argv[]) {
         vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
       float nodata1, nodata2;
       SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
-                                                            image1_path,  image2_path,
-                                                            camera1_path, camera2_path,
-                                                            opt.out_prefix));
+                                                           image1_path,  image2_path,
+                                                           camera1_path, camera2_path,
+                                                           opt.out_prefix));
 
       asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
 
@@ -2661,14 +2656,14 @@ int main(int argc, char* argv[]) {
       try{
 
         if (opt.mapprojected_data == "") 
-          ba_match_ip(opt, image1_path, image2_path,
+          ba_match_ip(opt, session, image1_path, image2_path,
                       camera1_path, camera2_path,
                       opt.camera_models[i].get(),
                       opt.camera_models[j].get(),
                       match_filename);
 
         else
-          matches_from_mapproj_images(i, j, opt, map_files, dem_georef, interp_dem,  
+          matches_from_mapproj_images(i, j, opt, session, map_files, dem_georef, interp_dem,  
                                       match_filename);
 
         // Compute the coverage fraction
