@@ -21,8 +21,8 @@ clouds, the related tool ``n_align`` can be used (:numref:`n_align`).
 
 Usage::
 
-     pc_align --max-displacement <float> [other options] <reference cloud> <source cloud> \
-       -o <output prefix>}
+     pc_align --max-displacement <float> [other options]    \
+       <reference cloud> <source cloud> -o <output prefix>}
 
 An example of using this tool is in :numref:`pc-align-example`.
 
@@ -190,6 +190,9 @@ it is desired to move the source cloud North by 5 m, East by 10 m, and
 down by 15 m relative to the point on planet surface which is the
 centroid of the source points, one can invoke ``pc_align`` with
 ``--initial-ned-translation ’5 10 15’`` (notice the quotes).
+
+The option ``--initial-rotation-angle`` can be used for similar
+purposes.
 
 If an initial transform is used, the alignment transform output by the
 program will be from the source points *before* the initial transform,
@@ -420,6 +423,12 @@ Command-line options for pc_align:
     this vector in the North-East-Down coordinate system around the
     centroid of the reference points. Specify it in quotes, separated
     by spaces or commas.
+
+--initial-rotation-angle <double (default: 0.0)>
+    Initialize the alignment transform as the rotation with this angle
+    (in degrees) around the axis going from the planet center to the
+    centroid of the point cloud. If ``--initial-ned-translation`` is
+    also specified, the translation gets applied after the rotation.
 
 --initial-transform-from-hillshading <string>
     If both input clouds are DEMs, find interest point matches among

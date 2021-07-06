@@ -708,7 +708,7 @@ terrain as a constraint in bundle adjustment::
 
 It is suggested that the images be map-projected with the cameras both
 before and after this step, as on some occasions this step may make
-things worse rather than bettter. One may also attempt to vary the
+things worse rather than better. One may also attempt to vary the
 value of ``--heights-from-dem-weight``.
 
 As before, the process may take forever, and if interrupted, perhaps the 
@@ -858,6 +858,9 @@ North-East-Down coordinates to ECEF) and can be used below instead of
 the transform obtained with invoking
 ``--initial-transform-from-hillshading``.
 
+If a manual rotation nudge is necessary, use ``pc_align`` with
+``--initial-rotation-angle``.
+
 It is very recommended to redo the whole process using the improved
 alignment. First, the alignment transform must be applied to the
 camera adjustments, by invoking bundle adjustment as earlier, with the
@@ -938,7 +941,7 @@ contributed to the blended DEM. See this tool's :ref:`manual page
 which will make this command fail. It is suggested that the input LOLA
 terrain be prepared with ``gdalwarp -te <corners>`` as described
 earlier, and then the SfS terrain be regenerated starting with this
-terrain, with any desried transform applied to the cameras before
+terrain, with any desired transform applied to the cameras before
 ``parallel_sfs`` is rerun, and then the extent of the LOLA and SfS
 terrains will agree. Or, though this is not recommended, the SfS
 terrain which exists so far and the LOLA terrain can both be

@@ -86,6 +86,10 @@ pc_align:
     outlier removal when finding matches between DEMs to align
     using features detected in hillshaded images or selected
     manually. 
+  * Added --initial-rotation-angle, to initialize the alignment
+    transform as the rotation with this angle (in degrees) around
+    the axis going from the planet center to the centroid of the point
+    cloud.
 
 Misc
  * Moved the daily build to the release area on GitHub, at 

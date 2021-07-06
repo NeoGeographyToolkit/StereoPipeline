@@ -107,7 +107,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
          max_disp,
          outlier_ratio,
          semi_major_axis,
-         semi_minor_axis;
+    semi_minor_axis, initial_rotation_angle;
   bool   compute_translation_only,
          dont_use_dem_distances,
          save_trans_source,
@@ -168,6 +168,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
     ("initial-ned-translation", po::value(&opt.initial_ned_translation)->default_value(""),
                                  "Initialize the alignment transform based on a translation with this vector in the North-East-Down coordinate system around the centroid of the reference points. Specify it in quotes, separated by spaces or commas.")
+    ("initial-rotation-angle", po::value(&opt.initial_rotation_angle)->default_value(0),
+                                 "Initialize the alignment transform as the rotation with this angle (in degrees) around the axis going from the planet center to the centroid of the point cloud. If --initial-ned-translation is also specified, the translation gets applied after the rotation.")
 
     ("initial-transform-from-hillshading", po::value(&opt.hillshading_transform)->default_value(""), "If both input clouds are DEMs, find interest point matches among their hillshaded versions, and use them to compute an initial transform to apply to the source cloud before proceeding with alignment. Specify here the type of transform, as one of: 'similarity' (rotation + translation + scale), 'rigid' (rotation + translation) or 'translation'.")
     ("hillshade-options", po::value(&opt.hillshade_options)->default_value("--azimuth 300 --elevation 20 --align-to-georef"), "Options to pass to the hillshade program when computing the transform from hillshading.")
@@ -242,12 +244,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             << usage << general_options );
   }
 
-  if (opt.initial_ned_translation != "" && opt.init_transform_file != "")
+  if ((opt.initial_ned_translation != "" || opt.initial_rotation_angle != 0)
+      && opt.init_transform_file != "")
     vw_throw( ArgumentErr()
-              << "Cannot specify an initial transform both from a file and as a NED vector.\n");
+              << "Cannot specify an initial transform both from a file "
+              << "and as a NED vector or rotation angle.\n");
 
   if ( (opt.hillshading_transform != "" || opt.match_file != "") &&
-       ( opt.initial_ned_translation != "" || opt.init_transform_file != "") ) {
+       (opt.initial_ned_translation != "" || opt.init_transform_file != "" ||
+        opt.initial_rotation_angle != 0)) {
     vw_throw( ArgumentErr() << "Cannot both specify an initial transform "
               << "and expect one to be computed automatically.\n");
   }
@@ -1200,12 +1205,29 @@ int main( int argc, char *argv[] ) {
                                                              opt.outlier_removal_params);
     }
 
-    // See if to apply an initial north-east-down translation
-    if (opt.initial_ned_translation != "") {
+    // See if to apply an initial north-east-down translation relative
+    // to the point cloud centroid, and/or a rotation around the axis
+    // going from the planet center to the centroid. The rotation
+    // happens first.
+    if (opt.initial_rotation_angle != 0 || opt.initial_ned_translation != "") {
+
       vw::Vector3 centroid = estimate_ref_cloud_centroid(geo, csv_conv, opt.reference);
-      opt.init_transform = ned_to_caresian_transform(geo.datum(),
-                                                     opt.initial_ned_translation, 
-                                                     centroid);
+
+      // Ignore any other initializations so far
+      opt.init_transform = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
+
+      // Form the rotation around the axis
+      Eigen::Vector3d axis(centroid[0], centroid[1], centroid[2]);
+      axis.normalize();
+      Eigen::Matrix3d rot
+        = Eigen::AngleAxisd(opt.initial_rotation_angle * M_PI/180.0, axis).matrix();
+      opt.init_transform.block(0, 0, DIM, DIM) = rot;
+
+      // The NED translation
+      if (opt.initial_ned_translation != "") 
+        opt.init_transform = 
+          ned_to_caresian_transform(geo.datum(), opt.initial_ned_translation, centroid)
+          * opt.init_transform;
     }
 
     // We will use ref_box to bound the source points, and vice-versa.
