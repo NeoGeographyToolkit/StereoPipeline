@@ -701,24 +701,24 @@ int update_outliers(ControlNetwork   & cnet,
       Vector3 xyz(point[0], point[1], point[2]);
       Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
       if (opt.elevation_limit[0] < opt.elevation_limit[1] && 
-	  (llh[2] < opt.elevation_limit[0] ||
-	   llh[2] > opt.elevation_limit[1])) {
+          (llh[2] < opt.elevation_limit[0] ||
+           llh[2] > opt.elevation_limit[1])) {
         param_storage.set_point_outlier(ipt, true);
         num_outliers_by_elev_or_lonlat++;
-	continue;
+        continue;
       }
-
+      
       Vector2 lon_lat = subvector(llh, 0, 2);
       if ( !opt.lon_lat_limit.empty() && !opt.lon_lat_limit.contains(lon_lat) ) {
         param_storage.set_point_outlier(ipt, true);
         num_outliers_by_elev_or_lonlat++;
-	continue;
+        continue;
       }
       
     }
     vw_out() << "Removed " << num_outliers_by_elev_or_lonlat << " outliers by elevation range and/or lon-lat range.\n";
   }
-
+  
   int num_remaining_points = num_points - param_storage.get_num_outliers();
 
   return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;
@@ -922,31 +922,31 @@ int do_ba_ceres_one_pass(Options             & opt,
         // and we should have the cameras and intrinsics params to conform to these.
         if (!is_gcp){
           double* point = param_storage.get_point_ptr(ipt);
-	  // Areas that have no underlying DEM are not put any
-	  // constraints. The user can take advantage of that to put
-	  // constraints only in parts of the image where desired.
+          // Areas that have no underlying DEM are not put any
+          // constraints. The user can take advantage of that to put
+          // constraints only in parts of the image where desired.
           if (update_point_from_dem(point, dem_georef, interp_dem)) {
-	    if (opt.heights_from_dem_weight <= 0) {
-	      // Fix it. Set it as GCP to not remove it as outlier.
-	      cnet[ipt].set_type(ControlPoint::GroundControlPoint);
-	      problem.SetParameterBlockConstant(point);
-	    }else{
-	      // Make this into a GCP so we can float it while not deviating
-	      // too much from what we have now. Also not remove it
-	      // as outlier.
-	      cnet[ipt].set_type(ControlPoint::GroundControlPoint);
-	      double s = 1.0/opt.heights_from_dem_weight;
-	      cnet[ipt].set_position(Vector3(point[0], point[1], point[2]));
-	      cnet[ipt].set_sigma(Vector3(s, s, s));
-	    }
-	  }
-	}
+            if (opt.heights_from_dem_weight <= 0) {
+              // Fix it. Set it as GCP to not remove it as outlier.
+              cnet[ipt].set_type(ControlPoint::GroundControlPoint);
+              problem.SetParameterBlockConstant(point);
+            }else{
+              // Make this into a GCP so we can float it while not deviating
+              // too much from what we have now. Also not remove it
+              // as outlier.
+              cnet[ipt].set_type(ControlPoint::GroundControlPoint);
+              double s = 1.0/opt.heights_from_dem_weight;
+              cnet[ipt].set_position(Vector3(point[0], point[1], point[2]));
+              cnet[ipt].set_sigma(Vector3(s, s, s));
+            }
+          }
+        }
       }
       
       cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
     } // end iterating over points
   } // end iterating over cameras
-
+  
   // Add ground control points
   // - Error goes up as GCP's move from their input positions.
   int    num_gcp = 0;
@@ -1266,21 +1266,21 @@ int do_ba_ceres_one_pass(Options             & opt,
   // Not useful
   //residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
   //write_residual_logs(residual_prefix, true,  opt, param_storage, cam_residual_counts,
-  //		      num_gcp_residuals, reference_vec, cnet, crn, problem);
+  //                      num_gcp_residuals, reference_vec, cnet, crn, problem);
   residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
   write_residual_logs(residual_prefix, false, opt, param_storage, cam_residual_counts,
-		      num_gcp_residuals, reference_vec, cnet, crn, problem);
+                      num_gcp_residuals, reference_vec, cnet, crn, problem);
   
   point_kml_path = opt.out_prefix + "-final_points.kml";
   param_storage.record_points_to_kml(point_kml_path, opt.datum,
-				     kmlPointSkip, "final_points",
-				     "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
+                                     kmlPointSkip, "final_points",
+                                     "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
 
   // If heights_from_dem is set, each point is a gcp, and this stats becomes too long
   if (num_gcp > 0 && opt.heights_from_dem == "") {
     if (num_gcp > 500) 
       vw_out() << "Too many GCP, will not print out the stats. "
-	       << "The pointmap file has GCP-related information.\n";
+               << "The pointmap file has GCP-related information.\n";
     else
       param_storage.print_gcp_stats(cnet, opt.datum);
   }
@@ -1350,11 +1350,11 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     if ((opt.camera_type==BaCameraType_Pinhole) && 
         !have_est_camera_positions) {
       if (opt.transform_cameras_using_gcp) {
-	init_pinhole_model_with_mono_gcp(opt.cnet, opt.camera_models);
-	cameras_changed = true;
+        init_pinhole_model_with_mono_gcp(opt.cnet, opt.camera_models);
+        cameras_changed = true;
       } else if (!opt.disable_pinhole_gcp_init) {
-	init_pinhole_model_with_multi_gcp(opt.cnet, opt.camera_models);
-	    cameras_changed = true;
+        init_pinhole_model_with_multi_gcp(opt.cnet, opt.camera_models);
+            cameras_changed = true;
       }
     }
     
@@ -1877,8 +1877,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       (!inline_adjustments) &&
       (opt.camera_type != BaCameraType_Pinhole)) {
     vw_throw( ArgumentErr() << "Transforming cameras using GCP works only for pinhole "
-	      << "cameras and with the --inline-adjustments flag.\n"
-	      << usage << general_options );
+              << "cameras and with the --inline-adjustments flag.\n"
+              << usage << general_options );
   }
   
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
@@ -1960,7 +1960,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
     vw_throw( ArgumentErr() << "When using a camera position file, the csv-format "
-	      << "option must be set.\n" << usage << general_options );
+              << "option must be set.\n" << usage << general_options );
 
   // Copy the IP settings to the global stereo_settings() object
   opt.copy_to_asp_settings();
@@ -2015,8 +2015,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
     if (opt.num_ba_passes > 1) 
       vw_out(WarningMessage) << "It is not recommended to use "
-			     << "--heights-from-dem-weight with multiple "
-			     << "passes. Results could be unpredictable.\n";
+                             << "--heights-from-dem-weight with multiple "
+                             << "passes. Results could be unpredictable.\n";
     
   }
   
@@ -2159,19 +2159,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 void ba_match_ip(Options & opt,
                  SessionPtr session, 
                  std::string const& image1_path,
-		 std::string const& image2_path,
-		 std::string const& camera1_path,
-		 std::string const& camera2_path,
-		 vw::camera::CameraModel* cam1,
-		 vw::camera::CameraModel* cam2,
-		 std::string const& match_filename){
+                 std::string const& image2_path,
+                 std::string const& camera1_path,
+                 std::string const& camera2_path,
+                 vw::camera::CameraModel* cam1,
+                 vw::camera::CameraModel* cam2,
+                 std::string const& match_filename){
   
   boost::shared_ptr<DiskImageResource>
     rsrc1(vw::DiskImageResourcePtr(image1_path)),
     rsrc2(vw::DiskImageResourcePtr(image2_path));
   if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
     vw_throw(ArgumentErr()
-	     << "Error: Input images can only have a single channel!\n\n");
+             << "Error: Input images can only have a single channel!\n\n");
   float nodata1, nodata2;
   asp::get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
 
@@ -2187,9 +2187,9 @@ void ba_match_ip(Options & opt,
   // Since we computed statistics earlier, this will just be loading files.
   vw::Vector<vw::float32,6> image1_stats, image2_stats;
   image1_stats = asp::StereoSession::gather_stats(masked_image1,
-						  image1_path, opt.out_prefix, image1_path);
+                                                  image1_path, opt.out_prefix, image1_path);
   image2_stats = asp::StereoSession::gather_stats(masked_image2,
-						  image2_path, opt.out_prefix, image2_path);
+                                                  image2_path, opt.out_prefix, image2_path);
   
   // The match files are cached unless the images or camera
   // are newer than them. The IP files are cached for certain
@@ -2197,9 +2197,9 @@ void ba_match_ip(Options & opt,
   std::string ip_file1 = ip::ip_filename(opt.out_prefix, image1_path);
   std::string ip_file2 = ip::ip_filename(opt.out_prefix, image2_path);
   session->ip_matching(image1_path, image2_path,
-		       Vector2(masked_image1.cols(), masked_image1.rows()),
-		       image1_stats, image2_stats, opt.ip_per_tile,
-		       nodata1, nodata2, cam1, cam2, match_filename, ip_file1, ip_file2);
+                       Vector2(masked_image1.cols(), masked_image1.rows()),
+                       image1_stats, image2_stats, opt.ip_per_tile,
+                       nodata1, nodata2, cam1, cam2, match_filename, ip_file1, ip_file2);
 }
 
 //==================================================================================
@@ -2618,9 +2618,9 @@ int main(int argc, char* argv[]) {
       std::string camera1_path   = opt.camera_files[i];
       std::string camera2_path   = opt.camera_files[j];
       std::string match_filename = ip::match_filename(opt.out_prefix, image1_path,
-						      image2_path);
+                                                      image2_path);
       opt.match_files[ std::pair<int, int>(i, j) ] = match_filename;
-
+      
       // TODO: Need to make sure this works with the parallel script!
       bool inputs_changed = (!asp::is_latest_timestamp(match_filename,
                                                        image1_path,  image2_path,
