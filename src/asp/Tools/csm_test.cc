@@ -15,8 +15,11 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// Compare the CSM and ISIS models by projecting into both
-// from a given DEM, and also doing projections from the camera.
+// Compare the CSM and ISIS models by finding for each of them the
+// camera center and ray direction at a set of sampled pixels, then by
+// projecting pixels to the ground using the ISIS camera and
+// back-projecting the resulting points into the CSM camera, then
+// doing this in reverse.
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -34,7 +37,7 @@ namespace fs = boost::filesystem;
 typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string dem_file, image_file, camera_file;
+  std::string image_file, camera_file;
   int sample_rate; // use one out of these many pixels
   Options() {}
 };
@@ -43,10 +46,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("dem",   po::value(&opt.dem_file),
-     "Specify the dem to use to project points into the ISIS and CSM camera models.")
-    ("sample-rate",   po::value(&opt.sample_rate)->default_value(1),
-     "Use one out of these many pixels when sampling the DEM.");
+    ("sample-rate",   po::value(&opt.sample_rate)->default_value(100),
+     "Use one out of these many pixels when sampling the image.");
     
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   
@@ -59,7 +60,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   positional_desc.add("image",   1);
   positional_desc.add("camera",  1);
   
-  std::string usage("--dem dem.tif input.cub input.json [other options]");
+  std::string usage("input.cub input.json [other options]");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -67,11 +68,26 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  if (opt.dem_file == "" || opt.image_file == "" || opt.camera_file == "")
+  if (opt.image_file == "" || opt.camera_file == "")
     vw_throw( ArgumentErr() << "Not all inputs were specified.\n" << usage << general_options );
 
   if (opt.sample_rate <= 0)
     vw_throw( ArgumentErr() << "The sample rate must be positive.\n" << usage << general_options );
+}
+
+// Sort the diffs and print some stats
+void print_diffs(std::string const& tag, std::vector<double> & diffs) {
+  std::sort(diffs.begin(), diffs.end());
+
+  vw_out() << "\n";
+  
+  if (diffs.empty()) 
+    vw_out() << "Empty list of diffs for: " << tag << "\n";
+
+  vw_out() << tag << "\n";
+  vw_out() << "Min:    " << diffs[0] << "\n";
+  vw_out() << "Median: " << diffs[diffs.size()/2] << "\n";
+  vw_out() << "Max:    " << diffs.back() << "\n";
 }
 
 int main( int argc, char *argv[] ) {
@@ -80,23 +96,6 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments(argc, argv, opt);
 
-    std::cout << "Image is " << opt.image_file << std::endl;
-    std::cout << "Camera is " << opt.camera_file << std::endl;
-    
-    // Read the DEM and its associated data
-    // TODO(oalexan1): Think more about the interpolation method
-    std::cout << "Reading the DEM: " << opt.dem_file << std::endl;
-    vw::cartography::GeoReference dem_georef;
-    if (!read_georeference(dem_georef, opt.dem_file))
-      vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
-    double dem_nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
-    if (!vw::read_nodata_val(opt.dem_file, dem_nodata_val))
-      vw_throw( ArgumentErr() << "Could not read the DEM nodata value.\n");
-    std::cout << "Read DEM nodata value: " << dem_nodata_val << std::endl;
-    DiskImageView<float> dem(opt.dem_file);
-    std::cout << "The DEM width and height are: " << dem.cols() << ' ' << dem.rows() << std::endl;
-    ImageViewRef< PixelMask<float> > masked_dem = create_mask(dem, dem_nodata_val);
-    
     // Load the isis camera
     std::string out_prefix;
     std::string isis_session_name; 
@@ -107,7 +106,11 @@ int main( int argc, char *argv[] ) {
                                                               out_prefix));
     boost::shared_ptr<vw::camera::CameraModel> isis_camera_model
       = isis_session->camera_model(opt.image_file, opt.image_file);
-    std::cout << "Got isis session: " << isis_session_name << std::endl;
+
+    bool use_sphere_for_datum = false;
+    vw::cartography::Datum datum = isis_session->get_datum(isis_camera_model.get(),
+                                                           use_sphere_for_datum);
+    std::cout << "Datum: " << datum << std::endl;
     
     // Load the csm camera
     std::string csm_session_name; 
@@ -118,52 +121,47 @@ int main( int argc, char *argv[] ) {
                                                               out_prefix));
     boost::shared_ptr<vw::camera::CameraModel> csm_camera_model
       = csm_session->camera_model(opt.image_file, opt.camera_file);
-    std::cout << "Got csm session: " << csm_session_name << std::endl;
 
     // The input image
-    DiskImageView<float> input_image(opt.image_file);
-    std::cout << "Image dimensions is "
-              << input_image.cols() << ' ' << input_image.rows() << std::endl;
+    DiskImageView<float> image(opt.image_file);
+    std::cout << "Image dimensions: " << image.cols() << ' ' << image.rows() << std::endl;
 
-    // Iterate over the DEM
-    for (int col = 0; col < dem.cols(); col += opt.sample_rate) {
-      for (int row = 0; row < dem.rows(); row += opt.sample_rate) {
+    // Iterate over the image
+    std::vector<double> ctr_diff, dir_diff, isis2csm_diff, csm2isis_diff;
+    for (int col = 0; col < image.cols(); col += opt.sample_rate) {
+      for (int row = 0; row < image.rows(); row += opt.sample_rate) {
+
+        Vector2 image_pix(col, row);
+
+        Vector3 isis_ctr = isis_camera_model->camera_center(image_pix);
+        Vector3 isis_dir = isis_camera_model->pixel_to_vector(image_pix);
         
-        if (!is_valid(masked_dem(col, row)))
-          continue;
+        Vector3 csm_ctr = csm_camera_model->camera_center(image_pix);
+        Vector3 csm_dir = csm_camera_model->pixel_to_vector(image_pix);
 
-        Vector2 pix(col, row);
-        std::cout << "pix is " << pix << std::endl;
+        ctr_diff.push_back(norm_2(isis_ctr - csm_ctr));
+        dir_diff.push_back(norm_2(isis_dir - csm_dir));
         
-        double height = masked_dem(col, row).child();
-
-        Vector3 llh;
-        subvector(llh, 0, 2) = dem_georef.pixel_to_lonlat(pix); // lon and lat
-        llh[2] = height;
-
-        Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
-        Vector2 isis_pix = isis_camera_model->point_to_pixel(xyz);
+        // Shoot a ray from the ISIS camera, intersect it with the datum,
+        // and project it back into the CSM camera.
+        Vector3 xyz = vw::cartography::datum_intersection(datum, isis_ctr, isis_dir);
         Vector2 csm_pix = csm_camera_model->point_to_pixel(xyz);
-
-        std::cout << "llh is " << llh << std::endl;
-        std::cout << "xyz is " << xyz << std::endl;
-        std::cout << "isis and csm pix and diff " << isis_pix << ' ' << csm_pix << ' '
-                  << isis_pix - csm_pix << ' ' << norm_2(isis_pix - csm_pix) << std::endl;
-
-
-        Vector3 isis_ctr = isis_camera_model->camera_center(csm_pix);
-        Vector3 isis_dir = isis_camera_model->pixel_to_vector(csm_pix);
+        isis2csm_diff.push_back(norm_2(image_pix - csm_pix));
         
-        Vector3 csm_ctr = csm_camera_model->camera_center(csm_pix);
-        Vector3 csm_dir = csm_camera_model->pixel_to_vector(csm_pix);
-
-        std::cout << "isis and csm dir " << isis_dir << ' ' << csm_dir << ' '
-                  << isis_dir - csm_dir << ' ' << norm_2(isis_dir - csm_dir) << std::endl;
-        
-        std::cout << "isis and csm ctr " << isis_ctr << ' ' << csm_ctr << ' '
-                  << isis_ctr - csm_ctr << ' ' << norm_2(isis_ctr - csm_ctr) << std::endl;
+        // Shoot a ray from the CSM camera, intersect it with the datum,
+        // and project it back into the ISIS camera.
+        xyz = vw::cartography::datum_intersection(datum, csm_ctr, csm_dir);
+        Vector2 isis_pix = isis_camera_model->point_to_pixel(xyz);
+        csm2isis_diff.push_back(norm_2(image_pix - isis_pix));
       }
     }
+
+    vw_out() << "Number of samples used: " << ctr_diff.size() << "\n";
+
+    print_diffs("ISIS vs CSM camera direction diff", dir_diff);
+    print_diffs("ISIS vs CSM camera center diff (meters)", ctr_diff);
+    print_diffs("ISIS to CSM pixel diff", isis2csm_diff);
+    print_diffs("CSM to ISIS pixel diff", csm2isis_diff);
     
   } ASP_STANDARD_CATCHES;
   

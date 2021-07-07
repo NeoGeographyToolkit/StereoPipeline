@@ -781,18 +781,18 @@ that adjustment.
 Creating CSM cameras from ISIS .cub files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-CSM camera files can be created from ISIS ``.cub`` files as follows.
-First run the ISIS ``spiceinit`` command as::
+CSM camera files can be created from ISIS cameras follows.
+Run the ISIS ``spiceinit`` command as::
 
     spiceinit from = camera.cub shape = ellipsoid
 
-Then create a conda environemnt for the ``ale`` package::
+Then create a conda environment for the ``ale`` package::
 
     conda create -c conda-forge -n ale_env python=3.6 ale  
     conda activate ale_env
 
-(other versions of Python may result in a runtime error later), and
-invoke the version of Python for this environment, whose path may be::
+(other versions of Python may result in a runtime error later). 
+Invoke the version of Python for this environment, whose path may be::
 
     $HOME/miniconda3/envs/ale_env/bin/python
 
@@ -807,7 +807,20 @@ on the Python script::
     print("Writing: " + isd_file)
     with open(isd_file, 'w') as isd_file:
       isd_file.write(usgscsm_str)
-    
+
+which reads ``camera.cub`` and writes ``camera.json``. To evaluate how
+well the obtained CSM camera approximates the ISIS camera model, run
+the program ``csm_test`` shipped with ASP as follows::
+
+    csm_test --sample-rate 100 camera.cub camera.json
+
+This compares the camera center and ray direction at a set of sampled
+pixels for each of the two models, then projects a set of pixels to
+the ground using the ISIS camera and back-projects the resulting point
+into the CSM camera and compares this with the original pixel, then
+this process is repeated with the two cameras reversed. The pixel
+errors are expected to be at most on the order of 0.2 pixels.
+
 .. _digital_globe_data:
 
 DigitalGlobe/Maxar Images
