@@ -816,8 +816,8 @@ the program ``csm_test`` shipped with ASP as follows::
 
 This compares the camera center and ray direction at a set of sampled
 pixels for each of the two models, then projects a set of pixels to
-the ground using the ISIS camera and back-projects the resulting point
-into the CSM camera and compares this with the original pixel, then
+the ground using the ISIS camera, back-projects the resulting point
+into the CSM camera, and compares this with the original pixel, then
 this process is repeated with the two cameras reversed. The pixel
 errors are expected to be at most on the order of 0.2 pixels.
 
