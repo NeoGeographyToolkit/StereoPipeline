@@ -682,7 +682,7 @@ OpenCV BM
 
 The simpler and not as performing block-matching (BM) algorithm of
 OpenCV can be invoked in a very similar manner to OpenCV's SGBM
-(:numref:`opencv_sgbm`), with the algorithm name passed to
+(:numref:`opencv_sgbm_options`), with the algorithm name passed to
 ``--stereo-algorithm`` being ``opencv_bm``. It accepts the same
 parameters except ``-P1`` and ``-P2``, and uses in addition the
 option:
