@@ -477,6 +477,15 @@ namespace asp {
       }
     } // End crop checking case
 
+    // If not using crop wins but the crop image exists, then things won't go well.
+    if (!crop_left && !crop_right &&
+        (fs::exists(opt.out_prefix+"-L-cropped.tif") ||
+         fs::exists(opt.out_prefix+"-R-cropped.tif"))) 
+      vw_throw(ArgumentErr() << "The current output prefix '" << opt.out_prefix
+               << "' has an old run which used --left-image-crop-win, "
+               << "but the current run does not. Results will be incorrect. "
+               << "Please use a new output prefix.");
+    
     // TODO: May need to update this check for individual crop cases.
     // Sanity check. Don't run it if we have L-cropped.tif or R-cropped.tif,
     // in that case we have ran the gui before, and the sizes of the subimages
@@ -805,6 +814,7 @@ namespace asp {
       // TODO: Remove this extra camera load!
       //       - Some camera models take a long time to load and this causes us to load them twice!
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+
       opt.session->camera_models(camera_model1, camera_model2);
 
       Vector3 cam1_ctr = camera_model1->camera_center(Vector2());

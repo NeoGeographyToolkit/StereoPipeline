@@ -25,20 +25,21 @@ New functionality:
 
 isis:
   * Upgrade to ISIS 4.4.0.
+  * Ship a full Python runtime, as expected by ISIS.
 
 csm:
   * Upgraded to USGSCSM 1.5.2.
-  * Valided the CSM model for CTX, HiRISE, and LRO NAC cameras.
+  * Validated the CSM model for CTX, HiRISE, and LRO NAC cameras.
   * Added documentation for how to create CSM models from .cub
     cameras.
   * Export the state of a CSM camera after bundle adjustment and
-    pc_align (only for linescan cameras suported by ISIS).
+    pc_align (only for linescan cameras supported by ISIS).
 
 parallel_stereo
 
   * Will now throw an error if --threads is passed in, whose behavior
     was not defined.
-  * Bug fix for Python 3.
+  * Bugifx for Python 3.
 
 bundle_adjust:
 
@@ -73,14 +74,14 @@ sfs:
 stereo_gui:
   * Added the ability to find the contour of a georeferenced image at
     a given threshold. (It can be later edited, saved to disk, etc.) 
-  * Bug fixes for polygon drawing logic.
+  * Bugifxes for polygon drawing logic.
   * Much more responsive for overlaying many images.
 
 image_calc:
   * Support the sign function (can help in creating masks).
 
 pc_align: 
-  * Bug fix for --initial-transform-from-hillshading with outlier
+  * Bugifx for --initial-transform-from-hillshading with outlier
     removal.
   * Add the --initial-transform-outlier-removal-params to control
     outlier removal when finding matches between DEMs to align
@@ -101,12 +102,14 @@ Misc
    set by the user. Can be set to something very small if desired.
    This is a bug fix for this rarely used option (before, when set to
    0 it would just reset itself to some internal non-small value).  
- * Bug fix for the VisionWorkbench implementation of the
+ * Bugifx for the VisionWorkbench implementation of the
    Levenberg-Marquardt algorithm, it was giving up prematurely in
    challenging situations.
- * Bug fix for affine epipolar alignment. Use the OpenCV function 
+ * Bugifx for affine epipolar alignment. Use the OpenCV function 
    for finding the alignment matrix instead of the ASP one as OpenCV
    can filter outliers which cause issues on rare occasions. 
+ * Bugfix: Do not allow a full run to take place in a directory
+   where a clip was run, as that will produce incorrect results.
  
 RELEASE 2.7.0, July 27, 2020
 ----------------------------

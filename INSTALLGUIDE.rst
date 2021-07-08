@@ -217,7 +217,6 @@ depending on your platform. Then invoke, as earlier::
 
     conda activate asp
 
-
 Finally, if you are working with planetary data, you need to complete
 the ISIS installation steps from this new ``asp`` conda environment.
 Your new ``asp`` environment already has the base ISIS software
@@ -229,7 +228,6 @@ environment variable to your existing data area).  For more information
 on those latter parts of ISIS installation, please find the
 `installation instructions at their repo
 <https://github.com/USGS-Astrogeology/ISIS3>`_.
-
 
 Building ASP from source
 ------------------------
