@@ -213,8 +213,8 @@ def create_symlinks_for_multiview(settings, opt):
         m = re.match('multiview_command', s)
         if not m:
             continue
-        local_settings=run_and_parse_output( "stereo_parse", settings[s][1:],
-                                             sep, opt.verbose )
+        local_settings=run_and_parse_output("stereo_parse", settings[s][1:],
+                                             sep, opt.verbose)
         local_prefix = local_settings['out_prefix'][0]
         m = re.match('^(.*?)-pair(\d+)\/', local_prefix)
         if not m:
@@ -275,7 +275,7 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
     # Do gdalinfo on the good tile to get metadata
     args=[goodFilename]
     sep = "="
-    gdal_settings=run_and_parse_output( "gdalinfo", args, sep, opt.verbose )
+    gdal_settings=run_and_parse_output("gdalinfo", args, sep, opt.verbose)
 
     # Extract the data type (e.g., Float32 or Float64)
     data_type = "Float32"
@@ -460,7 +460,7 @@ def spawn_to_nodes(step, settings, args):
     f.close()
 
     # Use GNU parallel with given number of processes.
-    cmd = ['parallel', '--will-cite', '--env', 'ASP_DEPS_DIR', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '-u', '-P', str(procs), '-a', tmpFile.name]
+    cmd = ['parallel', '--will-cite', '--env', 'ASP_DEPS_DIR', '--env', 'PATH', '--env', 'LD_LIBRARY_PATH', '--env', 'PYTHONHOME', '-u', '-P', str(procs), '-a', tmpFile.name]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
@@ -711,7 +711,7 @@ if __name__ == '__main__':
     # This command needs to be run after we switch to the work directory,
     # hence no earlier than this point.
     sep = ","
-    settings = run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
+    settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
 
     # Check if we are doing SGM instead of block match processing
     alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
@@ -728,7 +728,7 @@ if __name__ == '__main__':
         args.append('-v')
 
     sep2 = '--non-comma-separator--' # for values having commas which we don't want disturbed
-    georef=run_and_parse_output( "stereo_parse", args, sep2, opt.verbose )
+    georef=run_and_parse_output("stereo_parse", args, sep2, opt.verbose)
     georef["WKT"] = "".join(georef["WKT"])
     georef["GeoTransform"] = "".join(georef["GeoTransform"])
 
@@ -855,8 +855,8 @@ if __name__ == '__main__':
             create_subproject_dirs( settings ) # symlink L.tif, etc
             # Now the left is defined. Regather the settings
             # and properly create the project dirs.
-            settings=run_and_parse_output( "stereo_parse", args, sep,
-                                           opt.verbose )
+            settings=run_and_parse_output("stereo_parse", args, sep,
+                                           opt.verbose)
 
         # Correlation.
         step = Step.corr

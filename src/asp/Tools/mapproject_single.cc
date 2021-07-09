@@ -35,18 +35,13 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
 
-#include <boost/algorithm/string/replace.hpp>
-
 using namespace vw;
 using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-
-
 /// The pixel type used for the DEM data
 typedef PixelMask<float> DemPixelT;
-
 
 struct Options : vw::cartography::GdalWriteOptions {
   // Input
