@@ -41,6 +41,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 #include <boost/dll.hpp>
+#include <boost/algorithm/string/replace.hpp>
 
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
 #include "ogr_spatialref.h"
@@ -653,6 +654,41 @@ void asp::read_vec(std::string const& filename, std::vector<double> & vals) {
   while (ifs >> val)
     vals.push_back(val);
   ifs.close();
+}
+
+// Read the target name (planet name) from the plain text portion of an ISIS cub file
+std::string asp::read_target_name(std::string const& filename) {
+
+  std::string target = "UNKNOWN";
+  
+  std::ifstream handle;
+  handle.open(filename.c_str());
+  if (handle.fail())
+    return target; // No luck
+  
+  std::string line;
+  while ( getline(handle, line, '\n') ){
+    if (line == "End") 
+      return target; // No luck, reached the end of the text part of the cub
+
+    // Find the line having TargetName
+    boost::to_lower(line);
+    if (line.find("targetname") == std::string::npos) 
+      continue;
+
+    // Replace the equal sign with a space and read the second
+    // non-space entry from this line
+    boost::replace_all(line, "=", " ");
+    std::istringstream iss(line);
+    std::string val;
+    if (! (iss >> val >> target)) 
+      continue;
+
+    boost::to_upper(target);
+    return target;
+  }
+  
+  return target;
 }
 
 void asp::BitChecker::check_argument( vw::uint8 arg ) {

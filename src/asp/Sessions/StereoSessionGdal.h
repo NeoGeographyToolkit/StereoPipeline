@@ -126,19 +126,27 @@ namespace asp {
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
                                              bool use_sphere_for_datum) const {
 
-      // The CSM model does not have the datum name, hence have to get it
-      // from the ISIS camera.
-      boost::shared_ptr<vw::camera::CameraModel> isis_cam
-        = m_camera_loader.load_isis_camera_model(m_left_image_file);
+      // Peek at the .cub file to get the planet name without reading
+      // it as an ISIS camera (which can fail unless the ISISDATA
+      // folder exists, and for CSM that is not guaranteed.)
+      std::string datum_name = asp::read_target_name(m_left_image_file);
+
+      const asp::CsmModel * cast_csm_cam
+        = dynamic_cast<const asp::CsmModel*>(vw::camera::unadjusted_model(cam));
+      VW_ASSERT(cast_csm_cam != NULL,
+                vw::ArgumentErr() << "Could not load a CSM camera.\n");
+
+      vw::Vector3 radii = cast_csm_cam->target_radii();
+      double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
+      double radius2 = radius1;
+      if (!use_sphere_for_datum) {
+        radius2 = radii[2]; // the z radius (semi-minor axis)
+      }
       
-      const vw::camera::IsisCameraModel * cast_isis_cam
-        = dynamic_cast<const vw::camera::IsisCameraModel*>
-        (vw::camera::unadjusted_model(isis_cam.get()));
-      VW_ASSERT(cast_isis_cam != NULL,
-                vw::ArgumentErr() << "Could not load an ISIS camera from "
-                << m_left_image_file << ".\n");
-      
-      return cast_isis_cam->get_datum(use_sphere_for_datum);
+      vw::cartography::Datum datum("D_" + datum_name, datum_name,
+                                   "Reference Meridian", radius1, radius2, 0);
+
+      return datum;
     }
     
   protected:

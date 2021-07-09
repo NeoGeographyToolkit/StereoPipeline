@@ -113,6 +113,9 @@ namespace asp {
   
   /// Read a vector from a file  
   void read_vec(std::string const& filename, std::vector<double> & vals);
+
+  /// Read the target name (planet name) from the plain text portion of an ISIS cub file
+  std::string read_target_name(std::string const& filename);
   
   boost::program_options::variables_map
   check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
