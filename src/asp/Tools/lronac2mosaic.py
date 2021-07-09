@@ -428,9 +428,10 @@ def main():
             raise Usage(msg)
 
         # Make sure only one pair of cubes was passed in
-        input_file_pair = build_cube_pairs( args )
+        input_file_pair = build_cube_pairs(args)
         if len(input_file_pair) > 1:
-            raise Usage('Input error: Only one pair of input files are allowed!')
+            raise Usage('Input error: Only one pair of input files are allowed, ' +
+                        'with names like M1127782730LE.IMG and M1127782730RE.IMG.')
 
         if not options.outputFolder: # Set the output folder equal to the input folder
             options.outputFolder = os.path.dirname(args[0])
@@ -467,7 +468,7 @@ def main():
             lronacechod = args
 
         print("build_cube_pairs") # Detected corresponding pairs of cubes
-        lronac_file_pairs = build_cube_pairs( lronacechod )
+        lronac_file_pairs = build_cube_pairs(lronacechod)
 
         print("noproj")       # Per-file operation
         noprojed_file_pairs = noproj( lronac_file_pairs, options.threads, options.delete, options.fakePvl, options.outputFolder)
