@@ -379,17 +379,17 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   const std::string right_image_path_sub  = opt.out_prefix + "-R_sub.tif";
 
   const std::string full_match_file
-    = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
+    = vw::ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
   const std::string sub_match_file
     = vw::ip::match_filename(opt.out_prefix, "L_sub.tif", "R_sub.tif");
   const std::string aligned_match_file     
     = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
 
-  // TODO: The logic below is wrong. Don't read the first match file
-  // that happens to exist on disk and hope for the best.  That could
-  // be an incorrect one. At this stage we know exactly the files that
-  // need processing. Check if the desired file exists, and read that
-  // one, or create it if missing.
+  // TODO(oalexan1): The logic below is wrong. Don't read the first
+  // match file that happens to exist on disk and hope for the best.
+  // That could be an incorrect one. At this stage we know exactly the
+  // files that need processing. Check if the desired file exists, and
+  // read that one, or create it if missing.
 
   // Make sure the match file is newer than these files
   std::vector<std::string> in_file_list;
@@ -608,11 +608,12 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
   ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
   
-  // TODO: Consolidate IP adjustment
-  // TODO: This logic is messed up. We __know__ from stereo_settings() what
-  // alignment method is being used and what scale we are at, there is no
-  // need to try to read various and likely old files from disk
-  // to infer that. You can get the wrong answer.
+  // TODO(oalexan1): Consolidate IP adjustment.
+  // TODO(oalexan1): This logic is messed up. We __know__ from
+  // stereo_settings() what alignment method is being used and what
+  // scale we are at, there is no need to try to read various and
+  // likely old files from disk to infer that. You can get the wrong
+  // answer.
   
   // Handle alignment matrices if they are present
   // - Scale is reset to 1.0 if alignment matrices are present.
