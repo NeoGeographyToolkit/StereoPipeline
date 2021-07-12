@@ -77,11 +77,11 @@ def stereo_alg_to_num(alg):
     return VW_CORRELATION_OTHER
 
 def check_system_memory(opt, args, settings):
-    '''Issue a warning if our selected options are estimated to exceed available RAM.'''
+    '''Issue a warning when doing correlation if our selected options
+    are estimated to exceed available RAM. Currently only the ASP SGM
+    and MGM have large memory requirements.'''
 
     try:
-        # Currently only ASP's SGM and MGM have large memory requirements.
-
         alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
         if alg == VW_CORRELATION_BM or alg >= VW_CORRELATION_OTHER:
             return
@@ -110,7 +110,7 @@ def check_system_memory(opt, args, settings):
                   + str(est_ram_usage) + 'mb but only ' + str(freemem_mb)
                   + 'mb of free memory is detected.  To lower memory use, '
                   + 'consider reducing the number of processes or lowering '
-                  + '--corr_memory_limit_mb')
+                  + '--corr-memory-limit-mb.')
 
     except:
         # Don't let an error here prevent the tool from running.
@@ -512,7 +512,8 @@ def tile_run(prog, args, settings, tile, **kw):
         #   there will be no other change.
 
         alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
-        using_tiles = (alg > VW_CORRELATION_BM)
+        using_tiles = (alg > VW_CORRELATION_BM or \
+                       settings['alignment_method'][0] == 'local_epipolar')
 
         if using_tiles and prog == 'stereo_corr':
             collar_size = int(settings['collar_size'][0])
@@ -627,7 +628,7 @@ if __name__ == '__main__':
                    help='Pixel height of input image tile for a single process.',
                    type=int)
     p.add_argument('--sparse-disp-options', dest='sparse_disp_options',
-                   help='Options to pass directly to sparse_disp.')
+                   help='Options to pass directly to sparse_disp. Use quotes around this string.')
     p.add_argument('-v', '--version',        dest='version', default=False,
                    action='store_true', help='Display the version of software.')
     p.add_argument('-s', '--stereo-file',    dest='stereo_file', default='./stereo.default',
@@ -635,7 +636,7 @@ if __name__ == '__main__':
     p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
                    help='Display the commands being executed.')
     p.add_argument('--parallel-options', dest='parallel_options', default=None,
-                   help='Passthrough for GNU parallel options, not validated. [default: None]')
+                   help='Options to pass directly to GNU Parallel. Default: "". Example: "--sshdelay 1 --controlmaster".')
     # Internal variables below.
     # The id of the tile to process, 0 <= tile_id < num_tiles.
     p.add_argument('--tile-id', dest='tile_id', default=None, type=int,
@@ -716,7 +717,8 @@ if __name__ == '__main__':
     # Check if we are doing SGM instead of block match processing
     alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
     
-    using_tiles = (alg > VW_CORRELATION_BM)
+    using_tiles = (alg > VW_CORRELATION_BM or \
+                   settings['alignment_method'][0] == 'local_epipolar')
 
     # By default use 8 threads for SGM/MGM
     if alg > VW_CORRELATION_BM and alg < VW_CORRELATION_OTHER and opt.threads_multi is None:
@@ -740,7 +742,7 @@ if __name__ == '__main__':
             #  to the correlation tile size. 
             opt.job_size_w = corr_tile_size
             opt.job_size_h = opt.job_size_w
-            print ('Setting SGM job size to: ' + str(opt.job_size_w))
+            print ('Setting tile size to: ' + str(opt.job_size_w))
         else:
             # If the user specified these, they better be equal, and equal to corr_tile_size
             if opt.job_size_h != opt.job_size_w:
@@ -765,8 +767,9 @@ if __name__ == '__main__':
             print("Making --corr-tile-size the minimum of --job-size-h and --job-size-w, " \
                   "that is equal to " + str(corr_tile_size) + ".")
 
-    check_system_memory(opt, args, settings)
-
+    # TODO(oalexan1): The giant block below needs to be broken up into
+    # several functions named parent_run(), child_run(), and
+    # multiview_run(). Careful testing will be needed.
     if opt.tile_id is None:
 
         # We get here when the script is started. The current running
@@ -783,6 +786,8 @@ if __name__ == '__main__':
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1:
 
+            # Run multivew logic.
+            
             # Bugfix: avoid confusing the logic below
             wipe_option(self_args, '-s', 1)
             if os.path.exists(opt.stereo_file):
@@ -791,7 +796,8 @@ if __name__ == '__main__':
             # Map from option, say --job-size-w, to the variable name, say, job_size_w.
             opt2var = {}
             for x in p._actions:
-                opt_str = getattr(x, 'option_strings')[-1] # For cases like ['-l', '--long'] get the second entry
+                # For cases like ['-l', '--long'] get the second entry
+                opt_str = getattr(x, 'option_strings')[-1]
                 opt2var[opt_str] = getattr(x, 'dest')
 
             # Find the options used by parallel_stereo which are not
@@ -846,6 +852,8 @@ if __name__ == '__main__':
                 # for multivew.  Set up the directories and run Step.tri.
                 create_symlinks_for_multiview(settings, opt)
 
+        # Parent script logic for each step
+        
         # Preprocessing
         step = Step.pprc
         if ( opt.entry_point <= step ):
@@ -875,6 +883,7 @@ if __name__ == '__main__':
             create_subproject_dirs(settings)
 
             # Run full-res stereo using multiple processes.
+            check_system_memory(opt, args, settings)
             self_args.extend(['--skip-low-res-disparity-comp'])
             spawn_to_nodes(step, settings, self_args)
             wipe_option(self_args, '--skip-low-res-disparity-comp', 0) # no longer needed
@@ -926,6 +935,7 @@ if __name__ == '__main__':
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ):
                 sys.exit()
+                
             build_vrt(settings, georef, "-RD.tif", "-RD.tif")
             normal_run('stereo_fltr', args, msg='%d: Filtering' % step)
             create_subproject_dirs( settings ) # symlink F.tif
@@ -976,22 +986,23 @@ if __name__ == '__main__':
         try:
 
             # Pick the tile we want from the list of tiles
-            tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
+            tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
             tile  = tiles[opt.tile_id]
 
-            if ( opt.entry_point == Step.corr ):
+            if (opt.entry_point == Step.corr):
+                check_system_memory(opt, args, settings)
                 tile_run('stereo_corr', args, settings, tile,
                          msg='%d: Correlation' % opt.entry_point)
 
-            if ( opt.entry_point == Step.blend ):
+            if (opt.entry_point == Step.blend):
                 tile_run('stereo_blend', args, settings, tile,
                          msg='%d: Blending' % opt.entry_point)
 
-            if ( opt.entry_point == Step.rfne ):
+            if (opt.entry_point == Step.rfne):
                 tile_run('stereo_rfne', args, settings, tile,
                          msg='%d: Refinement' % opt.entry_point)
 
-            if ( opt.entry_point == Step.tri ):
+            if (opt.entry_point == Step.tri):
                 tile_run('stereo_tri', args, settings, tile,
                          msg='%d: Triangulation' % opt.entry_point)
 
