@@ -70,6 +70,9 @@ environment.
 Quick start for ISIS users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Using the packaged ASP tarball
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 #. Fetch Stereo Pipeline from
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
 
@@ -90,6 +93,11 @@ Quick start for ISIS users
 
 #. Try It Out: See :numref:`moc_tutorial` for an example.
 
+
+Installing ASP and ISIS in the same conda environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This is discussed further down. 
 
 Quick start for Digital Globe users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -197,6 +205,19 @@ Install ASP with the command::
 
     conda install stereo-pipeline==2.7.0
 
+This will install ASP 2.7.0 together with ISIS 4.1.0.
+
+Running instead::
+
+    conda install stereo-pipeline==isis4.4.0
+
+will install a development version of ASP tied to ISIS 4.4.0.
+
+If using ISIS, the environmental variable ISISROOT should be set to
+point to this distribution, such as::
+
+    export ISISROOT=$HOME/miniconda3/envs/asp
+
 Check that the ``stereo`` command can be found as::
 
     which stereo
@@ -221,12 +242,11 @@ Finally, if you are working with planetary data, you need to complete
 the ISIS installation steps from this new ``asp`` conda environment.
 Your new ``asp`` environment already has the base ISIS software
 installed, but you must run the script which sets the ISIS environment
-variables and install the appropriate ISIS data files (if you also
-have a separate ISIS conda environment, you can use the set-up
-script to point the ``asp`` conda environment's ``$ISISDATA``
-environment variable to your existing data area).  For more information
-on those latter parts of ISIS installation, please find the
-`installation instructions at their repo
+variables, and also install the appropriate ISIS data files (if you also
+have a separate ISIS conda environment, you can use the set-up script
+to point the ``asp`` conda environment's ``ISISDATA`` environment
+variable to your existing data area).  For more information see 
+the `ISIS installation instructions
 <https://github.com/USGS-Astrogeology/ISIS3>`_.
 
 Building ASP from source
