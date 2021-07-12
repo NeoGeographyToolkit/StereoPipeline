@@ -595,6 +595,7 @@ asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOption
 
 void asp::set_srs_string(std::string srs_string, bool have_user_datum,
                          vw::cartography::Datum const& user_datum,
+                         bool have_input_georef,
                          vw::cartography::GeoReference & georef){
 
 // Should we even build ASP if this is disabled?
@@ -609,15 +610,16 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   // Set srs_string into given georef. Note that this may leave the
   // georef's affine transform inconsistent.
 
-
   // TODO: The line below is fishy. A better choice would be
   // srs_string = georef.overall_proj4_str() but this needs testing.
   if (srs_string == "")
     srs_string = "+proj=longlat";
 
-  if ( have_user_datum )
+  if (have_user_datum)
     srs_string += " " + user_datum.proj4_str();
 
+  vw::cartography::GeoReference input_georef = georef;
+  
   OGRSpatialReference gdal_spatial_ref;
   if (gdal_spatial_ref.SetFromUserInput( srs_string.c_str() ))
     vw_throw( ArgumentErr() << "Failed to parse: \"" << srs_string << "\"." );
@@ -630,13 +632,28 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   // Re-apply the user's datum. The important values were already
   // there (major/minor axis), we're just re-applying to make sure
   // the name of the datum is there in case it was not resolved so far.
-  if ( have_user_datum &&
+  if (have_user_datum &&
        boost::to_lower_copy(georef.datum().name()).find("unknown") != std::string::npos &&
        georef.datum().semi_major_axis() == user_datum.semi_major_axis() &&
        georef.datum().semi_minor_axis() == user_datum.semi_minor_axis() ) {
-    georef.set_datum( user_datum );
+    georef.set_datum(user_datum);
   }
-  
+
+  // If still don't have a name for the datum, but have an input
+  // georef, copy the name, spheroid name, and projcs name from
+  // there. Better than saying "unknown". We do not change the axes
+  // though.
+  if (have_input_georef &&
+      boost::to_lower_copy(georef.datum().name()).find("unknown") != std::string::npos) {
+    vw::cartography::Datum datum = georef.datum();
+    datum.name() = input_georef.datum().name();
+    datum.spheroid_name() = input_georef.datum().name();
+    georef.set_datum(datum);
+
+    if (boost::to_lower_copy(georef.get_projcs_name()).find("unnamed") != std::string::npos) 
+      georef.set_projcs_name(input_georef.get_projcs_name());
+  }
+
 #else
   vw_throw( NoImplErr() << "Target SRS option is not available without GDAL support. Please rebuild VW and ASP with GDAL." );
 #endif

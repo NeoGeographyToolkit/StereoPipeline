@@ -556,9 +556,10 @@ bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
                              << "\nPlease check if you are using an Earth datum.\n");
     }
   } else if (this->csv_proj4_str != "") { // Not UTM, with proj4 string
-    bool have_user_datum = false;
+    bool have_user_datum = false, have_input_georef = false;
     Datum user_datum;
-    asp::set_srs_string(this->csv_proj4_str, have_user_datum, user_datum, georef);
+    asp::set_srs_string(this->csv_proj4_str, have_user_datum, user_datum,
+                        have_input_georef, georef);
     return true;
   }else{ // No UTM, no proj4 string
     if (this->format == EASTING_HEIGHT_NORTHING)

@@ -823,7 +823,7 @@ namespace asp {
       right_ip[good_it] = right_ip[it];
       good_it++;
     }
-    vw_out() << "Removed " << left_ip.size() - good_it << " outliers based on disparity of ip.\n";
+    vw_out() << "Removed " << left_ip.size() - good_it << " interest point outliers based on their differences.\n";
     left_ip.resize(good_it);
     right_ip.resize(good_it);
 

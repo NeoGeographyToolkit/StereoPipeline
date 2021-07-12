@@ -263,7 +263,7 @@ bool load_image_and_weights(std::string const& file_path, BBox2i const& roi,
   // Verify image exists
   if (file_path == "")
     return false;
-    
+
   // Load the image from disk
   DispImageType full_image = DiskImageType(file_path);
   
@@ -398,6 +398,7 @@ DispImageType tile_blend(DispImageType const& input_image, BlendOptions & opt) {
 
   // Figure out the ROIs, load images, and initialize output blend values.
   for (size_t i=0; i<NUM_NEIGHBORS; ++i) {
+
     if (opt.tile_paths[i] == "")
       continue;
 
@@ -409,12 +410,14 @@ DispImageType tile_blend(DispImageType const& input_image, BlendOptions & opt) {
       // Get the ROI from the neighboring tile
       bool ans2 = get_roi_from_tile(opt.tile_paths[i], get_opposed_position(TilePosition(i)), 
                                     buff_size, GET_BUFFER, tile_rois[i]);
+
       if (!ans1 || !ans2) continue; // nothing to blend
 
       check_roi_bounds(input_rois[i], tile_rois[i], bounding_box(output_image));
       load_image_and_weights(opt.tile_paths[i], tile_rois[i], images[i], weights[i]);
       
       if (debug) {
+        
         write_image("tile_image_"  +position_string(i)+".tif", images [i]);
         write_image("tile_weights_"+position_string(i)+".tif", weights[i]);
       }
@@ -483,11 +486,12 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
   // Get the main tile bbox from the subfolder name
   boost::filesystem::path mpath(blend_options.main_path);
   std::string mbb = mpath.parent_path().filename().string();
+
   blend_options.main_roi = bbox_from_folder(mbb);
   BBox2i main_bbox = blend_options.main_roi;
    
   // Figure out where each folder goes
-  for (size_t i=0; i<folder_list.size(); ++i) {
+  for (size_t i = 0; i < folder_list.size(); ++i) {
     BBox2i bbox = bbox_from_folder(folder_list[i]);
 
     std::string bbox_string = extract_process_folder_bbox_string(folder_list[i]);
@@ -548,7 +552,7 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
   }
   
   //vw_throw( ArgumentErr() << "DEBUG!" );
-  
+
   blend_options.sgm_collar_size = stereo_settings().sgm_collar_size;
 }
 
@@ -621,7 +625,7 @@ int main(int argc, char* argv[]) {
 
     // Internal Processes
     //---------------------------------------------------------
-    stereo_blending( opt );
+    stereo_blending(opt);
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : BLENDING FINISHED \n";
 

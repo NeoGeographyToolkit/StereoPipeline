@@ -150,12 +150,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     // Set the srs string into georef.
     if (!opt.target_srs_string.empty()) {
       vw::cartography::GeoReference georef;
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, opt.datum, georef);
+      bool have_input_georef = false;
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, opt.datum,
+                          have_input_georef, georef);
       opt.datum = georef.datum();
     }
 
     if (opt.datum_str.empty() && !have_user_datum && opt.target_srs_string.empty())
-      vw_throw( ArgumentErr() << "Missing input datum. Must set one of: --datum,  --t_srs, --semi-major-axis, and --semi-minor-axis, --t_srs, or --dem-file.\n" << usage << general_options );
+      vw_throw( ArgumentErr() << "Missing input datum. Must set one of: "
+                << "--datum,  --t_srs, --semi-major-axis, and --semi-minor-axis, "
+                << "--t_srs, or --dem-file.\n" << usage << general_options );
 
     if (opt.height_range[0] >= opt.height_range[1])
       vw_throw( ArgumentErr() << "Must specify a valid range of heights.\n"

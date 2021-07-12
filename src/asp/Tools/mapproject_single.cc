@@ -720,9 +720,10 @@ int main(int argc, char* argv[]) {
 
     // User specified the proj4 string for the output georeference
     if (opt.target_srs_string != ""){
-      bool  have_user_datum = false;
+      bool  have_user_datum = false, have_input_georef = false;
       Datum user_datum;
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, target_georef);
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
+                          have_input_georef, target_georef);
     }
 
     // Find the target resolution based --tr, --mpp, and --ppd if provided. Do

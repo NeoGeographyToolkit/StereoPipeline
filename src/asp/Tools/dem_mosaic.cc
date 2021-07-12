@@ -308,9 +308,10 @@ std::string processed_proj4(std::string const& srs){
   // subtle ways, such as an extra space, etc. For that reason, must
   // parse and process any srs string before comparing it with another string.
   GeoReference georef;
-  bool  have_user_datum = false;
+  bool  have_user_datum = false, have_input_georef = false;
   Datum user_datum;
-  asp::set_srs_string(srs, have_user_datum, user_datum, georef);
+  asp::set_srs_string(srs, have_user_datum, user_datum,
+                      have_input_georef, georef);
   return georef.overall_proj4_str();
 }
 
@@ -1552,10 +1553,11 @@ int main( int argc, char *argv[] ) {
 
     if (opt.target_srs_string != ""){
       // Set the srs string into georef.
-      bool have_user_datum = false;
+      bool have_user_datum = false, have_input_georef = false;
       Datum user_datum;
       asp::set_srs_string(opt.target_srs_string,
-			  have_user_datum, user_datum, mosaic_georef);
+			  have_user_datum, user_datum,
+                          have_input_georef, mosaic_georef);
     }
 
     // Steal the datum and its name from the input, if the output

@@ -1134,8 +1134,8 @@ int main( int argc, char *argv[] ) {
 
     // See if we can get a georef from any of the input pc files
     GeoReference pc_georef;
-    bool has_pc_georef = asp::georef_from_pc_files(opt.pointcloud_files, pc_georef);
-    if (has_pc_georef)
+    bool have_input_georef = asp::georef_from_pc_files(opt.pointcloud_files, pc_georef);
+    if (have_input_georef)
       output_georef = pc_georef;
 
     // See if the user specified the datum outside of the srs string
@@ -1150,9 +1150,9 @@ int main( int argc, char *argv[] ) {
     if (opt.target_srs_string.empty()) {
 
       if (have_user_datum)
-        output_georef.set_datum( user_datum );
+        output_georef.set_datum(user_datum);
 
-      switch( opt.projection ) {
+      switch (opt.projection) {
       case SINUSOIDAL:           output_georef.set_sinusoidal           (opt.proj_lon,                               opt.false_easting, opt.false_northing); break;
       case MERCATOR:             output_georef.set_mercator             (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
       case TRANSVERSEMERCATOR:   output_georef.set_transverse_mercator  (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
@@ -1168,7 +1168,8 @@ int main( int argc, char *argv[] ) {
     } else { // The user specified the target srs_string
 
       // Set the srs string into georef.
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, output_georef);
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
+                          have_input_georef, output_georef);
     }
 
     // Convert any input LAS or CSV files to ASP's point cloud tif format

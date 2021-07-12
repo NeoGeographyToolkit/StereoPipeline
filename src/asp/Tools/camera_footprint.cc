@@ -165,12 +165,14 @@ int main( int argc, char *argv[] ) {
       bool have_user_datum = (opt.datum_str != "");
       cartography::Datum datum(opt.datum_str);
       target_georef = GeoReference(datum);
-      
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, datum, target_georef);
+      bool have_input_georef = false;
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, datum,
+                          have_input_georef, target_georef);
       vw_out() << "Using georef: " << target_georef << std::endl;
 
       std::vector<Vector2> coords2;
-      footprint_bbox = camera_bbox(target_georef, cam, image_size[0], image_size[1], mean_gsd, &coords2);
+      footprint_bbox = camera_bbox(target_georef, cam, image_size[0], image_size[1],
+                                   mean_gsd, &coords2);
       for (size_t i=0; i<coords2.size(); ++i) {
         Vector3 proj_coord(coords2[i][0], coords2[i][1], 0.0);
         coords.push_back(target_georef.point_to_geodetic(proj_coord));

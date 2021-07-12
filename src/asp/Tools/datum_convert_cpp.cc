@@ -356,7 +356,6 @@ void get_output_georef(Options      const& opt,
   } else {
     // The user specified the target srs_string
     // Set the srs string into georef.
-    //asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, output_georef); // Does not work here!
     user_datum.set_datum_from_proj_str(opt.target_srs_string);
     output_georef.set_datum(user_datum);
   }

@@ -261,20 +261,21 @@ int main( int argc, char *argv[] ) {
     // by the user.
     liblas::Header header;
     cartography::Datum datum;
-    bool has_user_datum = asp::read_user_datum(0, 0, opt.datum, datum);
+    bool have_user_datum = asp::read_user_datum(0, 0, opt.datum, datum);
 
     cartography::GeoReference georef;
-    bool has_georef = vw::cartography::read_georeference(georef, opt.pointcloud_file);
-    if (has_georef && opt.target_srs_string.empty()) {
+    bool have_input_georef = vw::cartography::read_georeference(georef, opt.pointcloud_file);
+    if (have_input_georef && opt.target_srs_string.empty()) {
       opt.target_srs_string = georef.overall_proj4_str();
     }
 
     bool is_geodetic = false;
-    if (has_user_datum || !opt.target_srs_string.empty()){
+    if (have_user_datum || !opt.target_srs_string.empty()){
 
       // Set the srs string into georef.
       asp::set_srs_string(opt.target_srs_string,
-                          has_user_datum, datum, georef);
+                          have_user_datum, datum,
+                          have_input_georef, georef);
       liblas::SpatialReference ref;
       std::string target_srs = georef.overall_proj4_str();
 
