@@ -86,7 +86,7 @@ alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none)
     When ``alignment-method`` is set to ``local_epipolar``,
     the images are divided into small tiles of size
     ``--corr-tile-size`` expanded by a padding of
-    ``--sgm-collar-size``, epipolar alignment is
+    ``--sgm-collar-size`` on all sides, epipolar alignment is
     applied to each pair of tiles, making the stereo disparity
     horizontal, then a desired 1D correlation algorithm (specified via
     ``--stereo-algorithm``) finds this disparity :cite:`de2014automatic`. 
@@ -137,6 +137,11 @@ local-alignment-threshold (*float*) (default = 2)
 alignment-num-ransac-iterations (*integer*) (default = 1000)
     How many RANSAC iterations to use for global or local epipolar
     alignment.
+
+local-alignment-outlier-removal-params (*double, double*) (default = 95.0, 3.0)
+    The differences between right and left locally aligned interest
+    points are computed, and outliers are removed using
+    box-and-whisker with this percentage and factor.
 
 disparity-range-expansion-percent (*integer*) (default = 20)
     Expand the disparity range estimated from interest points by this

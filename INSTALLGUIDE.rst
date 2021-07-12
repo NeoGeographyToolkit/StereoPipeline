@@ -211,7 +211,7 @@ Running instead::
 
     conda install stereo-pipeline==isis4.4.0
 
-will install a development version of ASP tied to ISIS 4.4.0.
+will install a development version of ASP together with ISIS 4.4.0.
 
 If using ISIS, the environmental variable ISISROOT should be set to
 point to this distribution, such as::
