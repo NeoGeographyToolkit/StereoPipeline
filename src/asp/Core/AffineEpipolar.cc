@@ -278,7 +278,7 @@ namespace asp {
     Stopwatch sw;
     sw.start();
 
-    vw_out() << "Computing the epipolar rectification matrices "
+    vw_out() << "Computing the epipolar rectification "
              << "using RANSAC with " << num_ransac_iterations
              << " iterations and inlier threshold " << inlier_threshold << ".\n";
 
@@ -312,8 +312,8 @@ namespace asp {
       max_err = std::max(max_err, error_metric(T, ip1[i], ip2[i]));
     }
         
-    vw_out() << "The maximum absolute difference of the y components of the "
-             << "inlier interest points with the alignment matrices applied to them: "
+    vw_out() << "Maximum absolute difference of y components of "
+             << "aligned inlier interest points is "
              << max_err << " pixels." << std::endl;
 
     // Optionally return the inliers
