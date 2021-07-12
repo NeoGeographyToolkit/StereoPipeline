@@ -166,6 +166,7 @@ above-mentioned distribution agreement or copyright. Binary releases
 distribute third party software in both the ``bin`` and ``lib``
 directories. See the included documentation for detailed copyright and
 license information for any third-party software or check the
-``THIRDPARTYLICENSES`` file. In addition, various pieces of ASP depend
-on additional third-party libraries that the user is expected to have
-installed.
+`THIRDPARTYLICENSES
+<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/THIRDPARTYLICENSES.rst>`_
+file. In addition, various pieces of ASP depend on additional
+third-party libraries that the user is expected to have installed.
