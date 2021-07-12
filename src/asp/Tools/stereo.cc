@@ -530,7 +530,8 @@ namespace asp {
     vw::stereo::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
     
-    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM);
+    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
+                        stereo_settings().alignment_method == "local_epipolar");
     
     if (using_tiles) {
       // If these parameters were not specified by the user, override
@@ -745,7 +746,8 @@ namespace asp {
     vw::stereo::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
 
-    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM);
+    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
+                        stereo_settings().alignment_method == "local_epipolar");
 
     if (!using_tiles) {
       if (stereo_settings().cost_mode == 3)
