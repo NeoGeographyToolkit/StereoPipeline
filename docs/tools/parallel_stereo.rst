@@ -82,9 +82,13 @@ These can be customized as shown in the options below.
 
 --job-size-w <integer (default: 2048)>
     Pixel width of input image tile for a single process.
+    For alignment method ``local_epipolar`` or SGM/MGM, if not
+    explicitely set, it is overridden by corr-tile-size +
+    2 * sgm-collar-size. See also :numref:`image_alignment`.
 
 --job-size-h <integer (default: 2048)>
     Pixel height of input image tile for a single process.
+    See also note at --job-size-w.
 
 --processes <integer>
     The number of processes to use per node.
@@ -101,5 +105,4 @@ These can be customized as shown in the options below.
     run.
 
 --parallel-options <string (default: "")>
-    Options to pass directly to GNU Parallel. For example, "--sshdelay 1 --controlmaster".
-   
+    Options to pass directly to GNU Parallel. Example: "--sshdelay 1 --controlmaster".

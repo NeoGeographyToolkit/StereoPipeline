@@ -659,8 +659,8 @@ stereo.default
 
 .. _csm:
 
-Community Sensor Model
-----------------------
+Community Sensor Model (CSM)
+----------------------------
 
 The Community Sensor Model (CSM), established by the U.S. defense
 and intelligence community, has the goal of standardizing camera
