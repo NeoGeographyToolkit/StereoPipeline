@@ -26,6 +26,7 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Core/StringUtils.h>
+#include <vw/InterestPoint/Matcher.h>
 
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/DemDisparity.h>
@@ -320,8 +321,11 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
   
   // This function does nothing if we are not using epipolar alignment,
   //  or if the IP were found using one of the aligned images.
-  const std::string sub_match_file     = opt.out_prefix + "-L_sub__R_sub.match";
-  const std::string aligned_match_file = opt.out_prefix + "-L__R.match";
+  const std::string sub_match_file
+    = vw::ip::match_filename(opt.out_prefix, "L_sub.tif", "R_sub.tif");
+  const std::string aligned_match_file
+    = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
+
   if ((stereo_settings().alignment_method != "epipolar") ||
       (match_file == sub_match_file) || (match_file == aligned_match_file))
     return false;
@@ -354,25 +358,6 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
   return true;
 } // End adjust_ip_for_epipolar_transform
 
-
-
-// TODO(oalexan1): Duplicate of hidden function in vw/src/InterestPoint/Matcher.cc!
-std::string strip_path(std::string out_prefix, std::string filename){
-
-  // If filename starts with out_prefix followed by dash, strip both.
-  // Also strip filename extension.
-
-  std::string ss = out_prefix + "-";
-  size_t found = filename.find(ss);
-
-  if (found != std::string::npos)
-    filename.erase(found, ss.length());
-
-  filename = fs::path(filename).stem().string();
-
-  return filename;
-}
-
 /// Detect IP in the _sub images or the original images if they are not too large.
 /// - Usually an IP file is written in stereo_pprc, but for some input scenarios
 ///   this function will need to be used to generate them here.
@@ -388,15 +373,17 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   // Use the full image if all dimensions are smaller than this.
   const int SIZE_CUTOFF = 8000;
 
-  const std::string left_image_path_full  = opt.out_prefix+"-L.tif";
-  const std::string right_image_path_full = opt.out_prefix+"-R.tif";
-  const std::string left_image_path_sub   = opt.out_prefix+"-L_sub.tif";
-  const std::string right_image_path_sub  = opt.out_prefix+"-R_sub.tif";
+  const std::string left_image_path_full  = opt.out_prefix + "-L.tif";
+  const std::string right_image_path_full = opt.out_prefix + "-R.tif";
+  const std::string left_image_path_sub   = opt.out_prefix + "-L_sub.tif";
+  const std::string right_image_path_sub  = opt.out_prefix + "-R_sub.tif";
 
-  const std::string full_match_file       = ip::match_filename(opt.out_prefix,
-                                                               opt.in_file1, opt.in_file2);
-  const std::string sub_match_file        = opt.out_prefix + "-L_sub__R_sub.match";
-  const std::string aligned_match_file    = opt.out_prefix + "-L__R.match";
+  const std::string full_match_file
+    = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
+  const std::string sub_match_file
+    = vw::ip::match_filename(opt.out_prefix, "L_sub.tif", "R_sub.tif");
+  const std::string aligned_match_file     
+    = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
 
   // TODO: The logic below is wrong. Don't read the first match file
   // that happens to exist on disk and hope for the best.  That could
@@ -420,19 +407,13 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     return 1.0;
   }
 
-  // TODO: Unify with function in vw/src/InterestPoint/Matcher.h!
-  // filenames longer than this must be chopped, as too long names
-  // cause problems later with boost.
-  int max_len = 40;
-  std::string name1 = strip_path(opt.out_prefix, opt.in_file1).substr(0, max_len);
-  std::string name2 = strip_path(opt.out_prefix, opt.in_file2).substr(0, max_len);
-
   // Next try the cropped match file names which will be at full scale.
   std::vector<std::string> match_names;
-  match_names.push_back(opt.out_prefix + "-L-cropped__R-cropped.match");
-  match_names.push_back(opt.out_prefix + "-"+name1+"__R-cropped.match");
-  match_names.push_back(opt.out_prefix + "-L-cropped__"+name2+".match");
+  match_names.push_back(vw::ip::match_filename(opt.out_prefix, "L-cropped.tif", "R-cropped.tif"));
+  match_names.push_back(vw::ip::match_filename(opt.out_prefix, opt.in_file1, "R-cropped.tif"));
+  match_names.push_back(vw::ip::match_filename(opt.out_prefix, "L-cropped.tif", opt.in_file2));
   match_names.push_back(aligned_match_file);
+  
   for (size_t i=0; i<match_names.size(); ++i) {
     if (fs::exists(match_names[i]) && is_latest_timestamp(match_names[i], in_file_list)) {
       vw_out() << "Cached IP match file found: " << match_names[i] << std::endl;
@@ -1372,7 +1353,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     return;
   }
   
-  vw_out() << "Min and max disparities: " << min_disp << ' ' << max_disp << std::endl;
+  vw_out() << "Min and max disparities: " << min_disp << ' ' << max_disp << ".\n";
   
   vw::ImageView<PixelMask<Vector2f>> unaligned_disp_2d;
 
