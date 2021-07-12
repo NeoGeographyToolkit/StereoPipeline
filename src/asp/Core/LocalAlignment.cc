@@ -282,14 +282,12 @@ namespace asp {
     // Apply local alignment to inlier ip and estimate the search range
     vw::HomographyTransform left_local_trans (left_local_mat);
     vw::HomographyTransform right_local_trans(right_local_mat);
-    BBox2 disp_range;
 
 #define DEBUG_IP 0    
-#if DEBUG_IP
-    // These are needed onlu for debugging, otherwise the range only is enough.
+
+    // Find the transformed IP
     std::vector<vw::ip::InterestPoint> left_trans_local_ip;
     std::vector<vw::ip::InterestPoint> right_trans_local_ip;
-#endif
 
     for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
       int i = ip_inlier_indices[it];
@@ -299,7 +297,6 @@ namespace asp {
       left_pt  = left_local_trans.forward(left_pt);
       right_pt = right_local_trans.forward(right_pt);
 
-#if DEBUG_IP
       // First copy all the data from the input ip, then apply the transform
       left_trans_local_ip.push_back(left_local_ip[i]);
       right_trans_local_ip.push_back(right_local_ip[i]);
@@ -308,30 +305,43 @@ namespace asp {
       right_trans_local_ip.back().x = right_pt.x();
       right_trans_local_ip.back().y = right_pt.y();
 
+#if DEBUG_IP
       // TODO(oalexan1): Some of these IP can still have outliers which
       // can result in an unreasonably large disparity range.
       std::cout << "Diff is " << right_pt - left_pt << std::endl;
 #endif
-
-      disp_range.grow(right_pt - left_pt);
     }
 
+    // Filter outliers
+    Vector2 params = stereo_settings().local_alignment_outlier_removal_params;
+    if (params[0] < 100.0)
+      asp::filter_ip_by_disparity(params[0], params[1],
+                                  left_trans_local_ip, right_trans_local_ip); 
+
+    //  Find the disparity search range
+    BBox2 disp_range;
+    for (size_t it = 0; it < left_trans_local_ip.size(); it++) {
+      Vector2 left_pt (left_trans_local_ip [it].x, left_trans_local_ip [it].y);
+      Vector2 right_pt(right_trans_local_ip[it].x, right_trans_local_ip[it].y);
+      disp_range.grow(right_pt - left_pt);
+    }
+    
 #if DEBUG_IP
     std::string local_aligned_match_filename
       = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
-     vw_out() << "Writing match file: " << local_aligned_match_filename << ".\n";
-     vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
-                                     right_trans_local_ip);
+    vw_out() << "Writing match file: " << local_aligned_match_filename << ".\n";
+    vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
+                                    right_trans_local_ip);
 #endif
-     
+    
+    // Expand the disparity search range a bit
     double disp_width = disp_range.width();
     double disp_extra = disp_width * stereo_settings().disparity_range_expansion_percent / 100.0;
     min_disp = floor(disp_range.min().x() - disp_extra/2.0);
     max_disp = ceil(disp_range.max().x() + disp_extra/2.0);
-
+    
     return;
   }
-
   
   // Go from 1D disparity of images with affine epipolar alignment to the 2D
   // disparity by undoing the transforms that applied this alignment.
