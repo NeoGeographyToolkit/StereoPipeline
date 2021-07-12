@@ -23,7 +23,9 @@ from pathlib import Path
 # -- Project information -----------------------------------------------------
 
 project = 'Ames Stereo Pipeline'
-copyright = '2020, ASP Authors'
+copyright = '2009-2021, United States Government as represented by the '
+            'Administrator of the National Aeronautics and Space '
+            'Administration. '
 author = 'ASP Authors'
 
 version_text = Path("../src/CMakeLists.txt").read_text()
