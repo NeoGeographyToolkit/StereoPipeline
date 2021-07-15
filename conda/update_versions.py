@@ -75,15 +75,23 @@ for it in range(len(lines)):
         continue
 
     # Match the package
-    m = re.match('^(\s+-)\s*([^\s]+)(\s+)(.*?)$', line)
+    m = re.match('^(\s+-[\t ]+)([^\s]+)(\s*)(.*?)$', line)
     if not m:
         continue
     
     pre = m.group(1)
     package = m.group(2)
-    spaces = m.group(3)
-    old_version = m.group(4)
+    spaces = m.group(3).rstrip("\n")
+    old_version = m.group(4).rstrip("\n")
 
+    if spaces == "":
+        # Ensure there's at least one space
+        spaces = " "
+        
+    if old_version == "":
+        # If there was no version before, don't put one now
+        continue
+    
     if not package in conda_env:
         continue
     version = conda_env[package]
