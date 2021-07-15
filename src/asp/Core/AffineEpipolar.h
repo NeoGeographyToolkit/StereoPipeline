@@ -40,6 +40,7 @@ namespace asp {
                                              int num_ransac_iterations,
                                              std::vector<vw::ip::InterestPoint> const& left,
                                              std::vector<vw::ip::InterestPoint> const& right,
+                                             bool crop_to_shared_area,
                                              vw::Matrix<double>& left_matrix,
                                              vw::Matrix<double>& right_matrix,
                                              // optionally return the inliers

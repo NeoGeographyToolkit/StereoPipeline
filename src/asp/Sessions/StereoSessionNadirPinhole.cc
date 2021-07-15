@@ -213,12 +213,15 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                << "\t      " << align_left_matrix  << "\n"
                << "\t      " << align_right_matrix << "\n";
     } else {
-      left_size = affine_epipolar_rectification(left_size, right_size,
-                                                stereo_settings().global_alignment_threshold,
-                                                stereo_settings().alignment_num_ransac_iterations,
-                                                left_ip,   right_ip,
-                                                align_left_matrix,
-                                                align_right_matrix );
+      bool crop_to_shared_area = true;
+      left_size
+        = affine_epipolar_rectification(left_size, right_size,
+                                        stereo_settings().global_alignment_threshold,
+                                        stereo_settings().alignment_num_ransac_iterations,
+                                        left_ip,   right_ip,
+                                        crop_to_shared_area,
+                                        align_left_matrix,
+                                        align_right_matrix );
       
       vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
                << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"

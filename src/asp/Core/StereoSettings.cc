@@ -164,7 +164,7 @@ namespace asp {
        "Force reusing the match files even if older than the images or cameras.")
       ("part-of-multiview-run", po::bool_switch(&global.part_of_multiview_run)->default_value(false)->implicit_value(true),
        "If the current run is part of a larger multiview run.")
-      ("global-alignment-threshold",       po::value(&global.global_alignment_threshold)->default_value(2),
+      ("global-alignment-threshold",       po::value(&global.global_alignment_threshold)->default_value(10),
        "Maximum distance from inlier interest point matches to the epipolar line when calculating the global affine epipolar alignment.")
       ("local-alignment-threshold",       po::value(&global.local_alignment_threshold)->default_value(2),
        "Maximum distance from inlier interest point matches to the epipolar line when calculating the local affine epipolar alignment.")

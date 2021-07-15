@@ -1312,8 +1312,12 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   if (stereo_settings().use_local_homography)
     vw_throw(ArgumentErr() << "Cannot use local homography with local_epipolar alignment.\n");
 
-  BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
-  BBox2i right_trans_crop_win;
+  // The dimensions of the tile and the final disparity
+  BBox2i tile_crop_win = stereo_settings().trans_crop_win;
+
+  // The left_trans_crop_win will be obtained by tile_crop_win by maybe growing it a bit
+  BBox2i left_trans_crop_win, right_trans_crop_win;
+  int max_tile_size = stereo_settings().corr_tile_size_ovr;
   Matrix<double> left_local_mat  = math::identity_matrix<3>();
   Matrix<double> right_local_mat = math::identity_matrix<3>();
   std::string left_aligned_file, right_aligned_file;
@@ -1341,23 +1345,26 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   }
 
   try {
-    local_alignment(opt, opt.session->name(),
-                    left_trans_crop_win, right_trans_crop_win,  
-                    left_local_mat, right_local_mat,
+    local_alignment(// Inputs
+                    opt, opt.session->name(),
+                    max_tile_size, tile_crop_win,
                     write_nodata,
+                    // Outputs
+                    left_trans_crop_win, right_trans_crop_win,
+                    left_local_mat, right_local_mat,
                     left_aligned_file, right_aligned_file,  
                     min_disp, max_disp);
+
   } catch(std::exception const& e){
     // If this tile fails, write an empty disparity
     vw_out() << e.what() << std::endl;
-    save_empty_disparity(opt, left_trans_crop_win, out_disp_file);
+    save_empty_disparity(opt, tile_crop_win, out_disp_file);
     return;
   }
   
   vw_out() << "Min and max disparities: " << min_disp << ' ' << max_disp << ".\n";
   
   vw::ImageView<PixelMask<Vector2f>> unaligned_disp_2d;
-
   vw::stereo::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
   
@@ -1398,9 +1405,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     ImageView<PixelMask<Vector2f>> sub_disp;
     ImageView<PixelMask<Vector2i>> sub_disp_spread;
 
-    // Set up the reference to the stereo disparity code
-    // Process the entire image at once, hence the crop.
-    // - Processing is limited to left_trans_crop_win for use with parallel_stereo.
+    // Find the disparity
     ImageView<PixelMask<Vector2f> > aligned_disp_2d =
       crop(SeededCorrelatorView(apply_mask(left_image, nan),    // left image
                                 apply_mask(right_image, nan),   // right image
@@ -1578,7 +1583,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       } catch(std::exception const& e){
         // If this tile fails, write an empty disparity
         vw_out() << e.what() << std::endl;
-        save_empty_disparity(opt, left_trans_crop_win, out_disp_file);
+        save_empty_disparity(opt, tile_crop_win, out_disp_file);
         return;
       }
       
@@ -1619,7 +1624,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     } catch(std::exception const& e){
       // If this tile fails, write an empty disparity
       vw_out() << e.what() << std::endl;
-      save_empty_disparity(opt, left_trans_crop_win, out_disp_file);
+      save_empty_disparity(opt, tile_crop_win, out_disp_file);
       return;
     }
     
@@ -1637,9 +1642,13 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     opt.gdal_options["TILED"] = "YES";
     opt.raster_tile_size = orig_tile_size;
   }
-  
-  save_disparity(opt, unaligned_disp_2d, out_disp_file);
-  
+
+  // Save the disparity, after removing any padding
+  if (!left_trans_crop_win.contains(tile_crop_win)) 
+    vw_throw(ArgumentErr() << "Expecting the padded tile to contain the original tile.\n");
+  BBox2i crop_win = tile_crop_win - left_trans_crop_win.min();
+  save_disparity(opt, crop(unaligned_disp_2d, crop_win), out_disp_file);
+
 } // End function stereo_correlation_1D
 
 int main(int argc, char* argv[]) {

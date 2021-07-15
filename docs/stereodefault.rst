@@ -124,7 +124,7 @@ alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none)
     ``stereo -t pinhole``), and cannot be used when processing other
     camera types.*
 
-global-alignment-threshold (*float*) (default = 2)
+global-alignment-threshold (*float*) (default = 10)
     Maximum distance from inlier interest point matches to the
     epipolar line when calculating the global affine epipolar
     alignment.

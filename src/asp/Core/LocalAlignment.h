@@ -41,13 +41,17 @@ namespace asp {
 
   class ASPGlobalOptions; // forward declaration
   
-  void local_alignment(ASPGlobalOptions   & opt,
+  void local_alignment(// Inputs
+                       ASPGlobalOptions   & opt,
                        std::string const  & session_name,
-                       vw::BBox2i const   & left_trans_crop_win,
+                       int                  max_tile_size,
+                       vw::BBox2i    const& tile_crop_win,
+                       bool                 write_nodata,
+                       // Outputs
+                       vw::BBox2i         & left_trans_crop_win,
                        vw::BBox2i         & right_trans_crop_win,
                        vw::Matrix<double> & left_local_mat,
                        vw::Matrix<double> & right_local_mat,
-                       bool                 write_nodata,
                        std::string        & left_aligned_file,
                        std::string        & right_aligned_file,
                        int                & min_disp,
@@ -74,6 +78,8 @@ namespace asp {
                             vw::math::Matrix<double> const& right_align_mat,
                             // Output
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> & unaligned_disp_2d);
+
+  vw::BBox2i grow_box_to_square(vw::BBox2i const& box, int max_size);
   
   // Read the list of external stereo programs (plugins) and extract
   // the path to each such plugin and its library dependencies.

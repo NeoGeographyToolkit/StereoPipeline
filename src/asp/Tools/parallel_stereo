@@ -140,7 +140,7 @@ def produce_tiles( settings, tile_w, tile_h ):
     return tiles
 
 
-def create_subproject_dirs( settings, **kw ):
+def create_subproject_dirs(settings, **kw):
 
     # Create a subdirectory for each process we start.  Pretend
     # previous steps of stereo already ran in that directory by
@@ -161,7 +161,7 @@ def create_subproject_dirs( settings, **kw ):
     print ("Writing: " + dirList)
     fout = open(dirList, 'w')
     
-    for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h ):
+    for tile in produce_tiles(settings, opt.job_size_w, opt.job_size_h):
         subproject_dir = tile_dir(out_prefix, tile)
         tile_prefix    = subproject_dir + "/" + tile.name_str()
         if opt.dryrun:
@@ -189,7 +189,7 @@ def create_subproject_dirs( settings, **kw ):
 def rename_files( settings, postfix_in, postfix_out, **kw ):
 
     # Rename tile_dir/file_in.tif to tile_dir/file_out.tif
-    tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
+    tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
     for tile in tiles:
         directory    = tile_dir(settings['out_prefix'][0], tile)
         filename_in  = directory + "/" + tile.name_str() + postfix_in
@@ -206,9 +206,9 @@ def create_symlinks_for_multiview(settings, opt):
     # out-prefix-4096_4096_1629_1629/4096_4096_1629_1629-pair2/2-F.tif
     # Create the latter as a sym link.
 
-    create_subproject_dirs( settings ) # symlink L.tif, etc
+    create_subproject_dirs(settings) # symlink L.tif, etc
 
-    tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
+    tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
     for s in sorted(settings.keys()):
         m = re.match('multiview_command', s)
         if not m:
@@ -259,7 +259,7 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
     f.write("  <SRS>" + georef["WKT"] + "</SRS>\n")
     f.write("  <GeoTransform>" + georef["GeoTransform"] + "</GeoTransform>\n")
 
-    tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
+    tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
 
     # Locate a known good tile
     goodFilename = ""
@@ -447,7 +447,7 @@ def spawn_to_nodes(step, settings, args):
     args.extend(['--processes', str(procs)])
     args.extend(['--threads-multiprocess', str(threads)])
 
-    tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
+    tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
 
     # Each tile has an id, which is its index in the list of tiles.
     # There can be a huge amount of tiles, and for that reason we
@@ -742,7 +742,7 @@ if __name__ == '__main__':
             #  to the correlation tile size. 
             opt.job_size_w = corr_tile_size
             opt.job_size_h = opt.job_size_w
-            print ('Setting tile size to: ' + str(opt.job_size_w))
+            print ('Setting tile size (before collar addition) to: ' + str(opt.job_size_w))
         else:
             # If the user specified these, they better be equal, and equal to corr_tile_size
             if opt.job_size_h != opt.job_size_w:
@@ -860,7 +860,7 @@ if __name__ == '__main__':
             if ( opt.stop_point <= step ):
                 sys.exit()
             normal_run('stereo_pprc', args, msg='%d: Preprocessing' % step)
-            create_subproject_dirs( settings ) # symlink L.tif, etc
+            create_subproject_dirs(settings) # symlink L.tif, etc
             # Now the left is defined. Regather the settings
             # and properly create the project dirs.
             settings=run_and_parse_output("stereo_parse", args, sep,
@@ -896,7 +896,7 @@ if __name__ == '__main__':
             rename_files( settings, "-D.tif", "-Dnosym.tif" )
             build_vrt(settings, georef, "-D.tif", "-Dnosym.tif", 
                       contract_tiles = using_tiles)
-            create_subproject_dirs( settings ) # symlink D.tif
+            create_subproject_dirs(settings) # symlink D.tif
 
         skip_refine_step = (int(settings['subpixel_mode'][0]) > 6)
 
@@ -906,7 +906,7 @@ if __name__ == '__main__':
             if ( opt.entry_point <= step ):
                 if ( opt.stop_point <= step ):
                     sys.exit()
-                create_subproject_dirs( settings )
+                create_subproject_dirs(settings)
                 spawn_to_nodes(step, settings, self_args)
 
                 if not skip_refine_step:
@@ -914,7 +914,7 @@ if __name__ == '__main__':
                     rename_files( settings, "-B.tif", "-Bnosym.tif" )
                     build_vrt(settings, georef, "-B.tif", "-Bnosym.tif", 
                               contract_tiles = False)
-                    create_subproject_dirs( settings ) # symlink B.tif
+                    create_subproject_dirs(settings) # symlink B.tif
 
 
         # Refinement
@@ -927,7 +927,7 @@ if __name__ == '__main__':
             if using_tiles:
                 self_args.extend(['--subpix-from-blend'])
             if not skip_refine_step:
-                create_subproject_dirs( settings )
+                create_subproject_dirs(settings)
                 spawn_to_nodes(step, settings, self_args)
 
         # Filtering
@@ -938,7 +938,7 @@ if __name__ == '__main__':
                 
             build_vrt(settings, georef, "-RD.tif", "-RD.tif")
             normal_run('stereo_fltr', args, msg='%d: Filtering' % step)
-            create_subproject_dirs( settings ) # symlink F.tif
+            create_subproject_dirs(settings) # symlink F.tif
 
         # Triangulation
         step = Step.tri
@@ -969,7 +969,7 @@ if __name__ == '__main__':
             wipe_option(self_args, '--num-matches-from-disp-triplets', 1)
             
             # symlink the files just created
-            create_subproject_dirs( settings )
+            create_subproject_dirs(settings)
 
             # Run triangulation on multiple machines
             spawn_to_nodes(step, settings, self_args)

@@ -415,8 +415,7 @@ void calc_target_geom(// Inputs
     T(0,2) -= 0.5 * current_resolution; // Apply a small shift to the offsets
     T(1,2) += 0.5 * current_resolution;
   }
-  target_georef.set_transform( T ); // Overwrite the existing transform in target_georef
-
+  target_georef.set_transform(T); // Overwrite the existing transform in target_georef
 
   // Compute output image size in pixels using bounding box in output projected space
   BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
@@ -587,42 +586,45 @@ void project_image_nodata_pick_transform(Options & opt,
     // A constant datum elevation was provided
     return project_image_nodata<ImagePixelT>(opt, croppedGeoRef,
                                              virtual_image_size, croppedImageBB,
-                                             Datum2CamTrans(// Converts coordinates in DEM
-                                                            // georeference to camera pixels
-                                                            camera_model.get(), target_georef,
-                                                            dem_georef, opt.datum_offset, image_size,
-                                                            call_from_mapproject,
-                                                            opt.nearest_neighbor));
+                                             Datum2CamTrans
+                                             (// Converts coordinates in DEM
+                                              // georeference to camera pixels
+                                              camera_model.get(), target_georef,
+                                              dem_georef, opt.datum_offset, image_size,
+                                              call_from_mapproject,
+                                              opt.nearest_neighbor));
   }
 }
 
 template <class ImagePixelT>
 void project_image_alpha_pick_transform(Options & opt,
-                          GeoReference const& dem_georef,
-                          GeoReference const& target_georef,
-                          GeoReference const& croppedGeoRef,
-                          Vector2i     const& image_size,
-                          Vector2i     const& virtual_image_size,
-                          BBox2i       const& croppedImageBB,
-                          boost::shared_ptr<camera::CameraModel> const& camera_model) {
+                                        GeoReference const& dem_georef,
+                                        GeoReference const& target_georef,
+                                        GeoReference const& croppedGeoRef,
+                                        Vector2i     const& image_size,
+                                        Vector2i     const& virtual_image_size,
+                                        BBox2i       const& croppedImageBB,
+                                        boost::shared_ptr<camera::CameraModel> const&
+                                        camera_model) {
+  
   const bool        call_from_mapproject = true;
   if (fs::path(opt.dem_file).extension() != "") {
     // A DEM file was provided
     return project_image_alpha<ImagePixelT>(opt, croppedGeoRef,
                                             virtual_image_size, croppedImageBB, camera_model, 
-                                            Map2CamTrans( // Converts coordinates in DEM
-                                                          // georeference to camera pixels
+                                            Map2CamTrans(// Converts coordinates in DEM
+                                                         // georeference to camera pixels
                                                          camera_model.get(), target_georef,
                                                          dem_georef, opt.dem_file, image_size,
                                                          call_from_mapproject,
                                                          opt.nearest_neighbor)
-                                           );
+                                            );
   } else {
     // A constant datum elevation was provided
     return project_image_alpha<ImagePixelT>(opt, croppedGeoRef,
                                             virtual_image_size, croppedImageBB, camera_model, 
-                                            Datum2CamTrans( // Converts coordinates in DEM
-                                                            // georeference to camera pixels
+                                            Datum2CamTrans(// Converts coordinates in DEM
+                                                           // georeference to camera pixels
                                                            camera_model.get(), target_georef,
                                                            dem_georef, opt.datum_offset, image_size,
                                                            call_from_mapproject,

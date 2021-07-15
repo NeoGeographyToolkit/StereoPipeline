@@ -120,9 +120,13 @@ namespace asp {
   struct BestFitEpipolarAlignment {
 
     Vector2i m_ldims, m_rdims;
+    bool m_crop_to_shared_area;
     
-    BestFitEpipolarAlignment(Vector2i const& left_image_dims, Vector2i const& right_image_dims):
-      m_ldims(left_image_dims), m_rdims(right_image_dims) {}
+    BestFitEpipolarAlignment(Vector2i const& left_image_dims,
+                             Vector2i const& right_image_dims,
+                             bool crop_to_shared_area):
+      m_ldims(left_image_dims), m_rdims(right_image_dims),
+      m_crop_to_shared_area(crop_to_shared_area) {}
 
     typedef vw::Matrix<double, 3, 7> result_type;
 
@@ -195,13 +199,14 @@ namespace asp {
       right_bbox.grow(subvector(right_matrix * Vector3(m_rdims.x(),  0,           1), 0, 2));
       right_bbox.grow(subvector(right_matrix * Vector3(m_rdims.x(),  m_rdims.y(), 1), 0, 2));
       right_bbox.grow(subvector(right_matrix * Vector3(0,            m_rdims.y(), 1), 0, 2));
-      
-      output_bbox.crop(right_bbox);
-      
-      left_matrix (0, 2) -= output_bbox.min().x();
-      right_matrix(0, 2) -= output_bbox.min().x();
-      left_matrix (1, 2) -= output_bbox.min().y();
-      right_matrix(1, 2) -= output_bbox.min().y();
+
+      if (m_crop_to_shared_area) {
+        output_bbox.crop(right_bbox);
+        left_matrix (0, 2) -= output_bbox.min().x();
+        right_matrix(0, 2) -= output_bbox.min().x();
+        left_matrix (1, 2) -= output_bbox.min().y();
+        right_matrix(1, 2) -= output_bbox.min().y();
+      }
       
       // Concatenate these into the answer
       result_type T;
@@ -266,6 +271,7 @@ namespace asp {
                                          int num_ransac_iterations,
                                          std::vector<ip::InterestPoint> const& ip1,
                                          std::vector<ip::InterestPoint> const& ip2,
+                                         bool crop_to_shared_area,
                                          Matrix<double>& left_matrix,
                                          Matrix<double>& right_matrix,
                                          // optionally return the inliers
@@ -283,7 +289,7 @@ namespace asp {
              << " iterations and inlier threshold " << inlier_threshold << ".\n";
 
     // If RANSAC fails, it will throw an exception
-    BestFitEpipolarAlignment func(left_image_dims, right_image_dims);
+    BestFitEpipolarAlignment func(left_image_dims, right_image_dims, crop_to_shared_area);
     EpipolarAlignmentError error_metric;
     std::vector<size_t> inlier_indices;
     RandomSampleConsensus<BestFitEpipolarAlignment, EpipolarAlignmentError> 

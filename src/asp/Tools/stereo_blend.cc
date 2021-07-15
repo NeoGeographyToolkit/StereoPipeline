@@ -567,7 +567,7 @@ void stereo_blending( ASPGlobalOptions const& opt ) {
   // Since this tool is only for follow-up processing of SGM results in
   //  parallel_stereo, it can be safely assumed that the input images are small enough
   //  to load entirely into memory.
-  DispImageType integer_disp;
+  DispImageType center_tile_disp;
 
   try {
 
@@ -576,11 +576,11 @@ void stereo_blending( ASPGlobalOptions const& opt ) {
     boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(blend_options.main_path));
     ChannelTypeEnum disp_data_type = rsrc->channel_type();
     if (disp_data_type == VW_CHANNEL_INT32)
-      vw_throw(ArgumentErr() << "Error: stereo_blend should only be called after SGM correlation.");
-    integer_disp = DiskImageType(blend_options.main_path);
+      vw_throw(ArgumentErr() << "Error: stereo_blend should only be called with float images.");
+    center_tile_disp = DiskImageType(blend_options.main_path);
     
   } catch (IOErr const& e) {
-    vw_throw( ArgumentErr() << "\nUnable to start at blending stage -- could not read input files.\n" 
+    vw_throw( ArgumentErr() << "\nUnable to start at blending stage, could not read input files.\n" 
               << e.what() << "\nExiting.\n\n" );
   }
   
@@ -589,7 +589,7 @@ void stereo_blending( ASPGlobalOptions const& opt ) {
   bool   has_nodata      = false;
   double nodata          = -32768.0;
 
-  DispImageType output = tile_blend(integer_disp, blend_options);
+  DispImageType blended_disp = tile_blend(center_tile_disp, blend_options);
 
   string out_file = opt.out_prefix + "-B.tif";
   if (stereo_settings().subpixel_mode > 6 ){
@@ -597,7 +597,7 @@ void stereo_blending( ASPGlobalOptions const& opt ) {
     out_file = opt.out_prefix + "-RD.tif";
   }
   vw_out() << "Writing: " << out_file << "\n";
-  vw::cartography::block_write_gdal_image(out_file, output,
+  vw::cartography::block_write_gdal_image(out_file, blended_disp,
                                           has_left_georef, left_georef,
                                           has_nodata, nodata, opt,
                                           TerminalProgressCallback("asp", "\t--> Blending :") );

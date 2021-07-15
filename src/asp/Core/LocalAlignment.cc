@@ -53,17 +53,22 @@ namespace asp {
   //  - Save the locally aligned images to disk
   //  - Estimate the search range for the locally aligned images
 
-  void local_alignment(ASPGlobalOptions  & opt,
-                       std::string const & session_name,
-                       BBox2i const      & left_trans_crop_win,
-                       BBox2i            & right_trans_crop_win,
-                       Matrix<double>    & left_local_mat,
-                       Matrix<double>    & right_local_mat,
-                       bool                write_nodata,
-                       std::string       & left_aligned_file,
-                       std::string       & right_aligned_file,
-                       int               & min_disp,
-                       int               & max_disp) {
+  void local_alignment(// Inputs
+                       ASPGlobalOptions   & opt,
+                       std::string const  & session_name,
+                       int                  max_tile_size,
+                       vw::BBox2i    const& tile_crop_win,
+                       bool                 write_nodata,
+                       // Outputs
+                       vw::BBox2i         & left_trans_crop_win,
+                       vw::BBox2i         & right_trans_crop_win,
+                       vw::Matrix<double> & left_local_mat,
+                       vw::Matrix<double> & right_local_mat,
+                       std::string        & left_aligned_file,
+                       std::string        & right_aligned_file,
+                       int                & min_disp,
+                       int                & max_disp) {
+  
   
     // Read the global unaligned images and interest points
   
@@ -98,16 +103,35 @@ namespace asp {
       left_rsrc (vw::DiskImageResourcePtr(left_globally_aligned_file)),
       right_rsrc(vw::DiskImageResourcePtr(right_globally_aligned_file));
 
-    DiskImageView<PixelGray<float> > left_globally_aligned_image (left_rsrc ),
-      right_globally_aligned_image(right_rsrc);
-
     float left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
     float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
     if ( left_rsrc->has_nodata_read() )
       left_nodata_value  = left_rsrc->nodata_read();
     if ( right_rsrc->has_nodata_read() )
       right_nodata_value = right_rsrc->nodata_read();
-  
+
+    // Note that we do not create masked images using nodata values.
+    DiskImageView<PixelGray<float> > left_globally_aligned_image(left_rsrc),
+      right_globally_aligned_image(right_rsrc);
+
+    // At image edges, the tile we work with can be a sliver which can
+    // cause issues. Grow it to a square tile, then crop it to the
+    // image bounding box (which may make it non-square again, so
+    // repeat this a few times during which the box grows
+    // bigger).
+    left_trans_crop_win = tile_crop_win;
+    for (int attempt = 0; attempt < 10; attempt++) {
+      int width  = left_trans_crop_win.width();
+      int height = left_trans_crop_win.height();
+      left_trans_crop_win = grow_box_to_square(left_trans_crop_win, max_tile_size);
+
+      // Ensure we do not exceed the image bounds
+      left_trans_crop_win.crop(vw::bounding_box(left_globally_aligned_image));
+      
+      if (left_trans_crop_win.width() == width && left_trans_crop_win.height() == height) 
+        break;
+    }
+    
     Matrix<double> left_global_mat  = math::identity_matrix<3>();
     Matrix<double> right_global_mat = math::identity_matrix<3>();
     read_matrix(left_global_mat, opt.out_prefix + "-align-L.exr");
@@ -115,43 +139,57 @@ namespace asp {
     vw::HomographyTransform left_trans(left_global_mat);
     vw::HomographyTransform right_trans(right_global_mat);
 
-    // Apply the transforms to all the IP we found
-    std::vector<vw::ip::InterestPoint> left_trans_ip, right_trans_ip;
-
-    // Estimate the search range based on ip
-
-    for (size_t i = 0; i < left_ip.size(); i++) {
-
-      Vector2 left_pt (left_ip [i].x, left_ip [i].y);
-      Vector2 right_pt(right_ip[i].x, right_ip[i].y);
-
-      left_pt  = left_trans.forward(left_pt);
-      right_pt = right_trans.forward(right_pt);
-
-      if (!left_trans_crop_win.contains(left_pt)) 
-        continue;
+    // Estimate the search range based on ip in the current box. If
+    // cannot find enough such ip, expand the box a little. Don't try
+    // too hard though, as then we end up with too many outliers which
+    // can't be filtered easily.
+    size_t min_num_ip = 20;
+    BBox2i ip_crop_win = left_trans_crop_win;
+    int win_size = std::max(left_trans_crop_win.width(), left_trans_crop_win.height());
     
-      right_trans_crop_win.grow(right_pt);
-    
-      // First copy all the data from the input ip, then apply the transform
-      left_trans_ip.push_back(left_ip[i]);
-      right_trans_ip.push_back(right_ip[i]);
-      left_trans_ip.back().x  = left_pt.x();
-      left_trans_ip.back().y  = left_pt.y();
-      right_trans_ip.back().x = right_pt.x();
-      right_trans_ip.back().y = right_pt.y();
+    for (int pass = 0; pass < 2; pass++) {
+      
+      // Apply the transforms to all the IP we found
+      std::vector<vw::ip::InterestPoint> left_trans_ip, right_trans_ip;
+      
+      for (size_t i = 0; i < left_ip.size(); i++) {
+            Vector2 left_pt (left_ip [i].x, left_ip [i].y);
+        Vector2 right_pt(right_ip[i].x, right_ip[i].y);
+        
+        left_pt  = left_trans.forward(left_pt);
+        right_pt = right_trans.forward(right_pt);
+        
+        if (!ip_crop_win.contains(left_pt)) 
+          continue;
+        
+        right_trans_crop_win.grow(right_pt);
+        
+        // First copy all the data from the input ip, then apply the transform
+        left_trans_ip.push_back(left_ip[i]);
+        right_trans_ip.push_back(right_ip[i]);
+        left_trans_ip.back().x  = left_pt.x();
+        left_trans_ip.back().y  = left_pt.y();
+        right_trans_ip.back().x = right_pt.x();
+        right_trans_ip.back().y = right_pt.y();
+      }
+
+#if 0
+      std::string out_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
+                                                              "L.tif", "R.tif");
+      vw_out() << "Writing match file: " << out_match_filename << ".\n";
+      vw::ip::write_binary_match_file(out_match_filename, left_trans_ip, right_trans_ip);
+#endif
+      
+      if (left_trans_ip.size() >= min_num_ip) 
+        break;
+      
+      ip_crop_win.expand(win_size/10);
     }
-
+    
     // Round up
     right_trans_crop_win.expand(1);
     right_trans_crop_win.crop(bounding_box(right_globally_aligned_image));
   
-    //std::string out_match_filename = vw::ip::match_filename(opt.out_prefix + "-aligned",
-    //                                                        opt.in_file1, opt.in_file2);
-  
-    //vw_out() << "Writing match file: " << out_match_filename << ".\n";
-    //vw::ip::write_binary_match_file(out_match_filename, left_trans_ip, right_trans_ip);
-
     // TODO(oalexan1): Should we find the search range based on IP or based on D_sub?
     vw_out() << "IP-based search range: " << right_trans_crop_win << std::endl;
 
@@ -168,11 +206,35 @@ namespace asp {
                     "" // do not save any match file to disk
                     );
 
-    //std::string local_match_filename = vw::ip::match_filename(opt.out_prefix + "-local",
-    //                                                          "L.tif", "R.tif");
-    //vw_out() << "Writing match file: " << local_match_filename << ".\n";
-    //vw::ip::write_binary_match_file(local_match_filename, left_local_ip, right_local_ip);
+#if 0 // Debug logic
+    {
+      vw::cartography::GeoReference georef;
+      bool has_georef = false, has_nodata = true;
+      float nan_nodata = std::numeric_limits<float>::quiet_NaN();
 
+      std::string left_crop = opt.out_prefix + "-" + "left-crop.tif";
+      vw_out() << "\t--> Writing: " << left_crop << ".\n";
+      block_write_gdal_image(left_crop, crop(left_globally_aligned_image,
+                                             left_trans_crop_win),
+                             has_georef, georef,
+                             has_nodata, left_nodata_value, opt,
+                             TerminalProgressCallback("asp","\t  Left:  "));
+      
+      std::string right_crop = opt.out_prefix + "-" + "right-crop.tif";
+      vw_out() << "\t--> Writing: " << right_crop << ".\n";
+      block_write_gdal_image(right_crop, crop(right_globally_aligned_image,
+                                             right_trans_crop_win),
+                             has_georef, georef,
+                             has_nodata, right_nodata_value, opt,
+                             TerminalProgressCallback("asp","\t  Right:  "));
+
+      std::string local_match_filename = vw::ip::match_filename(opt.out_prefix,
+                                                                left_crop, right_crop);
+      vw_out() << "Writing match file: " << local_match_filename << ".\n";
+      vw::ip::write_binary_match_file(local_match_filename, left_local_ip, right_local_ip);
+    }
+#endif
+    
     // The matrices which take care of the crop to the current tile
     Matrix<double> left_crop_mat  = math::identity_matrix<3>();
     Matrix<double> right_crop_mat = math::identity_matrix<3>();
@@ -184,19 +246,21 @@ namespace asp {
 
     // Find the local alignment
     std::vector<size_t> ip_inlier_indices;
+    bool crop_to_shared_area = false;
     Vector2i local_trans_aligned_size =
       affine_epipolar_rectification(left_trans_crop_win.size(), right_trans_crop_win.size(),
                                     stereo_settings().local_alignment_threshold,
                                     stereo_settings().alignment_num_ransac_iterations,
                                     left_local_ip, right_local_ip,
+                                    crop_to_shared_area,
                                     left_local_mat, right_local_mat, &ip_inlier_indices);
 
     // Combination of global alignment, crop to current tile, and local alignment
     Matrix<double> combined_left_mat  = left_local_mat * left_crop_mat * left_global_mat;
     Matrix<double> combined_right_mat = right_local_mat * right_crop_mat * right_global_mat;
 
-    // Apply the combined transforms to the original unscaled and unaligned images,
-    // then scale them too.
+    // Apply the combined transforms to the original unscaled and
+    // unaligned images, then scale them too.
     Vector<float32> left_stats, right_stats;
     std::string left_stats_file  = opt.out_prefix + "-lStats.tif";
     std::string right_stats_file = opt.out_prefix + "-rStats.tif";
@@ -207,10 +271,11 @@ namespace asp {
     float left_unaligned_nodata_value = -32768.0;
     float right_unaligned_nodata_value = -32768.0;
     {
-      // Retrieve nodata values and let the handles go out of scope right away.
-      // For this to work, the ISIS type must be registered with the
-      // DiskImageResource class.  This happens in "stereo.cc", so
-      // these calls will create DiskImageResourceIsis objects.
+      // Retrieve nodata values and let the handles go out of scope
+      // right away.  For this to work, the ISIS type must be
+      // registered with the DiskImageResource class. This happens in
+      // "stereo.cc", so these calls will create DiskImageResourceIsis
+      // objects.
       boost::shared_ptr<DiskImageResource>
         left_unaligned_rsrc (DiskImageResourcePtr(left_unaligned_file)),
         right_unaligned_rsrc(DiskImageResourcePtr(right_unaligned_file));
@@ -221,22 +286,29 @@ namespace asp {
     // Set up image masks
     DiskImageView<float> left_unaligned_image (left_unaligned_file);
     DiskImageView<float> right_unaligned_image (right_unaligned_file);
-    ImageViewRef< PixelMask<float> > left_masked_image
+    ImageViewRef<PixelMask<float>> left_masked_image
       = create_mask_less_or_equal(left_unaligned_image,  left_unaligned_nodata_value);
-    ImageViewRef< PixelMask<float> > right_masked_image
+    ImageViewRef<PixelMask<float>> right_masked_image
       = create_mask_less_or_equal(right_unaligned_image, right_unaligned_nodata_value);
 
+    PixelMask<float> nodata_mask = PixelMask<float>(); // invalid value for a PixelMask
+    
     // Apply the combined transform to original left and right images,
     // rather than to already transformed images. This way we avoid
     // double interpolation.
-    ImageViewRef< PixelMask<float> > left_aligned_image  
-      = transform(left_masked_image,
+    ImageViewRef<PixelMask<float>> left_aligned_image  
+      = vw::transform(left_masked_image,
                   HomographyTransform(combined_left_mat),
-                  local_trans_aligned_size.x(), local_trans_aligned_size.y());
-    ImageViewRef< PixelMask<float> > right_aligned_image  
-      = transform(right_masked_image,
+                  local_trans_aligned_size.x(), local_trans_aligned_size.y(),
+                  ValueEdgeExtension<PixelMask<float>>(nodata_mask),
+                  BilinearInterpolation());
+
+    ImageViewRef<PixelMask<float>> right_aligned_image  
+      = vw::transform(right_masked_image,
                   HomographyTransform(combined_right_mat),
-                  local_trans_aligned_size.x(), local_trans_aligned_size.y());
+                  local_trans_aligned_size.x(), local_trans_aligned_size.y(),
+                  ValueEdgeExtension<PixelMask<float>>(nodata_mask),
+                  BilinearInterpolation());
 
     // Normalize the locally aligned images
     bool use_percentile_stretch = false;
@@ -249,11 +321,24 @@ namespace asp {
                           left_stats, right_stats,
                           left_aligned_image, right_aligned_image);
 
-    PixelMask<float> nodata_mask = PixelMask<float>(); // invalid value for a PixelMask
-  
     // The S2P MGM algorithm needs NaN data
     float nan_nodata = std::numeric_limits<float>::quiet_NaN();
 
+    // Fully form the image clips in memory. Otherwise, if something
+    // goes wrong, there's an abort in block_write_gdal_image
+    // somewhere, instead of exceptions being propagated
+    // gracefully. It could not be found in reasonable time where the
+    // abort was happening.
+    
+    ImageView<float> left_trans_clip
+      = apply_mask(left_aligned_image, nan_nodata); 
+    ImageView<float> right_trans_clip
+      = apply_mask(crop
+                   (edge_extend(right_aligned_image,
+                                ValueEdgeExtension<PixelMask<float>>(nodata_mask)),
+                    bounding_box(left_aligned_image)), // note the left bounding box
+                   nan_nodata);
+    
     // Write the locally aligned images to disk
     vw::cartography::GeoReference georef;
     bool has_georef = false, has_aligned_nodata = write_nodata;
@@ -261,24 +346,21 @@ namespace asp {
     std::string right_tile = "right-aligned-tile.tif";
     left_aligned_file = opt.out_prefix + "-" + left_tile; 
     vw_out() << "\t--> Writing: " << left_aligned_file << ".\n";
-    block_write_gdal_image(left_aligned_file, apply_mask(left_aligned_image, nan_nodata),
+    block_write_gdal_image(left_aligned_file, left_trans_clip,
                            has_georef, georef,
                            has_aligned_nodata, nan_nodata, opt,
                            TerminalProgressCallback("asp","\t  Left:  "));
-  
     right_aligned_file = opt.out_prefix + "-" + right_tile;
     vw_out() << "\t--> Writing: " << right_aligned_file << ".\n";
     block_write_gdal_image(right_aligned_file,
-                           apply_mask
-                           (crop
-                            (edge_extend(right_aligned_image,
-                                         ValueEdgeExtension<PixelMask<float>>(nodata_mask)),
-                             bounding_box(left_aligned_image)), // note the left bounding box
-                            nan_nodata),
+                           right_trans_clip,
                            has_georef, georef,
                            has_aligned_nodata, nan_nodata, opt,
                            TerminalProgressCallback("asp","\t  Right:  "));
-  
+    
+    // TODO(oalexan1): Make the code below a function, called
+    // aligned_disp_search_range().
+    
     // Apply local alignment to inlier ip and estimate the search range
     vw::HomographyTransform left_local_trans (left_local_mat);
     vw::HomographyTransform right_local_trans(right_local_mat);
@@ -337,10 +419,32 @@ namespace asp {
     // Expand the disparity search range a bit
     double disp_width = disp_range.width();
     double disp_extra = disp_width * stereo_settings().disparity_range_expansion_percent / 100.0;
+    
     min_disp = floor(disp_range.min().x() - disp_extra/2.0);
     max_disp = ceil(disp_range.max().x() + disp_extra/2.0);
-    
+
     return;
+  }
+
+  // Grow a box to a square size. If one of the input dimensions is
+  // even and another odd, we'll never get there but what we get will
+  // be good enough.
+  vw::BBox2i grow_box_to_square(vw::BBox2i const& box, int max_size) {
+    int width = box.width();
+    int height = box.height();
+
+    if (width > max_size || height > max_size) 
+      vw_throw(vw::ArgumentErr() << "Expecting tiles to have at most dimensions of "
+               << max_size << ", but got the tile " << box << ".\n");
+
+    int diffx = max_size - width;
+    int diffy = max_size - height;
+
+    BBox2i out_box = box;
+    out_box.min() -= Vector2(diffx/2, diffy/2);
+    out_box.max() += Vector2(diffx/2, diffy/2);
+
+    return out_box;
   }
   
   // Go from 1D disparity of images with affine epipolar alignment to the 2D
@@ -360,7 +464,8 @@ namespace asp {
     float nan_nodata = std::numeric_limits<float>::quiet_NaN(); // NaN value
     PixelMask<float> nodata_mask = PixelMask<float>(); // invalid value for a PixelMask
 
-    ImageViewRef<PixelMask<float>> masked_aligned_disp_1d = create_mask(aligned_disp_1d, nan_nodata);
+    ImageViewRef<PixelMask<float>> masked_aligned_disp_1d
+      = create_mask(aligned_disp_1d, nan_nodata);
 
     // TODO(oalexan1): Here bilinear interpolation is used. This will
     // make the holes a little bigger where there is no data. Need
