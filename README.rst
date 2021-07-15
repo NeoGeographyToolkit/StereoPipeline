@@ -42,7 +42,9 @@ system, extract, and run the executables in the ``bin`` subdirectory.
   <https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
   (`pdf documentation <https://github.com/NeoGeographyToolkit/StereoPipeline/releases/latest/download/asp_book.pdf>`_)
 
-See the [NEWS](NEWS.rst) for the most recent additions.
+See the `NEWS
+<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/NEWS.rst>`_
+for the most recent additions.
 
 To permanently add the ASP executable subdirectory to your PATH,
 you can add the following line to your shell configuration (e.g.,
@@ -59,7 +61,9 @@ the same environment as well, though it may not be the latest version.
 Fetching ASP with conda or compiling from source
 ------------------------------------------------
 
-See the [install guide](INSTALLGUIDE.rst) for details.
+See the `install guide
+<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/INSTALLGUIDE.rst>`_
+for details.
 
 Documentation
 =============
@@ -100,7 +104,9 @@ Adaptive Control and Evolvable Systems (ACES) group, and draws on
 their experience developing computer vision techniques for autonomous
 vehicle control systems.
 
-See the [AUTHORS](AUTHORS.rst) file for a complete list of developers.
+See the `AUTHORS
+<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/AUTHORS.rst>`_
+file for a complete list of developers.
 
 Citation
 --------
@@ -135,7 +141,7 @@ License
 
 See LICENSE file for the full text of the license that applies to ASP.
 
-Copyright (c) 2009-2020, United States Government as represented by
+Copyright (c) 2009-2021, United States Government as represented by
 the Administrator of the National Aeronautics and Space
 Administration. All rights reserved.
 
@@ -160,6 +166,7 @@ above-mentioned distribution agreement or copyright. Binary releases
 distribute third party software in both the ``bin`` and ``lib``
 directories. See the included documentation for detailed copyright and
 license information for any third-party software or check the
-``THIRDPARTYLICENSES`` file. In addition, various pieces of ASP depend
-on additional third-party libraries that the user is expected to have
-installed.
+`THIRDPARTYLICENSES
+<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/THIRDPARTYLICENSES.rst>`_
+file. In addition, various pieces of ASP depend on additional
+third-party libraries that the user is expected to have installed.

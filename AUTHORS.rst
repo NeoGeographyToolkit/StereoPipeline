@@ -71,14 +71,15 @@ possible, and we thank Dr. Michael Caplinger, Joe Fahle and others at
 MSSS for their help and technical assistance.
 
 We’d also like to thank our friends and collaborators Dr. Randolph
-Kirk, Dr. Brent Archinal, Trent Hare, and Mark Rosiek of the United
-States Geological Survey's (USGS's) Astrogeology Science Center in
-Flagstaff, AZ, for their encouragement and willingness to share
-their experience and expertise by answering many of our technical
-questions. We also thank them for their ongoing support and efforts
-to help us evaluate our work. Thanks also to the USGS ISIS team,
-especially Jeff Anderson and Kris Becker, for their help in integrating
-stereo pipeline with the USGS ISIS software package.
+Kirk, Dr. Brent Archinal, Trent Hare, Mark Rosiek, and David Mayer
+of the United States Geological Survey's (USGS's) Astrogeology
+Science Center in Flagstaff, AZ, for their encouragement and
+willingness to share their experience and expertise by answering
+many of our technical questions. We also thank them for their ongoing
+support and efforts to help us evaluate our work. Thanks also to
+the USGS ISIS team, especially Jeff Anderson, Kris Becker, Jay
+Laura, and Jesse Mapel, for their help in integrating stereo pipeline
+with the USGS ISIS software package.
 
 Thanks go also to Dr. Mark Robinson, Jacob Danton, Ernest
 Bowman-Cisneros, Dr. Sam Laurence, and Melissa Bunte at Arizona
@@ -109,10 +110,12 @@ Exploration Systems Mission Directorate (ESMD) funding sources:
 - SMD Cryosphere Program
 - The Resource Prospector site selection activity
 - The VIPER mission site selection activity
-- NASA-USGS Inter-Agency Agreement #NNH16AC13I to support the Comunity 
-  Sensor Model (CSM) work in 2019 and 2020.
+- NASA-USGS Interagency Agreement #NNH16AC13I to support the Comunity 
+  Sensor Model (CSM) work (2019-2021).
 - Planetary Data Archiving and Tools program (PDART) grant #19-PDART19_2-0094
   under Dr. Ross Beyer (2020-2022).
+- NASA-USGS Interagency Agreement #30499, SAA2-403489 to support the satellite-derived
+  bathymetry work (2020-2021)
 
 Any opinions, findings, and conclusions or recommendations expressed in
 this documentation are those of the authors and do not necessarily
