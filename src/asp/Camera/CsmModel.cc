@@ -127,7 +127,7 @@ std::string CsmModel::get_csm_plugin_folder(){
   char * plugin_path_arr = getenv("CSM_PLUGIN_PATH");
 
   char * isis_root = getenv("ISISROOT");
-  if (isis_root == "")
+  if (isis_root == NULL)
     vw_throw(vw::ArgumentErr() << "The variable ISISROOT was not set.\n");
   
   if (plugin_path_arr != NULL && std::string(plugin_path_arr) != ""){

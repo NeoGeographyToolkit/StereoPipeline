@@ -587,7 +587,7 @@ namespace asp {
     // not in ISISROOT. This only makes a difference in dev mode.
     
     char * isis_root = getenv("ISISROOT");
-    if (isis_root == "")
+    if (isis_root == NULL)
       vw_throw(vw::ArgumentErr() << "The variable ISISROOT was not set.\n");
     
     // Get the path to the plugins from the path of the ASP stereo_corr

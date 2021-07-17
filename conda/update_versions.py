@@ -95,10 +95,15 @@ for it in range(len(lines)):
     if not package in conda_env:
         continue
     version = conda_env[package]
-    if old_version != version and ('#' not in old_version):
-        # Replace the version, unless the old version has a comment
-        print("For package " + package + ", replacing version " + old_version + " with " + version)
-        lines[it] = pre + package + spaces + version + "\n"
+    if old_version != version:
+        if ('[linux]' in old_version) or ('[osx]' in old_version):
+            # In this case the user better take a closer look
+            print("For package " + package + ", not replacing " +
+                  old_version + " with " + version + ", a closer look is suggested.")
+        else:
+            print("For package " + package + ", replacing version "
+                  + old_version + " with " + version)
+            lines[it] = pre + package + spaces + version + ".\n"
 
 # Save the updated lines to disk
 print("Updating: " + outFile)

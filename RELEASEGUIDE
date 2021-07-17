@@ -30,7 +30,7 @@ https://semver.org for guidance).
    that all versions there agree with the versions from the ISIS
    environment. Rebuild them with conda-build and commit them to:
 
-  https://anaconda.org/nasa-ames-stereo-pipeline  
+      https://anaconda.org/nasa-ames-stereo-pipeline  
 
    This is described in detail in :numref:`conda_build` in the
    documentation.
@@ -46,11 +46,18 @@ https://semver.org for guidance).
 	make latexpdf
 		builds 'the pdf book'
 
+  - Create a local conda environment and install there all the
+    packages just built, including VisionWorkbench and StereoPipeline. 
+    This will ensure there are no conflicts.
+
   - Check out https://github.com/NeoGeographyToolkit/BinaryBuilder
     in your $HOME. 
 
   - Copy the pdf book from docs/_build/latex/asp_book.pdf to
     $HOME/BinaryBuilder/dist-add/asp_book.pdf.
+  
+  - Update the path to your conda environment in 
+    BinaryBuilder/auto_build/utils.sh.
 
 6.) Build and package the ASP release tarball. See:
 
