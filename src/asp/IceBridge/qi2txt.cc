@@ -240,13 +240,13 @@ int testendianness(void) {
 /*======================================================================*/
 int4 get_record_length(int4 *value, int4 *svalue, FILE *infile) {
 
-    int4 nvar, ipart;
+    int4 nvar;// ipart;
 
     fread((char *)value,sizeof(*value),1,infile);//Read single int4
  
     /* swap bytes if host machine is little-endian (e.g. PC) */
     if (host_endianness != data_endianness) {
-      ipart = myswap((char*)value,(char*)svalue,4,1); // Swap the bytes in that int4
+      /*ipart =*/ myswap((char*)value,(char*)svalue,4,1); // Swap the bytes in that int4
       nvar = *(svalue) / 4;
     }
     else {
@@ -342,10 +342,10 @@ void printData(int word_format, char mode, double * bufout){
 int main(int argc, char *argv[]) {
     char infilename[MAX_NAME_LENGTH]; // 100 long c string
     FILE *infile; // Pointer to infile c string
-    int4 value[MAXARG], svalue[MAXARG], gvalue[MAXARG];// value, s, and g w/ 14 spots each
+    int4 value[MAXARG], svalue[MAXARG];//, gvalue[MAXARG];// value, s, and g w/ 14 spots each
     long unsigned int in_rec = 0, out_rec = 0;
     int4 neg_rec_count = 0;
-    int4 j, nvar, ipart, multiply_rule;
+    int4 j, nvar, /*ipart,*/ multiply_rule;
     // This scale represents a combination of word sizes,
     // appropriately multiplied by 'multiply_matrix'
     double scale[MAXARG] = {
@@ -371,7 +371,7 @@ int main(int argc, char *argv[]) {
 	 { 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 2}};
     int word_format;
     double bufout[MAXARG];// 14 entries
-    char *endian[] = { "big", "little" };
+    const char *endian[] = { "big", "little" };
     float version = VERSION;
 
     host_endianness = testendianness();
@@ -458,7 +458,7 @@ int main(int argc, char *argv[]) {
 
         /* swap bytes if host machine is little-endian (e.g. PC) */
         if (host_endianness != data_endianness) {
-      	  ipart = myswap((char*)value,(char*)svalue,sizeof(*value),nvar);
+      	  /*ipart =*/ myswap((char*)value,(char*)svalue,sizeof(*value),nvar);
         }
         else {
           /* host machine is big-endian (e.g. Sun Workstation) */
