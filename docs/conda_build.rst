@@ -109,6 +109,11 @@ clone`` from::
   https://github.com/NeoGeographyToolkit/visionworkbench-feedstock.git
   https://github.com/NeoGeographyToolkit/stereopipeline-feedstock.git
 
+It may be helpful to look at the ``meta.yml`` files for the
+visionworkbench and stereopipeline feedstock repositories, and install
+the dependencies of those packages in the isis4.4 environment created
+earier, except for those that we actually plan to build.
+
 Synchronize the versions with the existing environment
 ------------------------------------------------------
 
