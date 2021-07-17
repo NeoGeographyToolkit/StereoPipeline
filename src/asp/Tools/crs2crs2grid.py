@@ -59,7 +59,7 @@ def next_point(fd):
     # Read until we find a valid line
     line = fd.readline().strip()
     while line != '' and line.find('PNT_') == -1:
-        print line
+        print(line)
         line = fd.readline()
 
     if line == '':
@@ -82,7 +82,7 @@ def next_point(fd):
     # Read LATITUDE line
     line   = fd.readline().strip()
     tokens = line.split()
-    print line
+    print(line)
     lat_src = float(tokens[1]) + float(tokens[2])/60.0 + float(tokens[3])/3600.0
     lat_dst = float(tokens[5]) + float(tokens[6])/60.0 + float(tokens[7])/3600.0
 
