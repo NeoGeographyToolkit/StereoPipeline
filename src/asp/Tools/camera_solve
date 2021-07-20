@@ -353,8 +353,6 @@ def build_reconstruction(options):
 # This function is not being used but if we ever decide to support large image sets
 #  we may need to switch to using it.  Since we don't use it, it can sit in an incomplete state.
 
-#TEMP_BIN = '/home/smcmich1/repo/BinaryBuilder/build_root/build/theia/theia-git/build/bin/'
-
 def guided_build_reconstruction(options):
     '''Split the reconstruction over multiple Theia tool calls to provide
        more control over the process'''

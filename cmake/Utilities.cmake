@@ -20,10 +20,9 @@ function(get_all_source_files relativePath outputFileList)
   set(${outputFileList} ${fileList} PARENT_SCOPE) 
 endfunction(get_all_source_files)
 
-# Look for a library dependency, starting with the BinaryBuilder folder.
-# Look for it in search_folder if provided.
-# If the header files are in a subfolder of "include", specify that one
-# in "inc_subfolder".
+# Look for a library dependency, starting with the given search
+# folder. If the header files are in a subfolder of "include",
+# specify that one in "inc_subfolder".
 function(find_external_library name search_folder inc_subfolder libNameList required)
 
   # Define the variable names we will create
@@ -32,8 +31,6 @@ function(find_external_library name search_folder inc_subfolder libNameList requ
   set(INC_NAME   "${name}_INCLUDE_DIR")
   set(ASP_NAME   "ASP_HAVE_PKG_${name}") # TODO: Remove VW/ASP name!
 
-  # Look in the search folder if it was provided, otherwise
-  #  make halfhearted attempt to find the dependency.
   if(search_folder)
     set(${FOUND_NAME} 1)
 

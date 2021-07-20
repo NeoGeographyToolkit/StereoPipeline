@@ -17,14 +17,14 @@
 # __END_LICENSE__
 
 # This program depends on a variety of Python modules that can be
-# installed following the instructions at
-# https://github.com/NeoGeographyToolkit/BinaryBuilder/blob/master/build_python_modules/README.txt
+# installed following the instructions in the documentation where the
+# use of this tool is shown.
 
-# The purpose of this program is to generate a good initial disparity estimate
-# for stereo processing by matching interest points taken full resolution
-# at sampled regions across the input images.  This helps out in cases where
-# there is high resolution detail such as ice and snow patterns but no low
-# resolution detail.
+# The purpose of this program is to generate a good initial disparity
+# estimate for stereo processing by matching interest points taken
+# full resolution at sampled regions across the input images.  This
+# helps out in cases where there is high resolution detail such as ice
+# and snow patterns but no low resolution detail.
 
 from __future__ import print_function
 import sys, optparse, subprocess, re, os, math, time, datetime

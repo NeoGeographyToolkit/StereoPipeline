@@ -248,7 +248,7 @@ Automated Processing of HiRISE and CTX
 While he was at the University of Chicago, David Mayer developed a set of
 scripts for automating Stereo Pipeline for CTX and HiRISE images.  Those
 scripts and more information can now be found at 
-https://github.com/USGS-Astrogeology/asp_scripts
+https://github.com/USGS-Astrogeology/asp_scripts.
 
 
 Mars Global Surveyor MOC-NA

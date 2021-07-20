@@ -10,7 +10,7 @@ set(CMAKE_CXX_FLAGS "" CACHE STRING "")
 set(CMAKE_C_FLAGS "" CACHE STRING "")
 
 # cmake fails without the -L flag in CMAKE_CXX_FLAGS, oddly enough.
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++11 -L${BINARYBUILDER_INSTALL_DIR}/lib")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++11")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
 set(CMAKE_EXE_LINKER_FLAGS "-lm -pthread -lpthread")
 
