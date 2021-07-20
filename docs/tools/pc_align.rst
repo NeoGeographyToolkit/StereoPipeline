@@ -335,14 +335,14 @@ ASP DEM is obtained by running::
     parallel_stereo left.tif right.tif left.xml right.xml output/run
     point2dem output/run-PC.tif
 
-(your actual camera extensions and stereo session may be different),
-and the ASP DEM ``output/run-DEM.tif`` is aligned to the reference DEM
+(your actual camera extensions and stereo session may be different).
+The ASP DEM ``output/run-DEM.tif`` is aligned to the reference DEM
 as::
 
     pc_align --max-displacement 1000 ref.tif output/run-DEM.tif \
       -o align/run
 
-then the alignment is applied to cameras the following way::
+The alignment is applied to cameras the following way::
 
     bundle_adjust left.tif right.tif left.xml right.xml \
       --initial-transform align/run-transform.txt       \
@@ -374,7 +374,6 @@ transform. To do that, run the slightly modified command::
       --initial-transform align/run-transform.txt       \
       --input-adjustments-prefix initial_ba/run         \
       --num-iterations 0 -o ba_align/run
-
 
 Here zero iterations were used since it was desired to only apply
 pre-existing transforms rather than again optimize the cameras, when
