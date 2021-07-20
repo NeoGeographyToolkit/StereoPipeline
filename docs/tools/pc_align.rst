@@ -317,6 +317,68 @@ this will create a point cloud out of the DEM. This cloud can then be
 re-gridded using ``point2dem`` at a lower resolution or with a different
 projection.
 
+.. _ba_pc_align:
+
+Applying the pc_align transform to cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If ``pc_align`` is used to align a DEM obtained with ASP to a
+preexisting reference DEM, the obtained alignment transform can be
+applied to the cameras used to create the ASP DEM, so the cameras then
+become aligned with the pre-existing DEM. That is accomplished by
+running bundle adjustment with zero iterations and the option
+``--initial-transform``.
+
+To go in more detail, if the reference DEM is ``ref.tif``, and the 
+ASP DEM is obtained by running::
+
+    parallel_stereo left.tif right.tif left.xml right.xml output/run
+    point2dem output/run-PC.tif
+
+and the ASP DEM ``output/run-DEM.tif`` is aligned to the reference
+DEM as::
+
+    pc_align --max-displacement 1000 ref.tif output/run-DEM.tif \
+      -o align/run
+
+then the alignment is applied to cameras the following way::
+
+    bundle_adjust left.tif right.tif left.xml right.xml \
+      --initial-transform align/run-transform.txt       \
+      --num-iterations 0 -o ba_align/run
+
+This should create the adjusted cameras incorporating the alignment
+transform::
+
+     ba_align/run-left.adjust, ba_align/run-right.adjust
+
+
+As an application, the cameras can now be mapprojected onto the 
+reference DEM, hopefully with no registration error as::
+
+    mapproject ref.tif left.tif left_map.tif \
+      --bundle-adjust-prefix ba_align/run
+
+and in the same way for the right image.
+    
+If, however, the initial stereo was done with cameras that already
+were bundle adjusted, so the stereo command had the option::
+
+  --bundle-adjust-prefix initial_ba/run
+
+we need to integrate those initial adjustments with this alignment
+transform. To do that, run the slightly modified command::
+
+    bundle_adjust left.tif right.tif left.xml right.xml \
+      --initial-transform align/run-transform.txt       \
+      --input-adjustments-prefix initial_ba/run         \
+      --num-iterations 0 -o ba_align/run
+
+
+Here zero iterations were used since it was desired to only apply
+pre-existing transforms rather than again optimize the cameras, when
+the camera will further move.
+
 Troubleshooting
 ~~~~~~~~~~~~~~~
 
@@ -330,8 +392,8 @@ you can try is to convert an input point cloud into a smoothed DEM. Use
 fill in holes in the DEM. For some input data this can significantly
 improve alignment accuracy.
 
-Command-line options for pc_align:
-
+Command-line options for pc_align
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 --num-iterations <integer (default: 1000)>
     Maximum number of iterations.
 

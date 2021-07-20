@@ -46,27 +46,28 @@ perform as well when finding interest points in planetary context.
 This tool will write the adjustments to the cameras as ``*.adjust``
 files starting with the specified output prefix. In order for ``stereo``
 to use the adjusted cameras, it should be passed this output prefix via
-the option ``--bundle-adjust-prefix``. For example,
+the option ``--bundle-adjust-prefix``. For example::
 
-::
-
-     stereo file1.cub file2.cub run_stereo/run --bundle-adjust-prefix run_ba/run
+     stereo file1.cub file2.cub run_stereo/run \
+       --bundle-adjust-prefix run_ba/run
 
 If the ``--inline-adjustments`` option is used, no separate adjustments
 will be written, rather, the tool will save to disk copies of the input
 cameras with adjustments already applied to them. These output cameras
 can then be passed directly to stereo::
 
-     stereo file1.JPG file2.JPG run_ba/run-file1.tsai run_ba/run-file2.tsai run_stereo/run
+     stereo file1.JPG file2.JPG run_ba/run-file1.tsai \
+       run_ba/run-file2.tsai run_stereo/run
 
 The ``bundle_adjust`` program can read camera adjustments from a
 previous run, via ``--input-adjustments-prefix string``. It can also
 apply to the input cameras a transform as output by ``pc_align``, via
-``--initial-transform string``. This is useful if a DEM produced by ASP
-was aligned to a ground truth, and it is desired to apply the same
-alignment to the cameras that were used to create that DEM. The initial
-transform can have a rotation, translation, and scale, and it is applied
-after the input adjustments are read, if those are present.
+``--initial-transform string``. This is useful if a DEM produced by
+ASP was aligned to a ground truth, and it is desired to apply the same
+alignment to the cameras that were used to create that DEM. The
+initial transform can have a rotation, translation, and scale, and it
+is applied after the input adjustments are read, if those are
+present. An example is shown in (:numref:`ba_pc_align`).
 
 If the ``--datum`` option is specified, ``bundle_adjust`` will write the
 mean absolute residuals (reprojection errors) for each triangulated

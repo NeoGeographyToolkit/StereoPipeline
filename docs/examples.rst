@@ -776,7 +776,8 @@ adjustment and subsequent alignment, one can invoke bundle adjustment
 just as above, with an initial transform and zero iterations, but use
 not the original ``left.json`` and ``right.json`` camera files, but
 the model state files after the initial bundle adjustment which encode
-that adjustment.
+that adjustment. (See also :numref:`ba_pc_align` for how to combine
+bundle adjustment with the alignment transform.) 
 
 Creating CSM cameras from ISIS .cub files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
