@@ -23,19 +23,14 @@ Search for the latest available ISIS conda package::
   
     conda search -c usgs-astrogeology --override-channels isis
 
-Here it was found that ISIS version 4.4.0 was the latest, which we
+Here it was found that ISIS version 5.0.1 was the latest, which we
 will assume throughout the rest of this document. This needs to be
 adjusted for your circumstances.
 
-Fetch the ISIS environment ``environment.yml`` from:: 
+Create a conda environment for this version of ISIS::
 
-    https://github.com/USGS-Astrogeology/ISIS3/tree/4.4
-
-(adjust above the version). Create a local version of this
-environment::
-
-     conda env create -n isis4.4 -f environment.yml       
-     conda activate isis4.4
+     conda create -n isis5.0.1 python=3.6
+     conda activate isis5.0.1
 
 Add these channels to conda::
 
@@ -52,7 +47,7 @@ order and above all other channels, except perhaps the
 
 Install the desired version of ISIS::
 
-    conda install isis==4.4.0
+    conda install isis==5.0.1
 
 Search and install the latest version of the ``usgscsm`` package,
 for example, as::
@@ -62,7 +57,7 @@ for example, as::
 
 Save the current environment as follows::
 
-    conda env export > isis4.4.yaml
+    conda env export > isis5.0.1.yaml
 
 Fetching the build tools
 ------------------------
@@ -111,18 +106,18 @@ clone`` from::
 
 It may be helpful to look at the ``meta.yml`` files for the
 visionworkbench and stereopipeline feedstock repositories, and install
-the dependencies of those packages in the isis4.4 environment created
+the dependencies of those packages in the isis5.0.1 environment created
 earier, except for those that we actually plan to build.
 
 Synchronize the versions with the existing environment
 ------------------------------------------------------
 
 For each of these, check the ``recipe/meta.yaml`` file and ensure all
-dependencies are in sync with what is in the file ``isis4.4.yaml``
+dependencies are in sync with what is in the file ``isis5.0.1.yaml``
 generated earlier. This can be done automatically with a provided
 script in the ASP repository::
 
-     python StereoPipeline/conda/update_versions.py isis4.4.yaml \
+     python StereoPipeline/conda/update_versions.py isis5.0.1.yaml \
        gdal-feedstock
 
 and the same for the other packages.
@@ -135,7 +130,7 @@ It is suggested to examine the changed ``meta.yaml`` with great care,
 and if in doubt, leave the values as they were before modified by this
 script.
 
-In each of those files manually modify the string ``isis4.4.0`` to
+In each of those files manually modify the string ``isis5.0.1`` to
 reflect the current ISIS version.
 
 In the ``visionworkbench`` and ``stereopipeline`` recipes update the
@@ -177,12 +172,12 @@ Use the ``--force`` option if desired to overwrite any existing
 package with the same name and version.
 
 After a package is uploaded, it can be installed in the existing
-``isis4.4`` environment as::
+``isis5.0.1`` environment as::
 
     conda install -c nasa-ames-stereo-pipeline \
       -c usgs-astrogeology                     \
       -c conda-forge                           \
-      gdal==isis4.4.0
+      gdal==isis5.0.1
 
 To list all packages in that channel, do::
 

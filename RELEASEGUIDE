@@ -35,10 +35,31 @@ https://semver.org for guidance).
    This is described in detail in :numref:`conda_build` in the
    documentation.
 
+  - Check out https://github.com/NeoGeographyToolkit/BinaryBuilder
+    in your $HOME. 
+
+  - Create a local conda environment and install there all the
+    packages just built, including VisionWorkbench and StereoPipeline.
+    This will ensure there are no conflicts. Then these two can be 
+    wiped, leaving just the dependencies. 
+
+  - Update the path to your local conda environment having the latest
+    dependencies in BinaryBuilder/auto_build/utils.sh.
+
+  - Update this path as well in StereoPipelineTest, in the
+    release*conf files, to be used for the nightly regressions.
+
   - Update the ISIS version in README.rst, INSTALLGUIDE.rst, and 
     conda_build.rst.
+ 
+  - Update the ASP version and Zenodo link in README.rst. (The 
+    release needs to be pushed to GitHub before the Zenodo link
+    can be minted and hence that should be updated later.) The
+    'forever' DOI on Zenodo is
+    https://zenodo.org/badge/latestdoi/714891 which should resolve 
+    to the 'latest' DOI.
 
-  - Build the documentation in StereoPipeline/docs/.
+  - Build the documentation in StereoPipeline/docs:
 
 	make html
 		tests building the online documentation
@@ -46,19 +67,9 @@ https://semver.org for guidance).
 	make latexpdf
 		builds 'the pdf book'
 
-  - Create a local conda environment and install there all the
-    packages just built, including VisionWorkbench and StereoPipeline. 
-    This will ensure there are no conflicts.
-
-  - Check out https://github.com/NeoGeographyToolkit/BinaryBuilder
-    in your $HOME. 
-
   - Copy the pdf book from docs/_build/latex/asp_book.pdf to
     $HOME/BinaryBuilder/dist-add/asp_book.pdf.
   
-  - Update the path to your conda environment in 
-    BinaryBuilder/auto_build/utils.sh.
-
 6.) Build and package the ASP release tarball. See:
 
         BinaryBuilder/README.
@@ -72,9 +83,10 @@ https://semver.org for guidance).
     Test all binary releases on different machines by running
     StereoPipelineTest.
 
-NOTE: The step above is done automatically by running on lunokhod2 the script
+    NOTE: The step above is done automatically by running on lunokhod2
+    the script
 
-  $HOME/projects/BinaryBuilder/auto_build/launch_master.sh
+      $HOME/projects/BinaryBuilder/auto_build/launch_master.sh
 
 The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
 
@@ -100,10 +112,6 @@ different commit, first remove the exiting tag with:
 
 9.) Upload the builds and the pdf documentation to GitHub, in the
 release area.
-
-The 'forever' DOI on Zenodo is https://zenodo.org/badge/latestdoi/714891
-which should resolve to the 'latest' DOI.  A new DOI for *this* release of
-ASP should be minted when the new tag is pushed to GitHub.
 
 Update the website, at::
 

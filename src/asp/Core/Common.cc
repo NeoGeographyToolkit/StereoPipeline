@@ -29,9 +29,6 @@
 #include <unistd.h>
 
 #include <gdal_version.h>
-// Proj.4
-#define ACCEPT_USE_OF_DEPRECATED_PROJ_API_H // TODO(oalexan1): Deal with deprecation
-#include <proj_api.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -561,7 +558,6 @@ asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOption
 #endif
     ostr << "  Boost C++ Libraries " << ASP_BOOST_VERSION << "\n";
     ostr << "  GDAL " << GDAL_RELEASE_NAME << " | " << GDAL_RELEASE_DATE << "\n";
-    ostr << "  Proj.4 " << PJ_VERSION << "\n";
     vw::vw_throw( vw::ArgumentErr() << ostr.str() );
   }
 

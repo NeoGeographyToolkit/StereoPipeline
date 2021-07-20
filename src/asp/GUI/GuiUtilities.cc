@@ -246,6 +246,8 @@ void contour_image(DiskImagePyramidMultiChannel const& img,
                        isPolyClosed, color, layer);
   }
 }
+
+// TODO(oalexan1): Move all OGR logic to to vw/Cartography/shapeFile.cc.
   
 // Merge some polygons and save them in imageData[outIndex]
 void mergePolys(std::vector<imageData> & imageData, int outIndex){

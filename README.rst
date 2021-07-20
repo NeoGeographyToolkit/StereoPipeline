@@ -2,9 +2,9 @@
 Ames Stereo Pipeline (ASP)
 ==========================
 
-.. The following Zenodo badge is for the 'current' version of ASP, 2.6.2:
+.. The following Zenodo badge is for the 'current' version of ASP, 2.7.0:
 .. image:: https://zenodo.org/badge/DOI/latest.svg
-   :target: https://doi.org/10.5281/zenodo.598174
+   :target: https://zenodo.org/record/3963341
 
 .. image:: https://readthedocs.org/projects/stereopipeline/badge/?version=latest
    :target: https://stereopipeline.readthedocs.io/en/latest/?badge=latest
@@ -51,7 +51,7 @@ you can add the following line to your shell configuration (e.g.,
 ``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the location
 on your filesystem: ``export PATH=${PATH}:/path/to/StereoPipeline/bin``
 
-*ISIS Users*: Please install USGS ISIS version 4.4.0 or later if you
+*ISIS Users*: Please install USGS ISIS version 5.0.1 or later if you
 would like to process NASA non-terrestrial images. Users wishing to
 process Earth images, such as Digital Globe, satellites with RPC
 cameras, or various frame/pinhole cameras do not need to download

@@ -335,8 +335,9 @@ ASP DEM is obtained by running::
     parallel_stereo left.tif right.tif left.xml right.xml output/run
     point2dem output/run-PC.tif
 
-and the ASP DEM ``output/run-DEM.tif`` is aligned to the reference
-DEM as::
+(your actual camera extensions and stereo session may be different),
+and the ASP DEM ``output/run-DEM.tif`` is aligned to the reference DEM
+as::
 
     pc_align --max-displacement 1000 ref.tif output/run-DEM.tif \
       -o align/run

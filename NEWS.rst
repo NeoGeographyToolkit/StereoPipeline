@@ -1,7 +1,6 @@
 RELEASE 3.0.0, upcoming!
 
 New functionality:
-
   * Added new stereo algorithms: MGM (original author implementation),
     OpenCV SGBM, LIBELAS, MSMW, MSMW2, and OpenCV BM.
   * Added the ability to perform piecewise local epipolar alignment
@@ -24,8 +23,8 @@ New functionality:
     documentation to easily tabulate more multispectral bands and TDI.
 
 isis:
-  * Upgrade to ISIS 4.4.0.
-  * Ship a full Python runtime, as expected by ISIS.
+  * Upgraded to ISIS 5.0.1.
+  * Ship a full Python 3.6 runtime, as expected by ISIS.
 
 csm:
   * Upgraded to USGSCSM 1.5.2.
@@ -34,15 +33,13 @@ csm:
     cameras.
   * Export the state of a CSM camera after bundle adjustment and
     pc_align (only for linescan cameras supported by ISIS).
-
+ 
 parallel_stereo
-
   * Will now throw an error if --threads is passed in, whose behavior
     was not defined.
   * Bugifx for Python 3.
 
 bundle_adjust:
-
   * Added the option --heights-from-dem-robust-threshold.
   * Added the option --save-intermediate-cameras to save the cameras
     at each iteration.
@@ -95,6 +92,7 @@ pc_align:
 Misc
  * Moved the daily build to the release area on GitHub, at 
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
+ * Upgraded to PROJ4 5.2.0.
  * Added the option --ip-per-image to bundle adjustment and stereo, to
    detect roughly how many interest points should be found per image
    (only a small fraction of them may eventually match across images).
