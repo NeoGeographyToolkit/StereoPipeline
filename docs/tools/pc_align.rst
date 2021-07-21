@@ -329,13 +329,12 @@ become aligned with the pre-existing DEM. That is accomplished by
 running bundle adjustment with zero iterations and the option
 ``--initial-transform``.
 
-To go in more detail, if the reference DEM is ``ref.tif``, and the 
-ASP DEM is obtained by running::
+As an example, assume the reference DEM is ``ref.tif``, and the 
+ASP DEM is created as::
 
     parallel_stereo left.tif right.tif left.xml right.xml output/run
     point2dem output/run-PC.tif
 
-(your actual camera extensions and stereo session may be different).
 The ASP DEM ``output/run-DEM.tif`` is aligned to the reference DEM
 as::
 
@@ -353,6 +352,10 @@ transform::
 
      ba_align/run-left.adjust, ba_align/run-right.adjust
 
+If ``pc_align`` was invoked with the two DEMs in reverse order, the
+transform to use is::
+
+    align/run-inverse-transform.txt
 
 As an application, the cameras can now be mapprojected onto the 
 reference DEM, hopefully with no registration error as::
