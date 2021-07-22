@@ -1443,7 +1443,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       
     } else if (alg_name == "opencv_sgbm") {
       
-      default_opts = std::string("-mode hh -block_size 3 -P1 8 -P2 32 -prefilter_cap 63 ") +
+      default_opts = std::string("-mode sgbm -block_size 3 -P1 8 -P2 32 -prefilter_cap 63 ") +
         "-uniqueness_ratio 10 -speckle_size 100 -speckle_range 32 -disp12_diff 1";
       
     } else if (alg_name == "msmw") {

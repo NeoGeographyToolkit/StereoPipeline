@@ -351,7 +351,7 @@ options can be used, as::
 
     --alignment-method local_epipolar                           \
     --stereo-algorithm                                          \
-      "opencv_sgbm -mode hh -block_size 3 -P1 8 -P2 32
+      "opencv_sgbm -mode sgbm -block_size 3 -P1 8 -P2 32
        -prefilter_cap 63 -uniqueness_ratio 10 -speckle_size 100
        -speckle_range 32 -disp12_diff 1"
 
@@ -368,11 +368,12 @@ default choices.
 SGBM options
 ~~~~~~~~~~~~
 
--mode (default = hh):
-    Choose among several flavors of SGBM. Use ``hh`` to run the
-    full-scale two-pass dynamic programming algorithm. It will consume
-    O(image_width * image_height * num_disparities) bytes. Use the
-    ``sgbm`` value for the less-memory intensive mode, and ``3way``
+-mode (default = sgbm):
+    Choose among several flavors of SGBM. Use ``sgbm`` for the
+    less-memory intensive mode. Setting this mode to ``hh`` will run
+    the full-scale two-pass dynamic programming algorithm. It will
+    consume O(image_width * image_height * num_disparities) bytes and
+    it tends to crash for a large input disparity range. Use ``3way``
     for yet another flavor which OpenCV does not document.
 
 -block_size (default = 3):
