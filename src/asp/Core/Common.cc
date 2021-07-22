@@ -40,6 +40,7 @@
 #include <boost/dll.hpp>
 #include <boost/algorithm/string/replace.hpp>
 
+// TODO(oalexan1): Move this to VW in the cartography module.
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
 #include "ogr_spatialref.h"
 #endif
@@ -589,6 +590,7 @@ asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOption
   return vm;
 }
 
+// TODO(oalexan1): Move this to VW in the cartography module
 void asp::set_srs_string(std::string srs_string, bool have_user_datum,
                          vw::cartography::Datum const& user_datum,
                          bool have_input_georef,
@@ -622,7 +624,7 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   char *wkt_str_tmp = NULL;
   gdal_spatial_ref.exportToWkt( &wkt_str_tmp );
   srs_string = wkt_str_tmp;
-  OGRFree(wkt_str_tmp);
+  CPLFree(wkt_str_tmp);
   georef.set_wkt(srs_string);
 
   // Re-apply the user's datum. The important values were already

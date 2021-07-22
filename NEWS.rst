@@ -92,7 +92,8 @@ pc_align:
 Misc
  * Moved the daily build to the release area on GitHub, at 
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
- * Upgraded to PROJ4 5.2.0.
+ * Upgraded to GDAL 2.4 and PROJ4 5.2.0. (ISIS constrains updating to
+   newer versions of these.)
  * Added the option --ip-per-image to bundle adjustment and stereo, to
    detect roughly how many interest points should be found per image
    (only a small fraction of them may eventually match across images).

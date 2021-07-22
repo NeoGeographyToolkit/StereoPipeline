@@ -35,16 +35,28 @@ https://semver.org for guidance).
    This is described in detail in :numref:`conda_build` in the
    documentation.
 
+  - Create a local conda environment and install there all the
+    packages just built, including VisionWorkbench and StereoPipeline.
+    This will ensure there are no conflicts. 
+
+    The obtained current environment can be exported with the command:
+  
+      conda env export > asp.yml
+
+   A copy of this file can be made, called ``asp_deps.yml``,
+   with the VisionWorkbench and StereoPipeline packages removed from
+   it, then edited to change the ``name`` field on top and removing
+   the ``prefix`` field at the bottom. Then this file can be used to
+   create an environment having only the ASP dependencies with the
+   command:
+
+     conda env create -f asp_deps.yml     
+  
   - Check out https://github.com/NeoGeographyToolkit/BinaryBuilder
     in your $HOME. 
 
-  - Create a local conda environment and install there all the
-    packages just built, including VisionWorkbench and StereoPipeline.
-    This will ensure there are no conflicts. Then these two can be 
-    wiped, leaving just the dependencies. 
-
   - Update the path to your local conda environment having the latest
-    dependencies in BinaryBuilder/auto_build/utils.sh.
+    ASP dependencies in BinaryBuilder/auto_build/utils.sh.
 
   - Update this path as well in StereoPipelineTest, in the
     release*conf files, to be used for the nightly regressions.

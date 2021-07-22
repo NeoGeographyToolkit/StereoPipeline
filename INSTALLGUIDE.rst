@@ -382,9 +382,7 @@ have trouble compiling our documentation, hence a lower version is
 used here.
 
 In order to build the PDF (but not the HTML) document, a full
-LaTeX distribution is also necessary, which is not installable with
-conda at this time, and whose installation may be specific to your
-system.
+LaTeX distribution is also necessary, such as TeX Live. 
 
 The ``docs`` directory contains the root of the documentation. Running
 ``make html`` and ``make latexpdf`` there will create the HTML and PDF
