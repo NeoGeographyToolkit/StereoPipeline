@@ -254,13 +254,13 @@ namespace asp {
     }
 
     // Build the output indices
-    output_indices.resize( ip1_size );
+    output_indices.resize(ip1_size);
 
     // Set up FLANNTree objects of all the different types we may need.
-    math::FLANNTree<float        > kd_float;
+    math::FLANNTree<float>         kd_float;
     math::FLANNTree<unsigned char> kd_uchar;
 
-    Matrix<float        > ip2_matrix_float;
+    Matrix<float>         ip2_matrix_float;
     Matrix<unsigned char> ip2_matrix_uchar;
 
     // Pack the IP descriptors into a matrix and feed it to the chosen FLANNTree object
@@ -282,9 +282,10 @@ namespace asp {
     // The total number of interest points will be divided up among the jobs.
     size_t number_of_jobs = vw_settings().default_num_threads() * 2;
 #if __APPLE__
-    // Fix due to OpenBLAS crashing. May need to be revisited.
-    number_of_jobs = std::min(int(vw_settings().default_num_threads()), 4);
-    vw_out() << "\t    Using " << number_of_jobs << " threads for matching.\n";
+    // Fix due to OpenBLAS crashing and/or giving different results
+    // each time. May need to be revisited.
+    number_of_jobs = std::min(int(vw_settings().default_num_threads()), 1);
+    vw_out() << "\t    Using " << number_of_jobs << " thread(s) for matching.\n";
 #endif
     
     // Robustness fix
