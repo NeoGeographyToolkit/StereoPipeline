@@ -203,15 +203,9 @@ environments, which you don't want.
 
 Install ASP with the command::
 
-    conda install stereo-pipeline==2.7.0
+    conda install stereo-pipeline==3.0.0
 
-This will install ASP 2.7.0 together with ISIS 4.1.0.
-
-Running instead::
-
-    conda install stereo-pipeline==isis5.0.1
-
-will install a development version of ASP together with ISIS 5.0.1.
+This will install ASP 3.0.0 together with ISIS 5.0.1.
 
 If using ISIS, the environmental variable ISISROOT should be set to
 point to this distribution, such as::
@@ -228,11 +222,11 @@ found as a set of .yaml files in the ``conda/`` subdirectory of the
 Stereo Pipeline GitHub repository. So, alternatively, the installation
 can happen as::
 
-    conda env create -f asp_2.7.0_linux_env.yaml
+    conda env create -f asp_3.0.0_linux_env.yaml
 
 or::
 
-    conda env create -f asp_2.7.0_osx_env.yaml
+    conda env create -f asp_3.0.0_osx_env.yaml
 
 depending on your platform. Then invoke, as earlier::
 
@@ -261,11 +255,11 @@ The environments having the ASP dependencies are in the ``conda``
 directory of the Stereo Pipeline repository, as above. After
 downloading those, one can run on Linux::
 
-    conda env create -f asp_deps_2.7.0_linux_env.yaml
+    conda env create -f asp_deps_3.0.0_linux_env.yaml
 
 or on the Mac::
 
-    conda env create -f asp_deps_2.7.0_osx_env.yaml
+    conda env create -f asp_deps_3.0.0_osx_env.yaml
 
 This will create an ``asp_deps`` environment. Activate it with::
 
@@ -304,7 +298,7 @@ Building VisionWorkbench and Stereo Pipeline on Linux::
     ~/miniconda3/envs/asp_deps/bin/git clone \
         git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
-    git checkout 2.7.0 # check out the desired commit
+    git checkout 3.0.0 # check out the desired commit
     mkdir -p build
     cd build
     ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
@@ -320,7 +314,7 @@ Building VisionWorkbench and Stereo Pipeline on Linux::
     ~/miniconda3/envs/asp_deps/bin/git clone \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
-    git checkout 2.7.0 # check out the desired commit
+    git checkout 3.0.0 # check out the desired commit
     mkdir -p build
     cd build
     ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
@@ -339,7 +333,7 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
     ~/miniconda3/envs/asp_deps/bin/git clone \
       git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
-    git checkout 2.7.0 # check out the desired commit
+    git checkout 3.0.0 # check out the desired commit
     mkdir -p build
     cd build
     ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
@@ -353,7 +347,7 @@ Building VisionWorkbench and ASP on OSX (just as above, but omitting the compile
     ~/miniconda3/envs/asp_deps/bin/git clone \
       git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
-    git checkout 2.7.0 # check out the desired commit
+    git checkout 3.0.0 # check out the desired commit
     mkdir -p build
     cd build
     ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \

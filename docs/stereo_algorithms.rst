@@ -372,9 +372,10 @@ SGBM options
     Choose among several flavors of SGBM. Use ``sgbm`` for the
     less-memory intensive mode. Setting this mode to ``hh`` will run
     the full-scale two-pass dynamic programming algorithm. It will
-    consume O(image_width * image_height * num_disparities) bytes and
-    it tends to crash for a large input disparity range. Use ``3way``
-    for yet another flavor which OpenCV does not document.
+    consume O(image_width * image_height * num_disparities) bytes of
+    memory, and may run out of memory for a large input
+    disparity range. Use ``3way`` for yet another flavor which OpenCV
+    does not document.
 
 -block_size (default = 3):
     Block size to use to match blocks from left to right image. It
@@ -536,6 +537,11 @@ follows.
     If non-zero, print some information about the values of the
     options being used, as well as what the input and output files
     are.
+
+-debug_images (default = 0):
+    If non-zero, save the images to disk right before being passed
+    to libelas (the images are thus padded, aligned, and scaled
+    to have byte pixels).
 
 .. _msmw:
 

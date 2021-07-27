@@ -1414,6 +1414,21 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                                 cost_mode, corr_timeout, seconds_per_op), 
            bounding_box(left_image));
 
+#if 0 // For debugging
+    // Write the aligned 2D disparity to disk
+    vw::cartography::GeoReference georef;
+    bool   has_georef = false;
+    bool   has_nodata = false;
+    double nodata = std::numeric_limits<float>::quiet_NaN();
+    std::string aligned_disp_file = opt.out_prefix + "-aligned-disparity_2D.tif";
+    vw_out() << "Writing: " << aligned_disp_file << "\n";
+    vw::cartography::block_write_gdal_image(aligned_disp_file, aligned_disp_2d,
+                                            has_georef, georef,
+                                            has_nodata, nan, opt,
+                                            TerminalProgressCallback
+                                            ("asp", "\t--> Disparity :"));
+#endif
+    
     // Undo the alignment
     asp::unalign_2d_disparity(// Inputs
                               aligned_disp_2d,
@@ -1426,7 +1441,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
     // External algorithms using 1D disparity
     
-    vw::ImageViewRef<float> aligned_disp;
+    vw::ImageView<float> aligned_disp;
 
     // Set the default options for all algorithms
     
@@ -1626,6 +1641,42 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       vw_out() << e.what() << std::endl;
       save_empty_disparity(opt, tile_crop_win, out_disp_file);
       return;
+    }
+
+    if (0) {
+      // This needs more testing.
+      // TODO(oalexan1): Make this into a function. Filter the disparity.
+      // Wipe disparities which map to an invalid pixel
+      float nan  = std::numeric_limits<float>::quiet_NaN();
+      ImageView<PixelMask<PixelGray<float>>> left_masked_image
+        = vw::create_mask(DiskImageView<PixelGray<float>>(left_aligned_file), nan);
+      ImageView<PixelMask<PixelGray<float>>> right_masked_image
+        = vw::create_mask(DiskImageView<PixelGray<float>>(right_aligned_file), nan);
+      
+      // invalid value for a PixelMask
+      PixelMask<PixelGray<float>> nodata_mask = PixelMask<PixelGray<float>>(); 
+      ImageViewRef<PixelMask<PixelGray<float>>> interp_right_masked_image
+      = interpolate(right_masked_image, BilinearInterpolation(),
+                    ValueEdgeExtension<PixelMask<PixelGray<float>>>(nodata_mask));
+      
+      for (int col = 0; col < left_masked_image.cols(); col++) {
+        for (int row = 0; row < left_masked_image.rows(); row++) {
+
+          if (std::isnan(aligned_disp(col, row))) 
+            continue;  // already nan
+
+          // If the left pixel is not valid, the disparity cannot be valid
+          if (!is_valid(left_masked_image(col, row))) {
+            aligned_disp(col, row) = nan;
+            continue;
+          }
+
+          // If the right pixel is not valid, the disparity cannot be valid
+          Vector2 right_pix(col + aligned_disp(col, row), row);
+          if (!is_valid(interp_right_masked_image(right_pix.x(), right_pix.y()))) 
+            aligned_disp(col, row) = nan;
+        }
+      }
     }
     
     // Undo the alignment

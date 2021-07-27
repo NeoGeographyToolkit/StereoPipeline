@@ -1,12 +1,16 @@
-RELEASE 3.0.0, upcoming!
+RELEASE 3.0.0, July 27, 2021
+----------------------------
 
 New functionality:
   * Added new stereo algorithms: MGM (original author implementation),
-    OpenCV SGBM, LIBELAS, MSMW, MSMW2, and OpenCV BM.
+    OpenCV SGBM, LIBELAS, MSMW, MSMW2, and OpenCV BM to complement  
+    the existing ASP block matching, SGM, and MGM algorithms. See
+    https://stereopipeline.readthedocs.io/en/latest/next_steps.html
+    for usage. These will be further refined in subsequent releases.
   * Added the ability to perform piecewise local epipolar alignment
     for the input images, to be followed by a 1D disparity search (for
     non-mapprojected images), as suggested by the Satellite Stereo
-    Pipeline (S2P) approach.
+    Pipeline (S2P) approach. This is still somewhat experimental.
   * Added the ability for a user to plug into ASP any desired stereo
     program working on image clips to which epipolar alignment has
     been applied (as is customary in the computer vision community)
@@ -27,7 +31,8 @@ isis:
   * Ship a full Python 3.6 runtime, as expected by ISIS.
 
 csm:
-  * Upgraded to USGSCSM 1.5.2.
+  * Upgraded to USGSCSM 1.5.2 (ASP's own build of it has an additional
+    bugfix for LRO NAC not present in the conda-forge package).
   * Validated the CSM model for CTX, HiRISE, and LRO NAC cameras.
   * Added documentation for how to create CSM models from .cub
     cameras.

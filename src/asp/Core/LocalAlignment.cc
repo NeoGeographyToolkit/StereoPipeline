@@ -40,6 +40,9 @@
 using namespace vw;
 namespace fs = boost::filesystem;
 
+// Debug logic
+#define DEBUG_IP 0
+
 namespace asp {
 
   // Algorithm to perform local alignment. Approach:
@@ -127,7 +130,11 @@ namespace asp {
 
       // Ensure we do not exceed the image bounds
       left_trans_crop_win.crop(vw::bounding_box(left_globally_aligned_image));
-      
+
+      // TODO(oalexan1): Here need find the bounding box of the valid data
+      // and if necessary grow left_trans_crop_win to make the bounding box
+      // of the valid data be as wide and tall as a full tile.
+
       if (left_trans_crop_win.width() == width && left_trans_crop_win.height() == height) 
         break;
     }
@@ -173,10 +180,10 @@ namespace asp {
         right_trans_ip.back().y = right_pt.y();
       }
 
-#if 0
+#if DEBUG_IP
       std::string out_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
                                                               "L.tif", "R.tif");
-      vw_out() << "Writing match file: " << out_match_filename << ".\n";
+      vw_out() << "Writing match file: " << out_match_filename << "\n";
       vw::ip::write_binary_match_file(out_match_filename, left_trans_ip, right_trans_ip);
 #endif
       
@@ -206,14 +213,14 @@ namespace asp {
                     "" // do not save any match file to disk
                     );
 
-#if 0 // Debug logic
+#if DEBUG_IP 
     {
       vw::cartography::GeoReference georef;
       bool has_georef = false, has_nodata = true;
       float nan_nodata = std::numeric_limits<float>::quiet_NaN();
 
       std::string left_crop = opt.out_prefix + "-" + "left-crop.tif";
-      vw_out() << "\t--> Writing: " << left_crop << ".\n";
+      vw_out() << "\t--> Writing: " << left_crop << "\n";
       block_write_gdal_image(left_crop, crop(left_globally_aligned_image,
                                              left_trans_crop_win),
                              has_georef, georef,
@@ -221,7 +228,7 @@ namespace asp {
                              TerminalProgressCallback("asp","\t  Left:  "));
       
       std::string right_crop = opt.out_prefix + "-" + "right-crop.tif";
-      vw_out() << "\t--> Writing: " << right_crop << ".\n";
+      vw_out() << "\t--> Writing: " << right_crop << "\n";
       block_write_gdal_image(right_crop, crop(right_globally_aligned_image,
                                              right_trans_crop_win),
                              has_georef, georef,
@@ -230,7 +237,7 @@ namespace asp {
 
       std::string local_match_filename = vw::ip::match_filename(opt.out_prefix,
                                                                 left_crop, right_crop);
-      vw_out() << "Writing match file: " << local_match_filename << ".\n";
+      vw_out() << "Writing match file: " << local_match_filename << "\n";
       vw::ip::write_binary_match_file(local_match_filename, left_local_ip, right_local_ip);
     }
 #endif
@@ -345,13 +352,13 @@ namespace asp {
     std::string left_tile = "left-aligned-tile.tif";
     std::string right_tile = "right-aligned-tile.tif";
     left_aligned_file = opt.out_prefix + "-" + left_tile; 
-    vw_out() << "\t--> Writing: " << left_aligned_file << ".\n";
+    vw_out() << "\t--> Writing: " << left_aligned_file << "\n";
     block_write_gdal_image(left_aligned_file, left_trans_clip,
                            has_georef, georef,
                            has_aligned_nodata, nan_nodata, opt,
                            TerminalProgressCallback("asp","\t  Left:  "));
     right_aligned_file = opt.out_prefix + "-" + right_tile;
-    vw_out() << "\t--> Writing: " << right_aligned_file << ".\n";
+    vw_out() << "\t--> Writing: " << right_aligned_file << "\n";
     block_write_gdal_image(right_aligned_file,
                            right_trans_clip,
                            has_georef, georef,
@@ -364,8 +371,6 @@ namespace asp {
     // Apply local alignment to inlier ip and estimate the search range
     vw::HomographyTransform left_local_trans (left_local_mat);
     vw::HomographyTransform right_local_trans(right_local_mat);
-
-#define DEBUG_IP 0    
 
     // Find the transformed IP
     std::vector<vw::ip::InterestPoint> left_trans_local_ip;
@@ -390,7 +395,7 @@ namespace asp {
 #if DEBUG_IP
       // TODO(oalexan1): Some of these IP can still have outliers which
       // can result in an unreasonably large disparity range.
-      std::cout << "Diff is " << right_pt - left_pt << std::endl;
+      // std::cout << "Diff is " << right_pt - left_pt << std::endl;
 #endif
     }
 
@@ -411,7 +416,7 @@ namespace asp {
 #if DEBUG_IP
     std::string local_aligned_match_filename
       = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
-    vw_out() << "Writing match file: " << local_aligned_match_filename << ".\n";
+    vw_out() << "Writing match file: " << local_aligned_match_filename << "\n";
     vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
                                     right_trans_local_ip);
 #endif
@@ -446,7 +451,12 @@ namespace asp {
 
     return out_box;
   }
+
+  // TODO(oalexan1): if left pix or right pix is invalid in the image,
+  // the disparity must be invalid! Test with OpenCV SGBM, libelas, and mgm!
+  // Also implement for unalign_2d_disparity.
   
+  // DO the same for unalign_2d_disparity.
   // Go from 1D disparity of images with affine epipolar alignment to the 2D
   // disparity by undoing the transforms that applied this alignment.
   void unalign_1d_disparity(// Inputs
@@ -856,7 +866,7 @@ namespace asp {
                               ASPGlobalOptions const& opt,
                               std::string const& disparity_file,
                               // Output
-                              vw::ImageViewRef<float> & out_disp) {
+                              vw::ImageView<float> & out_disp) {
     
     DiskImageView<float> left(left_file);
     DiskImageView<float> right(right_file);

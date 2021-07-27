@@ -108,19 +108,22 @@ The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
 
 8.) Commit and tag the release in the VW and ASP repos. Example: 
 
-  git tag 2.7.0
+  git tag 3.0.0
 
 Push the tags to the remote server with: 
 
- git push origin 2.7.0 # commit to your branch
- git push god    2.7.0 # commit to main branch
+ git push origin 3.0.0 # commit to your branch
+ git push god    3.0.0 # commit to main branch
+
+(Here it is assumed that 'origin' points to your own fork and 'god'
+points to the parent repository.)
 
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with:
 
-  git tag -d 2.7.0
-  git push origin :refs/tags/2.7.0
-  git push god    :refs/tags/2.7.0
+  git tag -d 3.0.0
+  git push origin :refs/tags/3.0.0
+  git push god    :refs/tags/3.0.0
 
 9.) Upload the builds and the pdf documentation to GitHub, in the
 release area.
@@ -157,9 +160,9 @@ development, by updating the version number in:
 
 in both the VW and ASP repositories. 
 
-If you just released version 2.7.0, we expect that the next feature
-release will be 2.8.0, if a major release, or 2.7.1 if a minor
-release, so the version tag should be updated to 2.8.0-alpha in
+If you just released version 3.0.0, we expect that the next feature
+release will be 3.1.0, if a major release, or 3.0.1 if a minor
+release, so the version tag should be updated to 3.1.0-alpha in
 anticipation (see https://semver.org for guidance).
 
 13.) Reflect any changes in release policy by modifying this document.

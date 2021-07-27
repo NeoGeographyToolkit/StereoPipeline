@@ -18,12 +18,14 @@
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/OpenCVUtils.h>
 #include <asp/Core/StereoSettings.h>
+#include <Core/InterestPointMatching.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Math/LinearAlgebra.h>
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Math/Transform.h>
 
 #include <opencv2/calib3d.hpp>
 
@@ -138,7 +140,7 @@ namespace asp {
     }
   
     /// This function can match points in any container that supports
-    /// the size() and operator[] methods.  The container is usually a
+    /// the size() and operator[] methods. The container is usually a
     /// vw::Vector<>, but you could substitute other classes here as
     /// well.
     template <class InterestPointT>
@@ -190,22 +192,35 @@ namespace asp {
       solve_x_shear(ip1, ip2, left_matrix, right_matrix);
 
       // Work out the ideal render size
-      BBox2i output_bbox, right_bbox;
-      output_bbox.grow(subvector(left_matrix * Vector3(0,            0,           1), 0, 2));
-      output_bbox.grow(subvector(left_matrix * Vector3(m_ldims.x(),  0,           1), 0, 2));
-      output_bbox.grow(subvector(left_matrix * Vector3(m_ldims.x(),  m_ldims.y(), 1), 0, 2));
-      output_bbox.grow(subvector(left_matrix * Vector3(0,            m_ldims.y(), 1), 0, 2));
+      BBox2i left_bbox, right_bbox;
+      left_bbox.grow(subvector(left_matrix * Vector3(0,            0,           1), 0, 2));
+      left_bbox.grow(subvector(left_matrix * Vector3(m_ldims.x(),  0,           1), 0, 2));
+      left_bbox.grow(subvector(left_matrix * Vector3(m_ldims.x(),  m_ldims.y(), 1), 0, 2));
+      left_bbox.grow(subvector(left_matrix * Vector3(0,            m_ldims.y(), 1), 0, 2));
       right_bbox.grow(subvector(right_matrix * Vector3(0,            0,           1), 0, 2));
       right_bbox.grow(subvector(right_matrix * Vector3(m_rdims.x(),  0,           1), 0, 2));
       right_bbox.grow(subvector(right_matrix * Vector3(m_rdims.x(),  m_rdims.y(), 1), 0, 2));
       right_bbox.grow(subvector(right_matrix * Vector3(0,            m_rdims.y(), 1), 0, 2));
 
+      // TODO(oalexan1): There is room for improvement below,
+      // but the attempts tried below (commented out) need
+      // a lot more testing. Also, the current outlier filtering
+      // is apparently not foolproof yet.
+      
+      // Ensure that the transforms map the interest points to points
+      // with positive x and y, we will need that when later the
+      // transformed images are computed.
       if (m_crop_to_shared_area) {
-        output_bbox.crop(right_bbox);
-        left_matrix (0, 2) -= output_bbox.min().x();
-        right_matrix(0, 2) -= output_bbox.min().x();
-        left_matrix (1, 2) -= output_bbox.min().y();
-        right_matrix(1, 2) -= output_bbox.min().y();
+        left_bbox.crop(right_bbox);
+        left_matrix (0, 2) -= left_bbox.min().x();
+        left_matrix (1, 2) -= left_bbox.min().y();
+        right_matrix(0, 2) -= left_bbox.min().x();
+        right_matrix(1, 2) -= left_bbox.min().y();
+//       } else {
+//         left_matrix (0, 2) -= left_bbox.min().x();
+//         left_matrix (1, 2) -= left_bbox.min().y();
+//         right_matrix(0, 2) -= right_bbox.min().x();
+//         right_matrix(1, 2) -= right_bbox.min().y();
       }
       
       // Concatenate these into the answer
@@ -214,9 +229,14 @@ namespace asp {
       submatrix(T, 0, 3, 3, 3) = right_matrix;
 
       // Also save the domain after alignment
-      T(0, 6) = output_bbox.width();
-      T(1, 6) = output_bbox.height();
-      
+      //      if (m_crop_to_shared_area) {
+      T(0, 6) = left_bbox.width();
+      T(1, 6) = left_bbox.height();
+//       }else{
+//         T(0, 6) = std::max(left_bbox.width(), right_bbox.width());
+//         T(1, 6) = std::max(left_bbox.height(), right_bbox.height());
+//      }
+
       return T;
     }
   };
@@ -322,6 +342,75 @@ namespace asp {
              << "aligned inlier interest points is "
              << max_err << " pixels." << std::endl;
 
+    // This needs more testing
+    if (false && !crop_to_shared_area) {
+      // The bounds of the transforms have been a bit too generous. Tighten them to the bounding
+      // box of the IP.
+      // TODO(oalexan1): Remove outliers here!
+      
+      // Apply local alignment to inlier ip and estimate the search range
+      vw::HomographyTransform left_local_trans (left_matrix);
+      vw::HomographyTransform right_local_trans(right_matrix);
+      
+      // Find the transformed IP
+      std::vector<vw::ip::InterestPoint> left_trans_local_ip;
+      std::vector<vw::ip::InterestPoint> right_trans_local_ip;
+
+      for (size_t it = 0; it < inlier_indices.size(); it++) {
+        int i = inlier_indices[it];
+        Vector2 left_pt (ip1[i].x, ip1[i].y);
+        Vector2 right_pt(ip2[i].x, ip2[i].y);
+        
+        left_pt  = left_local_trans.forward(left_pt);
+        right_pt = right_local_trans.forward(right_pt);
+        
+        // First copy all the data from the input ip, then apply the transform
+        left_trans_local_ip.push_back(ip1[i]);
+        right_trans_local_ip.push_back(ip2[i]);
+        left_trans_local_ip.back().x  = left_pt.x();
+        left_trans_local_ip.back().y  = left_pt.y();
+        right_trans_local_ip.back().x = right_pt.x();
+        right_trans_local_ip.back().y = right_pt.y();
+      }
+
+      // Filter outliers
+      Vector2 params = stereo_settings().local_alignment_outlier_removal_params;
+      if (params[0] < 100.0)
+        asp::filter_ip_by_disparity(params[0], params[1],
+                                    left_trans_local_ip, right_trans_local_ip); 
+      
+      vw::BBox2i left_bbox, right_bbox;
+      for (size_t i = 0; i < left_trans_local_ip.size(); i++) {
+
+        Vector2 left_pt (left_trans_local_ip[i].x, left_trans_local_ip[i].y);
+        Vector2 right_pt(right_trans_local_ip[i].x, right_trans_local_ip[i].y);
+        
+        left_bbox.grow(left_pt);
+        right_bbox.grow(right_pt);
+      }
+
+      // TODO(oalexan1): Run a large scale test to see if this is necessary.
+      left_bbox.expand(50);
+      right_bbox.expand(50);
+      
+      // The way the transforms were created, there is no good reason
+      // for transformed ip to have negative values.
+      left_bbox.min().x() = std::max(left_bbox.min().x(), 0);
+      left_bbox.min().y() = std::max(left_bbox.min().y(), 0);
+      right_bbox.min().x() = std::max(right_bbox.min().x(), 0);
+      right_bbox.min().y() = std::max(right_bbox.min().y(), 0);
+      
+      // Adjust the domains of the transforms to the bounding boxes of
+      // the interest points.
+      left_matrix (0, 2) -= left_bbox.min().x();
+      left_matrix (1, 2) -= left_bbox.min().y();
+      right_matrix(0, 2) -= right_bbox.min().x();
+      right_matrix(1, 2) -= right_bbox.min().y();
+
+      trans_crop_box[0] = std::max(left_bbox.width(), right_bbox.width());
+      trans_crop_box[1] = std::max(left_bbox.height(), right_bbox.height());
+    }
+    
     // Optionally return the inliers
     if (inliers_ptr != NULL)
       *inliers_ptr = inlier_indices;

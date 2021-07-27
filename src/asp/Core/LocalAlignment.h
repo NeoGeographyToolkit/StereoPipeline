@@ -123,7 +123,7 @@ namespace asp {
                               ASPGlobalOptions const& opt,
                               std::string const& disparity_file,
                               // Output
-                              vw::ImageViewRef<float> & out_disp);
+                              vw::ImageView<float> & out_disp);
   
 } // end namespace asp
 

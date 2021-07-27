@@ -742,7 +742,6 @@ if __name__ == '__main__':
             #  to the correlation tile size. 
             opt.job_size_w = corr_tile_size
             opt.job_size_h = opt.job_size_w
-            print ('Setting tile size (before collar addition) to: ' + str(opt.job_size_w))
         else:
             # If the user specified these, they better be equal, and equal to corr_tile_size
             if opt.job_size_h != opt.job_size_w:
@@ -767,6 +766,10 @@ if __name__ == '__main__':
             print("Making --corr-tile-size the minimum of --job-size-h and --job-size-w, " \
                   "that is equal to " + str(corr_tile_size) + ".")
 
+    print ('Using tiles (before collar addition) of ' + str(opt.job_size_w) + \
+           ' x ' + str(opt.job_size_h) + ' pixels.')
+    print('Using a collar (padding) for each tile of ' + settings['collar_size'][0] + ' pixels.')
+    
     # TODO(oalexan1): The giant block below needs to be broken up into
     # several functions named parent_run(), child_run(), and
     # multiview_run(). Careful testing will be needed.

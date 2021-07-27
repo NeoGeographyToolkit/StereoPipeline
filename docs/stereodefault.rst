@@ -38,8 +38,8 @@ ip-per-image
 
 ip-detect-method
     What type of interest point detection algorithm to use for image
-    alignment. 0 = Custom OBAloG implementation (default) 1 = SIFT
-    implementation from OpenCV 2 = ORB implementation from OpenCV If
+    alignment. 0 = Custom OBAloG implementation (default), 1 = SIFT
+    implementation from OpenCV, 2 = ORB implementation from OpenCV. If
     the default method does not perform well, try out one of the other
     two methods.
 
