@@ -677,7 +677,6 @@ The obtained alignment transform can be applied to the cameras to make
 them aligned to the ground::
 
        mkdir -p ba_align
-       /bin/cp -fv ba/run* ba_align
        bundle_adjust --initial-transform ba/run-transform.txt       \
          --apply-initial-transform-only                             \
          --input-adjustments-prefix ba/run <images> -o ba_align/run
@@ -814,7 +813,7 @@ the DEMs, as created ``stereo_gui``::
 That alignment transform can then be applied to the full SfS DEM::
 
    pc_align --initial-transform align_sub4/run-transform.txt         \
-     ref.tif sfs_dem.tif -o align/run --apply-initial-transform-only \
+     ref.tif sfs_dem.tif -o align/run --num-iterations 0             \
      --max-displacement -1 --save-transformed-source-points          \
      --max-num-reference-points 1000 --max-num-source-points 1000
 

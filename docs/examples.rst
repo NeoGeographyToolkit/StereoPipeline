@@ -756,7 +756,7 @@ less complex than the ISD format.
 If ASP's ``stereo`` program is used to create a point cloud from
 images and CSM cameras, and then that point cloud has a transform
 applied to it, such as with ``pc_align``, the same transform can be
-applied to the model states for the two cameras, which is then saved
+applied to the model states for the two cameras, which are then saved
 to disk as earlier.  That is accomplished by invoking bundle
 adjustment with the input images and cameras as follows:
 

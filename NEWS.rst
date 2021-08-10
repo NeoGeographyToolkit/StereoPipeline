@@ -2,8 +2,8 @@ RELEASE 3.0.1, Upcoming
 -----------------------
 
 bundle_adjust:
-  * Add option --apply-initial-transform-only to apply 
-    an initial trasform to camera while skipping
+  * Add the option --apply-initial-transform-only to apply
+    an initial transform to cameras while skipping
     image matching and other steps. 
 
 RELEASE 3.0.0, July 27, 2021
