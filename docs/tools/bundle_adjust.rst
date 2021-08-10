@@ -522,6 +522,11 @@ Command-line options for bundle_adjust:
 --save-intermediate-cameras
     Save the values for the cameras at each iteration.
 
+--apply-initial-transform-only
+    Apply to the cameras the transform given by
+    --initial-transform. No iterations, GCP loading, or image matching
+    takes place.
+
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined
     in the program or in the ``.vwrc`` file. Note that when using more

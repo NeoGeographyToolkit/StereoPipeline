@@ -245,16 +245,14 @@ to this ground truth, such as::
 
 This alignment can then be applied to the cameras as well::
 
-     bundle_adjust -t nadirpinhole --inline-adjustments --max-iterations 0  \
-       --initial-transform run_align/run-inverse-transform.txt              \
-       left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai        \
-       -o run_align/run
+     bundle_adjust -t nadirpinhole --inline-adjustments              \
+       --initial-transform run_align/run-inverse-transform.txt       \
+       left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai \
+       --apply-initial-transform-only -o run_align/run
 
-Here we have used 0 iterations because we simply want to move the
-cameras without any optimization. Note that your lidar file may have
-some conventions as to what each column means, and then any tools that
-use this cloud must set ``--csv-format`` and perhaps also ``--datum``
-and/or ``--csv-proj4``.
+Note that your lidar file may have some conventions as to what each
+column means, and then any tools that use this cloud must set
+``--csv-format`` and perhaps also ``--datum`` and/or ``--csv-proj4``.
 
 If ``pc_align`` is called with the clouds in reverse order (the denser
 cloud should always be the first), when applying the transform to the

@@ -326,8 +326,9 @@ If ``pc_align`` is used to align a DEM obtained with ASP to a
 preexisting reference DEM, the obtained alignment transform can be
 applied to the cameras used to create the ASP DEM, so the cameras then
 become aligned with the pre-existing DEM. That is accomplished by
-running bundle adjustment with zero iterations and the option
-``--initial-transform``.
+running bundle adjustment with the options ``--initial-transform``
+and ``--apply-initial-transform-only``.
+
 
 As an example, assume the reference DEM is ``ref.tif``, and the 
 ASP DEM is created as::
@@ -345,7 +346,7 @@ The alignment is applied to cameras the following way::
 
     bundle_adjust left.tif right.tif left.xml right.xml \
       --initial-transform align/run-transform.txt       \
-      --num-iterations 0 -o ba_align/run
+      --apply-initial-transform-only -o ba_align/run
 
 This should create the adjusted cameras incorporating the alignment
 transform::
@@ -376,11 +377,10 @@ transform. To do that, run the slightly modified command::
     bundle_adjust left.tif right.tif left.xml right.xml \
       --initial-transform align/run-transform.txt       \
       --input-adjustments-prefix initial_ba/run         \
-      --num-iterations 0 -o ba_align/run
+      --apply-initial-transform-only -o ba_align/run
 
-Here zero iterations were used since it was desired to only apply
-pre-existing transforms rather than again optimize the cameras, when
-the camera will further move.
+Note that this way bundle adjustments will not do any camera
+refinements after the initial transform is applied.
 
 Troubleshooting
 ~~~~~~~~~~~~~~~

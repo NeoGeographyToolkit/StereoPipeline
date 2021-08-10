@@ -1318,15 +1318,17 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                                opt.min_matches,
                                                opt.min_triangulation_angle*(M_PI/180),
                                                opt.forced_triangulation_distance);
-  if (!success) {
-    vw_out() << "Failed to build a control network. Consider removing "
-             << "the currently found interest point matches and increasing "
-             << "the number of interest points per tile using "
-             << "--ip-per-tile, or decreasing --min-matches. Will continue "
-             << "if ground control points are present.\n";
+  if (!opt.apply_initial_transform_only){
+    if (!success) {
+      vw_out() << "Failed to build a control network. Consider removing "
+               << "the currently found interest point matches and increasing "
+               << "the number of interest points per tile using "
+               << "--ip-per-tile, or decreasing --min-matches. Will continue "
+               << "if ground control points are present.\n";
+    }
+    vw_out() << "Loading GCP files...\n";
+    vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
   }
-  vw_out() << "Loading GCP files...\n";
-  vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
   
   // If we change the cameras, we must rebuild the control network
   bool cameras_changed = false;
@@ -1364,15 +1366,15 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
       check_gcp_dists(opt.camera_models, opt.cnet, opt.forced_triangulation_distance);
   }
   
-  int num_points  = cnet.size();
+  int num_points = cnet.size();
   const int num_cameras = opt.image_files.size();
 
   // This is important to prevent a crash later
-  if (num_points == 0) {
+  if (num_points == 0 && !opt.apply_initial_transform_only) {
     vw_out() << "No points to optimize (GCP or otherwise). Cannot continue.\n";
     return;
   }
-
+  
   // Create the storage arrays for the variables we will adjust.
   int num_lens_distortion_params = 0;
   if (opt.camera_type == BaCameraType_Pinhole) {
@@ -1458,6 +1460,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   double final_cost;
   for (int pass = 0; pass < opt.num_ba_passes; pass++) {
 
+    if (opt.apply_initial_transform_only)
+      continue;
+      
     vw_out() << "--> Bundle adjust pass: " << pass << std::endl;
     if (pass > 0) {
       // Go back to the original inputs to optimize, but keep our outlier list.
@@ -1493,6 +1498,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
   std::string orig_out_prefix = opt.out_prefix;
   for (int pass = 0; pass < opt.num_random_passes; pass++) {
 
+    if (opt.apply_initial_transform_only)
+      continue;
+    
     vw_out() << "\n--> Running bundle adjust pass " << pass 
              << " with random initial parameter offsets.\n";
 
@@ -1786,6 +1794,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     
     ("save-intermediate-cameras", po::value(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
      "Save the values for the cameras at each iteration.")
+    ("apply-initial-transform-only", po::value(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),
+     "Apply to the cameras the transform given by --initial-transform. No iterations, GCP loading, or image matching takes place.")
     ("report-level,r",     po::value(&opt.report_level)->default_value(10),
      "Use a value >= 20 to get increasingly more verbose output.");
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
@@ -2110,6 +2120,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   boost::to_lower( opt.cost_function );
 
+  if (opt.apply_initial_transform_only && opt.initial_transform_file == "")
+    vw_throw(vw::IOErr() << "Cannot use --apply-initial-transform-only "
+              << "without --initial-transform.\n");
+  
   if (opt.initial_transform_file != "") {
     std::ifstream is(opt.initial_transform_file.c_str());
     for (size_t row = 0; row < opt.initial_transform.rows(); row++){
@@ -2424,7 +2438,7 @@ int main(int argc, char* argv[]) {
   try {
     xercesc::XMLPlatformUtils::Initialize();
 
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     const int num_images = opt.image_files.size();
 
@@ -2436,7 +2450,10 @@ int main(int argc, char* argv[]) {
     // Compute statistics for the designated images
     opt.single_threaded_cameras = false;
     for (size_t i = 0; i < image_stats_indices.size(); ++i) {
-      
+
+      if (opt.apply_initial_transform_only)
+        continue; // no stats need to happen
+
       size_t index = image_stats_indices[i];
       
       std::string image_path  = opt.image_files [index];
@@ -2507,6 +2524,9 @@ int main(int argc, char* argv[]) {
     std::vector<std::pair<int,int> > all_pairs;
     for (int i = 0; i < num_images; i++){
 
+      if (opt.apply_initial_transform_only)
+        continue; // no matches need to happen
+      
       int start = i + 1;
       if (opt.match_first_to_last)
         start = 0;
@@ -2547,9 +2567,9 @@ int main(int argc, char* argv[]) {
         if (got_est_cam_positions && (opt.position_filter_dist > 0)) {
           Vector3 this_pos  = estimated_camera_gcc[i];
           Vector3 other_pos = estimated_camera_gcc[j];
-          if ( (this_pos  != Vector3(0,0,0)) && // If both positions are known
+          if ((this_pos  != Vector3(0,0,0)) && // If both positions are known
                (other_pos != Vector3(0,0,0)) && // and they are too far apart
-               (norm_2(this_pos - other_pos) > opt.position_filter_dist) ) {
+               (norm_2(this_pos - other_pos) > opt.position_filter_dist)) {
             vw_out() << "Skipping position: " << this_pos << " and "
                       << other_pos << " with distance " << norm_2(this_pos - other_pos)
                       << std::endl;
@@ -2561,8 +2581,8 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // Create GCP from mapprojection.
-    if (opt.gcp_from_mapprojected != "") {
+    // Create GCP from mapprojection
+    if (opt.gcp_from_mapprojected != "" && !opt.apply_initial_transform_only) {
       create_gcp_from_mapprojected_images(opt);
       return 0;
     }
@@ -2572,13 +2592,13 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> map_files;
     vw::cartography::GeoReference dem_georef;
     ImageViewRef< PixelMask<double> > interp_dem;
-    if (opt.mapprojected_data != "") {
+    if (opt.mapprojected_data != "" && !opt.apply_initial_transform_only) {
       std::istringstream is(opt.mapprojected_data);
       std::string file;
       while (is >> file)
         map_files.push_back(file); 
 
-      if ( opt.camera_models.size() + 1 != map_files.size()) 
+      if (opt.camera_models.size() + 1 != map_files.size()) 
         vw_throw(ArgumentErr() << "Error: Expecting as many mapprojected images as "
                  << "cameras, and also a DEM.\n");
 
@@ -2607,6 +2627,10 @@ int main(int argc, char* argv[]) {
 
     // Now process the selected pairs
     for (size_t k = 0; k < this_instance_pairs.size(); k++) {
+
+      if (opt.apply_initial_transform_only)
+        continue;
+      
       const int i = this_instance_pairs[k].first;
       const int j = this_instance_pairs[k].second;
 
@@ -2642,7 +2666,7 @@ int main(int argc, char* argv[]) {
       boost::shared_ptr<DiskImageResource>
         rsrc1(vw::DiskImageResourcePtr(image1_path)),
         rsrc2(vw::DiskImageResourcePtr(image2_path));
-      if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
+      if ((rsrc1->channels() > 1) || (rsrc2->channels() > 1))
         vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
       float nodata1, nodata2;
       SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
@@ -2676,7 +2700,7 @@ int main(int argc, char* argv[]) {
         vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
         vw_out() << "Number of matches in " << match_filename << " " << ip1.size() << "\n";
         ++num_pairs_matched;
-      } catch ( const std::exception& e ){
+      } catch (const std::exception& e){
         vw_out() << "Could not find interest points between images "
                   << opt.image_files[i] << " and " << opt.image_files[j] << std::endl;
         vw_out(WarningMessage) << e.what() << std::endl;

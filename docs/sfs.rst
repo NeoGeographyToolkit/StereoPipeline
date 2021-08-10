@@ -678,8 +678,8 @@ them aligned to the ground::
 
        mkdir -p ba_align
        /bin/cp -fv ba/run* ba_align
-       bundle_adjust --skip-matching --num-iterations 0 --force-reuse-match-files \
-         --num-passes 1 --initial-transform ba/run-transform.txt                  \
+       bundle_adjust --initial-transform ba/run-transform.txt       \
+         --apply-initial-transform-only                             \
          --input-adjustments-prefix ba/run <images> -o ba_align/run
 
 The images should now be projected onto this DEM as::
@@ -813,9 +813,9 @@ the DEMs, as created ``stereo_gui``::
 
 That alignment transform can then be applied to the full SfS DEM::
 
-   pc_align --initial-transform align_sub4/run-transform.txt      \
-     ref.tif sfs_dem.tif -o align/run --num-iterations 0          \
-     --max-displacement -1 --save-transformed-source-points       \
+   pc_align --initial-transform align_sub4/run-transform.txt         \
+     ref.tif sfs_dem.tif -o align/run --apply-initial-transform-only \
+     --max-displacement -1 --save-transformed-source-points          \
      --max-num-reference-points 1000 --max-num-source-points 1000
 
 (The number of points being used is not important since we will just

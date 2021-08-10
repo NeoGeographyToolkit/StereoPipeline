@@ -758,12 +758,11 @@ images and CSM cameras, and then that point cloud has a transform
 applied to it, such as with ``pc_align``, the same transform can be
 applied to the model states for the two cameras, which is then saved
 to disk as earlier.  That is accomplished by invoking bundle
-adjustment with the input images and cameras, also with this
-transform, with zero iterations::
+adjustment with the input images and cameras as follows:
 
     bundle_adjust left.cub right.cub left.json right.json \
       --initial-transform transform.txt                   \
-       --num-iterations 0 -o ba/run
+      --apply-initial-transform-only -o ba/run
  
 This will save the state files ``ba/run-left.adjusted_state.json`` and
 ``ba/run-right.adjusted_state.json``.
@@ -1478,8 +1477,9 @@ cameras in alignment to the reference DEM. That can be done as follows::
 
      parallel_bundle_adjust -t nadirpinhole --datum wgs84     \
        --force-reuse-match-files                              \
-       --inline-adjustments --num-passes 1 --num-iterations 0 \
+       --inline-adjustments                                   \
        --initial-transform align/run-transform.txt            \
+       --apply-initial-transform-only                         \
        v[1-4].tif ba/run-run-v[1-4].tsai -o ba/run
 
 creating the aligned cameras ``ba/run-run-run-v[1-4].tsai``. If

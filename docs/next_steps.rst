@@ -975,13 +975,14 @@ is a challenge, because this tool uses the original cameras, before
 alignment, but will project onto the DEM after alignment, so the
 obtained orthoimage location on the ground will be wrong.
 
-The solution is to invoke ``bundle_adjust`` on the two input images and
-cameras, while passing to it the transform obtained from ``pc_align``
-via the ``--initial-transform`` option. This will shift the cameras to
-the right place, and then ``mapproject`` can be called with the adjusted
-cameras, using again the ``--bundle-adjust-prefix`` option. If all that
-is wanted is to shift the cameras, without doing any actual adjustments,
-the tool can be invoked with 0 iterations.
+The solution is to invoke ``bundle_adjust`` on the two input images
+and cameras, while passing to it the transform obtained from
+``pc_align`` via the ``--initial-transform`` option. This will shift
+the cameras to the right place, and then ``mapproject`` can be called
+with the adjusted cameras, using again the ``--bundle-adjust-prefix``
+option. If all that is wanted is to shift the cameras, without doing
+any actual adjustments, the tool can be invoked with the option
+``--apply-initial-transform-only``.
 
 Creating DEMs Relative to the geoid/areoid
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

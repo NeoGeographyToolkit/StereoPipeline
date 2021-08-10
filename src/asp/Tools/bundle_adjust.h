@@ -69,8 +69,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
          instance_count, instance_index, num_random_passes, ip_num_ransac_iterations;
   bool   save_intermediate_cameras, approximate_pinhole_intrinsics,
     disable_pinhole_gcp_init, transform_cameras_using_gcp, fix_gcp_xyz, solve_intrinsics,
-         ip_normalize_tiles, ip_debug_images,
-    stop_after_stats, stop_after_matching, skip_matching, match_first_to_last;
+    ip_normalize_tiles, ip_debug_images, stop_after_stats, stop_after_matching, skip_matching, match_first_to_last,
+    apply_initial_transform_only;
   BACameraType camera_type;
   std::string datum_str, camera_position_file, initial_transform_file,
     csv_format_str, csv_proj4_str, reference_terrain, disparity_list,
