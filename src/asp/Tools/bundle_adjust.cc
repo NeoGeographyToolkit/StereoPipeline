@@ -1215,7 +1215,7 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   options.max_num_iterations                = opt.num_iterations;
   options.max_num_consecutive_invalid_steps = std::max(5, opt.num_iterations/5); // try hard
-  options.minimizer_progress_to_stdout      = true;//(opt.report_level >= vw::ba::ReportFile);
+  options.minimizer_progress_to_stdout      = true;
 
   if (opt.single_threaded_cameras)
     options.num_threads = 1;
@@ -1795,10 +1795,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("save-intermediate-cameras", po::value(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
      "Save the values for the cameras at each iteration.")
     ("apply-initial-transform-only", po::value(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),
-     "Apply to the cameras the transform given by --initial-transform. No iterations, GCP loading, or image matching takes place.")
-    ("report-level,r",     po::value(&opt.report_level)->default_value(10),
-     "Use a value >= 20 to get increasingly more verbose output.");
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+     "Apply to the cameras the transform given by --initial-transform. No iterations, GCP loading, or image matching takes place.");
+  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
 
   // TODO: When finding the min and max bounds, do a histogram, throw away 5% of points
   // or something at each end.

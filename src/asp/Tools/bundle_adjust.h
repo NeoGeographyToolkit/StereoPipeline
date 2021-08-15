@@ -107,7 +107,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              forced_triangulation_distance(-1),
              lambda(-1.0), camera_weight(-1),
              rotation_weight(0), translation_weight(0), overlap_exponent(0), 
-             robust_threshold(0), report_level(0), min_matches(0),
+             robust_threshold(0), min_matches(0),
              num_iterations(0), overlap_limit(0), save_intermediate_cameras(false),
              fix_gcp_xyz(false), solve_intrinsics(false), camera_type(BaCameraType_Other),
              semi_major(0), semi_minor(0), position_filter_dist(-1),
