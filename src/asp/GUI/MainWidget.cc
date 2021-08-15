@@ -146,6 +146,7 @@ namespace vw { namespace gui {
       return P;
 
     // There is no pixel concept in that case
+    // TODO(oalexan1): May need to fuse this with projpoint2world().
     if (m_images[imageIndex].isPoly())
       return flip_in_y(P);
 
@@ -161,29 +162,24 @@ namespace vw { namespace gui {
     if (!m_use_georef)
       return R;
 
-    // There is no pixel concept in that case
-    if (m_images[imageIndex].isPoly()) {
-      return flip_in_y(R);
-    }
-      
-    BBox2 B = flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point_bbox(R));
+    // Consider the case when the current layer is a polygon.
+    // TODO(oalexan1): What if a layer has both an image and a polygon?
+    
+    if (m_images[imageIndex].isPoly()) 
+      return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point_bbox(R));
 
-    return B;
+    return flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point_bbox(R));
   }
 
   // Convert from world coordinates to projected coordinates in given geospatial
   // projection
   Vector2 MainWidget::world2projpoint(Vector2 P, int imageIndex) const{
-    P = world2image(P, imageIndex);                    // image pixel units
-    P = m_images[imageIndex].georef.pixel_to_point(P); // projected units
-    return P;
+    return m_world2image_geotransforms[imageIndex].point_to_point(flip_in_y(P)); 
   }
   
   // The reverse of world2projpoint
   Vector2 MainWidget::projpoint2world(Vector2 P, int imageIndex) const{
-    P = m_images[imageIndex].georef.point_to_pixel(P); // pixel units
-    P = image2world(P, imageIndex);                    // world coordinates
-    return P;
+    return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point(P));
   }
 
   MainWidget::MainWidget(QWidget *parent,
@@ -261,7 +257,9 @@ namespace vw { namespace gui {
         vw_throw(ArgumentErr() << "Missing georeference.\n");
       }
           
-      // Read the base image, if different from the current image
+      // Read the base image, if different from the current image.
+      // When using georeferenced images, the base image projection
+      // (flipped in y) becomes the world coordinates.
       if (i == 0){
         if (image_files[i] == base_image_file) {
           m_base_image = m_images[i];
@@ -275,6 +273,8 @@ namespace vw { namespace gui {
       m_image2world_geotransforms[i] = GeoTransform(m_images[i].georef, m_base_image.georef);
       
       m_filesOrder[i] = i; // start by keeping the order of files being read
+
+      // Grow the world box to fit all the images
       BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
       m_world_box.grow(B);
 
@@ -1057,6 +1057,8 @@ namespace vw { namespace gui {
         
       }else{
 
+        // Overlay georeferenced images
+        
         //Stopwatch sw5;
         //sw5.start();
         
@@ -1098,6 +1100,7 @@ namespace vw { namespace gui {
             }
 
             // Convert to scaled image pixels and snap to integer value
+            // TODO(oalexan1): This may introduce subpixel artifacts.
             p = round(p/scale_out);
 
             if (!region_out.contains(p)) continue; // out of range again
@@ -1307,6 +1310,11 @@ namespace vw { namespace gui {
       paint.setPen(cropWinColor);
       paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
     }
+
+    // TODO(oalexan1): All the logic below must be in its own function,
+    // called for example plotPolygons().
+    // Also replace plotDPoly() with plotPoly().
+    // When deleting vertices need to use a georef as well.
     
     bool plotPoints    = false, plotEdges = true, plotFilled = false;
     int  drawVertIndex = 0, lineWidth = m_lineWidth;
@@ -1383,7 +1391,13 @@ namespace vw { namespace gui {
         double *             xv  = poly.get_xv();
         double *             yv  = poly.get_yv();
         for (int vIter = 0; vIter < numVerts; vIter++){
-          Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyLayerIndex); 
+
+          Vector2 P;
+          if (!currDrawnPoly) 
+            P = projpoint2world(Vector2(xv[vIter], yv[vIter]), i);
+          else
+            P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyLayerIndex);
+
           xv[vIter] = P.x();
           yv[vIter] = P.y();
         }
@@ -1893,7 +1907,7 @@ namespace vw { namespace gui {
     vw::cartography::GeoReference const& geo = m_images[m_polyLayerIndex].georef;
 
     // TODO(oalexan1): What if there are polygons for many images?
-    std::cout << "Writing: " << shapefile << std::endl;
+    vw_out() << "Writing: " << shapefile << std::endl;
     write_shapefile(shapefile, has_geo, geo, m_images[m_polyLayerIndex].polyVec);
   }
   
@@ -2194,7 +2208,7 @@ namespace vw { namespace gui {
 
     m_editMatchPointVecIndex = -1; // Keep this initialized
 
-    // If the user is currently editing match points...
+    // If the user is currently editing match points
     if (!m_polyEditMode && m_moveMatchPoint->isChecked()
         && !m_cropWinMode && m_view_matches){
 
