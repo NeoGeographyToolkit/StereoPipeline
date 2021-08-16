@@ -32,15 +32,15 @@
 #include <vw/Core/RunOnce.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/GeoTransform.h>
-#include <asp/GUI/MainWidget.h>
-#include <asp/Core/StereoSettings.h>
+#include <vw/Cartography/shapeFile.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/Core/Stopwatch.h>
 
+#include <asp/GUI/MainWidget.h>
+#include <asp/Core/StereoSettings.h>
+
 using namespace vw;
-using namespace vw::gui;
 using namespace vw::cartography;
-using namespace std;
 
 namespace vw { namespace gui {
 
@@ -313,7 +313,7 @@ namespace vw { namespace gui {
       for (int rowIter = 0; rowIter < rows; rowIter++){
         QTableWidgetItem *item = filesTable->item(rowIter, 0);
         if (item->checkState() != Qt::Checked){
-          string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+          std::string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
           m_filesToHide.insert(fileName);
         }
       }
@@ -463,7 +463,7 @@ namespace vw { namespace gui {
     for (int rowIter = 0; rowIter < rows; rowIter++){
       QTableWidgetItem *item = filesTable->item(rowIter, 0);
       if (item->checkState() != Qt::Checked){
-        string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+        std::string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
         m_filesToHide.insert(fileName);
       }
     }
@@ -516,7 +516,7 @@ namespace vw { namespace gui {
     m_filesToHide.clear();
     for (int rowIter = 0; rowIter < rows; rowIter++){
       QTableWidgetItem *item = filesTable->item(rowIter, 0);
-      string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+      std::string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
 
       if (allOff){
         item->setCheckState(Qt::Checked);
@@ -858,7 +858,7 @@ namespace vw { namespace gui {
       
       for (int rowIter = 0; rowIter < rows; rowIter++){
         QTableWidgetItem *item = filesTable->item(rowIter, 0);
-        string image_name2 = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+        std::string image_name2 = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
         if (image_name == image_name2) {
           item->setCheckState(Qt::Checked);
         }
@@ -965,7 +965,7 @@ namespace vw { namespace gui {
       int i = m_filesOrder[j];
 
       // Don't show files the user wants hidden
-      string fileName = m_images[i].name;
+      std::string fileName = m_images[i].name;
       if (m_filesToHide.find(fileName) != m_filesToHide.end())
         continue;
 
@@ -1351,7 +1351,7 @@ namespace vw { namespace gui {
         i = m_filesOrder[j];
       
         // Don't show files the user wants hidden
-        string fileName = m_images[i].name;
+        std::string fileName = m_images[i].name;
         if (m_filesToHide.find(fileName) != m_filesToHide.end())
           continue;
       }
@@ -1725,20 +1725,17 @@ namespace vw { namespace gui {
   void MainWidget::deleteVertex(){
 
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
-    P = world2projpoint(P, m_polyLayerIndex); // projected units
     
-    if (m_images[m_polyLayerIndex].polyVec.size() == 0) return;
-
     double min_x, min_y, min_dist;
     int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
-    findClosestPolyVertex(// inputs
-                          P.x(), P.y(), m_images,
-                          // outputs
-                          clipIndex,
-                          polyVecIndex,
-                          polyIndexInCurrPoly,
-                          vertIndexInCurrPoly,
-                          min_x, min_y, min_dist);
+    MainWidget::findClosestPolyVertex(// inputs
+                                      P.x(), P.y(), m_images,
+                                      // outputs
+                                      clipIndex,
+                                      polyVecIndex,
+                                      polyIndexInCurrPoly,
+                                      vertIndexInCurrPoly,
+                                      min_x, min_y, min_dist);
 
     if (clipIndex           < 0 ||
         polyVecIndex        < 0 ||
@@ -1774,8 +1771,8 @@ namespace vw { namespace gui {
         const int           * numVerts = poly.get_numVerts();
         const double        * xv       = poly.get_xv();
         const double        * yv       = poly.get_yv();
-        std::vector<string>   colors   = poly.get_colors();
-        std::vector<string>   layers   = poly.get_layers();
+        std::vector<std::string>   colors   = poly.get_colors();
+        std::vector<std::string>   layers   = poly.get_layers();
 
         vw::geometry::dPoly poly_out;
         int start = 0;
@@ -1821,6 +1818,139 @@ namespace vw { namespace gui {
     update();
   }
     
+  // Find the closest edge in a given set of imageData structures to a
+  // given point. This needs to be in the MainWidget class as it needs
+  // to know about how to convert from world coordinates to each
+  // imageData coordinates.
+  void MainWidget::findClosestPolyEdge(// inputs
+                                       double world_x0, double world_y0,
+                                       std::vector<imageData> const& imageData,
+                                       // outputs
+                                       int & clipIndex,
+                                       int & polyVecIndex,
+                                       int & polyIndexInCurrPoly,
+                                       int & vertIndexInCurrPoly,
+                                       double & minX, double & minY,
+                                       double & minDist){
+
+    clipIndex           = -1;
+    polyVecIndex        = -1;
+    polyIndexInCurrPoly = -1;
+    vertIndexInCurrPoly = -1;
+    minX                = world_x0;
+    minY                = world_y0;
+    minDist             = std::numeric_limits<double>::max();
+
+    Vector2 world_P(world_x0, world_y0);
+
+    for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++){
+    
+      double minX0, minY0, minDist0;
+      int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
+    
+      // Convert from world coordinates to given clip coordinates
+      Vector2 clip_P = world2projpoint(world_P, clipIter);
+      
+      vw::gui::findClosestPolyEdge(// inputs
+                                   clip_P.x(), clip_P.y(),  
+                                   imageData[clipIter].polyVec,  
+                                   // outputs
+                                   polyVecIndex0,  
+                                   polyIndexInCurrPoly0,  
+                                   vertIndexInCurrPoly0,  
+                                   minX0, minY0,  
+                                   minDist0);
+      
+      // Unless the polygon is empty, convert back to world
+      // coordinates, and see if the current distance is smaller than
+      // the previous one.
+      if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
+          vertIndexInCurrPoly0 >= 0) {
+
+        Vector2 closest_P = projpoint2world(Vector2(minX0, minY0),
+                                            clipIter);
+        minDist0 = norm_2(closest_P - world_P);
+        
+        if (minDist0 <= minDist) {
+          clipIndex           = clipIter;
+          polyVecIndex        = polyVecIndex0;
+          polyIndexInCurrPoly = polyIndexInCurrPoly0;
+          vertIndexInCurrPoly = vertIndexInCurrPoly0;
+          minDist             = minDist0;
+          minX                = closest_P.x();
+          minY                = closest_P.y();
+        }
+      }
+    }
+
+    return;
+  }
+
+  // Find the closest point in a given set of imageData structures to a given point
+  // in world coordinates.
+  void MainWidget::findClosestPolyVertex(// inputs
+                                         double world_x0, double world_y0,
+                                         std::vector<imageData> const& imageData,
+                                         // outputs
+                                         int & clipIndex,
+                                         int & polyVecIndex,
+                                         int & polyIndexInCurrPoly,
+                                         int & vertIndexInCurrPoly,
+                                         double & minX, double & minY,
+                                         double & minDist){
+    clipIndex           = -1;
+    polyVecIndex        = -1;
+    polyIndexInCurrPoly = -1;
+    vertIndexInCurrPoly = -1;
+    minX                = world_x0;
+    minY                = world_y0;
+    minDist             = std::numeric_limits<double>::max();
+
+    Vector2 world_P(world_x0, world_y0);
+    
+    for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++){
+    
+      double minX0, minY0, minDist0;
+      int polyVecIndex0, polyIndexInCurrPoly0, vertIndexInCurrPoly0;
+
+      // Convert from world coordinates to given clip coordinates
+      Vector2 clip_P = world2projpoint(world_P, clipIter);
+
+      vw::gui::findClosestPolyVertex(// inputs
+                                     clip_P.x(), clip_P.y(),  
+                                     imageData[clipIter].polyVec,  
+                                     // outputs
+                                     polyVecIndex0,  
+                                     polyIndexInCurrPoly0,  
+                                     vertIndexInCurrPoly0,  
+                                     minX0, minY0,  
+                                     minDist0);
+
+      // Unless the polygon is empty, convert back to world
+      // coordinates, and see if the current distance is smaller than
+      // the previous one.
+      if (polyVecIndex0 >= 0 && polyIndexInCurrPoly0 >= 0 &&
+          vertIndexInCurrPoly0 >= 0) {
+        
+        Vector2 closest_P = projpoint2world(Vector2(minX0, minY0),
+                                            clipIter);
+        minDist0 = norm_2(closest_P - world_P);
+      
+        if (minDist0 <= minDist) {
+          clipIndex           = clipIter;
+          polyVecIndex        = polyVecIndex0;
+          polyIndexInCurrPoly = polyIndexInCurrPoly0;
+          vertIndexInCurrPoly = vertIndexInCurrPoly0;
+          minDist             = minDist0;
+          minX                = closest_P.x();
+          minY                = closest_P.y();
+        }
+      }
+    }
+  
+    return;
+  }
+  
   // Insert intermediate vertex where the mouse right-clicks.
   // TODO(oalexan1): This will fail when different polygons have
   // different georeferences.
@@ -1829,8 +1959,6 @@ namespace vw { namespace gui {
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
 
     m_world_box.grow(P); // to not cut when plotting later
-    
-    P = world2projpoint(P, m_polyLayerIndex); // projected units
     
     // If there is absolutely no polygon, start by creating one
     // with just one point.
@@ -1853,21 +1981,24 @@ namespace vw { namespace gui {
     // when one searches for closest edge, not vertex. 
     double min_x, min_y, min_dist;
     int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
-    findClosestPolyEdge(// inputs
-                        P.x(), P.y(), m_images,
-                        // outputs
-                        clipIndex,
-                        polyVecIndex,
-                        polyIndexInCurrPoly,
-                        vertIndexInCurrPoly,
-                        min_x, min_y, min_dist);
+    MainWidget::findClosestPolyEdge(// inputs
+                                    P.x(), P.y(), m_images,
+                                    // outputs
+                                    clipIndex,
+                                    polyVecIndex,
+                                    polyIndexInCurrPoly,
+                                    vertIndexInCurrPoly,
+                                    min_x, min_y, min_dist);
 
     if (clipIndex           < 0 ||
         polyVecIndex        < 0 ||
         polyIndexInCurrPoly < 0 ||
         vertIndexInCurrPoly < 0) return;
 
-    // Need +1 below as we insert AFTER current vertex.
+    // Convert to coordinates of the desired clip
+    P = world2projpoint(P, clipIndex);
+
+    // Need +1 below as we insert AFTER current vertex
     m_images[clipIndex].polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
                                                            vertIndexInCurrPoly + 1,
                                                            P.x(), P.y());
@@ -1878,9 +2009,133 @@ namespace vw { namespace gui {
     return;
   }
 
+  // Merge some polygons and save them in imageData[outIndex]
+  void MainWidget::mergePolys(std::vector<imageData> & imageData, int outIndex){
+
+    std::vector<vw::geometry::dPoly> polyVec;
+
+    try {
+      // We will infer these from existing polygons
+      std::string poly_color, layer_str;
+    
+      // We must first organize all those user-drawn curves into meaningful polygons.
+      // This can flip orientations and order of polygons. 
+      std::vector<OGRGeometry*> ogr_polys;
+
+      for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++) {
+
+        auto & polyVec = imageData[clipIter].polyVec;
+        for (size_t vecIter = 0; vecIter < polyVec.size(); vecIter++) {
+
+          if (poly_color == ""){
+            std::vector<std::string> colors = polyVec[vecIter].get_colors();
+            if (!colors.empty()) 
+              poly_color = colors[0];
+          }
+      
+          if (layer_str == "") {
+            std::vector<std::string> layers = polyVec[vecIter].get_layers();
+            if (!layers.empty()) 
+              layer_str = layers[0];
+          }
+
+          // Make a copy of the polygons
+          vw::geometry::dPoly poly = polyVec[vecIter]; 
+    
+          double * xv         = poly.get_xv();
+          double * yv         = poly.get_yv();
+          const int* numVerts = poly.get_numVerts();
+          int numPolys        = poly.get_numPolys();
+          int  totalNumVerts  = poly.get_totalNumVerts();
+
+          // Convert from the coordinate system of each layer
+          // to the one of the output layer
+          for (int vIter = 0; vIter < totalNumVerts; vIter++) {
+            Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), clipIter);
+            P = world2projpoint(P, outIndex);
+            xv[vIter] = P.x();
+            yv[vIter] = P.y();
+          }
+          
+          // Iterate over polygon rings in the given polygon set
+          int startPos = 0;
+          for (int pIter = 0; pIter < numPolys; pIter++){
+      
+            if (pIter > 0) startPos += numVerts[pIter - 1];
+            int numCurrPolyVerts = numVerts[pIter];
+      
+            OGRLinearRing R;
+            vw::geometry::toOGR(xv, yv, startPos, numCurrPolyVerts, R);
+
+            OGRPolygon * P = new OGRPolygon;
+            if (P->addRing(&R) != OGRERR_NONE )
+              vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
+
+            ogr_polys.push_back(P);
+          }
+    
+        }
+      }
+    
+      // The doc of this function says that the elements in ogr_polys will
+      // be taken care of. We are responsible only for the vector of pointers
+      // and for the output of this function.
+      int pbIsValidGeometry = 0;
+      const char** papszOptions = NULL; 
+      OGRGeometry* good_geom
+        = OGRGeometryFactory::organizePolygons(vw::geometry::vecPtr(ogr_polys),
+                                               ogr_polys.size(),
+                                               &pbIsValidGeometry,
+                                               papszOptions);
+    
+      // Single polygon, nothing to do
+      if (wkbFlatten(good_geom->getGeometryType()) == wkbPolygon || 
+          wkbFlatten(good_geom->getGeometryType()) == wkbPoint) {
+        bool append = false; 
+        fromOGR(good_geom, poly_color, layer_str, polyVec, append);
+      }else if (wkbFlatten(good_geom->getGeometryType()) == wkbMultiPolygon) {
+      
+        // We can merge
+        OGRGeometry * merged_geom = new OGRPolygon;
+      
+        OGRMultiPolygon *poMultiPolygon = (OGRMultiPolygon*)good_geom;
+      
+        int numGeom = poMultiPolygon->getNumGeometries();
+        for (int iGeom = 0; iGeom < numGeom; iGeom++){
+        
+          const OGRGeometry *currPolyGeom = poMultiPolygon->getGeometryRef(iGeom);
+          if (wkbFlatten(currPolyGeom->getGeometryType()) != wkbPolygon) continue;
+        
+          OGRPolygon *poPolygon = (OGRPolygon *) currPolyGeom;
+          OGRGeometry * local_merged = merged_geom->Union(poPolygon);
+        
+          // Keep the pointer to the new geometry
+          if (merged_geom != NULL)
+            OGRGeometryFactory::destroyGeometry(merged_geom);
+          merged_geom = local_merged;
+        }    
+      
+        bool append = false;
+        fromOGR(merged_geom, poly_color, layer_str, polyVec, append);
+        OGRGeometryFactory::destroyGeometry(merged_geom);
+      }
+    
+      OGRGeometryFactory::destroyGeometry(good_geom);
+       
+    }catch(std::exception &e ){
+      vw_out() << "OGR failed at " << e.what() << std::endl;
+    }
+    
+    // Wipe all existing polygons and replace with this one
+    for (size_t clipIter = 0; clipIter < imageData.size(); clipIter++) 
+      imageData[clipIter].polyVec.clear();
+
+    imageData[outIndex].polyVec = polyVec;
+  }
+  
   // Merge existing polygons
   void MainWidget::mergePolys(){
-    vw::gui::mergePolys(m_images, m_polyLayerIndex);
+    MainWidget::mergePolys(m_images, m_polyLayerIndex);
   }
   
   // Save the currently created vector layer
@@ -1957,7 +2212,7 @@ namespace vw { namespace gui {
     // Use variable size shapes to distinguish better points on top of
     // each other
     int len = 2*(drawVertIndex+1);
-    len = min(len, 8); // limit how big this can get
+    len = std::min(len, 8); // limit how big this can get
 
     paint.setPen(QPen(color, lineWidth));
 
@@ -2038,12 +2293,12 @@ namespace vw { namespace gui {
     // the edges where the cut took place. It is a bit tricky to
     // decide how much the extra should be.
     double tol    = 1e-12;
-    double pixelSize = max(m_world_box.width()/m_window_width,
-			   m_world_box.height()/m_window_height);
+    double pixelSize = std::max(m_world_box.width()/m_window_width,
+                                m_world_box.height()/m_window_height);
 
     double extra  = 2*pixelSize*lineWidth;
-    double extraX = extra + tol*max(abs(x_min), abs(x_max));
-    double extraY = extra + tol*max(abs(y_min), abs(y_max));
+    double extraX = extra + tol * std::max(std::abs(x_min), std::abs(x_max));
+    double extraY = extra + tol * std::max(std::abs(y_min), std::abs(y_max));
 
     dPoly clippedPoly;
     currPoly.clipPoly(x_min - extraX, y_min - extraY,
@@ -2057,13 +2312,16 @@ namespace vw { namespace gui {
       clippedPoly.get_vertIndexAnno(annotations);
     }
     
-    const double * xv               = clippedPoly.get_xv();
-    const double * yv               = clippedPoly.get_yv();
-    const int    * numVerts         = clippedPoly.get_numVerts();
-    int numPolys                    = clippedPoly.get_numPolys();
-    const vector<char> isPolyClosed = clippedPoly.get_isPolyClosed();
-    const vector<string> colors     = clippedPoly.get_colors(); // we ignore these
-    //int numVerts                  = clippedPoly.get_totalNumVerts();
+    const double * xv       = clippedPoly.get_xv();
+    const double * yv       = clippedPoly.get_yv();
+    const int    * numVerts = clippedPoly.get_numVerts();
+    int numPolys            = clippedPoly.get_numPolys();
+
+    // Aliases
+    const std::vector<char> & isPolyClosed
+      = clippedPoly.get_isPolyClosed();
+    const std::vector<std::string> & colors
+      = clippedPoly.get_colors(); // we ignore these
 
     int start = 0;
     for (int pIter = 0; pIter < numPolys; pIter++){
@@ -2233,23 +2491,17 @@ namespace vw { namespace gui {
 
       Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
       m_world_box.grow(P); // to not cut when plotting later
-      P = world2projpoint(P, m_polyLayerIndex); // projected units
-
-      if (m_images[m_polyLayerIndex].polyVec.size() == 0)
-        return;
-
+      
       // Find the vertex we want to move
-      // TODO(oalexan1): This will fail if different layers of polygons have different
-      // georef.
       double min_x, min_y, min_dist;
-      findClosestPolyVertex(// inputs
-                            P.x(), P.y(), m_images,
-                            // outputs
-                            m_polyLayerIndex,
-                            m_editPolyVecIndex,
-                            m_editIndexInCurrPoly,
-                            m_editVertIndexInCurrPoly,
-                            min_x, min_y, min_dist);
+      MainWidget::findClosestPolyVertex(// inputs
+                                        P.x(), P.y(), m_images,
+                                        // outputs
+                                        m_polyLayerIndex,
+                                        m_editPolyVecIndex,
+                                        m_editIndexInCurrPoly,
+                                        m_editVertIndexInCurrPoly,
+                                        min_x, min_y, min_dist);
 
       // When all the polygons are empty, make sure that at least
       // m_polyLayerIndex is valid.
@@ -2258,6 +2510,9 @@ namespace vw { namespace gui {
       
       // This will redraw just the polygons, not the pixmap
       update();
+
+      // The action will continue in mouseMoveEvent()
+      
     } // End polygon update case
 
   } // End function mousePressEvent()
@@ -2329,10 +2584,10 @@ namespace vw { namespace gui {
     // then we schedule the repaint event on the new rubberband.
     // Continued below.
     updateRubberBand(m_rubberBand);
-    m_rubberBand = QRect( min(m_mousePrsX, mouseMoveX),
-                          min(m_mousePrsY, mouseMoveY),
-                          abs(mouseMoveX - m_mousePrsX),
-                          abs(mouseMoveY - m_mousePrsY) );
+    m_rubberBand = QRect( std::min(m_mousePrsX, mouseMoveX),
+                          std::min(m_mousePrsY, mouseMoveY),
+                          std::abs(mouseMoveX - m_mousePrsX),
+                          std::abs(mouseMoveY - m_mousePrsY) );
     updateRubberBand(m_rubberBand);
     // Only now, a single call to MainWidget::PaintEvent() happens,
     // even though it appears from above that two calls could happen
@@ -2403,7 +2658,7 @@ namespace vw { namespace gui {
           int it = m_filesOrder[j];
           
           // Don't show files the user wants hidden
-          string fileName = m_images[it].name;
+          std::string fileName = m_images[it].name;
           if (m_filesToHide.find(fileName) != m_filesToHide.end())
             continue;
           
@@ -2568,7 +2823,7 @@ namespace vw { namespace gui {
         int i = m_filesOrder[j];
         
         // Don't show files the user wants hidden
-        string fileName = m_images[i].name;
+        std::string fileName = m_images[i].name;
         if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
         
         BBox2i image_box = world2image(m_stereoCropWin, i);
@@ -2675,7 +2930,7 @@ namespace vw { namespace gui {
     if (event->modifiers() & Qt::ShiftModifier)
       scale_factor *= 50;
 
-    double mag = fabs(num_ticks/scale_factor);
+    double mag = std::abs(num_ticks/scale_factor);
     double scale = 1;
     if (num_ticks > 0)
       scale = 1+mag;
@@ -2951,7 +3206,7 @@ namespace vw { namespace gui {
       
       int i = m_filesOrder[j];
       
-      string fileName = m_images[i].name;
+      std::string fileName = m_images[i].name;
       
       BBox2i image_box = world2image(m_stereoCropWin, i);
       image_box.crop(BBox2(0, 0, m_images[i].img.cols(), m_images[i].img.rows()));
