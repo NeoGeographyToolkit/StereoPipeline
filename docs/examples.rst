@@ -758,7 +758,7 @@ images and CSM cameras, and then that point cloud has a transform
 applied to it, such as with ``pc_align``, the same transform can be
 applied to the model states for the two cameras, which are then saved
 to disk as earlier.  That is accomplished by invoking bundle
-adjustment with the input images and cameras as follows:
+adjustment with the input images and cameras as follows::
 
     bundle_adjust left.cub right.cub left.json right.json \
       --initial-transform transform.txt                   \
