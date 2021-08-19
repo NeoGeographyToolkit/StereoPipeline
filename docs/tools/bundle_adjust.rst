@@ -69,9 +69,10 @@ initial transform can have a rotation, translation, and scale, and it
 is applied after the input adjustments are read, if those are
 present. An example is shown in (:numref:`ba_pc_align`).
 
-If the ``--datum`` option is specified, ``bundle_adjust`` will write the
-mean absolute residuals (reprojection errors) for each triangulated
-point, before and after optimization. The files are named
+If the ``--datum`` option is specified, ``bundle_adjust`` will write
+the triangulated world position for every feature being matched in two
+or more images, and the mean absolute residuals (reprojection errors)
+for each position, before and after optimization. The files are named
 
 ::
 
@@ -83,12 +84,10 @@ and
 
      {output-prefix}-final_residuals_no_loss_function_pointmap_point_log.csv
 
-(there are also versions of these files incorporating the Ceres loss
-function, which attenuates large residuals, those have in their names
-``loss`` rather than ``no_loss``). Such files can be inspected to see at
-which pixels the residual error is large. One can also invoke
-``point2dem`` with the ``--csv-format`` option to grid these files for
-visualization in the GUI. Here is a sample file::
+Such files can be inspected to see at which pixels the residual error
+is large. One can also invoke ``point2dem`` with the ``--csv-format``
+option to grid these files for visualization in the GUI. Here is a
+sample file::
 
    # lon, lat, height_above_datum, mean_residual, num_observations
    -55.1169093561696002, -69.3430771656333178, 4.82452381754674064, 0.114133363354161105, 2

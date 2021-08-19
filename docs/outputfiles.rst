@@ -35,7 +35,9 @@ line argument to ``stereo``. Run ``stereo --help`` for details.
     recommended if you have upgraded the Stereo Pipeline software.
 
     Both ``.vwip`` and ``.match`` files can be visualized in
-    ``stereo_gui``.
+    ``stereo_gui`` (:numref:`stereo_gui`), and ``.match`` files can be
+    converted to plain text for inspection with
+    ``parse_match_file.py`` (:numref:`parse_match_file`).
 
 \*-L.tif - rectified left input image
     The left input image of the stereo pair, saved after the

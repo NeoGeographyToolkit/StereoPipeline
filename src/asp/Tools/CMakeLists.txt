@@ -12,7 +12,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/stereo_utils.py.in
 
 # Install all of the python files.
 set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
-                 lronac2mosaic.py     #merge_orbitviz.py
+                 lronac2mosaic.py     parse_match_file.py
                  dg_mosaic            parallel_stereo
                  sparse_disp          stereo
                  time_trials          camera_calibrate

@@ -9,6 +9,11 @@ bundle_adjust:
 stereo_gui: 
   * Bugfix with overlaying shapefiles with different georeferences.
 
+Misc:
+
+  * Added the tool parse_match_file.py to convert a binary match file
+    to text and vice-versa.
+
 RELEASE 3.0.0, July 27, 2021
 ----------------------------
 

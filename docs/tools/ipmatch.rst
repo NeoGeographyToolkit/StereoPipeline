@@ -3,15 +3,20 @@
 ipmatch
 -------
 
-The ``ipmatch`` reads in interest points (IPs) from .vwip files and
-attempts to match them, writing out .match files containing these
-results. Other ASP tools can read in these files. ``ipmatch`` also
-produces debug images which can be useful. Note that this tool does not
-implement many of the IP matching steps that are used in ``stereo_pprc``
-and ``stereo_corr`` since it does not use any sensor model information.
+The ``ipmatch`` program reads interest points (IPs) from ``.vwip`` files and
+attempts to match them, writing out ``.match`` files containing the
+results. Other ASP tools can read the obtained match
+files. ``ipmatch`` also produces debug images which can be
+useful. Note that this tool does not implement many of the IP matching
+steps that are used in ``stereo`` and ``bundle_adjust`` since it
+does not use any camera information.
 
 If more than two image/vwip sets are passed in, each possible
 combination of images will be matched.
+
+The produced binary match files can be visualized in ``stereo_gui``
+(:numref:`stereo_gui`) or converted to plain text for inspection
+with ``parse_match_file.py`` (:numref:`parse_match_file`).
 
 Usage::
 
@@ -22,7 +27,7 @@ Command-line options for ipmatch:
 -h, --help
     Display the help message.
 
---output-prefix <filepath>
+--output-prefix <file name>
     Write output files using this prefix.
 
 --matcher-threshold <float (default: 0.6)>
