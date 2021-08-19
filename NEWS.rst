@@ -4,7 +4,10 @@ RELEASE 3.0.1, Upcoming
 bundle_adjust:
   * Add the option --apply-initial-transform-only to apply
     an initial transform to cameras while skipping
-    image matching and other steps. 
+    image matching and other steps.
+
+stereo_gui: 
+  * Bugfix with overlaying shapefiles with different georeferences.
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------
