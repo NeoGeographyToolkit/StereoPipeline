@@ -150,10 +150,10 @@ if __name__ == '__main__':
         im1_ip, im2_ip = read_match_file(args.infile)
 
         # Save to text file
-        print("Writing: " + outfile)
+        print("Writing: " + args.outfile)
 
         try:
-            os.makedirs(os.path.dirname(outfile))
+            os.makedirs(os.path.dirname(args.outfile))
         except OSError:
             pass
         

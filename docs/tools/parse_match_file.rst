@@ -11,13 +11,19 @@ other associated information (the first half of the file has interest
 points for the left image, and the second half has matching interest
 points in the right image).
 
+This tool assumes that the version of Python in the path has the
+``numpy`` and ``argparse`` packages installed and that
+``parse_match_file.py`` is in the path.
+
 Example::
 
-     parse_match_file.py run/run-left__right.match matches.txt
+     python $(which parse_match_file.py) run/run-left__right.match \
+       run/run-matches.txt
 
 This tool can perform the reverse of this operation if called as::
 
-     parse_match_file.py -rev matches.txt run/run-left__right.match
+     python $(which parse_match_file.py) -rev run/run-matches.txt \
+       run/run-left__right.match
 
 Note that the second invocation does not result in exactly the same
 match file as the original one, as the descriptors for each interest
