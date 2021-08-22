@@ -41,7 +41,7 @@ using namespace vw;
 namespace fs = boost::filesystem;
 
 // Debug logic
-#define DEBUG_IP 0
+#define DEBUG_IP 1
 
 namespace asp {
 
@@ -62,6 +62,9 @@ namespace asp {
                        int                  max_tile_size,
                        vw::BBox2i    const& tile_crop_win,
                        bool                 write_nodata,
+                       vw::camera::CameraModel const * left_camera_model,
+                       vw::camera::CameraModel const * right_camera_model,
+                       vw::cartography::Datum  const & datum,
                        // Outputs
                        vw::BBox2i         & left_trans_crop_win,
                        vw::BBox2i         & right_trans_crop_win,
@@ -262,6 +265,84 @@ namespace asp {
                                     crop_to_shared_area,
                                     left_local_mat, right_local_mat, &ip_inlier_indices);
 
+    Vector2 params = stereo_settings().local_alignment_outlier_removal_params;
+#if 0
+    // TODO(oalexan1): Make this into a function!
+    // Convert ip to original unaligned and uncropped coordinates
+    std::vector<vw::ip::InterestPoint> left_global_ip;
+    std::vector<vw::ip::InterestPoint> right_global_ip;
+
+    std::cout << "---total ip " << left_local_ip.size() << std::endl;
+    
+    for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
+      int i = ip_inlier_indices[it];
+
+      Vector2 left_pt (left_local_ip [i].x, left_local_ip [i].y);
+      Vector2 right_pt(right_local_ip[i].x, right_local_ip[i].y);
+
+      left_pt  = left_trans.reverse (left_pt  + left_trans_crop_win.min());
+      right_pt = right_trans.reverse(right_pt + right_trans_crop_win.min());
+
+      // First copy all the data from the input ip, then apply the transform
+      left_global_ip.push_back(left_local_ip[i]);
+      right_global_ip.push_back(right_local_ip[i]);
+      left_global_ip.back().x  = left_pt.x();
+      left_global_ip.back().y  = left_pt.y();
+      right_global_ip.back().x = right_pt.x();
+      right_global_ip.back().y = right_pt.y();
+    }
+    
+    std::string unaligned_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
+                                                                  opt.in_file1,
+                                                                  opt.in_file2);
+    vw_out() << "Writing match file: " << unaligned_match_filename << "\n";
+    vw::ip::write_binary_match_file(unaligned_match_filename, left_global_ip, right_global_ip);
+    
+
+    // Filter out IPs which fall outside the specified elevation range
+    std::cout << "--pct is " << params[0] << std::endl;
+    std::cout << "factor is " << params[1] << std::endl;
+    // The default percentage value is 95. For filtering by triangulation error
+    // that is on the high side, so adjust it.
+    // TODO(oalexan1): Think more of this.
+    if (params[0] < 100.0)
+      filter_ip_using_cameras(left_global_ip, right_global_ip,  
+                              left_camera_model,
+                              right_camera_model,
+                              (75.0/95.0)*params[0], params[1]);
+
+    // Transform back and do again affine epipolar rectification
+
+    left_local_ip.clear();
+    right_local_ip.clear();
+    for (size_t i = 0; i < left_global_ip.size(); i++) {
+
+      Vector2 left_pt (left_global_ip [i].x, left_global_ip [i].y);
+      Vector2 right_pt(right_global_ip[i].x, right_global_ip[i].y);
+
+      left_pt  = left_trans.forward(left_pt)   - left_trans_crop_win.min();
+      right_pt = right_trans.forward(right_pt) - right_trans_crop_win.min();
+
+      // First copy all the data from the input ip, then apply the transform
+      left_local_ip.push_back(left_global_ip[i]);
+      right_local_ip.push_back(right_global_ip[i]);
+      left_local_ip.back().x  = left_pt.x();
+      left_local_ip.back().y  = left_pt.y();
+      right_local_ip.back().x = right_pt.x();
+      right_local_ip.back().y = right_pt.y();
+    }
+
+    // Redo affine epipolar alignment
+    local_trans_aligned_size =
+      affine_epipolar_rectification(left_trans_crop_win.size(), right_trans_crop_win.size(),
+                                    stereo_settings().local_alignment_threshold,
+                                    stereo_settings().alignment_num_ransac_iterations,
+                                    left_local_ip, right_local_ip,
+                                    crop_to_shared_area,
+                                    left_local_mat, right_local_mat, &ip_inlier_indices);
+    
+#endif
+    
     // Combination of global alignment, crop to current tile, and local alignment
     Matrix<double> combined_left_mat  = left_local_mat * left_crop_mat * left_global_mat;
     Matrix<double> combined_right_mat = right_local_mat * right_crop_mat * right_global_mat;
@@ -400,7 +481,6 @@ namespace asp {
     }
 
     // Filter outliers
-    Vector2 params = stereo_settings().local_alignment_outlier_removal_params;
     if (params[0] < 100.0)
       asp::filter_ip_by_disparity(params[0], params[1],
                                   left_trans_local_ip, right_trans_local_ip); 

@@ -792,8 +792,76 @@ namespace asp {
     vw_out() << "\t    * Removed " << ip1_in.size() - ip1_out.size() << " ip using elevation/lonlat filtering.\n";
     
     return ip1_out.size();
-} // End filter_ip_by_elevation
+  } // End filter_ip_by_elevation
+  
+  // Filter ip by triangulation error, reprojection error, and height range
+  void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
+                               std::vector<vw::ip::InterestPoint> & ip2,
+                               vw::camera::CameraModel const * cam1,
+                               vw::camera::CameraModel const * cam2,
+                               double pct, // for example, 90.0
+                               double factor // for example, 3.0
+                               ) {
+    std::vector<double> error_samples(ip1.size());
+    
+    // Create the 'error' samples. Which are triangulation error and distance to sphere.
+    double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
 
+    stereo::StereoModel model(cam1, cam2, stereo_settings().use_least_squares, angle_tol);
+    const double HIGH_ERROR = 1.0e+100;
+    for (size_t i = 0; i < ip1.size(); i++) {
+      Vector3 xyz;
+      try {
+        xyz = model(Vector2(ip1[i].x, ip1[i].y), 
+                    Vector2(ip2[i].x, ip2[i].y),
+                    error_samples[i]);
+      } catch(...) {
+        xyz = Vector3();
+      }
+      
+      // The call returns the zero error and zero xyz to indicate a
+      // failed ray intersection so replace it in those cases with a
+      // very high error.
+      if (error_samples[i] == 0 || xyz == Vector3())
+        error_samples[i] = HIGH_ERROR;
+
+      //std::cout << "--sample is " << error_samples[i] << std::endl;
+    }
+
+    std::cout << "--params are " << pct << ' ' << factor << std::endl;
+    
+    std::vector<double> err;
+    for (size_t i = 0; i < ip1.size(); i++) {
+      if (error_samples[i] >= HIGH_ERROR)
+        continue;
+      err.push_back(error_samples[i]);
+    }
+
+    double pct_fraction = 1.0 - pct/100.0;
+    std::cout << "--fraction " << pct_fraction << std::endl;
+
+    double b = -1.0, e = -1.0;
+    vw::math::find_outlier_brackets(err, pct_fraction, factor, b, e);
+
+    std::cout << "b and e a are " << b << ' ' << e << std::endl;
+
+    // Copy the outliers in place
+    std::cout << "--num before " << ip1.size() << std::endl;
+    int count = 0;
+    for (size_t i = 0; i < ip1.size(); i++) {
+      if (error_samples[i] >= e) 
+        continue;
+
+      ip1[count] = ip1[i];
+      ip2[count] = ip2[i];
+      count++;
+    }
+
+    ip1.resize(count);
+    ip2.resize(count);
+    std::cout << "--num after " << ip1.size() << std::endl;
+  }
+  
   // Outlier removal based on the disparity of interest points.
   // Points with x or y disparity not within the 100-'pct' to 'pct'
   // percentile interval expanded by 'factor' will be removed as

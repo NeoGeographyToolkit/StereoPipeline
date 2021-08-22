@@ -26,6 +26,16 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Image/ImageViewRef.h>
 
+// Forward declarations
+namespace vw {
+  namespace camera {
+    class CameraModel;
+  }
+  namespace cartography {
+    class Datum;
+  }
+}
+
 namespace asp {
 
   // Algorithm to perform local alignment. Approach:
@@ -47,6 +57,9 @@ namespace asp {
                        int                  max_tile_size,
                        vw::BBox2i    const& tile_crop_win,
                        bool                 write_nodata,
+                       vw::camera::CameraModel const * left_camera_model,
+                       vw::camera::CameraModel const * right_camera_model,
+                       vw::cartography::Datum  const & datum,
                        // Outputs
                        vw::BBox2i         & left_trans_crop_win,
                        vw::BBox2i         & right_trans_crop_win,

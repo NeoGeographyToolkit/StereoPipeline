@@ -204,6 +204,15 @@ bool ip_matching_w_alignment(bool single_threaded_camera,
    std::vector<vw::ip::InterestPoint> & ip1_out,
    std::vector<vw::ip::InterestPoint> & ip2_out);
 
+  // Filter ip by triangulation error, reprojection error, and height range
+  void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
+                               std::vector<vw::ip::InterestPoint> & ip2,
+                               vw::camera::CameraModel const* cam1,
+                               vw::camera::CameraModel const* cam2,
+                               double pct, // for example, 90.0
+                               double factor // for example, 3.0
+                               );
+  
   // Outlier removal based on the disparity of interest points.
   // Points with x or y disparity not within the 100-'pct' to 'pct'
   // percentile interval expanded by 'factor' will be removed as

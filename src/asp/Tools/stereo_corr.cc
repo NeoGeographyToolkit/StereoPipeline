@@ -1345,10 +1345,16 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   }
 
   try {
+    boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+    opt.session->camera_models(left_camera_model, right_camera_model);
+    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
     local_alignment(// Inputs
                     opt, opt.session->name(),
                     max_tile_size, tile_crop_win,
                     write_nodata,
+                    left_camera_model.get(),
+                    right_camera_model.get(),
+                    datum,
                     // Outputs
                     left_trans_crop_win, right_trans_crop_win,
                     left_local_mat, right_local_mat,
@@ -1414,7 +1420,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                                 cost_mode, corr_timeout, seconds_per_op), 
            bounding_box(left_image));
 
-#if 0 // For debugging
+#if 1 // For debugging
     // Write the aligned 2D disparity to disk
     vw::cartography::GeoReference georef;
     bool   has_georef = false;
