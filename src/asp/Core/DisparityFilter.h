@@ -30,7 +30,7 @@ namespace asp {
   // Filter D_sub. Must be called only for alignment method affineepipolar, homography,
   // and local_epipolar. For now this is not in use as a dataset where this would help
   // was not found. It was tested though.
-  void filter_D_sub(ASPGlobalOptions & opt,
+  void filter_D_sub(ASPGlobalOptions const& opt,
                     boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
                     boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
                     vw::cartography::Datum const& datum,

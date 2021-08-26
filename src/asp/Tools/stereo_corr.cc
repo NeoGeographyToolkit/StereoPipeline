@@ -1435,7 +1435,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                                 cost_mode, corr_timeout, seconds_per_op), 
            bounding_box(left_image));
 
-#if 1 // For debugging
+#if 0
+    // For debugging
     // Write the aligned 2D disparity to disk
     vw::cartography::GeoReference georef;
     bool   has_georef = false;

@@ -32,7 +32,7 @@ namespace asp {
   // was not found. It was tested though.
   // TODO(oalexan1): Also do filtering by the range of disparity values, like
   // asp::filter_ip_by_disparity().
-  void filter_D_sub(ASPGlobalOptions & opt,
+  void filter_D_sub(ASPGlobalOptions const& opt,
                     boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
                     boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
                     vw::cartography::Datum const& datum,

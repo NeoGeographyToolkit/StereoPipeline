@@ -222,24 +222,12 @@ namespace asp {
       left_matrix (1, 2) -= left_bbox.min().y();
       right_matrix(0, 2) -= left_bbox.min().x();
       right_matrix(1, 2) -= left_bbox.min().y();
-        
-        //       } else {
-        //         left_matrix (0, 2) -= left_bbox.min().x();
-        //         left_matrix (1, 2) -= left_bbox.min().y();
-        //         right_matrix(0, 2) -= right_bbox.min().x();
-        //         right_matrix(1, 2) -= right_bbox.min().y();
-      
-      
-      //      std::cout << "--min is " << left_bbox.min() << std::endl;
       
       // Concatenate these into the answer
       result_type T;
       submatrix(T, 0, 0, 3, 3) = left_matrix;
       submatrix(T, 0, 3, 3, 3) = right_matrix;
       
-//       // Also save the domain after alignment
-//       if (m_crop_to_shared_area) {
-
       // Implicit in the logic below is the fact that left_bbox should now also
       // have left_bbox.min() subtracted from it, after which it becomes the
       // box with lower-left corner being (0, 0) and upper-right corner
@@ -247,11 +235,6 @@ namespace asp {
       // what we save here as the upper bound after the transform.
       T(0, 6) = left_bbox.width();
       T(1, 6) = left_bbox.height();
-//       }else{
-        
-//          T(0, 6) = std::max(left_bbox.width(), right_bbox.width());
-//          T(1, 6) = std::max(left_bbox.height(), right_bbox.height());
-//       }
 
       return T;
     }

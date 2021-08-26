@@ -41,7 +41,7 @@ using namespace vw;
 namespace fs = boost::filesystem;
 
 // Debug logic
-#define DEBUG_IP 1
+#define DEBUG_IP 0
 
 namespace asp {
 
@@ -50,14 +50,14 @@ namespace asp {
   // also by creating ip from D_sub. If cannot find enough such ip,
   // expand the box a little. Don't try too hard though, as then we
   // end up with too many outliers which can't be filtered easily.
-  void estimate_right_trans_crop_win(ASPGlobalOptions   & opt,
-                                     std::string const& left_unaligned_file,
-                                     std::string const& right_unaligned_file,
-                                     vw::HomographyTransform const& left_global_trans,
-                                     vw::HomographyTransform const& right_global_trans,
-                                     ImageViewRef<PixelGray<float> > right_globally_aligned_image,
-                                     BBox2i const& left_trans_crop_win, 
-                                     BBox2i & right_trans_crop_win) {
+  void estimate_right_trans_crop_win(ASPGlobalOptions        const & opt,
+                                     std::string             const & left_unaligned_file,
+                                     std::string             const & right_unaligned_file,
+                                     vw::HomographyTransform const & left_global_trans,
+                                     vw::HomographyTransform const & right_global_trans,
+                                     ImageViewRef<PixelGray<float>>  right_globally_aligned_image,
+                                     BBox2i                  const & left_trans_crop_win, 
+                                     BBox2i                        & right_trans_crop_win) {
 
     vw_out() << "\t--> Reading unaligned interest points.\n";
     std::vector<vw::ip::InterestPoint> left_unaligned_ip, right_unaligned_ip;
@@ -270,23 +270,23 @@ namespace asp {
   //  - Estimate the search range for the locally aligned images
 
   void local_alignment(// Inputs
-                       ASPGlobalOptions   & opt,
-                       std::string const  & session_name,
-                       int                  max_tile_size,
-                       vw::BBox2i    const& tile_crop_win,
-                       bool                 write_nodata,
+                       ASPGlobalOptions        const & opt,
+                       std::string             const & session_name,
+                       int                             max_tile_size,
+                       vw::BBox2i              const & tile_crop_win,
+                       bool                            write_nodata,
                        vw::camera::CameraModel const * left_camera_model,
                        vw::camera::CameraModel const * right_camera_model,
                        vw::cartography::Datum  const & datum,
-                       // Outputs
-                       vw::BBox2i         & left_trans_crop_win,
-                       vw::BBox2i         & right_trans_crop_win,
-                       vw::Matrix<double> & left_local_mat,
-                       vw::Matrix<double> & right_local_mat,
-                       std::string        & left_aligned_file,
-                       std::string        & right_aligned_file,
-                       int                & min_disp,
-                       int                & max_disp) {
+                       // Outputs        
+                       vw::BBox2i                    & left_trans_crop_win,
+                       vw::BBox2i                    & right_trans_crop_win,
+                       vw::Matrix<double>            & left_local_mat,
+                       vw::Matrix<double>            & right_local_mat,
+                       std::string                   & left_aligned_file,
+                       std::string                   & right_aligned_file,
+                       int                           & min_disp,
+                       int                           & max_disp) {
   
     // Read the unaligned images
     std::string left_unaligned_file = opt.in_file1;

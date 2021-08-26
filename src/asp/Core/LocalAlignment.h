@@ -52,11 +52,11 @@ namespace asp {
   class ASPGlobalOptions; // forward declaration
   
   void local_alignment(// Inputs
-                       ASPGlobalOptions   & opt,
-                       std::string const  & session_name,
-                       int                  max_tile_size,
-                       vw::BBox2i    const& tile_crop_win,
-                       bool                 write_nodata,
+                       ASPGlobalOptions const & opt,
+                       std::string      const & session_name,
+                       int                      max_tile_size,
+                       vw::BBox2i       const & tile_crop_win,
+                       bool                     write_nodata,
                        vw::camera::CameraModel const * left_camera_model,
                        vw::camera::CameraModel const * right_camera_model,
                        vw::cartography::Datum  const & datum,
