@@ -534,8 +534,6 @@ namespace asp {
       if (vm["corr-kernel"].defaulted())
         stereo_settings().corr_kernel = Vector2i(SGM_DEFAULT_KERNELSIZE, SGM_DEFAULT_KERNELSIZE);
 
-      std::cout << "2xcrorr thresh is " <<  stereo_settings().xcorr_threshold << std::endl;
-      
       if (vm["rm-cleanup-passes"].defaulted())
         stereo_settings().rm_cleanup_passes = SGM_DEFAULT_RM_CLEANUP_PASSES;
       if (vm["median-filter-size"].defaulted())
