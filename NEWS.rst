@@ -6,6 +6,11 @@ bundle_adjust:
     an initial transform to cameras while skipping
     image matching and other steps.
 
+stereo:
+  * ASP's SGM and MGM algorithms will always use the cross-check for
+    disparity by default, to improve the quality, even if that takes
+    more time. It can be turned off with --xcorr-threshold -1.
+
 stereo_gui: 
   * Bugfix with overlaying shapefiles with different georeferences.
 

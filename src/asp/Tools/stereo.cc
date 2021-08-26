@@ -43,23 +43,6 @@ using namespace std;
 
 namespace asp {
 
-  bool load_sub_disp_image(std::string const& sub_disp_path,
-                           ImageViewRef<PixelMask<Vector2f> > &sub_disp) {
-    if (!boost::filesystem::exists(sub_disp_path))
-      return false;
-
-    // Check the data type of the file.
-    boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(sub_disp_path));
-    ChannelTypeEnum disp_data_type = rsrc->channel_type();
-
-    if (disp_data_type == VW_CHANNEL_INT32) // Cast the integer file to float
-     sub_disp = pixel_cast<PixelMask<Vector2f> >(
-                      DiskImageView< PixelMask<Vector2i> >(sub_disp_path));
-    else // File on disk is float
-      sub_disp = DiskImageView< PixelMask<Vector2f> >(sub_disp_path);
-    return true;
-  }
-
   // Transform the crop window to be in reference to L.tif
   BBox2i transformed_crop_win(ASPGlobalOptions const& opt){
 
@@ -519,7 +502,6 @@ namespace asp {
     const int SGM_DEFAULT_SUBPIXEL_MODE        = 12; // Blend
     const int SGM_DEFAULT_COST_MODE            = 4;
     const int SGM_DEFAULT_KERNELSIZE           = 5;
-    const int SGM_DEFAULT_XCORR_THRESHOLD      = -1;
     const int SGM_DEFAULT_RM_CLEANUP_PASSES    = 0;
     const int SGM_DEFAULT_MEDIAN_FILTER_SIZE   = 3;
     const int SGM_DEFAULT_TEXTURE_SMOOTH_SIZE  = 11;
@@ -551,8 +533,9 @@ namespace asp {
         stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
       if (vm["corr-kernel"].defaulted())
         stereo_settings().corr_kernel = Vector2i(SGM_DEFAULT_KERNELSIZE, SGM_DEFAULT_KERNELSIZE);
-      if (vm["xcorr-threshold"].defaulted())
-        stereo_settings().xcorr_threshold = SGM_DEFAULT_XCORR_THRESHOLD;
+
+      std::cout << "2xcrorr thresh is " <<  stereo_settings().xcorr_threshold << std::endl;
+      
       if (vm["rm-cleanup-passes"].defaulted())
         stereo_settings().rm_cleanup_passes = SGM_DEFAULT_RM_CLEANUP_PASSES;
       if (vm["median-filter-size"].defaulted())
