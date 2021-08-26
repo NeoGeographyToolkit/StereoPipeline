@@ -45,6 +45,107 @@ namespace fs = boost::filesystem;
 
 namespace asp {
 
+  // Estimate the region in the right image corresponding
+  // to left_trans_crop_win based on ip in the current box and
+  // also by creating ip from D_sub. If cannot find enough such ip,
+  // expand the box a little. Don't try too hard though, as then we
+  // end up with too many outliers which can't be filtered easily.
+  void estimate_right_trans_crop_win(ASPGlobalOptions   & opt,
+                                     vw::HomographyTransform const& left_global_trans,
+                                     vw::HomographyTransform const& right_global_trans,
+                                     ImageViewRef<PixelGray<float> > right_globally_aligned_image,
+                                     BBox2i const& left_trans_crop_win, 
+                                     BBox2i & right_trans_crop_win) {
+
+    std::string left_unaligned_file = opt.in_file1;
+    std::string right_unaligned_file = opt.in_file2;
+    
+    vw_out() << "\t--> Reading unaligned interest points.\n";
+    std::vector<vw::ip::InterestPoint> left_unaligned_ip, right_unaligned_ip;
+    std::string match_filename = vw::ip::match_filename(opt.out_prefix,
+                                                        left_unaligned_file,
+                                                        right_unaligned_file);
+    if (!fs::exists(match_filename))
+      vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
+
+    vw_out() << "\t    * Loading match file: " << match_filename << "\n";
+    vw::ip::read_binary_match_file(match_filename, left_unaligned_ip, right_unaligned_ip);
+
+    right_trans_crop_win = BBox2i(); // wipe the output
+    size_t min_num_ip = 20;
+    BBox2i ip_crop_win = left_trans_crop_win;
+    int win_size = std::max(left_trans_crop_win.width(), left_trans_crop_win.height());
+    
+    for (int pass = 0; pass < 2; pass++) {
+      
+      std::vector<vw::ip::InterestPoint> left_trans_ip, right_trans_ip;
+
+      // Read the ip from D_sub and scale them
+      //vw_out() << "Creating IP from D_sub.\n";
+      vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp;
+      vw::Vector2 upsample_scale;
+      std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
+      asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp, upsample_scale);
+      std::vector<vw::ip::InterestPoint> left_ip_from_dsub, right_ip_from_dsub;
+      asp::aligned_ip_from_D_sub(sub_disp, upsample_scale,  
+                                 left_ip_from_dsub, right_ip_from_dsub);
+
+      // Append the ip from D_sub which are in the box
+      for (size_t i = 0; i < left_ip_from_dsub.size(); i++) {
+        Vector2 left_pt(left_ip_from_dsub[i].x, left_ip_from_dsub[i].y);
+        if (!ip_crop_win.contains(left_pt)) 
+          continue;
+
+        // Grow the right box
+        Vector2 right_pt(right_ip_from_dsub[i].x, right_ip_from_dsub[i].y);
+        right_trans_crop_win.grow(right_pt);
+
+        left_trans_ip.push_back(left_ip_from_dsub[i]);
+        right_trans_ip.push_back(right_ip_from_dsub[i]);
+      }
+
+      // Append the regular ip which are in the box
+      for (size_t i = 0; i < left_unaligned_ip.size(); i++) {
+        Vector2 left_pt (left_unaligned_ip [i].x, left_unaligned_ip [i].y);
+        Vector2 right_pt(right_unaligned_ip[i].x, right_unaligned_ip[i].y);
+        
+        left_pt  = left_global_trans.forward(left_pt);
+        right_pt = right_global_trans.forward(right_pt);
+        
+        if (!ip_crop_win.contains(left_pt)) 
+          continue;
+        
+        right_trans_crop_win.grow(right_pt);
+        
+        // Apply the alignment transforms to all the IP we found
+        left_trans_ip.push_back(left_unaligned_ip[i]);
+        right_trans_ip.push_back(right_unaligned_ip[i]);
+        left_trans_ip.back().x  = left_pt.x();
+        left_trans_ip.back().y  = left_pt.y();
+        right_trans_ip.back().x = right_pt.x();
+        right_trans_ip.back().y = right_pt.y();
+      }
+
+#if DEBUG_IP
+      std::string out_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
+                                                              "L.tif", "R.tif");
+      vw_out() << "Writing match file: " << out_match_filename << "\n";
+      vw::ip::write_binary_match_file(out_match_filename, left_trans_ip, right_trans_ip);
+#endif
+      
+      if (left_trans_ip.size() >= min_num_ip) 
+        break;
+      
+      ip_crop_win.expand(win_size/10);
+    }
+    
+    // Round up
+    right_trans_crop_win.expand(1);
+    right_trans_crop_win.crop(bounding_box(right_globally_aligned_image));
+  
+    //vw_out() << "Right image crop window: " << right_trans_crop_win << std::endl;
+  }
+                                     
   // Algorithm to perform local alignment. Approach:
   //  - Given the global interest points and the left crop window, find
   //    the right crop window.
@@ -75,9 +176,7 @@ namespace asp {
                        int                & min_disp,
                        int                & max_disp) {
   
-  
-    // Read the global unaligned images and interest points
-  
+    // Read the unaligned images
     std::string left_unaligned_file = opt.in_file1;
     std::string right_unaligned_file = opt.in_file2;
 
@@ -89,17 +188,6 @@ namespace asp {
       left_unaligned_file = opt.out_prefix + "-L-cropped.tif";
     if (crop_right) 
       right_unaligned_file = opt.out_prefix + "-R-cropped.tif";
-
-    vw_out() << "\t--> Reading global interest points.\n";
-    std::vector<vw::ip::InterestPoint> left_ip, right_ip;
-    std::string match_filename = vw::ip::match_filename(opt.out_prefix,
-                                                        left_unaligned_file,
-                                                        right_unaligned_file);
-    if (!fs::exists(match_filename))
-      vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
-
-    vw_out() << "\t    * Loading match file: " << match_filename << "\n";
-    vw::ip::read_binary_match_file(match_filename, left_ip, right_ip);
 
     // Read the globally aligned images and alignment transforms
   
@@ -146,66 +234,18 @@ namespace asp {
     Matrix<double> right_global_mat = math::identity_matrix<3>();
     read_matrix(left_global_mat, opt.out_prefix + "-align-L.exr");
     read_matrix(right_global_mat, opt.out_prefix + "-align-R.exr");
-    vw::HomographyTransform left_trans(left_global_mat);
-    vw::HomographyTransform right_trans(right_global_mat);
+    vw::HomographyTransform left_global_trans(left_global_mat);
+    vw::HomographyTransform right_global_trans(right_global_mat);
 
-    // Estimate the search range based on ip in the current box. If
-    // cannot find enough such ip, expand the box a little. Don't try
-    // too hard though, as then we end up with too many outliers which
-    // can't be filtered easily.
-    size_t min_num_ip = 20;
-    BBox2i ip_crop_win = left_trans_crop_win;
-    int win_size = std::max(left_trans_crop_win.width(), left_trans_crop_win.height());
-    
-    for (int pass = 0; pass < 2; pass++) {
-      
-      // Apply the transforms to all the IP we found
-      std::vector<vw::ip::InterestPoint> left_trans_ip, right_trans_ip;
-      
-      for (size_t i = 0; i < left_ip.size(); i++) {
-            Vector2 left_pt (left_ip [i].x, left_ip [i].y);
-        Vector2 right_pt(right_ip[i].x, right_ip[i].y);
-        
-        left_pt  = left_trans.forward(left_pt);
-        right_pt = right_trans.forward(right_pt);
-        
-        if (!ip_crop_win.contains(left_pt)) 
-          continue;
-        
-        right_trans_crop_win.grow(right_pt);
-        
-        // First copy all the data from the input ip, then apply the transform
-        left_trans_ip.push_back(left_ip[i]);
-        right_trans_ip.push_back(right_ip[i]);
-        left_trans_ip.back().x  = left_pt.x();
-        left_trans_ip.back().y  = left_pt.y();
-        right_trans_ip.back().x = right_pt.x();
-        right_trans_ip.back().y = right_pt.y();
-      }
-
-#if DEBUG_IP
-      std::string out_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
-                                                              "L.tif", "R.tif");
-      vw_out() << "Writing match file: " << out_match_filename << "\n";
-      vw::ip::write_binary_match_file(out_match_filename, left_trans_ip, right_trans_ip);
-#endif
-      
-      if (left_trans_ip.size() >= min_num_ip) 
-        break;
-      
-      ip_crop_win.expand(win_size/10);
-    }
-    
-    // Round up
-    right_trans_crop_win.expand(1);
-    right_trans_crop_win.crop(bounding_box(right_globally_aligned_image));
-  
-    // TODO(oalexan1): Should we find the search range based on IP or based on D_sub?
-    vw_out() << "IP-based search range: " << right_trans_crop_win << std::endl;
+    // Estimate the region in the right image corresponding
+    // to left_trans_crop_win based on ip in the current box and
+    // also by creating ip from D_sub.
+    estimate_right_trans_crop_win(opt, left_global_trans, right_global_trans,  
+                                  right_globally_aligned_image,  
+                                  left_trans_crop_win, right_trans_crop_win);
 
     // Redo ip matching in the current tile. It should be more accurate after alignment
     // and cropping
-
     std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
     detect_match_ip(left_local_ip, right_local_ip,
                     crop(left_globally_aligned_image, left_trans_crop_win),
@@ -265,84 +305,6 @@ namespace asp {
                                     crop_to_shared_area,
                                     left_local_mat, right_local_mat, &ip_inlier_indices);
 
-    Vector2 params = stereo_settings().local_alignment_outlier_removal_params;
-#if 0
-    // TODO(oalexan1): Make this into a function!
-    // Convert ip to original unaligned and uncropped coordinates
-    std::vector<vw::ip::InterestPoint> left_global_ip;
-    std::vector<vw::ip::InterestPoint> right_global_ip;
-
-    std::cout << "---total ip " << left_local_ip.size() << std::endl;
-    
-    for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
-      int i = ip_inlier_indices[it];
-
-      Vector2 left_pt (left_local_ip [i].x, left_local_ip [i].y);
-      Vector2 right_pt(right_local_ip[i].x, right_local_ip[i].y);
-
-      left_pt  = left_trans.reverse (left_pt  + left_trans_crop_win.min());
-      right_pt = right_trans.reverse(right_pt + right_trans_crop_win.min());
-
-      // First copy all the data from the input ip, then apply the transform
-      left_global_ip.push_back(left_local_ip[i]);
-      right_global_ip.push_back(right_local_ip[i]);
-      left_global_ip.back().x  = left_pt.x();
-      left_global_ip.back().y  = left_pt.y();
-      right_global_ip.back().x = right_pt.x();
-      right_global_ip.back().y = right_pt.y();
-    }
-    
-    std::string unaligned_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
-                                                                  opt.in_file1,
-                                                                  opt.in_file2);
-    vw_out() << "Writing match file: " << unaligned_match_filename << "\n";
-    vw::ip::write_binary_match_file(unaligned_match_filename, left_global_ip, right_global_ip);
-    
-
-    // Filter out IPs which fall outside the specified elevation range
-    std::cout << "--pct is " << params[0] << std::endl;
-    std::cout << "factor is " << params[1] << std::endl;
-    // The default percentage value is 95. For filtering by triangulation error
-    // that is on the high side, so adjust it.
-    // TODO(oalexan1): Think more of this.
-    if (params[0] < 100.0)
-      filter_ip_using_cameras(left_global_ip, right_global_ip,  
-                              left_camera_model,
-                              right_camera_model,
-                              (75.0/95.0)*params[0], params[1]);
-
-    // Transform back and do again affine epipolar rectification
-
-    left_local_ip.clear();
-    right_local_ip.clear();
-    for (size_t i = 0; i < left_global_ip.size(); i++) {
-
-      Vector2 left_pt (left_global_ip [i].x, left_global_ip [i].y);
-      Vector2 right_pt(right_global_ip[i].x, right_global_ip[i].y);
-
-      left_pt  = left_trans.forward(left_pt)   - left_trans_crop_win.min();
-      right_pt = right_trans.forward(right_pt) - right_trans_crop_win.min();
-
-      // First copy all the data from the input ip, then apply the transform
-      left_local_ip.push_back(left_global_ip[i]);
-      right_local_ip.push_back(right_global_ip[i]);
-      left_local_ip.back().x  = left_pt.x();
-      left_local_ip.back().y  = left_pt.y();
-      right_local_ip.back().x = right_pt.x();
-      right_local_ip.back().y = right_pt.y();
-    }
-
-    // Redo affine epipolar alignment
-    local_trans_aligned_size =
-      affine_epipolar_rectification(left_trans_crop_win.size(), right_trans_crop_win.size(),
-                                    stereo_settings().local_alignment_threshold,
-                                    stereo_settings().alignment_num_ransac_iterations,
-                                    left_local_ip, right_local_ip,
-                                    crop_to_shared_area,
-                                    left_local_mat, right_local_mat, &ip_inlier_indices);
-    
-#endif
-    
     // Combination of global alignment, crop to current tile, and local alignment
     Matrix<double> combined_left_mat  = left_local_mat * left_crop_mat * left_global_mat;
     Matrix<double> combined_right_mat = right_local_mat * right_crop_mat * right_global_mat;
@@ -446,17 +408,79 @@ namespace asp {
                            has_aligned_nodata, nan_nodata, opt,
                            TerminalProgressCallback("asp","\t  Right:  "));
     
+    Vector2 params = stereo_settings().outlier_removal_params;
+
+#if 1
+    // TODO(oalexan1): Make this into a function.
+    // Convert ip to original unaligned and uncropped coordinates
+    std::vector<vw::ip::InterestPoint> left_global_ip;
+    std::vector<vw::ip::InterestPoint> right_global_ip;
+
+    for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
+      int i = ip_inlier_indices[it];
+
+      Vector2 left_pt (left_local_ip [i].x, left_local_ip [i].y);
+      Vector2 right_pt(right_local_ip[i].x, right_local_ip[i].y);
+
+      left_pt  = left_global_trans.reverse (left_pt  + left_trans_crop_win.min());
+      right_pt = right_global_trans.reverse(right_pt + right_trans_crop_win.min());
+
+      // First copy all the data from the input ip, then apply the transform
+      left_global_ip.push_back(left_local_ip[i]);
+      right_global_ip.push_back(right_local_ip[i]);
+      left_global_ip.back().x  = left_pt.x();
+      left_global_ip.back().y  = left_pt.y();
+      right_global_ip.back().x = right_pt.x();
+      right_global_ip.back().y = right_pt.y();
+    }
+    
+    std::string unaligned_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
+                                                                  opt.in_file1,
+                                                                  opt.in_file2);
+    vw_out() << "Writing match file: " << unaligned_match_filename << "\n";
+    vw::ip::write_binary_match_file(unaligned_match_filename, left_global_ip, right_global_ip);
+    
+
+    // Filter out IPs which fall outside the specified elevation range
+    if (params[0] < 100.0)
+      filter_ip_using_cameras(left_global_ip, right_global_ip,  
+                              left_camera_model, right_camera_model, datum,
+                              params[0], params[1]);
+
+    // Transform back to tile coordinates
+    left_local_ip.clear();
+    right_local_ip.clear();
+    ip_inlier_indices.clear();
+    for (size_t i = 0; i < left_global_ip.size(); i++) {
+
+      Vector2 left_pt (left_global_ip [i].x, left_global_ip [i].y);
+      Vector2 right_pt(right_global_ip[i].x, right_global_ip[i].y);
+
+      left_pt  = left_global_trans.forward(left_pt)   - left_trans_crop_win.min();
+      right_pt = right_global_trans.forward(right_pt) - right_trans_crop_win.min();
+      
+      // First copy all the data from the input ip, then apply the transform
+      left_local_ip.push_back(left_global_ip[i]);
+      right_local_ip.push_back(right_global_ip[i]);
+      left_local_ip.back().x  = left_pt.x();
+      left_local_ip.back().y  = left_pt.y();
+      right_local_ip.back().x = right_pt.x();
+      right_local_ip.back().y = right_pt.y();
+      
+      ip_inlier_indices.push_back(i);
+    }
+
+#endif
+    
     // TODO(oalexan1): Make the code below a function, called
     // aligned_disp_search_range().
     
     // Apply local alignment to inlier ip and estimate the search range
+    // TODO(oalexan1): Make this into a function!
     vw::HomographyTransform left_local_trans (left_local_mat);
     vw::HomographyTransform right_local_trans(right_local_mat);
-
-    // Find the transformed IP
     std::vector<vw::ip::InterestPoint> left_trans_local_ip;
     std::vector<vw::ip::InterestPoint> right_trans_local_ip;
-
     for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
       int i = ip_inlier_indices[it];
       Vector2 left_pt (left_local_ip [i].x, left_local_ip [i].y);
@@ -480,7 +504,7 @@ namespace asp {
 #endif
     }
 
-    // Filter outliers
+    // Filter outliers, this can reduce the search range
     if (params[0] < 100.0)
       asp::filter_ip_by_disparity(params[0], params[1],
                                   left_trans_local_ip, right_trans_local_ip); 
@@ -511,6 +535,120 @@ namespace asp {
     return;
   }
 
+#if 0
+  // This is some experimental code which may still have some uses.
+
+  // Tweak the alignment transforms and their bounds.
+  
+  BBox2i new_left_win, new_right_win;
+      
+  for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
+    int i = ip_inlier_indices[it];
+    Vector2 left_pt = Vector2(left_local_ip [i].x,  left_local_ip [i].y)
+      + left_trans_crop_win.min();
+    Vector2 right_pt = Vector2(right_local_ip [i].x, right_local_ip [i].y)
+      + right_trans_crop_win.min();
+    new_left_win.grow(left_pt);
+    new_right_win.grow(right_pt);
+  }
+
+  std::cout << "old new left " << left_trans_crop_win << ' ' << new_left_win << std::endl;
+  std::cout << "old new right " << right_trans_crop_win << ' ' << new_right_win << std::endl;
+
+  // Apply local alignment to inlier ip and estimate the search range
+  {
+    vw::HomographyTransform left_local_trans (left_local_mat);
+    vw::HomographyTransform right_local_trans(right_local_mat);
+    int i = 0;
+    Vector2 left_pt = Vector2(left_local_ip [i].x,  left_local_ip [i].y);
+    std::cout << "mapped before left " << left_local_trans.forward(left_pt) << std::endl;
+    Vector2 right_pt = Vector2(right_local_ip [i].x,  right_local_ip [i].y);
+    std::cout << "mapped before right " << right_local_trans.forward(right_pt) << std::endl;
+  }
+      
+  // Adjust the transforms given the new windows
+  std::cout << "left mat is " << left_local_mat << std::endl;
+  Vector3 left_shift(new_left_win.min().x() - left_trans_crop_win.min().x(),
+                     new_left_win.min().y() - left_trans_crop_win.min().y(),
+                     0.0);
+  std::cout << "left shift is " << left_shift << std::endl;
+  left_shift = left_local_mat * left_shift;
+  std::cout << "after left shift: " << left_shift << std::endl;
+  left_local_mat(0, 2) += left_shift[0];
+  left_local_mat(1, 2) += left_shift[1];
+  std::cout << "left mat after " << left_local_mat << std::endl;
+
+  std::cout << "right mat is " << right_local_mat << std::endl;
+  Vector3 right_shift(new_right_win.min().x() - right_trans_crop_win.min().x(),
+                      new_right_win.min().y() - right_trans_crop_win.min().y(),
+                      0.0);
+  std::cout << "right shift is " << right_shift << std::endl;
+  right_shift = right_local_mat * right_shift;
+  std::cout << "after right shift: " << right_shift << std::endl;
+  right_local_mat(0, 2) += right_shift[0];
+  right_local_mat(1, 2) += right_shift[1];
+  std::cout << "right mat after " << right_local_mat << std::endl;
+
+  // Adjust the ip
+  for (size_t i = 0; i < left_local_ip.size(); i++) {
+    left_local_ip [i].x -= (new_left_win.min().x() - left_trans_crop_win.min().x());
+    left_local_ip [i].y -= (new_left_win.min().y() - left_trans_crop_win.min().y());
+  }
+  for (size_t i = 0; i < right_local_ip.size(); i++) {
+    right_local_ip [i].x -= (new_right_win.min().x() - right_trans_crop_win.min().x());
+    right_local_ip [i].y -= (new_right_win.min().y() - right_trans_crop_win.min().y());
+  }
+
+  // Update the crop wins
+  left_trans_crop_win = new_left_win;
+  right_trans_crop_win = new_right_win;
+
+  {
+    vw::HomographyTransform left_local_trans (left_local_mat);
+    vw::HomographyTransform right_local_trans(right_local_mat);
+    int i = 0;
+    Vector2 left_pt = Vector2(left_local_ip [i].x,  left_local_ip [i].y);
+    std::cout << "mapped after left " << left_local_trans.forward(left_pt) << std::endl;
+    Vector2 right_pt = Vector2(right_local_ip [i].x,  right_local_ip [i].y);
+    std::cout << "mapped after right " << right_local_trans.forward(right_pt) << std::endl;
+
+
+    // Find the trans box
+    BBox2i trans_box;
+        
+    for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
+      int i = ip_inlier_indices[it];
+          
+      Vector2 left_pt (left_local_ip [i].x, left_local_ip [i].y);
+      Vector2 right_pt(right_local_ip[i].x, right_local_ip[i].y);
+          
+      left_pt  = left_local_trans.forward(left_pt);
+      right_pt = right_local_trans.forward(right_pt);
+
+      trans_box.grow(left_pt);
+      trans_box.grow(right_pt);
+    }
+
+    // Make it just a tiny bit bigger, may improve behavior, perhaps.
+    // TODO(oalexan1): What if the ip do not cover fully the image tiles
+    // and hence we now leave valuable real estate out?
+    trans_box.expand(5);
+        
+    std::cout << "trans box is " << trans_box << std::endl;
+
+    // adjust the trans box
+        
+    left_local_mat (0, 2) -= trans_box.min().x();
+    left_local_mat (1, 2) -= trans_box.min().y();
+    right_local_mat(0, 2) -= trans_box.min().x();
+    right_local_mat(1, 2) -= trans_box.min().y();
+
+    std::cout << "tran dims before " << local_trans_aligned_size << std::endl;
+    local_trans_aligned_size = trans_box.size();
+    std::cout << "tran dims after " << local_trans_aligned_size << std::endl;
+  }
+#endif
+  
   // Grow a box to a square size. If one of the input dimensions is
   // even and another odd, we'll never get there but what we get will
   // be good enough.

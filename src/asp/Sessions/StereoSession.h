@@ -292,7 +292,7 @@ Vector6f StereoSession::gather_stats(vw::ImageViewBase<ViewT> const& view_base,
   namespace fs = boost::filesystem;
   Vector6f result;
 
-  vw_out(InfoMessage) << "\t--> Computing statistics for " + tag << std::endl;
+  vw_out(InfoMessage) << "Computing statistics for " + tag << std::endl;
   ViewT image = view_base.impl();
 
   const bool use_cache = ((prefix != "") && (image_path != ""));

@@ -170,7 +170,7 @@ namespace asp {
        "Maximum distance from inlier interest point matches to the epipolar line when calculating the local affine epipolar alignment.")
       ("alignment-num-ransac-iterations", po::value(&global.alignment_num_ransac_iterations)->default_value(1000),
        "How many RANSAC iterations to use for global or local epipolar alignment.")
-      ("local-alignment-outlier-removal-params",  po::value(&global.local_alignment_outlier_removal_params)->default_value(Vector2(95.0, 3.0), "pct factor"),
+      ("outlier-removal-params",  po::value(&global.outlier_removal_params)->default_value(Vector2(95.0, 3.0), "pct factor"),
        "The differences between right and left locally aligned interest points are computed, and outliers are removed using box-and-whisker with this percentage and factor.")
       ("disparity-range-expansion-percent", po::value(&global.disparity_range_expansion_percent)->default_value(20),
        "Expand the disparity range estimated from interest points by this percentage before computing the stereo correlation with local epipolar alignment.")

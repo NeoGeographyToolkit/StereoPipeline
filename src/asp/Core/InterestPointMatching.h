@@ -209,9 +209,8 @@ bool ip_matching_w_alignment(bool single_threaded_camera,
                                std::vector<vw::ip::InterestPoint> & ip2,
                                vw::camera::CameraModel const* cam1,
                                vw::camera::CameraModel const* cam2,
-                               double pct, // for example, 90.0
-                               double factor // for example, 3.0
-                               );
+                               vw::cartography::Datum  const& datum,
+                               double pct, double factor);
   
   // Outlier removal based on the disparity of interest points.
   // Points with x or y disparity not within the 100-'pct' to 'pct'
@@ -256,6 +255,13 @@ bool ip_matching_w_alignment(bool single_threaded_camera,
 			   vw::Matrix<double>& left_matrix,
 			   vw::Matrix<double>& right_matrix);
 
+  // Create interest points from valid D_sub values and make them full scale
+  // (while still having potentially a global alignment applied to them).
+  void aligned_ip_from_D_sub(vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> const & sub_disp,
+                             vw::Vector2                                   const & upsample_scale,
+                             std::vector<vw::ip::InterestPoint>                  & left_ip, 
+                             std::vector<vw::ip::InterestPoint>                  & right_ip);
+  
   /// Estimate the "spread" of IP coverage in an image.
   /// - Returns a value between 0 and 1.
   /// - Breaks the image into tiles and checks how many tiles have at least N IP.

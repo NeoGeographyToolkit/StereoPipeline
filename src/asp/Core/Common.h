@@ -43,6 +43,8 @@
 
 namespace asp {
 
+  class ASPGlobalOptions; // forward declaration
+  
   /// Returns true if the file has an extension which can contain a camera model
   bool has_cam_extension( std::string const& input );
 
@@ -116,15 +118,27 @@ namespace asp {
 
   /// Read the target name (planet name) from the plain text portion of an ISIS cub file
   std::string read_target_name(std::string const& filename);
+
+  /// Load the D_sub file in a consistent format.
+  /// - Returns false if the file does not exist.
+  bool load_D_sub(std::string const& d_sub_file,
+                           vw::ImageViewRef<vw::PixelMask<vw::Vector2f> > &sub_disp);
+
   
+  // Load the low-res disparity and the scale needed to convert it to full-res
+  void load_D_sub_and_scale(ASPGlobalOptions                              const & opt,
+                            std::string                                   const & d_sub_file, 
+                            vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>       & sub_disp,
+                            vw::Vector2                                         & upsample_scale);
+
   boost::program_options::variables_map
-  check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
-                      boost::program_options::options_description const& public_options,
-                      boost::program_options::options_description const& all_public_options,
-                      boost::program_options::options_description const& positional_options,
-                      boost::program_options::positional_options_description const& positional_desc,
-                      std::string & usage_comment,
-                      bool allow_unregistered, std::vector<std::string> & unregistered);
+  check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
+                     boost::program_options::options_description const& public_options,
+                     boost::program_options::options_description const& all_public_options,
+                     boost::program_options::options_description const& positional_options,
+                     boost::program_options::positional_options_description const& positional_desc,
+                     std::string & usage_comment,
+                     bool allow_unregistered, std::vector<std::string> & unregistered);
 
   /// Load multiple user options into a georef object.
   /// - This call supports more srs_string options than are possible

@@ -334,7 +334,7 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
 
     if (stereo_settings().seed_mode > 0 &&
          stereo_settings().use_local_homography){
-      if (!load_sub_disp_image(opt.out_prefix+"-D_sub.tif", sub_disp))
+      if (!load_D_sub(opt.out_prefix+"-D_sub.tif", sub_disp))
         vw_throw(ArgumentErr() << "D_sub file does not exist, cannot use local homography.\n");
 
       string local_hom_file = opt.out_prefix + "-local_hom.txt";

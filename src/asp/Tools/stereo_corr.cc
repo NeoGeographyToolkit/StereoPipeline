@@ -28,6 +28,7 @@
 #include <vw/Core/StringUtils.h>
 #include <vw/InterestPoint/Matcher.h>
 
+#include <asp/Core/DisparityFilter.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/InterestPointMatching.h>
@@ -78,30 +79,17 @@ SemiGlobalMatcher::SgmSubpixelMode get_sgm_subpixel_mode() {
 }
 
 // Read the search range from D_sub, and scale it to the full image
-void read_search_range_from_dsub(ASPGlobalOptions & opt){
+void read_search_range_from_D_sub(std::string const& d_sub_file, ASPGlobalOptions const& opt){
 
   // No D_sub is generated or should be used for seed mode 0.
   if (stereo_settings().seed_mode == 0)
     return;
 
-  DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
-    Rmask(opt.out_prefix + "-rMask.tif");
-
-  DiskImageView<PixelGray<float> > left_sub (opt.out_prefix+"-L_sub.tif"),
-    right_sub(opt.out_prefix+"-R_sub.tif");
-
-  std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
-
-  ImageViewRef<PixelMask<Vector2f> > sub_disp;
-  if (!load_sub_disp_image(d_sub_file, sub_disp)) {
-    std::string msg = "Could not read " + d_sub_file + ".";
-    if (stereo_settings().skip_low_res_disparity_comp)
-      msg += " Perhaps one should disable --skip-low-res-disparity-comp.";
-    vw_throw(ArgumentErr() << msg << "\n");
-  }
-  Vector2 upsample_scale(double(Lmask.cols()) / double(sub_disp.cols()) ,
-                         double(Lmask.rows()) / double(sub_disp.rows()));
-
+  vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp;
+  vw::Vector2 upsample_scale;
+  
+  asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp, upsample_scale);
+  
   BBox2i search_range = stereo::get_disparity_range(sub_disp);
   search_range.min() = floor(elem_prod(search_range.min(),upsample_scale));
   search_range.max() = ceil (elem_prod(search_range.max(),upsample_scale));
@@ -133,9 +121,17 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
   vw::stereo::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+
+  std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
   
   if (stereo_settings().seed_mode == 1) {
 
+    // For D_sub always use a cross-check even if it takes more time.
+    // The user-specified xcorr_threshold will be restored at the end.
+    int orig_xcorr_threshold = stereo_settings().xcorr_threshold;
+    if (orig_xcorr_threshold < 0) 
+      stereo_settings().xcorr_threshold = 2;
+    
     // Use low-res correlation to get the low-res disparity
     Vector2i expansion(search_range.width(),
                        search_range.height());
@@ -166,7 +162,6 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       // TODO: Why the extra filtering step here? 
       // PyramidCorrelationView already performs 1-3 iterations of
       // outlier removal.
-      std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
       vw_out() << "Writing: " << d_sub_file << std::endl;
       vw::cartography::block_write_gdal_image
         (// Write to disk
@@ -208,8 +203,29 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
          TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
          );
       // End of giant function call block
-    }
-    else { // Use quantile based filtering - This filter needs to be profiled to improve its speed.
+
+      // Restore the user xcorr_threshold
+      stereo_settings().xcorr_threshold = orig_xcorr_threshold;
+
+#if 0
+      // Filter D_sub. For now this is turned off, as no good example was
+      // found yet where it helps.
+      if (stereo_settings().alignment_method == "homography" ||
+          stereo_settings().alignment_method == "affineepipolar" ||
+          stereo_settings().alignment_method == "local_epipolar") {
+        
+        boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+        opt.session->camera_models(left_camera_model, right_camera_model);
+        const bool use_sphere_for_datum = false;
+        vw::cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
+                                                              use_sphere_for_datum);
+        asp::filter_D_sub(opt, left_camera_model, right_camera_model, datum, d_sub_file,
+                          stereo_settings().outlier_removal_params);
+      }
+#endif
+      
+    } else {
+      // Use quantile based filtering. This filter needs to be profiled to improve its speed.
       
       // Compute image correlation using the PyramidCorrelationView class
       ImageView< PixelMask<Vector2f> > disp_image
@@ -230,7 +246,6 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
          stereo_settings().stereo_debug
          );
       
-      std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
       vw_out() << "Writing: " << d_sub_file << std::endl;
       vw::cartography::write_gdal_image
         (// Write to disk while removing outliers
@@ -253,7 +268,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     // D_sub is already generated by now by sparse_disp
   }
 
-  read_search_range_from_dsub(opt); // TODO: We already call this when needed!
+  read_search_range_from_D_sub(d_sub_file, opt); // TODO: We already call this when needed!
 } // End produce_lowres_disparity
 
 /// Adjust IP lists if alignment matrices are present.
@@ -1103,7 +1118,10 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   if (stereo_settings().compute_low_res_disparity_only) 
     return; // Just computed the low-res disparity, so quit.
 
-  read_search_range_from_dsub(opt);
+  std::string d_sub_file  = opt.out_prefix + "-D_sub.tif";
+  std::string spread_file = opt.out_prefix + "-D_sub_spread.tif";
+
+  read_search_range_from_D_sub(d_sub_file, opt);
 
   // If the user specified a search range limit, apply it here.
   if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
@@ -1138,17 +1156,14 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   // Load the normalized images.
   DiskImageView<PixelGray<float> > left_disk_image (left_rsrc ),
                                    right_disk_image(right_rsrc);
-
   
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
   ImageViewRef<PixelMask<Vector2f> > sub_disp;
-  std::string dsub_file   = opt.out_prefix+"-D_sub.tif";
-  std::string spread_file = opt.out_prefix+"-D_sub_spread.tif";
   
   if (stereo_settings().seed_mode > 0) {
-    if (!load_sub_disp_image(dsub_file, sub_disp)) {
-      std::string msg = "Could not read " + dsub_file + ".";
+    if (!load_D_sub(d_sub_file, sub_disp)) {
+      std::string msg = "Could not read " + d_sub_file + ".";
       if (stereo_settings().skip_low_res_disparity_comp)
         msg += " Perhaps one should disable --skip-low-res-disparity-comp.";
       vw_throw(ArgumentErr() << msg << "\n");
@@ -1700,11 +1715,24 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     opt.raster_tile_size = orig_tile_size;
   }
 
-  // Save the disparity, after removing any padding
-  if (!left_trans_crop_win.contains(tile_crop_win)) 
-    vw_throw(ArgumentErr() << "Expecting the padded tile to contain the original tile.\n");
-  BBox2i crop_win = tile_crop_win - left_trans_crop_win.min();
-  save_disparity(opt, crop(unaligned_disp_2d, crop_win), out_disp_file);
+  // Adjust for the fact that tile_crop_win may not be the same as left_trans_crop_win.
+  vw::ImageView<PixelMask<Vector2f>> cropped_disp(tile_crop_win.width(), tile_crop_win.height());
+  for (int col = 0; col < tile_crop_win.width(); col++) {
+    for (int row = 0; row < tile_crop_win.height(); row++) {
+      Vector2 pix = Vector2(col, row) + tile_crop_win.min();
+      if (left_trans_crop_win.contains(pix)) {
+        cropped_disp(col, row)
+          = unaligned_disp_2d(pix.x() - left_trans_crop_win.min().x(),
+                              pix.y() - left_trans_crop_win.min().y());
+      } else {
+        cropped_disp(col, row) = PixelMask<Vector2f>();
+        cropped_disp(col, row).invalidate();
+      }
+      
+    }
+  }
+  
+  save_disparity(opt, cropped_disp, out_disp_file);
 
 } // End function stereo_correlation_1D
 
@@ -1751,10 +1779,27 @@ int main(int argc, char* argv[]) {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION\n";
 
-    if (stereo_settings().alignment_method == "local_epipolar") 
+    if (stereo_settings().alignment_method == "local_epipolar") {
+
+      // Need to have the low-res 2D disparity to later guide the
+      // per-tile correlation. Use here the ASP MGM algorithm as the
+      // most reliable one.
+      if (stereo_settings().compute_low_res_disparity_only) {
+        stereo_settings().stereo_algorithm = "asp_mgm";
+        stereo_correlation_2D(opt);
+        return 0;
+      }
+
+      // This will be invoked per-tile.
       stereo_correlation_1D(opt);
-    else
+      
+    } else {
+      
+      // Do 2D correlation. The first time this is invoked it will
+      // compute the low-res disparity unless told not to.
       stereo_correlation_2D(opt);
+      
+    }
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED\n";
     

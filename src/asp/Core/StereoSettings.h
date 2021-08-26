@@ -133,7 +133,7 @@ namespace asp {
     double global_alignment_threshold;        /// Max distance from the epipolar line when doing global affine epipolar alignment
     double local_alignment_threshold;         /// Max distance from the epipolar line when doing local affine epipolar alignment
     int    alignment_num_ransac_iterations;   ///< How many ransac iterations to do in global or local epipolar alignment transform computation
-    vw::Vector2 local_alignment_outlier_removal_params;
+    vw::Vector2 outlier_removal_params;
     int    disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 
     // Correlation Options

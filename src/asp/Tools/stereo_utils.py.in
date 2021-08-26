@@ -245,7 +245,7 @@ def run_sparse_disp(args, opt):
 # Do low-res correlation.
 def calc_lowres_disp(args, opt, sep):
 
-    if ( opt.seed_mode == 3 ):
+    if (opt.seed_mode == 3):
         run_sparse_disp(args, opt)
     else:
         local_args = args[:] # deep copy to use locally

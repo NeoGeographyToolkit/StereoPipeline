@@ -291,8 +291,6 @@ include("GenerateConfig.cmake")
 # TODO: Do we need this?
 #set(ENABLE_EXCEPTIONS True)
 
-
-
 message("--------------------------------------------------------------")
 #message("Listing all include directories...")
 #get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)

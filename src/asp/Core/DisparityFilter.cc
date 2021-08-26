@@ -30,6 +30,8 @@ namespace asp {
   // Filter D_sub. Must be called only for alignment method affineepipolar, homography,
   // and local_epipolar. For now this is not in use as a dataset where this would help
   // was not found. It was tested though.
+  // TODO(oalexan1): Also do filtering by the range of disparity values, like
+  // asp::filter_ip_by_disparity().
   void filter_D_sub(ASPGlobalOptions & opt,
                     boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
                     boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
@@ -114,7 +116,7 @@ namespace asp {
     vals.clear();
     for (int col = 0; col < sub_disp.cols(); col++) {
       for (int row = 0; row < sub_disp.rows(); row++) {
-        if (height(col, row) == HIGH_ERROR) continue;
+        if (height(col, row) >= HIGH_ERROR) continue; // already invalid
         vals.push_back(height(col, row));
       }
     }
@@ -130,7 +132,7 @@ namespace asp {
     int count = 0;
     for (int col = 0; col < sub_disp.cols(); col++) {
       for (int row = 0; row < sub_disp.rows(); row++) {
-        if (height(col, row) == HIGH_ERROR) continue; // already invalid
+        if (height(col, row) >= HIGH_ERROR) continue; // already invalid
         if (height(col, row) < b || height(col, row) > e) {
           height(col, row)  = HIGH_ERROR;
           tri_err(col, row) = HIGH_ERROR;
@@ -138,33 +140,35 @@ namespace asp {
         }
       }
     }
-    std::cout << "Number (and fraction) of removed outliers by the height check: "
-              << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
-
+    vw_out() << "Number (and fraction) of removed outliers by the height check: "
+             << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
+    
     // Put the tri errors in a vector
     vals.clear();
     for (int col = 0; col < sub_disp.cols(); col++) {
       for (int row = 0; row < sub_disp.rows(); row++) {
-        if (tri_err(col, row) == HIGH_ERROR) continue; // already invalid
+        if (tri_err(col, row) >= HIGH_ERROR) continue; // already invalid
         vals.push_back(tri_err(col, row));
       }
     }
 
-    // Find the outlier brackets. We will ignore b, as the triangulation
-    // errors are non-negative. Since the triangulation errors, unlike
+    // Find the outlier brackets. Since the triangulation errors, unlike
     // the heights, are usually rather uniform, adjust pct from 95 to
     // 75.
     double pct2 = (75.0/95.0) * outlier_removal_params[0];
     double pct_fraction2 = 1.0 - pct2/100.0;
+    // Show some lenience below as due to jitter some errors could be somewhat bigger
+    double factor2 = 2.0 * factor;
     b = -1.0;
     e = -1.0;
-    vw::math::find_outlier_brackets(vals, pct_fraction2, factor, b, e);
+    vw::math::find_outlier_brackets(vals, pct_fraction2, factor2, b, e);
 
     // Apply the outlier threshold
     count = 0;
     for (int col = 0; col < sub_disp.cols(); col++) {
       for (int row = 0; row < sub_disp.rows(); row++) {
-        if (tri_err(col, row) == HIGH_ERROR) continue;
+        if (tri_err(col, row) >= HIGH_ERROR) continue; // already invalid
+        // We will ignore b, as the triangulation errors are non-negative.
         if (tri_err(col, row) > e) {
           height(col, row) = HIGH_ERROR;
           tri_err(col, row) = HIGH_ERROR;
@@ -172,13 +176,13 @@ namespace asp {
         }
       }
     }
-    std::cout << "Number (and fraction) of removed outliers by the triangulation error check: "
-              << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
+    vw_out() << "Number (and fraction) of removed outliers by the triangulation error check: "
+             << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
 
     // Invalidate the D_sub entries that are outliers
     for (int col = 0; col < sub_disp.cols(); col++) {
       for (int row = 0; row < sub_disp.rows(); row++) {
-        if (tri_err(col, row) == HIGH_ERROR)
+        if (tri_err(col, row) >= HIGH_ERROR)
           sub_disp(col, row).invalidate();
       }
     }

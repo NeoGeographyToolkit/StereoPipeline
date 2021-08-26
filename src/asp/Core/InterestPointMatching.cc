@@ -799,22 +799,21 @@ namespace asp {
                                std::vector<vw::ip::InterestPoint> & ip2,
                                vw::camera::CameraModel const * cam1,
                                vw::camera::CameraModel const * cam2,
-                               double pct, // for example, 90.0
-                               double factor // for example, 3.0
-                               ) {
-    std::vector<double> error_samples(ip1.size());
-    
-    // Create the 'error' samples. Which are triangulation error and distance to sphere.
-    double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
+                               vw::cartography::Datum  const & datum,
+                               double pct, double factor) {
 
+    std::vector<double> errors(ip1.size()), heights(ip1.size());
+    
+    // Compute the triangulation errors
+    double angle_tol = vw::stereo::StereoModel
+      ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
     stereo::StereoModel model(cam1, cam2, stereo_settings().use_least_squares, angle_tol);
-    const double HIGH_ERROR = 1.0e+100;
+    double HIGH_ERROR = std::numeric_limits<double>::max();
     for (size_t i = 0; i < ip1.size(); i++) {
       Vector3 xyz;
       try {
-        xyz = model(Vector2(ip1[i].x, ip1[i].y), 
-                    Vector2(ip2[i].x, ip2[i].y),
-                    error_samples[i]);
+        xyz = model(Vector2(ip1[i].x, ip1[i].y), Vector2(ip2[i].x, ip2[i].y),
+                    errors[i]);
       } catch(...) {
         xyz = Vector3();
       }
@@ -822,34 +821,79 @@ namespace asp {
       // The call returns the zero error and zero xyz to indicate a
       // failed ray intersection so replace it in those cases with a
       // very high error.
-      if (error_samples[i] == 0 || xyz == Vector3())
-        error_samples[i] = HIGH_ERROR;
-
-      //std::cout << "--sample is " << error_samples[i] << std::endl;
-    }
-
-    std::cout << "--params are " << pct << ' ' << factor << std::endl;
-    
-    std::vector<double> err;
-    for (size_t i = 0; i < ip1.size(); i++) {
-      if (error_samples[i] >= HIGH_ERROR)
+      if (errors[i] == 0 || xyz == Vector3()) {
+        errors[i]  = HIGH_ERROR;
+        heights[i] = HIGH_ERROR;
         continue;
-      err.push_back(error_samples[i]);
+      }
+
+      // Find the height above datum
+      Vector3 llh = datum.cartesian_to_geodetic(xyz);
+      heights[i] = llh[2];
     }
 
+    // Put the valid heights in a vector
+    std::vector<double> vals;
+    vals.reserve(ip1.size());
+    vals.clear();
+    for (size_t i = 0; i < ip1.size(); i++) {
+      if (heights[i] >= HIGH_ERROR) continue;
+      vals.push_back(heights[i]);
+    }
+
+    // Find the outlier brackets
     double pct_fraction = 1.0 - pct/100.0;
-    std::cout << "--fraction " << pct_fraction << std::endl;
-
     double b = -1.0, e = -1.0;
-    vw::math::find_outlier_brackets(err, pct_fraction, factor, b, e);
-
-    std::cout << "b and e a are " << b << ' ' << e << std::endl;
-
-    // Copy the outliers in place
-    std::cout << "--num before " << ip1.size() << std::endl;
+    vw::math::find_outlier_brackets(vals, pct_fraction, factor, b, e);
+    
+    // Apply the outlier threshold
     int count = 0;
     for (size_t i = 0; i < ip1.size(); i++) {
-      if (error_samples[i] >= e) 
+      if (heights[i] >= HIGH_ERROR) continue;
+      if (heights[i] < b || heights[i] > e) {
+        heights[i] = HIGH_ERROR;
+        count++;
+      }
+    }
+    vw_out() << "Number (and fraction) of removed outliers by the height check: "
+              << count << " (" << double(count)/ip1.size() << ").\n";
+
+    // Find the valid errors. Make use of the fact that we already filtered by height.
+    vals.clear();
+    for (size_t i = 0; i < ip1.size(); i++) {
+      if (errors[i] >= HIGH_ERROR || heights[i] >= HIGH_ERROR) // already invalid
+        continue;
+      vals.push_back(errors[i]);
+    }
+
+    // Find the outlier brackets. Since the triangulation errors, unlike
+    // the heights, are usually rather uniform, adjust pct from 95 to
+    // 75.
+    double pct2 = (75.0/95.0) * pct;
+    double pct_fraction2 = 1.0 - pct2/100.0;
+    // Show some lenience below as due to jitter some errors could be somewhat bigger
+    double factor2 = 2.0 * factor;
+    b = -1.0; e = -1.0;
+    vw::math::find_outlier_brackets(vals, pct_fraction2, factor2, b, e);
+
+    // Apply the outlier threshold
+    count = 0;
+    for (size_t i = 0; i < ip1.size(); i++) {
+      if (heights[i] >= HIGH_ERROR || errors[i] >= HIGH_ERROR) continue; // already invalid
+      // We will ignore b, as the triangulation errors are non-negative.
+      if (errors[i] > e) {
+        errors[i] = HIGH_ERROR;
+        count++;
+      }
+    }
+    
+    vw_out() << "Number (and fraction) of removed outliers by the triangulation error check: "
+              << count << " (" << double(count)/ip1.size() << ").\n";
+    
+    // Copy the outliers in place
+    count = 0;
+    for (size_t i = 0; i < ip1.size(); i++) {
+      if (errors[i] >= HIGH_ERROR || heights[i] >= HIGH_ERROR) 
         continue;
 
       ip1[count] = ip1[i];
@@ -859,7 +903,6 @@ namespace asp {
 
     ip1.resize(count);
     ip2.resize(count);
-    std::cout << "--num after " << ip1.size() << std::endl;
   }
   
   // Outlier removal based on the disparity of interest points.
@@ -883,6 +926,7 @@ namespace asp {
     
     //vw_out() << "Outlier statistics by disparity in x: b = " << bx << ", e = " << ex << ".\n";
     //vw_out() << "Outlier statistics by disparity in y: b = " << by << ", e = " << ey << ".\n";
+    
     // Remove the bad ip 
     size_t good_it = 0;
     for (size_t it = 0; it < left_ip.size(); it++) {
@@ -892,7 +936,8 @@ namespace asp {
       right_ip[good_it] = right_ip[it];
       good_it++;
     }
-    vw_out() << "Removed " << left_ip.size() - good_it << " interest point outliers based on their differences.\n";
+    vw_out() << "Removed " << left_ip.size() - good_it <<
+      " outliers based on the differences of interest points.\n";
     left_ip.resize(good_it);
     right_ip.resize(good_it);
 
@@ -913,7 +958,8 @@ namespace asp {
       vw_out() << "\t    Inlier threshold:                     " << inlier_threshold << "\n";
       vw_out() << "\t    RANSAC iterations:                    "
 	       << stereo_settings().ip_num_ransac_iterations << "\n";
-      typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
+      typedef math::RandomSampleConsensus<math::HomographyFittingFunctor,
+        math::InterestPointErrorMetric> RansacT;
       const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
       RansacT ransac( math::HomographyFittingFunctor(),
                       math::InterestPointErrorMetric(),
@@ -942,6 +988,38 @@ namespace asp {
     return num_left;
   }
 
+  // Create interest points from valid D_sub values and make them full scale
+  // (while still having potentially a global alignment applied to them).
+  void aligned_ip_from_D_sub(vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> const & sub_disp,
+                             vw::Vector2                                   const & upsample_scale,
+                             std::vector<vw::ip::InterestPoint>                  & left_ip, 
+                             std::vector<vw::ip::InterestPoint>                  & right_ip) {
+
+    left_ip.clear();
+    right_ip.clear();
+    
+    for (int col = 0; col < sub_disp.cols(); col++) {
+      for (int row = 0; row < sub_disp.rows(); row++) {
+        vw::PixelMask<vw::Vector2f> disp = sub_disp(col, row);
+
+        if (!is_valid(disp)) continue;
+        
+        Vector2 left_pix(col, row);
+        Vector2 right_pix = left_pix + disp.child();
+
+        left_pix  = elem_prod(left_pix, upsample_scale);
+        right_pix = elem_prod(right_pix, upsample_scale);
+
+        vw::ip::InterestPoint left, right;
+        left.x  = left_pix.x();   left.y = left_pix.y();
+        right.x = right_pix.x(); right.y = right_pix.y();
+
+        left_ip.push_back(left);
+        right_ip.push_back(right);
+      }
+    }
+  }
+  
   double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
                                    Vector2i const& image_size, int tile_size,
                                    int min_ip_per_tile) {

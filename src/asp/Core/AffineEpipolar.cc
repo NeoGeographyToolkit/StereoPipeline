@@ -390,7 +390,7 @@ namespace asp {
       }
 
       // Filter outliers
-      Vector2 params = stereo_settings().local_alignment_outlier_removal_params;
+      Vector2 params = stereo_settings().outlier_removal_params;
       if (params[0] < 100.0)
         asp::filter_ip_by_disparity(params[0], params[1],
                                     left_trans_local_ip, right_trans_local_ip); 

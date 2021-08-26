@@ -138,10 +138,10 @@ alignment-num-ransac-iterations (*integer*) (default = 1000)
     How many RANSAC iterations to use for global or local epipolar
     alignment.
 
-local-alignment-outlier-removal-params (*double, double*) (default = 95.0, 3.0)
-    The differences between right and left locally aligned interest
-    points are computed, and outliers are removed using
-    box-and-whisker with this percentage and factor.
+outlier-removal-params (*double, double*) (default = 95.0, 3.0)
+    Outlier removal params to be used in filtering interest
+    points and the disparity. The box-and-whisker algorithm is used
+    with this percentage and factor.
 
 disparity-range-expansion-percent (*integer*) (default = 20)
     Expand the disparity range estimated from interest points by this
