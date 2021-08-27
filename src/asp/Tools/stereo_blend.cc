@@ -20,15 +20,15 @@
 
 // The purpose of this tool is to blend the boundaries of extra-large
 // stereo_corr tiles so that no seams are visible.  This is only
-// required when running the SGM algorithm on large data sets using
-// parallel_stereo.
+// required when running local alignment or SGM/MGM on large data sets
+// using parallel_stereo.
 
-// ROI means region of interest. Each tile has a central area,
-// extracted from the string, out-2048_0_1487_2048, and outer/padding
-// areas, called buffers, that are not in the tile proper but rather
-// in neighboring tiles. The buffer size is 0 at image boundary, and
-// it can be smaller closer to the boundary, otherwise it is equal to
-// the collar size, which is a fixed bias.
+// ROI means region of interest. Each tile has a central area, the
+// ROI, extracted from the string, out-2048_0_1487_2048, and
+// outer/padding areas, called buffers, that are not in the tile
+// proper but rather in neighboring tiles. The buffer size is 0 at
+// image boundary, and it can be smaller closer to the boundary,
+// otherwise it is equal to the collar size, which is a fixed bias.
 
 // Hence, what this tool does, is, take the outer areas of neighboring
 // tiles which overlap with the inner area of the current tile, and
@@ -48,42 +48,16 @@ typedef DiskImageView<PixelMask<Vector2f> > DiskImageType;
 typedef ImageView    <PixelMask<Vector2f> > DispImageType;
 typedef ImageView    <double              > WeightsType;
 
-const size_t NUM_NEIGHBORS = 8;
+// Every tile has 8 neighbors
+const int NUM_NEIGHBORS = 8;
 
-enum TilePosition {TILE_TL = 0, TILE_T = 1, TILE_TR = 2,
-                   TILE_L = 3, TILE_M = 8,  TILE_R = 4,
+// Enum for the tiles. We count later on on the fact that the
+// neighbors have indices in [0, 7]. TILE_M is the main tile and the
+// others are its neighbors.
+enum TilePosition {TILE_M = -1,
+                   TILE_TL = 0, TILE_T = 1, TILE_TR = 2,
+                   TILE_L  = 3,             TILE_R  = 4,
                    TILE_BL = 5, TILE_B = 6, TILE_BR = 7};
-// TILE_M is the central non-buffered area.
-
-/// Debugging aid
-std::string position_string(int p) {
-  switch(p) {
-  case TILE_TL: return "TILE_TL";
-  case TILE_T:  return "TILE_T";
-  case TILE_TR: return "TILE_TR";
-  case TILE_L:  return "TILE_L";
-  case TILE_R:  return "TILE_R";
-  case TILE_BL: return "TILE_BL";
-  case TILE_B:  return "TILE_B";
-  case TILE_BR: return "TILE_BR";
-  default: return "TILE_M";
-  };
-}
-
-/// Returns the opposite position (what it is in the neighbor)
-TilePosition get_opposed_position(TilePosition p) {
-  switch(p) {
-  case TILE_TL: return TILE_BR;
-  case TILE_T:  return TILE_B;
-  case TILE_TR: return TILE_BL;
-  case TILE_L:  return TILE_R;
-  case TILE_R:  return TILE_L;
-  case TILE_BL: return TILE_TR;
-  case TILE_B:  return TILE_T;
-  case TILE_BR: return TILE_TL;
-  default: return TILE_M;
-  };
-}
 
 /// Given "out-2048_0_1487_2048" return "2048_0_1487_2048"
 std::string extract_process_folder_bbox_string(std::string s) {
@@ -96,7 +70,7 @@ std::string extract_process_folder_bbox_string(std::string s) {
 
   size_t num_start = s.rfind("-");
   if (num_start == std::string::npos)
-    vw_throw( ArgumentErr() << "Error parsing folder string: " << s );
+    vw_throw(ArgumentErr() << "Error parsing folder string: " << s);
   return s.substr(num_start+1);
 }
   
@@ -109,358 +83,76 @@ BBox2i bbox_from_folder(std::string const& s) {
   return BBox2i(x, y, width, height);
 }
 
-/// Returns one of eight possible ROI locations for the given tile.
-/// - If get_buffer is set, fetch the ROI from the buffer region,
-///   so from the outer region to the tile
-///   Otherwise get it from the non-buffer region at that location,
-///   that is, from the inner region.
-/// - Some tiles do not have all buffers available, if one of these
-///   is requested the function will return false.
-/// - Set buffers_stripped if you want the output ROI in reference to
-///   an image with the buffers removed.  This will always fail if combined
-///   with get_bufer==true, as there is no buffer area to fetch
-/// - Generally you would get the non-buffer region for the main tile,
-///   and the opposed buffer region for the neighboring tile.
-bool get_roi_from_tile(std::string const& tile_path, TilePosition pos,
-                       int buffer_size, bool get_buffer,
-                       BBox2i &output_roi,
-                       bool buffers_stripped = false) {
-  
-  // Initialize the output
-  output_roi = BBox2i();
-
-  // Get the ROI of this tile and of the entire processing job
-  // The unbuffered roi is before we expand it with buffer on the sides.
-  BBox2i unbuffered_roi = bbox_from_folder(tile_path); // extract from 2048_5120_1024_394
-
-  Vector2i image_size = file_image_size(tile_path);
-  if (buffers_stripped) {
-    image_size = Vector2i(unbuffered_roi.width(), unbuffered_roi.height());
-
-    // No buffer to remove
-    buffer_size = 0;
-  }
-  
-  // Adjust the size of the output ROI according to the available buffer area
-  int roi_width    = unbuffered_roi.width();   // Size with no buffers
-  int roi_height   = unbuffered_roi.height();
-  int image_width  = image_size[0];  // Size with buffers included
-  int image_height = image_size[1];
-
-  // Determine if this tile sits on the upper left image border.
-  // We don't need to worry about the lower-right border,
-  // we will infer what goes there based on tile size.
-  bool left_edge  = (unbuffered_roi.min().x() == 0);
-  bool top_edge   = (unbuffered_roi.min().y() == 0);
-  if (buffers_stripped) {
-    left_edge = top_edge = false; 
-  }
-
-  // Get the size of the buffers/padding  on each edge (no buffer if on the edge)
-  int left_offset  = (left_edge ) ? 0 : buffer_size;
-  int top_offset   = (top_edge  ) ? 0 : buffer_size;
-  int right_offset = image_width  - left_offset - roi_width;
-  int bot_offset   = image_height - top_offset  - roi_height;
-  
-  if (right_offset < 0 || bot_offset < 0) 
-    vw_throw( ArgumentErr() << "Something is wrong with the current tile geometry.\n" );
-  
-  // The three sizes of bboxes that will be used.
-  Vector2i corner_size         (buffer_size, buffer_size);
-  Vector2i horizontal_edge_size(roi_width,   buffer_size);
-  Vector2i vertical_edge_size  (buffer_size, roi_height);
-  Vector2i dummy(0,0);
-  BBox2i   image_box(0, 0, image_width, image_height);
-
-  int right_diff = image_width  - right_offset;
-  int bot_diff   = image_height - top_offset;
-  switch(pos) {
-  case TILE_TL: 
-    if (get_buffer) {
-      if (left_edge || top_edge)
-        return false;
-      output_roi = BBox2i(Vector2i(0, 0), dummy);
-    } else
-      output_roi = BBox2i(Vector2i(left_offset, top_offset), dummy);
-    output_roi.set_size(corner_size);
-    break;
-  case TILE_T:
-    if (get_buffer) {
-      if (top_edge)
-        return false;
-      output_roi = BBox2i(Vector2i(left_offset, 0), dummy);
-    } else
-      output_roi = BBox2i(Vector2i(left_offset, top_offset), dummy);
-    output_roi.set_size(horizontal_edge_size);
-    break;             
-  case TILE_TR:
-    if (get_buffer) {
-      if (top_edge)
-        return false;
-      output_roi = BBox2i(Vector2i(right_diff, 0), dummy);
-    } else
-      output_roi = BBox2i(Vector2i(right_diff - buffer_size, top_offset), dummy);
-    output_roi.set_size(corner_size);
-    break;
-  case TILE_L:
-    if (get_buffer) {
-      if (left_edge)
-        return false;
-      output_roi = BBox2i(Vector2i(0, top_offset), dummy);
-    } else
-      output_roi = BBox2i(Vector2i(left_offset, top_offset), dummy);
-    output_roi.set_size(vertical_edge_size);
-    break;
-  case TILE_R:
-    if (get_buffer) {
-      output_roi = BBox2i(Vector2i(right_diff, top_offset), dummy);
-    } else
-      output_roi = BBox2i(Vector2i(right_diff - buffer_size, top_offset), dummy);
-    output_roi.set_size(vertical_edge_size);
-    break;
-  case TILE_BL:
-    if (get_buffer) {
-      if (left_edge)
-        return false;
-      output_roi = BBox2i(Vector2i(0, bot_diff), dummy);
-    } else
-      output_roi = BBox2i(Vector2i(left_offset, bot_diff - buffer_size), dummy);
-    output_roi.set_size(corner_size);
-    break;
-  case TILE_B:
-    if (get_buffer) {
-      output_roi = BBox2i(Vector2i(left_offset, bot_diff), dummy);
-    } else
-      output_roi = BBox2i(Vector2i(left_offset, bot_diff - buffer_size), dummy);
-    output_roi.set_size(horizontal_edge_size);
-    break;
-  case TILE_BR:
-    if (get_buffer) {
-      output_roi = BBox2i(Vector2i(right_diff, bot_diff), dummy);
-    } else
-      output_roi = BBox2i(Vector2i(right_diff - buffer_size, bot_diff - buffer_size), dummy);
-    output_roi.set_size(corner_size);
-    break;
-  default: // TILE_M (central area, everything except for the buffers)
-    if (get_buffer)
-      return false; // Central area is never a buffer
-    output_roi = BBox2i(Vector2i(left_offset, top_offset), dummy);
-    output_roi.set_size(Vector2i(roi_width, roi_height));
-    break;
-  };
-
-  // Ensure we never go across image boundary
-  output_roi.crop(image_box);
-
-  if (output_roi.empty()) return false;
-
-  return true;
-}
-
-/// Load the desired portion of a disparity tile and associated image weights.
-bool load_image_and_weights(std::string const& file_path, BBox2i const& roi,
+// Load an image and form its weights
+bool load_image_and_weights(std::string const& file_path,
                             DispImageType & image, WeightsType & weights) {
   // Verify image exists
   if (file_path == "")
     return false;
 
+  vw_out() << "Reading: " << file_path << std::endl;
+
+  // Verify that the disparity file is float, as expected
+  boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(file_path));
+  ChannelTypeEnum disp_data_type = rsrc->channel_type();
+  if (disp_data_type != VW_CHANNEL_FLOAT32)
+    vw_throw(ArgumentErr() << "Error: stereo_blend should only be called with float images.");
+  
   // Load the image from disk
-  DispImageType full_image = DiskImageType(file_path);
+  image = DiskImageType(file_path);
   
-  // Compute the desired weights
-  centerline_weights(full_image, weights, roi);
+  // Compute the desired weights. Strictly speaking we need to compute the weights
+  // only on the portion of the image that we will use for blending, but weights
+  // computation is a cheap operation comparing to I/O time.
+  centerline_weights(image, weights);
+
+#if 0
+  // For debugging
+  std::string weights_file = file_path + "_weight.tif";
   
-  // Extract the desired portion of the full image
-  image = crop(full_image, roi);
+  vw_out() << "Writing: " << weights_file << std::endl;
+  write_image(weights_file, weights);
+#endif
   
   return true;
 }
 
-/// Perform the blending
-void blend_tile_region(DispImageType      & main_image, WeightsType      & main_weights,
-                       BBox2i const& main_roi,
-                       DispImageType const& neighbor,   WeightsType const& neighbor_weights,
-                       BBox2i const& neighbor_roi) {
-
-  // Multiply-accumulate the image values, then accumulate the weights.
-  // Careful when dealing with no-data values.
-  DispImageType cropped_image   = crop(main_image,   main_roi);
-  WeightsType   cropped_weights = crop(main_weights, main_roi);
-
-  for (int col = 0; col < neighbor.cols(); col++) {
-    for (int row = 0; row < neighbor.rows(); row++) {
-      
-      if (!is_valid(neighbor(col, row)) || neighbor_weights(col, row) <= 0) continue;
-
-      // If there was no data before, there will be data now
-      cropped_image(col, row).validate();
-      cropped_image(col, row) += neighbor(col, row) * neighbor_weights(col, row);
-      cropped_weights(col, row) += neighbor_weights(col, row);
-    }
-  }
-
-  // Put the modified portion backs into the larger images
-  crop(main_image,   main_roi) = cropped_image;
-  crop(main_weights, main_roi) = cropped_weights;
-}
-
 struct BlendOptions {
-  std::string main_path;
-  BBox2i      main_roi;
-  std::string tile_paths[NUM_NEIGHBORS];
-  BBox2i      rois      [NUM_NEIGHBORS]; // TODO: Keep?
-  int sgm_collar_size;
-  
-  // Helper functions to indicate which directions tiles are present in
-  bool has_upper_tiles() const { 
-    return ((tile_paths[TILE_TL] != "") || (tile_paths[TILE_T] != "") || (tile_paths[TILE_TR] != ""));
-  };
-  bool has_lower_tiles() const { 
-    return ((tile_paths[TILE_BL] != "") || (tile_paths[TILE_B] != "") || (tile_paths[TILE_BR] != ""));
-  };
-  bool has_left_tiles() const { 
-    return ((tile_paths[TILE_TL] != "") || (tile_paths[TILE_L] != "") || (tile_paths[TILE_BL] != ""));
-  };
-  bool has_right_tiles() const { 
-    return ((tile_paths[TILE_TR] != "") || (tile_paths[TILE_R] != "") || (tile_paths[TILE_BR] != ""));
-  };
+  std::string main_path;    // the path to the main disparity to blend
+  BBox2i      main_roi;     // the main region of interest without padding
+  BBox2i      padded_main;  // the main region of interest with padding
+  std::string neib_path  [NUM_NEIGHBORS]; // the path to the neighbor disparity to blend
+  BBox2i      neib_roi   [NUM_NEIGHBORS]; // neighbor region of interest without padding
+  BBox2i      padded_neib[NUM_NEIGHBORS]; // neighbor region of interest with padding
+  int         pad_size;
+  BBox2i      full_box; // The box in which all tiles must fit, including their padding
+
+  // Add padding to a box
+  BBox2i add_padding(BBox2i box) {
+    box.expand(pad_size);
+    box.crop(full_box);
+    return box;
+  }
 };
 
+// Check if the dimensions of a tile agree with the box it is supposed to fit in
+void check_size(BBox2i const& bbox, std::string const& image_file) {
+  Vector2i image_size = file_image_size(image_file);
 
-/// Make sure the created ROIs are correct by design
-void check_roi_bounds(BBox2i & input_roi, BBox2i & tile_roi, BBox2i const& image_box) {
+  bool is_good = (bbox.width() == image_size.x() && bbox.height() == image_size.y());
+  if (!is_good) 
+    vw_throw(ArgumentErr() << "stereo_blend: File: " << image_file
+             << " is expected to fit in box: " << bbox);
+}
 
-  BBox2i original_input_roi = input_roi;
-  input_roi.crop(image_box);
+void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_opt) {
 
-  BBox2i original_tile_roi = tile_roi;
-  tile_roi.crop(image_box);
-
-  if (original_input_roi != input_roi || original_tile_roi != tile_roi) 
-    vw_throw(ArgumentErr() << "stereo_blend: Incorrect ROIs.");
-
-  if (input_roi.size() != tile_roi.size()) 
-    vw_throw(ArgumentErr() << "stereo_blend: Inner and outer ROI must be the same dimensions.");
-
-  // The code below should not be reached
+  std::string left_image = opt.out_prefix + "-L.tif";
+  Vector2i full_image_size = file_image_size(left_image);
+  blend_opt.full_box = BBox2i(0, 0, full_image_size.x(), full_image_size.y());
+  blend_opt.pad_size = stereo_settings().sgm_collar_size;
   
-  Vector2i min_movement = input_roi.min() - original_input_roi.min();
-  Vector2i max_movement = input_roi.max() - original_input_roi.max();
-
-  // Shrink this one as well, in the same way
-  //BBox2i original_tile_roi = tile_roi;
-  tile_roi.min() += min_movement;
-  tile_roi.max() += max_movement;
-}
-
-
-/// Blend the borders of an input disparity tile using the adjacent disparity tiles.
-DispImageType tile_blend(DispImageType const& input_image, BlendOptions & opt) {
-
-  const bool debug = false;
-
-  // The amount of padding applied to each tile.
-  int buff_size = opt.sgm_collar_size;
-
-  const bool GET_BUFFER   = true;
-  const bool NOT_BUFFER   = false;
-  const bool BUFFERS_GONE = true;
-
-  // Retrieve the output bounding box in the input image
-  BBox2i output_bbox;
-  bool ans = get_roi_from_tile(opt.main_path, TILE_M, buff_size, NOT_BUFFER, output_bbox);
-  if (!ans) 
-    vw_throw(ArgumentErr() << "stereo_blend: central region cannot be empty.");
-
-  // The bbox of the input image and the bbox that will be written as
-  // output, with the padding (buffer) removed.
-  // BBox2i input_bbox  = bounding_box(input_image);  
-
-  // Allocate the output image as a copy of the input image.
-  // - This sets the non-blended portion of the image.
-  DispImageType output_image = crop(input_image, output_bbox);
-
-  // Compute weights for the main tile
-  WeightsType main_weights;
-  centerline_weights(input_image, main_weights, output_bbox);
-
-  if (debug) {
-    write_image("main_image.tif",   output_image);
-    write_image("main_weights.tif", main_weights);
-  }
-
-  // Load the neighboring eight tiles
-  //Vector2i      tile_sizes [NUM_NEIGHBORS];
-  BBox2i        tile_rois  [NUM_NEIGHBORS]; // ROIs in the neighbors
-  BBox2i        input_rois [NUM_NEIGHBORS]; // ROIs in the main image
-  DispImageType images     [NUM_NEIGHBORS]; // Contains cropped regions
-  WeightsType   weights    [NUM_NEIGHBORS]; // Contains cropped regions
-
-  // Figure out the ROIs, load images, and initialize output blend values.
-  for (size_t i=0; i<NUM_NEIGHBORS; ++i) {
-
-    if (opt.tile_paths[i] == "")
-      continue;
-
-    try {
-      // Get the ROI from the cropped input image
-      bool ans1 = get_roi_from_tile(opt.main_path, TilePosition(i),
-                                    buff_size, NOT_BUFFER, input_rois[i],
-                                    BUFFERS_GONE);
-      // Get the ROI from the neighboring tile
-      bool ans2 = get_roi_from_tile(opt.tile_paths[i], get_opposed_position(TilePosition(i)), 
-                                    buff_size, GET_BUFFER, tile_rois[i]);
-
-      if (!ans1 || !ans2) continue; // nothing to blend
-
-      check_roi_bounds(input_rois[i], tile_rois[i], bounding_box(output_image));
-      load_image_and_weights(opt.tile_paths[i], tile_rois[i], images[i], weights[i]);
-      
-      if (debug) {
-        
-        write_image("tile_image_"  +position_string(i)+".tif", images [i]);
-        write_image("tile_weights_"+position_string(i)+".tif", weights[i]);
-      }
-      
-    } catch(std::exception const& e) {
-      vw_out(WarningMessage) << e.what() << std::endl;
-      vw_out(WarningMessage) << "Error loading tile " << opt.tile_paths[i] 
-                             << " but will proceed with the available tiles.\n";
-      opt.tile_paths[i] = ""; // Mark this tile as invalid
-    }
-
-  }
-
-  output_image *= main_weights;
-
-  // Blend in the neighbors one section at a time.
-  for (size_t i=0; i<NUM_NEIGHBORS; ++i) {
-    if (opt.tile_paths[i] == "") // Check tile validity
-      continue;
-    // We discard the neighboring tile mask here because the weights will take 
-    //  care of those pixels and we don't want to OR in the mask of the neighbor.
-    blend_tile_region(output_image,             main_weights, input_rois[i],
-                      validate_mask(images[i]), weights[i],   tile_rois[i]);
-  }
-
-  // Normalize the main image values to account for the applied weighting.
-  // Careful with zero weights. 
-  for (int col = 0; col < output_image.cols(); col++) {
-    for (int row = 0; row < output_image.rows(); row++) {
-      if (main_weights(col, row) != 0) 
-        output_image(col, row) /= main_weights(col, row);
-      else
-        output_image(col, row).invalidate();
-    }
-  }
-
-  return output_image;
-}
-
-
-void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_options) {
-
-  blend_options.main_path = opt.out_prefix + "-Dnosym.tif";
+  blend_opt.main_path = opt.out_prefix + "-Dnosym.tif";
 
   // Get the top level output folder for parallel_stereo
   boost::filesystem::path parallel_stereo_folder(opt.out_prefix);
@@ -480,119 +172,231 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
   }
   ifs.close();
   if (folder_list.empty()) 
-    vw_throw( ArgumentErr() << "Something is corrupted. Found an empty file: "
-              << dirList << ".\n" );
+    vw_throw(ArgumentErr() << "Something is corrupted. Found an empty file: "
+             << dirList << ".\n");
   
   // Get the main tile bbox from the subfolder name
-  boost::filesystem::path mpath(blend_options.main_path);
+  boost::filesystem::path mpath(blend_opt.main_path);
   std::string mbb = mpath.parent_path().filename().string();
 
-  blend_options.main_roi = bbox_from_folder(mbb);
-  BBox2i main_bbox = blend_options.main_roi;
-   
+  blend_opt.main_roi    = bbox_from_folder(mbb);
+  blend_opt.padded_main = blend_opt.add_padding(blend_opt.main_roi);
+  check_size(blend_opt.padded_main, blend_opt.main_path);
+  
+  BBox2i main_bbox = blend_opt.main_roi;
+
   // Figure out where each folder goes
   for (size_t i = 0; i < folder_list.size(); ++i) {
     BBox2i bbox = bbox_from_folder(folder_list[i]);
 
     std::string bbox_string = extract_process_folder_bbox_string(folder_list[i]);
     
+    // Note that folder_list[i] already has the output prefix relative to the
+    // directory parallel_stereo runs in.
     const std::string abs_path =
-      // parallel_stereo_folder.string() + "/" +
-      // Note that folder_list[i] already has the output prefix relative to the
-      // directory parallel_stereo runs in.
       folder_list[i] + "/" + bbox_string + "-Dnosym.tif";
 
     if (bbox.max().x() == main_bbox.min().x()) { // Tiles one column to left
       if (bbox.max().y() == main_bbox.min().y()) { // Top left
-        blend_options.tile_paths[TILE_TL] = abs_path;
-        blend_options.rois      [TILE_TL] = bbox;
+        blend_opt.neib_path[TILE_TL] = abs_path;
+        blend_opt.neib_roi [TILE_TL] = bbox;
         continue;
       }
       if (bbox.min().y() == main_bbox.min().y()) { // Left
-        blend_options.tile_paths[TILE_L] = abs_path;
-        blend_options.rois      [TILE_L] = bbox;
+        blend_opt.neib_path[TILE_L] = abs_path;
+        blend_opt.neib_roi [TILE_L] = bbox;
         continue;
       }
       if (bbox.min().y() == main_bbox.max().y()) { // Bot left
-        blend_options.tile_paths[TILE_BL] = abs_path;
-        blend_options.rois      [TILE_BL] = bbox;
+        blend_opt.neib_path[TILE_BL] = abs_path;
+        blend_opt.neib_roi [TILE_BL] = bbox;
         continue;
       }
     } // End left tiles
+    
     if (bbox.min().x() == main_bbox.max().x()) { // Tiles one column to right
       if (bbox.max().y() == main_bbox.min().y()) { // Top right
-        blend_options.tile_paths[TILE_TR] = abs_path;
-        blend_options.rois      [TILE_TR] = bbox;
+        blend_opt.neib_path[TILE_TR] = abs_path;
+        blend_opt.neib_roi [TILE_TR] = bbox;
         continue;
       }
       if (bbox.min().y() == main_bbox.min().y()) { // Right
-        blend_options.tile_paths[TILE_R] = abs_path;
-        blend_options.rois      [TILE_R] = bbox;
+        blend_opt.neib_path[TILE_R] = abs_path;
+        blend_opt.neib_roi [TILE_R] = bbox;
         continue;
       }
       if (bbox.min().y() == main_bbox.max().y()) { // Bot right
-        blend_options.tile_paths[TILE_BR] = abs_path;
-        blend_options.rois      [TILE_BR] = bbox;
+        blend_opt.neib_path[TILE_BR] = abs_path;
+        blend_opt.neib_roi [TILE_BR] = bbox;
         continue;
       }
     } // End right tiles
+    
     if (bbox.min().x() == main_bbox.min().x()) { // Tiles in same column
       if (bbox.max().y() == main_bbox.min().y()) { // Top
-        blend_options.tile_paths[TILE_T] = abs_path;
-        blend_options.rois      [TILE_T] = bbox;
+        blend_opt.neib_path[TILE_T] = abs_path;
+        blend_opt.neib_roi [TILE_T] = bbox;
         continue;
       }
       if (bbox.min().y() == main_bbox.max().y()) { // Bottom
-        blend_options.tile_paths[TILE_B] = abs_path;
-        blend_options.rois      [TILE_B] = bbox;
+        blend_opt.neib_path[TILE_B] = abs_path;
+        blend_opt.neib_roi [TILE_B] = bbox;
         continue;
       }
     }
-    //vw_throw( ArgumentErr() << "Unrecognized folder location: " << folder_list[i] );
   }
-  
-  //vw_throw( ArgumentErr() << "DEBUG!" );
 
-  blend_options.sgm_collar_size = stereo_settings().sgm_collar_size;
+  // Compute the padded box for each neighbor
+  for (int i = 0; i < NUM_NEIGHBORS; i++) {
+    
+    if (blend_opt.neib_path[i] == "") 
+      continue; // no neighbor in that direction
+
+    blend_opt.padded_neib[i] = blend_opt.add_padding(blend_opt.neib_roi[i]);
+    check_size(blend_opt.padded_neib[i], blend_opt.neib_path[i]);
+  }
+
 }
 
-void stereo_blending( ASPGlobalOptions const& opt ) {
+// See if a given image has only invalid pixels
+bool invalid_image(DispImageType const& image) {
+  for (int col = 0; col < image.cols(); col++) {
+    for (int row = 0; row < image.rows(); row++) {
+      if (is_valid(image(col, row))) {
+        // Found a valid pixel
+        return false;
+      }
+    }
+  }
 
-  BlendOptions blend_options;
-  fill_blend_options(opt, blend_options);
+  return true;
+}
+
+/// Blend the borders of the main tile using the neighboring
+/// tiles.
+DispImageType tile_blend(ASPGlobalOptions const& opt,
+                         BlendOptions & blend_opt) {
+
+  const bool debug = true;
+
+  // While all the main tile and neighbor tiles have padding, we will save
+  // the blended main tile without padding.
+
+  // Start the output image as invalid and zero. It will be used to
+  // accumulate the weighted disparities.
+  DispImageType output_image(blend_opt.main_roi.width(), blend_opt.main_roi.height()); 
+  for (int col = 0; col < output_image.cols(); col++) {
+    for (int row = 0; row < output_image.rows(); row++) {
+      output_image(col, row) = PixelMask<Vector2f>(); 
+      output_image(col, row).invalidate();
+    }
+  }
+  
+  // Accumulate here the weights
+  WeightsType output_weights(blend_opt.main_roi.width(), blend_opt.main_roi.height());
+  for (int col = 0; col < output_weights.cols(); col++) {
+    for (int row = 0; row < output_weights.rows(); row++) {
+      output_weights(col, row) = 0.0; 
+    }
+  }
+
+  // Add the contribution from the main tile and neighboring tiles. Note
+  // that i = -1 corresponds to the main tile.
+  for (int i = -1; i < NUM_NEIGHBORS; i++) {
+
+    DispImageType image;
+    WeightsType weights;
+    BBox2i padded_box;
+    
+    if (i == -1) {
+      // Main tile
+      // The main tile better exist
+      bool ans = load_image_and_weights(blend_opt.main_path, image, weights);
+      if (!ans) 
+        vw_throw(ArgumentErr() << "stereo_blend: main tile is missing.");
+
+      padded_box = blend_opt.padded_main;
+      
+      // If there are no valid pixels in the main tile without its padding,
+      // return an invalid blended tile.
+      if (invalid_image(crop(image, blend_opt.main_roi - blend_opt.padded_main.min())))
+        return output_image;
+      
+    } else {
+      // A neighboring tile
+      bool ans = load_image_and_weights(blend_opt.neib_path[i], image, weights);
+      if (!ans)
+        continue; // Nothing to blend
+
+      padded_box = blend_opt.padded_neib[i];
+    }
+
+    // Do the blending, either with the main or neighboring tiles
+    for (int col = 0; col < output_image.cols(); col++) {
+      for (int row = 0; row < output_image.rows(); row++) {
+
+        // Convert the given pixel to the coordinate system of the full image
+        Vector2 pix = Vector2(col, row) + blend_opt.main_roi.min();
+
+        // Convert the pixel to the coordinate system of the current padded tile
+        pix = pix - padded_box.min();
+
+        // Padded tiles can overlap only partially with the central region of the main
+        // tile. If not in the overlap region, skip the work.
+        if (!vw::bounding_box(image).contains(pix)) 
+          continue;
+
+        if (!is_valid(image(pix[0], pix[1])) || weights(pix[0], pix[1]) <= 0.0) 
+          continue; // No useful info
+
+        output_image(col, row).validate();
+        output_image(col, row)   += weights(pix[0], pix[1]) * image(pix[0], pix[1]);
+        output_weights(col, row) += weights(pix[0], pix[1]);
+      }
+    }
+  }
+  
+  // Normalize
+  for (int col = 0; col < output_image.cols(); col++) {
+    for (int row = 0; row < output_image.rows(); row++) {
+      
+      if (!is_valid(output_image(col, row)))
+        continue;
+      
+      if (output_weights(col, row) <= 0) {
+        output_image(col, row).invalidate();
+        continue;
+      }
+      
+      output_image(col, row) /= output_weights(col, row);
+    }
+  }
+  
+  return output_image;
+}
+
+void stereo_blending(ASPGlobalOptions const& opt) {
+
+  BlendOptions blend_opt;
+  fill_blend_options(opt, blend_opt);
 
   // This tool is only intended to run as part of parallel_stereo, which
   //  renames the normal -D.tif file to -Dnosym.tif.
 
-  // Since this tool is only for follow-up processing of SGM results in
-  //  parallel_stereo, it can be safely assumed that the input images are small enough
-  //  to load entirely into memory.
-  DispImageType center_tile_disp;
+  // Since this tool is only for follow-up processing of SGM results
+  // in parallel_stereo, it can be safely assumed that the input
+  // images are small enough to load entirely into memory.
 
-  try {
-
-    // Verify that the input correlation file is float, indicating SGM processing.
-    // - No need to run the blend operation on integer files!
-    boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(blend_options.main_path));
-    ChannelTypeEnum disp_data_type = rsrc->channel_type();
-    if (disp_data_type == VW_CHANNEL_INT32)
-      vw_throw(ArgumentErr() << "Error: stereo_blend should only be called with float images.");
-    center_tile_disp = DiskImageType(blend_options.main_path);
-    
-  } catch (IOErr const& e) {
-    vw_throw( ArgumentErr() << "\nUnable to start at blending stage, could not read input files.\n" 
-              << e.what() << "\nExiting.\n\n" );
-  }
-  
   cartography::GeoReference left_georef;
-  bool   has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
+  std::string left_image = opt.out_prefix + "-L.tif";
+  bool   has_left_georef = read_georeference(left_georef,  left_image);
   bool   has_nodata      = false;
   double nodata          = -32768.0;
 
-  DispImageType blended_disp = tile_blend(center_tile_disp, blend_options);
+  DispImageType blended_disp = tile_blend(opt, blend_opt);
 
   string out_file = opt.out_prefix + "-B.tif";
-  if (stereo_settings().subpixel_mode > 6 ){
+  if (stereo_settings().subpixel_mode > 6){
     // No further subpixel refinement, skip to the -RD output.
     out_file = opt.out_prefix + "-RD.tif";
   }
@@ -600,7 +404,7 @@ void stereo_blending( ASPGlobalOptions const& opt ) {
   vw::cartography::block_write_gdal_image(out_file, blended_disp,
                                           has_left_georef, left_georef,
                                           has_nodata, nodata, opt,
-                                          TerminalProgressCallback("asp", "\t--> Blending :") );
+                                          TerminalProgressCallback("asp", "\t--> Blending :"));
 }
 
 int main(int argc, char* argv[]) {
@@ -623,7 +427,7 @@ int main(int argc, char* argv[]) {
     int ts = ASPGlobalOptions::rfne_tile_size();
     opt.raster_tile_size = Vector2i(ts, ts);
 
-    // Internal Processes
+    // Internal processes
     //---------------------------------------------------------
     stereo_blending(opt);
 
