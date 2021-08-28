@@ -62,7 +62,7 @@ dependencies:
   - libcurl=7.64.0=h76de61e_0
   - libcxx=12.0.1=habf9029_0
   - libedit=3.1.20191231=h0678c8f_2
-  - libelas=isis5.0.1=0
+  - libelas=isis5.0.1
   - libffi=3.2.1=hb1e8313_1007
   - libgcc=4.8.5=hdbeacc1_10
   - libgdal=2.4.1_isis5.0.1=h01edc0c_0

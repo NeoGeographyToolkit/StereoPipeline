@@ -69,7 +69,7 @@ dependencies:
   - libcblas=3.8.0=17_openblas
   - libcurl=7.64.0=h01ee5af_0
   - libedit=3.1.20191231=he28a2e2_2
-  - libelas=isis5.0.1=h3fd9d12_0
+  - libelas=isis5.0.1
   - libffi=3.2.1=he1b5a44_1007
   - libgcc=7.2.0=h69d50b8_2
   - libgcc-ng=9.3.0=h2828fa1_19
