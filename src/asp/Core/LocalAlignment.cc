@@ -41,7 +41,7 @@ using namespace vw;
 namespace fs = boost::filesystem;
 
 // Debug logic
-#define DEBUG_IP 0
+#define DEBUG_ALIGNMENT 0
 
 namespace asp {
 
@@ -125,7 +125,7 @@ namespace asp {
         right_trans_ip.back().y = right_pt.y();
       }
 
-#if DEBUG_IP
+#if DEBUG_ALIGNMENT
       std::string out_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
                                                               "L.tif", "R.tif");
       vw_out() << "Writing match file: " << out_match_filename << "\n";
@@ -183,7 +183,7 @@ namespace asp {
       right_global_ip.back().y = right_pt.y();
     }
     
-#if DEBUG_IP
+#if DEBUG_ALIGNMENT
     std::string unaligned_match_filename = vw::ip::match_filename(opt.out_prefix + "-tile",
                                                                   opt.in_file1,
                                                                   opt.in_file2);
@@ -370,7 +370,7 @@ namespace asp {
                     "" // do not save any match file to disk
                     );
 
-#if DEBUG_IP 
+#if DEBUG_ALIGNMENT 
     {
       vw::cartography::GeoReference georef;
       bool has_georef = false, has_nodata = true;
@@ -556,7 +556,7 @@ namespace asp {
       disp_range.grow(right_pt - left_pt);
     }
     
-#if DEBUG_IP
+#if DEBUG_ALIGNMENT
     std::string local_aligned_match_filename
       = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
     vw_out() << "Writing match file: " << local_aligned_match_filename << "\n";

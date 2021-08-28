@@ -7,8 +7,7 @@ bundle_adjust:
     image matching and other steps.
 
 stereo:
-  * Fixes for reliability of stereo with local alignment in corner
-  * cases.
+  * Many fixes for reliability of stereo with local alignment.
   * ASP's SGM and MGM algorithms will always use the cross-check for
     disparity by default, to improve the quality, even if that takes
     more time. It can be turned off with --xcorr-threshold -1.

@@ -1494,6 +1494,9 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
         + "-m " + vw::num_to_str(min_disp) + " -M " + vw::num_to_str(max_disp);
       
     } else if (alg_name == "libelas"){
+      // For some reasons libelas fails with a tight search range
+      int extra = 10 + std::max(0, min_disp);
+      vw_out() << "For libelas, grow the search range on each end by " << extra << ".\n";
       default_opts = std::string("-support_threshold 0.85 -support_texture 10 ")
         + "-candidate_stepsize 5 -incon_window_size 5 "
         + "-incon_threshold 5 -incon_min_support 5 "
@@ -1502,8 +1505,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
         + "-match_texture 1 -lr_threshold 2 -speckle_sim_threshold 1 "
         + "-speckle_size 200 -ipol_gap_width 3 -filter_median 0 "
         + "-filter_adaptive_mean 1 -postprocess_only_left 0 "
-        + "-disp_min " + vw::num_to_str(min_disp) + " "
-        + "-disp_max " + vw::num_to_str(max_disp);
+        + "-disp_min " + vw::num_to_str(min_disp - extra) + " "
+        + "-disp_max " + vw::num_to_str(max_disp + extra);
     }else {
       // No defaults for other algorithms
     }
