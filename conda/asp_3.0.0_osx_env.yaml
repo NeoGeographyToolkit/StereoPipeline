@@ -65,7 +65,7 @@ dependencies:
   - libelas=isis5.0.1
   - libffi=3.2.1=hb1e8313_1007
   - libgcc=4.8.5=hdbeacc1_10
-  - libgdal=2.4.1_isis5.0.1=h01edc0c_0
+  - libgdal=2.4.1_isis5.0.1
   - libgfortran=3.0.1=0
   - libiconv=1.15=h0b31af3_1006
   - liblapack=3.8.0=17_openblas

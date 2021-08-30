@@ -22,7 +22,6 @@ dependencies:
   - ceres-solver=1.14.0=h0948850_10
   - certifi=2021.5.30=py36h5fab9bb_0
   - chrpath=0.16=h7f98852_1002
-  - cmake=3.16.0=hf94ab9c_0
   - csm=3.0.3.3=hc9558a2_0
   - cspice=66=h7f98852_1014
   - curl=7.64.0=h646f8bb_0
@@ -56,7 +55,7 @@ dependencies:
   - icu=58.2=hf484d3e_1000
   - ilmbase=2.5.5=h780b84a_0
   - imagemagick=isis5.0.1=h3fd9d12_0
-  - inja=3.2.0=h9c3ff4c_0
+  - inja=3.3.0=h9c3ff4c_0
   - isis=5.0.1=0
   - jama=125=0
   - jasper=1.900.1=h07fcdf6_1006
@@ -65,20 +64,21 @@ dependencies:
   - kernel-headers_linux-64=3.10.0=h4a8ded7_12
   - krb5=1.16.3=hc83ff2d_1000
   - laszip=2.1.0=hf484d3e_1
+  - ld_impl_linux-64=2.35.1=h7274673_9
   - libblas=3.8.0=17_openblas
   - libcblas=3.8.0=17_openblas
   - libcurl=7.64.0=h01ee5af_0
   - libedit=3.1.20191231=he28a2e2_2
-  - libelas=isis5.0.1
+  - libelas=isis5.0.1=h3fd9d12_0
   - libffi=3.2.1=he1b5a44_1007
   - libgcc=7.2.0=h69d50b8_2
-  - libgcc-ng=9.3.0=h2828fa1_19
+  - libgcc-ng=11.1.0=hc902ee8_8
   - libgdal=2.4.1_isis5.0.1=h3fd9d12_0
   - libgfortran=3.0.0=1
   - libgfortran-ng=7.5.0=h14aa051_19
   - libgfortran4=7.5.0=h14aa051_19
-  - libglvnd-cos7-x86_64=1.0.1=h9d98e8f_1104
-  - libgomp=9.3.0=h2828fa1_19
+  - libglvnd-cos7-x86_64=1.0.1=h9b0a68f_1105
+  - libgomp=11.1.0=hc902ee8_8
   - libiconv=1.15=h516909a_1006
   - liblapack=3.8.0=17_openblas
   - liblas=isis5.0.1=h3fd9d12_1000
@@ -89,24 +89,23 @@ dependencies:
   - libpq=10.6=h13b8bad_1000
   - libprotobuf=3.9.2=h8b12597_0
   - libssh2=1.8.0=h1ad7b7a_1003
-  - libstdcxx-ng=9.3.0=h6de172a_19
+  - libstdcxx-ng=11.1.0=h56837e0_8
   - libtiff=4.0.10=hc3755c2_1005
   - libuuid=2.32.1=h7f98852_1000
-  - libuv=1.42.0=h7f98852_0
   - libwebp=0.5.2=7
   - libxcb=1.13=h7f98852_1003
   - libxml2=2.9.9=h13577e0_2
   - llvm-openmp=8.0.1=hc9558a2_0
-  - lz4-c=1.9.3=h9c3ff4c_0
+  - lz4-c=1.9.3=h9c3ff4c_1
   - mesalib=18.3.1=h590aaf7_0
   - metis=5.1.0=h58526e2_1006
-  - mpfr=4.0.2=he80fd80_1
+  - mpfr=4.1.0=h9202a9a_1
   - mysql=5.7.20=hf484d3e_1001
   - mysql-connector-c=6.1.11=hab6429c_1002
   - nanoflann=1.3.2=ha770c72_0
-  - ncurses=6.2=h58526e2_4
+  - ncurses=6.2=he6710b0_1
   - networkx=2.5=py_0
-  - nlohmann_json=3.9.1=h9c3ff4c_1
+  - nlohmann_json=3.10.2=h9c3ff4c_0
   - nn=1.86.0=h14c3975_2003
   - numpy=1.13.3=py36_blas_openblas_200
   - openblas=0.2.19=2
@@ -115,12 +114,12 @@ dependencies:
   - openjpeg=2.1.0=6
   - openmp=8.0.1=0
   - openssl=1.0.2u=h516909a_0
-  - parallel=20210622=ha770c72_0
+  - parallel=20210822=ha770c72_0
   - pbzip2=1.1.13=0
   - pcl=1.9.1=h482114b_1002
   - pcre=8.45=h9c3ff4c_0
   - perl=5.32.1=0_h7f98852_perl5
-  - pip=21.1.3=pyhd8ed1ab_0
+  - pip=21.0.1=py36h06a4308_0
   - pixman=0.34.0=h14c3975_1003
   - postgresql=10.6=h66cca7a_1000
   - proj4=5.2.0=he1b5a44_1006
@@ -131,15 +130,14 @@ dependencies:
   - python-dateutil=2.8.2=pyhd8ed1ab_0
   - python_abi=3.6=2_cp36m
   - pytz=2021.1=pyhd8ed1ab_0
-  - pyyaml=5.4.1=py36h8f6f2f9_0
+  - pyyaml=5.4.1=py36h8f6f2f9_1
   - qhull=7.2.0=0
   - qt=5.9.6=7
   - qwt=6.1.3=0
   - readline=7.0=hf8c457e_1001
-  - rhash=1.4.1=h7f98852_0
   - s2p-subset=isis5.0.1=h3fd9d12_0
   - scipy=1.2.1=py36h09a28d5_1
-  - setuptools=49.6.0=py36h5fab9bb_3
+  - setuptools=52.0.0=py36h06a4308_0
   - six=1.16.0=pyh6c4a22f_0
   - spiceypy=2.3.2=py_0
   - sqlite=3.28.0=h8b20d00_0
@@ -149,12 +147,12 @@ dependencies:
   - sysroot_linux-64=2.17=h4a8ded7_12
   - tbb=2020.2=h4bd325d_4
   - theia=isis5.0.1=h3fd9d12_1001
-  - tk=8.6.10=h21135ba_1
+  - tk=8.6.10=hbc83047_0
   - tnt=126=0
   - tzcode=2021a=h7f98852_2
   - usgscsm=1.5.2=h2bc3f7f_0
   - visionworkbench=3.0.0=h3fd9d12_0
-  - wheel=0.36.2=pyhd3deb0d_0
+  - wheel=0.37.0=pyhd3eb1b0_0
   - x264=20131218=0
   - xerces-c=3.1.4=0
   - xorg-fixesproto=5.0=h7f98852_1002
@@ -172,8 +170,7 @@ dependencies:
   - xorg-renderproto=0.11.1=h7f98852_1002
   - xorg-xextproto=7.3.0=h7f98852_1002
   - xorg-xproto=7.0.31=h7f98852_1007
-  - xz=5.2.5=h516909a_1
+  - xz=5.2.5=h7b6447c_0
   - yaml=0.2.5=h516909a_0
-  - zlib=1.2.11=h516909a_1010
+  - zlib=1.2.11=h7b6447c_3
   - zstd=1.4.9=ha95c52a_0
-
