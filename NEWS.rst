@@ -15,6 +15,11 @@ stereo:
 stereo_gui: 
   * Bugfix with overlaying shapefiles with different georeferences.
 
+mapproject:
+  * If the input image file has an embedded RPC camera model, append
+    it to the output maprojected file. (Which makes stereo with
+    mapprojected images work correctly in this case.)
+
 Misc:
 
   * Added the tool parse_match_file.py to convert a binary match file

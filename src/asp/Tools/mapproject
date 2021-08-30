@@ -169,6 +169,74 @@ def writeSingleTile(options):
 
     return 0
 
+def parse_gdal_metadata(filename, meta_label):
+    """
+    Seek out the metadata for the given label in a tif file and return
+    that metadata as a map having key and value pairs. Use gdalinfo
+    to query the tif file.
+    """
+    args=[filename]
+    sep = ""
+    verbose = False
+    gdal_settings = asp_system_utils.run_and_parse_output("gdalinfo", args, sep,
+                                                          verbose, return_full_lines = True)
+    meta_dict = {}
+    parseBlock = False
+    
+    for v in sorted(gdal_settings.keys()):
+
+        if gdal_settings[v] == meta_label + ':':
+            # Just reached the line with the label, so need to parse
+            # the block of next several lines which start with a
+            # space. Notice how above there is a column at the end of
+            # the label line.
+            parseBlock = True 
+            continue
+        
+        if len(gdal_settings[v]) == 0 or gdal_settings[v][0] != " ":
+            # Another block started
+            if parseBlock:
+                # Past the current block, time to stop
+                break
+            else:
+                # Did not reach the desired block yet
+                continue
+
+        if len(gdal_settings[v]) > 0 and parseBlock:
+            # In the desired block
+            m = re.match("^\s*(.*?)\s*=\s*(.*?)\s*$", gdal_settings[v])
+            if not m:
+                continue
+            meta_dict[m.group(1)] = m.group(2)
+
+    return meta_dict
+
+def format_metadata(meta_label, meta_dict):
+    """
+    Format the metadata with given label and entries as the GDAL VRT
+    format expects it.
+    """
+
+    # From meta_label = "RPC Metadata" extract "RPC".
+    vrt_domain = ""
+    m = re.match("^([\w]+)\s+Metadata", meta_label)
+    if m:
+        vrt_domain = m.group(1)
+
+    # The VRT format is quite particular
+    # https://gdal.org/drivers/raster/vrt.html
+    if vrt_domain == "":
+        meta_lines = ["  <Metadata>\n"]
+    else:
+        meta_lines = ["  <Metadata domain=\"" + vrt_domain + "\">\n"]
+        
+    for v in sorted(meta_dict.keys()):
+        line = "    <MDI key=\"" + v + "\">" + meta_dict[v] + "</MDI>\n"
+        meta_lines.append(line)
+    meta_lines.append("  </Metadata>\n")
+
+    return meta_lines
+    
 #------------------------------------------------------------------------------
 
 # If there is an input _RPC.TXT or .RPB, create such an output file as well,
@@ -287,12 +355,21 @@ def main(argsIn):
     if spawnedCopy: # This copy was spawned to process a single tile
         return writeSingleTile(options) # Just call a function to handle this and then we are done!
 
+    # Now we are in the main process, not in a spawned copy
+
+    # See if the input tif file has RPC coefficients embedded in it.
+    # In that case need to save them later in the output mapprojected
+    # image.
+    rpc_label = 'RPC Metadata'
+    rpc_dict  = parse_gdal_metadata(options.imagePath, rpc_label)
+    rpc_lines = format_metadata(rpc_label, rpc_dict)
+    
     # If the input image is not an ISIS image, and we are running on a
     # single machine, and the user did not specify how many processes
-    # to use, we can just use the multi-threading capability of the
-    # ordinary mapproject call.
-    if (not asp_image_utils.isIsisFile(options.imagePath)) and (not options.nodesListPath)\
-           and (options.numProcesses is None):
+    # to use, and there are no rpc coeffs to save, we can just use the
+    # multi-threading capability of the ordinary mapproject call.
+    if (not asp_image_utils.isIsisFile(options.imagePath)) and (not options.nodesListPath) \
+           and (options.numProcesses is None) and len(rpc_dict) == 0:
         cmd = ['mapproject_single',  options.demPath,
                 options.imagePath, options.cameraPath, options.outputPath]
         cmd = cmd + options.extraArgs
@@ -338,8 +415,9 @@ def main(argsIn):
     numTiles = numTilesX * numTilesY
 
     print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + ' tiles.')
-    # If there is only going to be one output tile, just use the non-parallel call
-    if (numTilesX*numTilesY == 1):
+    # If there is only going to be one output tile, and there are no rpc coefficients
+    # to save, just use the non-parallel call
+    if (numTilesX*numTilesY == 1 and len(rpc_dict) == 0):
         cmd = ['mapproject_single',  options.demPath,
                 options.imagePath, options.cameraPath, options.outputPath]
         cmd = cmd + options.extraArgs
@@ -352,12 +430,11 @@ def main(argsIn):
             maybe_copy_rpc(options.imagePath, options.outputPath)
         return 0
 
-
     # Set up output folder
     outputFolder = os.path.dirname(options.outputPath)
     if outputFolder == '':
         outputFolder = './' # Handle calls in same directory
-    outputName   = os.path.basename(options.outputPath)
+    outputName = os.path.basename(options.outputPath)
     asp_file_utils.createFolder(outputFolder)
 
     # Make a temporary directory to store the tiles
@@ -422,7 +499,6 @@ def main(argsIn):
     commandList   = commandList + options.extraArgs # Append other options
     commandString = asp_string_utils.argListToString(commandList)
 
-
     # Use GNU parallel call to distribute the work across computers
     # - This call will wait until all processes are finished
     asp_system_utils.runInGnuParallel(options.numProcesses, commandString,
@@ -450,42 +526,26 @@ def main(argsIn):
         print("gdalbuildvrt error ", ret)
         exit(1)
 
-    # Modify the vrt to append some metadata from the original tiles
+    # Modify the vrt to append some metadata from the original tiles or the input file
     if not options.noGeoHeaderInfo:
-        args=[tiles[0]]
-        sep = ""
-        verbose = False
-        gdal_settings = asp_system_utils.run_and_parse_output( "gdalinfo", args, sep,
-                                                               verbose, return_full_lines = True)
-        meta_dict = {}
-        isGood = False
-        for v in sorted(gdal_settings.keys()):
-            # Parse only the values beween 'Metadata:' and 'Image Structure Metadata:'
-            if gdal_settings[v] == 'Metadata:':
-                isGood = True
-                continue
-            if gdal_settings[v] == 'Image Structure Metadata:':
-                isGood = False
-                break
-            if not isGood:
-                continue
+        meta_label = 'Metadata'
+        meta_dict  = parse_gdal_metadata(tiles[0], meta_label)
+        meta_lines = format_metadata(meta_label, meta_dict)
 
-            m = re.match("^\s*(.*?)\s*=\s*(.*?)\s*$", gdal_settings[v])
-            if not m:
-                continue
-            meta_dict[m.group(1)] = m.group(2)
-
-        meta = ["  <Metadata>\n"]
-        for v in sorted(meta_dict.keys()):
-            line = "    <MDI key=\"" + v + "\">" + meta_dict[v] + "</MDI>\n"
-            meta.append(line)
-        meta.append("  </Metadata>\n")
-
-        # Append the metadata after the first line in the vrt.
+        # Insert the metadata after the first line in the vrt.
         f = open(vrtPath, "r")
         lines = f.readlines()
+        lines_before = [ lines[0] ]
+        lines_after  = lines[1:len(lines)]
         f.close()
-        lines = [ lines[0] ] + meta + lines[1:len(lines)]
+
+        lines = lines_before + meta_lines
+
+        if len(rpc_dict) > 0:
+            lines += rpc_lines
+
+        lines += lines_after
+        
         f = open(vrtPath, "w")
         f.writelines(lines)
         f.close()

@@ -211,12 +211,12 @@ void write_parallel_type( std::string              const& filename,
 }
 
 template <class ImageT>
-void write_parallel_cond( std::string              const& filename,
-                          ImageViewBase<ImageT>    const& image,
-                          GeoReference             const& georef,
-                          bool has_nodata, double nodata_val,
-                          Options                  const& opt,
-                          TerminalProgressCallback const& tpc ) {
+void write_parallel_cond(std::string              const& filename,
+                         ImageViewBase<ImageT>    const& image,
+                         GeoReference             const& georef,
+                         bool has_nodata, double nodata_val,
+                         Options                  const& opt,
+                         TerminalProgressCallback const& tpc) {
 
   // TODO: Relying on StereoSession to handle this mapproject stuff is problematic!
   // Save the session type. Later in stereo we will check that we use
