@@ -175,7 +175,7 @@ def parse_gdal_metadata(filename, meta_label):
     that metadata as a map having key and value pairs. Use gdalinfo
     to query the tif file.
     """
-    args=[filename]
+    args = [filename]
     sep = ""
     verbose = False
     gdal_settings = asp_system_utils.run_and_parse_output("gdalinfo", args, sep,

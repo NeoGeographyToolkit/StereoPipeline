@@ -834,13 +834,12 @@ tutorial in :numref:`dg_tutorial`.
 RPC Images, including GeoEye, Airbus, Cartosat-1, and PeruSat-1
 ----------------------------------------------------------------
 
-Some vendors, such as GeoEye with its Ikonos and two GeoEye satellites,
-and Airbus, with its SPOT and Pleiades satellites, the Indian
-Cartosat-1 satellite provide only Rational Polynomial Camera (RPC)
-models. DigitalGlobe/Maxar provides both exact linescan camera models and
-their RPC approximations and ASP supports both. Apparently such is the
-case as well for PeruSat-1, but ASP supports only the RPC model for this
-satellite.
+Some vendors, such as GeoEye with its Ikonos and two GeoEye
+satellites, Airbus, with its SPOT and Pleiades satellites, the Indian
+Cartosat-1 satellite, PeruSat-1, the Spanish Deimos 1 and 2, etc.,
+provide Rational Polynomial Coefficient (RPC) camera
+models. (DigitalGlobe/Maxar provides both exact linescan camera models
+and their RPC approximations and ASP supports both.)
 
 RPC represents four 20-element polynomials that map geodetic coordinates
 (longitude-latitude-height above datum) to image pixels. Since they are
@@ -867,7 +866,7 @@ containing camera information. This is specifically the case for GeoEye,
 and Cartosat-1. Otherwise, the camera files must be specified separately
 in XML files, as done for DigitalGlobe/Maxar images (:numref:`rawdg`) and PeruSat-1.
 
-For a first test, you can download an example stereo pair from GeoEye’s
+For a first test, you can download an example stereo pair from GeoEye's
 website at :cite:`geoeye:samples`. When we accessed the
 site, we downloaded a GeoEye-1 image of Hobart, Australia. As previously
 stated in the DigitalGlobe/Maxar section, these types of images are not ideal
@@ -908,9 +907,10 @@ described in :numref:`mapproj-example`. As above,
 if the cameras are specified separately (as xml files), they should be
 on the command line, otherwise they can be omitted.
 
-If the RPC coefficients are not stored in the original Tif images, but
-rather in associated .RPB or \_RPC.TXT files, ``mapproject`` creates
-these files automatically for each map-projected image.
+If the RPC coefficients are stored in the input images, ``mapproject``
+copies them to the output mappprojected images. If these coefficients
+are in the associated .RPB or \_RPC.TXT files, ``mapproject`` creates
+such files for each mapprojected image.
 
 .. _stereo.default-7:
 
