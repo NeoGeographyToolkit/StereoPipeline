@@ -74,15 +74,6 @@ are kept separate.
     conda install -c conda-forge anaconda-client conda-build \
       conda-verify cmake git
 
-For Linux, install in addition the needed compilers::
-
-    conda install -c conda-forge gcc_linux-64 gxx_linux-64 \
-      gfortran_linux-64
-
-For OSX, we will use the default system Clang compilers for C, C++,
-and Fortran, as the conda-provided ones turned out to have issues in
-our experiments.
-
 Fetch the recipes to build
 --------------------------
 
@@ -140,7 +131,7 @@ which the release happens in the VisionWorkbench and StereoPipeline
 repositories, and then that tag can be used in the ``git_tag`` field.)
 
 Later on, after the packages are built and tested, ensure that all the
-feedstock repositories are committed back.
+changes to the feedstock repositories are checked in.
 
 Build the conda packages
 ------------------------
