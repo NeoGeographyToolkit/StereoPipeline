@@ -464,9 +464,9 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs) {
   paramDense.m_strOutPath = m_strOutPath;
   //paramDense.m_strDispX = m_strDispX;
   //paramDense.m_strDispY = m_strDispY;
-  paramDense.m_Mask = m_Mask;
+  //paramDense.m_Mask = m_Mask;
 
-  CDensify densify(paramDense, vecTPs, m_imgL, m_imgR, m_input_dispX, m_input_dispY);
+  CDensify densify(paramDense, vecTPs, m_imgL, m_imgR, m_input_dispX, m_input_dispY, m_Mask);
   cout << "CASP-GO INFO: performing Gotcha densification" << endl;
   int nErrCode = densify.performDensitification();
   if (nErrCode != CDensifyParam::NO_ERR){

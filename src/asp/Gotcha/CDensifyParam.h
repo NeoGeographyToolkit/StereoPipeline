@@ -17,7 +17,6 @@ public:
   //std::string m_strTPFile;
   //std::string m_strDispX;
   //std::string m_strDispY;
-  cv::Mat m_Mask;
   std::string m_strUpdatedDispX;
   std::string m_strUpdatedDispY;
   std::string m_strUpdatedDispSim;

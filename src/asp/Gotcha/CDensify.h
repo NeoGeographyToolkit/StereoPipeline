@@ -24,11 +24,11 @@ public:
   CDensify();
   CDensify(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
            cv::Mat imgL, cv::Mat imgR,
-           cv::Mat input_dispX, cv::Mat input_dispY);
+           cv::Mat input_dispX, cv::Mat input_dispY, cv::Mat Mask);
 
   void setParameters(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
                      cv::Mat imgL, cv::Mat imgR,
-                     cv::Mat input_dispX, cv::Mat input_dispY);
+                     cv::Mat input_dispX, cv::Mat input_dispY, cv::Mat Mask);
   
     int performDensitification();
     int getNumTotTps() const {return m_vectpAdded.size();}
@@ -40,7 +40,7 @@ public:
         return "GOTCHA_FROM_DISP";
     }
 private:
-    void loadImages();
+    //void loadImages();
     std::vector<CTiePt> getIntToFloatSeed(std::vector<CTiePt>& vecTPSrc); // get integer Seed point pairs from a float seed point pair
     bool doGotcha(const cv::Mat& matImgL, const cv::Mat& matImgR, std::vector<CTiePt>& vectpSeeds,
                   const CGOTCHAParam& paramGotcha, std::vector<CTiePt>& vectpAdded);
@@ -68,6 +68,8 @@ private:
   CDensifyParam m_paramDense;
   cv::Mat m_imgL, m_imgR;
   cv::Mat m_input_dispX, m_input_dispY;
+  cv::Mat m_Mask;
+  std::vector<CTiePt> m_vecTPs;
   
   // outputs
   std::vector<CTiePt> m_vectpAdded; // final tp result (i.e. seed tps + newly added tps)

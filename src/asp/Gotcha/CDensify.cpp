@@ -12,19 +12,20 @@ CDensify::CDensify()
 
 CDensify::CDensify(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
                    cv::Mat imgL, cv::Mat imgR,
-                   cv::Mat input_dispX, cv::Mat input_dispY){
-  setParameters(paramDense, vecTPs, imgL, imgR, input_dispX, input_dispY);
+                   cv::Mat input_dispX, cv::Mat input_dispY, cv::Mat Mask){
+  setParameters(paramDense, vecTPs, imgL, imgR, input_dispX, input_dispY, Mask);
 }
 
 void CDensify::setParameters(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
                              cv::Mat imgL, cv::Mat imgR,
-                             cv::Mat input_dispX, cv::Mat input_dispY){
+                             cv::Mat input_dispX, cv::Mat input_dispY, cv::Mat Mask){
   m_paramDense  = paramDense;
   m_vecTPs      = vecTPs;
   m_imgL        = imgL;
   m_imgR        = imgR;
   m_input_dispX = input_dispX;
   m_input_dispY = input_dispY;
+  m_Mask        = Mask;
   
   // loadImages();
   // m_nCount = 0;
@@ -32,15 +33,15 @@ void CDensify::setParameters(CDensifyParam paramDense, std::vector<CTiePt> const
 }
 
 
-void CDensify::loadImages(){
 #if 0
+void CDensify::loadImages(){
   string strImgL, strImgR;
   // get input images
   strImgL = m_paramDense.m_strImgL;
   strImgR = m_paramDense.m_strImgR;
   setImages(strImgL, strImgR);
-#endif
 }
+#endif
 
 #if 0
 bool CDensify::loadTPForDensification(string strTPFile){    
@@ -373,7 +374,7 @@ bool CDensify::saveResult(){
     if (m_input_dispX.depth()==2 && m_input_dispY.depth()==2){
         for (int i=0; i<m_input_dispX.rows; i++){
             for (int j=0; j<m_input_dispX.cols; j++){
-                if (m_paramDense.m_Mask.at<uchar>(i,j)==1){
+                if (m_Mask.at<uchar>(i,j)==1){
                     m_input_dispX.at<ushort>(i,j)=65535;
                     m_input_dispY.at<ushort>(i,j)=65535;
                 }
@@ -383,7 +384,7 @@ bool CDensify::saveResult(){
     else if (m_input_dispX.depth()==5 && m_input_dispY.depth()==5){
         for (int i=0; i<m_input_dispX.rows; i++){
             for (int j=0; j<m_input_dispX.cols; j++){
-                if (m_paramDense.m_Mask.at<uchar>(i,j)==1){
+                if (m_Mask.at<uchar>(i,j)==1){
                     m_input_dispX.at<float>(i,j)= 0.0;
                     m_input_dispY.at<float>(i,j)= 0.0;
                 }
@@ -785,10 +786,10 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
     // apply mask, remove area where no densification is required
     //std::cout << "Reading mask: " << paramGotcha.m_strMask << std::endl;
     //Mat Mask = imread(paramGotcha.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
-    for (int i=0; i<m_paramDense.m_Mask.rows; i++){
-        for (int j=0; j<m_paramDense.m_Mask.cols; j++){
-            if (m_paramDense.m_Mask.at<uchar>(i,j)==0){
-                int nIdx = i*m_paramDense.m_Mask.cols + j;
+    for (int i=0; i<m_Mask.rows; i++){
+        for (int j=0; j<m_Mask.cols; j++){
+            if (m_Mask.at<uchar>(i,j)==0){
+                int nIdx = i*m_Mask.cols + j;
                 pLUT[nIdx] = true;
                 //cout << "DEBUG: pLUT change successfully to " << pLUT[nIdx] << endl;
             }
@@ -844,9 +845,9 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
     imgR.convertTo(imgR, CV_8UC1);
 
     unsigned int nGapSize = 0;
-    for (int i=0; i<m_paramDense.m_Mask.rows; i++){
-        for (int j=0; j< m_paramDense.m_Mask.cols; j++){
-          if (m_paramDense.m_Mask.at<uchar>(i,j)==1 &&
+    for (int i=0; i<m_Mask.rows; i++){
+        for (int j=0; j< m_Mask.cols; j++){
+          if (m_Mask.at<uchar>(i,j)==1 &&
               imgL.at<uchar>(i,j)!=0 &&imgR.at<uchar>(i,j)!=0)
                 nGapSize+=1;
         }
