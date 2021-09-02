@@ -64,13 +64,13 @@ bool CBatchProc::validateProjParam() {
 bool CBatchProc::validateProjInputs() {
   bool bRes = true;
 
-  Mat dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
-  Mat dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
-  if ((dispX.depth()!=2 && dispX.depth()!=5)|| (dispY.depth()!=2 && dispY.depth()!=5)){
+  m_input_dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
+  m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
+  if ((m_input_dispX.depth()!=2 && m_input_dispX.depth()!=5)|| (m_input_dispY.depth()!=2 && m_input_dispY.depth()!=5)){
     bRes = false;
     cerr << "Gotcha on given disparity map. ERROR: Input x/y disparity map not in 16bit unsigned integer or 32bit floating point" << endl;
   }
-  if (dispX.channels()!=1 || dispY.channels()!=1){
+  if (m_input_dispX.channels()!=1 || m_input_dispY.channels()!=1){
     bRes = false;
     cerr << "Gotcha on given disparity map. ERROR: Please take single channel image as input x/y disparity map" << endl;
   }
@@ -103,14 +103,14 @@ void CBatchProc::generateMask() {
   //m_strMask = m_strOutPath + strMask;
 
 
-  Mat dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
-  Mat dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
-  m_Mask = Mat::zeros(dispX.size(), CV_8UC1);
+  m_input_dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
+  m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
+  m_Mask        = Mat::zeros(m_input_dispX.size(), CV_8UC1);
 
-  if (dispX.depth()==2 && dispY.depth()==2){
+  if (m_input_dispX.depth()==2 && m_input_dispY.depth()==2){
     for (int i=0; i<m_Mask.rows; i++){
       for (int j=0; j<m_Mask.cols; j++){
-        if (dispX.at<ushort>(i,j)==65535 || dispY.at<ushort>(i,j)==65535)
+        if (m_input_dispX.at<ushort>(i,j)==65535 || m_input_dispY.at<ushort>(i,j)==65535)
           m_Mask.at<uchar>(i,j)=1;
       }
     }
@@ -119,11 +119,11 @@ void CBatchProc::generateMask() {
     //imwrite(m_strMask, Mask);
   }
 
-  else if (dispX.depth()==5 && dispY.depth()==5){
+  else if (m_input_dispX.depth()==5 && m_input_dispY.depth()==5){
     int numBadpixel = 0;
     for (int i=0; i<m_Mask.rows; i++){
       for (int j=0; j<m_Mask.cols; j++){
-        if (dispX.at<float>(i,j)==0.0) { //Nodata value of ASP disparity is 0.
+        if (m_input_dispX.at<float>(i,j)==0.0) { //Nodata value of ASP disparity is 0.
           m_Mask.at<uchar>(i,j)=1;
           numBadpixel+=1;
         }
@@ -140,12 +140,20 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
 
   // Wipe the output
   vecTPs.clear();
-  
-  Mat dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
-  Mat dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
-  //std::cout << "Reading mask: " << m_strMask << std::endl;
-  //Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
-  //Mask.convertTo(Mask, CV_8UC1);
+
+  cv::Mat dispX, dispY;
+
+  m_input_dispX.copyTo(dispX);
+  m_input_dispY.copyTo(dispY);
+
+  // Turn this logic off, as the data is kept in memory
+#if 0
+  dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
+  dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
+  std::cout << "Reading mask: " << m_strMask << std::endl;
+  Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
+  Mask.convertTo(Mask, CV_8UC1);
+#endif
   
   string strTPFile = "-TP.txt";
   m_strTPFile = m_strOutPath + strTPFile;
@@ -267,7 +275,8 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
     }
 
 #if 1
-    // Keep the TP in memory, not on disk
+    // Keep the TP in memory, not on disk, this way one can run multiple threads
+    // doing Gotcha.
     int nLen = Lx.size();
     vecTPs.resize(nLen);
     for (int i = 0 ; i < nLen; i++){
@@ -340,7 +349,8 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
     }
 
 #if 1
-    // Keep the TP in memory, not on disk
+    // Keep the TP in memory, not on disk, this way one can run multiple threads
+    // doing Gotcha.
     int nLen = Lx.size();
     vecTPs.resize(nLen);
     for (int i = 0 ; i < nLen; i++){

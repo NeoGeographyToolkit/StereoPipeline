@@ -52,6 +52,7 @@ protected:
     string m_strOutPath;    // a user-supplied file path for the output directory
 
   cv::Mat m_Mask;
+  cv::Mat m_input_dispX, m_input_dispY;
 };
 
 #endif // CBATCHPROC_H

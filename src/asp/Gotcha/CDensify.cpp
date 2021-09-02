@@ -102,8 +102,10 @@ int CDensify::performDensitification(){
         if (!saveResult())
             return CDensifyParam::FILE_IO_ERR;
 
-        if (!saveLog())
-            return CDensifyParam::FILE_IO_ERR;
+        // Do not save the log, this is hard to manage with multiple instances
+        // running in parallel.
+        //if (!saveLog())
+        //    return CDensifyParam::FILE_IO_ERR;
 
     }
     else if (m_paramDense.m_nProcType == CDensifyParam::P_GOTCHA){
@@ -132,8 +134,10 @@ int CDensify::performDensitification(){
         if (!saveResult())
             return CDensifyParam::FILE_IO_ERR;
 
-        if (!saveLog())
-            return CDensifyParam::FILE_IO_ERR;
+        // Do not save the log, this is hard to manage with multiple instances
+        // running in parallel.
+        //if (!saveLog())
+        //    return CDensifyParam::FILE_IO_ERR;
     }
 
     return CDensifyParam::NO_ERR;
@@ -433,7 +437,7 @@ bool CDensify::saveResult(){
     bRes = bRes && saveMatrix(dispY, strFileC2);
     //imwrite(strFile, dispY);
 
-#if GOTCHA_SAVE_AUX_FILES
+#if 0
     // Do not write this file as it is not used. If needed, such a
     // file must be written for every tile ASP processes.
     string strFileC3 = m_paramDense.m_strUpdatedDispSim;
@@ -443,13 +447,13 @@ bool CDensify::saveResult(){
 
     string strC1Tiff = "-c1_refined.tif";
     string strC2Tiff = "-c2_refined.tif";
-#if GOTCHA_SAVE_AUX_FILES
+#if 0
     string strC3Tiff = "-uncertainty.tif";
 #endif
     
     string strFileC1Tiff = m_paramDense.m_strOutPath + strC1Tiff;
     string strFileC2Tiff = m_paramDense.m_strOutPath + strC2Tiff;
-#if GOTCHA_SAVE_AUX_FILES
+#if 0
     string strFileC3Tiff = m_paramDense.m_strOutPath + strC3Tiff;
 #endif
     
@@ -463,7 +467,7 @@ bool CDensify::saveResult(){
     std::cout << strCmdGdalConversionC2.str() << std::endl;
     system(strCmdGdalConversionC2.str().c_str());
 
-#if GOTCHA_SAVE_AUX_FILES
+#if 0
     // Do not write this file as it is not used. If needed, such a
     // file must be written for every tile ASP processes.
     ostringstream strCmdGdalConversionC3;
@@ -843,7 +847,11 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
     /////////////////////////////////////////////////////////////////////
     // stereo region growing
     //int nCount = 0; // for debug
-    cout << "[--------------------]  0% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+#if 0
+      // Hide the verbose messages
+      cout << "[--------------------]  0% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+#endif
+      
     while (vectpSeedTPs.size() > 0) {
         // get a point from seed
         CTiePt tp = vectpSeedTPs.at(0);
@@ -890,6 +898,8 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
                 //sort(vectpSeedTPs.begin(), vectpSeedTPs.end(), compareTP);
             } 
         }
+#if 0
+        // Hide the verbose messages
         if (vectpAdded.size()>0){
         if (vectpAdded.size() >= (nGapSize)/20 && vectpAdded.size() < 2*(nGapSize)/20)
             cout << "[*-------------------]  5% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
@@ -930,10 +940,14 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
         else if (vectpAdded.size() >= 19*(nGapSize)/20 && vectpAdded.size() < 20*(nGapSize)/20)
             cout << "[*******************-] 95% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() == nGapSize)
-            cout << "[********************]100% OF THE GAP AREA HAS BEEN DENSIFIED";
+          cout << "[********************]100% OF THE GAP AREA HAS BEEN DENSIFIED";
         }
+#endif
     }
+#if 0
     cout << endl;
+#endif
+    
     return true;
 }
 
