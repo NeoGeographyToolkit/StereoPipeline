@@ -10,6 +10,8 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
+#include "CTiePt.h"
+
 using namespace cv;
 using namespace std;
 
@@ -29,14 +31,14 @@ private:
     bool validateProjParam();
     bool validateProjInputs();
     void generateMask();
-    void generateTPFile();
+    void generateTPFile(std::vector<CTiePt> & vecTPs);
 
     Point3f rotate(Point3f ptIn, Mat matQ, bool bInverse);
     void quaternionMultiplication(const float* p, const float* q, float* pfOut);
 
 protected:
     // processing
-    void refinement();
+    void refinement(std::vector<CTiePt> const& vecTPs);
 
 protected:
     string m_strMetaFile;   // file path to the Metadata file

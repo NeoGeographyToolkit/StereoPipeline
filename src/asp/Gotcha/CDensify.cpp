@@ -10,13 +10,14 @@ CDensify::CDensify()
 {
 }
 
-CDensify::CDensify(CDensifyParam paramDense){
-    setParameters(paramDense);        
+CDensify::CDensify(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs){
+  setParameters(paramDense, vecTPs);        
 }
 
-void CDensify::setParameters(CDensifyParam paramDense){
-    m_paramDense = paramDense;
-    loadImages();
+void CDensify::setParameters(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs){
+  m_paramDense = paramDense;
+  m_vecTPs = vecTPs;
+  loadImages();
 //    m_nCount = 0;
 //    cout << m_paramDense.m_paramGotcha.m_paramALSC.m_fEigThr<< endl;
 }
@@ -46,9 +47,12 @@ int CDensify::performDensitification(){
     if ( m_imgL.data == NULL || m_imgR.data == NULL)
         return CDensifyParam::FILE_IO_ERR;
 
+#if 0
+    // TP are now kept in memory the whole time, so no need to load them
     if (!loadTPForDensification(m_paramDense.m_strTPFile))
         return CDensifyParam::FILE_IO_ERR;
-
+#endif
+    
     if(m_paramDense.m_nProcType == CDensifyParam::GOTCHA){
         double start = getTickCount();
         // Generate integer-float seed points (nb. feature detection only gives float-float seed points)
@@ -740,11 +744,11 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
     vector< Rect_<float> > vecRectTiles;
     vecRectTiles.push_back(Rect(0., 0., matImgL.cols, matImgL.rows));
 
-    cout << "CASP-GO INFO: makeing tiles" << endl;
+    cout << "CASP-GO INFO: Making tiles" << endl;
     makeTiles(vecRectTiles, paramGotcha.m_nMinTile);
 
     if (paramGotcha.m_bNeedInitALSC){
-        cout << "CASP-GO INFO: running initial ALSC refinement" << endl;
+        cout << "CASP-GO INFO: Running initial ALSC refinement" << endl;
         ALSC alsc(matImgL, matImgR, paramGotcha.m_paramALSC);
         alsc.performALSC(&vectpSeeds);
         vectpSeeds.clear();

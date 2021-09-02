@@ -37,7 +37,6 @@ protected:
     void setImages(string strImgL, string strImgR, bool bGrey = true);
     bool loadMatrix(string strFile);
     bool loadTP(const string strFile);
-    bool loadTP(const string strFile, const int* pnIndx, const int nSzIdx);
     bool saveTP(const vector<CTiePt>& vecTPs, const string strFile);
     bool saveMatrix(const Mat& matData, const string strFile);  // assume matrix is in float or double data type
     bool saveALSCParam(const CALSCParam& paramALSC, const string strOut);
@@ -45,10 +44,10 @@ protected:
 
 
 protected:
-    vector<CTiePt> m_vecTPs;
-    Mat m_imgL;
-    Mat m_imgR;
-    Mat m_dispX;
+    std::vector<CTiePt> m_vecTPs;
+    cv::Mat m_imgL;
+    cv::Mat m_imgR;
+    cv::Mat m_dispX;
 
 };
 

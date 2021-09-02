@@ -27,9 +27,9 @@ class CDensify: public CProcBlock
 {
 public:
     CDensify();
-    CDensify(CDensifyParam paramDense);
+    CDensify(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs);
 
-    void setParameters(CDensifyParam paramDense);    
+    void setParameters(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs);    
     int performDensitification();
     int getNumTotTps() const {return m_vectpAdded.size();}
     static bool compareTP(CTiePt tpX, CTiePt tpY){

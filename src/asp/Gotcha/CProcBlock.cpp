@@ -48,26 +48,8 @@ bool CProcBlock::saveTP(const vector<CTiePt>& vecTPs, const string strFile){
     return true;
 }
 
-bool CProcBlock::loadTP(const string strFile, const int* pnIndx, const int nSzIdx){
-    // Really terrible code!!! I feel like a git.
-    // Please correct this function to make it more efficient!
-
-    loadTP(strFile);
-
-    if ((int)m_vecTPs.size() < nSzIdx || (int)m_vecTPs.size() <= 0) return false;
-
-    vector<CTiePt> vecTP;
-    for (int i = 0; i < nSzIdx; i++){
-        int nID = pnIndx[i];
-        vecTP.push_back(m_vecTPs.at(nID));
-    }
-//    m_vecTPs.clear();
-    m_vecTPs = vecTP;
-    return true;
-}
-
 bool CProcBlock::loadTP(const string strFile){
-  std::cout << "--reading " << strFile << std::endl;
+  std::cout << "Reading " << strFile << std::endl;
     ifstream sfTPFile;
     sfTPFile.open(strFile.c_str());
 

@@ -89,8 +89,9 @@ void CBatchProc::doBatchProcessing() {
   cout << "Starting processing now..." << endl
        << "================================" << endl << endl;
 
-  generateTPFile();
-  refinement();
+  std::vector<CTiePt> vecTPs;
+  generateTPFile(vecTPs);
+  refinement(vecTPs);
 
   cout << "Process completed" << endl;
   cout << endl;
@@ -135,12 +136,17 @@ void CBatchProc::generateMask() {
 
 }
 
-void CBatchProc::generateTPFile() {
+void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
+
+  // Wipe the output
+  vecTPs.clear();
+  
   Mat dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
   Mat dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
   //std::cout << "Reading mask: " << m_strMask << std::endl;
   //Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
   //Mask.convertTo(Mask, CV_8UC1);
+  
   string strTPFile = "-TP.txt";
   m_strTPFile = m_strOutPath + strTPFile;
 
@@ -259,7 +265,28 @@ void CBatchProc::generateTPFile() {
         }
       }
     }
-    
+
+#if 1
+    // Keep the TP in memory, not on disk
+    int nLen = Lx.size();
+    vecTPs.resize(nLen);
+    for (int i = 0 ; i < nLen; i++){
+      unsigned short lx, ly;
+      float rx, ry;
+      lx = Lx.at(i);
+      ly = Ly.at(i);
+      rx = Rx.at(i);
+      ry = Ry.at(i);
+      
+      CTiePt tp;
+      tp.m_ptL.x = lx;
+      tp.m_ptL.y = ly;
+      tp.m_ptR.x = rx;
+      tp.m_ptR.y = ry;
+      tp.m_fSimVal = 0.5;
+      vecTPs[i] = tp;
+    }
+#else
     ofstream sfTP;
     std::cout << "Writing: " << m_strTPFile << std::endl;
     sfTP.open(m_strTPFile.c_str());
@@ -286,6 +313,7 @@ void CBatchProc::generateTPFile() {
            << "Please check the directory for storing Gotcha results is writable."
            << endl;
     }
+#endif
     
   } else if (dispX.depth()==5 && dispY.depth()==5){
     dispX.convertTo(dispX, CV_32FC1);
@@ -311,8 +339,27 @@ void CBatchProc::generateTPFile() {
       }
     }
 
-    // Do not write this file as it is not used. If needed, such a
-    // file must be written for every tile ASP processes.
+#if 1
+    // Keep the TP in memory, not on disk
+    int nLen = Lx.size();
+    vecTPs.resize(nLen);
+    for (int i = 0 ; i < nLen; i++){
+      unsigned short lx, ly;
+      float rx, ry;
+      lx = Lx.at(i);
+      ly = Ly.at(i);
+      rx = Rx.at(i);
+      ry = Ry.at(i);
+      
+      CTiePt tp;
+      tp.m_ptL.x = lx;
+      tp.m_ptL.y = ly;
+      tp.m_ptR.x = rx;
+      tp.m_ptR.y = ry;
+      tp.m_fSimVal = 0.5;
+      vecTPs[i] = tp;
+    }
+#else
     ofstream sfTP;
     sfTP.open(m_strTPFile.c_str());
     std::cout << "Writing: " << m_strTPFile << std::endl;
@@ -337,12 +384,12 @@ void CBatchProc::generateTPFile() {
       cout << "ERROR: Can not convert X/Y disparity map to TP file. "
            << "Please check the directory for storing Gotcha results is writable." << endl;
     }
-    
+#endif
   }
   
 }
 
-void CBatchProc::refinement() {
+void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs) {
   cout << "Gotcha densification based on existing disparity map:" << endl;
   FileStorage fs(m_strMetaFile, FileStorage::READ);
   FileNode tl = fs["sGotchaParam"];
@@ -384,7 +431,7 @@ void CBatchProc::refinement() {
   paramDense.m_strDispY = m_strDispY;
   paramDense.m_Mask = m_Mask;
 
-  CDensify densify(paramDense);
+  CDensify densify(paramDense, vecTPs);
   cout << "CASP-GO INFO: performing Gotcha densification" << endl;
   int nErrCode = densify.performDensitification();
   if (nErrCode != CDensifyParam::NO_ERR){
