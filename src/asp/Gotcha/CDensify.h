@@ -23,9 +23,11 @@ class CDensify: public CProcBlock
 public:
   CDensify();
   CDensify(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
+           cv::Mat imgL, cv::Mat imgR,
            cv::Mat input_dispX, cv::Mat input_dispY);
 
   void setParameters(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
+                     cv::Mat imgL, cv::Mat imgR,
                      cv::Mat input_dispX, cv::Mat input_dispY);
   
     int performDensitification();
@@ -62,26 +64,27 @@ private:
     bool loadTPForDensification(std::string strTPFile);
 
 private:
-    // inputs
-    CDensifyParam m_paramDense;
-    cv::Mat m_input_dispX, m_input_dispY;
-
-    // outputs
-    std::vector<CTiePt> m_vectpAdded; // final tp result (i.e. seed tps + newly added tps)
-    // Disparity maps:
-    // the disparity of a point p_i at x,y in the left image is stored at
-    // (x, y) in the disparity maps, e.g., (m_matDisMapX and m_matDisMapY).
-    // For example, the position of the corresponding point p'_i in the right image can be defined as
-    // (x+x_dist, y+y_dist), where 'xdist' and 'ydist' are value at (x,y) in m_matDisMapX and m_matDisMapY, respectively.
-    // When disparity values are not known, the vaule of the disparity map is set to zero.
-    cv::Mat m_matDisMapX;
-    cv::Mat m_matDisMapY;
-    cv::Mat m_matDisMapSim; // matching score map: smaller score is better score and -1 indicate unknown
-
-    cv::Mat m_matHL;        // used when the rectified images are used
-    cv::Mat m_matHR;
-    int nNumSeedTPs;
-    double procTime;
+  // inputs
+  CDensifyParam m_paramDense;
+  cv::Mat m_imgL, m_imgR;
+  cv::Mat m_input_dispX, m_input_dispY;
+  
+  // outputs
+  std::vector<CTiePt> m_vectpAdded; // final tp result (i.e. seed tps + newly added tps)
+  // Disparity maps:
+  // the disparity of a point p_i at x,y in the left image is stored at
+  // (x, y) in the disparity maps, e.g., (m_matDisMapX and m_matDisMapY).
+  // For example, the position of the corresponding point p'_i in the right image can be defined as
+  // (x+x_dist, y+y_dist), where 'xdist' and 'ydist' are value at (x,y) in m_matDisMapX and m_matDisMapY, respectively.
+  // When disparity values are not known, the vaule of the disparity map is set to zero.
+  cv::Mat m_matDisMapX;
+  cv::Mat m_matDisMapY;
+  cv::Mat m_matDisMapSim; // matching score map: smaller score is better score and -1 indicate unknown
+  
+  cv::Mat m_matHL;        // used when the rectified images are used
+  cv::Mat m_matHR;
+  int nNumSeedTPs;
+  double procTime;
 };
 
 #endif // CDENSIFY_H

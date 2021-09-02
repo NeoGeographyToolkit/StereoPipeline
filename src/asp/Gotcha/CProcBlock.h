@@ -28,15 +28,16 @@ public:
     int getNumTps() const {int nRes = m_vecTPs.size();
                            if ( nRes > 0 ) return nRes;
                            else return m_vecTPs.size();}
-
-    static bool loadMatrix(Mat& matData, const string strFile);        // assume matrix has float data type
+  
+  // assume matrix has float data type
+  //static bool loadMatrix(Mat& matData, const string strFile); 
 
 protected:
     // file I/O
-    bool loadMatrix(Mat &matData, const string strFile, bool bDoublePrecision);
-    void setImages(string strImgL, string strImgR, bool bGrey = true);
-    bool loadMatrix(string strFile);
-    bool loadTP(const string strFile);
+    //bool loadMatrix(Mat &matData, const string strFile, bool bDoublePrecision);
+    //bool loadMatrix(string strFile);
+    //void setImages(string strImgL, string strImgR, bool bGrey = true);
+    //bool loadTP(const string strFile);
     bool saveTP(const vector<CTiePt>& vecTPs, const string strFile);
     bool saveMatrix(const Mat& matData, const string strFile);  // assume matrix is in float or double data type
     bool saveALSCParam(const CALSCParam& paramALSC, const string strOut);
@@ -45,9 +46,7 @@ protected:
 
 protected:
     std::vector<CTiePt> m_vecTPs;
-    cv::Mat m_imgL;
-    cv::Mat m_imgR;
-    cv::Mat m_dispX;
+    //cv::Mat m_dispX;
 
 };
 

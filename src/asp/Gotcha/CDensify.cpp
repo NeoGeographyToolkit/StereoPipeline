@@ -11,38 +11,44 @@ CDensify::CDensify()
 }
 
 CDensify::CDensify(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
+                   cv::Mat imgL, cv::Mat imgR,
                    cv::Mat input_dispX, cv::Mat input_dispY){
-  setParameters(paramDense, vecTPs, input_dispX, input_dispY);
+  setParameters(paramDense, vecTPs, imgL, imgR, input_dispX, input_dispY);
 }
 
 void CDensify::setParameters(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
+                             cv::Mat imgL, cv::Mat imgR,
                              cv::Mat input_dispX, cv::Mat input_dispY){
-  m_paramDense = paramDense;
-  m_vecTPs = vecTPs;
+  m_paramDense  = paramDense;
+  m_vecTPs      = vecTPs;
+  m_imgL        = imgL;
+  m_imgR        = imgR;
   m_input_dispX = input_dispX;
   m_input_dispY = input_dispY;
   
-  loadImages();
-//    m_nCount = 0;
-//    cout << m_paramDense.m_paramGotcha.m_paramALSC.m_fEigThr<< endl;
+  // loadImages();
+  // m_nCount = 0;
+  // cout << m_paramDense.m_paramGotcha.m_paramALSC.m_fEigThr<< endl;
 }
 
 
 void CDensify::loadImages(){
-    string strImgL, strImgR;
-    // get input images
-    strImgL = m_paramDense.m_strImgL;
-    strImgR = m_paramDense.m_strImgR;
-    setImages(strImgL, strImgR);
-
+#if 0
+  string strImgL, strImgR;
+  // get input images
+  strImgL = m_paramDense.m_strImgL;
+  strImgR = m_paramDense.m_strImgR;
+  setImages(strImgL, strImgR);
+#endif
 }
 
-
+#if 0
 bool CDensify::loadTPForDensification(string strTPFile){    
     bool bRes = true;
     bRes = loadTP(strTPFile);
     return bRes;
 }
+#endif
 
 int CDensify::performDensitification(){
 
@@ -221,8 +227,6 @@ bool CDensify::saveProjLog (string strFile){
 
     std::cout << "---temporary xxx" << std::endl;
     std::cout << "<Project I/O>" << endl;
-    std::cout << "Input left image path: " << m_paramDense.m_strImgL << endl;
-    std::cout << "Input right image path: " << m_paramDense.m_strImgR << endl;
     std::cout << "Processing type: " << strProcType << endl;
 
     //std::cout << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
@@ -235,8 +239,8 @@ bool CDensify::saveProjLog (string strFile){
 
     if (sfLog.is_open()){
         sfLog << "<Project I/O>" << endl;
-        sfLog << "Input left image path: " << m_paramDense.m_strImgL << endl;
-        sfLog << "Input right image path: " << m_paramDense.m_strImgR << endl;
+        //sfLog << "Input left image path: " << m_paramDense.m_strImgL << endl;
+        //sfLog << "Input right image path: " << m_paramDense.m_strImgR << endl;
         sfLog << "Processing type: " << strProcType << endl;
 
         //sfLog << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;

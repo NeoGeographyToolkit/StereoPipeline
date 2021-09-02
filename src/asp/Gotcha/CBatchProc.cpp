@@ -23,18 +23,20 @@ namespace {
 }
 
 CBatchProc::CBatchProc(string strMetaFile,
-                       string strLeftImagePath, string strRightImagePath,
+                       vw::ImageView<float> imgL, vw::ImageView<float> imgR, 
                        vw::ImageView<float> input_dispX, vw::ImageView<float> input_dispY, 
                        string strOutputPrefix) {
   // initialize
   m_strMetaFile = strMetaFile;
-  m_strImgL = strLeftImagePath;
-  m_strImgR = strRightImagePath;
+  //m_strImgL = strLeftImagePath;
+  //m_strImgR = strRightImagePath;
   //m_strDispX = strDisparityX;
   //m_strDispY = strDisparityY;
   m_strOutPath = strOutputPrefix;
 
   // Convert the inputs to cv::Mat, which is what Gotcha prefers
+  aspMatToCvMat(imgL, m_imgL);
+  aspMatToCvMat(imgR, m_imgR);
   aspMatToCvMat(input_dispX, m_input_dispX);
   aspMatToCvMat(input_dispY, m_input_dispY);
   
@@ -54,6 +56,7 @@ CBatchProc::~CBatchProc() {
 bool CBatchProc::validateProjParam() {
   bool bRes = true;
 
+#if 0
   // image file existence
   if (!fs::exists(m_strImgL)){
     cerr << "ERROR: Left image file does not exist" << endl;
@@ -65,8 +68,6 @@ bool CBatchProc::validateProjParam() {
     bRes = false;
   }
 
-
-#if 0
   // These are passed in-memory now
   if (!fs::exists(m_strDispX)){
     cerr << "Gotcha on given disparity map. ERROR: X disparity file does not exist" << endl;
@@ -435,8 +436,8 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs) {
   paramDense.m_paramGotcha.m_fDiffThr = 0.1;
   paramDense.m_paramGotcha.m_nDiffIter = 5;
   //paramDense.m_paramGotcha.m_nMinTile = (int)tl["nMinTile"];
-  Mat matDummy = imread(m_strImgL, CV_LOAD_IMAGE_ANYDEPTH);
-  paramDense.m_paramGotcha.m_nMinTile = matDummy.cols+matDummy.rows;
+  //Mat matDummy = imread(m_strImgL, CV_LOAD_IMAGE_ANYDEPTH);
+  paramDense.m_paramGotcha.m_nMinTile = m_imgL.cols + m_imgL.rows;
   paramDense.m_paramGotcha.m_nNeiType = (int)tl["nNeiType"];
 
   paramDense.m_paramGotcha.m_paramALSC.m_bIntOffset = (int)tl["bIntOffset"];
@@ -458,14 +459,14 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs) {
   string strUpdatedDispSim = "-uncertainty.txt";
   paramDense.m_strUpdatedDispSim = strBase + strUpdatedDispSim;
 
-  paramDense.m_strImgL = m_strImgL;
-  paramDense.m_strImgR = m_strImgR;
+  //paramDense.m_strImgL = m_strImgL;
+  //paramDense.m_strImgR = m_strImgR;
   paramDense.m_strOutPath = m_strOutPath;
   //paramDense.m_strDispX = m_strDispX;
   //paramDense.m_strDispY = m_strDispY;
   paramDense.m_Mask = m_Mask;
 
-  CDensify densify(paramDense, vecTPs, m_input_dispX, m_input_dispY);
+  CDensify densify(paramDense, vecTPs, m_imgL, m_imgR, m_input_dispX, m_input_dispY);
   cout << "CASP-GO INFO: performing Gotcha densification" << endl;
   int nErrCode = densify.performDensitification();
   if (nErrCode != CDensifyParam::NO_ERR){

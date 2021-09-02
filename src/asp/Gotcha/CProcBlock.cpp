@@ -4,7 +4,10 @@ CProcBlock::CProcBlock()
 {
 }
 
+// Images are passed in memory now
+#if 0
 void CProcBlock::setImages(string strImgL, string strImgR, bool bGrey){
+  
     // read image as a grey -> vital for alsc and gotcha
     if (bGrey){
         m_imgL = imread(strImgL, CV_LOAD_IMAGE_ANYDEPTH); //IMARS
@@ -13,10 +16,9 @@ void CProcBlock::setImages(string strImgL, string strImgR, bool bGrey){
     else{
         m_imgL = imread(strImgL, 1);
         m_imgR = imread(strImgR, 1);
-
     }
 }
-
+#endif
 
 bool CProcBlock::saveTP(const vector<CTiePt>& vecTPs, const string strFile){
 
@@ -48,6 +50,7 @@ bool CProcBlock::saveTP(const vector<CTiePt>& vecTPs, const string strFile){
     return true;
 }
 
+#if 0
 bool CProcBlock::loadTP(const string strFile){
   std::cout << "Reading " << strFile << std::endl;
     ifstream sfTPFile;
@@ -92,6 +95,7 @@ bool CProcBlock::loadTP(const string strFile){
 
     return true;
 }
+#endif
 
 bool CProcBlock::saveMatrix(const Mat& matData, const string strFile){
 
@@ -125,6 +129,7 @@ bool CProcBlock::saveMatrix(const Mat& matData, const string strFile){
     return true;
 }
 
+#if 0
 bool CProcBlock::loadMatrix(Mat &matData, const string strFile, bool bDoublePrecision){
     if (bDoublePrecision){
         ifstream sfIn;
@@ -203,7 +208,7 @@ bool CProcBlock::loadMatrix(string strFile){
     return true;
 
 }
-
+#endif
 
 bool CProcBlock::saveALSCParam(const CALSCParam& paramALSC, const string strOut){
     ofstream sfLog;
