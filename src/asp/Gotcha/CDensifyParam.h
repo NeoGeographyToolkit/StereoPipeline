@@ -16,9 +16,9 @@ public:
     string m_strImgL;
     string m_strImgR;
     string m_strOutPath;
-    string m_strTPFile;
-    string m_strDispX;
-    string m_strDispY;
+  //string m_strTPFile;
+  //string m_strDispX;
+  //string m_strDispY;
     cv::Mat m_Mask;
     string m_strUpdatedDispX;
     string m_strUpdatedDispY;

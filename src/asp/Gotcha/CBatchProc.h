@@ -3,23 +3,23 @@
 
 #include <iostream>
 #include <fstream>
-//#include "opencv/cv.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <opencv2/opencv.hpp>
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
-#include "CTiePt.h"
+#include <vw/Image/ImageView.h>
 
-using namespace cv;
-using namespace std;
+#include <CTiePt.h>
 
-class CBatchProc
-{
+class CBatchProc {
 public:
 //    CBatchProc();
-    CBatchProc(string strMetaFile, string strLeftImagePath, string strRightImagePath, string strDisparityX, string strDisparityY, string strOutputPrefix);
+  CBatchProc(std::string strMetaFile,
+             std::string strLeftImagePath, std::string strRightImagePath,
+             vw::ImageView<float> input_dispX, vw::ImageView<float> input_dispY, 
+             std::string strOutputPrefix);
     ~CBatchProc();
 
 
@@ -33,7 +33,7 @@ private:
     void generateMask();
     void generateTPFile(std::vector<CTiePt> & vecTPs);
 
-    Point3f rotate(Point3f ptIn, Mat matQ, bool bInverse);
+    Point3f rotate(Point3f ptIn, cv::Mat matQ, bool bInverse);
     void quaternionMultiplication(const float* p, const float* q, float* pfOut);
 
 protected:
@@ -41,15 +41,14 @@ protected:
     void refinement(std::vector<CTiePt> const& vecTPs);
 
 protected:
-    string m_strMetaFile;   // file path to the Metadata file
-    string m_strImgL;
-    string m_strImgR;
-    string m_strDispX;
-    string m_strDispY;
-
+    std::string m_strMetaFile;   // file path to the Metadata file
+    std::string m_strImgL;
+    std::string m_strImgR;
+    //std::string m_strDispX;
+    //std::string m_strDispY;
     //string m_strMask;
-    string m_strTPFile;
-    string m_strOutPath;    // a user-supplied file path for the output directory
+    //std::string m_strTPFile;
+    std::string m_strOutPath;    // a user-supplied file path for the output directory
 
   cv::Mat m_Mask;
   cv::Mat m_input_dispX, m_input_dispY;

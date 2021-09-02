@@ -6,17 +6,38 @@
 
 namespace fs = boost::filesystem;
 
-CBatchProc::CBatchProc(string strMetaFile, string strLeftImagePath,
-                       string strRightImagePath, string strDisparityX,
-                       string strDisparityY, string strOutputPrefix) {
+namespace {
+  // Convert an image from ASP format to OpenCV's format. Note that no
+  // deep copy happens when an ImageView is passed by value, and that
+  // ASP stores an image as col, row.
+  void aspMatToCvMat(vw::ImageView<float> in, cv::Mat & out) {
+    
+    out = cv::Mat::zeros(in.rows(), in.cols(), CV_32F);
+    
+    for (int row = 0; row < out.rows; row++) {
+      for (int col = 0; col < out.cols; col++) {
+        out.at<float>(row, col) = in(col, row);
+      }
+    }
+  }
+}
+
+CBatchProc::CBatchProc(string strMetaFile,
+                       string strLeftImagePath, string strRightImagePath,
+                       vw::ImageView<float> input_dispX, vw::ImageView<float> input_dispY, 
+                       string strOutputPrefix) {
   // initialize
   m_strMetaFile = strMetaFile;
   m_strImgL = strLeftImagePath;
   m_strImgR = strRightImagePath;
-  m_strDispX = strDisparityX;
-  m_strDispY = strDisparityY;
+  //m_strDispX = strDisparityX;
+  //m_strDispY = strDisparityY;
   m_strOutPath = strOutputPrefix;
 
+  // Convert the inputs to cv::Mat, which is what Gotcha prefers
+  aspMatToCvMat(input_dispX, m_input_dispX);
+  aspMatToCvMat(input_dispY, m_input_dispY);
+  
   if (!validateProjParam()){
     cerr << "ERROR: The project input files cannot be validated" << endl;
     exit(1);
@@ -45,6 +66,8 @@ bool CBatchProc::validateProjParam() {
   }
 
 
+#if 0
+  // These are passed in-memory now
   if (!fs::exists(m_strDispX)){
     cerr << "Gotcha on given disparity map. ERROR: X disparity file does not exist" << endl;
     bRes = false;
@@ -54,18 +77,16 @@ bool CBatchProc::validateProjParam() {
     cerr << "Gotcha on given disparity map. ERROR: Y disparity file does not exist" << endl;
     bRes = false;
   }
-
-  cout << "Generating bad pixel/gap mask file." << endl;
-  generateMask();
-
+#endif
+  
   return bRes;
 }
 
 bool CBatchProc::validateProjInputs() {
   bool bRes = true;
 
-  m_input_dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
-  m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
+  //m_input_dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
+  //m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
   if ((m_input_dispX.depth()!=2 && m_input_dispX.depth()!=5)|| (m_input_dispY.depth()!=2 && m_input_dispY.depth()!=5)){
     bRes = false;
     cerr << "Gotcha on given disparity map. ERROR: Input x/y disparity map not in 16bit unsigned integer or 32bit floating point" << endl;
@@ -74,6 +95,9 @@ bool CBatchProc::validateProjInputs() {
     bRes = false;
     cerr << "Gotcha on given disparity map. ERROR: Please take single channel image as input x/y disparity map" << endl;
   }
+
+  cout << "Generating bad pixel/gap mask file." << endl;
+  generateMask();
 
   //std::cout << "Reading mask: " << m_strMask << std::endl;
   //Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
@@ -99,13 +123,13 @@ void CBatchProc::doBatchProcessing() {
 }
 
 void CBatchProc::generateMask() {
+  // These are kept in memory now, no need to read them from disk
   //string strMask = "-GM.tif";
   //m_strMask = m_strOutPath + strMask;
-
-
-  m_input_dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
-  m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
-  m_Mask        = Mat::zeros(m_input_dispX.size(), CV_8UC1);
+  //m_input_dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
+  //m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
+  
+  m_Mask = Mat::zeros(m_input_dispX.size(), CV_8UC1);
 
   if (m_input_dispX.depth()==2 && m_input_dispY.depth()==2){
     for (int i=0; i<m_Mask.rows; i++){
@@ -155,8 +179,8 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
   Mask.convertTo(Mask, CV_8UC1);
 #endif
   
-  string strTPFile = "-TP.txt";
-  m_strTPFile = m_strOutPath + strTPFile;
+  //string strTPFile = "-TP.txt";
+  //m_strTPFile = m_strOutPath + strTPFile;
 
   if (dispX.depth()==2 && dispY.depth()==2){
     dispX.convertTo(dispX, CV_16UC1);
@@ -424,8 +448,8 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs) {
   paramDense.m_paramGotcha.m_paramALSC.m_nPatch = (int)tl["nALSCKernel"];
 
   string strBase = m_strOutPath;
-  string strTPFile = "-TP.txt";
-  paramDense.m_strTPFile = strBase + strTPFile;
+  //string strTPFile = "-TP.txt";
+  //paramDense.m_strTPFile = strBase + strTPFile;
   //paramDense.m_paramGotcha.m_strMask = m_strMask;
   string strUpdatedDispX = "-c1_refined.txt";
   paramDense.m_strUpdatedDispX = strBase + strUpdatedDispX;
@@ -437,11 +461,11 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs) {
   paramDense.m_strImgL = m_strImgL;
   paramDense.m_strImgR = m_strImgR;
   paramDense.m_strOutPath = m_strOutPath;
-  paramDense.m_strDispX = m_strDispX;
-  paramDense.m_strDispY = m_strDispY;
+  //paramDense.m_strDispX = m_strDispX;
+  //paramDense.m_strDispY = m_strDispY;
   paramDense.m_Mask = m_Mask;
 
-  CDensify densify(paramDense, vecTPs);
+  CDensify densify(paramDense, vecTPs, m_input_dispX, m_input_dispY);
   cout << "CASP-GO INFO: performing Gotcha densification" << endl;
   int nErrCode = densify.performDensitification();
   if (nErrCode != CDensifyParam::NO_ERR){

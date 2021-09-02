@@ -10,13 +10,18 @@ CDensify::CDensify()
 {
 }
 
-CDensify::CDensify(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs){
-  setParameters(paramDense, vecTPs);        
+CDensify::CDensify(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
+                   cv::Mat input_dispX, cv::Mat input_dispY){
+  setParameters(paramDense, vecTPs, input_dispX, input_dispY);
 }
 
-void CDensify::setParameters(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs){
+void CDensify::setParameters(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
+                             cv::Mat input_dispX, cv::Mat input_dispY){
   m_paramDense = paramDense;
   m_vecTPs = vecTPs;
+  m_input_dispX = input_dispX;
+  m_input_dispY = input_dispY;
+  
   loadImages();
 //    m_nCount = 0;
 //    cout << m_paramDense.m_paramGotcha.m_paramALSC.m_fEigThr<< endl;
@@ -220,8 +225,8 @@ bool CDensify::saveProjLog (string strFile){
     std::cout << "Input right image path: " << m_paramDense.m_strImgR << endl;
     std::cout << "Processing type: " << strProcType << endl;
 
-    std::cout << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
-    std::cout << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
+    //std::cout << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
+    //std::cout << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
     //std::cout << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
     std::cout << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << endl;
     std::cout << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << endl;
@@ -234,9 +239,9 @@ bool CDensify::saveProjLog (string strFile){
         sfLog << "Input right image path: " << m_paramDense.m_strImgR << endl;
         sfLog << "Processing type: " << strProcType << endl;
 
-        sfLog << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
-        sfLog << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
-        sfLog << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << endl;
+        //sfLog << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
+        //sfLog << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
+        //sfLog << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << endl;
         //sfLog << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
         sfLog << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << endl;
         sfLog << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << endl;
@@ -354,46 +359,46 @@ bool CDensify::saveResult(){
         }
     }
 
-    Mat dispX_ori = imread(m_paramDense.m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
-    Mat dispY_ori = imread(m_paramDense.m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
+    //Mat m_input_dispX = imread(m_paramDense.m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
+    //Mat m_input_dispY = imread(m_paramDense.m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
     //std::cout << "Reading mask: " << m_paramDense.m_strMask << std::endl;
     //Mat Mask = imread(m_paramDense.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
     //Mask.convertTo(Mask, CV_8UC1);
     nNumSeedTPs = 0;
 
-    if (dispX_ori.depth()==2 && dispY_ori.depth()==2){
-        for (int i=0; i<dispX_ori.rows; i++){
-            for (int j=0; j<dispX_ori.cols; j++){
+    if (m_input_dispX.depth()==2 && m_input_dispY.depth()==2){
+        for (int i=0; i<m_input_dispX.rows; i++){
+            for (int j=0; j<m_input_dispX.cols; j++){
                 if (m_paramDense.m_Mask.at<uchar>(i,j)==1){
-                    dispX_ori.at<ushort>(i,j)=65535;
-                    dispY_ori.at<ushort>(i,j)=65535;
+                    m_input_dispX.at<ushort>(i,j)=65535;
+                    m_input_dispY.at<ushort>(i,j)=65535;
                 }
             }
         }
     }
-    else if (dispX_ori.depth()==5 && dispY_ori.depth()==5){
-        for (int i=0; i<dispX_ori.rows; i++){
-            for (int j=0; j<dispX_ori.cols; j++){
+    else if (m_input_dispX.depth()==5 && m_input_dispY.depth()==5){
+        for (int i=0; i<m_input_dispX.rows; i++){
+            for (int j=0; j<m_input_dispX.cols; j++){
                 if (m_paramDense.m_Mask.at<uchar>(i,j)==1){
-                    dispX_ori.at<float>(i,j)= 0.0;
-                    dispY_ori.at<float>(i,j)= 0.0;
+                    m_input_dispX.at<float>(i,j)= 0.0;
+                    m_input_dispY.at<float>(i,j)= 0.0;
                 }
             }
         }
     }
 
-    if (dispX_ori.depth()==2 && dispY_ori.depth()==2){
-        for (int i=0; i<dispX_ori.rows; i++){
-            for (int j=0; j<dispX_ori.cols; j++){
-                if (dispX_ori.at<ushort>(i,j)!=65535 && dispY_ori.at<ushort>(i,j)!=65535)
+    if (m_input_dispX.depth()==2 && m_input_dispY.depth()==2){
+        for (int i=0; i<m_input_dispX.rows; i++){
+            for (int j=0; j<m_input_dispX.cols; j++){
+                if (m_input_dispX.at<ushort>(i,j)!=65535 && m_input_dispY.at<ushort>(i,j)!=65535)
                     nNumSeedTPs+=1;
             }
         }
     }
-    else if (dispX_ori.depth()==5 && dispY_ori.depth()==5){
-        for (int i=0; i<dispX_ori.rows; i++){
-            for (int j=0; j<dispX_ori.cols; j++){
-                if (dispX_ori.at<float>(i,j)!= 0.0 && dispY_ori.at<float>(i,j)!= 0.0)
+    else if (m_input_dispX.depth()==5 && m_input_dispY.depth()==5){
+        for (int i=0; i<m_input_dispX.rows; i++){
+            for (int j=0; j<m_input_dispX.cols; j++){
+                if (m_input_dispX.at<float>(i,j)!= 0.0 && m_input_dispY.at<float>(i,j)!= 0.0)
                     nNumSeedTPs+=1;
             }
         }
@@ -401,25 +406,25 @@ bool CDensify::saveResult(){
 
 
     //Recover values of original disp map
-    if (dispX_ori.depth()==2 && dispY_ori.depth()==2){
+    if (m_input_dispX.depth()==2 && m_input_dispY.depth()==2){
         for (int i =0; i<dispX.rows; i++){
             for (int j=0; j<dispX.cols; j++){
-                if (dispX_ori.at<ushort>(i,j)!=65535)
-                    dispX.at<ushort>(i,j)=dispX_ori.at<ushort>(i,j);
-                if (dispY_ori.at<ushort>(i,j)!=65535)
-                    dispY.at<ushort>(i,j)=dispY_ori.at<ushort>(i,j);
+                if (m_input_dispX.at<ushort>(i,j)!=65535)
+                    dispX.at<ushort>(i,j)=m_input_dispX.at<ushort>(i,j);
+                if (m_input_dispY.at<ushort>(i,j)!=65535)
+                    dispY.at<ushort>(i,j)=m_input_dispY.at<ushort>(i,j);
             }
         }
     }
-    else if (dispX_ori.depth()==5 && dispY_ori.depth()==5){
+    else if (m_input_dispX.depth()==5 && m_input_dispY.depth()==5){
         for (int i =0; i<dispX.rows; i++){
             for (int j=0; j<dispX.cols; j++){
-                if (dispX_ori.at<float>(i,j)!= 0.0){  //IMARS
-                    float disp = dispX_ori.at<float>(i,j); //IMARS
+                if (m_input_dispX.at<float>(i,j)!= 0.0){  //IMARS
+                    float disp = m_input_dispX.at<float>(i,j); //IMARS
                     dispX.at<float>(i,j)=disp; //IMARS
                 }
-                if (dispY_ori.at<float>(i,j)!= 0.0){  //IMARS
-                    float disp = dispY_ori.at<float>(i,j);  //IMARS
+                if (m_input_dispY.at<float>(i,j)!= 0.0){  //IMARS
+                    float disp = m_input_dispY.at<float>(i,j);  //IMARS
                     dispY.at<float>(i,j)=disp; //IMARS
                 }
             }

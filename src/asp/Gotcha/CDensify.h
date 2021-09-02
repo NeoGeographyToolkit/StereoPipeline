@@ -21,10 +21,13 @@
 class CDensify: public CProcBlock
 {
 public:
-    CDensify();
-    CDensify(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs);
+  CDensify();
+  CDensify(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
+           cv::Mat input_dispX, cv::Mat input_dispY);
 
-    void setParameters(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs);    
+  void setParameters(CDensifyParam paramDense, std::vector<CTiePt> const& vecTPs,
+                     cv::Mat input_dispX, cv::Mat input_dispY);
+  
     int performDensitification();
     int getNumTotTps() const {return m_vectpAdded.size();}
     static bool compareTP(CTiePt tpX, CTiePt tpY){
@@ -61,6 +64,8 @@ private:
 private:
     // inputs
     CDensifyParam m_paramDense;
+    cv::Mat m_input_dispX, m_input_dispY;
+
     // outputs
     std::vector<CTiePt> m_vectpAdded; // final tp result (i.e. seed tps + newly added tps)
     // Disparity maps:
