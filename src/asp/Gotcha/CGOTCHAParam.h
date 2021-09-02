@@ -25,7 +25,7 @@ public:
     float m_fDiffThr;
     int m_nDiffIter;
 
-    string m_strMask;
+    //string m_strMask;
 
     CALSCParam m_paramALSC;
     bool m_bNeedInitALSC; // set true if initial alsc on seed points are required

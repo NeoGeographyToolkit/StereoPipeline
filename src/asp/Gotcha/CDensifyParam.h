@@ -2,6 +2,7 @@
 #define CDENSIFYPARAM_H
 
 #include <string>
+#include <opencv2/opencv.hpp>
 
 #include "CGOTCHAParam.h"
 
@@ -18,7 +19,7 @@ public:
     string m_strTPFile;
     string m_strDispX;
     string m_strDispY;
-    string m_strMask;
+    cv::Mat m_Mask;
     string m_strUpdatedDispX;
     string m_strUpdatedDispY;
     string m_strUpdatedDispSim;

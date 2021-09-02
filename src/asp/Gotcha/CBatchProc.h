@@ -45,9 +45,11 @@ protected:
     string m_strDispX;
     string m_strDispY;
 
-    string m_strMask;
+    //string m_strMask;
     string m_strTPFile;
     string m_strOutPath;    // a user-supplied file path for the output directory
+
+  cv::Mat m_Mask;
 };
 
 #endif // CBATCHPROC_H

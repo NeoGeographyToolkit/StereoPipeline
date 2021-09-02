@@ -75,9 +75,9 @@ bool CBatchProc::validateProjInputs() {
     cerr << "Gotcha on given disparity map. ERROR: Please take single channel image as input x/y disparity map" << endl;
   }
 
-  std::cout << "---reading mask " << m_strMask << std::endl;
-  Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
-  if (Mask.depth()!=0 || Mask.channels()!=1){
+  //std::cout << "Reading mask: " << m_strMask << std::endl;
+  //Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
+  if (m_Mask.depth()!=0 || m_Mask.channels()!=1){
     bRes = false;
     cerr << "ERROR: Input mask file not in 8 bit single channel unsigned int format" << endl;
   }
@@ -98,38 +98,39 @@ void CBatchProc::doBatchProcessing() {
 }
 
 void CBatchProc::generateMask() {
-  string strMask = "-GM.tif";
-  m_strMask = m_strOutPath + strMask;
+  //string strMask = "-GM.tif";
+  //m_strMask = m_strOutPath + strMask;
 
 
   Mat dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
   Mat dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
-  Mat Mask = Mat::zeros(dispX.size(), CV_8UC1);
+  m_Mask = Mat::zeros(dispX.size(), CV_8UC1);
 
   if (dispX.depth()==2 && dispY.depth()==2){
-    for (int i=0; i<Mask.rows; i++){
-      for (int j=0; j<Mask.cols; j++){
+    for (int i=0; i<m_Mask.rows; i++){
+      for (int j=0; j<m_Mask.cols; j++){
         if (dispX.at<ushort>(i,j)==65535 || dispY.at<ushort>(i,j)==65535)
-          Mask.at<uchar>(i,j)=1;
+          m_Mask.at<uchar>(i,j)=1;
       }
     }
 
-    std::cout << "---writing mask " << m_strMask << std::endl;
-    imwrite(m_strMask, Mask);
+    //std::cout << "Writing mask: " << m_strMask << std::endl;
+    //imwrite(m_strMask, Mask);
   }
 
   else if (dispX.depth()==5 && dispY.depth()==5){
     int numBadpixel = 0;
-    for (int i=0; i<Mask.rows; i++){
-      for (int j=0; j<Mask.cols; j++){
+    for (int i=0; i<m_Mask.rows; i++){
+      for (int j=0; j<m_Mask.cols; j++){
         if (dispX.at<float>(i,j)==0.0) { //Nodata value of ASP disparity is 0.
-          Mask.at<uchar>(i,j)=1;
+          m_Mask.at<uchar>(i,j)=1;
           numBadpixel+=1;
         }
       }
     }
     cout << "GAP Pixels masked: " << numBadpixel << endl;
-    imwrite(m_strMask, Mask);
+    //std::cout << "Writing mask: " << m_strMask << std::endl;
+    //imwrite(m_strMask, Mask);
   }
 
 }
@@ -137,9 +138,9 @@ void CBatchProc::generateMask() {
 void CBatchProc::generateTPFile() {
   Mat dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
   Mat dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
-  std::cout << "---reading mask " << m_strMask << std::endl;
-  Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
-  Mask.convertTo(Mask, CV_8UC1);
+  //std::cout << "Reading mask: " << m_strMask << std::endl;
+  //Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
+  //Mask.convertTo(Mask, CV_8UC1);
   string strTPFile = "-TP.txt";
   m_strTPFile = m_strOutPath + strTPFile;
 
@@ -148,7 +149,7 @@ void CBatchProc::generateTPFile() {
     dispY.convertTo(dispY, CV_16UC1);
     for (int i=0; i<dispX.rows; i++){
       for (int j=0; j<dispX.cols; j++){
-        if (Mask.at<uchar>(i,j)==1){
+        if (m_Mask.at<uchar>(i,j)==1){
           dispX.at<ushort>(i,j)=65535;
           dispY.at<ushort>(i,j)=65535;
         }
@@ -161,7 +162,7 @@ void CBatchProc::generateTPFile() {
     dispY.convertTo(dispY, CV_32FC1);
     for (int i=0; i<dispX.rows; i++){
       for (int j=0; j<dispX.cols; j++){
-        if (Mask.at<uchar>(i,j)==1){
+        if (m_Mask.at<uchar>(i,j)==1){
           dispX.at<float>(i,j)= 0.0;
           dispY.at<float>(i,j)= 0.0;
         }
@@ -259,9 +260,6 @@ void CBatchProc::generateTPFile() {
       }
     }
     
-#if GOTCHA_SAVE_AUX_FILES
-    // Do not write this file as it is not used. If needed, such a
-    // file must be written for every tile ASP processes.
     ofstream sfTP;
     std::cout << "Writing: " << m_strTPFile << std::endl;
     sfTP.open(m_strTPFile.c_str());
@@ -288,7 +286,6 @@ void CBatchProc::generateTPFile() {
            << "Please check the directory for storing Gotcha results is writable."
            << endl;
     }
-#endif
     
   } else if (dispX.depth()==5 && dispY.depth()==5){
     dispX.convertTo(dispX, CV_32FC1);
@@ -314,7 +311,6 @@ void CBatchProc::generateTPFile() {
       }
     }
 
-#if GOTCHA_SAVE_AUX_FILES
     // Do not write this file as it is not used. If needed, such a
     // file must be written for every tile ASP processes.
     ofstream sfTP;
@@ -342,7 +338,6 @@ void CBatchProc::generateTPFile() {
            << "Please check the directory for storing Gotcha results is writable." << endl;
     }
     
-#endif
   }
   
 }
@@ -374,7 +369,7 @@ void CBatchProc::refinement() {
   string strBase = m_strOutPath;
   string strTPFile = "-TP.txt";
   paramDense.m_strTPFile = strBase + strTPFile;
-  paramDense.m_paramGotcha.m_strMask = m_strMask;
+  //paramDense.m_paramGotcha.m_strMask = m_strMask;
   string strUpdatedDispX = "-c1_refined.txt";
   paramDense.m_strUpdatedDispX = strBase + strUpdatedDispX;
   string strUpdatedDispY = "-c2_refined.txt";
@@ -387,7 +382,7 @@ void CBatchProc::refinement() {
   paramDense.m_strOutPath = m_strOutPath;
   paramDense.m_strDispX = m_strDispX;
   paramDense.m_strDispY = m_strDispY;
-  paramDense.m_strMask = m_strMask;
+  paramDense.m_Mask = m_Mask;
 
   CDensify densify(paramDense);
   cout << "CASP-GO INFO: performing Gotcha densification" << endl;

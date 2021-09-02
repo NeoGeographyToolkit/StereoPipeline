@@ -67,6 +67,7 @@ bool CProcBlock::loadTP(const string strFile, const int* pnIndx, const int nSzId
 }
 
 bool CProcBlock::loadTP(const string strFile){
+  std::cout << "--reading " << strFile << std::endl;
     ifstream sfTPFile;
     sfTPFile.open(strFile.c_str());
 

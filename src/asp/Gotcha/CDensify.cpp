@@ -199,7 +199,9 @@ vector<CTiePt> CDensify::getIntToFloatSeed(vector<CTiePt>& vecTPSrc) {
 }
 
 bool CDensify::saveProjLog (string strFile){
-    bool bRes = false;
+  
+  std::cout << "--writing log " << strFile << std::endl;
+  bool bRes = false;
     ofstream sfLog;
     sfLog.open(strFile.c_str(), ios::app | ios::out);
     string strProcType = getProcType();
@@ -212,7 +214,7 @@ bool CDensify::saveProjLog (string strFile){
 
     std::cout << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
     std::cout << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
-    std::cout << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
+    //std::cout << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
     std::cout << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << endl;
     std::cout << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << endl;
     std::cout << endl;
@@ -226,8 +228,8 @@ bool CDensify::saveProjLog (string strFile){
 
         sfLog << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
         sfLog << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
-        //sfLog << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << endl;
-        sfLog << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
+        sfLog << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << endl;
+        //sfLog << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
         sfLog << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << endl;
         sfLog << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << endl;
         sfLog << endl;
@@ -242,18 +244,19 @@ bool CDensify::saveProjLog (string strFile){
 
 bool CDensify::saveLog(){
 
-    string FILE_LOG = "-GLog.txt";
-    string strFile = m_paramDense.m_strOutPath + FILE_LOG;
-    bool bRes = false;
+  string FILE_LOG = "-GLog.txt";
 
-    // save parameter log
-    bRes = saveProjLog(strFile);
-    bRes = saveGOTCHAParam(m_paramDense.m_paramGotcha, strFile);
-    bRes = bRes && saveALSCParam(m_paramDense.m_paramGotcha.m_paramALSC, strFile);
-    // save result log
-    bRes = bRes && saveResLog(strFile);
-
-    return bRes;
+  string strFile = m_paramDense.m_strOutPath + FILE_LOG;
+  bool bRes = false;
+  
+  // save parameter log
+  bRes = saveProjLog(strFile);
+  bRes = saveGOTCHAParam(m_paramDense.m_paramGotcha, strFile);
+  bRes = bRes && saveALSCParam(m_paramDense.m_paramGotcha.m_paramALSC, strFile);
+  // save result log
+  bRes = bRes && saveResLog(strFile);
+  
+  return bRes;
 }
 
 bool CDensify::saveResLog(string strFile){
@@ -345,15 +348,15 @@ bool CDensify::saveResult(){
 
     Mat dispX_ori = imread(m_paramDense.m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
     Mat dispY_ori = imread(m_paramDense.m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
-    std::cout << "---reading mask " << m_paramDense.m_strMask << std::endl;
-    Mat Mask = imread(m_paramDense.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
-    Mask.convertTo(Mask, CV_8UC1);
+    //std::cout << "Reading mask: " << m_paramDense.m_strMask << std::endl;
+    //Mat Mask = imread(m_paramDense.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
+    //Mask.convertTo(Mask, CV_8UC1);
     nNumSeedTPs = 0;
 
     if (dispX_ori.depth()==2 && dispY_ori.depth()==2){
         for (int i=0; i<dispX_ori.rows; i++){
             for (int j=0; j<dispX_ori.cols; j++){
-                if (Mask.at<uchar>(i,j)==1){
+                if (m_paramDense.m_Mask.at<uchar>(i,j)==1){
                     dispX_ori.at<ushort>(i,j)=65535;
                     dispY_ori.at<ushort>(i,j)=65535;
                 }
@@ -363,7 +366,7 @@ bool CDensify::saveResult(){
     else if (dispX_ori.depth()==5 && dispY_ori.depth()==5){
         for (int i=0; i<dispX_ori.rows; i++){
             for (int j=0; j<dispX_ori.cols; j++){
-                if (Mask.at<uchar>(i,j)==1){
+                if (m_paramDense.m_Mask.at<uchar>(i,j)==1){
                     dispX_ori.at<float>(i,j)= 0.0;
                     dispY_ori.at<float>(i,j)= 0.0;
                 }
@@ -763,12 +766,12 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
 
     cout << "CASP-GO INFO: apply mask to remove area that no densification is required." << endl;
     // apply mask, remove area where no densification is required
-    std::cout << "---reading mask " << paramGotcha.m_strMask << std::endl;
-    Mat Mask = imread(paramGotcha.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
-    for (int i=0; i<Mask.rows; i++){
-        for (int j=0; j<Mask.cols; j++){
-            if (Mask.at<uchar>(i,j)==0){
-                int nIdx = i*Mask.cols + j;
+    //std::cout << "Reading mask: " << paramGotcha.m_strMask << std::endl;
+    //Mat Mask = imread(paramGotcha.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
+    for (int i=0; i<m_paramDense.m_Mask.rows; i++){
+        for (int j=0; j<m_paramDense.m_Mask.cols; j++){
+            if (m_paramDense.m_Mask.at<uchar>(i,j)==0){
+                int nIdx = i*m_paramDense.m_Mask.cols + j;
                 pLUT[nIdx] = true;
                 //cout << "DEBUG: pLUT change successfully to " << pLUT[nIdx] << endl;
             }
@@ -816,17 +819,18 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
         }
 
     }
-    std::cout << "---reading mask " << paramGotcha.m_strMask << std::endl;
-    Mat Mask = imread(paramGotcha.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
+    //std::cout << "Reading mask: " << paramGotcha.m_strMask << std::endl;
+    //Mat Mask = imread(paramGotcha.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
     Mat imgL = matImgL;
     Mat imgR = matImgR;
     imgL.convertTo(imgL, CV_8UC1);
     imgR.convertTo(imgR, CV_8UC1);
 
     unsigned int nGapSize = 0;
-    for (int i=0; i<Mask.rows; i++){
-        for (int j=0; j< Mask.cols; j++){
-            if (Mask.at<uchar>(i,j)==1 && imgL.at<uchar>(i,j)!=0 &&imgR.at<uchar>(i,j)!=0)
+    for (int i=0; i<m_paramDense.m_Mask.rows; i++){
+        for (int j=0; j< m_paramDense.m_Mask.cols; j++){
+          if (m_paramDense.m_Mask.at<uchar>(i,j)==1 &&
+              imgL.at<uchar>(i,j)!=0 &&imgR.at<uchar>(i,j)!=0)
                 nGapSize+=1;
         }
     }
