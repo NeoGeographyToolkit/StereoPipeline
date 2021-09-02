@@ -75,6 +75,7 @@ bool CBatchProc::validateProjInputs() {
     cerr << "Gotcha on given disparity map. ERROR: Please take single channel image as input x/y disparity map" << endl;
   }
 
+  std::cout << "---reading mask " << m_strMask << std::endl;
   Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
   if (Mask.depth()!=0 || Mask.channels()!=1){
     bRes = false;
@@ -112,6 +113,8 @@ void CBatchProc::generateMask() {
           Mask.at<uchar>(i,j)=1;
       }
     }
+
+    std::cout << "---writing mask " << m_strMask << std::endl;
     imwrite(m_strMask, Mask);
   }
 
@@ -134,6 +137,7 @@ void CBatchProc::generateMask() {
 void CBatchProc::generateTPFile() {
   Mat dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
   Mat dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
+  std::cout << "---reading mask " << m_strMask << std::endl;
   Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
   Mask.convertTo(Mask, CV_8UC1);
   string strTPFile = "-TP.txt";
@@ -254,8 +258,12 @@ void CBatchProc::generateTPFile() {
         }
       }
     }
-
+    
+#if GOTCHA_SAVE_AUX_FILES
+    // Do not write this file as it is not used. If needed, such a
+    // file must be written for every tile ASP processes.
     ofstream sfTP;
+    std::cout << "Writing: " << m_strTPFile << std::endl;
     sfTP.open(m_strTPFile.c_str());
     sfTP.precision(10);
     int nLen = Lx.size();
@@ -280,6 +288,8 @@ void CBatchProc::generateTPFile() {
            << "Please check the directory for storing Gotcha results is writable."
            << endl;
     }
+#endif
+    
   } else if (dispX.depth()==5 && dispY.depth()==5){
     dispX.convertTo(dispX, CV_32FC1);
     dispY.convertTo(dispY, CV_32FC1);
@@ -304,8 +314,12 @@ void CBatchProc::generateTPFile() {
       }
     }
 
+#if GOTCHA_SAVE_AUX_FILES
+    // Do not write this file as it is not used. If needed, such a
+    // file must be written for every tile ASP processes.
     ofstream sfTP;
     sfTP.open(m_strTPFile.c_str());
+    std::cout << "Writing: " << m_strTPFile << std::endl;
     sfTP.precision(10);
     int nLen = Lx.size();
     int nEle = 5;
@@ -323,11 +337,14 @@ void CBatchProc::generateTPFile() {
              << 0.5 << " " << endl;
       }
       sfTP.close();
+    } else {
+      cout << "ERROR: Can not convert X/Y disparity map to TP file. "
+           << "Please check the directory for storing Gotcha results is writable." << endl;
     }
-    else
-      cout << "ERROR: Can not convert X/Y disparity map to TP file. Please check the directory for storing Gotcha results is writable." << endl;
+    
+#endif
   }
-
+  
 }
 
 void CBatchProc::refinement() {

@@ -564,17 +564,3 @@ void ALSC::performALSC(const vector<CTiePt> *pvecTpts, const float* pfAffStart){
     } // end of operation for all seed points
 }
 
-void ALSC::saveMat(Mat& matIn, string strFile){
-    ofstream sfTC;
-    sfTC.open(strFile.c_str());
-
-    if (sfTC.is_open()){
-        for (int i = 0; i < matIn.rows; i++){
-            for (int j = 0 ; j < matIn.cols; j++){
-                sfTC << matIn.at<double>(i,j) << " ";
-            }
-            sfTC << endl;
-        }
-        sfTC.close();
-    }
-}

@@ -204,7 +204,7 @@ bool CDensify::saveProjLog (string strFile){
     sfLog.open(strFile.c_str(), ios::app | ios::out);
     string strProcType = getProcType();
 
-    std::cout << "---temporary!" << std::endl;
+    std::cout << "---temporary xxx" << std::endl;
     std::cout << "<Project I/O>" << endl;
     std::cout << "Input left image path: " << m_paramDense.m_strImgL << endl;
     std::cout << "Input right image path: " << m_paramDense.m_strImgR << endl;
@@ -212,7 +212,6 @@ bool CDensify::saveProjLog (string strFile){
 
     std::cout << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
     std::cout << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
-    std::cout << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << endl;
     std::cout << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
     std::cout << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << endl;
     std::cout << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << endl;
@@ -227,7 +226,7 @@ bool CDensify::saveProjLog (string strFile){
 
         sfLog << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
         sfLog << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
-        sfLog << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << endl;
+        //sfLog << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << endl;
         sfLog << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
         sfLog << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << endl;
         sfLog << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << endl;
@@ -320,6 +319,7 @@ bool CDensify::saveResult(){
 
     //string strFile = m_paramDense.m_strTPFile;
     //bRes = saveTP(m_vectpAdded, strFile);
+    
     cout << "Writing results..." << endl;
 
     Mat dispX = Mat::ones(m_matDisMapX.size(), CV_32FC1)*0.0;
@@ -345,6 +345,7 @@ bool CDensify::saveResult(){
 
     Mat dispX_ori = imread(m_paramDense.m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
     Mat dispY_ori = imread(m_paramDense.m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
+    std::cout << "---reading mask " << m_paramDense.m_strMask << std::endl;
     Mat Mask = imread(m_paramDense.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
     Mask.convertTo(Mask, CV_8UC1);
     nNumSeedTPs = 0;
@@ -416,71 +417,35 @@ bool CDensify::saveResult(){
     //Cancelled in IMARS, since using sGotcha, we have whole map.
 
 
-
     string strFileC1 = m_paramDense.m_strUpdatedDispX;
+    std::cout << "--saving matrix " << strFileC1 << std::endl;
     bRes = bRes && saveMatrix(dispX, strFileC1);
     //imwrite(strFile, dispX);
     string strFileC2 = m_paramDense.m_strUpdatedDispY;
+    std::cout << "--saving matrix " << strFileC2 << std::endl;
     bRes = bRes && saveMatrix(dispY, strFileC2);
     //imwrite(strFile, dispY);
+
+#if GOTCHA_SAVE_AUX_FILES
+    // Do not write this file as it is not used. If needed, such a
+    // file must be written for every tile ASP processes.
     string strFileC3 = m_paramDense.m_strUpdatedDispSim;
+    std::cout << "Saving matrix: " << strFileC3 << std::endl;
     bRes = bRes && saveMatrix(m_matDisMapSim, strFileC3);
-
-
-    /*
-    //LibTiff not working
-    const char* cstrFile = strFile.c_str();
-    TIFF* ImageRead = TIFFOpen(cstrFile, "w");
-    if (ImageRead == NULL){
-        cout << "Could not open ASP TIFF image!" << endl;
-    }
-
-    int depth, channels;
-    int* step;
-    TIFFGetField(ImageRead, TIFFTAG_BITSPERSAMPLE, &depth);
-    TIFFGetField(ImageRead, TIFFTAG_SAMPLESPERPIXEL, &channels);
-    TIFFGetField(ImageRead, TIFFTAG_STRIPBYTECOUNTS, &step);
-
-    cout << "DEBUG CDensify.cpp: " << endl;
-    cout << "original depth is: " << depth << endl;
-    cout << "original channels is: " << channels << endl;
-
-    float* data;
-    for (int i=0; i<dispX.rows; i++){
-        for (int j=0; j<dispX.cols; j++){
-            data[i*dispX.cols+j*3+0] = dispX.at<float>(i,j);
-            data[i*dispX.cols+j*3+1] = dispY.at<float>(i,j);
-            data[i*dispX.cols+j*3+2] = dispGPM.at<float>(i,j);
-        }
-    }
-
-    for (int i=0; i<dispX.rows; i++){
-        TIFFWriteRawStrip(ImageRead, i, (void* )(&data[i*dispX.cols]), step[i]);
-    }
-    TIFFClose(ImageRead);
-
-    TIFF* ImageWrite = TIFFOpen(cstrFile, "r");
-    if (ImageWrite == NULL){
-        cout << "Could not open ASP-G TIFF image!" << endl;
-    }
-
-    int depth_, channels_;
-    TIFFGetField(ImageWrite, TIFFTAG_BITSPERSAMPLE, &depth_);
-    TIFFGetField(ImageWrite, TIFFTAG_SAMPLESPERPIXEL, &channels_);
-
-    cout << "DEBUG CDensify.cpp: " << endl;
-    cout << "new depth is: " << depth_ << endl;
-    cout << "new channels is: " << channels_ << endl;
-    */
+#endif
 
     string strC1Tiff = "-c1_refined.tif";
     string strC2Tiff = "-c2_refined.tif";
+#if GOTCHA_SAVE_AUX_FILES
     string strC3Tiff = "-uncertainty.tif";
-
+#endif
+    
     string strFileC1Tiff = m_paramDense.m_strOutPath + strC1Tiff;
     string strFileC2Tiff = m_paramDense.m_strOutPath + strC2Tiff;
+#if GOTCHA_SAVE_AUX_FILES
     string strFileC3Tiff = m_paramDense.m_strOutPath + strC3Tiff;
-
+#endif
+    
     ostringstream strCmdGdalConversionC1;
     strCmdGdalConversionC1 << "gdal_translate " << strFileC1 << " -of GTiff " << strFileC1Tiff;
     std::cout << strCmdGdalConversionC1.str() << std::endl;
@@ -491,11 +456,15 @@ bool CDensify::saveResult(){
     std::cout << strCmdGdalConversionC2.str() << std::endl;
     system(strCmdGdalConversionC2.str().c_str());
 
+#if GOTCHA_SAVE_AUX_FILES
+    // Do not write this file as it is not used. If needed, such a
+    // file must be written for every tile ASP processes.
     ostringstream strCmdGdalConversionC3;
     strCmdGdalConversionC3 << "gdal_translate " << strFileC3 << " -of GTiff " << strFileC3Tiff;
     std::cout << strCmdGdalConversionC3.str() << std::endl;
     system(strCmdGdalConversionC3.str().c_str());
-
+#endif
+    
     return bRes;
 }
 
@@ -794,6 +763,7 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
 
     cout << "CASP-GO INFO: apply mask to remove area that no densification is required." << endl;
     // apply mask, remove area where no densification is required
+    std::cout << "---reading mask " << paramGotcha.m_strMask << std::endl;
     Mat Mask = imread(paramGotcha.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
     for (int i=0; i<Mask.rows; i++){
         for (int j=0; j<Mask.cols; j++){
@@ -826,7 +796,8 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
 }
 
 
-bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const vector<CTiePt>& vectpSeeds,
+bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
+                            vector<CTiePt>& vectpSeeds,
                             const CGOTCHAParam& paramGotcha, vector<CTiePt>& vectpAdded,
                             const Rect_<float> rectTileL, Mat& matSimMap, vector<bool>& pLUT){
 
@@ -845,6 +816,7 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const vector
         }
 
     }
+    std::cout << "---reading mask " << paramGotcha.m_strMask << std::endl;
     Mat Mask = imread(paramGotcha.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
     Mat imgL = matImgL;
     Mat imgR = matImgR;

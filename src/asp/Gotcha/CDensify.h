@@ -18,6 +18,7 @@
 #include "CProcBlock.h"
 #include "CDensifyParam.h"
 
+#define GOTCHA_SAVE_AUX_FILES 1
 
 using namespace cv;
 using namespace std;

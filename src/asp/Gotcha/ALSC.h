@@ -37,7 +37,6 @@ private:
     bool doMatching(Point2f ptStartL, Point2f ptStartR, CTiePt& tp, const float* pfAffInt = NULL);
     void affineTransform(double x, double y, const Point2f ptCentre, const float *pfAff, double *dNewX, double *dNewY);
     float interpolate(double dNewX, double dNewY, const Mat &matImg);
-    void saveMat(Mat& matIn, string strFile);
 
 private:
     // inputs
