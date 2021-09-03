@@ -159,7 +159,7 @@ target_link_libraries(stereo_corr AspSessions)
 install(TARGETS stereo_corr DESTINATION bin)
 
 add_executable(stereo_fltr stereo_fltr.cc stereo.h stereo.cc)
-target_link_libraries(stereo_fltr AspSessions)
+target_link_libraries(stereo_fltr AspSessions AspGotcha)
 install(TARGETS stereo_fltr DESTINATION bin)
 
 add_executable(stereo_gui stereo_gui.cc stereo.h stereo.cc)

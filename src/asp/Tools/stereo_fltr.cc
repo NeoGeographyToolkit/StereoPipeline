@@ -466,7 +466,7 @@ void gotcha_disparity_refinement(ASPGlobalOptions& opt) {
   }
 
   if (!fs::exists(stereo_settings().casp_go_param_file)) 
-    vw_throw(ArgumentErr() << "Cannot read CASP-GO param file: "
+    vw_throw(ArgumentErr() << "Cannot read CASP-GO parameter file: "
              << stereo_settings().casp_go_param_file << "\n");
   else
     vw_out() << "Refining the disparity using the Gotcha algorithm and parameter file: "
@@ -492,16 +492,13 @@ void gotcha_disparity_refinement(ASPGlobalOptions& opt) {
   disp_file += ".final.tif";
   vw_out() << "Writing Gotcha-refined disparity: " << disp_file << endl;
   block_write_gdal_image(disp_file,
-                         gotcha_refine(filtered_disparity,  
-                                       left_image, right_image,
-                                       padding, stereo_settings().casp_go_param_file),
+                         gotcha::gotcha_refine(filtered_disparity,  
+                                               left_image, right_image,
+                                               padding, stereo_settings().casp_go_param_file),
                          has_left_georef, left_georef,
                          has_nodata, nodata, opt,
                          TerminalProgressCallback("asp","\t  Gotcha:  "));
 }
-
-
-// Add namespace and copyright headers to Gotcha
 
 int main(int argc, char* argv[]) {
 
