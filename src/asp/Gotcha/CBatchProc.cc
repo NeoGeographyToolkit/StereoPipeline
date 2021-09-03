@@ -7,33 +7,45 @@
 namespace fs = boost::filesystem;
 
 namespace {
-  // Convert an image from ASP format to OpenCV's format. Note that no
-  // deep copy happens when an ImageView is passed by value, and that
-  // ASP stores an image as col, row.
-  void aspMatToCvMat(vw::ImageView<float> in, cv::Mat & out) {
-    
+  // Convert a float image from ASP format to an OpenCV float image
+  // and vice-versa. Note that ASP stores an image as col, row.
+  
+  void aspMatToCvMat(vw::ImageView<float> const& in, cv::Mat & out) {
     out = cv::Mat::zeros(in.rows(), in.cols(), CV_32F);
-    
     for (int row = 0; row < out.rows; row++) {
       for (int col = 0; col < out.cols; col++) {
         out.at<float>(row, col) = in(col, row);
       }
     }
   }
+
+  void cvMatToAspMat(cv::Mat const& in, vw::ImageView<float> & out) {
+    out.set_size(in.cols, in.rows); 
+    for (int row = 0; row < in.rows; row++) {
+      for (int col = 0; col < in.cols; col++) {
+        out(col, row) = in.at<float>(row, col);
+      }
+    }
+  }
+  
 }
 
-CBatchProc::CBatchProc(string strMetaFile,
-                       vw::ImageView<float> imgL, vw::ImageView<float> imgR, 
-                       vw::ImageView<float> input_dispX, vw::ImageView<float> input_dispY, 
-                       string strOutputPrefix) {
+CBatchProc::CBatchProc(string               const & strMetaFile,
+                       vw::ImageView<float> const & imgL,
+                       vw::ImageView<float> const & imgR, 
+                       vw::ImageView<float> const & input_dispX,
+                       vw::ImageView<float> const & input_dispY) {
   // initialize
   m_strMetaFile = strMetaFile;
-  //m_strImgL = strLeftImagePath;
-  //m_strImgR = strRightImagePath;
-  //m_strDispX = strDisparityX;
-  //m_strDispY = strDisparityY;
-  m_strOutPath = strOutputPrefix;
 
+#if 0
+  m_strImgL = strLeftImagePath;
+  m_strImgR = strRightImagePath;
+  m_strDispX = strDisparityX;
+  m_strDispY = strDisparityY;
+  m_strOutPath = strOutputPrefix;
+#endif
+  
   // Convert the inputs to cv::Mat, which is what Gotcha prefers
   aspMatToCvMat(imgL, m_imgL);
   aspMatToCvMat(imgR, m_imgR);
@@ -109,14 +121,15 @@ bool CBatchProc::validateProjInputs() {
   return bRes;
 }
 
-void CBatchProc::doBatchProcessing() {
+void CBatchProc::doBatchProcessing(vw::ImageView<float> & output_dispX,
+                                   vw::ImageView<float> & output_dispY) {
 
   cout << "Starting processing now..." << endl
        << "================================" << endl << endl;
 
   std::vector<CTiePt> vecTPs;
   generateTPFile(vecTPs);
-  refinement(vecTPs);
+  refinement(vecTPs, output_dispX, output_dispY);
 
   cout << "Process completed" << endl;
   cout << endl;
@@ -125,10 +138,12 @@ void CBatchProc::doBatchProcessing() {
 
 void CBatchProc::generateMask() {
   // These are kept in memory now, no need to read them from disk
-  //string strMask = "-GM.tif";
-  //m_strMask = m_strOutPath + strMask;
-  //m_input_dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
-  //m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
+#if 0
+  string strMask = "-GM.tif";
+  m_strMask = m_strOutPath + strMask;
+  m_input_dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
+  m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
+#endif
   
   m_Mask = Mat::zeros(m_input_dispX.size(), CV_8UC1);
 
@@ -424,7 +439,9 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
   
 }
 
-void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs) {
+void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs,
+                            vw::ImageView<float> & output_dispX,
+                            vw::ImageView<float> & output_dispY) {
   cout << "Gotcha densification based on existing disparity map:" << endl;
   FileStorage fs(m_strMetaFile, FileStorage::READ);
   FileNode tl = fs["sGotchaParam"];
@@ -448,10 +465,11 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs) {
   paramDense.m_paramGotcha.m_paramALSC.m_nMaxIter = (int)tl["nALSCIteration"];
   paramDense.m_paramGotcha.m_paramALSC.m_nPatch = (int)tl["nALSCKernel"];
 
+#if 0
   string strBase = m_strOutPath;
-  //string strTPFile = "-TP.txt";
-  //paramDense.m_strTPFile = strBase + strTPFile;
-  //paramDense.m_paramGotcha.m_strMask = m_strMask;
+  string strTPFile = "-TP.txt";
+  paramDense.m_strTPFile = strBase + strTPFile;
+  paramDense.m_paramGotcha.m_strMask = m_strMask;
   string strUpdatedDispX = "-c1_refined.txt";
   paramDense.m_strUpdatedDispX = strBase + strUpdatedDispX;
   string strUpdatedDispY = "-c2_refined.txt";
@@ -459,19 +477,26 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs) {
   string strUpdatedDispSim = "-uncertainty.txt";
   paramDense.m_strUpdatedDispSim = strBase + strUpdatedDispSim;
 
-  //paramDense.m_strImgL = m_strImgL;
-  //paramDense.m_strImgR = m_strImgR;
+  paramDense.m_strImgL = m_strImgL;
+  paramDense.m_strImgR = m_strImgR;
   paramDense.m_strOutPath = m_strOutPath;
-  //paramDense.m_strDispX = m_strDispX;
-  //paramDense.m_strDispY = m_strDispY;
-  //paramDense.m_Mask = m_Mask;
-
+  paramDense.m_strDispX = m_strDispX;
+  paramDense.m_strDispY = m_strDispY;
+  paramDense.m_Mask = m_Mask;
+#endif
+  
   CDensify densify(paramDense, vecTPs, m_imgL, m_imgR, m_input_dispX, m_input_dispY, m_Mask);
   cout << "CASP-GO INFO: performing Gotcha densification" << endl;
-  int nErrCode = densify.performDensitification();
+
+  cv::Mat cv_output_dispX, cv_output_dispY;
+  int nErrCode = densify.performDensitification(cv_output_dispX, cv_output_dispY);
   if (nErrCode != CDensifyParam::NO_ERR){
     cerr << "Warning: Processing error on densifying operation (ERROR CODE: " << nErrCode << " )" << endl;
   }
+
+  // Export the data to ASP
+  cvMatToAspMat(cv_output_dispX, output_dispX);
+  cvMatToAspMat(cv_output_dispY, output_dispY);
 }
 
 

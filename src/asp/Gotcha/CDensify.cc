@@ -51,7 +51,7 @@ bool CDensify::loadTPForDensification(string strTPFile){
 }
 #endif
 
-int CDensify::performDensitification(){
+int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_dispY){
 
     ///////////////////////////////////////////
     // validate the input images
@@ -111,7 +111,7 @@ int CDensify::performDensitification(){
 
         makeDataProducts();
 
-        if (!saveResult())
+        if (!saveResult(output_dispX, output_dispY))
             return CDensifyParam::FILE_IO_ERR;
 
         // Do not save the log, this is hard to manage with multiple instances
@@ -143,7 +143,7 @@ int CDensify::performDensitification(){
         procTime = (end - start)/getTickFrequency();
         makeDataProducts();
 
-        if (!saveResult())
+        if (!saveResult(output_dispX, output_dispY))
             return CDensifyParam::FILE_IO_ERR;
 
         // Do not save the log, this is hard to manage with multiple instances
@@ -218,67 +218,62 @@ vector<CTiePt> CDensify::getIntToFloatSeed(vector<CTiePt>& vecTPSrc) {
     return vecRes;
 }
 
-bool CDensify::saveProjLog (string strFile){
-  
-  std::cout << "--writing log " << strFile << std::endl;
+bool CDensify::saveProjLog(string strFile){
+
+  return true;
+#if 0
+  std::cout << "Writing log " << strFile << std::endl;
   bool bRes = false;
-    ofstream sfLog;
-    sfLog.open(strFile.c_str(), ios::app | ios::out);
-    string strProcType = getProcType();
-
-    std::cout << "---temporary xxx" << std::endl;
-    std::cout << "<Project I/O>" << endl;
-    std::cout << "Processing type: " << strProcType << endl;
-
-    //std::cout << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
-    //std::cout << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
-    //std::cout << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
-    std::cout << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << endl;
-    std::cout << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << endl;
-    std::cout << endl;
-
-
-    if (sfLog.is_open()){
-        sfLog << "<Project I/O>" << endl;
-        //sfLog << "Input left image path: " << m_paramDense.m_strImgL << endl;
-        //sfLog << "Input right image path: " << m_paramDense.m_strImgR << endl;
-        sfLog << "Processing type: " << strProcType << endl;
-
-        //sfLog << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
-        //sfLog << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
-        //sfLog << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << endl;
-        //sfLog << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
-        sfLog << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << endl;
-        sfLog << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << endl;
-        sfLog << endl;
-        sfLog.close();
-        bRes = true;
-    }
-    else
-        return bRes = false;
-
-    return bRes;
+  ofstream sfLog;
+  sfLog.open(strFile.c_str(), ios::app | ios::out);
+  string strProcType = getProcType();
+  
+  if (sfLog.is_open()){
+    sfLog << "<Project I/O>" << endl;
+    sfLog << "Input left image path: " << m_paramDense.m_strImgL << endl;
+    sfLog << "Input right image path: " << m_paramDense.m_strImgR << endl;
+    sfLog << "Processing type: " << strProcType << endl;
+    
+    sfLog << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
+    sfLog << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
+    sfLog << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << endl;
+    sfLog << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
+    sfLog << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << endl;
+    sfLog << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << endl;
+    sfLog << endl;
+    sfLog.close();
+    bRes = true;
+  }
+  else
+    return bRes = false;
+  
+  return bRes;
+#endif
+  
 }
 
 bool CDensify::saveLog(){
-
+  return true;
+#if 0
   string FILE_LOG = "-GLog.txt";
 
   string strFile = m_paramDense.m_strOutPath + FILE_LOG;
   bool bRes = false;
   
   // save parameter log
-  bRes = saveProjLog(strFile);
+  //bRes = saveProjLog(strFile);
   bRes = saveGOTCHAParam(m_paramDense.m_paramGotcha, strFile);
   bRes = bRes && saveALSCParam(m_paramDense.m_paramGotcha.m_paramALSC, strFile);
   // save result log
   bRes = bRes && saveResLog(strFile);
   
   return bRes;
+#endif
 }
 
 bool CDensify::saveResLog(string strFile){
-
+  return true;
+#if 0
     bool bRes = false;
     int nNumFinalTPs = nNumSeedTPs+m_vectpAdded.size();
     ofstream sfLog;
@@ -299,7 +294,7 @@ bool CDensify::saveResLog(string strFile){
         return bRes = false;
 
     return bRes;
-
+#endif
 }
 
 void CDensify::makeDataProducts(){
@@ -334,7 +329,7 @@ void CDensify::makeDataProducts(){
 }
 
 
-bool CDensify::saveResult(){
+bool CDensify::saveResult(cv::Mat & output_dispX, cv::Mat & output_dispY){
 
     bool bRes = true;
 
@@ -343,23 +338,23 @@ bool CDensify::saveResult(){
     
     cout << "Writing results..." << endl;
 
-    Mat dispX = Mat::ones(m_matDisMapX.size(), CV_32FC1)*0.0;
-    Mat dispY = Mat::ones(m_matDisMapY.size(), CV_32FC1)*0.0;
+    output_dispX = Mat::ones(m_matDisMapX.size(), CV_32FC1)*0.0;
+    output_dispY = Mat::ones(m_matDisMapY.size(), CV_32FC1)*0.0;
 
-    for (int i =0; i<dispX.rows; i++){
-        for (int j=0; j<dispX.cols; j++){
+    for (int i =0; i<output_dispX.rows; i++){
+        for (int j=0; j<output_dispX.cols; j++){
             if (m_matDisMapX.at<float>(i,j)!= 0.0){ //-3.40282346639e+038
                 float disp = m_matDisMapX.at<float>(i,j);
-                dispX.at<float>(i,j)=disp;
+                output_dispX.at<float>(i,j)=disp;
             }
         }
     }
 
-    for (int i =0; i<dispY.rows; i++){
-        for (int j=0; j<dispY.cols; j++){
+    for (int i =0; i<output_dispY.rows; i++){
+        for (int j=0; j<output_dispY.cols; j++){
             if (m_matDisMapY.at<float>(i,j)!= 0.0){
                 float disp = m_matDisMapY.at<float>(i,j);
-                dispY.at<float>(i,j)=disp;
+                output_dispY.at<float>(i,j)=disp;
             }
         }
     }
@@ -412,60 +407,54 @@ bool CDensify::saveResult(){
 
     //Recover values of original disp map
     if (m_input_dispX.depth()==2 && m_input_dispY.depth()==2){
-        for (int i =0; i<dispX.rows; i++){
-            for (int j=0; j<dispX.cols; j++){
+        for (int i =0; i<output_dispX.rows; i++){
+            for (int j=0; j<output_dispX.cols; j++){
                 if (m_input_dispX.at<ushort>(i,j)!=65535)
-                    dispX.at<ushort>(i,j)=m_input_dispX.at<ushort>(i,j);
+                    output_dispX.at<ushort>(i,j)=m_input_dispX.at<ushort>(i,j);
                 if (m_input_dispY.at<ushort>(i,j)!=65535)
-                    dispY.at<ushort>(i,j)=m_input_dispY.at<ushort>(i,j);
+                    output_dispY.at<ushort>(i,j)=m_input_dispY.at<ushort>(i,j);
             }
         }
     }
     else if (m_input_dispX.depth()==5 && m_input_dispY.depth()==5){
-        for (int i =0; i<dispX.rows; i++){
-            for (int j=0; j<dispX.cols; j++){
+        for (int i =0; i<output_dispX.rows; i++){
+            for (int j=0; j<output_dispX.cols; j++){
                 if (m_input_dispX.at<float>(i,j)!= 0.0){  //IMARS
                     float disp = m_input_dispX.at<float>(i,j); //IMARS
-                    dispX.at<float>(i,j)=disp; //IMARS
+                    output_dispX.at<float>(i,j)=disp; //IMARS
                 }
                 if (m_input_dispY.at<float>(i,j)!= 0.0){  //IMARS
                     float disp = m_input_dispY.at<float>(i,j);  //IMARS
-                    dispY.at<float>(i,j)=disp; //IMARS
+                    output_dispY.at<float>(i,j)=disp; //IMARS
                 }
             }
         }
     }
     //Cancelled in IMARS, since using sGotcha, we have whole map.
 
-
-    string strFileC1 = m_paramDense.m_strUpdatedDispX;
-    std::cout << "--saving matrix " << strFileC1 << std::endl;
-    bRes = bRes && saveMatrix(dispX, strFileC1);
-    //imwrite(strFile, dispX);
-    string strFileC2 = m_paramDense.m_strUpdatedDispY;
-    std::cout << "--saving matrix " << strFileC2 << std::endl;
-    bRes = bRes && saveMatrix(dispY, strFileC2);
-    //imwrite(strFile, dispY);
-
 #if 0
+    // The outputs are now passed out rather than saved to disk
+    
+    string strFileC1 = m_paramDense.m_strUpdatedDispX;
+    bRes = bRes && saveMatrix(output_dispX, strFileC1);
+    //imwrite(strFile, output_dispX);
+    string strFileC2 = m_paramDense.m_strUpdatedDispY;
+    bRes = bRes && saveMatrix(output_dispY, strFileC2);
+    //imwrite(strFile, output_dispY);
+
     // Do not write this file as it is not used. If needed, such a
     // file must be written for every tile ASP processes.
     string strFileC3 = m_paramDense.m_strUpdatedDispSim;
     std::cout << "Saving matrix: " << strFileC3 << std::endl;
     bRes = bRes && saveMatrix(m_matDisMapSim, strFileC3);
-#endif
 
     string strC1Tiff = "-c1_refined.tif";
     string strC2Tiff = "-c2_refined.tif";
-#if 0
     string strC3Tiff = "-uncertainty.tif";
-#endif
     
     string strFileC1Tiff = m_paramDense.m_strOutPath + strC1Tiff;
     string strFileC2Tiff = m_paramDense.m_strOutPath + strC2Tiff;
-#if 0
     string strFileC3Tiff = m_paramDense.m_strOutPath + strC3Tiff;
-#endif
     
     ostringstream strCmdGdalConversionC1;
     strCmdGdalConversionC1 << "gdal_translate " << strFileC1 << " -of GTiff " << strFileC1Tiff;
@@ -477,9 +466,6 @@ bool CDensify::saveResult(){
     std::cout << strCmdGdalConversionC2.str() << std::endl;
     system(strCmdGdalConversionC2.str().c_str());
 
-#if 0
-    // Do not write this file as it is not used. If needed, such a
-    // file must be written for every tile ASP processes.
     ostringstream strCmdGdalConversionC3;
     strCmdGdalConversionC3 << "gdal_translate " << strFileC3 << " -of GTiff " << strFileC3Tiff;
     std::cout << strCmdGdalConversionC3.str() << std::endl;
@@ -801,8 +787,6 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
     //cout << "debug1" << endl;
     cout << "CASP-GO INFO: Desifying disparity... ..." << endl;
 
-    std::cout << "--Number of tiles " << vecRectTiles.size() << std::endl;
-    
     for (int i = 0 ; i < (int)vecRectTiles.size(); i++ ){
           vector<CTiePt> vecRes;
           bRes = bRes && doTileGotcha(matImgL, matImgR, vectpSeeds, paramGotcha, vecRes, vecRectTiles.at(i), matSimMap, pLUT);

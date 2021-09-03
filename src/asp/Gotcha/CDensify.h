@@ -30,7 +30,7 @@ public:
                      cv::Mat imgL, cv::Mat imgR,
                      cv::Mat input_dispX, cv::Mat input_dispY, cv::Mat Mask);
   
-    int performDensitification();
+    int performDensitification(cv::Mat & output_dispX, cv::Mat & cv_output_dispY);
     int getNumTotTps() const {return m_vectpAdded.size();}
     static bool compareTP(CTiePt tpX, CTiePt tpY){
         return (tpX.m_fSimVal < tpY.m_fSimVal);
@@ -57,7 +57,7 @@ private:
     bool doPGotcha(int nNeiType);
     int getTotPyramidLev(int nszPatch);
     void makeDataProducts();
-    bool saveResult();
+    bool saveResult(cv::Mat & output_dispX, cv::Mat & cv_output_dispY);
     bool saveProjLog (std::string strFile);
     bool saveLog();
     bool saveResLog(std::string strFile);
