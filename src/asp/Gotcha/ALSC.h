@@ -1,49 +1,67 @@
-#ifndef ALSC_H
-#define ALSC_H
+// __BEGIN_LICENSE__
+//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Administrator of the National Aeronautics and Space Administration. All
+//  rights reserved.
+//
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// __END_LICENSE__
+
+#ifndef ASP_GOTCHA_ALSC_H
+#define ASP_GOTCHA_ALSC_H
+
+#include <asp/Gotcha/CALSCParam.h>
+#include <asp/Gotcha/CTiePt.h>
+
+#include <opencv2/opencv.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
+#include <Eigen/Dense>
+#include <Eigen/SVD>
 
 #include <iostream>
 #include <math.h>
 #include <fstream>
 #include <vector>
-#include <Eigen/Dense>
-#include <Eigen/SVD>
-#include "opencv2/opencv.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include "CALSCParam.h"
-#include "CTiePt.h"
 
-using namespace cv;
-using namespace std;
+namespace gotcha {
 
-class ALSC
-{
+class ALSC {
 public:
     ALSC();
-    ALSC(Mat imgL, Mat imgR, CALSCParam paramALSC);
+    ALSC(cv::Mat imgL, cv::Mat imgR, CALSCParam paramALSC);
 
-    void performALSC(const vector<CTiePt>* pvecTpts , const float* pfAffStart = NULL);   // Nb. it is normally used for TC refinement (i.e., verification)
+    void performALSC(const std::vector<CTiePt>* pvecTpts , const float* pfAffStart = NULL);   // Nb. it is normally used for TC refinement (i.e., verification)
                                                                                          // pfAffStart might be needed if ALSC resumes from the previous TP results
-    void getRefinedTps(vector<CTiePt>& vecRefTP) const {vecRefTP = m_pvecRefTP;}
-    const vector<CTiePt>* getRefinedTps() {return &m_pvecRefTP;} // the result which passes the ALSC test
-    vector<int> getPassList() {return m_vecPassList;}
+    void getRefinedTps(std::vector<CTiePt>& vecRefTP) const {vecRefTP = m_pvecRefTP;}
+    const std::vector<CTiePt>* getRefinedTps() {return &m_pvecRefTP;} // the result which passes the ALSC test
+    std::vector<int> getPassList() {return m_vecPassList;}
 
     enum{NO_ERR, OB_ERR};
 
 private:
-    bool isIntersecting(Rect rectA, Rect rectB);
+    bool isIntersecting(cv::Rect rectA, cv::Rect rectB);
     void getGradientX(Eigen::Ref<Eigen::MatrixXf> matSrc);
     void getGradientY(Eigen::Ref<Eigen::MatrixXf> matSrc);
-    void distortPatch(const Mat& matImg, const Point2f ptCentre, const float* pfAff, Eigen::Ref<Eigen::MatrixXf> matImgPatch, Point2f* pptUpdated = NULL);
-    bool doMatching(Point2f ptStartL, Point2f ptStartR, CTiePt& tp, const float* pfAffInt = NULL);
-    void affineTransform(double x, double y, const Point2f ptCentre, const float *pfAff, double *dNewX, double *dNewY);
-    float interpolate(double dNewX, double dNewY, const Mat &matImg);
+    void distortPatch(const cv::Mat& matImg, const cv::Point2f ptCentre, const float* pfAff, Eigen::Ref<Eigen::MatrixXf> matImgPatch, cv::Point2f* pptUpdated = NULL);
+    bool doMatching(cv::Point2f ptStartL, cv::Point2f ptStartR, CTiePt& tp, const float* pfAffInt = NULL);
+    void affineTransform(double x, double y, const cv::Point2f ptCentre, const float *pfAff, double *dNewX, double *dNewY);
+    float interpolate(double dNewX, double dNewY, const cv::Mat &matImg);
 
 private:
     // inputs
-    Mat m_imgL;
-    Mat m_imgR;
+    cv::Mat m_imgL;
+    cv::Mat m_imgR;
     CALSCParam m_paramALSC;
-    Mat m_imgR_resize;
+    cv::Mat m_imgR_resize;
 
     int nMaxIter;
     int nPatchRadius;
@@ -56,8 +74,8 @@ private:
     int nColPatch;
     int nSystemMatrixRows;
 
-    std::vector< std::vector<float> > pfGx;
-    std::vector< std::vector<float> > pfGy;
+    std::vector<std::vector<float> > pfGx;
+    std::vector<std::vector<float> > pfGy;
 
     Eigen::MatrixXf matPatchL;
     Eigen::MatrixXf matPatchR;
@@ -70,17 +88,20 @@ private:
     int nParam;
 
     // outputs:
-    vector<CTiePt> m_pvecRefTP;
-    vector<int> m_vecPassList; // index list which passes ALSC test
+    std::vector<CTiePt> m_pvecRefTP;
+    std::vector<int> m_vecPassList; // index list which passes ALSC test
 };
 
 class ALSCU16 : public ALSC
 {
-    float interpolate(double dNewX, double dNewY, const Mat &matImg);
+    float interpolate(double dNewX, double dNewY, const cv::Mat &matImg);
 };
 
 class ALSCF32 : public ALSC
 {
-    float interpolate(double dNewX, double dNewY, const Mat &matImg);
+    float interpolate(double dNewX, double dNewY, const cv::Mat &matImg);
 };
-#endif // ALSC_H
+
+} // end namespace gotcha
+
+#endif // ASP_GOTCHA_ALSC_H

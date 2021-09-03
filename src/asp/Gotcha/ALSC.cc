@@ -1,10 +1,28 @@
-#include "ALSC.h"
+// __BEGIN_LICENSE__
+//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Administrator of the National Aeronautics and Space Administration. All
+//  rights reserved.
+//
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// __END_LICENSE__
+
+#include <asp/Gotcha/ALSC.h>
 
 using namespace std;
+using namespace cv;
 
-ALSC::ALSC()
-{
-}
+namespace gotcha {
+
+ALSC::ALSC() {}
 
 ALSC::ALSC(Mat imgL, Mat imgR, CALSCParam paramALSC){
     m_imgL = imgL;  // soft data copy
@@ -216,13 +234,13 @@ bool ALSC::doMatching(Point2f ptStartL, Point2f ptStartR, CTiePt& tp, const floa
 
         if (dist > fDisplacementThr)
             bNeed2Stop = true;
-        if (abs(emS(1)) > fAffineThr || std::isnan(emS(1)))
+        if (std::abs(emS(1)) > fAffineThr || std::isnan(emS(1)))
             bNeed2Stop = true;
-        if (abs(emS(2)) > fAffineThr || std::isnan(emS(2)))
+        if (std::abs(emS(2)) > fAffineThr || std::isnan(emS(2)))
             bNeed2Stop = true;
-        if (abs(emS(4)) > fAffineThr || std::isnan(emS(4)))
+        if (std::abs(emS(4)) > fAffineThr || std::isnan(emS(4)))
             bNeed2Stop = true;
-        if (abs(emS(5)) > fAffineThr || std::isnan(emS(5)))
+        if (std::abs(emS(5)) > fAffineThr || std::isnan(emS(5)))
             bNeed2Stop = true;
         if (bNeed2Stop){
             break;
@@ -564,3 +582,4 @@ void ALSC::performALSC(const vector<CTiePt> *pvecTpts, const float* pfAffStart){
     } // end of operation for all seed points
 }
 
+} // end namespace gotcha

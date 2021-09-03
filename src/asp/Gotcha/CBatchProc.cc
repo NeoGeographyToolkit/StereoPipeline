@@ -15,42 +15,41 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <CBatchProc.h>
-#include <CDensifyParam.h>
-#include <CDensify.h>
+#include <asp/Gotcha/CBatchProc.h>
+#include <asp/Gotcha/CDensifyParam.h>
+#include <asp/Gotcha/CDensify.h>
 
 #include <boost/filesystem.hpp>
 
 namespace fs = boost::filesystem;
 using namespace vw;
+using namespace cv;
+using namespace std;
 
-// TODO(oalexan1): Put all this in a single namespace!
-
-namespace {
-  // Convert a float image from ASP format to an OpenCV float image
-  // and vice-versa. Note that ASP stores an image as col, row.
+namespace gotcha {
   
-  void aspMatToCvMat(vw::ImageView<float> const& in, cv::Mat & out) {
-    out = cv::Mat::zeros(in.rows(), in.cols(), CV_32F);
-    for (int row = 0; row < out.rows; row++) {
-      for (int col = 0; col < out.cols; col++) {
-        out.at<float>(row, col) = in(col, row);
-      }
+// Convert a float image from ASP format to an OpenCV float image
+// and vice-versa. Note that ASP stores an image as col, row.
+  
+void aspMatToCvMat(vw::ImageView<float> const& in, cv::Mat & out) {
+  out = cv::Mat::zeros(in.rows(), in.cols(), CV_32F);
+  for (int row = 0; row < out.rows; row++) {
+    for (int col = 0; col < out.cols; col++) {
+      out.at<float>(row, col) = in(col, row);
     }
   }
-
-  void cvMatToAspMat(cv::Mat const& in, vw::ImageView<float> & out) {
-    out.set_size(in.cols, in.rows); 
-    for (int row = 0; row < in.rows; row++) {
-      for (int col = 0; col < in.cols; col++) {
-        out(col, row) = in.at<float>(row, col);
-      }
-    }
-  }
-  
 }
 
-CBatchProc::CBatchProc(string               const & strMetaFile,
+void cvMatToAspMat(cv::Mat const& in, vw::ImageView<float> & out) {
+  out.set_size(in.cols, in.rows); 
+  for (int row = 0; row < in.rows; row++) {
+    for (int col = 0; col < in.cols; col++) {
+      out(col, row) = in.at<float>(row, col);
+    }
+  }
+}
+  
+CBatchProc::CBatchProc(std::string          const & strMetaFile,
                        vw::ImageView<float> const & imgL,
                        vw::ImageView<float> const & imgR, 
                        vw::ImageView<float> const & input_dispX,
@@ -80,11 +79,11 @@ CBatchProc::CBatchProc(string               const & strMetaFile,
   aspMatToCvMat(input_dispY, m_input_dispY);
   
   if (!validateProjParam()){
-    cerr << "ERROR: The project input files cannot be validated" << endl;
+    std::cerr << "ERROR: The project input files cannot be validated" << std::endl;
     exit(1);
   }
   if (!validateProjInputs()){
-    cerr << "ERROR: The project input files not in correct format" << endl;
+    std::cerr << "ERROR: The project input files not in correct format" << std::endl;
     exit(1);
   }
 }
@@ -98,23 +97,23 @@ bool CBatchProc::validateProjParam() {
 #if 0
   // image file existence
   if (!fs::exists(m_strImgL)){
-    cerr << "ERROR: Left image file does not exist." << endl;
+    std::cerr << "ERROR: Left image file does not exist." << std::endl;
     bRes = false;
   }
 
   if (!fs::exists(m_strImgR)){
-    cerr << "ERROR: Right image file does not exist." << endl;
+    std::cerr << "ERROR: Right image file does not exist." << std::endl;
     bRes = false;
   }
 
   // These are passed in-memory now
   if (!fs::exists(m_strDispX)){
-    cerr << "Gotcha on given disparity map. ERROR: X disparity file does not exist." << endl;
+    std::cerr << "Gotcha on given disparity map. ERROR: X disparity file does not exist." << std::endl;
     bRes = false;
   }
 
   if (!fs::exists(m_strDispY)){
-    cerr << "Gotcha on given disparity map. ERROR: Y disparity file does not exist." << endl;
+    std::cerr << "Gotcha on given disparity map. ERROR: Y disparity file does not exist." << std::endl;
     bRes = false;
   }
 #endif
@@ -129,21 +128,21 @@ bool CBatchProc::validateProjInputs() {
   //m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
   if ((m_input_dispX.depth()!=2 && m_input_dispX.depth()!=5)|| (m_input_dispY.depth()!=2 && m_input_dispY.depth()!=5)){
     bRes = false;
-    cerr << "Gotcha on given disparity map. ERROR: Input x/y disparity map not in 16bit unsigned integer or 32bit floating point" << endl;
+    std::cerr << "Gotcha on given disparity map. ERROR: Input x/y disparity map not in 16bit unsigned integer or 32bit floating point" << std::endl;
   }
   if (m_input_dispX.channels()!=1 || m_input_dispY.channels()!=1){
     bRes = false;
-    cerr << "Gotcha on given disparity map. ERROR: Please take single channel image as input x/y disparity map" << endl;
+    std::cerr << "Gotcha on given disparity map. ERROR: Please take single channel image as input x/y disparity map" << std::endl;
   }
 
-  //cout << "Generating bad pixel/gap mask file." << endl;
+  //std::cout << "Generating bad pixel/gap mask file." << std::endl;
   generateMask();
 
   //std::cout << "Reading mask: " << m_strMask << std::endl;
   //Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
   if (m_Mask.depth()!=0 || m_Mask.channels()!=1){
     bRes = false;
-    cerr << "ERROR: Input mask file not in 8 bit single channel unsigned int format" << endl;
+    std::cerr << "ERROR: Input mask file not in 8 bit single channel unsigned int format" << std::endl;
   }
   return bRes;
 }
@@ -151,16 +150,16 @@ bool CBatchProc::validateProjInputs() {
 void CBatchProc::doBatchProcessing(vw::ImageView<float> & output_dispX,
                                    vw::ImageView<float> & output_dispY) {
 
-  //cout << "Starting processing now..." << endl
-  //     << "================================" << endl << endl;
+  //std::cout << "Starting processing now..." << std::endl
+  //     << "================================" << std::endl << std::endl;
 
   std::vector<CTiePt> vecTPs;
   generateTPFile(vecTPs);
   refinement(vecTPs, output_dispX, output_dispY);
 
-  //cout << "Process completed" << endl;
-  //cout << endl;
-  //cout << "================================" << endl << endl;
+  //std::cout << "Process completed" << std::endl;
+  //std::cout << std::endl;
+  //std::cout << "================================" << std::endl << std::endl;
 }
 
 void CBatchProc::generateMask() {
@@ -196,7 +195,7 @@ void CBatchProc::generateMask() {
         }
       }
     }
-    //cout << "GAP Pixels masked: " << numBadpixel << endl;
+    //std::cout << "GAP Pixels masked: " << numBadpixel << std::endl;
     //std::cout << "Writing mask: " << m_strMask << std::endl;
     //imwrite(m_strMask, Mask);
   }
@@ -370,7 +369,7 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
     int nLen = Lx.size();
     int nEle = 5;
     if (sfTP.is_open()){
-      sfTP << nLen << " " << nEle << endl;
+      sfTP << nLen << " " << nEle << std::endl;
       for (int i = 0 ; i < nLen ;i++){
         unsigned short lx, ly;
         float rx, ry;
@@ -380,14 +379,14 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
         ry = Ry.at(i);
         sfTP << lx << " " << ly << " "
              << rx << " " << ry << " "
-             << 0.5 << " " << endl;
+             << 0.5 << " " << std::endl;
       }
       sfTP.close();
     }
     else {
-      cout << "ERROR: Can not convert X/Y disparity map to TP file. "
+      std::cout << "ERROR: Can not convert X/Y disparity map to TP file. "
            << "Please check the directory for storing Gotcha results is writable."
-           << endl;
+           << std::endl;
     }
 #endif
     
@@ -444,7 +443,7 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
     int nLen = Lx.size();
     int nEle = 5;
     if (sfTP.is_open()){
-      sfTP << nLen << " " << nEle << endl;
+      sfTP << nLen << " " << nEle << std::endl;
       for (int i = 0 ; i < nLen ;i++){
         unsigned short lx, ly;
         float rx, ry;
@@ -454,12 +453,12 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
         ry = Ry.at(i);
         sfTP << lx << " " << ly << " "
              << rx << " " << ry << " "
-             << 0.5 << " " << endl;
+             << 0.5 << " " << std::endl;
       }
       sfTP.close();
     } else {
-      cout << "ERROR: Can not convert X/Y disparity map to TP file. "
-           << "Please check the directory for storing Gotcha results is writable." << endl;
+      std::cout << "ERROR: Can not convert X/Y disparity map to TP file. "
+           << "Please check the directory for storing Gotcha results is writable." << std::endl;
     }
 #endif
   }
@@ -469,7 +468,7 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
 void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs,
                             vw::ImageView<float> & output_dispX,
                             vw::ImageView<float> & output_dispY) {
-  //cout << "Gotcha densification based on existing disparity map:" << endl;
+  //std::cout << "Gotcha densification based on existing disparity map:" << std::endl;
   FileStorage fs(m_strMetaFile, FileStorage::READ);
   FileNode tl = fs["sGotchaParam"];
 
@@ -513,19 +512,18 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs,
 #endif
   
   CDensify densify(paramDense, vecTPs, m_imgL, m_imgR, m_input_dispX, m_input_dispY, m_Mask);
-  //cout << "CASP-GO INFO: performing Gotcha densification" << endl;
+  //std::cout << "CASP-GO INFO: performing Gotcha densification" << std::endl;
 
   cv::Mat cv_output_dispX, cv_output_dispY;
   int nErrCode = densify.performDensitification(cv_output_dispX, cv_output_dispY);
   if (nErrCode != CDensifyParam::NO_ERR){
-    cerr << "Warning: Processing error on densifying operation (ERROR CODE: " << nErrCode << " )" << endl;
+    std::cerr << "Warning: Processing error on densifying operation (ERROR CODE: " << nErrCode << " )" << std::endl;
   }
 
   // Export the data to ASP
   cvMatToAspMat(cv_output_dispX, output_dispX);
   cvMatToAspMat(cv_output_dispY, output_dispY);
 }
-
 
 Point3f CBatchProc::rotate(Point3f ptIn, Mat matQ, bool bInverse){
   // this believe matQ is a unit vector
@@ -573,3 +571,5 @@ void CBatchProc::quaternionMultiplication(const float* p, const float* q, float*
   pfOut[2] = -1*p[1]*q[3] + p[2]*q[0] + p[3]*q[1] + p[0]*q[2];
   pfOut[3] = p[1]*q[2] - p[2]*q[1] + p[3]*q[0] + p[0]*q[3];
 }
+
+} // end namespace gotcha
