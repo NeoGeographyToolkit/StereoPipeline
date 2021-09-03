@@ -76,10 +76,10 @@ void parse_ms_correction_table(std::string const& sat_id, int band,
   std::ifstream handle;
   handle.open(lookup_path.c_str());
   if (handle.fail()) 
-    vw_throw( vw::IOErr() << "Unable to open file \"" << lookup_path << "\"" );
+    vw_throw(vw::IOErr() << "Unable to open file \"" << lookup_path << "\"");
 
   std::string line;
-  while ( getline(handle, line, '\n') ){
+  while (getline(handle, line, '\n')){
 
     if (line.size() == 0 || line[0] == '#')
       continue; // skip comment and empty line
@@ -99,12 +99,12 @@ void parse_ms_correction_table(std::string const& sat_id, int band,
     DiskImageView<float> lookup_table(table_path);
     int row = atoi(row_str.c_str());
     if (lookup_table.rows() <= row) 
-      vw_throw( ArgumentErr() << "Could not find at least " << row + 1 << " rows in "
+      vw_throw(ArgumentErr() << "Could not find at least " << row + 1 << " rows in "
                 << table_path << "\n");
 
     int num_vals = lookup_table.cols() / 2;
     if (2*num_vals != lookup_table.cols())
-      vw_throw( ArgumentErr() << "Expecting an even number of columns in table "
+      vw_throw(ArgumentErr() << "Expecting an even number of columns in table "
                 << table_path << "\n");
     
     corr_x.resize(num_vals);
@@ -131,7 +131,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dy",  po::value(&opt.dy)->default_value(""), "As above, but for the y direction.")
     ("print-per-column-corrections", po::bool_switch(&opt.print_per_column_corrections)->default_value(false), "Print on standard output the per-column corrections about to apply (for multispectral images).");
     
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
   po::options_description positional("");
   positional.add_options()
@@ -152,12 +152,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
-  if ( !vm.count("camera-image") || !vm.count("camera-model") ||
-       !vm.count("output-image") )
-    vw_throw( ArgumentErr() << "Requires <camera-image>, <camera-model> "
-              << "and <output-image> in order to proceed.\n\n"
-              << usage << general_options );
-
+  if (!vm.count("camera-image") || !vm.count("camera-model") ||
+      !vm.count("output-image") )
+    vw_throw(ArgumentErr() << "Requires <camera-image>, <camera-model> "
+             << "and <output-image> in order to proceed.\n\n"
+             << usage << general_options);
+  
   vw::create_out_dir(opt.output_image);
 }
 
@@ -530,7 +530,7 @@ void get_offsets(int tdi, bool is_wv01, bool is_forward,
   
   std::string wv = "WV01";
   if (!is_wv01) wv = "WV02";
-  if ( posx.empty() ){
+  if (posx.empty()){
     vw_out(WarningMessage)
       << "wv_correct: Corrections not implemented for camera model "
       << wv << " for TDI " << tdi << ". A copy of the input image will be created."
@@ -541,7 +541,7 @@ void get_offsets(int tdi, bool is_wv01, bool is_forward,
 // Apply WorldView corrections to each vertical block as high as the image
 // corresponding to one CCD sensor.
 template <class ImageT>
-class WVPerBlockCorrectView: public ImageViewBase< WVPerBlockCorrectView<ImageT> >{
+class WVPerBlockCorrectView: public ImageViewBase<WVPerBlockCorrectView<ImageT>>{
   ImageT m_img;
   int m_tdi;
   bool m_is_wv01, m_is_forward;
@@ -551,7 +551,7 @@ class WVPerBlockCorrectView: public ImageViewBase< WVPerBlockCorrectView<ImageT>
   typedef typename ImageT::pixel_type PixelT;
 
 public:
-  WVPerBlockCorrectView( ImageT const& img, int tdi, bool is_wv01, bool is_forward,
+  WVPerBlockCorrectView(ImageT const& img, int tdi, bool is_wv01, bool is_forward,
                  double pitch_ratio):
     m_img(img), m_tdi(tdi), m_is_wv01(is_wv01), m_is_forward(is_forward),
     m_pitch_ratio(pitch_ratio){
@@ -577,7 +577,7 @@ public:
   inline int32 rows() const { return m_img.rows(); }
   inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
   inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
     vw_throw(NoImplErr() << "WVPerBlockCorrectView::operator()(...) is not implemented");

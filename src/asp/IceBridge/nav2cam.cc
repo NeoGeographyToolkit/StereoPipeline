@@ -871,8 +871,6 @@ int main(int argc, char* argv[]) {
     // First value for these variables.
     lon0 = lon;
     }
-    //std::cout << "--temporary!!!" << std::endl;
-    //lon0 = -65;
     //ned = Quat(datum_wgs84.lonlat_to_ned_matrix(Vector2(lon0, lat)));
 
     Quat rotation_matrix_gcc = inverse(ned)*inverse(look);

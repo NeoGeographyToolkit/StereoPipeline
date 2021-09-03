@@ -144,7 +144,6 @@ if [[ ! $opts =~ left-image-crop-win ]]; then
 fi
 win=$(echo $opts | perl -p -e 's#^.*?left-image-crop-win\s+(\d+\s+\d+\s+\d+\s+\d+).*?$#$1#g')
 
-#win2="0 0 7168 7168"  # temporary!!!
 win2="0 0 50600 21504"
 #rm -fv *crop* *proj_crop*
 if [ ! -f $l"_crop.tif" ]; then

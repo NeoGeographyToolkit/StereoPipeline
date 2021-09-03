@@ -3,15 +3,15 @@
 parse_match_file.py
 -------------------
 
-This tool reads an ASP match file in binary format, as written by
+This tool reads an ASP match file in binary format as written by
 ``ipmatch`` (:numref:`ipmatch`), ``bundle_adjust``
 (:numref:`bundle_adjust`), or ``stereo`` (:numref:`outputfiles`), and
 writes it as a text file, with each line having an interest point and
-other associated information (the first half of the file has interest
-points for the left image, and the second half has matching interest
-points in the right image).
+other associated information. The first half of the file has interest
+points for the left image, and the second half has corresponding
+points in the right image.
 
-This tool assumes that the version of Python in the path has the
+It is assumed that the version of Python in the path has the
 ``numpy`` and ``argparse`` packages installed and that
 ``parse_match_file.py`` is in the path.
 
@@ -20,7 +20,7 @@ Example::
      python $(which parse_match_file.py) run/run-left__right.match \
        run/run-matches.txt
 
-This tool can perform the reverse of this operation if called as::
+The reverse of this operation can be performed as::
 
      python $(which parse_match_file.py) -rev run/run-matches.txt \
        run/run-left__right.match

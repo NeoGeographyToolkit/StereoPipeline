@@ -335,7 +335,6 @@ int main(int argc, char *argv[]) {
 	  vw_throw(ArgumentErr() << "Book-keeping error.\n");
 	}
 	double mean = means[group_id];
-	//llh[2] -= mean; // temporary!!!
 	af << timestamp_str_sub[it]
            << " " << llh[0] << ' ' << llh[1] << ' ' << llh[2]
            << ' ' << group_id << " " << mean << std::endl;

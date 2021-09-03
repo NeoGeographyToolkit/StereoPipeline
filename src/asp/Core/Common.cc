@@ -446,6 +446,7 @@ void asp::set_asp_env_vars() {
     
   // Find the path to the base of the package and see if it works.
   std::string base_dir = boost::dll::program_location().parent_path().parent_path().string();
+
   if (!fs::exists(base_dir + "/IsisPreferences")) {
     base_dir = ASP_DEPS_DIR; // This is defined at compile time
     if (!fs::exists(base_dir + "/IsisPreferences")) {
