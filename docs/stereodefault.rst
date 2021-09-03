@@ -619,6 +619,17 @@ erode-max-size (*integer*) (default = 0)
     Isolated blobs with no more pixels than this number should be
     removed.
 
+gotcha-disparity-refinement
+    Turn on the experimental Gotcha disparity refinement
+    :cite:`tao2018massive`. It refines and overwrites F.tif. See the
+    option ``casp-go-param-file`` for customizing its behavior.
+
+casp-go-param-file (*string*) (default = ""):
+    The parameter file to use with Gotcha (and in the future other
+    CASP-GO functionality) when invoking the
+    ``gotcha-disparity-refinement`` option. The default is to use the
+    file ``share/CASP-GO_params.xml`` shipped with ASP.
+
 .. _triangulation_options:
 
 Post-Processing (Triangulation)
@@ -641,10 +652,10 @@ universe-center (default = none)
        Disable filtering.
 
     Camera
-       Use the left camera’s center as the universe center.
+       Use the left camera center as the universe center.
 
     Zero
-       Use the center of the planet as the universe center.
+       Use the planet center as the universe center.
 
 bundle-adjust-prefix (*string*)
     Use the camera adjustments obtained by previously running
