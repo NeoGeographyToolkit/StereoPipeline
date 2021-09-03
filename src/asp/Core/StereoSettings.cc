@@ -343,9 +343,13 @@ namespace asp {
       ("texture-smooth-size",  po::value(&global.disp_smooth_size)->default_value(0),
                                "Kernel size to perform texture aware disparity smoothing with. Can only be used with median smoothing.")
       ("texture-smooth-scale", po::value(&global.disp_smooth_texture)->default_value(0.15),
-                               "Scaling factor for texture smoothing.  Larger is more smoothing.")
+       "Scaling factor for texture smoothing.  Larger is more smoothing.")
+      ("gotcha-disparity-refinement",   po::bool_switch(&global.gotcha_disparity_refinement)->default_value(false)->implicit_value(true),
+                              "Turn on the experimental Gotcha disparity refinement. It refines and overwrites F.tif. See the option 'casp-go-param-file' for customizing its behavior.")
+      ("casp-go-param-file", po::value(&global.casp_go_param_file)->default_value(""),
+       "The parameter file to use with Gotcha (and in the future other CASP-GO functionality) when invoking the 'gotcha-disparity-refinement' option. The default is to use the file 'share/CASP-GO_params.xml' shipped with ASP.")
       ("mask-flatfield",      po::bool_switch(&global.mask_flatfield)->default_value(false)->implicit_value(true),
-                              "Mask dust found on the sensor or film. (For use with Apollo Metric Cameras only!)");
+                              "Mask dust found on the sensor or film. (For use with Apollo Metric Cameras only.)");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
     // Do not add default values here. They may override the values set

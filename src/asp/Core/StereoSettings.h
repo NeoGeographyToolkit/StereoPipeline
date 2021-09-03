@@ -215,11 +215,13 @@ namespace asp {
     int  fill_hole_max_size;          // Maximum hole size in pixels that we'll attempt to fill
     bool mask_flatfield;              // Masks pixels in the input images that are less
                                       // than 0 (for use with Apollo Metric Camera)
-    int  mask_buffer_size;            // Size of region filtered out of image edges.
-    int   median_filter_size;        // Filter subpixel results with median filter of this size
+    int   mask_buffer_size;            // Size of region filtered out of image edges.
+    int   median_filter_size;         // Filter subpixel results with median filter of this size
     int   disp_smooth_size;           // Adaptive disparity smoothing size
     float disp_smooth_texture;        // Adaptive disparity smoothing max texture value    
-    
+    bool  gotcha_disparity_refinement;
+    std::string casp_go_param_file;
+
     // Triangulation Options
     std::string universe_center;      // Center for the radius clipping
     float  near_universe_radius;      // Radius of the universe in meters
