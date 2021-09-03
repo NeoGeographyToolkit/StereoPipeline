@@ -1,10 +1,30 @@
+// __BEGIN_LICENSE__
+//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Administrator of the National Aeronautics and Space Administration. All
+//  rights reserved.
+//
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// __END_LICENSE__
+
+#include <CBatchProc.h>
+#include <CDensifyParam.h>
+#include <CDensify.h>
+
 #include <boost/filesystem.hpp>
 
-#include "CBatchProc.h"
-#include "CDensifyParam.h"
-#include "CDensify.h"
-
 namespace fs = boost::filesystem;
+using namespace vw;
+
+// TODO(oalexan1): Put all this in a single namespace!
 
 namespace {
   // Convert a float image from ASP format to an OpenCV float image
@@ -35,9 +55,16 @@ CBatchProc::CBatchProc(string               const & strMetaFile,
                        vw::ImageView<float> const & imgR, 
                        vw::ImageView<float> const & input_dispX,
                        vw::ImageView<float> const & input_dispY) {
+
+  // Sanity checks
+  if (bounding_box(imgL)        != bounding_box(imgR) ||
+      bounding_box(input_dispX) != bounding_box(imgR) ||
+      bounding_box(input_dispY) != bounding_box(imgR)) 
+    vw_throw(ArgumentErr() << "Not all inputs have the same dimensions.");
+  
   // initialize
   m_strMetaFile = strMetaFile;
-
+  
 #if 0
   m_strImgL = strLeftImagePath;
   m_strImgR = strRightImagePath;
@@ -71,23 +98,23 @@ bool CBatchProc::validateProjParam() {
 #if 0
   // image file existence
   if (!fs::exists(m_strImgL)){
-    cerr << "ERROR: Left image file does not exist" << endl;
+    cerr << "ERROR: Left image file does not exist." << endl;
     bRes = false;
   }
 
   if (!fs::exists(m_strImgR)){
-    cerr << "ERROR: Right image file does not exist" << endl;
+    cerr << "ERROR: Right image file does not exist." << endl;
     bRes = false;
   }
 
   // These are passed in-memory now
   if (!fs::exists(m_strDispX)){
-    cerr << "Gotcha on given disparity map. ERROR: X disparity file does not exist" << endl;
+    cerr << "Gotcha on given disparity map. ERROR: X disparity file does not exist." << endl;
     bRes = false;
   }
 
   if (!fs::exists(m_strDispY)){
-    cerr << "Gotcha on given disparity map. ERROR: Y disparity file does not exist" << endl;
+    cerr << "Gotcha on given disparity map. ERROR: Y disparity file does not exist." << endl;
     bRes = false;
   }
 #endif
@@ -109,7 +136,7 @@ bool CBatchProc::validateProjInputs() {
     cerr << "Gotcha on given disparity map. ERROR: Please take single channel image as input x/y disparity map" << endl;
   }
 
-  cout << "Generating bad pixel/gap mask file." << endl;
+  //cout << "Generating bad pixel/gap mask file." << endl;
   generateMask();
 
   //std::cout << "Reading mask: " << m_strMask << std::endl;
@@ -124,16 +151,16 @@ bool CBatchProc::validateProjInputs() {
 void CBatchProc::doBatchProcessing(vw::ImageView<float> & output_dispX,
                                    vw::ImageView<float> & output_dispY) {
 
-  cout << "Starting processing now..." << endl
-       << "================================" << endl << endl;
+  //cout << "Starting processing now..." << endl
+  //     << "================================" << endl << endl;
 
   std::vector<CTiePt> vecTPs;
   generateTPFile(vecTPs);
   refinement(vecTPs, output_dispX, output_dispY);
 
-  cout << "Process completed" << endl;
-  cout << endl;
-  cout << "================================" << endl << endl;
+  //cout << "Process completed" << endl;
+  //cout << endl;
+  //cout << "================================" << endl << endl;
 }
 
 void CBatchProc::generateMask() {
@@ -169,7 +196,7 @@ void CBatchProc::generateMask() {
         }
       }
     }
-    cout << "GAP Pixels masked: " << numBadpixel << endl;
+    //cout << "GAP Pixels masked: " << numBadpixel << endl;
     //std::cout << "Writing mask: " << m_strMask << std::endl;
     //imwrite(m_strMask, Mask);
   }
@@ -442,7 +469,7 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
 void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs,
                             vw::ImageView<float> & output_dispX,
                             vw::ImageView<float> & output_dispY) {
-  cout << "Gotcha densification based on existing disparity map:" << endl;
+  //cout << "Gotcha densification based on existing disparity map:" << endl;
   FileStorage fs(m_strMetaFile, FileStorage::READ);
   FileNode tl = fs["sGotchaParam"];
 
@@ -486,7 +513,7 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs,
 #endif
   
   CDensify densify(paramDense, vecTPs, m_imgL, m_imgR, m_input_dispX, m_input_dispY, m_Mask);
-  cout << "CASP-GO INFO: performing Gotcha densification" << endl;
+  //cout << "CASP-GO INFO: performing Gotcha densification" << endl;
 
   cv::Mat cv_output_dispX, cv_output_dispY;
   int nErrCode = densify.performDensitification(cv_output_dispX, cv_output_dispY);

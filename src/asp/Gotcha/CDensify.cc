@@ -85,7 +85,7 @@ int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_di
 
 
 
-        cout << "CASP-GO INFO: starting Gotcha" << endl;
+        //cout << "CASP-GO INFO: starting Gotcha" << endl;
         if (!doGotcha(m_imgL, m_imgR, m_vecTPs, m_paramDense.m_paramGotcha, m_vectpAdded))
             return CDensifyParam::GOTCHA_ERR;
         // remove TP with large y disparity
@@ -107,7 +107,7 @@ int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_di
         double end = getTickCount();
         procTime = (end - start)/getTickFrequency();
 
-        cout << "CASP-GO INFO: making data products" << endl;
+        //cout << "CASP-GO INFO: making data products" << endl;
 
         makeDataProducts();
 
@@ -336,7 +336,7 @@ bool CDensify::saveResult(cv::Mat & output_dispX, cv::Mat & output_dispY){
     //string strFile = m_paramDense.m_strTPFile;
     //bRes = saveTP(m_vectpAdded, strFile);
     
-    cout << "Writing results..." << endl;
+    //cout << "Writing results..." << endl;
 
     output_dispX = Mat::ones(m_matDisMapX.size(), CV_32FC1)*0.0;
     output_dispY = Mat::ones(m_matDisMapY.size(), CV_32FC1)*0.0;
@@ -722,15 +722,14 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
     bool bRes = true;
     ////////////////////////////////////////////
     // parameter preparation
-    cout << "CASP-GO INFO: initialisaing similarity map" << endl;
+    // cout << "CASP-GO INFO: initialisaing similarity map" << endl;
     Mat matSimMap = Mat::ones(matImgL.rows, matImgL.cols, CV_32FC1); // 2D similarity map for diffusion
     matSimMap = matSimMap*-1;
 
-    cout << "DEBUG: matImgL has statistics: rows " << matImgL.rows << "; cols: " << matImgL.cols
-         << "; channels: " << matImgL.channels() << "; bitdepth code: " << matImgL.depth() << endl;
+    // cout << "DEBUG: matImgL has statistics: rows " << matImgL.rows << "; cols: " << matImgL.cols << "; channels: " << matImgL.channels() << "; bitdepth code: " << matImgL.depth() << endl;
 
     Size szImgL(matImgL.cols, matImgL.rows);
-    cout << "CASP-GO INFO: initialising pixel LUT" << endl;
+    // cout << "CASP-GO INFO: initialising pixel LUT" << endl;
 
     // IMARS bool pLUT[szImgL.area()]; // if true it indicates the pixel has already processed
     vector<bool> pLUT; //IMARS
@@ -744,18 +743,18 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
     vector< Rect_<float> > vecRectTiles;
     vecRectTiles.push_back(Rect(0., 0., matImgL.cols, matImgL.rows));
 
-    cout << "CASP-GO INFO: Making tiles" << endl;
+    // cout << "CASP-GO INFO: Making tiles" << endl;
     makeTiles(vecRectTiles, paramGotcha.m_nMinTile);
 
     if (paramGotcha.m_bNeedInitALSC){
-        cout << "CASP-GO INFO: Running initial ALSC refinement" << endl;
+        // cout << "CASP-GO INFO: Running initial ALSC refinement" << endl;
         ALSC alsc(matImgL, matImgR, paramGotcha.m_paramALSC);
         alsc.performALSC(&vectpSeeds);
         vectpSeeds.clear();
         alsc.getRefinedTps(vectpSeeds); // hard-copy
     }
 
-    cout << "CASP-GO INFO: initialise similarity map with seed points" << endl;
+    // cout << "CASP-GO INFO: initialise similarity map with seed points" << endl;
     // initialise sim map with seedpoitns
     for (int i = 0; i < (int)vectpSeeds.size(); i++){
         int nX =  (int)floor(vectpSeeds.at(i).m_ptL.x);
@@ -768,7 +767,7 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
         //cout << "DEBUG: pLUT change successfully to " << pLUT[nIdx] << endl;
     }
 
-    cout << "CASP-GO INFO: apply mask to remove area that no densification is required." << endl;
+    // cout << "CASP-GO INFO: apply mask to remove area that no densification is required." << endl;
     // apply mask, remove area where no densification is required
     //std::cout << "Reading mask: " << paramGotcha.m_strMask << std::endl;
     //Mat Mask = imread(paramGotcha.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
@@ -784,10 +783,9 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
 
     /////////////////////////
     vectpAdded.clear();
-    //cout << "debug1" << endl;
-    cout << "CASP-GO INFO: Desifying disparity... ..." << endl;
+    //cout << "CASP-GO INFO: Desifying disparity... ..." << endl;
 
-    for (int i = 0 ; i < (int)vecRectTiles.size(); i++ ){
+    for (int i = 0 ; i < (int)vecRectTiles.size(); i++){
           vector<CTiePt> vecRes;
           bRes = bRes && doTileGotcha(matImgL, matImgR, vectpSeeds, paramGotcha, vecRes, vecRectTiles.at(i), matSimMap, pLUT);
           // collect result
@@ -1023,14 +1021,14 @@ bool CDensify::doPGotcha(int nNeiType){
         vecSeedTemp.clear();
 
         // debug
-        cout << "# seed pts at the " << i << " level" << ": " << seedIn.size() << endl;
+        //cout << "# seed pts at the " << i << " level" << ": " << seedIn.size() << endl;
 
         vector<CTiePt> vecResTemp;
         bRes = bRes && doGotcha(vecImgPyL.at(i), vecImgPyR.at(i), seedIn, paramG, vecResTemp);
         vecAddedTemp.insert(vecAddedTemp.end(), vecResTemp.begin(), vecResTemp.end());
 
         // debug
-        cout << "# added pts at the " << i << " level" << ": " << vecResTemp.size() << endl;
+        // cout << "# added pts at the " << i << " level" << ": " << vecResTemp.size() << endl;
     }
 
     m_vectpAdded.clear();

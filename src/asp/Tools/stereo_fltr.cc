@@ -29,7 +29,11 @@
 
 #include <asp/Core/ThreadedEdgeMask.h>
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Gotcha/CBatchProc.h>
+
 #include <xercesc/util/PlatformUtils.hpp>
+
+#include <boost/dll.hpp>
 
 using namespace vw;
 using namespace asp;
@@ -233,8 +237,8 @@ struct MultipleDisparityCleanUp {
 };
 
 template <class ImageT>
-void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
-                                    ASPGlobalOptions const& opt ) {
+void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
+                                   ASPGlobalOptions const& opt) {
   // Write Good Pixel Map
   // Sub-sampling so that the user can actually view it.
   double sub_scale = double( min( inputview.impl().cols(),
@@ -343,7 +347,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
   } // End no hole filling case
 } //end write_good_pixel_and_filtered
 
-void stereo_filtering( ASPGlobalOptions& opt ) {
+void stereo_filtering(ASPGlobalOptions& opt) {
 
   string post_correlation_fname;
   opt.session->pre_filtering_hook(opt.out_prefix+"-RD.tif",
@@ -445,6 +449,60 @@ void stereo_filtering( ASPGlobalOptions& opt ) {
   }
 } // end stereo_filtering()
 
+void gotcha_disparity_refinement(ASPGlobalOptions& opt) {
+
+  // Apply Gotcha on tiles of size 1024
+  opt.raster_tile_size = Vector2i(ASPGlobalOptions::corr_tile_size(),
+                                  ASPGlobalOptions::corr_tile_size());
+
+  // Use this much padding to ensure that the tiles processed by Gotcha overlap,
+  // to avoid help avoid seams.
+  int padding = ASPGlobalOptions::corr_tile_size()/4;
+  
+  if (stereo_settings().casp_go_param_file == "") {
+    // Use the default CASP-GO parameter file if not provided
+    std::string base_dir = boost::dll::program_location().parent_path().parent_path().string();
+    stereo_settings().casp_go_param_file = base_dir + "/share/CASP-GO_params.xml";
+  }
+
+  if (!fs::exists(stereo_settings().casp_go_param_file)) 
+    vw_throw(ArgumentErr() << "Cannot read CASP-GO param file: "
+             << stereo_settings().casp_go_param_file << "\n");
+  else
+    vw_out() << "Refining the disparity using the Gotcha algorithm and parameter file: "
+             << stereo_settings().casp_go_param_file << "\n";
+
+  std::string disp_file = opt.out_prefix + "-F.tif";
+  ImageViewRef<PixelMask<Vector2f>> filtered_disparity
+    = opt.session->pre_pointcloud_hook(disp_file);
+
+  // TODO(oalexan1): How about no-data pixels in the left and right images?
+  std::string L_file = opt.out_prefix + "-L.tif";
+  std::string R_file = opt.out_prefix + "-R.tif";
+  DiskImageView<float> left_image (L_file);
+  DiskImageView<float> right_image(R_file);
+  
+  // Determine if we can attach geo information to the output disparity
+  cartography::GeoReference left_georef;
+  bool has_left_georef = read_georeference(left_georef, L_file);
+  bool has_nodata = false;
+  double nodata = -32768.0;
+  
+  // TODO(oalexan1): Must overwrite F.tif.
+  disp_file += ".final.tif";
+  vw_out() << "Writing Gotcha-refined disparity: " << disp_file << endl;
+  block_write_gdal_image(disp_file,
+                         gotcha_refine(filtered_disparity,  
+                                       left_image, right_image,
+                                       padding, stereo_settings().casp_go_param_file),
+                         has_left_georef, left_georef,
+                         has_nodata, nodata, opt,
+                         TerminalProgressCallback("asp","\t  Gotcha:  "));
+}
+
+
+// Add namespace and copyright headers to Gotcha
+
 int main(int argc, char* argv[]) {
 
   try {
@@ -472,8 +530,11 @@ int main(int argc, char* argv[]) {
 
     // Internal Processes
     //---------------------------------------------------------
-    stereo_filtering( opt );
+    stereo_filtering(opt);
 
+    if (stereo_settings().gotcha_disparity_refinement)
+      gotcha_disparity_refinement(opt);
+    
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : FILTERING FINISHED \n";
 
