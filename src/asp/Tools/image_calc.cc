@@ -569,6 +569,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string output_data_string;
   DataType    output_data_type;
   bool        has_out_nodata;
+  bool        no_georef;
   double      out_nodata_value;
   std::string calc_string;
   std::string output_file, metadata;
@@ -606,6 +607,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
     ("output-nodata-value", po::value(&opt.out_nodata_value), "Value to use for no-data in the output image.")
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
+    ("no-georef",         po::bool_switch(&opt.no_georef)->default_value(false),
+     "Remove any georeference information (useful with subsequent GDAL-based processing).")
     ("help,h",            "Display this help message");
 
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
@@ -621,11 +624,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered );
 
-  if ( opt.input_files.empty() )
+  if (opt.input_files.empty())
     vw_throw( ArgumentErr() << "Missing input files.\n" << usage << general_options );
   if ( opt.calc_string.size() == 0)
     vw_throw( ArgumentErr() << "Missing operation string.\n" << usage << general_options );
@@ -702,12 +705,15 @@ void load_inputs_and_process(Options &opt, const std::string &output_file, const
   for (size_t i=0; i<numInputFiles; ++i) {
     const std::string input = opt.input_files[i];
 
-    if (!have_georef) {
-      have_georef = vw::cartography::read_georeference(georef, input);
-      if (have_georef)
-        vw_out() << "\t--> Copying georef from input image " << input << std::endl;
+    // If desired to not use a georef, skip reading it
+    if (!opt.no_georef) {
+      if (!have_georef) {
+        have_georef = vw::cartography::read_georeference(georef, input);
+        if (have_georef)
+          vw_out() << "\t--> Copying georef from input image " << input << std::endl;
+      }
     }
-
+    
     // Determining the format of the input
     boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(input));
     //ChannelTypeEnum channel_type = rsrc->channel_type();

@@ -39,7 +39,8 @@ Command-line options for image_calc:
     The arithmetic string in quotes (required).
 
 -d, --output-data-type <type (default: float64)>
-    The data type of the output file.
+    The data type of the output file. Options: uint8, uint16, uint32,
+    int16, int32, float32, float64.
 
 --input-nodata-value <arg>
     Set an override nodata value for the input images.
@@ -52,7 +53,11 @@ Command-line options for image_calc:
     Specify the output file instead of using a default.
 
 --mo <string>
-    Write metadata to the output file.  Provide as a string in
-    quotes if more than one item, separated by a space, such as
+    Write metadata to the output file.  Provide as a string in quotes
+    if more than one item, separated by a space, such as
     ``'VAR1=VALUE1 VAR2=VALUE2'``.  Neither the variable names nor the
     values should contain spaces.
+
+--no-georef
+   Remove any georeference information (useful with subsequent
+   GDAL-based processing).
