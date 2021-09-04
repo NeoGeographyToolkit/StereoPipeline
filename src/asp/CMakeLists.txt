@@ -343,6 +343,10 @@ get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
 set(ASP_GUI_LIB_DEPENDENCIES AspCore Qt5::Core Qt5::Gui Qt5::Widgets ${QWT_LIBRARIES})
 
+# --- ASP_GOTCHA ------------------------------------------------------------
+get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)
+get_all_source_files( "Gotcha/tests" ASP_GOTCHA_TEST_FILES)
+set(ASP_GOTCHA_LIB_DEPENDENCIES ${OPENCV_LIBRARIES} ${Boost_LIBRARIES})
 
 #=========================================================================
 # Add all of the library subdirectories
@@ -353,8 +357,10 @@ if(ASP_HAVE_PKG_ISISIO)
   add_subdirectory(IsisIO)
 endif()
 add_subdirectory(Camera)
+
 add_subdirectory(Sessions)
 add_subdirectory(GUI)
+add_subdirectory(Gotcha)
 
 # Add the non-library subdirectories
 add_subdirectory(Python)

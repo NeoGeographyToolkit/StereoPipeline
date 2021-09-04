@@ -472,9 +472,16 @@ void gotcha_disparity_refinement(ASPGlobalOptions& opt) {
     vw_out() << "Refining the disparity using the Gotcha algorithm and parameter file: "
              << stereo_settings().casp_go_param_file << "\n";
 
+  // First move the current F file out of the way, as it is not possible to overwrite
+  // it in place.
   std::string disp_file = opt.out_prefix + "-F.tif";
+  std::string disp_file_nogotcha = opt.out_prefix + "-F-nogotcha.tif";
+  std::string cmd = "mv " + disp_file + " " + disp_file_nogotcha;
+  vw_out() << cmd << "\n";
+  system(cmd.c_str());
+  
   ImageViewRef<PixelMask<Vector2f>> filtered_disparity
-    = opt.session->pre_pointcloud_hook(disp_file);
+    = opt.session->pre_pointcloud_hook(disp_file_nogotcha);
 
   // TODO(oalexan1): How about no-data pixels in the left and right images?
   std::string L_file = opt.out_prefix + "-L.tif";
@@ -487,9 +494,6 @@ void gotcha_disparity_refinement(ASPGlobalOptions& opt) {
   bool has_left_georef = read_georeference(left_georef, L_file);
   bool has_nodata = false;
   double nodata = -32768.0;
-  
-  // TODO(oalexan1): Must overwrite F.tif.
-  disp_file += ".final.tif";
   vw_out() << "Writing Gotcha-refined disparity: " << disp_file << endl;
   block_write_gdal_image(disp_file,
                          gotcha::gotcha_refine(filtered_disparity,  
