@@ -1784,7 +1784,6 @@ int main(int argc, char* argv[]) {
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION\n";
 
     if (stereo_settings().alignment_method == "local_epipolar") {
-
       // Need to have the low-res 2D disparity to later guide the
       // per-tile correlation. Use here the ASP MGM algorithm as the
       // most reliable one.
@@ -1793,16 +1792,12 @@ int main(int argc, char* argv[]) {
         stereo_correlation_2D(opt);
         return 0;
       }
-
       // This will be invoked per-tile.
       stereo_correlation_1D(opt);
-      
     } else {
-      
       // Do 2D correlation. The first time this is invoked it will
       // compute the low-res disparity unless told not to.
       stereo_correlation_2D(opt);
-      
     }
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED\n";
