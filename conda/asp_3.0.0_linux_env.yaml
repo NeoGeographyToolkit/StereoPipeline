@@ -32,7 +32,7 @@ dependencies:
   - expat=2.4.1=h9c3ff4c_0
   - ffmpeg=3.4.1=0
   - fftw=3.3.8=nompi_hfc0cae8_1114
-  - fgr=isis5.0.1=h3fd9d12_0
+  - fgr=isis5.0.1
   - flann=1.9.1=0
   - fontconfig=2.12.1=4
   - freetype=2.7=1
@@ -54,7 +54,7 @@ dependencies:
   - htdp=1.0=1
   - icu=58.2=hf484d3e_1000
   - ilmbase=2.5.5=h780b84a_0
-  - imagemagick=isis5.0.1=h3fd9d12_0
+  - imagemagick=isis5.0.1
   - inja=3.3.0=h9c3ff4c_0
   - isis=5.0.1=0
   - jama=125=0
@@ -69,7 +69,7 @@ dependencies:
   - libcblas=3.8.0=17_openblas
   - libcurl=7.64.0=h01ee5af_0
   - libedit=3.1.20191231=he28a2e2_2
-  - libelas=isis5.0.1=h3fd9d12_0
+  - libelas=isis5.0.1
   - libffi=3.2.1=he1b5a44_1007
   - libgcc=7.2.0=h69d50b8_2
   - libgcc-ng=11.1.0=hc902ee8_8
@@ -81,11 +81,11 @@ dependencies:
   - libgomp=11.1.0=hc902ee8_8
   - libiconv=1.15=h516909a_1006
   - liblapack=3.8.0=17_openblas
-  - liblas=isis5.0.1=h3fd9d12_1000
-  - libnabo=isis5.0.1=h3fd9d12_0
+  - liblas=isis5.0.1
+  - libnabo=isis5.0.1
   - libopenblas=0.3.10=h5a2b251_0
   - libpng=1.6.37=h21135ba_2
-  - libpointmatcher=isis5.0.1=h3fd9d12_0
+  - libpointmatcher=isis5.0.1
   - libpq=10.6=h13b8bad_1000
   - libprotobuf=3.9.2=h8b12597_0
   - libssh2=1.8.0=h1ad7b7a_1003
@@ -135,7 +135,7 @@ dependencies:
   - qt=5.9.6=7
   - qwt=6.1.3=0
   - readline=7.0=hf8c457e_1001
-  - s2p-subset=isis5.0.1=h3fd9d12_0
+  - s2p-subset=isis5.0.1
   - scipy=1.2.1=py36h09a28d5_1
   - setuptools=52.0.0=py36h06a4308_0
   - six=1.16.0=pyh6c4a22f_0
@@ -146,7 +146,7 @@ dependencies:
   - superlu=5.2.2=hfe2efc7_0
   - sysroot_linux-64=2.17=h4a8ded7_12
   - tbb=2020.2=h4bd325d_4
-  - theia=isis5.0.1=h3fd9d12_1001
+  - theia=isis5.0.1
   - tk=8.6.10=hbc83047_0
   - tnt=126=0
   - tzcode=2021a=h7f98852_2

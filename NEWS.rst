@@ -5,8 +5,7 @@ bundle_adjust:
   * Rename verbose final_residuals_no_loss_function_pointmap_point_log.csv
     to final_residuals_pointmap.csv and
     final_residuals_no_loss_function_raw_pixels.txt to 
-    final_residuals_raw_pixels.txt, etc. This may break some
-    scripts which rely on the previous names. 
+    final_residuals_raw_pixels.txt, etc.
   * Add the option --apply-initial-transform-only to apply
     an initial transform to cameras while skipping
     image matching and other steps.

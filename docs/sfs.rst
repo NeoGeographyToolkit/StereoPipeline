@@ -473,9 +473,7 @@ images should be perfectly on top of each other.
 This will also show where the images overlap, and hence on what portion
 of the DEM we can run SfS.
 
-Then we run parallel_stereo, followed by SfS.
-
-::
+Then we run ``parallel_stereo``, followed by ``sfs``::
 
     parallel_stereo A_crop_sub4.cub B_crop_sub4.cub                    \
       run_stereo_yesba_sub4/run --subpixel-mode 3                      \

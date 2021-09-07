@@ -28,7 +28,7 @@ dependencies:
   - expat=2.4.1=he49afe7_0
   - ffmpeg=3.4.1=0
   - fftw=3.3.8=nompi_h5c49c53_1109
-  - fgr=isis5.0.1=h01edc0c_0
+  - fgr=isis5.0.1
   - flann=1.9.1=0
   - fontconfig=2.12.1=4
   - freetype=2.7=1
@@ -48,7 +48,7 @@ dependencies:
   - htdp=1.0=1
   - icu=58.2=h0a44026_1000
   - ilmbase=2.5.5=hfab91a5_0
-  - imagemagick=isis5.0.1=h01edc0c_0
+  - imagemagick=isis5.0.1
   - inja=3.2.0=h1c7c35f_0
   - isis=5.0.1=0
   - jama=125=0
@@ -69,11 +69,11 @@ dependencies:
   - libgfortran=3.0.1=0
   - libiconv=1.15=h0b31af3_1006
   - liblapack=3.8.0=17_openblas
-  - liblas=isis5.0.1=h01edc0c_1000
-  - libnabo=isis5.0.1=h01edc0c_0
+  - liblas=isis5.0.1
+  - libnabo=isis5.0.1
   - libopenblas=0.3.10=h0794777_0
   - libpng=1.6.37=h7cec526_2
-  - libpointmatcher=isis5.0.1=h01edc0c_0
+  - libpointmatcher=isis5.0.1
   - libpq=10.6=hbe1e24e_1000
   - libprotobuf=3.9.2=hfbae3c0_0
   - libssh2=1.8.0=hf30b1f0_1003
@@ -120,7 +120,7 @@ dependencies:
   - qt=5.9.6=7
   - qwt=6.1.3=0
   - readline=7.0=hcfe32e1_1001
-  - s2p-subset=isis5.0.1=0
+  - s2p-subset=isis5.0.1
   - scipy=1.2.1=py36hbd7caa9_1
   - setuptools=49.6.0=py36h79c6626_3
   - six=1.16.0=pyh6c4a22f_0
@@ -130,7 +130,7 @@ dependencies:
   - suitesparse=5.10.1=h68a9093_0
   - superlu=5.2.1=hbced767_1205
   - tbb=2020.2=h940c156_4
-  - theia=isis5.0.1=h01edc0c_1001
+  - theia=isis5.0.1
   - tk=8.6.10=h0419947_1
   - tnt=126=0
   - tzcode=2021a=h0d85af4_2
