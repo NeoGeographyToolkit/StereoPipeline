@@ -2,15 +2,25 @@ RELEASE 3.0.1, Upcoming
 -----------------------
 
 bundle_adjust:
+  * Rename verbose final_residuals_no_loss_function_pointmap_point_log.csv
+    to final_residuals_pointmap.csv and
+    final_residuals_no_loss_function_raw_pixels.txt to 
+    final_residuals_raw_pixels.txt, etc. This may break some
+    scripts which rely on the previous names. 
   * Add the option --apply-initial-transform-only to apply
     an initial transform to cameras while skipping
     image matching and other steps.
 
 stereo:
+  * Added the experimental --gotcha-disparity-refinement option, under
+    NASA proposal 19-PDART19_2-0094.
   * Many fixes for reliability of stereo with local alignment.
   * ASP's SGM and MGM algorithms will always use the cross-check for
     disparity by default, to improve the quality, even if that takes
     more time. It can be turned off with --xcorr-threshold -1.
+  * The stereo tool is deprecated, and can be used only with 
+    classical block matching without local alignment. Use 
+    parallel_stereo instead. 
 
 stereo_gui: 
   * Bugfix with overlaying shapefiles with different georeferences.
@@ -21,9 +31,10 @@ mapproject:
     mapprojected images work correctly in this case.)
 
 Misc:
-
   * Added the tool parse_match_file.py to convert a binary match file
     to text and vice-versa.
+  * image_calc: Add the option --no-georef to remove any georeference
+    information (useful with subsequent GDAL-based processing).
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------

@@ -563,12 +563,12 @@ def solveIntrinsics_Part2(options, imageFolder, cameraFolder, lidarFolder, ortho
     for val in ['initial', 'final']:
         cmd = 'point2dem --t_srs ' + projString + ' --tr 2'    + \
               ' --csv-format 1:lon,2:lat,4:height_above_datum' + \
-              ' ' + baPrefix + '-' + val + '_residuals_no_loss_function_pointmap_point_log.csv'
+              ' ' + baPrefix + '-' + val + '_residuals_.csv'
         logger.info(cmd)
         os.system(cmd)
         cmd = 'point2dem --t_srs ' + projString + ' --tr 2'    + \
               ' --csv-format 1:lon,2:lat,4:height_above_datum' + \
-              ' ' + baPrefix + '-' + val +'_residuals_no_loss_function_reference_terrain.txt'
+              ' ' + baPrefix + '-' + val +'_residuals_reference_terrain.txt'
         logger.info(cmd)
         os.system(cmd)
 

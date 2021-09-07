@@ -364,14 +364,14 @@ void write_residual_map(std::string const& output_prefix,
                         ControlNetwork const& cnet,
                         Options const& opt) {
 
-  std::string output_path = output_prefix + "_point_log.csv";
+  std::string output_path = output_prefix + ".csv";
 
   if (opt.datum.name() == UNSPECIFIED_DATUM) {
     vw_out(WarningMessage) << "No datum specified, can't write file: " << output_path << std::endl;
     return;
   }
   if (mean_residuals.size() != param_storage.num_points())
-    vw_throw( LogicErr() << "Point count mismatch in write_residual_map.\n");
+    vw_throw( LogicErr() << "Point count mismatch in write_residual_map().\n");
 
   if (cnet.size() != param_storage.num_points()) 
     vw_throw( LogicErr()
@@ -1179,8 +1179,6 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (kmlPointSkip < 1)
     kmlPointSkip = 1;
 
-  std::string residual_prefix = opt.out_prefix + "-initial_residuals_loss_function";
-  std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
     
   if (first_pass) {
 
@@ -1191,13 +1189,10 @@ int do_ba_ceres_one_pass(Options             & opt,
       cnet.write_in_gcp_format(cnet_file, opt.datum);
     }
     
+    
+    std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
+    std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     vw_out() << "Writing initial condition files..." << std::endl;
-
-    // These are not useful
-    //write_residual_logs(residual_prefix, true,  opt, param_storage, 
-    //                    cam_residual_counts, num_gcp_residuals,
-    //                    reference_vec, cnet, crn, problem);
-    residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
     write_residual_logs(residual_prefix, false, opt, param_storage, 
                         cam_residual_counts, num_gcp_residuals,
                         reference_vec, cnet, crn, problem);
@@ -1262,16 +1257,12 @@ int do_ba_ceres_one_pass(Options             & opt,
 
   // Write the condition files after each pass, as we never know which pass will be the last
   // since we may stop the passes prematurely if no more outliers are present.
-  vw_out() << "Writing final condition log files..." << std::endl;
-  // Not useful
-  //residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
-  //write_residual_logs(residual_prefix, true,  opt, param_storage, cam_residual_counts,
-  //                      num_gcp_residuals, reference_vec, cnet, crn, problem);
-  residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
+  vw_out() << "Writing final condition log files." << std::endl;
+  std::string residual_prefix = opt.out_prefix + "-final_residuals";
   write_residual_logs(residual_prefix, false, opt, param_storage, cam_residual_counts,
                       num_gcp_residuals, reference_vec, cnet, crn, problem);
   
-  point_kml_path = opt.out_prefix + "-final_points.kml";
+  std::string point_kml_path = opt.out_prefix + "-final_points.kml";
   param_storage.record_points_to_kml(point_kml_path, opt.datum,
                                      kmlPointSkip, "final_points",
                                      "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
