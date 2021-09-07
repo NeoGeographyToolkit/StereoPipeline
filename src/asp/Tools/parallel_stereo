@@ -20,13 +20,6 @@ import sys, argparse, subprocess, re, os, math, time, tempfile, glob,\
        shutil, math
 import os.path as P
 
-# For consistency with C++
-VW_CORRELATION_BM        = '0'
-VW_CORRELATION_SGM       = '1'
-VW_CORRELATION_MGM       = '2'
-VW_CORRELATION_FINAL_MGM = '3'
-VW_CORRELATION_OTHER     = '4'
-
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
 pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
@@ -54,27 +47,6 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 # We will not symlink PC.tif and RD.tif which will be vrts,
 # and neither the log files
 skip_symlink_expr = '^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
-
-def stereo_alg_to_num(alg):
-    '''Convert, for example, 'asp_mgm' to '2'. This function has a C++
-    analog in stereo.cc.'''
-
-    alg = alg.lower()
-    
-    if alg.startswith('0') or alg.startswith('asp_bm'):
-        return VW_CORRELATION_BM
-    
-    if alg.startswith('1') or alg.startswith('asp_sgm'):
-        return VW_CORRELATION_SGM
-
-    if alg.startswith('2') or alg.startswith('asp_mgm'):
-        return VW_CORRELATION_MGM
-
-    if alg.startswith('3') or alg.startswith('asp_final_mgm'):
-        return VW_CORRELATION_FINAL_MGM
-
-    # Use an external algorithm
-    return VW_CORRELATION_OTHER
 
 def check_system_memory(opt, args, settings):
     '''Issue a warning when doing correlation if our selected options
@@ -608,7 +580,7 @@ if __name__ == '__main__':
     p.add_argument('--processes',            dest='processes', default=None,
                    type=int, help='The number of processes to use per node.')
     p.add_argument('--threads-multiprocess', dest='threads_multi', default=None,
-                   type=int, help='The number of threads to use per process.')
+                   type=int, help='The number of threads to use per process when running multiple processes.')
     p.add_argument('--threads-singleprocess',dest='threads_single', default=None,
                    type=int,
                    help='The number of threads to use when running a single process (PPRC and FLTR).')

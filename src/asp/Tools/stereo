@@ -122,8 +122,13 @@ if __name__ == '__main__':
     sep = ","
     settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
 
-    if settings['alignment_method'][0] == 'local_epipolar':
-        raise Exception("Alignment method 'local_epipolar' can be used only with parallel_stereo.")
+    alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
+    using_tiles = (alg > VW_CORRELATION_BM or \
+                   settings['alignment_method'][0] == 'local_epipolar')
+    
+    if using_tiles:
+        raise Exception("Alignment method 'local_epipolar' and/or other algorithms " +
+                        "except block-matching can be used only with parallel_stereo.")
 
     try:
         # Invoke itself for multiview if appropriate
@@ -160,6 +165,10 @@ if __name__ == '__main__':
                 args.extend(['--skip-low-res-disparity-comp'])
                 stereo_run('stereo_corr', args, opt, msg='%d: Correlation' % step)
                 wipe_option(args, '--skip-low-res-disparity-comp', 0) # no longer needed
+
+        # Note that blending is not done, as with stereo the only
+        # supported algorithm is block-matching, which does not use
+        # separately stored tiles which may need blending.
         
         # Refinement
         step = Step.rfne

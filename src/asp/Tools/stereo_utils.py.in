@@ -34,8 +34,36 @@ from asp_alg_utils import *
 import asp_system_utils, asp_string_utils
 asp_system_utils.verify_python_version_is_supported()
 
+# For consistency with C++
+VW_CORRELATION_BM        = '0'
+VW_CORRELATION_SGM       = '1'
+VW_CORRELATION_MGM       = '2'
+VW_CORRELATION_FINAL_MGM = '3'
+VW_CORRELATION_OTHER     = '4'
+
+def stereo_alg_to_num(alg):
+    '''Convert, for example, 'asp_mgm' to '2'. This function has a C++
+    analog in stereo.cc.'''
+
+    alg = alg.lower()
+    
+    if alg.startswith('0') or alg.startswith('asp_bm'):
+        return VW_CORRELATION_BM
+    
+    if alg.startswith('1') or alg.startswith('asp_sgm'):
+        return VW_CORRELATION_SGM
+
+    if alg.startswith('2') or alg.startswith('asp_mgm'):
+        return VW_CORRELATION_MGM
+
+    if alg.startswith('3') or alg.startswith('asp_final_mgm'):
+        return VW_CORRELATION_FINAL_MGM
+
+    # Use an external algorithm
+    return VW_CORRELATION_OTHER
+
 #===================================================================================
-# The top set of functions is somewhat generic and could be moved.
+# Some of these functions is somewhat generic and could be moved.
 
 def get_asp_version():
     '''Returns the current ASP version number'''
