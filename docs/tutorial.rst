@@ -1,6 +1,6 @@
 .. _moc_tutorial:
 
-Tutorial: Processing Mars Orbiter Camera Images
+Tutorial: Processing Mars Orbiter Camera images
 ===============================================
 
 Quick Start
@@ -16,9 +16,9 @@ terrain model (DTM) for GIS purposes, or a LAS/LAZ point cloud.
 There are a number of ways to fine-tune parameters and analyze the
 results, but ultimately this software suite takes images and builds
 models in a mostly automatic way. To create a point cloud file, you
-simply pass two image files to the ``stereo`` command::
+simply pass two image files to the ``parallel_stereo`` command::
 
-    ISIS> stereo left_image.cub right_image.cub results/run
+    ISIS> parallel_stereo left_image.cub right_image.cub results/run
 
 Higher quality results, at the expense of more computation, can be
 achived by running::
@@ -33,16 +33,15 @@ potentially on multiple machines. For more details, see
 
 Or the ``stereo_gui`` frontend can be invoked, with the same options,
 as described in :numref:`stereo_gui`.  This tool makes it possible to
-manually select smaller clips on which to run ``stereo``.
+manually select smaller clips on which to run ``parallel_stereo``.
 
 The string ``results/run`` is an arbitrary output prefix. All
-``stereo`` output files will be in the ``results`` directory and start
-with ``output``. See :numref:`nextsteps` for a more detailed
-discussion.
+``parallel_stereo`` output files will be in the ``results`` directory and start
+with ``output``. See :numref:`outputfiles` for the list of output files.
 
 You can then make a visualizable mesh or a DTM file with the following
 commands (the ``results/run-PC.tif`` and ``results/run-L.tif`` files
-are created by the ``stereo`` program above)::
+are created by the ``parallel_stereo`` program above)::
 
      ISIS> point2mesh results/run-PC.tif results/run-L.tif
      ISIS> point2dem  results/run-PC.tif
@@ -101,14 +100,14 @@ similarly, using the ISIS tools specific to them.
 Aligning Images
 ~~~~~~~~~~~~~~~
 
-Once the ``.cub`` files are obtained, it is possible to run stereo right
+Once the ``.cub`` files are obtained, it is possible to run parallel_stereo right
 away::
 
-     ISIS> stereo E0201461.cub M0100115.cub      \
-               --alignment-method affineepipolar \
+     ISIS> parallel_stereo E0201461.cub M0100115.cub      \
+               --alignment-method affineepipolar          \
                -s stereo.default.example results/output
 
-In this case, the first thing ``stereo`` does is to internally align (or
+In this case, the first thing ``parallel_stereo`` does is to internally align (or
 rectify) the images, which helps with finding stereo matches. Here we
 have used ``affineepipolar`` alignment. Another option is to use
 ``homography`` alignment, as described in :numref:`settingoptionsinstereodefault`.
@@ -221,8 +220,9 @@ At this stage we can run the stereo program with map-projected images:
 
 ::
 
-     ISIS> stereo E0201461.map.cub M0100115.map.cub --alignment-method none \
-               -s stereo.default.example results/output
+     ISIS> parallel_stereo E0201461.map.cub M0100115.map.cub \
+           --alignment-method none -s stereo.default.example \
+           results/output
 
 Here we have used ``alignment-method none`` since ``cam2map4stereo.py``
 brought the two images into the same perspective and using the same
@@ -232,11 +232,11 @@ alignment method rather than ``none`` to correct for that is still
 necessary.
 
 Now you may skip to chapter :numref:`nextsteps` which will discuss the
-``stereo`` program in more detail and the other tools in ASP.
+``parallel_stereo`` program in more detail and the other tools in ASP.
 
 .. _dg_tutorial:
 
-Tutorial: Processing Earth DigitalGlobe/Maxar Images
+Tutorial: Processing Earth DigitalGlobe/Maxar images
 ====================================================
 
 In this chapter we will focus on how to process Earth images, or more
@@ -294,7 +294,7 @@ you should be able to download these images yourself and follow along.
 
 .. _rawdg:
 
-Processing Raw
+Processing raw
 --------------
 
 After you have downloaded the example stereo images of Stockholm, you
@@ -317,19 +317,20 @@ a single image file and create an appropriate camera file::
   > dg_mosaic 12FEB16101327*TIF --output-prefix 12FEB16101327
 
 and analogously for the second set. See :numref:`dg_mosaic` for more
-details. The ``stereo`` program can use either the original or the
+details. The ``parallel_stereo`` program can use either the original or the
 mosaicked images. This sample data only contains two image files
 so we do not need to use the ``dg_mosaic`` tool.
 
 Since we are ingesting these images raw, it is strongly recommended that
 you use affine epipolar alignment to reduce the search range. The
-``stereo`` command and a rendering of the results are shown below.
+``parallel_stereo`` command and a rendering of the results are shown below.
 
 ::
 
-    stereo -t dg --subpixel-mode 1 --alignment-method affineepipolar \
-      12FEB16101327.r50.tif 12FEB16101426.r50.tif                    \
-      12FEB16101327.r50.xml 12FEB16101426.r50.xml  dg/out
+    parallel_stereo -t dg --subpixel-mode 1               \
+      --alignment-method affineepipolar                   \
+      12FEB16101327.r50.tif 12FEB16101426.r50.tif         \
+      12FEB16101327.r50.xml 12FEB16101426.r50.xml dg/out
 
 As in :numref:`moc_tutorial`, one can experiment with various
 tradeoffs of quality versus run time by using various stereo
@@ -347,14 +348,14 @@ How to create a DEM and visualize the results of stereo is described in
 It is important to note that we could have performed stereo using the
 approximate RPC model instead of the exact linear camera model (both
 models are in the same XML file), by switching the session in the
-``stereo`` command above from ``-t dg`` to ``-t rpc``. The RPC model is
+``parallel_stereo`` command above from ``-t dg`` to ``-t rpc``. The RPC model is
 somewhat less accurate, so the results will not be the same, in our
 experiments we've seen differences in the 3D terrains using the two
 approaches of 5 meters or more.
 
 .. _mapproj:
 
-Processing Map-Projected Images
+Processing map-projected images
 --------------------------------
 
 ASP computes the highest quality 3D terrain if used with images
@@ -363,7 +364,7 @@ guess. This process is described in :numref:`mapproj-example`.
 
 .. _wvcorrect-example:
 
-Handling CCD Boundary Artifacts
+Handling CCD boundary artifacts
 -------------------------------
 
 DigitalGlobe/Maxar WorldView images :cite:`digital-globe:camera`
@@ -397,7 +398,7 @@ production use at this stage. See (:numref:`jitter`).
 
 .. _sparse-disp:
 
-Dealing with Terrain Lacking Large-Scale Features
+Dealing with terrain lacking large-scale features
 -------------------------------------------------
 
 Stereo Pipeline's approach to performing correlation is a two-step
@@ -425,7 +426,7 @@ approach.
    ``sparse_disp``. (In these DEMs there is very little elevation change,
    hence the flat appearance.)
 
-This mode can be invoked by passing to ``stereo`` the option
+This mode can be invoked by passing to ``parallel_stereo`` the option
 ``--corr-seed-mode 3``. Also, during pyramid correlation it is suggested
 to use somewhat fewer levels than the default ``--corr-max-levels 5``,
 to again not subsample the images too much and lose the features.
@@ -434,15 +435,16 @@ Here is an example:
 
 ::
 
-       > stereo -t dg --corr-seed-mode 3 --corr-max-levels 2     \
-                left_mapped.tif right_mapped.tif                 \
-                12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
-                12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
-                dg/dg srtm_53_07.tif
+    parallel_stereo -t dg --corr-seed-mode 3            \
+      --corr-max-levels 2                               \
+      left_mapped.tif right_mapped.tif                  \
+      12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML  \
+      12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML  \
+      dg/dg srtm_53_07.tif
 
 If ``sparse_disp`` is not working well for your images you may be able
 to improve its results by experimenting with the set of ``sparse_disp``
-options which can be passed into ``stereo`` through the
+options which can be passed into ``parallel_stereo`` through the
 ``--sparse-disp-options`` parameter. ``sparse_disp`` has so far only
 been tested with ``affineepipolar`` image alignment so you may not get
 good results with other alignment methods.
@@ -465,13 +467,13 @@ Then set::
     export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.6/site-packages
 
 if you used the default installation path for conda before running
-`stereo`.
+``parallel_stereo``.
 
 It is very important to note that if GDAL is fetched from a different
 repository than conda-forge, one may run into issues with dependencies
 not being correct and then it will fail at runtime.
 
-Processing Multi-Spectral Images
+Processing multi-spectral images
 --------------------------------
 
 In addition to panchromatic (grayscale) images, the DigitalGlobe/Maxar

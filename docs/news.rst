@@ -1,6 +1,6 @@
 .. _news:
 
-News and Development History
+News and development history
 ============================
 
 .. include:: ../NEWS.rst

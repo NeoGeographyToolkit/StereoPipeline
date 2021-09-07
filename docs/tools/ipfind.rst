@@ -25,7 +25,8 @@ Command-line options for ipfind:
 
 --descriptor-generator <sift|orb|sgrad|sgrad2|patch|pca (default: sift)>
     Choose a descriptor generator. Some descriptors work only with
-    certain interest point operators.
+    certain interest point operators (for example, for 'OBALoG' use
+    'sgrad', 'sgrad2', 'patch', and 'pca').
 
 --ip-per-image <integer>
     Set the maximum number of IP to find in the whole image. If not
@@ -61,7 +62,7 @@ Command-line options for ipfind:
     Don’t detect IP within this many pixels of image borders or
     nodata.
 
---output-folder <filepath>
+--output-folder <string>
     Write output files to this location.
 
 --num-threads <integer (default: 0)>

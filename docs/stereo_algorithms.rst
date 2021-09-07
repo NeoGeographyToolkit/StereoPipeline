@@ -116,7 +116,7 @@ When SGM or MGM is specified, certain stereo parameters have their
 default values replaced with values that will work with SGM. You can
 still manually specify these options.
 
--  Cost Mode (default 4). Mean absolute distance (MAD)
+-  ``cost-mode`` (default 4). Mean absolute distance (MAD)
    (``cost-mode <= 2``) usually does not work well. The census transform
    mode (``cost-mode 3``) :cite:`zabih1994census` tends to
    perform better overall but can produce artifacts on featureless
@@ -125,19 +125,19 @@ still manually specify these options.
    transform that is more stable on low contrast terrain but may be less
    accurate elsewhere.
 
--  Kernel size. SGM kernels must always be symmetric. The SGM algorithm
-   works with much smaller kernel sizes than the regular integer
+- ``corr-kernel``. SGM kernels must always be odd. The SGM
+   algorithm works with much smaller kernel sizes than the regular integer
    correlator so the default large kernel is not recommended. The MAD
    cost mode can be used with any odd kernel size (including size 1) but
    the census cost modes can only be used with kernel sizes 3, 5, 7, and
    9. Size 7 is usually a good choice.
 
--  Xcorr-Threshold. By default, this is disabled in order to nearly
-   halve the (long) run time of the SGM algorithm. Set
-   ``xcorr-threshold`` to >= 0 to turn it back on. If you set the
-   ``min-xcorr-level`` parameter to 1 you can perform cross correlation
-   on the smaller resolution levels without spending the time to run it
-   on the largest resolution level.
+-  ``xcorr-threshold``. By default this is enabled and set to 2, which 
+   doubles the run time of the SGM algorithm. Set it to -1 to turn it
+   off, which may result in less accuracy. If setting
+   ``min-xcorr-level`` to 1, one can perform the cross check on the
+   smaller resolution levels without spending the time to run it on
+   the largest resolution level.
 
 -  The median and texture filters in the ``stereo_fltr`` tool (defaults
    3, 11, 0.13). These filters were designed specifically to clean up
@@ -168,21 +168,18 @@ still manually specify these options.
    ASP processing (upper right) and processing using the SGM algorithm
    (lower right).
 
-:numref:`corr-sgm-example` shows a comparison between two
-stereo modes. The DEM on the left was generated using the default stereo
-parameters and ``--subpixel-mode 3``. The DEM on the right was generated
-using the command::
+:numref:`corr-sgm-example` shows a comparison between two stereo
+modes. The DEM on the left was generated using the default stereo
+parameters and ``--subpixel-mode 3``. The DEM on the right was
+generated using the command::
 
-     stereo --stereo-algorithm asp_sgm --threads 1 --xcorr-threshold -1 \
-       --corr-kernel 7 7 --corr-tile-size 6400 --cost-mode 4      \
-       --median-filter-size 3  --texture-smooth-size 13           \
+     parallel_stereo --stereo-algorithm asp_sgm         \
+       --corr-kernel 7 7 --cost-mode 4                  \
+       --median-filter-size 3  --texture-smooth-size 13 \
        --texture-smooth-scale 0.13
 
 Some grid pattern noise is visible in the image produced using SGM.
-Using ``--stereo-algorithm asp_mgm`` should reduce it. And, as mentioned
-earlier, for large images which won't fit in memory,
-``--corr-tile-size`` can be set to a value like 4096, and
-``parallel_stereo`` should be used.
+Using ``--stereo-algorithm asp_mgm`` should reduce it. 
 
 .. _original_mgm:
 

@@ -1,6 +1,6 @@
 .. _bundle_adjustment:
 
-Bundle Adjustment
+Bundle adjustment
 =================
 
 Overview
@@ -10,7 +10,7 @@ Satellite position and orientation errors have a direct effect on the
 accuracy of digital elevation models produced by the Stereo Pipeline. If
 they are not corrected, these uncertainties will result in systematic
 errors in the overall position and slope of the DEM. Severe distortions
-can occur as well, resulting in twisted or “taco shaped” DEMs, though in
+can occur as well, resulting in twisted or "taco-shaped" DEMs, though in
 most cases these effects are quite subtle and hard to detect. In the
 worst case, such as with old mission data like Voyager or Apollo, these
 gross camera misalignments can inhibit Stereo Pipeline’s internal
@@ -50,13 +50,13 @@ consistency of your DEM or align your DEM to an existing data product.
 Finally, even though bundle adjustment calculates the locations of the
 3D objects it views, only the final properties of the cameras are
 recorded for use by the Ames Stereo Pipeline. Those properties can be
-loaded into the ``stereo`` program which uses its own method for
+loaded into the ``parallel_stereo`` program which uses its own method for
 triangulating 3D feature locations.
 
 When using the Stereo Pipeline, bundle adjustment is an optional step
 between the capture of images and the creation of DEMs. The bundle
 adjustment process described below should be completed prior to running
-the ``stereo`` command.
+the ``parallel_stereo`` command.
 
 Although bundle adjustment is not a required step for generating DEMs,
 it is *highly recommended* for users who plan to create DEMs for
@@ -84,27 +84,21 @@ and its effect on decreasing the stereo triangulation error.
    :name: asp-ba-example
 
    Illustration of the triangulation error map for a pair of images before
-   (left) and after (right) using Stereo Pipeline’s ``bundle_adjust``. Red
+   (left) and after (right) using Stereo Pipeline's ``bundle_adjust``. Red
    and black colors suggest higher error.
 
-Running ``stereo`` without using bundle-adjusted camera models.
+Running ``parallel_stereo`` without using bundle-adjusted camera models::
 
-::
+    parallel_stereo AS15-M-1134.cub AS15-M-1135.cub run_noadjust/run
 
-     stereo AS15-M-1134.cub AS15-M-1135.cub run_noadjust/run
+Performing bundle adjustment::
 
-Performing bundle adjustment.
+    bundle_adjust AS15-M-1134.cub AS15-M-1135.cub -o run_ba/run
 
-::
+Running ``parallel_stereo`` while using the bundle-adjusted camera models::
 
-     bundle_adjust AS15-M-1134.cub AS15-M-1135.cub -o run_ba/run
-
-Running stereo while using the bundle-adjusted camera models.
-
-::
-
-     stereo AS15-M-1134.cub AS15-M-1135.cub run_adjust/run \
-       --bundle-adjust-prefix run_ba/run
+    parallel_stereo AS15-M-1134.cub AS15-M-1135.cub run_adjust/run \
+      --bundle-adjust-prefix run_ba/run
 
 A comparison of the two ways of doing stereo is shown in
 :numref:`asp-ba-example`.
@@ -148,11 +142,12 @@ Hence, the first invocation of camera optimization should be like::
      bundle_adjust -t nadirpinhole --inline-adjustments      \
        left.tif right.tif left.tsai right.tsai -o run_ba/run
 
-It is suggested that one run ``stereo`` with the obtained cameras, and
+It is suggested that one run ``parallel_stereo`` with the obtained cameras, and
 then examine the intersection error::
 
-     stereo -t nadirpinhole --alignment-method epipolar left.tif right.tif \
-        run_ba/run-left.tsai run_ba/run-right.tsai run_stereo/run 
+     parallel_stereo -t nadirpinhole --alignment-method epipolar      \
+        left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai \
+        run_stereo/run 
      point2dem --tr RESOLUTION --errorimage run_stereo/run-PC.tif
      gdalinfo -stats run_stereo/run-IntersectionErr.tif
      colormap run_stereo/run-IntersectionErr.tif
@@ -177,13 +172,14 @@ Or, one can take advantage of the just-completed stereo run and invoke
      --num-matches-from-disp-triplets 10000
 
 to create dense and uniformly distributed interest points with desired
-density (the latter creates a .match file that needs to be copied to the
-name ``bundle_adjust`` expects). This option also ensures that if three
-images are present, and stereo is invoked on the first and second image,
-and then on the second and the third, followed by interest point
-generation, many interest points will be triplets, that is, the same
-feature will often will be identified in all three images, which can be
-a very good constraint on bundle adjustment later.
+density (the latter creates a .match file that needs to be copied to
+the name ``bundle_adjust`` expects). This option also ensures that if
+three images are present, and ``parallel_stereo`` is invoked on the
+first and second image, and then on the second and the third, followed
+by interest point generation, many interest points will be triplets,
+that is, the same feature will often will be identified in all three
+images, which can be a very good constraint on bundle adjustment
+later.
 
 If the interest points are good and the mean intersection error is
 acceptable, but this error shows an odd nonlinear pattern, that means it
@@ -209,15 +205,15 @@ to 0, if it appears that the solver is not aggressive enough, or it may
 need to be increased if perhaps it overfits. This will become less of a
 concern if there is some ground truth, as discussed later.
 
-Next, one can run stereo as before, with the new cameras, and see if the
-obtained solution is more acceptable, that is, if the intersection error
-is smaller. It is good to note that a preliminary investigation can
-already be made right after bundle adjustment, by looking at the
-residual error files before and after bundle adjustment. They are in the
-output directory, with names containing the strings::
+Next, one can run ``parallel_stereo`` as before, with the new cameras,
+and see if the obtained solution is more acceptable, that is, if the
+intersection error is smaller. It is good to note that a preliminary
+investigation can already be made right after bundle adjustment, by
+looking at the residual error files before and after bundle
+adjustment. They are in the output directory, with names::
 
-     initial_residuals_no_loss_function_pointmap
-     final_residuals_no_loss_function_pointmap
+     initial_residuals_pointmap.csv
+     final_residuals_pointmap.csv
 
 If desired, these csv files can be converted to a DEM with
 ``point2dem``, which can be invoked with::
@@ -239,7 +235,8 @@ If a ground truth lidar file (or DEM) is present, say named
 the DEM obtained with the earlier stereo pass needs to be first aligned
 to this ground truth, such as::
 
-     pc_align --max-displacement VAL run_stereo/run-DEM.tif lidar.csv -o run_align/run 
+    pc_align --max-displacement VAL run_stereo/run-DEM.tif \
+      lidar.csv -o run_align/run 
 
 (see the manual page of this tool in :numref:`pc_align` for more details).
 
@@ -284,8 +281,8 @@ over-fitting.
 
 This tool will write some residual files of the form::
 
-     initial_residuals_no_loss_function_reference_terrain.txt
-     final_residuals_no_loss_function_reference_terrain.txt
+     initial_residuals_reference_terrain.txt
+     final_residuals_reference_terrain.txt
 
 which may be studied to see if the error-to-lidar decreased. Each
 residual is defined as the distance, in pixels, between a terrain point
@@ -419,12 +416,12 @@ An example showing how to convert a camera model to RPC is given in
 Working with map-projected images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If stereo was done with map-projected images, one can still extract
+If ``parallel_stereo`` was run with map-projected images, one can still extract
 dense interest point matches and the unaligned disparity from such a
 run, and these can be applied with the original unprojected images for
 the purpose of bundle adjustment (after being renamed appropriately).
 This may be convenient since while bundle adjustment must always happen
-with the original images, stereo could be faster and more accurate when
+with the original images, ``parallel_stereo`` could be faster and more accurate when
 images are map-projected. It is suggested that the unaligned disparity
 and interest points obtained this way be examined carefully.
 Particularly the grid size used in mapprojection should be similar to
@@ -519,7 +516,7 @@ not have finished refining the parameters of the cameras.
 
 .. _ba_example:
 
-Tutorial: Processing Mars Orbital Camera Images
+Tutorial: Processing Mars Orbital Camera images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This tutorial for ISIS’s bundle adjustment tools is taken from
@@ -697,11 +694,10 @@ Producing a DEM using the newly created camera corrections is the same
 as covered in the Tutorial. When using ``jigsaw``, it modifies
 a copy of the spice data that is stored internally to the cube file.
 Thus when we want to create a DEM using the correct camera geometry, no
-extra information needs to be given to ``stereo`` since it is already
+extra information needs to be given to ``parallel_stereo`` since it is already
 contained in the file. In the event a mistake has been made,
 ``spiceinit`` will overwrite the spice data inside a cube file and
-provide the original uncorrected camera pointing.
+provide the original uncorrected camera pointing. Hence, the stereo
+command does not change::
 
-::
-
-     ISIS> stereo E0201461.cub M0100115.cub bundled/bundled
+     ISIS> parallel_stereo E0201461.cub M0100115.cub bundled/bundled

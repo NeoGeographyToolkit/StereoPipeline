@@ -1,4 +1,4 @@
-Third Party Licenses for libraries in the binary release
+Third party licenses for libraries in the binary release
 ========================================================
 
 .. include:: ../THIRDPARTYLICENSES.rst

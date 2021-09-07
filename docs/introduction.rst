@@ -175,13 +175,13 @@ to:
     stereo-pipeline-owner@lists.nasa.gov
 
 When you submit a bug report, it may be helpful to attach the logs
-output by ``stereo`` and other tools (:numref:`logging`).
+output by ``parallel_stereo`` and other tools (:numref:`logging`).
 
 Typographical Conventions
 -------------------------
 
 Names of programs that are meant to be run on the command line are
-written in a constant-width font, like the ``stereo`` program, as are
+written in a constant-width font, like the ``parallel_stereo`` program, as are
 options to those programs.
 
 An indented line of constant-width text can be typed into your terminal,
@@ -213,7 +213,7 @@ enclosed by parentheses, and line continuation with a backslash::
 
 The above indicates a run of the ``point2dem`` program. The only
 argument that it requires is a point cloud file, which is produced by
-the ``stereo`` program and ends in ``-PC.tif``, although its prefix
+the ``parallel_stereo`` program and ends in ``-PC.tif``, although its prefix
 could be anything (hence the greater-than and less-than enclosing brackets).
 Everything else is in square brackets indicating that they are optional.
 

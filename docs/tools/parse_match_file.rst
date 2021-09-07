@@ -35,8 +35,7 @@ Other functionality which may be used to understand interest points is
 the option ``--save-cnet-as-csv`` in ``bundle_adjust`` which saves the
 interest point matches in the plain text format used by ground control
 points (GCP). This tool also saves a file named
-``final_residuals_no_loss_function_pointmap_point_log.csv`` in the
-output directory which has for each set of
-matching interest points the triangulated world position and the error
-of re-projecting such a point back in the cameras
+``final_residuals_pointmap.csv`` in the output directory which has for
+each set of matching interest points the triangulated world position
+and the error of re-projecting such a point back in the cameras
 (:numref:`bundle_adjust`).

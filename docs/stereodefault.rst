@@ -4,20 +4,20 @@ The ``stereo.default`` file
 ===========================
 
 The ``stereo.default`` file contains configuration parameters that the
-``stereo`` program uses to process images. The ``stereo.default`` file
-is loaded from the current working directory when you run ``stereo``
-unless you specify a different file using the ``-s`` option. Run
-``stereo --help`` for more information. The extension is not important
-for this file.
+``parallel_stereo`` and ``stereo`` programs use to process images. The
+``stereo.default`` file is loaded from the current working directory,
+unless a different file is specified with the ``-s`` option. The
+file extension is not important. 
 
 A sample ``stereo.default.example`` file is included in the top-level
 directory of the Stereo Pipeline software distribution.
 
-As mentioned in :numref:`cmdline`, all the ``stereo``
-parameters can also be specified on the command line.
+As mentioned in :numref:`cmdline`, all the ``parallel_stereo``
+parameters can also be specified on the command line, by prepending
+them with two dashes.
 
-Listed below are the parameters used by ``stereo``, grouped by
-processing stage.
+Listed below are the parameters used by ``parallel_stereo``, grouped
+by processing stage.
 
 .. _stereo-default-preprocessing:
 
@@ -97,7 +97,7 @@ alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none)
     triangulation is performed. This mode works only with
     ``parallel_stereo``.
 
-    When ``alignment-method`` is set to ``affineepipolar``, ``stereo``
+    When ``alignment-method`` is set to ``affineepipolar``, ``parallel_stereo``
     will attempt to pre-align the images by detecting tie-points using
     feature matching, and using those to transform the images such
     that pairs of conjugate epipolar lines become collinear and
@@ -105,7 +105,7 @@ alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none)
     equivalent to rotating the original cameras which took the
     pictures.
 
-    When ``alignment-method`` is set to ``homography``, ``stereo`` will
+    When ``alignment-method`` is set to ``homography``, ``parallel_stereo`` will
     attempt to pre-align the images by automatically detecting
     tie-points between images using a feature matching. Tie points are
     stored in a ``*.match`` file that is used to compute a linear
@@ -114,7 +114,7 @@ alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none)
     over this process by using the ``ipfind`` and
     ``ipmatch`` tools.
 
-    When ``alignment-method`` is set to ``epipolar``, ``stereo`` will
+    When ``alignment-method`` is set to ``epipolar``, ``parallel_stereo`` will
     apply a 3D transform to both images so that their epipolar lines will
     be horizontal. This speeds of stereo correlation as it greatly
     reduces the area required for searching.
@@ -315,7 +315,7 @@ min-num-ip (*integer*) (default = 20)
     interest points are not detected.
 
 cost-mode (= 0,1,2,3,4)
-    (default = 2)
+    (default = 2 for ASP_BM and 4 for ASP_SGM and ASP_MGM)
     This defines the cost function used during integer correlation.
     Squared difference is the fastest cost function. However it comes
     at the price of not being resilient against noise. Absolute
@@ -326,7 +326,8 @@ cost-mode (= 0,1,2,3,4)
     difference and about 3x slower than squared difference. The census
     transform :cite:`zabih1994census` and ternary census
     transform :cite:`hua2016texture` can only be used with
-    the SGM correlator. See :numref:`asp_sgm` for details.
+    the ASP_SGM and ASP_MGM correlators. See :numref:`asp_sgm` for
+    details.
 
     | 0 - absolute difference
     | 1 - squared difference
@@ -352,14 +353,14 @@ corr-search (*integer integer integer integer*)
     the number of erroneous matches, so it can be advantageous to tune
     the search range for a particular data set.
 
-    If this option is not provided, ``stereo`` will make an attempt to
+    If this option is not provided, ``parallel_stereo`` will make an attempt to
     guess its search range using interest points.
 
     These four integers define the minimum horizontal and vertical
     disparity and then the maximum horizontal and vertical disparity.
 
 corr-search-limit (*integer integer integer integer*)
-    Set these parameters to constrain the search range that ``stereo``
+    Set these parameters to constrain the search range that ``parallel_stereo``
     automatically computes when ``corr-search`` is not set. This
     setting is useful when you have a good idea of the alignment
     quality in the vertical direction but not in the horizontal
@@ -467,7 +468,7 @@ corr-memory-limit-mb (*integer*) (default = 6144)
     still over this limit then the program will error out. The unit is
     in megabytes.
 
-Subpixel Refinement
+Subpixel refinement
 -------------------
 
 subpixel-mode (*integer*) (default = 1)
@@ -632,7 +633,7 @@ casp-go-param-file (*string*) (default = ""):
 
 .. _triangulation_options:
 
-Post-Processing (Triangulation)
+Post-processing (triangulation)
 -------------------------------
 
 near-universe-radius (*float*) (default = 0.0)

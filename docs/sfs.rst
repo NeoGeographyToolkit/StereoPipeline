@@ -1,6 +1,6 @@
 .. _sfs_usage:
 
-Shape-from-Shading Examples
+Shape-from-shading examples
 ===========================
 
 ASP provides a tool, named ``sfs`` (:numref:`sfs`), that can improve
@@ -83,16 +83,17 @@ We advise the following strategy for picking images. First choose a
 small longitude-latitude window in which to perform a search for
 images. Pick two images that are very close in time and with a big
 amount of overlap (ideally they would have consecutive orbit numbers).
-Those can be passed to ASP’s ``stereo`` tool to create an initial DEM.
-Then, search for other images close to the center of the maximum overlap
-of the first two images. Pick one or more of those, ideally with
-different illumination conditions than the first two. Those (together
-with one of the first two images) can be used for SfS.
+Those can be passed to ASP’s ``parallel_stereo`` tool to create an
+initial DEM.  Then, search for other images close to the center of the
+maximum overlap of the first two images. Pick one or more of those,
+ideally with different illumination conditions than the first
+two. Those (together with one of the first two images) can be used for
+SfS.
 
 To locate the area of spatial overlap, the images can be map-projected
 (either with ``cam2map`` with a coarse resolution) or with
 ``mapproject``, using for example the LOLA DEM as the terrain to
-project onto, or the DEM obtained from running ``stereo`` on those
+project onto, or the DEM obtained from running ``parallel_stereo`` on those
 images. Then the images can be overlayed as georeferenced images in
 ``stereo_gui``. A good sanity check is to examine the shadows in
 various images. If they point in different directions in the images
@@ -100,7 +101,7 @@ and perhaps also have different lengths, that means that illumination
 conditions are different enough, which will help constrain the ``sfs``
 problem better.
 
-Running sfs at 1 meter/pixel using a single image
+Running SfS at 1 meter/pixel using a single image
 -------------------------------------------------
 
 In both this and the next sections we will work with LRO NAC images
@@ -112,23 +113,23 @@ We first retrieve the data sets.
 
 ::
 
-     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
-          LROLRC_0005/DATA/SCI/2010267/NAC/M139939938LE.IMG
-     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
-          LROLRC_0005/DATA/SCI/2010267/NAC/M139946735RE.IMG
-     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
-          LROLRC_0009/DATA/SCI/2011284/NAC/M173004270LE.IMG
-     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
-          LROLRC_0002/DATA/MAP/2010062/NAC/M122270273LE.IMG
+    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
+         LROLRC_0005/DATA/SCI/2010267/NAC/M139939938LE.IMG
+    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
+         LROLRC_0005/DATA/SCI/2010267/NAC/M139946735RE.IMG
+    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
+         LROLRC_0009/DATA/SCI/2011284/NAC/M173004270LE.IMG
+    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
+         LROLRC_0002/DATA/MAP/2010062/NAC/M122270273LE.IMG
 
 Then we convert them to ISIS cubes, initialize the SPICE kernels, and
 perform radiometric calibration and echo correction. Here are the steps,
 illustrated on the first image::
 
-     lronac2isis from = M139939938LE.IMG     to = M139939938LE.cub
-     spiceinit   from = M139939938LE.cub
-     lronaccal   from = M139939938LE.cub     to = M139939938LE.cal.cub
-     lronacecho  from = M139939938LE.cal.cub to = M139939938LE.cal.echo.cub
+    lronac2isis from = M139939938LE.IMG     to = M139939938LE.cub
+    spiceinit   from = M139939938LE.cub
+    lronaccal   from = M139939938LE.cub     to = M139939938LE.cal.cub
+    lronacecho  from = M139939938LE.cal.cub to = M139939938LE.cal.echo.cub
 
 We rename, for simplicity, the obtained four processed datasets to
 A.cub, B.cub, C.cub, and D.cub.
@@ -141,11 +142,11 @@ necessary to obtain a good stereo result.
 
 ::
 
-   parallel_stereo --job-size-w 1024 --job-size-h 1024 A.cub B.cub    \
-                   --left-image-crop-win 0 7998 2728 2696             \
-                   --right-image-crop-win 0 9377 2733 2505            \
-                   --threads 16 --corr-seed-mode 1  --subpixel-mode 3 \
-                   run_full1/run
+    parallel_stereo --job-size-w 1024 --job-size-h 1024 A.cub B.cub \
+      --left-image-crop-win 0 7998 2728 2696                        \
+      --right-image-crop-win 0 9377 2733 2505                       \
+      --threads 16 --corr-seed-mode 1  --subpixel-mode 3            \
+      run_full1/run
 
 Next we create a DEM at 1 meter/pixel, which is about the resolution of
 the input images. We use the stereographic projection since this dataset
@@ -154,20 +155,20 @@ to do SfS on.
 
 ::
 
-     point2dem -r moon --stereographic --proj-lon 0 \
-       --proj-lat -90 run_full1/run-PC.tif
-     gdal_translate -projwin -15471.9 150986 -14986.7 150549  \
-       run_full1/run-DEM.tif run_full1/run-crop-DEM.tif
+    point2dem -r moon --stereographic --proj-lon 0           \
+      --proj-lat -90 run_full1/run-PC.tif
+    gdal_translate -projwin -15471.9 150986 -14986.7 150549  \
+      run_full1/run-DEM.tif run_full1/run-crop-DEM.tif
 
 This creates a DEM of size 456 |times| 410 pixels.
 
 Then we run ``sfs``::
 
-     sfs -i run_full1/run-crop-DEM.tif A.cub -o sfs_ref1/run           \
-        --reflectance-type 1                                           \
-       --smoothness-weight 0.08 --initial-dem-constraint-weight 0.0001 \
-       --max-iterations 10 --use-approx-camera-models                  \
-       --crop-input-images
+    sfs -i run_full1/run-crop-DEM.tif A.cub -o sfs_ref1/run           \
+      --reflectance-type 1                                            \
+      --smoothness-weight 0.08 --initial-dem-constraint-weight 0.0001 \
+      --max-iterations 10 --use-approx-camera-models                  \
+      --crop-input-images
 
 The smoothness weight is a parameter that needs tuning. If it is too
 small, SfS will return noisy results, if it is too large, too much
@@ -178,8 +179,8 @@ We show the results of running this program in :numref:`sfs1`. The
 left-most figure is the hill-shaded original DEM, which was obtained
 by running::
 
-     hillshade --azimuth 300 --elevation 20 run_full1/run-crop-DEM.tif \
-       -o run_full1/run-crop-hill.tif 
+    hillshade --azimuth 300 --elevation 20 run_full1/run-crop-DEM.tif \
+      -o run_full1/run-crop-hill.tif 
 
 The second image is the hill-shaded DEM obtained after running ``sfs``
 for 10 iterations.
@@ -187,14 +188,15 @@ for 10 iterations.
 The third image is, for comparison, the map-projection of A.cub onto the
 original DEM, obtained via the command::
 
-     mapproject --tr 1 run_full1/run-crop-DEM.tif A.cub A_map.tif --tile-size 128
+    mapproject --tr 1 run_full1/run-crop-DEM.tif A.cub A_map.tif \
+      --tile-size 128
 
-The forth image is the colored absolute difference between the original
+The fourth image is the colored absolute difference between the original
 DEM and the SfS output, obtained by running::
 
-     geodiff --absolute sfs_ref1/run-DEM-final.tif run_full1/run-crop-DEM.tif
-     colormap --min 0 --max 2 --colormap-style binary-red-blue \
-       run-DEM-final__run-crop-DEM-diff.tif
+    geodiff --absolute sfs_ref1/run-DEM-final.tif \
+      run_full1/run-crop-DEM.tif -o out
+    colormap --min 0 --max 2 out-diff.tif
 
 .. figure:: images/sfs1.jpg
    :name: sfs1
@@ -250,44 +252,52 @@ such as shown below (the crop parameters can be determined via
 
 ::
 
-     crop from = A.cub to = A_crop.cub sample = 1 line = 6644 nsamples = 2192 nlines = 4982
-     crop from = B.cub to = B_crop.cub sample = 1 line = 7013 nsamples = 2531 nlines = 7337
-     crop from = C.cub to = C_crop.cub sample = 1 line = 1 nsamples = 2531 nlines = 8305
-     crop from = D.cub to = D_crop.cub sample = 1 line = 1 nsamples = 2531 nlines = 2740
+    crop from = A.cub to = A_crop.cub sample = 1 line = 6644 \
+      nsamples = 2192 nlines = 4982
+    crop from = B.cub to = B_crop.cub sample = 1 line = 7013 \
+        nsamples = 2531 nlines = 7337
+    crop from = C.cub to = C_crop.cub sample = 1 line = 1    \
+      nsamples = 2531 nlines = 8305
+    crop from = D.cub to = D_crop.cub sample = 1 line = 1    \
+      nsamples = 2531 nlines = 2740
 
-Then we bundle-adjust and run stereo
+Then we bundle-adjust and run parallel_stereo
 
 ::
 
-     bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub    \
-       --min-matches 1 -o run_ba/run
-     stereo A_crop.cub B_crop.cub run_full2/run --subpixel-mode 3 \
-       --bundle-adjust-prefix run_ba/run
+    bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub \
+      --min-matches 1 -o run_ba/run
+    parallel_stereo A_crop.cub B_crop.cub run_full2/run       \
+      --subpixel-mode 3 --bundle-adjust-prefix run_ba/run
 
-This will result in a point cloud, ``run_full2/run-PC.tif``, which will
-lead us to the “ground truth” DEM. As mentioned before, we’ll in fact
-run SfS with images subsampled by a factor of 10. Subsampling is done by
-running the ISIS ``reduce`` command::
+This will result in a point cloud, ``run_full2/run-PC.tif``, which
+will lead us to the “ground truth” DEM. As mentioned before,
+we’ll in fact run SfS with images subsampled by a factor of
+10. Subsampling is done by running the ISIS ``reduce`` command::
 
-     for f in A B C D; do 
-       reduce from = ${f}_crop.cub to = ${f}_crop_sub10.cub sscale = 10 lscale = 10
-     done
+    for f in A B C D; do 
+      reduce from = ${f}_crop.cub to = ${f}_crop_sub10.cub \
+        sscale = 10 lscale = 10
+    done
 
-We run bundle adjustment and stereo with the subsampled images using
+We run bundle adjustment and parallel_stereo with the subsampled images using
 commands analogous to the above::
 
-     bundle_adjust A_crop_sub10.cub B_crop_sub10.cub C_crop_sub10.cub D_crop_sub10.cub \
-       --min-matches 1 -o run_ba_sub10/run --ip-per-tile 100000
-     stereo A_crop_sub10.cub B_crop_sub10.cub run_sub10/run --subpixel-mode 3           \
-      --bundle-adjust-prefix run_ba_sub10/run
+    bundle_adjust A_crop_sub10.cub B_crop_sub10.cub     \
+      C_crop_sub10.cub D_crop_sub10.cub --min-matches 1 \
+      -o run_ba_sub10/run --ip-per-tile 100000
+    parallel_stereo A_crop_sub10.cub B_crop_sub10.cub   \
+      run_sub10/run --subpixel-mode 3                   \
+     --bundle-adjust-prefix run_ba_sub10/run
 
 We’ll obtain a point cloud named ``run_sub10/run-PC.tif``.
 
-We’ll bring the “ground truth” point cloud closer to the initial guess
-for SfS using ``pc_align``::
+We’ll bring the “ground truth” point cloud closer to the initial
+guess for SfS using ``pc_align``::
 
-     pc_align --max-displacement 200 run_full2/run-PC.tif run_sub10/run-PC.tif \
-       -o run_full2/run --save-inv-transformed-reference-points
+    pc_align --max-displacement 200 run_full2/run-PC.tif \
+      run_sub10/run-PC.tif -o run_full2/run              \
+      --save-inv-transformed-reference-points
 
 This step is extremely important. Since we ran two bundle adjustment
 steps, and both were without ground control points, the resulting clouds
@@ -298,17 +308,17 @@ which we will perform SfS.
 Next we create the “ground truth” DEM from the aligned high-resolution
 point cloud, and crop it to a desired region::
 
-     point2dem -r moon --tr 10 --stereographic --proj-lon 0 --proj-lat -90 \
-       run_full2/run-trans_reference.tif
-     gdal_translate -projwin -15540.7 151403 -14554.5 150473               \
-       run_full2/run-trans_reference-DEM.tif run_full2/run-crop-DEM.tif
+    point2dem -r moon --tr 10 --stereographic --proj-lon 0 --proj-lat -90 \
+      run_full2/run-trans_reference.tif
+    gdal_translate -projwin -15540.7 151403 -14554.5 150473               \
+      run_full2/run-trans_reference-DEM.tif run_full2/run-crop-DEM.tif
 
 We repeat the same steps for the initial guess for SfS::
 
-     point2dem -r moon --tr 10 --stereographic --proj-lon 0 --proj-lat -90 \
-       run_sub10/run-PC.tif
-     gdal_translate -projwin -15540.7 151403 -14554.5 150473               \
-       run_sub10/run-DEM.tif run_sub10/run-crop-DEM.tif
+    point2dem -r moon --tr 10 --stereographic --proj-lon 0 --proj-lat -90 \
+      run_sub10/run-PC.tif
+    gdal_translate -projwin -15540.7 151403 -14554.5 150473               \
+      run_sub10/run-DEM.tif run_sub10/run-crop-DEM.tif
 
 After this, we run ``sfs`` itself. Since our dataset has many shadows,
 we found that specifying the shadow thresholds for the tool improves
@@ -323,26 +333,28 @@ usually.
 
 ::
 
-     sfs -i run_sub10/run-crop-DEM.tif A_crop_sub10.cub C_crop_sub10.cub \
-       D_crop_sub10.cub -o sfs_sub10_ref1/run --threads 4                \
-       --smoothness-weight 0.12 --initial-dem-constraint-weight 0.0001   \
-       --reflectance-type 1 --float-exposure                             \
-       --float-cameras --use-approx-camera-models                        \
-       --max-iterations 10  --crop-input-images                          \
-       --bundle-adjust-prefix run_ba_sub10/run                           \
-       --shadow-thresholds '0.00162484 0.0012166 0.000781663'
+    sfs -i run_sub10/run-crop-DEM.tif A_crop_sub10.cub C_crop_sub10.cub \
+      D_crop_sub10.cub -o sfs_sub10_ref1/run --threads 4                \
+      --smoothness-weight 0.12 --initial-dem-constraint-weight 0.0001   \
+      --reflectance-type 1 --float-exposure                             \
+      --float-cameras --use-approx-camera-models                        \
+      --max-iterations 10  --crop-input-images                          \
+      --bundle-adjust-prefix run_ba_sub10/run                           \
+      --shadow-thresholds '0.00162484 0.0012166 0.000781663'
 
 We compare the initial guess to ``sfs`` to the “ground truth” DEM
 obtained earlier and the same for the final refined DEM using
 ``geodiff`` as in the previous section. Before SfS::
 
-     geodiff --absolute run_full2/run-crop-DEM.tif run_sub10/run-crop-DEM.tif
-     gdalinfo -stats run-crop-DEM__run-crop-DEM-diff.tif | grep Mean=  
+    geodiff --absolute run_full2/run-crop-DEM.tif \
+    run_sub10/run-crop-DEM.tif -o out
+    gdalinfo -stats out-diff.tif | grep Mean=  
 
 and after SfS::
 
-     geodiff --absolute run_full2/run-crop-DEM.tif sfs_sub10_ref1/run-DEM-final.tif
-     gdalinfo -stats run-crop-DEM__run-DEM-final-diff.tif | grep Mean=
+    geodiff --absolute run_full2/run-crop-DEM.tif \
+      sfs_sub10_ref1/run-DEM-final.tif -o out
+    gdalinfo -stats out-diff.tif | grep Mean=
 
 The mean error goes from 2.64 m to 1.29 m, while the standard deviation
 decreases from 2.50 m to 1.29 m. Visually the refined DEM looks more
@@ -356,8 +368,8 @@ We also show in this figure the first of the images used for SfS,
 use the previously computed bundle-adjusted cameras when map-projecting,
 otherwise the image will show as shifted from its true location::
 
-     mapproject sfs_sub10_ref1/run-DEM-final.tif A_crop_sub10.cub A_crop_sub10_map.tif \
-       --bundle-adjust-prefix run_ba_sub10/run
+    mapproject sfs_sub10_ref1/run-DEM-final.tif A_crop_sub10.cub   \
+      A_crop_sub10_map.tif --bundle-adjust-prefix run_ba_sub10/run
 
 .. figure:: images/sfs2.jpg
    :name: sfs2
@@ -399,18 +411,17 @@ LOLA when the images are coarser than the LOLA error itself.
 
 We work with the same images as before. They are resampled as follows::
 
-     for f in A B C D; do 
-       reduce from = ${f}_crop.cub to = ${f}_crop_sub4.cub sscale=4 lscale=4
-     done
+    for f in A B C D; do 
+      reduce from = ${f}_crop.cub to = ${f}_crop_sub4.cub sscale=4 lscale=4
+    done
 
-The ``stereo`` and ``point2dem`` tools are run to get a first-cut DEM.
-Bundle adjustment is not done at this stage yet.
+The ``parallel_stereo`` and ``point2dem`` tools are run to get a first-cut DEM.
+Bundle adjustment is not done at this stage yet::
 
-::
-
-     stereo A_crop_sub4.cub B_crop_sub4.cub run_stereo_noba_sub4/run --subpixel-mode 3
-     point2dem --stereographic --proj-lon -5.7113451 --proj-lat -85.000351 \
-       run_stereo_noba_sub4/run-PC.tif --tr 4 
+    parallel_stereo A_crop_sub4.cub B_crop_sub4.cub                  \
+      run_stereo_noba_sub4/run --subpixel-mode 3
+    point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003 \
+      run_stereo_noba_sub4/run-PC.tif --tr 4 
 
 We would like now to automatically or manually pick interest points
 for the purpose of doing bundle adjustment. It much easier to compute
@@ -420,21 +431,22 @@ and here just the relevant commands are shown.
 
 ::
 
-     for f in A B C D; do 
-       mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif ${f}_crop_sub4.cub \
-         ${f}_crop_sub4_v1.tif --tile-size 128
-     done
+    for f in A B C D; do 
+      mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif \
+        ${f}_crop_sub4.cub ${f}_crop_sub4_v1.tif         \
+        --tile-size 128
+    done
 
 (Optional manual interest point picking in the mapprojected images can
 happen here.)
 
 ::
 
-     P='A_crop_sub4_v1.tif B_crop_sub4_v1.tif' # to avoid long lines below
-     Q='C_crop_sub4_v1.tif D_crop_sub4_v1.tif run_stereo_noba_sub4/run-DEM.tif'
-     bundle_adjust A_crop_sub4.cub B_crop_sub4.cub C_crop_sub4.cub D_crop_sub4.cub  \
-       -o run_ba_sub4/run --mapprojected-data  "$P $Q"                              \
-       --min-matches 1
+    P='A_crop_sub4_v1.tif B_crop_sub4_v1.tif' # to avoid long lines below
+    Q='C_crop_sub4_v1.tif D_crop_sub4_v1.tif'           
+    bundle_adjust A_crop_sub4.cub B_crop_sub4.cub C_crop_sub4.cub \
+      D_crop_sub4.cub -o run_ba_sub4/run --mapprojected-data      \
+      "$P $Q run_stereo_noba_sub4/run-DEM.tif" --min-matches 1
 
 An illustration is shown in :numref:`sfs3`.
 
@@ -452,31 +464,36 @@ images should be perfectly on top of each other.
 
 ::
 
-     for f in A B C D; do 
-       mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif ${f}_crop_sub4.cub  \
-        ${f}_crop_sub4_v2.tif --tile-size 128 --bundle-adjust-prefix run_ba_sub4/run
-     done
+    for f in A B C D; do 
+      mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif       \
+        ${f}_crop_sub4.cub ${f}_crop_sub4_v2.tif               \
+        --tile-size 128 --bundle-adjust-prefix run_ba_sub4/run
+    done
 
 This will also show where the images overlap, and hence on what portion
 of the DEM we can run SfS.
 
-Then we run stereo, followed by SfS.
+Then we run parallel_stereo, followed by SfS.
 
 ::
 
-     stereo A_crop_sub4.cub B_crop_sub4.cub run_stereo_yesba_sub4/run             \
-       --subpixel-mode 3 --bundle-adjust-prefix run_ba_sub4/run
-     point2dem --stereographic --proj-lon -5.7113451 --proj-lat -85.000351        \
-       run_stereo_yesba_sub4/run-PC.tif --tr 4
-     gdal_translate -srcwin 138 347 273 506 run_stereo_yesba_sub4/run-DEM.tif     \
-       run_stereo_yesba_sub4/run-crop1-DEM.tif 
-     sfs -i run_stereo_yesba_sub4/run-crop1-DEM.tif A_crop_sub4.cub               \
-       C_crop_sub4.cub D_crop_sub4.cub -o sfs_sub4_ref1_th_reg0.12_wt0.001/run    \
-       --shadow-thresholds '0.00149055 0.00138248 0.000747531'                    \
-       --threads 4 --smoothness-weight 0.12 --initial-dem-constraint-weight 0.001 \
-       --reflectance-type 1 --float-exposure --float-cameras --max-iterations 20  \
-       --use-approx-camera-models --crop-input-images                             \
-       --bundle-adjust-prefix run_ba_sub4/run
+    parallel_stereo A_crop_sub4.cub B_crop_sub4.cub                    \
+      run_stereo_yesba_sub4/run --subpixel-mode 3                      \
+      --bundle-adjust-prefix run_ba_sub4/run
+    point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003   \
+      run_stereo_yesba_sub4/run-PC.tif --tr 4
+    gdal_translate -srcwin 138 347 273 506                             \
+      run_stereo_yesba_sub4/run-DEM.tif                                \
+      run_stereo_yesba_sub4/run-crop1-DEM.tif 
+    sfs -i run_stereo_yesba_sub4/run-crop1-DEM.tif A_crop_sub4.cub     \
+      C_crop_sub4.cub D_crop_sub4.cub                                  \
+      -o sfs_sub4_ref1_th_reg0.12_wt0.001/run                          \
+      --shadow-thresholds '0.00149055 0.00138248 0.000747531'          \
+      --threads 4 --smoothness-weight 0.12                             \
+      --initial-dem-constraint-weight 0.001 --reflectance-type 1       \
+      --float-exposure --float-cameras --max-iterations 20             \
+      --use-approx-camera-models --crop-input-images                   \
+      --bundle-adjust-prefix run_ba_sub4/run
 
 We fetch the portion of the LOLA dataset around the current DEM from the
 site described earlier, and save it as
@@ -485,18 +502,19 @@ align our stereo DEM with this dataset to be able to compare them. We
 choose to bring the LOLA dataset into the coordinate system of the DEM,
 using::
 
-     pc_align --max-displacement 280 run_stereo_yesba_sub4/run-DEM.tif             \
-       RDR_354E355E_85p5S84SPointPerRow_csv_table.csv -o run_stereo_yesba_sub4/run \
-       --save-transformed-source-points
+    pc_align --max-displacement 280 run_stereo_yesba_sub4/run-DEM.tif \
+      RDR_354E355E_85p5S84SPointPerRow_csv_table.csv                  \
+      -o run_stereo_yesba_sub4/run --save-transformed-source-points
 
 Then we compare to the aligned LOLA dataset the input to SfS and its
 output::
 
-     geodiff --absolute -o beg --csv-format '1:lon 2:lat 3:radius_km' \
-       run_stereo_yesba_sub4/run-crop1-DEM.tif run_stereo_yesba_sub4/run-trans_source.csv
-     geodiff --absolute -o end --csv-format '1:lon 2:lat 3:radius_km' \
-       sfs_sub4_ref1_th_reg0.12_wt0.001/run-DEM-final.tif             \
-       run_stereo_yesba_sub4/run-trans_source.csv
+    geodiff --absolute -o beg --csv-format '1:lon 2:lat 3:radius_km' \
+      run_stereo_yesba_sub4/run-crop1-DEM.tif                        \
+      run_stereo_yesba_sub4/run-trans_source.csv
+    geodiff --absolute -o end --csv-format '1:lon 2:lat 3:radius_km' \
+      sfs_sub4_ref1_th_reg0.12_wt0.001/run-DEM-final.tif             \
+      run_stereo_yesba_sub4/run-trans_source.csv
 
 We see that the mean error between the DEM and LOLA goes down, after
 SfS, from 1.14 m to 0.90 m, while the standard deviation decreases from
@@ -528,13 +546,13 @@ meter/pixel one, resampled to 1 meter/pixel, creating a DEM named
 
 ::
 
-      wget http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.IMG
-      wget http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
-      pds2isis from = LDEM_80S_20M.LBL to = ldem_80s_20m.cub
-      image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
-      gdal_translate -projwin -7050.500 -5759.500 -1919.500 -10890.500 \
-        ldem_80s_20m_scale.tif ldem_80s_20m_scale_crop.tif
-      gdalwarp -r cubicspline -tr 1 1 ldem_80s_20m_scale_crop.tif ref.tif
+    wget http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.IMG
+    wget http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
+    pds2isis from = LDEM_80S_20M.LBL to = ldem_80s_20m.cub
+    image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
+    gdal_translate -projwin -7050.500 -5759.500 -1919.500 -10890.500 \
+      ldem_80s_20m_scale.tif ldem_80s_20m_scale_crop.tif
+    gdalwarp -r cubicspline -tr 1 1 ldem_80s_20m_scale_crop.tif ref.tif
 
 Note that we scaled its heights by 0.5 per the information in the LBL
 file. The documentation of your DEM needs to be carefully studied to
@@ -555,7 +573,7 @@ will have a fractional value of 0.5. It is very recommended to have
 different dataset), if the extent of the file output by this command
 is::
 
-     638.299 -2350.859 1596.299 -1493.859 
+    638.299 -2350.859 1596.299 -1493.859 
 
 (the order is xmin, ymin, xmax, ymax), the gdalwarp command better
 be rerun with the option::
@@ -585,37 +603,37 @@ The obtained subset of images should be sorted by the Sun azimuth (this
 angle is printed when running ``sfs`` with the ``--query`` option on the
 .cub files). Out of those, the following were kept::
 
-     M114859732RE.cal.echo.cub       73.1771
-     M148012947LE.cal.echo.cub       75.9232
-     M147992619RE.cal.echo.cub       78.7806
-     M152979020RE.cal.echo.cub       96.895
-     M117241732LE.cal.echo.cub       97.9219
-     M152924707RE.cal.echo.cub       104.529
-     M150366876RE.cal.echo.cub       104.626
-     M152897611RE.cal.echo.cub       108.337
-     M152856903RE.cal.echo.cub       114.057
-     M140021445LE.cal.echo.cub       121.838
-     M157843789LE.cal.echo.cub       130.831
-     M157830228LE.cal.echo.cub       132.74
-     M157830228RE.cal.echo.cub       132.74
-     M157809893RE.cal.echo.cub       135.604
-     M139743255RE.cal.echo.cub       161.014
-     M139729686RE.cal.echo.cub       162.926
-     M139709342LE.cal.echo.cub       165.791
-     M139695762LE.cal.echo.cub       167.704
-     M142240314RE.cal.echo.cub       168.682
-     M142226765RE.cal.echo.cub       170.588
-     M142213197LE.cal.echo.cub       172.497
-     M132001536LE.cal.echo.cub       175.515
-     M103870068LE.cal.echo.cub       183.501
-     M103841430LE.cal.echo.cub       187.544
-     M142104686LE.cal.echo.cub       187.765
-     M162499044LE.cal.echo.cub       192.747
-     M162492261LE.cal.echo.cub       193.704
-     M162485477LE.cal.echo.cub       194.662
-     M162478694LE.cal.echo.cub       195.62
-     M103776992RE.cal.echo.cub       196.643
-     M103776992LE.cal.echo.cub       196.643
+    M114859732RE.cal.echo.cub       73.1771
+    M148012947LE.cal.echo.cub       75.9232
+    M147992619RE.cal.echo.cub       78.7806
+    M152979020RE.cal.echo.cub       96.895
+    M117241732LE.cal.echo.cub       97.9219
+    M152924707RE.cal.echo.cub       104.529
+    M150366876RE.cal.echo.cub       104.626
+    M152897611RE.cal.echo.cub       108.337
+    M152856903RE.cal.echo.cub       114.057
+    M140021445LE.cal.echo.cub       121.838
+    M157843789LE.cal.echo.cub       130.831
+    M157830228LE.cal.echo.cub       132.74
+    M157830228RE.cal.echo.cub       132.74
+    M157809893RE.cal.echo.cub       135.604
+    M139743255RE.cal.echo.cub       161.014
+    M139729686RE.cal.echo.cub       162.926
+    M139709342LE.cal.echo.cub       165.791
+    M139695762LE.cal.echo.cub       167.704
+    M142240314RE.cal.echo.cub       168.682
+    M142226765RE.cal.echo.cub       170.588
+    M142213197LE.cal.echo.cub       172.497
+    M132001536LE.cal.echo.cub       175.515
+    M103870068LE.cal.echo.cub       183.501
+    M103841430LE.cal.echo.cub       187.544
+    M142104686LE.cal.echo.cub       187.765
+    M162499044LE.cal.echo.cub       192.747
+    M162492261LE.cal.echo.cub       193.704
+    M162485477LE.cal.echo.cub       194.662
+    M162478694LE.cal.echo.cub       195.62
+    M103776992RE.cal.echo.cub       196.643
+    M103776992LE.cal.echo.cub       196.643
 
 (the Sun azimuth is shown on the right, in degrees). These were then
 mapprojected onto the reference DEM at 1 m/pixel using the South Pole
@@ -625,10 +643,11 @@ and correct camera errors.
 
 ::
 
-        parallel_bundle_adjust --processes 8 --ip-per-tile 1000 --overlap-limit 30   \
-          --num-iterations 100 --num-passes 2 --min-matches 1 --datum D_MOON         \
-          <images> --mapprojected-data '<mapprojected images> ref.tif' -o ba/run     \
-          --save-intermediate-cameras --match-first-to-last
+    parallel_bundle_adjust --processes 8 --ip-per-tile 1000        \
+      --overlap-limit 30 --num-iterations 100 --num-passes 2       \
+      --min-matches 1 --datum D_MOON <images>                      \
+      --mapprojected-data '<mapprojected images> ref.tif'          \
+      -o ba/run --save-intermediate-cameras --match-first-to-last
 
 For bundle adjustment we in fact used even more images that overlap with
 this area, but likely this set is sufficient, and it is this set that
@@ -661,10 +680,11 @@ there is some risk in doing that if images fail to overlap enough.
 A very critical part of the process is aligning the obtained cameras to
 the ground::
 
-       pc_align --max-displacement 400 --save-transformed-source-points              \
-         --compute-translation-only --csv-format '1:lon 2:lat 3:height_above_datum'  \
-         ref.tif ba/run-final_residuals_no_loss_function_pointmap_point_log.csv      \
-         -o ba/run 
+    pc_align --max-displacement 400 --save-transformed-source-points  \
+      --compute-translation-only                                      \
+      --csv-format '1:lon 2:lat 3:height_above_datum' ref.tif         \
+      ba/run-final_residuals_pointmap.csv                             \
+      -o ba/run 
 
 The value of ``--max-displacement`` could be too high perhaps, it is
 suggested to also experiment with half of that and keep the result that
@@ -676,15 +696,15 @@ The flag ``--compute-translation-only`` turned out to be necessary as
 The obtained alignment transform can be applied to the cameras to make
 them aligned to the ground::
 
-       mkdir -p ba_align
-       bundle_adjust --initial-transform ba/run-transform.txt       \
-         --apply-initial-transform-only                             \
-         --input-adjustments-prefix ba/run <images> -o ba_align/run
+    mkdir -p ba_align
+    bundle_adjust --initial-transform ba/run-transform.txt       \
+      --apply-initial-transform-only                             \
+      --input-adjustments-prefix ba/run <images> -o ba_align/run
 
 The images should now be projected onto this DEM as::
 
-      mapproject --tr 1 --bundle-adjust-prefix ba_align/run \
-        ref.tif image.cub image.map.tif
+    mapproject --tr 1 --bundle-adjust-prefix ba_align/run \
+      ref.tif image.cub image.map.tif
 
 One should verify if they are precisely on top of each other and on
 top of the LOLA DEM in ``stereo_gui``. If any shifts are noticed, with
@@ -697,15 +717,18 @@ There are occasions in which the alignment transform is still slightly
 inaccurate. Then, one can refine the cameras using the reference
 terrain as a constraint in bundle adjustment::
 
-       mkdir -p ba_align_ref
-       /bin/cp -fv ba_align/run* ba_align_ref
-       bundle_adjust --skip-matching --num-iterations 15 --force-reuse-match-files   \
-         --num-passes 1 --input-adjustments-prefix ba_align/run <images>             \
-         --save-intermediate-cameras --camera-weight 1 --heights-from-dem ref.tif    \
-         --heights-from-dem-weight 0.1 --heights-from-dem-robust-threshold 10        \
-         -o ba_align_ref/run
+    mkdir -p ba_align_ref
+    /bin/cp -fv ba_align/run* ba_align_ref
+    bundle_adjust --skip-matching --num-iterations 20          \ 
+      --force-reuse-match-files --num-passes 1                 \
+      --input-adjustments-prefix ba_align/run <images>         \
+      --save-intermediate-cameras --camera-weight 1            \
+      --heights-from-dem ref.tif --heights-from-dem-weight 0.1 \
+      --heights-from-dem-robust-threshold 10                   \
+      -o ba_align_ref/run
 
-It is suggested that the images be map-projected with the cameras both
+Ideally one should use more iterations though this may be slow. It is
+suggested that the images be map-projected with the cameras both
 before and after this step, as on some occasions this step may make
 things worse rather than better. One may also attempt to vary the
 value of ``--heights-from-dem-weight``.
@@ -725,7 +748,7 @@ angle among any rays going through matching interest points is small.
 
 It is suggested that the user examine the file::
 
-     ba_align_ref/run-final_residuals_no_loss_function_pointmap_point_log.csv
+    ba_align_ref/run-final_residuals_pointmap.csv
 
 to see if the reprojection errors (column 4) are reasonably small, say
 mostly on the order of 0.1 pixels (some outliers are expected
@@ -733,17 +756,17 @@ though). The triangulated point cloud from this file should also
 hopefully be close to the reference DEM. Their difference is found
 as::
 
-     geodiff --absolute                                                         \
-       --csv-format '1:lon 2:lat 3:height_above_datum' ref.tif                  \
-       ba_align_ref/run-final_residuals_no_loss_function_pointmap_point_log.csv \
-       -o ba_align_ref/run
+    geodiff --absolute                                         \
+      --csv-format '1:lon 2:lat 3:height_above_datum' ref.tif  \
+      ba_align_ref/run-final_residuals_pointmap.csv            \
+      -o ba_align_ref/run
 
 Some of the differences that will be saved to disk are likely outliers,
 but mostly they should be small, perhaps on the order of 1 meter.
 
 The file::
 
-   ba_align_ref/run-final_residuals_no_loss_function_raw_pixels.txt
+   ba_align_ref/run-final_residuals_raw_pixels.txt
 
 should also be examined. It has the ``x`` and ``y`` pixel residuals
 for each pixel.  The norm of each pixel residual can be computed, and
@@ -762,14 +785,14 @@ consideration for the shape-from-shading step.
 
 Next, SfS follows::
 
-      parallel_sfs -i ref.tif <images> --shadow-threshold 0.005            \
-        --bundle-adjust-prefix ba_align_ref/run -o sfs/run                 \ 
-        --use-approx-camera-models --crop-input-images                     \
-        --blending-dist 10 --min-blend-size 100 --threads 4                \
-        --smoothness-weight 0.08 --initial-dem-constraint-weight 0.001     \
-        --reflectance-type 1 --max-iterations 5  --save-sparingly          \
-        --tile-size 200 --padding 50 --num-processes 20                    \
-        --nodes-list <machine list>
+    parallel_sfs -i ref.tif <images> --shadow-threshold 0.005        \
+      --bundle-adjust-prefix ba_align_ref/run -o sfs/run             \ 
+      --use-approx-camera-models --crop-input-images                 \
+      --blending-dist 10 --min-blend-size 100 --threads 4            \
+      --smoothness-weight 0.08 --initial-dem-constraint-weight 0.001 \
+      --reflectance-type 1 --max-iterations 5  --save-sparingly      \
+      --tile-size 200 --padding 50 --num-processes 20                \
+      --nodes-list <machine list>
 
 It was found empirically that a shadow threshold of 0.005 was good
 enough.  It is also possible to specify individual shadow thresholds
@@ -806,29 +829,29 @@ versions of the inputs, when the high-frequency discrepancies do not
 confuse the alignment, so, for example, at 1/4 or 1/8 resolution of
 the DEMs, as created ``stereo_gui``::
 
-  pc_align --initial-transform-from-hillshading rigid                   \
-     ref_sub4.tif sfs_dem_sub4.tif -o align_sub4/run --num-iterations 0 \
-     --max-displacement -1
+    pc_align --initial-transform-from-hillshading rigid \
+      ref_sub4.tif sfs_dem_sub4.tif -o align_sub4/run   \
+      --num-iterations 0 --max-displacement -1
 
 That alignment transform can then be applied to the full SfS DEM::
 
-   pc_align --initial-transform align_sub4/run-transform.txt         \
-     ref.tif sfs_dem.tif -o align/run --num-iterations 0             \
-     --max-displacement -1 --save-transformed-source-points          \
-     --max-num-reference-points 1000 --max-num-source-points 1000
+    pc_align --initial-transform align_sub4/run-transform.txt      \
+      ref.tif sfs_dem.tif -o align/run --num-iterations 0          \
+      --max-displacement -1 --save-transformed-source-points       \
+      --max-num-reference-points 1000 --max-num-source-points 1000
 
 (The number of points being used is not important since we will just
 apply the alignment and transform the full DEM.)
 
 The aligned SfS DEM can be regenerated from the obtained cloud as::
 
-   point2dem --tr 1 --search-radius-factor 2 --t_srs projection_str \
-     align/run-trans_source.tif
+    point2dem --tr 1 --search-radius-factor 2 --t_srs projection_str \
+      align/run-trans_source.tif
 
 Here, the projection string should be the same one as in the reference 
 LOLA DEM named ref.tif. It can be found by invoking::
 
-   gdalinfo -proj4 ref.tif
+    gdalinfo -proj4 ref.tif
 
 and looking for the value of the ``PROJ.4`` field.
 
@@ -842,11 +865,11 @@ If this approach fails to remove the visually noticeable displacement
 between the SfS and LOLA terrain, one can try to nudge the SfS terrain
 manually, by using ``pc_align`` as::
 
-   pc_align --initial-ned-translation                             \
-     "north_shift east_shift down_shift"                          \
-     ref.tif sfs_dem.tif -o align/run --num-iterations 0          \
-     --max-displacement -1 --save-transformed-source-points       \
-     --max-num-reference-points 1000 --max-num-source-points 1000
+    pc_align --initial-ned-translation                             \
+      "north_shift east_shift down_shift"                          \
+      ref.tif sfs_dem.tif -o align/run --num-iterations 0          \
+      --max-displacement -1 --save-transformed-source-points       \
+      --max-num-reference-points 1000 --max-num-source-points 1000
 
 Here, value of ``down_shift`` should be 0, as we attempt a horizontal
 shift. For the other ones one may try some values and observe their
@@ -885,7 +908,7 @@ To create a maximally lit mosaic one can mosaic together all the mapprojected
 images using the same camera adjustments that were used for SfS. That is
 done as follows::
 
-   dem_mosaic --max -o max_lit.tif image1.map.tif .... imageN.map.tif
+    dem_mosaic --max -o max_lit.tif image1.map.tif ... imageN.map.tif
 
 After an SfS solution was found, with the cameras well-adjusted to
 each other and to the ground, and it is desired to add new camera
@@ -922,11 +945,11 @@ After computing a satisfactory SfS DEM, it can be processed to replace
 the values in the permanently shadowed areas with values from the
 original LOLA DEM, with a transition region. That can be done as::
 
-   sfs_blend --lola-dem lola_dem.tif --sfs-dem sfs_dem.tif         \
-    --max-lit-image-mosaic max_lit.tif --image-threshold 0.005     \
-    --lit-blend-length 25 --shadow-blend-length 5                  \
-    --min-blend-size 100 --weight-blur-sigma 5                     \
-    --output-dem sfs_blend.tif --output-weight sfs_weight.tif
+    sfs_blend --lola-dem lola_dem.tif --sfs-dem sfs_dem.tif      \
+      --max-lit-image-mosaic max_lit.tif --image-threshold 0.005 \
+      --lit-blend-length 25 --shadow-blend-length 5              \
+      --min-blend-size 100 --weight-blur-sigma 5                 \
+      --output-dem sfs_blend.tif --output-weight sfs_weight.tif
 
 Here, the inputs are the LOLA and SfS DEMs, the maximally lit mosaic
 provided as before, the shadow threshold (the same value as in

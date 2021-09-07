@@ -1,6 +1,6 @@
 .. _sfm:
 
-Solving for Camera Poses Based on Images
+Solving for camera poses based on images
 ========================================
 
 The ASP tool ``camera_solve`` offers several ways to find the true
@@ -14,7 +14,7 @@ Reference information for this tool can be found in :numref:`camera_solve`.
 This tool can be optionally bypassed if, for example, the longitude and
 latitude of the corners of all images are known (:numref:`imagecorners`).
 
-Camera Solve Overview
+Camera solve overview
 ---------------------
 
 The ``camera_solve`` tool is implemented as a Python wrapper around two
@@ -255,7 +255,7 @@ inside one of the image file names, so for example the field value
 ``2009_10_20_0778`` would be matched with the input file
 ``2009_10_20_0778.JPG``.
 
-:numref:`nextsteps` will discuss the ``stereo`` program
+:numref:`nextsteps` will discuss the ``parallel_stereo`` program
 in more detail and the other tools in ASP.
 
 .. _sfmicebridge:
@@ -440,12 +440,12 @@ The third argument should be 1 if the DEM is in the northern hemisphere
 and 0 otherwise. The corrected DEM files can be used with ASP like any
 other DEM file.
 
-:numref:`nextsteps` will discuss the ``stereo`` program
+:numref:`nextsteps` will discuss the ``parallel_stereo`` program
 in more detail and the other tools in ASP.
 
 .. _imagecorners:
 
-Solving for Pinhole cameras using GCP
+Solving for pinhole cameras using GCP
 -------------------------------------
 
 If for a given image the intrinsics of the camera are known, and also
@@ -511,7 +511,7 @@ positive number of iterations will refine the camera.
 
 It is important to look at the residual file::
 
-     run/run-final_residuals_no_loss_function_pointmap_point_log.csv
+     run/run-final_residuals_pointmap.csv
 
 after this. The third column in this file is the optimized heights above
 the datum, while the fourth column has the reprojection errors from the
@@ -540,7 +540,7 @@ corners from a DEM (:numref:`cam_gen`).
 
 .. _findintrinsics:
 
-Solving For Intrinsic Camera Parameters
+Solving for intrinsic camera parameters
 ---------------------------------------
 
 If nothing is known about the intrinsic camera parameters, it may be
@@ -550,7 +550,7 @@ image center, which makes it possible to compute *cu* and
 *cv*. The pitch can be set to some small number, say
 :math:`10^{-3}` or :math:`10^{-4}.` The focal length can be initialized
 to equal *cu* or a multiple of it. Then ``camera_solve`` can be
-invoked, followed by ``stereo``, ``point2mesh``, and
+invoked, followed by ``parallel_stereo``, ``point2mesh``, and
 ``point2dem --errorimage``. If, at least towards the center of the
 image, things are not exploding, we are on a good track.
 

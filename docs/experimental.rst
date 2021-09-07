@@ -38,7 +38,7 @@ lines in the image) with interpolation between them. This is quite
 analogous to what ``bundle_adjust`` is doing, except that the latter
 uses just one adjustment for each image.
 
-This process can be triggered by invoking ``stereo`` with
+This process can be triggered by invoking ``parallel_stereo`` with
 ``--image-lines-per-piecewise-adjustment arg``. A recommended value here
 is 1000, though it is suggested to try several values. A smaller value
 of ``arg`` will result in more adjustments being used (each adjustment
@@ -48,8 +48,8 @@ and instability. A smaller value here will also require overall more
 interest point matches (as computed from the disparity), which is set
 via ``--num-matches-for-piecewise-adjustment``.
 
-Jitter correction is more effective if ``stereo`` is preceded by bundle
-adjustment, with the adjusted cameras then being passed to ``stereo``
+Jitter correction is more effective if ``parallel_stereo`` is preceded by bundle
+adjustment, with the adjusted cameras then being passed to ``parallel_stereo``
 via ``--bundle-adjust-prefix``.
 
 If it appears that the adjustments show some instability at the starting

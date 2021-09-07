@@ -58,7 +58,7 @@ or ``epipolar``, respectively.
 
 The latter option, running ``cam2map``, ``cam2map4stereo.py``, or
 ``mapproject`` must be carried out by the user prior to invoking the
-``stereo`` command. Map-projecting the images using ISIS eliminates any
+``parallel_stereo`` command. Map-projecting the images using ISIS eliminates any
 unusual distortion in the image due to the unusual camera acquisition
 modes (e.g. pitching "ROTO" maneuvers during image acquisition for MOC,
 or highly elliptical orbits and changing line exposure times for the ,
@@ -301,7 +301,7 @@ boundary, and finally the horizontal maximum boundary within which we
 will search for the disparity during correlation.
 
 It can be tricky to select a good search range for the
-``stereo.default`` file. That’s why the best way is to let ``stereo``
+``stereo.default`` file. That’s why the best way is to let ``parallel_stereo``
 perform an automated guess for the search range. If you find that you
 can do a better estimate of the search range, take look at the
 intermediate disparity images using the ``disparitydebug`` program to
@@ -428,11 +428,11 @@ required by the Stereo Pipeline to find and use the appropriate camera
 model for that observation.
 
 Other sessions such as DG (*DigitalGlobe*) or Pinhole, require that
-their camera model be provided as additional arguments to the ``stereo``
+their camera model be provided as additional arguments to the ``parallel_stereo``
 command. Those camera models come in the form of an XML document for DG
 and as ``*.pinhole, *.tsai, *.cahv, *.cahvor`` for Pinhole sessions.
 Those files must be the third and forth arguments or immediately follow
-after the 2 input images for ``stereo``.
+after the two input images for ``parallel_stereo``.
 
 .. figure:: images/correlation/camera_models.png
    :name: camera_models

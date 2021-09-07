@@ -1,4 +1,4 @@
-Frame Camera Models
+Frame camera models
 ===================
 
 Ames Stereo Pipeline supports a generic Pinhole camera model with
@@ -8,7 +8,7 @@ model.
 
 .. _pinholemodels:
 
-Pinhole Models
+Pinhole models
 --------------
 
 Overview
@@ -163,7 +163,7 @@ are also saved as part of the model.
 
 .. _file_format:
 
-File Formats
+File formats
 ~~~~~~~~~~~~
 
 ASP Pinhole model files are written in an easy to work with plain text
@@ -314,7 +314,7 @@ model file input option and observe the rotation of the 3D model.
 
 .. _pinholemath:
 
-How the Pinhole model is applied
+How the pinhole model is applied
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 As mentioned in :numref:`file_format`, the ASP Pinhole models

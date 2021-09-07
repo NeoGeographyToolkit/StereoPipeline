@@ -2,7 +2,7 @@
 
 .. _examples:
 
-Stereo Processing Examples
+Stereo processing examples
 ==========================
 
 This chapter showcases a variety of results that are possible when
@@ -14,7 +14,7 @@ a cookbook for strategies that will get you started in processing your
 own data. We recommend that you second check your results against
 another source.
 
-Guidelines for Selecting Stereo Pairs
+Guidelines for selecting stereo pairs
 -------------------------------------
 
 When choosing image pairs to process, images that are taken with
@@ -28,7 +28,7 @@ and artifacts, and these errors will propagate through to the
 resulting data products.
 
 Although images do not need to be map-projected before running the
-``stereo`` program, we recommend that you do run ``cam2map`` (or
+``parallel_stereo`` program, we recommend that you do run ``cam2map`` (or
 ``cam2map4stereo.py``) beforehand, especially for image pairs that
 contain large topographic variation (and therefore large disparity
 differences across the scene, e.g., Valles Marineris). Map-projection is
@@ -47,9 +47,9 @@ photometrically calibrated in whatever fashion suits your purposes. If
 there are photometric problems with the images, those photometric
 defects can be misinterpreted as topography.
 
-Remember, in order for ``stereo`` to process stereo pairs in ISIS cube
-format, the images must have had SPICE data associated by running ISIS’s
-``spiceinit`` program run on them first.
+Remember, in order for ``parallel_stereo`` to process stereo pairs in
+ISIS cube format, the images must have had SPICE data associated by
+running ISIS’s ``spiceinit`` program run on them first.
 
 
 Mars Reconnaissance Orbiter HiRISE
@@ -77,7 +77,7 @@ However, the ‘balance’ cubes are not available to the general public,
 and so we include a program (``hiedr2mosaic.py``, written in
 `Python <http://www.python.org>`__) that will take PDS available HiRISE
 EDR products and walk through the processing steps required to provide
-good input images for ``stereo``.
+good input images for ``parallel_stereo``.
 
 The program takes all the red CCDs and projects them using the ISIS
 ``noproj`` command into the perspective of the RED5 CCD. From there,
@@ -492,11 +492,14 @@ Process Apollo TIFF files into ISIS.
 
 ::
 
-     ISIS> reduce from=AS15-M-2380.cub to=sub4-AS15-M-2380.cub sscale=4 lscale=4
-     ISIS> reduce from=AS15-M-2381.cub to=sub4-AS15-M-2381.cub sscale=4 lscale=4
+     ISIS> reduce from=AS15-M-2380.cub to=sub4-AS15-M-2380.cub \
+             sscale=4 lscale=4
+     ISIS> reduce from=AS15-M-2381.cub to=sub4-AS15-M-2381.cub \
+             sscale=4 lscale=4
      ISIS> spiceinit from=sub4-AS15-M-2380.cub
      ISIS> spiceinit from=sub4-AS15-M-2381.cub
-     ISIS> parallel_stereo sub4-AS15-M-2380.cub sub4-AS15-M-2381.cub result/output
+     ISIS> parallel_stereo sub4-AS15-M-2380.cub sub4-AS15-M-2381.cub \
+             result/output
 
 .. _stereo.default-5:
 
@@ -596,7 +599,7 @@ results are just barely useful: the Tirawa impact can barely be made out
 in the 3D data while the new crater and ejecta become only noise.
 
 .. figure:: images/examples/cassini/cassini_rhea_quad.png
-   :name: cassini-exampe
+   :name: cassini-example
 
    Example output of what is possible with Cassini's ISS NAC.  Upper left:
    original left image.  Upper right: original right image.  Lower left: 
@@ -616,16 +619,21 @@ label (.LBL) files from the PDS.
      ISIS> ciss2isis f=W1567133629_1.LBL t=W1567133629_1.cub
      ISIS> cisscal from=N1511700120_1.cub to=N1511700120_1.lev1.cub
      ISIS> cisscal from=W1567133629_1.cub to=W1567133629_1.lev1.cub
-     ISIS> fillgap from=W1567133629_1.lev1.cub to=W1567133629_1.fill.cub %Only one image
-                                                                           %exhibits the problem
+     ISIS> fillgap from=W1567133629_1.lev1.cub to=W1567133629_1.fill.cub
+
+(Note the optional ``fillgap`` command above.)
+                                                                        
+::
+
      ISIS> cubenorm from=N1511700120_1.lev1.cub to=N1511700120_1.norm.cub
      ISIS> cubenorm from=W1567133629_1.fill.cub to=W1567133629_1.norm.cub
      ISIS> spiceinit from=N1511700120_1.norm.cub
      ISIS> spiceinit from=W1567133629_1.norm.cub
      ISIS> cam2map from=N1511700120_1.norm.cub to=N1511700120_1.map.cub
      ISIS> cam2map from=W1567133629_1.norm.cub map=N1511700120_1.map.cub \
-     ISIS>           to=W1567133629_1.map.cub matchmap=true
-     ISIS> parallel_stereo N1511700120_1.map.equ.cub W1567133629_1.map.equ.cub result/rhea
+     ISIS>   to=W1567133629_1.map.cub matchmap=true
+     ISIS> parallel_stereo N1511700120_1.map.equ.cub                     \
+             W1567133629_1.map.equ.cub result/rhea
 
 .. _stereo.default-6:
 
@@ -711,7 +719,7 @@ area of interest. One of course could use the fancier MGM algorithm by
 running this example with ``parallel_stereo`` and
 ``--stereo-algorithm 2``.
 
-One can also run stereo with mapprojected images
+One can also run ``parallel_stereo`` with mapprojected images
 (:numref:`mapproj-example`). The first step would be to create a
 low-resolution smooth DEM from the previous cloud::
 
@@ -746,14 +754,14 @@ state, which has the transforms from the sensor to ECEF. The model
 state is used to project ground points into the camera and vice-versa,
 so it is sufficient for the purposes of bundle adjustment and stereo.
 
-ASP's stereo and bundle adjustment programs can, in addition to CSM
+ASP's ``parallel_stereo`` and bundle adjustment programs can, in addition to CSM
 ISD camera model files, also load such model state files, either as
 previously written by ASP or from an external source (it will
 auto-detect the type from the format of the JSON files). Hence, the
 model state is a convenient format for data exchange, while being
 less complex than the ISD format.
 
-If ASP's ``stereo`` program is used to create a point cloud from
+If ASP's ``parallel_stereo`` program is used to create a point cloud from
 images and CSM cameras, and then that point cloud has a transform
 applied to it, such as with ``pc_align``, the same transform can be
 applied to the model states for the two cameras, which are then saved
@@ -767,7 +775,7 @@ adjustment with the input images and cameras as follows::
 This will save the state files ``ba/run-left.adjusted_state.json`` and
 ``ba/run-right.adjusted_state.json``.
 
-In case first bundle adjustment was used, then ``stereo`` was run with
+In case first bundle adjustment was used, then ``parallel_stereo`` was run with
 bundle adjusted cameras, then ``pc_align`` was invoked on the
 resulting point cloud, obtaining an alignment transform, and is
 desired to create model state files having both the effect of bundle
@@ -892,7 +900,7 @@ Command
 (For Cartosat data sometimes one should overwrite the \*RPC.TXT files
 that are present with the ones that end in RPC_ORG.TXT.)
 
-If RPC cameras are specified separately, the ``stereo`` command looks as
+If RPC cameras are specified separately, the ``parallel_stereo`` command looks as
 follows. This example is for Mars, with the RPC models created with
 ``cam2rpc`` from ISIS cubes. So the datum has to be set.
 
@@ -908,7 +916,7 @@ if the cameras are specified separately (as xml files), they should be
 on the command line, otherwise they can be omitted.
 
 If the RPC coefficients are stored in the input images, ``mapproject``
-copies them to the output mappprojected images. If these coefficients
+copies them to the output mapprojected images. If these coefficients
 are in the associated .RPB or \_RPC.TXT files, ``mapproject`` creates
 such files for each mapprojected image.
 
@@ -978,10 +986,10 @@ the original header files with different names::
          st_run/out --bundle-adjust-prefix ba_run/out
 
 You can also map project the SPOT5 images before they are passed to the
-``stereo`` tool. In order to do so, you must first use the
+``parallel_stereo`` tool. In order to do so, you must first use the
 ``add_spot_rpc`` tool to generate an RPC model approximation of the
 SPOT5 sensor model, then use the ``spot5maprpc`` session type when
-running stereo on the map projected images.
+running parallel_stereo on the map projected images.
 
 ::
 
@@ -1094,9 +1102,9 @@ This command will create 4 files, named::
 We refer again to the tool’s documentation page regarding details of how
 these files were created.
 
-Next, we run stereo. We can use either the exact camera model
-(``-t aster``), or its RPC approximation (``-t rpc``). The former is
-much slower but more accurate.
+Next, we run ``parallel_stereo``. We can use either the exact camera
+model (``-t aster``), or its RPC approximation (``-t rpc``). The
+former is much slower but more accurate.
 
 ::
 
@@ -1140,10 +1148,11 @@ slower, yields the best results. The flow is as follows::
      mapproject --tr 0.0000898315284119 out_stereo/run-300m-DEM.tif \
        out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif            
      
-     # Run stereo with the map-projected images with subpixel-mode 2
-     parallel_stereo -t aster --subpixel-mode 2                       \
-       out-Band3N_proj.tif out-Band3B_proj.tif                        \
-       out-Band3N.xml out-Band3B.xml out_stereo_proj/run              \
+     # Run parallel_stereo with the map-projected images
+     # and subpixel-mode 2
+     parallel_stereo -t aster --subpixel-mode 2          \
+       out-Band3N_proj.tif out-Band3B_proj.tif           \
+       out-Band3N.xml out-Band3B.xml out_stereo_proj/run \
        out_stereo/run-300m-DEM.tif
 
      # Create the final DEM
@@ -1362,7 +1371,7 @@ That is necessary since the initial cameras could be pretty inaccurate.
 
 It is very important to examine the residual file named::
 
-     ba/run-final_residuals_no_loss_function_pointmap_point_log.csv
+     ba/run-final_residuals_pointmap.csv
 
 Here, the third column are the heights of triangulated interest points,
 while the fourth column are the reprojection errors. Normally these
@@ -1389,7 +1398,7 @@ symptom of some failure.
 Creating terrain models
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The next step is to run stereo and create DEMs.
+The next steps are to run ``parallel_stereo`` and create DEMs.
 
 We will run the following command for each pair of images. Note that we
 reuse the filtered match points created by bundle adjustment.
@@ -1500,7 +1509,7 @@ map-project the images first onto the reference DEM::
        mapproject ref_dem.tif v${i}.tif ba/run-run-run-v${i}.tsai v${i}_map.tif  
      done
 
-and then run stereo with the mapprojected images, such as::
+and then run ``parallel_stereo`` with the mapprojected images, such as::
 
      i=1
      ((j=i+1))
@@ -1669,12 +1678,12 @@ picked.
 
 This will create, as before, the residual file named::
 
-     ba_ref_terrain/run-final_residuals_no_loss_function_pointmap_point_log.csv
+     ba_ref_terrain/run-final_residuals_pointmap.csv
 
 showing how consistent are the cameras among themselves, and in
 addition, a file named::
 
-     ba_ref_terrain/run-final_residuals_no_loss_function_reference_terrain.txt
+     ba_ref_terrain/run-final_residuals_reference_terrain.txt
 
 which tells how well the cameras are aligned to the reference terrain.
 The errors in the first file should be under 1 pixel, and in the second
@@ -1684,9 +1693,9 @@ these files).
 The value of ``--reference-terrain-weight`` can be increased to make the
 alignment to the reference terrain a little tighter.
 
-It is hoped that after running stereo with these refined cameras, the
-obtained DEMs will differ by less than 2 m among themselves, and by less
-than 4 m as compared to the reference DEM.
+It is hoped that after running ``parallel_stereo`` with these refined
+cameras, the obtained DEMs will differ by less than 2 m among
+themselves, and by less than 4 m as compared to the reference DEM.
 
 Floating the camera intrinsics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2182,7 +2191,7 @@ downsample amount.
      cp 5001.tsai  5001_small.tsai
      cp 6001.tsai  6001_small.tsai
 
-Now we can run ``bundle_adjust`` and ``stereo``. If you are using the
+Now we can run ``bundle_adjust`` and ``parallel_stereo``. If you are using the
 GCPs from earlier, the pixel values will need to be scaled to match the
 downsampling applied to the input images.
 
@@ -2440,7 +2449,7 @@ from the input data, for example as follows:
 
 ::
 
-     stereo -t dg left.tif right.tif left.xml right.xml run/run
+     parallel_stereo -t dg left.tif right.tif left.xml right.xml run/run
      point2dem --orthoimage run/run-PC.tif run/run-L.tif
 
 Here, the two input images can be, for example, a single band
@@ -2627,7 +2636,7 @@ Having these in place, stereo can then happen as follows:
 
 ::
 
-    stereo -t dg left.tif right.tif left.xml right.xml                \
+    parallel_stereo -t dg left.tif right.tif left.xml right.xml       \
     --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
     --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
     run_bathy/run 
@@ -2651,7 +2660,7 @@ Keys test site for the month of May).
 
 The obtained point cloud will have both triangulated points above water,
 so with no correction, and below water, with the correction applied.
-If desired to have only one of the two, call the ``stereo`` command
+If desired to have only one of the two, call the ``parallel_stereo`` command
 with the option ``--output-cloud-type`` with the value ``topo``
 or ``bathy`` respectively (the default for this option is ``all``).
 
@@ -2699,11 +2708,12 @@ masks:
 
 :: 
 
-    stereo -t dg left_map.tif right_map.tif left.xml right.xml \
-      --left-bathy-mask left_map_mask.tif                      \
-      --right-bathy-mask right_map_mask.tif                    \
-      --refraction-index 1.34                                  \
-      --bathy-plane bathy_plane.txt                            \
+    parallel_stereo -t dg left_map.tif right_map.tif   \
+      left.xml right.xml                               \
+      --left-bathy-mask left_map_mask.tif              \
+      --right-bathy-mask right_map_mask.tif            \
+      --refraction-index 1.34                          \
+      --bathy-plane bathy_plane.txt                    \
       run_map/run external_dem.tif                       
 
 

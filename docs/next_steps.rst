@@ -5,9 +5,9 @@ The next steps
 
 This chapter will discuss in more detail ASP's stereo process and other
 tools available to either pre-process the input images/cameras or to
-manipulate ``stereo``'s outputs, both in the context of planetary ISIS
+manipulate ``parallel_stereo``'s outputs, both in the context of planetary ISIS
 data and for Earth images. This includes how to (a) customize
-``stereo``'s settings (b) use ``point2dem`` to create 3D terrain
+``parallel_stereo``'s settings (b) use ``point2dem`` to create 3D terrain
 models, (c) visualize the results, (d) align the obtained point clouds
 to another data source, (e) perform 3D terrain adjustments in respect to
 a geoid, etc.
@@ -23,8 +23,8 @@ Choice of stereo algorithm
 The most important choice a user has to make when running ASP is the 
 stereo algorithm to use. By default, ASP runs as if invoked with::
 
-   stereo --alignment-method affineepipolar      \
-     --stereo-algorithm asp_bm --subpixel-mode 1 \
+   parallel_stereo --alignment-method affineepipolar  \
+     --stereo-algorithm asp_bm --subpixel-mode 1      \
      <other options>
     
 This invokes block-matching stereo with parabola subpixel mode, which
@@ -82,17 +82,17 @@ set in practice.
 Setting options in the ``stereo.default`` file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``stereo`` program can use a ``stereo.default`` file that
+The ``parallel_stereo`` program can use a ``stereo.default`` file that
 contains settings that affect the stereo reconstruction process.
 Its contents can be altered for your needs; details are found in
 :numref:`stereodefault`. You may find it useful to save multiple
 versions of the ``stereo.default`` file for various processing
 needs. If you do this, be sure to specify the desired settings file
-by invoking ``stereo`` with the ``-s`` option. If this option is
-not given, the ``stereo`` program will search for a file named
-``stereo.default`` in the current working directory. If ``stereo``
+by invoking ``parallel_stereo`` with the ``-s`` option. If this option is
+not given, the ``parallel_stereo`` program will search for a file named
+``stereo.default`` in the current working directory. If ``parallel_stereo``
 does not find ``stereo.default`` in the current working directory
-and no file was given with the ``-s`` option, ``stereo`` will assume
+and no file was given with the ``-s`` option, ``parallel_stereo`` will assume
 default settings and continue.
 
 An example ``stereo.default`` file is available in the top-level
@@ -213,7 +213,7 @@ Subpixel refinement parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A highly critical parameter in ASP is the value of ``subpixel-mode``,
-on the fourth line. When set to 1, ``stereo`` performs parabola
+on the fourth line. When set to 1, ``parallel_stereo`` performs parabola
 subpixel refinement, which is very fast but not very accurate. When
 set to 2, it produces very accurate results, but it is about an order
 of magnitude slower. When set to 3, the accuracy and speed will be
@@ -246,10 +246,10 @@ Performing stereo correlation
 
 .. figure:: images/p19-stereo-output_400px.png
    :name: p19-stereo-output
-   :alt:  Outputs of the ``stereo`` program.
+   :alt:  Outputs of the ``parallel_stereo`` program.
 
    These are the four viewable ``.tif`` files
-   created by the ``stereo`` program. On the left are the two aligned,
+   created by the ``parallel_stereo`` program. On the left are the two aligned,
    pre-processed images: (``results/output-L.tif`` and
    ``results/output-R.tif``). The next two are mask images
    (``results/output-lMask.tif`` and ``results/output-rMask.tif``),
@@ -259,37 +259,39 @@ Performing stereo correlation
    which were successfully matched with the correlator, and (in red)
    those that were not matched.
 
-As already mentioned, the ``stereo`` program can be invoked for ISIS
+As already mentioned, the ``parallel_stereo`` program can be invoked for ISIS
 images as::
 
-     ISIS> stereo left_image.cub right_image.cub \
+     ISIS> parallel_stereo left_image.cub right_image.cub \
                -s stereo.default results/output
 
 For DigitalGlobe/Maxar images the cameras need to be specified separately:
 
 ::
 
-     > stereo left.tif right.tif left.xml right.xml \
+     > parallel_stereo left.tif right.tif left.xml right.xml \
          -s stereo.default results/output
 
 As stated in :numref:`moc_tutorial`, the string
 ``results/output`` is arbitrary, and in this case we will simply make
 all outputs go to the ``results`` directory.
 
-When ``stereo`` finishes, it will have produced a point cloud image.
+When ``parallel_stereo`` finishes, it will have produced a point cloud image.
 :numref:`visualising` describes how to convert it to a digital
 elevation model (DEM) or other formats.
 
-The ``stereo`` command can also take multiple input images, performing
+The ``parallel_stereo`` command can also take multiple input images, performing
 multi-view stereo (:numref:`multiview`).
 
 Running the GUI frontend
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``stereo_gui`` program is a GUI frontend to ``stereo``. It is
-invoked with the same options as ``stereo``. It displays the input
-images, and makes it possible to zoom in and select smaller regions to
-run stereo on. The GUI is described in :numref:`stereo_gui`.
+The ``stereo_gui`` program is a GUI frontend to
+``parallel_stereo``. It is invoked with the same options as
+``parallel_stereo`` (except for the more specialized ones such as
+``--job-size-h``, etc.). It displays the input images, and makes it
+possible to zoom in and select smaller regions to run stereo on. The
+GUI is described in :numref:`stereo_gui`.
 
 .. _cmdline:
 
@@ -307,16 +309,16 @@ line.
 
 ::
 
-     ISIS> stereo E0201461.map.cub M0100115.map.cub    \
-               -s stereo.map --corr-search -70 -4 40 4 \
+     ISIS> parallel_stereo E0201461.map.cub M0100115.map.cub \
+               -s stereo.map --corr-search -70 -4 40 4       \
                --subpixel-mode 0 results/output
 
 Stereo on multiple machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If the input images are really large it may desirable to distribute
-the work over several computing nodes. ASP provides a tool named
-``parallel_stereo`` for that purpose. Its usage is described in
+the work over several computing nodes. For that the ``--nodes-list``
+option of ``parallel_stereo`` can be used. See
 :numref:`parallel_stereo`.
 
 .. _mapproj-example:
@@ -489,7 +491,7 @@ In this section we will describe how to run stereo with map-projected
 images for DigitalGlobe/Maxar cameras for Earth. The same process can be used
 with very minor modifications for any satellite images that use the
 the RPC camera model. All that is needed is to replace the stereo
-session when invoking ``stereo`` below with ``rpcmaprpc`` from
+session when invoking ``parallel_stereo`` below with ``rpcmaprpc`` from
 ``dgmaprpc``.
 
 Unlike the previous section, here we will use an external DEM to
@@ -548,7 +550,8 @@ Commands
          12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF   \
          12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML   \
          right_mapped.tif
-       stereo -t dgmaprpc --subpixel-mode 1 --alignment-method none  \
+       parallel_stereo -t dgmaprpc --subpixel-mode 1           \
+              --alignment-method none                          \
               left_mapped.tif right_mapped.tif                 \
               12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
               12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
@@ -560,11 +563,11 @@ low-resolution input DEM.
 The complete list of options for ``mapproject`` is described in
 :numref:`mapproject`.
 
-In the ``stereo`` command, we have used ``subpixel-mode 1`` which is
+In the ``parallel_stereo`` command, we have used ``subpixel-mode 1`` which is
 less accurate but reasonably fast. We have also used
 ``alignment-method none``, since the images are map-projected onto the
 same terrain with the same resolution, thus no additional alignment is
-necessary. More details about how to set these and other ``stereo``
+necessary. More details about how to set these and other ``parallel_stereo``
 parameters can be found in :numref:`settingoptionsinstereodefault`.
 
 It is important to note here that any DigitalGlobe/Maxar camera file has two
@@ -584,10 +587,10 @@ RPC and Pinhole camera models
 
 Map-projected images can also be used with RPC and Pinhole camera
 models. The ``mapproject`` command needs to be invoked with ``-t rpc``
-and ``-t pinhole`` respectively. As earlier, when invoking ``stereo``
+and ``-t pinhole`` respectively. As earlier, when invoking ``parallel_stereo``
 the the first two arguments should be the map-projected images, followed
 by the camera models, output prefix, and the name of the DEM used for
-map-projection. The session name passed to ``stereo`` should be
+map-projection. The session name passed to ``parallel_stereo`` should be
 ``rpcmaprpc`` and ``pinholemappinhole`` respectively.
 
 .. _multiview:
@@ -613,15 +616,13 @@ before running multi-view stereo.
 
 Example (for ISIS with three images)::
 
-     stereo file1.cub file2.cub file3.cub results/run
+     parallel_stereo file1.cub file2.cub file3.cub results/run
 
 Example (for DigitalGlobe/Maxar data with three map-projected images)::
 
-     stereo file1.tif file2.tif file3.tif file1.xml file2.xml file3.xml \
+     parallel_stereo file1.tif file2.tif file3.tif \
+       file1.xml file2.xml file3.xml               \
        results/run input-DEM.tif
-
-The ``parallel_stereo`` tool can also be used with multiple images
-(:numref:`parallel_stereo`).
 
 For a sequence of images, multi-view stereo can be run several times
 with each image as a reference, and the obtained point clouds combined
@@ -657,7 +658,7 @@ still increase the accuracy compared to the individual input DEMs.
 Diagnosing problems
 ~~~~~~~~~~~~~~~~~~~
 
-Once invoked, ``stereo`` proceeds through several stages that are
+Once invoked, ``parallel_stereo`` proceeds through several stages that are
 detailed in :numref:`entrypoints`. Intermediate and final output
 files are generated as it goes. See :numref:`outputfiles`, page for
 a comprehensive listing. Many of these files are useful for diagnosing
@@ -699,7 +700,7 @@ tune the parameters to improve the results.
    range of gray values from white to black, they represent
    significantly different absolute ranges of disparity.
 
-Whenever ``stereo``, ``point2dem``, and other executables are run, they
+Whenever ``parallel_stereo``, ``point2dem``, and other executables are run, they
 create log files in given tool’s results directory, containing a copy of
 the configuration file, the command that was run, your system settings,
 and tool’s console output. This will help track what was performed so
@@ -751,9 +752,9 @@ height variations.
 Visualizing and manipulating the results
 ----------------------------------------
 
-When ``stereo`` finishes, it will have produced a point cloud image. At
-this point, many kinds of data products can be built from the
-``results/output-PC.tif`` point cloud file.
+When ``parallel_stereo`` finishes, it will have produced a point cloud
+image. At this point, many kinds of data products can be built from
+the ``results/output-PC.tif`` point cloud file.
 
 .. _p19-osg:
 
@@ -887,11 +888,12 @@ is described in :numref:`bundle_adjust`.
 Alignment to point clouds from a different source
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Often the 3D terrain models output by ``stereo`` (point clouds and DEMs)
-can be intrinsically quite accurate yet their actual position on the
-planet may be off by several meters or several kilometers, depending on
-the spacecraft. This can result from small errors in the position and
-orientation of the satellite cameras taking the pictures.
+Often the 3D terrain models output by ``parallel_stereo`` (point
+clouds and DEMs) can be intrinsically quite accurate yet their actual
+position on the planet may be off by several meters or several
+kilometers, depending on the spacecraft. This can result from small
+errors in the position and orientation of the satellite cameras taking
+the pictures.
 
 Such errors can be corrected in advance using bundle adjustment, as
 described in the previous section. That requires using ground control
@@ -997,7 +999,7 @@ Example usage::
 Converting to the LAS format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If it is desired to use the ``stereo`` generated point cloud outside of
+If it is desired to use the ``parallel_stereo`` generated point cloud outside of
 ASP, it can be converted to the LAS file format, which is a public file
 format for the interchange of 3-dimensional point cloud data. The tool
 ``point2las`` can be used for that purpose (:numref:`point2las`). Example usage::

@@ -143,7 +143,7 @@ into several namespaces, and by level of verbosity. An example of
 customizing Stereo Pipeline’s output is given in the ``.vwrc`` file
 shown above.
 
-Several of the tools in Stereo Pipeline, including ``stereo``,
+Several of the tools in Stereo Pipeline, including ``parallel_stereo``,
 automatically append the information displayed in the console to a log
 file in the current output directory. These logs contain in addition
 some data about your system and settings, which may be helpful in

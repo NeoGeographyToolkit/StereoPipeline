@@ -1,13 +1,13 @@
 .. _outputfiles:
 
-Guide to Output Files
+Guide to output files
 =====================
 
-The ``stereo`` tool generates a variety of intermediate files that are
+The ``parallel_stereo`` tool generates a variety of intermediate files that are
 useful for debugging. These are listed below, along with brief
 descriptions about the contents of each file. Note that the prefix of
 the filename for all of these files is dictated by the final command
-line argument to ``stereo``. Run ``stereo --help`` for details.
+line argument to ``parallel_stereo``. Run ``stereo --help`` for details.
 
 \*.vwip - image feature files
     If ``alignment-method`` is not ``none``, the Stereo Pipeline will
@@ -27,11 +27,11 @@ line argument to ``stereo``. Run ``stereo --help`` for details.
     The ``.vwip`` and ``.match`` files are meant to serve as cached
     tie-point information, and they help speed up the pre-processing
     phase of the Stereo Pipeline: if these files exist then the
-    ``stereo`` program will skip over the interest point alignment stage
+    ``parallel_stereo`` program will skip over the interest point alignment stage
     and instead use the cached tie-points contained in the ``*.match``
     files. In the rare case that one of these files did get corrupted or
     your input images have changed, you may want to delete these files
-    and allow ``stereo`` to regenerate them automatically. This is also
+    and allow ``parallel_stereo`` to regenerate them automatically. This is also
     recommended if you have upgraded the Stereo Pipeline software.
 
     Both ``.vwip`` and ``.match`` files can be visualized in
@@ -141,7 +141,7 @@ line argument to ``stereo``. Run ``stereo --help`` for details.
     the point cloud to formats that are easier to visualize.
 
 \*-stereo.default - backup of the Stereo Pipeline settings file
-    This is a copy of the ``stereo.default`` file used by ``stereo``.
+    This is a copy of the ``stereo.default`` file used by ``parallel_stereo``.
     It is stored alongside the output products as a record of the
     settings that were used for this particular stereo processing task.
 

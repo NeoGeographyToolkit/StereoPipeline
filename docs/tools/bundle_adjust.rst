@@ -30,12 +30,12 @@ Here, we invoked the tool with two passes, which also enables removal of
 outliers by reprojection error and disparity (the options below have
 more detail).
 
-Example (for generic pinhole camera data, using estimated camera
+Example (for generic pinhole camera data, using optional estimated camera
 positions)::
 
-     bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai -o run_ba/run  \
-        -t nadirpinhole --inline-adjustments --datum WGS_1984               \
-        --camera-positions nav_data.csv                                     \
+     bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai   \
+        -o run_ba/run -t nadirpinhole --inline-adjustments     \
+        --datum WGS_1984 --camera-positions nav_data.csv       \
         --csv-format "1:file 6:lat 7:lon 9:height_above_datum"
 
 Here we assumed that the cameras point towards some planet’s surface and
@@ -76,13 +76,13 @@ for each position, before and after optimization. The files are named
 
 ::
 
-     {output-prefix}-initial_residuals_no_loss_function_pointmap_point_log.csv
+     {output-prefix}-initial_residuals_.csv
 
 and
 
 ::
 
-     {output-prefix}-final_residuals_no_loss_function_pointmap_point_log.csv
+     {output-prefix}-final_residuals_pointmap.csv
 
 Such files can be inspected to see at which pixels the residual error
 is large. One can also invoke ``point2dem`` with the ``--csv-format``
@@ -90,10 +90,13 @@ option to grid these files for visualization in the GUI. Here is a
 sample file::
 
    # lon, lat, height_above_datum, mean_residual, num_observations
-   -55.1169093561696002, -69.3430771656333178, 4.82452381754674064, 0.114133363354161105, 2
+   -55.11690935, -69.34307716, 4.824523817, 0.1141333633, 2
 
 The field ``num_observations`` counts how many images each point gets
 projected into.
+
+It will also write initial and final ``raw_pixels.txt`` files, having
+the reprojection error for each pixel in each camera.
 
 .. _bagcp:
 
