@@ -38,6 +38,7 @@ dependencies:
   - gettext=0.19.8.1=h46ab8bc_1002
   - gflags=2.2.2=hb1e8313_1004
   - giflib=5.2.1=hbcb3906_2
+  - git=2.11.1=0
   - glib=2.51.4=0
   - glog=0.4.0=hb7f4fc5_3
   - gmm=5.0=h6aef312_0

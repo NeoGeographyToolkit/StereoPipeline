@@ -49,6 +49,7 @@ dependencies:
   - gfortran_impl_linux-64=7.5.0=h56cb351_19
   - gfortran_linux-64=7.5.0=h78c8a43_30
   - giflib=5.2.1=h36c2ea0_2
+  - git=2.14.2=2
   - glib=2.51.4=0
   - glog=0.4.0=h49b9bf7_3
   - gmm=5.0=0
