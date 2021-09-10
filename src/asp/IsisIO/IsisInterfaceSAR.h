@@ -58,9 +58,6 @@ namespace isis {
     virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
     virtual vw::Quat    camera_pose    ( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
 
-    // TODO(oalexan1): Make this private!
-    void SetTime( vw::Vector2 const& px,
-                  bool calc_pose = false ) const;
   protected:
 
     // Custom Variables
@@ -72,7 +69,6 @@ namespace isis {
   private:
 
     // Custom Functions
-    mutable vw::Vector2 m_c_location;
     mutable vw::Vector3 m_center;
     mutable vw::Quat    m_pose;
 
