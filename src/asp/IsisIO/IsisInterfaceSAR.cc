@@ -33,6 +33,7 @@
 #include <SurfacePoint.h>
 #include <Latitude.h>
 #include <Longitude.h>
+#include <Angle.h>
 
 #include <boost/smart_ptr/scoped_ptr.hpp>
 
@@ -71,16 +72,10 @@ Vector2 IsisInterfaceSAR::point_to_pixel(Vector3 const& point) const {
   if (llh[0] < 0)
     llh[0] += 360.0;
 
-  // TODO(oalexan1): I would have expected that the third argument
-  // should be a radius, rather than height above datum. Need to check
-  // with the doc.
-  Isis::SurfacePoint surfPt(Isis::Latitude (llh[1], Isis::Angle::Degrees),
-                            Isis::Longitude(llh[0], Isis::Angle::Degrees),
-                            Isis::Distance (llh[2], Isis::Distance::Meters));
-  
-  if (m_camera->SetGround(surfPt))
+  if (!m_camera->SetGround(Isis::Latitude (llh[1], Isis::Angle::Degrees),
+                           Isis::Longitude(llh[0], Isis::Angle::Degrees)))
     vw_throw(camera::PixelToRayErr() << "Failed in SetGround().");
-
+  
   return Vector2(m_camera->Sample() - 1.0, m_camera->Line() - 1.0);
 }
 
