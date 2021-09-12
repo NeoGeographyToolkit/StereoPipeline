@@ -105,6 +105,9 @@ namespace vw { namespace gui {
     return BBox2(A, B);
   }
 
+  // TODO(oalexan1): Merge world2projpoint() and projpoint2world() into
+  // world2image and image2world().
+  
   // If we use georef, the world is in projected point units of the
   // first image, with y replaced with -y, to keep the y axis downward,
   // for consistency with how images are plotted.  Convert a world box
@@ -174,11 +177,15 @@ namespace vw { namespace gui {
   // Convert from world coordinates to projected coordinates in given geospatial
   // projection
   Vector2 MainWidget::world2projpoint(Vector2 P, int imageIndex) const{
+    if (!m_use_georef)
+      return P;
     return m_world2image_geotransforms[imageIndex].point_to_point(flip_in_y(P)); 
   }
   
   // The reverse of world2projpoint
   Vector2 MainWidget::projpoint2world(Vector2 P, int imageIndex) const{
+    if (!m_use_georef)
+      return P;
     return flip_in_y(m_image2world_geotransforms[imageIndex].point_to_point(P));
   }
 
@@ -2423,15 +2430,6 @@ namespace vw { namespace gui {
 
     if (profileX.empty()) return;
 
-    //QPainter paint(&m_pixmap);
-    //paint.initFrom(this);
-    
-//     if (!m_profileMode) {
-//       QPoint Q(mouse_rel_pos.x(), mouse_rel_pos.y());
-//       paint.setPen(QColor("red"));
-//       paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little large
-//     }
-    
     paint.setPen(QColor("red"));
     std::vector<QPoint> profilePixels;
     for (size_t it = 0; it < profileX.size(); it++) {
@@ -3066,7 +3064,10 @@ namespace vw { namespace gui {
     m_moveVertex->setVisible(m_polyEditMode);
     m_showIndices->setVisible(m_polyEditMode);
     m_showPolysFilled->setVisible(m_polyEditMode);
-    m_saveVectorLayer->setVisible(m_polyEditMode);
+
+    // Add the saving polygon option even when not editing
+    m_saveVectorLayer->setVisible(true);
+    
     m_mergePolys->setVisible(m_polyEditMode);
     
     // Refresh this from the variable, before popping up the menu

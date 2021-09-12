@@ -545,7 +545,7 @@ void MainWindow::createMenus() {
   m_profile_menu->addAction(m_profileMode_action);
 
   // Vector layer menu
-  m_vector_layer_menu = menu->addMenu(tr("Vector Layer"));
+  m_vector_layer_menu = menu->addMenu(tr("Vector layer"));
   m_vector_layer_menu->addAction(m_polyEditMode_action);
   m_vector_layer_menu->addAction(m_setLineWidth_action);
   m_vector_layer_menu->addAction(m_setPolyColor_action);
@@ -1322,6 +1322,14 @@ void MainWindow::polyEditMode() {
         m_polyEditMode_action->setChecked(polyEditMode);
         break; // Continue with the next loop to turn off vector layer mode in all widgets
       }
+    }
+
+    // The drawn polygons will be created incorrectly unless in georeference mode
+    if (!m_use_georef) {
+      popUp("To edit polygons, first use the View menu to switch to viewing as georeferenced images.");
+      polyEditMode = false;
+      m_polyEditMode_action->setChecked(polyEditMode);
+      // Further down will turn off the poly edit mode for each widget
     }
   }
   
