@@ -23,6 +23,7 @@
 #include <asp/IsisIO/IsisInterfaceFrame.h>
 #include <asp/IsisIO/IsisInterfaceMapLineScan.h>
 #include <asp/IsisIO/IsisInterfaceLineScan.h>
+#include <asp/IsisIO/IsisInterfaceSAR.h>
 #include <boost/filesystem.hpp>
 
 #include <iomanip>
@@ -42,48 +43,56 @@ using namespace vw;
 using namespace asp;
 using namespace asp::isis;
 
-IsisInterface::IsisInterface( std::string const& file ) {
+IsisInterface::IsisInterface(std::string const& file) {
   // Opening labels and camera
-  Isis::FileName ifilename( QString::fromStdString(file) );
-  m_label.reset( new Isis::Pvl() );
-  m_label->read( ifilename.expanded() );
+  Isis::FileName ifilename(QString::fromStdString(file));
+  m_label.reset(new Isis::Pvl());
+  m_label->read(ifilename.expanded());
 
   // Opening Isis::Camera
-  m_cube.reset( new Isis::Cube(QString::fromStdString(file)) );
-  m_camera.reset(Isis::CameraFactory::Create( *m_cube ));
+  m_cube.reset(new Isis::Cube(QString::fromStdString(file)));
+  m_camera.reset(Isis::CameraFactory::Create(*m_cube));
 }
 
 IsisInterface::~IsisInterface() {}
 
-IsisInterface* IsisInterface::open( std::string const& filename ) {
+IsisInterface* IsisInterface::open(std::string const& filename) {
   // Opening Labels (This should be done somehow though labels)
-  Isis::FileName ifilename( QString::fromStdString(filename) );
+  Isis::FileName ifilename(QString::fromStdString(filename));
   Isis::Pvl label;
-  label.read( ifilename.expanded() );
+  label.read(ifilename.expanded());
 
   Isis::Cube tempCube(QString::fromStdString(filename));
-  Isis::Camera* camera = Isis::CameraFactory::Create( tempCube );
+  Isis::Camera* camera = Isis::CameraFactory::Create(tempCube);
 
   IsisInterface* result;
 
   // Instantiate the correct class type
-  switch ( camera->GetCameraType() ) {
+  switch (camera->GetCameraType()) {
   case 0:
-    // Framing Camera
-    if ( camera->HasProjection() )
-      result = new IsisInterfaceMapFrame( filename );
+    // Framing camera
+    if (camera->HasProjection())
+      result = new IsisInterfaceMapFrame(filename);
     else
-      result = new IsisInterfaceFrame( filename );
+      result = new IsisInterfaceFrame(filename);
     break;
   case 2:
-    // Linescan Camera
-    if ( camera->HasProjection() )
-      result = new IsisInterfaceMapLineScan( filename );
+    // Linescan camera
+    if (camera->HasProjection())
+      result = new IsisInterfaceMapLineScan(filename);
     else
-      result = new IsisInterfaceLineScan( filename );
+      result = new IsisInterfaceLineScan(filename);
+    break;
+  case 3:
+    // SAR camera (such as MiniRF)
+    if (camera->HasProjection())
+      vw_throw(NoImplErr() << "Isis SAR cameras with projected images are not supported yet.");
+    else
+      result = new IsisInterfaceSAR(filename);
     break;
   default:
-    vw_throw( NoImplErr() << "Don't support Isis Camera Type " << camera->GetCameraType() << " at this moment" );
+    vw_throw(NoImplErr() << "Don't support Isis camera type "
+             << camera->GetCameraType() << " at this moment");
   }
 
   return result;
@@ -98,42 +107,42 @@ int IsisInterface::samples() const {
 }
 
 std::string IsisInterface::serial_number() const {
-  Isis::Pvl copy( *m_label );
-  return Isis::SerialNumber::Compose( copy, true ).toStdString();
+  Isis::Pvl copy(*m_label);
+  return Isis::SerialNumber::Compose(copy, true).toStdString();
 }
 
-double IsisInterface::ephemeris_time( vw::Vector2 const& pix ) const {
-  m_camera->SetImage( pix[0]+1, pix[1]+1 );
+double IsisInterface::ephemeris_time(vw::Vector2 const& pix) const {
+  m_camera->SetImage(pix[0]+1, pix[1]+1);
   return m_camera->time().Et();
 }
 
-vw::Vector3 IsisInterface::sun_position( vw::Vector2 const& pix ) const {
-  m_camera->SetImage( pix[0]+1, pix[1]+1 );
+vw::Vector3 IsisInterface::sun_position(vw::Vector2 const& pix) const {
+  m_camera->SetImage(pix[0]+1, pix[1]+1);
   Vector3 sun;
-  m_camera->sunPosition( &sun[0] );
+  m_camera->sunPosition(&sun[0]);
   return sun * 1000;
 }
 
 vw::Vector3 IsisInterface::target_radii() const {
   Isis::Distance radii[3];
   m_camera->radii(radii);
-  return Vector3( radii[0].meters(),
+  return Vector3(radii[0].meters(),
                   radii[1].meters(),
-                  radii[2].meters() );
+                  radii[2].meters());
 }
 
 std::string IsisInterface::target_name() const {
   return m_camera->target()->name().toStdString();
 }
 
-std::ostream& asp::isis::operator<<( std::ostream& os, IsisInterface* i ) {
+std::ostream& asp::isis::operator<<(std::ostream& os, IsisInterface* i) {
   os << "IsisInterface" << i->type()
-       << "( Serial=" << i->serial_number()
+       << "(Serial=" << i->serial_number()
        << std::setprecision(9)
        << ", f=" << i->m_camera->FocalLength()
        << " mm, pitch=" << i->m_camera->PixelPitch()
        << " mm/px," << std::setprecision(6)
-       << "Center=" << i->camera_center() << " )";
+       << "Center=" << i->camera_center() << ")";
     return os;
 }
 
@@ -145,7 +154,7 @@ bool asp::isis::IsisEnv() {
   if (isisroot_ptr == NULL || isisdata_ptr == NULL ||
       std::string(isisroot_ptr) == "" ||
       std::string(isisdata_ptr) == "" ||
-      !boost::filesystem::exists(std::string(isisroot_ptr) + "/IsisPreferences") )
+      !boost::filesystem::exists(std::string(isisroot_ptr) + "/IsisPreferences"))
     return false;
   return true;
 }
