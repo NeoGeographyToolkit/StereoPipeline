@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file IsisInterfaceSAR.h
 ///
 /// ISIS SAR Camera Interface. Tested with MiniRF.
@@ -44,23 +43,23 @@ namespace isis {
   class IsisInterfaceSAR : public IsisInterface {
 
   public:
-    IsisInterfaceSAR( std::string const& file );
+    IsisInterfaceSAR(std::string const& file);
 
     virtual ~IsisInterfaceSAR() {}
 
     virtual std::string type()  { return "SAR"; }
 
-    // Standard Methods
+    // Standard methods
     //-------------------------------------------------
 
-    virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point ) const;
-    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix   ) const;
-    virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
-    virtual vw::Quat    camera_pose    ( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
+    virtual vw::Vector2 point_to_pixel (vw::Vector3 const& point) const;
+    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix  ) const;
+    virtual vw::Vector3 camera_center  (vw::Vector2 const& pix = vw::Vector2(1,1)) const;
+    virtual vw::Quat    camera_pose    (vw::Vector2 const& pix = vw::Vector2(1,1)) const;
 
   protected:
 
-    // Custom Variables
+    // Custom variables
     Isis::CameraDistortionMap *m_distortmap;
     Isis::CameraFocalPlaneMap *m_focalmap;
     Isis::CameraDetectorMap   *m_detectmap;
@@ -68,7 +67,7 @@ namespace isis {
 
   private:
 
-    // Custom Functions
+    // Custom functions
     mutable vw::Vector3 m_center;
     mutable vw::Quat    m_pose;
 

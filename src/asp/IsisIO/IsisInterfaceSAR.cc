@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <vw/Math/LevenbergMarquardt.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Core/Exception.h>
@@ -53,7 +52,8 @@ IsisInterfaceSAR::IsisInterfaceSAR(std::string const& filename):
   m_focalmap   = m_camera->FocalPlaneMap();
   m_detectmap  = m_camera->DetectorMap();
 
-  // TODO(oalexan1): All this is fragile. Need to find the right internal ISIS
+  // Set the datum.
+  // TODO(oalexan1): This is fragile. Need to find the right internal ISIS
   // function to use to convert ECEF to lon-lat-height and vice-versa.
   Isis::Distance radii[3];
   m_camera->radii(radii);
@@ -67,7 +67,6 @@ IsisInterfaceSAR::IsisInterfaceSAR(std::string const& filename):
 
 Vector2 IsisInterfaceSAR::point_to_pixel(Vector3 const& point) const {
 
-  // TODO(oalexan1): Find the ISIS function for going from ECEF to llh.
   Vector3 llh = m_datum.cartesian_to_geodetic(point);
   if (llh[0] < 0)
     llh[0] += 360.0;
@@ -80,7 +79,7 @@ Vector2 IsisInterfaceSAR::point_to_pixel(Vector3 const& point) const {
 }
 
 // TODO(oalexan1): There should be a simpler way based on rotating
-// the look direction, but I could not make that one work.
+// the camera look direction, but I could not make that one work.
 Vector3 IsisInterfaceSAR::pixel_to_vector(Vector2 const& pix) const {
 
   // Find the camera center

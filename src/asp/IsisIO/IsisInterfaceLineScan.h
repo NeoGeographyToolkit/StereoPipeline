@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file IsisInterfaceLineScane.h
+/// \file IsisInterfaceLineScan.h
 ///
 /// Line Scan Camera Interface with ISIS
 ///
@@ -43,7 +43,7 @@ namespace isis {
   class IsisInterfaceLineScan : public IsisInterface {
 
   public:
-    IsisInterfaceLineScan( std::string const& file );
+    IsisInterfaceLineScan(std::string const& file);
 
     virtual ~IsisInterfaceLineScan() {}
 
@@ -52,10 +52,10 @@ namespace isis {
     // Standard Methods
     //-------------------------------------------------
 
-    virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point ) const;
-    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix   ) const;
-    virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
-    virtual vw::Quat    camera_pose    ( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
+    virtual vw::Vector2 point_to_pixel (vw::Vector3 const& point) const;
+    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix  ) const;
+    virtual vw::Vector3 camera_center  (vw::Vector2 const& pix = vw::Vector2(1,1)) const;
+    virtual vw::Quat    camera_pose    (vw::Vector2 const& pix = vw::Vector2(1,1)) const;
 
   protected:
 
@@ -71,8 +71,7 @@ namespace isis {
     mutable vw::Vector2 m_c_location;
     mutable vw::Vector3 m_center;
     mutable vw::Quat    m_pose;
-    void SetTime( vw::Vector2 const& px,
-                  bool calc=false ) const;
+    void SetTime(vw::Vector2 const& px, bool calc_pose = false) const;
   };
 
 }}

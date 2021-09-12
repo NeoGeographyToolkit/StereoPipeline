@@ -36,7 +36,7 @@ using namespace asp;
 using namespace asp::isis;
 
 // Construct
-IsisInterfaceLineScan::IsisInterfaceLineScan( std::string const& filename ) : IsisInterface(filename), m_alphacube( *m_cube ) {
+IsisInterfaceLineScan::IsisInterfaceLineScan(std::string const& filename): IsisInterface(filename), m_alphacube(*m_cube) {
 
   // Gutting Isis::Camera
   m_distortmap = m_camera->DistortionMap();
@@ -46,14 +46,14 @@ IsisInterfaceLineScan::IsisInterfaceLineScan( std::string const& filename ) : Is
 
 // Custom Function to help avoid over invoking the deeply buried
 // functions of Isis::Sensor
-void IsisInterfaceLineScan::SetTime( Vector2 const& px, bool calc ) const {
-  if ( px != m_c_location ) {
+void IsisInterfaceLineScan::SetTime(Vector2 const& px, bool calc_pose) const {
+  if (px != m_c_location) {
     m_c_location = px;
-    m_detectmap->SetParent( m_alphacube.AlphaSample(px[0]),
-                            m_alphacube.AlphaLine(px[1]) );
+    m_detectmap->SetParent(m_alphacube.AlphaSample(px[0]),
+                           m_alphacube.AlphaLine(px[1]));
 
-    if ( calc ) {
-      // Calculating Spacecraft position and pose
+    if (calc_pose) {
+      // Calculating the spacecraft position and orientation (hence pose)
       m_camera->instrumentPosition(&m_center[0]);
       m_center *= 1000;
 
@@ -76,18 +76,18 @@ public:
   typedef vw::Vector<double> domain_type; // Ephemeris time
   typedef vw::Matrix<double> jacobian_type;
 
-  inline EphemerisLMA( vw::Vector3 const& point,
-                       Isis::Camera* camera,
-                       Isis::CameraDistortionMap* distortmap,
-                       Isis::CameraFocalPlaneMap* focalmap ) : m_point(point), m_camera(camera), m_distortmap(distortmap), m_focalmap(focalmap) {}
+  inline EphemerisLMA(vw::Vector3 const& point,
+                      Isis::Camera* camera,
+                      Isis::CameraDistortionMap* distortmap,
+                      Isis::CameraFocalPlaneMap* focalmap) : m_point(point), m_camera(camera), m_distortmap(distortmap), m_focalmap(focalmap) {}
 
-  inline result_type operator()( domain_type const& x ) const;
+  inline result_type operator()(domain_type const& x) const;
 };
 
 
 // LMA for projecting point to linescan camera
 EphemerisLMA::result_type
-EphemerisLMA::operator()( EphemerisLMA::domain_type const& x ) const {
+EphemerisLMA::operator()(EphemerisLMA::domain_type const& x) const {
 
   // Setting Ephemeris Time
   m_camera->setTime(Isis::iTime(x[0]));
@@ -96,19 +96,19 @@ EphemerisLMA::operator()( EphemerisLMA::domain_type const& x ) const {
   Vector3 instru;
   m_camera->instrumentPosition(&instru[0]);
   instru *= 1000;  // Spice gives in km
-  Vector3 lookB = normalize( m_point - instru );
+  Vector3 lookB = normalize(m_point - instru);
   std::vector<double> lookB_copy(3);
-  std::copy( lookB.begin(), lookB.end(), lookB_copy.begin() );
+  std::copy(lookB.begin(), lookB.end(), lookB_copy.begin());
   std::vector<double> lookJ = m_camera->bodyRotation()->J2000Vector(lookB_copy);
   std::vector<double> lookC = m_camera->instrumentRotation()->ReferenceVector(lookJ);
   Vector3 look;
-  std::copy( lookC.begin(), lookC.end(), look.begin() );
+  std::copy(lookC.begin(), lookC.end(), look.begin());
 
   // Projecting to mm focal plane
   look = m_camera->FocalLength() * (look / look[2]);
   m_distortmap->SetUndistortedFocalPlane(look[0], look[1]);
-  m_focalmap->SetFocalPlane( m_distortmap->FocalPlaneX(),
-                             m_distortmap->FocalPlaneY() );
+  m_focalmap->SetFocalPlane(m_distortmap->FocalPlaneX(),
+                            m_distortmap->FocalPlaneY());
   result_type result(1);
   // Not exactly sure about lineoffset .. but ISIS does it
   result[0] = m_focalmap->DetectorLineOffset() - m_focalmap->DetectorLine();
@@ -117,87 +117,87 @@ EphemerisLMA::operator()( EphemerisLMA::domain_type const& x ) const {
 }
 
 Vector2
-IsisInterfaceLineScan::point_to_pixel( Vector3 const& point ) const {
+IsisInterfaceLineScan::point_to_pixel(Vector3 const& point) const {
 
   // First seed LMA with an ephemeris time in the middle of the image
   double middle = lines() / 2;
-  m_detectmap->SetParent( 1, m_alphacube.AlphaLine(middle) );
+  m_detectmap->SetParent(1, m_alphacube.AlphaLine(middle));
   double start_e = m_camera->time().Et();
 
   // Build LMA
-  EphemerisLMA model( point, m_camera.get(), m_distortmap, m_focalmap );
+  EphemerisLMA model(point, m_camera.get(), m_distortmap, m_focalmap);
   int status;
   Vector<double> objective(1), start(1);
   start[0] = start_e;
-  Vector<double> solution_e = math::levenberg_marquardt( model,
-                                                         start,
-                                                         objective,
-                                                         status );
+  Vector<double> solution_e = math::levenberg_marquardt(model,
+                                                        start,
+                                                        objective,
+                                                        status);
 
   // Make sure we found ideal time
-  VW_ASSERT( status > 0, vw::camera::PointToPixelErr() << " Unable to project point into ISIS linescan camera " );
+  VW_ASSERT(status > 0, vw::camera::PointToPixelErr() << " Unable to project point into ISIS linescan camera ");
 
   // Converting now to pixel
-  m_camera->setTime(Isis::iTime( solution_e[0] ));
+  m_camera->setTime(Isis::iTime(solution_e[0]));
 
   // Working out pointing
   m_camera->instrumentPosition(&m_center[0]);
   m_center *= 1000;
   Vector3 look = normalize(point-m_center);
 
-  // Calculating Rotation to camera frame
+  // Calculating rotation to camera frame
   std::vector<double> rot_inst = m_camera->instrumentRotation()->Matrix();
   std::vector<double> rot_body = m_camera->bodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
   m_pose = Quat(R_body*transpose(R_inst));
 
-  look = inverse(m_pose).rotate( look );
-  look = m_camera->FocalLength() * ( look / look[2] );
-  m_distortmap->SetUndistortedFocalPlane( look[0], look[1] );
-  m_focalmap->SetFocalPlane( m_distortmap->FocalPlaneX(),
-                             m_distortmap->FocalPlaneY() );
-  m_detectmap->SetDetector( m_focalmap->DetectorSample(),
-                            m_focalmap->DetectorLine() );
-  Vector2 pixel( m_detectmap->ParentSample(),
-                 m_detectmap->ParentLine() );
-  pixel[0] = m_alphacube.BetaSample( pixel[0] );
-  pixel[1] = m_alphacube.BetaLine( pixel[1] );
-  SetTime( pixel, false );
+  look = inverse(m_pose).rotate(look);
+  look = m_camera->FocalLength() * (look / look[2]);
+  m_distortmap->SetUndistortedFocalPlane(look[0], look[1]);
+  m_focalmap->SetFocalPlane(m_distortmap->FocalPlaneX(),
+                            m_distortmap->FocalPlaneY());
+  m_detectmap->SetDetector(m_focalmap->DetectorSample(),
+                           m_focalmap->DetectorLine());
+  Vector2 pixel(m_detectmap->ParentSample(),
+                m_detectmap->ParentLine());
+  pixel[0] = m_alphacube.BetaSample(pixel[0]);
+  pixel[1] = m_alphacube.BetaLine(pixel[1]);
+  SetTime(pixel, false);
 
   pixel -= Vector2(1,1);
   return pixel;
 }
 
 Vector3
-IsisInterfaceLineScan::pixel_to_vector( Vector2 const& pix ) const {
+IsisInterfaceLineScan::pixel_to_vector(Vector2 const& pix) const {
   Vector2 px = pix + Vector2(1,1);
-  SetTime( px, true );
+  SetTime(px, true);
 
   // Projecting to get look direction
   Vector3 result;
-  m_focalmap->SetDetector( m_detectmap->DetectorSample(),
-                           m_detectmap->DetectorLine() );
-  m_distortmap->SetFocalPlane( m_focalmap->FocalPlaneX(),
-                               m_focalmap->FocalPlaneY() );
+  m_focalmap->SetDetector(m_detectmap->DetectorSample(),
+                          m_detectmap->DetectorLine());
+  m_distortmap->SetFocalPlane(m_focalmap->FocalPlaneX(),
+                              m_focalmap->FocalPlaneY());
   result[0] = m_distortmap->UndistortedFocalPlaneX();
   result[1] = m_distortmap->UndistortedFocalPlaneY();
   result[2] = m_distortmap->UndistortedFocalPlaneZ();
-  result = normalize( result );
+  result = normalize(result);
   result = m_pose.rotate(result);
   return result;
 }
 
 Vector3
-IsisInterfaceLineScan::camera_center( Vector2 const& pix ) const {
+IsisInterfaceLineScan::camera_center(Vector2 const& pix) const {
   Vector2 px = pix + Vector2(1,1);
-  SetTime( px, true );
+  SetTime(px, true);
   return m_center;
 }
 
 Quat
-IsisInterfaceLineScan::camera_pose( Vector2 const& pix ) const {
+IsisInterfaceLineScan::camera_pose(Vector2 const& pix) const {
   Vector2 px = pix + Vector2(1,1);
-  SetTime( px, true );
+  SetTime(px, true);
   return m_pose;
 }

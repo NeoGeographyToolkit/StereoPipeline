@@ -140,7 +140,7 @@ IsisInterfaceMapLineScan::point_to_pixel( Vector3 const& point ) const {
   m_camera->instrumentPosition(&center[0]);
   Vector3 look = normalize(point-1000*center);
 
-  // Calculating Rotation to camera frame
+  // Calculating rotation to camera frame
   std::vector<double> rot_inst = m_camera->instrumentRotation()->Matrix();
   std::vector<double> rot_body = m_camera->bodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
