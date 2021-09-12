@@ -128,7 +128,7 @@ if __name__ == '__main__':
     
     if using_tiles:
         raise Exception("Alignment method 'local_epipolar' and/or other algorithms " +
-                        "except block-matching can be used only with parallel_stereo.")
+                        "except ASP_BM can be used only with parallel_stereo.")
 
     try:
         # Invoke itself for multiview if appropriate
