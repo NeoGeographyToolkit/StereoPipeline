@@ -60,7 +60,9 @@ IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
 
 Vector2
 IsisInterfaceMapFrame::point_to_pixel( Vector3 const& point ) const {
-  Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius_estimate( point ); // TODO: INACCURATE!!!
+  // TODO(oalexan1): Use here the datum as in IsisInterfaceSAR.
+  // Even better, find the correct ISIS function to use.
+  Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius_estimate(point); // TODO: INACCURATE!!!
   if ( lon_lat_radius[0] < 0 )
     lon_lat_radius[0] += 360;
 
