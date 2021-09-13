@@ -613,71 +613,110 @@ Vector3 CsmModel::camera_center(Vector2 const& pix) const {
 }
 
 // Apply a transform to the model and save the transformed state as a JSON file.
-void CsmModel::save_transformed_json_state(std::string const& json_state_file,
-                                           vw::Matrix4x4 const& transform) {
-
-  csm::RasterGM* raster_model = dynamic_cast<csm::RasterGM*>(this->m_csm_model.get());
-
-  // TODO(oalexan1): Make this work for Frame and SAR
+template<class ModelT>
+void save_transformed_json_state_impl(ModelT       const * model,
+                                      std::string  const & json_state_file,
+                                      vw::Matrix4x4 const& transform) {
   
-  UsgsAstroLsSensorModel * ls_model
-    = dynamic_cast<UsgsAstroLsSensorModel*>(this->m_csm_model.get());
-  
-  if (ls_model == NULL) {
-    vw_out() << "Saving the adjusted JSON state is implemented only "
-             << "for usgscsm linescan camera models.\n";
-    return;
+  // So far this works with a nontrivial transform only for the
+  // Linescan model.
+  // TODO(oalexan1): Need to add functions analogous to
+  // applyRotationTranslationToXyzVec, etc., for SAR and Frame cameras
+  // as well.
+  bool identity_transform = (transform == vw::math::identity_matrix<4>());
+  if (!identity_transform) {
+    UsgsAstroLsSensorModel const* ls_model = dynamic_cast<UsgsAstroLsSensorModel const*>(model);
+    if (ls_model == NULL) 
+      vw_out() << "Saving the adjusted JSON state with a non-identity adjustment applied to it "
+               << "is implemented only for usgscsm linescan camera models.\n";
   }
-
-  std::string modelState = ls_model->getModelState();
-
+  
+  std::string modelState = model->getModelState();
   nlohmann::json j = stateAsJson(modelState);
 
-  // Extract the rotation and convert it to ale::Rotation
-  vw::Matrix3x3 rotation_matrix = submatrix(transform, 0, 0, 3, 3);
-  std::vector<double> rotation_vec;
-  for (int row = 0; row < 3; row++) {
-    for (int col = 0; col < 3; col++) {
-      rotation_vec.push_back(rotation_matrix(row, col));
-    }
-  }
-  ale::Rotation r(rotation_vec);
-    
-  // Extract the translation
-  ale::Vec3d t(transform(0, 3), transform(1, 3), transform(2, 3));
-
-  // Zero translation
-  ale::Vec3d zero_t(0, 0, 0);
-  
-  // Sensor rotations
+  // Apply the transform if not identity
   // TODO(oalexan1): When USGSCSM releases the version having these
-  // functions then use those.
-  std::vector<double> quaternions = j["m_quaternions"].get<std::vector<double>>();
-  asp::applyRotationToQuatVec(r, quaternions);
-  j["m_quaternions"] = quaternions;
-  
-  // Sensor positions
-  std::vector<double> positions = j["m_positions"].get<std::vector<double>>();;
-  asp::applyRotationTranslationToXyzVec(r, t, positions);
-  j["m_positions"] = positions;
-  
-  // For velocities, the translation does not get added
-  std::vector<double> velocities = j["m_velocities"].get<std::vector<double>>();;
-  asp::applyRotationTranslationToXyzVec(r, zero_t, velocities);
-  j["m_velocities"] = velocities;
-  
-  // We do not change the sun position or velocity. The idea is that
-  // the sun is so far, that minor adjustments in camera location
-  // won't affect where the Sun is.
+  // functions then use those and remove their copies from ASP.
+  if (!identity_transform) {
 
-  int indent = 2; // Write on multiple lines rather than using a single giant line
-  std::string stateString = ls_model->getModelName() + "\n" + j.dump(indent);
+    // Extract the rotation and convert it to ale::Rotation
+    vw::Matrix3x3 rotation_matrix = submatrix(transform, 0, 0, 3, 3);
+    std::vector<double> rotation_vec;
+    for (int row = 0; row < 3; row++) {
+      for (int col = 0; col < 3; col++) {
+        rotation_vec.push_back(rotation_matrix(row, col));
+      }
+    }
+    ale::Rotation r(rotation_vec);
+    
+    // Extract the translation
+    ale::Vec3d t(transform(0, 3), transform(1, 3), transform(2, 3));
+
+    // Zero translation
+    ale::Vec3d zero_t(0, 0, 0);
+    
+    // Sensor rotations
+    std::vector<double> quaternions = j["m_quaternions"].get<std::vector<double>>();
+    asp::applyRotationToQuatVec(r, quaternions);
+    j["m_quaternions"] = quaternions;
+    
+    // Sensor positions
+    std::vector<double> positions = j["m_positions"].get<std::vector<double>>();;
+    asp::applyRotationTranslationToXyzVec(r, t, positions);
+    j["m_positions"] = positions;
+    
+    // For velocities, the translation does not get added
+    std::vector<double> velocities = j["m_velocities"].get<std::vector<double>>();;
+    asp::applyRotationTranslationToXyzVec(r, zero_t, velocities);
+    j["m_velocities"] = velocities;
+  
+    // We do not change the sun position or velocity. The idea is that
+    // the sun is so far, that minor adjustments in camera location
+    // won't affect where the Sun is.
+  }
+  
+  // Write on multiple lines rather than using a single giant line
+  int indent = 2;
+  std::string stateString = model->getModelName() + "\n" + j.dump(indent);
 
   vw_out() << "Writing adjusted JSON state: " << json_state_file << std::endl;
   std::ofstream ofs(json_state_file.c_str());
   ofs << stateString << std::endl;
   ofs.close();
 
+  return;
+}
+  
+// Apply a transform to the model and save the transformed state as a JSON file.
+void CsmModel::save_transformed_json_state(std::string const& json_state_file,
+                                           vw::Matrix4x4 const& transform) const {
+
+  csm::RasterGM const* raster_model = dynamic_cast<csm::RasterGM const*>(this->m_csm_model.get());
+
+  // Need to consider each model type separately
+  
+  UsgsAstroFrameSensorModel const* frame_model
+    = dynamic_cast<UsgsAstroFrameSensorModel const*>(raster_model);
+  if (frame_model != NULL) {
+    save_transformed_json_state_impl(frame_model, json_state_file, transform);
+    return;
+  }
+  
+  UsgsAstroLsSensorModel const* ls_model
+    = dynamic_cast<UsgsAstroLsSensorModel const*>(raster_model);
+  if (ls_model != NULL) {
+    save_transformed_json_state_impl(ls_model, json_state_file, transform);
+    return;
+  }
+
+  UsgsAstroSarSensorModel const* sar_model
+    = dynamic_cast<UsgsAstroSarSensorModel const*>(raster_model);
+  if (sar_model != NULL) {
+    save_transformed_json_state_impl(sar_model, json_state_file, transform);
+    return;
+  }
+
+  vw_throw(vw::ArgumentErr() << "CsmModel::save_transformed_json_state: unknown CSM model type.\n");
   return;
 }
   

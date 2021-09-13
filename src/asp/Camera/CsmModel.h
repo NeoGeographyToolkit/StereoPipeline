@@ -88,7 +88,7 @@ namespace asp {
     
     // Apply a transform to the model and save the transformed state as a JSON file.
     void save_transformed_json_state(std::string const& json_state_file,
-                                     vw::Matrix4x4 const& transform);
+                                     vw::Matrix4x4 const& transform) const;
   private:
 
     // Read the ellipsoid (datum) axes from the isd json file
