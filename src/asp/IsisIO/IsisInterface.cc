@@ -135,6 +135,21 @@ std::string IsisInterface::target_name() const {
   return m_camera->target()->name().toStdString();
 }
 
+// Manufacture a datum
+vw::cartography::Datum IsisInterface::get_datum(bool use_sphere_for_datum) const {
+      
+  vw::Vector3 radii = this->target_radii();
+  double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
+  double radius2 = radius1;
+  if (!use_sphere_for_datum) {
+    radius2 = radii[2]; // the z radius (semi-minor axis)
+  }
+  
+  vw::cartography::Datum datum("D_" + this->target_name(), this->target_name(),
+                               "Reference Meridian", radius1, radius2, 0);
+  return datum;
+}
+
 std::ostream& asp::isis::operator<<(std::ostream& os, IsisInterface* i) {
   os << "IsisInterface" << i->type()
        << "(Serial=" << i->serial_number()

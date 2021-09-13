@@ -30,6 +30,7 @@
 // VW & ASP
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
+#include <vw/Cartography/Datum.h>
 
 // Isis include
 #include <Cube.h>
@@ -79,6 +80,7 @@ namespace isis {
     vw::Vector3 sun_position  ( vw::Vector2 const& pix = vw::Vector2() ) const;
     vw::Vector3 target_radii  () const;
     std::string target_name   () const;
+    vw::cartography::Datum get_datum(bool use_sphere_for_datum) const;
 
   protected:
     // Standard Variables

@@ -44,7 +44,7 @@ IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
   // Gutting Isis::Camera
   m_groundmap  = m_camera->GroundMap();
   m_distortmap = m_camera->DistortionMap();
-  m_camera->radii( m_radii );
+  m_camera->radii(m_radii);
 
   // Calculating Center (just once)
   m_camera->instrumentPosition(&m_center[0]);

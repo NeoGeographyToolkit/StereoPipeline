@@ -103,17 +103,7 @@ namespace camera {
 
     // The datum
     vw::cartography::Datum get_datum(bool use_sphere_for_datum) const {
-      
-      vw::Vector3 radii = this->target_radii();
-      double radius1 = (radii[0] + radii[1]) / 2; // average the x and y axes (semi-major) 
-      double radius2 = radius1;
-      if (!use_sphere_for_datum) {
-        radius2 = radii[2]; // the z radius (semi-minor axis)
-      }
-      
-      vw::cartography::Datum datum("D_" + this->target_name(), this->target_name(),
-                                   "Reference Meridian", radius1, radius2, 0);
-      return datum;
+      return m_interface->get_datum(use_sphere_for_datum);
     }
     
   protected:

@@ -52,17 +52,11 @@ IsisInterfaceSAR::IsisInterfaceSAR(std::string const& filename):
   m_focalmap   = m_camera->FocalPlaneMap();
   m_detectmap  = m_camera->DetectorMap();
 
-  // Set the datum.
+  // Set the datum
   // TODO(oalexan1): This is fragile. Need to find the right internal ISIS
   // function to use to convert ECEF to lon-lat-height and vice-versa.
-  Isis::Distance radii[3];
-  m_camera->radii(radii);
-  // Average the x and y axes (semi-major) 
-  double radius1 = (radii[0].meters() + radii[1].meters()) / 2;
-  double radius2 = radii[2].meters(); // the z radius (semi-minor axis)
-  std::string target_name = m_camera->target()->name().toStdString();
-  m_datum = vw::cartography::Datum("D_" + target_name, target_name,
-                                   "Reference Meridian", radius1, radius2, 0);
+  bool use_sphere_for_datum = false;
+  m_datum = this->get_datum(use_sphere_for_datum);
 }
 
 Vector2 IsisInterfaceSAR::point_to_pixel(Vector3 const& point) const {
