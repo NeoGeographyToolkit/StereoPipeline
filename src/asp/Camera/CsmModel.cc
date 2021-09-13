@@ -36,6 +36,8 @@
 
 // USGSCSM linescan
 #include <usgscsm/UsgsAstroLsSensorModel.h>
+#include <usgscsm/UsgsAstroFrameSensorModel.h>
+#include <usgscsm/UsgsAstroSarSensorModel.h>
 #include <usgscsm/Utilities.h>
 
 #include <ale/Rotation.h>
@@ -196,7 +198,6 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
   return plugins.size();
 }
 
-
 void CsmModel::print_available_models() {
 
   csm::PluginList available_plugins = csm::Plugin::getList();
@@ -204,11 +205,11 @@ void CsmModel::print_available_models() {
 
   csm::PluginList::iterator iter;
   for (iter = available_plugins.begin(); iter != available_plugins.end(); iter++) {
-    std::cout << "  -->  " << (*iter)->getPluginName() << std::endl;
+    vw_out() << "  -->  " << (*iter)->getPluginName() << std::endl;
     size_t num_models = (*iter)->getNumModels();
-    std::cout << "    - Num models = " << num_models << std::endl;
+    vw_out() << "    - Num models = " << num_models << std::endl;
     for (size_t i = 0; i < num_models; i++) {
-      std::cout << "      -> " << (*iter)->getModelName(i)
+      vw_out() << "      -> " << (*iter)->getModelName(i)
                 << ", family =  " << (*iter)->getModelFamily(i) << std::endl;
     }
   }
@@ -389,11 +390,15 @@ void CsmModel::load_model(std::string const& isd_path) {
   std::string line;
   {
     // Peek inside the file to see if it is an isd or a model state.
+    // A model state file starts with an easily identifiable string.
     std::ifstream ifs(isd_path);
     ifs >> line;
   }
-  
-  if (line != UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME) 
+  bool is_model_state = (line == UsgsAstroFrameSensorModel::_SENSOR_MODEL_NAME || 
+                         line == UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME    ||
+                         line == UsgsAstroSarSensorModel::_SENSOR_MODEL_NAME);
+
+  if (!is_model_state) 
     CsmModel::load_model_from_isd(isd_path);
   else
     CsmModel::load_model_from_state(isd_path);
@@ -466,21 +471,51 @@ void CsmModel::load_model_from_state(std::string const& state_path) {
   ifs.seekg(0, std::ios::beg);
   model_state.assign((std::istreambuf_iterator<char>(ifs)),
              std::istreambuf_iterator<char>());
+  ifs.close();
 
-  // Create the linescan model
-  UsgsAstroLsSensorModel * ls_model = new UsgsAstroLsSensorModel;
-  ls_model->replaceModelState(model_state);
+  // See which model to load, then cast it to RasterGM. This could
+  // have been simpler if the USGSCSM models shared a base class where
+  // all shared functionality would be shared.
+  csm::RasterGM* raster_model = NULL;
+  if (model_state.rfind(UsgsAstroFrameSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
+    
+    UsgsAstroFrameSensorModel * model = new UsgsAstroFrameSensorModel;
+    model->replaceModelState(model_state);
+    raster_model = dynamic_cast<csm::RasterGM*>(model);
+    
+  } else if (model_state.rfind(UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
+    
+    UsgsAstroLsSensorModel * model = new UsgsAstroLsSensorModel;
+    model->replaceModelState(model_state);
+    raster_model = dynamic_cast<csm::RasterGM*>(model);
+    
+  } else if (model_state.rfind(UsgsAstroSarSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
+    
+    UsgsAstroSarSensorModel * model = new UsgsAstroSarSensorModel;
+    model->replaceModelState(model_state);
+    raster_model = dynamic_cast<csm::RasterGM*>(model);
+    
+  } else {
+    vw::vw_throw(vw::ArgumentErr() << "Could not load the model state from: "
+                 << state_path << ".\n");
+  }
 
-  // Read the axes
-  m_semi_major_axis = ls_model->m_majorAxis;
-  m_semi_minor_axis = ls_model->m_minorAxis;
+  // Set the semi-axes from json (cannot pull it from the usgs models
+  // as these figure as private in some of them).
+  auto j = stateAsJson(model_state);
+  m_semi_major_axis = j["m_majorAxis"];
+  m_semi_minor_axis = j["m_minorAxis"];
 
-  // Cast to raster model
-  csm::RasterGM* raster_model = dynamic_cast<csm::RasterGM*>(ls_model);
+  // Sanity check
+  if (m_semi_major_axis <= 0.0 || m_semi_minor_axis <= 0.0) 
+    vw::vw_throw( vw::ArgumentErr() << "Could not read positive semi-major "
+                  << "and semi-minor axies from:  " << state_path
+                  << ". The read values are: "
+                  << m_semi_major_axis << ' ' << m_semi_minor_axis);
 
-   // Handle load failure
+  // Handle load failure
   if (!raster_model)
-    vw::vw_throw( vw::ArgumentErr() << "Failed to cast linescan model to raster type!");
+    vw::vw_throw(vw::ArgumentErr() << "Failed to cast linescan model to raster type.");
   
   m_csm_model.reset(raster_model); // We will handle cleanup of the model
 }
@@ -504,7 +539,10 @@ Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
 
   csm::EcefCoord  ecef = vectorToEcefCoord(point);
 
-  double desiredPrecision = 0.01;
+  // TODO(oalexan1): Think about how many digits of precision are
+  // needed here.  For bundle adjustment may need many. But it will
+  // slow down mapproject.
+  double desiredPrecision = 1e-8;
   double achievedPrecision;
   csm::WarningList warnings;
   csm::WarningList * warnings_ptr = NULL;
@@ -532,15 +570,37 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
 
   csm::ImageCoord imagePt = vectorToImageCoord(pix + ASP_TO_CSM_SHIFT);
 
+  // Camera center
+  csm::EcefCoord  ctr = m_csm_model->getSensorPosition(imagePt);
+
+  // Ground point
+  double desiredPrecision  = 1e-8; 
+  double achievedPrecision = -1.0; // will be modified in the function
+  double groundHeight      = 0.0;
+  csm::EcefCoord groundPt = m_csm_model->imageToGround(imagePt, groundHeight, desiredPrecision,
+                                                       &achievedPrecision);
+  
+
+  // Normalized direction
+  Vector3 dir0 = ecefCoordToVector(groundPt) - ecefCoordToVector(ctr);
+  dir0 = dir0 / norm_2(dir0);
+  
+  return dir0;
+
+#if 0
+  // This does not work correctly for the SAR sensor.
+  // TODO(oalexan1): When this is fixed, go back to the code below as that is
+  // the more efficient way of doing it, presumably.
+  
   // This function generates the vector from the camera at the camera origin,
   //  there is a different call that gets the vector near the ground.
-  csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(imagePt);
-      //double desiredPrecision = 0.001,
-      //double* achievedPrecision = NULL,
-      //WarningList* warnings = NULL)
-
+  csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(imagePt,
+                                                                desiredPrecision,
+                                                                &achievedPrecision);
   Vector3 dir = ecefVectorToVector(locus.direction);
+
   return dir;
+#endif
 }
 
 Vector3 CsmModel::camera_center(Vector2 const& pix) const {
@@ -548,7 +608,7 @@ Vector3 CsmModel::camera_center(Vector2 const& pix) const {
 
   csm::ImageCoord imagePt = vectorToImageCoord(pix + ASP_TO_CSM_SHIFT);
   csm::EcefCoord  ecef    = m_csm_model->getSensorPosition(imagePt);
-  
+
   return ecefCoordToVector(ecef);
 }
 
@@ -558,6 +618,8 @@ void CsmModel::save_transformed_json_state(std::string const& json_state_file,
 
   csm::RasterGM* raster_model = dynamic_cast<csm::RasterGM*>(this->m_csm_model.get());
 
+  // TODO(oalexan1): Make this work for Frame and SAR
+  
   UsgsAstroLsSensorModel * ls_model
     = dynamic_cast<UsgsAstroLsSensorModel*>(this->m_csm_model.get());
   
@@ -588,6 +650,8 @@ void CsmModel::save_transformed_json_state(std::string const& json_state_file,
   ale::Vec3d zero_t(0, 0, 0);
   
   // Sensor rotations
+  // TODO(oalexan1): When USGSCSM releases the version having these
+  // functions then use those.
   std::vector<double> quaternions = j["m_quaternions"].get<std::vector<double>>();
   asp::applyRotationToQuatVec(r, quaternions);
   j["m_quaternions"] = quaternions;
@@ -605,8 +669,9 @@ void CsmModel::save_transformed_json_state(std::string const& json_state_file,
   // We do not change the sun position or velocity. The idea is that
   // the sun is so far, that minor adjustments in camera location
   // won't affect where the Sun is.
-  
-  std::string stateString = ls_model->getModelName() + "\n" + j.dump();
+
+  int indent = 2; // Write on multiple lines rather than using a single giant line
+  std::string stateString = ls_model->getModelName() + "\n" + j.dump(indent);
 
   vw_out() << "Writing adjusted JSON state: " << json_state_file << std::endl;
   std::ofstream ofs(json_state_file.c_str());
