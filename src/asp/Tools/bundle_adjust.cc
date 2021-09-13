@@ -428,7 +428,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     
   const size_t num_residuals = residuals.size();
 
-  const std::string residual_path               = residual_prefix + "_averages.txt";
+  const std::string residual_path               = residual_prefix + "_stats.txt";
   const std::string residual_raw_pixels_path    = residual_prefix + "_raw_pixels.txt";
   const std::string residual_raw_gcp_path       = residual_prefix + "_raw_gcp.txt";
   const std::string residual_raw_cams_path      = residual_prefix + "_raw_cameras.txt";
@@ -437,10 +437,10 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   // Write a report on residual errors
   std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp,
     residual_file_raw_cams, residual_file_reference_xyz;
-  //vw_out() << "Writing: " << residual_path << std::endl;
-  //vw_out() << "Writing: " << residual_raw_pixels_path << std::endl;
-  //vw_out() << "Writing: " << residual_raw_gcp_path << std::endl;
-  //vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
+  vw_out() << "Writing: " << residual_path << std::endl;
+  vw_out() << "Writing: " << residual_raw_pixels_path << std::endl;
+  vw_out() << "Writing: " << residual_raw_gcp_path << std::endl;
+  vw_out() << "Writing: " << residual_raw_cams_path << std::endl;
   
   residual_file.open(residual_path.c_str());
   residual_file.precision(18);
@@ -457,7 +457,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   
   size_t index = 0;
   // For each camera, average together all the point observation residuals
-  residual_file << "Mean residual error and point count for cameras:\n";
+  residual_file << "Mean and median norm of residual error and point count for cameras:\n";
   for (size_t c = 0; c < param_storage.num_cameras(); ++c) {
     size_t num_this_cam_residuals = cam_residual_counts[c];
     
@@ -468,20 +468,29 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     residual_file_raw_pixels << name << ", " << num_this_cam_residuals << std::endl;
     
     double mean_residual = 0; // Take average of all pixel coord errors
+    std::vector<double> residual_norms;
     for (size_t i=0; i<num_this_cam_residuals; ++i) {
       double ex = residuals[index];
       ++index;
       double ey = residuals[index];
       ++index;
-      mean_residual += fabs(ex) + fabs(ey);
-      
+      double residual_norm = std::sqrt(ex * ex + ey * ey);
+      mean_residual += residual_norm;
+      residual_norms.push_back(residual_norm);
       residual_file_raw_pixels << ex << ", " << ey << std::endl; // Write ex, ey on raw file
     }
     // Write line for the summary file
     mean_residual /= static_cast<double>(num_this_cam_residuals);
-    residual_file << name << ", " << mean_residual << ", "
+    double median_residual = std::numeric_limits<double>::quiet_NaN();
+    if (residual_norms.size() > 0) 
+      median_residual = residual_norms[residual_norms.size()/2];
+    
+    residual_file << name                   << ", "
+                  << mean_residual          << ", "
+                  << median_residual        << ", "
                   << num_this_cam_residuals << std::endl;
   }
+  
   residual_file_raw_pixels.close();
   
   // List the GCP residuals
@@ -1192,7 +1201,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     
     std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
-    vw_out() << "Writing initial condition files..." << std::endl;
+    vw_out() << "Writing initial condition files." << std::endl;
     write_residual_logs(residual_prefix, false, opt, param_storage, 
                         cam_residual_counts, num_gcp_residuals,
                         reference_vec, cnet, crn, problem);

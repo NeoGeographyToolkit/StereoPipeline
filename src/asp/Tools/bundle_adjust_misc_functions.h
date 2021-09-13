@@ -391,6 +391,7 @@ public:
     }
 
     // Open the file
+    vw_out() << "Writing: " << kml_path << std::endl;
     vw::KMLFile kml(kml_path, name);
 
     // Set up a simple point icon with no labels
