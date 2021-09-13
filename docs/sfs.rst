@@ -671,7 +671,7 @@ Note that this invocation may run for more than a day, or even
 more. And it may be necessary to get good convergence. If the process
 gets interrupted, or the user gives up on waiting, the adjustments
 obtained so far can still be usable, if invoking bundle adjustment,
-as above, with ``--save-intermediate-cameras.`` One may also
+as above, with ``--save-intermediate-cameras``. One may also
 consider reducing ``--overlap-limit`` to perhaps 20 though
 there is some risk in doing that if images fail to overlap enough.
 
@@ -725,24 +725,28 @@ terrain as a constraint in bundle adjustment::
       --heights-from-dem-robust-threshold 10                   \
       -o ba_align_ref/run
 
-Ideally one should use more iterations though this may be slow. It is
-suggested that the images be map-projected with the cameras both
-before and after this step, as on some occasions this step may make
-things worse rather than better. One may also attempt to vary the
-value of ``--heights-from-dem-weight``.
+Note the copy command, it is used to save time by not having to
+recreate the match files. Ideally one should use more iterations in
+bundle adjustment though this may be slow. It is suggested that the
+images be map-projected with the cameras both before and after this
+step, and see if things improve. If this procedure resulted in
+improved but imperfect alignment, it may be run second time using the
+new cameras as initial guess (and reusing the match files, etc., as
+before).
 
-As before, the process may take forever, and if interrupted, perhaps the 
-adjustments saved so far may be good enough.
+The switch --save-intermediate cameras is helpful, as before, if
+desired to stop if things take too long.
 
-After mapprojecting with the newly refined cameras in ``ba_align_ref``,
-any residual alignment errors should go away. The value used for
-``--heights-from-dem-weight`` may need some experimentation. The
-reference DEM has vertical error as well, so of this value is too high,
-it may bind too tightly to this somewhat inaccurate DEM. Yet, making it
-too low may not constrain sufficiently the uncertainty that exists in
-the height of triangulated points after bundle adjustment, which is
-rather high since LRO NAC is mostly looking down so the convergence
-angle among any rays going through matching interest points is small.
+After mapprojecting with the newly refined cameras in
+``ba_align_ref``, any residual alignment errors should go away. The
+value used for ``--heights-from-dem-weight`` may need some
+experimentation. Making it too high may result in a tight coupling to
+the reference DEM at the expense of self-consistency between the
+cameras. Yet making it too low may not constrain sufficiently the
+uncertainty that exists in the height of triangulated points after
+bundle adjustment, which is rather high since LRO NAC is mostly
+looking down so the convergence angle among any rays going through
+matching interest points is small.
 
 It is suggested that the user examine the file::
 
@@ -764,15 +768,14 @@ but mostly they should be small, perhaps on the order of 1 meter.
 
 The file::
 
-   ba_align_ref/run-final_residuals_raw_pixels.txt
+   ba_align_ref/run-final_residuals_stats.txt
 
-should also be examined. It has the ``x`` and ``y`` pixel residuals
-for each pixel.  The norm of each pixel residual can be computed, and
-their median can be found (at some point this will be done
-automatically). Images for which the median pixel residual is larger
-than 1 pixel or which have too few such residuals should be excluded
-from running SfS, as likely for those the cameras are not correctly
-positioned.
+should also be examined. For each camera it has the median of the
+norms of all residuals (reprojection errors) of pixels projecting in
+that camera. Images for which this median is larger than 1 pixel or
+which have too few such residuals (see the ``count`` field in that
+file) should be excluded from running SfS, as likely for those 
+cameras are not correctly positioned.
 
 If, even after this step, the mapprojected images fail to be perfectly
 on top of each other, or areas with poor coverage exist, more images
@@ -885,13 +888,13 @@ It is very recommended to redo the whole process using the improved
 alignment. First, the alignment transform must be applied to the
 camera adjustments, by invoking bundle adjustment as earlier, with the
 best cameras so far provided via ``--input-adjustments-prefix`` and
-the latest ``pc_align`` transform passed to
-``--initial-transform``. Then, another pass of bundle adjustment while
-doing registration to the ground should take place as earlier, with
-``--heights-from-dem`` and other related options. Lastly mapprojection
-and SfS should be repeated. (Any bundle adjustment operation can reuse
-the match files from previous attempts if copying them over to the new
-output directory.)
+the latest ``pc_align`` transform passed to ``--initial-transform``
+and the switch ``--apply-initial-transform-only``. Then, another pass of
+bundle adjustment while doing registration to the ground should take
+place as earlier, with ``--heights-from-dem`` and other related
+options. Lastly mapprojection and SfS should be repeated. (Any bundle
+adjustment operation can reuse the match files from previous attempts
+if copying them over to the new output directory.)
 
 Ideally, after all this, there should be no systematic offset
 between the SfS terrain and the reference LOLA terrain.

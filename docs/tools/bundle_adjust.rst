@@ -69,6 +69,9 @@ initial transform can have a rotation, translation, and scale, and it
 is applied after the input adjustments are read, if those are
 present. An example is shown in (:numref:`ba_pc_align`).
 
+Output error files
+~~~~~~~~~~~~~~~~~~
+
 If the ``--datum`` option is specified, ``bundle_adjust`` will write
 the triangulated world position for every feature being matched in two
 or more images, and the mean absolute residuals (reprojection errors)
@@ -76,7 +79,7 @@ for each position, before and after optimization. The files are named
 
 ::
 
-     {output-prefix}-initial_residuals_.csv
+     {output-prefix}-initial_residuals_pointmap.csv
 
 and
 
@@ -95,12 +98,17 @@ sample file::
 The field ``num_observations`` counts how many images each point gets
 projected into.
 
-It will also write initial and final ``raw_pixels.txt`` files, having
-the reprojection error for each pixel in each camera.
+The initial and final mean and median of residual error norms for the
+pixels each camera are written to ``residuals_stats.txt`` files in
+the output directory.
+
+As a finer-grained metric, initial and final ``raw_pixels.txt`` files
+will be written, having the row and column residuals (reprojectio
+errors) for each pixel in each camera.
 
 .. _bagcp:
 
-Ground Control Points
+Ground control points
 ~~~~~~~~~~~~~~~~~~~~~
 
 A number of plain-text files containing ground control points (GCP) can

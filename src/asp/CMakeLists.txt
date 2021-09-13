@@ -181,6 +181,7 @@ if (NOT APPLE)
     # For Linux, need to do:
     # ln -s $HOME/miniconda3/envs/asp_deps/x86_64-conda_cos6-linux-gnu/sysroot/lib/libgomp.so.1 $HOME/miniconda3/envs/asp_deps/bin/../x86_64-conda-linux-gnu/sysroot/lib/../lib/libgomp.so
     # I tried to figure out why this is necessary and could not.
+    # Note: The above may not be necessary anymore with newer conda tools.
     find_package(OpenMP REQUIRED)
     if (OpenMP_FOUND)
         set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")

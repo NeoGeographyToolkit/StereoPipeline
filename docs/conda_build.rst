@@ -98,7 +98,7 @@ clone`` from::
 It may be helpful to look at the ``meta.yml`` files for the
 visionworkbench and stereopipeline feedstock repositories, and install
 the dependencies of those packages in the isis5.0.1 environment created
-earier, except for those that we actually plan to build.
+earlier, except for those that we actually plan to build.
 
 Synchronize the versions with the existing environment
 ------------------------------------------------------
@@ -154,7 +154,7 @@ command along the lines:
 ::
 
     anaconda upload \
-      $HOME/miniconda3/envs/tools/conda-bld/linux-64/mypackage.tar.bz2
+      $HOME/miniconda3/envs/asp_deps/conda-bld/linux-64/mypackage.tar.bz2
 
 (Use above the path echoed on the screen by the ``conda build``
 command.)
@@ -189,3 +189,21 @@ depends on ``laszip`` and ``gdal``, ``theia`` depends on
 ``imagemagick``, and ``visionworkbench`` depends on ``gdal``. The
 ``stereopipeline`` package depends on all of these so it should be
 built the last.
+
+
+.. _compilers:
+
+Note on compilers
+-----------------
+
+On Linux, the conda packages are set to be built with conda-provided
+versions of the C, C++, and Fortran compilers. For OSX, the local
+system Clang compilers are used, as the conda-provided
+ones turned out to result in problems at runtime.
+
+To install these compilers in a desired environemnt on Linux for use
+without ``conda build``, do::
+
+    conda install -c conda-forge gcc_linux-64==11.1.0 \
+      gxx_linux-64==11.1.0 gfortran_linux-64==11.1.0
+

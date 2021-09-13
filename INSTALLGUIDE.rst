@@ -295,68 +295,74 @@ Next, set up a work directory::
 Building VisionWorkbench and Stereo Pipeline on Linux::
 
     cd $buildDir
-    ~/miniconda3/envs/asp_deps/bin/git clone \
+    envPath=$HOME/miniconda3/envs/asp_deps
+    $envPath/bin/git clone \
         git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
     git checkout 3.0.0 # check out the desired commit
     mkdir -p build
     cd build
-    ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-      -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
-      -DCMAKE_C_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-gcc \
-      -DCMAKE_CXX_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-g++
+    $envPath/bin/cmake ..                                             \
+      -DASP_DEPS_DIR=$envPath                                         \
+      -DCMAKE_VERBOSE_MAKEFILE=ON                                     \
+      -DCMAKE_INSTALL_PREFIX=$buildDir/install                        \
+      -DCMAKE_C_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-gcc \
+      -DCMAKE_CXX_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-g++
     make -j10
     make install
 
     cd $buildDir
-    ~/miniconda3/envs/asp_deps/bin/git clone \
+    envPath=$HOME/miniconda3/envs/asp_deps
+    $envPath/bin/git clone \
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
     git checkout 3.0.0 # check out the desired commit
     mkdir -p build
     cd build
-    ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-      -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
-      -DCMAKE_INSTALL_PREFIX=$buildDir/install                                              \
-      -DVISIONWORKBENCH_INSTALL_DIR=$buildDir/install                                       \
-      -DCMAKE_C_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-gcc \
-      -DCMAKE_CXX_COMPILER=$HOME/miniconda3/envs/asp_deps/bin/x86_64-conda_cos6-linux-gnu-g++
+    $envPath/bin/cmake ..                                             \
+      -DASP_DEPS_DIR=$envPath                                         \
+      -DCMAKE_VERBOSE_MAKEFILE=ON                                     \
+      -DCMAKE_INSTALL_PREFIX=$buildDir/install                        \
+      -DVISIONWORKBENCH_INSTALL_DIR=$buildDir/install                 \
+      -DCMAKE_C_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-gcc \
+      -DCMAKE_CXX_COMPILER=$envPath/bin/x86_64-conda_cos6-linux-gnu-g++
     make -j10
     make install
 
 Building VisionWorkbench and ASP on OSX (just as above, but omitting the compilers)::
 
     cd $buildDir
-    ~/miniconda3/envs/asp_deps/bin/git clone \
+    envPath=$HOME/miniconda3/envs/asp_deps
+    $envPath/bin/git clone \
       git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
     git checkout 3.0.0 # check out the desired commit
     mkdir -p build
     cd build
-    ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-      -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
+    $envPath/bin/cmake ..                      \
+      -DASP_DEPS_DIR=$envPath                  \
+      -DCMAKE_VERBOSE_MAKEFILE=ON              \
       -DCMAKE_INSTALL_PREFIX=$buildDir/install
     make -j10
     make install
 
     cd $buildDir
-    ~/miniconda3/envs/asp_deps/bin/git clone \
+    envPath=$HOME/miniconda3/envs/asp_deps
+    $envPath/bin/git clone \
       git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
     git checkout 3.0.0 # check out the desired commit
     mkdir -p build
     cd build
-    ~/miniconda3/envs/asp_deps/bin/cmake ..                                                 \
-      -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps                                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                                                           \
-      -DVISIONWORKBENCH_INSTALL_DIR=$buildDir/install                                       \
+    $envPath/bin/cmake ..                             \
+      -DASP_DEPS_DIR=$envPath                         \
+      -DCMAKE_VERBOSE_MAKEFILE=ON                     \
+      -DVISIONWORKBENCH_INSTALL_DIR=$buildDir/install \
       -DCMAKE_INSTALL_PREFIX=$buildDir/install
     make -j10
     make install
+
+The compilers were added to the above environment as described in :numref:`compilers`.
 
 Building the documentation
 --------------------------

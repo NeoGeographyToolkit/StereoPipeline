@@ -3,20 +3,19 @@
 stereo_gui
 ----------
 
-The ``stereo_gui`` program is a GUI frontend to ``stereo``, and has the
-same command-line options. It can display the input images side-by-side
-(and in other ways, as detailed later). One can zoom in by dragging the
-mouse from upper-left to lower-right, and zoom out via the reverse
-motion.
+The ``stereo_gui`` program is a GUI frontend to ``stereo`` and
+``parallel_stereo``, and has the same command-line options. It can be
+used for performing experiments on small clips. One can zoom in by
+dragging the mouse from upper-left to lower-right, and zoom out via
+the reverse motion.
 
-By pressing the ``Control`` key while dragging the mouse, regions can be
-selected in the input images, and then stereo can be run on these
-regions from the menu via Run\ :math:`\rightarrow`\ Stereo. The
-``stereo`` command that is invoked (with appropriately populated
-parameter values for ``--left-image-crop-win`` and
-``--right-image-crop-win`` for the selected regions) will be displayed
-on screen, and can be re-run on a more powerful machine/cluster without
-GUI access.
+By pressing the ``Control`` key while dragging the mouse, clips can be
+selected in the input images, and then the stereo programs can be run
+on these clips from the ``Run`` menu. The desired regions are passed
+to these programs via the ``--left-image-crop-win`` and
+``--right-image-crop-win`` options. The actual command being used will
+be displayed on screen, and can be re-run on a more powerful
+machine/cluster without GUI access.
 
 Additional navigation options are using the mouse wheel or the +/- keys
 to zoom, and the arrow keys to pan (one should first click to bring into
@@ -26,18 +25,18 @@ focus the desired image before using any keys).
    :name: asp_gui_fig
    :alt: stereo_gui.
 
-   An illustration of stereo_gui. The ``stereo`` command will be run on
+   An illustration of ``stereo_gui``. Stereo processing will happen on
    the regions selected by red rectangles.
 
 Usage::
 
-     ISIS> stereo_gui [options] <images> [<cameras>] output_file_prefix
+    stereo_gui [options] <images> [<cameras>] output_file_prefix
 
 Use as an Image Viewer
 ~~~~~~~~~~~~~~~~~~~~~~
 
 This program can be also used as a general-purpose image viewer, case in
-which no stereo options or camera information is necessary. It can
+which no stereo options or cameras are necessary. It can
 display arbitrarily large images with integer, floating-point, or RGB
 pixels, including ISIS .cub files and DEMs. It handles large images by
 building on disk pyramids of increasingly coarser subsampled images and
@@ -49,7 +48,7 @@ The images can be shown either side-by-side, as tiles on a grid (using
 ``--single-window``), with a dialog to choose among them. In the last
 usage scenario, the option ``--use-georef`` will overlay the images
 correctly if georeference information is present. It is possible to
-switch among these modes once the GUI has been open, from the GUI View
+switch among these modes, once the GUI has been open, from the ``View``
 menu.
 
 When the images are shown side-by-side, the GUI can zoom in all images
@@ -182,8 +181,9 @@ A.map.tif, B.map.tif, and C.map.tif. Note that one should not use
 Then bundle adjustment is invoked as follows, during which the transfer
 of interest points happens::
 
-      bundle_adjust A.tif B.tif C.tif <cameras> run/run \
-      --mapprojected-data 'A.map.tif B.map.tif C.map.tif dem.tif' --min-matches 0  
+    bundle_adjust A.tif B.tif C.tif <cameras>                     \
+      --mapprojected-data 'A.map.tif B.map.tif C.map.tif dem.tif' \
+      --min-matches 0 -o run/run 
 
 If the mapprojected images are still too different for interest point
 matching among them to succeed, one can try to bring in more images that
@@ -214,7 +214,7 @@ Polygon editing and contouring
 georeferenced images, save them as shape files (``*.shp``), and load such
 files from the command line (including ones produced with external
 tools). The editing functionality can be accessed by turning on
-polygon editing from the ``Vector Layer`` menu, and then right-clicking
+polygon editing from the ``Vector layer`` menu, and then right-clicking
 with the mouse to access the various functions.
 
 To create polygons, click with the left mouse button on points
@@ -225,13 +225,13 @@ Polygons can be saved from the right-click menu. When reading polygons
 and georeferenced images from disk, choose "View as Georeferenced
 Images" to plot the polygons on top of the images.
 
-Subsequently, the ``gdal_rasterize`` command can be used to keep or
-exclude the portion of a given image/DEM that is within or outside the
-polygonal shape.
+As an application, the ``gdal_rasterize`` command can be used to keep
+or exclude the portion of a given georeferenced image or a DEM that is
+within or outside the polygonal shape.
 
 This tool can be used to find the polygonal contour at a given image
 threshold (which can be either set or computed from the ``Threshold``
-menu). This option is accessible from the ``Vector Layer`` menu as well,
+menu). This option is accessible from the ``Vector layer`` menu as well,
 with or without the polygon editing mode being on.
 
 .. _thresh:

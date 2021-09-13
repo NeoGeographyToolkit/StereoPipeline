@@ -269,8 +269,8 @@ For DigitalGlobe/Maxar images the cameras need to be specified separately:
 
 ::
 
-     > parallel_stereo left.tif right.tif left.xml right.xml \
-         -s stereo.default results/output
+    parallel_stereo left.tif right.tif left.xml right.xml \
+      -s stereo.default results/output
 
 As stated in :numref:`moc_tutorial`, the string
 ``results/output`` is arbitrary, and in this case we will simply make
@@ -719,7 +719,7 @@ different stages of processing.
 
 ::
 
-     >  disparitydebug results/output-F.tif
+    disparitydebug results/output-F.tif
 
 If the output H and V files from ``disparitydebug`` look good, then the
 point cloud image is most likely ready for post-processing. You can
@@ -771,7 +771,7 @@ create a 3D textured mesh in the plain text ``.obj`` format that can be
 opened in a mesh viewer such as MeshLab. The ``point2mesh`` program
 takes the point cloud file and the left normalized image as inputs::
 
-     > point2mesh results/output-PC.tif results/output-L.tif
+     point2mesh results/output-PC.tif results/output-L.tif
 
 An example visualization is shown in :numref:`p19-osg`.
 
@@ -779,7 +779,7 @@ If you already have a DEM and an ortho image (:numref:`builddem`),
 they can be used to build a mesh as well, in the same way as done
 above::
 
-     > point2mesh results/output-DEM.tif results/output-DRG.tif
+     point2mesh results/output-DEM.tif results/output-DRG.tif
 
 .. _builddem:
 
@@ -791,7 +791,7 @@ The ``point2dem`` program (page ) creates a Digital Elevation Model
 
 ::
 
-     >  point2dem results/output-PC.tif
+     point2dem results/output-PC.tif
 
 The resulting TIFF file is map-projected and will contain georeference
 information stored as GeoTIFF tags.
@@ -804,7 +804,7 @@ PROJ.4 string can be passed in.
 
 ::
 
-     >  point2dem -r mars results/output-PC.tif
+     point2dem -r mars results/output-PC.tif
 
 The output DEM will be named ``results/output-DEM.tif``. It can be
 imported into a variety of GIS platforms. The DEM can be transformed
@@ -817,7 +817,7 @@ images onto the DEM. To do this, invoke ``point2dem`` just as before,
 but add the ``--orthoimage`` option and specify the use of the left
 image file as the texture file to use for the projection::
 
-     >  point2dem results/output-PC.tif --orthoimage results/output-L.tif
+     point2dem results/output-PC.tif --orthoimage results/output-L.tif
 
 The texture file must always be specified after the point cloud file in
 this command. See :numref:`p19-norm_ortho` on the
@@ -827,7 +827,7 @@ To fill in any holes in the obtained orthoimage, one can invoke it with
 a larger value of the grid size (the ``--tr`` option) and/or with a
 variation of the options::
 
-      --no-dem --orthoimage-hole-fill-len 100 --search-radius-factor 2 
+    --no-dem --orthoimage-hole-fill-len 100 --search-radius-factor 2 
 
 The ``point2dem`` program is also able to accept output projection
 options the same way as the tools in GDAL. Well-known EPSG, IAU2000
@@ -841,17 +841,19 @@ datum in the geoheader, not just the values of its axes.
 
 ::
 
-     point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"
-        results/output-PC.tif
+    point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"          \
+       results/output-PC.tif
 
-     point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/ \
-        results/output-PC.tif
+    point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/ \
+       results/output-PC.tif
 
-      point2dem --t_srs 'GEOGCS["Geographic Coordinate System",                     
-                            DATUM["D_Mars_2000",
-                            SPHEROID["Mars_2000_IAU_IAG",3396190,169.894447223611]],
-                            PRIMEM["Greenwich",0],
-                            UNIT["degree",0.0174532925199433]]' results/output-PC.tif
+    point2dem --t_srs                                                \
+      'GEOGCS["Geographic Coordinate System",                     
+         DATUM["D_Mars_2000",
+         SPHEROID["Mars_2000_IAU_IAG",3396190,169.894447223611]],
+         PRIMEM["Greenwich",0],
+         UNIT["degree",0.0174532925199433]]'                         \
+      results/output-PC.tif
 
 The ``point2dem`` program can be used in many different ways. The
 complete documentation is in :numref:`point2dem`.
@@ -935,10 +937,10 @@ first).
 
 ::
 
-     >  pc_align --max-displacement 200 --datum MOLA   \
-          --save-inv-transformed-reference-points      \
-          --csv-format '1:lon 2:lat 3:radius_m'        \
-          stereo-PC.tif mola.csv
+    pc_align --max-displacement 200 --datum MOLA   \
+      --save-inv-transformed-reference-points      \
+      --csv-format '1:lon 2:lat 3:radius_m'        \
+      stereo-PC.tif mola.csv
 
 It is important to note here that there are two widely used Mars datums,
 and if your CSV file has, unlike above, the heights relative to a datum,
@@ -994,7 +996,7 @@ ellipsoid. If desired, the ``dem_geoid`` program can be used to convert
 this DEM to be relative to a geoid/areoid on Earth/Mars respectively.
 Example usage::
 
-     >  dem_geoid results/output-DEM.tif
+    dem_geoid results/output-DEM.tif
 
 Converting to the LAS format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1004,7 +1006,7 @@ ASP, it can be converted to the LAS file format, which is a public file
 format for the interchange of 3-dimensional point cloud data. The tool
 ``point2las`` can be used for that purpose (:numref:`point2las`). Example usage::
 
-     >  point2las --compressed -r Earth results/output-PC.tif
+    point2las --compressed -r Earth results/output-PC.tif
 
 .. _genhillshade:
 
@@ -1021,7 +1023,7 @@ and max range for the color map.
 
 ::
 
-     >  colormap results/output-DEM.tif -o hrad-colorized.tif
+    colormap results/output-DEM.tif -o colorized.tif
 
 To create a hillshade of the DEM, specify the DEM file to use. You can
 control the azimuth and elevation of the light source using the ``-a``
@@ -1029,12 +1031,12 @@ and ``-e`` options.
 
 ::
 
-     >  hillshade results/output-DEM.tif -o hrad-shaded.tif -e 25 -a 300
+    hillshade results/output-DEM.tif -o shaded.tif -e 25 -a 300
 
 To create a colorized version of the shaded relief file, specify the DEM
 and the shaded relief file that should be used::
 
-     >  colormap results/output-DEM.tif -s hrad-shaded.tif -o hrad-color-shaded.tif
+    colormap results/output-DEM.tif -s shaded.tif -o color-shaded.tif
 
 See :numref:`hrad-color` showing the images obtained with these
 commands.
@@ -1064,8 +1066,8 @@ georeferencing information (e.g. grayscale or RGB GeoTIFF images). In
 this example, it can be used to process
 
 | ``results/output-DEM-normalized.tif``, ``results/output-DRG.tif``,
-  ``hrad-shaded.tif``,
-| ``hrad-colorized.tif``, and ``hrad-shaded-colorized.tif``.
+  ``shaded.tif``,
+| ``colorized.tif``, and ``shaded-colorized.tif``.
 
 These images were generated respectively by using ``point2dem`` with the
 ``-n`` option creating a normalized DEM, the ``--orthoimage`` option to
@@ -1074,7 +1076,7 @@ created earlier with ``colormap``.
 
 Here’s an example of how to invoke this program::
 
-     >  image2qtree hrad-shaded-colorized.tif -m kml --draw-order 100
+    image2qtree shaded-colorized.tif -m kml --draw-order 100
 
 :numref:`hrad-kml` shows the obtained KML files in Google
 Earth.
@@ -1132,7 +1134,7 @@ then you can run :ref:`point2mesh` on them to get ``.obj`` and
 Using MeshLab to visualize meshes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Alternatively, MeshLab is another program that can view meshes in 
+MeshLab is another program that can view meshes in 
 ``.obj`` files. It can be downloaded from::
 
   https://github.com/cnr-isti-vclab/meshlab/releases
