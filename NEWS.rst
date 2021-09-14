@@ -6,28 +6,38 @@ bundle_adjust:
     to final_residuals_pointmap.csv and
     final_residuals_no_loss_function_raw_pixels.txt to 
     final_residuals_raw_pixels.txt, etc.
-  * Add the option --apply-initial-transform-only to apply
-    an initial transform to cameras while skipping
-    image matching and other steps.
+  * Document the useful initial and final residuals_stats.txt files. 
+  * Add the option --apply-initial-transform-only to apply an initial
+    transform to cameras while skipping image matching and other
+    steps, making the process much faster.
 
 stereo:
   * Added the experimental --gotcha-disparity-refinement option, under
     NASA proposal 19-PDART19_2-0094.
-  * Many fixes for reliability of stereo with local alignment.
+  * Many fixes for reliability of stereo with local epipolar alignment.
   * ASP's SGM and MGM algorithms will always use the cross-check for
     disparity by default, to improve the quality, even if that takes
     more time. It can be turned off with --xcorr-threshold -1.
   * The stereo tool is deprecated, and can be used only with 
-    classical block matching without local alignment. Use 
-    parallel_stereo instead. 
+    the ASP_BM classical block-matching algorithm when invoked without
+    local epipolar alignment. Use parallel_stereo instead. 
 
 stereo_gui: 
-  * Bugfix with overlaying shapefiles with different georeferences.
+  * Bugfix when overlaying shapefiles with different georeferences.
 
 mapproject:
   * If the input image file has an embedded RPC camera model, append
-    it to the output maprojected file. (Which makes stereo with
+    it to the output mapprojected file. (Which makes stereo with
     mapprojected images work correctly in this case.)
+
+csm:
+  * Added support for the USGSCSM SAR sensor.
+  * Save the camera state on multiple lines. On reading both the
+    single-line and multiple-line formats are accepted.
+
+isis:
+  * Added support for SAR cameras (when the .cub files are not
+    projected).
 
 Misc:
   * Added the tool parse_match_file.py to convert a binary match file

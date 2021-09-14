@@ -115,31 +115,29 @@ int main( int argc, char *argv[] ) {
     // Load the csm camera
     std::string csm_session_name; 
     SessionPtr csm_session(asp::StereoSessionFactory::create(csm_session_name, // will change
-                                                              opt,
-                                                              opt.image_file, opt.image_file,
-                                                              opt.camera_file, opt.camera_file,
-                                                              out_prefix));
+                                                             opt,
+                                                             opt.image_file, opt.image_file,
+                                                             opt.camera_file, opt.camera_file,
+                                                             out_prefix));
     boost::shared_ptr<vw::camera::CameraModel> csm_camera_model
       = csm_session->camera_model(opt.image_file, opt.camera_file);
 
     // The input image
     DiskImageView<float> image(opt.image_file);
     std::cout << "Image dimensions: " << image.cols() << ' ' << image.rows() << std::endl;
-
+    
     // Iterate over the image
     std::vector<double> ctr_diff, dir_diff, isis2csm_diff, csm2isis_diff;
     for (int col = 0; col < image.cols(); col += opt.sample_rate) {
       for (int row = 0; row < image.rows(); row += opt.sample_rate) {
 
         Vector2 image_pix(col, row);
-
-        Vector3 isis_ctr = isis_camera_model->camera_center(image_pix);
-        Vector3 isis_dir = isis_camera_model->pixel_to_vector(image_pix);
-        
         Vector3 csm_ctr = csm_camera_model->camera_center(image_pix);
-        Vector3 csm_dir = csm_camera_model->pixel_to_vector(image_pix);
-
+        Vector3 isis_ctr = isis_camera_model->camera_center(image_pix);
         ctr_diff.push_back(norm_2(isis_ctr - csm_ctr));
+
+        Vector3 csm_dir = csm_camera_model->pixel_to_vector(image_pix);
+        Vector3 isis_dir = isis_camera_model->pixel_to_vector(image_pix);
         dir_diff.push_back(norm_2(isis_dir - csm_dir));
         
         // Shoot a ray from the ISIS camera, intersect it with the datum,
@@ -153,6 +151,7 @@ int main( int argc, char *argv[] ) {
         xyz = vw::cartography::datum_intersection(datum, csm_ctr, csm_dir);
         Vector2 isis_pix = isis_camera_model->point_to_pixel(xyz);
         csm2isis_diff.push_back(norm_2(image_pix - isis_pix));
+        
       }
     }
 
