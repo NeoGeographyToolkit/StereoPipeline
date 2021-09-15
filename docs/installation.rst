@@ -2,11 +2,11 @@
 
 .. include:: ../INSTALLGUIDE.rst
 
-Settings Optimization
+Settings optimization
 ---------------------
 
 Finally, the last thing to be done for Stereo Pipeline is to setup up
-Vision Workbench’s render and logging settings. This step is optional,
+Vision Workbench's render and logging settings. This step is optional,
 but for best performance some thought should be applied here.
 
 Vision Workbench is a multi-threaded image processing library used by
@@ -74,15 +74,15 @@ Below is an example::
   # 10 = stereo
 
 There are a lot of possible options that can be implemented in the above
-example. Let’s cover the most important options and the concerns the
+example. Let's cover the most important options and the concerns the
 user should have when selecting a value.
 
-Performance Settings
+Performance settings
 ~~~~~~~~~~~~~~~~~~~~
 
 ``default_num_threads`` (default=2)
    This sets the maximum number of threads that can be used for
-   rendering. When stereo’s ``subpixel_rfne`` is running you’ll
+   rendering. When stereo's ``subpixel_rfne`` is running you'll
    probably notice 10 threads are running when you have
    ``default_num_threads`` set to 8. This is not an error, you are
    seeing 8 threads being used for rendering, 1 thread for holding
@@ -103,8 +103,8 @@ Performance Settings
    will let rows of tiles to be written out of order, while tiles
    inside a row must be written in order. Because of the previous
    constraint, after a tile is rasterized it might spend some time
-   waiting in the ‘write pool’ before it can be written to disk. If
-   the ‘write pool’ fills up, only the next tile in order can be
+   waiting in the aEUR~write pool' before it can be written to disk. If
+   the aEUR~write pool' fills up, only the next tile in order can be
    rasterized. That makes Stereo Pipeline perform like it is only
    using a single processor.
 
@@ -119,7 +119,7 @@ Performance Settings
    especially bad if an application needs to make multiple passes over
    an input file. To increase performance, Vision Workbench will
    usually leave an input file stored in memory for quick access. This
-   file storage is known as the ’system cache’ and its max size is
+   file storage is known as the 'system cache' and its max size is
    dictated by ``system_cache_size``. The default value is 768 MB.
 
    Setting this value too high can cause your application to crash. It
@@ -135,12 +135,12 @@ Performance Settings
 
 .. _logging:
 
-Logging Settings
+Logging settings
 ~~~~~~~~~~~~~~~~
 
 The messages displayed in the console by Stereo Pipeline are grouped
 into several namespaces, and by level of verbosity. An example of
-customizing Stereo Pipeline’s output is given in the ``.vwrc`` file
+customizing Stereo Pipeline's output is given in the ``.vwrc`` file
 shown above.
 
 Several of the tools in Stereo Pipeline, including ``parallel_stereo``,
