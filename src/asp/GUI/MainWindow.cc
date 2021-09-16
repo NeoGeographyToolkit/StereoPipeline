@@ -359,16 +359,16 @@ void MainWindow::createMenus() {
   m_select_region_action->setStatusTip(tr("Select rectangular region"));
   connect(m_select_region_action, SIGNAL(triggered()), this, SLOT(select_region()));
   
-  // Run stereo
-  m_run_stereo_action = new QAction(tr("Run stereo"), this);
-  m_run_stereo_action->setStatusTip(tr("Run stereo on selected clips"));
-  connect(m_run_stereo_action, SIGNAL(triggered()), this, SLOT(run_stereo()));
-  m_run_stereo_action->setShortcut(tr("R"));
-
   // Run parallel_stereo
   m_run_parallel_stereo_action = new QAction(tr("Run parallel_stereo"), this);
   m_run_parallel_stereo_action->setStatusTip(tr("Run parallel_stereo on selected clips"));
   connect(m_run_parallel_stereo_action, SIGNAL(triggered()), this, SLOT(run_parallel_stereo()));
+  m_run_parallel_stereo_action->setShortcut(tr("R"));
+
+  // Run stereo (this tool is depreprecated)
+  m_run_stereo_action = new QAction(tr("Run stereo"), this);
+  m_run_stereo_action->setStatusTip(tr("Run stereo on selected clips"));
+  connect(m_run_stereo_action, SIGNAL(triggered()), this, SLOT(run_stereo()));
 
   // Size to fit
   m_sizeToFit_action = new QAction(tr("Size to fit"), this);
