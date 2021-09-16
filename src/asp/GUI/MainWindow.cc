@@ -512,8 +512,8 @@ void MainWindow::createMenus() {
 
   // Run menu
   m_file_menu = menu->addMenu(tr("&Run"));
-  m_file_menu->addAction(m_run_stereo_action);
   m_file_menu->addAction(m_run_parallel_stereo_action);
+  m_file_menu->addAction(m_run_stereo_action);
 
   // View menu
   m_view_menu = menu->addMenu(tr("&View"));
