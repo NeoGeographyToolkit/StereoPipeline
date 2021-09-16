@@ -137,9 +137,13 @@ public:
     bool do_bathy = false;
     bool did_bathy = false;
     if (!m_bathy_correct) {
-      subvector(result,0,3) = m_stereo_model(pixVec, errorVec, do_bathy, did_bathy);
-      subvector(result,3,3) = errorVec;
-
+      try {
+        subvector(result,0,3) = m_stereo_model(pixVec, errorVec, do_bathy, did_bathy);
+        subvector(result,3,3) = errorVec;
+      }catch(...) {
+        return result;
+      }
+      
       return result; // Contains location and error vector
     }
 
