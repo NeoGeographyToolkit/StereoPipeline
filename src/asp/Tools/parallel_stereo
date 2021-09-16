@@ -571,6 +571,13 @@ if __name__ == '__main__':
     # Those scripts in turn start actual jobs on those nodes.
     # For the other steps, the script does the work itself.
 
+    # Python does not know how to disambiguate between two
+    # options which start with a similar prefix.
+    if '--threads' in sys.argv:
+        print("Ignoring the option --threads. Please use --threads-multi-process " + \
+              "and --threads-single-process.")
+        wipe_option(sys.argv, '--threads', 1)
+
     p = argparse.ArgumentParser(usage=usage)
     p.add_argument('--nodes-list',           dest='nodes_list', default=None,
                    help='The list of computing nodes, one per line. ' + \
