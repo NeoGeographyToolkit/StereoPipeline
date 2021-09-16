@@ -27,7 +27,6 @@
 #include <boost/shared_ptr.hpp>
 
 #include <vw/Camera/CameraModel.h>
-
 #include <asp/Core/StereoSettings.h>
 
 namespace csm {
@@ -35,7 +34,6 @@ namespace csm {
 }
 
 namespace asp {
-
 
   /// Class to load any cameras described by the Community Sensor Model (CSM)
   class CsmModel : public vw::camera::CameraModel {

@@ -49,14 +49,20 @@ namespace dll = boost::dll;
 namespace fs = boost::filesystem;
 using json = nlohmann::json;
 
+using namespace vw;
+
+namespace asp {
+
 // This was discussed with the USGS folks. To convert from ISIS to ASP
 // pixels we subtract 1.0. To convert from CSM pixels we have to
 // subtract only 0.5.
 const vw::Vector2 ASP_TO_CSM_SHIFT(0.5, 0.5);
 
-using namespace vw;
-
-namespace asp {
+enum USGSCSM_MODEL_TYPE {
+  USGSCSM_FRAME_MODEL,
+  USGSCSM_LINESCAN_MODEL,
+  USGSCSM_SAR_MODEL
+};
 
 vw::Mutex csm_init_mutex;
 
@@ -335,55 +341,6 @@ void CsmModel::read_ellipsoid_from_isd(std::string const& isd_path) {
                   << m_semi_major_axis << ' ' << m_semi_minor_axis);
 }
 
-// Apply a rotation to a vector of quaternions.
-// Maybe one day this will move to the usgscsm package.
-void applyRotationToQuatVec(ale::Rotation const& r, std::vector<double> & quaternions) {
-  int num_quat = quaternions.size();
-  
-  for (int it = 0; it < num_quat/4; it++) {
-
-    double * q = &quaternions[4*it];
-
-    // Note that quaternion in q is stored in order x, y, z, w, while
-    // the rotation matrix wants it as w, x, y, z.
-    
-    std::vector<double> trans_q = (r * ale::Rotation(q[3], q[0], q[1], q[2])).toQuaternion();
-
-    // Modify in-place
-    q[0] = trans_q[1];
-    q[1] = trans_q[2];
-    q[2] = trans_q[3];
-    q[3] = trans_q[0];
-  }
-  
-}
-
-// Apply a rotation and translation to a vector of xyz vectors.
-// Maybe one day this will move to the usgscsm package.
-void applyRotationTranslationToXyzVec(ale::Rotation const& r, ale::Vec3d const& t,
-                                      std::vector<double> & xyz) {
-  
-  int num_xyz = xyz.size();
-  for (int it = 0; it < num_xyz/3; it++) {
-    
-    double * p = &xyz[3*it];
-
-    ale::Vec3d p_vec(p[0], p[1], p[2]);
-    
-    // Apply the rotation
-    p_vec = r(p_vec);
-
-    // Apply the translation
-    p_vec += t;
-
-    // Modify in-place
-    p[0] = p_vec.x;
-    p[1] = p_vec.y;
-    p[2] = p_vec.z;
-    
-  }
-}
-
 /// Load the camera model from an ISD file or model state.
 void CsmModel::load_model(std::string const& isd_path) {
 
@@ -612,76 +569,214 @@ Vector3 CsmModel::camera_center(Vector2 const& pix) const {
   return ecefCoordToVector(ecef);
 }
 
+// Apply a rotation to a vector of quaternions.
+// TODO(oalexan1): Use the version from usgscsm when that one gets released.
+void applyRotationToQuatVec(ale::Rotation const& r, std::vector<double> & quaternions) {
+  int num_quat = quaternions.size();
+  
+  for (int it = 0; it < num_quat/4; it++) {
+
+    double * q = &quaternions[4*it];
+
+    // Note that quaternion in q is stored in order x, y, z, w, while
+    // the rotation matrix wants it as w, x, y, z.
+    
+    std::vector<double> trans_q = (r * ale::Rotation(q[3], q[0], q[1], q[2])).toQuaternion();
+
+    // Modify in-place
+    q[0] = trans_q[1];
+    q[1] = trans_q[2];
+    q[2] = trans_q[3];
+    q[3] = trans_q[0];
+  }
+}
+
+// Apply a rotation and translation to a vector of xyz vectors.
+// TODO(oalexan1): Use the version from usgscsm when that one gets released.
+void applyRotationTranslationToXyzVec(ale::Rotation const& r, ale::Vec3d const& t,
+                                      std::vector<double> & xyz) {
+  
+  int num_xyz = xyz.size();
+  for (int it = 0; it < num_xyz/3; it++) {
+    
+    double * p = &xyz[3*it];
+
+    ale::Vec3d p_vec(p[0], p[1], p[2]);
+    
+    // Apply the rotation
+    p_vec = r(p_vec);
+
+    // Apply the translation
+    p_vec += t;
+
+    // Modify in-place
+    p[0] = p_vec.x;
+    p[1] = p_vec.y;
+    p[2] = p_vec.z;
+    
+  }
+}
+
+// TODO(oalexan1): When USGSCSM releases the version having these
+// functions then use those and remove their copies from ASP.
+
+template<class ModelT>
+void applyTransformToStateLinescanSensor(ModelT         const * model,
+                                         ale::Rotation  const & r,
+                                         ale::Vec3d     const & t,
+                                         std::string          & stateString) {
+
+  nlohmann::json j = stateAsJson(stateString);
+
+  // Apply rotation to quaternions
+  std::vector<double> quaternions = j["m_quaternions"].get<std::vector<double>>();
+  applyRotationToQuatVec(r, quaternions);
+  j["m_quaternions"] = quaternions;
+
+  // Apply rotation and translation to positions
+  std::vector<double> positions = j["m_positions"].get<std::vector<double>>();
+  applyRotationTranslationToXyzVec(r, t, positions);
+  j["m_positions"] = positions;
+
+  // Apply rotation to velocities. The translation does not get applied.
+  ale::Vec3d zero_t(0, 0, 0);
+  std::vector<double> velocities = j["m_velocities"].get<std::vector<double>>();
+  applyRotationTranslationToXyzVec(r, zero_t, velocities);
+  j["m_velocities"] = velocities;
+
+  // Apply the transform to the reference point
+  std::vector<double> refPt = j["m_referencePointXyz"];
+  applyRotationTranslationToXyzVec(r, t, refPt);
+  j["m_referencePointXyz"] = refPt;
+
+  // We do not change the Sun position or velocity. The idea is that
+  // the Sun is so far, that minor camera adjustments won't affect
+  // where the Sun is.
+
+  // Update the state string
+  stateString = model->getModelName() + "\n" + j.dump(2);
+}
+
+template<class ModelT>
+void applyTransformToStateFrameSensor(ModelT         const * model,
+                                      ale::Rotation  const & r,
+                                      ale::Vec3d     const & t,
+                                      std::string          & stateString) {
+
+  nlohmann::json j = stateAsJson(stateString);
+
+  // The vector having the rotation and translation from camera to ECEF
+  std::vector<double> currentParameterValue = j["m_currentParameterValue"];
+  
+  // Extract the quaternions from the frame camera, apply the rotation, and put them back
+  std::vector<double> quaternions;
+  for (size_t it = 0; it < 4; it++)
+    quaternions.push_back(currentParameterValue[it + 3]);
+  applyRotationToQuatVec(r, quaternions);
+  for (size_t it = 0; it < 4; it++)
+    currentParameterValue[it + 3] = quaternions[it];
+  
+  // Extract the positions from the frame camera, apply to them the rotation and translation,
+  // and put them back
+  std::vector<double> positions;
+  for (size_t it = 0; it < 3; it++)
+    positions.push_back(currentParameterValue[it]);
+  applyRotationTranslationToXyzVec(r, t, positions);
+  for (size_t it = 0; it < 3; it++)
+    currentParameterValue[it] = positions[it];
+
+  // Put the transformed vector back in the json state
+  j["m_currentParameterValue"] = currentParameterValue;
+
+  // Apply rotation to velocities. The translation does not get applied.
+  std::vector<double> velocities = j["m_spacecraftVelocity"];
+  ale::Vec3d zero_t(0, 0, 0);
+  applyRotationTranslationToXyzVec(r, zero_t, velocities);
+  j["m_spacecraftVelocity"] = velocities;
+
+  // Apply the transform to the reference point
+  std::vector<double> refPt = j["m_referencePointXyz"];
+  applyRotationTranslationToXyzVec(r, t, refPt);
+  j["m_referencePointXyz"] = refPt;
+
+  // We do not change the Sun position or velocity. The idea is that
+  // the Sun is so far, that minor camera adjustments won't affect
+  // where the Sun is.
+
+  // Update the state string
+  stateString = model->getModelName() + "\n" + j.dump(2);
+}
+
+template<class ModelT>
+void applyTransformToStateSARSensor(ModelT         const * model,
+                                      ale::Rotation  const & r,
+                                      ale::Vec3d     const & t,
+                                      std::string          & stateString) {
+
+  nlohmann::json j = stateAsJson(stateString);
+
+  // Apply rotation and translation to positions
+  std::vector<double> positions = j["m_positions"].get<std::vector<double>>();
+  applyRotationTranslationToXyzVec(r, t, positions);
+  j["m_positions"] = positions;
+
+  // Note that the SAR sensor does not have quaternions
+  
+  // Apply rotation to velocities. The translation does not get applied.
+  ale::Vec3d zero_t(0, 0, 0);
+  std::vector<double> velocities = j["m_velocities"].get<std::vector<double>>();
+  applyRotationTranslationToXyzVec(r, zero_t, velocities);
+  j["m_velocities"] = velocities;
+
+  // Apply the transform to the reference point
+  std::vector<double> refPt = j["m_referencePointXyz"];
+  applyRotationTranslationToXyzVec(r, t, refPt);
+  j["m_referencePointXyz"] = refPt;
+
+  // We do not change the Sun position or velocity. The idea is that
+  // the Sun is so far, that minor camera adjustments won't affect
+  // where the Sun is.
+
+  // Update the state string
+  stateString = model->getModelName() + "\n" + j.dump(2);
+}
+
 // Apply a transform to the model and save the transformed state as a JSON file.
 template<class ModelT>
 void save_transformed_json_state_impl(ModelT       const * model,
+                                      USGSCSM_MODEL_TYPE   model_type, 
                                       std::string  const & json_state_file,
                                       vw::Matrix4x4 const& transform) {
   
-  // So far this works with a nontrivial transform only for the
-  // Linescan model.
-  // TODO(oalexan1): Need to add functions analogous to
-  // applyRotationTranslationToXyzVec, etc., for SAR and Frame cameras
-  // as well.
-  bool identity_transform = (transform == vw::math::identity_matrix<4>());
-  if (!identity_transform) {
-    UsgsAstroLsSensorModel const* ls_model = dynamic_cast<UsgsAstroLsSensorModel const*>(model);
-    if (ls_model == NULL) 
-      vw_out() << "Saving the adjusted JSON state with a non-identity adjustment applied to it "
-               << "is implemented only for usgscsm linescan camera models.\n";
-  }
-  
   std::string modelState = model->getModelState();
-  nlohmann::json j = stateAsJson(modelState);
-
-  // Apply the transform if not identity
+  
+  // Extract the rotation and convert it to ale::Rotation
+  vw::Matrix3x3 rotation_matrix = submatrix(transform, 0, 0, 3, 3);
+  std::vector<double> rotation_vec;
+  for (int row = 0; row < 3; row++) {
+    for (int col = 0; col < 3; col++) {
+      rotation_vec.push_back(rotation_matrix(row, col));
+    }
+  }
+  ale::Rotation r(rotation_vec);
+  
+  // Extract the translation
+  ale::Vec3d t(transform(0, 3), transform(1, 3), transform(2, 3));
+  
   // TODO(oalexan1): When USGSCSM releases the version having these
   // functions then use those and remove their copies from ASP.
-  if (!identity_transform) {
-
-    // Extract the rotation and convert it to ale::Rotation
-    vw::Matrix3x3 rotation_matrix = submatrix(transform, 0, 0, 3, 3);
-    std::vector<double> rotation_vec;
-    for (int row = 0; row < 3; row++) {
-      for (int col = 0; col < 3; col++) {
-        rotation_vec.push_back(rotation_matrix(row, col));
-      }
-    }
-    ale::Rotation r(rotation_vec);
-    
-    // Extract the translation
-    ale::Vec3d t(transform(0, 3), transform(1, 3), transform(2, 3));
-
-    // Zero translation
-    ale::Vec3d zero_t(0, 0, 0);
-    
-    // Sensor rotations
-    std::vector<double> quaternions = j["m_quaternions"].get<std::vector<double>>();
-    asp::applyRotationToQuatVec(r, quaternions);
-    j["m_quaternions"] = quaternions;
-    
-    // Sensor positions
-    std::vector<double> positions = j["m_positions"].get<std::vector<double>>();;
-    asp::applyRotationTranslationToXyzVec(r, t, positions);
-    j["m_positions"] = positions;
-    
-    // For velocities, the translation does not get added
-    std::vector<double> velocities = j["m_velocities"].get<std::vector<double>>();;
-    asp::applyRotationTranslationToXyzVec(r, zero_t, velocities);
-    j["m_velocities"] = velocities;
+  if (model_type == USGSCSM_FRAME_MODEL) 
+    applyTransformToStateFrameSensor(model, r, t, modelState);
+  else if (model_type == USGSCSM_LINESCAN_MODEL)
+    applyTransformToStateLinescanSensor(model, r, t, modelState);
+  else if (model_type == USGSCSM_SAR_MODEL) 
+    applyTransformToStateSARSensor(model, r, t, modelState);
+  else
+    vw_throw(vw::ArgumentErr() << "CsmModel:: unknown model type.\n");
   
-    // We do not change the sun position or velocity. The idea is that
-    // the sun is so far, that minor adjustments in camera location
-    // won't affect where the Sun is.
-  }
-  
-  // Write on multiple lines rather than using a single giant line
-  int indent = 2;
-  std::string stateString = model->getModelName() + "\n" + j.dump(indent);
-
   vw_out() << "Writing adjusted JSON state: " << json_state_file << std::endl;
   std::ofstream ofs(json_state_file.c_str());
-  ofs << stateString << std::endl;
+  ofs << modelState << std::endl;
   ofs.close();
 
   return;
@@ -698,21 +793,21 @@ void CsmModel::save_transformed_json_state(std::string const& json_state_file,
   UsgsAstroFrameSensorModel const* frame_model
     = dynamic_cast<UsgsAstroFrameSensorModel const*>(raster_model);
   if (frame_model != NULL) {
-    save_transformed_json_state_impl(frame_model, json_state_file, transform);
+    save_transformed_json_state_impl(frame_model, USGSCSM_FRAME_MODEL, json_state_file, transform);
     return;
   }
   
   UsgsAstroLsSensorModel const* ls_model
     = dynamic_cast<UsgsAstroLsSensorModel const*>(raster_model);
   if (ls_model != NULL) {
-    save_transformed_json_state_impl(ls_model, json_state_file, transform);
+    save_transformed_json_state_impl(ls_model, USGSCSM_LINESCAN_MODEL, json_state_file, transform);
     return;
   }
 
   UsgsAstroSarSensorModel const* sar_model
     = dynamic_cast<UsgsAstroSarSensorModel const*>(raster_model);
   if (sar_model != NULL) {
-    save_transformed_json_state_impl(sar_model, json_state_file, transform);
+    save_transformed_json_state_impl(sar_model, USGSCSM_SAR_MODEL, json_state_file, transform);
     return;
   }
 
