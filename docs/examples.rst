@@ -676,27 +676,32 @@ models for various remote sensor types :cite:`CSMTRD`. It provides
 a well-defined application program interface (API) for multiple
 types of sensors and has been widely adopted by Earth remote sensing
 software systems :cite:`hare2017community,2019EA000713`.
-ASP supports CSM by using the USGS implementation
-(https://github.com/USGS-Astrogeology/usgscsm) that we ship with
-our software.
+
+ASP supports and ships the USGS implementation of CSM for planetary images
+(https://github.com/USGS-Astrogeology/usgscsm), which provides
+Linescan, Frame, and  Synthetic Aperture Radar (SAR) implementations.
 
 CSM is handled via dynamically loaded plugins. Hence, if a user has a
 new sensor model, ASP should, in principle, be able to use it as soon
 as a supporting plugin is added to the existing software, without
 having to rebuild ASP or modify it otherwise. In practice, while this
-logic is implemented, ASP defaults to using only ``usgscsm``, though
-only minor changes are needed to support additional implementations.
+logic is implemented, ASP defaults to using only the USGS
+implementation, though only minor changes are needed to support
+additional plugins.
 
-Each stereo pair to be processed by ASP should be made up of two images
-(for example in .cub format) and two plain text camera files with
-``.json`` extension. The CSM information is contained in the ``.json``
-files and it determines which plugin to load to use with those cameras.
-More details are available at the USGS ISIS CSM repository mentioned
-earlier.
+Each stereo pair to be processed by ASP should be made up of two
+images (for example ``.cub`` or ``.tif`` files) and two plain
+text camera files with ``.json`` extension. The CSM information is
+contained in the ``.json`` files and it determines which plugin to
+load to use with those cameras.  More details are available at the
+USGS CSM repository mentioned earlier.
 
-What follows is an example of using this sensor model for Mars images,
-specifically for the CTX camera. The images are regular ``.cub`` files
-as in the tutorial in :numref:`moc_tutorial`, hence the only
+Example using the USGS CSM linescan sensor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Here we use this plugin for Mars images, specifically for the CTX
+camera, which is a linescan sensor. The images are regular ``.cub``
+files as in the tutorial in :numref:`moc_tutorial`, hence the only
 distinction is that cameras are stored as ``.json`` files.
 
 We will work with the dataset pair::
@@ -733,6 +738,29 @@ followed by mapprojecting onto it and redoing stereo::
      mapproject run/run-smooth-DEM.tif right.cub right.json right.map.tif
      parallel_stereo left.map.tif right.map.tif left.json right.json \
        run_map/run run/run-smooth-DEM.tif
+
+.. _minirf:
+
+Example using the USGS CSM SAR sensor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This proceeds largely as above. An LRO Mini-RF dataset will be used. 
+In this example the left and right images are somewhat dissimilar, 
+resulting in an noisy output stereo DEM. In the future, it is hoped
+to find a better dataset.
+
+::
+
+    parallel_stereo --corr-kernel 45 45 --subpixel-kernel 45 45 \
+      --ip-per-tile 5000 --stereo-algorithm asp_bm              \
+      --left-image-crop-win -201 8218 2123 3509                 \
+      --right-image-crop-win 765 46111 2236 4471                \
+      lsz_01636_1cd_xku_09n120_v1.cub                           \
+      lsz_02330_1cd_xku_00s120_v1.cub                           \
+      lsz_01636_1cd_xku_09n120_v1.json                          \
+      lsz_02330_1cd_xku_00s120_v1.json                          \
+      run/run
+    point2dem run/run-PC.tif
 
 Exporting CSM model state after bundle adjustment and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1065,6 +1093,37 @@ stereo.default
 The stereo.default example file (:numref:`stereodefault`) works
 well for this stereo pair. Just set ``alignment-method`` to
 ``affineepipolar`` or ``homography``.
+
+LRO Mini-RF 
+-----------
+
+This is a Synthetic Aperture Radar (SAR) sensor on the LRO spacecraft.
+An example image can be fetched from PDS and processed as::
+
+    wget https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0001/data/sar/01600_01699/level1/lsz_01636_1cd_xku_09n120_v1.img
+    wget https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0001/data/sar/01600_01699/level1/lsz_01636_1cd_xku_09n120_v1.lbl
+    mrf2isis from = lsz_01636_1cd_xku_09n120_v1.lbl \
+      to = lsz_01636_1cd_xku_09n120_v1.cub
+    spiceinit from = lsz_01636_1cd_xku_09n120_v1.cub
+
+A second image can be retrieved from::
+
+    https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0001/data/sar/02300_02399/level1/lsz_02330_1cd_xku_00s120_v1.img
+
+Then the corresponding label can be downloaded analogously, and it can be processed as above.
+
+Stereo and DEM creation are run as::
+
+    parallel_stereo --corr-kernel 45 45 --subpixel-kernel 45 45 \
+      --ip-per-tile 5000 --stereo-algorithm asp_bm              \
+      --left-image-crop-win -201 8218 2123 3509                 \
+      --right-image-crop-win 765 46111 2236 4471                \
+      lsz_01636_1cd_xku_09n120_v1.cub                           \
+      lsz_02330_1cd_xku_00s120_v1.cub                           \
+      run/run
+    point2dem run/run-PC.tif
+
+For this example one can use the USGS CSM sensor as well, as shown in :numref:`minirf`.
 
 .. _aster:
 

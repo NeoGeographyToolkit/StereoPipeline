@@ -31,13 +31,15 @@ mapproject:
     mapprojected images work correctly in this case.)
 
 csm:
-  * Added support for the USGSCSM SAR sensor.
+  * Added support for the USGSCSM Frame and SAR sensors (until now
+    just the Linescan sensor was supported). Added a SAR example in
+    the doc.
   * Save the camera state on multiple lines. On reading both the
     single-line and multiple-line formats are accepted.
 
 isis:
   * Added support for SAR cameras (when the .cub files are not
-    projected).
+    projected), together with an example in the doc.
 
 Misc:
   * Added the tool parse_match_file.py to convert a binary match file
