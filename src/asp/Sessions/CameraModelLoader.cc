@@ -35,6 +35,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/LinescanSpotModel.h>
+#include <asp/Camera/LinescanPeruSatModel.h>
 #include <asp/Camera/LinescanASTERModel.h>
 #include <asp/Camera/OpticalBarModel.h>
 #include <asp/Sessions/CameraModelLoader.h>
@@ -99,6 +100,13 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_spot5_camera_
 {
   // Redirect to the call from LinescanSpotModel.h file
   return CameraModelPtr(load_spot5_camera_model_from_xml(path));
+}
+
+// Load a PeruSat linescan camera file
+boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_perusat_camera_model(std::string const& path) const
+{
+  // Redirect to the call from LinescanSpotModel.h file
+  return CameraModelPtr(load_perusat_camera_model_from_xml(path));
 }
 
 // Load a ASTER camera file

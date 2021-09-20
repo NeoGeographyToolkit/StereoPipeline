@@ -184,6 +184,30 @@ namespace asp {
     }
   };
   
+  /// StereoSession instance for processing PeruSat data.
+  class StereoSessionPeruSat : public StereoSessionGdal {
+
+  public:
+    StereoSessionPeruSat(){}
+    virtual ~StereoSessionPeruSat(){}
+    
+    virtual std::string name() const { return "perusat"; }
+    
+    /// Simple factory function
+    static StereoSession* construct() { return new StereoSessionPeruSat; }
+    
+  protected:
+    /// Function to load a camera model of the particular type.
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file,
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const{
+      
+      return load_adjusted_model(m_camera_loader.load_perusat_camera_model(camera_file),
+                                 image_file, camera_file, pixel_offset);
+    }
+  };
+
 } // End namespace asp
 
 #endif//__STEREO_SESSION_GDAL_H__

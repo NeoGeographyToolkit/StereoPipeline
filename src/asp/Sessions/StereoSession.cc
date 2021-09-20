@@ -238,10 +238,10 @@ namespace asp {
 
         if (max_ht < 0 || min_ht > 0) {
           vw_out() << "RPC model min and max heights above datum: "
-             << min_ht << ' ' << max_ht << ".\n";
+             << min_ht << ' ' << max_ht << " meters.\n";
           vw_out() << "Adjusting the datum to compensate, for the purpose of alignment.\n";
           vw_out() << "The new datum height will be at " << mid_ht
-             << " relative to the previous one.\n";
+             << " meters relative to the previous one.\n";
           //vw_out() << "Old datum: " << datum << std::endl;
           datum.set_semi_major_axis(datum.semi_major_axis() + mid_ht);
           datum.set_semi_minor_axis(datum.semi_minor_axis() + mid_ht);

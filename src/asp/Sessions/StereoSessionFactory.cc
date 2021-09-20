@@ -21,15 +21,12 @@
 
 // This include must exist for linking purposes
 #include <asp/Sessions/StereoSessionFactory.h>
-
-#include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/StereoSessionMapProj.h>
 #include <asp/Sessions/StereoSessionIsis.h>
 #include <asp/Sessions/StereoSessionNadirPinhole.h>
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionASTER.h>
-
 
 #include <vw/FileIO/DiskImageResourceRaw.h>
 #include <vw/Camera/CameraUtilities.h>
@@ -122,44 +119,49 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
 
     if (allow_map_promote) {
       if (!input_dem.empty() && actual_session_type == "dg") {
-        // User says DG .. but also gives a DEM.
+        // User says DG but also gives a DEM.
         actual_session_type = "dgmaprpc";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: dgmaprpc" << std::endl;
       }
       if (!input_dem.empty() && actual_session_type == "rpc") {
-        // User says RPC .. but also gives a DEM.
+        // User says RPC but also gives a DEM.
         actual_session_type = "rpcmaprpc";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: rpcmaprpc" << std::endl;
       }
       if (!input_dem.empty() && actual_session_type == "pinhole") {
-        // User says PINHOLE .. but also gives a DEM.
+        // User says PINHOLE but also gives a DEM.
         actual_session_type = "pinholemappinhole";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinholemappinhole" << std::endl;
       }
       if (!input_dem.empty() && actual_session_type == "opticalbar") {
-        // User says OPTICAL BAR .. but also gives a DEM.
+        // User says OPTICAL BAR but also gives a DEM.
         actual_session_type = "opticalbarmapopticalbar";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: opticalbarmapopticalbar" << std::endl;
       }
       if (!input_dem.empty() && actual_session_type == "csm") {
-        // User says CSM .. but also gives a DEM.
+        // User says CSM but also gives a DEM.
         actual_session_type = "csmmapcsm";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: csmmapcsm" << std::endl;
       }
       if (!input_dem.empty() && actual_session_type == "isis") {
-        // User says ISIS .. but also gives a DEM.
+        // User says ISIS but also gives a DEM.
         actual_session_type = "isismapisis";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: isismapisis" << std::endl;
       }
       if (!input_dem.empty() && actual_session_type == "spot5") {
-        // User says SPOT5 .. but also gives a DEM.
+        // User says SPOT5 but also gives a DEM.
         actual_session_type = "spot5maprpc";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: spot5maprpc" << std::endl;
       }
       if (!input_dem.empty() && actual_session_type == "aster") {
-        // User says ASTER .. but also gives a DEM.
+        // User says ASTER but also gives a DEM.
         actual_session_type = "astermaprpc";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: astermaprpc" << std::endl;
+      }
+      if (!input_dem.empty() && actual_session_type == "perusat") {
+        // User says PeruSat but also gives a DEM.
+        actual_session_type = "perusatmaprpc";
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: perusatmaprpc" << std::endl;
       }
 
       // Quetly switch from nadirpinhole to pinhole for mapprojected images
@@ -175,7 +177,7 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
+              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 perusat aster opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc perusatrpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
     vw_out() << "Using session: " << actual_session_type << ".\n";
 
     // Compare the current session name to all recognized types
@@ -199,6 +201,8 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
       session_new = StereoSessionBarMapBar::construct();
     else if (actual_session_type == "spot5maprpc")
         session_new = StereoSessionSpot5MapRPC::construct();
+    else if (actual_session_type == "perusatmaprpc")
+        session_new = StereoSessionPeruSatMapRPC::construct();
     else if (actual_session_type == "astermaprpc")
         session_new = StereoSessionASTERMapRPC::construct();
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
@@ -209,6 +213,8 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
 #endif
     else if (actual_session_type == "spot5")
       session_new = StereoSessionSpot::construct();
+    else if (actual_session_type == "perusat")
+      session_new = StereoSessionPeruSat::construct();
     else if (actual_session_type == "aster")
       session_new = StereoSessionASTER::construct();
     else if (actual_session_type == "opticalbar")
