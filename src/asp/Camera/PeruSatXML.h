@@ -33,12 +33,12 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Camera/Extrinsics.h>
 #include <asp/Core/Common.h>
-#include <asp/Camera/TimeProcessing.h>
 
 #include <vector>
 #include <string>
 
 #include <boost/smart_ptr/scoped_ptr.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 // Special forward declare so we can hide the Xerces headers.
 #include <xercesc/util/XercesDefs.hpp> // Needed for this XERCES macro
@@ -51,24 +51,31 @@ XERCES_CPP_NAMESPACE_END
 
 namespace asp {
 
-
   class PeruSatXML {
   public:
-  
+
+    // TODO(oalexan1): Remove all redundant values!
+    
     /// Constructor
-    /// - Sets the fixed reference time.
-    PeruSatXML() : m_time_ref_functor(boost::posix_time::time_from_string("2002-05-04 00:00:00.00")) {}
+    PeruSatXML(): m_start_time_is_set(false){}
 
     // The reader will populate these fields
-    std::vector<std::pair<int,         vw::Vector2> > look_angles;   // (column, psi_x/psi_y)
-    std::list  <std::pair<std::string, vw::Vector3> > pose_logs;     // (time,   yaw/pitch/roll)
-    std::list  <std::pair<std::string, vw::Vector3> > position_logs; // (time,   X/Y/Z)
-    std::list  <std::pair<std::string, vw::Vector3> > velocity_logs; // (time,   dX/dY/dZ)
     vw::Vector2i image_size;
-    double       line_period;
-    std::string  center_time;
-    int          center_line;
-    int          center_col;
+    std::list  <std::pair<double, vw::Vector3>> position_logs; // (time,   X/Y/Z)
+    std::list  <std::pair<double, vw::Vector3>> velocity_logs; // (time,   dX/dY/dZ)
+    std::list  <std::pair<double, vw::Quaternion<double>>> pose_logs; // (time, quaternion)
+    vw::Quaternion<double> instrument_biases;
+
+    boost::posix_time::ptime start_time_stamp;
+
+    // All times represented as doubles will be in seconds relative to start_time_stamp
+    double  start_time;
+    double  center_time;
+    double  line_period;
+    double  center_col;
+    double  center_row;
+
+    vw::Vector2 tan_psi_x, tan_psi_y;
 
     /// Parse an XML file to populate the data
     void read_xml(std::string const& xml_path);
@@ -87,22 +94,29 @@ namespace asp {
   
     /// Just opens the XML file for reading and returns the root node.
     xercesc::DOMElement* open_xml_file(std::string const& xml_path);
-  
-    void read_look_angles(xercesc::DOMElement* look_angles_node);
-    void read_ephemeris  (xercesc::DOMElement* ephemeris_node);
-    void read_attitude   (xercesc::DOMElement* corrected_attitudes_node);
-    void read_corners    (xercesc::DOMElement* dataset_frame_node);
-    void read_image_size (xercesc::DOMElement* raster_dims_node);
-    void read_line_times (xercesc::DOMElement* sensor_config_node);
 
-    /// Converts a time from string to numeric format.
-    /// - All times are in seconds relative to May 5th, 2002 (when PERUSAT5 launched)
-    double convert_time(std::string const& s) const;
+    void read_image_size  (xercesc::DOMElement* raster_data);
+    void read_times       (xercesc::DOMElement* time);
+    void read_ephemeris   (xercesc::DOMElement* ephemeris);
+    void read_attitudes   (xercesc::DOMElement* attitudes);
+    void read_look_angles (xercesc::DOMElement* look_angles);
+    void read_instr_biases(xercesc::DOMElement* instr_biases);
+    void read_center_data (xercesc::DOMElement* geom_values);
+
+    /// Converts a time from string to double precision in seconds.
+    /// All times are in seconds relative to the start time.
+    /// When the start time is passed in, use is_start_time = true.
+    double convert_time(std::string const& s, bool is_start_time);
+
+    // Boost does not like a time string such as "2017-12-07 15:36:40.90795Z"
+    // because it expects precisely 6 digits after the dot (hence for the millisecond).
+    // Fix that.
+    static std::string fix_millisecond(std::string const& in_str);
 
     boost::shared_ptr<xercesc::XercesDOMParser> m_parser;
     boost::shared_ptr<xercesc::ErrorHandler>    m_errHandler;
-    SecondsFromRef m_time_ref_functor;
-
+    bool                                        m_start_time_is_set;
+    
   }; // End class PeruSatXML
 
 

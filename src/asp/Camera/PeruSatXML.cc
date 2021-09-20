@@ -37,6 +37,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
+
 #include <iomanip>
 
 using namespace vw;
@@ -48,21 +49,16 @@ using asp::XmlUtils::cast_xmlch;
 
 namespace asp {
 
-
 DOMElement* PeruSatXML::open_xml_file(std::string const& xml_path) {
 
-  std::cout << "--now in perusat open_xml_file" << std::endl;
-  
   // Check if the file actually exists and throw a user helpful file.
-  if ( !boost::filesystem::exists( xml_path ) )
-    vw_throw( ArgumentErr() << "XML file \"" << xml_path << "\" does not exist." );
+  if (!boost::filesystem::exists(xml_path))
+    vw_throw(ArgumentErr() << "XML file \"" << xml_path << "\" does not exist.");
 
   std::string error_prefix = "XML file \"" + xml_path + "\" is invalid.\nException message is: \n";
   std::string err_message  = ""; // Filled in later on error
 
   try{
-    //std::cout << "Set XML parser\n";
-  
     // Set up the XML parser if we have not already done so
     if (!m_parser.get()) {
       m_parser.reset(new XercesDOMParser());
@@ -72,10 +68,8 @@ DOMElement* PeruSatXML::open_xml_file(std::string const& xml_path) {
       m_parser->setErrorHandler(m_errHandler.get());
     }
 
-    //std::cout << "Load XML\n";
-
     // Load the XML file
-    m_parser->parse( xml_path.c_str() );
+    m_parser->parse(xml_path.c_str());
     DOMDocument* xmlDoc      = m_parser->getDocument();
     DOMElement * elementRoot = xmlDoc->getDocumentElement();
     return elementRoot;
@@ -92,278 +86,280 @@ DOMElement* PeruSatXML::open_xml_file(std::string const& xml_path) {
     char* message = XMLString::transcode(toCatch.getMessage());
     err_message = error_prefix + message;
     XMLString::release(&message);
-  } catch ( const std::exception& e ) {
+  } catch (const std::exception& e) {
     err_message = error_prefix + e.what();
   } catch (...) {
     err_message = "Unrecognized error in XML file \"" + xml_path + "\"\n";
   }
-  vw_throw( ArgumentErr() << err_message); // Only get here on error
+  vw_throw(ArgumentErr() << err_message); // Only get here on error
 
-  std::cout << "--success openng file!" << std::endl;
   return 0;
 }
 
 void PeruSatXML::read_xml(std::string const& xml_path) {
-
-  DOMElement * elementRoot = open_xml_file(xml_path);
-  parse_xml(elementRoot);
+  DOMElement * root = open_xml_file(xml_path);
+  parse_xml(root);
 }
 
-void PeruSatXML::parse_xml(xercesc::DOMElement* node) {
+void PeruSatXML::parse_xml(xercesc::DOMElement* root) {
 
-  std::cout << "Find dataset\n";
-  xercesc::DOMElement* metadata_node = get_node<DOMElement>(node, "Metadata_Identification");
+  xercesc::DOMElement* metadata_id = get_node<DOMElement>(root, "Metadata_Identification");
 
-  xercesc::DOMElement* metadata_profile = get_node<DOMElement>(metadata_node, "METADATA_PROFILE");
+  xercesc::DOMElement* metadata_profile = get_node<DOMElement>(metadata_id, "METADATA_PROFILE");
 
   std::string sensor_name(XMLString::transcode(metadata_profile->getTextContent()));
-  std::cout << "--sensor name is " << sensor_name << std::endl;
   std::string expected_name = "PER1_SENSOR";
   if (sensor_name != expected_name) 
-    vw_throw(ArgumentErr() << "Incorrect sensor name. Expected: " << expected_name << " but got: " << sensor_name << ".\n");
+    vw_throw(ArgumentErr() << "Incorrect sensor name. Expected: "
+             << expected_name << " but got: " << sensor_name << ".\n");
 
-  std::cout << "--read the metadata node with value " << metadata_node << std::endl;
+  xercesc::DOMElement* raster_data = get_node<DOMElement>(root, "Raster_Data");
+  read_image_size(raster_data);
   
-  //xercesc::DOMElement* crs_node                 get_node<DOMElement>(node, "Coordinate_Reference_System");
-  //xercesc::DOMElement* image_display_node       get_node<DOMElement>(node, "Image_Display");
-  //xercesc::DOMElement* scene_source_node        get_node<DOMElement>(node, "Scene_Source");
-  //std::cout << "Find dims\n";
-  xercesc::DOMElement* raster_dims_node         = get_node<DOMElement>(node, "Raster_Dimensions");
-  xercesc::DOMElement* ephemeris_node           = get_node<DOMElement>(node, "Ephemeris");
-  //std::cout << "Find ephem\n";
-  xercesc::DOMElement* corrected_attitudes_node = get_node<DOMElement>(node, "Corrected_Attitudes");
-  //std::cout << "Find angles\n";
-  xercesc::DOMElement* look_angles_node         = get_node<DOMElement>(node, "Instrument_Look_Angles_List");
-  xercesc::DOMElement* sensor_config_node       = get_node<DOMElement>(node, "Sensor_Configuration");
+  // Dig some levels down
+  xercesc::DOMElement* geometric_data = get_node<DOMElement>(root, "Geometric_Data");
+  xercesc::DOMElement* refined_model = get_node<DOMElement>(geometric_data, "Refined_Model");
   
-  //std::cout << "Parse dataset\n";
-  //read_datum(crs_node);
-  //read_display_info(image_display_node);
-  //read_datetime(scene_source_node);
-  //std::cout << "Parse dims\n";
-  read_ephemeris(ephemeris_node);
-  read_image_size(raster_dims_node);
-  //std::cout << "Parse ephem\n";
-  read_attitude(corrected_attitudes_node);
-  //std::cout << "Parse angles\n";
-  read_look_angles(look_angles_node);
-  //std::cout << "Parse line times\n";
-  read_line_times(sensor_config_node);
+  xercesc::DOMElement* time = get_node<DOMElement>(refined_model, "Time");
+  read_times(time);
   
-  // Set up the base time
-  // - The position log starts before the image does, so the first
-  //   time there should be a good reference time.
-  boost::posix_time::ptime earliest_time = boost::posix_time::time_from_string("2016-05-04 00:00:00.00");
-  std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
-  for (iter=position_logs.begin(); iter!=position_logs.end(); ++iter) {
-    std::string s = iter->first;
-    boost::replace_all(s, "T", " ");
-    boost::posix_time::ptime this_time = boost::posix_time::time_from_string(s);
-    if (this_time < earliest_time){
-      earliest_time = this_time;
-      //std::cout << "Using reference time " << iter->first << std::endl;
-    }
-  }
+  xercesc::DOMElement* ephemeris = get_node<DOMElement>(refined_model, "Ephemeris");
+  read_ephemeris(ephemeris);
+  
+  xercesc::DOMElement* attitudes = get_node<DOMElement>(refined_model, "Attitudes");
+  read_attitudes(attitudes);
+  
+  xercesc::DOMElement* geom_calib  = get_node<DOMElement>(refined_model, "Geometric_Calibration");
+  xercesc::DOMElement* instr_calib = get_node<DOMElement>(geom_calib,    "Instrument_Calibration");
+  xercesc::DOMElement* band_calib  = get_node<DOMElement>(instr_calib,   "Band_Calibration");
+  xercesc::DOMElement* look_angles = get_node<DOMElement>(band_calib,    "Polynomial_Look_Angles");
+  read_look_angles(look_angles);
 
-  std::cout << "---look at this!" << std::endl;
-  m_time_ref_functor.set_base_time(earliest_time);
-  //std::cout << "Done parsing XML.\n";
+  xercesc::DOMElement* instr_biases = get_node<DOMElement>(instr_calib,   "Instrument_Biases");
+  read_instr_biases(instr_biases);
+  
+  xercesc::DOMElement* use_area = get_node<DOMElement>(geometric_data, "Use_Area");
+  xercesc::DOMElement* geom_values = get_node<DOMElement>(use_area,
+                                                          "Located_Geometric_Values");
+  read_center_data(geom_values);
 }
 
+void PeruSatXML::read_image_size(xercesc::DOMElement* raster_data_node) {
+  xercesc::DOMElement* raster_dims_node = get_node<DOMElement>(raster_data_node,
+                                                                 "Raster_Dimensions");
 
-void PeruSatXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
-
-  // Set up the data storage
-  const size_t num_cols = image_size.x();
-  if (num_cols == 0)
-    vw_throw(ArgumentErr() << "Did not load image size from PERUSAT XML file!\n");
-  look_angles.resize(image_size.x());
-
-  // Dig two levels down
-  xercesc::DOMElement* look_angle_node
-    = get_node<DOMElement>(look_angles_node, "Instrument_Look_Angles");
-  xercesc::DOMElement* look_angle_list_node
-    = get_node<DOMElement>(look_angle_node, "Look_Angles_List");
-
-  // Pick out the "Angles" nodes
-  DOMNodeList* children = look_angle_list_node->getChildNodes();
-
-  size_t index = 0;
-  const XMLSize_t num_children = children->getLength();
-  for ( XMLSize_t i = 0; i < num_children; ++i ) {
-    // Check child node type
-    DOMNode* curr_node = children->item(i);
-    if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
-      continue;
-
-    // Check the node name
-    DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
-
-    if (index >= num_cols)
-      vw_throw(ArgumentErr() << "More look angles than rows in PERUSAT XML file!\n");
-
-    // Look through the three nodes and assign each of them
-    // - In this function we do this a little more by hand to try and speed things up
-    DOMNodeList* sub_children = curr_element->getChildNodes();
-    for ( XMLSize_t j = 0; j < sub_children->getLength(); ++j ) {
-
-      DOMNode* child_node = sub_children->item(j);
-      if ( child_node->getNodeType() != DOMNode::ELEMENT_NODE )
-        continue;
-      DOMElement* child_element = dynamic_cast<DOMElement*>( child_node );
-      std::string tag2( XMLString::transcode(child_element->getTagName()) );
-      std::string text( XMLString::transcode(child_element->getTextContent()) );
-
-      if (tag2 == "DETECTOR_ID")
-        look_angles[index].first = atoi(text.c_str());
-      if (tag2 == "PSI_X")
-        look_angles[index].second.x() = atof(text.c_str());
-      if (tag2 == "PSI_Y")
-        look_angles[index].second.y() = atof(text.c_str());
-    }
-
-    ++index;
-
-  } // End loop through look angles
-  if (index != num_cols)
-    vw_throw(ArgumentErr() << "Did not load the correct number of PERUSAT5 pixel look angles!\n");
+  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NROWS")->getTextContent(), image_size[1]);
+  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NCOLS")->getTextContent(), image_size[0]);
 }
 
-void PeruSatXML::read_ephemeris(xercesc::DOMElement* ephemeris_node) {
+void PeruSatXML::read_times(xercesc::DOMElement* time) {
+  xercesc::DOMElement* time_range = get_node<DOMElement>(time, "Time_Range");
 
-  position_logs.clear(); // Reset data storage
+  std::string start_time_str;
+  cast_xmlch(get_node<DOMElement>(time_range, "START")->getTextContent(), start_time_str);
+  bool is_start_time = true;
+  start_time = PeruSatXML::convert_time(start_time_str, is_start_time);
+
+  xercesc::DOMElement* time_stamp = get_node<DOMElement>(time, "Time_Stamp");
+  cast_xmlch(get_node<DOMElement>(time_stamp, "LINE_PERIOD")->getTextContent(), line_period);
+  std::cout << "--line_period " << line_period << std::endl;
+  std::cout << "check if offset is correct in RPC_XML.cc!" << std::endl;
+}
+  
+void PeruSatXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
+
+  // Reset data storage
+  position_logs.clear(); 
   velocity_logs.clear();
 
-  // Dig one level down
-  xercesc::DOMElement* points_node = get_node<DOMElement>(ephemeris_node, "Points");
+  xercesc::DOMElement* point_list = get_node<DOMElement>(ephemeris, "Point_List");
 
   // Pick out the "Point" nodes
-  DOMNodeList* children = points_node->getChildNodes();
-  for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+  DOMNodeList* children = point_list->getChildNodes();
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
+    
     // Check child node type
-    DOMNode* curr_node = children->item(i);
-    if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
+    DOMNode* child = children->item(i);
+    if (child->getNodeType() != DOMNode::ELEMENT_NODE)
       continue;
 
     // Check the node name
-    DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
-    std::string tag( XMLString::transcode(curr_element->getTagName()) );
+    DOMElement* curr_element = dynamic_cast<DOMElement*>(child);
+    std::string tag(XMLString::transcode(curr_element->getTagName()));
     if (tag.find("Point") == std::string::npos)
       continue;
 
     // Get the three sub-nodes
-    xercesc::DOMElement* location_node = get_node<DOMElement>(curr_element, "Location");
-    xercesc::DOMElement* velocity_node = get_node<DOMElement>(curr_element, "Velocity");
+    std::string time_str, position_str, velocity_str;
+    Vector3 position_vec, velocity_vec;
+    
+    cast_xmlch(get_node<DOMElement>(curr_element, "LOCATION_XYZ")->getTextContent(), position_str);
+    cast_xmlch(get_node<DOMElement>(curr_element, "VELOCITY_XYZ")->getTextContent(), velocity_str);
+    cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(),         time_str);
+
+    bool is_start_time = false;
+    double time = PeruSatXML::convert_time(time_str, is_start_time);
+    
+    std::string delimiters(",\t ");
+    position_vec = str_to_vec<Vector3>(position_str, delimiters);
+    std::cout << "--position " << position_vec << std::endl;
+    velocity_vec = str_to_vec<Vector3>(velocity_str, delimiters);
+    std::cout << "--velocity " << velocity_vec << std::endl;
+    
+    position_logs.push_back(std::pair<double, Vector3>(time, position_vec));
+    velocity_logs.push_back(std::pair<double, Vector3>(time, velocity_vec));
+  } // End loop through points
   
-    // Read in both sets of values
-    std::string time;
-    Vector3 position, velocity;
-    
-    cast_xmlch( get_node<DOMElement>(curr_element, "TIME" )->getTextContent(), time );
-    cast_xmlch( get_node<DOMElement>(location_node, "X")->getTextContent(), position.x() );
-    cast_xmlch( get_node<DOMElement>(location_node, "Y")->getTextContent(), position.y() );
-    cast_xmlch( get_node<DOMElement>(location_node, "Z")->getTextContent(), position.z() );
-    cast_xmlch( get_node<DOMElement>(velocity_node, "X")->getTextContent(), velocity.x() );
-    cast_xmlch( get_node<DOMElement>(velocity_node, "Y")->getTextContent(), velocity.y() );
-    cast_xmlch( get_node<DOMElement>(velocity_node, "Z")->getTextContent(), velocity.z() );
-    
-    position_logs.push_back(std::pair<std::string, Vector3>(time, position));
-    velocity_logs.push_back(std::pair<std::string, Vector3>(time, velocity));
-
-  } // End loop through corrected attitudes
 }
+  
+void PeruSatXML::read_attitudes(xercesc::DOMElement* attitudes) {
 
+  // Reset data storage
+  pose_logs.clear();
 
+  xercesc::DOMElement* quaternion_list = get_node<DOMElement>(attitudes, "Quaternion_List");
 
-void PeruSatXML::read_attitude(xercesc::DOMElement* corrected_attitudes_node) {
-
-  pose_logs.clear(); // Reset data storage
-
-  // Dig one level down
-  xercesc::DOMElement* corrected_attitude_node
-    = get_node<DOMElement>(corrected_attitudes_node, "Corrected_Attitude");
-
-  // Pick out the "Angles" nodes
-  DOMNodeList* children = corrected_attitude_node->getChildNodes();
-  for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+  // Pick out the "Quaternion" nodes
+  DOMNodeList* children = quaternion_list->getChildNodes();
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
+    
     // Check child node type
-    DOMNode* curr_node = children->item(i);
-    if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
+    DOMNode* child = children->item(i);
+    if (child->getNodeType() != DOMNode::ELEMENT_NODE)
       continue;
 
     // Check the node time
-    DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
-    std::string tag( XMLString::transcode(curr_element->getTagName()) );
-    if (tag.find("Angles") == std::string::npos)
+    DOMElement* curr_element = dynamic_cast<DOMElement*>(child);
+    std::string tag(XMLString::transcode(curr_element->getTagName()));
+    if (tag.find("Quaternion") == std::string::npos)
       continue;
   
-    std::pair<std::string, Vector3> data;
-    cast_xmlch( get_node<DOMElement>(curr_element, "YAW"  )->getTextContent(), data.second.x() );
-    cast_xmlch( get_node<DOMElement>(curr_element, "PITCH")->getTextContent(), data.second.y() );
-    cast_xmlch( get_node<DOMElement>(curr_element, "ROLL" )->getTextContent(), data.second.z() );
-    cast_xmlch( get_node<DOMElement>(curr_element, "TIME" )->getTextContent(), data.first );
+    // Parse the time and 
+
+    std::pair<double, vw::Quaternion<double>> data;
+    std::string time_str;
+    cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(), time_str);
+
+    bool is_start_time = false;
+    data.first = PeruSatXML::convert_time(time_str, is_start_time);
+    
+    double w, x, y, z;
+    cast_xmlch(get_node<DOMElement>(curr_element, "Q0")->getTextContent(), w);
+    cast_xmlch(get_node<DOMElement>(curr_element, "Q1")->getTextContent(), x);
+    cast_xmlch(get_node<DOMElement>(curr_element, "Q2")->getTextContent(), y);
+    cast_xmlch(get_node<DOMElement>(curr_element, "Q3")->getTextContent(), z);
+    data.second = vw::Quaternion<double>(w, x, y, z);
+
     pose_logs.push_back(data);
-
-  } // End loop through corrected attitudes
+  } // End loop through attitudes
 }
 
-void PeruSatXML::read_image_size(xercesc::DOMElement* raster_dims_node) {
-  cast_xmlch( get_node<DOMElement>(raster_dims_node, "NROWS")->getTextContent(), image_size[1] );
-  cast_xmlch( get_node<DOMElement>(raster_dims_node, "NCOLS")->getTextContent(), image_size[0] );
+void PeruSatXML::read_look_angles(xercesc::DOMElement* look_angles) {
+  std::string delimiters(",\t ");
+  std::string tan_psi_x_str;
+  cast_xmlch(get_node<DOMElement>(look_angles, "LINE_OF_SIGHT_TANPSIX")->getTextContent(),
+             tan_psi_x_str);
+  tan_psi_x = str_to_vec<Vector2>(tan_psi_x_str, delimiters);
+  std::cout << "--tan_psi_x " << tan_psi_x << std::endl;
+  
+  std::string tan_psi_y_str;
+  cast_xmlch(get_node<DOMElement>(look_angles, "LINE_OF_SIGHT_TANPSIY")->getTextContent(),
+             tan_psi_y_str);
+  tan_psi_y = str_to_vec<Vector2>(tan_psi_y_str, delimiters);
+  std::cout << "--tan_psi_y " << tan_psi_y << std::endl;
 }
 
-void PeruSatXML::read_line_times(xercesc::DOMElement* sensor_config_node) {
-  cast_xmlch( get_node<DOMElement>(sensor_config_node, "LINE_PERIOD"      )->getTextContent(), line_period);
-  cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_TIME")->getTextContent(), center_time);
-  cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_LINE")->getTextContent(), center_line);
-  cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_COL" )->getTextContent(), center_col);
-  center_line -= 1;
-  center_col  -= 1; // Convert from 1-based to 0-based indices.
+void PeruSatXML::read_instr_biases(xercesc::DOMElement* instr_biases) {
+    
+  double w, x, y, z;
+  cast_xmlch(get_node<DOMElement>(instr_biases, "Q0")->getTextContent(), w);
+  cast_xmlch(get_node<DOMElement>(instr_biases, "Q1")->getTextContent(), x);
+  cast_xmlch(get_node<DOMElement>(instr_biases, "Q2")->getTextContent(), y);
+  cast_xmlch(get_node<DOMElement>(instr_biases, "Q3")->getTextContent(), z);
+
+  instrument_biases = vw::Quaternion<double>(w, x, y, z);
+
+  std::cout << "--instrument_biases " << instrument_biases << std::endl;
 }
 
-// ----- These functions help convert the input data to a useable format ------
+void PeruSatXML::read_center_data (xercesc::DOMElement* geom_values) {
 
-// Input strings look like this: 2008-03-04T12:31:03.081912
-double PeruSatXML::convert_time(std::string const& s) const {
+  std::string center_time_str;
+  cast_xmlch(get_node<DOMElement>(geom_values, "TIME")->getTextContent(), center_time_str);
+  cast_xmlch(get_node<DOMElement>(geom_values, "COL")->getTextContent(), center_col);
+  cast_xmlch(get_node<DOMElement>(geom_values, "ROW")->getTextContent(), center_row);
+
+  bool is_start_time = false;
+  center_time = PeruSatXML::convert_time(center_time_str, is_start_time);
+
+  std::cout << "--center time is " << center_time << std::endl;
+  std::cout << "--before substr " << center_col << ' ' << center_row << std::endl;
+
+  // Convert from 1-based to 0-based indices.  
+  center_col  -= 1;
+  center_row  -= 1;
+  
+  std::cout << "--after substr " << center_col << ' ' << center_row << std::endl;
+}
+
+// Converts a time from string to double precision value measured in seconds
+// relative to the start time.
+// Input strings look like this: 2008-03-04T12:31:03.08191Z.
+double PeruSatXML::convert_time(std::string const& s, bool start_time) {
+
+  if (!start_time && !m_start_time_is_set) 
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Must set the start time before doing time conversions.\n");
+
   try{
-    // Replace the T with a space so the default Boost function can parse the time.
+    // Replace the T with a space so the default Boost function can
+    // parse the time.
     std::string s2 = s;
     boost::replace_all(s2, "T", " ");
+
+    // Ensure there are exactly 6 digits for the millisecond or else
+    // Boost will complain.
+    s2 = fix_millisecond(s2);
+
     boost::posix_time::ptime time = boost::posix_time::time_from_string(s2);
-    return this->m_time_ref_functor(time);
+
+    if (start_time) {
+      m_start_time_is_set = true;
+      start_time_stamp = time;
+    }
+
+    boost::posix_time::time_duration delta(time - start_time_stamp);
+    return delta.total_microseconds() / 1.0e+6;
+    
   }catch(...){
     vw::vw_throw(vw::ArgumentErr() << "Failed to parse time from string: " << s << "\n");
   }
-  return -1; // Never reached!
+  return -1.0; // Never reached
 }
 
 // This is pretty simple, PERUSAT5 has a constant time for each line.
 vw::camera::LinearTimeInterpolation PeruSatXML::setup_time_func() const {
-
   // The metadata tells us the time of the middle line, so find the time for the first line.
-  double center_time_d = convert_time(this->center_time);
-  double min_line_diff = static_cast<double>(0 - this->center_line);
-  double min_line_time = center_time_d + this->line_period*min_line_diff;
+  double min_line_diff = static_cast<double>(0 - this->center_row);
+  double min_line_time = center_time + this->line_period*min_line_diff;
   //std::cout << "Setup time functor: " << std::setprecision(12)  << min_line_time << ", " << this->line_period << std::endl;
-  //std::cout << std::setprecision(12)  << "Center time: " << center_time_d << std::endl;
+  //std::cout << std::setprecision(12)  << "Center time: " << center_time << std::endl;
   return vw::camera::LinearTimeInterpolation(min_line_time, this->line_period);
 }
-
 
 // Velocities are the sum of inertial velocities and the instantaneous
 //  Earth rotation.
 
 // The velocity is already in GCC, so just pack into a function.
 vw::camera::LagrangianInterpolation PeruSatXML::setup_velocity_func() const {
-
   const int INTERP_RADII = 4; // Reccomended in the docs
   std::vector<double>  time;
   std::vector<Vector3> velocity;
 
   // Loop through the velocity logs and extract values
-  std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
-  for (iter=velocity_logs.begin(); iter!=velocity_logs.end(); ++iter) {
-    time.push_back(convert_time(iter->first));
+  std::list<std::pair<double, vw::Vector3> >::const_iterator iter;
+  for (iter=velocity_logs.begin(); iter!=velocity_logs.end(); iter++) {
+    time.push_back(iter->first);
     velocity.push_back(iter->second);
     //std::cout << "Adding velocity point: " << iter->first 
     //          << " --> " << iter->second << std::endl;
@@ -388,9 +384,9 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func() const {
   std::vector<Vector3> position;
 
   // Loop through the velocity logs and extract values
-  std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
-  for (iter=position_logs.begin(); iter!=position_logs.end(); ++iter) {
-    time.push_back(convert_time(iter->first));
+  std::list<std::pair<double, vw::Vector3> >::const_iterator iter;
+  for (iter=position_logs.begin(); iter!=position_logs.end(); iter++) {
+    time.push_back(iter->first);
     position.push_back(iter->second);
     //std::cout << "Adding position point: " << convert_time(iter->first)
     //          << " --> " << iter->second << std::endl;
@@ -406,9 +402,11 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func() const {
   return vw::camera::LagrangianInterpolation(position, min_time, time_delta, max_time, INTERP_RADII);
 }
 
+#if 0
 vw::camera::LinearPiecewisePositionInterpolation PeruSatXML::setup_pose_func(
         vw::camera::LinearTimeInterpolation const& time_func) const {
 
+  std::cout << "--fix here!" << std::endl;
   // This function returns a functor that returns just the yaw/pitch/roll angles.
   // - The time interval between lines is not constant but it is extremely close.
 
@@ -417,7 +415,7 @@ vw::camera::LinearPiecewisePositionInterpolation PeruSatXML::setup_pose_func(
   // the time span for all of the input lines!
   // - In order to handle this, we repeat the earliest pose value so that it starts
   //   before the first line.
-  // - The raw pose angles do start before the lines, but their values differ noticably
+  // - The raw pose angles do start before the lines, but their values differ noticeably
   //   from the corrected values.
   
   // Compute how many padded pose entries are needed to cover all of the lines.
@@ -425,11 +423,11 @@ vw::camera::LinearPiecewisePositionInterpolation PeruSatXML::setup_pose_func(
   double num_corrected_poses = static_cast<double>(pose_logs.size());
   double first_line_time     = time_func(0);
   double last_line_time      = time_func(num_lines - 1.0);
-  double pose_start_time     = convert_time(pose_logs.front().first);
-  double pose_stop_time      = convert_time(pose_logs.back().first);
+  double pose_start_time     = pose_logs.front().first;
+  double pose_stop_time      = pose_logs.back().first;
   double pose_delta_t        = (pose_stop_time - pose_start_time) / (num_corrected_poses - 1.0);
   int    num_prefill_poses   = static_cast<int>(ceil((pose_start_time - first_line_time) / pose_delta_t));
-  int    num_postfill_poses  = static_cast<int>(ceil((last_line_time  - pose_stop_time ) / pose_delta_t));
+  int    num_postfill_poses  = static_cast<int>(ceil((last_line_time  - pose_stop_time) / pose_delta_t));
   //std::cout << "First line time: " << first_line_time << std::endl;
   //std::cout << "Last line time:  " << last_line_time  << std::endl;
   //std::cout << "Pose start: " << pose_start_time << std::endl;
@@ -441,7 +439,7 @@ vw::camera::LinearPiecewisePositionInterpolation PeruSatXML::setup_pose_func(
   if (num_postfill_poses < 1)
     num_postfill_poses = 0;
     
-  size_t num_total_poses = pose_logs.size() + static_cast<size_t>(num_prefill_poses )
+  size_t num_total_poses = pose_logs.size() + static_cast<size_t>(num_prefill_poses)
                                             + static_cast<size_t>(num_postfill_poses);
 
   std::vector<Vector3> pose(num_total_poses);
@@ -449,29 +447,29 @@ vw::camera::LinearPiecewisePositionInterpolation PeruSatXML::setup_pose_func(
   
   // Fill in the pre-padding poses
   size_t index = 0;
-  for (int i=0; i<num_prefill_poses; ++i) {
+  for (int i=0; i<num_prefill_poses; i++) {
     double time_offset = pose_delta_t*static_cast<double>(num_prefill_poses-i);
-    time[index] = convert_time(pose_logs.front().first) - time_offset;
-    pose[index] = pose_logs.front().second;
+    time[index] = pose_logs.front().first - time_offset;
+    //pose[index] = pose_logs.front().second;
     //std::cout << "PREFILL: " << time[index] << std::endl;
-    ++index;
+    index++;
   }
+  std::cout << "--study all this!" << std::endl;
 
   // Now fill in the real poses
-  std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
-  for (iter=pose_logs.begin(); iter!=pose_logs.end(); ++iter) {
-    time[index] = convert_time(iter->first);
+  for (auto iter = pose_logs.begin(); iter != pose_logs.end(); iter++) {
+    time[index] = iter->first;
     pose[index] = iter->second;
-    ++index;
+    index++;
   }
 
   // Fill in the post-padding poses
-  for (int i=0; i<num_postfill_poses; ++i) {
+  for (int i=0; i<num_postfill_poses; i++) {
     double time_offset = pose_delta_t*(i+1);
-    time[index] = convert_time(pose_logs.back().first) + time_offset;
-    pose[index] = pose_logs.back().second;
+    time[index] = pose_logs.back().first + time_offset;
+    //pose[index] = pose_logs.back().second;
     //std::cout << "POSTFILL: " << time[index] << std::endl;
-    ++index;
+    index++;
   }
   
   //double max_time = time.back();
@@ -483,8 +481,75 @@ vw::camera::LinearPiecewisePositionInterpolation PeruSatXML::setup_pose_func(
   return vw::camera::LinearPiecewisePositionInterpolation(pose, min_time, pose_delta_t);
 
 }
+#endif
+  
+// Boost does not like a time string such as "2017-12-07 15:36:40.90795Z"
+// because it expects precisely 6 digits after the dot (hence for the millisecond).
+// Fix that.
+std::string PeruSatXML::fix_millisecond(std::string const& in_str) {
 
+  std::string out_str = "";
+  bool found_dot = false;
+  int num_digits_after_dot = 0;
+  for (size_t it = 0; it < in_str.size(); it++) {
+    
+    if (it + 1 < in_str.size()) {
+      // Not yet at the last character
+      
+      if (in_str[it] == '.') {
+        // Found the dot
+        found_dot = true;
+        out_str += in_str[it];
+        continue;
+      }
 
+      if (!found_dot) {
+        // Not at the dot yet
+        out_str += in_str[it];
+        continue;
+      }
+
+      // After the dot
+      if (num_digits_after_dot < 6) {
+        out_str += in_str[it];
+        num_digits_after_dot++;
+      }
+      continue;
+    }
+
+    // At the last character
+    if (in_str[it] >= '0' && in_str[it] <= '9') {
+      // The last character is a digit, just append it
+      if (num_digits_after_dot < 6) {
+        out_str += in_str[it];
+        num_digits_after_dot++;
+      }
+
+      // See if to append more
+      while (num_digits_after_dot < 6) {
+        out_str += "0";
+        num_digits_after_dot++;
+      }
+      
+    } else {
+
+      // The last character is not a digit, it is likely a "Z"
+      while (num_digits_after_dot < 6) {
+        // Append zeros
+        out_str += "0";
+        num_digits_after_dot++;
+      }
+
+      // Append the last character, whatever it is
+      out_str += in_str[it];
+    }
+    
+  } // End iterating over characters
+
+  return out_str;
+}
+  
+  
 } // end namespace asp
 
 
