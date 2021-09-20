@@ -33,12 +33,12 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Camera/Extrinsics.h>
 #include <asp/Core/Common.h>
+#include <asp/Camera/TimeProcessing.h>
 
 #include <vector>
 #include <string>
 
 #include <boost/smart_ptr/scoped_ptr.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 
 // Special forward declare so we can hide the Xerces headers.
 #include <xercesc/util/XercesDefs.hpp> // Needed for this XERCES macro
@@ -50,25 +50,6 @@ XERCES_CPP_NAMESPACE_BEGIN
 XERCES_CPP_NAMESPACE_END
 
 namespace asp {
-
-
-  // TODO: There is a duplicate in LinescanDG class!
-  /// A functor that returns the difference in seconds from a reference time.
-  /// - Uses boost::posix_time.
-  class SecondsFromRef
-  {
-    boost::posix_time::ptime m_reference;
-  public:
-    inline SecondsFromRef() {}
-    inline SecondsFromRef(boost::posix_time::ptime const& ref_time) : m_reference(ref_time) {}
-
-    inline void set_base_time(boost::posix_time::ptime const& ref_time) {m_reference = ref_time;}
-
-    inline double operator()( boost::posix_time::ptime const& time ) const {
-      return double( (time - m_reference).total_microseconds() ) / 1e6;
-    }
-  };
-
 
   class SpotXML {
   public:
@@ -96,16 +77,10 @@ namespace asp {
     /// Parse an XML tree to populate the data
     void parse_xml(xercesc::DOMElement* node);
 
-    /// Load the estimated image lonlat bounds from the XML file
-    static vw::BBox2 get_estimated_bounds(std::string const& xml_path);
-    
     /// Load the estimated image lonlat corners from the XML file
     /// - Corners are returned in clockwise order.
     static std::vector<vw::Vector2> get_lonlat_corners(std::string const& xml_path);
     
-    /// Faster overload for when the file has already been parsed.
-    vw::BBox2 get_estimated_bounds() const;
-
     // Functions to setup functors which manage the raw input data.
     vw::camera::LagrangianInterpolation setup_position_func() const;
     vw::camera::LagrangianInterpolation setup_velocity_func() const;

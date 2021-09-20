@@ -58,7 +58,6 @@ void cast_xmlch( const XMLCh* ch, T& dst) {
   xercesc::XMLString::release( &text );
 }
 
-
 /// Helper function to retreive a node via string and verify that only one exists.
 template <class T>
 T* get_node( xercesc::DOMElement* element, std::string const& tag ) {

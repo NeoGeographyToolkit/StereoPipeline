@@ -105,16 +105,6 @@ void SpotXML::read_xml(std::string const& xml_path) {
   parse_xml(elementRoot);
 }
 
-BBox2 SpotXML::get_estimated_bounds(std::string const& xml_path) {
-  SpotXML xml_reader;
-  DOMElement * root = xml_reader.open_xml_file(xml_path);
-  // Just get this one node we need to find the four corners
-  DOMElement* raster_dims_node = get_node<DOMElement>(root, "Dataset_Frame");
-  xml_reader.read_corners(raster_dims_node);
-  
-  return xml_reader.get_estimated_bounds();
-}
-
 std::vector<vw::Vector2> SpotXML::get_lonlat_corners(std::string const& xml_path) {
   SpotXML xml_reader;
   DOMElement * root = xml_reader.open_xml_file(xml_path);
@@ -359,21 +349,7 @@ void SpotXML::read_line_times(xercesc::DOMElement* sensor_config_node) {
   center_col  -= 1; // Convert from 1-based to 0-based indices.
 }
 
-
-
-
-
 // ----- These functions help convert the input data to a useable format ------
-
-vw::BBox2 SpotXML::get_estimated_bounds() const {
-  // Just expand a bounding box to contain all the corners listed in the file.
-  vw::BBox2 output;
-  for (size_t i=0; i<lonlat_corners.size(); ++i) {
-    output.grow(lonlat_corners[i]);
-  }
-  return output;
-}
-
 
 // Input strings look like this: 2008-03-04T12:31:03.081912
 double SpotXML::convert_time(std::string const& s) const {

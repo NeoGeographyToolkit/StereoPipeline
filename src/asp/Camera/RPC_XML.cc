@@ -47,73 +47,72 @@ using asp::XmlUtils::cast_xmlch;
 //========================================================================
 // ImageXML class
 
-
 void asp::ImageXML::parse_meta(xercesc::DOMElement* node) {
   // Note: dg_mosaic wipes most image tags. If it is desired to parse
   // more tags here, ensure they are not wiped by dg_mosaic and use
   // sensible values when creating them for the combined mosaics.
-  cast_xmlch( get_node<DOMElement>( node, "SATID"         )->getTextContent(), sat_id );
-  cast_xmlch( get_node<DOMElement>( node, "SCANDIRECTION" )->getTextContent(), scan_direction );
-  cast_xmlch( get_node<DOMElement>( node, "TLCTIME"       )->getTextContent(), tlc_start_time );
-  cast_xmlch( get_node<DOMElement>( node, "FIRSTLINETIME" )->getTextContent(), first_line_start_time );
-  cast_xmlch( get_node<DOMElement>( node, "AVGLINERATE"   )->getTextContent(), avg_line_rate );
+  cast_xmlch(get_node<DOMElement>(node, "SATID"        )->getTextContent(), sat_id);
+  cast_xmlch(get_node<DOMElement>(node, "SCANDIRECTION")->getTextContent(), scan_direction);
+  cast_xmlch(get_node<DOMElement>(node, "TLCTIME"      )->getTextContent(), tlc_start_time);
+  cast_xmlch(get_node<DOMElement>(node, "FIRSTLINETIME")->getTextContent(), first_line_start_time);
+  cast_xmlch(get_node<DOMElement>(node, "AVGLINERATE"  )->getTextContent(), avg_line_rate);
   size_t num_tlc;
-  cast_xmlch( get_node<DOMElement>( node, "NUMTLC"        )->getTextContent(), num_tlc );
-  tlc_vec.resize( num_tlc );
+  cast_xmlch(get_node<DOMElement>(node, "NUMTLC"       )->getTextContent(), num_tlc);
+  tlc_vec.resize(num_tlc);
 }
 
-void asp::ImageXML::parse_band_tdi( xercesc::DOMElement* node, int & out_tdi ) {
-  cast_xmlch( get_node<DOMElement>( node, "TDILEVEL" )->getTextContent(), out_tdi );
+void asp::ImageXML::parse_band_tdi(xercesc::DOMElement* node, int & out_tdi) {
+  cast_xmlch(get_node<DOMElement>(node, "TDILEVEL")->getTextContent(), out_tdi);
 }
 
-void asp::ImageXML::parse_tlc_list( xercesc::DOMElement* node ) {
+void asp::ImageXML::parse_tlc_list(xercesc::DOMElement* node) {
   DOMNodeList* children = node->getChildNodes();
   size_t count = 0;
 
-  for ( XMLSize_t i = 0; i < children->getLength(); i++ ) {
-    if ( children->item(i)->getNodeType() == DOMNode::ELEMENT_NODE ) {
-      DOMElement* element = dynamic_cast<DOMElement*>( children->item(i) );
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
+    if (children->item(i)->getNodeType() == DOMNode::ELEMENT_NODE) {
+      DOMElement* element = dynamic_cast<DOMElement*>(children->item(i));
       std::string buffer;
-      cast_xmlch( element->getTextContent(), buffer );
+      cast_xmlch(element->getTextContent(), buffer);
 
-      std::istringstream istr( buffer );
+      std::istringstream istr(buffer);
       istr >> tlc_vec[count].first >> tlc_vec[count].second;
 
       count++;
     }
   }
 
-  VW_ASSERT( count == tlc_vec.size(),
-             IOErr() << "Read incorrect number of TLC." );
+  VW_ASSERT(count == tlc_vec.size(),
+            IOErr() << "Read incorrect number of TLC.");
 }
 
 // A local auxiliary function to parse an XML tag with given prefix
 // and index. Note that the indices starts from 0, while the tags
 // start from 1, so an offset is necessary.
 namespace {
-void parse_index(DOMElement* model, std::string const& prefix, size_t index, Vector<double,20> &vals){
+  void parse_index(DOMElement* model, std::string const& prefix, size_t index, Vector<double,20> &vals){
   
-  if (index >= vals.size()) 
-    vw_throw( ArgumentErr() << "Out of range when parsing XML file." );
+    if (index >= vals.size()) 
+      vw_throw(ArgumentErr() << "Out of range when parsing XML file.");
   
-  std::ostringstream os;
-  os << prefix << index + 1;
-  std::string field = os.str();
+    std::ostringstream os;
+    os << prefix << index + 1;
+    std::string field = os.str();
 
-  cast_xmlch( get_node<DOMElement>( model, field.c_str() )->getTextContent(), vals[index] );
-}
+    cast_xmlch(get_node<DOMElement>(model, field.c_str())->getTextContent(), vals[index]);
+  }
   
 }
 
-void asp::ImageXML::parse_image_size( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "NUMROWS"    )->getTextContent(), image_size[1] );
-  cast_xmlch( get_node<DOMElement>( node, "NUMCOLUMNS" )->getTextContent(), image_size[0] );
+void asp::ImageXML::parse_image_size(xercesc::DOMElement* node) {
+  cast_xmlch(get_node<DOMElement>(node, "NUMROWS"   )->getTextContent(), image_size[1]);
+  cast_xmlch(get_node<DOMElement>(node, "NUMCOLUMNS")->getTextContent(), image_size[0]);
 }
 
 asp::ImageXML::ImageXML() : BitChecker(4) {}
 
-void asp::ImageXML::parse( xercesc::DOMElement* node ) {
-  DOMElement* image = get_node<DOMElement>( node, "IMAGE" );
+void asp::ImageXML::parse(xercesc::DOMElement* node) {
+  DOMElement* image = get_node<DOMElement>(node, "IMAGE");
   parse_meta(image);
   check_argument(0);
 
@@ -132,7 +131,7 @@ void asp::ImageXML::parse( xercesc::DOMElement* node ) {
       // Multispectral
       const int num_bands = 8;
       const char * bands[num_bands] = {"BAND_C", "BAND_B", "BAND_G", "BAND_Y", "BAND_R",
-                                 "BAND_RE", "BAND_N", "BAND_N2"};
+                                       "BAND_RE", "BAND_N", "BAND_N2"};
       tdi_multi.resize(num_bands);
       for (int it = 0; it < num_bands; it++) {
         DOMElement* band = get_node<DOMElement>(node, bands[it]);
@@ -144,10 +143,10 @@ void asp::ImageXML::parse( xercesc::DOMElement* node ) {
   }
   check_argument(1);
 
-  parse_tlc_list( get_node<DOMElement>( image, "TLCLISTList" ) );
+  parse_tlc_list(get_node<DOMElement>(image, "TLCLISTList"));
   check_argument(2);
 
-  parse_image_size( node );
+  parse_image_size(node);
   check_argument(3);
 }
 
@@ -155,84 +154,84 @@ void asp::ImageXML::parse( xercesc::DOMElement* node ) {
 // GeometricXML class
 
 
-void asp::GeometricXML::parse_principal_distance( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "PD" )->getTextContent(), principal_distance );
+void asp::GeometricXML::parse_principal_distance(xercesc::DOMElement* node) {
+  cast_xmlch(get_node<DOMElement>(node, "PD")->getTextContent(), principal_distance);
 }
 
-void asp::GeometricXML::parse_optical_distortion( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "POLYORDER" )->getTextContent(), optical_polyorder );
+void asp::GeometricXML::parse_optical_distortion(xercesc::DOMElement* node) {
+  cast_xmlch(get_node<DOMElement>(node, "POLYORDER")->getTextContent(), optical_polyorder);
 
   // If the optical polyorder is >= 1 and some of the polynomial
   // coefficients are non-zero, then throw an error as we did not
   // implement optical distortion.
 
-  if ( optical_polyorder <= 0 ) return; // it actually can be negative
+  if (optical_polyorder <= 0) return; // it actually can be negative
 
   std::string list_list_types[] = {"ALISTList", "BLISTList"};
   for (unsigned ls = 0; ls < sizeof(list_list_types)/sizeof(std::string); ls++){
     std::string list_list_type = list_list_types[ls];
 
-    DOMElement* list_list = get_node<DOMElement>( node, list_list_type );
+    DOMElement* list_list = get_node<DOMElement>(node, list_list_type);
     if (list_list == NULL) return;
 
     DOMNodeList* children = list_list->getChildNodes();
     if (children == NULL) return;
 
-    for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+    for (XMLSize_t i = 0; i < children->getLength(); ++i) {
 
       DOMNode* current = children->item(i);
-      if ( current->getNodeType() != DOMNode::ELEMENT_NODE ) continue;
+      if (current->getNodeType() != DOMNode::ELEMENT_NODE) continue;
 
-      DOMElement* element = dynamic_cast< xercesc::DOMElement* >( current );
+      DOMElement* element = dynamic_cast< xercesc::DOMElement* >(current);
       std::string buffer;
-      cast_xmlch( element->getTextContent(), buffer );
+      cast_xmlch(element->getTextContent(), buffer);
 
-      std::istringstream istr( buffer );
+      std::istringstream istr(buffer);
       double val;
       while (istr >> val){
         if (val != 0)
-          vw_throw( NoImplErr() << "Optical distortion is not implemented.\n" );
+          vw_throw(NoImplErr() << "Optical distortion is not implemented.\n");
       }
     }
   }
 
 }
 
-void asp::GeometricXML::parse_perspective_center( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "CX" )->getTextContent(), perspective_center[0] );
-  cast_xmlch( get_node<DOMElement>( node, "CY" )->getTextContent(), perspective_center[1] );
-  cast_xmlch( get_node<DOMElement>( node, "CZ" )->getTextContent(), perspective_center[2] );
+void asp::GeometricXML::parse_perspective_center(xercesc::DOMElement* node) {
+  cast_xmlch(get_node<DOMElement>(node, "CX")->getTextContent(), perspective_center[0]);
+  cast_xmlch(get_node<DOMElement>(node, "CY")->getTextContent(), perspective_center[1]);
+  cast_xmlch(get_node<DOMElement>(node, "CZ")->getTextContent(), perspective_center[2]);
 }
 
-void asp::GeometricXML::parse_camera_attitude( xercesc::DOMElement* node ) {
+void asp::GeometricXML::parse_camera_attitude(xercesc::DOMElement* node) {
   Vector4 buffer; // We buffer since Q will want to constantly renormalize itself.
-  cast_xmlch( get_node<DOMElement>( node, "QCS4" )->getTextContent(), buffer[0] );
-  cast_xmlch( get_node<DOMElement>( node, "QCS1" )->getTextContent(), buffer[1] );
-  cast_xmlch( get_node<DOMElement>( node, "QCS2" )->getTextContent(), buffer[2] );
-  cast_xmlch( get_node<DOMElement>( node, "QCS3" )->getTextContent(), buffer[3] );
+  cast_xmlch(get_node<DOMElement>(node, "QCS4")->getTextContent(), buffer[0]);
+  cast_xmlch(get_node<DOMElement>(node, "QCS1")->getTextContent(), buffer[1]);
+  cast_xmlch(get_node<DOMElement>(node, "QCS2")->getTextContent(), buffer[2]);
+  cast_xmlch(get_node<DOMElement>(node, "QCS3")->getTextContent(), buffer[3]);
   camera_attitude = Quat(buffer[0],buffer[1],buffer[2],buffer[3]);
 }
 
-void asp::GeometricXML::parse_detector_mounting( xercesc::DOMElement* node ) {
+void asp::GeometricXML::parse_detector_mounting(xercesc::DOMElement* node) {
 
   DOMNodeList* children = node->getChildNodes();
 
   // Read through all the bands, storing their data
   std::vector<Vector4> bandVec;
-  for ( XMLSize_t i = 0; i < children->getLength(); i++ ) {
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
     DOMNode* current = children->item(i);
-    if ( current->getNodeType() == DOMNode::ELEMENT_NODE ) {
+    if (current->getNodeType() == DOMNode::ELEMENT_NODE) {
       DOMElement* element = dynamic_cast< DOMElement* > (current);
 
-      std::string tag( XMLString::transcode(element->getTagName()) );
-      if (boost::starts_with( tag, "BAND_" )) {
+      std::string tag(XMLString::transcode(element->getTagName()));
+      if (boost::starts_with(tag, "BAND_")) {
         Vector4 data;
 
-        DOMElement* detector = get_node<DOMElement>( element, "DETECTOR_ARRAY" );
-        cast_xmlch( get_node<DOMElement>(detector,"DETORIGINX" )->getTextContent(), data[0] );
-        cast_xmlch( get_node<DOMElement>(detector,"DETORIGINY" )->getTextContent(), data[1] );
-        cast_xmlch( get_node<DOMElement>(detector,"DETROTANGLE")->getTextContent(), data[2] );
-        cast_xmlch( get_node<DOMElement>(detector,"DETPITCH"   )->getTextContent(), data[3] );
+        DOMElement* detector = get_node<DOMElement>(element, "DETECTOR_ARRAY");
+        cast_xmlch(get_node<DOMElement>(detector,"DETORIGINX")->getTextContent(), data[0]);
+        cast_xmlch(get_node<DOMElement>(detector,"DETORIGINY")->getTextContent(), data[1]);
+        cast_xmlch(get_node<DOMElement>(detector,"DETROTANGLE")->getTextContent(), data[2]);
+        cast_xmlch(get_node<DOMElement>(detector,"DETPITCH"  )->getTextContent(), data[3]);
         bandVec.push_back(data);
       }
     }
@@ -240,7 +239,7 @@ void asp::GeometricXML::parse_detector_mounting( xercesc::DOMElement* node ) {
 
   if (bandVec.empty()){
     vw_throw(ArgumentErr() << "Could not find any bands in the "
-                           << "DETECTOR_MOUNTING section of the XML file.\n");
+             << "DETECTOR_MOUNTING section of the XML file.\n");
   }
 
   // If there are multiple bands, they must have the same values
@@ -262,31 +261,31 @@ void asp::GeometricXML::parse_detector_mounting( xercesc::DOMElement* node ) {
 
 asp::GeometricXML::GeometricXML() : BitChecker(5) {}
 
-void asp::GeometricXML::parse( xercesc::DOMElement* node ) {
+void asp::GeometricXML::parse(xercesc::DOMElement* node) {
   DOMNodeList* children = node->getChildNodes();
   const XMLSize_t nodeCount = children->getLength();
 
-  for ( XMLSize_t i = 0; i < nodeCount; ++i ) {
+  for (XMLSize_t i = 0; i < nodeCount; ++i) {
     DOMNode* current = children->item(i);
-    if ( current->getNodeType() == DOMNode::ELEMENT_NODE ) {
+    if (current->getNodeType() == DOMNode::ELEMENT_NODE) {
       DOMElement* element =
-        dynamic_cast< xercesc::DOMElement* >( current );
+        dynamic_cast< xercesc::DOMElement* >(current);
 
-      std::string tag( XMLString::transcode(element->getTagName()) );
-      if ( tag == "PRINCIPAL_DISTANCE" ) {
-        parse_principal_distance( element );
+      std::string tag(XMLString::transcode(element->getTagName()));
+      if (tag == "PRINCIPAL_DISTANCE") {
+        parse_principal_distance(element);
         check_argument(0);
-      } else if ( tag == "OPTICAL_DISTORTION" ) {
-        parse_optical_distortion( element );
+      } else if (tag == "OPTICAL_DISTORTION") {
+        parse_optical_distortion(element);
         check_argument(1);
-      } else if ( tag == "PERSPECTIVE_CENTER" ) {
-        parse_perspective_center( element );
+      } else if (tag == "PERSPECTIVE_CENTER") {
+        parse_perspective_center(element);
         check_argument(2);
-      } else if ( tag == "CAMERA_ATTITUDE" ) {
-        parse_camera_attitude( element );
+      } else if (tag == "CAMERA_ATTITUDE") {
+        parse_camera_attitude(element);
         check_argument(3);
-      } else if ( tag == "DETECTOR_MOUNTING" ) {
-        parse_detector_mounting( element );
+      } else if (tag == "DETECTOR_MOUNTING") {
+        parse_detector_mounting(element);
         check_argument(4);
       }
     }
@@ -312,27 +311,27 @@ void asp::GeometricXML::printDebugInfo() const {
 //========================================================================
 // EphemerisXML class
 
-void asp::EphemerisXML::parse_meta( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "STARTTIME"    )->getTextContent(), start_time );
-  cast_xmlch( get_node<DOMElement>( node, "TIMEINTERVAL" )->getTextContent(), time_interval );
+void asp::EphemerisXML::parse_meta(xercesc::DOMElement* node) {
+  cast_xmlch(get_node<DOMElement>(node, "STARTTIME"   )->getTextContent(), start_time);
+  cast_xmlch(get_node<DOMElement>(node, "TIMEINTERVAL")->getTextContent(), time_interval);
   size_t num_points;
-  cast_xmlch( get_node<DOMElement>( node, "NUMPOINTS"    )->getTextContent(), num_points );
-  position_vec.resize  ( num_points );
-  velocity_vec.resize  ( num_points );
-  covariance_vec.resize( num_points );
+  cast_xmlch(get_node<DOMElement>(node, "NUMPOINTS"   )->getTextContent(), num_points);
+  position_vec.resize  (num_points);
+  velocity_vec.resize  (num_points);
+  covariance_vec.resize(num_points);
 }
 
-void asp::EphemerisXML::parse_eph_list( xercesc::DOMElement* node ) {
+void asp::EphemerisXML::parse_eph_list(xercesc::DOMElement* node) {
   DOMNodeList* children = node->getChildNodes();
   size_t count = 0;
 
-  for ( XMLSize_t i = 0; i < children->getLength(); i++ ) {
-    if ( children->item(i)->getNodeType() == DOMNode::ELEMENT_NODE ) {
-      DOMElement* element = dynamic_cast<DOMElement*>( children->item(i) );
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
+    if (children->item(i)->getNodeType() == DOMNode::ELEMENT_NODE) {
+      DOMElement* element = dynamic_cast<DOMElement*>(children->item(i));
       std::string buffer;
-      cast_xmlch( element->getTextContent(), buffer );
+      cast_xmlch(element->getTextContent(), buffer);
 
-      std::istringstream istr( buffer );
+      std::istringstream istr(buffer);
       std::string index_b;
       istr >> index_b;
       size_t index;
@@ -353,44 +352,44 @@ void asp::EphemerisXML::parse_eph_list( xercesc::DOMElement* node ) {
     }
   }
 
-  VW_ASSERT( count == position_vec.size(),
-             IOErr() << "Read incorrect number of points." );
+  VW_ASSERT(count == position_vec.size(),
+            IOErr() << "Read incorrect number of points.");
 }
 
 asp::EphemerisXML::EphemerisXML() : BitChecker(2) {}
 
-void asp::EphemerisXML::parse( xercesc::DOMElement* node ) {
-  parse_meta( node );
+void asp::EphemerisXML::parse(xercesc::DOMElement* node) {
+  parse_meta(node);
   check_argument(0);
 
-  parse_eph_list( get_node<DOMElement>( node, "EPHEMLISTList" ) );
+  parse_eph_list(get_node<DOMElement>(node, "EPHEMLISTList"));
   check_argument(1);
 }
 
 //========================================================================
 // AttitudeXML class
 
-void asp::AttitudeXML::parse_meta( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "STARTTIME"    )->getTextContent(), start_time );
-  cast_xmlch( get_node<DOMElement>( node, "TIMEINTERVAL" )->getTextContent(), time_interval );
+void asp::AttitudeXML::parse_meta(xercesc::DOMElement* node) {
+  cast_xmlch(get_node<DOMElement>(node, "STARTTIME"   )->getTextContent(), start_time);
+  cast_xmlch(get_node<DOMElement>(node, "TIMEINTERVAL")->getTextContent(), time_interval);
   size_t num_points;
-  cast_xmlch( get_node<DOMElement>( node, "NUMPOINTS"    )->getTextContent(), num_points );
-  quat_vec.resize( num_points );
-  covariance_vec.resize( num_points );
+  cast_xmlch(get_node<DOMElement>(node, "NUMPOINTS"   )->getTextContent(), num_points);
+  quat_vec.resize(num_points);
+  covariance_vec.resize(num_points);
 }
 
-void asp::AttitudeXML::parse_att_list( xercesc::DOMElement* node ) {
+void asp::AttitudeXML::parse_att_list(xercesc::DOMElement* node) {
   DOMNodeList* children = node->getChildNodes();
   size_t count = 0;
   Vector4 qbuf;
 
-  for ( XMLSize_t i = 0; i < children->getLength(); i++ ) {
-    if ( children->item(i)->getNodeType() == DOMNode::ELEMENT_NODE ) {
-      DOMElement* element = dynamic_cast<DOMElement*>( children->item(i) );
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
+    if (children->item(i)->getNodeType() == DOMNode::ELEMENT_NODE) {
+      DOMElement* element = dynamic_cast<DOMElement*>(children->item(i));
       std::string buffer;
-      cast_xmlch( element->getTextContent(), buffer );
+      cast_xmlch(element->getTextContent(), buffer);
 
-      std::istringstream istr( buffer );
+      std::istringstream istr(buffer);
       std::string index_b;
       istr >> index_b;
       size_t index;
@@ -401,7 +400,7 @@ void asp::AttitudeXML::parse_att_list( xercesc::DOMElement* node ) {
       }
 
       istr >> qbuf[0] >> qbuf[1] >> qbuf[2] >> qbuf[3];
-      quat_vec[index] = Quat(qbuf[3], qbuf[0], qbuf[1], qbuf[2] );
+      quat_vec[index] = Quat(qbuf[3], qbuf[0], qbuf[1], qbuf[2]);
       istr >> covariance_vec[index][0] >> covariance_vec[index][1]
            >> covariance_vec[index][2] >> covariance_vec[index][3]
            >> covariance_vec[index][4] >> covariance_vec[index][5]
@@ -412,17 +411,17 @@ void asp::AttitudeXML::parse_att_list( xercesc::DOMElement* node ) {
     }
   }
 
-  VW_ASSERT( count == quat_vec.size(),
-             IOErr() << "Read incorrect number of points." );
+  VW_ASSERT(count == quat_vec.size(),
+            IOErr() << "Read incorrect number of points.");
 }
 
 asp::AttitudeXML::AttitudeXML() : BitChecker(2) {}
 
-void asp::AttitudeXML::parse( xercesc::DOMElement* node ) {
-  parse_meta( node );
+void asp::AttitudeXML::parse(xercesc::DOMElement* node) {
+  parse_meta(node);
   check_argument(0);
 
-  parse_att_list( get_node<DOMElement>( node, "ATTLISTList" ) );
+  parse_att_list(get_node<DOMElement>(node, "ATTLISTList"));
   check_argument(1);
 }
 
@@ -430,12 +429,12 @@ void asp::AttitudeXML::parse( xercesc::DOMElement* node ) {
 //========================================================================
 // RPCXML class
 
-void asp::RPCXML::parse_vector( xercesc::DOMElement* node,
-                                Vector<double,20>& vec ) {
+void asp::RPCXML::parse_vector(xercesc::DOMElement* node,
+                               Vector<double,20>& vec) {
   std::string buffer;
-  cast_xmlch( node->getTextContent(), buffer );
+  cast_xmlch(node->getTextContent(), buffer);
 
-  std::istringstream istr( buffer );
+  std::istringstream istr(buffer);
   istr >> vec[0] >> vec[1] >> vec[2] >> vec[3] >> vec[4] >> vec[5]
        >> vec[6] >> vec[7] >> vec[8] >> vec[9] >> vec[10] >> vec[11]
        >> vec[12] >> vec[13] >> vec[14] >> vec[15] >> vec[16] >> vec[17]
@@ -444,22 +443,22 @@ void asp::RPCXML::parse_vector( xercesc::DOMElement* node,
 
 asp::RPCXML::RPCXML() : BitChecker(2) {}
 
-void asp::RPCXML::read_from_file( std::string const& name ) {
-  boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
+void asp::RPCXML::read_from_file(std::string const& name) {
+  boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
   parser->setValidationScheme(XercesDOMParser::Val_Always);
   parser->setDoNamespaces(true);
-  boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
+  boost::scoped_ptr<ErrorHandler> errHandler(new HandlerBase());
   parser->setErrorHandler(errHandler.get());
 
   DOMDocument* xmlDoc;
   DOMElement* elementRoot;
 
   try{
-    parser->parse( name.c_str() );
+    parser->parse(name.c_str());
     xmlDoc = parser->getDocument();
     elementRoot = xmlDoc->getDocumentElement();
   }catch(...){
-    vw_throw( ArgumentErr() << "XML file \"" << name << "\" is invalid.\n" );
+    vw_throw(ArgumentErr() << "XML file \"" << name << "\" is invalid.\n");
   }
 
   // Try to parse the bounding box but keep going if we fail.
@@ -470,67 +469,67 @@ void asp::RPCXML::read_from_file( std::string const& name ) {
   }
 
   try {
-    parse_rpb( get_node<DOMElement>( elementRoot, "RPB" ) );
+    parse_rpb(get_node<DOMElement>(elementRoot, "RPB"));
     return;
-  } catch ( vw::IOErr const& e ) {
+  } catch (vw::IOErr const& e) {
     // Possibly RPB doesn't exist
   }
   try {
     // Pleiades/Astrium
-    parse_rational_function_model( get_node<DOMElement>( elementRoot, "Rational_Function_Model" ) );
+    parse_rational_function_model(get_node<DOMElement>(elementRoot, "Rational_Function_Model"));
     return;
-  } catch ( vw::IOErr const& e ) {
+  } catch (vw::IOErr const& e) {
     // Possibly Rational_Function_Model doesn't work
   }
   
   try {
     // Perusat 1
-    parse_perusat_model( elementRoot );
+    parse_perusat_model(elementRoot);
     return;
-  } catch ( vw::IOErr const& e ) {
+  } catch (vw::IOErr const& e) {
     // No luck
   }
 
-  vw_throw( vw::NotFoundErr() << "Couldn't find RPB or Rational_Function_Model tag inside XML file." );
+  vw_throw(vw::NotFoundErr() << "Couldn't find RPB or Rational_Function_Model tag inside XML file.");
 }
 
-void asp::RPCXML::parse_bbox( xercesc::DOMElement* root_node ) {
+void asp::RPCXML::parse_bbox(xercesc::DOMElement* root_node) {
   // Now read the bounding box
-  DOMElement* imd_node  = get_node<DOMElement>( root_node, "IMD" );
+  DOMElement* imd_node  = get_node<DOMElement>(root_node, "IMD");
   DOMElement* bbox_node;
   try {
-    bbox_node = get_node<DOMElement>( imd_node, "BAND_P");
+    bbox_node = get_node<DOMElement>(imd_node, "BAND_P");
   } catch (...) { // Try one more channel if we can't find BAND_P
-    bbox_node = get_node<DOMElement>( imd_node, "BAND_R");
+    bbox_node = get_node<DOMElement>(imd_node, "BAND_R");
   }
   // Start by initializing the box with the first point
   Vector3 point;
-  cast_xmlch( get_node<DOMElement>( bbox_node, "ULLON" )->getTextContent(), point.x() );
-  cast_xmlch( get_node<DOMElement>( bbox_node, "ULLAT" )->getTextContent(), point.y() );
-  cast_xmlch( get_node<DOMElement>( bbox_node, "ULHAE" )->getTextContent(), point.z() );
+  cast_xmlch(get_node<DOMElement>(bbox_node, "ULLON")->getTextContent(), point.x());
+  cast_xmlch(get_node<DOMElement>(bbox_node, "ULLAT")->getTextContent(), point.y());
+  cast_xmlch(get_node<DOMElement>(bbox_node, "ULHAE")->getTextContent(), point.z());
   m_lat_lon_height_box.min() = point;
   m_lat_lon_height_box.max() = point;
   //VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
   // Expand to contain the other points
-  cast_xmlch( get_node<DOMElement>( bbox_node, "URLON" )->getTextContent(), point.x() );
-  cast_xmlch( get_node<DOMElement>( bbox_node, "URLAT" )->getTextContent(), point.y() );
-  cast_xmlch( get_node<DOMElement>( bbox_node, "URHAE" )->getTextContent(), point.z() );
+  cast_xmlch(get_node<DOMElement>(bbox_node, "URLON")->getTextContent(), point.x());
+  cast_xmlch(get_node<DOMElement>(bbox_node, "URLAT")->getTextContent(), point.y());
+  cast_xmlch(get_node<DOMElement>(bbox_node, "URHAE")->getTextContent(), point.z());
   m_lat_lon_height_box.grow(point);
   //VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
-  cast_xmlch( get_node<DOMElement>( bbox_node, "LLLON" )->getTextContent(), point.x() );
-  cast_xmlch( get_node<DOMElement>( bbox_node, "LLLAT" )->getTextContent(), point.y() );
-  cast_xmlch( get_node<DOMElement>( bbox_node, "LLHAE" )->getTextContent(), point.z() );
+  cast_xmlch(get_node<DOMElement>(bbox_node, "LLLON")->getTextContent(), point.x());
+  cast_xmlch(get_node<DOMElement>(bbox_node, "LLLAT")->getTextContent(), point.y());
+  cast_xmlch(get_node<DOMElement>(bbox_node, "LLHAE")->getTextContent(), point.z());
   m_lat_lon_height_box.grow(point);
   //VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
-  cast_xmlch( get_node<DOMElement>( bbox_node, "LRLON" )->getTextContent(), point.x() );
-  cast_xmlch( get_node<DOMElement>( bbox_node, "LRLAT" )->getTextContent(), point.y() );
-  cast_xmlch( get_node<DOMElement>( bbox_node, "LRHAE" )->getTextContent(), point.z() );
+  cast_xmlch(get_node<DOMElement>(bbox_node, "LRLON")->getTextContent(), point.x());
+  cast_xmlch(get_node<DOMElement>(bbox_node, "LRLAT")->getTextContent(), point.y());
+  cast_xmlch(get_node<DOMElement>(bbox_node, "LRHAE")->getTextContent(), point.z());
   m_lat_lon_height_box.grow(point);
   //VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
 }
 
-void asp::RPCXML::parse_rpb( xercesc::DOMElement* node ) {
-  DOMElement* image = get_node<DOMElement>( node, "IMAGE" );
+void asp::RPCXML::parse_rpb(xercesc::DOMElement* node) {
+  DOMElement* image = get_node<DOMElement>(node, "IMAGE");
 
   // Pieces that will go into the RPC Model
   Vector<double,20> line_num_coeff, line_den_coeff, samp_num_coeff, samp_den_coeff;
@@ -538,16 +537,16 @@ void asp::RPCXML::parse_rpb( xercesc::DOMElement* node ) {
   Vector3 geodetic_offset, geodetic_scale;
 
   // Painfully extract from the XML
-  cast_xmlch( get_node<DOMElement>( image, "SAMPOFFSET"   )->getTextContent(), xy_offset.x()       );
-  cast_xmlch( get_node<DOMElement>( image, "LINEOFFSET"   )->getTextContent(), xy_offset.y()       );
-  cast_xmlch( get_node<DOMElement>( image, "SAMPSCALE"    )->getTextContent(), xy_scale.x()        );
-  cast_xmlch( get_node<DOMElement>( image, "LINESCALE"    )->getTextContent(), xy_scale.y()        );
-  cast_xmlch( get_node<DOMElement>( image, "LONGOFFSET"   )->getTextContent(), geodetic_offset.x() );
-  cast_xmlch( get_node<DOMElement>( image, "LATOFFSET"    )->getTextContent(), geodetic_offset.y() );
-  cast_xmlch( get_node<DOMElement>( image, "HEIGHTOFFSET" )->getTextContent(), geodetic_offset.z() );
-  cast_xmlch( get_node<DOMElement>( image, "LONGSCALE"    )->getTextContent(), geodetic_scale.x()  );
-  cast_xmlch( get_node<DOMElement>( image, "LATSCALE"     )->getTextContent(), geodetic_scale.y()  );
-  cast_xmlch( get_node<DOMElement>( image, "HEIGHTSCALE"  )->getTextContent(), geodetic_scale.z()  );
+  cast_xmlch(get_node<DOMElement>(image, "SAMPOFFSET"  )->getTextContent(), xy_offset.x()      );
+  cast_xmlch(get_node<DOMElement>(image, "LINEOFFSET"  )->getTextContent(), xy_offset.y()      );
+  cast_xmlch(get_node<DOMElement>(image, "SAMPSCALE"   )->getTextContent(), xy_scale.x()       );
+  cast_xmlch(get_node<DOMElement>(image, "LINESCALE"   )->getTextContent(), xy_scale.y()       );
+  cast_xmlch(get_node<DOMElement>(image, "LONGOFFSET"  )->getTextContent(), geodetic_offset.x());
+  cast_xmlch(get_node<DOMElement>(image, "LATOFFSET"   )->getTextContent(), geodetic_offset.y());
+  cast_xmlch(get_node<DOMElement>(image, "HEIGHTOFFSET")->getTextContent(), geodetic_offset.z());
+  cast_xmlch(get_node<DOMElement>(image, "LONGSCALE"   )->getTextContent(), geodetic_scale.x() );
+  cast_xmlch(get_node<DOMElement>(image, "LATSCALE"    )->getTextContent(), geodetic_scale.y() );
+  cast_xmlch(get_node<DOMElement>(image, "HEIGHTSCALE" )->getTextContent(), geodetic_scale.z() );
   check_argument(0);
   parse_vector(get_node<DOMElement>(get_node<DOMElement>(image, "LINENUMCOEFList"), "LINENUMCOEF"), line_num_coeff);
   parse_vector(get_node<DOMElement>(get_node<DOMElement>(image, "LINEDENCOEFList"), "LINEDENCOEF"), line_den_coeff);
@@ -560,19 +559,19 @@ void asp::RPCXML::parse_rpb( xercesc::DOMElement* node ) {
   // The choice of using the WGS_1984 datum comes from Digital Globe's
   // QuickBird Imagery Products Guide. Section 11.1 makes a
   // blanket statement that all heights are meters against this ellipsoid.
-  m_rpc.reset( new RPCModel(cartography::Datum(asp::stereo_settings().datum),
-			    line_num_coeff, line_den_coeff,
-			    samp_num_coeff, samp_den_coeff,
-			    xy_offset, xy_scale,
-			    geodetic_offset, geodetic_scale) );
+  m_rpc.reset(new RPCModel(cartography::Datum(asp::stereo_settings().datum),
+                           line_num_coeff, line_den_coeff,
+                           samp_num_coeff, samp_den_coeff,
+                           xy_offset, xy_scale,
+                           geodetic_offset, geodetic_scale));
   
 }
 
-void asp::RPCXML::parse_rational_function_model( xercesc::DOMElement* node ) {
+void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node) {
   DOMElement* inverse_model =
-    get_node<DOMElement>( node, "Inverse_Model" ); // Inverse model
-                                                   // takes ground to image.
-  DOMElement* rfmvalidity  = get_node<DOMElement>( node, "RFM_Validity" );
+    get_node<DOMElement>(node, "Inverse_Model"); // Inverse model
+  // takes ground to image.
+  DOMElement* rfmvalidity  = get_node<DOMElement>(node, "RFM_Validity");
 
   // Pieces that will go into the RPC Model
   Vector<double,20> line_num_coeff, line_den_coeff, samp_num_coeff, samp_den_coeff;
@@ -589,35 +588,35 @@ void asp::RPCXML::parse_rational_function_model( xercesc::DOMElement* node ) {
   for (size_t i = 0; i < line_den_coeff.size(); i++) 
     parse_index(inverse_model, "LINE_DEN_COEFF_", i, line_den_coeff);
 
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LONG_SCALE"  )->getTextContent(), geodetic_scale.x() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LAT_SCALE"   )->getTextContent(), geodetic_scale.y() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "HEIGHT_SCALE")->getTextContent(), geodetic_scale.z() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LONG_OFF"    )->getTextContent(), geodetic_offset.x() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LAT_OFF"     )->getTextContent(), geodetic_offset.y() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "HEIGHT_OFF"  )->getTextContent(), geodetic_offset.z() );
+  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LONG_SCALE" )->getTextContent(), geodetic_scale.x());
+  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LAT_SCALE"  )->getTextContent(), geodetic_scale.y());
+  cast_xmlch(get_node<DOMElement>(rfmvalidity, "HEIGHT_SCALE")->getTextContent(), geodetic_scale.z());
+  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LONG_OFF"   )->getTextContent(), geodetic_offset.x());
+  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LAT_OFF"    )->getTextContent(), geodetic_offset.y());
+  cast_xmlch(get_node<DOMElement>(rfmvalidity, "HEIGHT_OFF" )->getTextContent(), geodetic_offset.z());
 
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "SAMP_SCALE")->getTextContent(), xy_scale.x() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LINE_SCALE")->getTextContent(), xy_scale.y() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "SAMP_OFF"  )->getTextContent(), xy_offset.x() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LINE_OFF"  )->getTextContent(), xy_offset.y() );
+  cast_xmlch(get_node<DOMElement>(rfmvalidity, "SAMP_SCALE")->getTextContent(), xy_scale.x());
+  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LINE_SCALE")->getTextContent(), xy_scale.y());
+  cast_xmlch(get_node<DOMElement>(rfmvalidity, "SAMP_OFF" )->getTextContent(), xy_offset.x());
+  cast_xmlch(get_node<DOMElement>(rfmvalidity, "LINE_OFF" )->getTextContent(), xy_offset.y());
 
   xy_offset -= Vector2i(1,1);
 
   // Push into the RPC Model so that it is easier to work with
-  m_rpc.reset( new RPCModel(cartography::Datum(asp::stereo_settings().datum),
-			    line_num_coeff, line_den_coeff,
-			    samp_num_coeff, samp_den_coeff,
-			    xy_offset, xy_scale,
-			    geodetic_offset, geodetic_scale ) );
+  m_rpc.reset(new RPCModel(cartography::Datum(asp::stereo_settings().datum),
+                           line_num_coeff, line_den_coeff,
+                           samp_num_coeff, samp_den_coeff,
+                           xy_offset, xy_scale,
+                           geodetic_offset, geodetic_scale));
 }
 
-void asp::RPCXML::parse_perusat_model( xercesc::DOMElement* node ) {
+void asp::RPCXML::parse_perusat_model(xercesc::DOMElement* node) {
 
   DOMElement* inverse_model =
-    get_node<DOMElement>( node, "Inverse_Model" ); // Inverse model
-                                                   // takes ground to image.
+    get_node<DOMElement>(node, "Inverse_Model"); // Inverse model
+  // takes ground to image.
 
-  DOMElement* validity  = get_node<DOMElement>( node, "Validity" );
+  DOMElement* validity  = get_node<DOMElement>(node, "Validity");
 
   // Pieces that will go into the RPC Model
   Vector<double,20> line_num_coeff, line_den_coeff, samp_num_coeff, samp_den_coeff;
@@ -634,51 +633,50 @@ void asp::RPCXML::parse_perusat_model( xercesc::DOMElement* node ) {
   for (size_t i = 0; i < line_den_coeff.size(); i++) 
     parse_index(inverse_model, "ROW_DEN_COEFF_", i, line_den_coeff);
 
-  cast_xmlch( get_node<DOMElement>( validity, "LON_SCALE"  )->getTextContent(), geodetic_scale.x() );
-  cast_xmlch( get_node<DOMElement>( validity, "LAT_SCALE"   )->getTextContent(), geodetic_scale.y() );
-  cast_xmlch( get_node<DOMElement>( validity, "HEIGHT_SCALE")->getTextContent(), geodetic_scale.z() );
-  cast_xmlch( get_node<DOMElement>( validity, "LON_OFF"    )->getTextContent(), geodetic_offset.x() );
-  cast_xmlch( get_node<DOMElement>( validity, "LAT_OFF"     )->getTextContent(), geodetic_offset.y() );
-  cast_xmlch( get_node<DOMElement>( validity, "HEIGHT_OFF"  )->getTextContent(), geodetic_offset.z() );
+  cast_xmlch(get_node<DOMElement>(validity, "LON_SCALE" )->getTextContent(), geodetic_scale.x());
+  cast_xmlch(get_node<DOMElement>(validity, "LAT_SCALE"  )->getTextContent(), geodetic_scale.y());
+  cast_xmlch(get_node<DOMElement>(validity, "HEIGHT_SCALE")->getTextContent(), geodetic_scale.z());
+  cast_xmlch(get_node<DOMElement>(validity, "LON_OFF"   )->getTextContent(), geodetic_offset.x());
+  cast_xmlch(get_node<DOMElement>(validity, "LAT_OFF"    )->getTextContent(), geodetic_offset.y());
+  cast_xmlch(get_node<DOMElement>(validity, "HEIGHT_OFF" )->getTextContent(), geodetic_offset.z());
 
-  cast_xmlch( get_node<DOMElement>( validity, "COL_SCALE")->getTextContent(), xy_scale.x() );
-  cast_xmlch( get_node<DOMElement>( validity, "ROW_SCALE")->getTextContent(), xy_scale.y() );
-  cast_xmlch( get_node<DOMElement>( validity, "COL_OFF"  )->getTextContent(), xy_offset.x() );
-  cast_xmlch( get_node<DOMElement>( validity, "ROW_OFF"  )->getTextContent(), xy_offset.y() );
+  cast_xmlch(get_node<DOMElement>(validity, "COL_SCALE")->getTextContent(), xy_scale.x());
+  cast_xmlch(get_node<DOMElement>(validity, "ROW_SCALE")->getTextContent(), xy_scale.y());
+  cast_xmlch(get_node<DOMElement>(validity, "COL_OFF" )->getTextContent(), xy_offset.x());
+  cast_xmlch(get_node<DOMElement>(validity, "ROW_OFF" )->getTextContent(), xy_offset.y());
 
   // TODO: Not sure about this line!!!
   xy_offset -= Vector2i(1,1);
 
   // Push into the RPC Model so that it is easier to work with
-  m_rpc.reset( new RPCModel(cartography::Datum(asp::stereo_settings().datum),
-			    line_num_coeff, line_den_coeff,
-			    samp_num_coeff, samp_den_coeff,
-			    xy_offset, xy_scale,
-			    geodetic_offset, geodetic_scale ) );
+  m_rpc.reset(new RPCModel(cartography::Datum(asp::stereo_settings().datum),
+                           line_num_coeff, line_den_coeff,
+                           samp_num_coeff, samp_den_coeff,
+                           xy_offset, xy_scale,
+                           geodetic_offset, geodetic_scale));
 
 }
 
 // Helper functions to allow us to fill the objects
-void asp::read_xml( std::string const& filename,
-                    GeometricXML& geo,
-                    AttitudeXML& att,
-                    EphemerisXML& eph,
-                    ImageXML& img,
-                    RPCXML& rpc
-                    ) {
+void asp::read_xml(std::string const& filename,
+                   GeometricXML& geo,
+                   AttitudeXML& att,
+                   EphemerisXML& eph,
+                   ImageXML& img,
+                   RPCXML& rpc) {
 
   // Check if the file actually exists and throw a user helpful file.
-  if ( !fs::exists( filename ) )
-    vw_throw( ArgumentErr() << "XML file \"" << filename << "\" does not exist." );
+  if (!fs::exists(filename))
+    vw_throw(ArgumentErr() << "XML file \"" << filename << "\" does not exist.");
 
   try{
-    boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
+    boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
     parser->setValidationScheme(XercesDOMParser::Val_Always);
     parser->setDoNamespaces(true);
-    boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
+    boost::scoped_ptr<ErrorHandler> errHandler(new HandlerBase());
     parser->setErrorHandler(errHandler.get());
 
-    parser->parse( filename.c_str() );
+    parser->parse(filename.c_str());
     DOMDocument* xmlDoc = parser->getDocument();
     DOMElement* elementRoot = xmlDoc->getDocumentElement();
 
@@ -687,45 +685,45 @@ void asp::read_xml( std::string const& filename,
     } catch(...){}
 
     DOMNodeList* children = elementRoot->getChildNodes();
-    for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+    for (XMLSize_t i = 0; i < children->getLength(); ++i) {
       DOMNode* curr_node = children->item(i);
-      if ( curr_node->getNodeType() == DOMNode::ELEMENT_NODE ) {
+      if (curr_node->getNodeType() == DOMNode::ELEMENT_NODE) {
         DOMElement* curr_element =
-          dynamic_cast<DOMElement*>( curr_node );
+          dynamic_cast<DOMElement*>(curr_node);
 
-        std::string tag( XMLString::transcode(curr_element->getTagName()) );
+        std::string tag(XMLString::transcode(curr_element->getTagName()));
 
-        if ( tag == "GEO" )
-          geo.parse( curr_element );
-        else if ( tag == "EPH" )
-          eph.parse( curr_element );
-        else if ( tag == "ATT" )
-          att.parse( curr_element );
-        else if ( tag == "IMD" )
-          img.parse( curr_element );
-        else if ( tag == "RPB" )
-          rpc.parse( curr_element );
+        if (tag == "GEO")
+          geo.parse(curr_element);
+        else if (tag == "EPH")
+          eph.parse(curr_element);
+        else if (tag == "ATT")
+          att.parse(curr_element);
+        else if (tag == "IMD")
+          img.parse(curr_element);
+        else if (tag == "RPB")
+          rpc.parse(curr_element);
       }
     }
-  } catch ( const std::exception& e ) {                
-    vw_throw( ArgumentErr() << e.what() << " XML file \"" << filename << "\" is invalid.\n" );
+  } catch (const std::exception& e) {                
+    vw_throw(ArgumentErr() << e.what() << " XML file \"" << filename << "\" is invalid.\n");
   }
 
 }
 
-vw::Vector2i asp::xml_image_size( std::string const& filename ){
+vw::Vector2i asp::xml_image_size(std::string const& filename){
   GeometricXML geo;
   AttitudeXML att;
   EphemerisXML eph;
   ImageXML img;
   RPCXML rpc;
 
-  read_xml( filename, geo, att, eph, img, rpc);
+  read_xml(filename, geo, att, eph, img, rpc);
   return img.image_size;
 }
 
 asp::RPCModel* asp::RPCXML::rpc_ptr() const {
-  VW_ASSERT( m_rpc.get(), LogicErr() << "read_from_file or parse needs to be called first before an RPCModel is ready" );
+  VW_ASSERT(m_rpc.get(), LogicErr() << "read_from_file or parse needs to be called first before an RPCModel is ready");
   return m_rpc.get();
 }
 
@@ -742,13 +740,13 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
                               std::vector<vw::Vector2> &lonlat_corners) {
 
   // Open and initialize the document
-  boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
+  boost::scoped_ptr<XercesDOMParser> parser(new XercesDOMParser());
   parser->setValidationScheme(XercesDOMParser::Val_Always);
   parser->setDoNamespaces(true);
-  boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
+  boost::scoped_ptr<ErrorHandler> errHandler(new HandlerBase());
   parser->setErrorHandler(errHandler.get());
 
-  parser->parse( xml_path.c_str() );
+  parser->parse(xml_path.c_str());
   DOMDocument* xmlDoc      = parser->getDocument();
   DOMElement * elementRoot = xmlDoc->getDocumentElement();
   
@@ -767,8 +765,8 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
   
   // Get the image size
   double num_rows, num_cols;
-  XmlUtils::cast_xmlch( XmlUtils::get_node<DOMElement>( imd_node, "NUMROWS"   )->getTextContent(), num_rows);
-  XmlUtils::cast_xmlch( XmlUtils::get_node<DOMElement>( imd_node, "NUMCOLUMNS")->getTextContent(), num_cols);
+  XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(imd_node, "NUMROWS"  )->getTextContent(), num_rows);
+  XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(imd_node, "NUMCOLUMNS")->getTextContent(), num_cols);
   
   // Set the pixel corners
   pixel_corners[TOP_LEFT ].x()  = 0.5;
@@ -782,15 +780,15 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
     
   // Look through its children for a band name
   DOMNodeList* children = imd_node->getChildNodes();
-  for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+  for (XMLSize_t i = 0; i < children->getLength(); ++i) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
-    if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
+    if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
       continue;
       
     // Look for the BAND_X node
-    DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
-    std::string tag( XMLString::transcode(curr_element->getTagName()) );
+    DOMElement* curr_element = dynamic_cast<DOMElement*>(curr_node);
+    std::string tag(XMLString::transcode(curr_element->getTagName()));
     if (tag.find("BAND_") == std::string::npos)
       continue;
 
@@ -830,7 +828,7 @@ bool asp::approximate_wv_georeference(std::string  const& wv_xml_path,
   // Convert the corners into homogenous coordinates so that the fitter will accept them.
   const size_t NUM_CORNERS = 4; 
   std::vector<Vector3> pixel_corners3 (NUM_CORNERS), 
-                       lonlat_corners3(NUM_CORNERS);
+    lonlat_corners3(NUM_CORNERS);
   for (size_t i=0; i<NUM_CORNERS; ++i) {
     pixel_corners3[i].x() = pixel_corners[i].x();
     pixel_corners3[i].y() = pixel_corners[i].y();
@@ -856,7 +854,6 @@ bool asp::approximate_wv_georeference(std::string  const& wv_xml_path,
   return true;
 }
 
-
 bool asp::read_wv_georeference(GeoReference      &georef,
                                std::string const &image_path,
                                std::string const &xml_path) {
@@ -876,8 +873,3 @@ bool asp::read_wv_georeference(GeoReference      &georef,
   xercesc::XMLPlatformUtils::Terminate();
   return result;
 }
-
-
-
-
-

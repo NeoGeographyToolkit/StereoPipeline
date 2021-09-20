@@ -15,9 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-
-
 #include <vw/Math/Vector.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/FileIO/FileUtils.h>
@@ -36,21 +33,21 @@ using namespace vw;
 
 namespace asp {
 
-  void RPCModel::initialize( DiskImageResourceGDAL* resource ) {
-    // Extract Datum (by means of GeoReference)
+  void RPCModel::initialize(DiskImageResourceGDAL* resource) {
+    // Extract the datum (by means of georeference)
     cartography::GeoReference georef;
-    cartography::read_georeference( georef, *resource );
+    cartography::read_georeference(georef, *resource);
     m_datum = georef.datum();
 
     // Extract RPC Info
     boost::shared_ptr<GDALDataset> dataset = resource->get_dataset_ptr();
-    if ( !dataset )
-      vw_throw( NotFoundErr() << "RPCModel: Could not read data. No file has been opened." );
+    if (!dataset)
+      vw_throw(NotFoundErr() << "RPCModel: Could not read data. No file has been opened.");
 
     GDALRPCInfo gdal_rpc;
-    if ( !GDALExtractRPCInfo( dataset->GetMetadata("RPC"),
-                              &gdal_rpc) )
-      vw_throw( NotFoundErr() << "RPCModel: GDAL resource appears not to have RPC metadata." );
+    if (!GDALExtractRPCInfo(dataset->GetMetadata("RPC"),
+                            &gdal_rpc))
+      vw_throw(NotFoundErr() << "RPCModel: GDAL resource appears not to have RPC metadata.");
 
     // Copy information over to our data structures.
     m_lonlatheight_offset = Vector3(gdal_rpc.dfLONG_OFF,
@@ -68,7 +65,7 @@ namespace asp {
     m_sample_den_coeff = CoeffVec(gdal_rpc.adfSAMP_DEN_COEFF);
   }
 
-  RPCModel::RPCModel( std::string const& filename ) {
+  RPCModel::RPCModel(std::string const& filename) {
     std::string ext = get_extension(filename);
     if (ext == ".rpb") {
       load_rpb_file(filename);
@@ -77,30 +74,30 @@ namespace asp {
 
     // Must have this check, otherwise GDAL prints an error.
     if (has_image_extension(filename)) {
-      boost::scoped_ptr<DiskImageResourceGDAL> s_ptr( new DiskImageResourceGDAL(filename) );
-      initialize( s_ptr.get() );
+      boost::scoped_ptr<DiskImageResourceGDAL> s_ptr(new DiskImageResourceGDAL(filename));
+      initialize(s_ptr.get());
     }else{
       // Throw an error. It will be caught, but it will get printed
       // only if no other approaches turn out to work later on.
-      vw_throw( ArgumentErr() << "Not an image " << filename);
+      vw_throw(ArgumentErr() << "Not an image " << filename);
     }
     
   }
 
-  RPCModel::RPCModel( DiskImageResourceGDAL* resource  ) {
-    initialize( resource );
+  RPCModel::RPCModel(DiskImageResourceGDAL* resource ) {
+    initialize(resource);
   }
 
   // The constructor just copies all of the input data
-  RPCModel::RPCModel( cartography::Datum const& datum,
-                      Vector<double,20> const& line_num_coeff,
-                      Vector<double,20> const& line_den_coeff,
-                      Vector<double,20> const& samp_num_coeff,
-                      Vector<double,20> const& samp_den_coeff,
-                      Vector2           const& xy_offset,
-                      Vector2           const& xy_scale,
-                      Vector3           const& lonlatheight_offset,
-                      Vector3           const& lonlatheight_scale ) :
+  RPCModel::RPCModel(cartography::Datum const& datum,
+                     Vector<double,20> const& line_num_coeff,
+                     Vector<double,20> const& line_den_coeff,
+                     Vector<double,20> const& samp_num_coeff,
+                     Vector<double,20> const& samp_den_coeff,
+                     Vector2           const& xy_offset,
+                     Vector2           const& xy_scale,
+                     Vector3           const& lonlatheight_offset,
+                     Vector3           const& lonlatheight_scale) :
     m_datum(datum), 
     m_line_num_coeff(line_num_coeff),
     m_line_den_coeff(line_den_coeff), 
@@ -112,7 +109,7 @@ namespace asp {
     m_lonlatheight_scale(lonlatheight_scale) {}
     
 
-  void RPCModel::load_rpb_file( std::string const& filename) {
+  void RPCModel::load_rpb_file(std::string const& filename) {
     //vw_out() << "Reading RPC model from RPB file, defaulting to WGS84 datum.\n";
     m_datum.set_well_known_datum("WGS84");
     std::ifstream f(filename.c_str());
@@ -120,9 +117,9 @@ namespace asp {
     std::string line;
     std::vector<std::string> tokens;
     bool lineNumCoeffs = false,
-         lineDenCoeffs = false,
-         sampNumCoeffs = false,
-         sampDenCoeffs = false;
+      lineDenCoeffs = false,
+      sampNumCoeffs = false,
+      sampDenCoeffs = false;
     int coeff_index = 0, max_coeff_index = 0;
 
     // Read through each line in the file    
@@ -130,7 +127,7 @@ namespace asp {
       
       try {
         // Break up the line
-        boost::split( tokens, line, boost::is_any_of("=,;") );
+        boost::split(tokens, line, boost::is_any_of("=,;"));
       
         // Parse keywords
         if (line.find("lineOffset") != std::string::npos)
@@ -193,35 +190,35 @@ namespace asp {
           coeff_index = 0;
         }
       } catch(...) {
-        vw_throw( ArgumentErr() << "Error reading file " << filename
-                                << ", line = "  << line);
+        vw_throw(ArgumentErr() << "Error reading file " << filename
+                 << ", line = "  << line);
       }
     } // End loop through lines.
     f.close();
     // Basic error check
     if (max_coeff_index != 20)
-      vw_throw( ArgumentErr() << "Error reading file " << filename
-                              << ", loaded wrong number of coefficients!");
+      vw_throw(ArgumentErr() << "Error reading file " << filename
+               << ", loaded wrong number of coefficients!");
   }
 
   // All of these implementations are largely inspired by the GDAL
   // code. We don't use the GDAL code unfortunately because they don't
   // make that part of the API available. However I believe this is a
   // safe reinterpretation that is safe to distribute.
-  Vector2 RPCModel::point_to_pixel( Vector3 const& point ) const {
-    return geodetic_to_pixel( m_datum.cartesian_to_geodetic( point ) );
+  Vector2 RPCModel::point_to_pixel(Vector3 const& point) const {
+    return geodetic_to_pixel(m_datum.cartesian_to_geodetic(point));
   }
 
-  Vector2 RPCModel::geodetic_to_pixel( Vector3 const& geodetic ) const {
+  Vector2 RPCModel::geodetic_to_pixel(Vector3 const& geodetic) const {
 
     // Should we verify that the  input geodetic is in the box?
 
     Vector3 normalized_geodetic =
       elem_quot(geodetic - m_lonlatheight_offset, m_lonlatheight_scale);
 
-    Vector2 normalized_pixel = normalized_geodetic_to_normalized_pixel( normalized_geodetic );
+    Vector2 normalized_pixel = normalized_geodetic_to_normalized_pixel(normalized_geodetic);
 
-    return elem_prod( normalized_pixel, m_xy_scale ) + m_xy_offset;
+    return elem_prod(normalized_pixel, m_xy_scale) + m_xy_offset;
   }
 
   Vector2 RPCModel::normalized_geodetic_to_normalized_pixel
@@ -231,17 +228,17 @@ namespace asp {
    RPCModel::CoeffVec const& sample_num_coeff,
    RPCModel::CoeffVec const& sample_den_coeff){
 
-    CoeffVec term = calculate_terms( normalized_geodetic );
-    Vector2 normalized_pixel( dot_prod(term,sample_num_coeff) /
-                              dot_prod(term,sample_den_coeff),
-                              dot_prod(term,line_num_coeff) /
-                              dot_prod(term,line_den_coeff) );
+    CoeffVec term = calculate_terms(normalized_geodetic);
+    Vector2 normalized_pixel(dot_prod(term,sample_num_coeff) /
+                             dot_prod(term,sample_den_coeff),
+                             dot_prod(term,line_num_coeff) /
+                             dot_prod(term,line_den_coeff));
 
     return normalized_pixel;
   }
 
   Vector2 RPCModel::normalized_geodetic_to_normalized_pixel
-  (Vector3 const& normalized_geodetic ) const {
+  (Vector3 const& normalized_geodetic) const {
 
     return normalized_geodetic_to_normalized_pixel(normalized_geodetic,
                                                    m_line_num_coeff,
@@ -251,7 +248,7 @@ namespace asp {
                                                    );
   }
 
-  RPCModel::CoeffVec RPCModel::calculate_terms( vw::Vector3 const& normalized_geodetic ) {
+  RPCModel::CoeffVec RPCModel::calculate_terms(vw::Vector3 const& normalized_geodetic) {
 
     double x = normalized_geodetic.x(); // normalized lon
     double y = normalized_geodetic.y(); // normalized lat
@@ -288,7 +285,7 @@ namespace asp {
     return result;
   }
 
-  vw::Matrix<double, 20, 2> RPCModel::terms_Jacobian2( vw::Vector3 const& normalized_geodetic ) {
+  vw::Matrix<double, 20, 2> RPCModel::terms_Jacobian2(vw::Vector3 const& normalized_geodetic) {
     // Partial derivatives of the terms returned by the
     // calculate_terms() function in respect to the first two
     // variables only (unlike the terms_Jacobian3() function).
@@ -323,7 +320,7 @@ namespace asp {
     return M;
   }
 
-  vw::Matrix<double, 20, 3> RPCModel::terms_Jacobian3( vw::Vector3 const& normalized_geodetic ) {
+  vw::Matrix<double, 20, 3> RPCModel::terms_Jacobian3(vw::Vector3 const& normalized_geodetic) {
     // Partial derivatives of the terms returned by the
     // calculate_terms() function in respect to all three
     // variables only (unlike the terms_Jacobian2() function).
@@ -359,9 +356,9 @@ namespace asp {
   }
 
   RPCModel::CoeffVec
-  RPCModel::quotient_Jacobian( RPCModel::CoeffVec const& c,
-                               RPCModel::CoeffVec const& d,
-                               RPCModel::CoeffVec const& u ) {
+  RPCModel::quotient_Jacobian(RPCModel::CoeffVec const& c,
+                              RPCModel::CoeffVec const& d,
+                              RPCModel::CoeffVec const& u) {
 
     // Return the Jacobian of dot_prod(c, u) / dot_prod(d, u)
     // as a vector with 20 elements.
@@ -373,10 +370,10 @@ namespace asp {
     return elem_quot(du * c - cu * d, den);
   }
 
-  vw::Matrix3x3 RPCModel::normalization_Jacobian( Vector3 const& q ) {
+  vw::Matrix3x3 RPCModel::normalization_Jacobian(Vector3 const& q) {
 
     // Return the Jacobian of the function
-    // f(x1, x2, x3) = ( (x1 - c1)/q1, (x2 - c2)/q2, (x3 - c3)/q3 )
+    // f(x1, x2, x3) = ((x1 - c1)/q1, (x2 - c2)/q2, (x3 - c3)/q3)
 
     vw::Matrix3x3 M;
     M[0][0] = 1.0/q[0]; M[0][1] = 0.0;      M[0][2] = 0.0;
@@ -385,25 +382,25 @@ namespace asp {
     return M;
   }
 
-  Matrix<double, 2, 3> RPCModel::geodetic_to_pixel_Jacobian( Vector3 const& geodetic ) const {
+  Matrix<double, 2, 3> RPCModel::geodetic_to_pixel_Jacobian(Vector3 const& geodetic) const {
 
     Vector3 normalized_geodetic = elem_quot(geodetic - m_lonlatheight_offset, m_lonlatheight_scale);
 
-    CoeffVec term = calculate_terms( normalized_geodetic );
+    CoeffVec term = calculate_terms(normalized_geodetic);
 
-    CoeffVec Qs = quotient_Jacobian(sample_num_coeff(), sample_den_coeff(), term );
-    CoeffVec Ql = quotient_Jacobian(line_num_coeff(),   line_den_coeff(),   term );
-    Matrix<double, 20, 3> MN = terms_Jacobian3( normalized_geodetic ) *
-                                normalization_Jacobian( m_lonlatheight_scale );
+    CoeffVec Qs = quotient_Jacobian(sample_num_coeff(), sample_den_coeff(), term);
+    CoeffVec Ql = quotient_Jacobian(line_num_coeff(),   line_den_coeff(),   term);
+    Matrix<double, 20, 3> MN = terms_Jacobian3(normalized_geodetic) *
+      normalization_Jacobian(m_lonlatheight_scale);
 
     Matrix<double, 2, 3> J;
-    select_row( J, 0 ) = m_xy_scale[0] * transpose( Qs ) * MN;
-    select_row( J, 1 ) = m_xy_scale[1] * transpose( Ql ) * MN;
+    select_row(J, 0) = m_xy_scale[0] * transpose(Qs) * MN;
+    select_row(J, 1) = m_xy_scale[1] * transpose(Ql) * MN;
 
     return J;
   }
 
-  Matrix<double, 2, 2> RPCModel::normalized_geodetic_to_pixel_Jacobian( Vector3 const& normalized_geodetic ) const {
+  Matrix<double, 2, 2> RPCModel::normalized_geodetic_to_pixel_Jacobian(Vector3 const& normalized_geodetic) const {
 
     // This function is different from geodetic_to_pixel_Jacobian() in several respects:
 
@@ -415,21 +412,21 @@ namespace asp {
 
     // 3. The output is in normalized pixels (see m_xy_scale and m_xy_offset).
 
-    CoeffVec term = calculate_terms( normalized_geodetic );
+    CoeffVec term = calculate_terms(normalized_geodetic);
 
-    CoeffVec Qs = quotient_Jacobian(sample_num_coeff(), sample_den_coeff(), term );
-    CoeffVec Ql = quotient_Jacobian(line_num_coeff(),   line_den_coeff(),   term );
+    CoeffVec Qs = quotient_Jacobian(sample_num_coeff(), sample_den_coeff(), term);
+    CoeffVec Ql = quotient_Jacobian(line_num_coeff(),   line_den_coeff(),   term);
 
-    Matrix<double, 20, 2> Jt = terms_Jacobian2( normalized_geodetic );
+    Matrix<double, 20, 2> Jt = terms_Jacobian2(normalized_geodetic);
 
     Matrix<double, 2, 2> J;
-    select_row( J, 0 ) = transpose( Qs ) * Jt;
-    select_row( J, 1 ) = transpose( Ql ) * Jt;
+    select_row(J, 0) = transpose(Qs) * Jt;
+    select_row(J, 1) = transpose(Ql) * Jt;
 
     return J;
   }
 
-  Matrix<double, 2, 3> RPCModel::geodetic_to_pixel_numerical_Jacobian( Vector3 const& geodetic, double tol ) const {
+  Matrix<double, 2, 3> RPCModel::geodetic_to_pixel_numerical_Jacobian(Vector3 const& geodetic, double tol) const {
 
     // Find the Jacobian of geodetic_to_pixel using numerical
     // differentiation. This is used for testing purposes.
@@ -438,8 +435,8 @@ namespace asp {
 
     Vector2 B  = geodetic_to_pixel(geodetic);
 
-    Vector2 B0 = (geodetic_to_pixel(geodetic + Vector3(tol, 0,   0  )) - B)/tol;
-    Vector2 B1 = (geodetic_to_pixel(geodetic + Vector3(0,   tol, 0  )) - B)/tol;
+    Vector2 B0 = (geodetic_to_pixel(geodetic + Vector3(tol, 0,   0 )) - B)/tol;
+    Vector2 B1 = (geodetic_to_pixel(geodetic + Vector3(0,   tol, 0 )) - B)/tol;
     Vector2 B2 = (geodetic_to_pixel(geodetic + Vector3(0,   0,   tol)) - B)/tol;
 
     select_col(J, 0) = B0;
@@ -449,7 +446,7 @@ namespace asp {
     return J;
   }
 
-  Vector2 RPCModel::image_to_ground( Vector2 const& pixel, double height, Vector2 lonlat_guess ) const {
+  Vector2 RPCModel::image_to_ground(Vector2 const& pixel, double height, Vector2 lonlat_guess) const {
 
     // The absolute tolerance is experimental, needs more investigation
     double abs_tolerance = 1e-6;
@@ -490,7 +487,7 @@ namespace asp {
       invJ /= det;
 
       // Newton's method for F(x) = y is
-      // x = x - J^{-1}( F(x) - y )
+      // x = x - J^{-1}(F(x) - y)
       Vector2 error_try = p - normalized_pixel;
       normalized_lonlat -= invJ*error_try;
 
@@ -502,14 +499,14 @@ namespace asp {
 
     }
 
-    Vector2 lonlat = elem_prod( normalized_lonlat, subvector(m_lonlatheight_scale, 0, 2) )
-                    + subvector(m_lonlatheight_offset, 0, 2);
+    Vector2 lonlat = elem_prod(normalized_lonlat, subvector(m_lonlatheight_scale, 0, 2))
+      + subvector(m_lonlatheight_offset, 0, 2);
 
     return lonlat;
 
   }
 
-  void RPCModel::point_and_dir(Vector2 const& pix, Vector3 & P, Vector3 & dir ) const {
+  void RPCModel::point_and_dir(Vector2 const& pix, Vector3 & P, Vector3 & dir) const {
 
     // For an RPC model there is no defined origin so it and the ray need to be computed.
 
@@ -539,8 +536,8 @@ namespace asp {
     //vw_out() << "geo_up = " << geo_up << std::endl;
     //vw_out() << "geo_dn = " << geo_dn << std::endl;
 
-    Vector3 P_up = m_datum.geodetic_to_cartesian( geo_up );
-    Vector3 P_dn = m_datum.geodetic_to_cartesian( geo_dn );
+    Vector3 P_up = m_datum.geodetic_to_cartesian(geo_up);
+    Vector3 P_dn = m_datum.geodetic_to_cartesian(geo_dn);
 
     dir = normalize(P_dn - P_up);
     
@@ -550,7 +547,7 @@ namespace asp {
     P = P_up - dir*LONG_SCALE_UP;
   }
 
-  Vector3 RPCModel::camera_center(Vector2 const& pix ) const{
+  Vector3 RPCModel::camera_center(Vector2 const& pix) const{
     // Return an arbitrarily chosen point on the ray back-projected
     // through the camera from the current pixel.
     Vector3 P;
@@ -559,7 +556,7 @@ namespace asp {
     return P;
   }
 
-  Vector3 RPCModel::pixel_to_vector(Vector2 const& pix ) const {
+  Vector3 RPCModel::pixel_to_vector(Vector2 const& pix) const {
     // Find the normalized direction of the ray back-projected through
     // the camera from the current pixel.
     Vector3 P;

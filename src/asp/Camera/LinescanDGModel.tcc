@@ -22,7 +22,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <asp/Camera/TimeProcessing.h>
 
 namespace asp {
 
@@ -123,19 +123,7 @@ LinescanDGModel<PositionFuncT, PoseFuncT>::LinescanLMA::operator()( domain_type 
 // -----------------------------------------------------------------
 // LinescanDGModel supporting functions
 
-class SecondsFrom
-{
-  boost::posix_time::ptime m_reference;
-public:
-  inline SecondsFrom( boost::posix_time::ptime const& time ) : m_reference(time) {}
-
-  inline double operator()( boost::posix_time::ptime const& time ) const {
-    return double( (time - m_reference).total_microseconds() ) / 1e6;
-  }
-};
-
-inline boost::posix_time::ptime parse_time(std::string str)
-{
+inline boost::posix_time::ptime parse_time(std::string str) {
   try{
     return boost::posix_time::time_from_string(str);
   }catch(...){
@@ -184,7 +172,7 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 
   // Convert UTC time measurements to line measurements. Ephemeris
   // start time will be our reference frame to calculate seconds against.
-  SecondsFrom convert( parse_time( eph.start_time ) );
+  SecondsFromRef convert( parse_time( eph.start_time ) );
 
   // I'm going make the assumption that EPH and ATT are sampled at the same rate and time.
   VW_ASSERT( eph.position_vec.size() == att.quat_vec.size(),
@@ -196,7 +184,8 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
   // be the rotation from camera frame to world frame. We also add an
   // additional rotation to the camera frame so X is the horizontal
   // direction to the picture and +Y points down the image (in the direction of flight).
-  vw::Quat sensor_coordinate = vw::math::euler_xyz_to_quaternion(vw::Vector3(0,0,geo.detector_rotation - M_PI/2));
+  vw::Quat sensor_coordinate = vw::math::euler_xyz_to_quaternion
+    (vw::Vector3(0,0,geo.detector_rotation - M_PI/2));
   for ( size_t i = 0; i < eph.position_vec.size(); i++ ) {
     eph.position_vec[i] += att.quat_vec[i].rotate( geo.perspective_center );
     att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
@@ -217,8 +206,10 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
   }
 
   // Build the TLCTimeInterpolation object and do a quick sanity check.
-  vw::camera::TLCTimeInterpolation tlc_time_interpolation( img.tlc_vec,
-							       convert( parse_time( img.tlc_start_time ) ) );
+  vw::camera::TLCTimeInterpolation
+    tlc_time_interpolation(img.tlc_vec,
+                           convert( parse_time( img.tlc_start_time)));
+  
   VW_ASSERT( fabs( convert( parse_time( img.first_line_start_time ) ) -
   tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
 	     vw::MathErr()
@@ -231,8 +222,7 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 	     << "The TLC look up table time is: " << tlc_time_interpolation( 0 ) << ".\n"
 	     << "Maximum allowed difference is 1/10 of avg line rate, which is: "
 	     << fabs( 1.0 / (10.0 * img.avg_line_rate ))
-	     << ".\n"
-    );
+	     << ".\n");
    
   vw::Vector2 final_detector_origin
     = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
