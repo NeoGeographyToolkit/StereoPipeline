@@ -970,6 +970,8 @@ for the left and right stereo image):
       gdalbuildvrt mosaic.vrt *.JP2
       gdal_translate -co TILED=YES -co BIGTIFF=IF_SAFER mosaic.vrt image.tif
 
+The Orfeo Toolbox provides functionality for stitching such images as well.
+
 .. _spot5:
 
 SPOT5 Images
