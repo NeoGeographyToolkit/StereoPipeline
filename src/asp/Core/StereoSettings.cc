@@ -171,7 +171,7 @@ namespace asp {
       ("alignment-num-ransac-iterations", po::value(&global.alignment_num_ransac_iterations)->default_value(1000),
        "How many RANSAC iterations to use for global or local epipolar alignment.")
       ("outlier-removal-params",  po::value(&global.outlier_removal_params)->default_value(Vector2(95.0, 3.0), "pct factor"),
-       "The differences between right and left locally aligned interest points are computed, and outliers are removed using box-and-whisker with this percentage and factor.")
+       "Outlier removal params (percentage and factor) to be used in filtering interest points and the disparity with the box-and-whisker algorithm. Set the percentage to 100 to turn this off.")
       ("disparity-range-expansion-percent", po::value(&global.disparity_range_expansion_percent)->default_value(20),
        "Expand the disparity range estimated from interest points by this percentage before computing the stereo correlation with local epipolar alignment.")
       ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),

@@ -139,9 +139,10 @@ alignment-num-ransac-iterations (*integer*) (default = 1000)
     alignment.
 
 outlier-removal-params (*double, double*) (default = 95.0, 3.0)
-    Outlier removal params to be used in filtering interest
-    points and the disparity. The box-and-whisker algorithm is used
-    with this percentage and factor.
+    Outlier removal params (percentage and factor) to be used in
+    filtering interest points and the disparity with the
+    box-and-whisker algorithm. Set the percentage to 100 to turn this
+    off.
 
 disparity-range-expansion-percent (*integer*) (default = 20)
     Expand the disparity range estimated from interest points by this
