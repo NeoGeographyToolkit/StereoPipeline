@@ -3,7 +3,7 @@
 Tutorial: Processing Mars Orbiter Camera images
 ===============================================
 
-Quick Start
+Quick start
 -----------
 
 The Stereo Pipeline package contains command-line and GUI programs that
@@ -18,7 +18,8 @@ results, but ultimately this software suite takes images and builds
 models in a mostly automatic way. To create a point cloud file, you
 simply pass two image files to the ``parallel_stereo`` command::
 
-    ISIS> parallel_stereo left_image.cub right_image.cub results/run
+    ISIS> parallel_stereo --stereo-algorithm asp_bm          \
+      left_image.cub right_image.cub results/run
 
 Higher quality results, at the expense of more computation, can be
 achived by running::
@@ -48,7 +49,7 @@ are created by the ``parallel_stereo`` program above)::
 
 More details are provided in :numref:`visualising`.
 
-Preparing the Data
+Preparing the data
 ------------------
 
 The data set that is used in the tutorial and examples below is a pair
@@ -58,7 +59,7 @@ whose PDS Product IDs are M01/00115 and E02/01461. This data can be
 downloaded from the PDS directly, or they can be found in the
 ``examples/MOC`` directory of your Stereo Pipeline distribution.
 
-Loading and Calibrating Images using ISIS
+Loading and calibrating images using ISIS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These raw PDS images (``M0100115.imq`` and ``E0201461.imq``) need to be
@@ -97,7 +98,7 @@ similarly, using the ISIS tools specific to them.
 
 .. _aligning-images:
 
-Aligning Images
+Aligning images
 ~~~~~~~~~~~~~~~
 
 Once the ``.cub`` files are obtained, it is possible to run parallel_stereo right
