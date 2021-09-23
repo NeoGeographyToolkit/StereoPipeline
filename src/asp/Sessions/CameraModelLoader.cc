@@ -138,7 +138,7 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_camera_m
 // Load an optical bar camera file
 boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_optical_bar_camera_model(std::string const& path) const
 {
-  return CameraModelPtr(new asp::camera::OpticalBarModel(path));
+  return CameraModelPtr(new vw::camera::OpticalBarModel(path));
 }
 
 

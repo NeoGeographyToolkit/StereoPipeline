@@ -355,7 +355,7 @@ bool init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
   // Copy the camera parameters from the models to param_storage
   const size_t num_cameras = param_storage.num_cameras();
   for (int icam=0; icam < num_cameras; ++icam) {
-    asp::camera::OpticalBarModel* bar_ptr = dynamic_cast<asp::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+    vw::camera::OpticalBarModel* bar_ptr = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
     vw::vw_out() << "Loading input model: " << *bar_ptr << std::endl;
     pack_optical_bar_to_arrays(*bar_ptr, icam, param_storage);
   } // End loop through cameras
@@ -370,8 +370,8 @@ bool init_cams_optical_bar(Options & opt, BAParamStorage & param_storage,
   new_cam_models.resize(num_cameras);
   for (size_t icam = 0; icam < num_cameras; icam++){
 
-    asp::camera::OpticalBarModel* in_cam  = dynamic_cast<asp::camera::OpticalBarModel*>(opt.camera_models[icam].get());
-    asp::camera::OpticalBarModel* out_cam = new asp::camera::OpticalBarModel(*in_cam); // Start with a copy of the input camera.
+    vw::camera::OpticalBarModel* in_cam  = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+    vw::camera::OpticalBarModel* out_cam = new vw::camera::OpticalBarModel(*in_cam); // Start with a copy of the input camera.
     populate_optical_bar_from_arrays(icam, param_storage, *out_cam);
 
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
@@ -420,8 +420,8 @@ void write_optical_bar_output_file(Options const& opt, int icam,
   cam_file = boost::filesystem::path(cam_file).replace_extension("tsai").string();
 
   // Get the final camera model
-  asp::camera::OpticalBarModel* bar_ptr
-    = dynamic_cast<asp::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+  vw::camera::OpticalBarModel* bar_ptr
+    = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
   populate_optical_bar_from_arrays(icam, param_storage, *bar_ptr);
 
   vw::vw_out() << "Writing: " << cam_file << std::endl;

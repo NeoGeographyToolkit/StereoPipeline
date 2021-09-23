@@ -67,7 +67,7 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
         }catch (std::exception & e) {
           error_pinhole = e.what();
           try {
-            asp::camera::OpticalBarModel P;
+            vw::camera::OpticalBarModel P;
             P.read(left_camera_file);
             actual_session_type = "opticalbar";
           }catch (std::exception & e) {

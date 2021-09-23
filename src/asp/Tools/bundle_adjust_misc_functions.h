@@ -499,7 +499,7 @@ public:
   }
 
   /// Populate from OpticalBarModel
-  void copy_from_optical_bar(asp::camera::OpticalBarModel const& cam) {
+  void copy_from_optical_bar(vw::camera::OpticalBarModel const& cam) {
     m_position_data = cam.camera_center();
     m_pose_data     = cam.camera_pose();
   }
@@ -575,7 +575,7 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
 }
 
 
-void pack_optical_bar_to_arrays(asp::camera::OpticalBarModel const& camera,
+void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
                                 int camera_index,
                                 BAParamStorage & param_storage) {
 
@@ -644,7 +644,7 @@ void populate_pinhole_from_arrays(int camera_index,
 /// - Since the stored parameters are multipliers, be careful calling this more than once!
 void populate_optical_bar_from_arrays(int camera_index,
                                       BAParamStorage const& param_storage,
-                                      asp::camera::OpticalBarModel & camera) {
+                                      vw::camera::OpticalBarModel & camera) {
 
   double const* pos_pose_ptr  = param_storage.get_camera_ptr(camera_index);
   double const* center_ptr    = param_storage.get_intrinsic_center_ptr    (camera_index);
@@ -748,8 +748,8 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M, BAParamStora
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
 
     // Apply the transform
-    boost::shared_ptr<asp::camera::OpticalBarModel> bar_ptr = 
-      boost::dynamic_pointer_cast<asp::camera::OpticalBarModel>(cam_ptrs[i]);
+    boost::shared_ptr<vw::camera::OpticalBarModel> bar_ptr = 
+      boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(cam_ptrs[i]);
     bar_ptr->apply_transform(R, T, scale);
 
     // Write out to param_storage

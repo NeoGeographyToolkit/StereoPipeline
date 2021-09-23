@@ -516,8 +516,8 @@ void manufacture_cam(Options const& opt, int wid, int hgt,
 		     boost::shared_ptr<CameraModel> & out_cam){
 
   if (opt.camera_type == "opticalbar") {
-    boost::shared_ptr<asp::camera::OpticalBarModel> opticalbar_cam;
-    opticalbar_cam.reset(new asp::camera::OpticalBarModel(opt.sample_file));
+    boost::shared_ptr<vw::camera::OpticalBarModel> opticalbar_cam;
+    opticalbar_cam.reset(new vw::camera::OpticalBarModel(opt.sample_file));
     // Make sure the image size matches the input image file.
     opticalbar_cam->set_image_size(Vector2i(wid, hgt));
     opticalbar_cam->set_optical_center(Vector2(wid/2.0, hgt/2.0));
@@ -1067,7 +1067,7 @@ int main(int argc, char * argv[]){
     vw_out() << "Output camera center lon, lat, and height above datum: " << llh << std::endl;
     vw_out() << "Writing: " << opt.camera_file << std::endl;
     if (opt.camera_type == "opticalbar")
-      ((asp::camera::OpticalBarModel*)out_cam.get())->write(opt.camera_file);
+      ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.camera_file);
     else {
       ((vw::camera::PinholeModel*)out_cam.get())->write(opt.camera_file);
     }

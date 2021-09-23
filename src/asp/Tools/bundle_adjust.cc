@@ -142,8 +142,8 @@ void add_reprojection_residual_block(Vector2 const& observation, Vector2 const& 
 
     } else { // Optical bar
 
-      boost::shared_ptr<asp::camera::OpticalBarModel> bar_model = 
-        boost::dynamic_pointer_cast<asp::camera::OpticalBarModel>(camera_model);
+      boost::shared_ptr<vw::camera::OpticalBarModel> bar_model = 
+        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(camera_model);
       if (bar_model.get() == 0)
         vw::vw_throw( vw::ArgumentErr() << "Tried to add optical bar block with "
                       << "non-optical bar camera.");
@@ -244,10 +244,10 @@ void add_disparity_residual_block(Vector3 const& reference_xyz,
       right_wrapper.reset(new PinholeBundleModel(right_pinhole_model));
 
     } else { // Optical bar
-      boost::shared_ptr<asp::camera::OpticalBarModel> left_bar_model = 
-        boost::dynamic_pointer_cast<asp::camera::OpticalBarModel>(left_camera_model);
-      boost::shared_ptr<asp::camera::OpticalBarModel> right_bar_model = 
-        boost::dynamic_pointer_cast<asp::camera::OpticalBarModel>(right_camera_model);
+      boost::shared_ptr<vw::camera::OpticalBarModel> left_bar_model = 
+        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(left_camera_model);
+      boost::shared_ptr<vw::camera::OpticalBarModel> right_bar_model = 
+        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(right_camera_model);
 
       left_wrapper.reset (new OpticalBarBundleModel(left_bar_model ));
       right_wrapper.reset(new OpticalBarBundleModel(right_bar_model));
@@ -2027,51 +2027,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                              << "passes. Results could be unpredictable.\n";
     
   }
-  
-  // Based on the cameras, try to guess the session, if not
-  // specified. If the session is isis or csm, then we can pull the
-  // datum from the .cub or .json files.
-  {
-    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, // may change
-                                                         opt,
-                                                         opt.image_files [0], opt.image_files [0],
-                                                         opt.camera_files[0], opt.camera_files[0],
-                                                         opt.out_prefix));
-    
-    if (opt.datum_str == "" &&
-        (opt.stereo_session_string == "isis" || opt.stereo_session_string == "csm")) {
-      try {
-        bool use_sphere_for_datum = false;
-        opt.datum = session->get_datum(session->camera_model(opt.image_files [0],
-                                                             opt.camera_files[0]).get(),
-                                       use_sphere_for_datum);
-        opt.datum_str = opt.datum.name();
-        guessed_datum = true;
-      }catch(...){}
-    }
-  }
-  
-  // Many of the sessions are for Earth, when we use WGS84 by default
-  if (opt.stereo_session_string == "nadirpinhole" || opt.stereo_session_string == "dg"    ||
-      opt.stereo_session_string == "spot5"        || opt.stereo_session_string == "aster" ||
-      opt.stereo_session_string == "opticalbar") {
-    if (opt.datum_str == "" ){
-      opt.datum_str = "WGS84";
-      opt.datum.set_well_known_datum(opt.datum_str);
-      guessed_datum = true;
-    }
-  }
 
-  // If nothing worked, the datum must be specified
-  if (opt.stereo_session_string == "rpc" && opt.datum_str == "")
-    vw_throw( ArgumentErr() << "When the session type is RPC, the datum must be specified.\n"
-                            << usage << general_options );       
-
+  // Set the datum, either based on what the user specified or the axes
   if (opt.datum_str != ""){
-    // If the user set the datum, use it.
-    // TODO(oalexan1): This looks wrong. The user datum must override the guessed datum
-    if (!guessed_datum)
-      opt.datum.set_well_known_datum(opt.datum_str);
+    opt.datum.set_well_known_datum(opt.datum_str);
   }else if (opt.semi_major > 0 && opt.semi_minor > 0){
     // Otherwise, if the user set the semi-axes, use that.
     opt.datum = cartography::Datum("User Specified Datum",
@@ -2079,8 +2038,32 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                                    "Reference Meridian",
                                    opt.semi_major, opt.semi_minor, 0.0);
     opt.datum_str = opt.datum.name();
-  }else{ // Datum not specified
-    if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() )
+  }
+
+  // Otherwise try to set the datum based on cameras, except for the
+  // pinhole session as that one could be used with rovers on the
+  // ground, and the datum does not make sense.
+  if (opt.datum_str == "") {
+    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, // may change
+                                                         opt,
+                                                         opt.image_files [0], opt.image_files [0],
+                                                         opt.camera_files[0], opt.camera_files[0],
+                                                         opt.out_prefix));
+    
+    if (opt.stereo_session_string != "pinhole") {
+      bool use_sphere_for_datum = false;
+      opt.datum = session->get_datum(session->camera_model(opt.image_files [0],
+                                                           opt.camera_files[0]).get(),
+                                     use_sphere_for_datum);
+      opt.datum_str = opt.datum.name();
+    }
+  }
+  
+  std::cout << "--got datum " << opt.datum << ' ' << opt.datum_str << std::endl;
+
+  // Many times the datum is mandatory
+  if (opt.datum_str == "") {
+    if (!opt.gcp_files.empty() || !opt.camera_position_file.empty() )
       vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
                 << "the datum must be specified.\n" << usage << general_options );
     
@@ -2088,10 +2071,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw( ArgumentErr() << "When filtering by elevation limit, the datum must be specified.\n"
                 << usage << general_options );
   }
-
-  // TODO(oalexan1): This looks wrong. May need to set the datum itself,
-  // not its name. Test this with CSM.
-  asp::stereo_settings().datum = opt.datum.name(); // for RPC
 
   vw_out() << "Will use the datum:\n" << opt.datum << std::endl;
 

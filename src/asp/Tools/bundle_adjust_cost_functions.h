@@ -259,7 +259,7 @@ const int NUM_OPTICAL_BAR_EXTRA_PARAMS = 3;
 class OpticalBarBundleModel: public CeresBundleModelBase {
 public:
 
-  OpticalBarBundleModel(boost::shared_ptr<asp::camera::OpticalBarModel> cam)
+  OpticalBarBundleModel(boost::shared_ptr<vw::camera::OpticalBarModel> cam)
     : m_underlying_camera(cam) {}
 
 
@@ -303,7 +303,7 @@ public:
     double scan_time = raw_intrin[2] * m_underlying_camera->get_scan_time();
 
     // Duplicate the input camera model with the pose, focus, center, speed, and MCF updated.
-    asp::camera::OpticalBarModel cam(m_underlying_camera->get_image_size(),
+    vw::camera::OpticalBarModel cam(m_underlying_camera->get_image_size(),
                                      vw::Vector2(center_x, center_y),
                                      m_underlying_camera->get_pixel_size(),
                                      focus,
@@ -333,7 +333,7 @@ private:
 
   // TODO: Make const
   /// This camera is used for all of the intrinsic values.
-  boost::shared_ptr<asp::camera::OpticalBarModel> m_underlying_camera;
+  boost::shared_ptr<vw::camera::OpticalBarModel> m_underlying_camera;
 
 }; // End class PinholeBundleModel
 
