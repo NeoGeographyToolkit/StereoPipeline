@@ -37,15 +37,15 @@
 namespace asp{
 
 StereoSession* StereoSessionFactory::create(std::string        & session_type, // in-out variable
-                                              vw::cartography::GdalWriteOptions const& options,
-                                              std::string const& left_image_file,
-                                              std::string const& right_image_file,
-                                              std::string const& left_camera_file,
-                                              std::string const& right_camera_file,
-                                              std::string const& out_prefix,
-                                              std::string const& input_dem,
-                                              const bool allow_map_promote) {
-
+                                            vw::cartography::GdalWriteOptions const& options,
+                                            std::string const& left_image_file,
+                                            std::string const& right_image_file,
+                                            std::string const& left_camera_file,
+                                            std::string const& right_camera_file,
+                                            std::string const& out_prefix,
+                                            std::string const& input_dem,
+                                            const bool allow_map_promote) {
+  
     // Known user session types are:
     // DG, RPC, ISIS, Pinhole, NadirPinhole, OpticalBar
     //
@@ -79,8 +79,7 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
                      << error_opticalbar);
           }
         }
-      }
-      if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".json") ||
+      } else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".json") ||
           boost::iends_with(boost::to_lower_copy(right_camera_file), ".json") ) {
         actual_session_type = "csm";
       }else if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
@@ -88,87 +87,103 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
 		boost::iends_with(boost::to_lower_copy(left_camera_file ), ".cub") ||
 		boost::iends_with(boost::to_lower_copy(right_camera_file), ".cub") ) {
         actual_session_type = "isis";
+      } else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".dim") ||
+                 boost::iends_with(boost::to_lower_copy(right_camera_file), ".dim") ) {
+        actual_session_type = "spot5";
       }else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".xml") ||
 		boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml") ) {
-        actual_session_type = "dg";
-      } else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".dim") ||
-		 boost::iends_with(boost::to_lower_copy(right_camera_file), ".dim") ) {
-        actual_session_type = "spot5";
-      }
-    }
 
-    try {
-      if (actual_session_type.empty()) {
-        // RPC can be in the main file or it can be in the camera file.
-        // DG sessions are always RPC sessions because they contain that
-        //   as an extra camera model. Thus this RPC check must happen last.
-        StereoSessionRPC session;
-        boost::shared_ptr<vw::camera::CameraModel>
-          left_model  = session.camera_model(left_image_file,  left_camera_file ),
-          right_model = session.camera_model(right_image_file, right_camera_file);
-        actual_session_type = "rpc";
-      }
-    } catch (vw::NotFoundErr const& e) {
-      vw_out() << "Error: " << e.what() << "\n";
-      // If it throws, it wasn't RPC
-    } catch (std::exception const& e) {
-      vw_out() << "Error: " << e.what() << std::endl;
-      vw_out() << "Using the rpc session failed. Cannot guess other "
-	       << "sessions based on filename extension.\n" << e.what() << std::endl;
+        // Here we have several options
+        if (actual_session_type.empty()) {
+          // Try DG exact linescan model
+          try {
+            StereoSessionDG session;
+            boost::shared_ptr<vw::camera::CameraModel>
+              left_model  = session.camera_model(left_image_file,  left_camera_file ),
+              right_model = session.camera_model(right_image_file, right_camera_file);
+            actual_session_type = "dg";
+          } catch (...) {}
+        }
+        
+        if (actual_session_type.empty()) {
+          // Try PeruSat exact linescan model
+          try {
+            StereoSessionPeruSat session;
+            boost::shared_ptr<vw::camera::CameraModel>
+              left_model  = session.camera_model(left_image_file,  left_camera_file ),
+              right_model = session.camera_model(right_image_file, right_camera_file);
+            actual_session_type = "perusat";
+          } catch (...) {}
+        }
+
+        if (actual_session_type.empty()) {
+          // Try RPC 
+          try {
+            StereoSessionRPC session;
+            boost::shared_ptr<vw::camera::CameraModel>
+              left_model  = session.camera_model(left_image_file,  left_camera_file ),
+              right_model = session.camera_model(right_image_file, right_camera_file);
+            actual_session_type = "rpc";
+          } catch (...) {
+            vw_out() << "Tried the DG, PeruSat and RPC sessions. Please specify the session "
+                     << "explicitly using the -t option.\n";
+          }
+        }
+      } // end considering the xml extension case
     }
 
     if (allow_map_promote) {
       if (!input_dem.empty() && actual_session_type == "dg") {
         // User says DG but also gives a DEM.
         actual_session_type = "dgmaprpc";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: dgmaprpc" << std::endl;
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: dgmaprpc.\n";
       }
       if (!input_dem.empty() && actual_session_type == "rpc") {
         // User says RPC but also gives a DEM.
         actual_session_type = "rpcmaprpc";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: rpcmaprpc" << std::endl;
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: rpcmaprpc.\n";
       }
       if (!input_dem.empty() && actual_session_type == "pinhole") {
         // User says PINHOLE but also gives a DEM.
         actual_session_type = "pinholemappinhole";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinholemappinhole" << std::endl;
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinholemappinhole.\n";
       }
       if (!input_dem.empty() && actual_session_type == "opticalbar") {
         // User says OPTICAL BAR but also gives a DEM.
         actual_session_type = "opticalbarmapopticalbar";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: opticalbarmapopticalbar" << std::endl;
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: opticalbarmapopticalbar.\n";
       }
       if (!input_dem.empty() && actual_session_type == "csm") {
         // User says CSM but also gives a DEM.
         actual_session_type = "csmmapcsm";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: csmmapcsm" << std::endl;
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: csmmapcsm.\n";
       }
       if (!input_dem.empty() && actual_session_type == "isis") {
         // User says ISIS but also gives a DEM.
         actual_session_type = "isismapisis";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: isismapisis" << std::endl;
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: isismapisis.\n";
       }
       if (!input_dem.empty() && actual_session_type == "spot5") {
         // User says SPOT5 but also gives a DEM.
         actual_session_type = "spot5maprpc";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: spot5maprpc" << std::endl;
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: spot5maprpc.\n";
       }
       if (!input_dem.empty() && actual_session_type == "aster") {
         // User says ASTER but also gives a DEM.
         actual_session_type = "astermaprpc";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: astermaprpc" << std::endl;
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: astermaprpc.\n";
       }
       if (!input_dem.empty() && actual_session_type == "perusat") {
         // User says PeruSat but also gives a DEM.
         actual_session_type = "perusatmaprpc";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: perusatmaprpc" << std::endl;
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: perusatmaprpc.\n";
       }
 
       // Quetly switch from nadirpinhole to pinhole for mapprojected images
       if (!input_dem.empty() && actual_session_type == "nadirpinhole") {
         // User says nadirpinhole but also gives a DEM.
         actual_session_type = "pinholemappinhole";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinhole" << std::endl;
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinhole.\n";
       }
       
     } // End map promotion section
@@ -182,56 +197,56 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
 
     // Compare the current session name to all recognized types
     // - Only one of these will ever get triggered
-    StereoSession* session_new = 0;
+    StereoSession* session = NULL;
     if (actual_session_type == "dg")
-      session_new = StereoSessionDG::construct();
+      session = StereoSessionDG::construct();
     else if (actual_session_type == "dgmaprpc")
-        session_new = StereoSessionDGMapRPC::construct();
+        session = StereoSessionDGMapRPC::construct();
     else if (actual_session_type == "nadirpinhole")
-      session_new = StereoSessionNadirPinhole::construct();
+      session = StereoSessionNadirPinhole::construct();
     else if (actual_session_type == "pinhole")
-      session_new = StereoSessionPinhole::construct();
+      session = StereoSessionPinhole::construct();
     else if (actual_session_type == "rpc")
-      session_new = StereoSessionRPC::construct();
+      session = StereoSessionRPC::construct();
     else if (actual_session_type == "rpcmaprpc")
-      session_new = StereoSessionRPCMapRPC::construct();
+      session = StereoSessionRPCMapRPC::construct();
     else if (actual_session_type == "pinholemappinhole")
-      session_new = StereoSessionPinholeMapPinhole::construct();
+      session = StereoSessionPinholeMapPinhole::construct();
     else if (actual_session_type == "opticalbarmapopticalbar")
-      session_new = StereoSessionBarMapBar::construct();
+      session = StereoSessionBarMapBar::construct();
     else if (actual_session_type == "spot5maprpc")
-        session_new = StereoSessionSpot5MapRPC::construct();
+        session = StereoSessionSpot5MapRPC::construct();
     else if (actual_session_type == "perusatmaprpc")
-        session_new = StereoSessionPeruSatMapRPC::construct();
+        session = StereoSessionPeruSatMapRPC::construct();
     else if (actual_session_type == "astermaprpc")
-        session_new = StereoSessionASTERMapRPC::construct();
+        session = StereoSessionASTERMapRPC::construct();
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     else if (actual_session_type == "isis")
-      session_new = StereoSessionIsis::construct();
+      session = StereoSessionIsis::construct();
     else if (actual_session_type == "isismapisis")
-      session_new = StereoSessionIsisMapIsis::construct();
+      session = StereoSessionIsisMapIsis::construct();
 #endif
     else if (actual_session_type == "spot5")
-      session_new = StereoSessionSpot::construct();
+      session = StereoSessionSpot::construct();
     else if (actual_session_type == "perusat")
-      session_new = StereoSessionPeruSat::construct();
+      session = StereoSessionPeruSat::construct();
     else if (actual_session_type == "aster")
-      session_new = StereoSessionASTER::construct();
+      session = StereoSessionASTER::construct();
     else if (actual_session_type == "opticalbar")
-      session_new = StereoSessionOpticalBar::construct();
+      session = StereoSessionOpticalBar::construct();
     else if (actual_session_type == "csm")
-      session_new = StereoSessionCsm::construct();
+      session = StereoSessionCsm::construct();
     else if (actual_session_type == "csmmapcsm")
-      session_new = StereoSessionCsmMapCsm::construct();
-    if (session_new == 0)
+      session = StereoSessionCsmMapCsm::construct();
+    if (session == 0)
       vw_throw(vw::NoImplErr() << "Unsupported stereo session type: " << actual_session_type);
 
-    session_new->initialize( options,         // Initialize the new object
-                             left_image_file,  right_image_file,
-                             left_camera_file, right_camera_file,
-                             out_prefix, input_dem );
-    session_type = session_new->name();
-    return session_new;
+    session->initialize(options,         // Initialize the new object
+                        left_image_file,  right_image_file,
+                        left_camera_file, right_camera_file,
+                        out_prefix, input_dem);
+    session_type = session->name(); // update the session name 
+    return session;
 } // End function create()
 
   
