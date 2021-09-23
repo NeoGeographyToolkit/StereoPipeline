@@ -873,9 +873,10 @@ RPC Images, including GeoEye, Airbus, Cartosat-1, and PeruSat-1
 Some vendors, such as GeoEye with its Ikonos and two GeoEye
 satellites, Airbus, with its SPOT and Pleiades satellites, the Indian
 Cartosat-1 satellite, PeruSat-1, the Spanish Deimos 1 and 2, etc.,
-provide Rational Polynomial Coefficient (RPC) camera
-models. (DigitalGlobe/Maxar provides both exact linescan camera models
-and their RPC approximations and ASP supports both.)
+provide Rational Polynomial Coefficient (RPC) camera models. (Some of
+these vendors also provide exact linescan models, ASP supports the
+ones from DigitalGlobe/Maxar (:numref:`dg_tutorial`) and PeruSat-1
+(:numref:`perusat1`)).
 
 RPC represents four 20-element polynomials that map geodetic coordinates
 (longitude-latitude-height above datum) to image pixels. Since they are
@@ -971,6 +972,30 @@ for the left and right stereo image):
       gdal_translate -co TILED=YES -co BIGTIFF=IF_SAFER mosaic.vrt image.tif
 
 The Orfeo Toolbox provides functionality for stitching such images as well.
+
+.. _perusat1:
+
+PeruSat-1
+---------
+
+PeruSat-1 provides exact linescan camera models and RPC-approximated
+camera models in separate files. The names for these start with
+"DIM" and "RPC", respectively, and end with ".XML".
+
+If desired to use the exact model, the stereo command is::
+
+    parallel_stereo -t perusat left.tif right.tif left.xml right.xml
+
+For the RPC model the option ``-t rpc`` should be used and the correct
+camera files should be passed in. See also :numref:`rpc`.
+
+If the ``-t`` option is not specified, it will be auto-guessed
+based on the content of the camera files provided as inputs.
+
+For PeruSat-1 exact linescan camera models the atmospheric correction and
+velocity aberration corrections (:numref:`sensor_corrections`) are
+disabled, as these decrease somewhat the agreement with the RPC
+models.
 
 .. _spot5:
 

@@ -274,16 +274,16 @@ XML file also has its RPC approximation. In this chapter we will focus
 only on processing data using the linear camera model. For more detail
 on RPC camera models we refer as before to :numref:`rpc`.
 
-Our implementation of the linear camera model accounts for the sensor geometry, 
-velocity aberration and atmospheric refraction.
-These corrections will shift point locations by over a meter for some images. 
-However this is still smaller error than
-the error from measurement of the spacecraft's position and orientation.
-The latter can be corrected using bundle adjustment, ideally used with
-ground control points (:numref:`bundle_adjust`).
-Alternatively, the ``pc_align`` tool discussed in :numref:`pc-align-example`
-can be used to align the terrain obtained
-from ASP to an accurate set of ground measurements.
+Our implementation of the Digital Globe linear camera model accounts
+for the sensor geometry, velocity aberration and atmospheric
+refraction (:numref:`sensor_corrections`).  These corrections will shift
+point locations by over a meter for some images. However this is still
+smaller error than the error from measurement of the spacecraft's
+position and orientation.  The latter can be corrected using bundle
+adjustment, ideally used with ground control points
+(:numref:`bundle_adjust`).  Alternatively, the ``pc_align`` tool
+discussed in :numref:`pc-align-example` can be correctedused to align the
+terrain obtained from ASP to an accurate set of ground measurements.
 
 In the next two sections we will show how to process unmodified and
 map-projected variants of WorldView images. The images we are using

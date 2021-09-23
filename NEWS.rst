@@ -1,6 +1,15 @@
 RELEASE 3.0.1, Upcoming
 -----------------------
 
+New camera additions:
+  * Added support for the USGSCSM Frame and SAR sensors (until now
+    just the Linescan sensor was supported). Added a SAR example in
+    the doc.
+  * Added support for ISIS SAR cameras (when the .cub files are not
+    projected), together with an example in the doc.
+  * Added support for the PeruSat-1 linescan camera model (so far just
+    the RPC model was supported for this satellite).
+
 bundle_adjust:
   * Rename verbose final_residuals_no_loss_function_pointmap_point_log.csv
     to final_residuals_pointmap.csv and
@@ -12,15 +21,18 @@ bundle_adjust:
     steps, making the process much faster.
 
 stereo:
-  * Added the experimental --gotcha-disparity-refinement option, under
-    NASA proposal 19-PDART19_2-0094.
   * Many fixes for reliability of stereo with local epipolar alignment.
   * ASP's SGM and MGM algorithms will always use the cross-check for
     disparity by default, to improve the quality, even if that takes
     more time. It can be turned off with --xcorr-threshold -1.
-  * The stereo tool is deprecated, and can be used only with 
-    the ASP_BM classical block-matching algorithm when invoked without
+  * Filter outliers in low-resolution disparity D_sub.tif. Can be
+    turned off by setting the percentage in outlier-removal-params to
+    100.
+  * The stereo tool is deprecated, and can be used only with the
+    ASP_BM classical block-matching algorithm when invoked without
     local epipolar alignment. Use parallel_stereo instead. 
+  * Added the experimental --gotcha-disparity-refinement option, under
+    NASA proposal 19-PDART19_2-0094.
 
 stereo_gui: 
   * Bugfix when overlaying shapefiles with different georeferences.
@@ -31,21 +43,15 @@ mapproject:
     mapprojected images work correctly in this case.)
 
 csm:
-  * Added support for the USGSCSM Frame and SAR sensors (until now
-    just the Linescan sensor was supported). Added a SAR example in
-    the doc.
   * Save the camera state on multiple lines. On reading both the
     single-line and multiple-line formats are accepted.
-
-isis:
-  * Added support for SAR cameras (when the .cub files are not
-    projected), together with an example in the doc.
 
 Misc:
   * Added the tool parse_match_file.py to convert a binary match file
     to text and vice-versa.
   * image_calc: Add the option --no-georef to remove any georeference
-    information (useful with subsequent GDAL-based processing).
+    information in the output image (useful with subsequent GDAL-based
+    processing).
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------

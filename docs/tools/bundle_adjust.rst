@@ -537,6 +537,14 @@ Command-line options for bundle_adjust:
     --initial-transform. No iterations, GCP loading, or image matching
     takes place.
 
+--disable-correct-velocity-aberration
+    Turn off velocity aberration correction for Optical Bar and
+    non-ISIS linescan cameras (:numref:`sensor_corrections`).
+
+--disable-correct-atmospheric-refraction
+    Turn off atmospheric refraction correction for Optical Bar and
+    non-ISIS linescan cameras.
+
 --threads <integer (default: 0)>
     Set the number threads to use. 0 means use the default defined
     in the program or in the ``.vwrc`` file. Note that when using more

@@ -1,7 +1,7 @@
 .. _correlation:
 
-Stereo correlation
-==================
+Technical discussion
+====================
 
 In this chapter we will dive much deeper into understanding the core
 algorithms in the Stereo Pipeline. We start with an overview of the five
@@ -207,7 +207,7 @@ how to specify these options. In our experiments, if the input DEM has a
 resolution of 1 km, a good value for the DEM error is about 10 m, or
 higher if the terrain is very variable.
 
-Debugging Disparity Map Initialization
+Debugging disparity map initialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Never will all pixels be successfully matched during stereo matching.
@@ -280,7 +280,7 @@ help fill in regions of the image where no match was found.
 
 .. _search_range:
 
-Search Range Determination
+Search range determination
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In some circumstances, the low-resolution disparity ``D_sub.tif`` may
@@ -508,3 +508,21 @@ bad. A map of the triangulation error should only be interpreted
 as a relative measurement. Where small areas are found with high
 triangulation error came from correlation mistakes and large areas
 of error came from camera model inadequacies.
+
+
+.. _sensor_corrections:
+
+Corrections for certain sensors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+That satellites travel rather fast can result in inacuracies in
+estimation of the direction of propagation of rays traced from the
+cameras. Another source of inacuracies is the atmosphere (for Earth)
+as it causes the rays to bend (:cite:`nugent1966velocity`).
+
+ASP corrects these for some linescan cameras, such as Digital Globe,
+SPOT 5, and Optical Bar. The corrections can be turned off by
+specifying ``--disable-correct-velocity-aberration`` and
+``--disable-correct-atmospheric-refraction``, respectively, when
+invoking the stereo programs or bundle adjustment.
+
