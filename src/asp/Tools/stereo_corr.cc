@@ -207,12 +207,12 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       // Restore the user xcorr_threshold
       stereo_settings().xcorr_threshold = orig_xcorr_threshold;
 
-#if 0
-      // Filter D_sub. For now this is turned off, as no good example was
-      // found yet where it helps.
-      if (stereo_settings().alignment_method == "homography" ||
-          stereo_settings().alignment_method == "affineepipolar" ||
-          stereo_settings().alignment_method == "local_epipolar") {
+      // Filter D_sub.
+      if (stereo_settings().outlier_removal_params[0] < 100.0 &&
+          opt.stereo_session_string != "pinhole"              && // this one has no datum 
+          (stereo_settings().alignment_method == "homography" ||
+           stereo_settings().alignment_method == "affineepipolar" ||
+           stereo_settings().alignment_method == "local_epipolar")) {
         
         boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
         opt.session->camera_models(left_camera_model, right_camera_model);
@@ -222,7 +222,6 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
         asp::filter_D_sub(opt, left_camera_model, right_camera_model, datum, d_sub_file,
                           stereo_settings().outlier_removal_params);
       }
-#endif
       
     } else {
       // Use quantile based filtering. This filter needs to be profiled to improve its speed.
