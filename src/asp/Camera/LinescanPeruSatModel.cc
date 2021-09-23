@@ -22,6 +22,11 @@
 
 namespace asp {
 
+// While static variables are not thread-safe, this will be changed only once,
+// the first time a PeruSatCameraModel is loaded, and model loading is a serial
+// process. 
+static bool perusat_correction_note_printed = false;
+
 using vw::Vector3;
 using vw::Matrix3x3;
 
@@ -131,27 +136,21 @@ boost::shared_ptr<PeruSatCameraModel> load_perusat_camera_model_from_xml(std::st
     pose_func      = xml_reader.setup_pose_func(time_func);
 
   // Find the range of times for which we can solve for position and pose
-
   double min_position_time = position_func.get_t0();
   double max_position_time = position_func.get_tend();
-  
   double min_velocity_time = velocity_func.get_t0();
   double max_velocity_time = velocity_func.get_tend();
-
   double min_pose_time = pose_func.get_t0();
   double max_pose_time = pose_func.get_tend();
-
   double min_time = std::max(min_position_time, std::max(min_velocity_time, min_pose_time));
   double max_time = std::min(max_position_time, std::min(max_velocity_time, max_pose_time));
 
-  std::cout << "--disable velocity aberration is "
-            << stereo_settings().disable_correct_velocity_aberration << std::endl;
+  // See note on this below
+  bool correct_velocity_aberration = false;
+  bool correct_atmospheric_refraction = false;
   
-  std::cout << "--disable correct atmospheric refraction is "
-            << stereo_settings().disable_correct_atmospheric_refraction << std::endl;
-  
-  // Feed everything into a new camera model.
-  return boost::shared_ptr<PeruSatCameraModel>
+  // Create the model. This can throw an exception.
+  boost::shared_ptr<PeruSatCameraModel> cam
     (new PeruSatCameraModel(position_func, velocity_func, 
                             pose_func, time_func, 
                             xml_reader.m_tan_psi_x,
@@ -159,11 +158,22 @@ boost::shared_ptr<PeruSatCameraModel> load_perusat_camera_model_from_xml(std::st
                             xml_reader.m_instrument_biases,
                             xml_reader.m_image_size,
                             min_time, max_time,
-                            !stereo_settings().disable_correct_velocity_aberration,
-                            !stereo_settings().disable_correct_atmospheric_refraction));
+                            correct_velocity_aberration,
+                            correct_atmospheric_refraction));
 
+  // Print this note only if PeruSat model loading was successful, as
+  // sometimes this camera loading function is invoked when querying
+  // an unknown XML model and we may not end up using this session if
+  // loading fails.
+  if (!perusat_correction_note_printed) {
+    vw::vw_out() << "Not using atmospheric and velocity aberration correction "
+             << "with PeruSat cameras to maintain closer agreement with "
+             << "the RPC approximation to this model.\n";
+    perusat_correction_note_printed = true;
+  }
+  
+  return cam;
 } // End function load_perusat_camera_model()
-
 
 } // end namespace asp
 
