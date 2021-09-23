@@ -37,7 +37,7 @@
 #include <asp/Camera/LinescanSpotModel.h>
 #include <asp/Camera/LinescanPeruSatModel.h>
 #include <asp/Camera/LinescanASTERModel.h>
-#include <asp/Camera/OpticalBarModel.h>
+#include <vw/Camera/OpticalBarModel.h>
 #include <asp/Sessions/CameraModelLoader.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>

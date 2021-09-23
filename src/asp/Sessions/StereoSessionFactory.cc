@@ -32,7 +32,7 @@
 #include <vw/Camera/CameraUtilities.h>
 #include <asp/Camera/SPOT_XML.h>
 #include <asp/Camera/ASTER_XML.h>
-#include <asp/Camera/OpticalBarModel.h>
+#include <vw/Camera/OpticalBarModel.h>
 
 namespace asp{
 

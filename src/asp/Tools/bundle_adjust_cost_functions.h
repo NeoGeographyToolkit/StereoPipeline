@@ -27,7 +27,7 @@
 #include <vw/Camera/CameraUtilities.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/Camera/OpticalBarModel.h>
+#include <vw/Camera/OpticalBarModel.h>
 
 
 // Turn off warnings from eigen

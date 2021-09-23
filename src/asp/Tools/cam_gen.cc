@@ -32,7 +32,7 @@
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
-#include <asp/Camera/OpticalBarModel.h>
+#include <vw/Camera/OpticalBarModel.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 

@@ -43,7 +43,7 @@
 
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPC_XML.h>
-#include <asp/Camera/OpticalBarModel.h>
+#include <vw/Camera/OpticalBarModel.h>
 #include <asp/Tools/bundle_adjust_misc_functions.h>
 #include <asp/Tools/bundle_adjust_cost_functions.h> // Ceres included in this file.
 
