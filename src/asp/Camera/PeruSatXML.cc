@@ -62,17 +62,17 @@ DOMElement* PeruSatXML::open_xml_file(std::string const& xml_path) {
     // Set up the XML parser if we have not already done so
     if (!m_parser.get()) {
       m_parser.reset(new XercesDOMParser());
-      m_errHandler.reset(new HandlerBase());
+      m_err_handler.reset(new HandlerBase());
       m_parser->setValidationScheme(XercesDOMParser::Val_Always);
       m_parser->setDoNamespaces(true);   
-      m_parser->setErrorHandler(m_errHandler.get());
+      m_parser->setErrorHandler(m_err_handler.get());
     }
 
     // Load the XML file
     m_parser->parse(xml_path.c_str());
-    DOMDocument* xmlDoc      = m_parser->getDocument();
-    DOMElement * elementRoot = xmlDoc->getDocumentElement();
-    return elementRoot;
+    DOMDocument* doc  = m_parser->getDocument();
+    DOMElement * root = doc->getDocumentElement();
+    return root;
 
   } catch (const XMLException& toCatch) {
     char* message = XMLString::transcode(toCatch.getMessage());
@@ -137,7 +137,7 @@ void PeruSatXML::parse_xml(xercesc::DOMElement* root) {
 
   xercesc::DOMElement* instr_biases = get_node<DOMElement>(instr_calib,   "Instrument_Biases");
   read_instr_biases(instr_biases);
-  
+
   xercesc::DOMElement* use_area = get_node<DOMElement>(geometric_data, "Use_Area");
   xercesc::DOMElement* geom_values = get_node<DOMElement>(use_area,
                                                           "Located_Geometric_Values");
@@ -148,8 +148,8 @@ void PeruSatXML::read_image_size(xercesc::DOMElement* raster_data_node) {
   xercesc::DOMElement* raster_dims_node = get_node<DOMElement>(raster_data_node,
                                                                  "Raster_Dimensions");
 
-  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NROWS")->getTextContent(), image_size[1]);
-  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NCOLS")->getTextContent(), image_size[0]);
+  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NROWS")->getTextContent(), m_image_size[1]);
+  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NCOLS")->getTextContent(), m_image_size[0]);
 }
 
 void PeruSatXML::read_times(xercesc::DOMElement* time) {
@@ -158,19 +158,17 @@ void PeruSatXML::read_times(xercesc::DOMElement* time) {
   std::string start_time_str;
   cast_xmlch(get_node<DOMElement>(time_range, "START")->getTextContent(), start_time_str);
   bool is_start_time = true;
-  start_time = PeruSatXML::convert_time(start_time_str, is_start_time);
+  m_start_time = PeruSatXML::convert_time(start_time_str, is_start_time);
 
   xercesc::DOMElement* time_stamp = get_node<DOMElement>(time, "Time_Stamp");
-  cast_xmlch(get_node<DOMElement>(time_stamp, "LINE_PERIOD")->getTextContent(), line_period);
-  std::cout << "--line_period " << line_period << std::endl;
-  std::cout << "check if offset is correct in RPC_XML.cc!" << std::endl;
+  cast_xmlch(get_node<DOMElement>(time_stamp, "LINE_PERIOD")->getTextContent(), m_line_period);
 }
   
 void PeruSatXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
 
   // Reset data storage
-  position_logs.clear(); 
-  velocity_logs.clear();
+  m_positions.clear(); 
+  m_velocities.clear();
 
   xercesc::DOMElement* point_list = get_node<DOMElement>(ephemeris, "Point_List");
 
@@ -202,12 +200,10 @@ void PeruSatXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
     
     std::string delimiters(",\t ");
     position_vec = str_to_vec<Vector3>(position_str, delimiters);
-    std::cout << "--position " << position_vec << std::endl;
     velocity_vec = str_to_vec<Vector3>(velocity_str, delimiters);
-    std::cout << "--velocity " << velocity_vec << std::endl;
-    
-    position_logs.push_back(std::pair<double, Vector3>(time, position_vec));
-    velocity_logs.push_back(std::pair<double, Vector3>(time, velocity_vec));
+
+    m_positions.push_back(std::pair<double, Vector3>(time, position_vec));
+    m_velocities.push_back(std::pair<double, Vector3>(time, velocity_vec));
   } // End loop through points
   
 }
@@ -215,7 +211,7 @@ void PeruSatXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
 void PeruSatXML::read_attitudes(xercesc::DOMElement* attitudes) {
 
   // Reset data storage
-  pose_logs.clear();
+  m_poses.clear();
 
   xercesc::DOMElement* quaternion_list = get_node<DOMElement>(attitudes, "Quaternion_List");
 
@@ -250,7 +246,11 @@ void PeruSatXML::read_attitudes(xercesc::DOMElement* attitudes) {
     cast_xmlch(get_node<DOMElement>(curr_element, "Q3")->getTextContent(), z);
     data.second = vw::Quaternion<double>(w, x, y, z);
 
-    pose_logs.push_back(data);
+    // Normalize the quaternions to remove any inaccuracy due to the
+    // limited precision used to save them on disk.
+    data.second = normalize(data.second);
+    
+    m_poses.push_back(data);
   } // End loop through attitudes
 }
 
@@ -259,14 +259,12 @@ void PeruSatXML::read_look_angles(xercesc::DOMElement* look_angles) {
   std::string tan_psi_x_str;
   cast_xmlch(get_node<DOMElement>(look_angles, "LINE_OF_SIGHT_TANPSIX")->getTextContent(),
              tan_psi_x_str);
-  tan_psi_x = str_to_vec<Vector2>(tan_psi_x_str, delimiters);
-  std::cout << "--tan_psi_x " << tan_psi_x << std::endl;
+  m_tan_psi_x = str_to_vec<Vector2>(tan_psi_x_str, delimiters);
   
   std::string tan_psi_y_str;
   cast_xmlch(get_node<DOMElement>(look_angles, "LINE_OF_SIGHT_TANPSIY")->getTextContent(),
              tan_psi_y_str);
-  tan_psi_y = str_to_vec<Vector2>(tan_psi_y_str, delimiters);
-  std::cout << "--tan_psi_y " << tan_psi_y << std::endl;
+  m_tan_psi_y = str_to_vec<Vector2>(tan_psi_y_str, delimiters);
 }
 
 void PeruSatXML::read_instr_biases(xercesc::DOMElement* instr_biases) {
@@ -277,37 +275,30 @@ void PeruSatXML::read_instr_biases(xercesc::DOMElement* instr_biases) {
   cast_xmlch(get_node<DOMElement>(instr_biases, "Q2")->getTextContent(), y);
   cast_xmlch(get_node<DOMElement>(instr_biases, "Q3")->getTextContent(), z);
 
-  instrument_biases = vw::Quaternion<double>(w, x, y, z);
-
-  std::cout << "--instrument_biases " << instrument_biases << std::endl;
+  m_instrument_biases = vw::Quaternion<double>(w, x, y, z);
 }
 
-void PeruSatXML::read_center_data (xercesc::DOMElement* geom_values) {
+void PeruSatXML::read_center_data(xercesc::DOMElement* geom_values) {
 
   std::string center_time_str;
   cast_xmlch(get_node<DOMElement>(geom_values, "TIME")->getTextContent(), center_time_str);
-  cast_xmlch(get_node<DOMElement>(geom_values, "COL")->getTextContent(), center_col);
-  cast_xmlch(get_node<DOMElement>(geom_values, "ROW")->getTextContent(), center_row);
+  cast_xmlch(get_node<DOMElement>(geom_values, "COL")->getTextContent(), m_center_col);
+  cast_xmlch(get_node<DOMElement>(geom_values, "ROW")->getTextContent(), m_center_row);
 
   bool is_start_time = false;
   center_time = PeruSatXML::convert_time(center_time_str, is_start_time);
 
-  std::cout << "--center time is " << center_time << std::endl;
-  std::cout << "--before substr " << center_col << ' ' << center_row << std::endl;
-
   // Convert from 1-based to 0-based indices.  
-  center_col  -= 1;
-  center_row  -= 1;
-  
-  std::cout << "--after substr " << center_col << ' ' << center_row << std::endl;
+  m_center_col -= 1.0;
+  m_center_row -= 1.0;
 }
 
 // Converts a time from string to double precision value measured in seconds
 // relative to the start time.
 // Input strings look like this: 2008-03-04T12:31:03.08191Z.
-double PeruSatXML::convert_time(std::string const& s, bool start_time) {
+double PeruSatXML::convert_time(std::string const& s, bool is_start_time) {
 
-  if (!start_time && !m_start_time_is_set) 
+  if (!is_start_time && !m_start_time_is_set) 
     vw::vw_throw(vw::ArgumentErr()
                  << "Must set the start time before doing time conversions.\n");
 
@@ -323,12 +314,12 @@ double PeruSatXML::convert_time(std::string const& s, bool start_time) {
 
     boost::posix_time::ptime time = boost::posix_time::time_from_string(s2);
 
-    if (start_time) {
+    if (is_start_time) {
       m_start_time_is_set = true;
-      start_time_stamp = time;
+      m_start_time_stamp = time;
     }
 
-    boost::posix_time::time_duration delta(time - start_time_stamp);
+    boost::posix_time::time_duration delta(time - m_start_time_stamp);
     return delta.total_microseconds() / 1.0e+6;
     
   }catch(...){
@@ -337,155 +328,163 @@ double PeruSatXML::convert_time(std::string const& s, bool start_time) {
   return -1.0; // Never reached
 }
 
-// This is pretty simple, PERUSAT5 has a constant time for each line.
+// Find the time at each line (line starts from 0) by multiplying by
+// the period.  All times are relative to the starting time (see the
+// convert_time() function).
+  
+// Note: PeruSat also has the center time, under Located_Geometric_Values,
+// and that corresponds to line (num_lines - 1)/2.0 as expected. Yet PeruSat
+// also provides there a center row, but that one is wrong and not equal
+// to (num_lines - 1)/2.0.
 vw::camera::LinearTimeInterpolation PeruSatXML::setup_time_func() const {
-  // The metadata tells us the time of the middle line, so find the time for the first line.
-  double min_line_diff = static_cast<double>(0 - this->center_row);
-  double min_line_time = center_time + this->line_period*min_line_diff;
-  //std::cout << "Setup time functor: " << std::setprecision(12)  << min_line_time << ", " << this->line_period << std::endl;
-  //std::cout << std::setprecision(12)  << "Center time: " << center_time << std::endl;
-  return vw::camera::LinearTimeInterpolation(min_line_time, this->line_period);
-}
-
-// Velocities are the sum of inertial velocities and the instantaneous
-//  Earth rotation.
-
-// The velocity is already in GCC, so just pack into a function.
-vw::camera::LagrangianInterpolation PeruSatXML::setup_velocity_func() const {
-  const int INTERP_RADII = 4; // Reccomended in the docs
-  std::vector<double>  time;
-  std::vector<Vector3> velocity;
-
-  // Loop through the velocity logs and extract values
-  std::list<std::pair<double, vw::Vector3> >::const_iterator iter;
-  for (iter=velocity_logs.begin(); iter!=velocity_logs.end(); iter++) {
-    time.push_back(iter->first);
-    velocity.push_back(iter->second);
-    //std::cout << "Adding velocity point: " << iter->first 
-    //          << " --> " << iter->second << std::endl;
-  }
-  
-  // More generic method for variable time intervals
-  //return vw::camera::LagrangianInterpolationVarTime(velocity, time, INTERP_RADII);
-  
-  // A faster method for when we know the time delta is constant
-  double min_time   = time[0];
-  double max_time   = time[time.size()-1];
-  double time_delta = (max_time - min_time) / (time.size()-1);
-  return vw::camera::LagrangianInterpolation(velocity, min_time, time_delta, max_time, INTERP_RADII);
+  return vw::camera::LinearTimeInterpolation(m_start_time, m_line_period);
 }
 
 // The position is already in GCC, so just pack into a function.
 // - Currently this is identical to the velocity function, but this may change later.
-vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func() const {
+vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func
+(vw::camera::LinearTimeInterpolation const& time_func) const {
 
- const int INTERP_RADII = 4; // Reccomended in the docs
-  std::vector<double>  time;
-  std::vector<Vector3> position;
+  // Sanity check, we should be able to find the position for each image line
+  size_t num_lines           = m_image_size[1];
+  double first_line_time     = time_func(0);
+  double last_line_time      = time_func(num_lines - 1.0);
+  double num_positions       = m_positions.size();
+  double position_start_time = m_positions.front().first;
+  double position_stop_time  = m_positions.back().first;
+  double position_delta_t    = (position_stop_time - position_start_time) / (num_positions - 1.0);
+  
+  if (position_start_time > first_line_time || position_stop_time < last_line_time)
+    vw_throw(ArgumentErr() << "The position timestamps do not fully span the "
+             << "range of times for the image lines.");
+  
+  const int INTERP_RADII = 2; // Will correspond to degree 4 polynomial. Recomended in the docs
+  std::vector<double>  time_vec;
+  std::vector<Vector3> position_vec;
 
-  // Loop through the velocity logs and extract values
-  std::list<std::pair<double, vw::Vector3> >::const_iterator iter;
-  for (iter=position_logs.begin(); iter!=position_logs.end(); iter++) {
-    time.push_back(iter->first);
-    position.push_back(iter->second);
-    //std::cout << "Adding position point: " << convert_time(iter->first)
-    //          << " --> " << iter->second << std::endl;
+  // Loop through the positions and extract values
+  int index = 0;
+  for (auto iter = m_positions.begin(); iter != m_positions.end(); iter++) {
+    time_vec.push_back(iter->first);
+    position_vec.push_back(iter->second);
+
+    // Sanity check. The times at which the positions are given must
+    // be uniformly distributed.
+    if (index > 0) {
+      double err = std::abs(time_vec[index] - time_vec[index - 1] - position_delta_t)
+        / position_delta_t;
+      if (err > 1.0e-6) 
+        vw_throw(ArgumentErr() << "The position timestamps are not uniformly distributed.");
+    }
+    
+    index++;
   }
   
   // More generic method for variable time intervals
-  //return vw::camera::LagrangianInterpolationVarTime(position, time, INTERP_RADII);
+  // return vw::camera::LagrangianInterpolationVarTime(position_vec, time_vec, INTERP_RADII);
   
   // A faster method for when we know the time delta is constant
-  double min_time   = time[0];
-  double max_time   = time[time.size()-1];
-  double time_delta = (max_time - min_time) / (time.size()-1);
-  return vw::camera::LagrangianInterpolation(position, min_time, time_delta, max_time, INTERP_RADII);
+  return vw::camera::LagrangianInterpolation(position_vec, position_start_time,
+                                             position_delta_t, position_stop_time, INTERP_RADII);
 }
-
-#if 0
-vw::camera::LinearPiecewisePositionInterpolation PeruSatXML::setup_pose_func(
-        vw::camera::LinearTimeInterpolation const& time_func) const {
-
-  std::cout << "--fix here!" << std::endl;
-  // This function returns a functor that returns just the yaw/pitch/roll angles.
-  // - The time interval between lines is not constant but it is extremely close.
-
-
-  // For some reason the corrected pose angles do not start early enough to cover
-  // the time span for all of the input lines!
-  // - In order to handle this, we repeat the earliest pose value so that it starts
-  //   before the first line.
-  // - The raw pose angles do start before the lines, but their values differ noticeably
-  //   from the corrected values.
   
-  // Compute how many padded pose entries are needed to cover all of the lines.
-  size_t num_lines           = this->image_size[1];
-  double num_corrected_poses = static_cast<double>(pose_logs.size());
+// Velocities are the sum of inertial velocities and the instantaneous
+//  Earth rotation.
+
+// The velocity is already in GCC, so just pack into a function.
+vw::camera::LagrangianInterpolation PeruSatXML::setup_velocity_func
+(vw::camera::LinearTimeInterpolation const& time_func) const {
+
+  // Sanity check, we should be able to find the velocity for each image line
+  size_t num_lines           = m_image_size[1];
   double first_line_time     = time_func(0);
   double last_line_time      = time_func(num_lines - 1.0);
-  double pose_start_time     = pose_logs.front().first;
-  double pose_stop_time      = pose_logs.back().first;
-  double pose_delta_t        = (pose_stop_time - pose_start_time) / (num_corrected_poses - 1.0);
-  int    num_prefill_poses   = static_cast<int>(ceil((pose_start_time - first_line_time) / pose_delta_t));
-  int    num_postfill_poses  = static_cast<int>(ceil((last_line_time  - pose_stop_time) / pose_delta_t));
-  //std::cout << "First line time: " << first_line_time << std::endl;
-  //std::cout << "Last line time:  " << last_line_time  << std::endl;
-  //std::cout << "Pose start: " << pose_start_time << std::endl;
-  //std::cout << "Pose stop:  " << pose_stop_time  << std::endl;
-  num_postfill_poses += 1; // Stick another bit of padding on the back.
-                           // This is so our Extrinsics algorithms have enough room to interpolate.
-  if (num_prefill_poses < 1)
-    num_prefill_poses = 0;
-  if (num_postfill_poses < 1)
-    num_postfill_poses = 0;
-    
-  size_t num_total_poses = pose_logs.size() + static_cast<size_t>(num_prefill_poses)
-                                            + static_cast<size_t>(num_postfill_poses);
+  double num_velocities      = m_velocities.size();
+  double velocity_start_time = m_velocities.front().first;
+  double velocity_stop_time  = m_velocities.back().first;
+  double velocity_delta_t    = (velocity_stop_time - velocity_start_time) / (num_velocities - 1.0);
 
-  std::vector<Vector3> pose(num_total_poses);
-  std::vector<double>  time(num_total_poses);
+  if (velocity_start_time > first_line_time || velocity_stop_time < last_line_time)
+    vw_throw(ArgumentErr() << "The velocity timestamps do not fully span the "
+             << "range of times for the image lines.");
+
+  if (velocity_start_time > first_line_time || velocity_stop_time < last_line_time)
+    vw_throw(ArgumentErr() << "The velocity timestamps do not fully span the "
+             << "range of times for the image lines.");
   
-  // Fill in the pre-padding poses
-  size_t index = 0;
-  for (int i=0; i<num_prefill_poses; i++) {
-    double time_offset = pose_delta_t*static_cast<double>(num_prefill_poses-i);
-    time[index] = pose_logs.front().first - time_offset;
-    //pose[index] = pose_logs.front().second;
-    //std::cout << "PREFILL: " << time[index] << std::endl;
-    index++;
-  }
-  std::cout << "--study all this!" << std::endl;
+  const int INTERP_RADII = 2; // Will correspond to degree 4 polynomial. Recommended in the docs
+  std::vector<double>  time_vec;
+  std::vector<Vector3> velocity_vec;
 
-  // Now fill in the real poses
-  for (auto iter = pose_logs.begin(); iter != pose_logs.end(); iter++) {
-    time[index] = iter->first;
-    pose[index] = iter->second;
+  // Loop through the velocities and extract values
+  int index = 0;
+  for (auto iter = m_velocities.begin(); iter != m_velocities.end(); iter++) {
+    time_vec.push_back(iter->first);
+    velocity_vec.push_back(iter->second);
+
+    // Sanity check. The times at which the velocitys are given must
+    // be uniformly distributed.
+    if (index > 0) {
+      double err = std::abs(time_vec[index] - time_vec[index - 1] - velocity_delta_t)
+        / velocity_delta_t;
+      if (err > 1.0e-6) 
+        vw_throw(ArgumentErr() << "The velocity timestamps are not uniformly distributed.");
+    }
+
     index++;
   }
 
-  // Fill in the post-padding poses
-  for (int i=0; i<num_postfill_poses; i++) {
-    double time_offset = pose_delta_t*(i+1);
-    time[index] = pose_logs.back().first + time_offset;
-    //pose[index] = pose_logs.back().second;
-    //std::cout << "POSTFILL: " << time[index] << std::endl;
-    index++;
-  }
-  
-  //double max_time = time.back();
-  double min_time = time.front();
-  
-  //std::cout << std::setprecision(12) << "Adding pose info: " << min_time << ", " 
-  //          << max_time << " -> " << pose_delta_t << std::endl;
-  
-  return vw::camera::LinearPiecewisePositionInterpolation(pose, min_time, pose_delta_t);
+  // More generic method for variable time intervals
+  //return vw::camera::LagrangianInterpolationVarTime(velocity_vec, time_vec, INTERP_RADII);
 
+  // A faster method for when we know the time delta is constant
+  return vw::camera::LagrangianInterpolation(velocity_vec, velocity_start_time,
+                                             velocity_delta_t, velocity_stop_time, INTERP_RADII);
 }
-#endif
+
+// Put the timestamps and poses in vectors and form the pose interpolation object
+vw::camera::SLERPPoseInterpolation PeruSatXML::setup_pose_func
+  (vw::camera::LinearTimeInterpolation const& time_func) const {
+
+  size_t num_lines           = m_image_size[1];
+  double first_line_time     = time_func(0);
+  double last_line_time      = time_func(num_lines - 1.0);
+
+  double num_poses           = m_poses.size();
+  double pose_start_time     = m_poses.front().first;
+  double pose_stop_time      = m_poses.back().first;
+  double pose_delta_t        = (pose_stop_time - pose_start_time) / (num_poses - 1.0);
+
+  if (pose_start_time > first_line_time || pose_stop_time < last_line_time)
+    vw_throw(ArgumentErr() << "The quaternion timestamps do not fully span the "
+             << "range of times for the image lines.");
+  
+  std::vector<vw::Quaternion<double>> pose_vec(num_poses);
+  std::vector<double>  time_vec(num_poses);
+  int index = 0;
+  for (auto iter = m_poses.begin(); iter != m_poses.end(); iter++) {
+    time_vec[index] = iter->first;
+    pose_vec[index] = iter->second;
+
+    // Sanity check. The times at which the quaternions are given must
+    // be uniformly distributed. The quaternions are sampled more
+    // densely than the positions and velocities, so we tolerate
+    // a bit more divergence from uniform sampling.
+    if (index > 0) {
+      double err = std::abs(time_vec[index] - time_vec[index - 1] - pose_delta_t) / pose_delta_t;
+      if (err > 0.01) 
+        vw_throw(ArgumentErr() << "The quaternion timestamps are not uniformly distributed.");
+    }
+    
+    index++;
+  }
+
+  double min_time = time_vec.front();
+  return vw::camera::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t);
+}
   
 // Boost does not like a time string such as "2017-12-07 15:36:40.90795Z"
-// because it expects precisely 6 digits after the dot (hence for the millisecond).
-// Fix that.
+// because it expects precisely 6 digits after the dot. Fix that.
 std::string PeruSatXML::fix_millisecond(std::string const& in_str) {
 
   std::string out_str = "";

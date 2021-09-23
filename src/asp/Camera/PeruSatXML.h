@@ -54,28 +54,12 @@ namespace asp {
   class PeruSatXML {
   public:
 
-    // TODO(oalexan1): Remove all redundant values!
-    
     /// Constructor
     PeruSatXML(): m_start_time_is_set(false){}
 
-    // The reader will populate these fields
-    vw::Vector2i image_size;
-    std::list  <std::pair<double, vw::Vector3>> position_logs; // (time,   X/Y/Z)
-    std::list  <std::pair<double, vw::Vector3>> velocity_logs; // (time,   dX/dY/dZ)
-    std::list  <std::pair<double, vw::Quaternion<double>>> pose_logs; // (time, quaternion)
-    vw::Quaternion<double> instrument_biases;
-
-    boost::posix_time::ptime start_time_stamp;
-
-    // All times represented as doubles will be in seconds relative to start_time_stamp
-    double  start_time;
-    double  center_time;
-    double  line_period;
-    double  center_col;
-    double  center_row;
-
-    vw::Vector2 tan_psi_x, tan_psi_y;
+    vw::Vector2i m_image_size;
+    vw::Quaternion<double> m_instrument_biases;
+    vw::Vector2 m_tan_psi_x, m_tan_psi_y;
 
     /// Parse an XML file to populate the data
     void read_xml(std::string const& xml_path);
@@ -84,12 +68,14 @@ namespace asp {
     void parse_xml(xercesc::DOMElement* node);
 
     // Functions to setup functors which manage the raw input data.
-    vw::camera::LagrangianInterpolation setup_position_func() const;
-    vw::camera::LagrangianInterpolation setup_velocity_func() const;
-    vw::camera::LinearTimeInterpolation setup_time_func    () const;
-    vw::camera::LinearPiecewisePositionInterpolation setup_pose_func
-    (vw::camera::LinearTimeInterpolation const& time_func) const; // (yaw/pitch/roll)        
-
+    vw::camera::LinearTimeInterpolation setup_time_func() const;
+    vw::camera::LagrangianInterpolation setup_position_func
+    (vw::camera::LinearTimeInterpolation const& time_func) const;
+    vw::camera::LagrangianInterpolation setup_velocity_func
+    (vw::camera::LinearTimeInterpolation const& time_func) const;
+    vw::camera::SLERPPoseInterpolation         setup_pose_func
+    (vw::camera::LinearTimeInterpolation const& time_func) const;
+    
   private: // The various XML data reading sections
   
     /// Just opens the XML file for reading and returns the root node.
@@ -113,9 +99,22 @@ namespace asp {
     // Fix that.
     static std::string fix_millisecond(std::string const& in_str);
 
+    // All times represented as doubles will be in seconds relative to m_start_time_stamp
+    boost::posix_time::ptime m_start_time_stamp;
+
+    bool   m_start_time_is_set;
+    double m_start_time;
+    double center_time;
+    double m_line_period;
+    double m_center_col;
+    double m_center_row;
+
+    std::list<std::pair<double, vw::Vector3>> m_positions;        // (time,   X/Y/Z)
+    std::list<std::pair<double, vw::Vector3>> m_velocities;       // (time,   dX/dY/dZ)
+    std::list<std::pair<double, vw::Quaternion<double>>> m_poses; // (time, quaternion)
+    
     boost::shared_ptr<xercesc::XercesDOMParser> m_parser;
-    boost::shared_ptr<xercesc::ErrorHandler>    m_errHandler;
-    bool                                        m_start_time_is_set;
+    boost::shared_ptr<xercesc::ErrorHandler>    m_err_handler;
     
   }; // End class PeruSatXML
 

@@ -31,10 +31,10 @@ vw::Vector2 PeruSatCameraModel::point_to_pixel(Vector3 const& point, double star
 
   // Use the generic solver to find the pixel 
   // - This method will be slower but works for more complicated geometries
-  vw::camera::CameraGenericLMA model( this, point );
+  vw::camera::CameraGenericLMA model(this, point);
   int status;
   vw::Vector2 start = m_image_size / 2.0; // Use the center as the initial guess
-  if (starty >= 0) // If the user provided a line number guess..
+  if (starty >= 0) // If the user provided a line number guess, use it.
     start[1] = starty;
 
   // Solver constants
@@ -44,16 +44,17 @@ vw::Vector2 PeruSatCameraModel::point_to_pixel(Vector3 const& point, double star
   const double MAX_ERROR = 0.01;
 
   Vector3 objective(0, 0, 0);
-  vw::Vector2 solution = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>(model, start, objective, status,
-                                               ABS_TOL, REL_TOL, MAX_ITERATIONS);
-  // Check the error - If it is too high then the solver probably got stuck at the edge of the image.
+  vw::Vector2 solution = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
+    (model, start, objective, status, ABS_TOL, REL_TOL, MAX_ITERATIONS);
+
   double  error = norm_2(model(solution));
+
   VW_ASSERT( (status > 0) && (error < MAX_ERROR),
-	           vw::camera::PointToPixelErr() << "Unable to project point into LinescanPeruSat model" );
+             vw::camera::PointToPixelErr()
+             << "Unable to project point into LinescanPeruSat model" );
 
   return solution;
 }
-
 
 void PeruSatCameraModel::check_time(double time, std::string const& location) const {
   if ((time < m_min_time) || (time > m_max_time))
@@ -74,190 +75,92 @@ vw::Quat PeruSatCameraModel::get_camera_pose_at_time(double time) const {
   check_time(time, "get_camera_pose_at_time");
  return m_pose_func(time); 
 }
-double PeruSatCameraModel::get_time_at_line(double line) const {
-  if ((line < 0.0) || (static_cast<int>(line) >= m_image_size[1]))
-    vw::vw_throw(vw::ArgumentErr() << "PeruSatCameraModel::get_time_at_line"
-                 << ": Requested line "<<line<<" is out of bounds (0"
-                 << " <-> "<<m_image_size[1]<<")\n");
- return m_time_func(line); 
-}
 
+double PeruSatCameraModel::get_time_at_line(double line) const {
+  // Allow finding the time at any line, even negative ones.  Here a
+  // simple slope-intercept formula is used rather than a table so one
+  // cannot run out of bounds.
+  return m_time_func(line); 
+}
 
 
 Vector3 PeruSatCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
+
+  // According to Modelo%20Orbital%20PeruSAT-1.pdf:
   
-  // psi_x Is the angle from nadir line in along-track direction (lines)
-  // psi_y Is the angle from nadir line in across-track direction (cols)
-  // psi_x is nearly constant.  psi_y starts negative and increases with column.
+  // psi_x = tan_psi_x[0] * (col - col_ref) + tan_psi_x[1]
+  // psi_y = tan_psi_y[0] * (col - col_ref) + tan_psi_y[1]
+
+  // where those coefficients are given in LINE_OF_SIGHT_TANPSIX
+  // and LINE_OF_SIGHT_TANPSIY.
+
+  // The doc says col_ref is 1, so for us it will be 0 since our
+  // columns start form 0.
+
+  double col     = pix[0];
+  double psi_x   = m_tan_psi_x[0] * col + m_tan_psi_x[1];
+  double psi_y   = m_tan_psi_y[0] * col + m_tan_psi_y[1];
+  Vector3 result = Vector3(tan(psi_y), -tan(psi_x), 1.0);
+
+  // Make the direction have unit length
+  result = normalize(result);
   
-  // Interpolate the pixel angle from the adjacent values in the lookup table.
-  // - Probably should have a simple 2D interp function somewhere.  
-  double     col    = pix[0];
-  double min_col    = floor(col);
-  double max_col    = min_col + 1.0;
-  size_t min_index  = static_cast<size_t>(min_col);
-  size_t max_index  = static_cast<size_t>(max_col);
-  double min_weight = max_col - col;
-  double max_weight = col-min_col;
-  
-  // Check bounds
-  if ((col < 0) || (col > static_cast<double>(m_look_angles.size())-1.0))
-    vw::vw_throw(vw::ArgumentErr() << "PeruSatCameraModel:::get_local_pixel_vector: Requested pixel " << col << " is out of bounds!\n");
-  
-  double psi_x = (m_look_angles[max_index].second[0]*max_weight + 
-                  m_look_angles[min_index].second[0]*min_weight  );
-  double psi_y = (m_look_angles[max_index].second[1]*max_weight + 
-                  m_look_angles[min_index].second[1]*min_weight  );
-  
-  // This vector is in the PeruSat5 O1 Navigation Coordinate Sytem, which 
-  // differs from how we usually set up our coordinates.
-  //Vector3 result = normalize(Vector3(-tan(psi_y), tan(psi_x), -1));
-  
-  // Convert the local vector so that it follows our usual conventions:
-  //  Z down, Y flight direction, X increasing sample direction. 
-  Vector3 result = normalize(Vector3(tan(psi_y), tan(psi_x), 1.0));
-  //std::cout << "Pixel: " << pix << std::endl;
-  //std::cout << "Col: " << col << ", min col: " << min_col << ", max col: " << max_col << std::endl;
-  //std::cout << "min = " << m_look_angles[min_index].second << std::endl;
-  //std::cout << "max = " << m_look_angles[max_index].second << std::endl;
-  //std::cout << "Local pixel vector: " << result << std::endl;
+  // Go from sensor coordinates to satellite body coordinates.
+  // The instrument biases were not documented at all and took a while
+  // to figure out.
+  result = m_inverse_instrument_biases.rotate(result);
+
   return result;
 }
 
-Matrix3x3 PeruSatCameraModel::get_local_orbital_frame(Vector3 const& position, Vector3 const& velocity) {
-  // These calculations are copied from the PeruSat 123-4-58 Geometry Handbook (GAEL-P135-DOC-001)
-  Vector3 Z2 = vw::math::normalize(position);
-  Vector3 X2 = vw::math::normalize(vw::math::cross_prod(velocity, Z2));
-  Vector3 Y2 = vw::math::cross_prod(Z2, X2);
-  Matrix3x3 out;
-  for (int r=0; r<3; ++r) {
-    out(r,0) = X2[r];
-    out(r,1) = Y2[r];
-    out(r,2) = Z2[r];
-  }
-  return out;
-}
+boost::shared_ptr<PeruSatCameraModel> load_perusat_camera_model_from_xml(std::string const& path){
 
-Matrix3x3 PeruSatCameraModel::get_look_rotation_matrix(double yaw, double pitch, double roll) {
-/*
-  // These calculations are copied from the PeruSat 123-4-58 Geometry Handbook (GAEL-P135-DOC-001)
-  Matrix3x3 Mp, Mr, My;
-  Mp(0,0) = 1.0;         Mp(0,1) = 0.0;           Mp(0,2) = 0.0;
-  Mp(1,0) = 0.0;         Mp(1,1) = cos(pitch);    Mp(1,2) = sin(pitch);
-  Mp(2,0) = 0.0;         Mp(2,1) = -sin(pitch);   Mp(2,2) = cos(pitch);
-
-  Mr(0,0) = cos(roll);   Mr(0,1) = 0.0;           Mr(0,2) = -sin(roll);
-  Mr(1,0) = 0.0;         Mr(1,1) = 1.0;           Mr(1,2) = 0.0;
-  Mr(2,0) = sin(roll);   Mr(2,1) = 0.0;           Mr(2,2) = cos(roll);
-  
-  My(0,0) = cos(yaw);    My(0,1) = -sin(yaw);     My(0,2) = 0.0;
-  My(1,0) = sin(yaw);    My(1,1) = cos(yaw);      My(1,2) = 0.0;
-  My(2,0) = 0.0;         My(2,1) = 0.0;           My(2,2) = 1.0; 
-
-  Matrix3x3 out = Mp*Mr*My;
-  return out;
-*/  
-
-  double cp = cos(pitch);
-  double sp = sin(pitch);
-  double cr = cos(roll);
-  double sr = sin(roll);
-  double cy = cos(yaw);
-  double sy = sin(yaw);
-
-  Matrix3x3 M;
-  M(0,0) = (cr*cy);            M(0,1) = (-cr*sy);           M(0,2) = (-sr);
-  M(1,0) = (cp*sy+sp*sr*cy);   M(1,1) = (cp*cy-sp*sr*sy);   M(1,2) = (sp*cr);
-  M(2,0) = (-sp*sy+cp*sr*cy);  M(2,1) = (-sp*cy-cp*sr*sy);  M(2,2) = cp*cr; 
-  return M;
-}
-
-
-/*
-Notes on interpolation:
-
-Line period = 7.5199705115e-04 = 0.000751997051
-
-Paper recommends:
-position = lagrangian interpolation --> The times happen to be spaced exactly 30 secs apart.
-velocity = lagrangian interpolation
-pose = linear interpolation --> The times are spaced ALMOST exactly 1.0000 seconds apart
-time = Linear is only option.
-*/
-
-
-boost::shared_ptr<PeruSatCameraModel> load_perusat_camera_model_from_xml(std::string const& path)
-{
-
-  // XYZ coordinates are in the ITRF coordinate frame which means GCC coordinates.
-  // - The velocities are in the same coordinate frame, not in some local frame.
-
-  vw_out(vw::DebugMessage,"asp") << "Loading PeruSat5 camera file: " << path << std::endl;
-
-  // Parse the PeruSat5 XML file
+  vw_out(vw::DebugMessage,"asp") << "Loading PeruSat camera file: " << path << std::endl;
+  // Parse the PeruSat XML file
   PeruSatXML xml_reader;
   xml_reader.read_xml(path);
 
   // Get all the initial functors
-  vw::camera::LagrangianInterpolation position_func  = xml_reader.setup_position_func();
-  vw::camera::LagrangianInterpolation velocity_func  = xml_reader.setup_velocity_func();
-  vw::camera::LinearTimeInterpolation time_func      = xml_reader.setup_time_func();
-  vw::camera::LinearPiecewisePositionInterpolation perusat_pose_func = xml_reader.setup_pose_func(time_func);
-  
-  // The PeruSat5 camera uses a different pose convention than we do, so we create
-  //  a new pose interpolation functor that will return the pose in an easy to use format.
-  
-  // Get some information about the pose data
-  double min_time      = perusat_pose_func.get_t0();
-  double max_time      = perusat_pose_func.get_tend();
-  double time_delta    = perusat_pose_func.get_dt();
-  size_t num_pose_vals = static_cast<size_t>(round((max_time - min_time) / time_delta));
-  
-  // This matrix rotates the axes of the PeruSat5 model so that it is oriented with
-  //  our standard linescanner coordinate frame.
-  Matrix3x3 R;
-  R(0,0) = -1.0; R(0,1) = 0.0; R(0,2) =  0.0;
-  R(1,0) =  0.0; R(1,1) = 1.0; R(1,2) =  0.0;
-  R(2,0) =  0.0; R(2,1) = 0.0; R(2,2) = -1.0;
-  
-  // Make a new vector of pose values in the GCC coordinate frame.
-  // - This saves us from having to do all of the coordinate transforms
-  //   each time a camera position is needed.
-  std::vector<vw::Quat> gcc_pose(num_pose_vals);
-  Vector3 position, velocity, yaw_pitch_roll;
-  Matrix3x3 lo_frame, look_rotation, combined_rotation;  
-  for (size_t i=0; i<num_pose_vals; ++i) {
-    // Get info at this time
-    double time = min_time + time_delta * static_cast<double>(i);
-    position       = position_func(time);
-    velocity       = velocity_func(time);
-    yaw_pitch_roll = perusat_pose_func(time);
-    
-    // TODO: There may be a small (~1 meter offset) between ITRF coordinates and WGS84 coordinates!
-    
-    // Get the two of rotation matrices we need
-    lo_frame      = PeruSatCameraModel::get_local_orbital_frame(position, velocity);
-    look_rotation = PeruSatCameraModel::get_look_rotation_matrix(yaw_pitch_roll[0], 
-                                          yaw_pitch_roll[1], yaw_pitch_roll[2]);
-    //look_rotation.set_identity(); // DEBUG assume perfect path following
-    // By their powers combined these form the GCC rotation we need.
-    combined_rotation = lo_frame * look_rotation*R;
+  vw::camera::LinearTimeInterpolation
+    time_func      = xml_reader.setup_time_func();
+  vw::camera::LagrangianInterpolation
+    position_func  = xml_reader.setup_position_func(time_func);
+  vw::camera::LagrangianInterpolation
+    velocity_func  = xml_reader.setup_velocity_func(time_func);
+  vw::camera::SLERPPoseInterpolation
+    pose_func      = xml_reader.setup_pose_func(time_func);
 
-    gcc_pose[i] = vw::Quat(combined_rotation);    
-  }
+  // Find the range of times for which we can solve for position and pose
+
+  double min_position_time = position_func.get_t0();
+  double max_position_time = position_func.get_tend();
   
-  vw::camera::SLERPPoseInterpolation pose_func(gcc_pose, min_time, time_delta);
+  double min_velocity_time = velocity_func.get_t0();
+  double max_velocity_time = velocity_func.get_tend();
 
-  // This is where we could set the Earth radius and mean surface elevation if we have that info.
+  double min_pose_time = pose_func.get_t0();
+  double max_pose_time = pose_func.get_tend();
 
+  double min_time = std::max(min_position_time, std::max(min_velocity_time, min_pose_time));
+  double max_time = std::min(max_position_time, std::min(max_velocity_time, max_pose_time));
+
+  std::cout << "--disable velocity aberration is "
+            << stereo_settings().disable_correct_velocity_aberration << std::endl;
+  
+  std::cout << "--disable correct atmospheric refraction is "
+            << stereo_settings().disable_correct_atmospheric_refraction << std::endl;
+  
   // Feed everything into a new camera model.
-  return boost::shared_ptr<PeruSatCameraModel>(new PeruSatCameraModel(position_func, velocity_func, 
-                                                                pose_func, time_func, 
-                                                                xml_reader.look_angles,
-                                                                xml_reader.image_size,
-                                                                min_time, max_time,
-                                        !stereo_settings().disable_correct_velocity_aberration,
-                                        !stereo_settings().disable_correct_atmospheric_refraction));
+  return boost::shared_ptr<PeruSatCameraModel>
+    (new PeruSatCameraModel(position_func, velocity_func, 
+                            pose_func, time_func, 
+                            xml_reader.m_tan_psi_x,
+                            xml_reader.m_tan_psi_y,
+                            xml_reader.m_instrument_biases,
+                            xml_reader.m_image_size,
+                            min_time, max_time,
+                            !stereo_settings().disable_correct_velocity_aberration,
+                            !stereo_settings().disable_correct_atmospheric_refraction));
 
 } // End function load_perusat_camera_model()
 
