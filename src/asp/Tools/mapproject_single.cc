@@ -108,10 +108,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
-
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
+  
   if ( !vm.count("dem") || !vm.count("camera-image") || !vm.count("camera-model") )
     vw_throw( ArgumentErr() << usage << general_options );
 
@@ -120,18 +120,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( !vm.count("output-image") && vm.count("camera-model") ) {
     opt.output_file = opt.camera_file;
     opt.camera_file = "";
-  }
-
-  // We support map-projecting using the DG camera model, however, these images
-  // cannot be used later to do stereo, as that process expects the images
-  // to be map-projected using the RPC model.
-  if (boost::to_lower_copy(opt.stereo_session) == "dg"){
-    vw_out(WarningMessage) << "Images map-projected using the 'dg' camera model cannot be used later to run stereo with the 'dg' session. If that is desired, please specify here the 'rpc' camera model instead.\n";
-  }
-
-  if ( boost::iends_with(boost::to_lower_copy(opt.camera_file), ".xml") &&
-       opt.stereo_session == "" ){
-    opt.stereo_session = "rpc";
   }
 
   // Need this to be able to load adjusted camera models. That will happen
@@ -152,7 +140,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     const int num_input_channels = num_channels(dem_fmt.pixel_format);
     if (num_input_channels > 2)
       vw_throw( ArgumentErr() << "Too many channels in: " << opt.dem_file << ".\n" );
-
 
     // Store the datum from the DEM
     // TODO (oalexan1): Fix here
@@ -639,7 +626,8 @@ int main(int argc, char* argv[]) {
   try {
     handle_arguments(argc, argv, opt);
   
-    // TODO: Replace this using the new CameraModelLoader functions
+    // TODO: Replace this using the new CameraModelLoader functions. But those
+    // may not have the session guessing logic.
 
     // We create a stereo session where both of the cameras and images
     // are the same, because we want to take advantage of the stereo
@@ -652,11 +640,23 @@ int main(int argc, char* argv[]) {
                          opt.image_file, opt.image_file, // The same file is passed in twice
                          opt.camera_file, opt.camera_file,
                          opt.output_file,
-                         opt.dem_file,
+                         "", // Do not use a DEM to not make the session mapprojected
                          false) ); // Do not allow promotion from normal to map projected session
 
     if ( opt.output_file.empty() )
       vw_throw( ArgumentErr() << "Missing output filename.\n" );
+
+    // Additional checks once the stereo session is determined.
+    
+    if (opt.stereo_session == "dg" || opt.stereo_session == "perusat"){
+      vw_out(WarningMessage) << "Images map-projected using the '" << opt.stereo_session << "' camera model cannot be used later for stereo. If that is desired, please run mapproject with '-t rpc' and a camera file having an RPC model.\n";
+    }
+
+    // If nothing else works
+    if (boost::iends_with(boost::to_lower_copy(opt.camera_file), ".xml") &&
+         opt.stereo_session == "" ){
+      opt.stereo_session = "rpc";
+    }
 
     // Initialize a camera model
     boost::shared_ptr<camera::CameraModel> camera_model =
