@@ -315,7 +315,9 @@ int main( int argc, char *argv[] ) {
       if (!read_georeference(dem_geo, opt.dem_file))
         vw_throw( ArgumentErr() << "Missing georef.\n");
 
-
+      // Get the datum from the DEM
+      opt.datum = dem_geo.datum();
+      
       // If the DEM is too big, we need to skip points. About
       // 40,000 points should be good enough to determine 78 RPC
       // coefficients.
@@ -334,10 +336,10 @@ int main( int argc, char *argv[] ) {
           // Lon lat height
           Vector3 llh;
           llh[0] = lonlat[0]; llh[1] = lonlat[1]; llh[2] = dem(col, row).child();
-          Vector3 xyz = dem_geo.datum().geodetic_to_cartesian(llh);
+          Vector3 xyz = opt.datum.geodetic_to_cartesian(llh);
 
           // Go back to llh. This is a bugfix for the 360 deg offset problem.
-          llh = dem_geo.datum().cartesian_to_geodetic(xyz);
+          llh = opt.datum.cartesian_to_geodetic(xyz);
 
           Vector2 cam_pix;
           try {
@@ -478,6 +480,10 @@ int main( int argc, char *argv[] ) {
 
     std::string gsd_str = vw::num_to_str(opt.gsd);
 
+    vw::cartography::GeoReference datum_georef;
+    datum_georef.set_datum(opt.datum);
+    std::string datum_wkt = datum_georef.get_wkt();
+    
     vw_out() << "Writing: " << opt.output_rpc << std::endl;
     std::ofstream ofs(opt.output_rpc.c_str());
     ofs.precision(18);
@@ -511,7 +517,7 @@ int main( int argc, char *argv[] ) {
 
     ofs << "        </BAND_P>\n";
     ofs << "        <IMAGE>\n";
-    ofs << "            <SATID>WV01</SATID>\n";
+    ofs << "            <SATID>cam2rpc</SATID>\n";
     ofs << "            <MODE>FullSwath</MODE>\n";
     ofs << "            <SCANDIRECTION>Forward</SCANDIRECTION>\n";
     ofs << "            <CATID>0</CATID>\n";
@@ -537,13 +543,13 @@ int main( int argc, char *argv[] ) {
 
     // RPC
     ofs << "    <RPB>\n";
-    ofs << "        <SATID>WV01</SATID>\n";
+    ofs << "        <SATID>cam2rpc</SATID>\n";
     ofs << "        <BANDID>P</BANDID>\n";
     ofs << "        <SPECID>RPC00B</SPECID>\n";
     ofs << "        <IMAGE>\n";
     ofs << "	        <ERRBIAS>1.006000000000000e+01</ERRBIAS>\n"; // why?
     ofs << "	        <ERRRAND>1.100000000000000e-01</ERRRAND>\n"; // why?
-
+    ofs << "            <CAM2RPC_DATUM>"   << datum_wkt << "</CAM2RPC_DATUM>\n";
     ofs << "            <LINEOFFSET>"      << lineoffset   << "</LINEOFFSET>\n";
     ofs << "            <SAMPOFFSET>"      << sampoffset   << "</SAMPOFFSET>\n";
     ofs << "            <LATOFFSET>"       << latoffset    << "</LATOFFSET>\n";

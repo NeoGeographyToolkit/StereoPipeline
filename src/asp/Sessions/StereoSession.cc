@@ -878,8 +878,8 @@ StereoSession::load_rpc_camera_model(std::string const& image_file,
       + " by overwriting those files if necessary.\n";
     
   // Raise a custom exception if both failed
-  vw_throw(ArgumentErr() << "Unable to load RPC model from either:\n" << image_file
-          << "\nor:\n" << camera_file << "\n"
+  vw_throw(ArgumentErr() << "Unable to load RPC model from either " << image_file
+          << " or " << camera_file << ".\n"
 	   << err1 << "\n" << err2 << "\n" << msg);
 } // End function load_rpc_camera_model
 

@@ -68,7 +68,7 @@ namespace asp {
     std::string  tlc_start_time;
     std::string  first_line_start_time;
     std::vector<std::pair<double,double> > tlc_vec; // Line -> time offset pairings
-    std::string  sat_id, band_id;
+    std::string  sat_id, band_id, datum_wkt;
     std::string  scan_direction;
     int          tdi;
     std::vector<int> tdi_multi; // for multi-spectral images

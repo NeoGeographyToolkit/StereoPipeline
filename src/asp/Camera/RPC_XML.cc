@@ -535,7 +535,8 @@ void asp::RPCXML::parse_rpb(xercesc::DOMElement* node) {
   Vector<double,20> line_num_coeff, line_den_coeff, samp_num_coeff, samp_den_coeff;
   Vector2 xy_offset, xy_scale;
   Vector3 geodetic_offset, geodetic_scale;
-
+  std::string cam2rpc_datum_wkt;
+  
   // Painfully extract from the XML
   cast_xmlch(get_node<DOMElement>(image, "SAMPOFFSET"  )->getTextContent(), xy_offset.x()      );
   cast_xmlch(get_node<DOMElement>(image, "LINEOFFSET"  )->getTextContent(), xy_offset.y()      );
@@ -554,17 +555,34 @@ void asp::RPCXML::parse_rpb(xercesc::DOMElement* node) {
   parse_vector(get_node<DOMElement>(get_node<DOMElement>(image, "SAMPDENCOEFList"), "SAMPDENCOEF"), samp_den_coeff);
   check_argument(1);
 
-  // Push into the RPC Model so that it is easier to work with
+  // The CAM2RPC_DATUM field is only written by cam2rpc
+  try {
+    cast_xmlch(get_node<DOMElement>(image, "CAM2RPC_DATUM")->getTextContent(), cam2rpc_datum_wkt);
+  }catch(...) {
+  }
+  
+  // Push into the RPC Model so that it is easier to work with.
   //
   // The choice of using the WGS_1984 datum comes from Digital Globe's
-  // QuickBird Imagery Products Guide. Section 11.1 makes a
-  // blanket statement that all heights are meters against this ellipsoid.
-  m_rpc.reset(new RPCModel(cartography::Datum(asp::stereo_settings().datum),
+  // QuickBird Imagery Products Guide. Section 11.1 makes a blanket
+  // statement that all heights are meters against this ellipsoid.
+  
+  // If the RPC model was generated with cam2rpc, use the datum that
+  // tool set.
+  
+  vw::cartography::Datum datum;
+  if (cam2rpc_datum_wkt == "") {
+    datum = vw::cartography::Datum("WGS_1984");
+  } else {
+    vw::cartography::GeoReference georef;
+    georef.set_wkt(cam2rpc_datum_wkt);
+    datum = georef.datum();
+  }
+  m_rpc.reset(new RPCModel(datum,
                            line_num_coeff, line_den_coeff,
                            samp_num_coeff, samp_den_coeff,
                            xy_offset, xy_scale,
                            geodetic_offset, geodetic_scale));
-  
 }
 
 void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node) {
