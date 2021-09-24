@@ -49,6 +49,8 @@ csm:
 Misc:
   * Added the tool parse_match_file.py to convert a binary match file
     to text and vice-versa.
+  * Add the tool cam_test to compare two different camera models
+    for the same image. 
   * image_calc: Add the option --no-georef to remove any georeference
     information in the output image (useful with subsequent GDAL-based
     processing).

@@ -54,16 +54,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("General options");
   general_options.add_options()
-    ("sample-rate",   po::value(&opt.sample_rate)->default_value(100),
-     "Use one out of these many pixels when sampling the image.")
-    ("image", po::value(&opt.image_file),  "Image file")
-    ("cam1",  po::value(&opt.cam1_file),   "Camera 1 file")
-    ("cam2",  po::value(&opt.cam2_file),   "Camera 2 file")
+    ("image", po::value(&opt.image_file),  "Image file.")
+    ("cam1",  po::value(&opt.cam1_file),   "Camera 1 file.")
+    ("cam2",  po::value(&opt.cam2_file),   "Camera 2 file.")
     ("session1", po::value(&opt.session1),
      "Session to use for camera 1 (if not provided it will be guessed).")
     ("session2", po::value(&opt.session2),
-     "Session to use for camera 2 (if not provided it will be guessed).");
-    
+     "Session to use for camera 2 (if not provided it will be guessed).")
+    ("sample-rate",   po::value(&opt.sample_rate)->default_value(100),
+     "Use one out of these many pixels when sampling the image.");
+  
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
   po::options_description positional("");

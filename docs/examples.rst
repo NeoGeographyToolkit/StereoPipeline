@@ -846,16 +846,14 @@ on the Python script::
 
 which reads ``camera.cub`` and writes ``camera.json``. To evaluate how
 well the obtained CSM camera approximates the ISIS camera model, run
-the program ``csm_test`` shipped with ASP as follows::
+the program ``cam_test`` shipped with ASP (:numref:`cam_test`) as
+follows::
 
-    csm_test --sample-rate 100 camera.cub camera.json
+    cam_test --sample-rate 100 --image camera.cub \
+      --cam1 camera.cub --cam2 camera.json
 
-This compares the camera center and ray direction at a set of sampled
-pixels for each of the two models, then projects a set of pixels to
-the ground using the ISIS camera, back-projects the resulting point
-into the CSM camera, and compares this with the original pixel, then
-this process is repeated with the two cameras reversed. The pixel
-errors are expected to be at most on the order of 0.2 pixels.
+The pixel errors are expected to be at most on the order of 0.2
+pixels.
 
 .. _digital_globe_data:
 
