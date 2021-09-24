@@ -181,7 +181,10 @@ namespace asp {
        "If --left-image-crop-win is used, replaced the left image cropped to that window with this clip.")
       ("right-image-clip", po::value(&global.right_image_clip)->default_value(""),
        "If --right-image-crop-win is used, replaced the right image cropped to that window with this clip.")
-
+      ("disable-correct-velocity-aberration", po::bool_switch(&global.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
+       "Turn off velocity aberration correction for Optical Bar and non-ISIS linescan cameras.")
+      ("disable-correct-atmospheric-refraction", po::bool_switch(&global.disable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
+       "Turn off atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras.")
       // For bathymetry correction
       ("left-bathy-mask", po::value(&global.left_bathy_mask),
        "Mask to use for the left image when doing bathymetry.")
@@ -436,15 +439,6 @@ namespace asp {
       ;
   }
 
-  SensorDescription::SensorDescription() : po::options_description("Sensor Options") {
-    StereoSettings& global = stereo_settings();
-    (*this).add_options()
-      ("disable-correct-velocity-aberration", po::bool_switch(&global.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
-       "Turn off velocity aberration correction for non-ISIS linescan cameras.")
-      ("disable-correct-atmospheric-refraction", po::bool_switch(&global.disable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-       "Turn off atmospheric refraction correction for non-ISIS linescan cameras.");
-  }
-
   UndocOptsDescription::UndocOptsDescription() : po::options_description("Undocumented Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
@@ -463,7 +457,6 @@ namespace asp {
     cfg_options.add( FilteringDescription()     );
     cfg_options.add( TriangulationDescription() );
     cfg_options.add( GUIDescription()           );
-    cfg_options.add( SensorDescription()        );
     cfg_options.add( UndocOptsDescription()     );
 
     return cfg_options;

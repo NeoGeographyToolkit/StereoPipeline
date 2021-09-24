@@ -50,7 +50,6 @@ using namespace vw;
 using namespace vw::camera;
 using namespace std;
 using namespace vw::cartography;
-using namespace asp::camera;
 
 // Solve for best fitting camera that projects given xyz locations at
 // given pixels. If cam_weight > 0, try to constrain the camera height

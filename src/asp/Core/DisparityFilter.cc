@@ -42,7 +42,7 @@ namespace asp {
     if (outlier_removal_params[0] >= 100.0)
       return; // The user chose to skip outlier filtering
   
-    vw_out() << "Filtering outliers in D_sub.\n";
+    vw_out() << "Filtering outliers in D_sub based on --outlier-removal-params.\n";
   
     vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp;
     vw::Vector2 upsample_scale;

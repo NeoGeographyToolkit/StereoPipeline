@@ -350,7 +350,8 @@ namespace asp {
   }
 
 boost::shared_ptr<vw::camera::CameraModel>
-StereoSession::camera_model(std::string const& image_file, std::string const& camera_file) {
+StereoSession::camera_model(std::string const& image_file, std::string const& camera_file,
+                            bool quiet) {
 
   // If the desired camera is already loaded, do not load it again.
   std::pair<std::string, std::string> image_cam_pair = std::make_pair(image_file, camera_file);
@@ -358,8 +359,11 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   auto map_it = m_camera_model.find(image_cam_pair);
   if (map_it != m_camera_model.end()) 
     return map_it->second;
-  
-  vw_out() << "Loading camera model: " << image_file << ' ' << camera_file << "\n";
+
+  // Sometime when we do many attempts at loading cameras we don't want to print
+  // this message. 
+  if (!quiet) 
+    vw_out() << "Loading camera model: " << image_file << ' ' << camera_file << "\n";
 
   // Retrieve the pixel offset (if any) to cropped images
   vw::Vector2 pixel_offset = camera_pixel_offset(m_input_dem,

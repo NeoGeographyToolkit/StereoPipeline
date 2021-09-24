@@ -379,8 +379,7 @@ void write_residual_map(std::string const& output_prefix,
               << "does not agree with number of points in cnet.\n");
   
   // Open the output file and write the header
-  //vw_out() << "Writing: " << output_path << std::endl;
-  
+  vw_out() << "Writing: " << output_path << std::endl;
   std::ofstream file;
   file.open(output_path.c_str()); file.precision(18);
   file << "# lon, lat, height_above_datum, mean_residual, num_observations\n";

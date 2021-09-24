@@ -58,7 +58,6 @@ namespace asp {
   struct FilteringDescription     : public boost::program_options::options_description { FilteringDescription    (); };
   struct TriangulationDescription : public boost::program_options::options_description { TriangulationDescription(); };
   struct GUIDescription           : public boost::program_options::options_description { GUIDescription          (); };
-  struct SensorDescription        : public boost::program_options::options_description { SensorDescription       (); };
   struct UndocOptsDescription     : public boost::program_options::options_description { UndocOptsDescription    (); };
 
   boost::program_options::options_description

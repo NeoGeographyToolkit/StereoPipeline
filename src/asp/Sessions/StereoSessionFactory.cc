@@ -36,24 +36,25 @@
 
 namespace asp{
 
-StereoSession* StereoSessionFactory::create(std::string        & session_type, // in-out variable
-                                            vw::cartography::GdalWriteOptions const& options,
-                                            std::string const& left_image_file,
-                                            std::string const& right_image_file,
-                                            std::string const& left_camera_file,
-                                            std::string const& right_camera_file,
-                                            std::string const& out_prefix,
-                                            std::string const& input_dem,
-                                            const bool allow_map_promote) {
-  
+  StereoSession* StereoSessionFactory::create(std::string      & session_type, // in-out variable
+                                              vw::cartography::GdalWriteOptions const& options,
+                                              std::string const& left_image_file,
+                                              std::string const& right_image_file,
+                                              std::string const& left_camera_file,
+                                              std::string const& right_camera_file,
+                                              std::string const& out_prefix,
+                                              std::string const& input_dem,
+                                              const bool allow_map_promote) {
+    
     // Known user session types are:
     // DG, RPC, ISIS, Pinhole, NadirPinhole, OpticalBar
     //
     // Hidden sessions are:
     // DGMapRPC, Blank (Guessing)
-
+    
     // Try to guess the session if not provided
     std::string actual_session_type = session_type;
+    bool quiet = true;
     boost::to_lower(actual_session_type);
     if (actual_session_type.empty()) {
       if (asp::has_pinhole_extension(left_camera_file ) || // TODO: Fix this dangerous code!
@@ -99,8 +100,8 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
           try {
             StereoSessionDG session;
             boost::shared_ptr<vw::camera::CameraModel>
-              left_model  = session.camera_model(left_image_file,  left_camera_file ),
-              right_model = session.camera_model(right_image_file, right_camera_file);
+              left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
+              right_model = session.camera_model(right_image_file, right_camera_file, quiet);
             actual_session_type = "dg";
           } catch (...) {}
         }
@@ -110,8 +111,8 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
           try {
             StereoSessionPeruSat session;
             boost::shared_ptr<vw::camera::CameraModel>
-              left_model  = session.camera_model(left_image_file,  left_camera_file ),
-              right_model = session.camera_model(right_image_file, right_camera_file);
+              left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
+              right_model = session.camera_model(right_image_file, right_camera_file, quiet);
             actual_session_type = "perusat";
           } catch (...) {}
         }
@@ -121,8 +122,8 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
           try {
             StereoSessionRPC session;
             boost::shared_ptr<vw::camera::CameraModel>
-              left_model  = session.camera_model(left_image_file,  left_camera_file ),
-              right_model = session.camera_model(right_image_file, right_camera_file);
+              left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
+              right_model = session.camera_model(right_image_file, right_camera_file, quiet);
             actual_session_type = "rpc";
           } catch (...) {
             vw_out() << "Tried the DG, PeruSat and RPC sessions. Please specify the session "

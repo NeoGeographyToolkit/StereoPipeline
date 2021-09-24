@@ -82,7 +82,8 @@ namespace asp {
     /// Method that produces a Camera Model from input files.
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model(std::string const& image_file,
-                 std::string const& camera_file = "");
+                 std::string const& camera_file = "",
+                 bool quiet = false);
 
     /// Method to help determine what session we actually have
     virtual std::string name() const = 0;

@@ -18,7 +18,7 @@
 
 /// \file StereoSessionGdal.h
 ///
-/// This a session to support Digital Globe images from Quickbird and World View.
+/// 
 
 #ifndef __STEREO_SESSION_GDAL_H__
 #define __STEREO_SESSION_GDAL_H__
@@ -27,7 +27,6 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/CsmModel.h>
-#include <asp/IsisIO/IsisCameraModel.h>
 
 namespace asp {
 
