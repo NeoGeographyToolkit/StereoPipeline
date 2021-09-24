@@ -33,6 +33,8 @@ stereo:
     local epipolar alignment. Use parallel_stereo instead. 
   * Added the experimental --gotcha-disparity-refinement option, under
     NASA proposal 19-PDART19_2-0094.
+  * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
+    and SPOT5 was not enabled correctly.
 
 stereo_gui: 
   * Bugfix when overlaying shapefiles with different georeferences.
