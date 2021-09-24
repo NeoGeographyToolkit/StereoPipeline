@@ -15,9 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file bundle_adjust.cc
-///
 
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/CmdUtils.h>
@@ -2058,8 +2056,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
   
-  std::cout << "--got datum " << opt.datum << ' ' << opt.datum_str << std::endl;
-
   // Many times the datum is mandatory
   if (opt.datum_str == "") {
     if (!opt.gcp_files.empty() || !opt.camera_position_file.empty() )
