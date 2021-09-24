@@ -210,29 +210,6 @@ namespace asp {
     
   };
 
-  /// Specialization of the StereoSessionGDAL class to use (RPC)
-  /// map-projected inputs with the PeruSat linescan sensor model.
-  class StereoSessionPeruSatMapRPC : public StereoSessionMapProj  {
-  public:
-    StereoSessionPeruSatMapRPC(){};
-    virtual ~StereoSessionPeruSatMapRPC(){};
-
-    virtual std::string name() const { return "perusatmaprpc"; }
-
-    static StereoSession* construct() { return new StereoSessionPeruSatMapRPC; }
-    
-  protected:
-    /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel>
-    load_camera_model(std::string const& image_file, 
-                      std::string const& camera_file,
-                      vw::Vector2 pixel_offset) const {
-      return load_adjusted_model(m_camera_loader.load_perusat_camera_model(camera_file),
-                                 image_file, camera_file, pixel_offset);
-    }
-    
-  };
-
   /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the ASTER sensor model.
   class StereoSessionASTERMapRPC : public StereoSessionMapProj  {
   public:

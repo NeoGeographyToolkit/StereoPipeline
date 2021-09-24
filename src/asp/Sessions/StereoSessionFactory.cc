@@ -116,23 +116,21 @@ namespace asp{
             actual_session_type = "perusat";
           } catch (...) {}
         }
-
-        if (actual_session_type.empty()) {
-          // Try RPC 
-          try {
-            StereoSessionRPC session;
-            boost::shared_ptr<vw::camera::CameraModel>
-              left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
-              right_model = session.camera_model(right_image_file, right_camera_file, quiet);
-            actual_session_type = "rpc";
-          } catch (...) {
-            vw_out() << "Tried the DG, PeruSat and RPC sessions. Please specify the session "
-                     << "explicitly using the -t option.\n";
-          }
-        }
       } // end considering the xml extension case
-    }
 
+      // Try RPC, which can either have xml cameras or no cameras at all (if embedded
+      // in the tif files).
+      if (actual_session_type.empty()) {
+        try {
+          StereoSessionRPC session;
+          boost::shared_ptr<vw::camera::CameraModel>
+            left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
+            right_model = session.camera_model(right_image_file, right_camera_file, quiet);
+          actual_session_type = "rpc";
+        } catch (...) {}
+      }
+    }
+    
     if (allow_map_promote) {
       if (!input_dem.empty() && actual_session_type == "dg") {
         // User says DG but also gives a DEM.
@@ -174,12 +172,6 @@ namespace asp{
         actual_session_type = "astermaprpc";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: astermaprpc.\n";
       }
-      if (!input_dem.empty() && actual_session_type == "perusat") {
-        // User says PeruSat but also gives a DEM.
-        actual_session_type = "perusatmaprpc";
-        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: perusatmaprpc.\n";
-      }
-
       // Quetly switch from nadirpinhole to pinhole for mapprojected images
       if (!input_dem.empty() && actual_session_type == "nadirpinhole") {
         // User says nadirpinhole but also gives a DEM.
@@ -189,11 +181,22 @@ namespace asp{
       
     } // End map promotion section
 
+    if (!input_dem.empty() && actual_session_type == "perusat") {
+      // User says PeruSat-1 but also gives a DEM, so the images were mapprojected.
+      // If the mapprojection was done with the exact model, stereo becomes
+      // painfully slow. If it was done with the RPC model, things become hard
+      // to manage, and stereo needs to know both the exact and RPC model
+      // and those are in different files. Hence, just don't allow mapprojected
+      // images in this case.
+      vw_throw(vw::NoImplErr() << "Stereo with mapprojected images and the PeruSat-1 " <<
+               "linescan model is not implemented. Use instead the RPC model.");
+    }
+    
     // We should know the session type by now.
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 perusat aster opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc perusatrpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
+              << "Options include: [nadirpinhole pinhole isis dg rpc spot5 aster perusat opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm].\n");
     vw_out() << "Using session: " << actual_session_type << ".\n";
 
     // Compare the current session name to all recognized types
@@ -217,8 +220,6 @@ namespace asp{
       session = StereoSessionBarMapBar::construct();
     else if (actual_session_type == "spot5maprpc")
         session = StereoSessionSpot5MapRPC::construct();
-    else if (actual_session_type == "perusatmaprpc")
-        session = StereoSessionPeruSatMapRPC::construct();
     else if (actual_session_type == "astermaprpc")
         session = StereoSessionASTERMapRPC::construct();
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
