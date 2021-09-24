@@ -50,7 +50,6 @@ namespace asp {
   // Forward declare so that we can cut down on the headers.
   class RPCModel;
 
-
   /// Objects that represent read data from XML. These also provide a
   /// storage structure for modification later on.
   class ImageXML : public BitChecker {
@@ -68,7 +67,7 @@ namespace asp {
     std::string  tlc_start_time;
     std::string  first_line_start_time;
     std::vector<std::pair<double,double> > tlc_vec; // Line -> time offset pairings
-    std::string  sat_id, band_id, datum_wkt;
+    std::string  sat_id, band_id;
     std::string  scan_direction;
     int          tdi;
     std::vector<int> tdi_multi; // for multi-spectral images

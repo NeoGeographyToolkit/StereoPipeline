@@ -358,10 +358,12 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func
     vw_throw(ArgumentErr() << "The position timestamps do not fully span the "
              << "range of times for the image lines.");
 
-  // Will correspond to degree 3 polynomial and using 4 points in piecewise manner
-  // out of 5 provided in the xml file. This is what the doc recommends.
-  // TODO(oalexan1): Implement Lagrange interpolation of even degree using
-  // an odd number of points, and see if using all 5 points at once is any better.
+  // Use Lagrange interpolation with degree 3 polynomials with 4
+  // points in piecewise manner out of 5 provided in the xml
+  // file. This is what the doc recommends.
+  // TODO(oalexan1): Implement Lagrange interpolation of even degree
+  // using an odd number of points, and see if using all 5 points at
+  // once is any better.
   const int INTERP_RADII = 2; 
   std::vector<double>  time_vec;
   std::vector<Vector3> position_vec;
@@ -447,7 +449,12 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_velocity_func
                                              velocity_delta_t, velocity_stop_time, INTERP_RADII);
 }
 
-// Put the timestamps and poses in vectors and form the pose interpolation object
+// Put the timestamps and poses in vectors and form the pose
+// interpolation object.
+
+// TODO(oalexan1): See if using bicubic pose interpolation (as the
+// SPOT-6 manual suggests) is better than the bilinear interpolation
+// used now.
 vw::camera::SLERPPoseInterpolation PeruSatXML::setup_pose_func
   (vw::camera::LinearTimeInterpolation const& time_func) const {
 

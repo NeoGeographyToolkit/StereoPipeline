@@ -56,6 +56,10 @@ Misc:
   * image_calc: Add the option --no-georef to remove any georeference
     information in the output image (useful with subsequent GDAL-based
     processing).
+  * Stereo and bundle adjustment with RPC cameras now query the RPC
+    model for the datum.
+  * The cam2rpc program saves its datum which is read when needed by
+    the RPC model loader.
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------
