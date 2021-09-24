@@ -357,8 +357,12 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func
   if (position_start_time > first_line_time || position_stop_time < last_line_time)
     vw_throw(ArgumentErr() << "The position timestamps do not fully span the "
              << "range of times for the image lines.");
-  
-  const int INTERP_RADII = 2; // Will correspond to degree 4 polynomial. Recomended in the docs
+
+  // Will correspond to degree 3 polynomial and using 4 points in piecewise manner
+  // out of 5 provided in the xml file. This is what the doc recommends.
+  // TODO(oalexan1): Implement Lagrange interpolation of even degree using
+  // an odd number of points, and see if using all 5 points at once is any better.
+  const int INTERP_RADII = 2; 
   std::vector<double>  time_vec;
   std::vector<Vector3> position_vec;
 
@@ -411,8 +415,9 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_velocity_func
   if (velocity_start_time > first_line_time || velocity_stop_time < last_line_time)
     vw_throw(ArgumentErr() << "The velocity timestamps do not fully span the "
              << "range of times for the image lines.");
-  
-  const int INTERP_RADII = 2; // Will correspond to degree 4 polynomial. Recommended in the docs
+
+  // See note when the position function was set up earlier.
+  const int INTERP_RADII = 2;
   std::vector<double>  time_vec;
   std::vector<Vector3> velocity_vec;
 

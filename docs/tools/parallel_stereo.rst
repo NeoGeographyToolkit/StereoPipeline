@@ -117,6 +117,7 @@ Command-line options
     - rpc
     - spot5
     - aster
+    - perusat
     - opticalbar
     - csm
     - pinholemappinhole
