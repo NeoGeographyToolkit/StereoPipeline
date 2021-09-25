@@ -60,6 +60,10 @@ Misc:
     model for the datum.
   * The cam2rpc program saves its datum which is read when needed by
     the RPC model loader.
+  * Add the option --triangulation-error-factor to point2las to allow
+    point cloud triangulation errors multiplied by this factor and
+    clamped appropriately to be stored in the 2-byte intensity field
+    in the LAS file.
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------

@@ -10,6 +10,9 @@ If the input cloud has a datum, or the ``--datum`` option is specified,
 then the output LAS file will be created in respect to this datum.
 Otherwise raw :math:`x,y,z` values will be saved.
 
+The point cloud triangulation error can be saved, if desired, in 
+the LAS ``intensity`` field.
+
 Example usage:
 
 ::
@@ -100,6 +103,12 @@ Command-line options for point2las
     Outlier removal based on threshold. Points with triangulation error larger 
     than this, if positive (measured in meters) will be removed from the cloud.
     Takes precedence over the above options.
+
+--triangulation-error-factor <float (default: 0)>
+    If this factor is positive, save the point cloud triangulation
+    error to the 2-byte LAS intensity field by storing
+    min(round(factor*error), 65535). Resulting values that equal 65535
+    should be treated with caution.
 
 --num-samples-for-outlier-estimation <integer (default: 1000000)>
     Approximate number of samples to pick from the input cloud to find the 

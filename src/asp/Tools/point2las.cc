@@ -116,6 +116,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   bool        compressed, use_tukey_outlier_removal;
   Vector2     outlier_removal_params;
   double      max_valid_triangulation_error;
+  double      triangulation_error_factor;
   int         num_samples;
   
   // Output
@@ -143,6 +144,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0.0),
      "Outlier removal based on threshold. Points with triangulation error larger than this, if positive (measured in meters) will be removed from the cloud. Takes precedence over the above methods.")
+    ("triangulation-error-factor", po::value(&opt.triangulation_error_factor)->default_value(0.0),
+     "If this factor is positive, save the point cloud triangulation error to the 2-byte LAS intensity field by storing min(round(factor*error), 65535). Resulting values that equal 65535 should be treated with caution.")
     ("num-samples-for-outlier-estimation", po::value(&opt.num_samples)->default_value(1000000),
      "Approximate number of samples to pick from the input cloud to find the outlier cutoff based on triangulation error.");
   
@@ -362,8 +365,20 @@ int main( int argc, char *argv[] ) {
 
         liblas::Point las_point(&header);
         las_point.SetCoordinates(point[0], point[1], point[2]);
-        writer.WritePoint(las_point);
 
+        if (opt.triangulation_error_factor > 0.0) {
+          // Scale the triangulation error, clamp it, and save it as
+          // uint16.  The LAS 1.2 format has no fields (apart from the
+          // taken already x, y, and z) with 32-bit values, so uint16
+          // is all one can do.
+          double scaled_error = opt.triangulation_error_factor * error_image(col, row);
+          scaled_error = round(scaled_error);
+          scaled_error = std::max(scaled_error, 0.0); // should not be necessary
+          scaled_error = std::min(scaled_error, double(std::numeric_limits<std::uint16_t>::max()));
+          las_point.SetIntensity(std::uint16_t(scaled_error));
+        }
+          
+        writer.WritePoint(las_point);
       }
     }
     tpc.report_finished();
