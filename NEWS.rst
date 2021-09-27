@@ -26,13 +26,13 @@ stereo:
     disparity by default, to improve the quality, even if that takes
     more time. It can be turned off with --xcorr-threshold -1.
   * Filter outliers in low-resolution disparity D_sub.tif. Can be
-    turned off by setting the percentage in outlier-removal-params to
-    100.
+    turned off by setting the percentage in --outlier-removal-params
+    to 100.
   * The stereo tool is deprecated, and can be used only with the
     ASP_BM classical block-matching algorithm when invoked without
     local epipolar alignment. Use parallel_stereo instead. 
   * Added the experimental --gotcha-disparity-refinement option, under
-    NASA proposal 19-PDART19_2-0094.
+    NASA proposal 19-PDART19_2-0094 (still in development).
   * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
     and SPOT5 was not enabled correctly.
 

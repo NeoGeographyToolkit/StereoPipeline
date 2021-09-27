@@ -18,7 +18,8 @@ orientations, and in the input DEM.
 Further motivation for this tool and an example of how to use it in
 practice is given in :numref:`water_surface`.
 
-Example::
+Example
+~~~~~~~
 
      bathy_plane_calc --shapefile shape.shp --dem dem.tif    \
        --output-inlier-shapefile out_shape.shp               \
@@ -31,9 +32,28 @@ It will produce output as follows:
     Found 4 / 9 inliers.
     Max distance to the plane (meters): 2.26214
     Max inlier distance to the plane (meters): 0.0131818
-    Mean plane height above datum (meters): -21.3521
+    Mean plane height above datum (meters): -21.35657
 
-Command-line options for bathy_plane_calc:
+The file ``plane.txt`` will look like this::
+
+  -0.0090 0.0130 0.9998 21.3523
+  # Latitude and longitude of the local stereographic projection with the WGS_1984 datum
+  24.583656822372209 -81.773073668899542
+
+The last line has the center of the local stereographic projection in which
+the plane is computed, and the first line has the equation of the plane
+in that local coordinate system as::
+
+    a * x + b * y + c * z + d = 0.
+
+The value of ''c'' is almost 1 hence this plane is almost perfectly
+horizontal in local coordinates and the value of -d/c gives its height
+above the datum (The small deviation from the horizontal may be due to
+the orientations of the satellites taking the pictures not being
+perfectly known.)
+   
+Command-line options for bathy_plane_calc
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -h, --help
     Display the help message.

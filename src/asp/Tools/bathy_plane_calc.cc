@@ -588,7 +588,7 @@ int main( int argc, char *argv[] ) {
         bp << "\n";
     }
     if (use_proj_water_surface) {
-      bp << "# Use a stereographic projection with the WGS_1984 datum "
+      bp << "# Latitude and longitude of the local stereographic projection with the WGS_1984 datum"
          << "and these latitude and longitude values:\n";
       bp << proj_lat << " " << proj_lon << "\n";
     }
