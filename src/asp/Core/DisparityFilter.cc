@@ -43,11 +43,14 @@ namespace asp {
       return; // The user chose to skip outlier filtering
   
     vw_out() << "Filtering outliers in D_sub based on --outlier-removal-params.\n";
-  
-    vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp;
-    vw::Vector2 upsample_scale;
-    asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp, upsample_scale);
 
+    vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> sub_disp_ref;
+    vw::Vector2 upsample_scale;
+    asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp_ref, upsample_scale);
+
+    // Use ImageView to read D_sub fully in memory so it can be modified
+    vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp = sub_disp_ref;
+    
     Matrix<double> left_global_mat  = math::identity_matrix<3>();
     Matrix<double> right_global_mat = math::identity_matrix<3>();
     read_matrix(left_global_mat, opt.out_prefix + "-align-L.exr");
@@ -127,6 +130,7 @@ namespace asp {
     double pct_fraction = 1.0 - pct/100.0;
     double b = -1.0, e = -1.0;
     vw::math::find_outlier_brackets(vals, pct_fraction, factor, b, e);
+    vw_out() <<"Height above datum inlier range: " << b << ' ' << e <<".\n";
 
     // Apply the outlier threshold
     int count = 0;
@@ -154,15 +158,16 @@ namespace asp {
 
     // Find the outlier brackets. Since the triangulation errors, unlike
     // the heights, are usually rather uniform, adjust pct from 95 to
-    // 75.
-    double pct2 = (75.0/95.0) * outlier_removal_params[0];
+    // 90.
+    double pct2 = (90.0/95.0) * outlier_removal_params[0];
     double pct_fraction2 = 1.0 - pct2/100.0;
     // Show some lenience below as due to jitter some errors could be somewhat bigger
     double factor2 = 2.0 * factor;
     b = -1.0;
     e = -1.0;
     vw::math::find_outlier_brackets(vals, pct_fraction2, factor2, b, e);
-
+    vw_out() <<"Triangulation error inlier range: " << b << ' ' << e <<".\n";
+    
     // Apply the outlier threshold
     count = 0;
     for (int col = 0; col < sub_disp.cols(); col++) {
@@ -182,8 +187,9 @@ namespace asp {
     // Invalidate the D_sub entries that are outliers
     for (int col = 0; col < sub_disp.cols(); col++) {
       for (int row = 0; row < sub_disp.rows(); row++) {
-        if (tri_err(col, row) >= HIGH_ERROR)
+        if (tri_err(col, row) >= HIGH_ERROR) {
           sub_disp(col, row).invalidate();
+        }
       }
     }
 
