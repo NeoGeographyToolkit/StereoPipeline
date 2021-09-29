@@ -21,8 +21,11 @@ simply pass two image files to the ``parallel_stereo`` command::
     ISIS> parallel_stereo --stereo-algorithm asp_bm          \
       left_image.cub right_image.cub results/run
 
+Here it is assumed that the ``PATH`` and ``ISISDATA`` environmental
+variables have been set as detailed in :numref:`installation`.
+
 Higher quality results, at the expense of more computation, can be
-achived by running::
+achieved by running::
 
     ISIS> parallel_stereo --alignment-method local_epipolar   \
       --stereo-algorithm asp_mgm --subpixel-mode 3            \
@@ -282,7 +285,7 @@ smaller error than the error from measurement of the spacecraft's
 position and orientation.  The latter can be corrected using bundle
 adjustment, ideally used with ground control points
 (:numref:`bundle_adjust`).  Alternatively, the ``pc_align`` tool
-discussed in :numref:`pc-align-example` can be correctedused to align the
+discussed in :numref:`pc-align-example` can be used to align the
 terrain obtained from ASP to an accurate set of ground measurements.
 
 In the next two sections we will show how to process unmodified and
