@@ -739,7 +739,7 @@ followed by mapprojecting onto it and redoing stereo::
      parallel_stereo left.map.tif right.map.tif left.json right.json \
        run_map/run run/run-smooth-DEM.tif
 
-.. _minirf:
+.. _csm_minirf:
 
 Example using the USGS CSM SAR sensor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -761,6 +761,10 @@ to find a better dataset.
       lsz_02330_1cd_xku_00s120_v1.json                          \
       run/run
     point2dem run/run-PC.tif
+
+
+See :numref:`isis_minirf` and :numref:`create_csm` for how to arrive
+at the input .cub and .json files.
 
 Exporting CSM model state after bundle adjustment and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -815,6 +819,8 @@ not the original ``left.json`` and ``right.json`` camera files, but
 the model state files after the initial bundle adjustment which encode
 that adjustment. (See also :numref:`ba_pc_align` for how to combine
 bundle adjustment with the alignment transform.) 
+
+.. _create_csm:
 
 Creating CSM cameras from ISIS .cub files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1128,6 +1134,8 @@ The stereo.default example file (:numref:`stereodefault`) works
 well for this stereo pair. Just set ``alignment-method`` to
 ``affineepipolar`` or ``homography``.
 
+.. _isis_minirf:
+
 LRO Mini-RF 
 -----------
 
@@ -1157,7 +1165,8 @@ Stereo and DEM creation are run as::
       run/run
     point2dem run/run-PC.tif
 
-For this example one can use the USGS CSM sensor as well, as shown in :numref:`minirf`.
+For this example one can use the USGS CSM sensor as well, as shown in
+:numref:`csm_minirf`.
 
 .. _aster:
 

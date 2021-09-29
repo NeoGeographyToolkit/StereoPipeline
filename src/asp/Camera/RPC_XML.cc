@@ -663,7 +663,28 @@ void asp::RPCXML::parse_perusat_model(xercesc::DOMElement* node) {
   cast_xmlch(get_node<DOMElement>(validity, "COL_OFF" )->getTextContent(), xy_offset.x());
   cast_xmlch(get_node<DOMElement>(validity, "ROW_OFF" )->getTextContent(), xy_offset.y());
 
-  // TODO: Not sure about this line!!!
+  
+  // The PeruSAT RPC docs do not say anywhere if the columns and rows
+  // start from 1 or from 0. Note however, that in the RPC XML file
+  // one has:
+  // <COL_SCALE>10280</COL_SCALE>
+  // <COL_OFF>10280</COL_OFF>
+  // and that there are 20560 = 2 * 10280 columns. Since per their
+  // doc, normalization is done as:
+  // (col - COL_OFF) / COL_SCALE
+  // it seems to make sense that their columns and rows start from 1,
+  // so the scaled last column is 1.0.
+  // Also, in their doc for the exact model it says:
+  // "colref es la columna de referencia que para el satellite
+  // PeruSAT-1 adopta un valor de 1", which seems to confirm that,
+  // though that is in a different context.
+  // Since in ASP columns and rows start from 0, here subtract 1.
+  // In practice subtracting 1 or not makes very little difference
+  // in the resulting DEM or intersection error.
+  // Their RPC file also has:
+  // <FIRST_COL>0</FIRST_COL>
+  // <LAST_COL>20560</LAST_COL>
+  // and one of these must be wrong given the total number of columns.
   xy_offset -= Vector2i(1,1);
 
   // Push into the RPC Model so that it is easier to work with
