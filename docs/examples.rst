@@ -859,16 +859,16 @@ pixels.
 
 .. _digital_globe_data:
 
-DigitalGlobe/Maxar Images
--------------------------
+DigitalGlobe
+------------
 
 Processing of DigitalGlobe/Maxar images is described extensively in the
 tutorial in :numref:`dg_tutorial`.
 
 .. _rpc:
 
-RPC Images, including GeoEye, Airbus, Cartosat-1, and PeruSat-1
-----------------------------------------------------------------
+RPC camera models
+-----------------
 
 Some vendors, such as GeoEye with its Ikonos and two GeoEye
 satellites, Airbus, with its SPOT and Pleiades satellites, the Indian
@@ -918,31 +918,29 @@ objective.
    Example colorized height map and ortho image output. 
 
 
-Command
-~~~~~~~
+Commands
+~~~~~~~~
 
-::
+GoeEye's datasets have the RPC coeffecients stored as part of the
+imgages. The stereo command is then::
 
-      parallel_stereo -t rpc po_312012_pan_0000000.tif \
-         po_312012_pan_0010000.tif geoeye/geoeye
+    parallel_stereo -t rpc --stereo-algorithm asp_mgm     \
+      po_312012_pan_0000000.tif po_312012_pan_0010000.tif \
+      run/run
 
 (For Cartosat data sometimes one should overwrite the \*RPC.TXT files
-that are present with the ones that end in RPC_ORG.TXT.)
+that are present with the ones that end in RPC_ORG.TXT in order for
+stereo to work.)
 
-If RPC cameras are specified separately, the ``parallel_stereo`` command looks as
-follows. This example is for Mars, with the RPC models created with
-``cam2rpc`` from ISIS cubes. So the datum has to be set.
+If the RPC cameras are stored separately in XML files, the stereo 
+command is::
 
-::
-
-     parallel_stereo -t rpc --datum D_MARS left.tif right.tif \
-       left.xml right.xml run/run
+    parallel_stereo -t rpc --stereo-algorithm asp_mgm \
+      left.tif right.tif left.xml right.xml run/run
 
 For terrains having steep slopes, we recommend that images be
 map-projected onto an existing DEM before running stereo. This is
-described in :numref:`mapproj-example`. As above,
-if the cameras are specified separately (as xml files), they should be
-on the command line, otherwise they can be omitted.
+described in :numref:`mapproj-example`.
 
 If the RPC coefficients are stored in the input images, ``mapproject``
 copies them to the output mapprojected images. If these coefficients
@@ -984,7 +982,8 @@ camera models in separate files. The names for these start with
 
 If desired to use the exact model, the stereo command is::
 
-    parallel_stereo -t perusat left.tif right.tif left.xml right.xml
+    parallel_stereo -t perusat --stereo-algorithm asp_mgm \
+        left.tif right.tif left.xml right.xml
 
 For the RPC model the option ``-t rpc`` should be used and the correct
 camera files should be passed in. See also :numref:`rpc`.
@@ -1007,8 +1006,8 @@ meters.
 
 .. _spot5:
 
-SPOT5 Images
--------------
+SPOT5
+-----
 
 SPOT5 is a CNES (Space Agency of France) satellite launched on May 2002
 and decommissioned in March 2015. SPOT5 contained two High Resolution
@@ -1162,8 +1161,8 @@ For this example one can use the USGS CSM sensor as well, as shown in :numref:`m
 
 .. _aster:
 
-ASTER Images
--------------
+ASTER
+-----
 
 In this example we will describe how to process ASTER Level 1A VNIR
 images. The data can be obtained for free from
@@ -1274,8 +1273,8 @@ results.
 
 .. _skysat:
 
-SkySat Images
---------------
+SkySat
+------
 
 In this section we will discuss how to process the SkySat “Video”
 product.
