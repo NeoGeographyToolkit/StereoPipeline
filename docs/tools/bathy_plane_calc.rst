@@ -21,6 +21,8 @@ practice is given in :numref:`water_surface`.
 Example
 ~~~~~~~
 
+::
+
      bathy_plane_calc --shapefile shape.shp --dem dem.tif    \
        --output-inlier-shapefile out_shape.shp               \
        --bathy-plane plane.txt 
@@ -46,11 +48,11 @@ in that local coordinate system as::
 
     a * x + b * y + c * z + d = 0.
 
-The value of ''c'' is almost 1 hence this plane is almost perfectly
-horizontal in local coordinates and the value of -d/c gives its height
-above the datum (The small deviation from the horizontal may be due to
-the orientations of the satellites taking the pictures not being
-perfectly known.)
+The value of ``c`` is almost 1 hence this plane is almost perfectly
+horizontal in local coordinates and the value of ``-d/c`` gives its
+height above the datum (The small deviation from the horizontal may be
+due to the orientations of the satellites taking the pictures not
+being perfectly known.)
    
 Command-line options for bathy_plane_calc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

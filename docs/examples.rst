@@ -801,7 +801,9 @@ adjustment with the input images and cameras as follows::
       --apply-initial-transform-only -o ba/run
  
 This will save the state files ``ba/run-left.adjusted_state.json`` and
-``ba/run-right.adjusted_state.json``.
+``ba/run-right.adjusted_state.json``. If it is desired to simply
+export the model state of the initial cameras without any alignment,
+then the transform passed in can be the identity matrix of size 4.
 
 In case first bundle adjustment was used, then ``parallel_stereo`` was run with
 bundle adjusted cameras, then ``pc_align`` was invoked on the
@@ -993,7 +995,15 @@ based on the content of the camera files provided as inputs.
 For PeruSat-1 exact linescan camera models the atmospheric correction and
 velocity aberration corrections (:numref:`sensor_corrections`) are
 disabled, as these decrease somewhat the agreement with the RPC
-models.
+models. 
+
+DEMs created with the exact and RPC models differ by a systematic
+vertical shift of about 15 meters for unknown reasons, even though the
+intersection error maps are very similar. Nothing in the sensor manual
+or camera metadata suggests the cause of this. The ``pc_align`` tool
+can be used to reduce this discrepancy. The the mean absolute
+difference of the (full-image extent) aligned DEMs is about 0.17
+meters.
 
 .. _spot5:
 

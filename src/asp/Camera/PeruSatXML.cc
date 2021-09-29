@@ -491,8 +491,11 @@ vw::camera::SLERPPoseInterpolation PeruSatXML::setup_pose_func
     index++;
   }
 
+  // Using splines for pose interpolation changed the DEM heights on
+  // the order of 2 cm, so it appears not to make a difference.
+  bool use_splines = false;
   double min_time = time_vec.front();
-  return vw::camera::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t);
+  return vw::camera::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t, use_splines);
 }
   
 // Boost does not like a time string such as "2017-12-07 15:36:40.90795Z"

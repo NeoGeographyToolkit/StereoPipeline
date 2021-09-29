@@ -666,7 +666,8 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
              << " which is less than the required amount of " 
              << stereo_settings().min_num_ip << ", aborting stereo_corr. "
              << "A solution may be to remove the run directory and restart stereo "
-             << "while setting --ip-per-tile 200 or some other larger number.\n");
+             << "while setting --ip-per-tile 200 or some other larger number. "
+             << "Otherwise decrease --min-num-ip to accept these matches.\n");
   
   // Find search window based on interest point matches
   size_t num_ip = matched_ip1.size();
