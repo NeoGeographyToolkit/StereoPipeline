@@ -41,23 +41,23 @@ processing, etc.), of non-terrestrial images prior to running Stereo
 Pipeline, you will need to install :term:`ISIS`.  Just as with our 
 binaries, you can use the ISIS binaries as-is.
 
-If you need to recompile, you can follow the instructions for
-`Building ASP from Source`_ (but we don't recommend it).  If the
-current version of ISIS is newer than the version of ISIS that the
-Stereo Pipeline is compiled against (listed in the ASP Release
-Notes), be assured that we're working on rolling out a new version.
-However, since Stereo Pipeline has its own self-contained version
-of ISIS's libraries built internally, you should be able to use a
-newer version of ISIS with the now dated version of ASP. This is
+If you need to recompile, you can follow the instructions for building
+ASP from source in :numref:`build_from_source`, but we don't
+recommend it. If the current version of ISIS is newer than the version
+of ISIS that the Stereo Pipeline is compiled against (listed in the
+ASP Release Notes), be assured that we're working on rolling out a new
+version.  However, since Stereo Pipeline has its own self-contained
+version of ISIS's libraries built internally, you should be able to
+use a newer version of ISIS with the now dated version of ASP. This is
 assuming no major changes have taken place in the data formats or
-camera models by the ISIS Developers. At the very least, you should
-be able to install older versions of ISIS if a failure is found.
-To do so, follow the ISIS installation instructions, but create a
-new conda environment (not the one with your current ISIS), and right
-before you would run ``conda install isis``, run ``conda search
-isis`` to find all of the versions of ISIS available for installation.
-For example, if you wanted to install ISIS 5.0.1, and it is available
-in the ``conda search isis`` listing, you can run ``conda install
+camera models by the ISIS Developers. At the very least, you should be
+able to install older versions of ISIS if a failure is found.  To do
+so, follow the ISIS installation instructions, but create a new conda
+environment (not the one with your current ISIS), and right before you
+would run ``conda install isis``, run ``conda search isis`` to find
+all of the versions of ISIS available for installation.  For example,
+if you wanted to install ISIS 5.0.1, and it is available in the
+``conda search isis`` listing, you can run ``conda install
 isis=5.0.1`` (to install that specific version of ISIS) and then
 follow the remainder of the ISIS installation instructions.
 
@@ -76,11 +76,14 @@ Using the packaged ASP tarball
 #. Fetch Stereo Pipeline from
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
 
-#. Fetch ISIS Binaries and install, following
+#. Fetch ISIS binaries and install, following
    https://github.com/USGS-Astrogeology/ISIS3#installation
 
-#. Fetch ISIS Data, as detailed at
+#. Fetch ISIS data, as detailed at
    https://github.com/USGS-Astrogeology/ISIS3#the-isis-data-area
+
+#. Set the ``ISISDATA`` environmental variable to point to where your
+   ISIS data was downloaded.
 
 #. Untar Stereo Pipeline::
 
@@ -242,6 +245,8 @@ to point the ``asp`` conda environment's ``ISISDATA`` environment
 variable to your existing data area).  For more information see 
 the `ISIS installation instructions
 <https://github.com/USGS-Astrogeology/ISIS3>`_.
+
+.. _build_from_source:
 
 Building ASP from source
 ------------------------
