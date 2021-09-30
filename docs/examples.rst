@@ -932,7 +932,7 @@ imgages. The stereo command is then::
 
     parallel_stereo -t rpc --stereo-algorithm asp_mgm     \
       po_312012_pan_0000000.tif po_312012_pan_0010000.tif \
-      run/run
+      results/run
 
 (For Cartosat data sometimes one should overwrite the \*RPC.TXT files
 that are present with the ones that end in RPC_ORG.TXT in order for
@@ -942,7 +942,7 @@ If the RPC cameras are stored separately in XML files, the stereo
 command is::
 
     parallel_stereo -t rpc --stereo-algorithm asp_mgm \
-      left.tif right.tif left.xml right.xml run/run
+      left.tif right.tif left.xml right.xml results/run
 
 For terrains having steep slopes, we recommend that images be
 map-projected onto an existing DEM before running stereo. This is
@@ -989,7 +989,7 @@ camera models in separate files. The names for these start with
 If desired to use the exact model, the stereo command is::
 
     parallel_stereo -t perusat --stereo-algorithm asp_mgm \
-        left.tif right.tif left.xml right.xml
+        left.tif right.tif left.xml right.xml results/run
 
 For the RPC model the option ``-t rpc`` should be used and the correct
 camera files should be passed in. See also :numref:`rpc`.

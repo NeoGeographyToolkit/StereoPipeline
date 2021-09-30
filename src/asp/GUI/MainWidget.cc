@@ -359,7 +359,7 @@ namespace vw { namespace gui {
     m_showPolysFilled->setCheckable(true);
     m_showPolysFilled->setChecked(false);
 
-    m_showIndices = m_ContextMenu->addAction("Show vertex indeces");
+    m_showIndices = m_ContextMenu->addAction("Show vertex indices");
     m_showIndices->setCheckable(true);
     m_showIndices->setChecked(false);
 

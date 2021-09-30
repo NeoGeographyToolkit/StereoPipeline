@@ -12,10 +12,10 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
    tutorial
    next_steps
    tips_tricks
+   examples
    correlation
    bundle_adjustment
    sfm
-   examples
    sfs
    experimental
    tools
