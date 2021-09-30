@@ -5,8 +5,8 @@ New camera additions:
   * Added support for the USGSCSM Frame and SAR sensors (until now
     just the Linescan sensor was supported). Added a SAR example in
     the doc.
-  * Added support for ISIS SAR cameras (when the .cub files are not
-    projected), together with an example in the doc.
+  * Added support for ISIS SAR cameras, together with an example in
+    the doc.
   * Added support for the PeruSat-1 linescan camera model (so far just
     the RPC model was supported for this satellite).
 

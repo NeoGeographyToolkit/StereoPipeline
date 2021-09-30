@@ -620,8 +620,8 @@ void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node) {
 
   xy_offset -= Vector2i(1,1);
 
-  // Push into the RPC Model so that it is easier to work with
-  m_rpc.reset(new RPCModel(cartography::Datum(asp::stereo_settings().datum),
+  // No example is known where the datum is anything but WGS_1984.
+  m_rpc.reset(new RPCModel(cartography::Datum("WGS_1984"),
                            line_num_coeff, line_den_coeff,
                            samp_num_coeff, samp_den_coeff,
                            xy_offset, xy_scale,
@@ -687,8 +687,9 @@ void asp::RPCXML::parse_perusat_model(xercesc::DOMElement* node) {
   // and one of these must be wrong given the total number of columns.
   xy_offset -= Vector2i(1,1);
 
-  // Push into the RPC Model so that it is easier to work with
-  m_rpc.reset(new RPCModel(cartography::Datum(asp::stereo_settings().datum),
+  // Per "PP137 AO1-P04: Modelamiento Geometrico Orbital para
+  // imagenes PeruSAT-1", the datum is WGS_1984.
+  m_rpc.reset(new RPCModel(cartography::Datum("WGS_1984"),
                            line_num_coeff, line_den_coeff,
                            samp_num_coeff, samp_den_coeff,
                            xy_offset, xy_scale,

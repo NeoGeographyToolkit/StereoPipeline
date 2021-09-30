@@ -24,10 +24,11 @@
 #ifndef __STEREO_CAMERA_CSM_MODEL_H__
 #define __STEREO_CAMERA_CSM_MODEL_H__
 
-#include <boost/shared_ptr.hpp>
-
 #include <vw/Camera/CameraModel.h>
 #include <asp/Core/StereoSettings.h>
+#include <vw/Cartography/Datum.h>
+
+#include <boost/shared_ptr.hpp>
 
 namespace csm {
   class RasterGM; // Forward declaration
@@ -77,13 +78,8 @@ namespace asp {
     static void print_available_models();
 
     /// Get the semi-axes of the datum. 
-    vw::Vector3 target_radii() const {
-      return vw::Vector3(m_semi_major_axis,  // x
-                         m_semi_major_axis,  // y
-                         m_semi_minor_axis); // z
-    }
+    vw::Vector3 target_radii() const;
 
-    
     // Apply a transform to the model and save the transformed state as a JSON file.
     void save_transformed_json_state(std::string const& json_state_file,
                                      vw::Matrix4x4 const& transform) const;

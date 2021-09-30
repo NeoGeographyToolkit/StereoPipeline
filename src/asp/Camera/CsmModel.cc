@@ -491,6 +491,12 @@ vw::Vector2 CsmModel::get_image_size() const {
   return Vector2(size.samp, size.line);
 }
 
+vw::Vector3 CsmModel::target_radii() const {
+  return vw::Vector3(m_semi_major_axis,  // x
+                     m_semi_major_axis,  // y
+                     m_semi_minor_axis); // z
+}
+
 Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
   throw_if_not_init();
 

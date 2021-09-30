@@ -128,6 +128,7 @@ namespace asp {
       // Peek at the .cub file to get the planet name without reading
       // it as an ISIS camera (which can fail unless the ISISDATA
       // folder exists, and for CSM that is not guaranteed.)
+      // The CSM camera .json file itself lacks this information.
       std::string datum_name = asp::read_target_name(m_left_image_file);
 
       const asp::CsmModel * cast_csm_cam

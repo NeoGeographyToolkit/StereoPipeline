@@ -85,10 +85,9 @@ IsisInterface* IsisInterface::open(std::string const& filename) {
     break;
   case 3:
     // SAR camera (such as MiniRF)
-    if (camera->HasProjection())
-      vw_throw(NoImplErr() << "Isis SAR cameras with projected images are not supported yet.");
-    else
-      result = new IsisInterfaceSAR(filename);
+    // The same interface handles both projected and unprojected images,
+    // since the ISIS functions take care of the details.
+    result = new IsisInterfaceSAR(filename);
     break;
   default:
     vw_throw(NoImplErr() << "Don't support Isis camera type "
