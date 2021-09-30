@@ -32,7 +32,6 @@
 #include <vw/Stereo/Correlate.h>
 
 #include <asp/Core/DemDisparity.h>
-#include <asp/Core/LocalHomography.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Tools/stereo.h>
 

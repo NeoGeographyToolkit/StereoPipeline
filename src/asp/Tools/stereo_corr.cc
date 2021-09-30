@@ -33,7 +33,6 @@
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/LocalAlignment.h>
-#include <asp/Core/LocalHomography.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Tools/stereo.h>
@@ -857,17 +856,6 @@ void lowres_correlation(ASPGlobalOptions & opt) {
       vw_out() << "\t--> Using cached low-resolution disparity: " << sub_disp_file << "\n";
   }
 
-  // Create the local homographies based on D_sub
-  if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
-    std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
-    try {
-      ImageView<Matrix3x3> local_hom;
-      read_local_homographies(local_hom_file, local_hom);
-    } catch (vw::IOErr const& e) {
-      create_local_homographies(opt);
-    }
-  }
-
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : LOW-RESOLUTION CORRELATION FINISHED\n";
 } // End lowres_correlation
@@ -881,7 +869,6 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView> {
   ImageViewRef<vw::uint8> m_right_mask;
   ImageViewRef<PixelMask<Vector2f> > m_sub_disp;
   ImageViewRef<PixelMask<Vector2i> > m_sub_disp_spread;
-  ImageView<Matrix3x3> const& m_local_hom;
 
   // Settings
   Vector2  m_upscale_factor;
@@ -906,14 +893,12 @@ public:
                        MaskType              const& right_mask,
                        DispSeedImageType     const& sub_disp,
                        SpreadImageType       const& sub_disp_spread,
-                       ImageView<Matrix3x3>  const& local_hom,
                        Vector2i const& kernel_size,
                        stereo::CostFunctionType cost_mode,
                        int corr_timeout, double seconds_per_op) :
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_left_mask (left_mask.impl ()), m_right_mask (right_mask.impl ()),
     m_sub_disp(sub_disp.impl()), m_sub_disp_spread(sub_disp_spread.impl()),
-    m_local_hom(local_hom),
     m_kernel_size(kernel_size),  m_cost_mode(cost_mode),
     m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op){
     m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disp.cols();
@@ -941,8 +926,6 @@ public:
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
-    bool use_local_homography = stereo_settings().use_local_homography;
-
     Matrix<double> lowres_hom  = math::identity_matrix<3>();
     Matrix<double> fullres_hom = math::identity_matrix<3>();
     ImageViewRef<InputPixelType> right_trans_img;
@@ -966,15 +949,7 @@ public:
       VW_OUT(DebugMessage, "stereo") << "\nGetting disparity range for : " << seed_bbox << "\n";
       DispSeedImageType disparity_in_box = crop(m_sub_disp, seed_bbox);
 
-      if (!use_local_homography){
-        local_search_range = stereo::get_disparity_range(disparity_in_box);
-      }else{ // use local homography
-        int ts = ASPGlobalOptions::corr_tile_size();
-        lowres_hom = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
-        local_search_range = stereo::get_disparity_range
-          (transform_disparities(do_round, seed_bbox,
-                                 lowres_hom, disparity_in_box));
-      }
+      local_search_range = stereo::get_disparity_range(disparity_in_box);
 
       bool has_sub_disp_spread = (m_sub_disp_spread.cols() != 0 &&
                                   m_sub_disp_spread.rows() != 0);
@@ -989,37 +964,10 @@ public:
         // Expand the disparity range by m_sub_disp_spread.
         SpreadImageType spread_in_box = crop(m_sub_disp_spread, seed_bbox);
 
-        if (!use_local_homography){
-          BBox2f spread = stereo::get_disparity_range(spread_in_box);
-          local_search_range.min() -= spread.max();
-          local_search_range.max() += spread.max();
-        }else{
-          DispSeedImageType upper_disp = transform_disparities(do_round, seed_bbox, lowres_hom,
-                                                               disparity_in_box + spread_in_box);
-          DispSeedImageType lower_disp = transform_disparities(do_round, seed_bbox, lowres_hom,
-                                                               disparity_in_box - spread_in_box);
-          BBox2f upper_range = stereo::get_disparity_range(upper_disp);
-          BBox2f lower_range = stereo::get_disparity_range(lower_disp);
-
-          local_search_range = upper_range;
-          local_search_range.grow(lower_range);
-        } //endif use_local_homography
+        BBox2f spread = stereo::get_disparity_range(spread_in_box);
+        local_search_range.min() -= spread.max();
+        local_search_range.max() += spread.max();
       } //endif has_sub_disp_spread
-
-      if (use_local_homography){
-        Vector3 upscale(    m_upscale_factor[0],     m_upscale_factor[1], 1);
-        Vector3 dnscale(1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1);
-        fullres_hom = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
-
-        ImageViewRef< PixelMask<InputPixelType> >
-          right_trans_masked_img
-          = transform (copy_mask(m_right_image.impl(),
-                                 create_mask(m_right_mask.impl())),
-                       HomographyTransform(fullres_hom),
-                       m_left_image.impl().cols(), m_left_image.impl().rows());
-        right_trans_img  = apply_mask(right_trans_masked_img);
-        right_trans_mask = channel_cast_rescale<uint8>(select_channel(right_trans_masked_img, 1));
-      } //endif use_local_homography
 
       local_search_range = grow_bbox_to_int(local_search_range);
       // Expand local_search_range by 1. This is necessary since
@@ -1053,48 +1001,25 @@ public:
 
     // Now we are ready to actually perform correlation
     const int rm_half_kernel = 5; // Filter kernel size used by CorrelationView
-    if (use_local_homography){
-      typedef vw::stereo::PyramidCorrelationView<ImageType, ImageViewRef<InputPixelType>, 
-        MaskType,  ImageViewRef<vw::uint8     > > CorrView;
-      CorrView corr_view(m_left_image,   right_trans_img,
-                         m_left_mask,    right_trans_mask,
-                         static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
-                         stereo_settings().slogW,
-                         local_search_range,
-                         m_kernel_size,  m_cost_mode,
-                         m_corr_timeout, m_seconds_per_op,
-                         stereo_settings().xcorr_threshold,
-                         stereo_settings().min_xcorr_level,
-                         rm_half_kernel,
-                         stereo_settings().corr_max_levels,
-                         stereo_alg, 
-                         stereo_settings().sgm_collar_size,
-                         sgm_subpixel_mode, sgm_search_buffer,
-                         stereo_settings().corr_memory_limit_mb,
-                         stereo_settings().corr_blob_filter_area,
-                         stereo_settings().stereo_debug);
-      return corr_view.prerasterize(bbox);
-    }else{
-      typedef vw::stereo::PyramidCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
-      CorrView corr_view(m_left_image,   m_right_image,
-                         m_left_mask,    m_right_mask,
-                         static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
-                         stereo_settings().slogW,
-                         local_search_range,
-                         m_kernel_size,  m_cost_mode,
-                         m_corr_timeout, m_seconds_per_op,
-                         stereo_settings().xcorr_threshold,
-                         stereo_settings().min_xcorr_level,
-                         rm_half_kernel,
-                         stereo_settings().corr_max_levels,
-                         stereo_alg, 
-                         stereo_settings().sgm_collar_size,
-                         sgm_subpixel_mode, sgm_search_buffer,
-                         stereo_settings().corr_memory_limit_mb,
-                         stereo_settings().corr_blob_filter_area,
-                         stereo_settings().stereo_debug);
-      return corr_view.prerasterize(bbox);
-    }
+    typedef vw::stereo::PyramidCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
+    CorrView corr_view(m_left_image,   m_right_image,
+                       m_left_mask,    m_right_mask,
+                       static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
+                       stereo_settings().slogW,
+                       local_search_range,
+                       m_kernel_size,  m_cost_mode,
+                       m_corr_timeout, m_seconds_per_op,
+                       stereo_settings().xcorr_threshold,
+                       stereo_settings().min_xcorr_level,
+                       rm_half_kernel,
+                       stereo_settings().corr_max_levels,
+                       stereo_alg, 
+                       stereo_settings().sgm_collar_size,
+                       sgm_subpixel_mode, sgm_search_buffer,
+                       stereo_settings().corr_memory_limit_mb,
+                       stereo_settings().corr_blob_filter_area,
+                       stereo_settings().stereo_debug);
+    return corr_view.prerasterize(bbox);
     
   } // End function prerasterize_helper
 
@@ -1185,13 +1110,6 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
     }
   }
 
-  // TODO(oalexan1): Wipe the local hom logic.
-  ImageView<Matrix3x3> local_hom;
-  if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
-    std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
-    read_local_homographies(local_hom_file, local_hom);
-  }
-
   stereo::CostFunctionType cost_mode = get_cost_mode_value();
   Vector2i kernel_size = stereo_settings().corr_kernel;
   BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
@@ -1204,7 +1122,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   // - Processing is limited to left_trans_crop_win for use with parallel_stereo.
   ImageViewRef<PixelMask<Vector2f> > fullres_disparity =
     crop(SeededCorrelatorView(left_disk_image, right_disk_image, Lmask, Rmask,
-                              sub_disp, sub_disp_spread, local_hom, kernel_size, 
+                              sub_disp, sub_disp_spread, kernel_size, 
                               cost_mode, corr_timeout, seconds_per_op), 
          left_trans_crop_win);
 
@@ -1325,10 +1243,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   if (stereo_settings().compute_low_res_disparity_only) 
     return;
   
-  // Sanity check until local homography is wiped
-  if (stereo_settings().use_local_homography)
-    vw_throw(ArgumentErr() << "Cannot use local homography with local_epipolar alignment.\n");
-
   // The dimensions of the tile and the final disparity
   BBox2i tile_crop_win = stereo_settings().trans_crop_win;
 
@@ -1407,8 +1321,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     ImageView<vw::uint8> right_mask
       = channel_cast_rescale<vw::uint8>(select_channel(right_image, 1));
     
-    ImageView<Matrix3x3> local_hom; // temporary
-    
     stereo::CostFunctionType cost_mode = get_cost_mode_value();
     Vector2i kernel_size = stereo_settings().corr_kernel;
     int corr_timeout = stereo_settings().corr_timeout;
@@ -1433,7 +1345,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       crop(SeededCorrelatorView(apply_mask(left_image, nan),    // left image
                                 apply_mask(right_image, nan),   // right image
                                 left_mask, right_mask,
-                                sub_disp, sub_disp_spread, local_hom, kernel_size, 
+                                sub_disp, sub_disp_spread, kernel_size, 
                                 cost_mode, corr_timeout, seconds_per_op), 
            bounding_box(left_image));
 

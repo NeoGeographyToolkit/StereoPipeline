@@ -28,7 +28,6 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageResourceOpenEXR.h>
-#include <asp/Core/LocalHomography.h>
 #include <asp/Sessions/StereoSession.h>
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -198,7 +197,6 @@ class PerTileRfne: public ImageViewBase<PerTileRfne<Image1T, Image2T, SeedDispT>
   ImageViewRef<uint8>  m_right_mask;
   SeedDispT            m_integer_disp;
   SeedDispT            m_sub_disp;
-  ImageView<Matrix3x3> m_local_hom;
   ASPGlobalOptions const&       m_opt;
   Vector2              m_upscale_factor;
 
@@ -208,12 +206,11 @@ public:
                ImageViewRef <uint8>     const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
                ImageViewBase<SeedDispT> const& sub_disp,
-               ImageView    <Matrix3x3> const& local_hom,
                ASPGlobalOptions const& opt):
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_right_mask(right_mask),
     m_integer_disp(integer_disp.impl()), m_sub_disp(sub_disp.impl()),
-    m_local_hom(local_hom), m_opt(opt){
+    m_opt(opt){
 
     m_upscale_factor = Vector2(double(m_left_image.impl().cols()) / m_sub_disp.cols(),
                                double(m_left_image.impl().rows()) / m_sub_disp.rows());
@@ -240,36 +237,8 @@ public:
 
     ImageView<pixel_type> tile_disparity;
     bool verbose = false;
-    if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
-
-      int ts = ASPGlobalOptions::corr_tile_size();
-      Matrix<double>  lowres_hom = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
-      Vector3 upscale(m_upscale_factor[0],     m_upscale_factor[1],     1);
-      Vector3 dnscale(1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1);
-      Matrix<double>  fullres_hom = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
-
-      // Must transform the right image by the local disparity
-      // to be in the same conditions as for stereo correlation.
-      typedef typename Image2T::pixel_type right_pix_type;
-      ImageViewRef< PixelMask<right_pix_type> > right_trans_masked_img
-        = transform (copy_mask(m_right_image.impl(), create_mask(m_right_mask)),
-                     HomographyTransform(fullres_hom),
-                     m_left_image.impl().cols(), m_left_image.impl().rows());
-      ImageViewRef<right_pix_type> right_trans_img = apply_mask(right_trans_masked_img);
-
-
-      tile_disparity = crop(refine_disparity(m_left_image, right_trans_img,
-                                             m_integer_disp, m_opt, verbose), bbox);
-
-      // Must undo the local homography transform
-      bool do_round = false; // don't round floating point disparities
-      tile_disparity = transform_disparities(do_round, bbox, inverse(fullres_hom),
-                                             tile_disparity);
-
-    }else{
-      tile_disparity = crop(refine_disparity(m_left_image, m_right_image,
-                                             m_integer_disp, m_opt, verbose), bbox);
-    }
+    tile_disparity = crop(refine_disparity(m_left_image, m_right_image,
+                                           m_integer_disp, m_opt, verbose), bbox);
     
     prerasterize_type disparity = prerasterize_type(tile_disparity,
                                                     -bbox.min().x(), -bbox.min().y(),
@@ -290,11 +259,10 @@ per_tile_rfne(ImageViewBase<Image1T  > const& left,
                ImageViewRef<uint8     > const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
                ImageViewBase<SeedDispT> const& sub_disp,
-               ImageView<Matrix3x3    > const& local_hom,
                ASPGlobalOptions const& opt) {
   typedef PerTileRfne<Image1T, Image2T, SeedDispT> return_type;
   return return_type(left.impl(), right.impl(), right_mask,
-                      integer_disp.impl(), sub_disp.impl(), local_hom, opt);
+                      integer_disp.impl(), sub_disp.impl(), opt);
 }
 
 void stereo_refinement(ASPGlobalOptions const& opt) {
@@ -303,7 +271,6 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
   ImageViewRef<uint8               > left_mask,  right_mask;
   ImageViewRef<PixelMask<Vector2f> > input_disp;
   ImageViewRef<PixelMask<Vector2f> > sub_disp;
-  ImageView<Matrix3x3> local_hom;
   string left_image_file  = opt.out_prefix+"-L.tif";
   string right_image_file = opt.out_prefix+"-R.tif";
   string left_mask_file   = opt.out_prefix+"-lMask.tif";
@@ -331,16 +298,7 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
       else // File on disk is float
         input_disp = DiskImageView< PixelMask<Vector2f> >(disp_file);
     }
-
-    if (stereo_settings().seed_mode > 0 &&
-         stereo_settings().use_local_homography){
-      if (!load_D_sub(opt.out_prefix+"-D_sub.tif", sub_disp))
-        vw_throw(ArgumentErr() << "D_sub file does not exist, cannot use local homography.\n");
-
-      string local_hom_file = opt.out_prefix + "-local_hom.txt";
-      read_local_homographies(local_hom_file, local_hom);
-    }
-
+    
   } catch (IOErr const& e) {
     vw_throw(ArgumentErr() << "\nUnable to start at refinement stage, could not read input files.\n" 
                             << e.what() << "\nExiting.\n\n");
@@ -384,7 +342,7 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
 
   ImageViewRef< PixelMask<Vector2f> > refined_disp
     = crop(per_tile_rfne(left_image, right_image, right_mask,
-                         input_disp, sub_disp, local_hom, opt), 
+                         input_disp, sub_disp, opt), 
            stereo_settings().trans_crop_win);
   
   cartography::GeoReference left_georef;

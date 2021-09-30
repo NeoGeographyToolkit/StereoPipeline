@@ -1152,7 +1152,8 @@ A second image can be retrieved from::
 
     https://pds-geosciences.wustl.edu/lro/lro-l-mrflro-4-cdr-v1/lromrf_0001/data/sar/02300_02399/level1/lsz_02330_1cd_xku_00s120_v1.img
 
-Then the corresponding label can be downloaded analogously, and it can be processed as above.
+Then the corresponding label can be downloaded analogously, and it can
+be handled as above.
 
 Stereo and DEM creation are run as::
 

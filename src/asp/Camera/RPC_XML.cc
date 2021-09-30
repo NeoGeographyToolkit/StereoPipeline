@@ -620,7 +620,7 @@ void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node) {
 
   xy_offset -= Vector2i(1,1);
 
-  // No example is known where the datum is anything but WGS_1984.
+  // No Earth example is known where the datum is anything but WGS_1984.
   m_rpc.reset(new RPCModel(cartography::Datum("WGS_1984"),
                            line_num_coeff, line_den_coeff,
                            samp_num_coeff, samp_den_coeff,

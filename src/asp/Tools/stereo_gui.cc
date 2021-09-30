@@ -36,7 +36,6 @@
 #include <vw/Core/CmdUtils.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/DemDisparity.h>
-#include <asp/Core/LocalHomography.h>
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/GuiUtilities.h>
 #include <xercesc/util/PlatformUtils.hpp>

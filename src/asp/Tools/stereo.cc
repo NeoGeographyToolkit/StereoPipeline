@@ -601,13 +601,6 @@ namespace asp {
                << stereo_settings().seed_mode << ".\n");
     }
 
-    // Local homography needs D_sub
-    if (stereo_settings().seed_mode == 0 &&
-        stereo_settings().use_local_homography){
-      vw_throw(ArgumentErr() << "Cannot use local homography without computing "
-               << "low-resolution disparity.\n");
-    }
-
     // D_sub from DEM needs a positive disparity_estimation_dem_error
     if (stereo_settings().seed_mode == 2 &&
         stereo_settings().disparity_estimation_dem_error <= 0.0){

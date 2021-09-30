@@ -22,6 +22,8 @@ bundle_adjust:
 
 stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
+  * Removed the --local-homography option, as it is superseded by 
+    --alignment-method local_epipolar, which blends the local results.
   * ASP's SGM and MGM algorithms will always use the cross-check for
     disparity by default, to improve the quality, even if that takes
     more time. It can be turned off with --xcorr-threshold -1.

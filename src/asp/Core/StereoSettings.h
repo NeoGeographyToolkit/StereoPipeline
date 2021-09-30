@@ -169,7 +169,6 @@ namespace asp {
     bool skip_low_res_disparity_comp;
     std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity
     double disparity_estimation_dem_error; // Error (in meters) of the disparity estimation DEM
-    bool   use_local_homography;      // Apply a local homography in each tile
     int    corr_timeout;              // Correlation timeout for a tile, in seconds
     std::string stereo_algorithm;     // See StereoSettings.cc for the possible values.
     int    corr_blob_filter_area;     // Use blob filtering in pyramidal correlation

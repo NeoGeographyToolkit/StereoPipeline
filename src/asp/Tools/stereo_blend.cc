@@ -92,7 +92,11 @@ bool load_image_and_weights(std::string const& file_path,
 
   vw_out() << "Reading: " << file_path << std::endl;
 
-  // Verify that the disparity file is float, as expected
+  // Verify that the disparity has float pixels, as expected. Blending
+  // is done either after algorithms which are not the old ASP block
+  // matching (ASP_BM), when the disparity pixels are always float, or
+  // with local epipolar alignment, when the resulting disparity has
+  // float pixels even when ASP_BM is used.
   boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(file_path));
   ChannelTypeEnum disp_data_type = rsrc->channel_type();
   if (disp_data_type != VW_CHANNEL_FLOAT32)
