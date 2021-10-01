@@ -122,6 +122,17 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
 
   std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
+  std::string spread_file = opt.out_prefix + "-D_sub_spread.tif";
+
+  if (stereo_settings().seed_mode != 3 && fs::exists(spread_file)) {
+    // We will recreate D_sub below unless seed_mode is 3, when the work
+    // happens in sparse_disp outside this logic. We may or may not recreate
+    // D_sub_spread, but in either case wipe the existing one or else
+    // it may be a leftover from a previous run with different image
+    // sizes, and in that case it will be inconsistent with D_sub
+    // we will create now.
+    fs::remove(spread_file);
+  }
   
   if (stereo_settings().seed_mode == 1) {
 
@@ -829,8 +840,8 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
     
-    std::string sub_disp_file = opt.out_prefix+"-D_sub.tif";
-    
+    std::string sub_disp_file = opt.out_prefix + "-D_sub.tif";
+
     // Also need to rebuild if the inputs changed after the mask files were produced.
     bool inputs_changed = (!is_latest_timestamp(sub_disp_file, opt.in_file1,  opt.in_file2,
                                                 opt.cam_file1, opt.cam_file2));
@@ -850,10 +861,12 @@ void lowres_correlation(ASPGlobalOptions & opt) {
       rebuild = true;
     }
 
-    if (rebuild)
-      produce_lowres_disparity(opt); // Note: This does not always remake D_sub!
-    else
+    if (rebuild) {
+      // It will be rebuilt except for seed-mode 3 when sparse_disp takes care of it.
+      produce_lowres_disparity(opt);
+    } else {
       vw_out() << "\t--> Using cached low-resolution disparity: " << sub_disp_file << "\n";
+    }
   }
 
   vw_out() << "\n[ " << current_posix_time_string()
