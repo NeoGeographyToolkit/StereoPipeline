@@ -16,7 +16,12 @@
 // __END_LICENSE__
 
 // TODO:
-// Add option to match images at the beginning with images at the end.
+// Remove all logic with multiple DEM clips, it turned out not to work.
+// Remove all floating of cameras from the code and the doc, one has to use bundle adjust.
+// Then also remove all the logic using unadjusted cameras except the place
+// when the sun positions are read.
+// Evaluate RPC accuracy.
+// Make the non-ISIS code multithreaded.
 // Add option --num-ip-matches.
 // Deal with outliers in image intensity.
 // The rpc approximation should also approximate the adjusted cameras if those won't float.
@@ -40,7 +45,6 @@
 // Implement multi-grid for SfS, it should help with bad initial DEM and bad
 // camera alignment.
 // TODO: Save final DEM and final ortho images.
-// TODO: Document the bundle adjustment, and if necessary, manual ip selection.
 // Say that if the camera are bundle adjusted, sfs can further improve
 // the camera positions to make the results more self consistent,
 // but this works only if the cameras are reasonably accurate to start with.
@@ -1234,14 +1238,12 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string input_dems_str, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_dems, input_images, input_cameras;
-  std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposure_prefix,
-    model_coeffs_prefix, model_coeffs, image_haze_prefix;
+  std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposure_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list;
   std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
   std::vector<double> image_exposures_vec;
-  std::vector< std::vector<double> > image_haze_vec;
+  std::vector<std::vector<double>> image_haze_vec;
   std::vector<double> model_coeffs_vec;
-  std::vector< std::set<int> > skip_images;
-
+  std::vector<std::set<int>> skip_images;
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels,
     blending_dist, blending_power, min_blend_size, num_haze_coeffs;
   bool float_albedo, float_exposure, float_cameras, float_all_cameras, model_shadows,
@@ -2343,60 +2345,14 @@ void save_exposures(std::string const& out_prefix,
   exf.close();
 }
 
-// Pull the ISIS model from an adjusted IsisCameraModel or
-// ApproxCameraModel or ApproxAdjustedCameraModel
-boost::shared_ptr<CameraModel> get_isis_cam(Options const& opt,
-                                            boost::shared_ptr<CameraModel> cam,
-                                            bool allow_unadjusted = false){
-
-  boost::shared_ptr<CameraModel> unadj_cam, isis_cam;
-  
-  AdjustedCameraModel * adj_cam = dynamic_cast<AdjustedCameraModel*>(cam.get());
-  if (adj_cam != NULL) {
-    unadj_cam = adj_cam->unadjusted_model();
-  }else{
-    if (!allow_unadjusted && !opt.use_approx_adjusted_camera_models) 
-      vw_throw( ArgumentErr() << "get_isis_cam: Expecting an adjusted camera model.\n" );
-    else
-      unadj_cam = cam;
-  }
-  
-  if (unadj_cam.get() == NULL)
-    vw_throw( ArgumentErr() << "get_isis_cam: Expecting a valid camera model.\n" );
-
-  // There are three cases here. The unadjusted camera is either ISIS camera,
-  // or ApproxCameraModel, or ApproxAdjustedCameraModel.
-  ApproxCameraModel * apcam = dynamic_cast<ApproxCameraModel*>(unadj_cam.get());
-  if (apcam != NULL) {
-    isis_cam = apcam->exact_unadjusted_camera();
-  }else{
-    ApproxAdjustedCameraModel * aapcam = dynamic_cast<ApproxAdjustedCameraModel*>(unadj_cam.get());
-    if (aapcam != NULL) {
-      isis_cam = aapcam->exact_unadjusted_camera();
-    }else{
-      isis_cam = unadj_cam;
-    }
-  }
-  
-  if (dynamic_cast<IsisCameraModel*>(isis_cam.get()) == NULL)
-    vw_throw( ArgumentErr() << "get_isis_cam: Expecting an ISIS camera model.\n" );
-
-  return isis_cam;
-}
-
 // Find the sun azimuth and elevation at the lon-lat position of the
 // center of the DEM. The result can change depending on the DEM.
 void sun_angles(Options const& opt,
                 ImageView<double> const& dem, double nodata_val, GeoReference const& georef,
-                boost::shared_ptr<CameraModel> cam, double & azimuth, double &elevation){
+                boost::shared_ptr<CameraModel> cam,
+                Vector3 const& sun_pos,
+                double & azimuth, double &elevation){
 
-  bool allow_unadjusted = true; // At this stage we don't care about adjustments
-  boost::shared_ptr<CameraModel> ucam = get_isis_cam(opt, cam, allow_unadjusted);
-  IsisCameraModel* isis_cam = dynamic_cast<IsisCameraModel*>(ucam.get());
-  if (isis_cam == NULL)
-    vw_throw( ArgumentErr()
-              << "Expecting an ISIS camera model.\n");
-  
   int cols = dem.cols(), rows = dem.rows();
   if (cols <= 0 || rows <= 0)
     vw_throw( ArgumentErr() << "Expecting a non-empty DEM.\n" );
@@ -2411,7 +2367,6 @@ void sun_angles(Options const& opt,
   Vector3 xyz = georef.datum().geodetic_to_cartesian(llh); // point on the planet
   Vector3 east(-xyz[1], xyz[0], 0);
 
-  Vector3 sun_pos = isis_cam->sun_position();
   Vector3 sun_dir = sun_pos - xyz;
 
   //double prod = dot_prod(sun_dir, east)
@@ -3682,6 +3637,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Estimate the SfS DEM height uncertainty by finding the height perturbation (in meters) at each grid point which will make at least one of the simulated images at that point change by more than twice the discrepancy between the unperturbed simulated image and the measured image. The SfS DEM must be provided via the -i option.")
     ("height-error-params", po::value(&opt.height_error_params)->default_value(Vector2(5.0,1000.0), "5.0 1000"),
      "Specify the largest height deviation to examine (in meters), and how many samples to use from 0 to that height.")
+    ("sun-positions", po::value(&opt.sun_positions_list)->default_value(""),
+     "A file having on each line an image name and three values in double precision specifying the Sun position in ECEF coordinates. Use a space as separator. If not provided, these will be read from the camera files for ISIS and CSM models.")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
     ("shadow-threshold", po::value(&opt.shadow_threshold)->default_value(-1),
@@ -4363,7 +4320,7 @@ void run_sfs_level(// Fixed inputs
                                      &pq[dem_iter](col, row)[0],      // pq
                                      &albedos[dem_iter](col, row),    // albedo
                                      &adjustments[6*image_iter],      // camera
-                                     &scaled_sun_posns[3*image_iter],    // sun positions
+                                     &scaled_sun_posns[3*image_iter], // sun positions
                                      &reflectance_model_coeffs[0]);   // reflectance 
             
             
@@ -4953,10 +4910,11 @@ int main(int argc, char* argv[]) {
                   << dem_iter << " is too small.\n" );
       }
     }
-  
-    // Read in the camera models for the input images.
+
+    // Read in the camera models and the sun positions for the input images
     int num_images = opt.input_images.size();
     std::vector< std::vector< boost::shared_ptr<CameraModel> > > cameras(num_dems);
+    std::vector<ModelParams> model_params(num_images);
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
 
       cameras[dem_iter].resize(num_images);
@@ -4980,35 +4938,34 @@ int main(int argc, char* argv[]) {
                                                               opt.input_cameras[image_iter]);
         if (dem_iter == 0) {
           double azimuth, elevation;
-          sun_angles(opt, dems[0][dem_iter], dem_nodata_val, geos[0][dem_iter],
-                     cameras[dem_iter][image_iter], azimuth, elevation);
+          boost::shared_ptr<CameraModel> ucam = unadjusted_model(cameras[dem_iter][image_iter]);
+          IsisCameraModel* isis_cam = dynamic_cast<IsisCameraModel*>(ucam.get());
+          if (isis_cam == NULL)
+            vw_throw(ArgumentErr() << "Expecting an ISIS camera model.\n");
+          model_params[image_iter].sunPosition = isis_cam->sun_position();
+          std::cout.precision(18);
           
-          if (opt.query) {
-            // This line is being parsed outside this tool
-            vw_out().precision(17);
-            vw_out() << "Sun azimuth and elevation for: "
-                     << opt.input_images[image_iter] << " are " << azimuth
-                     << " and " << elevation << " degrees.\n";
-
-            // Print the sun position
-            bool allow_unadjusted = true; // At this stage we don't care about adjustments
-            boost::shared_ptr<CameraModel> ucam = get_isis_cam(opt, cameras[dem_iter][image_iter],
-                                                               allow_unadjusted);
-            IsisCameraModel* isis_cam = dynamic_cast<IsisCameraModel*>(ucam.get());
-            if (isis_cam == NULL)
-              vw_throw( ArgumentErr()
-                        << "Expecting an ISIS camera model.\n");
-            Vector3 sun_pos = isis_cam->sun_position();
-            vw_out() << "Sun position for: " << opt.input_images[image_iter] << " is "
-                     << sun_pos << "\n";
-          }
+          sun_angles(opt, dems[0][dem_iter], dem_nodata_val, geos[0][dem_iter],
+                     cameras[dem_iter][image_iter],
+                     model_params[image_iter].sunPosition,
+                     azimuth, elevation);
+          
+          // This is useful information
+          vw_out().precision(17); // Since the sun position has very big values
+          vw_out() << "Sun position for: " << opt.input_images[image_iter] << " is "
+                   << model_params[image_iter].sunPosition << "\n";
+          vw_out().precision(8); // Go back to usual precision
+          
+          vw_out() << "Sun azimuth and elevation for: "
+                   << opt.input_images[image_iter] << " are " << azimuth
+                   << " and " << elevation << " degrees.\n";
         }
       }
     }
-    
-    if (opt.query) {
+
+    // Stop here if all we wanted was some information
+    if (opt.query) 
       return 0;
-    }
 
     // Since we may float the cameras, ensure our camera models are
     // always adjustable. Note that if the user invoked this tool with
@@ -5068,6 +5025,7 @@ int main(int argc, char* argv[]) {
     // If to use approximate camera models
     if (opt.use_approx_camera_models || opt.use_approx_adjusted_camera_models) {
 
+      // TODO(oalexan1): This code needs to be modularized.
       for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       
         double max_approx_err = 0.0;
@@ -5299,21 +5257,6 @@ int main(int argc, char* argv[]) {
       }
     }
     g_img_nodata_val = &img_nodata_val;
-
-    // Get the sun and camera positions from the ISIS cube
-    std::vector<ModelParams> model_params;
-    model_params.resize(num_images);
-    for (int image_iter = 0; image_iter < num_images; image_iter++){
-      for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
-        if (opt.skip_images[dem_iter].find(image_iter) !=
-            opt.skip_images[dem_iter].end()) continue;
-        IsisCameraModel* icam
-          = dynamic_cast<IsisCameraModel*>(get_isis_cam(opt, cameras[dem_iter][image_iter]).get());
-        model_params[image_iter].sunPosition = icam->sun_position();
-        //vw_out() << "Sun position for image: " << image_iter << " "
-        //       << model_params[image_iter].sunPosition << std::endl;
-      }
-    }
 
     // Copy sun positions to an array
     std::vector<double> scaled_sun_posns(3*num_images);
