@@ -10,7 +10,8 @@ processes and potentially on multiple machines.
 
 Usage::
 
-     sfs -i <input DEM> -n <max iterations> -o <output prefix> <images> [other options]
+     sfs -i <input DEM> -n <max iterations> -o <output prefix> \
+       [other options] <images> <cameras>
 
 The tool outputs at each iteration the current DEM and a slew of other
 auxiliary and appropriately-named datasets.
@@ -96,6 +97,12 @@ Command-line options:
     Specify the largest height deviation to examine (in meters), and
     how many samples to use from 0 to that height.
 
+--sun-positions <string>
+    A file having on each line an image name and three values in
+    double precision specifying the Sun position in ECEF coordinates.
+    Use a space as separator. If not provided, these will be read from
+    the camera file for ISIS and CSM models. 
+
 --save-dem-with-nodata
     Save a copy of the DEM while using a no-data value at a DEM
     grid point where all images show shadows. To be used if shadow
@@ -106,7 +113,7 @@ Command-line options:
 
 --use-rpc-approximation
     Use RPC approximations for the camera models instead of approximate
-    tabulated camera models (invoke with ``–use-approx-camera-models``).
+    tabulated camera models (invoke with ``--use-approx-camera-models``).
     This is broken and should not be used.
 
 --rpc-penalty-weight <float (default: 0.1)>
@@ -194,6 +201,11 @@ Command-line options:
     Print some info, including DEM size and the solar azimuth and
     elevation for the images, and exit. Invoked from parallel_sfs.
 
+-t, --session-type <string (default: "")>
+    Select the session type to use for processing. Usually it is
+    auto-guessed and need not be specified. See
+    :numref:`parallel_stereo` for options.
+ 
 --camera-position-step-size <integer (default: 1)>
     Larger step size will result in more aggressiveness in varying
     the camera position if it is being floated (which may result

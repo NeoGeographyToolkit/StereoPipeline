@@ -105,7 +105,7 @@ Command-line options
     The list of computing nodes, one per line. If not provided, run
     on the local machine.
 
--t, --session-type <type_name>
+-t, --session-type <string>
     Select the stereo session type to use for processing. Usually the
     program can select this automatically by the file extension.
     Options:

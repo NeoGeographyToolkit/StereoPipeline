@@ -1825,12 +1825,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                                     opt.image_files, opt.camera_files, // outputs
                                     ensure_equal_sizes); 
   
-  // If there are no camera files, then the image files have the camera information.
-  if (opt.camera_files.empty()){
-    for (int i = 0; i < opt.image_files.size(); i++)
-      opt.camera_files.push_back("");
-  }
-  
   // Throw if there are duplicate camera file names.
   opt.check_for_duplicate_camera_names();
   

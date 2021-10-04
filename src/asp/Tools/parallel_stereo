@@ -928,6 +928,13 @@ if __name__ == '__main__':
             if ( opt.stop_point <= step ):
                 sys.exit()
 
+            # These can be stray options if pasting the stereo command
+            # from a log file where these particular operations
+            # happened, and they will result in the overall stereo
+            # command misbehaving. They are needed only at a certain stage.
+            wipe_option(args, '--compute-point-cloud-center-only', 0)
+            wipe_option(args, '--compute-piecewise-adjustments-only', 0)
+
             # First compute jitter correction (optional). Done just once per run.
             if '--image-lines-per-piecewise-adjustment' in args:
                 tmp_args = args[:] # deep copy

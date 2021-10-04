@@ -110,9 +110,10 @@ Vector2 imageCoordToVector(csm::ImageCoord c) {
 
 // -----------------------------------------------------------------
 // CsmModel class functions
-CsmModel::CsmModel():m_semi_major_axis(0.0), m_semi_minor_axis(0.0) {
-}
-
+CsmModel::CsmModel():m_semi_major_axis(0.0),
+                     m_semi_minor_axis(0.0),
+                     m_sun_position(vw::Vector3()) {}
+                                      
 CsmModel::CsmModel(std::string const& isd_path) {
   load_model(isd_path);
 }
@@ -359,6 +360,23 @@ void CsmModel::load_model(std::string const& isd_path) {
     CsmModel::load_model_from_isd(isd_path);
   else
     CsmModel::load_model_from_state(isd_path);
+
+  // Read the sun position. Will work for USGSCSM models, but maybe
+  // not for others. It is assumed here that the sun does not move
+  // noticeably in the sky during the brief time the picture is taken.
+  // TODO(oalexan1): Study how important is to compute sun position
+  // at every single time. Likely given that a camera shot takes a
+  // 1-3 seconds, the Sun can't move that much. 
+  std::string modelState = m_csm_model->getModelState();
+  nlohmann::json j = stateAsJson(modelState);
+  if (j.find("m_sunPosition") != j.end()) {
+    std::vector<double> sun_pos = j["m_sunPosition"].get<std::vector<double>>();
+    if (sun_pos.size() < 3)
+      vw::vw_throw( vw::ArgumentErr() << "The Sun position must be a vector of size >= 3.\n");
+    for (size_t it = 0; it < 3; it++) 
+      m_sun_position[it] = sun_pos[it];
+  }
+  
 }
   
 void CsmModel::load_model_from_isd(std::string const& isd_path) {

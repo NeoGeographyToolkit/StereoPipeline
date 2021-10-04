@@ -83,6 +83,11 @@ namespace asp {
     // Apply a transform to the model and save the transformed state as a JSON file.
     void save_transformed_json_state(std::string const& json_state_file,
                                      vw::Matrix4x4 const& transform) const;
+
+    vw::Vector3 sun_position() const {
+      return m_sun_position;
+    }
+    
   private:
 
     // Read the ellipsoid (datum) axes from the isd json file
@@ -109,6 +114,8 @@ namespace asp {
 
     // These are read from the json camera file
     double m_semi_major_axis, m_semi_minor_axis;
+
+    vw::Vector3 m_sun_position;
     
   }; // End class CsmModel
 

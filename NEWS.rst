@@ -50,6 +50,11 @@ csm:
   * Save the camera state on multiple lines. On reading both the
     single-line and multiple-line formats are accepted.
 
+sfs:
+  * SfS was made to work with any camera model supported by ASP,
+    including for Earth. For non-ISIS and non-CSM cameras, the option
+    --sun-positions should be used.
+ 
 Misc:
   * Added the tool parse_match_file.py to convert a binary match file
     to text and vice-versa.

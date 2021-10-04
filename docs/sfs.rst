@@ -5,16 +5,20 @@ Shape-from-shading examples
 
 ASP provides a tool, named ``sfs`` (:numref:`sfs`), that can improve
 the level of detail of DEMs created by ASP or any other source using
-*shape-from-shading* (SfS). The tool takes as input one or more camera
-images, a DEM at roughly the same resolution as the images, and
-returns a refined DEM. This chapter shows in a lot of detail 
-how this tool is to be used.
+*shape-from-shading* (SfS). The tool takes as input one or more images
+and cameras, a DEM at roughly the same resolution as the
+images, and returns a refined DEM. This chapter shows in a lot of
+detail how this tool is to be used.
 
-``sfs`` works only with ISIS cub images. It has been tested thoroughly
-with Lunar LRO NAC datasets, and some experiments were done with Mars
-HiRISE images and with pictures from Charon, Pluto’s moon. As seen later
-in the text, it returns reasonable results on the Moon as far as
-85° and even 89.6° South.
+``sfs`` works with any cameras supported by ASP, for Earth and other
+planets. The option ``--sun-positions`` can be used to to specify the
+Sun position for each image. For ISIS and CSM cameras, if this option
+is not set, the Sun information is read from the camera files.
+
+``sfs`` has been tested thoroughly with Lunar LRO NAC datasets, and
+some experiments were done with Mars HiRISE images and with pictures
+from Charon, Pluto’s moon. As seen later in the text, it returns
+reasonable results on the Moon as far as 85° and even 89.6° South.
 
 Currently, ``sfs`` is computationally expensive, and is practical only
 for DEMs whose width and height are several thousand pixels. It can be

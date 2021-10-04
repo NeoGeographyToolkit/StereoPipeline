@@ -275,7 +275,6 @@ def main(argsIn):
                                             dest="suppressOutput",  help="Suppress output of sub-calls.")
 
     # Private options
-    # These specify the tile location to request, bypassing the need to query mapproject.
     parser.add_argument('--pixelStartX', dest='pixelStartX', default=None, type=int,
                                         help=argparse.SUPPRESS)
     parser.add_argument('--pixelStartY', dest='pixelStartY', default=None, type=int,

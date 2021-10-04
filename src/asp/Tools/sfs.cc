@@ -89,6 +89,7 @@
 #include <vw/Core/CmdUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/IsisIO/IsisCameraModel.h>
+#include <asp/Camera/CsmModel.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Camera/RPCModelGen.h>
@@ -466,7 +467,7 @@ namespace vw { namespace camera {
       
       if (dynamic_cast<IsisCameraModel*>(exact_unadjusted_camera.get()) == NULL)
         vw_throw( ArgumentErr()
-                  << "ApproxCameraModel: Expecting an unadjusted ISIS camera model.\n");
+                  << "ApproxCameraModel: Expecting an unadjusted camera model.\n");
 
       // Compute the mean DEM height.
       // We expect all DEM entries to be valid.
@@ -896,9 +897,9 @@ namespace vw { namespace camera {
       int big = 1e+8;
       m_uncompValue = Vector2(-big, -big);
       
-      if (dynamic_cast<IsisCameraModel*>(exact_unadjusted_camera.get()) == NULL)
+      if (dynamic_cast<AdjustedCameraModel*>(exact_unadjusted_camera.get()) != NULL)
         vw_throw( ArgumentErr()
-                  << "ApproxAdjustedCameraModel: Expecting an unadjusted ISIS camera model.\n");
+                  << "ApproxAdjustedCameraModel: Expecting an unadjusted camera model.\n");
 
       // Compute the mean DEM height.
       // We expect all DEM entries to be valid.
@@ -1236,7 +1237,7 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
 }
 
 struct Options : public vw::cartography::GdalWriteOptions {
-  std::string input_dems_str, out_prefix, stereo_session_string, bundle_adjust_prefix;
+  std::string input_dems_str, out_prefix, stereo_session, bundle_adjust_prefix;
   std::vector<std::string> input_dems, input_images, input_cameras;
   std::string shadow_thresholds, custom_shadow_threshold_list, max_valid_image_vals, skip_images_str, image_exposure_prefix, model_coeffs_prefix, model_coeffs, image_haze_prefix, sun_positions_list;
   std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
@@ -3594,6 +3595,61 @@ ImageView<double> comp_blending_weights(MaskedImgT const& img,
   return weights;
 }
 
+void read_sun_positions_from_list(Options const& opt,
+                                  std::vector<ModelParams> &model_params) {
+
+  // Initialize the sun position with something (the planet center)
+  int num_images = opt.input_images.size();
+  model_params.resize(num_images);
+  for (int it = 0; it < num_images; it++) {
+    model_params[it].sunPosition = Vector3();  
+  }
+  
+  if (opt.sun_positions_list == "") 
+    return; // nothing to do
+  
+  // First read the positions in a map, as they may be out of order
+  std::map<std::string, vw::Vector3> sun_positions_map;
+  std::ifstream ifs(opt.sun_positions_list.c_str());
+  std::string filename;
+  double x, y, z;
+  while (ifs >> filename >> x >> y >> z)
+    sun_positions_map[filename] = Vector3(x, y, z);
+
+  if (sun_positions_map.size() != opt.input_images.size())
+    vw_throw(ArgumentErr() << "Expecting to find in file: " << opt.sun_positions_list
+             << " as many sun positions as there are images.\n");
+  
+  // Put the sun positions in model_params.
+  for (int it = 0; it < num_images; it++) {
+    auto map_it = sun_positions_map.find(opt.input_images[it]);
+    if (map_it == sun_positions_map.end()) 
+      vw_throw(ArgumentErr() << "Could not read the Sun position from file: "
+               << opt.sun_positions_list << " for image: " << opt.input_images[it] << ".\n");
+
+    model_params[it].sunPosition = map_it->second;
+  }
+}
+
+Vector3 sun_position_from_camera(boost::shared_ptr<CameraModel> camera) {
+
+  // Remove any adjustment to get to the camera proper
+  boost::shared_ptr<CameraModel> ucam = unadjusted_model(camera);
+
+  // Try isis
+  IsisCameraModel* isis_cam = dynamic_cast<IsisCameraModel*>(ucam.get());
+  if (isis_cam != NULL)
+    return isis_cam->sun_position();
+
+  // Try csm
+  asp::CsmModel* csm_cam = dynamic_cast<asp::CsmModel*>(ucam.get());
+  if (csm_cam != NULL)
+    return csm_cam->sun_position();
+
+  // No luck. Later there will be a complaint.
+  return vw::Vector3();
+}
+
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
@@ -3657,7 +3713,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed.")
     ("use-rpc-approximation",   po::bool_switch(&opt.use_rpc_approximation)->default_value(false)->implicit_value(true),
-     "Use RPC approximations for the camera models instead of approximate tabulated camera models (invoke with --use-approx-camera-models).")
+     "Use RPC approximations for the camera models instead of approximate tabulated camera models (invoke with --use-approx-camera-models). This is broken and should not be used.")
     ("rpc-penalty-weight", po::value(&opt.rpc_penalty_weight)->default_value(0.1),
      "The RPC penalty weight to use to keep the higher-order RPC coefficients small, if the RPC model approximation is used. Higher penalty weight results in smaller such coefficients.")
     ("rpc-max-error", po::value(&opt.rpc_max_error)->default_value(2),
@@ -3706,6 +3762,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Allow the position of the sun to float.")
     ("query",   po::bool_switch(&opt.query)->default_value(false)->implicit_value(true),
      "Print some info and exit. Invoked from parallel_sfs.")
+    ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
+     "Select the session type to use for processing. Usually it is auto-guessed.")
     ("save-sparingly",   po::bool_switch(&opt.save_sparingly)->default_value(false)->implicit_value(true),
      "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
     ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),
@@ -3731,28 +3789,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.float_all_cameras)
     opt.float_cameras = true;
-  
-  // If the images are tif files, and the cameras are cub files, separate them
-  std::vector<std::string> images, cameras;
-  for (size_t i = 0; i < opt.input_images.size(); i++) {
-    std::string file = opt.input_images[i];
-    if (asp::has_cam_extension(file))          // can be .cub
-      cameras.push_back(file);
-    else if (asp::has_image_extension(file))   // can be .cub
-      images.push_back(file);
-    else
-      vw_throw( ArgumentErr() << "Invalid image or camera file: " << file << ".\n"
-                << usage << general_options );
-  }
-  if (images.empty())
-    images = cameras;
-  if (images.size() != cameras.size()) {
-    vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n"
-              << usage << general_options );
-  }
-  opt.input_images = images;
-  opt.input_cameras = cameras;
 
+  // Separate the cameras from the images
+  std::vector<std::string> inputs = opt.input_images;
+  bool ensure_equal_sizes = true;
+  asp::separate_images_from_cameras(inputs,
+                                    opt.input_images, opt.input_cameras, // outputs
+                                    ensure_equal_sizes); 
+  
   std::istringstream idem(opt.input_dems_str);
   std::string dem;
   while (idem >> dem) opt.input_dems.push_back(dem);
@@ -4504,12 +4548,14 @@ void run_sfs_level(// Fixed inputs
   }
   
   if (opt.num_threads > 1 &&
+      opt.stereo_session == "isis"  &&
       !opt.use_approx_camera_models &&
       !opt.use_approx_adjusted_camera_models) {
     vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
     opt.num_threads = 1;
   }
-  vw_out() << "Using: " << opt.num_threads << " threads.\n";
+
+  vw_out() << "Using: " << opt.num_threads << " thread(s).\n";
 
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
@@ -4735,7 +4781,7 @@ int main(int argc, char* argv[]) {
   Options opt;
   g_opt = &opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     if (opt.compute_exposures_only && !opt.image_exposures_vec.empty()) {
       // TODO: This needs to be adjusted if haze is computed.
@@ -4911,10 +4957,14 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // Read in the camera models and the sun positions for the input images
+    // Read the sun positions from a list, if provided. Usually those
+    // are read from the cameras, however, as done further down. 
+    std::vector<ModelParams> model_params;
+    read_sun_positions_from_list(opt, model_params);
+    
+    // Read in the camera models (and the sun positions, if not read from the list)
     int num_images = opt.input_images.size();
-    std::vector< std::vector< boost::shared_ptr<CameraModel> > > cameras(num_dems);
-    std::vector<ModelParams> model_params(num_images);
+    std::vector<std::vector<boost::shared_ptr<CameraModel>>> cameras(num_dems);
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
 
       cameras[dem_iter].resize(num_images);
@@ -4925,7 +4975,8 @@ int main(int argc, char* argv[]) {
     
         typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
         SessionPtr session(asp::StereoSessionFactory::create
-                           (opt.stereo_session_string, opt,
+                           (opt.stereo_session, // in-out
+                            opt,
                             opt.input_images[image_iter],
                             opt.input_images[image_iter],
                             opt.input_cameras[image_iter],
@@ -4936,15 +4987,20 @@ int main(int argc, char* argv[]) {
                  <<  opt.input_cameras[image_iter] << " for DEM clip " << dem_iter << ".\n";
         cameras[dem_iter][image_iter] = session->camera_model(opt.input_images[image_iter],
                                                               opt.input_cameras[image_iter]);
+
         if (dem_iter == 0) {
+          // Read the sun position from the camera if it is was not read from the list
+          if (model_params[image_iter].sunPosition == Vector3())
+            model_params[image_iter].sunPosition
+              = sun_position_from_camera(cameras[dem_iter][image_iter]);
+
+          // Sanity check
+          if (model_params[image_iter].sunPosition == Vector3())
+            vw_throw(ArgumentErr()
+                     << "Could not read sun positions from list or from camera model files.\n");
+            
+          // Compute the azimuth and elevation
           double azimuth, elevation;
-          boost::shared_ptr<CameraModel> ucam = unadjusted_model(cameras[dem_iter][image_iter]);
-          IsisCameraModel* isis_cam = dynamic_cast<IsisCameraModel*>(ucam.get());
-          if (isis_cam == NULL)
-            vw_throw(ArgumentErr() << "Expecting an ISIS camera model.\n");
-          model_params[image_iter].sunPosition = isis_cam->sun_position();
-          std::cout.precision(18);
-          
           sun_angles(opt, dems[0][dem_iter], dem_nodata_val, geos[0][dem_iter],
                      cameras[dem_iter][image_iter],
                      model_params[image_iter].sunPosition,
@@ -4954,7 +5010,7 @@ int main(int argc, char* argv[]) {
           vw_out().precision(17); // Since the sun position has very big values
           vw_out() << "Sun position for: " << opt.input_images[image_iter] << " is "
                    << model_params[image_iter].sunPosition << "\n";
-          vw_out().precision(8); // Go back to usual precision
+          vw_out().precision(6); // Go back to usual precision
           
           vw_out() << "Sun azimuth and elevation for: "
                    << opt.input_images[image_iter] << " are " << azimuth
@@ -5041,8 +5097,6 @@ int main(int argc, char* argv[]) {
 
           boost::shared_ptr<CameraModel>
             exact_unadjusted_camera = exact_adjusted_camera.unadjusted_model();
-          if (dynamic_cast<IsisCameraModel*>(exact_unadjusted_camera.get()) == NULL)
-            vw_throw( ArgumentErr() << "Expecting an ISIS camera model.\n" );
 
           vw_out() << "Creating an approximate camera model for "
                    << opt.input_cameras[image_iter] << " and clip "
