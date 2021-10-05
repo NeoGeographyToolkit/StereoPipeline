@@ -16,7 +16,6 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# TODO: Use relative symbolic links.
 # TODO: The same behavior as bundle adjust should be used when dealing
 # with pre-existing match files. This tool recreates them if cannot
 # find them in the subdirectory for each subtask even though they
@@ -234,13 +233,20 @@ def distribute_files(output_prefix, ext, num_instances):
     if ext == '.match':
 
         for pre in sub_prefixes:
-            files = glob.glob(pre+'*'+ext)
-            for f in files:
-                base_name = f.replace(pre,'')
-                new_path  = output_prefix + base_name
 
-                if not os.path.lexists(new_path):
-                    os.symlink(os.path.abspath(f), os.path.abspath(new_path))
+            # Sym link match files from subdirectories to the output directory.
+            # This takes a lot of care to get right.
+            files = glob.glob(pre + '*' + ext)
+            for f in files:
+                src_file = os.path.relpath(f, output_folder)
+                dst_file = os.path.join(output_folder, os.path.basename(f))
+
+                # First wipe any existing file
+                if os.path.exists(dst_file):
+                   os.remove(dst_file)
+
+                # Create sym link
+                os.symlink(src_file, dst_file)
 
     else: # Stats files
         # Find all the statistics files

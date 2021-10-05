@@ -71,6 +71,8 @@ Misc:
     point cloud triangulation errors multiplied by this factor and
     clamped appropriately to be stored in the 2-byte intensity field
     in the LAS file.
+  * Make symlinks relative in parallel_bundle_adjust for portability.
+
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------
