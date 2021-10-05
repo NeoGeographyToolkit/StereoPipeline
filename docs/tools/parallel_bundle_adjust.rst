@@ -39,9 +39,5 @@ Command-line options for parallel_bundle_adjust:
 --processes <integer>
     The number of processes to use per node.
 
---threads-multiprocess <integer>
-    The number of threads to use per process.
-
---threads-singleprocess <integer>
-    The number of threads to use when running a single process (for
-    pre-processing and filtering).
+--threads <integer>
+    The number of threads to use.

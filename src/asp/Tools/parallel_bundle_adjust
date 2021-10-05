@@ -96,8 +96,8 @@ def get_best_procs_threads(step):
 
     # Same for the number of threads.
     num_threads = 1
-    if opt.threads_multi is not None:
-        num_threads = opt.threads_multi
+    if opt.threads is not None:
+        num_threads = opt.threads
 
     if opt.verbose:
         print("For stage %d, using %d threads and %d processes." %
@@ -133,18 +133,18 @@ def spawn_to_nodes(step, argsIn):
 
     num_instances = get_num_instances(args)
 
-    if opt.processes is None or opt.threads_multi is None:
+    if opt.processes is None or opt.threads is None:
         # The user did not specify these. We will find the best
         # for their system.
         (procs, threads) = get_best_procs_threads(step)
     else:
         procs   = opt.processes
-        threads = opt.threads_multi
+        threads = opt.threads
 
     wipe_option(args, '--processes', 1)
-    wipe_option(args, '--threads-multiprocess', 1)
+    wipe_option(args, '--threads', 1)
     args.extend(['--processes', str(procs)])
-    args.extend(['--threads-multiprocess', str(threads)])
+    args.extend(['--threads', str(threads)])
     args.extend(['--instance-count', str(num_instances)])
 
     # For convenience store the instance index list in a file that
@@ -180,8 +180,8 @@ def spawn_to_nodes(step, argsIn):
     if opt.isisdata is not None: args_str += " --isisdata " + opt.isisdata
     args_str += " --instance-index {}"
     cmd += [args_str]
-
-    generic_run(cmd, opt.verbose)
+    
+    asp_system_utils.generic_run(cmd, opt.verbose)
 
 def run_job(prog, args, instance_index, **kw):
     '''Wrapper to run a command.
@@ -192,15 +192,15 @@ def run_job(prog, args, instance_index, **kw):
     call.extend(args)
 
     if instance_index < 0: # Only one instance will be used
-        if opt.threads_single is not None:
+        if opt.threads is not None:
             wipe_option(call, '--threads', 1)
-            call.extend(['--threads', str(opt.threads_single)])
+            call.extend(['--threads', str(opt.threads)])
 
     else: # One of the parallel jobs
 
-        if opt.threads_multi is not None:
+        if opt.threads is not None:
             wipe_option(call, '--threads', 1)
-            call.extend(['--threads', str(opt.threads_multi)])
+            call.extend(['--threads', str(opt.threads)])
 
         if '--stop-after-statistics' not in args:
             # Update the output prefix for this instance
@@ -276,11 +276,8 @@ if __name__ == '__main__':
                  'If not provided, run on the local machine.')
     p.add_argument('--processes',            dest='processes', default=None,
                  type=int, help='The number of processes to use per node.')
-    p.add_argument('--threads-multiprocess', dest='threads_multi', default=None,
-                 type=int, help='The number of threads to use per process.')
-    p.add_argument('--threads-singleprocess',dest='threads_single', default=None,
-                 type=int,
-                 help='The number of threads to use when running a single process (PPRC and FLTR).')
+    p.add_argument('--threads', dest='threads', default=None,
+                 type=int, help='The number of threads to use.')
     p.add_argument('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Step to start with (statistics=0, matching=1, optimization=2).',
                  type=int)
@@ -322,9 +319,8 @@ if __name__ == '__main__':
     # Ensure our 'parallel' is not out of date
     check_parallel_version()
 
-    if opt.threads_single is None:
-        opt.threads_single = get_num_cpus()
-
+    if opt.threads is None:
+        opt.threads = get_num_cpus()
 
     if opt.instance_index is None:
         # When the script is started, set some options from the
