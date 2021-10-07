@@ -202,9 +202,10 @@ Command-line options:
     elevation for the images, and exit. Invoked from parallel_sfs.
 
 -t, --session-type <string (default: "")>
-    Select the session type to use for processing. Usually it is
-    auto-guessed and need not be specified. See
-    :numref:`parallel_stereo` for options.
+    Select the stereo session type to use for processing. Usually
+    the program can select this automatically by the file extension, 
+    except for xml cameras. See :numref:`parallel_stereo_options` for
+    options.
  
 --camera-position-step-size <integer (default: 1)>
     Larger step size will result in more aggressiveness in varying

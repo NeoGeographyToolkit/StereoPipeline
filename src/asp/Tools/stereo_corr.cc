@@ -219,7 +219,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
       // Filter D_sub.
       if (stereo_settings().outlier_removal_params[0] < 100.0 &&
-          opt.stereo_session_string != "pinhole"              && // this one has no datum 
+          opt.stereo_session != "pinhole"              && // this one has no datum 
           (stereo_settings().alignment_method == "homography" ||
            stereo_settings().alignment_method == "affineepipolar" ||
            stereo_settings().alignment_method == "local_epipolar")) {

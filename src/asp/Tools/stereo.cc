@@ -278,8 +278,8 @@ namespace asp {
     
     po::options_description general_options_sub("");
     general_options_sub.add_options()
-      ("session-type,t",      po::value(&opt.stereo_session_string),
-                              "Select the stereo session type to use for processing. [options: nadirpinhole pinhole isis dg rpc spot5 aster perusat opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm]")
+      ("session-type,t",      po::value(&opt.stereo_session),
+                              "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
       ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"),
        "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
 
@@ -560,7 +560,8 @@ namespace asp {
     
     // The StereoSession call automatically determines the type of
     // object to create from the input parameters.
-    opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,// i/o
+    opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session, // can change
+                                                        opt,
                                                         opt.in_file1,   opt.in_file2,
                                                         opt.cam_file1,  opt.cam_file2,
                                                         opt.out_prefix, opt.input_dem));

@@ -405,9 +405,9 @@ void load_camera_and_find_ip(Options const& opt,
                              boost::shared_ptr<CameraModel> &cam) {
 
   std::string out_prefix = "tmp-prefix";
-  std::string stereo_session_string = "pinhole";
+  std::string stereo_session = "pinhole";
   float nodata1, nodata2;
-  SessionPtr session(asp::StereoSessionFactory::create(stereo_session_string, opt,
+  SessionPtr session(asp::StereoSessionFactory::create(stereo_session, opt,
                                                        opt.raw_image, opt.ortho_image,
                                                        opt.input_cam, opt.input_cam,
                                                        out_prefix));

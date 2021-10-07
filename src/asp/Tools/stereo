@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
     p = argparse.ArgumentParser(usage=usage)
     p.add_argument('-t', '--session-type',   dest='session',
-                 help='Select the stereo session type to use for processing. Options: nadirpinhole pinhole isis dg rpc spot5 aster perusat opticalbar csm pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc opticalbarmapopticalbar csmmapcsm.')
+                 help='Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.')
     p.add_argument('-s', '--stereo-file',    dest='stereo_file',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. Default: ./stereo.default.')
     p.add_argument('--corr-seed-mode',    dest='seed_mode', default=None,

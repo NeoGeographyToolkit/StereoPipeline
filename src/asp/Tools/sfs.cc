@@ -3763,7 +3763,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("query",   po::bool_switch(&opt.query)->default_value(false)->implicit_value(true),
      "Print some info and exit. Invoked from parallel_sfs.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     "Select the session type to use for processing. Usually it is auto-guessed.")
+     "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("save-sparingly",   po::bool_switch(&opt.save_sparingly)->default_value(false)->implicit_value(true),
      "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
     ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),

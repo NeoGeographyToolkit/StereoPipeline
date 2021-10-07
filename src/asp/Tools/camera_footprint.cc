@@ -65,7 +65,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-kml", po::value(&opt.output_kml),
      "Create an output KML file at this path.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm.")
+     "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
     // TODO: Support this feature!

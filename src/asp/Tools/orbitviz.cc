@@ -49,7 +49,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   Options() : seperate_camera_files(true) {}
   // Input
   std::vector<std::string> input_files;
-  std::string stereo_session_string, path_to_outside_model, bundle_adjust_prefix;
+  std::string stereo_session, path_to_outside_model, bundle_adjust_prefix;
 
   // Settings
   bool seperate_camera_files, write_csv, load_camera_solve, hide_labels;
@@ -184,8 +184,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     // The KML class applies a model scale of 3000 * this value.
     ("model-scale",             po::value(&opt.model_scale)->default_value(1.0/30.0),
           "Scale factor applied to 3D model size.")
-    ("session-type,t",          po::value(&opt.stereo_session_string),
-          "Select the stereo session type to use for processing. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm.")
+    ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
+     "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("load-camera-solve",       po::bool_switch(&opt.load_camera_solve)->default_value(false)->implicit_value(true),
           "Load the results from a run of the camera-solve tool. The only positional argument must be the path to the camera-solve output folder.")
     ("write-csv", po::bool_switch(&opt.write_csv)->default_value(false),
@@ -245,7 +245,7 @@ int main(int argc, char* argv[]) {
       first_camera = camera_files[0];
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     SessionPtr session
-      (asp::StereoSessionFactory::create(opt.stereo_session_string, // may change inside
+      (asp::StereoSessionFactory::create(opt.stereo_session, // may change inside
                                          opt,
                                          first_image, first_image,
                                          first_camera, first_camera
@@ -292,7 +292,7 @@ int main(int argc, char* argv[]) {
       // This is so clumsy, a new stereo session needs to be loaded for each
       // input camera.
       SessionPtr session
-        (asp::StereoSessionFactory::create(opt.stereo_session_string, // may change inside
+        (asp::StereoSessionFactory::create(opt.stereo_session, // may change inside
                                            opt,
                                            image_files[i],  image_files[i],
                                            camera_files[i], camera_files[i]

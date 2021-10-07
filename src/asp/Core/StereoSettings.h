@@ -39,7 +39,7 @@ namespace asp {
                 extra_argument1, extra_argument2, extra_argument3;
 
     // Settings
-    std::string stereo_session_string,
+    std::string stereo_session,
                 stereo_default_filename;
     boost::shared_ptr<asp::StereoSession> session; // Used to extract cameras
     // Output

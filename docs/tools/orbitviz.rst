@@ -58,8 +58,9 @@ Command-line options for orbitviz:
     - Moon (alias for D_MOON)
 
 -t, --session-type <string>
-    Select the stereo session type to use for processing. Options:
-    nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm.
+    Select the input camera model type. Normally this is auto-detected,
+    but may need to be specified if the input camera model is in
+    XML format. See :numref:`parallel_stereo_options` for options.
 
 --load-camera-solve
     Use a specialized display for showing the results of the

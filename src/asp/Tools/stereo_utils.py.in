@@ -108,21 +108,6 @@ def clean_args(args):
         argsout.append(arg.replace('//','/'))
     return argsout
 
-
-# TODO: Move this to asp_system_utils
-# A very simple wrapper around subprocess
-def generic_run(cmd, verbose):
-    cmd_str = asp_string_utils.argListToString(cmd)
-    if verbose:
-        print(cmd_str)
-
-    try:
-        code = subprocess.call(cmd)
-    except OSError as e:
-        raise Exception('%s: %s' % (cmd_str, e))
-    if code != 0:
-            raise Exception('Failed to run: ' + cmd_str)
-
 def get_option(options, opt, n):
     # In the array 'options', find and return the entry with value 'opt'
     #  and the next n values.
@@ -340,7 +325,7 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
         cmd = [python_path] + local_args
         # Go on even if some of the runs fail
         try:
-            generic_run(cmd, verbose)
+            asp_system_utils.generic_run(cmd, verbose)
         except:
             pass
 
@@ -353,7 +338,7 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
     local_args.extend(['--stop-point', str(local_stop)])
     local_args.extend(extra_args)
     cmd = [python_path] + local_args
-    generic_run(cmd, verbose)
+    asp_system_utils.generic_run(cmd, verbose)
 
     # Here we ensure that in the run directory
     # the L.tif file is present, by sym-linking

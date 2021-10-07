@@ -98,6 +98,9 @@ Step 5 (Triangulation)
     Runs ``stereo_tri``. Generates a 3D triangulated point cloud from
     the disparity map by intersecting rays traced from the cameras.
 
+
+.. _parallel_stereo_options:
+
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -107,8 +110,8 @@ Command-line options
 
 -t, --session-type <string>
     Select the stereo session type to use for processing. Usually the
-    program can select this automatically by the file extension.
-    Options:
+    program can select this automatically by the file extension except
+    for xml cameras. Options:
     
     - nadirpinhole
     - pinhole

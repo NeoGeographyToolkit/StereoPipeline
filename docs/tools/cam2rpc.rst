@@ -22,8 +22,10 @@ terrain models from ASP can be then mosaicked together using
 
 Example for ISIS cub cameras for Mars::
 
-    cam2rpc input.cub output.xml --session-type isis --datum D_MARS --save-tif-image \
-      --height-range -10000 -9000 --lon-lat-range 141.50 34.43 141.61 34.15          \
+    cam2rpc input.cub output.xml --session-type isis    \
+      --datum D_MARS --save-tif-image                   \
+      --height-range -10000 -9000                       \
+      --lon-lat-range 141.50 34.43 141.61 34.15         \
       --num-samples 40 --penalty-weight 0.03 --gsd 1
 
 Example for pinhole cameras, where instead of sampling a lon-lat-height
@@ -31,7 +33,7 @@ box, values from a DEM are used.
 
 ::
 
-    cam2rpc input.tif input.tsai output.xml --session-type nadirpinhole             \
+    cam2rpc input.tif input.tsai output.xml --session-type nadirpinhole   \
       --dem-file DEM.tif --save-tif-image --image-crop-box 90 70 5511 3675
 
 Here we have constrained the RPC camera model and output image to not go
@@ -106,8 +108,7 @@ Command-line options for cam2rpc:
 -t, --session-type <string>
     Select the input camera model type. Normally this is auto-detected,
     but may need to be specified if the input camera model is in
-    XML format. Options: nadirpinhole pinhole isis dg rpc spot5
-    aster opticalbar csm.
+    XML format. See :numref:`parallel_stereo_options` for options.
 
 --bundle-adjust-prefix <string>
     Use the camera adjustment obtained by previously running

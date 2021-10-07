@@ -412,5 +412,17 @@ def executeCommand(cmd,
 
     return (out, err, status)
     
-    
+# A very simple wrapper around subprocess
+def generic_run(cmd, verbose):
+    cmd_str = asp_string_utils.argListToString(cmd)
+    if verbose:
+        print(cmd_str)
+
+    try:
+        code = subprocess.call(cmd)
+    except OSError as e:
+        raise Exception('%s: %s' % (cmd_str, e))
+    if code != 0:
+            raise Exception('Failed to run: ' + cmd_str)
+
     

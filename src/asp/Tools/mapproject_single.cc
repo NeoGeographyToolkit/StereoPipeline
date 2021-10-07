@@ -73,9 +73,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("datum-offset",     po::value(&opt.datum_offset)->default_value(0),
      "When projecting to a datum instead of a DEM, use this elevation in meters from the datum.")
     ("query-projection", po::bool_switch(&opt.isQuery)->default_value(false),
-      "Just display the computed projection information without actually doing the projection.")
-    ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     "Select the stereo session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. [options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm]")
+     "Just display the computed projection information without actually doing the projection.")
+    ("session-type,t",      po::value(&opt.stereo_session),
+     "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("t_projwin",        po::value(&opt.target_projwin),
      "Limit the map-projected image to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
     ("t_pixelwin",       po::value(&opt.target_pixelwin),

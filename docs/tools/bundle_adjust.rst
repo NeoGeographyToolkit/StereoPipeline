@@ -196,9 +196,9 @@ Command-line options for bundle_adjust:
 
 -t, --session-type <string>
     Select the stereo session type to use for processing. Usually
-    the program can select this automatically by the file extension.
-    Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar
-    csm.
+    the program can select this automatically by the file extension, 
+    except for xml cameras. See :numref:`parallel_stereo_options` for
+    options.
 
 --min-matches <integer (default: 30)>
     Set the minimum number of matches between images that will be considered.

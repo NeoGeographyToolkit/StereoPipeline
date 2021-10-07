@@ -91,8 +91,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Set the image input nodata value.")
     ("output-nodata-value", po::value(&opt.output_nodata_value)->default_value(nan),
      "Set the image output nodata value. If not specified, the input nodata value will be used.")
-    ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm.")
+    ("session-type,t",      po::value(&opt.stereo_session),
+     "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
     ("image-crop-box", po::value(&opt.image_crop_box)->default_value(BBox2i(0,0,0,0), "0 0 0 0"),

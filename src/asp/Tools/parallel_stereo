@@ -460,7 +460,7 @@ def spawn_to_nodes(step, settings, args):
     args_str += " --tile-id {}"
     cmd += [args_str]
 
-    generic_run(cmd, opt.verbose)
+    asp_system_utils.generic_run(cmd, opt.verbose)
 
 def tile_run(prog, args, settings, tile, **kw):
     '''Job launch wrapper for a single tile'''

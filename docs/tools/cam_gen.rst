@@ -25,11 +25,11 @@ Usage::
 
 Example::
 
-     cam_gen --refine-camera --lon-lat-values                                \
-       '-122.389 37.6273,-122.354 37.626,-122.358 37.6125,-122.393 37.6138'  \
-        --reference-dem dem.tif --focal-length 553846.153846                 \
-        --optical-center 1280 540 --pixel-pitch 1                            \
-        img.tif -o img.tsai --gcp-file img.gcp --gcp-std 1e-2                \
+     cam_gen --refine-camera --lon-lat-values                             \
+       '-122.389 37.627,-122.354 37.626,-122.358 37.612,-122.393 37.613'  \
+        --reference-dem dem.tif --focal-length 553846.153846              \
+        --optical-center 1280 540 --pixel-pitch 1                         \
+        img.tif -o img.tsai --gcp-file img.gcp --gcp-std 1e-2             \
 
 Here we assume that the pixel pitch is 1, hence both the focal length
 and the optical center are in units of pixels. If the focal length and
@@ -169,8 +169,7 @@ Command-line options for cam_gen:
 -t, --session-type <string>
     Select the input camera model type. Normally this is auto-detected,
     but may need to be specified if the input camera model is in
-    XML format. Options: nadirpinhole, pinhole, isis, dg, rpc, spot5,
-    aster, opticalbar, csm.
+    XML format. See :numref:`parallel_stereo_options` for options.
 
 --bundle-adjust-prefix <path>
     Use the camera adjustment obtained by previously running
