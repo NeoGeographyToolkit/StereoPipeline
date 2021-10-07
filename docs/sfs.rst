@@ -532,11 +532,21 @@ terrain, in this case the LOLA gridded DEM, as such a DEM has values in
 permanently shadowed regions. The terrain size is 5 km by 5 km at 1
 meter/pixel (we also ran a 10 km by 10 km region in the same location).
 
-Here the topography is very steep, the shadows are very long and vary
-drastically from image to image, and some portions of the terrain show
-up only in some images. All this makes it very hard to register images
-to each other and to the ground. We solved this by choosing very
-carefully a large set of representative images.
+It is important to note that this LOLA DEM was rather coarse, and for
+that reason it appeared much smoother than it was, which resulted in
+image exposures being overestimated and SfS created terrain with
+craters that were shallower than what they should be, by a factor of 2
+or more. To make the craters deeper one can re-run SfS with the
+``--image-exposures-prefix`` option, with the exposures in that file
+being half the values than what SfS estimates based on the input LOLA
+terrain.
+
+Another difficulty here is that the topography is very steep, the
+shadows are very long and vary drastically from image to image, and
+some portions of the terrain show up only in some images. All this
+makes it very hard to register images to each other and to the
+ground. We solved this by choosing very carefully a large set of
+representative images.
 
 We recommend that the process outlined below first be practiced
 with just a couple of images on a small region, which will make it much
