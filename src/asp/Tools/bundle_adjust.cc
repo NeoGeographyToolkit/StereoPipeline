@@ -69,9 +69,8 @@ void saveResults(Options const& opt, BAParamStorage const& param_storage) {
 
       // For CSM camera models export, in addition, the JSON state
       // with the adjustment applied to it.
-      if (opt.stereo_session_string == "csm")
+      if (opt.stereo_session == "csm")
         write_csm_output_file(opt, icam, adjust_file, param_storage);
-      
     }
     
   } // End loop through cameras
@@ -365,7 +364,9 @@ void write_residual_map(std::string const& output_prefix,
   std::string output_path = output_prefix + ".csv";
 
   if (opt.datum.name() == UNSPECIFIED_DATUM) {
-    vw_out(WarningMessage) << "No datum specified, can't write file: " << output_path << std::endl;
+    vw_out(WarningMessage) << "No datum specified, can't write file: " << output_path << ". "
+                           << "With Earth satellite images add the option '-t nadirpinhole' "
+                           << "to use the WGS84 datum, or else specify '--datum <planet name>'.\n";
     return;
   }
   if (mean_residuals.size() != param_storage.num_points())
@@ -856,6 +857,10 @@ int do_ba_ceres_one_pass(Options             & opt,
   const int num_cameras = param_storage.num_cameras();
   const int num_points  = param_storage.num_points();
 
+  if ((int)crn.size() != num_cameras) 
+    vw_throw(ArgumentErr() << "Book-keeping error, the size of CameraRelationNetwork "
+             << "must equal the number of images.\n");
+ 
   convergence_reached = true;
   
   // Add the cost function component for difference of pixel observations
@@ -881,7 +886,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     create_interp_dem(opt.heights_from_dem, dem_georef, interp_dem);
   
   // TODO: Stop using the CRN, store residual blocks in point-major order?
-  
+
   // Add the various cost functions the solver will optimize over.
   std::vector<size_t> cam_residual_counts(num_cameras);
   typedef CameraNode<JFeature>::iterator crn_iter;
@@ -952,7 +957,7 @@ int do_ba_ceres_one_pass(Options             & opt,
       cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
     } // end iterating over points
   } // end iterating over cameras
-  
+
   // Add ground control points
   // - Error goes up as GCP's move from their input positions.
   int    num_gcp = 0;
@@ -1034,7 +1039,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     }
   }
 
-  // TODO: Can we split out this giant section?
+  // TODO(oalexan1): Can we split out this giant section?
   // Add a cost function meant to tie up to known disparity
   // form left to right image and known ground truth reference terrain.
   // This was only tested for local pinhole cameras.
@@ -1176,7 +1181,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     tpc.report_finished();
     vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
   } // End if (opt.reference_terrain != "")
-  
+
   const size_t MIN_KML_POINTS = 50;
   size_t kmlPointSkip = 30;
   // Figure out a good KML point skip aount
@@ -1229,7 +1234,7 @@ int do_ba_ceres_one_pass(Options             & opt,
     options.callbacks.push_back(&callback);
     options.update_state_every_iteration = true;
   }
-  
+
   // Set solver options according to the recommendations in the Ceres solving FAQs
   options.linear_solver_type = ceres::SPARSE_SCHUR;
   if (num_cameras < 100)
@@ -1295,7 +1300,7 @@ int do_ba_ceres_one_pass(Options             & opt,
   // make sure the clean match files are written at least once.
   if (opt.num_ba_passes > 1) 
     remove_outliers(cnet, param_storage, opt);
-  
+
   return num_new_outliers;
 } // End function do_ba_ceres_one_pass
 
@@ -1670,8 +1675,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Explicitly set the datum semi-major axis in meters (see above).")
     ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
      "Explicitly set the datum semi-minor axis in meters (see above).")
-    ("session-type,t",   po::value(&opt.stereo_session_string)->default_value(""),
-     "Select the stereo session type to use for processing. Options: nadirpinhole pinhole isis dg rpc spot5 aster opticalbar csm. Usually the program can select this automatically by the file extension.")
+    ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
+     "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
      "Set the minimum  number of matches between images that will be considered.")
     ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
@@ -1841,32 +1846,34 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Missing input image files.\n"
                             << usage << general_options );
 
-
+  // TODO(oalexan1): This duplicates logic from StereoSessionFactory.cc.
+  // But need to ensure nothing breaks below.
+  
   // Work out the camera model type to use
-  boost::to_lower(opt.stereo_session_string);
+  boost::to_lower(opt.stereo_session);
   opt.camera_type = BaCameraType_Other;
   if (inline_adjustments) {
 
     // Try to guess the session 
-    if (opt.stereo_session_string == ""){
+    if (opt.stereo_session == ""){
       try {
         // If we can open a pinhole camera file, that means
         // we are good. We prefer nadirpinhole to pinhole
         // session.
         PinholeModel(opt.camera_files[0]);
-        opt.stereo_session_string = "nadirpinhole";
+        opt.stereo_session = "nadirpinhole";
       }catch(std::exception const& e){}
     }
     
-    if ((opt.stereo_session_string == "pinhole") || 
-        (opt.stereo_session_string == "nadirpinhole")) {
+    if ((opt.stereo_session == "pinhole") || 
+        (opt.stereo_session == "nadirpinhole")) {
       opt.camera_type = BaCameraType_Pinhole;
     } else {
-      if (opt.stereo_session_string == "opticalbar")
+      if (opt.stereo_session == "opticalbar")
         opt.camera_type = BaCameraType_OpticalBar;
       else
         vw_throw( ArgumentErr() << "Cannot use inline adjustments with session: "
-                  << opt.stereo_session_string << "\n"
+                  << opt.stereo_session << "\n"
                                 << usage << general_options );
     }
   } // End resolving the model type
@@ -2035,13 +2042,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // pinhole session as that one could be used with rovers on the
   // ground, and the datum does not make sense.
   if (opt.datum_str == "") {
-    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, // may change
+    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
                                                          opt,
                                                          opt.image_files [0], opt.image_files [0],
                                                          opt.camera_files[0], opt.camera_files[0],
                                                          opt.out_prefix));
     
-    if (opt.stereo_session_string != "pinhole") {
+    if (opt.stereo_session != "pinhole") {
       bool use_sphere_for_datum = false;
       opt.datum = session->get_datum(session->camera_model(opt.image_files [0],
                                                            opt.camera_files[0]).get(),
@@ -2452,8 +2459,9 @@ int main(int argc, char* argv[]) {
                                                 << opt.camera_files[i] << "\n";
 
       // The same camera is double-loaded into the same session instance.
-      // TODO: One day replace this with a simpler camera model loader class
-      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+      // TODO: One day replace this with a simpler camera model loader class.
+      // But note that this call also refines the stereo session name.
+      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, opt,
                                                            opt.image_files [i], opt.image_files [i],
                                                            opt.camera_files[i], opt.camera_files[i],
                                                            opt.out_prefix));
@@ -2635,7 +2643,7 @@ int main(int argc, char* argv[]) {
       if ((rsrc1->channels() > 1) || (rsrc2->channels() > 1))
         vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
       float nodata1, nodata2;
-      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, opt,
                                                            image1_path,  image2_path,
                                                            camera1_path, camera2_path,
                                                            opt.out_prefix));
