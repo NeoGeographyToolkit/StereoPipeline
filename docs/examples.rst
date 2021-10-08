@@ -1283,15 +1283,28 @@ results.
 
 .. _skysat:
 
-SkySat
-------
+SkySat Stereo and Video data
+----------------------------
 
-In this section we will discuss how to process the SkySat “Video”
-product.
+SkySat is a constellation of sub-meter resolution Earth observation
+satellites owned by Planet Labs. There are two type of SkySat
+products, ``Stereo`` and ``Video``, with each being made up of
+sequences of images. The ``Stereo`` products come with RPC cameras
+(embedded in the TIF image files) and individual pairs of stereo
+images are rather easy to process with ASP, following the example in
+:numref:`rpc`.
 
-It is very important to note that this is a very capricious dataset, so
-some patience will be needed to work with it. That is due to the
-following factors:
+If desired to do bundle adjustment before stereo, it is suggested to use 
+a high value of ``--camera-weight`` to prevent the cameras
+from moving too far. 
+
+A very informative paper on processing SkySat data with ASP is
+:cite:`bhushan2021automated`.
+
+The rest of this section will be concerned with the ``Video`` product,
+which is a set of images recorded together in quick sequence. This is
+a very capricious dataset, so some patience will be needed to work
+with it. That is due to the following factors:
 
 -  The baseline can be small, so the perspective of the left and right
    image can be too similar.
