@@ -50,6 +50,9 @@ struct Options : vw::cartography::GdalWriteOptions {
   bool isQuery, noGeoHeaderInfo, nearest_neighbor;
   bool multithreaded_model; // This is set based on the session type.
 
+  // Keep a copy of the model here to not have to pass it around separately
+  boost::shared_ptr<vw::camera::CameraModel> camera_model;
+  
   // Settings
   std::string target_srs_string, output_type, metadata;
   double nodata_value, tr, mpp, ppd, datum_offset;
@@ -87,7 +90,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       "Use nearest neighbor interpolation.  Useful for classification images.")
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
-     "Suppress writing some auxiliary information in geoheaders.");
+     "Do not write metadata information in the geoheader. See the doc for more info.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -151,12 +154,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 // If the output type is some type of int, round and clamp to this
 // type, both the pixels and the nodata-value. Else write as it is.
 template <class ImageT>
-void write_parallel_type( std::string              const& filename,
-                          ImageT                   const& image,
-                          GeoReference             const& georef,
-                          bool has_nodata, double nodata_val,
-                          Options                  const& opt,
-                          TerminalProgressCallback const& tpc ) {
+void write_parallel_type(std::string              const& filename,
+                         ImageT                   const& image,
+                         GeoReference             const& georef,
+                         bool has_nodata, double nodata_val,
+                         Options                  const& opt,
+                         TerminalProgressCallback const& tpc) {
 
   typedef typename ImageT::pixel_type InputType;
   
@@ -211,6 +214,7 @@ void write_parallel_cond(std::string              const& filename,
   // - Write the type of sensor model used, not the underlying session class.
   // There is no difference between pinhole and nadirpinhole when it comes
   // to how mapprojection happens, that becomes important only in stereo.
+  // TODO(oalexan1): This is fragile. Just keep the word after 'map'.
   std::string session_type = opt.stereo_session;
   if (session_type == "isismapisis")
     session_type = "isis";
@@ -218,17 +222,39 @@ void write_parallel_cond(std::string              const& filename,
     session_type = "rpc";
   if (session_type == "pinholemappinhole" || session_type == "nadirpinhole")
     session_type = "pinhole";
-
+  
   // Save some keywords that we will check later when using the mapprojected file
   std::map<std::string, std::string> keywords;
-  if (! opt.noGeoHeaderInfo) {
+  if (!opt.noGeoHeaderInfo) {
     keywords["CAMERA_MODEL_TYPE" ]    = session_type;
     std::string prefix = asp::stereo_settings().bundle_adjust_prefix;;
     if (prefix == "") prefix = "NONE"; // to save the field, need to make it non-empty
     keywords["BUNDLE_ADJUST_PREFIX" ] = prefix;
-    keywords["DEM_FILE" ]             = opt.dem_file;
 
-    // Parse keywords from --mo.
+    // Save the camera adjustment. That is an important record
+    // for how the image got mapprojected and is good to keep.
+    Vector3 t(0, 0, 0);
+    vw::Quaternion<double> q(1, 0, 0, 0);
+    vw::camera::AdjustedCameraModel * adj_cam
+      = dynamic_cast<vw::camera::AdjustedCameraModel*>(opt.camera_model.get());
+    if (adj_cam != NULL) {
+      q = adj_cam->rotation();
+      t = adj_cam->translation();
+    }
+    
+    std::ostringstream osq;
+    osq.precision(17);
+    osq << q.w() << "," << q.x() << "," << q.y() << "," << q.z();
+    keywords["ADJUSTMENT_QUATERNION"] = osq.str();
+    
+    std::ostringstream ost;
+    ost.precision(17);
+    ost << t.x() << "," << t.y() << "," << t.z();
+    keywords["ADJUSTMENT_TRANSLATION"] = ost.str();
+
+    keywords["DEM_FILE"] = opt.dem_file;
+    
+    // Parse keywords from the --mo option.
     asp::parse_append_metadata(opt.metadata, keywords);
   }
   
@@ -489,12 +515,12 @@ void project_image_nodata(Options & opt,
 /// Map project the image with an alpha channel.  Used for multi-channel images.
 template <class ImagePixelT, class Map2CamTransT>
 void project_image_alpha(Options & opt,
-                   GeoReference const& croppedGeoRef,
-                   Vector2i     const& virtual_image_size,
-                   BBox2i       const& croppedImageBB,
-                   boost::shared_ptr<camera::CameraModel> const& camera_model,
-                   Map2CamTransT const& transform) {
-
+                         GeoReference const& croppedGeoRef,
+                         Vector2i     const& virtual_image_size,
+                         BBox2i       const& croppedImageBB,
+                         boost::shared_ptr<camera::CameraModel> const& camera_model,
+                         Map2CamTransT const& transform) {
+  
     // Create handle to input image to be projected on to the map
     boost::shared_ptr<DiskImageResource> img_rsrc = 
           vw::DiskImageResourcePtr(opt.image_file);   
@@ -634,33 +660,34 @@ int main(int argc, char* argv[]) {
     // pipeline's ability to generate camera models for various
     // missions.  Hence, we create two identical camera models, but only one is used.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session( asp::StereoSessionFactory::create
-                        (opt.stereo_session, // in-out
-                         opt,
-                         opt.image_file, opt.image_file, // The same file is passed in twice
-                         opt.camera_file, opt.camera_file,
-                         opt.output_file,
-                         "", // Do not use a DEM to not make the session mapprojected
-                         false) ); // Do not allow promotion from normal to map projected session
-
+    SessionPtr session(asp::StereoSessionFactory::create
+                       (opt.stereo_session, // in-out
+                        opt,
+                        opt.image_file, opt.image_file, // The same file is passed in twice
+                        opt.camera_file, opt.camera_file,
+                        opt.output_file,
+                        "", // Do not use a DEM to not make the session mapprojected
+                        false)); // Do not allow promotion from normal to map projected session
+    
     if ( opt.output_file.empty() )
       vw_throw( ArgumentErr() << "Missing output filename.\n" );
 
     // Additional checks once the stereo session is determined.
     
-    if (opt.stereo_session == "dg" || opt.stereo_session == "perusat"){
-      vw_out(WarningMessage) << "Images map-projected using the '" << opt.stereo_session << "' camera model cannot be used later for stereo. If that is desired, please run mapproject with '-t rpc' and a camera file having an RPC model.\n";
-    }
+    if (opt.stereo_session == "dg" || opt.stereo_session == "perusat")
+      vw_out(WarningMessage) << "Images map-projected using the '" << opt.stereo_session
+                             << "' camera model cannot be used later for stereo. "
+                             << "If that is desired, please run mapproject with "
+                             << "'-t rpc' and a camera file having an RPC model.\n";
 
     // If nothing else works
+    // TODO(oalexan1): Likely StereoSessionFactory already have this logic.
     if (boost::iends_with(boost::to_lower_copy(opt.camera_file), ".xml") &&
-         opt.stereo_session == "" ){
+         opt.stereo_session == "" )
       opt.stereo_session = "rpc";
-    }
 
-    // Initialize a camera model
-    boost::shared_ptr<camera::CameraModel> camera_model =
-      session->camera_model(opt.image_file, opt.camera_file);
+    // Initialize the camera model
+    opt.camera_model = session->camera_model(opt.image_file, opt.camera_file);
 
     opt.multithreaded_model = session->supports_multi_threading();
       
@@ -685,7 +712,8 @@ int main(int argc, char* argv[]) {
 
       bool has_georef = vw::cartography::read_georeference(dem_georef, opt.dem_file);
       if (!has_georef)
-        vw_throw( ArgumentErr() << "There is no georeference information in: " << opt.dem_file << ".\n" );
+        vw_throw( ArgumentErr() << "There is no georeference information in: "
+                  << opt.dem_file << ".\n" );
 
       boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResourcePtr(opt.dem_file));
 
@@ -702,16 +730,17 @@ int main(int argc, char* argv[]) {
       std::string datum_name = opt.dem_file;
 
       // Use the camera center to determine whether to center the fake DEM on 0 or 180.
-      Vector3 llr_camera_loc =
-        cartography::XYZtoLonLatRadEstimateFunctor::apply( camera_model->camera_center(Vector2()) );
+      Vector3 cam_ctr = opt.camera_model->camera_center(Vector2());
+      Vector3 llr_camera_loc = cartography::XYZtoLonLatRadEstimateFunctor::apply(cam_ctr);
       float lonstart = 0;
       if ((llr_camera_loc[0] < 0) && (llr_camera_loc[0] > -180))
         lonstart = -180;
       dem_georef = GeoReference(Datum(datum_name),
-                                Matrix3x3(1,  0, lonstart-0.5, // Need adjustments to work at boundaries!
-                                          0, -1, 90+0.5,
-                                          0,  0,  1) );
-      dem = constant_view(PixelMask<float>(opt.datum_offset), 360, 180 );
+                                // Need adjustments to work at boundaries!
+                                vw::Matrix3x3(1,  0, lonstart-0.5,
+                                              0, -1, 90+0.5,
+                                              0,  0,  1) );
+      dem = constant_view(PixelMask<float>(opt.datum_offset), 360.0, 180.0);
       vw_out() << "\t--> Using flat datum \"" << datum_name << "\" as elevation model.\n";
       //std::cout << "dem_georef = " << dem_georef << std::endl;
     }
@@ -756,7 +785,7 @@ int main(int argc, char* argv[]) {
     Vector2i image_size      = vw::file_image_size(opt.image_file);
     BBox2    cam_box;
     calc_target_geom(// Inputs
-                     calc_target_res, image_size, camera_model,
+                     calc_target_res, image_size, opt.camera_model,
                      dem, dem_georef, datum_dem,
                      // Outputs
                      opt, cam_box, target_georef);
@@ -806,7 +835,7 @@ int main(int argc, char* argv[]) {
     // so we disable it here.  The check is very important for computing the bounding box safely
     // but we don't really need it when projecting the pixels back in to the camera.
     boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
-                boost::dynamic_pointer_cast<vw::camera::PinholeModel>(camera_model);
+                boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_model);
     if (pinhole_ptr)
       pinhole_ptr->set_do_point_to_pixel_check(false);
 
@@ -831,28 +860,28 @@ int main(int argc, char* argv[]) {
                                                               croppedGeoRef, image_size, 
                                                               Vector2i(virtual_image_width,
                                                                        virtual_image_height),
-                                                              croppedImageBB, camera_model);
+                                                              croppedImageBB, opt.camera_model);
         break;
       case VW_CHANNEL_INT16:
         project_image_alpha_pick_transform<PixelRGBA<int16> >(opt, dem_georef, target_georef,
                                                               croppedGeoRef, image_size, 
                                                               Vector2i(virtual_image_width,
                                                                        virtual_image_height),
-                                                              croppedImageBB, camera_model);
+                                                              croppedImageBB, opt.camera_model);
         break;
       case VW_CHANNEL_UINT16:
         project_image_alpha_pick_transform<PixelRGBA<uint16> >(opt, dem_georef, target_georef,
                                                                croppedGeoRef, image_size, 
                                                                Vector2i(virtual_image_width,
                                                                         virtual_image_height),
-                                                               croppedImageBB, camera_model);
+                                                               croppedImageBB, opt.camera_model);
         break;
       default:
         project_image_alpha_pick_transform<PixelRGBA<float32> >(opt, dem_georef, target_georef,
                                                                 croppedGeoRef, image_size, 
                                                                 Vector2i(virtual_image_width,
                                                                          virtual_image_height),
-                                                                croppedImageBB, camera_model);
+                                                                croppedImageBB, opt.camera_model);
         break;
       };
       
@@ -864,7 +893,7 @@ int main(int argc, char* argv[]) {
       project_image_nodata_pick_transform<float>(opt, dem_georef, target_georef, croppedGeoRef,
                                                  image_size, 
                            Vector2i(virtual_image_width, virtual_image_height),
-                           croppedImageBB, camera_model);
+                           croppedImageBB, opt.camera_model);
     } 
     // Done map projecting!
 

@@ -72,7 +72,8 @@ Misc:
     clamped appropriately to be stored in the 2-byte intensity field
     in the LAS file.
   * Make symlinks relative in parallel_bundle_adjust for portability.
-
+  * The mapprojected image saves as metatdata the adjustments it was
+    created with.
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------
