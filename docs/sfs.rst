@@ -562,9 +562,9 @@ meter/pixel one, resampled to 1 meter/pixel, creating a DEM named
     wget http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
     pds2isis from = LDEM_80S_20M.LBL to = ldem_80s_20m.cub
     image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
-    gdal_translate -projwin -7050.500 -5759.500 -1919.500 -10890.500 \
-      ldem_80s_20m_scale.tif ldem_80s_20m_scale_crop.tif
-    gdalwarp -r cubicspline -tr 1 1 ldem_80s_20m_scale_crop.tif ref.tif
+    gdalwarp -overwrite -r cubicspline -tr 1 1 -co COMPRESSION=LZW   \
+      -te -7050.500 -10890.500 -1919.500 -5759.500                   \
+      ldem_80s_20m_scale.tif ref.tif
 
 Note that we scaled its heights by 0.5 per the information in the LBL
 file. The documentation of your DEM needs to be carefully studied to
@@ -581,19 +581,11 @@ be computed at integer multiples of this grid. Given that the grid
 size is 1 m, the extent of those images as displayed by ``gdalinfo``
 will have a fractional value of 0.5. It is very recommended to have
 ``gdalwarp`` above produce a result on the same grid (for when
-``sfs_blend`` is used later). Hence, as an example (taken from a
-different dataset), if the extent of the file output by this command
-is::
+``sfs_blend`` is used later). Hence, ``gdalwarp`` was used
+with the ``-te`` option, with the bounds having a fractional part of 0.5.
+Note that the bounds passed to ``-te`` are in the order::
 
-    638.299 -2350.859 1596.299 -1493.859 
-
-(the order is xmin, ymin, xmax, ymax), the gdalwarp command better
-be rerun with the option::
-
-    -te 638.5 -2350.5 1595.5 -1494.5
-
-so we increase the min values to have a fractional value of 0.5 and
-decrease the max values for the same purpose.
+    xmin, ymin, xmax, ymax
 
 By far the hardest part of this exercise is choosing the images. We
 downloaded several hundred of them by visiting the web site noted
