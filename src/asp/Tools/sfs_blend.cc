@@ -143,12 +143,15 @@ public:
     // The grassfire weight positive in the lit region, with zero at the light-shadow
     // boundary
     bool no_zero_at_border = true; // don't decrease the weights to zero at image border
+
+    // Fill small holes that we don't blend in those, then compute the distance
+    // to the remaining holes
     ImageView<pixel_type> lit_grass_dist
       = vw::grassfire(vw::copy(vw::fill_holes_grass(mask, m_opt.min_blend_size)),
                       no_zero_at_border);
 
-    // The grassfire weights positive in the shadow region, with zero at the light-shadow
-    // boundary
+    // The grassfire weights are positive in the shadow region, with
+    // zero at the light-shadow boundary
     ImageView<pixel_type> shadow_grass_dist = vw::grassfire(inv_mask, no_zero_at_border);
 
     // Find the clamped signed distance to the boundary. Note that our
@@ -232,7 +235,10 @@ public:
           blended_dem(col, row) = m_sfs_nodata;
         else
           blended_dem(col, row) = m_weight_nodata;
-          
+
+        // The signed distance to the boundary is modified so that the smallest
+        // value is 0, the largest is 1, and in a band close to the boundary it
+        // transitions from 0 to 1.
         float weight = (dist_to_bd(col, row) + m_opt.shadow_blend_length) /
           (m_opt.shadow_blend_length + m_opt.lit_blend_length);
 
@@ -345,7 +351,7 @@ int main(int argc, char *argv[]) {
     
     if (sfs_dem.cols() != image_mosaic.cols() || sfs_dem.rows() != image_mosaic.rows())
       vw_throw(ArgumentErr() << "The SfS DEM and image mosaic must have the same dimensions.");
-    
+
     GeoReference sfs_georef   = read_georef(opt.sfs_dem);
     GeoReference lola_georef  = read_georef(opt.lola_dem);
     GeoReference image_georef = read_georef(opt.max_lit_image_mosaic);
@@ -353,6 +359,14 @@ int main(int argc, char *argv[]) {
         sfs_georef.proj4_str() != image_georef.proj4_str())
       vw_throw(ArgumentErr() << "The SfS DEM, LOLA DEM, and image mosaic "
                << "must have the same PROJ4 string.");
+
+    // All these must be on the same grid, or else the blending will be wrong
+    vw::Vector2 sfs_corner = sfs_georef.pixel_to_point(Vector2(0, 0));
+    vw::Vector2 lola_corner = lola_georef.pixel_to_point(Vector2(0, 0));
+    vw::Vector2 image_corner = image_georef.pixel_to_point(Vector2(0, 0));
+    if (sfs_corner != lola_corner || sfs_corner != image_corner) 
+      vw_throw(ArgumentErr() << "The SfS DEM, LOLA DEM, and image mosaic "
+               << "must be on the same grid.");
 
     float sfs_nodata = -1.0, lola_nodata = -1.0, image_nodata = -1.0;
     DiskImageResourceGDAL sfs_rsrc(opt.sfs_dem);
