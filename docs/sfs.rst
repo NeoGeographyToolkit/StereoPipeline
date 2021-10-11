@@ -973,8 +973,8 @@ values contribute to the solution. The weight function is the
 truncated signed Euclidean distance to the boundary, scaled to have
 values between 0 and 1, then blurred with a Gaussian kernel with the
 above-mentioned sigma. No blending happens for unlit regions of
-dimensions less than `--min-blend-size`. See :numref:`sfs_blend` for
-more details.
+dimensions less than `--min-blend-size`, where the SfS DEM is
+kept. See :numref:`sfs_blend` for more details.
 
 (Note that if one tries to blend an SfS terrain obtained after
 ``pc_align``, that won't have the same extent as the LOLA terrain,
