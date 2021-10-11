@@ -965,7 +965,7 @@ invoking SfS should be used).
 The outputs are the blended DEM as described earlier, and the weight
 which tells how much the SfS DEM contributed to the blended DEM. That
 weight equals to 1 where only the SfS DEM was used, is between 0 and 1
-in the transition region betwhen the lit and no-lit areas, which is
+in the transition region between the lit and no-lit areas, which is
 determined by the values of the ``--lit-blend-length`` and
 ``--shadow-blend-length`` parameters (it grows somewhat depending on
 the value of ``--weight-blur-sigma``), and is 0 where only the LOLA
