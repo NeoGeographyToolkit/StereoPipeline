@@ -32,12 +32,14 @@ Command-line options:
 --lit-blend-length <float>
     The length, in pixels, over which to blend the SfS and LOLA DEMs
     at the boundary of the permanently shadowed region towards the lit
-    region.
+    region. Because of the weight blur below, the effective blending
+    length can be somewhat bigger than this.
 
 --shadow-blend-length <float>
     The length, in pixels, over which to blend the SfS and LOLA DEMs
     at the boundary of the permanently shadowed region towards the
-    shadowed region.
+    shadowed region. Because of the weight blur below, the effective
+    blending length can be somewhat bigger than this.
 
 --weight-blur-sigma <float (default 0)> 
     The standard deviation of the Gaussian used to blur the weight

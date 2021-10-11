@@ -955,15 +955,26 @@ original LOLA DEM, with a transition region. That can be done as::
     sfs_blend --lola-dem lola_dem.tif --sfs-dem sfs_dem.tif      \
       --max-lit-image-mosaic max_lit.tif --image-threshold 0.005 \
       --lit-blend-length 25 --shadow-blend-length 5              \
-      --min-blend-size 100 --weight-blur-sigma 5                 \
+      --min-blend-size 50 --weight-blur-sigma 5                  \
       --output-dem sfs_blend.tif --output-weight sfs_weight.tif
 
 Here, the inputs are the LOLA and SfS DEMs, the maximally lit mosaic
 provided as before, the shadow threshold (the same value as in
-invoking SfS should be used). The outputs are the blended DEM as
-described earlier, and the weight which tells how much the SfS DEM
-contributed to the blended DEM. See this tool's :ref:`manual page
-<sfs_blend>` for more details.
+invoking SfS should be used). 
+
+The outputs are the blended DEM as described earlier, and the weight
+which tells how much the SfS DEM contributed to the blended DEM. That
+weight equals to 1 where only the SfS DEM was used, is between 0 and 1
+in the transition region betwhen the lit and no-lit areas, which is
+determined by the values of the ``--lit-blend-length`` and
+``--shadow-blend-length`` parameters (it grows somewhat depending on
+the value of ``--weight-blur-sigma``), and is 0 where only the LOLA
+values contribute to the solution. The weight function is the
+truncated signed Euclidean distance to the boundary, scaled to have
+values between 0 and 1, then blurred with a Gaussian kernel with the
+above-mentioned sigma. No blending happens for unlit regions of
+dimensions less than `--min-blend-size`. See :numref:`sfs_blend` for
+more details.
 
 (Note that if one tries to blend an SfS terrain obtained after
 ``pc_align``, that won't have the same extent as the LOLA terrain,
