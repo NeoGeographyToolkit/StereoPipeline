@@ -965,14 +965,14 @@ invoking SfS should be used).
 The outputs are the blended DEM as described earlier, and the weight
 which tells how much the SfS DEM contributed to the blended DEM. That
 weight equals to 1 where only the SfS DEM was used, is between 0 and 1
-in the transition region between the lit and no-lit areas, which is
+in the transition region between the lit and shadowed areas, which is
 determined by the values of the ``--lit-blend-length`` and
 ``--shadow-blend-length`` parameters (it grows somewhat depending on
 the value of ``--weight-blur-sigma``), and is 0 where only the LOLA
 values contribute to the solution. The weight function is the
-truncated signed Euclidean distance to the boundary, scaled to have
+truncated signed Euclidean distance to the lit boundary, scaled to have
 values between 0 and 1, then blurred with a Gaussian kernel with the
-above-mentioned sigma. No blending happens for unlit regions of
+above-mentioned sigma. No blending happens for shadowed regions of
 dimensions less than `--min-blend-size`, where the SfS DEM is
 kept. See :numref:`sfs_blend` for more details.
 

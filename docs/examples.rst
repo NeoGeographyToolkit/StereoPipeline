@@ -1370,7 +1370,7 @@ After unzipping it, we clip it to the area of interest:
 
 ::
 
-     gdal_translate -projwin -106.1679167 39.5120833 -106.0034722 39.3895833 \
+     gdal_translate -projwin -106.16791 39.51208 -106.00347 39.38958 \
        n39w107.hgt ref_dem_clipped.tif
 
 It is good to be a bit generous with clipping, so that the output DEM
@@ -1385,9 +1385,9 @@ the datum. Hence it needs to be adjusted, as follows::
      dem_geoid --reverse-adjustment ref_dem_clipped.tif -o run/run 
      mv run/run-adj.tif ref_dem.tif
 
-This may adjust the DEM by up to 100 meters.
+This may apply up to 100 meters of vertical adjustment.
 
-Using the tool ``cam_gen`` (:numref:`cam_gen`) bundled with ASP, we
+Using the ``cam_gen`` tool (:numref:`cam_gen`) bundled with ASP, we
 create an initial camera model and a GCP file (:numref:`bagcp`) for
 the first image as as follows::
 
@@ -1412,9 +1412,9 @@ necessary for this example. This tool also accepts the longitude and
 latitude of the corners as an option, via ``--lon-lat-values``.
 
 The flag ``--refine-camera`` makes ``cam_gen`` solve a least square
-problem to refine the output camera. In some rare cases it can get the
-refinement wrong, though by and large it it greatly improves the
-cameras.
+problem to refine the output camera. In some cases it can get the
+refinement wrong, so it is suggested experimenting with and without
+using this option.
 
 For simplicity of notation, we will create a symbolic link from this
 image to the shorter name ``v1.tif``, and the GCP file needs to be
@@ -1470,9 +1470,9 @@ bring them back to the original location.
        --transform-cameras-using-gcp                                \
        v[1-4].tif ba/run-v[1-4].tsai v[1-4].gcp -o ba/run
 
-It is very important to not use the “pinhole” session here, rather
-“nadirpinhole” as the former does not filter well interest points in
-this steep terrain.
+It is very important to not use the ``pinhole`` session here, rather
+``nadirpinhole``, as the former does not filter well interest points
+in this steep terrain.
 
 The output optimized cameras will be named ``ba/run-run-v[1-4].tsai``.
 The reason one has the word “run” repeated is because we ran this tool
