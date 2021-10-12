@@ -181,7 +181,7 @@ def runSfs(options, cameras, outputFolder, outputName):
         ans = asp_system_utils.run_with_return_code(['gdalinfo',
                                                      finalDem], verbose) 
         if ans == 0:
-            print("Will skip this tile, as file exists: " + finalDem)
+            print("Will skip this tile, as file exists and is valid: " + finalDem)
             willRun = False
             
     if willRun:
@@ -198,6 +198,8 @@ def mosaic_results(tileList, outputFolder, outputName, options, inFilePrefix, ou
     for tile in tileList:
         tileName = tile[4]
         tilePrefix = generateTilePrefix(outputFolder, tileName, outputName)
+        # TODO(oalexan1): At some point this command will become too big.
+        # Need to keep these in a list.
         outputDems.append(tilePrefix + '-' + inFilePrefix + '.tif')
          
     # Mosaic the outputs using dem_mosaic
@@ -297,14 +299,6 @@ def main(argsIn):
         parser.error("parallel_sfs cannot take the --crop-win option. " +
                       "Use the sfs tool directly if this is desired.\n" );
 
-    if options.resume:
-        if '--compute-exposures-only' in options.extraArgs or \
-               '--estimate-slope-errors' in argsIn or \
-               '--estimate-height-errors' not in argsIn:
-            parser.print_help()
-            parser.error("The --resume option cannot be used unless this " + \
-                         "tool is invoked to produce a DEM.\n" )
-        
     # Check the cameras.
     if len(cameras) < 1:
         parser.print_help()
@@ -313,10 +307,17 @@ def main(argsIn):
     # Any additional arguments need to be forwarded to the sfs function
     options.extraArgs = optionsList
 
-
     # Pass to the sfs executable the -i and -o options we filtered out
     options.extraArgs = ['-i', options.input_dem, '-o', options.output_prefix,
                          '--threads', str(options.threads) ] + options.extraArgs
+
+    if options.resume:
+        if '--compute-exposures-only' in options.extraArgs or \
+               '--estimate-slope-errors' in argsIn or \
+               '--estimate-height-errors' in argsIn:
+            parser.print_help()
+            parser.error("The --resume option cannot be used unless this " + \
+                         "tool is invoked to produce a DEM.\n" )
 
     # Set up output folder
     outputFolder = os.path.dirname(options.output_prefix)
@@ -365,13 +366,14 @@ def main(argsIn):
     # Compute the number and size of tiles in x and y (width and height).
     # Make all tiles about the same size.
     # For now we just break up the image into a user-specified tile size
+    print("Generating the list of tiles") # this can take a while so print a note
     numTilesX, numTilesY, tileList = generateTileList(sizeX, sizeY,
                                                       options.tileSize, options.padding)
     numTiles = numTilesX * numTilesY
 
     print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + \
           ' = ' + str(numTilesX*numTilesY) + ' tiles.\n')
-
+    
     # If there is only going to be one output tile, just use the non-parallel call
     if (numTilesX*numTilesY == 1):
         cmd = timeCmd + [sfsPath] + cameras + options.extraArgs
