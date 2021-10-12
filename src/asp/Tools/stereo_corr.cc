@@ -89,9 +89,9 @@ void read_search_range_from_D_sub(std::string const& d_sub_file, ASPGlobalOption
   
   asp::load_D_sub_and_scale(opt, d_sub_file, sub_disp, upsample_scale);
   
-  BBox2i search_range = stereo::get_disparity_range(sub_disp);
-  search_range.min() = floor(elem_prod(search_range.min(),upsample_scale));
-  search_range.max() = ceil (elem_prod(search_range.max(),upsample_scale));
+  BBox2 search_range = stereo::get_disparity_range(sub_disp);
+  search_range.min() = floor(elem_prod(search_range.min(), upsample_scale));
+  search_range.max() = ceil (elem_prod(search_range.max(), upsample_scale));
   stereo_settings().search_range = search_range;
 
   vw_out() << "\t--> Read search range from D_sub: " << search_range << "\n";
@@ -115,7 +115,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
   double mean_scale = (downsample_scale[0] + downsample_scale[1]) / 2.0;
 
   // Compute the initial search range in the subsampled image
-  BBox2i search_range(floor(elem_prod(downsample_scale,stereo_settings().search_range.min())),
+  BBox2 search_range(floor(elem_prod(downsample_scale,stereo_settings().search_range.min())),
                       ceil (elem_prod(downsample_scale,stereo_settings().search_range.max())));
 
   vw::stereo::CorrelationAlgorithm stereo_alg
@@ -143,12 +143,13 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       stereo_settings().xcorr_threshold = 2;
     
     // Use low-res correlation to get the low-res disparity
-    Vector2i expansion(search_range.width(),
+    Vector2 expansion(search_range.width(),
                        search_range.height());
     expansion *= stereo_settings().seed_percent_pad / 2.0f;
     // Expand by the user selected amount. Default is 25%.
     search_range.min() -= expansion;
     search_range.max() += expansion;
+
     //VW_OUT(DebugMessage,"asp") << "D_sub search range: " << search_range << " px\n";
     vw_out() << "D_sub search range: " << search_range << " px\n";
     stereo::CostFunctionType cost_mode = get_cost_mode_value();
@@ -554,9 +555,9 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   return ip_scale;
 }
 
-BBox2i get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
-                                      vw::math::Histogram const& hist_y,
-                                      double edge_discard_percentile = 0.05) {
+BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
+                                     vw::math::Histogram const& hist_y,
+                                     double edge_discard_percentile = 0.05) {
 
   const double min_percentile = edge_discard_percentile;
   const double max_percentile = 1.0 - edge_discard_percentile;
@@ -595,8 +596,8 @@ BBox2i get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
   search_min = search_center + min_expand;
   search_max = search_center + max_expand;
 
-  Vector2i search_minI(floor(search_min[0]), floor(search_min[1])); // Round outwards
-  Vector2i search_maxI(ceil (search_max[0]), ceil (search_max[1]));
+  Vector2 search_minI(floor(search_min[0]), floor(search_min[1])); // Round outwards
+  Vector2 search_maxI(ceil (search_max[0]), ceil (search_max[1]));
   /*
   // Debug code to print all the points
   for (size_t i = 0; i < matched_ip1.size(); i++) {
@@ -613,13 +614,13 @@ BBox2i get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
   
   //vw_out(InfoMessage,"asp") << "i_scale is : "       << i_scale << std::endl;
   
-  return BBox2i(search_minI, search_maxI);
+  return BBox2(search_minI, search_maxI);
 }
   
 /// Use existing interest points to compute a search range
 /// - This function could use improvement!
 /// - Should it be used in all cases?
-BBox2i approximate_search_range(ASPGlobalOptions & opt, 
+BBox2 approximate_search_range(ASPGlobalOptions & opt, 
                                 double ip_scale, std::string const& match_filename) {
 
   vw_out() << "\t--> Using interest points to determine search window.\n";
@@ -711,7 +712,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   // If the input search range is small just expand it a bit and
   //  return without doing any filtering.  
   if (max_dx-min_dx <= MIN_SEARCH_WIDTH) {
-    BBox2i search_range(Vector2i(min_dx,min_dy),Vector2i(max_dx,max_dy));
+    BBox2 search_range(Vector2i(min_dx,min_dy),Vector2i(max_dx,max_dy));
     search_range.min() -= MINIMAL_EXPAND; // BBox2.expand() function does not always work!!!!
     search_range.max() += MINIMAL_EXPAND;
     vw_out(InfoMessage,"asp") << "Using expanded search range: " 
@@ -739,7 +740,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 
   double current_percentile_cutoff = PERCENTILE_CUTOFF;
   int search_width = MAX_SEARCH_WIDTH + 1;
-  BBox2i search_range;
+  BBox2 search_range;
   while (true) {
     search_range = get_search_range_from_ip_hists(hist_x, hist_y, current_percentile_cutoff);
     vw_out() << "Computed search range: " << search_range << std::endl;
@@ -950,7 +951,7 @@ public:
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
     
     // User strategies
-    BBox2f local_search_range;
+    BBox2 local_search_range;
     if (stereo_settings().seed_mode > 0) {
 
       // The low-res version of bbox
@@ -977,7 +978,7 @@ public:
         // Expand the disparity range by m_sub_disp_spread.
         SpreadImageType spread_in_box = crop(m_sub_disp_spread, seed_bbox);
 
-        BBox2f spread = stereo::get_disparity_range(spread_in_box);
+        BBox2 spread = stereo::get_disparity_range(spread_in_box);
         local_search_range.min() -= spread.max();
         local_search_range.max() += spread.max();
       } //endif has_sub_disp_spread

@@ -159,8 +159,8 @@ namespace asp {
     float        xcorr_threshold;     // L-R vs R-L agreement threshold in pixels
     int          min_xcorr_level;     // Min level to perform xcorr check at, if specified.
     vw::Vector2i corr_kernel;         // Correlation kernel
-    vw::BBox2i   search_range;        // Correlation search range
-    vw::BBox2i   search_range_limit;  // Correlation search range limit
+    vw::BBox2    search_range;        // Correlation search range
+    vw::BBox2    search_range_limit;  // Correlation search range limit
     vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
     vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
 

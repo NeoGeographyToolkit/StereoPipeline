@@ -197,15 +197,13 @@ namespace asp {
   /// Parse a UTM string such as "58N"
   void parse_utm_str(std::string const& utm, int & zone, bool & north);
 
-  /// ?
+  /// CSV separator
   inline std::string csv_separator(){ return ", \t"; }
 
   /// Need this for pc_align and point2dem
   inline std::string csv_opt_caption(){
     return "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '2:file 5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum 5:file', '1:easting 2:northing 3:height_above_datum' (need to set --csv-proj4). Can also use radius_km for column_type.";
   }
-
-
 
   /// A valid line is not empty and does not start with '#'.
   bool is_valid_csv_line(std::string const& line);

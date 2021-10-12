@@ -784,6 +784,12 @@ namespace asp {
                  << "nadirpinhole sessions, and mapprojected images for these. Got: "
                  << opt.session->name() << ".\n");
     }
+
+    // Need the percentage to be more than 50 as we look at the range [100 - pct, pct].
+    if (stereo_settings().outlier_removal_params[0] <= 50.0)
+      vw_throw(ArgumentErr() << "The --outlier-removal-params percentage must be more than 50.\n");
+    if (stereo_settings().outlier_removal_params[1] <= 0.0)
+      vw_throw(ArgumentErr() << "The --outlier-removal-params factor must be positive.\n");
     
     // Camera checks
     bool force_throw = false;

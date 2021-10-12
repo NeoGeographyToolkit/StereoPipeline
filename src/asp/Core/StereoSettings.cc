@@ -219,9 +219,9 @@ namespace asp {
                      "Minimum level to run xcorr check on (SGM only).")
       ("corr-kernel",            po::value(&global.corr_kernel)->default_value(Vector2i(21,21),"21 21"),
                     "Kernel size used for integer correlator.")
-      ("corr-search",            po::value(&global.search_range)->default_value(BBox2i(0,0,0,0), "auto"),
+      ("corr-search",            po::value(&global.search_range)->default_value(BBox2(0,0,0,0), "auto"),
                      "Disparity search range. Specify in format: hmin vmin hmax vmax.")
-      ("corr-search-limit",      po::value(&global.search_range_limit)->default_value(BBox2i(0,0,0,0), "auto"),
+      ("corr-search-limit",      po::value(&global.search_range_limit)->default_value(BBox2(0,0,0,0), "auto"),
                      "Limit on automatically computed disparity search range: hmin vmin hmax vmax.")
       ("elevation-limit",        po::value(&global.elevation_limit)->default_value(Vector2(0,0), "auto"),
        "Limit on expected elevation range: Specify as two values: min max.")
@@ -503,8 +503,8 @@ namespace asp {
   }
 
   bool StereoSettings::is_search_defined() const {
-    return !( search_range.min() == Vector2i() &&
-              search_range.max() == Vector2i() );
+    return !( search_range.min() == Vector2() &&
+              search_range.max() == Vector2() );
   }
 
   bool asp_config_file_iterator::getline( std::string& s ) {
