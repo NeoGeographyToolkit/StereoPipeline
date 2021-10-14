@@ -3164,7 +3164,7 @@ namespace vw { namespace gui {
     }
 
     m_editingMatches = true;
-    
+
     bool result = m_matchlist.deletePointAcrossImages(min_index);
     
     if (result) {

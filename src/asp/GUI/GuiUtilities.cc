@@ -793,8 +793,7 @@ void MatchList::deletePointsForImage(size_t image) {
 bool MatchList::deletePointAcrossImages(size_t point) {
 
   // Sanity checks
-  if (point >= getNumPoints())
-  {
+  if (point >= getNumPoints()){
     popUp("Requested point for deletion does not exist!");
     return false;
   }
@@ -950,6 +949,7 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
       //std::cout << "For image index " << i
       //          << ", reading matches from file " << match_file 
       //          << ", matching to index " << j << std::endl;
+      vw_out() << "Reading binary match file: " << match_file << std::endl;
       ip::read_binary_match_file(match_file, left, right);
     }catch(...){
       vw_out() << "IP load failed, leaving default invalid IP\n";

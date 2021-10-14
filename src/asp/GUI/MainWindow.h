@@ -116,6 +116,9 @@ namespace vw { namespace gui {
     void resizeEvent(QResizeEvent *);
     void closeEvent (QCloseEvent  *);
 
+    // See if in the middle of editing matches
+    bool editingMatches() const;
+    
     vw::cartography::GdalWriteOptions m_opt;
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid
@@ -166,7 +169,6 @@ namespace vw { namespace gui {
     int      m_argc;
     char **  m_argv;
     bool     m_matches_exist;
-    std::string m_match_file;
     std::vector<bool> m_hillshade_vec;
     
     // Any vector of size equal to number of images must be adjusted when the function

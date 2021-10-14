@@ -185,6 +185,10 @@ of interest points happens::
       --mapprojected-data 'A.map.tif B.map.tif C.map.tif dem.tif' \
       --min-matches 0 -o run/run 
 
+This will not recreate any existing match files either for
+mapprojected images or for unprojected ones, hence if that is
+desired, existing match files need to be deleted first.
+
 If the mapprojected images are still too different for interest point
 matching among them to succeed, one can try to bring in more images that
 are intermediate in appearance or illumination between the existing

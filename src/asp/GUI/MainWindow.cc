@@ -81,7 +81,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   m_grid_cols(grid_cols),
   m_use_georef(use_georef), m_hillshade(hillshade), m_view_matches(view_matches),
   m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
-  m_allowMultipleSelections(false),
+  m_allowMultipleSelections(false), m_matches_exist(false),
   m_argc(argc), m_argv(argv) {
 
   // Window size
@@ -145,11 +145,9 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
       stereo_settings().match_file = "";
     }else{
       m_view_matches = true;
-      m_match_file   = stereo_settings().match_file;
     }
   }
   
-  m_matches_exist          = false;
   m_editMatchPointVecIndex = -1;
   m_matchlist.resize(m_image_files.size());
 
@@ -565,15 +563,20 @@ void MainWindow::closeEvent(QCloseEvent *){
   forceQuit();
 }
 
+bool MainWindow::editingMatches() const {
+  // See if in the middle of editing of matches
+  bool editing_matches = false;
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i] != NULL && m_widgets[i]->getEditingMatches()) 
+      editing_matches = true;
+  }
+  return editing_matches;
+}
+
 void MainWindow::forceQuit(){
 
   // See if in the middle of editing of matches with unsaved matches
-  bool unsaved_matches = false;
-  for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i] != NULL && m_widgets[i]->getEditingMatches()) 
-      unsaved_matches = true;
-  }
-  if (unsaved_matches) {
+  if (MainWindow::editingMatches()) {
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(this, "Quit", "Interest point matches were not saved. Quit?",
                                   QMessageBox::Yes|QMessageBox::No);
@@ -687,7 +690,6 @@ void MainWindow::viewAsTiles(){
 // This function will be invoked after matches got added or deleted.
 // we must set m_matches_exist to true.
 void MainWindow::turnOnViewMatches(){
-  m_matches_exist = true;
   m_view_matches  = true;
   m_viewMatches_action->setChecked(m_view_matches);
   MainWindow::viewMatches();
@@ -742,13 +744,19 @@ void MainWindow::viewMatches(){
 
   m_view_matches = m_viewMatches_action->isChecked();
 
+  // If started editing matches do not load them from disk
+  if (MainWindow::editingMatches())
+    m_matches_exist = true;
+    
   // TODO: REPLACE MATCH LOADING!!!!!!!!!!!
   
   // We will load the matches just once, as we later will add/delete matches manually.
-  if ((m_matchlist.getNumPoints() == 0) && m_view_matches) {
+  if (!m_matches_exist && m_view_matches) {
 
-    const size_t num_images = m_image_files.size();
+    // We will try to load matches
     m_matches_exist = true;
+    
+    const size_t num_images = m_image_files.size();
     m_matchlist.resize(num_images);
 
     if (stereo_settings().gcp_file != "") {
@@ -765,7 +773,7 @@ void MainWindow::viewMatches(){
     }else{
 
       // If no match file was specified by now, ask the user for the output prefix.
-      if (m_match_file == "") {
+      if (stereo_settings().match_file == "") {
         if (!supplyOutputPrefixIfNeeded(this, m_output_prefix))
           return;
       }
@@ -778,8 +786,8 @@ void MainWindow::viewMatches(){
       for (size_t i = 1; i < num_images; i++) {
 
         // Handle user provided match file for two images.
-        if ((m_match_file != "") && (num_images == 2)){
-          matchFiles [0] = m_match_file;
+        if ((stereo_settings().match_file != "") && (num_images == 2)){
+          matchFiles [0] = stereo_settings().match_file;
           leftIndices[0] = 0;
           break;
         }
@@ -805,11 +813,13 @@ void MainWindow::viewMatches(){
             leftIndex   = 0;
             //vw_out() << "     - Trying location " << trial_match << std::endl;
             ip::read_binary_match_file(trial_match, left, right);
+
           }catch(...){
             // Default locations failed, ask the user for the location.
             try {
               trial_match = fileDialog("Manually select the match file...", m_output_prefix);
               ip::read_binary_match_file(trial_match, left, right);
+
               leftIndex = 0;
               if (i > 1) {
                 // With multiple images we also need to ask which image the matches are in relation to!
@@ -848,20 +858,16 @@ void MainWindow::viewMatches(){
       m_widgets[i]->viewMatches(m_view_matches);
   }
 
-  // Turn on m_matches_exist even if we did not always actually
-  // read them from disk. That is because we sometimes create them in the GUI.
-  if (m_view_matches)
-    m_matches_exist = true;
 }
 
 void MainWindow::saveMatches(){
 
-  if (m_match_file == "") {
+  if (stereo_settings().match_file == "") {
     if (!supplyOutputPrefixIfNeeded(this, m_output_prefix))
       return;
   }
 
-  m_matchlist.savePointsToDisk(m_output_prefix, m_image_files, m_match_file);
+  m_matchlist.savePointsToDisk(m_output_prefix, m_image_files, stereo_settings().match_file);
   m_matches_exist = true;
 
    // matches got saved, no more editing for now
@@ -879,6 +885,8 @@ void MainWindow::writeGroundControlPoints() {
     return;
   }
   
+  m_matches_exist = true;
+
   const size_t num_images = m_image_files.size();
   const size_t num_ips    = m_matchlist.getNumPoints();
   const size_t num_images_to_save = num_images - 1; // Don't record pixels from the last image.
