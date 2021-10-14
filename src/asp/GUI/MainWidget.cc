@@ -209,7 +209,7 @@ namespace vw { namespace gui {
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
       m_polyEditMode(false), m_polyLayerIndex(0),
       m_pixelTol(6), m_backgroundColor(QColor("black")),
-      m_lineWidth(1), m_polyColor("green") {
+      m_lineWidth(1), m_polyColor("green"), m_editingMatches(false) {
 
     installEventFilter(this);
 
@@ -2468,6 +2468,8 @@ namespace vw { namespace gui {
     if (!m_polyEditMode && m_moveMatchPoint->isChecked()
         && !m_cropWinMode && m_view_matches){
 
+      m_editingMatches = true;
+      
       size_t  trans_image_id = getTransformImageIndex();
       Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
       P = world2image(P, trans_image_id);
@@ -2533,6 +2535,8 @@ namespace vw { namespace gui {
 
     // If the user is editing match points
     if (!m_polyEditMode && m_moveMatchPoint->isChecked() && !m_cropWinMode){
+
+      m_editingMatches = true;
 
       // Error checking
       if ( (m_image_id < 0) || (m_editMatchPointVecIndex < 0) ||
@@ -3114,6 +3118,8 @@ namespace vw { namespace gui {
       return;
     }
 
+    m_editingMatches = true;
+
     // Convert mouse coords to world coords then image coords.
     size_t  trans_image_id = getTransformImageIndex();
     Vector2 world_coord    = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
@@ -3156,6 +3162,8 @@ namespace vw { namespace gui {
       popUp("Did not find a nearby match to delete.");
       return;
     }
+
+    m_editingMatches = true;
     
     bool result = m_matchlist.deletePointAcrossImages(min_index);
     

@@ -109,8 +109,9 @@ namespace vw { namespace gui {
     // Image Manipulation Methods
     void zoom       (double scale);
     void viewMatches(bool   hide);
-
-    void setThreshMode(bool turnOn) { m_thresh_calc_mode = turnOn;}
+    void setEditingMatches(bool editingMatches) { m_editingMatches = editingMatches; }
+    bool getEditingMatches() const { return m_editingMatches; }
+    void setThreshMode(bool turnOn) { m_thresh_calc_mode = turnOn; }
     void plotProfile(std::vector<imageData> const& images,
                      std::vector<double> const& profileX, 
                      std::vector<double> const& profileY);
@@ -249,8 +250,9 @@ public slots:
     /// Structure to keep track of all interest point matches.
     /// - Note that this is an alias wrapping an object passed in through the constructor.
     MatchList &m_matchlist;
-    int       &m_editMatchPointVecIndex; ///< Point being edited
-
+    int       &m_editMatchPointVecIndex; /// Point being edited
+    bool      m_editingMatches;          /// If we are in the middle of editing match points
+    
     bool m_use_georef;
 
     bool  m_firstPaintEvent;

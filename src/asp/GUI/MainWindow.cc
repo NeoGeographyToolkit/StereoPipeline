@@ -567,6 +567,21 @@ void MainWindow::closeEvent(QCloseEvent *){
 
 void MainWindow::forceQuit(){
 
+  // See if in the middle of editing of matches with unsaved matches
+  bool unsaved_matches = false;
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i] != NULL && m_widgets[i]->getEditingMatches()) 
+      unsaved_matches = true;
+  }
+  if (unsaved_matches) {
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Quit", "Interest point matches were not saved. Quit?",
+                                  QMessageBox::Yes|QMessageBox::No);
+    if (reply != QMessageBox::Yes) {
+      return;
+    }
+  }
+  
   if (m_delete_temporary_files_on_exit) {
     std::set<std::string> & tmp_files = vw::gui::temporary_files().files;
     for (std::set<std::string>::iterator it = tmp_files.begin();
@@ -848,6 +863,12 @@ void MainWindow::saveMatches(){
 
   m_matchlist.savePointsToDisk(m_output_prefix, m_image_files, m_match_file);
   m_matches_exist = true;
+
+   // matches got saved, no more editing for now
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i] != NULL) 
+      m_widgets[i]->setEditingMatches(false);
+  }
 }
 
 
@@ -867,7 +888,7 @@ void MainWindow::writeGroundControlPoints() {
   if (num_images != m_matchlist.getNumImages())
     return popUp("Cannot save matches. Image and match vectors are unequal!");
   if (num_ips < 1)
-    return popUp("Cannot save matches. No matches been created!");
+    return popUp("Cannot save matches. No matches have been created.");
 
   // Prompt the user for a DEM path unless specified via --dem-file.
   if (stereo_settings().dem_file == "") {
@@ -880,6 +901,9 @@ void MainWindow::writeGroundControlPoints() {
       return popUp("Error selecting the DEM path.");
     }
   }
+
+  if (stereo_settings().dem_file == "") 
+    return; // Likely the user did not choose a file
   
   // Load a georeference to use for the GCPs from the last image
   cartography::GeoReference georef_image, georef_dem;
@@ -906,9 +930,11 @@ void MainWindow::writeGroundControlPoints() {
   PixelMask<float> fill_val;
   fill_val[0] = -99999;
   fill_val.invalidate();
-  vw::ImageViewRef<PixelMask<float> > interp_dem = interpolate(raw_dem,
-                                                      BilinearInterpolation(),
-                                                      ValueEdgeExtension<PixelMask<float> >(fill_val));
+  vw::ImageViewRef<PixelMask<float> > interp_dem
+    = interpolate(raw_dem,
+                  BilinearInterpolation(),
+                  ValueEdgeExtension<PixelMask<float> >(fill_val));
+  
   // Load the georef from the DEM
   has_georef = vw::cartography::read_georeference(georef_dem, stereo_settings().dem_file);
   if (!has_georef) {
@@ -970,6 +996,13 @@ void MainWindow::writeGroundControlPoints() {
 
   output_handle.close();
   vw_out() << "Writing: " << stereo_settings().gcp_file << "\n";
+
+  // matches got saved, no more editing for now
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i] != NULL) 
+      m_widgets[i]->setEditingMatches(false);
+  }
+  
   popUp("Finished writing file: " + stereo_settings().gcp_file);
 }
 
