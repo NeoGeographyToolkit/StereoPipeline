@@ -8,12 +8,19 @@ from source, but this is not recommended.
 Precompiled binaries (Linux and macOS)
 --------------------------------------
 
-Simply download the appropriate distribution for your operating
-system, extract, and run the executables in the ``bin`` subdirectory.
-No other 'installation' steps or administrative rights are necessary.
+Download the appropriate distribution for your operating system,
+choosing either the latest build (recommended) or a stable release
+from:
 
-- `Stable releases and daily builds
-  <https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
+- `<https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
+
+No installation steps or administrative rights are necessary.  Extract
+the archive, and run the executables in the ``bin`` subdirectory as::
+
+    tar -xvf StereoPipeline-3.0.0-2021-10-15-x86_64-Linux.tar.bz2
+    ./StereoPipeline-3.0.0-2021-10-15-x86_64-Linux/bin/stereo --help
+
+The result of the last command should be a help message.
 
 See the NEWS file (:numref:`news`) for the most recent additions.
 
