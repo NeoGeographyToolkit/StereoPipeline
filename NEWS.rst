@@ -1,5 +1,5 @@
-RELEASE 3.0.1, Upcoming
------------------------
+Additions to the latest build (since last official release)
+-----------------------------------------------------------
 
 New camera additions:
   * Added support for the USGSCSM Frame and SAR sensors (until now

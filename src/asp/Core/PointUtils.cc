@@ -1192,6 +1192,9 @@ std::string asp::get_cloud_type(std::string const& file_name){
 void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points,
                                 vw::Vector2 const& remove_outliers_params,
                                 vw::BBox3 & estim_bdbox) {
+
+  // TODO(oalexan1): Here it may help to do several passes. First throw out the worst
+  // outliers, then estimate the box from the remaining points, etc.
   
   // Initialize the output
   estim_bdbox = BBox3();
@@ -1234,7 +1237,7 @@ void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points
 
   estim_bdbox.grow(Vector3(bx, by, bz));
   estim_bdbox.grow(Vector3(ex, ey, ez));
-
+  
   return;
 }
 

@@ -190,7 +190,6 @@ namespace asp{
     
   };
 
-  // TODO: Make this a BBox class function!!!
   /// Snaps the coordinates of a BBox to a grid spacing
   template <size_t N>
   void snap_bbox(const double spacing, BBox<double, N> &bbox ) {

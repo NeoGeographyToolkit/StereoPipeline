@@ -565,7 +565,7 @@ namespace asp{
     if (m_search_radius_factor > 0) 
       m_snapped_bbox.expand(spacing*m_search_radius_factor);
     
-    snap_bbox(m_spacing, m_snapped_bbox); // TODO: Class function!
+    snap_bbox(m_spacing, m_snapped_bbox);
 
     // Override with user's projwin, if specified
     if (m_projwin != BBox2()){
@@ -772,7 +772,8 @@ namespace asp{
 
           }else{
             // The new engine
-            if ( !boost::math::isnan(point_copy(col, row).z()) ){
+            if ( !boost::math::isnan(point_copy(col, row).z()) &&
+                 local_3d_bbox.contains(point_copy(col, row))){
               point2grid.AddPoint(point_copy(col, row).x(),
                                   point_copy(col, row).y(),
                                   texture_copy(col,  row));
