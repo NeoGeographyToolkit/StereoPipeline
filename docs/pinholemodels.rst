@@ -45,8 +45,12 @@ can be added. Note that the units used in the distortion model must
 match the units used for the parameters listed above. For example, if
 the camera calibration was performed using units of millimeters the
 focal lengths etc. must be given in units of millimeters and the pitch
-must be equal to the size of each pixel in millimeters. The following
-lens distortion models are currently supported:
+must be equal to the size of each pixel in millimeters. 
+
+These are the lens distortion models are currently supported. (The
+formulas below may miss some small details; the implementation in
+``LensDistortion.cc`` in VisionWorkbench should be the final
+reference.)
 
 * **Null** = A placeholder model that applies no distortion.
 
@@ -59,8 +63,7 @@ lens distortion models are currently supported:
   *P1, P2* = Tangential distortion parameters.
   
   The following equations describe the distortion, starting with the
-  undistorted pixel :math:`(Px, Py)`, note that this model uses normalized
-  pixel units.
+  undistorted pixel :math:`(Px, Py)`.
 
   .. math::
 
@@ -68,9 +71,9 @@ lens distortion models are currently supported:
 
     r^{2} = x^{2} + y^{2}
 
-    x(distorted) = x\left(K_{1}r^{2} + K_{2}r^{4} + 2P_{1}y + P_{2}\left(\frac{r^{2}}{x} + 2x\right)\right)
+    x_{dist} = Px + x\left(K_{1}r^{2} + K_{2}r^{4} + 2P_{1}y + P_{2}\left(\frac{r^{2}}{x} + 2x\right)\right)
 
-    y(distorted) = y\left(K_{1}r^{2} + K_{2}r^{4} + 2P_{2}x + P_{1}\left(\frac{r^{2}}{y} + 2y\right)\right)
+    y_{dist} = Py + y\left(K_{1}r^{2} + K_{2}r^{4} + 2P_{2}x + P_{1}\left(\frac{r^{2}}{y} + 2y\right)\right)
 
 
 * **Adjustable Tsai** = A variant of the Tsai model where any number of
@@ -94,17 +97,17 @@ lens distortion models are currently supported:
   model uses non-normalized pixel units, so they are in mm:
 
   .. math::
-    x = x(distorted) - xp
+    x = x_{dist} - xp
 
-    y = y(distorted) - yp
+    y = y_{dist} - yp
 
     r^{2} = x^{2} + y^{2}
 
     dr = K_{1}r^{3} + K_{2}r^{5} + K_{3}r^{7}
 
-    x(undistorted) = x + x\frac{dr}{r} - (P_{1}r^{2} +P_{2}r^{4})\sin(phi)
+    x_{undist} = x + x\frac{dr}{r} - (P_{1}r^{2} +P_{2}r^{4})\sin(phi)
 
-    y(undistorted) = y + y\frac{dr}{r} + (P_{1}r^{2} +P_{2}r^{4})\cos(phi)
+    y_{undist} = y + y\frac{dr}{r} + (P_{1}r^{2} +P_{2}r^{4})\cos(phi)
 
 
 * **Photometrix** = A model matching the conventions used by the Australis
@@ -123,17 +126,17 @@ lens distortion models are currently supported:
 
   .. math::
 
-    x = x(distorted) - xp
+    x = x_{dist} - xp
 
-    y = y(distorted) - yp
+    y = y_{dist} - yp
 
     r^{2} = x^{2} + y^{2}
 
     dr = K_{1}r^{3} + K_{2}r^{5} + K_{3}r^{7}
 
-    x(undistorted) = x + x\frac{dr}{r} + P_{1}(r^{2} +2x^{2}) + 2P_{2}xy
+    x_{undist} = x + x\frac{dr}{r} + P_{1}(r^{2} +2x^{2}) + 2P_{2}xy
 
-    y(undistorted) = y + y\frac{dr}{r} + P_{2}(r^{2} +2y^{2}) + 2P_{1}xy
+    y_{undist} = y + y\frac{dr}{r} + P_{2}(r^{2} +2y^{2}) + 2P_{1}xy
 
 
 * **RPC** = A rational polynomial coefficient model.
@@ -143,9 +146,9 @@ undistorted coordinates via the formula
 
 .. math::
 
-    x(undistorted) = \frac{P_1(x, y)}{Q_1(x, y)}
+    x_{undist} = \frac{P_1(x, y)}{Q_1(x, y)}
 
-    y(undistorted) = \frac{P_2(x, y)}{Q_2(x, y)}
+    y_{undist} = \frac{P_2(x, y)}{Q_2(x, y)}
 
 The functions in the numerator and denominator are polynomials in
 :math:`x` and :math:`y` with certain coefficients. The degree of
