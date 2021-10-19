@@ -47,7 +47,7 @@ the camera calibration was performed using units of millimeters the
 focal lengths etc. must be given in units of millimeters and the pitch
 must be equal to the size of each pixel in millimeters. 
 
-These are the lens distortion models are currently supported. (The
+The following lens distortion models are currently supported. (The
 formulas below may miss some small details; the implementation in
 ``LensDistortion.cc`` in VisionWorkbench should be the final
 reference.)
