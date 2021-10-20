@@ -1244,6 +1244,9 @@ int main( int argc, char *argv[] ) {
                                       output_georef);
     }
 
+    // TODO(oalexan1): The proj box estimation should happen even when
+    // we don't have the intersection error, such as when reading a
+    // las or csv file.
     double estim_max_error = 0.0;
     BBox3 estim_proj_box;
     if (error_image.rows() > 0 && error_image.cols() > 0) {

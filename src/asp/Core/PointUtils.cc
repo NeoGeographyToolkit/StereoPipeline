@@ -1190,7 +1190,9 @@ std::string asp::get_cloud_type(std::string const& file_name){
 // Get a generous estimate of the bounding box of the current set
 // while excluding outliers
 void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points,
+                                vw::ImageViewRef<double> const& error_image,
                                 vw::Vector2 const& remove_outliers_params,
+                                double estim_max_error,
                                 vw::BBox3 & estim_bdbox) {
 
   // TODO(oalexan1): Here it may help to do several passes. First throw out the worst
@@ -1207,6 +1209,11 @@ void asp::estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points
       Vector3 P = proj_points(col, row);
       if (boost::math::isnan(P.z()))
         continue;
+
+      // Make use of the estimated error, if available
+      if (estim_max_error > 0 && error_image(col, row) > estim_max_error) 
+        continue;
+
       x_vals.push_back(P.x());
       y_vals.push_back(P.y());
       z_vals.push_back(P.z());
@@ -1326,8 +1333,9 @@ double asp::estim_max_tri_error_and_proj_box(vw::ImageViewRef<vw::Vector3> const
     }
     sw2.stop();
 
-    asp::estimate_points_bdbox(subsample(proj_points, subsample_amt),  
-                               remove_outliers_params,  
+    asp::estimate_points_bdbox(subsample(proj_points, subsample_amt),
+                               subsample(error_image, subsample_amt),
+                               remove_outliers_params,  estim_max_error,
                                estim_proj_box);
     
     if (estim_proj_box.empty()) 

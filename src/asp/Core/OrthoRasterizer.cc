@@ -89,7 +89,7 @@ namespace asp{
     double m_estim_max_error;   // used for outlier removal by tri error based on percentage
     vw::BBox3 m_estim_proj_box; // used for outlier removal in the bounding box computation
     std::vector<double> & m_errors_hist;
-    double m_max_valid_triangulation_error; // used for outlier removal based on thresh
+    double m_max_valid_triangulation_error; // used for outlier removal based on user thresh
     Mutex& m_mutex;
     const ProgressCallback& m_progress;
     float m_inc_amt;
@@ -162,10 +162,11 @@ namespace asp{
         ImageView<Vector3> local_image2 = crop(local_image, blocks[i] - m_image_bbox.min());
 
         // See if to filter by user-provided m_max_valid_triangulation_error.
+        // Otherwise try to make use of m_estim_max_error if it was found.
         // If this is not provided we will later estimate and use such a value automatically
-        // when doing the gridding.
+        // when doing the gridding.  
         ImageView<double> local_error2;
-        if (m_max_valid_triangulation_error > 0)
+        if (m_max_valid_triangulation_error > 0 || m_estim_max_error > 0)
           local_error2 = crop(local_error, blocks[i] - m_image_bbox.min());
 
         for (int col = 0; col < local_image2.cols(); col++){
@@ -180,10 +181,13 @@ namespace asp{
               continue;
             }
             
-            if (m_max_valid_triangulation_error > 0 &&
-                local_error2(col, row) > m_max_valid_triangulation_error)
-              continue;
-            
+            if (m_max_valid_triangulation_error > 0) {
+              if (local_error2(col, row) > m_max_valid_triangulation_error)
+                continue;
+            } else if (m_estim_max_error > 0) {
+              if (local_error2(col, row) > m_estim_max_error)
+                continue;
+            }
             pts_bdbox.grow(local_image2(col, row));
           }
         }

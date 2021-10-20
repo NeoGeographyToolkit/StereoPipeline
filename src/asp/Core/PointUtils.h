@@ -428,7 +428,9 @@ double find_avg_lon(vw::ImageViewRef<vw::Vector3> const& point_image);
 // Get a generous estimate of the bounding box of the current set
 // while excluding outliers
 void estimate_points_bdbox(vw::ImageViewRef<vw::Vector3> const& proj_points,
+                           vw::ImageViewRef<double> const& error_image,
                            vw::Vector2 const& remove_outliers_params,
+                           double estim_max_error,
                            vw::BBox3 & estim_bdbox);
   
 double estim_max_tri_error_and_proj_box(vw::ImageViewRef<vw::Vector3> const& proj_points,
