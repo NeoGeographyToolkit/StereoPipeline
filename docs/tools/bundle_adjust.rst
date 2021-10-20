@@ -51,6 +51,12 @@ the option ``--bundle-adjust-prefix``. For example::
      stereo file1.cub file2.cub run_stereo/run \
        --bundle-adjust-prefix run_ba/run
 
+The same option can be used with mapprojection (this example has the
+cameras in .xml format)::
+
+     mapproject input-DEM.tif image.tif camera.xml mapped_image.tif \
+       --bundle-adjust-prefix run_ba/run
+
 If the ``--inline-adjustments`` option is used, no separate adjustments
 will be written, rather, the tool will save to disk copies of the input
 cameras with adjustments already applied to them. These output cameras
@@ -103,7 +109,7 @@ pixels each camera are written to ``residuals_stats.txt`` files in
 the output directory.
 
 As a finer-grained metric, initial and final ``raw_pixels.txt`` files
-will be written, having the row and column residuals (reprojectio
+will be written, having the row and column residuals (reprojection
 errors) for each pixel in each camera.
 
 .. _bagcp:
@@ -117,7 +123,7 @@ be passed as inputs to ``bundle_adjust``.
 These can either be created by hand, or using ``stereo_gui``
 (:numref:`creatinggcp`).
 
-A GCP file must end with a .gcp extension, and contain one ground
+A GCP file must end with a ``.gcp`` extension, and contain one ground
 control point per line. Each line must have the following fields:
 
 -  ground control point id (integer)
@@ -156,7 +162,13 @@ Hence, if the latitude and longitude are known accurately, while the
 height less so, the third standard deviation can be set to something
 larger.
 
-Command-line options for bundle_adjust:
+Such a ``.gcp`` file then can be passed to ``bundle_adjust`` 
+as shown earlier, with one or more images and cameras, and the 
+obtained adjustments can be used with ``stereo`` or ``mapproject``
+as described above.
+
+Command-line options for bundle_adjust
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -h, --help
     Display the help message.
