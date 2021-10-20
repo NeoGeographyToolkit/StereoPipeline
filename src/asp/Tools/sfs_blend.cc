@@ -328,6 +328,158 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   vw::create_out_dir(opt.output_dem);
 } // End function handle_arguments
 
+#if 0
+// Experimental code for deepening a crater in permanent shadow.  Fit
+// in that area a cone-like shape with given slope and round its top
+// using the arctan function. Very rough first attempt, but gives
+// something plausible.
+
+int main(int argc, char * argv[]){
+
+  std::string id = argv[1];
+
+  std::string img_file = argv[2]; // "clip0_maxlit.tif";
+  DiskImageView<float> img(img_file);
+  std::cout << "image is " << img_file << std::endl;
+  std::cout << "image size " << img.cols() << ' ' << img.rows() << std::endl;
+  
+  std::string dem_file = argv[3]; // "sfs_clip0_exp0.25x/run-DEM-final.tif";
+  ImageView<float> dem = copy(DiskImageView<float>(dem_file));
+  std::cout << "dem is " << dem_file << std::endl;
+  std::cout << "image size " << dem.cols() << ' ' << dem.rows() << std::endl;
+
+  double thresh = atof(argv[4]);
+  std::cout << "thresh is " << thresh << std::endl;
+  int num_smooth = atof(argv[5]);
+  std::cout << "num smooth passes " << num_smooth << std::endl;
+  double slope = atof(argv[6]);
+  std::cout << "slope is " << slope << std::endl;
+
+  // Find the boundary
+  std::vector<Vector2> pts;
+  for (int col = 1; col < dem.cols() - 1; col++) {
+    for (int row = 1; row < dem.rows() - 1; row++) {
+
+      if (img(col, row) <= thresh) 
+        continue;
+      
+      if (img(col-1, row) <= thresh ||
+          img(col+1, row) <= thresh ||
+          img(col, row-1) <= thresh ||
+          img(col, row+1) <= thresh) {
+        pts.push_back(Vector2(col, row));
+      }
+    }
+  }
+
+  // Find the distance to boundary using a brute force method
+  // Points where above thresh are 0.
+  // TODO(oalexan1): This can be made so much more efficient!
+  float max_wt = 0.0;
+  ImageView<float> wts(dem.cols(), dem.rows());
+  for (int col = 0; col < wts.cols(); col++) {
+    for (int row = 0; row < wts.rows(); row++) {
+      wts(col, row) = 1e+6;
+
+      Vector2 p1(col, row);
+      for (size_t it = 0; it < pts.size(); it++) {
+        Vector2 p2(pts[it][0], pts[it][1]);
+        float dist = norm_2(p1 - p2);
+        wts(col, row) = std::min(wts(col, row), dist);
+      }
+
+      // Adjust the steepness of the weight
+      wts(col, row) *= slope; 
+
+      // Flip the sign inside the hole, and make the weights negative outside
+      if (img(col, row) <= thresh)
+        wts(col, row) *= -1.0;
+      else
+        wts(col, row) = 0.0;
+      
+      max_wt = std::max(std::abs(wts(col, row)), max_wt);
+    }
+  }
+  std::cout << "Max wt is " << max_wt << std::endl;
+
+  // Make the tip of the weight rounder between max_wt/2 and max_wt.
+  // TODO(oalexan1): Scaling by 2 changes the slope.
+  // Maybe should use 0.5*atan(2*x)
+  
+  for (int col = 0; col < wts.cols(); col++) {
+    for (int row = 0; row < wts.rows(); row++) {
+      double val = -wts(col, row)/max_wt; // between 0 and 1
+      val *= 2.0; // between 0 and 2
+      val = atan(val); // between 0 and pi/2. Inflection point is at r/2.
+      val = (max_wt/2.0) * (2.0/M_PI) * val;  // rounded at the top, max val is max_wt/2.0.
+      wts(col, row) = -val; // make it negative again
+    }
+  }
+  
+  // Make the weights a little smooth not too far from boundary
+  ImageView<float> curr_wts = copy(wts);
+  for (int pass  =  0; pass < num_smooth; pass++) {
+    for (int col = 1; col < wts.cols() - 1; col++) {
+      for (int row = 1; row < wts.rows() - 1; row++) {
+        
+        bool is_far = true;
+        for (int i = -1; i <= 1; i++) {
+          for (int j = -1; j <= 1; j++) {
+            if (wts(col + i, row + j) < 0.0)
+              is_far = false;
+          }
+        }
+        
+        if (is_far)
+          continue;
+        
+        curr_wts(col, row) = 0.0;
+        double sum = 0.0;
+        for (int i = -1; i <= 1; i++) {
+          for (int j = -1; j <= 1; j++) {
+            double p = i * i + j * j;
+            double wt = 1.0 / (1.0 + p*p);
+            curr_wts(col, row) += wts(col + i, row + j) *wt;
+            sum += wt;
+          }
+        }
+        curr_wts(col, row) /= sum;
+        
+      }
+    }
+
+    wts = copy(curr_wts);
+  }
+
+  // Add the weights to the DEM, which pushes them down
+  for (int col = 0; col < wts.cols(); col++) {
+    for (int row = 0; row < wts.rows(); row++) {
+      dem(col, row) += wts(col, row);
+    }
+  }
+  
+  float nodata = -1.0;
+  bool has_nodata = false;
+  vw::cartography::GeoReference georef;
+  bool has_georef = vw::cartography::read_georeference(georef, dem_file);
+  vw::cartography::GdalWriteOptions opt;
+
+  std::string wts_file = "weights" + id + ".tif";
+  vw_out() << "Writing: " << wts_file << std::endl;
+  block_write_gdal_image(wts_file, wts, has_georef, georef, has_nodata, nodata, opt,
+                         TerminalProgressCallback("wts", ": "));
+  
+  std::string fixed_dem_file = "fixed_dem" + id + ".tif";
+  TerminalProgressCallback tpc("fixed_dem", ": ");
+  vw_out() << "Writing: " << fixed_dem_file << std::endl;
+  block_write_gdal_image(fixed_dem_file, dem, has_georef, georef, has_nodata, nodata, opt,
+                         TerminalProgressCallback("fixed_dem", ": "));
+  
+  
+  return 0;
+}
+#endif
+
 int main(int argc, char *argv[]) {
 
   Options opt;
