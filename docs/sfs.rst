@@ -921,7 +921,8 @@ After an SfS solution was found, with the cameras well-adjusted to
 each other and to the ground, and it is desired to add new camera
 images (or perhaps fix some of the existing poorly aligned cameras),
 one can create .adjust files for the new camera images (by perhaps
-using the identity adjustment), run bundle adjustment again with the
+using the identity adjustment, see :numref:`adjust_files` for the
+format of such files), run bundle adjustment again with the
 supplemented set of camera adjustments as initial guess using
 ``--input-adjustments-prefix``, and one may keep fixed the cameras for
 which the adjustment is already good using the option

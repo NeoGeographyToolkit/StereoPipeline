@@ -771,11 +771,12 @@ Exporting CSM model state after bundle adjustment and alignment
 
 ASP's bundle adjustment program (:numref:`bundle_adjust`) normally
 writes plain text ``.adjust`` files which encode how the position and
-orientation of the cameras were modified. If invoked for CSM cameras,
-additional files with extension ``.adjusted_state.json`` are saved in
-the same output directory, which contain the the model state from the
-input CSM cameras with the adjustments applied to them. This only
-applies to CSM ``linescan`` models supported by ISIS.
+orientation of the cameras were modified (:numref:`adjust_files`). If
+invoked for CSM cameras, additional files with extension
+``.adjusted_state.json`` are saved in the same output directory, which
+contain the the model state from the input CSM cameras with the
+adjustments applied to them. This only applies to CSM ``linescan``
+models supported by ISIS.
 
 It is important to note that the the ``model state`` of a CSM camera
 and the CSM camera itself, while both stored on disk as JSON files,

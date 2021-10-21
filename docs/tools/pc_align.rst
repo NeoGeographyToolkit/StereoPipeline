@@ -256,7 +256,7 @@ When the reference point cloud is a DEM, a more accurate computation of
 the errors from source points to the reference cloud is used. A source
 point is projected onto the datum of the reference DEM, its longitude
 and latitude are found, then the DEM height at that position is
-interpolated. That way we determine a “closest” point on the reference
+interpolated. That way we determine the closest point on the reference
 DEM that interprets the DEM not just as a collection of points but
 rather as a polyhedral surface going through those points. These errors
 are what is printed in the statistics. To instead compute errors as done
@@ -353,8 +353,8 @@ transform::
 
      ba_align/run-left.adjust, ba_align/run-right.adjust
 
-If ``pc_align`` was invoked with the two DEMs in reverse order, the
-transform to use is::
+(:numref:`adjust_files`). If ``pc_align`` was invoked with the two
+DEMs in reverse order, the transform to use is::
 
     align/run-inverse-transform.txt
 

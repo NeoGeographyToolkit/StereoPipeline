@@ -38,15 +38,16 @@ positions)::
         --datum WGS_1984 --camera-positions nav_data.csv       \
         --csv-format "1:file 6:lat 7:lon 9:height_above_datum"
 
-Here we assumed that the cameras point towards some planet’s surface and
+Here we assumed that the cameras point towards some planet's surface and
 used the ``nadirpinhole`` session. If this assumption is not true one
 should use the ``pinhole`` session, though this one often does not
 perform as well when finding interest points in planetary context.
 
 This tool will write the adjustments to the cameras as ``*.adjust``
-files starting with the specified output prefix. In order for ``stereo``
-to use the adjusted cameras, it should be passed this output prefix via
-the option ``--bundle-adjust-prefix``. For example::
+files starting with the specified output prefix
+(:numref:`adjust_files`). In order for ``stereo`` to use the adjusted
+cameras, it should be passed this output prefix via the option
+``--bundle-adjust-prefix``. For example::
 
      stereo file1.cub file2.cub run_stereo/run \
        --bundle-adjust-prefix run_ba/run
@@ -75,53 +76,14 @@ initial transform can have a rotation, translation, and scale, and it
 is applied after the input adjustments are read, if those are
 present. An example is shown in (:numref:`ba_pc_align`).
 
-Output error files
-~~~~~~~~~~~~~~~~~~
-
-If the ``--datum`` option is specified, ``bundle_adjust`` will write
-the triangulated world position for every feature being matched in two
-or more images, and the mean absolute residuals (reprojection errors)
-for each position, before and after optimization. The files are named
-
-::
-
-     {output-prefix}-initial_residuals_pointmap.csv
-
-and
-
-::
-
-     {output-prefix}-final_residuals_pointmap.csv
-
-Such files can be inspected to see at which pixels the residual error
-is large. One can also invoke ``point2dem`` with the ``--csv-format``
-option to grid these files for visualization in the GUI. Here is a
-sample file::
-
-   # lon, lat, height_above_datum, mean_residual, num_observations
-   -55.11690935, -69.34307716, 4.824523817, 0.1141333633, 2
-
-The field ``num_observations`` counts how many images each point gets
-projected into.
-
-The initial and final mean and median of residual error norms for the
-pixels each camera are written to ``residuals_stats.txt`` files in
-the output directory.
-
-As a finer-grained metric, initial and final ``raw_pixels.txt`` files
-will be written, having the row and column residuals (reprojection
-errors) for each pixel in each camera.
-
 .. _bagcp:
 
 Ground control points
 ~~~~~~~~~~~~~~~~~~~~~
 
-A number of plain-text files containing ground control points (GCP) can
-be passed as inputs to ``bundle_adjust``.
-
-These can either be created by hand, or using ``stereo_gui``
-(:numref:`creatinggcp`).
+A number of plain-text files containing ground control points (GCP)
+can be passed as inputs to ``bundle_adjust``. These can either be
+created by hand, or using ``stereo_gui`` (:numref:`creatinggcp`).
 
 A GCP file must end with a ``.gcp`` extension, and contain one ground
 control point per line. Each line must have the following fields:
@@ -166,6 +128,63 @@ Such a ``.gcp`` file then can be passed to ``bundle_adjust``
 as shown earlier, with one or more images and cameras, and the 
 obtained adjustments can be used with ``stereo`` or ``mapproject``
 as described above.
+
+Output error files
+~~~~~~~~~~~~~~~~~~
+
+If the ``--datum`` option is specified, ``bundle_adjust`` will write
+the triangulated world position for every feature being matched in two
+or more images, and the mean absolute residuals (reprojection errors)
+for each position, before and after optimization. The files are named
+
+::
+
+     {output-prefix}-initial_residuals_pointmap.csv
+
+and
+
+::
+
+     {output-prefix}-final_residuals_pointmap.csv
+
+Such files can be inspected to see at which pixels the residual error
+is large. One can also invoke ``point2dem`` with the ``--csv-format``
+option to grid these files for visualization in the GUI. Here is a
+sample file::
+
+   # lon, lat, height_above_datum, mean_residual, num_observations
+   -55.11690935, -69.34307716, 4.824523817, 0.1141333633, 2
+
+The field ``num_observations`` counts how many images each point gets
+projected into.
+
+The initial and final mean and median of residual error norms for the
+pixels each camera are written to ``residuals_stats.txt`` files in
+the output directory.
+
+As a finer-grained metric, initial and final ``raw_pixels.txt`` files
+will be written, having the row and column residuals (reprojection
+errors) for each pixel in each camera.
+
+
+.. _adjust_files:
+
+Format of .adjust files
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Unless ``bundle_adjust`` is invoked with the ``--inline-adjustments``
+option, when it modifies the cameras in-place, it will save the camera
+adjustments in ``.adjust`` files using the specified output prefix.
+Such a file stores a translation ``T`` as ``x y z`` and a rotation ``R`` 
+as a quaternion in the order ``w x y z``. The rotation is around the
+camera center ``C`` for pixel (0, 0) (for a linescan camera the camera
+center depends on the pixel).
+
+Hence, if ``P`` is a point in ECEF, that is, the world in which the camera
+exists, and an adjustment is applied to the camera, for ``P`` to be consistent
+with the adjusted camera it has to be transformed as::
+
+    P' = R * (P - C) + C + T
 
 Command-line options for bundle_adjust
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
