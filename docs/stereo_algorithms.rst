@@ -152,13 +152,18 @@ still manually specify these options.
 
 -  The ``prefilter-mode`` setting is ignored when using SGM.
 
--  The ``subpixel-mode`` If not set or set to values 7-12 SGM will
+-  The ``subpixel-mode`` If not set, or set to values 7-12, SGM will
    perform subpixel interpolation during the stereo correlation step and
    will not do additional work in the stereo refinement step. This means
    that after dealing with the long SGM processing time you do not need
-   to follow it up with a slow subpixel option! If desired, you can
-   specify modes 1-4 to force those subpixel operations to be performed
-   after the default SGM subpixel method.
+   to follow it up with a slow subpixel option. 
+
+   If desired, you can specify a subpixel mode (with value between 1
+   and 4) to force those subpixel operations to be performed after the
+   default SGM subpixel method. This can remove some staircasing and
+   other artifacts. It is suggested that in this case subpixel mode 3
+   be used which is somewhat less accurate than subpixel mode 2 but
+   faster.
 
 .. figure:: images/correlation/icebridge_example_crop.png
    :name: corr-sgm-example
