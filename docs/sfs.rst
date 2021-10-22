@@ -42,18 +42,18 @@ The tool works by minimizing the cost function
 
    \label{cost}
      % \begin{multline}\label{cost}
-     \int\!\! \int \! \sum_k \left[ I_k(\phi)(x, y) - T_k A(x, y)
-       R_k(\phi)(x, y) \right]^2\,  
-     % R_k(\phi)(x, y) \right]^2\,  \\
+     \int\!\! \int \! \sum_k \left[ I_k(\phi(x, y)) - T_k A(x, y)
+       R_k(\phi(x, y)) \right]^2\,  
+     % R_k(\phi(x, y)) \right]^2\,  \\
      + \mu \left\|\nabla^2 \phi(x, y) \right\|^2  
      + \lambda  \left[ \phi(x, y) - \phi_0(x, y) \right]^2
      \, dx\, dy.
 
-Here, :math:`I_k(\phi)(x, y)` is the :math:`k`-th camera image
+Here, :math:`I_k(\phi(x, y))` is the :math:`k`-th camera image
 interpolated at pixels obtained by projecting into the camera 3D points
 from the terrain :math:`\phi(x, y)`, :math:`T_k` is the :math:`k`-th
 image exposure, :math:`A(x, y)` is the per-pixel albedo,
-:math:`R_k(\phi)(x, y)` is the reflectance computed from the terrain for
+:math:`R_k(\phi(x, y))` is the reflectance computed from the terrain for
 :math:`k`-th image, :math:`\left\|\nabla^2 \phi(x, y) \right\|^2` is the
 sum of squares of all second-order partial derivatives of :math:`\phi`,
 :math:`\mu > 0` is a smoothing term, and :math:`\lambda > 0` determines
