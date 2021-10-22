@@ -9,12 +9,14 @@ The ``stereo.default`` file contains configuration parameters that the
 unless a different file is specified with the ``-s`` option. The
 file extension is not important. 
 
-A sample ``stereo.default.example`` file is included in the top-level
-directory of the Stereo Pipeline software distribution.
-
 As mentioned in :numref:`cmdline`, all the ``parallel_stereo``
 parameters can also be specified on the command line, by prepending
 them with two dashes.
+
+A sample ``stereo.default.example`` file is included in the top-level
+directory of the Stereo Pipeline software distribution. That
+configuration is optimized for speed. See :numref:`nextsteps` for
+various speed-vs-accuracy tradeoffs.
 
 Listed below are the parameters used by ``parallel_stereo``, grouped
 by processing stage.

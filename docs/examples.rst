@@ -168,13 +168,9 @@ Download all 20 of the RED EDR ``.IMG`` files for each observation.
      ISIS> parallel_stereo PSP_001513_1655.map.cub                       \
                     PSP_001777_1650.map.cub result/output
 
-stereo.default
-^^^^^^^^^^^^^^
 
-The stereo.default example file (:numref:`stereodefault`) should
-apply well to HiRISE.  Just set ``alignment-method`` to ``none``
-if using map-projected images. If you are not using map-projected
-images, set ``alignment-method`` to ``homography`` or ``affineepipolar``.
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+
 The ``corr-kernel`` value can usually be safely reduced to 21 pixels
 to resolve finer detail and faster processing for images with good
 contrast.
@@ -232,14 +228,7 @@ P03_002258_1817_XI_01N356W.IMG from the PDS.
              results/out
 
 
-.. _stereo.default-1:
-
-stereo.default
-^^^^^^^^^^^^^^
-
-The stereo.default example file (:numref:`stereodefault`) works
-generally well with all CTX pairs. Just set ``alignment-method``
-to ``homography`` or ``affineepipolar``.
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 
 Automated Processing of HiRISE and CTX
@@ -304,15 +293,7 @@ Download the M08/06047 and R07/01361 images from the PDS.
      ISIS> cam2map4stereo.py M0806047.cub R0701361.cub
      ISIS> parallel_stereo M0806047.map.cub R0701361.map.cub result/output
 
-.. _stereo.default-2:
-
-stereo.default
-^^^^^^^^^^^^^^
-
-The stereo.default example file (:numref:`stereodefault`) works
-generally well with all MOC-NA pairs. Just set ``alignment-method``
-to ``none`` when using map-projected images. If the images are not
-map-projected, use ``homography`` or ``affineepipolar``.
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 .. _mer-example:
 
@@ -367,23 +348,18 @@ Download 2f194370083effap00p1214l0m1.img and
                            2f194370083effap00p1214r0m1.cahvore \
                     fh01/fh01
 
-.. _stereo.default-3:
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
-stereo.default
-~~~~~~~~~~~~~~
+It is suggested to filter out points that are not triangulated well
+because they are too close to robot's camera or are extremely far
+away, using the ``parallel_stereo`` options::
 
-The default stereo settings will work but change the following options.
-The universe option filters out points that are not triangulated well
-because they are too close to the *robot’s hardware* or are extremely far away::
+    --universe-center camera --near-universe-radius 0.7 \
+       --far-universe-radius 80.0
 
-       alignment-method epipolar
-       force-use-entire-range
+These are suggested as well::
 
-       # This deletes points that are too far away
-       # from the camera to truly triangulate.
-       universe-center Camera
-       near-universe-radius 0.7
-       far-universe-radius 80.0
+    --alignment-method epipolar --force-use-entire-range
 
 .. _k10example:
 
@@ -444,16 +420,14 @@ step.
 
 .. _stereo.default-4:
 
-stereo.default
-^^^^^^^^^^^^^^
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
-The defaults work generally well with LRO-NAC pairs, so you don’t need
-to provide a stereo.default file. Map-projecting is optional. When
-map-projecting the images use ``alignment-method none``, otherwise use
-``alignment-method affineepipolar``. Better map-project results can be
-achieved by projecting on a higher resolution elevation source like the
-WAC DTM. This is achieved using the ISIS command ``demprep`` and
-attaching to cube files via ``spiceinit``\ ’s SHAPE and MODEL options.
+Map-projecting is optional. When map-projecting the images use
+``alignment-method none``, otherwise use ``alignment-method
+affineepipolar``. Better map-project results can be achieved by
+projecting on a higher resolution elevation source like the WAC
+DTM. This is achieved using the ISIS command ``demprep`` and attaching
+to cube files via ``spiceinit``\ ’s SHAPE and MODEL options.
 
 Apollo 15 Metric Camera Images
 ------------------------------
@@ -501,14 +475,7 @@ Process Apollo TIFF files into ISIS.
      ISIS> parallel_stereo sub4-AS15-M-2380.cub sub4-AS15-M-2381.cub \
              result/output
 
-.. _stereo.default-5:
-
-stereo.default
-^^^^^^^^^^^^^^
-
-The stereo.default example file (:numref:`stereodefault`) works
-generally well with all Apollo pairs. Just set ``alignment-method``
-to ``homography`` or ``affineepipolar``.
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 Mars Express High Resolution Stereo Camera (HRSC)
 -------------------------------------------------
@@ -568,8 +535,6 @@ than block matching with subpixel mode 3.
      ISIS> spiceinit from=h1995_0000_s22.cub ckpredicted=true
      ISIS> parallel_stereo h1995_0000_s12.cub  h1995_0000_s22.cub \
               --stereo-algorithm 2 --cost-mode 3 mgm/out
-
-[fig:hrsc_example]
 
 Cassini ISS NAC
 ---------------
@@ -635,12 +600,8 @@ label (.LBL) files from the PDS.
      ISIS> parallel_stereo N1511700120_1.map.equ.cub                     \
              W1567133629_1.map.equ.cub result/rhea
 
-.. _stereo.default-6:
-
-stereo.default
-^^^^^^^^^^^^^^
-
-::
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+Also consider the following modifications to ``stereo.default``::
 
        ### PREPROCESSING
        alignment-method none
@@ -716,6 +677,8 @@ One runs the stereo and terrain generation steps as usual::
      parallel_stereo left.cub right.cub left.json right.json run/run    
      point2dem -r mars --stereographic --proj-lon 77.4 \
        --proj-lat 18.4 run/run-PC.tif
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 The actual stereo session used is ``csm``, and here it will be
 auto-detected based on the extension of the camera files. For
@@ -928,16 +891,18 @@ objective.
 Commands
 ~~~~~~~~
 
-GoeEye's datasets have the RPC coeffecients stored as part of the
-imgages. The stereo command is then::
+GoeEye's datasets have the RPC coefficients stored as part of the
+images. The stereo command is then::
 
     parallel_stereo -t rpc --stereo-algorithm asp_mgm     \
       po_312012_pan_0000000.tif po_312012_pan_0010000.tif \
       results/run
 
-(For Cartosat data sometimes one should overwrite the \*RPC.TXT files
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+
+For Cartosat data sometimes one should overwrite the \*RPC.TXT files
 that are present with the ones that end in RPC_ORG.TXT in order for
-stereo to work.)
+stereo to work.
 
 If the RPC cameras are stored separately in XML files, the stereo 
 command is::
@@ -953,15 +918,6 @@ If the RPC coefficients are stored in the input images, ``mapproject``
 copies them to the output mapprojected images. If these coefficients
 are in the associated .RPB or \_RPC.TXT files, ``mapproject`` creates
 such files for each mapprojected image.
-
-.. _stereo.default-7:
-
-stereo.default
-~~~~~~~~~~~~~~
-
-The stereo.default example file (:numref:`stereodefault`) works
-generally well with all GeoEye pairs. Just set ``alignment-method``
-to ``affineepipolar`` or ``homography``.
 
 Airbus tiled images
 ~~~~~~~~~~~~~~~~~~~
@@ -1010,6 +966,8 @@ or camera metadata suggests the cause of this. The ``pc_align`` tool
 can be used to reduce this discrepancy. The the mean absolute
 difference of the (full-image extent) aligned DEMs is about 0.17
 meters.
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 .. _spot5:
 
@@ -1078,6 +1036,7 @@ running parallel_stereo on the map projected images.
    Cropped region of SPOT5 image and a portion of the associated stereo
    DEM overlaid on a low resolution Bedmap2 DEM.
 
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 Dawn (FC) Framing Camera
 ------------------------
@@ -1126,14 +1085,7 @@ First you must download the Dawn FC images from PDS.
        ISIS> point2dem stereo-PC.tif --orthoimage stereo-L.tif \
       --t_srs "+proj=eqc +lat_ts=-11.5 +a=280000 +b=229000 +units=m"
 
-.. _stereo.default-8:
-
-stereo.default
-~~~~~~~~~~~~~~
-
-The stereo.default example file (:numref:`stereodefault`) works
-well for this stereo pair. Just set ``alignment-method`` to
-``affineepipolar`` or ``homography``.
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 .. _isis_minirf:
 
@@ -1169,6 +1121,8 @@ Stereo and DEM creation are run as::
 
 For this example one can use the USGS CSM sensor as well, as shown in
 :numref:`csm_minirf`.
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 .. _aster:
 
@@ -1221,6 +1175,8 @@ or
 
      parallel_stereo -t rpc --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
         out-Band3N.xml out-Band3B.xml out_stereo/run
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 This is followed by DEM creation::
 
@@ -1534,6 +1490,8 @@ reuse the filtered match points created by bundle adjustment.
        --errorimage $st/run-PC.tif
 
 (Repeat this for other values of :math:`i`.)
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 Here we chose to use a stereographic projection in ``point2dem``
 centered on this region to create the DEM in units of meter. One can can
@@ -2075,7 +2033,7 @@ You can now run bundle adjustment on the downsampled images::
        --skip-rough-homography --inline-adjustments            \
        --ip-detect-method 1 -t opticalbar --datum WGS84
 
-Followed by stereo and DEM creation::
+Followed by stereo::
 
      parallel_stereo for_small.tif aft_small.tif                        \
        ba_small/run-for_small.tsai ba_small/run-aft_small.tsai          \
@@ -2083,6 +2041,10 @@ Followed by stereo and DEM creation::
        -t opticalbar --skip-rough-homography --disable-tri-ip-filter    \
        --skip-low-res-disparity-comp --ip-detect-method 1               \
        --stereo-algorithm 2 
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+
+Next, a DEM is created::
 
      point2dem --stereographic --proj-lon 100.50792 --proj-lat 31.520417 \
        --tr 30 stereo_small_mgm/run-PC.tif
@@ -2325,6 +2287,10 @@ downsampling applied to the input images.
        --disable-tri-ip-filter --ip-detect-method 1 --session-type nadirpinhole  \
         5001_small.tif 6001_small.tif bundle_small_new/out-out-5001_small.tsai   \
        bundle_small_new/out-out-6001_small.tsai st_small_new/out
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+
+Write the intersection error image to a separate file::
 
      gdal_translate -b 4 st_small_new/out-PC.tif st_small_new/error.tif
 
@@ -2569,6 +2535,8 @@ from the input data, for example as follows:
      parallel_stereo -t dg left.tif right.tif left.xml right.xml run/run
      point2dem --orthoimage run/run-PC.tif run/run-L.tif
 
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+
 Here, the two input images can be, for example, a single band
 extracted from Digital Globe multispectral images, such as band
 7. (Note that all these bands have the same XML camera model.)
@@ -2758,10 +2726,15 @@ Having these in place, stereo can then happen as follows:
     --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
     run_bathy/run 
     
-    point2dem run_bathy/run-PC.tif --orthoimage run_bathy/run-L.tif 
-
 Note that we specified the two masks, the water index of refraction,
 and the water plane found before. 
+
+See :numref:`nextsteps` for a discussion about various
+speed-vs-quality choices.
+
+This is followed by creating a DEM::
+
+    point2dem run_bathy/run-PC.tif --orthoimage run_bathy/run-L.tif 
 
 The water refraction index was set 1.34 :cite:`jerlov1976marine`. 
 Alternatively, one could use 1.333 

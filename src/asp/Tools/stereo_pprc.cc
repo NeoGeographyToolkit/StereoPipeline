@@ -574,7 +574,7 @@ int main(int argc, char* argv[]) {
 
     // Internal Processes
     //---------------------------------------------------------
-    vw_out() << "Using \"" << opt.stereo_default_filename << "\"\n";
+    vw_out() << "Using config file: \"" << opt.stereo_default_filename << "\"\n";
     stereo_preprocessing(adjust_left_image_size, opt );
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : PREPROCESSING FINISHED \n";

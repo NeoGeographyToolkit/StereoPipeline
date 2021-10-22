@@ -152,6 +152,8 @@ necessary to obtain a good stereo result.
       --threads 16 --corr-seed-mode 1  --subpixel-mode 3            \
       run_full1/run
 
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+
 Next we create a DEM at 1 meter/pixel, which is about the resolution of
 the input images. We use the stereographic projection since this dataset
 is very close to the South Pole. Then we crop it to the region we’d like
@@ -273,6 +275,8 @@ Then we bundle-adjust and run parallel_stereo
       --min-matches 1 -o run_ba/run
     parallel_stereo A_crop.cub B_crop.cub run_full2/run       \
       --subpixel-mode 3 --bundle-adjust-prefix run_ba/run
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
 
 This will result in a point cloud, ``run_full2/run-PC.tif``, which
 will lead us to the “ground truth” DEM. As mentioned before,
