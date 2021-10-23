@@ -166,7 +166,12 @@ to do SfS on.
     gdal_translate -projwin -15471.9 150986 -14986.7 150549  \
       run_full1/run-DEM.tif run_full1/run-crop-DEM.tif
 
-This creates a DEM of size 456 |times| 410 pixels.
+This creates a DEM of size 456 |times| 410 pixels. 
+
+If this DEM has holes, those can be filled in ``dem_mosaic`` or with
+``point2dem`` itself. The ``dem_mosaic`` tool can also apply some blur
+to attenuate artifacts, though ``sfs`` has a smoothing term itself
+which should take care of small imperfections in the input.
 
 Then we run ``sfs``::
 
