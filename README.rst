@@ -2,9 +2,12 @@
 Ames Stereo Pipeline (ASP)
 ==========================
 
-.. The following Zenodo badge is for the 'current' version of ASP, 2.7.0:
+
 .. image:: https://zenodo.org/badge/DOI/latest.svg
-   :target: https://zenodo.org/record/3963341
+   :target: https://zenodo.org/badge/latestdoi/714891
+
+.. image:: https://zenodo.org/badge/DOI/Version%203.0.0.svg
+   :target: https://zenodo.org/record/5140581
 
 .. image:: https://readthedocs.org/projects/stereopipeline/badge/?version=latest
    :target: https://stereopipeline.readthedocs.io/en/latest/?badge=latest
@@ -128,10 +131,10 @@ which details the quality of the output, then we suggest also referencing:
   of Photogrammetry and Remote Sensing, 116.
   https://doi.org/10.1016/j.isprsjprs.2016.03.012.
 
-In addition to the recommended citation, we ask that you also cite the
-DOI for the specific version of ASP that you used for processing.
-Every new release of ASP will have its own unique DOI, which can be
-found `here <https://doi.org/10.5281/zenodo.598174>`_.
+In addition to the recommended citation, we ask that you also cite
+the DOI for the specific version of ASP that you used for processing.
+Every new release (and daily build) of ASP will have its own unique
+DOI, which can be found `here <https://doi.org/10.5281/zenodo.598174>`_.
 
 Additional details for how to cite ASP in your published work can be found
 in the ASP documentation.
