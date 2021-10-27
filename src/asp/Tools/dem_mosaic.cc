@@ -595,6 +595,16 @@ public:
         }
       }
 
+      // Fill holes. This happens here, in the expanded tile, to
+      // ensure we catch holes which are partially outside the tile
+      // being processed.
+      if (m_opt.hole_fill_len > 0){
+        dem = apply_mask(vw::fill_holes_grass
+                         (create_mask(select_channel(dem, 0), nodata_value),
+                          m_opt.hole_fill_len),
+                         nodata_value);
+      }
+
       // Mark the handle to the image as not in use, though we still
       // keep that image file open, for increased performance, unless
       // their number becomes too large.
@@ -1079,14 +1089,6 @@ public:
                                     m_opt.out_nodata_value);
     }
     
-    // Fill holes
-    if (m_opt.hole_fill_len > 0){
-      tile = apply_mask(vw::fill_holes_grass
-                            (create_mask(tile, m_opt.out_nodata_value),
-                            m_opt.hole_fill_len),
-                        m_opt.out_nodata_value);
-    }
-
     // Save the weight instead
     if (m_opt.save_dem_weight >= 0)
       tile = saved_weight;
@@ -1639,8 +1641,9 @@ int main( int argc, char *argv[] ) {
 
     // This bias is very important. This is how much we should read from
     // the images beyond the current boundary to avoid tiling artifacts.
+    // The +1 is to ensure extra pixels beyond the hole fill length.
     int bias = opt.erode_len + opt.extra_crop_len + opt.hole_fill_len
-      + 2*vw::compute_kernel_size(opt.weights_blur_sigma);
+      + 2*vw::compute_kernel_size(opt.weights_blur_sigma) + 1;
 
     // The next power of 2 >= 4*bias. We want to make the blocks big,
     // to reduce overhead from this bias, but not so big that it may
