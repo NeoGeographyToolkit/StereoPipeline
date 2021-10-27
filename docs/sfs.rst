@@ -173,7 +173,8 @@ If this DEM has holes, those can be filled in ``dem_mosaic`` or with
 to attenuate artifacts, though ``sfs`` has a smoothing term itself
 which should take care of small imperfections in the input.
 
-Then we run ``sfs``::
+Then we run ``sfs`` (for a larger clip ``parallel_sfs`` should be used
+instead)::
 
     sfs -i run_full1/run-crop-DEM.tif A.cub -o sfs_ref1/run           \
       --reflectance-type 1                                            \
@@ -541,14 +542,18 @@ terrain, in this case the LOLA gridded DEM, as such a DEM has values in
 permanently shadowed regions. The terrain size is 5 km by 5 km at 1
 meter/pixel (we also ran a 10 km by 10 km region in the same location).
 
-It is important to note that this LOLA DEM was rather coarse, and for
-that reason it appeared much smoother than it was, which resulted in
-image exposures being overestimated and SfS created terrain with
-craters that were shallower than what they should be, by a factor of 2
-or more. To make the craters deeper one can re-run SfS with the
+It is important to note that the LOLA DEM is rather coarse, and for
+that reason it appears overly smooth, which may result in image
+exposures being overestimated and the resulting SfS-created terrain
+could have craters that may be somewhat shallower than what they
+should be. To make the craters deeper one can re-run SfS with the
 ``--image-exposures-prefix`` option, with the exposures in that file
-being half the values than what SfS estimates based on the input LOLA
-terrain.
+being perhaps 0.85 times the values than what SfS estimates based on
+the input LOLA terrain. One could also try to run SfS with a given set
+of exposures and images at 1/10 the resolution (as earlier in this
+document), when the SfS terrain resolution may be more similar to LOLA
+and hence one could use LOLA to estimate if the SfS-produced craters
+have the correct depth.
 
 Another difficulty here is that the topography is very steep, the
 shadows are very long and vary drastically from image to image, and
