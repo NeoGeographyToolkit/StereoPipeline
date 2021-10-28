@@ -475,6 +475,11 @@ If in doubt, it is suggested that more points be picked, and one should
 examine the resulting reprojection errors in the final ``pointmap`` file
 (:numref:`error_files`).
 
+Note that if several attempts are used to pick and save interest
+points in the mapprojected images, the resulting match file among the
+unprojected images needs to be deleted before re-running bundle
+adjustment, as otherwise it won't be recreated.
+
 Then we run ``parallel_stereo`` with the adjusted cameras::
 
     parallel_stereo A_crop_sub4.cub B_crop_sub4.cub                    \

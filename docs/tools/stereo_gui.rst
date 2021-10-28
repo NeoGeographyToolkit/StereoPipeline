@@ -199,8 +199,9 @@ be done manually in the GUI as follows::
 
 Interest points can be picked by right-clicking on the same feature in
 each image, from left to right, then repeating this process for a
-different feature, etc. They can be saved to disk from the menu, and the
-above bundle adjustment command can be invoked.
+different feature, etc. They can be saved to disk from the menu, and
+the above bundle adjustment command can be invoked (while not
+forgetting to delete first the match file among unprojected images).
 
 One can then run::
 
