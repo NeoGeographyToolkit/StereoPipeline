@@ -129,6 +129,8 @@ as shown earlier, with one or more images and cameras, and the
 obtained adjustments can be used with ``stereo`` or ``mapproject``
 as described above.
 
+.. _error_files:
+
 Output error files
 ~~~~~~~~~~~~~~~~~~
 

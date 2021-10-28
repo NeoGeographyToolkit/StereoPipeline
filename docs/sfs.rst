@@ -471,32 +471,40 @@ An illustration is shown in :numref:`sfs3`.
    An illustration of how interest points are picked manually for the
    purpose of bundle adjustment and then SfS.
 
-A good sanity check to ensure that at this stage cameras are aligned
-properly is to map-project using the newly obtained camera adjustments
-and then overlay the obtained images in the GUI. The features in all
-images should be perfectly on top of each other.
+If in doubt, it is suggested that more points be picked, and one should
+examine the resulting reprojection errors in the final ``pointmap`` file
+(:numref:`error_files`).
 
-::
-
-    for f in A B C D; do 
-      mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif       \
-        ${f}_crop_sub4.cub ${f}_crop_sub4_v2.tif               \
-        --tile-size 128 --bundle-adjust-prefix run_ba_sub4/run
-    done
-
-This will also show where the images overlap, and hence on what portion
-of the DEM we can run SfS.
-
-Then we run ``parallel_stereo``, followed by ``sfs``::
+Then we run ``parallel_stereo`` with the adjusted cameras::
 
     parallel_stereo A_crop_sub4.cub B_crop_sub4.cub                    \
       run_stereo_yesba_sub4/run --subpixel-mode 3                      \
       --bundle-adjust-prefix run_ba_sub4/run
     point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003   \
       run_stereo_yesba_sub4/run-PC.tif --tr 4
+
+Mapproject the bundle-adjusted images onto the stereo terrain obtained
+with bundle-adjusted images::
+
+    for f in A B C D; do 
+      mapproject --tr 4 run_stereo_yesba_sub4/run-DEM.tif      \
+        ${f}_crop_sub4.cub ${f}_crop_sub4_v2.tif               \
+        --tile-size 128 --bundle-adjust-prefix run_ba_sub4/run
+    done
+
+A good sanity check is to overlay this DEM and the resulting
+mapprojected images and check for registration errors.
+
+This will also show where the images overlap, and hence on what
+portion of the DEM we can run SfS. We select a clip for that as
+follows::
+
     gdal_translate -srcwin 138 347 273 506                             \
       run_stereo_yesba_sub4/run-DEM.tif                                \
       run_stereo_yesba_sub4/run-crop1-DEM.tif 
+
+Then run SfS on that clip::
+
     sfs -i run_stereo_yesba_sub4/run-crop1-DEM.tif A_crop_sub4.cub     \
       C_crop_sub4.cub D_crop_sub4.cub                                  \
       -o sfs_sub4_ref1_th_reg0.12_wt0.001/run                          \
