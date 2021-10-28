@@ -452,7 +452,7 @@ and here just the relevant commands are shown.
     done
 
 (Optional manual interest point picking in the mapprojected images can
-happen here.)
+happen here. Those should be saved using the output prefix expected below.)
 
 ::
 
