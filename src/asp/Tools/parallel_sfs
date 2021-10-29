@@ -203,16 +203,12 @@ def mosaic_results(tileList, outputFolder, outputName, options, inFilePrefix, ou
         outputDems.append(tilePrefix + '-' + inFilePrefix + '.tif')
          
     # Mosaic the outputs using dem_mosaic
+    finalDem = options.output_prefix + '-' + outFilePrefix + '.tif'
     dem_mosaic_path = asp_system_utils.bin_path('dem_mosaic')
     dem_mosaic_args = ['--weights-exponent', '2', '--use-centerline-weights',
-                       '-o', options.output_prefix]
+                       '-o', finalDem]
     cmd = timeCmd + [dem_mosaic_path] + outputDems + dem_mosaic_args
     asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
-
-    # Rename from dem_mosaic convention to sfs convention
-    finalDem = options.output_prefix + '-' + outFilePrefix + '.tif'
-    print("Renaming to: " + finalDem)
-    os.rename(options.output_prefix + '-tile-0.tif', finalDem)
 
 def write_cmd_output(output_prefix, cmd, out, err, status):
     logFile = output_prefix + '-cmd-log.txt'
@@ -313,7 +309,7 @@ def main(argsIn):
 
     if options.resume:
         if '--compute-exposures-only' in options.extraArgs or \
-               '--estimate-slope-errors' in argsIn or \
+               '--estimate-slope-errors' in argsIn or         \
                '--estimate-height-errors' in argsIn:
             parser.print_help()
             parser.error("The --resume option cannot be used unless this " + \
@@ -448,11 +444,16 @@ def main(argsIn):
         mosaic_results(tileList, outputFolder, outputName, options,
                        'DEM-final', 'DEM-final')
         
-        # Mosaic the albedo computed albedo
+        # Mosaic the albedo
         if '--float-albedo' in argsIn:
             mosaic_results(tileList, outputFolder, outputName, options,
                            'comp-albedo-final', 'albedo-final')
-
+            
+        # Mosaic the dem with nodata
+        if '--save-dem-with-nodata' in argsIn:
+            mosaic_results(tileList, outputFolder, outputName, options,
+                           'DEM-nodata-final', 'DEM-nodata-final')
+            
     elif '--estimate-slope-errors' in argsIn:
         # Here we just mosaic the slope errors
         mosaic_results(tileList, outputFolder, outputName, options,
