@@ -48,7 +48,6 @@ namespace po = boost::program_options;
 
 using namespace vw;
 using namespace vw::camera;
-using namespace std;
 using namespace vw::cartography;
 
 // Solve for best fitting camera that projects given xyz locations at
@@ -260,7 +259,7 @@ void parse_values(std::string list, std::vector<T> & values){
 }
 
 struct Options : public vw::cartography::GdalWriteOptions {
-  string image_file, camera_file, lon_lat_values_str, pixel_values_str, datum_str,
+  std::string image_file, camera_file, lon_lat_values_str, pixel_values_str, datum_str,
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
     stereo_session, bundle_adjust_prefix, parsed_cam_ctr_str, parsed_cam_quat_str;
   double focal_length, pixel_pitch, gcp_std, height_above_datum,
@@ -324,7 +323,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::positional_options_description positional_desc;
   positional_desc.add("image-file",1);
 
-  string usage("[options] <image-file> -o <camera-file>");
+  std::string usage("[options] <image-file> -o <camera-file>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =

@@ -2,6 +2,8 @@
 
 .. include:: ../INSTALLGUIDE.rst
 
+.. _vwrc:
+
 Settings optimization
 ---------------------
 

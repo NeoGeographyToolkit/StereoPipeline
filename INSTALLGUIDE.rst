@@ -139,18 +139,35 @@ slightly different.
 
 ::
 
-   **I/O ERROR** Unable to open [$ISISDATA/<Some/Path/Here>].
-   Stereo step 0: Preprocessing failed
+    **I/O ERROR** Unable to open [$ISISDATA/<Some/Path/Here>].
+    Stereo step 0: Preprocessing failed
 
 You need to set up your ISIS environment or manually set the correct
 location for ``ISISDATA``.
 
 ::
 
-   bash: stereo: command not found
+    bash: stereo: command not found
 
 You need to add the ``bin`` directory of your deployed Stereo Pipeline
 installation to the environmental variable ``PATH``.
+
+::
+
+    Cache size (500 MB) larger than the requested maximum cache size
+
+Consider increasing the cache size in ``~/.vwrc`` (:numref:`vwrc`). 
+This also may be a sign of large input TIF images being stored
+in blocks as tall or as wide as the image. The storage scheme of
+an image can be examined with the ``gdalinfo -stats`` command,
+and an image can be rewritten with square blocks using the command::
+
+    gdal_translate -co compress=lzw -co TILED=yes -co INTERLEAVE=BAND \
+      -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 input.tif output.tif
+
+If the new images are used instead, that warning should go away and
+the processing time should go down. Both ``gdalinfo`` and
+``gdal_translate`` are included with ASP.
 
 .. _conda_intro:
 
