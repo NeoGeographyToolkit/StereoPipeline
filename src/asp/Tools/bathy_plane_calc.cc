@@ -78,6 +78,98 @@ void find_projection(// Inputs
   }
 }
 
+// Find the mask boundary, shoot points from there onto the DEM,
+// and return the obtained points.
+void find_points_at_mask_boundary(ImageViewRef<float> mask,
+                                  float mask_nodata_val,
+                                  boost::shared_ptr<CameraModel> camera_model,
+                                  vw::cartography::GeoReference const& shape_georef,
+                                  vw::cartography::GeoReference const& dem_georef,
+                                  ImageViewRef<PixelMask<float>> masked_dem,
+                                  std::vector<Eigen::Vector3d> & point_vec,
+                                  std::vector<vw::Vector3> & llh_vec,
+                                  std::vector<vw::Vector2> & used_shape_vertices) {
+
+  // Ensure that the outputs are initialized
+  point_vec.clear();
+  llh_vec.clear();
+  used_shape_vertices.clear();
+      
+  // Let the mask boundary be the mask pixels whose value
+  // is above threshold and which border pixels whose values
+  // is not above threshold.
+  // TODO(oalexan1): Should we move this a bit outward?
+      
+  for (int col = 0; col < mask.cols(); col++) {
+    for (int row = 0; row < mask.rows(); row++) {
+
+      // Look at pixels above threshold which have neighbors <= threshold
+      if (mask(col, row) <= mask_nodata_val) 
+        continue;
+
+      // The four neighbors
+      int col_vals[4] = {-1, 0, 0, 1};
+      int row_vals[4] = {0, -1, 1, 0};
+          
+      bool border_pix = false;
+      for (int it = 0; it < 4; it++) {
+            
+        int icol = col + col_vals[it];
+        int irow = row + row_vals[it];
+
+        if (icol < 0 || irow < 0 || icol >= mask.cols() || irow >= mask.rows()) 
+          continue;
+            
+        if (mask(icol, irow) <= mask_nodata_val) {
+          border_pix = true;
+          break;
+        }
+      }
+          
+      if (!border_pix) 
+        continue;
+
+      // The ray going to the ground
+      Vector2 pix(col, row);
+      Vector3 cam_ctr = camera_model->camera_center(pix);
+      Vector3 cam_dir = camera_model->pixel_to_vector(pix);
+
+      // Intersect the ray going from the given camera pixel with a DEM.
+      bool treat_nodata_as_zero = false;
+      bool has_intersection = false;
+      double height_error_tol = 0.001; // in meters
+      double max_abs_tol = 1e-14;
+      double max_rel_tol = 1e-14;
+      int num_max_iter = 100;
+      Vector3 xyz_guess(0, 0, 0);
+      Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+        (cam_ctr, cam_dir, masked_dem,
+         dem_georef, treat_nodata_as_zero,
+         has_intersection, height_error_tol, max_abs_tol, max_rel_tol, 
+         num_max_iter, xyz_guess);
+          
+      if (!has_intersection) 
+        continue;
+
+      Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
+
+      Eigen::Vector3d eigen_xyz;
+      for (size_t coord = 0; coord < 3; coord++) 
+        eigen_xyz[coord] = xyz[coord];
+
+      // TODO(oalexan1): This is fragile due to the 360 degree
+      // uncertainty in latitude
+      Vector2 proj_pt = shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
+          
+      point_vec.push_back(eigen_xyz);
+      used_shape_vertices.push_back(proj_pt);
+      llh_vec.push_back(llh);
+    }
+  }
+
+  return;
+}
+
 // Compute the 3D locations at the shape corners based on interpolating
 // into the DEM and converting either to ECEF or to local projected
 // stereographic coordinates.
@@ -94,10 +186,10 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
   
   // Ensure that the outputs are initialized
   point_vec.clear();
+  llh_vec.clear();
   used_shape_vertices.clear();
 
   int total_num_pts = 0;
-  llh_vec.clear();
   
   for (size_t p = 0; p < polyVec.size(); p++){
     vw::geometry::dPoly const& poly = polyVec[p];
@@ -583,12 +675,13 @@ int main( int argc, char *argv[] ) {
                 << "Using: " << dem_nodata_val << ".\n";
     else
       vw_out() << "Read DEM nodata value: " << dem_nodata_val << ".\n";
-    DiskImageView<float> dem(opt.dem);
-    
-    ImageViewRef< PixelMask<float> > interp_dem
-      = interpolate(create_mask(dem, dem_nodata_val),
-                    BilinearInterpolation(), ConstantEdgeExtension());
 
+    // Read the DEM
+    DiskImageView<float> dem(opt.dem);
+    ImageViewRef<PixelMask<float>> masked_dem = create_mask(dem, dem_nodata_val);
+    ImageViewRef< PixelMask<float> > interp_dem
+      = interpolate(masked_dem, BilinearInterpolation(), ConstantEdgeExtension());
+    
     bool use_proj_water_surface = !opt.use_ecef_water_surface;
     std::vector<Eigen::Vector3d> point_vec;
     std::vector<vw::Vector3> llh_vec;
@@ -600,14 +693,6 @@ int main( int argc, char *argv[] ) {
     std::string poly_color = "green";
 
     if (!use_shapefile) {
-
-      // Ensure that the outputs are initialized
-      point_vec.clear();
-      used_shape_vertices.clear();
-      llh_vec.clear();
-
-      has_shape_georef = true;
-      shape_georef = dem_georef;
       
       // Read the mask. The no-data value is the largest of what
       // is read from the mask file and the value 0, as pixels
@@ -619,79 +704,13 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Pixels with values no more than " << mask_nodata_val
                << " are classified as water.\n"; 
       DiskImageView<float> mask(opt.mask);
-
-      // Let the mask boundary be the mask pixels whose value
-      // is above threshold and which border pixels whose values
-      // is not above threshold.
-      // TODO(oalexan1): Should we move this a bit outward?
       
-      for (int col = 0; col < mask.cols(); col++) {
-        for (int row = 0; row < mask.rows(); row++) {
-
-          // Look at pixels above threshold which have neighbors <= threshold
-          if (mask(col, row) <= mask_nodata_val) 
-            continue;
-
-          // The four neighbors
-          int col_vals[4] = {-1, 0, 0, 1};
-          int row_vals[4] = {0, -1, 1, 0};
-          
-          bool border_pix = false;
-          for (int it = 0; it < 4; it++) {
-            
-            int icol = col + col_vals[it];
-            int irow = row + row_vals[it];
-
-            if (icol < 0 || irow < 0 || icol >= mask.cols() || irow >= mask.rows()) 
-              continue;
-            
-            if (mask(icol, irow) <= mask_nodata_val) {
-              border_pix = true;
-              break;
-            }
-          }
-          
-          if (!border_pix) 
-            continue;
-
-          // The ray going to the ground
-          Vector2 pix(col, row);
-          Vector3 cam_ctr = camera_model->camera_center(pix);
-          Vector3 cam_dir = camera_model->pixel_to_vector(pix);
-
-          // Intersect the ray going from the given camera pixel with a DEM.
-          bool treat_nodata_as_zero = false;
-          bool has_intersection = false;
-          double height_error_tol = 0.001; // in meters
-          double max_abs_tol = 1e-14;
-          double max_rel_tol = 1e-14;
-          int num_max_iter = 100;
-          Vector3 xyz_guess(0, 0, 0);
-          Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
-            (cam_ctr, cam_dir, create_mask(dem, dem_nodata_val),
-             dem_georef, treat_nodata_as_zero,
-             has_intersection, height_error_tol, max_abs_tol, max_rel_tol, 
-             num_max_iter, xyz_guess);
-          
-          if (!has_intersection) 
-            continue;
-
-          Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
-
-          Eigen::Vector3d eigen_xyz;
-          for (size_t coord = 0; coord < 3; coord++) 
-            eigen_xyz[coord] = xyz[coord];
-
-          // TODO(oalexan1): This is fragile due to the 360 degree
-          // uncertainty in latitude
-          Vector2 proj_pt = shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
-          
-          point_vec.push_back(eigen_xyz);
-          used_shape_vertices.push_back(proj_pt);
-          llh_vec.push_back(llh);
-        }
-      }
-
+      has_shape_georef = true;
+      shape_georef = dem_georef;
+      find_points_at_mask_boundary(mask, mask_nodata_val,  
+                                   camera_model, shape_georef,  
+                                  dem_georef, masked_dem, point_vec, llh_vec,  
+                                  used_shape_vertices);
     } else { 
     
       // Read the shapefile
