@@ -154,7 +154,7 @@ installation to the environmental variable ``PATH``.
 
 ::
 
-    Cache size (500 MB) larger than the requested maximum cache size
+    Cache size (500 MB) is larger than the requested maximum cache size
 
 Consider increasing the cache size in ``~/.vwrc`` (:numref:`vwrc`). 
 This also may be a sign of large input TIF images being stored
