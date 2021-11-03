@@ -54,7 +54,10 @@ sfs:
   * SfS was made to work with any camera model supported by ASP,
     including for Earth. For non-ISIS and non-CSM cameras, the option
     --sun-positions should be used.
- 
+
+bathymetry:
+  * bathy_plane_calc can use a mask to find the water-land interface.
+    
 Misc:
   * Added the tool parse_match_file.py to convert a binary match file
     to text and vice-versa.

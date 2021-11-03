@@ -31,8 +31,15 @@
 #include <vw/Math/RANSAC.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/Core/ThreadPool.h>
 
 #include <Eigen/Dense>
+
+#include <random>
+#include <algorithm>
+#include <iterator>
+#include <iostream>
+#include <vector>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -78,6 +85,49 @@ void find_projection(// Inputs
   }
 }
 
+// This is not used for now, it could be used to make the logic
+// of processing mask boundary points multithreaded
+class MaskBoundaryTask : public vw::Task, private boost::noncopyable {
+  vw::BBox2i m_bbox; // Region of image we're working in
+
+  ImageViewRef<float>                   m_mask;
+  float                                 m_mask_nodata_val;
+  boost::shared_ptr<CameraModel>        m_camera_model;
+  vw::cartography::GeoReference         m_shape_georef;
+  vw::cartography::GeoReference         m_dem_georef;
+  ImageViewRef<PixelMask<float>>        m_masked_dem;
+  
+  // Note how all of these are aliases
+  Mutex                        & m_mutex;
+  std::vector<Eigen::Vector3d> & m_point_vec;
+  std::vector<vw::Vector3>     & m_llh_vec;
+  std::vector<vw::Vector2>     & m_used_vertices;
+  
+public:
+  MaskBoundaryTask(vw::BBox2i                            bbox,
+                   ImageViewRef<float>                   mask,
+                   float                                 mask_nodata_val,
+                   boost::shared_ptr<CameraModel>        camera_model,
+                   vw::cartography::GeoReference const & shape_georef,
+                   vw::cartography::GeoReference const & dem_georef,
+                   ImageViewRef<PixelMask<float>>        masked_dem,
+                   Mutex                               & mutex,
+                   std::vector<Eigen::Vector3d>        & point_vec,
+                   std::vector<vw::Vector3>            & llh_vec,
+                   std::vector<vw::Vector2>            & used_vertices):
+    m_bbox(bbox), m_mask(mask), m_mask_nodata_val(mask_nodata_val),
+    m_camera_model(camera_model), m_shape_georef(shape_georef),
+    m_dem_georef(dem_georef), m_masked_dem(masked_dem),
+    m_mutex(mutex), m_point_vec(point_vec),
+    m_llh_vec(llh_vec), m_used_vertices(used_vertices) {}
+  
+  void operator()() {
+    // Rasterizing local tile
+    //ImageView<typename ViewT::pixel_type> copy( crop(m_view, m_bbox ) );
+  }
+};
+
+
 // Find the mask boundary, shoot points from there onto the DEM,
 // and return the obtained points.
 void find_points_at_mask_boundary(ImageViewRef<float> mask,
@@ -86,20 +136,38 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
                                   vw::cartography::GeoReference const& shape_georef,
                                   vw::cartography::GeoReference const& dem_georef,
                                   ImageViewRef<PixelMask<float>> masked_dem,
+                                  int num_samples,
                                   std::vector<Eigen::Vector3d> & point_vec,
                                   std::vector<vw::Vector3> & llh_vec,
-                                  std::vector<vw::Vector2> & used_shape_vertices) {
+                                  std::vector<vw::Vector2> & used_vertices) {
 
   // Ensure that the outputs are initialized
   point_vec.clear();
   llh_vec.clear();
-  used_shape_vertices.clear();
-      
+  used_vertices.clear();
+
+#if 0
+  // Subdivide the box for parallel processing
+  int block_size = vw::vw_settings().default_tile_size();
+  FifoWorkQueue queue(vw_settings().default_num_threads());
+  std::vector<BBox2i> bboxes = subdivide_bbox(mask, block_size, block_size);
+  
+  for (size_t it = 0; it < bboxes.size(); it++) {
+    std::cout << "Box is " << bboxes[it] << std::endl;
+  }
+#endif
+
   // Let the mask boundary be the mask pixels whose value
   // is above threshold and which border pixels whose values
   // is not above threshold.
-  // TODO(oalexan1): Should we move this a bit outward?
-      
+  // TODO(oalexan1): Should we move the boundary a bit outward?
+  // TODO(oalexan1): Make this multi-threaded.
+
+  vw_out() << "Processing points at mask boundary.\n";
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  double inc_amount = 1.0 / mask.cols();
+  tpc.report_progress(0);
+
   for (int col = 0; col < mask.cols(); col++) {
     for (int row = 0; row < mask.rows(); row++) {
 
@@ -162,11 +230,39 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
       Vector2 proj_pt = shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
           
       point_vec.push_back(eigen_xyz);
-      used_shape_vertices.push_back(proj_pt);
+      used_vertices.push_back(proj_pt);
       llh_vec.push_back(llh);
     }
+
+    tpc.report_incremental_progress(inc_amount);
   }
 
+  tpc.report_finished();
+
+  // See if to select a subset
+  int num_pts = point_vec.size();
+  if (num_pts > num_samples) {
+    vw_out() << "Found " << num_pts << " points but only " << num_samples
+             << " samples are desired. Picking a random subset of this size.\n";
+
+    std::vector<int> v(num_pts);
+    for (int it = 0; it < num_pts; it++) 
+      v[it] = it;
+    std::mt19937 g; // Each time this is run same random numbers should be produced
+    std::shuffle(v.begin(), v.end(), g);
+    
+    std::vector<Eigen::Vector3d> big_point_vec     = point_vec;     point_vec.clear();
+    std::vector<vw::Vector3>     big_llh_vec       = llh_vec;       llh_vec.clear();
+    std::vector<vw::Vector2>     big_used_vertices = used_vertices; used_vertices.clear();
+
+    for (int it = 0; it < num_samples; it++) {
+      int random_index = v[it];
+      point_vec.push_back(big_point_vec[random_index]);
+      llh_vec.push_back(big_llh_vec[random_index]);
+      used_vertices.push_back(big_used_vertices[random_index]);
+    }
+  }
+  
   return;
 }
 
@@ -182,12 +278,12 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
                                   ImageViewRef< PixelMask<float> > interp_dem,
                                   std::vector<Eigen::Vector3d> & point_vec,
                                   std::vector<vw::Vector3> & llh_vec,
-                                  std::vector<vw::Vector2> & used_shape_vertices) {
+                                  std::vector<vw::Vector2> & used_vertices) {
   
   // Ensure that the outputs are initialized
   point_vec.clear();
   llh_vec.clear();
-  used_shape_vertices.clear();
+  used_vertices.clear();
 
   int total_num_pts = 0;
   
@@ -233,7 +329,7 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
           eigen_xyz[coord] = xyz[coord];
 
         point_vec.push_back(eigen_xyz);
-        used_shape_vertices.push_back(proj_pt);
+        used_vertices.push_back(proj_pt);
         llh_vec.push_back(llh);
       }
     }
@@ -594,7 +690,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-inlier-shapefile", po::value(&opt.output_inlier_shapefile)->default_value(""),
      "If specified, save at this location the shape file with the inlier vertices.")
     ("num-samples", 
-     po::value(&opt.num_samples)->default_value(100000),
+     po::value(&opt.num_samples)->default_value(500000),
      "Number of samples to pick at the water-land interface if using a mask.")
     ("dem-minus-plane",
      po::value(&opt.dem_minus_plane),
@@ -686,7 +782,7 @@ int main( int argc, char *argv[] ) {
     std::vector<Eigen::Vector3d> point_vec;
     std::vector<vw::Vector3> llh_vec;
     double proj_lat = -1.0, proj_lon = -1.0; // only for curved water surface
-    std::vector<vw::Vector2> used_shape_vertices;
+    std::vector<vw::Vector2> used_vertices;
     vw::cartography::GeoReference stereographic_georef;
     bool has_shape_georef = false;
     vw::cartography::GeoReference shape_georef;
@@ -709,8 +805,10 @@ int main( int argc, char *argv[] ) {
       shape_georef = dem_georef;
       find_points_at_mask_boundary(mask, mask_nodata_val,  
                                    camera_model, shape_georef,  
-                                  dem_georef, masked_dem, point_vec, llh_vec,  
-                                  used_shape_vertices);
+                                   dem_georef, masked_dem,
+                                   opt.num_samples,
+                                   point_vec, llh_vec,  
+                                   used_vertices);
     } else { 
     
       // Read the shapefile
@@ -723,7 +821,7 @@ int main( int argc, char *argv[] ) {
       
       // Find the ECEF coordinates of the shape corners
       find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, point_vec,
-                                   llh_vec, used_shape_vertices);
+                                   llh_vec, used_vertices);
     }
 
     // See if to convert to local stereographic projection
@@ -742,6 +840,7 @@ int main( int argc, char *argv[] ) {
     int    min_num_output_inliers = std::max(point_vec.size()/2, size_t(3));
     bool   reduce_min_num_output_inliers_if_no_fit = true;
     vw::Matrix<double> plane;
+    vw_out() << "Starting RANSAC.\n";
     try {
       // Must first create the functor and metric, then pass these to ransac. If
       // created as inline arguments to ransac, these may go go out
@@ -771,7 +870,7 @@ int main( int argc, char *argv[] ) {
     if (opt.output_inlier_shapefile != "") {
       std::vector<double> inlier_x, inlier_y;
       for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) {
-        Vector2 p = used_shape_vertices[inlier_indices[inlier_it]];
+        Vector2 p = used_vertices[inlier_indices[inlier_it]];
         inlier_x.push_back(p.x());
         inlier_y.push_back(p.y());
       }

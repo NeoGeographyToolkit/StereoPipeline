@@ -24,8 +24,8 @@
 #include <QtWidgets>
 #include <ogrsf_frmts.h>
 
+// For contours
 #include <opencv2/imgproc.hpp>
-#include <opencv2/highgui.hpp>
 
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
@@ -188,7 +188,7 @@ void contour_image(DiskImagePyramidMultiChannel const& img,
   std::vector<std::vector<cv::Point> > contours;
   std::vector<cv::Vec4i> hierarchy;
 
-  // Create the open cv matrix. We will have issues for huge images.
+  // Create the OpenCV matrix. We will have issues for huge images.
   cv::Mat cv_img = cv::Mat::zeros(img.cols(), img.rows(), CV_8UC1);
   
   // Form the binary image. Values above threshold become 1, and less

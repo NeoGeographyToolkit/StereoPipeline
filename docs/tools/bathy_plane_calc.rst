@@ -3,44 +3,56 @@
 bathy_plane_calc
 ----------------
 
-The ``bathy_plane_calc`` program takes as input a shapefile and a DEM,
-finds the 3D positions of the vertices of the shapefile in the DEM in
-ECEF coordinates using bilinear interpolation, converts those points
-to a local stereographic projection, and fits a plane through
-them. 
+The ``bathy_plane_calc`` program estimates the surface of a body of
+water. It can take inputs in two ways. In one, a DEM is given, a
+camera model, and a mask obtained from a raw image with that camera
+model. The mask has the value 1 on land and 0 where there is water, or
+positive values on land and no-data values on water, such as
+constructed in :numref:`bathy_mask_creation`. 
 
-When the vertices in the shapefile are picked at the water-land
-interface in the DEM, this would give the surface of the water to be
-used for bathymetry correction. The obtained plane can be slightly
-non-horizontal due to imperfections in the camera positions and
-orientations, and in the input DEM.
+In the second way of specifying the inputs, a DEM and a shapefile
+are provided, with the latter's vertices at the water-land
+interface. Such a shapefile can be created, for example, using a
+mapprojected image as a guide for where that interface is.
+
+The output water surface produced by this program is parameterized as
+a plane in a local stereographic projection. This plane can be
+slightly non-horizontal due to imperfections in the positions and
+orientations of the cameras that were used to create the input DEM.
 
 Further motivation for this tool and an example of how to use it in
 practice is given in :numref:`water_surface`.
 
-Example
-~~~~~~~
+Example 1
+~~~~~~~~~
 
-::
+Using a DEM, a camera file, and a mask for the camera image::
 
-     bathy_plane_calc --shapefile shape.shp --dem dem.tif    \
-       --output-inlier-shapefile out_shape.shp               \
-       --bathy-plane plane.txt 
+     bathy_plane_calc --mask mask.tif --session-type dg \
+       --camera camera.xml --dem dem.tif                \
+       --output-inlier-shapefile out_shape.shp          \
+       --num-samples 500000                             \
+       --outlier-threshold 0.5                          \ 
+       --bathy-plane plane.txt                          \
+       --output-inlier-shapefile inliers.shp
 
-It will produce output as follows:
+Here, the the session type determines which camera model to use
+(Digital Globe files have both an exact ``dg`` model and an
+approximate ``rpc`` model).
 
-::
+It will produce an output as follows::
 
-    Found 4 / 9 inliers.
-    Max distance to the plane (meters): 2.26214
-    Max inlier distance to the plane (meters): 0.0131818
-    Mean plane height above datum (meters): -21.35657
+    Found 5017 / 13490 inliers.
+    Max distance to the plane (meters): 6.00301
+    Max inlier distance to the plane (meters): 0.499632
+    Mean plane height above datum (meters): -22.2469
+    Writing: plane.txt
 
 The file ``plane.txt`` will look like this::
 
-  -0.0090 0.0130 0.9998 21.3523
-  # Latitude and longitude of the local stereographic projection with the WGS_1984 datum
-  24.583656822372209 -81.773073668899542
+  -0.0090 0.0130 0.9998 22.2460
+  # Latitude and longitude of the local stereographic projection with the WGS_1984 datum:
+  24.5836 -81.7730
 
 The last line has the center of the local stereographic projection in which
 the plane is computed, and the first line has the equation of the plane
@@ -53,7 +65,21 @@ horizontal in local coordinates and the value of ``-d/c`` gives its
 height above the datum (The small deviation from the horizontal may be
 due to the orientations of the satellites taking the pictures not
 being perfectly known.)
-   
+
+Producing an output shapefile having inliers is optional. That one can
+be overlayed on top of the DEM. Its edges can be ignored and only the
+vertices should be checked if they are well-distributed and at water's
+edge. A better display strategy may be adopted going forward.
+
+Example 2
+~~~~~~~~~
+
+Using a DEM and a shapefile as inputs::
+
+     bathy_plane_calc --shapefile shape.shp --dem dem.tif    \
+       --output-inlier-shapefile out_shape.shp               \
+       --bathy-plane plane.txt 
+
 Command-line options for bathy_plane_calc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -66,6 +92,19 @@ Command-line options for bathy_plane_calc
 
 --dem <filename>
     The DEM to use.
+
+--mask <string>
+    A input mask, created from a raw camera image and hence having the
+    same dimensions, with values of 1 on land and 0 in the water.
+
+--camera <string>
+    The camera file to use with the mask.
+
+-t, --session-type <string>
+    Select the stereo session type to use for processing. Usually
+    the program can select this automatically by the file extension, 
+    except for xml cameras. See :numref:`parallel_stereo_options` for
+    options.
 
 --outlier-threshold <double>
     A value, in meters, to determine the distance from a sampled point
@@ -84,6 +123,10 @@ Command-line options for bathy_plane_calc
 --num-ransac-iterations <integer>
     Number of RANSAC iterations to use to find the best-fitting plane.
     The default is 1000.
+
+--num-samples <integer>
+    Number of samples to pick at the water-land interface if using a
+    mask. The default is 500000.
 
 --dem-minus-plane <string (default: "")>
     If specified, subtract from the input DEM the best-fit plane and save the 

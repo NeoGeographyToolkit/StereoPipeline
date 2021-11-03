@@ -538,7 +538,9 @@ void manufacture_cam(Options const& opt, int wid, int hgt,
   }
 }
 
-// TODO: This is a hack. Find a proper root-finding algorithm
+// TODO: Wipe this logic and use RayDEMIntersectionLMA from VW.
+// That one is also terrible code which needs to be replaced with a
+// proper root-finding algorithm
 // and use it. And this code should be moved to VW.
 // https://github.com/NeoGeographyToolkit/StereoPipeline/issues/267
 namespace vw {

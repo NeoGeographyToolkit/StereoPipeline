@@ -2559,7 +2559,7 @@ considered.
 
    Example of a shapefile whose vertices are at the water-land boundary.
 
-Then, the ``bathy_plane_calc`` ASP program will be invoked, which will
+After this, the ``bathy_plane_calc`` ASP program will be invoked, which will
 fit a plane through the points obtained by sampling the DEM at the
 vertices of the shapefile, while using outlier removal, as follows:
 
@@ -2683,6 +2683,8 @@ It will produce the following output:
 Once the threshold is found, either manually or automatically, the
 ``stereo_gui`` tool can be used to visualize
 the regions at or below threshold, see again :numref:`thresh`.
+
+.. _bathy_mask_creation:
 
 Creation of masks based on the threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
