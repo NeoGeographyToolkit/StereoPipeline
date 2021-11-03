@@ -992,24 +992,22 @@ int main( int argc, char *argv[] ) {
     save_plane(use_proj_water_surface, proj_lat, proj_lon,  
                plane, opt.bathy_plane);
 
-    // Save the shape having the inliers. We will create a tiny square
-    // for each inlier point to avoid drawing edges between inlier
-    // points.
+    // Save the shape having the inliers. The edges should be ignored.
+    // Only the vertices matter.
     if (opt.output_inlier_shapefile != "") {
+      std::vector<double> inlier_x, inlier_y;
+      for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) {
+        Vector2 p = used_vertices[inlier_indices[inlier_it]];
+        inlier_x.push_back(p.x());
+        inlier_y.push_back(p.y());
+      }
       bool isPolyClosed = true;
       std::string layer = "";
       vw::geometry::dPoly inlierPoly;
-      for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) {
-        Vector2 P = used_vertices[inlier_indices[inlier_it]];
-
-        std::vector<double> x_vec, y_vec;
-        double epsilon = 1.0e-7;
-        gen_tiny_square_shape_around_point(P, epsilon, x_vec, y_vec);
-        inlierPoly.appendPolygon(x_vec.size(),
-                                 vw::geometry::vecPtr(x_vec),
-                                 vw::geometry::vecPtr(y_vec),
-                                 isPolyClosed, poly_color, layer);
-      }
+      inlierPoly.setPolygon(inlier_x.size(),
+                            vw::geometry::vecPtr(inlier_x),
+                            vw::geometry::vecPtr(inlier_y),
+                            isPolyClosed, poly_color, layer);
       
       std::vector<vw::geometry::dPoly> inlierPolyVec;
       inlierPolyVec.push_back(inlierPoly);
