@@ -86,7 +86,7 @@ void find_projection(// Inputs
 }
 
 // This is not used for now, it could be used to make the logic
-// of processing mask boundary points multithreaded
+// of processing mask boundary points multi-threaded.
 class MaskBoundaryTask : public vw::Task, private boost::noncopyable {
   vw::BBox2i m_bbox; // Region of image we're working in
 
@@ -122,14 +122,107 @@ public:
     m_llh_vec(llh_vec), m_used_vertices(used_vertices) {}
   
   void operator()() {
-    // Rasterizing local tile
-    //ImageView<typename ViewT::pixel_type> copy( crop(m_view, m_bbox ) );
+
+    // Grow the box by 1 pixel as we need to look at the immediate neighbors
+    BBox2i extra_box = m_bbox;
+    extra_box.expand(1); 
+    extra_box.crop(bounding_box(m_mask));
+
+    std::cout << "--extra box " << extra_box << std::endl;
+
+    // Make a local copy of the tile
+    ImageView<float> mask_tile = crop(m_mask, extra_box);
+
+    for (int col = 0; col < mask_tile.cols(); col++) {
+      for (int row = 0; row < mask_tile.rows(); row++) {
+
+        // Look at pixels above threshold which have neighbors <= threshold
+        if (mask_tile(col, row) <= m_mask_nodata_val) 
+          continue;
+
+        // The four neighbors
+        int col_vals[4] = {-1, 0, 0, 1};
+        int row_vals[4] = {0, -1, 1, 0};
+          
+        bool border_pix = false;
+        for (int it = 0; it < 4; it++) {
+            
+          int icol = col + col_vals[it];
+          int irow = row + row_vals[it];
+
+          if (icol < 0 || irow < 0 || icol >= mask_tile.cols() || irow >= mask_tile.rows()) 
+            continue;
+            
+          if (mask_tile(icol, irow) <= m_mask_nodata_val) {
+            border_pix = true;
+            break;
+          }
+        }
+          
+        if (!border_pix) 
+          continue;
+
+        // Create the pixel in the full image coordinates
+        Vector2 pix = Vector2(col, row) + extra_box.min();
+
+        // Only work on pixels in the current box (earlier had a
+        // bigger box to be able to examine neighbors).
+        if (!m_bbox.contains(pix))
+          continue;
+        
+        // The ray going to the ground
+        // Here we assume that the camera model is thread-safe, which is
+        // true for all cameras except ISIS, and this code will be used
+        // on Earth only.
+        Vector3 cam_ctr = m_camera_model->camera_center(pix);
+        Vector3 cam_dir = m_camera_model->pixel_to_vector(pix);
+
+        // Intersect the ray going from the given camera pixel with a DEM.
+        bool treat_nodata_as_zero = false;
+        bool has_intersection = false;
+        double height_error_tol = 0.001; // in meters
+        double max_abs_tol = 1e-14;
+        double max_rel_tol = 1e-14;
+        int num_max_iter = 100;
+        Vector3 xyz_guess(0, 0, 0);
+        Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+          (cam_ctr, cam_dir, m_masked_dem,
+           m_dem_georef, treat_nodata_as_zero,
+           has_intersection, height_error_tol, max_abs_tol, max_rel_tol, 
+           num_max_iter, xyz_guess);
+          
+        if (!has_intersection) 
+          continue;
+
+        Vector3 llh = m_dem_georef.datum().cartesian_to_geodetic(xyz);
+
+        Eigen::Vector3d eigen_xyz;
+        for (size_t coord = 0; coord < 3; coord++) 
+          eigen_xyz[coord] = xyz[coord];
+
+        // TODO(oalexan1): This is fragile due to the 360 degree
+        // uncertainty in latitude
+        Vector2 proj_pt = m_shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
+
+        {
+          // Need to make sure to lock the shared resource
+          Mutex::Lock lock(m_mutex);
+          m_point_vec.push_back(eigen_xyz);
+          m_used_vertices.push_back(proj_pt);
+          m_llh_vec.push_back(llh);
+        }
+      }
+      
+    }
+    
   }
+  
 };
 
-
-// Find the mask boundary, shoot points from there onto the DEM,
+// Find the mask boundary (points where the points in the mask have
+// neighbors not in the mask), shoot points from there onto the DEM,
 // and return the obtained points.
+// TODO(oalexan1): Should we move the boundary a bit outward?
 void find_points_at_mask_boundary(ImageViewRef<float> mask,
                                   float mask_nodata_val,
                                   boost::shared_ptr<CameraModel> camera_model,
@@ -147,6 +240,11 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
   used_vertices.clear();
 
 #if 0
+
+  // For some reason parallel processing is slower than serial processing.
+  // Likely it is because the DEM is shared. Need extra heuristics to cut
+  // that one as appropriate for each task.
+  
   // Subdivide the box for parallel processing
   int block_size = vw::vw_settings().default_tile_size();
   FifoWorkQueue queue(vw_settings().default_num_threads());
@@ -155,12 +253,23 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
   for (size_t it = 0; it < bboxes.size(); it++) {
     std::cout << "Box is " << bboxes[it] << std::endl;
   }
-#endif
+
+  Mutex mutex;
+  for (size_t it = 0; it < bboxes.size(); it++) {
+    boost::shared_ptr<MaskBoundaryTask>
+      task(new MaskBoundaryTask(bboxes[it],  mask, mask_nodata_val, camera_model,
+                                shape_georef, dem_georef, masked_dem, mutex,
+                                point_vec, llh_vec, used_vertices));
+    queue.add_task(task);
+  }
+  
+  queue.join_all();
+  
+#else
 
   // Let the mask boundary be the mask pixels whose value
   // is above threshold and which border pixels whose values
   // is not above threshold.
-  // TODO(oalexan1): Should we move the boundary a bit outward?
   // TODO(oalexan1): Make this multi-threaded.
 
   vw_out() << "Processing points at mask boundary.\n";
@@ -238,7 +347,9 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
   }
 
   tpc.report_finished();
-
+  
+#endif
+  
   // See if to select a subset
   int num_pts = point_vec.size();
   if (num_pts > num_samples) {
