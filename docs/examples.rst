@@ -2514,91 +2514,6 @@ The extra options, in addition to ``-b ${b}`` to extract a given band,
 are needed to create a compressed and tiled output image, which helps
 with the performance of ASP later.
 
-.. _water_surface:
-
-Determination of the water surface
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The first requirement towards solving this problem is to find the
-water surface.  Here we assume that the Earth curvature is not
-important, and that the water surface will be a plane, whose equation
-we will compute in the ECEF coordinate system.  (This assumption is to
-be revisited shortly.)
-
-The water plane need not be perfectly horizontal from a ground
-perspective, due to slight orientation errors in the input camera
-models. The plane will be found by first creating a DEM and orthoimage
-from the input data, for example as follows:
-
-::
-
-     parallel_stereo -t dg left.tif right.tif left.xml right.xml run/run
-     point2dem --orthoimage run/run-PC.tif run/run-L.tif
-
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
-
-Here, the two input images can be, for example, a single band
-extracted from Digital Globe multispectral images, such as band
-7. (Note that all these bands have the same XML camera model.)
-
-Then, vertices on the water-ground boundary can be picked in the
-ortho image ``run/run-DRG.tif`` and saved as an ``Esri shapefile,``
-for example, named ``shoreline.shp``.  This can be accomplished in any
-GIS tool, for example, in QGIS. The ASP ``stereo_gui`` program can be
-used as well, as described in :numref:`poly`.
-
-It is very important to pick many such vertices, say about 15-25 of them
-(the more the better), over the full extent of the area of interest,
-or else the plane may not be accurate. It is not important for the
-obtained polygonal shape to be "pretty", or if the edges cross land or
-go in deep water, as only the locations of the vertices will be
-considered.
-
-.. figure:: images/examples/bathy/water_outline.png
-   :name: bathy_water_plane_example
-
-   Example of a shapefile whose vertices are at the water-land boundary.
-
-After this, the ``bathy_plane_calc`` ASP program will be invoked, which will
-fit a plane through the points obtained by sampling the DEM at the
-vertices of the shapefile, while using outlier removal, as follows:
-
-::
-
-     bathy_plane_calc --shapefile shoreline.shp --dem run/run-DEM.tif \
-       --outlier-threshold 0.2 --bathy-plane bathy_plane.txt          \
-       --output-inlier-shapefile shoreline_inliers.shp
-
-This will produce the following output:
-
-::
-
-     Found 17 / 32 inliers.
-     Max distance to the plane (meters): 2.60551
-     Max inlier distance to the plane (meters): 0.0986373
-     Writing: bathy_plane.txt
-
-and will save to disk the file ``bathy_plane.txt`` which has four
-values, giving the equation of the plane ``ax + by + cz + d = 0.`` Note
-the messages about how many of the points picked by the user were kept
-as inliers and the distance from those points to the plane, which
-ideally should be zero. (The value ``d`` in that file should be about
-the Earth radius, as we use ECEF coordinates.)
-
-It is important to keep an eye on the number of inliers. If too few,
-that may mean that the outlier threshold is too strict. Above, the
-inliers are saved as a shape file and can be inspected. Ideally the
-inliers bound the desired region well, or else the number of sample
-points can be increased or the outlier threshold can be relaxed by
-making it bigger.
-
-Above we assume that the DEM and DRG files are created together with
-``point2dem`` and are one-to-one, or else the results will be
-inaccurate.
-
-The manual page for this tool showing the full list of options is in 
-:numref:`bathy_plane_calc`.
-
 .. _bathy_threshold_use:
 
 Computation of the water-land threshold
@@ -2715,6 +2630,18 @@ to be on land and hence no bathymetry correction will take place for
 this pair. Hence, some inspection and potentially cleanup of the
 masks may be necessary.
 
+.. _water_surface:
+
+Determination of the water surface
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In order to run stereo and properly triangulate the rays which 
+may intersect under water, it is necessary to determine
+the water surface. Since for images of large extent the Earth
+curvature will be important, this surface will be found as a plane
+in a local stereographic projection.
+
+The procedure for this is is described in :numref:`bathy_plane_calc`.
 
 Stereo with bathymetry correction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

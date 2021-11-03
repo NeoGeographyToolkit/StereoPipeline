@@ -782,7 +782,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem",   po::value(&opt.dem),
      "The DEM to use.")
     ("mask",   po::value(&opt.mask),
-     "A input mask, created from a raw camera image and hence having the same dimensions, with values of 1 on land and 0 in the water.")
+     "A input mask, created from a raw camera image and hence having the same dimensions, with values of 1 on land and 0 on water, or positive values on land and no-data values on water.")
     ("camera",   po::value(&opt.camera),
      "The camera file to use with the mask.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
