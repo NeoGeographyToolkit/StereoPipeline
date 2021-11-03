@@ -27,9 +27,7 @@ Using a DEM, a camera file, and a mask for the camera image::
 
      bathy_plane_calc --mask mask.tif --session-type dg \
        --camera camera.xml --dem dem.tif                \
-       --output-inlier-shapefile out_shape.shp          \
-       --num-samples 500000                             \
-       --outlier-threshold 0.5                          \ 
+       --num-samples 30000 --outlier-threshold 0.5      \
        --bathy-plane plane.txt                          \
        --output-inlier-shapefile inliers.shp
 
@@ -42,9 +40,9 @@ follows::
     image_calc -c "max($thresh, var_0)" --output-nodata-value $thresh \
       image.tif -o mask.tif
 
-It is important that the image be raw, not orthoprojected, and if
+It is important that the image be raw, not projected, and if
 the image is part of a stereo pair, the corresponding camera
-for that image be used. For a stereo pair, this excercise can be
+for that image be used. For a stereo pair, this exercise can be
 done with both the left image and left camera, then separately
 for the right image and right camera.
 
@@ -87,13 +85,13 @@ height above the datum (The small deviation from the horizontal may be
 due to the orientations of the satellites taking the pictures not
 being perfectly known.)
 
-It is important to decide carefully what outlier threshold to use
-check the number of inliers. If too few, that may mean that the
-outlier threshold is too strict. Above, the inliers are saved as a
-shape file and can be inspected. The vertices of the shapefile should
-be well-distributed over the entire shoreline. The edges in the
-shapefile should be ignored (and hopefully soon a way will be
-developed to save only vertices and not edges).
+It is important to decide carefully what outlier threshold to use and
+to check the number of resulting inliers. If too few, that may mean
+that the outlier threshold is too strict. Above, the inliers are saved
+as a shape file and can be inspected (each inlier vertex is drawn as a
+tiny square in order to avoid edges being drawn between such vertices,
+as edges likely won't be along the shoreline). The vertices of the
+shapefile should be well-distributed over the entire shoreline.
 
 Example 2
 ~~~~~~~~~
@@ -107,11 +105,11 @@ Using a DEM and a shapefile as inputs::
 
 As earlier, it is important to consider carefully what outlier
 threshold to use, and to examine the number and distribution of
-inliners.
+inliers.
 
 Here it is suggested that the DEM be obtained as in the previous
 example, from a stereo pair, and the shapefile delineating the
-water-land inteface be drawn on top of an orhtoimage created with the
+water-land interface be drawn on top of an orthoimage created with the
 same stereo pair. The commands for that can be as follows::
 
      parallel_stereo -t dg left.tif right.tif left.xml right.xml \
@@ -175,7 +173,7 @@ Command-line options for bathy_plane_calc
 
 --num-samples <integer>
     Number of samples to pick at the water-land interface if using a
-    mask. The default is 500000.
+    mask. The default is 30000.
 
 --dem-minus-plane <string (default: "")>
     If specified, subtract from the input DEM the best-fit plane and save the 

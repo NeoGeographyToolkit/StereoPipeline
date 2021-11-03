@@ -619,8 +619,9 @@ void calc_plane_properties(bool use_proj_water_surface,
 
 void save_plane(bool use_proj_water_surface, double proj_lat, double proj_lon,
                 vw::Matrix<double> const& plane, std::string const& plane_file) {
-  
+
   vw_out() << "Writing: " << plane_file << std::endl;
+  vw::create_out_dir(plane_file);
   std::ofstream bp(plane_file.c_str());
   bp.precision(17);
   for (int col = 0; col < plane.cols(); col++) {
@@ -801,7 +802,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-inlier-shapefile", po::value(&opt.output_inlier_shapefile)->default_value(""),
      "If specified, save at this location the shape file with the inlier vertices.")
     ("num-samples", 
-     po::value(&opt.num_samples)->default_value(500000),
+     po::value(&opt.num_samples)->default_value(30000),
      "Number of samples to pick at the water-land interface if using a mask.")
     ("dem-minus-plane",
      po::value(&opt.dem_minus_plane),
@@ -839,6 +840,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.bathy_plane == "")
     vw_throw( ArgumentErr() << "Missing the output bathy plane file.\n"
               << usage << general_options );
+}
+
+void gen_tiny_square_shape_around_point(Vector2 const& P, double epsilon,
+                                        std::vector<double> & x_vec,
+                                        std::vector<double> & y_vec) {
+
+  x_vec.clear();
+  y_vec.clear();
+
+  x_vec.push_back(P.x() - epsilon); y_vec.push_back(P.y() - epsilon);
+  x_vec.push_back(P.x() + epsilon); y_vec.push_back(P.y() - epsilon);
+  x_vec.push_back(P.x() + epsilon); y_vec.push_back(P.y() + epsilon);
+  x_vec.push_back(P.x() - epsilon); y_vec.push_back(P.y() + epsilon);
 }
 
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
@@ -904,9 +918,10 @@ int main( int argc, char *argv[] ) {
       // Read the mask. The no-data value is the largest of what
       // is read from the mask file and the value 0, as pixels
       // over land are supposed to be positive and be valid data.
+      vw_out() << "Reading the mask: " << opt.mask << std::endl;
       float mask_nodata_val = -std::numeric_limits<float>::max();
       if (vw::read_nodata_val(opt.mask, mask_nodata_val))
-        vw_out() << "Read no-data value: " << mask_nodata_val << ".\n";
+        vw_out() << "Read mask nodata value: " << mask_nodata_val << ".\n";
       mask_nodata_val = std::max(0.0f, mask_nodata_val);
       vw_out() << "Pixels with values no more than " << mask_nodata_val
                << " are classified as water.\n"; 
@@ -977,21 +992,25 @@ int main( int argc, char *argv[] ) {
     save_plane(use_proj_water_surface, proj_lat, proj_lon,  
                plane, opt.bathy_plane);
 
-    // Save the shape having the inliers
+    // Save the shape having the inliers. We will create a tiny square
+    // for each inlier point to avoid drawing edges between inlier
+    // points.
     if (opt.output_inlier_shapefile != "") {
-      std::vector<double> inlier_x, inlier_y;
-      for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) {
-        Vector2 p = used_vertices[inlier_indices[inlier_it]];
-        inlier_x.push_back(p.x());
-        inlier_y.push_back(p.y());
-      }
       bool isPolyClosed = true;
       std::string layer = "";
       vw::geometry::dPoly inlierPoly;
-      inlierPoly.setPolygon(inlier_x.size(),
-                            vw::geometry::vecPtr(inlier_x),
-                            vw::geometry::vecPtr(inlier_y),
-                            isPolyClosed, poly_color, layer);
+      for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) {
+        Vector2 P = used_vertices[inlier_indices[inlier_it]];
+
+        std::vector<double> x_vec, y_vec;
+        double epsilon = 1.0e-7;
+        gen_tiny_square_shape_around_point(P, epsilon, x_vec, y_vec);
+        inlierPoly.appendPolygon(x_vec.size(),
+                                 vw::geometry::vecPtr(x_vec),
+                                 vw::geometry::vecPtr(y_vec),
+                                 isPolyClosed, poly_color, layer);
+      }
+      
       std::vector<vw::geometry::dPoly> inlierPolyVec;
       inlierPolyVec.push_back(inlierPoly);
       vw_out() << "Writing inlier shapefile: " << opt.output_inlier_shapefile << "\n";
