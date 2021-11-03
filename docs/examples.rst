@@ -2641,7 +2641,7 @@ the water surface. Since for images of large extent the Earth
 curvature will be important, this surface will be found as a plane
 in a local stereographic projection.
 
-The procedure for this is is described in :numref:`bathy_plane_calc`.
+The procedure for this is described in :numref:`bathy_plane_calc`.
 
 Stereo with bathymetry correction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
