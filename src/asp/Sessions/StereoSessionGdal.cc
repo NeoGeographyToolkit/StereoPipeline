@@ -48,8 +48,6 @@ namespace asp {
                                                  std::string      & left_output_file,
                                                  std::string      & right_output_file) {
     
-    using namespace vw;
-    
     std::string left_cropped_file, right_cropped_file;
     vw::cartography::GdalWriteOptions options;
     float left_nodata_value, right_nodata_value;
@@ -93,18 +91,18 @@ namespace asp {
 
     ImageViewRef< PixelMask<float> > Limg, Rimg;
     ImageViewRef< PixelMask<float> > left_aligned_bathy_mask, right_aligned_bathy_mask;
-
+    
     // Image alignment block - Generate aligned versions of the input
     // images according to the options.
-  if (stereo_settings().alignment_method == "homography"     ||
-      stereo_settings().alignment_method == "affineepipolar" ||
-      stereo_settings().alignment_method == "local_epipolar") {
+    if (stereo_settings().alignment_method == "homography"     ||
+        stereo_settings().alignment_method == "affineepipolar" ||
+        stereo_settings().alignment_method == "local_epipolar") {
       // Define the file name containing IP match information.
       std::string match_filename    = ip::match_filename(this->m_out_prefix,
                                                          left_cropped_file, right_cropped_file);
       std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file);
       std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
-
+      
       // Detect matching interest points between the left and right input images.
       // - The output is written directly to file!
       DiskImageView<float> left_orig_image(left_input_file);

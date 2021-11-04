@@ -18,14 +18,23 @@ Guidelines for selecting stereo pairs
 -------------------------------------
 
 When choosing image pairs to process, images that are taken with
-similar viewing angles, lighting conditions, and significant surface
-coverage overlap are best suited for creating terrain models
-:cite:`2015LPI462703B`.  Depending on the characteristics of the
-mission data set and the individual images, the degree of acceptable
-variation will differ. Significant differences between image
-characteristics increases the likelihood of stereo matching error
-and artifacts, and these errors will propagate through to the
-resulting data products.
+similar lighting conditions and significant surface coverage overlap
+are best suited for creating terrain models
+:cite:`2015LPI462703B`. The images should have sufficient difference
+in perspective, hence a reasonably large baseline, or, equivalently, a
+non-small convergence angle between the matching rays emanating from
+the two cameras, for stereo triangulation to be accurate. Yet, if the
+perspectives are very different, it will be challenging to compute the
+stereo correlation between images. A convergence angle of 15 to 40
+degrees is likely reasonable. The value of this angle for a given
+stereo pair is computed and printed at the stereo preprocessing stage
+(:numref:`entrypoints`).
+
+Depending on the characteristics of the mission data set and the
+individual images, the degree of acceptable variation will
+differ. Significant differences between image characteristics
+increases the likelihood of stereo matching error and artifacts, and
+these errors will propagate through to the resulting data products.
 
 Although images do not need to be map-projected before running the
 ``parallel_stereo`` program, we recommend that you do run ``cam2map`` (or

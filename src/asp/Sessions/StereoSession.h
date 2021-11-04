@@ -146,8 +146,8 @@ namespace asp {
     virtual tx_type tx_left () const {return tx_left_homography ();} // Default implementation
     virtual tx_type tx_right() const {return tx_right_homography();}
 
-    // All of the "hook" functions below have default implementations that just copy the inputs to the outputs!
-
+    // All of the "hook" functions below have default implementations
+    // that just copy the inputs to the outputs!
 
     /// Stage 1: Preprocessing
     ///
@@ -199,6 +199,11 @@ namespace asp {
                            float & right_nodata_value);
 
     bool do_bathymetry() const;
+
+    // Return the left and right cropped images. These are the same as
+    // the input images unless the cropping is on.
+    std::string left_cropped_image() const;
+    std::string right_cropped_image() const;
 
     std::string left_aligned_bathy_mask() const;
     std::string right_aligned_bathy_mask() const;

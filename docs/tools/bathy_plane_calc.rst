@@ -27,7 +27,7 @@ Using a DEM, a camera file, and a mask for the camera image::
 
      bathy_plane_calc --mask mask.tif --session-type dg \
        --camera camera.xml --dem dem.tif                \
-       --num-samples 30000 --outlier-threshold 0.5      \
+       --num-samples 10000 --outlier-threshold 0.5      \
        --bathy-plane plane.txt                          \
        --output-inlier-shapefile inliers.shp
 
@@ -174,7 +174,7 @@ Command-line options for bathy_plane_calc
 
 --num-samples <integer>
     Number of samples to pick at the water-land interface if using a
-    mask. The default is 30000.
+    mask. The default is 10000.
 
 --dem-minus-plane <string (default: "")>
     If specified, subtract from the input DEM the best-fit plane and save the 

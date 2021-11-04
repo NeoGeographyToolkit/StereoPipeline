@@ -25,6 +25,7 @@
 #include <vw/Image/UtilityViews.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/InterestPoint/Matcher.h>
 #include <vw/Math/Functors.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
@@ -150,7 +151,6 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     opt.session->pre_preprocessing_hook(adjust_left_image_size,
                                         opt.in_file1,    opt.in_file2,
                                         left_image_file, right_image_file);
-
 
   boost::shared_ptr<DiskImageResource>
     left_rsrc (vw::DiskImageResourcePtr(left_image_file)),
@@ -543,6 +543,59 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
 } // End function stereo_preprocessing
 
+// Find the median angle in degrees at which rays emanating from
+// matching points meet
+void estimate_convergence_angle(ASPGlobalOptions const& opt) {
+
+  // For alignment method none the ip match file does not exist yet,
+  // and it is done later only for subsampled images. For alignment
+  // method epipolar need to undo the alignment. Hence don't estimate
+  // the convergence angle for now as that would require major
+  // reshuffling. 
+  bool will_do = (stereo_settings().alignment_method == "homography" ||
+                  stereo_settings().alignment_method == "affineepipolar" ||
+                  stereo_settings().alignment_method == "local_epipolar");
+
+  if (!will_do)
+    return;
+
+  std::string left_image = opt.session->left_cropped_image();
+  std::string right_image = opt.session->right_cropped_image();
+  std::string unaligned_match_file
+    = vw::ip::match_filename(opt.out_prefix,
+                             left_image, right_image);
+
+  std::vector<ip::InterestPoint> left_ip, right_ip;
+  
+  // The interest points must have been created outside this function
+  if (!fs::exists(unaligned_match_file))
+    vw_throw(ArgumentErr() << "Missing IP file: " << unaligned_match_file);
+  
+  ip::read_binary_match_file(unaligned_match_file, left_ip, right_ip);
+
+  std::vector<double> angles;
+  boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+  opt.session->camera_models(left_cam, right_cam);
+  int num_ip = left_ip.size();
+  for (int ip_it = 0; ip_it < num_ip; ip_it++) {
+    Vector2 lip(left_ip[ip_it].x,  left_ip[ip_it].y);
+    Vector2 rip(right_ip[ip_it].x, right_ip[ip_it].y);
+    double angle = (180.0 / M_PI) * acos(dot_prod(left_cam->pixel_to_vector(lip),
+                                                  right_cam->pixel_to_vector(rip)));
+    angles.push_back(angle);
+  }
+
+  if (angles.empty()) 
+    vw_throw(ArgumentErr() << "No convergence angles calculated.\n");
+    
+  std::sort(angles.begin(), angles.end());
+  int len = angles.size();
+  vw_out() << "Convergence angle percentiles (in degrees) based on interest point matches.\n";
+  vw_out() << "25% " << angles[0.25*len] << ", "
+           << "50% " << angles[0.50*len] << ", "
+           << "75%: " << angles[0.75*len] << ".\n";
+}
+
 int main(int argc, char* argv[]) {
 
   try {
@@ -572,11 +625,10 @@ int main(int argc, char* argv[]) {
     bool adjust_left_image_size = (opt_vec.size() == 1 &&
                                    !stereo_settings().part_of_multiview_run);
 
-    // Internal Processes
-    //---------------------------------------------------------
-    vw_out() << "Using config file: \"" << opt.stereo_default_filename << "\"\n";
-    stereo_preprocessing(adjust_left_image_size, opt );
+    stereo_preprocessing(adjust_left_image_size, opt);
 
+    estimate_convergence_angle(opt);
+    
     vw_out() << "\n[ " << current_posix_time_string() << " ] : PREPROCESSING FINISHED \n";
 
      xercesc::XMLPlatformUtils::Terminate();

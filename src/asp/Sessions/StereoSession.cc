@@ -86,8 +86,10 @@ namespace asp {
     {
       std::string adj_key = "BUNDLE_ADJUST_PREFIX";
       // We only read our own map projections which are written in GDAL format
-      boost::shared_ptr<vw::DiskImageResource> l_rsrc(new vw::DiskImageResourceGDAL(m_left_image_file ));
-      boost::shared_ptr<vw::DiskImageResource> r_rsrc(new vw::DiskImageResourceGDAL(m_right_image_file));
+      boost::shared_ptr<vw::DiskImageResource>
+        l_rsrc(new vw::DiskImageResourceGDAL(m_left_image_file ));
+      boost::shared_ptr<vw::DiskImageResource>
+        r_rsrc(new vw::DiskImageResourceGDAL(m_right_image_file));
       vw::cartography::read_header_string(*l_rsrc.get(), adj_key, l_adj_prefix);
       vw::cartography::read_header_string(*r_rsrc.get(), adj_key, r_adj_prefix);
     }
@@ -462,16 +464,13 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
   left_output_file  = this->m_out_prefix + "-L.tif";
   right_output_file = this->m_out_prefix + "-R.tif";
 
-  left_cropped_file  = left_input_file;
-  right_cropped_file = right_input_file;
-
   // Enforce no predictor in compression, it works badly with L.tif and R.tif.
   options = this->m_options;
   options.gdal_options["PREDICTOR"] = "1";
 
-  // Read the georef if available
-  has_left_georef  = read_georeference(left_georef,  left_cropped_file);
-  has_right_georef = read_georeference(right_georef, right_cropped_file);
+  // Read the georef if available in the input images
+  has_left_georef  = read_georeference(left_georef,  left_input_file);
+  has_right_georef = read_georeference(right_georef, right_input_file);
   if ( stereo_settings().alignment_method != "none") {
     // If any alignment at all happens, the georef will be messed up.
     has_left_georef = false;
@@ -481,6 +480,11 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
   bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
+  // Here either the input image or the cropped images will be returned,
+  // depending on whether the crop actually happens
+  left_cropped_file = this->left_cropped_image();
+  right_cropped_file = this->right_cropped_image();
+  
   // If the output files already exist and are newer than the input files,
   // and we don't crop both left and right images, then there is nothing to do here.
   // Note: Must make sure all outputs are initialized before we
@@ -496,7 +500,7 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
 
   if ( !rebuild && !crop_left && !crop_right) {
     try {
-      vw_log().console_log().rule_set().add_rule(-1,"fileio");
+      vw_log().console_log().rule_set().add_rule(-1, "fileio");
       DiskImageView<PixelGray<float32> > out_left (left_output_file );
       DiskImageView<PixelGray<float32> > out_right(right_output_file);
       vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
@@ -514,9 +518,7 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
   
   // See if to crop the images
   if (crop_left) {
-    // Crop the image, will use them from now on. Crop the georef as well, if available.
-    left_cropped_file = this->m_out_prefix + "-L-cropped.tif";
-    
+    // Crop and save the left image to left_cropped_file
     has_left_georef = read_georeference(left_georef, left_input_file);
     bool has_nodata = true;
 
@@ -573,9 +575,7 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
   }
   
   if (crop_right) {
-    // Crop the image, will use them from now on. Crop the georef as well, if available.
-    right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
-
+    // Crop the right image and write to right_cropped_file
     has_right_georef = read_georeference(right_georef, right_input_file);
     bool has_nodata = true;
 
@@ -701,6 +701,22 @@ bool StereoSession::do_bathymetry() const {
           stereo_settings().right_bathy_mask != "");
 }
 
+// Return the left and right cropped images. These are the same
+// as the input images unless the cropping is on.
+std::string StereoSession::left_cropped_image() const{
+  std::string cropped_image = m_left_image_file;
+  if (stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0))
+    cropped_image = m_out_prefix + "-L-cropped.tif";
+  return cropped_image;
+}
+  
+std::string StereoSession::right_cropped_image() const{
+  std::string cropped_image = m_right_image_file;
+  if (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0))
+    cropped_image = m_out_prefix + "-R-cropped.tif";
+  return cropped_image;
+}
+
 std::string StereoSession::left_cropped_bathy_mask() const {
   if (!do_bathymetry()) 
     vw_throw( ArgumentErr() << "The left cropped bathy mask is requested when "
@@ -778,25 +794,6 @@ getTransformFromMapProject(const std::string &input_dem_path,
                                    call_from_mapproject));
 }
 
-
-// Return the left and right map-projected images. These are the same
-// as the input images unless it is desired to use cropped images.
-inline std::string left_cropped_image(std::string const& left_image,
-                                std::string const& out_prefix){
-  if ( stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0)){
-    return out_prefix + "-L-cropped.tif";
-  }
-  return left_image;
-}
-inline std::string right_cropped_image(std::string const& right_image,
-                                      std::string const& out_prefix){
-  if ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ){
-    return out_prefix + "-R-cropped.tif";
-  }
-  return right_image;
-}
-
-
 typename StereoSession::tx_type
 StereoSession::tx_left_homography() const {
   Matrix<double> tx = math::identity_matrix<3>();
@@ -828,7 +825,7 @@ StereoSession::tx_identity() const {
 
 typename StereoSession::tx_type
 StereoSession::tx_left_map_trans() const {
-  std::string left_map_proj_image = left_cropped_image(m_left_image_file, m_out_prefix);
+  std::string left_map_proj_image = this->left_cropped_image();
   if (!m_left_map_proj_model)
     vw_throw( ArgumentErr() << "Map projection model not loaded for image "
               << left_map_proj_image);
@@ -836,7 +833,7 @@ StereoSession::tx_left_map_trans() const {
 }
 typename StereoSession::tx_type
 StereoSession::tx_right_map_trans() const {
-  std::string right_map_proj_image = right_cropped_image(m_right_image_file, m_out_prefix);
+  std::string right_map_proj_image = this->right_cropped_image();
   if (!m_right_map_proj_model)
     vw_throw( ArgumentErr() << "Map projection model not loaded for image "
               << right_map_proj_image);

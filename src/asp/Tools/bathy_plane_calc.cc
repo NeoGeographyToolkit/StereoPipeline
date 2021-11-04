@@ -802,7 +802,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-inlier-shapefile", po::value(&opt.output_inlier_shapefile)->default_value(""),
      "If specified, save at this location the shape file with the inlier vertices.")
     ("num-samples", 
-     po::value(&opt.num_samples)->default_value(30000),
+     po::value(&opt.num_samples)->default_value(10000),
      "Number of samples to pick at the water-land interface if using a mask.")
     ("dem-minus-plane",
      po::value(&opt.dem_minus_plane),

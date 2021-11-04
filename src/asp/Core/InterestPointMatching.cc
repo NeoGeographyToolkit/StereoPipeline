@@ -597,7 +597,7 @@ namespace asp {
     } // End of "nothing but outliers" case
 
     vw_out() << "\t    Inlier cluster:\n"
-             << "\t      Triangulation Err: " << error_clusters.front().first[0]
+             << "\t      Triangulation error: " << error_clusters.front().first[0]
              << " +- " << sqrt( error_clusters.front().second[0] ) << " meters\n";
 
     // Record indices of points that match our clustering result

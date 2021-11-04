@@ -587,11 +587,12 @@ namespace asp {
                         const po::options_description& desc,
                         bool allow_unregistered ) {
     std::basic_ifstream<char> strm(filename.c_str());
-    if (!strm && print_warning) {
-      vw_out(WarningMessage)
-        << "Stereo file " << filename << " could not be found. "
-        << "Will use default settings and command line options only."
-        << std::endl;
+    if (print_warning) {
+      if (!strm)
+        vw_out() << "Stereo file " << filename << " could not be found. "
+                 << "Will use default settings and command line options only.\n";
+      else
+        vw_out() << "Using stereo file " << filename << ".\n";
     }
     return parse_asp_config_file(strm, desc, allow_unregistered);
   }

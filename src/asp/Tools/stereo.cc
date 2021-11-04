@@ -826,7 +826,17 @@ namespace asp {
                                  << "\n";
       vw_out() << "Distance between camera centers in meters: "
 	       << norm_2(cam1_ctr - cam2_ctr) << ".\n";
-	
+
+      // Cannot use cropped images with epipolar alignment, as need to
+      // align the full images. Images for which epipolar alignment is
+      // enough are small anyway so this is not a big loss. Much
+      // testing is needed if this mode is enabled.
+      if (stereo_settings().alignment_method == "epipolar" &&
+          (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0) ||
+           stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0)))
+        vw_throw(ArgumentErr() << "Cropping of input images is not supported with "
+                 << "epipolar alignment.\n");
+        
       // Can cameras triangulate to point at something in front of them?
       stereo::StereoModel model(camera_model1.get(), camera_model2.get());
       double error;

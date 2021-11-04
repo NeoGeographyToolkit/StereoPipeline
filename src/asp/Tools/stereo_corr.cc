@@ -383,7 +383,7 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
   return true;
 } // End adjust_ip_for_epipolar_transform
 
-/// Detect IP in the _sub images or the original images if they are not too large.
+/// Detect IP in the sub images or the original images if they are not too large.
 /// - Usually an IP file is written in stereo_pprc, but for some input scenarios
 ///   this function will need to be used to generate them here.
 /// - The input match file path can be changed depending on what exists on disk.
@@ -393,70 +393,64 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
   vw_out() << "\t    * Loading images for IP detection.\n";
 
-  // Choose whether to use the full or _sub images
+  // Choose whether to use the full or sub images
 
   // Use the full image if all dimensions are smaller than this.
   const int SIZE_CUTOFF = 8000;
 
-  const std::string left_image_path_full  = opt.out_prefix + "-L.tif";
-  const std::string right_image_path_full = opt.out_prefix + "-R.tif";
-  const std::string left_image_path_sub   = opt.out_prefix + "-L_sub.tif";
-  const std::string right_image_path_sub  = opt.out_prefix + "-R_sub.tif";
+  const std::string left_aligned_image_file  = opt.out_prefix + "-L.tif";
+  const std::string right_aligned_image_file = opt.out_prefix + "-R.tif";
+  const std::string left_image_path_sub      = opt.out_prefix + "-L_sub.tif";
+  const std::string right_image_path_sub     = opt.out_prefix + "-R_sub.tif";
 
-  const std::string full_match_file
-    = vw::ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
-  const std::string sub_match_file
-    = vw::ip::match_filename(opt.out_prefix, "L_sub.tif", "R_sub.tif");
+  const std::string unaligned_match_file
+    = vw::ip::match_filename(opt.out_prefix,
+                             opt.session->left_cropped_image(),
+                             opt.session->right_cropped_image());
+
   const std::string aligned_match_file     
     = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
-
-  // TODO(oalexan1): The logic below is wrong. Don't read the first
-  // match file that happens to exist on disk and hope for the best.
-  // That could be an incorrect one. At this stage we know exactly the
-  // files that need processing. Check if the desired file exists, and
-  // read that one, or create it if missing.
+  const std::string sub_match_file
+    = vw::ip::match_filename(opt.out_prefix, "L_sub.tif", "R_sub.tif");
 
   // Make sure the match file is newer than these files
-  std::vector<std::string> in_file_list;
-  in_file_list.push_back(opt.in_file1);
-  in_file_list.push_back(opt.in_file2);
+  std::vector<std::string> ref_list;
+  ref_list.push_back(opt.session->left_cropped_image());
+  ref_list.push_back(opt.session->right_cropped_image());
   if (fs::exists(opt.cam_file1))
-    in_file_list.push_back(opt.cam_file1);
+    ref_list.push_back(opt.cam_file1);
   if (fs::exists(opt.cam_file2))
-    in_file_list.push_back(opt.cam_file2);
+    ref_list.push_back(opt.cam_file2);
 
-  // Try the full match file first
-  if (fs::exists(full_match_file) && is_latest_timestamp(full_match_file, in_file_list)) {
-    vw_out() << "Cached IP match file found: " << full_match_file << std::endl;
-    match_filename = full_match_file;
+  // Try the unaligned match file first
+  if (fs::exists(unaligned_match_file) && is_latest_timestamp(unaligned_match_file, ref_list)) {
+    vw_out() << "Cached IP match file found: " << unaligned_match_file << std::endl;
+    match_filename = unaligned_match_file;
     return 1.0;
   }
 
-  // Next try the cropped match file names which will be at full scale.
-  std::vector<std::string> match_names;
-  match_names.push_back(vw::ip::match_filename(opt.out_prefix, "L-cropped.tif", "R-cropped.tif"));
-  match_names.push_back(vw::ip::match_filename(opt.out_prefix, opt.in_file1, "R-cropped.tif"));
-  match_names.push_back(vw::ip::match_filename(opt.out_prefix, "L-cropped.tif", opt.in_file2));
-  match_names.push_back(aligned_match_file);
-  
-  for (size_t i=0; i<match_names.size(); ++i) {
-    if (fs::exists(match_names[i]) && is_latest_timestamp(match_names[i], in_file_list)) {
-      vw_out() << "Cached IP match file found: " << match_names[i] << std::endl;
-      match_filename = match_names[i];
-      return 1.0;
-    }
+  // Then tried the aligned match file.
+  // TODO(oalexan1): This heuristics is fragile.
+  if (fs::exists(aligned_match_file) && is_latest_timestamp(aligned_match_file, ref_list)) {
+    vw_out() << "Cached IP match file found: " << aligned_match_file << std::endl;
+    match_filename = aligned_match_file;
+    return 1.0;
   }
 
   // Now try the sub match file, which requires us to compute the scale.
-  std::string left_image_path  = left_image_path_full;
-  std::string right_image_path = right_image_path_full;
-  Vector2i full_size     = file_image_size(left_image_path_full);
+  std::string left_image_path  = left_aligned_image_file;
+  std::string right_image_path = right_aligned_image_file;
+  Vector2i full_size     = file_image_size(left_aligned_image_file);
   bool     use_full_size = (((full_size[0] < SIZE_CUTOFF) && (full_size[1] < SIZE_CUTOFF))
                             || ((stereo_settings().alignment_method != "epipolar") &&
                                 (stereo_settings().alignment_method != "none"   )  ));
   // Other alignment methods find IP in the stereo_pprc phase using the full size.
 
   // Compute the scale.
+  // TODO(oalexan1): This is fragile. The scale here should be computed
+  // by invoking whichever function was used when those ip were saved to start with.
+  // When scaling D_sub likely analogous but somewhat different heuristics is used
+  // as well.
   double ip_scale = 1.0;
   if (!use_full_size) {
     left_image_path  = left_image_path_sub;
@@ -470,7 +464,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     match_filename = sub_match_file; // If not using full size we should expect this file
 
     // Check for the file.
-    if (fs::exists(sub_match_file) && is_latest_timestamp(sub_match_file, in_file_list)) {
+    if (fs::exists(sub_match_file) && is_latest_timestamp(sub_match_file, ref_list)) {
       vw_out() << "Cached IP match file found: " << sub_match_file << std::endl;
       return ip_scale;
     }

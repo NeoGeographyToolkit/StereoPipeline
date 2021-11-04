@@ -22,6 +22,9 @@ bundle_adjust:
 
 stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
+  * Print in stereo_pprc the estimated convergence angle between rays
+    (for alignment methods affineepipolar, local_epipolar, and
+    homography).
   * Removed the --local-homography option, as it is superseded by 
     --alignment-method local_epipolar, which blends the local results.
   * ASP's SGM and MGM algorithms will always use the cross-check for
@@ -75,7 +78,7 @@ Misc:
     clamped appropriately to be stored in the 2-byte intensity field
     in the LAS file.
   * Make symlinks relative in parallel_bundle_adjust for portability.
-  * The mapprojected image saves as metatdata the adjustments it was
+  * The mapprojected image saves as metadata the adjustments it was
     created with.
   * Bugfix in dem_mosaic hole-filling for some situations.
 
