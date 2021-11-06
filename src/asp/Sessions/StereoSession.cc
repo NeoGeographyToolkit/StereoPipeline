@@ -207,15 +207,15 @@ namespace asp {
                             image1_norm, image2_norm);
     }
     
-    bool nadir_facing = this->is_nadir_facing();
+    bool have_datum = this->have_datum();
 
     // If cameras are null then we cannot use them
     if (cam1 == NULL || cam2 == NULL) {
-      nadir_facing = false;
+      have_datum = false;
     }
     
     bool inlier = false;
-    if (nadir_facing) {
+    if (have_datum) {
       // Run an IP matching function that takes the camera and datum info into account
 
       bool use_sphere_for_datum = false; // Assume Mars is not a sphere

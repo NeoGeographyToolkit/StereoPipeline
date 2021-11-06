@@ -393,10 +393,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
   vw_out() << "\t    * Loading images for IP detection.\n";
 
-  // Choose whether to use the full or sub images
-
-  // Use the full image if all dimensions are smaller than this.
-  const int SIZE_CUTOFF = 8000;
+  double ip_scale = 1.0;
 
   const std::string left_aligned_image_file  = opt.out_prefix + "-L.tif";
   const std::string right_aligned_image_file = opt.out_prefix + "-R.tif";
@@ -426,51 +423,23 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   if (fs::exists(unaligned_match_file) && is_latest_timestamp(unaligned_match_file, ref_list)) {
     vw_out() << "Cached IP match file found: " << unaligned_match_file << std::endl;
     match_filename = unaligned_match_file;
-    return 1.0;
+    return ip_scale;
   }
 
   // Then tried the aligned match file.
   // TODO(oalexan1): This heuristics is fragile.
+  // This should happen only for alignment method none or epipolar, but need to check
   if (fs::exists(aligned_match_file) && is_latest_timestamp(aligned_match_file, ref_list)) {
     vw_out() << "Cached IP match file found: " << aligned_match_file << std::endl;
     match_filename = aligned_match_file;
-    return 1.0;
+    return ip_scale;
   }
 
-  // Now try the sub match file, which requires us to compute the scale.
+  // Now try the aligned match file
   std::string left_image_path  = left_aligned_image_file;
   std::string right_image_path = right_aligned_image_file;
-  Vector2i full_size     = file_image_size(left_aligned_image_file);
-  bool     use_full_size = (((full_size[0] < SIZE_CUTOFF) && (full_size[1] < SIZE_CUTOFF))
-                            || ((stereo_settings().alignment_method != "epipolar") &&
-                                (stereo_settings().alignment_method != "none"   )  ));
-  // Other alignment methods find IP in the stereo_pprc phase using the full size.
 
-  // Compute the scale.
-  // TODO(oalexan1): This is fragile. The scale here should be computed
-  // by invoking whichever function was used when those ip were saved to start with.
-  // When scaling D_sub likely analogous but somewhat different heuristics is used
-  // as well.
-  double ip_scale = 1.0;
-  if (!use_full_size) {
-    left_image_path  = left_image_path_sub;
-    right_image_path = right_image_path_sub;
-
-    ip_scale = sum(elem_quot(Vector2(file_image_size(opt.out_prefix+"-L_sub.tif")),
-                             Vector2(file_image_size(opt.out_prefix+"-L.tif")))) +
-      sum(elem_quot(Vector2(file_image_size(opt.out_prefix+"-R_sub.tif")),
-                    Vector2(file_image_size(opt.out_prefix+"-R.tif"))));
-    ip_scale /= 4.0f;
-    match_filename = sub_match_file; // If not using full size we should expect this file
-
-    // Check for the file.
-    if (fs::exists(sub_match_file) && is_latest_timestamp(sub_match_file, ref_list)) {
-      vw_out() << "Cached IP match file found: " << sub_match_file << std::endl;
-      return ip_scale;
-    }
-  }
-  else
-    match_filename = aligned_match_file;
+  match_filename = aligned_match_file;
 
   vw_out() << "No IP file found, computing IP now.\n";
   
@@ -495,53 +464,19 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   // No interest point operations have been performed before
   vw_out() << "\t    * Detecting interest points\n";
 
-  // Use this code in a relatively specific case
-  // - Only tested with IceBridge data so far!
-  // - Some changes will be required for this to work in more general cases.
   bool success = false;
-  if (use_full_size && opt.session->is_nadir_facing() && 
-      (stereo_settings().alignment_method == "epipolar")) {
-
-    // Load camera models
-    boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
-    opt.session->camera_models(left_camera_model, right_camera_model);
-    
-    // Obtain the datum
-    const bool use_sphere_for_datum = false;
-    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
-                                                      use_sphere_for_datum);
-
-    // Since these are epipolar aligned images it should be small
-    double epipolar_threshold = 5;
-    if (stereo_settings().epipolar_threshold > 0)
-      epipolar_threshold = stereo_settings().epipolar_threshold;
-
-    const bool single_threaded_camera = false;
-    success = ip_matching_no_align(single_threaded_camera,
-                                   left_camera_model.get(), right_camera_model.get(),
-                                   left_image, right_image,
-                                   stereo_settings().ip_per_tile,
-                                   datum, epipolar_threshold,
-                                   stereo_settings().ip_uniqueness_thresh,
-                                   match_filename,
-                                   left_ip_filename, right_ip_filename,
-                                   left_nodata_value, right_nodata_value);
-  } // End nadir epipolar full image case
-  else {
-    // In all other cases, run a more general IP matcher.
-    
-    // TODO: Depending on alignment method, we can tailor the IP filtering strategy.
-    double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
-
-    // This range is extra large to handle elevation differences.
-    const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
-
-    success = asp::homography_ip_matching(left_image, right_image,
-                                          stereo_settings().ip_per_tile,
-                                          inlier_threshold, match_filename,
-                                          left_ip_filename, right_ip_filename,
-                                          left_nodata_value, right_nodata_value);
-  }
+  
+  // TODO: Depending on alignment method, we can tailor the IP filtering strategy.
+  double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
+  
+  // This range is extra large to handle elevation differences.
+  const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
+  
+  success = asp::homography_ip_matching(left_image, right_image,
+                                        stereo_settings().ip_per_tile,
+                                        inlier_threshold, match_filename,
+                                        left_ip_filename, right_ip_filename,
+                                        left_nodata_value, right_nodata_value);
 
   if (!success)
     vw_throw(ArgumentErr() << "Could not find interest points.\n");
@@ -641,6 +576,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt,
   float i_scale = 1.0/ip_scale;
 
   // Adjust the IP if they came from input images and these images are epipolar aligned
+  // TODO(oalexan1): This should be exclusive with adjust_ip_for_align_matrix
   adjust_ip_for_epipolar_transform(opt, match_filename, in_ip1, in_ip2);
 
   // Filter out IPs which fall outside the specified elevation range
@@ -649,7 +585,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt,
   cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
 
   // Filter out IPs which fall outside the specified elevation and lonlat range
-  // TODO: Don't do this with cropped input images!!!!!
+  // TODO(oalexan1): Study this. Don't do this with cropped input images!!!!!
   size_t num_left = asp::filter_ip_by_lonlat_and_elevation(left_camera_model.get(),
                                                            right_camera_model.get(),
                                                            datum, in_ip1, in_ip2, ip_scale,
@@ -661,6 +597,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt,
   // TODO: This kind of logic is present below one more time, at
   // get_search_range_from_ip_hists() where a factor of 2 is used!
   // This logic better be integrated together!
+  // TODO(oalexan1): Integrate this with existing logic.
   Vector2 disp_params = stereo_settings().remove_outliers_by_disp_params;
   if (disp_params[0] < 100.0) // not enabled by default
     asp::filter_ip_by_disparity(disp_params[0], disp_params[1], matched_ip1, matched_ip2); 
@@ -792,17 +729,9 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     // Do nothing as low-res disparity (D_sub) is already provided by sparse_disp
   } else { // Regular seed mode
 
-    // If there is no match file for the input images, gather some IP from the
-    // low resolution images. This routine should only run for:
-    //   Pinhole + Epipolar
-    //   Alignment method none
-    //   Cases where either input image is cropped, in which case the IP name is different.
-    // Everything else should gather IP's all the time during stereo_pprc.
-    // - TODO: When inputs are cropped, use the cropped IP!
-
-    // Compute new IP and write them to disk.
-    // - If IP are already on disk this function will load them instead.
-    // - This function will choose an appropriate IP computation based on the input images.
+    // TODO(oalexan1): All ip matching should happen in stereo_pprc for consistency.
+    
+    // Load IP from disk if they exist, or else compute them. 
     std::string match_filename;
     double ip_scale;
     ip_scale = compute_ip(opt, match_filename);

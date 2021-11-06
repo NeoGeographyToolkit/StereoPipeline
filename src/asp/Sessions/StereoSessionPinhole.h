@@ -40,7 +40,7 @@ namespace asp {
 
     virtual std::string name() const { return "pinhole"; }
 
-    virtual bool is_nadir_facing() const {return false;}
+    virtual bool have_datum() const {return false;}
 
     // Stage 1: Preprocessing
     //
