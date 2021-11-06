@@ -1583,8 +1583,9 @@ namespace vw { namespace gui {
       emit uncheckProfileModeCheckbox();
       return;
     }else{
-      
-      setPolyEditMode(false);
+
+      bool refresh = true;
+      setPolyEditMode(false, refresh);
       
       // Show the profile window
       MainWidget::plotProfile(m_images, m_profileX, m_profileY);
@@ -1593,7 +1594,7 @@ namespace vw { namespace gui {
     refreshPixmap();
   }
 
-  void MainWidget::setPolyEditMode(bool polyEditMode){
+  void MainWidget::setPolyEditMode(bool polyEditMode, bool refresh){
     m_polyEditMode = polyEditMode;
 
     // Turn off moving vertices any time we turn on or off poly editing
@@ -1606,7 +1607,7 @@ namespace vw { namespace gui {
       m_currPolyX.clear();
       m_currPolyY.clear();
 
-      // Call back to the main window and tell it to uncheck the profile
+      // Call back to the main window and tell it to uncheck the polyEditMode checkbox
       // mode checkbox.
       emit uncheckPolyEditModeCheckbox();
       return;
@@ -1614,9 +1615,11 @@ namespace vw { namespace gui {
       setProfileMode(false);
     }
 
-    refreshPixmap();
+    // On occasions we don't want to force a refresh prematurely, the
+    // GUI will take care of it when the layout is created
+    if (refresh) 
+      refreshPixmap();
   }
-
 
   // Convert a length in pixels to a length in world coordinates
   double MainWidget::pixelToWorldDist(double pd){

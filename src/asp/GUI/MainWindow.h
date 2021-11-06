@@ -87,9 +87,10 @@ namespace vw { namespace gui {
     void viewThreshImages           ();
     void viewUnthreshImages         ();
     void contourImages              ();
+    void saveVectorLayer            ();
     void viewHillshadedImages       ();
     void viewGeoreferencedImages    ();
-    void viewOverlayedImages        ();
+    void overlayGeoreferencedImages ();
     void setZoomAllToSameRegion     ();
     void setZoomAllToSameRegionAux(bool do_zoom);
     void profileMode                ();
@@ -144,9 +145,10 @@ namespace vw { namespace gui {
     QAction *m_viewAsTiles_action;
     QAction *m_viewHillshadedImages_action;
     QAction *m_viewGeoreferencedImages_action;
-    QAction *m_viewOverlayedImages_action;
+    QAction *m_overlayGeoreferencedImages_action;
     QAction *m_viewThreshImages_action;
     QAction *m_contourImages_action;
+    QAction *m_saveVectorLayer_action;
     QAction *m_viewUnthreshImages_action;
     QAction *m_zoomAllToSameRegion_action;
     QAction *m_viewMatches_action;

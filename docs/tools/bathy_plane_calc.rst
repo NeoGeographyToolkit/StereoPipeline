@@ -88,11 +88,8 @@ being perfectly known.)
 It is important to decide carefully what outlier threshold to use and
 to check the number of resulting inliers. If too few, that may mean
 that the outlier threshold is too strict. Above, the inliers are saved
-as a shape file and can be inspected. (Only the vertices in the shape
-file are important, they should be on the shoreline, the edges should
-be ignored. In the future a shapefile of points will be saved.) The
-vertices of the shapefile should be well-distributed over the entire
-shoreline.
+as a shapefile and can be inspected. The inliers should be
+well-distributed over the entire shoreline.
 
 Example 2
 ~~~~~~~~~

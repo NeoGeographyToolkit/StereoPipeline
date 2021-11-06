@@ -1,4 +1,4 @@
-GDAL Tools
+GDAL tools
 ----------
 
 ASP distributes in the ``bin`` directory the following GDAL tools:

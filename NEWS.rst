@@ -43,7 +43,10 @@ stereo:
 
 stereo_gui: 
   * Bugfix when overlaying shapefiles with different georeferences.
-
+  * Can save a shapefile having points, segments, or polygons (yet the
+    shapefile format requires that these not be mixed in the same
+    shapefile).
+ 
 mapproject:
   * If the input image file has an embedded RPC camera model, append
     it to the output mapprojected file. (Which makes stereo with

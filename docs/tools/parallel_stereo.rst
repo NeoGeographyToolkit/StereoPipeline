@@ -36,12 +36,12 @@ $PBS_NODEFILE.
 
 This program operates only on single channel (grayscale)
 images. Multi-channel images need to first be converted to grayscale
-or a single channel should be extracted (otherwise the first channel
-will be picked quietly).
+or a single channel should be extracted with ``gdal_translate``
+(otherwise the first channel will be picked quietly).
 
 .. _entrypoints:
 
-Entry Points
+Entry points
 ~~~~~~~~~~~~
 
 The ``parallel_stereo`` tool is written in Python, and invokes

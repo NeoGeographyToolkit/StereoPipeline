@@ -250,6 +250,11 @@ void MainWindow::createLayout() {
                                          m_use_georef, m_hillshade_vec, m_view_matches,
                                          zoom_all_to_same_region,
 					 m_allowMultipleSelections);
+
+    // Tell the widget if the poly edit mode is on or not
+    bool refresh = false; // Do not refresh prematurely
+    widget->setPolyEditMode(m_polyEditMode_action->isChecked(), refresh);
+    
     m_widgets.push_back(widget);
 
   } else{
@@ -334,7 +339,7 @@ void MainWindow::createLayout() {
   m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
   m_viewHillshadedImages_action->setChecked(m_hillshade);
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-  m_viewOverlayedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
+  m_overlayGeoreferencedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
 }
 
 void MainWindow::createMenus() {
@@ -412,12 +417,12 @@ void MainWindow::createMenus() {
   connect(m_viewGeoreferencedImages_action, SIGNAL(triggered()), this, SLOT(viewGeoreferencedImages()));
   
   // View overlayed georeferenced images
-  m_viewOverlayedImages_action = new QAction(tr("Overlay georeferenced images"), this);
-  m_viewOverlayedImages_action->setStatusTip(tr("Overlay georeferenced images"));
-  m_viewOverlayedImages_action->setCheckable(true);
-  m_viewOverlayedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
-  m_viewOverlayedImages_action->setShortcut(tr("O"));
-  connect(m_viewOverlayedImages_action, SIGNAL(triggered()), this, SLOT(viewOverlayedImages()));
+  m_overlayGeoreferencedImages_action = new QAction(tr("Overlay georeferenced images"), this);
+  m_overlayGeoreferencedImages_action->setStatusTip(tr("Overlay georeferenced images"));
+  m_overlayGeoreferencedImages_action->setCheckable(true);
+  m_overlayGeoreferencedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
+  m_overlayGeoreferencedImages_action->setShortcut(tr("O"));
+  connect(m_overlayGeoreferencedImages_action, SIGNAL(triggered()), this, SLOT(overlayGeoreferencedImages()));
 
   // Zoom all images to same region
   m_zoomAllToSameRegion_action = new QAction(tr("Zoom all images to same region"), this);
@@ -497,6 +502,11 @@ void MainWindow::createMenus() {
   m_contourImages_action->setStatusTip(tr("Find contour at threshold"));
   connect(m_contourImages_action, SIGNAL(triggered()), this, SLOT(contourImages()));
   
+  // Save vector layer
+  m_saveVectorLayer_action = new QAction(tr("Save vector layer as shapefile"), this);
+  m_saveVectorLayer_action->setStatusTip(tr("Save vector layer as shapefile"));
+  connect(m_saveVectorLayer_action, SIGNAL(triggered()), this, SLOT(saveVectorLayer()));
+
   // The About box
   m_about_action = new QAction(tr("About stereo_gui"), this);
   m_about_action->setStatusTip(tr("Show the stereo_gui about box"));
@@ -521,7 +531,7 @@ void MainWindow::createMenus() {
   m_view_menu->addAction(m_viewAsTiles_action);
   m_view_menu->addAction(m_viewHillshadedImages_action);
   m_view_menu->addAction(m_viewGeoreferencedImages_action);
-  m_view_menu->addAction(m_viewOverlayedImages_action);
+  m_view_menu->addAction(m_overlayGeoreferencedImages_action);
   m_view_menu->addAction(m_zoomAllToSameRegion_action);
 
   // Matches menu
@@ -548,6 +558,7 @@ void MainWindow::createMenus() {
   m_vector_layer_menu->addAction(m_setLineWidth_action);
   m_vector_layer_menu->addAction(m_setPolyColor_action);
   m_vector_layer_menu->addAction(m_contourImages_action);
+  m_vector_layer_menu->addAction(m_saveVectorLayer_action);
 
   // Help menu
   m_help_menu = menu->addMenu(tr("&Help"));
@@ -1130,6 +1141,16 @@ void MainWindow::contourImages() {
   }
 }
 
+void MainWindow::saveVectorLayer() {
+  if (m_widgets.size() > 1) {
+    popUp("More than one pane exists. Use the right-click menu of the desired pane instead.");
+    return;
+  }
+
+  if (m_widgets.size() == 1) 
+    m_widgets[0]->saveVectorLayer();
+}
+
 void MainWindow::thresholdGetSet() {
 
   std::ostringstream oss;
@@ -1351,8 +1372,10 @@ void MainWindow::uncheckPolyEditModeCheckbox(){
 void MainWindow::polyEditMode() {
   bool polyEditMode = m_polyEditMode_action->isChecked();
 
-  // Can't have a vector layer without georeferences
   if (polyEditMode) {
+    // Turn on vector layer editing
+    
+    // Can't have a vector layer without georeferences
     for (size_t i = 0; i < m_image_files.size(); i++) {
       cartography::GeoReference georef;
       bool has_georef = read_georef_from_image_or_shapefile(georef, m_image_files[i]);
@@ -1365,20 +1388,30 @@ void MainWindow::polyEditMode() {
       }
     }
 
-    // The drawn polygons will be created incorrectly unless in georeference mode
+    // The drawn polygons will be created incorrectly unless in
+    // georeference mode.  That will reorganize the GUI, so we have to
+    // quit right away. Will tell the widgets to turn on polygon
+    // editing after they are re-created.
     if (!m_use_georef) {
-      popUp("To edit polygons, first use the View menu to switch to viewing as georeferenced images.");
-      polyEditMode = false;
-      m_polyEditMode_action->setChecked(polyEditMode);
-      // Further down will turn off the poly edit mode for each widget
+      popUp("To edit polygons, the data will be overlayed in one window using georeferences.");
+      m_use_georef = true;
+      m_viewGeoreferencedImages_action->setChecked(m_use_georef);
+      m_overlayGeoreferencedImages_action->setChecked(m_use_georef);
+      overlayGeoreferencedImages();
+      return;
     }
   }
   
+  // We arrive here if no GUI overhaul happens. Simply notify the
+  // widgets to turn on or off the editing of polygons.
+  bool refresh = true;
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
-      m_widgets[i]->setPolyEditMode(polyEditMode);
+      m_widgets[i]->setPolyEditMode(polyEditMode, refresh);
     }
   }
+
+  return;
 }
 
 void MainWindow::viewGeoreferencedImages() {
@@ -1394,7 +1427,7 @@ void MainWindow::viewGeoreferencedImages() {
               + m_image_files[i]);
         m_use_georef = false;
         m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-        m_viewOverlayedImages_action->setChecked(m_use_georef);
+        m_overlayGeoreferencedImages_action->setChecked(m_use_georef);
         return;
       }
     }
@@ -1403,8 +1436,9 @@ void MainWindow::viewGeoreferencedImages() {
   createLayout();
 }
 
-void MainWindow::viewOverlayedImages() {
-  m_use_georef = m_viewOverlayedImages_action->isChecked();
+void MainWindow::overlayGeoreferencedImages() {
+  m_use_georef = m_overlayGeoreferencedImages_action->isChecked();
+
   if (m_use_georef) {
 
     // Will show in single window with georef. Must first check if all images have georef.
@@ -1415,7 +1449,7 @@ void MainWindow::viewOverlayedImages() {
         popUp("Cannot overlay, as there is no georeference in: " + m_image_files[i]);
         m_use_georef = false;
         m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-        m_viewOverlayedImages_action->setChecked(m_use_georef);
+        m_overlayGeoreferencedImages_action->setChecked(m_use_georef);
         return;
       }
     }

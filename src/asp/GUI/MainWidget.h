@@ -188,7 +188,7 @@ public slots:
     void saveVectorLayer        (); ///< Delete current vector layer
     bool contourImage           (); ///< Contour an image at a specified threshold
     void setProfileMode (bool profile_mode); ///< Turn on and off the 1D profile tool
-    void setPolyEditMode(bool polyEditMode); ///< Turn on and off the vector layer drawing
+    void setPolyEditMode(bool polyEditMode, bool refresh); ///< Turn on and off the vector layer drawing
     void deleteVertex           (); ///< Delete a vertex from a vector layer
     void deleteVertices         (); ///< Delete poly vertices in selected region
     void insertVertex           (); ///< Insert an intermediate vertex at right-click

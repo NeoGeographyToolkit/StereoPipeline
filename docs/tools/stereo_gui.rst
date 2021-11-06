@@ -32,7 +32,7 @@ Usage::
 
     stereo_gui [options] <images> [<cameras>] output_file_prefix
 
-Use as an Image Viewer
+Use as an image viewer
 ~~~~~~~~~~~~~~~~~~~~~~
 
 This program can be also used as a general-purpose image viewer, case in
@@ -75,7 +75,7 @@ in the longitude-latitude domain will be shown as well.
 
 The program can also save a screenshot to disk in the BMP or XPM format.
 
-Other Functionality
+Other functionality
 ~~~~~~~~~~~~~~~~~~~
 
 View/create/move/delete/save interest point matches, GCP, and VWIP files
@@ -222,13 +222,19 @@ tools). The editing functionality can be accessed by turning on
 polygon editing from the ``Vector layer`` menu, and then right-clicking
 with the mouse to access the various functions.
 
-To create polygons, click with the left mouse button on points
-to be added. When clicking close to the starting point, the polygon
-becomes closed and a new one can be drawn.
+To create polygons, click with the left mouse button on points to be
+added. When clicking close to the starting point, the polygon becomes
+closed and a new one can be drawn. A single point can be drawn by
+clicking twice in the same location. To draw a segment, click on its
+starting point, ending point, and then its starting point again.
 
-Polygons can be saved from the right-click menu. When reading polygons
-and georeferenced images from disk, choose "View as Georeferenced
-Images" to plot the polygons on top of the images.
+The resulting shapes can be saved from the right-click menu. The
+shapefile specification prohibits having a mix of points, segments,
+and polygons in the same file, so all drawn shapes must be of the
+same kind.
+
+When reading polygons and georeferenced images from disk, choose "View
+as Georeferenced Images" to plot the polygons on top of the images.
 
 As an application, the ``gdal_rasterize`` command can be used to keep
 or exclude the portion of a given georeferenced image or a DEM that is

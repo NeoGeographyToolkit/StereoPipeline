@@ -25,7 +25,7 @@ in perspective, hence a reasonably large baseline, or, equivalently, a
 non-small convergence angle between the matching rays emanating from
 the two cameras, for stereo triangulation to be accurate. Yet, if the
 perspectives are very different, it will be challenging to compute the
-stereo correlation between images. A convergence angle of 15 to 40
+stereo correlation between images. A convergence angle of 10 to 45
 degrees is likely reasonable. The value of this angle for a given
 stereo pair is computed and printed at the stereo preprocessing stage
 (:numref:`entrypoints`).

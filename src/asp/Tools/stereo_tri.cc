@@ -132,6 +132,9 @@ public:
     
     // Compute the location of the 3D point observed by each input pixel
     // when no bathymetry correction is needed.
+    // TODO(oalexan1): Wipe any mention of bathy from the base stereo model,
+    // and here employ a regular model which knows nothing about bathy
+    // and a bathy stereo model to be called as needed.
     Vector3 errorVec;
     pixel_type result;
     bool do_bathy = false;

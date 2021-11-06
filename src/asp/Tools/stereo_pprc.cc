@@ -567,7 +567,7 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
 
   std::vector<ip::InterestPoint> left_ip, right_ip;
   
-  // The interest points must have been created outside this function
+  // The interest points must exist by now
   if (!fs::exists(unaligned_match_file))
     vw_throw(ArgumentErr() << "Missing IP file: " << unaligned_match_file);
   
@@ -590,8 +590,8 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
     
   std::sort(angles.begin(), angles.end());
   int len = angles.size();
-  vw_out() << "Convergence angle percentiles (in degrees) based on interest point matches.\n";
-  vw_out() << "25% " << angles[0.25*len] << ", "
+  vw_out() << "Convergence angle percentiles (in degrees) based on interest point matches:\n";
+  vw_out() << "\t25% " << angles[0.25*len] << ", "
            << "50% " << angles[0.50*len] << ", "
            << "75%: " << angles[0.75*len] << ".\n";
 }

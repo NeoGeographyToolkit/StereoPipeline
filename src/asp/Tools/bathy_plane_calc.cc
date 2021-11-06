@@ -842,19 +842,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << usage << general_options );
 }
 
-void gen_tiny_square_shape_around_point(Vector2 const& P, double epsilon,
-                                        std::vector<double> & x_vec,
-                                        std::vector<double> & y_vec) {
-
-  x_vec.clear();
-  y_vec.clear();
-
-  x_vec.push_back(P.x() - epsilon); y_vec.push_back(P.y() - epsilon);
-  x_vec.push_back(P.x() + epsilon); y_vec.push_back(P.y() - epsilon);
-  x_vec.push_back(P.x() + epsilon); y_vec.push_back(P.y() + epsilon);
-  x_vec.push_back(P.x() - epsilon); y_vec.push_back(P.y() + epsilon);
-}
-
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 
 int main( int argc, char *argv[] ) {
@@ -992,22 +979,22 @@ int main( int argc, char *argv[] ) {
     save_plane(use_proj_water_surface, proj_lat, proj_lon,  
                plane, opt.bathy_plane);
 
-    // Save the shape having the inliers. The edges should be ignored.
-    // Only the vertices matter.
+    // Save the shape having the inliers. Use a point layer, not a polygon layer,
+    // as there is no connectivity information between these points. 
     if (opt.output_inlier_shapefile != "") {
-      std::vector<double> inlier_x, inlier_y;
+      vw::geometry::dPoly inlierPoly;
       for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) {
         Vector2 p = used_vertices[inlier_indices[inlier_it]];
+        std::vector<double> inlier_x, inlier_y;
         inlier_x.push_back(p.x());
         inlier_y.push_back(p.y());
+        bool isPolyClosed = true;
+        std::string layer = "";
+        inlierPoly.appendPolygon(inlier_x.size(),
+                                 vw::geometry::vecPtr(inlier_x),
+                                 vw::geometry::vecPtr(inlier_y),
+                                 isPolyClosed, poly_color, layer);
       }
-      bool isPolyClosed = true;
-      std::string layer = "";
-      vw::geometry::dPoly inlierPoly;
-      inlierPoly.setPolygon(inlier_x.size(),
-                            vw::geometry::vecPtr(inlier_x),
-                            vw::geometry::vecPtr(inlier_y),
-                            isPolyClosed, poly_color, layer);
       
       std::vector<vw::geometry::dPoly> inlierPolyVec;
       inlierPolyVec.push_back(inlierPoly);
