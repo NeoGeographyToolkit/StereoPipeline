@@ -1600,9 +1600,9 @@ and then run ``parallel_stereo`` with the mapprojected images, such as::
      rm -rfv stereo_map_v${i}${j}
      parallel_stereo v${i}_map.tif v${j}_map.tif                   \
        ba/run-run-run-v${i}.tsai ba/run-run-run-v${j}.tsai         \
-       stereo_map_v${i}${j}/run ref_dem.tif --session-type pinhole \
-       --cost-mode 4 --stereo-algorithm 2 --corr-seed-mode 1       \
-       --alignment-method none --corr-tile-size 9000                          
+       --session-type pinhole --alignment-method none              \
+       --cost-mode 4 --stereo-algorithm asp_mgm --corr-seed-mode 1 \
+       stereo_map_v${i}${j}/run ref_dem.tif
      point2dem --stereographic --proj-lon 253.90793                \
        --proj-lat 39.47021 --tr 4 --errorimage                     \
        stereo_map_v${i}${j}/run-PC.tif

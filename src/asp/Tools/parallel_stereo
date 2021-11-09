@@ -71,7 +71,7 @@ def check_system_memory(opt, args, settings):
         bytes_per_mb        = 1024*1024
         est_bytes_per_pixel = 8 # This is a very rough estimate!
 
-        num_tile_pixels = pow(int(settings['corr_tile_size'][0]),2)
+        num_tile_pixels = pow(int(settings['corr_tile_size'][0]), 2)
         baseline_mem    = (num_tile_pixels*est_bytes_per_pixel) / bytes_per_mb
         sgm_ram_limit   = int(settings['corr_memory_limit_mb'][0])
         ram_per_process = baseline_mem + sgm_ram_limit

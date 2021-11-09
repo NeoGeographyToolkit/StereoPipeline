@@ -105,8 +105,8 @@ namespace vw { namespace gui {
     return BBox2(A, B);
   }
 
-  // TODO(oalexan1): Merge world2projpoint() and projpoint2world() into
-  // world2image and image2world().
+  // TODO(oalexan1): Rename world2image to world2pixel.
+  // Then also have world2projpt, for both a point and a box. 
   
   // If we use georef, the world is in projected point units of the
   // first image, with y replaced with -y, to keep the y axis downward,
@@ -133,13 +133,10 @@ namespace vw { namespace gui {
       return R;
 
     // There is no pixel concept in that case
-    if (m_images[imageIndex].isPoly()) {
-      return flip_in_y(R);
-    }
+    if (m_images[imageIndex].isPoly())
+      return m_world2image_geotransforms[imageIndex].point_to_point_bbox(flip_in_y(R));
 
-    BBox2 pixel_box = m_world2image_geotransforms[imageIndex].point_to_pixel_bbox(flip_in_y(R));
-
-    return pixel_box;
+    return m_world2image_geotransforms[imageIndex].point_to_pixel_bbox(flip_in_y(R));
   }
 
   // The reverse of world2image()
@@ -149,7 +146,6 @@ namespace vw { namespace gui {
       return P;
 
     // There is no pixel concept in that case
-    // TODO(oalexan1): May need to fuse this with projpoint2world().
     if (m_images[imageIndex].isPoly())
       return flip_in_y(P);
 
@@ -1800,20 +1796,22 @@ namespace vw { namespace gui {
             // This vertex will be deleted
             if (m_stereoCropWin.contains(P))
               continue;
-
+            
             out_xv.push_back(x);
             out_yv.push_back(y);
           }
 
-          // If no viable polygon is left
-          if (out_xv.size() < 3)
+          // If there are no vertices left, or the polygon was not
+          // degenerate before but becomes degenerate now, skip it.
+          // (Polygons which were 1-point before are allowed.)
+          if (out_xv.empty() || (pSize >= 3 && out_xv.size() < 3))
             continue; 
 
           bool isPolyClosed = true;
           poly_out.appendPolygon(out_xv.size(),  
                                  vw::geometry::vecPtr(out_xv),  
                                  vw::geometry::vecPtr(out_yv),  
-                                 isPolyClosed, colors[polyIter], layers[layerIter]);
+                                 isPolyClosed, colors[polyIter], layers[polyIter]);
         }
 
         // Overwrite the polygon
@@ -1821,7 +1819,7 @@ namespace vw { namespace gui {
       }
     }
   
-    // The selection has done its job
+    // The selection has done its job, wipe it now
     m_stereoCropWin = BBox2();
     
     // This will redraw just the polygons, not the pixmap
@@ -2830,8 +2828,8 @@ namespace vw { namespace gui {
         // Don't show files the user wants hidden
         std::string fileName = m_images[i].name;
         if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
-        
-        BBox2i image_box = world2image(m_stereoCropWin, i);
+
+        BBox2 image_box = world2image(m_stereoCropWin, i);
         vw_out().precision(8);
         vw_out() << "Crop src win for  "
                  << m_images[i].name
@@ -2840,10 +2838,16 @@ namespace vw { namespace gui {
                  << image_box.min().y() << ' '
                  << image_box.width()   << ' '
                  << image_box.height()  << std::endl;
+
         if (m_images[i].has_georef){
           Vector2 proj_min, proj_max;
           // Convert pixels to projected coordinates
-          BBox2 point_box = m_images[i].georef.pixel_to_point_bbox(image_box);
+          BBox2 point_box;
+          if (m_images[i].isPoly())
+            point_box = image_box;
+          else 
+            point_box = m_images[i].georef.pixel_to_point_bbox(image_box);
+
           proj_min = point_box.min();
           proj_max = point_box.max();
           // Below we flip in y to make gdal happy
@@ -2853,7 +2857,7 @@ namespace vw { namespace gui {
                    << proj_max.x() << ' ' << proj_min.y() << std::endl;
 
           Vector2 lonlat_min, lonlat_max;
-          BBox2 lonlat_box = m_images[i].georef.pixel_to_lonlat_bbox(image_box);
+          BBox2 lonlat_box = m_images[i].georef.point_to_lonlat_bbox(point_box);
           lonlat_min = lonlat_box.min();
           lonlat_max = lonlat_box.max();
           // Again, miny and maxy are flipped on purpose

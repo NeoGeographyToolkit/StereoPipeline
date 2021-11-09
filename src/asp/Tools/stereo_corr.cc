@@ -336,7 +336,7 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
                                       std::string               const& match_file,
                                       std::vector<ip::InterestPoint>      & ip_left,
                                       std::vector<ip::InterestPoint>      & ip_right) {
-  
+
   bool usePinholeEpipolar = ((stereo_settings().alignment_method == "epipolar") &&
                              (opt.session->name() == "pinhole" ||
                               opt.session->name() == "nadirpinhole"));
@@ -352,7 +352,7 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
     = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
 
   if ((stereo_settings().alignment_method != "epipolar") ||
-      (match_file == sub_match_file) || (match_file == aligned_match_file))
+      (match_file == sub_match_file) || (match_file == aligned_match_file)) 
     return false;
 
   vw_out() << "Applying epipolar adjustment to input IP match file...\n";
@@ -573,10 +573,13 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt,
   // - Scale is reset to 1.0 if alignment matrices are present.
   ip_scale = adjust_ip_for_align_matrix(opt.out_prefix, in_ip1, in_ip2, ip_scale);
   vw_out() << "\t    * IP computed at scale: " << ip_scale << "\n";
+
+  // TODO(oalexan1): Remove the scale from everywhere, as it is always 1.
   float i_scale = 1.0/ip_scale;
 
   // Adjust the IP if they came from input images and these images are epipolar aligned
-  // TODO(oalexan1): This should be exclusive with adjust_ip_for_align_matrix
+  // This can be very useful if the ip come from outside, such as bundle adjustment.
+  // TODO(oalexan1): This should be exclusive with adjust_ip_for_align_matrix.
   adjust_ip_for_epipolar_transform(opt, match_filename, in_ip1, in_ip2);
 
   // Filter out IPs which fall outside the specified elevation range

@@ -39,6 +39,12 @@ namespace asp {
                     std::string const& d_sub_file,
                     Vector2 const& outlier_removal_params) {
 
+    // TODO(oalexan1): Add here the epipolar alignment.
+    // TODO(oalexan1): Save the ip obtained from disparity, so that
+    // they can be checked.
+    // TODO(oalexan1): Print all triangulation errors, as it appears
+    // that this code is too generous.
+    
     if (outlier_removal_params[0] >= 100.0)
       return; // The user chose to skip outlier filtering
   
@@ -184,6 +190,12 @@ namespace asp {
     vw_out() << "Number (and fraction) of removed outliers by the triangulation error check: "
              << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
 
+    // TODO(oalexan1): Print the tri errors here. The estimated
+    // range is too large.
+    
+    // Filter here also by distribution of disparities
+    // and by user-given height range and max tri error.
+    
     // Invalidate the D_sub entries that are outliers
     for (int col = 0; col < sub_disp.cols(); col++) {
       for (int row = 0; row < sub_disp.rows(); row++) {
