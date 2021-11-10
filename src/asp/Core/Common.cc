@@ -477,10 +477,10 @@ void asp::set_asp_env_vars() {
     vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in " << getenv("QT_PLUGIN_PATH"));
   
   // Set GDAL_DATA and check for share/gdal
-  GDAL_DATA_ENV_STR = "GDAL_DATA=" + base_dir;
+  GDAL_DATA_ENV_STR = "GDAL_DATA=" + base_dir + "/share/gdal";
   if (putenv((char*)GDAL_DATA_ENV_STR.c_str()) != 0) 
     vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << GDAL_DATA_ENV_STR << "\n");
-  if (!fs::exists( std::string(getenv("GDAL_DATA")) + "/share/gdal" )) 
+  if (!fs::exists( std::string(getenv("GDAL_DATA")) )) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find share/gdal in "
                  << getenv("GDAL_DATA"));
 }
