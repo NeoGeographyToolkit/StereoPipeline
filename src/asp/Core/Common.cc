@@ -481,7 +481,7 @@ void asp::set_asp_env_vars() {
   if (putenv((char*)GDAL_DATA_ENV_STR.c_str()) != 0) 
     vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << GDAL_DATA_ENV_STR << "\n");
   if (!fs::exists( std::string(getenv("GDAL_DATA")) )) 
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find share/gdal in "
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL data in "
                  << getenv("GDAL_DATA"));
 }
   
