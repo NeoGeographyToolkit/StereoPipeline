@@ -1726,7 +1726,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-per-image",              po::value(&opt.ip_per_image)->default_value(0),
      "How many interest points to detect in each image (default: automatic determination). It is overridden by --ip-per-tile if provided.")
     ("num-passes",           po::value(&opt.num_ba_passes)->default_value(2),
-     "How many passes of bundle adjustment to do. If more than one, outliers will be removed between passes using --remove-outliers-params and --remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.")
+     "How many passes of bundle adjustment to do, with given number of iterations in each pass. For more than one pass, outliers will be removed between passes using --remove-outliers-params and --remove-outliers-by-disparity-params, and re-optimization will take place. Residual files and a copy of the match files with the outliers removed will be written to disk.")
     ("num-random-passes",           po::value(&opt.num_random_passes)->default_value(0),
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
     ("remove-outliers-params", 

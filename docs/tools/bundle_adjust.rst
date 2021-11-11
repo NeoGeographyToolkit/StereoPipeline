@@ -372,8 +372,9 @@ Command-line options for bundle_adjust
     greatly slow down the solver.
 
 --num-passes <integer (default: 2)>
-    How many passes of bundle adjustment to do. If more than one,
-    outliers will be removed between passes using ``--remove-outliers-params``
+    How many passes of bundle adjustment to do, with given number
+    of iterations in each pass. For more than one pass, outliers will
+    be removed between passes using ``--remove-outliers-params``
     and ``--remove-outliers-by-disparity-params``, and re-optimization
     will take place. Residual files and a copy of the match files
     with the outliers removed will be written to disk.
