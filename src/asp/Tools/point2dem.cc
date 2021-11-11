@@ -916,8 +916,10 @@ void do_software_rasterization(asp::OrthoRasterizerView& rasterizer,
     sw2.stop();
     vw_out(DebugMessage,"asp") << "DEM render time: " << sw2.elapsed_seconds() << ".\n";
 
-    double num_invalid_pixelsD = static_cast<double>(*num_invalid_pixels);
-    double num_total_pixels    = static_cast<double>(dem_size[0]*dem_size[1]);
+    double num_invalid_pixelsD = *num_invalid_pixels;
+    // Below we convert to double first and multiply later, to avoid
+    // 32-bit integer overflow.
+    double num_total_pixels    = double(dem_size[0])*double(dem_size[1]);
     double invalid_ratio       = num_invalid_pixelsD / num_total_pixels;
     vw_out() << "Percentage of valid pixels = " << 1.0-invalid_ratio << "\n";
     *num_invalid_pixels = 0; // Reset this count
