@@ -83,7 +83,10 @@ Misc:
   * Make symlinks relative in parallel_bundle_adjust for portability.
   * The mapprojected image saves as metadata the adjustments it was
     created with.
+  * The ipmatch program can take as input just images, with the 
+    .vwip files filled in.
   * Bugfix in dem_mosaic hole-filling for some situations.
+  * Bugfix in handling projections specified via an EPSG code.
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------

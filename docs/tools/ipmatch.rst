@@ -18,9 +18,20 @@ The produced binary match files can be visualized in ``stereo_gui``
 (:numref:`stereo_gui`) or converted to plain text for inspection
 with ``parse_match_file.py`` (:numref:`parse_match_file`).
 
+Example::
+
+    ipmatch image1.tif image2.tif image1.vwip image2.vwip
+
+The order of images and ``.vwip`` files is flexible.  The first image will 
+use the first ``.vwip`` file encountered, etc. The ``.vwip`` files can be 
+omitted altogether, and then can be deduced from image names. So the
+program can be also called as::
+
+    ipmatch image1.tif image2.tif
+
 Usage::
 
-     ipmatch [options] <image 1> <vwip file 1> <image 2> <vwip file 2> ...
+     ipmatch [options] <images> <vwip files>
 
 Command-line options for ipmatch:
 
