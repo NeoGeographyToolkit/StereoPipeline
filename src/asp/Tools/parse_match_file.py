@@ -17,6 +17,7 @@
 # __END_LICENSE__
 
 # Thanks to Amaury Dehecq for contributing this tool.
+# Bugfix by PicoJr.
 
 import argparse, os, struct
 import numpy as np
