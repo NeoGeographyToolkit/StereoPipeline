@@ -188,7 +188,9 @@ if __name__ == '__main__':
         # the specified fields.
         try:
             im1_ipb = np.genfromtxt(args.infile,skip_header=1,dtype='float32, float32, int32, int32, float32, float32, float32, int8, uint32, uint32, uint64', max_rows=size1)
+            im1_ipb = im1_ipb.reshape((size1,))
             im2_ipb = np.genfromtxt(args.infile,skip_header=1+int(size1),dtype='float32, float32, int32, int32, float32, float32, float32, int8, uint32, uint32, uint64', max_rows=size2)
+            im2_ipb = im2_ipb.reshape((size2,))
         except Exception as e:
             print("Your numpy version (" + str(np.__version__) + ") may be too old. " +
                   "Got the error: " + str(e))
