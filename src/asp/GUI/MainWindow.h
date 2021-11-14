@@ -93,6 +93,9 @@ namespace vw { namespace gui {
     void overlayGeoreferencedImages ();
     void setZoomAllToSameRegion     ();
     void setZoomAllToSameRegionAux(bool do_zoom);
+    void viewNextImage              ();
+    void viewPrevImage              ();
+
     void profileMode                ();
     void polyEditMode               ();
     void uncheckProfileModeCheckbox ();
@@ -101,6 +104,7 @@ namespace vw { namespace gui {
 
   protected:
     void keyPressEvent(QKeyEvent *event);
+    bool eventFilter(QObject *obj, QEvent *e);
 
   private:
 
@@ -151,6 +155,8 @@ namespace vw { namespace gui {
     QAction *m_saveVectorLayer_action;
     QAction *m_viewUnthreshImages_action;
     QAction *m_zoomAllToSameRegion_action;
+    QAction *m_viewNextImage_action;
+    QAction *m_viewPrevImage_action;
     QAction *m_viewMatches_action;
     QAction *m_addDelMatches_action;
     QAction *m_saveMatches_action;

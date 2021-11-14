@@ -166,7 +166,9 @@ public slots:
     void sizeToFit();
     void showFilesChosenByUser (int rowClicked, int columnClicked);
     void zoomToImageInTableCell(int rowClicked, int columnClicked);
-    void toggleAllOnOff    ();
+    void viewNextImage();
+    void viewPrevImage();
+    void toggleAllOnOff();
     void customMenuRequested(QPoint pos);
     void viewUnthreshImages();
     void viewThreshImages  (bool refresh_pixmap);
@@ -274,9 +276,6 @@ public slots:
     // Use double buffering: draw to a pixmap first, refresh it only
     // if really necessary, and display it when paintEvent is called.
     QPixmap m_pixmap;
-
-    bool m_bilinear_filter;
-    bool m_use_colormap;
 
     std::string m_polyColor;
     int m_lineWidth;
@@ -421,7 +420,9 @@ public slots:
     void bringImageOnTop  (int image_index);
     void pushImageToBottom(int image_index);
 
-
+    void viewOtherImage(int delta);
+    void updateFilesToHide();
+    
     // For polygon drawing
     bool        m_polyEditMode;
     int         m_polyLayerIndex; // which of the current images owns the poly vector layer

@@ -222,18 +222,6 @@ namespace vw { namespace gui {
 
     m_border_factor = 0.95;
 
-    // Set some reasonable defaults
-    m_bilinear_filter  = true;
-    m_use_colormap     = false;
-    m_adjust_mode      = NoAdjustment;
-    m_display_channel  = DisplayRGBA;
-    m_colorize_display = false;
-
-    // Set up shader parameters
-    m_gain   = 1.0;
-    m_offset = 0.0;
-    m_gamma  = 1.0;
-
     // Set mouse tracking
     this->setMouseTracking(true);
 
@@ -310,16 +298,7 @@ namespace vw { namespace gui {
       // TODO: It is poor design that we keep in both the table and
       // in m_filesToHide the state of which files to hide and these
       // need to be synched up.
-      m_filesToHide.clear();
-      QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
-      int rows = filesTable->rowCount();
-      for (int rowIter = 0; rowIter < rows; rowIter++){
-        QTableWidgetItem *item = filesTable->item(rowIter, 0);
-        if (item->checkState() != Qt::Checked){
-          std::string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
-          m_filesToHide.insert(fileName);
-        }
-      }
+      updateFilesToHide();
       
       // When the user clicks on a table entry, say by modifying a 
       // checkbox, update the display.
@@ -451,7 +430,6 @@ namespace vw { namespace gui {
     if (!m_chooseFilesDlg)
       return;
 
-    m_filesToHide.clear();
     QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
     int rows = filesTable->rowCount();
 
@@ -461,15 +439,8 @@ namespace vw { namespace gui {
       QTableWidgetItem *item = filesTable->item(rowClicked, 0);
       item->setCheckState(Qt::Checked);
     }
-    
-    // Make list of all the unchecked files
-    for (int rowIter = 0; rowIter < rows; rowIter++){
-      QTableWidgetItem *item = filesTable->item(rowIter, 0);
-      if (item->checkState() != Qt::Checked){
-        std::string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
-        m_filesToHide.insert(fileName);
-      }
-    }
+
+    updateFilesToHide();
 
     // If we just checked a certain image, it will be shown on top of the other ones.
     QTableWidgetItem *item = filesTable->item(rowClicked, 0);
@@ -481,13 +452,69 @@ namespace vw { namespace gui {
     if (columnClicked > 0) {
       // I could not use this functionality from a double click event.
       MainWidget::zoomToImageInTableCell(rowClicked, columnClicked);
-    }
-    else
+    } else {
       refreshPixmap();
-      
+    }
+    
     return;
   }
 
+  // View next or previous image
+  void MainWidget::viewOtherImage(int delta) {
+    
+    if (!m_chooseFilesDlg)
+      return;
+
+    if (delta != -1 && delta != 1) 
+      return;
+
+    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+    int rows = filesTable->rowCount();
+    
+    if (rows == 0) 
+      return;
+    
+    // First see how many images have a checkbox now, so are being shown
+    std::set<int> shown;
+    for (int rowIter = 0; rowIter < rows; rowIter++) {
+      QTableWidgetItem *item = filesTable->item(rowIter, 0);
+      if (item->checkState() == Qt::Checked)
+        shown.insert(rowIter);
+    }
+    
+    // If no images are being shown or more than one, show the first
+    int shownRow = 0;
+    if (shown.size() == 1) {
+      // Else show the next or previous image. Note how we add 'rows'
+      // before we find the remainder, as delta could be negative.
+      shownRow = *shown.begin();
+      shownRow = (shownRow + delta + rows) % rows;
+    }
+    
+    // Show the next/previous one, and hide the rest 
+    for (int rowIter = 0; rowIter < rows; rowIter++){
+      QTableWidgetItem *item = filesTable->item(rowIter, 0);
+      if (rowIter == shownRow)
+        item->setCheckState(Qt::Checked);
+      else
+        item->setCheckState(Qt::Unchecked);
+    }
+
+    updateFilesToHide();
+
+    refreshPixmap();
+    
+    return;
+  }
+
+  void MainWidget::viewNextImage(){
+    MainWidget::viewOtherImage(1);
+  }
+
+  void MainWidget::viewPrevImage(){
+    MainWidget::viewOtherImage(-1);
+  }
+  
   void MainWidget::zoomToImageInTableCell(int rowClicked, int columnClicked){
     // We will pass this index to the desired slot via this global variable
     m_indicesWithAction.clear();
@@ -521,13 +548,13 @@ namespace vw { namespace gui {
       QTableWidgetItem *item = filesTable->item(rowIter, 0);
       std::string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
 
-      if (allOff){
+      if (allOff)
         item->setCheckState(Qt::Checked);
-      }else{
+      else
         item->setCheckState(Qt::Unchecked);
-        m_filesToHide.insert(fileName);
-      }
     }
+
+    updateFilesToHide();
 
     if (!allOff) {
       // Now all files are hidden, per above. So reset the order, so that when
@@ -546,6 +573,26 @@ namespace vw { namespace gui {
     refreshPixmap();
   }
 
+  void MainWidget::updateFilesToHide() {
+
+    if (!m_chooseFilesDlg)
+      return;
+
+    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+    int rows = filesTable->rowCount();
+
+    // Refresh the list of all the unchecked files
+    m_filesToHide.clear();
+    for (int rowIter = 0; rowIter < rows; rowIter++){
+      QTableWidgetItem *item = filesTable->item(rowIter, 0);
+      if (item->checkState() != Qt::Checked) {
+        std::string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+        m_filesToHide.insert(fileName);
+      }
+    }
+    
+  }
+  
   BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     
     BBox2 in_box = box;
@@ -849,7 +896,8 @@ namespace vw { namespace gui {
       m_hillshade_mode[image_iter] = hillshade_mode;
   }
 
-  // Ensure the current image is displayed
+  // Ensure the current image is displayed. Note that this on its own
+  // does not refresh the view as refreshPixmap() is not called.
   void MainWidget::showImage(std::string const& image_name){
     std::set<std::string>::iterator it2 = m_filesToHide.find(image_name);
     if (it2 != m_filesToHide.end()){
@@ -1717,7 +1765,6 @@ namespace vw { namespace gui {
     
     m_currPolyX.clear();
     m_currPolyY.clear();
-    //setStandardCursor();
 
     update(); // redraw the just polygons, not the underlying images
     //refreshPixmap();
@@ -2954,6 +3001,11 @@ namespace vw { namespace gui {
 
 
   void MainWidget::enterEvent(QEvent */*event*/) {
+
+    QCursor q = this->cursor();
+    //q.setShape(Qt::ArrowCursor);
+    q.setShape(Qt::PointingHandCursor);
+    this->setCursor(q);
   }
 
   void MainWidget::leaveEvent(QEvent */*event*/) {
@@ -3007,55 +3059,6 @@ namespace vw { namespace gui {
     case Qt::Key_Equal:
       zoom(1.0/0.75);
       break;
-
-#if 0
-    case Qt::Key_I:  // Toggle bilinear/nearest neighbor interp
-      m_bilinear_filter = !m_bilinear_filter;
-      break;
-    case Qt::Key_C:  // Activate colormap
-      m_use_colormap = !m_use_colormap;
-      break;
-    case Qt::Key_H:  // Activate hillshade
-    case Qt::Key_G:  // Gain adjustment mode
-      if (m_adjust_mode == GainAdjustment) {
-        m_adjust_mode = TransformAdjustment;
-      } else {
-        m_adjust_mode = GainAdjustment;
-        s << "Gain: " << log(m_gain)/log(2) << " f-stops\n";
-      }
-      break;
-    case Qt::Key_O:  // Offset adjustment mode
-      if (m_adjust_mode == OffsetAdjustment) {
-        m_adjust_mode = TransformAdjustment;
-      } else {
-        m_adjust_mode = OffsetAdjustment;
-        s << "Offset: " << m_offset;
-      }
-      break;
-    case Qt::Key_V:  // Gamma adjustment mode
-      if (m_adjust_mode == GammaAdjustment) {
-        m_adjust_mode = TransformAdjustment;
-      } else {
-        m_adjust_mode = GammaAdjustment;
-        s << "Gamma: " << m_gamma;
-      }
-      break;
-    case Qt::Key_1:  // Display red channel only
-      m_display_channel = DisplayR;
-      break;
-    case Qt::Key_2:  // Display green channel only
-      m_display_channel = DisplayG;
-      break;
-    case Qt::Key_3:  // Display blue channel only
-      m_display_channel = DisplayB;
-      break;
-    case Qt::Key_4:  // Display alpha channel only
-      m_display_channel = DisplayA;
-      break;
-    case Qt::Key_0:  // Display all color channels
-      m_display_channel = DisplayRGBA;
-      break;
-#endif
 
     default:
       QWidget::keyPressEvent(event);

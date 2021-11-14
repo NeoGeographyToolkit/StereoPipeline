@@ -66,6 +66,27 @@ namespace vw { namespace gui {
   }
 }}
 
+// Need this class to manage what happens when keys are pressed while
+// the chooseFilesDlg table is in focus. Do not let it accept key
+// strokes, which just end up editing the table entries, but rather
+// pass them to the main program event filter.
+class chooseFilesFilterDelegate: public QStyledItemDelegate {
+public:
+  chooseFilesFilterDelegate(QObject *filter, QObject *parent = 0):
+    QStyledItemDelegate(parent), filter(filter){}
+
+  virtual QWidget *createEditor(QWidget *parent,
+                                const QStyleOptionViewItem &option,
+                                const QModelIndex &index) const {
+    QWidget *editor = QStyledItemDelegate::createEditor(parent, option, index);
+    editor->installEventFilter(filter);
+    return editor;
+  }
+  
+private:
+  QObject *filter;
+};
+
 MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
                        std::vector<std::string> const& images,
                        std::string& output_prefix,
@@ -164,7 +185,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   }
   m_view_type_old = m_view_type; // initialize this
   
-  // Set up the basic layout of the window and its menus.
+  // Set up the basic layout of the window and its menus
   createMenus();
 
   // Must happen after menus are created
@@ -236,7 +257,14 @@ void MainWindow::createLayout() {
     if (m_image_files.size() > 1) {
       m_chooseFiles = new chooseFilesDlg(this);
       m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
+
+      // See note at chooseFilesFilterDelegate
+      m_chooseFiles->getFilesTable()->setItemDelegate(new chooseFilesFilterDelegate(this));
+      m_chooseFiles->getFilesTable()->installEventFilter(this);
+        
       splitter->addWidget(m_chooseFiles);
+    } else {
+      m_chooseFiles = NULL;
     }
 
     // Pass all images to a single MainWidget object
@@ -406,7 +434,8 @@ void MainWindow::createMenus() {
   m_viewHillshadedImages_action->setCheckable(true);
   m_viewHillshadedImages_action->setChecked(m_hillshade);
   m_viewHillshadedImages_action->setShortcut(tr("H"));
-  connect(m_viewHillshadedImages_action, SIGNAL(triggered()), this, SLOT(viewHillshadedImages()));
+  connect(m_viewHillshadedImages_action, SIGNAL(triggered()),
+          this, SLOT(viewHillshadedImages()));
 
   // View as georeferenced
   m_viewGeoreferencedImages_action = new QAction(tr("View as georeferenced images"), this);
@@ -414,15 +443,18 @@ void MainWindow::createMenus() {
   m_viewGeoreferencedImages_action->setCheckable(true);
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
   m_viewGeoreferencedImages_action->setShortcut(tr("G"));
-  connect(m_viewGeoreferencedImages_action, SIGNAL(triggered()), this, SLOT(viewGeoreferencedImages()));
+  connect(m_viewGeoreferencedImages_action, SIGNAL(triggered()),
+          this, SLOT(viewGeoreferencedImages()));
   
   // View overlayed georeferenced images
   m_overlayGeoreferencedImages_action = new QAction(tr("Overlay georeferenced images"), this);
   m_overlayGeoreferencedImages_action->setStatusTip(tr("Overlay georeferenced images"));
   m_overlayGeoreferencedImages_action->setCheckable(true);
-  m_overlayGeoreferencedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
+  m_overlayGeoreferencedImages_action->setChecked(m_use_georef &&
+                                                  (m_view_type == VIEW_IN_SINGLE_WINDOW));
   m_overlayGeoreferencedImages_action->setShortcut(tr("O"));
-  connect(m_overlayGeoreferencedImages_action, SIGNAL(triggered()), this, SLOT(overlayGeoreferencedImages()));
+  connect(m_overlayGeoreferencedImages_action, SIGNAL(triggered()),
+          this, SLOT(overlayGeoreferencedImages()));
 
   // Zoom all images to same region
   m_zoomAllToSameRegion_action = new QAction(tr("Zoom all images to same region"), this);
@@ -430,7 +462,24 @@ void MainWindow::createMenus() {
   m_zoomAllToSameRegion_action->setCheckable(true);
   m_zoomAllToSameRegion_action->setChecked(false);
   m_zoomAllToSameRegion_action->setShortcut(tr("Z"));
-  connect(m_zoomAllToSameRegion_action, SIGNAL(triggered()), this, SLOT(setZoomAllToSameRegion()));
+  connect(m_zoomAllToSameRegion_action, SIGNAL(triggered()),
+          this, SLOT(setZoomAllToSameRegion()));
+
+  // View next image
+  m_viewNextImage_action = new QAction(tr("View next image"), this);
+  m_viewNextImage_action->setStatusTip(tr("View next image"));
+  m_viewNextImage_action->setCheckable(false);
+  m_viewNextImage_action->setShortcut(tr("N"));
+  connect(m_viewNextImage_action, SIGNAL(triggered()),
+          this, SLOT(viewNextImage()));
+
+  // View prev image
+  m_viewPrevImage_action = new QAction(tr("View previous image"), this);
+  m_viewPrevImage_action->setStatusTip(tr("View previous image"));
+  m_viewPrevImage_action->setCheckable(false);
+  m_viewPrevImage_action->setShortcut(tr("P"));
+  connect(m_viewPrevImage_action, SIGNAL(triggered()),
+          this, SLOT(viewPrevImage()));
 
   // IP matches
   m_viewMatches_action = new QAction(tr("View IP matches"), this);
@@ -533,6 +582,8 @@ void MainWindow::createMenus() {
   m_view_menu->addAction(m_viewGeoreferencedImages_action);
   m_view_menu->addAction(m_overlayGeoreferencedImages_action);
   m_view_menu->addAction(m_zoomAllToSameRegion_action);
+  m_view_menu->addAction(m_viewNextImage_action);
+  m_view_menu->addAction(m_viewPrevImage_action);
 
   // Matches menu
   m_matches_menu = menu->addMenu(tr("&IP matches"));
@@ -1344,6 +1395,26 @@ void MainWindow::zoomAllToSameRegionAction(int widget_id){
   
 }
 
+void MainWindow::viewNextImage() {
+  if (m_view_type != VIEW_IN_SINGLE_WINDOW) {
+    popUp("Viewing the next image requires that all images be in the same window.");
+    return;
+  }
+
+  if (m_widgets.size() == 1) 
+    m_widgets[0]->viewNextImage();
+}
+
+void MainWindow::viewPrevImage() {
+  if (m_view_type != VIEW_IN_SINGLE_WINDOW) {
+    popUp("Viewing the previous image requires that all images be in the same window.");
+    return;
+  }
+
+  if (m_widgets.size() == 1) 
+    m_widgets[0]->viewPrevImage();
+}
+
 void MainWindow::uncheckProfileModeCheckbox(){
   m_profileMode_action->setChecked(false);
   return;
@@ -1481,13 +1552,25 @@ void MainWindow::about() {
 
 }
 
-void MainWindow::keyPressEvent(QKeyEvent *event) {
+// For now this does nothing
+bool MainWindow::eventFilter(QObject *obj, QEvent *event){
 
-  std::ostringstream s;
-
-  switch (event->key()) {
-  case Qt::Key_Escape:  // Quit
-    close();
-    break;
+#if 0
+  if (event->type() == QEvent::KeyPress) {
+    QKeyEvent *key_event = static_cast<QKeyEvent*>(event);
+    return true;
+    
+    switch (event->key()) {
+    case Qt::Key_Escape:  // Quit
+      close();
+      break;
+    }
   }
+#endif
+    
+  return QMainWindow::eventFilter(obj, event);
+}
+
+// For now this does nothing
+void MainWindow::keyPressEvent(QKeyEvent *event) {
 }

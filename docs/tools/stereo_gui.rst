@@ -60,6 +60,9 @@ to it and display it on top of other images. By right-clicking the list
 of images, other operations can be performed, such as deleting an image
 from the view, etc.
 
+In this mode, the keys ``N`` and ``P`` can be used to cycle among
+the images.
+
 ``stereo_gui`` can show hillshaded DEMs, either via the ``--hillshade``
 option, or by choosing from the GUI View menu the ``Hillshaded images``
 option.

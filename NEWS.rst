@@ -46,6 +46,7 @@ stereo_gui:
   * Can save a shapefile having points, segments, or polygons (yet the
     shapefile format requires that these not be mixed in the same
     shapefile).
+  * Can cycle through given images from the View menu.
  
 mapproject:
   * If the input image file has an embedded RPC camera model, append
