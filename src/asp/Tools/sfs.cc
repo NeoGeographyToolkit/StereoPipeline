@@ -3657,7 +3657,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The input DEM(s) to refine using SfS. If more than one, their list should be in quotes.")
     ("output-prefix,o", po::value(&opt.out_prefix),
      "Prefix for output filenames.")
-    ("max-iterations,n", po::value(&opt.max_iterations)->default_value(100),
+    ("max-iterations,n", po::value(&opt.max_iterations)->default_value(10),
      "Set the maximum number of iterations.")
     ("reflectance-type", po::value(&opt.reflectance_type)->default_value(1),
      "Reflectance type (0 = Lambertian, 1 = Lunar-Lambert, 2 = Hapke, 3 = Experimental extension of Lunar-Lambert, 4 = Charon model (a variation of Lunar-Lambert)).")

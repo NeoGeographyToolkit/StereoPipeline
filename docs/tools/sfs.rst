@@ -4,9 +4,9 @@ sfs
 ---
 
 The ``sfs`` tool can improve a DEM using shape-from-shading. Examples
-for how to invoke it are in the :ref:`SfS usage <sfs_usage>` chapter. The tool
-``parallel_sfs`` (:numref:`parallel_sfs`) extends ``sfs`` to run using multiple
-processes and potentially on multiple machines.
+for how to invoke it are in :numref:`sfs_usage`. The tool
+``parallel_sfs`` (:numref:`parallel_sfs`) extends ``sfs`` to run using
+multiple processes on multiple machines.
 
 Usage::
 
@@ -24,7 +24,7 @@ Command-line options:
 -o, --output-prefix <string>
     Prefix for output filenames.
 
--n, --max-iterations <integer (default: 100)>
+-n, --max-iterations <integer (default: 10)>
     Set the maximum number of iterations.
 
 --reflectance-type <integer (default: 1)>

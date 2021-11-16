@@ -15,7 +15,8 @@ chapter.
 
 Usage::
 
-     parallel_sfs -i <input DEM> -n <max iterations> -o <output prefix> <images> [other options]
+    parallel_sfs -i <input DEM> -n <max iterations> -o <output prefix> \
+      <images> [other options]
 
 Command-line options for parallel_sfs:
 
