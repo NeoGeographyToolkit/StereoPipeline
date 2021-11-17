@@ -767,10 +767,10 @@ DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
 
 struct Options : vw::cartography::GdalWriteOptions {
   std::string shapefile, dem, mask, camera, stereo_session, bathy_plane,
-    output_inlier_shapefile, dem_minus_plane;
+    output_inlier_shapefile, output_outlier_shapefile, dem_minus_plane;
   double outlier_threshold;
   int num_ransac_iterations, num_samples;
-  bool use_ecef_water_surface;
+  bool save_shapefiles_as_polygons, use_ecef_water_surface;
   Options(): outlier_threshold(0.2), num_ransac_iterations(1000) {}
 };
 
@@ -801,9 +801,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Number of RANSAC iterations to use to find the best-fitting plane.")
     ("output-inlier-shapefile", po::value(&opt.output_inlier_shapefile)->default_value(""),
      "If specified, save at this location the shape file with the inlier vertices.")
+    ("output-outlier-shapefile", po::value(&opt.output_outlier_shapefile)->default_value(""),
+     "If specified, save at this location the shape file with the outlier vertices.")
     ("num-samples", 
      po::value(&opt.num_samples)->default_value(10000),
      "Number of samples to pick at the water-land interface if using a mask.")
+    ("save-shapefiles-as-polygons", 
+     po::bool_switch(&opt.save_shapefiles_as_polygons)->default_value(false),
+     "Save the inlier and outlier shapefiles as polygons, rather than "
+     "discrete vertices. May be more convenient for processing in a GIS tool.")
     ("dem-minus-plane",
      po::value(&opt.dem_minus_plane),
      "If specified, subtract from the input DEM the best-fit plane and save the "
@@ -840,6 +846,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.bathy_plane == "")
     vw_throw( ArgumentErr() << "Missing the output bathy plane file.\n"
               << usage << general_options );
+}
+
+// Given a set of polygons stored in dPoly, create a single polygon with all those vertices
+void formSinglePoly(vw::geometry::dPoly const& inPoly,
+                    vw::geometry::dPoly & outPoly) {
+
+  int num_pts = inPoly.get_totalNumVerts();
+  const double * xv = inPoly.get_xv();
+  const double * yv = inPoly.get_yv();
+  
+  bool isPolyClosed = true;
+  std::string layer = "";
+  std::string poly_color = "green";
+  outPoly.setPolygon(num_pts, xv, yv, isPolyClosed, poly_color, layer);
 }
 
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
@@ -979,8 +999,7 @@ int main( int argc, char *argv[] ) {
     save_plane(use_proj_water_surface, proj_lat, proj_lon,  
                plane, opt.bathy_plane);
 
-    // Save the shape having the inliers. Use a point layer, not a polygon layer,
-    // as there is no connectivity information between these points. 
+    // Save the shape having the inliers.
     if (opt.output_inlier_shapefile != "") {
       vw::geometry::dPoly inlierPoly;
       for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) {
@@ -995,12 +1014,57 @@ int main( int argc, char *argv[] ) {
                                  vw::geometry::vecPtr(inlier_y),
                                  isPolyClosed, poly_color, layer);
       }
-      
+
+      if (opt.save_shapefiles_as_polygons) {
+        vw::geometry::dPoly localPoly; 
+        formSinglePoly(inlierPoly, localPoly);
+        inlierPoly = localPoly;
+      }
+
       std::vector<vw::geometry::dPoly> inlierPolyVec;
       inlierPolyVec.push_back(inlierPoly);
       vw_out() << "Writing inlier shapefile: " << opt.output_inlier_shapefile << "\n";
       write_shapefile(opt.output_inlier_shapefile, has_shape_georef, shape_georef,
                       inlierPolyVec);
+    }
+
+    // Save the shape having the outliers.
+    if (opt.output_outlier_shapefile != "") {
+
+      // First put the inliers in a set so we can exclude them
+      std::set<int> inlier_set;
+      for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++)
+        inlier_set.insert(inlier_indices[inlier_it]);
+      
+      vw::geometry::dPoly outlierPoly;
+      for (size_t it = 0; it < used_vertices.size(); it++) {
+        
+        if (inlier_set.find(it) != inlier_set.end())
+          continue; // an inlier, skip it
+        
+        Vector2 p = used_vertices[it];
+        std::vector<double> outlier_x, outlier_y;
+        outlier_x.push_back(p.x());
+        outlier_y.push_back(p.y());
+        bool isPolyClosed = true;
+        std::string layer = "";
+        outlierPoly.appendPolygon(outlier_x.size(),
+                                 vw::geometry::vecPtr(outlier_x),
+                                 vw::geometry::vecPtr(outlier_y),
+                                 isPolyClosed, poly_color, layer);
+      }
+
+      if (opt.save_shapefiles_as_polygons) {
+        vw::geometry::dPoly localPoly; 
+        formSinglePoly(outlierPoly, localPoly);
+        outlierPoly = localPoly;
+      }
+      
+      std::vector<vw::geometry::dPoly> outlierPolyVec;
+      outlierPolyVec.push_back(outlierPoly);
+      vw_out() << "Writing outlier shapefile: " << opt.output_outlier_shapefile << "\n";
+      write_shapefile(opt.output_outlier_shapefile, has_shape_georef, shape_georef,
+                      outlierPolyVec);
     }
 
     if (opt.dem_minus_plane != "") {

@@ -157,6 +157,14 @@ Command-line options for bathy_plane_calc
     outlier and not included in the calculation of that plane. The default
     is 0.2.
 
+--num-ransac-iterations <integer>
+    Number of RANSAC iterations to use to find the best-fitting plane.
+    The default is 1000.
+
+--num-samples <integer>
+    Number of samples to pick at the water-land interface if using a
+    mask. The default is 10000.
+
 --bathy-plane arg                     
     The output file storing the computed plane as four coefficients
     a, b, c, d, with the plane being a*x + b*y + c*z + d = 0.
@@ -165,13 +173,14 @@ Command-line options for bathy_plane_calc
     If specified, save at this location the shape file with the inlier
     vertices.
 
---num-ransac-iterations <integer>
-    Number of RANSAC iterations to use to find the best-fitting plane.
-    The default is 1000.
+--output-outlier-shapefile <string>
+    If specified, save at this location the shape file with the outlier
+    vertices.
 
---num-samples <integer>
-    Number of samples to pick at the water-land interface if using a
-    mask. The default is 10000.
+--save-shapefiles-as-polygons
+    Save the inlier and outlier shapefiles as polygons, rather than
+    made of of discrete vertices. May be more convenient for processing
+    in a GIS tool.
 
 --dem-minus-plane <string (default: "")>
     If specified, subtract from the input DEM the best-fit plane and save the 
