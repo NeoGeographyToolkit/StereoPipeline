@@ -162,7 +162,7 @@ Command-line options:
     Use the model coefficients specified as a list of numbers in
     quotes. For example:
 
-    * Lunar-Lambertian: O, A, B, C, would be ``"1 0.019 0.000242 -0.00000146"``
+    * Lunar-Lambertian: O, A, B, C, would be ``"1 -0.019 0.000242 -0.00000146"``
     * Hapke: omega, b, c, B0, h, would be  ``"0.68 0.17 0.62 0.52 0.52"``
     * Charon: A, f(alpha), would be ``"0.7 0.63"``
 
