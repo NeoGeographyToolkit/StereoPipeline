@@ -72,6 +72,11 @@ specifically as given in :cite:`lohse2006derivation`
 :cite:`hapke1993opposition`. Custom values for the
 coefficients of these models can be passed to the program.
 
+It is important to note that the default Lunar-Lambertian model may
+not be the right choice for other planetary bodies, hence some
+research may be needed to decide the correct model for your
+application.
+
 How to get good test images
 ---------------------------
 
