@@ -3737,7 +3737,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
      "Use this prefix to optionally read model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
     ("model-coeffs", po::value(&opt.model_coeffs)->default_value(""),
-     "Use the model coefficients specified as a list of numbers in quotes. Lunar-Lambertian: O, A, B, C, e.g., '1 0.019 0.000242 -0.00000146'. Hapke: omega, b, c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.")
+     "Use the model coefficients specified as a list of numbers in quotes. Lunar-Lambertian: O, A, B, C, e.g., '1 -0.019 0.000242 -0.00000146'. Hapke: omega, b, c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.")
     ("float-haze",   po::bool_switch(&opt.float_haze)->default_value(false)->implicit_value(true),
      "Float the haze coefficients as part of the optimization, if haze is modeled.")
     ("haze-prefix", po::value(&opt.image_haze_prefix)->default_value(""),
