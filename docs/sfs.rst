@@ -76,11 +76,6 @@ not be the right choice for other planetary bodies, hence some
 research may be needed to decide the correct model for your
 application.
 
-It is important to note that the default Lunar-Lambertian model may
-not be the right choice for other planetary bodies, hence some
-research may be needed to decide the correct model for your
-application.
-
 How to get good test images
 ---------------------------
 
@@ -757,6 +752,12 @@ the images relative to each other, or to this DEM, that is a sign of
 some issues. If the shift is relative to this DEM, perhaps one can
 try the alignment above with a different value of the max
 displacement.
+
+This alignment may not always be successful, since, if all the cameras
+have small convergence angles, the ``residuals_pointmap.csv`` file may
+not have accurate 3D positions. If a stereo pair exists among the
+bundle-adjusted images, it may be preferable to create a DEM from
+that one and use it for alignment to the reference DEM.
 
 There are occasions in which the alignment transform is still slightly
 inaccurate. Then, one can refine the cameras using the reference
