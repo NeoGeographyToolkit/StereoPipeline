@@ -64,13 +64,17 @@ but the terrain may move too far from the input).
 
 We use either the regular Lambertian reflectance model, or the
 Lunar-Lambertian model :cite:`mcewen1991photometric`, more
-specifically as given in :cite:`lohse2006derivation`
-(equations (3) and (4)). Also supported is the Hapke model,
-:cite:`johnson2006spectrophotometric`,
-:cite:`fernando2013surface`,
-:cite:`hapke2008bidirectional`,
-:cite:`hapke1993opposition`. Custom values for the
-coefficients of these models can be passed to the program.
+specifically as given in :cite:`lohse2006derivation` (equations (3)
+and (4)). Also supported is the Hapke model,
+:cite:`johnson2006spectrophotometric`, :cite:`fernando2013surface`,
+:cite:`hapke2008bidirectional`, :cite:`hapke1993opposition`. Custom
+values for the coefficients of these models can be passed to the
+program.
+
+It is important to note that the default Lunar-Lambertian model may
+not be the right choice for other planetary bodies, hence some
+research may be needed to decide the correct model for your
+application.
 
 It is important to note that the default Lunar-Lambertian model may
 not be the right choice for other planetary bodies, hence some
@@ -283,6 +287,7 @@ Then we bundle-adjust and run parallel_stereo
 ::
 
     bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub \
+      --num-iterations 100 --save-intermediate-cameras        \
       --min-matches 1 -o run_ba/run
     parallel_stereo A_crop.cub B_crop.cub run_full2/run       \
       --subpixel-mode 3 --bundle-adjust-prefix run_ba/run
@@ -304,6 +309,7 @@ commands analogous to the above::
 
     bundle_adjust A_crop_sub10.cub B_crop_sub10.cub     \
       C_crop_sub10.cub D_crop_sub10.cub --min-matches 1 \
+      --num-iterations 100 --save-intermediate-cameras  \
       -o run_ba_sub10/run --ip-per-tile 100000
     parallel_stereo A_crop_sub10.cub B_crop_sub10.cub   \
       run_sub10/run --subpixel-mode 3                   \
@@ -463,9 +469,12 @@ happen here. Those should be saved using the output prefix expected below.)
 
     P='A_crop_sub4_v1.tif B_crop_sub4_v1.tif' # to avoid long lines below
     Q='C_crop_sub4_v1.tif D_crop_sub4_v1.tif'           
-    bundle_adjust A_crop_sub4.cub B_crop_sub4.cub C_crop_sub4.cub \
-      D_crop_sub4.cub -o run_ba_sub4/run --mapprojected-data      \
-      "$P $Q run_stereo_noba_sub4/run-DEM.tif" --min-matches 1
+    bundle_adjust A_crop_sub4.cub B_crop_sub4.cub C_crop_sub4.cub  \
+      D_crop_sub4.cub                                              \
+      --mapprojected-data "$P $Q run_stereo_noba_sub4/run-DEM.tif" \
+      --num-iterations 100 --save-intermediate-cameras             \
+      --min-matches 1                                              \
+      -o run_ba_sub4/run  
 
 An illustration is shown in :numref:`sfs3`.
 

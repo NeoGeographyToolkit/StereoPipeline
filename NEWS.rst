@@ -79,8 +79,8 @@ Misc:
     the RPC model loader.
   * Add the option --triangulation-error-factor to point2las to allow
     point cloud triangulation errors multiplied by this factor and
-    clamped appropriately to be stored in the 2-byte intensity field
-    in the LAS file.
+    rounded/clamped appropriately to be stored in the 2-byte intensity
+    field in the LAS file.
   * Make symlinks relative in parallel_bundle_adjust for portability.
   * The mapprojected image saves as metadata the adjustments it was
     created with.
