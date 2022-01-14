@@ -20,7 +20,7 @@ at the NASA Ames Research Center in Moffett Field, CA.
 - Dr. Ara Nefian (NASA/Carnegie Mellon University)
 - Mike Lundy (NASA/Stinger-Ghaffarian Technologies)
 - Dr. Laurence Edwards (NASA, former IRG Terrain Reconstruction Lead)
-- Dr. Monica Palaseanu-Lovejoy (USGS, lead the research on the bathymetry module)
+- Monica Palaseanu-Lovejoy (USGS, lead the research on the bathymetry module)
 - Vinh To (NASA/Stinger-Ghaffarian Technologies)
 - Kyle Husmann (California Polytechnic State University)
 - Sasha Aravkin (Washington State University)
@@ -41,7 +41,6 @@ at the NASA Ames Research Center in Moffett Field, CA.
 - Joachim Meyer (University of Washington)
 - Jay Laura (USGS)
 - Shashank Bhushan (University of Washington)
-
 
 Acknowledgments
 ---------------
