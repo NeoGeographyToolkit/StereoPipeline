@@ -1,6 +1,3 @@
-Credits
-=======
-
 The Ames Stereo Pipeline (ASP) was originally developed by the
 Intelligent Robotics Group (IRG), in the Intelligent Systems Division
 at the NASA Ames Research Center in Moffett Field, CA. 
@@ -22,8 +19,9 @@ at the NASA Ames Research Center in Moffett Field, CA.
 - Matthew Hancher (NASA, co-developer of the Vision Workbench)
 - Dr. Ara Nefian (NASA/Carnegie Mellon University)
 - Mike Lundy (NASA/Stinger-Ghaffarian Technologies)
-- Vinh To (NASA/Stinger-Ghaffarian Technologies)
 - Dr. Laurence Edwards (NASA, former IRG Terrain Reconstruction Lead)
+- Dr. Monica Palaseanu-Lovejoy (USGS, lead the research on the bathymetry module)
+- Vinh To (NASA/Stinger-Ghaffarian Technologies)
 - Kyle Husmann (California Polytechnic State University)
 - Sasha Aravkin (Washington State University)
 - Aleksandr Segal (Stanford)

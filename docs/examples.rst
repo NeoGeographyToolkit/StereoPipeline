@@ -2490,12 +2490,22 @@ Shallow-water bathymetry
 ASP supports creation of terrain models where parts of the terrain are
 under water. Assuming that the water is shallow, still, clear, with
 sufficient texture to match at the water bottom between the left and
-right images, the rays emanating from the cameras and converging
-at those features will be bent according to Snell's law at the water
+right images, the rays emanating from the cameras and converging at
+those features will be bent according to Snell's law at the water
 interface, hence determining correctly the position of underwater
-terrain. 
+terrain.
 
-ASP supports this mode only with the ``dg``, ``rpc``, and
+Published research
+~~~~~~~~~~~~~~~~~~
+
+For an application of this bathymetry module see
+:cite:`palaseanu2021bathy`.
+
+
+Software considerations
+~~~~~~~~~~~~~~~~~~~~~~~
+
+ASP supports the bathymetry mode only with the ``dg``, ``rpc``, and
 ``nadirpinhole`` sessions, so with Digital Globe linescan cameras, RPC
 cameras, and pinhole cameras, all for Earth. Both raw and mapprojected
 images can be used, with or without bundle adjustment.
