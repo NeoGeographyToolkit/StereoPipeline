@@ -1468,16 +1468,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // When too many things should be done at the same time it is tricky
   // to have them work correctly. So prohibit that. Let the user run
   // one operation at a time.
-  if (opt.dem_blur_sigma > 0 && opt.hole_fill_len > 0) 
-    vw_throw(ArgumentErr() << "Cannot fill holes and blur the input DEM at the same time.\n"
-             << usage << general_options );
+  if ((opt.dem_blur_sigma > 0) + (opt.hole_fill_len > 0) + (opt.erode_len > 0) > 1) 
+    vw_throw(ArgumentErr() << "Cannot fill holes, blur, and erode the input DEM at "
+             << "the same time.\n" << usage << general_options );
   
-  if ((opt.dem_blur_sigma > 0 || opt.hole_fill_len > 0) && 
+  if ((opt.dem_blur_sigma > 0 || opt.hole_fill_len > 0 || opt.erode_len > 0) && 
       (opt.target_srs_string != "" || opt.tr > 0 || opt.dem_files.size() > 1 ||
        opt.priority_blending_len > 0))
-    vw_throw(ArgumentErr() << "Cannot fill holes or blur the input DEM if there is more than "
-             << "one input DEM, or reprojection, or priority blending length is desired. "
-             << "These operations should be done one at a time.\n"
+    vw_throw(ArgumentErr() << "Cannot fill holes, blur, or erode, if there is more "
+             << "than one input DEM, or reprojection, or priority blending length is desired. "
+             << "These operations should be done one at a time as there may be issues due "
+             << "to the fact each input DEM has its own grid size and also the order of "
+             << "operations.\n"
              << usage << general_options);
   
   // Create the output directory

@@ -65,7 +65,17 @@ sfs:
 
 bathymetry:
   * bathy_plane_calc can use a mask to find the water-land interface.
-    
+  
+dem_mosaic:
+  * Do not allow more than one of these operations in a given tool
+    invocation: fill holes, blur, or erode. These won't work when
+    also having more than one input DEM, reprojection is desired, or
+    priority blending length is used. This is done to avoid confusion
+    about order of operations, and the fact that different input DEMs
+    can have different grid sizes and hence the input parameters have
+    different effects on each.
+  * Bugfix for hole-filling and blurring. Tile artifacts got removed.
+
 Misc:
   * Added the tool parse_match_file.py to convert a binary match file
     to text and vice-versa.
@@ -87,7 +97,6 @@ Misc:
     created with.
   * The ipmatch program can take as input just images, with the 
     .vwip files filled in.
-  * Bugfix in dem_mosaic hole-filling and blurring.
   * Bugfix in handling projections specified via an EPSG code.
 
 RELEASE 3.0.0, July 27, 2021
