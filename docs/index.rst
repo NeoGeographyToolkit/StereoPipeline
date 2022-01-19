@@ -16,7 +16,7 @@ Welcome to Ames Stereo Pipeline's documentation (version |version|)!
    correlation
    bundle_adjustment
    sfm
-   sfs
+   sfs_usage
    experimental
    tools
    stereodefault
