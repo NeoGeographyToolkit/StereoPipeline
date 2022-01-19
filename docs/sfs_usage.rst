@@ -689,11 +689,12 @@ and correct camera errors.
 
 ::
 
-    parallel_bundle_adjust --processes 8 --ip-per-tile 1000        \
-      --overlap-limit 30 --num-iterations 100 --num-passes 2       \
-      --min-matches 1 --datum D_MOON <images>                      \
-      --mapprojected-data '<mapprojected images> ref.tif'          \
-      -o ba/run --save-intermediate-cameras --match-first-to-last
+    parallel_bundle_adjust --processes 8 --ip-per-tile 1000  \
+      --overlap-limit 30 --num-iterations 100 --num-passes 2 \
+      --min-matches 1 --datum D_MOON <images>                \
+      --mapprojected-data '<mapprojected images> ref.tif'    \
+      --save-intermediate-cameras --match-first-to-last      \
+      --min-triangulation-angle 0.1 -o ba/run 
 
 For bundle adjustment we in fact used even more images that overlap with
 this area, but likely this set is sufficient, and it is this set that
@@ -735,6 +736,14 @@ the ground::
 The value of ``--max-displacement`` could be too high perhaps, it is
 suggested to also experiment with half of that and keep the result that
 has the smaller error.
+
+Note that earlier, in bundle adjustment, the option
+``--min-triangulation-angle 0.1`` was used. If in doubt, that value
+can be increased, perhaps to 0.5 degrees. The effect will be to remove
+from the file ``residuals_pointmap.csv`` somewhat unreliable
+triangulated points obtained from rays which are too close to being
+parallel.  This may improve the reliability of the alignment above,
+but there is the risk that too many points may be removed.
 
 The flag ``--compute-translation-only`` turned out to be necessary as
 ``pc_align`` was introducing a bogus rotation.
