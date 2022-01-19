@@ -552,8 +552,8 @@ public:
 
       if (m_opt.median || m_opt.nmad || use_priority_blend || m_opt.block_max){
         // Must use a blank tile each time
-        fill( tile, m_opt.out_nodata_value );
-        fill( weights, 0.0 );
+        fill(tile, m_opt.out_nodata_value);
+        fill(weights, 0.0);
       }
 
       // Crop the disk dem to a 2-channel in-memory image. First
@@ -605,6 +605,18 @@ public:
                          nodata_value);
       }
 
+      // Fill-in no-data values a bit and blur. If just the blurring is used,
+      // it will choke on no-data values, leaving large holes around each,
+      // hence the need to fill a little.
+      if (m_opt.dem_blur_sigma > 0.0) {
+        int kernel_size = vw::compute_kernel_size(m_opt.dem_blur_sigma);
+        dem = apply_mask(gaussian_filter(fill_nodata_with_avg
+                                         (create_mask(select_channel(dem, 0), nodata_value),
+                                          kernel_size),
+                                         m_opt.dem_blur_sigma),
+                         nodata_value);
+      }
+      
       // Mark the handle to the image as not in use, though we still
       // keep that image file open, for increased performance, unless
       // their number becomes too large.
@@ -778,7 +790,7 @@ public:
             weights(c, r) = -1.0;
           }
 
-          if (wt <= 0)
+          if (wt <= 0.0)
             continue; // No need to continue if the weight is zero
 
           // Check if the current output value at this pixel is nodata
@@ -1020,8 +1032,8 @@ public:
       }
 
       // Now we are ready for blending
-      fill( tile, m_opt.out_nodata_value );
-      fill( weights, 0.0 );
+      fill(tile, m_opt.out_nodata_value);
+      fill(weights, 0.0);
 
       if (m_opt.save_dem_weight >= 0)
         fill(saved_weight, 0.0);
@@ -1077,18 +1089,6 @@ public:
 
     } // end considering the priority blending length
 
-    // Fill-in no-data values a bit and blur. If just the blurring is used,
-    // it will choke on no-data values, leaving large holes around each,
-    // hence the need to fill a little.
-    if (m_opt.dem_blur_sigma > 0.0) {
-      int kernel_size = vw::compute_kernel_size(m_opt.dem_blur_sigma);
-      tile = apply_mask(gaussian_filter(fill_nodata_with_avg
-                                        (create_mask(tile, m_opt.out_nodata_value),
-                                          kernel_size),
-                                        m_opt.dem_blur_sigma),
-                                    m_opt.out_nodata_value);
-    }
-    
     // Save the weight instead
     if (m_opt.save_dem_weight >= 0)
       tile = saved_weight;
@@ -1098,7 +1098,7 @@ public:
       tile = index_map;
 
     // How many valid pixels are there in the tile
-    long long int num_valid_in_tile = 0;
+    long long int num_valid_in_tile = 0; // use int64 to not overlow for large images
     for (int col = 0; col < tile.cols(); col++) {
       for (int row = 0; row < tile.rows(); row++) {
         Vector2 pix = Vector2(col, row) + bbox.min();
@@ -1413,12 +1413,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
   
   if (opt.weights_blur_sigma < 0.0)
-    vw_throw(ArgumentErr() << "The standard deviation used for blurring must be non-negative.\n"
-                           << usage << general_options );
+    vw_throw(ArgumentErr() << "The value --weights-blur-sigma must be non-negative.\n"
+             << usage << general_options );
+  
+  if (opt.dem_blur_sigma < 0.0)
+    vw_throw(ArgumentErr() << "The value --dem-blur-sigma must be non-negative.\n"
+             << usage << general_options );
 
   if (opt.weights_exp <= 0)
     vw_throw(ArgumentErr() << "The weights exponent must be positive.\n"
-                           << usage << general_options );
+             << usage << general_options );
 
   // Read the DEMs
   if (opt.dem_list_file != ""){ // Get them from a list
@@ -1461,6 +1465,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	     << usage << general_options );
   }
 
+  // When too many things should be done at the same time it is tricky
+  // to have them work correctly. So prohibit that. Let the user run
+  // one operation at a time.
+  if (opt.dem_blur_sigma > 0 && opt.hole_fill_len > 0) 
+    vw_throw(ArgumentErr() << "Cannot fill holes and blur the input DEM at the same time.\n"
+             << usage << general_options );
+  
+  if ((opt.dem_blur_sigma > 0 || opt.hole_fill_len > 0) && 
+      (opt.target_srs_string != "" || opt.tr > 0 || opt.dem_files.size() > 1 ||
+       opt.priority_blending_len > 0))
+    vw_throw(ArgumentErr() << "Cannot fill holes or blur the input DEM if there is more than "
+             << "one input DEM, or reprojection, or priority blending length is desired. "
+             << "These operations should be done one at a time.\n"
+             << usage << general_options);
+  
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -1643,7 +1662,9 @@ int main( int argc, char *argv[] ) {
     // the images beyond the current boundary to avoid tiling artifacts.
     // The +1 is to ensure extra pixels beyond the hole fill length.
     int bias = opt.erode_len + opt.extra_crop_len + opt.hole_fill_len
-      + 2*vw::compute_kernel_size(opt.weights_blur_sigma) + 1;
+      + 2*std::max(vw::compute_kernel_size(opt.weights_blur_sigma),
+                   vw::compute_kernel_size(opt.dem_blur_sigma))
+                   + 1;
 
     // The next power of 2 >= 4*bias. We want to make the blocks big,
     // to reduce overhead from this bias, but not so big that it may
