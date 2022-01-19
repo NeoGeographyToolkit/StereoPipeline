@@ -3678,9 +3678,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
      "Float the exposure for each image. Will give incorrect results if only one image is present.")
     ("float-cameras",   po::bool_switch(&opt.float_cameras)->default_value(false)->implicit_value(true),
-     "Float the camera pose for each image except the first one.")
+     "Float the camera pose for each image except the first one. It is suggested that this option be avoided and bundle adjustment be used instead.")
     ("float-all-cameras",   po::bool_switch(&opt.float_all_cameras)->default_value(false)->implicit_value(true),
-     "Float the camera pose for each image, including the first one. Experimental.")
+     "Float the camera pose for each image, including the first one. Experimental. It is suggested to avoid this option.")
     ("model-shadows",   po::bool_switch(&opt.model_shadows)->default_value(false)->implicit_value(true),
      "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
     ("save-computed-intensity-only",   po::bool_switch(&opt.save_computed_intensity_only)->default_value(false)->implicit_value(true),

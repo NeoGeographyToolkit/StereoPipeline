@@ -59,10 +59,13 @@ Command-line options:
     if only one image is present.
 
 --float-cameras
-    Float the camera pose for each image except the first one.
+    Float the camera pose for each image except the first one. It is
+    suggested that this option be avoided and bundle adjustment
+    be used instead.
 
 --float-all-cameras
-    Float the camera pose for each image, including the first one. Experimental.
+    Float the camera pose for each image, including the first
+    one. Experimental. It is suggested to avoid this option.
 
 --model-shadows
     Model the fact that some points on the DEM are in the shadow

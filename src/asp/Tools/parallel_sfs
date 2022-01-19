@@ -295,6 +295,18 @@ def main(argsIn):
         parser.error("parallel_sfs cannot take the --crop-win option. " +
                       "Use the sfs tool directly if this is desired.\n" );
 
+    if     '--float-exposure'          in argsIn or \
+           '--float-cameras'           in argsIn or \
+           '--float-all-cameras'       in argsIn or \
+           '--float-haze'              in argsIn or \
+           '--float-reflectance-model' in argsIn or \
+           '--float-sun-position'      in argsIn:
+        parser.print_help()
+        parser.error("Cannot float exposures, cameras, or other per-tile quantities, except " +
+                     "for the DEM heights or albedo in parallel_sfs, as different results " +
+                     "will be obtained in different tiles. If desired to float these, do that " +
+                     "on a clip where all images have good coverage, and using the sfs tool.\n");
+        
     # Check the cameras.
     if len(cameras) < 1:
         parser.print_help()

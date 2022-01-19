@@ -362,9 +362,13 @@ usually.
       --bundle-adjust-prefix run_ba_sub10/run                           \
       --shadow-thresholds '0.00162484 0.0012166 0.000781663'
 
-We compare the initial guess to ``sfs`` to the “ground truth” DEM
-obtained earlier and the same for the final refined DEM using
-``geodiff`` as in the previous section. Before SfS::
+It is suggested to normally not float the cameras as done here, at least in a 
+first experiment, as that should be done by bundle adjustment, and
+``sfs`` will likely not arrive at a good solution for the cameras on its own.
+
+After this command finishes, we compare the initial guess to ``sfs`` to
+the “ground truth” DEM obtained earlier and the same for the final
+refined DEM using ``geodiff`` as in the previous section. Before SfS::
 
     geodiff --absolute run_full2/run-crop-DEM.tif \
     run_sub10/run-crop-DEM.tif -o out
@@ -528,6 +532,8 @@ Then run SfS on that clip::
       --float-exposure --float-cameras --max-iterations 20             \
       --use-approx-camera-models --crop-input-images                   \
       --bundle-adjust-prefix run_ba_sub4/run
+
+See the earlier note about perhaps considering not floating the cameras.
 
 We fetch the portion of the LOLA dataset around the current DEM from the
 site described earlier, and save it as
