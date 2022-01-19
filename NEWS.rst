@@ -46,7 +46,8 @@ stereo_gui:
   * Can save a shapefile having points, segments, or polygons (yet the
     shapefile format requires that these not be mixed in the same
     shapefile).
-  * Can cycle through given images from the View menu.
+  * Can cycle through given images from the View menu, or with the 'n'
+    and 'p' keys.
  
 mapproject:
   * If the input image file has an embedded RPC camera model, append
@@ -86,7 +87,7 @@ Misc:
     created with.
   * The ipmatch program can take as input just images, with the 
     .vwip files filled in.
-  * Bugfix in dem_mosaic hole-filling for some situations.
+  * Bugfix in dem_mosaic hole-filling and blurring.
   * Bugfix in handling projections specified via an EPSG code.
 
 RELEASE 3.0.0, July 27, 2021
