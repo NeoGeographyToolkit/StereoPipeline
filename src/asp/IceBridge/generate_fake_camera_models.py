@@ -100,7 +100,7 @@ def main(argsIn):
     fetch_icebridge_data.doFetch(fetch_options, options.workFolder)
 
     if not os.path.exists(options.outputFolder):
-        os.mkdir(options.outputFolder)
+        os.makedirs(options.outputFolder)
 
     # For each jpeg file, generate an empty file with the correct file name.
 

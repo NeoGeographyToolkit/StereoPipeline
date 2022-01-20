@@ -779,7 +779,7 @@ inaccurate. Then, one can refine the cameras using the reference
 terrain as a constraint in bundle adjustment::
 
     mkdir -p ba_align_ref
-    /bin/cp -fv ba_align/run* ba_align_ref
+    /bin/cp -rfv ba_align/* ba_align_ref
     bundle_adjust --skip-matching --num-iterations 20          \ 
       --force-reuse-match-files --num-passes 1                 \
       --input-adjustments-prefix ba_align/run <images>         \
@@ -789,13 +789,15 @@ terrain as a constraint in bundle adjustment::
       -o ba_align_ref/run
 
 Note the copy command, it is used to save time by not having to
-recreate the match files. Ideally one should use more iterations in
-bundle adjustment though this may be slow. It is suggested that the
-images be map-projected with the cameras both before and after this
-step, and see if things improve. If this procedure resulted in
-improved but imperfect alignment, it may be run second time using the
-new cameras as initial guess (and reusing the match files, etc., as
-before).
+recreate the match files. It is a recursive copy, and can result
+in large duplicated directories.
+
+Ideally one should use more iterations in bundle adjustment though
+this may be slow. It is suggested that the images be map-projected
+with the cameras both before and after this step, and see if things
+improve. If this procedure resulted in improved but imperfect
+alignment, it may be run second time using the new cameras as initial
+guess (and reusing the match files, etc., as before).
 
 The switch --save-intermediate cameras is helpful, as before, if
 desired to stop if things take too long.

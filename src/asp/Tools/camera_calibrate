@@ -243,7 +243,7 @@ def main(argsIn):
     startTime = time.time()
 
     if not (os.path.exists(options.output_folder)):
-        os.mkdir(options.output_folder)
+        os.makedirs(options.output_folder)
 
     # Call the image list generation tool
     make_image_list(options)

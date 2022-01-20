@@ -1088,7 +1088,7 @@ def main():
     if len(out_dir) == 0: 
         out_dir = '.'
     if not os.path.exists(out_dir): 
-        os.mkdir(out_dir)
+        os.makedirs(out_dir)
 
     # Generate a list of skip distances from the course level to the fine level.
     skip_vals = 2.**np.arange(np.floor(np.log2(options.coarse_skip/2.)),

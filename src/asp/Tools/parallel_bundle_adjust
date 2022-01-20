@@ -122,7 +122,6 @@ def get_num_instances(args):
 def get_subfolder_prefix(output_folder, instance_index):
     return os.path.join(output_folder, 'sub_idx_'+str(instance_index), 'run')
 
-
 # Launch GNU Parallel for all tiles, it will take care of distributing
 # the jobs across the nodes and load balancing. The way we accomplish
 # this is by calling this same script but with --instance_index <num>.
@@ -239,7 +238,7 @@ def distribute_files(output_prefix, ext, num_instances):
             files = glob.glob(pre + '*' + ext)
             for f in files:
                 src_file = os.path.relpath(f, output_folder)
-                dst_file = os.path.join(output_folder, os.path.basename(f))
+                dst_file = output_prefix + f[len(pre):]
 
                 # First wipe any existing file
                 if os.path.exists(dst_file):
@@ -376,8 +375,8 @@ if __name__ == '__main__':
         output_folder = os.path.dirname(output_prefix)
 
         # Create the main output folder
-        if not os.path.exists(output_folder):
-            os.mkdir(output_folder)
+        if (not os.path.exists(output_folder)) and (output_folder != ""):
+            os.makedirs(output_folder)
 
         # Statistics.
         step = Step.statistics

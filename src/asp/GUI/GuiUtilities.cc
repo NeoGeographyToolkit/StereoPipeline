@@ -179,7 +179,9 @@ bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
   return true;
 }
 
-
+// TODO(oalexan1): The 0.5 bias may be the wrong thing to do. Need to test
+// more overlaying an image which is above threshold in a rectangular region
+// and below it outside that region
 void contour_image(DiskImagePyramidMultiChannel const& img,
                    vw::cartography::GeoReference const & georef,
                    double threshold,
@@ -416,7 +418,7 @@ chooseFilesDlg::chooseFilesDlg(QWidget * parent):
   
 chooseFilesDlg::~chooseFilesDlg(){}
 
-  void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images, bool hide_all){
+void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images, bool hide_all){
 
   // See the top of this file for documentation.
 
@@ -478,6 +480,9 @@ chooseFilesDlg::~chooseFilesDlg(){}
   return;
 }
 
+void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {
+  // std::cout << "Key was pressed " << event->key() << std::endl;
+}
 
 DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& base_file,
                              vw::cartography::GdalWriteOptions const& opt,
@@ -992,7 +997,6 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
         break; // This means we matched all of the IP in the existing image!
       
     }  // End loop through left
-    //std::cout << "Found " << count << " points that matched image " << j << std::endl;
     // Any points that did not match are left with their original value.
   }
   return true;

@@ -298,8 +298,9 @@ namespace vw { namespace gui {
 
   private:
     QTableWidget * m_filesTable;
+    void keyPressEvent(QKeyEvent *event);
     
-    private slots:
+   private slots:
   };
 
 

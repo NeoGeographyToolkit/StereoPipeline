@@ -369,7 +369,7 @@ def guided_build_reconstruction(options):
     #         the user can currently pass in.
     options.feature_folder = options.output_folder#os.path.join(options.output_folder, 'features')
     #if not os.path.exists(options.feature_folder):
-    #    os.mkdir(options.feature_folder)
+    #    os.makedirs(options.feature_folder)
     cmd = ['extract_features', '--input_images',options.image_wildcard, 
            '--features_output_directory',options.feature_folder, 
            '--num_threads','12', '--descriptor','SIFT']
@@ -382,7 +382,7 @@ def guided_build_reconstruction(options):
     
     options.matches_folder = options.output_folder#os.path.join(options.output_folder, 'matches')
     #if not os.path.exists(options.matches_folder):
-    #    os.mkdir(options.matches_folder)
+    #    os.makedirs(options.matches_folder)
     match_path        = os.path.join(os.path.abspath(options.matches_folder), 'A.match')
     features_wildcard = os.path.join(os.path.abspath(options.feature_folder), '*.features')
     cmd = ['match_features', '--input_features',features_wildcard, 

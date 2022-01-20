@@ -3000,12 +3000,7 @@ namespace vw { namespace gui {
   }
 
 
-  void MainWidget::enterEvent(QEvent */*event*/) {
-
-    QCursor q = this->cursor();
-    //q.setShape(Qt::ArrowCursor);
-    q.setShape(Qt::PointingHandCursor);
-    this->setCursor(q);
+  void MainWidget::enterEvent(QEvent *event) {
   }
 
   void MainWidget::leaveEvent(QEvent */*event*/) {

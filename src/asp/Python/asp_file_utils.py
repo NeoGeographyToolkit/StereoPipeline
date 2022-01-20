@@ -29,7 +29,7 @@ def createFolder(path):
     if path == '':
         return
     if not os.path.exists(path):
-        os.mkdir(path)
+        os.makedirs(path)
 
 def removeIfExists(path):
     """Removes a file if it exists"""
