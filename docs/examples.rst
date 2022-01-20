@@ -1139,9 +1139,8 @@ ASTER
 -----
 
 In this example we will describe how to process ASTER Level 1A VNIR
-images. The data can be obtained for free from:
-
-    https://search.earthdata.nasa.gov/search. 
+images. The data can be obtained for free from
+https://search.earthdata.nasa.gov/search.
 
 Select a region on the map, search for AST_L1A, and choose ``ASTER L1A
 Reconstructed Unprocessed Instrument Data V003``. (The same interface
