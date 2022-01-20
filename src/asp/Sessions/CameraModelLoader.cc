@@ -114,7 +114,7 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_ASTER_camera_
 {
   // This model file also needs the RPC model as an initial guess
   boost::shared_ptr<vw::camera::CameraModel> rpc_model = load_rpc_camera_model(path);
-  
+
   // Redirect to the call from LinescanASTERModel.h file
   return CameraModelPtr(load_ASTER_camera_model_from_xml(path, rpc_model));
 }

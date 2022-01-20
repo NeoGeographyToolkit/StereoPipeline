@@ -40,6 +40,7 @@ stereo:
     NASA proposal 19-PDART19_2-0094 (still in development).
   * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
     and SPOT5 was not enabled correctly.
+  * Bugfix for ASTER cameras; this was fully broken.
 
 stereo_gui: 
   * Bugfix when overlaying shapefiles with different georeferences.

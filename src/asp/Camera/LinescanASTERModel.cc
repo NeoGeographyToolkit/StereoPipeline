@@ -32,7 +32,7 @@ ASTERCameraModel::ASTERCameraModel(std::vector< std::vector<vw::Vector2> > const
   m_lattice_mat(lattice_mat), m_sight_mat(sight_mat),
   m_world_sight_mat(world_sight_mat),
   m_sat_pos(sat_pos), m_image_size(image_size), m_rpc_model(rpc_model){
-  
+
   if (m_lattice_mat.empty() || m_lattice_mat[0].empty()) 
     vw::vw_throw( vw::ArgumentErr() << "Empty matrix of lattice points.\n" );
   
@@ -190,15 +190,13 @@ vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point, Vector2 const
   
   // Solution with user-provided initial guess
   Vector3 objective(0, 0, 0);
-  vw::Vector2 solution1 = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>(model, start, objective, status,
-							ABS_TOL, REL_TOL, MAX_ITERATIONS);
+  vw::Vector2 solution1 = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
+    (model, start, objective, status, ABS_TOL, REL_TOL, MAX_ITERATIONS);
   
-
   // Solution with the RPC initial guess
   Vector2 start_rpc = this->m_rpc_model->point_to_pixel(point);
-  vw::Vector2 solution2 = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>(model, start_rpc, objective, status,
-							ABS_TOL, REL_TOL, MAX_ITERATIONS);
-  
+  vw::Vector2 solution2 = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
+    (model, start_rpc, objective, status, ABS_TOL, REL_TOL, MAX_ITERATIONS);
   
   double error1 = norm_2(model(solution1));
   double error2 = norm_2(model(solution2));
@@ -238,19 +236,19 @@ vw::Vector3 ASTERCameraModel::pixel_to_vector(vw::Vector2 const& pixel) const{
   return vw::Vector3(); // Never reached
 }
     
-  boost::shared_ptr<ASTERCameraModel>
-  load_ASTER_camera_model_from_xml(std::string const& path,
-				   boost::shared_ptr<vw::camera::CameraModel> rpc_model){
-
+boost::shared_ptr<ASTERCameraModel>
+load_ASTER_camera_model_from_xml(std::string const& path,
+                                 boost::shared_ptr<vw::camera::CameraModel> rpc_model){
+  
   // XYZ coordinates are in the ITRF coordinate frame which means GCC coordinates.
   // - The velocities are in the same coordinate frame, not in some local frame.
-
+  
   vw_out(vw::DebugMessage,"asp") << "Loading ASTER camera file: " << path << std::endl;
-
+  
   // Parse the ASTER XML file
   ASTERXML xml_reader;
   xml_reader.read_xml(path);
-  
+
   // Feed everything into a new camera model.
   return boost::shared_ptr<ASTERCameraModel>(new ASTERCameraModel(xml_reader.m_lattice_mat,
 								  xml_reader.m_sight_mat,
@@ -258,7 +256,6 @@ vw::Vector3 ASTERCameraModel::pixel_to_vector(vw::Vector2 const& pixel) const{
 								  xml_reader.m_sat_pos,
 								  xml_reader.m_image_size,
 								  rpc_model));
-  
 } // End function load_ASTER_camera_model()
 
 

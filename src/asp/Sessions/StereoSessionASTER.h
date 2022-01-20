@@ -38,18 +38,18 @@ public:
   
   /// Simple factory function
   static StereoSession* construct() { return new StereoSessionASTER; }
-  
-  /// For ASTER we fetch RPC, for speed
-  virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                             boost::shared_ptr<vw::camera::CameraModel> &cam2);
 
+  /// Fetch the RPC models. We want to use those for ip matching, as they are faster.
+  void rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
+                         boost::shared_ptr<vw::camera::CameraModel> &cam2);
+  
 protected:
   /// Function to load a camera model of the particular type.
-  virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
-                                                                       std::string const& camera_file,
-                                                                       vw::Vector2 pixel_offset) const;
+  virtual boost::shared_ptr<vw::camera::CameraModel>
+  load_camera_model(std::string const& image_file, 
+                    std::string const& camera_file,
+                    vw::Vector2 pixel_offset) const;
 };
-  
 
 } // End namespace asp
 

@@ -338,11 +338,12 @@ Hence, to go from world to camera coordinates one does:
 
 .. math:: Q = R^{-1}  P - R^{-1}  C
 
-From here the pixel location is computed as:
+From here the ``undistorted`` pixel location is computed as:
 
 .. math:: \frac{1}{p} \left(fu \frac{Q_1}{Q_3} + cu, fv \frac{Q_2}{Q_3} + cv\right)
 
-where :math:`p` is the pixel pitch.
+where :math:`p` is the pixel pitch. Next, a distortion model may be
+applied, as discussed earlier.
 
 .. _panoramic:
 
@@ -380,7 +381,7 @@ meters. The scan time is seconds, the forward tilt is in radians, the
 speed is in meters per second, and the Earth radius and mean surface
 elevation are in meters. The initial camera center ``iC`` is in meters,
 and the rotation matrix ``iR`` stores the absolute pose. ``scan_dir``
-must be set to ’left’ or ’right’. ``scan_dir`` and
+must be set to ``left`` or ``right``. The values ``scan_dir`` and
 ``use_motion_compensation`` control how the sensor model accounts
 accounts for the motion of the satellite during the image scan. Without
 the benefit of detailed historical documents it may require

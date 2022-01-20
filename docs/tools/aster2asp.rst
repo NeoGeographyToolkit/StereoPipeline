@@ -7,7 +7,8 @@ The ``aster2asp`` tool takes as input a directory containing ASTER
 images and associated metadata, and creates TIF and XML files that can
 then be passed to ``stereo`` to create a point cloud.
 
-An example for how to use this tool is given in :numref:`aster`.
+An example for how fetch the data and use this tool is given in
+:numref:`aster`.
 
 The tool can only process Level 1A ASTER images. The input should be a
 directory containing visible and near-infrared (VNIR) nadir (Band3N) and
@@ -31,8 +32,11 @@ any jitter corrections as described in that paper).
 
 These can then be passed to ``stereo`` as::
 
-     stereo -t rpc out-Band3N.tif out-Band3B.tif out-Band3N.xml out-Band3B.xml \ 
-        out_stereo/run
+     stereo -t rpc out-Band3N.tif out-Band3B.tif     \
+        out-Band3N.xml out-Band3B.xml out_stereo/run
+
+(See :numref:`nextsteps` for a discussion about various stereo
+algorithms and speed-vs-quality choices.)
 
 It is important to note that the tool expects the minimum and maximum
 simulation box heights (in meters, above the datum) in which to compute

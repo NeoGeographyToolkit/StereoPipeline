@@ -29,6 +29,7 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/StereoSessionGdal.h>
+#include <asp/Sessions/StereoSessionASTER.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPC_XML.h>
 
@@ -103,11 +104,23 @@ namespace asp {
       std::string left_ip_filename  = ip::ip_filename(this->m_out_prefix, left_cropped_file);
       std::string right_ip_filename = ip::ip_filename(this->m_out_prefix, right_cropped_file);
       
-      // Detect matching interest points between the left and right input images.
-      // - The output is written directly to file!
       DiskImageView<float> left_orig_image(left_input_file);
+
+      // Load the cameras
       boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-      this->camera_models(left_cam, right_cam);
+      if (this->name() != "aster") {
+        this->camera_models(left_cam, right_cam);
+      }else{
+        vw_out() << "Using the RPC model instead of the exact ASTER model for interest point "
+                 << "matching, for speed. This does not affect the final DEM accuracy.\n";
+        StereoSessionASTER * aster_session = dynamic_cast<StereoSessionASTER*>(this);
+        if (aster_session == NULL) 
+          vw_throw( ArgumentErr() << "ASTER session is expected." );
+        aster_session->rpc_camera_models(left_cam, right_cam);
+      }
+      
+      // Detect matching interest points between the left and right input images.
+      // The output is written directly to file.
       this->ip_matching(left_cropped_file, right_cropped_file,
                         bounding_box(left_orig_image).size(),
                         left_stats, right_stats,

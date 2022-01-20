@@ -1139,11 +1139,13 @@ ASTER
 -----
 
 In this example we will describe how to process ASTER Level 1A VNIR
-images. The data can be obtained for free from
-https://search.earthdata.nasa.gov/search. Select a region on the map,
-search for AST_L1A, and choose “ASTER L1A Reconstructed Unprocessed
-Instrument Data V003”. (The same interface can be used to obtain
-pre-existing ASTER DEMs.)
+images. The data can be obtained for free from:
+
+    https://search.earthdata.nasa.gov/search. 
+
+Select a region on the map, search for AST_L1A, and choose ``ASTER L1A
+Reconstructed Unprocessed Instrument Data V003``. (The same interface
+can be used to obtain pre-existing ASTER DEMs.)
 
 There are two important things to keep in mind when ordering the data.
 First, at the very last step, when finalizing the order options, choose
@@ -1153,20 +1155,24 @@ and metadata will come already extracted from the HDF file.
 Second, note that ASP cannot process ASTER Level 1B images, as those
 images lack camera information.
 
-Below, we will use the dataset
+In this example will use the dataset
 ``AST_L1A_00307182000191236_20160404141337_21031`` near San Luis
-Reservoir in Northern California. This dataset will come as a
-directory containing TIFF images and meta-information as text
-files. We use the tool :ref:`aster2asp` to parse it (also there is
-described the data contained in this directory)::
+Reservoir in Northern California. This dataset will contain TIFF
+images and meta-information as text files. We use the tool
+:ref:`aster2asp` to parse it::
 
-     aster2asp 030353697511879 -o out
+     aster2asp dataDir -o out
+
+Here, ``dataDir`` is the directory containing the ``*VNIR*tif`` files
+produced by unzipping the ASTER dataset (sometimes this creates a new 
+directory, and sometimes the files are extracted in the current
+one).
 
 This command will create 4 files, named::
 
      out-Band3N.tif out-Band3B.tif out-Band3N.xml out-Band3B.xml
 
-We refer again to the tool’s documentation page regarding details of how
+We refer again to the tool's documentation page regarding details of how
 these files were created.
 
 Next, we run ``parallel_stereo``. We can use either the exact camera
@@ -1175,41 +1181,46 @@ former is much slower but more accurate.
 
 ::
 
-     parallel_stereo -t aster --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
+     parallel_stereo -t aster --subpixel-mode 3      \
+        out-Band3N.tif out-Band3B.tif                \
         out-Band3N.xml out-Band3B.xml out_stereo/run
 
 or
 
 ::
 
-     parallel_stereo -t rpc --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
+     parallel_stereo -t rpc --subpixel-mode 3        \
+        out-Band3N.tif out-Band3B.tif                \
         out-Band3N.xml out-Band3B.xml out_stereo/run
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+See :numref:`nextsteps` for a discussion about various stereo
+algorithms and speed-vs-quality choices. Particularly,
+``--stereo-algorithm asp_mgm`` should produce more detailed results.
 
 This is followed by DEM creation::
 
-     point2dem -r earth --tr 0.000277777777778 out_stereo/run-PC.tif
+     point2dem -r earth --tr 0.0002777 out_stereo/run-PC.tif
 
-The value 0.000277777777778 is the desired output DEM resolution,
+The value 0.0002777 is the desired output DEM resolution,
 specified in degrees. It is approximately 31 meters/pixel, the same as
 the publicly available ASTER DEM, and about twice the 15 meters/pixel
 image resolution.
 
-Much higher quality results, but still not as detailed as the public
-ASTER DEM can be obtained by doing stereo as before, followed by
-map-projection onto a coarser and smoother version of the obtained DEM,
-and then redoing stereo with map-projected images (per the suggestions
-in :numref:`tips`). Using ``--subpixel-mode 2``, while much
-slower, yields the best results. The flow is as follows::
+To improve the results for steep terrain, one may consider doing
+stereo as before, followed by map-projection onto a coarser and
+smoother version of the obtained DEM, and then redoing stereo with
+map-projected images (per the suggestions in :numref:`mapproj-example`). Using
+``--subpixel-mode 2``, while much slower, yields the best results. The
+flow is as follows::
 
      # Initial stereo
-     parallel_stereo -t aster --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
+     parallel_stereo -t aster --subpixel-mode 3      \
+        out-Band3N.tif out-Band3B.tif                \
         out-Band3N.xml out-Band3B.xml out_stereo/run               
 
      # Create a coarse and smooth DEM at 300 meters/pixel
-     point2dem -r earth --tr 0.0026949458523585 out_stereo/run-PC.tif \
-       -o out_stereo/run-300m
+     point2dem -r earth --tr 0.0026949458523585      \     
+       out_stereo/run-PC.tif -o out_stereo/run-300m
 
      # Map-project onto this DEM at 10 meters/pixel
      mapproject --tr 0.0000898315284119 out_stereo/run-300m-DEM.tif \
@@ -1225,7 +1236,9 @@ slower, yields the best results. The flow is as follows::
        out_stereo/run-300m-DEM.tif
 
      # Create the final DEM
-     point2dem -r earth --tr 0.000277777777778 out_stereo_proj/run-PC.tif
+     point2dem -r earth --tr 0.0002777 out_stereo_proj/run-PC.tif
+
+Also consider using ``--stereo-algorithm asp_mgm`` as mentioned earlier.
 
 Here we could have again used ``-t rpc`` instead of ``-t aster``. The
 map-projection was done using ``--tr 0.0000898315284119`` which is about
