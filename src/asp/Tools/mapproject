@@ -281,8 +281,13 @@ def main(argsIn):
                                          help='The list of computing nodes, one per line. ' + \
                                          'If not provided, run on the local machine.')
 
-    parser.add_argument('--tile-size',  dest='tileSize', default=1024, type=int,
-                                        help='Size of square tiles to break up processing into.')
+    parser.add_argument('--tile-size',  dest='tileSize', default=None, type=int,
+                        help = 'Size of square tiles to break up processing up into ' + \
+                        '(each tile is run by an individual process). The default '   + \
+                        'is 1024 pixels for ISIS cameras, as then each process is '   + \
+                        'single-threaded, and 5120 for other cameras, '               + \
+                        'as such a process is multi-threaded, and disk I/O becomes '  + \
+                        'a bigger consideration.')
 
     # Directory where the job is running
     parser.add_argument('--work-dir',  dest='workDir', default=None,
@@ -357,17 +362,30 @@ def main(argsIn):
 
     # Now we are in the main process, not in a spawned copy
 
+    # If the user did not set the tile size, then for ISIS use small
+    # tiles, to have them run in parallel as individual processes,
+    # since each process is necessarily single-threaded. For other
+    # cameras use bigger tiles, as each process is multi-threaded, and
+    # then file I/O is a bigger consideration.
+    if options.tileSize is None:
+        if asp_image_utils.isIsisFile(options.imagePath):
+            options.tileSize = 1024
+        else:
+            options.tileSize = 5120
+            
     # See if the input tif file has RPC coefficients embedded in it.
     # In that case need to save them later in the output mapprojected
     # image.
     rpc_label = 'RPC Metadata'
     rpc_dict  = parse_gdal_metadata(options.imagePath, rpc_label)
     rpc_lines = format_metadata(rpc_label, rpc_dict)
-    
+
     # If the input image is not an ISIS image, and we are running on a
     # single machine, and the user did not specify how many processes
     # to use, and there are no rpc coeffs to save, we can just use the
-    # multi-threading capability of the ordinary mapproject call.
+    # multi-threading capability of the ordinary mapproject_single call.
+    # If there are RPC coeffs to save, can't use mapproject_single only,
+    # as need to create a VRT and insert the RPC coeffs in it.
     if (not asp_image_utils.isIsisFile(options.imagePath)) and (not options.nodesListPath) \
            and (options.numProcesses is None) and len(rpc_dict) == 0:
         cmd = ['mapproject_single',  options.demPath,
@@ -417,6 +435,8 @@ def main(argsIn):
     print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + ' tiles.')
     # If there is only going to be one output tile, and there are no rpc coefficients
     # to save, just use the non-parallel call
+    # TODO(oalexan1): This logic is too similar to what is above. Some condensing
+    # may be helpful.
     if (numTilesX*numTilesY == 1 and len(rpc_dict) == 0):
         cmd = ['mapproject_single',  options.demPath,
                 options.imagePath, options.cameraPath, options.outputPath]

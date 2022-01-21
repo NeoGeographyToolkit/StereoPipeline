@@ -123,7 +123,11 @@ Command-line options for mapproject:
     List of available computing nodes.
 
 --tile-size
-    Size of square tiles to break processing up into.
+    Size of square tiles to break up processing into (each tile is run
+    by an individual process). The default is 1024 pixels for ISIS cameras,
+    as then each process is single-threaded, and 5120 pixels for other
+    cameras, as such a process is multi-threaded, and disk I/O becomes
+    a bigger consideration.
 
 --no-geoheader-info
     Do not write information in the geoheader. Otherwise mapproject will

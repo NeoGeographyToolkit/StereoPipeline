@@ -313,7 +313,7 @@ The Mars Exploration Rovers (MER) have several cameras on board and they
 all seem to have a stereo pair. With ASP you are able to process the
 PANCAM, NAVCAM, and HAZCAM camera images. ISIS has no telemetry or
 camera intrinsic supports for these images. That however is not a
-problem as their raw images contain the cameras’ information in JPL’s
+problem as their raw images contain the cameras information in JPL's
 CAHV, CAHVOR, and CHAVORE formats.
 
 These cameras are all variations of a simple pinhole camera model so
@@ -1144,12 +1144,15 @@ https://search.earthdata.nasa.gov/search.
 
 Select a region on the map, search for AST_L1A, and choose ``ASTER L1A
 Reconstructed Unprocessed Instrument Data V003``. (The same interface
-can be used to obtain pre-existing ASTER DEMs.)
+can be used to obtain pre-existing ASTER DEMs.) If too many results
+are shown, narrow down the choices by using a range in time or
+deselecting unwanted items manually. Examining the data thumbnails is
+helpful, to exclude those with clouds, etc. Then click to download.
 
-There are two important things to keep in mind when ordering the data.
-First, at the very last step, when finalizing the order options, choose
-GeoTIFF as the data format, rather than HDF-EOS. This way the images
-and metadata will come already extracted from the HDF file.
+There are two important things to keep in mind. First, at the very
+last step, when finalizing the order options, choose GeoTIFF as the
+data format, rather than HDF-EOS. This way the images and metadata
+will come already extracted from the HDF file.
 
 Second, note that ASP cannot process ASTER Level 1B images, as those
 images lack camera information.
@@ -1218,14 +1221,14 @@ flow is as follows::
         out-Band3N.xml out-Band3B.xml out_stereo/run               
 
      # Create a coarse and smooth DEM at 300 meters/pixel
-     point2dem -r earth --tr 0.0026949458523585      \     
+     point2dem -r earth --tr 0.002695                \
        out_stereo/run-PC.tif -o out_stereo/run-300m
 
      # Map-project onto this DEM at 10 meters/pixel
-     mapproject --tr 0.0000898315284119 out_stereo/run-300m-DEM.tif \
-       out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif            
-     mapproject --tr 0.0000898315284119 out_stereo/run-300m-DEM.tif \
-       out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif            
+     mapproject --tr 0.0000898 out_stereo/run-300m-DEM.tif \
+       out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif
+     mapproject --tr 0.0000898 out_stereo/run-300m-DEM.tif \
+       out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif
      
      # Run parallel_stereo with the map-projected images
      # and subpixel-mode 2
@@ -1240,13 +1243,13 @@ flow is as follows::
 Also consider using ``--stereo-algorithm asp_mgm`` as mentioned earlier.
 
 Here we could have again used ``-t rpc`` instead of ``-t aster``. The
-map-projection was done using ``--tr 0.0000898315284119`` which is about
+map-projection was done using ``--tr 0.0000898`` which is about
 10 meters/pixel.
 
 It is possible to increase the resolution of the final DEM slightly by
 instead map-projecting at 7 meters/pixel, hence using::
 
-     --tr .0000628820698883
+     --tr .00006288
 
 or smaller correlation and subpixel-refinement kernels, that is::
 
@@ -1255,7 +1258,7 @@ or smaller correlation and subpixel-refinement kernels, that is::
 instead of the defaults (21 21 and 35 35) but this comes with increased
 noise as well, and using a finer resolution results in longer run-time.
 
-We also tried to first bundle-adjust the cameras, using ASP’s
+We also tried to first bundle-adjust the cameras, using ASP's
 ``bundle_adjust``. We did not notice a noticeable improvement in
 results.
 
