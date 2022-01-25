@@ -32,7 +32,7 @@ Usage::
 
     stereo_gui [options] <images> [<cameras>] output_file_prefix
 
-Example (for RPC cameras): 
+Example (for RPC cameras):: 
  
     stereo_gui -t rpc left.tif right.tif left.xml right.xml run/run
 

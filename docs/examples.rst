@@ -1177,9 +1177,16 @@ This command will create 4 files, named::
 We refer again to the tool's documentation page regarding details of how
 these files were created.
 
-Next, we run ``parallel_stereo``. We can use either the exact camera
-model (``-t aster``), or its RPC approximation (``-t rpc``). The
-former is much slower but more accurate.
+Open the images in ``stereo_gui`` (:numref:`stereo_gui`) as::
+
+    stereo_gui out-Band3N.tif out-Band3B.tif 
+
+and ensure that they are of good quality, or else get another dataset. 
+ 
+Next, we run ``parallel_stereo`` (:numref:`parallel_stereo`). We can
+use either the exact camera model (``-t aster``), or its RPC
+approximation (``-t rpc``). The former is much slower but more
+accurate.
 
 ::
 
@@ -1207,6 +1214,10 @@ The value 0.0002777 is the desired output DEM resolution,
 specified in degrees. It is approximately 31 meters/pixel, the same as
 the publicly available ASTER DEM, and about twice the 15 meters/pixel
 image resolution.
+
+Visualize the DEM with::
+
+    stereo_gui --hillshade out_stereo/run-DEM.tif
 
 To improve the results for steep terrain, one may consider doing
 stereo as before, followed by map-projection onto a coarser and

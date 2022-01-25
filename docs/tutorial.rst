@@ -244,15 +244,19 @@ Tutorial: Processing Earth DigitalGlobe/Maxar images
 ====================================================
 
 In this chapter we will focus on how to process Earth images, or more
-specifically DigitalGlobe/Maxar data. This is different from our previous
-chapter in that at no point will we be using ISIS utilities. This is
-because ISIS only supports NASA instruments, while most Earth images
-comes from commercial providers.
+specifically DigitalGlobe/Maxar data. This example is different from
+the one in the previous chapter in that at no point will we be using
+ISIS utilities. This is because ISIS only supports NASA instruments,
+while most Earth images comes from commercial providers.
 
 In addition to DigitalGlobe/Maxar's satellites, ASP supports any Earth
 images that uses the RPC camera model format. How to process such data
-is described in :numref:`rpc`, although following this
-tutorial may still be insightful even if your data is not from DigitalGlobe/Maxar.
+is described in :numref:`rpc`, although following this tutorial may
+still be insightful even if your data is not from DigitalGlobe/Maxar.
+
+If this is your first time running ASP, it may be easier to start with
+ASTER data (:numref:`aster`), as its images are free and much smaller
+than DigitalGlobe's.
 
 DigitalGlobe/Maxar provides images from QuickBird and the three WorldView
 satellites. These are the hardest images to process with Ames Stereo
