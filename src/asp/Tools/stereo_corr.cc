@@ -457,9 +457,9 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read ();
   if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
   
-  // These images should be small enough to fit in memory
-  ImageView<float> left_image  = DiskImageView<float>(left_rsrc);
-  ImageView<float> right_image = DiskImageView<float>(right_rsrc);
+  // These images can be big, so use ImageViewRef
+  ImageViewRef<float> left_image  = DiskImageView<float>(left_rsrc);
+  ImageViewRef<float> right_image = DiskImageView<float>(right_rsrc);
 
   // No interest point operations have been performed before
   vw_out() << "\t    * Detecting interest points\n";
