@@ -4,10 +4,10 @@ stereo_gui
 ----------
 
 The ``stereo_gui`` program is a GUI frontend to ``stereo`` and
-``parallel_stereo``, and has the same command-line options. It can be
-used for performing experiments on small clips. One can zoom in by
-dragging the mouse from upper-left to lower-right, and zoom out via
-the reverse motion.
+``parallel_stereo`` (:numref:`parallel_stereo`), and has the same
+command-line options. It can be used for performing experiments on
+small clips. One can zoom in by dragging the mouse from upper-left to
+lower-right, and zoom out via the reverse motion.
 
 By pressing the ``Control`` key while dragging the mouse, clips can be
 selected in the input images, and then the stereo programs can be run
@@ -31,6 +31,13 @@ focus the desired image before using any keys).
 Usage::
 
     stereo_gui [options] <images> [<cameras>] output_file_prefix
+
+Example (for RPC cameras): 
+ 
+    stereo_gui -t rpc left.tif right.tif left.xml right.xml run/run
+
+See also our tutorials in :numref:`moc_tutorial` and
+:numref:`dg_tutorial`.
 
 Use as an image viewer
 ~~~~~~~~~~~~~~~~~~~~~~
