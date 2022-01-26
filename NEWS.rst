@@ -68,6 +68,11 @@ bathymetry:
   * bathy_plane_calc can use a mask to find the water-land interface.
   
 dem_mosaic:
+  * Add the option ``--tap``, to have the output grid be at integer
+    multiples of the grid size (like the default behavior of
+    ``point2dem`` and ``mapproject``, and ``gdalwarp`` when invoked
+    with ``-tap``). If not set, the input grids determine
+    the output grid.
   * Do not allow more than one of these operations in a given tool
     invocation: fill holes, blur, or erode. These won't work when
     also having more than one input DEM, reprojection is desired, or

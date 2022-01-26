@@ -3,41 +3,48 @@
 dem_mosaic
 ----------
 
-The program ``dem_mosaic`` takes as input a list of DEM files,
-optionally erodes pixels at the DEM boundaries, and creates a mosaic. By
-default, it blends the DEMs where they overlap.
+The program ``dem_mosaic`` takes as input a list of DEM files and
+creates a mosaic. By default, it seamlessly blends the DEMs where they
+overlap.  It can also process the inputs to be combined in other ways,
+as described below.
 
-Usage::
-
-     dem_mosaic [options] <dem files or -l dem_files_list.txt> \
-       -o output_file_prefix
-
-The input DEMs can either be set on the command line, or if too many,
+The input DEMs can either be set on the command line, or, if too many,
 they can be listed in a text file (one per line) and that file can be
 passed to the tool.
+
+Usage
+~~~~~
+::
+
+     dem_mosaic [options] <dem files> -o output_file_prefix
+
+or::
+
+     dem_mosaic [options] -l dem_files_list.txt -o output_file_prefix
+
+Overview
+~~~~~~~~
 
 The output mosaic is written as non-overlapping tiles with desired tile
 size, with the size set either in pixels or in georeferenced (projected)
 units. The default tile size is large enough that normally the entire
-mosaic is saved as one tile, in the format
-output_file_prefix-tile-0.tif. Alternatively, one can pass to the ``-o``
-option an output file name ending in .tif. Then the mosaic will be
-written with this exact name, without appending tile-0.tif. (This will
-fail if the tool decides there is a need for more than one tile.)
+mosaic is saved as one tile, named as::
+
+    output_file_prefix-tile-0.tif
+
+Alternatively, one can pass to the ``-o`` option an output file, such
+as ``output.tif``. Then the mosaic will be written with this exact
+name. (This will fail if the tool decides there is a need for more
+than one tile.)
 
 Individual tiles can be saved via the ``--tile-index`` option (the tool
 displays the total number of tiles when it is being run). As such,
 separate processes can be invoked for individual tiles for increased
 robustness and perhaps speed.
 
-The output mosaic tiles will be named <output prefix>-tile-<tile
-index>.tif, where <output prefix> is an arbitrary string. For example,
-if it is set to ``results/output``, all the tiles will be in the
-``results`` directory.
-
 By the default, the output mosaicked DEM will use the same grid size and
 projection as the first input DEM. These can be changed via the ``--tr``
-and ``--t_srs`` options.
+and ``--t_srs`` options. Also note the ``--tap`` option.
 
 The default behavior is to blend the DEMs everywhere. If the option
 ``--priority-blending-length integer`` is invoked, the blending behavior
@@ -76,9 +83,14 @@ be invoked again to merge these tiles into a single DEM.
 If the DEMs have reasonably regular boundaries and no holes, smoother
 blending may be obtained by using ``--use-centerline-weights``.
 
-Example 1. Erode 3 pixels from input DEMs and blend them::
+This tool can also apply pixel erosion, hole-filing, and smoothing.
 
-     dem_mosaic --erode-length 3 dem1.tif dem2.tif -o blended
+Examples
+~~~~~~~~
+
+Example 1. Blend DEMs::
+
+     dem_mosaic dem1.tif dem2.tif -o blended.tif
 
 Example 2. Read the DEMs from a list, and apply priority blending::
 
@@ -86,16 +98,35 @@ Example 2. Read the DEMs from a list, and apply priority blending::
      dem_mosaic -l image_list.txt --priority-blending-length 14 \
        -o priority_blended
 
-Example 3. Find the mean DEM, no blending is used::
+Since an extension for the output was not specified, it will be saved
+as ``priority_blended/tile-0.tif`` (there may be more than one tile if
+the ``--tile-size`` parameter is set).
+
+Example 3. Find the DEM of mean heights. No blending is used::
 
      dem_mosaic -l image_list.txt --mean -o mosaic
 
-Example 4. Write with the exact output name, without using the
-tile-0.tif extension::
+Example 4: Erode 3 pixels at the boundary::
 
-     dem_mosaic dem1.tif dem2.tif -o blended.tif
+     dem_mosaic --erode-length 3 input.tif -o output.tif
 
-Command-line options for dem_mosaic:
+Example 5: Enforce that the grid is at integer multiples of grid size
+(like the GDAL ``gdalwarp`` tool, :numref:`gdal_tools`)::
+
+    dem_mosaic --tr 0.10 --tap input.tif -o output.tif
+
+If the bounds of the output DEM from above are examined with
+``gdalinfo`` (:numref:`gdal_tools`), they will be multiples of 0.05,
+because each grid point is centered at an integer multiple of 0.10,
+and extends for half a grid vertically and horizontally.
+
+(Note that ``point2dem`` (:numref:`point2dem`) and ``mapproject``
+(:numref:`mapproject`) create their outputs by default that way, and
+if ``dem_mosaic`` is invoked on such datasets, it will respect the
+input grid even without ``--tap`` being explicitly set.)
+
+Command-line options
+~~~~~~~~~~~~~~~~~~~~
 
 -h, --help
     Display the help message.
@@ -121,8 +152,7 @@ Command-line options for dem_mosaic:
     from 0.
 
 --erode-length <number-of-pixels (default: 0)>
-    Erode input DEMs by this many pixels at boundary before mosaicking
-    them.
+    Erode the DEM by this many pixels at boundary.
 
 --priority-blending-length <number-of-pixels (default: 0)>
     If positive, keep unmodified values from the earliest available
@@ -130,12 +160,13 @@ Command-line options for dem_mosaic:
     boundary where blending with subsequent DEMs will happen.
 
 --hole-fill-length <number-of-pixels (default: 0)>
-    Maximum dimensions of a hole in the output DEM to fill in, in
+    Maximum dimensions of a hole in the DEM to fill in, in
     pixels.
 
 --tr <resolution>
-    Output DEM resolution in target georeferenced units per pixel.
-    Default: use the same resolution as the first DEM to be mosaicked.
+    Output grid size, that is, the DEM resolution in target
+    georeferenced units per pixel. Default: use the same resolution as
+    the first DEM to be mosaicked.
 
 --t_srs <proj4-string>
     Specify the output projection (PROJ.4 string). Default: use the
@@ -144,6 +175,12 @@ Command-line options for dem_mosaic:
 --t_projwin <xmin ymin xmax ymax>
     Limit the mosaic to this region, with the corners given in
     georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.
+
+--tap
+    Let the output grid be at integer multiples of the grid size (like
+    the default behavior of ``point2dem`` and ``mapproject``, and
+    ``gdalwarp`` when invoked with ``-tap``). If not set, the input
+    grids determine the output grid.
 
 --first
     Keep the first encountered DEM value (in the input order).
@@ -202,7 +239,7 @@ Command-line options for dem_mosaic:
     boundary.
 
 --dem-blur-sigma <integer (default: 0)>
-    Blur the final DEM using a Gaussian with this value of sigma.
+    Blur the DEM using a Gaussian with this value of sigma.
     Default: No blur.
 
 --extra-crop-length <number-of-pixels (default: 200)>

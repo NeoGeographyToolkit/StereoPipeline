@@ -326,7 +326,7 @@ struct Options: vw::cartography::GdalWriteOptions {
   double weights_exp, weights_blur_sigma, dem_blur_sigma;
   double nodata_threshold;
   bool   first, last, min, max, block_max, mean, stddev, median, nmad,
-         count, save_index_map, use_centerline_weights,
+    count, tap, save_index_map, use_centerline_weights,
          first_dem_as_reference, propagate_nodata, no_border_blend;
   std::set<int> tile_list;
   BBox2 projwin;
@@ -337,7 +337,7 @@ struct Options: vw::cartography::GdalWriteOptions {
              nodata_threshold(std::numeric_limits<double>::quiet_NaN()),
              first(false), last(false), min(false), max(false), block_max(false),
              mean(false), stddev(false), median(false), nmad(false),
-             count(false), save_index_map(false),
+             count(false), save_index_map(false), tap(false),
              use_centerline_weights(false), first_dem_as_reference(false), projwin(BBox2()) {}
 };
 
@@ -1259,19 +1259,23 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("tile-list",      po::value(&opt.tile_list_str)->default_value(""),
      "List of tile indices (in quotes) to save. A tile index starts from 0.")
     ("erode-length",    po::value<int>(&opt.erode_len)->default_value(0),
-	   "Erode input DEMs by this many pixels at boundary before mosaicking them.")
+	   "Erode the DEM by this many pixels at boundary.")
     ("priority-blending-length", po::value<int>(&opt.priority_blending_len)->default_value(0),
 	   "If positive, keep unmodified values from the earliest available DEM except a band this wide measured in pixels inward of its boundary where blending with subsequent DEMs will happen.")
     ("no-border-blend", po::bool_switch(&opt.no_border_blend)->default_value(false),
 	   "Only apply blending around holes, don't blend at image borders.  Not compatible with centerline weights.")
     ("hole-fill-length",   po::value(&opt.hole_fill_len)->default_value(0),
-	   "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
+	   "Maximum dimensions of a hole in the DEM to fill in, in pixels.")
     ("tr",              po::value(&opt.tr),
-	   "Output DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
+	   "Output grid size, that is, the DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
     ("t_srs",           po::value(&opt.target_srs_string)->default_value(""),
 	   "Specify the output projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.")
     ("t_projwin",       po::value(&opt.projwin),
-	   "Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
+     "Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
+    ("tap",  po::bool_switch(&opt.tap)->default_value(false),
+     "Let the output grid be at integer multiples of the grid size (like "
+     "the default behavior of point2dem and mapproject, and gdalwarp "
+     "when invoked with -tap). If not set, the input grids determine the output grid.")
     ("first",   po::bool_switch(&opt.first)->default_value(false),
 	   "Keep the first encountered DEM value (in the input order).")
     ("last",    po::bool_switch(&opt.last)->default_value(false),
@@ -1304,7 +1308,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("use-centerline-weights",   po::bool_switch(&opt.use_centerline_weights)->default_value(false),
      "Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.")
     ("dem-blur-sigma", po::value<double>(&opt.dem_blur_sigma)->default_value(0.0),
-     "Blur the final DEM using a Gaussian with this value of sigma. Default: No blur.")
+     "Blur the DEM using a Gaussian with this value of sigma. Default: No blur.")
     ("nodata-threshold", po::value(&opt.nodata_threshold)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Values no larger than this number will be interpreted as no-data.")
     ("propagate-nodata", po::bool_switch(&opt.propagate_nodata)->default_value(false),
@@ -1614,9 +1618,11 @@ int main( int argc, char *argv[] ) {
       Vector2 ul = mosaic_georef.lonlat_to_pixel(Vector2(llbox0.min().x(), llbox0.max().y()));
       mosaic_georef = crop(mosaic_georef, ul.x(), ul.y());
 
-    }else // Update spacing variable from the current transform
+    }else {
+      // Update spacing variable from the current transform
       spacing = mosaic_georef.transform()(0, 0);
-
+    }
+    
     // if the user specified the tile size in georeferenced units.
     if (opt.geo_tile_size > 0){
       opt.tile_size = (int)round(opt.geo_tile_size/spacing);
@@ -1631,6 +1637,17 @@ int main( int argc, char *argv[] ) {
     load_dem_bounding_boxes(opt, mosaic_georef, mosaic_bbox,
                             dem_proj_bboxes, dem_pixel_bboxes);
 
+
+    if (opt.tap) {
+      // Ensure that the grid is at integer multiples of grid size
+      mosaic_bbox.min() = spacing * floor(mosaic_bbox.min() / spacing);
+      mosaic_bbox.max() = spacing * ceil(mosaic_bbox.max()  / spacing);
+      if (opt.projwin != BBox2()) {
+        opt.projwin.min() = spacing * floor(opt.projwin.min() / spacing);
+        opt.projwin.max() = spacing * ceil(opt.projwin.max()  / spacing);
+      }
+    }
+    
     if (opt.projwin != BBox2()) {
       // If to create the mosaic only in a given region
       mosaic_bbox.crop(opt.projwin);
@@ -1646,7 +1663,7 @@ int main( int argc, char *argv[] ) {
 
     // Take care of numerical artifacts
     Vector2 beg_pix = pixel_box.min();
-    if (norm_2(beg_pix - round(beg_pix)) < g_tol )
+    if (norm_2(beg_pix - round(beg_pix)) < g_tol)
       beg_pix = round(beg_pix);
     mosaic_georef = crop(mosaic_georef, beg_pix[0], beg_pix[1]);
 

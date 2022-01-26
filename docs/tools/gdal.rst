@@ -1,3 +1,5 @@
+.. _gdal_tools:
+
 GDAL tools
 ----------
 
