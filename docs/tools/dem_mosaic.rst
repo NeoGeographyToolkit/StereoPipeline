@@ -83,7 +83,8 @@ be invoked again to merge these tiles into a single DEM.
 If the DEMs have reasonably regular boundaries and no holes, smoother
 blending may be obtained by using ``--use-centerline-weights``.
 
-This tool can also apply pixel erosion, hole-filing, and smoothing.
+This tool can also apply hole-filling, smoothing, and pixel erosion at
+boundary.
 
 Examples
 ~~~~~~~~
