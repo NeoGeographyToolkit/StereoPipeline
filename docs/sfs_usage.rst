@@ -786,10 +786,10 @@ sparse cloud::
 
 in camera coordinates to ``ref.tif``::
  
-    pc_align --max-displacement 400 --save-transformed-source-points  \
-      --compute-translation-only                                      \
-      --csv-format '1:lon 2:lat 3:height_above_datum' ref.tif         \
-      ba/run-final_residuals_pointmap.csv                             \
+    pc_align --max-displacement 400 --save-transformed-source-points \
+      --compute-translation-only                                     \
+      --csv-format '1:lon 2:lat 3:height_above_datum'                \
+      ref.tif ba/run-final_residuals_pointmap.csv                    \
       -o ba/run 
 
 The value of ``--max-displacement`` could be too high perhaps, it is
@@ -814,6 +814,15 @@ them aligned to the ground in ``ref.tif``::
     bundle_adjust --initial-transform ba/run-transform.txt       \
       --apply-initial-transform-only                             \
       --input-adjustments-prefix ba/run <images> -o ba_align/run
+
+Since ``ref.tif`` was the first argument to ``pc_align``, above we
+applied the transform ``ba/run-transform.txt`` which goes from the
+coordinate system of cameras to the one of ``ref.tif``. If
+``pc_align`` was invoked with the clouds in reverse order, for some
+reason, then this transform would go from ``ref.tif`` to camera
+coordinates, so to bring the cameras in the coordinates of ``ref.tif``
+one would then apply the transform in
+``ba/run-inverse-transform.txt``.
 
 The images should now be projected onto this DEM as::
 
