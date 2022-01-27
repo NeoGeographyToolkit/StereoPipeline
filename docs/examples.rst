@@ -813,9 +813,9 @@ Then create a conda environment for the ``ale`` package::
 Create a Python script named ``gen_csm.py``::
 
     #!/usr/bin/python
-
+    
     import ale, os, sys
-
+    
     # Get the input cub
     cub_file = sys.argv[1]
     
@@ -824,7 +824,7 @@ Create a Python script named ``gen_csm.py``::
     
     print("Reading: " + cub_file)
     usgscsm_str = ale.loads(cub_file)
-        
+    
     print("Writing: " + isd_file)
     with open(isd_file, 'w') as isd_file:
         isd_file.write(usgscsm_str)
