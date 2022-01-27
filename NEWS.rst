@@ -54,6 +54,9 @@ mapproject:
   * If the input image file has an embedded RPC camera model, append
     it to the output mapprojected file. (Which makes stereo with
     mapprojected images work correctly in this case.)
+  * Always start a process for each tile. The default tile size 
+    is set to 5120 for non-ISIS cameras and to 1024 for ISIS. Use
+    a large value of --tile-size to use fewer processes.
 
 csm:
   * Save the camera state on multiple lines. On reading both the
@@ -63,6 +66,10 @@ sfs:
   * SfS was made to work with any camera model supported by ASP,
     including for Earth. For non-ISIS and non-CSM cameras, the option
     --sun-positions should be used.
+  * Bundle adjustment, mapproject, and SfS with the CSM model can be
+    7-15 times faster than done with the corresponding ISIS model. But
+    the CSM model does not always approximate an ISIS model correctly
+    (the doc has more info).
 
 bathymetry:
   * bathy_plane_calc can use a mask to find the water-land interface.

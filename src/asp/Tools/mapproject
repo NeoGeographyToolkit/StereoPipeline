@@ -282,11 +282,11 @@ def main(argsIn):
                                          'If not provided, run on the local machine.')
 
     parser.add_argument('--tile-size',  dest='tileSize', default=None, type=int,
-                        help = 'Size of square tiles to break up processing up into ' + \
-                        '(each tile is run by an individual process). The default '   + \
-                        'is 1024 pixels for ISIS cameras, as then each process is '   + \
-                        'single-threaded, and 5120 for other cameras, '               + \
-                        'as such a process is multi-threaded, and disk I/O becomes '  + \
+                        help = 'Size of square tiles to break up processing up into. '          + \
+                        'Each tile is run by an individual process. '                           + \
+                        'The default is 1024 pixels for ISIS cameras, '                         + \
+                        'as then each process is single-threaded, and 5120 for other '          + \
+                        'cameras, as such a process is multi-threaded, and disk I/O becomes '   + \
                         'a bigger consideration.')
 
     # Directory where the job is running
@@ -362,13 +362,21 @@ def main(argsIn):
 
     # Now we are in the main process, not in a spawned copy
 
+    # See if this is the ISIS session. The image file or camera file
+    # must end in .cub (both are possible), but the camera file must
+    # not end in .json, as then the CSM session is used.
+    camExt =  os.path.splitext(options.cameraPath)[1].lower()
+    isIsis = (asp_image_utils.isIsisFile(options.imagePath) or
+              asp_image_utils.isIsisFile(options.cameraPath)) \
+              and (camExt != '.json')
+    
     # If the user did not set the tile size, then for ISIS use small
     # tiles, to have them run in parallel as individual processes,
     # since each process is necessarily single-threaded. For other
     # cameras use bigger tiles, as each process is multi-threaded, and
     # then file I/O is a bigger consideration.
     if options.tileSize is None:
-        if asp_image_utils.isIsisFile(options.imagePath):
+        if isIsis:
             options.tileSize = 1024
         else:
             options.tileSize = 5120
@@ -379,28 +387,6 @@ def main(argsIn):
     rpc_label = 'RPC Metadata'
     rpc_dict  = parse_gdal_metadata(options.imagePath, rpc_label)
     rpc_lines = format_metadata(rpc_label, rpc_dict)
-
-    # If the input image is not an ISIS image, and we are running on a
-    # single machine, and the user did not specify how many processes
-    # to use, and there are no rpc coeffs to save, we can just use the
-    # multi-threading capability of the ordinary mapproject_single call.
-    # If there are RPC coeffs to save, can't use mapproject_single only,
-    # as need to create a VRT and insert the RPC coeffs in it.
-    if (not asp_image_utils.isIsisFile(options.imagePath)) and (not options.nodesListPath) \
-           and (options.numProcesses is None) and len(rpc_dict) == 0:
-        cmd = ['mapproject_single',  options.demPath,
-                options.imagePath, options.cameraPath, options.outputPath]
-        cmd = cmd + options.extraArgs
-        if options.noGeoHeaderInfo:
-            cmd += ['--no-geoheader-info']
-        print(" ".join(cmd))
-        ans = subprocess.call(cmd)
-        if ans == 0:
-            print("Wrote: " + relOutputPath)
-        maybe_copy_rpc(options.imagePath, options.outputPath)
-        return 0
-
-    # Otherwise this is the original called process and there are multiple steps to go through
 
     # Call mapproject on the input data using subprocess and record output
     cmd = ['mapproject_single',  '--query-projection', options.demPath,
@@ -433,22 +419,6 @@ def main(argsIn):
     numTiles = numTilesX * numTilesY
 
     print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + ' tiles.')
-    # If there is only going to be one output tile, and there are no rpc coefficients
-    # to save, just use the non-parallel call
-    # TODO(oalexan1): This logic is too similar to what is above. Some condensing
-    # may be helpful.
-    if (numTilesX*numTilesY == 1 and len(rpc_dict) == 0):
-        cmd = ['mapproject_single',  options.demPath,
-                options.imagePath, options.cameraPath, options.outputPath]
-        cmd = cmd + options.extraArgs
-        if options.noGeoHeaderInfo:
-            cmd += ['--no-geoheader-info']
-        print(" ".join(cmd))
-        ans = subprocess.call(cmd)
-        if ans == 0: 
-            print("Wrote: " + relOutputPath)
-            maybe_copy_rpc(options.imagePath, options.outputPath)
-        return 0
 
     # Set up output folder
     outputFolder = os.path.dirname(options.outputPath)
@@ -489,7 +459,7 @@ def main(argsIn):
         options.numProcesses = cpusPerNode * processesPerCpu
 
     # Note: mapproject can run with multiple threads on non-ISIS data but we don't use that
-    #       functionality here since we call mapproject with one tile at a time.
+    # functionality here since we call mapproject with one tile at a time.
 
     # No need for more processes than their are tiles!
     if options.numProcesses > numTiles:

@@ -3862,12 +3862,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.blending_dist > 0 && !opt.crop_input_images) 
     vw_throw(ArgumentErr() << "A blending distance is only supported with --crop-input-images.\n");
   
-  if (opt.crop_input_images &&
-      !opt.use_approx_camera_models &&
-      !opt.use_approx_adjusted_camera_models) {
+  if (opt.crop_input_images && (opt.float_cameras || opt.float_all_cameras))  
     vw_throw( ArgumentErr()
-              << "Using cropped input images implies using an approximate camera model.\n" );
-  }
+              << "Using cropped input images implies that the cameras are not floated.\n" );
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
@@ -4629,149 +4626,208 @@ inline nodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
   return UnaryPerPixelView<ImageT,func_type>( image.impl(), func );
 }
 
+#endif
+
+#if 0
 // Prototype code to identify permanently shadowed areas
 // and deepen the craters there. Needs to be integrated
 // and tested with various shapes of the deepened crater.
+void deepenCraters() {
+  std::vector<std::string> image;
 
-std::vector<std::string> image;
-
-std::string dem_file = argv[argc - 1];
+  std::string dem_file = argv[argc - 1];
   
-float dem_nodata_val = -std::numeric_limits<float>::max();
-if (vw::read_nodata_val(dem_file, dem_nodata_val)){
-  vw_out() << "Dem nodata: " << dem_nodata_val << std::endl;
- }
-
-ImageView< PixelMask<float> > dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
-
-vw::cartography::GeoReference georef;
-if (!read_georeference(georef, dem_file))
-  vw_throw( ArgumentErr() << "The input DEM " << dem_file << " has no georeference.\n" );
-  
-// The maximum of all valid pixel values with no-data where there is no-valid data.
-ImageView< PixelMask<float> > max_img(dem.cols(), dem.rows());
-for (int col = 0; col < dem.cols(); col++) {
-  for (int row = 0; row < dem.rows(); row++) {
-    max_img(col, row) = dem_nodata_val;
-    max_img(col, row).invalidate();
+  float dem_nodata_val = -std::numeric_limits<float>::max();
+  if (vw::read_nodata_val(dem_file, dem_nodata_val)){
+    vw_out() << "Dem nodata: " << dem_nodata_val << std::endl;
   }
- }
-  
-for (int i = 1; i < argc - 1; i++) {
 
-  std::string img_file = argv[i];
-  float img_nodata_val = -std::numeric_limits<float>::max();
-  if (vw::read_nodata_val(img_file, img_nodata_val)){
-    vw_out() << "Img nodata: " << img_nodata_val << std::endl;
+  ImageView< PixelMask<float> > dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
+
+  vw::cartography::GeoReference georef;
+  if (!read_georeference(georef, dem_file))
+    vw_throw( ArgumentErr() << "The input DEM " << dem_file << " has no georeference.\n" );
+  
+  // The maximum of all valid pixel values with no-data where there is no-valid data.
+  ImageView< PixelMask<float> > max_img(dem.cols(), dem.rows());
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      max_img(col, row) = dem_nodata_val;
+      max_img(col, row).invalidate();
+    }
   }
+  
+  for (int i = 1; i < argc - 1; i++) {
+
+    std::string img_file = argv[i];
+    float img_nodata_val = -std::numeric_limits<float>::max();
+    if (vw::read_nodata_val(img_file, img_nodata_val)){
+      vw_out() << "Img nodata: " << img_nodata_val << std::endl;
+    }
     
-  ImageView< PixelMask<float> > img(create_mask(DiskImageView<float>(img_file), img_nodata_val));
-  std::cout << "cols and rows are " << img.cols() << ' ' << img.rows() << std::endl;
-  if (img.cols() != dem.cols() || img.rows() != dem.rows()) {
-    vw_throw(ArgumentErr() << "Images and DEM must have same size.\n");
-  }
+    ImageView< PixelMask<float> > img(create_mask(DiskImageView<float>(img_file), img_nodata_val));
+    std::cout << "cols and rows are " << img.cols() << ' ' << img.rows() << std::endl;
+    if (img.cols() != dem.cols() || img.rows() != dem.rows()) {
+      vw_throw(ArgumentErr() << "Images and DEM must have same size.\n");
+    }
 
-  for (int col = 0; col < img.cols(); col++) {
-    for (int row = 0; row < img.rows(); row++) {
+    for (int col = 0; col < img.cols(); col++) {
+      for (int row = 0; row < img.rows(); row++) {
 
-      // Nothing to do if the current image has invalid data
-      if (!is_valid(img(col, row)))
-        continue; 
+        // Nothing to do if the current image has invalid data
+        if (!is_valid(img(col, row)))
+          continue; 
 
-      // If the output image is not valid yet, copy the current image's valid pixel
-      if (!is_valid(max_img(col, row) && img(col, row).child() > 0)) {
-        max_img(col, row) = img(col, row);
-        continue;
-      }
+        // If the output image is not valid yet, copy the current image's valid pixel
+        if (!is_valid(max_img(col, row) && img(col, row).child() > 0)) {
+          max_img(col, row) = img(col, row);
+          continue;
+        }
 
-      // Now both the current image and the output image are valid
-      if (img(col, row).child() > max_img(col, row).child() &&
-          img(col, row).child() > 0) {
-        max_img(col, row) = img(col, row);
-      }
+        // Now both the current image and the output image are valid
+        if (img(col, row).child() > max_img(col, row).child() &&
+            img(col, row).child() > 0) {
+          max_img(col, row) = img(col, row);
+        }
         
+      }
     }
   }
- }
 
-// At the boundary the intensity is always invalid, but that is due to
-// computational limitations. Make it valid if we can.
-// TODO: Test here that the image has at least 3 rows and 3 cols!
-for (int col = 0; col < max_img.cols(); col++) {
-  for (int row = 0; row < max_img.rows(); row++) {
-    if ( (col == 0 || col == max_img.cols() - 1) ||
-         (row == 0 || row == max_img.rows() - 1) ) {
-      int next_col = col, next_row = row;
-      if (col == 0) next_col = 1;
-      if (col == max_img.cols() - 1) next_col = max_img.cols() - 2;
-      if (row == 0) next_row = 1;
-      if (row == max_img.rows() - 1) next_row = max_img.rows() - 2;
+  // At the boundary the intensity is always invalid, but that is due to
+  // computational limitations. Make it valid if we can.
+  // TODO: Test here that the image has at least 3 rows and 3 cols!
+  for (int col = 0; col < max_img.cols(); col++) {
+    for (int row = 0; row < max_img.rows(); row++) {
+      if ( (col == 0 || col == max_img.cols() - 1) ||
+           (row == 0 || row == max_img.rows() - 1) ) {
+        int next_col = col, next_row = row;
+        if (col == 0) next_col = 1;
+        if (col == max_img.cols() - 1) next_col = max_img.cols() - 2;
+        if (row == 0) next_row = 1;
+        if (row == max_img.rows() - 1) next_row = max_img.rows() - 2;
 
-      if (!is_valid(max_img(col, row)) && is_valid(max_img(next_col, next_row))) 
-        max_img(col, row) = max_img(next_col, next_row);
+        if (!is_valid(max_img(col, row)) && is_valid(max_img(next_col, next_row))) 
+          max_img(col, row) = max_img(next_col, next_row);
+      }
     }
   }
- }
   
-std::string max_img_file = "max_img.tif";
-bool has_nodata = true, has_georef = true;
-TerminalProgressCallback tpc("", "\t--> ");
+  std::string max_img_file = "max_img.tif";
+  bool has_nodata = true, has_georef = true;
+  TerminalProgressCallback tpc("", "\t--> ");
 
-vw_out() << "Writing: " << max_img_file << "\n";
+  vw_out() << "Writing: " << max_img_file << "\n";
   
-block_write_gdal_image(max_img_file, apply_mask(max_img, dem_nodata_val),
-                       has_georef, georef,
-                       has_nodata, dem_nodata_val,
-                       opt, tpc);
+  block_write_gdal_image(max_img_file, apply_mask(max_img, dem_nodata_val),
+                         has_georef, georef,
+                         has_nodata, dem_nodata_val,
+                         opt, tpc);
 
-ImageView<double> grass = grassfire(nodata(select_channel(max_img, 0), dem_nodata_val));
+  ImageView<double> grass = grassfire(nodata(select_channel(max_img, 0), dem_nodata_val));
 
-// Scale as craters are shallow.
-// TODO: Need to think of a better algorithm!
-for (int col = 0; col < grass.cols(); col++) {
-  for (int row = 0; row < grass.rows(); row++) {
-    grass(col, row) *= 0.2;
-  }
- }
-
-// Blur with a given sigma
-double sigma = atof(getenv("SIGMA"));
-//blur_weights(grass, sigma);
-ImageView<double> blurred_grass;
-if (sigma > 0) 
-  blurred_grass = gaussian_filter(grass, sigma);
- else
-   blurred_grass = copy(grass);
-  
-std::string grass_file = "grass.tif";
-vw_out() << "Writing: " << grass_file << "\n";
-
-bool grass_has_nodata = false;
-block_write_gdal_image(grass_file, blurred_grass,
-                       has_georef, georef,
-                       grass_has_nodata, dem_nodata_val,
-                       opt, tpc);
-
-// Bias the DEM by that grassfire height deepening the craters
-for (int col = 0; col < dem.cols(); col++) {
-  for (int row = 0; row < dem.rows(); row++) {
-    if (is_valid(dem(col, row))) {
-      dem(col, row).child() -= blurred_grass(col, row);
+  // Scale as craters are shallow.
+  // TODO: Need to think of a better algorithm!
+  for (int col = 0; col < grass.cols(); col++) {
+    for (int row = 0; row < grass.rows(); row++) {
+      grass(col, row) *= 0.2;
     }
   }
- }
 
-
-std::string out_dem_file = "out_dem.tif";
-vw_out() << "Writing: " << out_dem_file << "\n";
+  // Blur with a given sigma
+  double sigma = atof(getenv("SIGMA"));
+  //blur_weights(grass, sigma);
+  ImageView<double> blurred_grass;
+  if (sigma > 0) 
+    blurred_grass = gaussian_filter(grass, sigma);
+  else
+    blurred_grass = copy(grass);
   
-block_write_gdal_image(out_dem_file, apply_mask(dem, dem_nodata_val),
-                       has_georef, georef,
-                       has_nodata, dem_nodata_val,
-                       opt, tpc);
+  std::string grass_file = "grass.tif";
+  vw_out() << "Writing: " << grass_file << "\n";
 
+  bool grass_has_nodata = false;
+  block_write_gdal_image(grass_file, blurred_grass,
+                         has_georef, georef,
+                         grass_has_nodata, dem_nodata_val,
+                         opt, tpc);
+
+  // Bias the DEM by that grassfire height deepening the craters
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (is_valid(dem(col, row))) {
+        dem(col, row).child() -= blurred_grass(col, row);
+      }
+    }
+  }
+
+
+  std::string out_dem_file = "out_dem.tif";
+  vw_out() << "Writing: " << out_dem_file << "\n";
   
+  block_write_gdal_image(out_dem_file, apply_mask(dem, dem_nodata_val),
+                         has_georef, georef,
+                         has_nodata, dem_nodata_val,
+                         opt, tpc);
+
+}
 #endif
+
+void setUpModelParams(GlobalParams & global_params, Options & opt) {
+  if (opt.reflectance_type == 0)
+    global_params.reflectanceType = LAMBERT;
+  else if (opt.reflectance_type == 1)
+    global_params.reflectanceType = LUNAR_LAMBERT;
+  else if (opt.reflectance_type == 2)
+    global_params.reflectanceType = HAPKE;
+  else if (opt.reflectance_type == 3)
+    global_params.reflectanceType = ARBITRARY_MODEL;
+  else if (opt.reflectance_type == 4)
+    global_params.reflectanceType = CHARON;
+  else
+    vw_throw( ArgumentErr() << "Expecting Lambertian or Lunar-Lambertian reflectance." );
+  global_params.phaseCoeffC1 = 0; 
+  global_params.phaseCoeffC2 = 0;
+  
+  // Default model coefficients, unless they were read already
+  if (opt.model_coeffs_vec.empty()) {
+    opt.model_coeffs_vec.resize(g_num_model_coeffs);
+    if (global_params.reflectanceType == LUNAR_LAMBERT ||
+        global_params.reflectanceType == ARBITRARY_MODEL ) {
+      // Lunar lambertian or its crazy experimental generalization
+      opt.model_coeffs_vec.resize(g_num_model_coeffs);
+      opt.model_coeffs_vec[0] = 1;
+      opt.model_coeffs_vec[1] = -0.019;
+      opt.model_coeffs_vec[2] =  0.000242;   //0.242*1e-3;
+      opt.model_coeffs_vec[3] = -0.00000146; //-1.46*1e-6;
+      opt.model_coeffs_vec[4] = 1;
+      opt.model_coeffs_vec[5] = 0;
+      opt.model_coeffs_vec[6] = 0;
+      opt.model_coeffs_vec[7] = 0;
+      opt.model_coeffs_vec[8] = 1;
+      opt.model_coeffs_vec[9] = -0.019;
+      opt.model_coeffs_vec[10] =  0.000242;   //0.242*1e-3;
+      opt.model_coeffs_vec[11] = -0.00000146; //-1.46*1e-6;
+      opt.model_coeffs_vec[12] = 1;
+      opt.model_coeffs_vec[13] = 0;
+      opt.model_coeffs_vec[14] = 0;
+      opt.model_coeffs_vec[15] = 0;
+    }else if (global_params.reflectanceType == HAPKE) {
+      opt.model_coeffs_vec[0] = 0.68; // omega (also known as w)
+      opt.model_coeffs_vec[1] = 0.17; // b
+      opt.model_coeffs_vec[2] = 0.62; // c
+      opt.model_coeffs_vec[3] = 0.52; // B0
+      opt.model_coeffs_vec[4] = 0.52; // h
+    }else if (global_params.reflectanceType == CHARON) {
+      opt.model_coeffs_vec.resize(g_num_model_coeffs);
+      opt.model_coeffs_vec[0] = 0.7; // A
+      opt.model_coeffs_vec[1] = 0.63; // f(alpha)
+    }else if (global_params.reflectanceType != LAMBERT) {
+      vw_throw( ArgumentErr() << "The Hapke model coefficients were not set. "
+                << "Use the --model-coeffs option." );
+    }
+  }
+}
 
 int main(int argc, char* argv[]) {
   
@@ -4789,61 +4845,9 @@ int main(int argc, char* argv[]) {
       return 0;
     }
 
+    // Set up model information
     GlobalParams global_params;
-    if (opt.reflectance_type == 0)
-      global_params.reflectanceType = LAMBERT;
-    else if (opt.reflectance_type == 1)
-      global_params.reflectanceType = LUNAR_LAMBERT;
-    else if (opt.reflectance_type == 2)
-      global_params.reflectanceType = HAPKE;
-    else if (opt.reflectance_type == 3)
-      global_params.reflectanceType = ARBITRARY_MODEL;
-    else if (opt.reflectance_type == 4)
-      global_params.reflectanceType = CHARON;
-    else
-      vw_throw( ArgumentErr()
-                << "Expecting Lambertian or Lunar-Lambertian reflectance." );
-    global_params.phaseCoeffC1 = 0; //1.383488;
-    global_params.phaseCoeffC2 = 0; //0.501149;
-    
-    // Default model coefficients, unless they were read already
-    if (opt.model_coeffs_vec.empty()) {
-      opt.model_coeffs_vec.resize(g_num_model_coeffs);
-      if (global_params.reflectanceType == LUNAR_LAMBERT ||
-          global_params.reflectanceType == ARBITRARY_MODEL ) {
-        // Lunar lambertian or its crazy experimental generalization
-        opt.model_coeffs_vec.resize(g_num_model_coeffs);
-        opt.model_coeffs_vec[0] = 1;
-        opt.model_coeffs_vec[1] = -0.019;
-        opt.model_coeffs_vec[2] =  0.000242;   //0.242*1e-3;
-        opt.model_coeffs_vec[3] = -0.00000146; //-1.46*1e-6;
-        opt.model_coeffs_vec[4] = 1;
-        opt.model_coeffs_vec[5] = 0;
-        opt.model_coeffs_vec[6] = 0;
-        opt.model_coeffs_vec[7] = 0;
-        opt.model_coeffs_vec[8] = 1;
-        opt.model_coeffs_vec[9] = -0.019;
-        opt.model_coeffs_vec[10] =  0.000242;   //0.242*1e-3;
-        opt.model_coeffs_vec[11] = -0.00000146; //-1.46*1e-6;
-        opt.model_coeffs_vec[12] = 1;
-        opt.model_coeffs_vec[13] = 0;
-        opt.model_coeffs_vec[14] = 0;
-        opt.model_coeffs_vec[15] = 0;
-      }else if (global_params.reflectanceType == HAPKE) {
-        opt.model_coeffs_vec[0] = 0.68; // omega (also known as w)
-        opt.model_coeffs_vec[1] = 0.17; // b
-        opt.model_coeffs_vec[2] = 0.62; // c
-        opt.model_coeffs_vec[3] = 0.52; // B0
-        opt.model_coeffs_vec[4] = 0.52; // h
-      }else if (global_params.reflectanceType == CHARON) {
-        opt.model_coeffs_vec.resize(g_num_model_coeffs);
-        opt.model_coeffs_vec[0] = 0.7; // A
-        opt.model_coeffs_vec[1] = 0.63; // f(alpha)
-      }else if (global_params.reflectanceType != LAMBERT) {
-        vw_throw( ArgumentErr() << "The Hapke model coefficients were not set. "
-                  << "Use the --model-coeffs option." );
-      }
-    }
+    setUpModelParams(global_params, opt);
     g_reflectance_model_coeffs = &opt.model_coeffs_vec[0];
     
     int num_dems = opt.input_dems.size();
@@ -5023,6 +5027,10 @@ int main(int argc, char* argv[]) {
     if (opt.query) 
       return 0;
 
+    if (opt.stereo_session != "isis" &&
+        (opt.use_approx_camera_models || opt.use_approx_adjusted_camera_models))
+      vw_throw( ArgumentErr() << "Approximate models work with ISIS cameras only." );
+      
     // Since we may float the cameras, ensure our camera models are
     // always adjustable. Note that if the user invoked this tool with
     // --bundle-adjust-prefix, the adjustments were already loaded
@@ -5078,7 +5086,7 @@ int main(int argc, char* argv[]) {
 
     // callTop();
     
-    // If to use approximate camera models
+    // If to use approximate camera models or to crop input images
     if (opt.use_approx_camera_models || opt.use_approx_adjusted_camera_models) {
 
       // TODO(oalexan1): This code needs to be modularized.
@@ -5192,7 +5200,7 @@ int main(int argc, char* argv[]) {
             cam_ptr->crop_box().crop(img_bbox);
             
             vw_out() << "Max approximate model error in pixels for: "
-                     <<  opt.input_cameras[image_iter] << " and clip "
+                     <<  opt.input_images[image_iter] << " and clip "
                      << opt.input_dems[dem_iter] << ": " << max_curr_err << std::endl;
           }else{
             vw_out() << "Invalid model for clip: " << dem_iter << ".\n";
@@ -5236,8 +5244,58 @@ int main(int argc, char* argv[]) {
         vw_out() << "Max total approximate model error in pixels: " << max_approx_err << std::endl;
         
       } // end iterating over dem clips
-    } // end computing the approximate camera model
-    
+
+      // end computing the approximate camera model
+    } else if (opt.crop_input_images) {
+      
+      // We will arrive here if it is desired to crop the input images
+      // without using an approximate model, such as for CSM.
+      // Estimate the crop box by projecting the pixels in the exact
+      // camera (with the adjustments applied, if present).
+      
+      for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
+        for (int image_iter = 0; image_iter < num_images; image_iter++){
+          if (opt.skip_images[dem_iter].find(image_iter)
+              != opt.skip_images[dem_iter].end()) continue;
+
+          // Store the full image box, and initialize the crop box to an empty box
+          BBox2i img_bbox = crop_boxes[0][dem_iter][image_iter];
+          crop_boxes[0][dem_iter][image_iter] = BBox2i();
+          
+          for (int col = 0; col < dems[0][dem_iter].cols(); col++) {
+            for (int row = 0; row < dems[0][dem_iter].rows(); row++) {
+              Vector2 ll = geos[0][dem_iter].pixel_to_lonlat(Vector2(col, row));
+              Vector3 xyz = geos[0][dem_iter].datum().geodetic_to_cartesian
+                (Vector3(ll[0], ll[1], dems[0][dem_iter](col, row)));
+              
+              Vector2 pix = cameras[dem_iter][image_iter]->point_to_pixel(xyz);
+              crop_boxes[0][dem_iter][image_iter].grow(pix); 
+            }
+          }
+
+          // Double the box dimensions, just in case. Later the SfS heights
+          // may change, and we may need to see beyond the given box
+          double extraFactor = 0.5;
+          double extrax = extraFactor * crop_boxes[0][dem_iter][image_iter].width();
+          double extray = extraFactor * crop_boxes[0][dem_iter][image_iter].height();
+          crop_boxes[0][dem_iter][image_iter].min() -= Vector2(extrax, extray);
+          crop_boxes[0][dem_iter][image_iter].max() += Vector2(extrax, extray);
+
+          // Crop to the bounding box of the image
+          crop_boxes[0][dem_iter][image_iter].crop(img_bbox);
+            
+          vw_out() << "Estimated crop box for image " 
+                   << opt.input_images[image_iter] << " and clip "
+                   << opt.input_dems[dem_iter] << ": " << crop_boxes[0][dem_iter][image_iter]
+                   << std::endl;
+          
+          if (crop_boxes[0][dem_iter][image_iter].empty()) 
+            opt.skip_images[dem_iter].insert(image_iter);
+        }
+      }
+    }
+
+    // Compute the boxes at lower resolutions
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       
       // Make the crop boxes lower left corner be multiple of 2^level

@@ -17,6 +17,12 @@ but takes a while to process, smaller tiles can be used to
 start more simultaneous processes (use the parameters ``--tile-size``
 and ``--num-processes``).
 
+It is important to note that processing more tiles at a time may
+actually slow things down, if all processes write to the same disk and
+if processing each tile is dominated by the speed of writing to disk.
+Hence some benchmarking may be necessary for your camera type and
+storage setup.
+
 The grid size, that is the dimension of pixels on the ground, set via
 the ``--tr`` option, should be in units as expected by the
 projection string obtained either from the DEM to project onto, or, if
@@ -123,11 +129,11 @@ Command-line options for mapproject:
     List of available computing nodes.
 
 --tile-size
-    Size of square tiles to break up processing into (each tile is run
-    by an individual process). The default is 1024 pixels for ISIS cameras,
-    as then each process is single-threaded, and 5120 pixels for other
-    cameras, as such a process is multi-threaded, and disk I/O becomes
-    a bigger consideration.
+    Size of square tiles to break up processing into. Each tile is run
+    by an individual process. The default is 1024 pixels for ISIS
+    cameras, as then each process is single-threaded, and 5120 pixels
+    for other cameras, as such a process is multi-threaded, and disk
+    I/O becomes a bigger consideration.
 
 --no-geoheader-info
     Do not write information in the geoheader. Otherwise mapproject will

@@ -10,6 +10,9 @@ and cameras, a DEM at roughly the same resolution as the
 images, and returns a refined DEM. This chapter shows in a lot of
 detail how this tool is to be used.
 
+Overview
+--------
+
 ``sfs`` works with any cameras supported by ASP, for Earth and other
 planets. The option ``--sun-positions`` can be used to to specify the
 Sun position for each image. For ISIS and CSM cameras, if this option
@@ -108,6 +111,52 @@ various images. If they point in different directions in the images
 and perhaps also have different lengths, that means that illumination
 conditions are different enough, which will help constrain the ``sfs``
 problem better.
+
+.. _sfs_isis_vs_csm:
+
+ISIS vs CSM models
+------------------
+
+CSM (:numref:`csm`) is a modern sensor model which can be used with
+multiple threads, and can be on the order of 7-15 times faster than the
+ISIS .cub model it is meant to replace, as benchmarked with
+``mapproject``, ``bundle_adjust``, and ``sfs``.
+
+However, as of early 2022, the CSM model does not always correctly
+approximate the corresponding ISIS model following the procedure in
+:numref:`create_csm`.
+
+Given a dataset of ISIS .cub camera files it is desired to run SfS on,
+it is suggested to attempt to convert them to corresponding CSM models
+as mentioned earlier, and if the pixel errors as output by
+``cam_test`` are no more than the order of 0.5 pixels, to use the CSM
+models instead of the ISIS ones in all the tools outlined below. The
+DEMs obtained with these two methods were observed to differ by
+several millimeters at most, on average, but an evaluation may be
+necessary for your particular case.
+
+This will work only for datasets at full resolution, so not when the 
+``reduce`` command is used to downsample the data.
+
+Any of the commands further down which only use .cub files can be
+adapted for use with CSM cameras by appending to those commands the
+CSM .json cameras in the same order as the .cub files, from which only
+the image information will then be used, with the camera information
+coming from the .json files.
+
+For example, if ``sfs`` is run with an ISIS camera as::
+
+  sfs --use-approx-camera-models --crop-input-images \
+    input_dem.tif image.cub -o sfs_isis/run
+
+then, the corresponding command using the CSM model will be::
+
+  sfs --crop-input-images                           \
+    input_dem.tif image.cub image.json -o sfs_csm/run
+
+The option ``--use-approx-camera-models`` is no longer necessary
+as the CSM model is fast enough. It is however suggested to still
+keep the ``--crop-input-images`` option. 
 
 Running SfS at 1 meter/pixel using a single image
 -------------------------------------------------
@@ -683,8 +732,12 @@ angle is printed when running ``sfs`` with the ``--query`` option on the
 
 (the Sun azimuth is shown on the right, in degrees). These were then
 mapprojected onto the reference DEM at 1 m/pixel using the South Pole
-stereographic projection specified in this DEM. The
-``parallel_bundle_adjust`` tool is employed to co-register the images
+stereographic projection specified in this DEM.
+
+Consider using here CSM models instead of ISIS models, as mentioned in
+:numref:`sfs_isis_vs_csm`.
+
+The ``parallel_bundle_adjust`` tool is employed to co-register the images
 and correct camera errors.
 
 ::

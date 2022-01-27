@@ -809,23 +809,32 @@ Then create a conda environment for the ``ale`` package::
     conda activate ale_env
 
 (other versions of Python may result in a runtime error later). 
-Invoke the version of Python for this environment, whose path may be::
 
-    $HOME/miniconda3/envs/ale_env/bin/python
+Create a Python script named ``gen_csm.py``::
 
-on the Python script::
+    #!/usr/bin/python
 
-    import ale
+    import ale, os, sys
 
-    cub_file = 'camera.cub'
-    isd_file = 'camera.json'
+    # Get the input cub
+    cub_file = sys.argv[1]
+    
+    # Form the output cub
+    isd_file = os.path.splitext(cub_file)[0] + '.json'
+    
+    print("Reading: " + cub_file)
     usgscsm_str = ale.loads(cub_file)
-
+        
     print("Writing: " + isd_file)
     with open(isd_file, 'w') as isd_file:
-      isd_file.write(usgscsm_str)
+        isd_file.write(usgscsm_str)
 
-which reads ``camera.cub`` and writes ``camera.json``. To evaluate how
+Assuming that conda installed this environment in the default place,
+run::
+
+    $HOME/miniconda3/envs/ale_env/bin/python gen_csm.py camera.cub
+
+This reads ``camera.cub`` and writes ``camera.json``. To evaluate how
 well the obtained CSM camera approximates the ISIS camera model, run
 the program ``cam_test`` shipped with ASP (:numref:`cam_test`) as
 follows::
