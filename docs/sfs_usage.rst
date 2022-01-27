@@ -79,8 +79,8 @@ not be the right choice for other planetary bodies, hence some
 research may be needed to decide the correct model for your
 application.
 
-How to get good test images
----------------------------
+How to get images
+-----------------
 
 We obtain the images from http://wms.lroc.asu.edu/lroc/search (we search
 for EDR images of type NACL and NACR).
@@ -777,9 +777,15 @@ as above, with ``--save-intermediate-cameras``. One may also
 consider reducing ``--overlap-limit`` to perhaps 20 though
 there is some risk in doing that if images fail to overlap enough.
 
-A very critical part of the process is aligning the obtained cameras to
-the ground::
+A very critical part of the process is to move from the coordinate
+system of the cameras to the coordinate system of the ground in
+``ref.tif``. For that, we perform an alignment transform from the
+sparse cloud::
 
+    ba/run-final_residuals_pointmap.csv  
+
+in camera coordinates to ``ref.tif``::
+ 
     pc_align --max-displacement 400 --save-transformed-source-points  \
       --compute-translation-only                                      \
       --csv-format '1:lon 2:lat 3:height_above_datum' ref.tif         \
@@ -802,7 +808,7 @@ The flag ``--compute-translation-only`` turned out to be necessary as
 ``pc_align`` was introducing a bogus rotation.
 
 The obtained alignment transform can be applied to the cameras to make
-them aligned to the ground::
+them aligned to the ground in ``ref.tif``::
 
     mkdir -p ba_align
     bundle_adjust --initial-transform ba/run-transform.txt       \
