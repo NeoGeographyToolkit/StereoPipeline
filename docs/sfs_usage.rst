@@ -616,8 +616,7 @@ SfS and alignment in LOLA's coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The alternative to the approach above is to work in the LOLA coordinate
-system. This requires moving the DEM clip (and later the cameras) to 
-the coordinate system of the LOLA dataset::
+system. This requires transforming the DEM clip (and later the cameras)::
 
     pc_align --max-displacement 280                  \
       run_stereo_yesba_sub4/run-crop-DEM.tif         \
@@ -625,7 +624,7 @@ the coordinate system of the LOLA dataset::
       --save-inv-transformed-reference-points        \
       -o run_align/run 
 
-The transformed clip, now in LOLA coordinates, needs to be regridded::
+The resulting cloud needs to be regridded::
 
     point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003 \
       run_align/run-trans_reference.tif --tr 4
