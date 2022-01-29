@@ -134,7 +134,7 @@ dependencies:
   - tk=8.6.10=h0419947_1
   - tnt=126=0
   - tzcode=2021a=h0d85af4_2
-  - usgscsm=1.5.2=ha5a8b8e_0
+  - usgscsm=1.5.2
   - wheel=0.36.2=pyhd3deb0d_0
   - x264=20131218=0
   - xerces-c=3.1.4=h10f7eb2_0

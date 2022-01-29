@@ -163,7 +163,7 @@ dependencies:
   - tk=8.6.10=hbc83047_0
   - tnt=126=0
   - tzcode=2021a=h7f98852_2
-  - usgscsm=1.5.2=h2bc3f7f_0
+  - usgscsm=1.5.2
   - wheel=0.37.0=pyhd3eb1b0_0
   - x264=20131218=0
   - xerces-c=3.1.4=0

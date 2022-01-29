@@ -156,7 +156,6 @@ int main(int argc, char *argv[]) {
         Vector3 cam1_ctr = cam1_model->camera_center(image_pix);
         Vector3 cam2_ctr = cam2_model->camera_center(image_pix);
         ctr_diff.push_back(norm_2(cam1_ctr - cam2_ctr));
-
         Vector3 cam1_dir = cam1_model->pixel_to_vector(image_pix);
         Vector3 cam2_dir = cam2_model->pixel_to_vector(image_pix);
         dir_diff.push_back(norm_2(cam1_dir - cam2_dir));
@@ -166,13 +165,12 @@ int main(int argc, char *argv[]) {
         Vector3 xyz = vw::cartography::datum_intersection(datum, cam1_ctr, cam1_dir);
         Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
-        
+
         // Shoot a ray from the cam2 camera, intersect it with the datum,
         // and project it back into the cam1 camera.
         xyz = vw::cartography::datum_intersection(datum, cam2_ctr, cam2_dir);
         Vector2 cam1_pix = cam1_model->point_to_pixel(xyz);
         cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
-        
       }
     }
 

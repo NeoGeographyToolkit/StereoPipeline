@@ -56,7 +56,7 @@ Command-line options:
 
 --float-exposure
     Float the exposure for each image. Will give incorrect results
-    if only one image is present.
+    if only one image is present. It usually gives marginal results.
 
 --float-cameras
     Float the camera pose for each image except the first one. It is
@@ -127,9 +127,9 @@ Command-line options:
 --coarse-levels <integer (default: 0)>
     Solve the problem on a grid coarser than the original by a
     factor of 2 to this power, then refine the solution on finer
-    grids. Experimental.
+    grids. Experimental. It is suggested to not use this opiton.
 
---max-coarse-iterations <integer (default: 50)>
+--max-coarse-iterations <integer (default: 10)>
     How many iterations to do at levels of resolution coarser than
     the final result.
 

@@ -232,7 +232,9 @@ Install ASP with the command::
 
     conda install stereo-pipeline==3.0.0
 
-This will install ASP 3.0.0 together with ISIS 5.0.1.
+This will install ASP 3.0.0 together with ISIS 5.0.1. Note that the
+latest build (see above) may have more fixes or features than this
+official release.
 
 If using ISIS, the environmental variable ISISROOT should be set to
 point to this distribution, such as::
@@ -245,7 +247,7 @@ Check that the ``stereo`` command can be found as::
 
 Some variability may exist in the precise dependencies fetched by
 conda. For the record, the full environment for this release can be
-found as a set of .yaml files in the ``conda/`` subdirectory of the
+found as a set of .yaml files in the ``conda`` subdirectory of the
 Stereo Pipeline GitHub repository. So, alternatively, the installation
 can happen as::
 

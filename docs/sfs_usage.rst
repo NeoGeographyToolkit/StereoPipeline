@@ -122,18 +122,14 @@ multiple threads, and can be on the order of 7-15 times faster than the
 ISIS .cub model it is meant to replace, as benchmarked with
 ``mapproject``, ``bundle_adjust``, and ``sfs``.
 
-However, as of early 2022, the CSM model does not always correctly
-approximate the corresponding ISIS model following the procedure in
-:numref:`create_csm`.
-
 Given a dataset of ISIS .cub camera files it is desired to run SfS on,
 it is suggested to attempt to convert them to corresponding CSM models
-as mentioned earlier, and if the pixel errors as output by
-``cam_test`` are no more than the order of 0.5 pixels, to use the CSM
-models instead of the ISIS ones in all the tools outlined below. The
-DEMs obtained with these two methods were observed to differ by
-several millimeters at most, on average, but an evaluation may be
-necessary for your particular case.
+as described in :numref:`create_csm`, and if the pixel errors as
+output by ``cam_test`` are no more than the order of 0.5 pixels, to
+use the CSM models instead of the ISIS ones in all the tools outlined
+below. The DEMs obtained with these two methods were observed to
+differ by several millimeters at most, on average, but an evaluation
+may be necessary for your particular case.
 
 This will work only for datasets at full resolution, so not when the 
 ``reduce`` command is used to downsample the data.
@@ -300,13 +296,13 @@ that shape-from-shading is highly sensitive to errors in camera
 position and orientation. It is suggested to bundle-adjust the cameras
 first (:numref:`bundle_adjust`). 
 
-It is important to note that bundle
-adjustment may fail if the images have sufficiently different
-illumination, as it will not be able to find matches among images. 
-A solution to this is discussed in :numref:`sfs-lola`, and it amounts to
-bridging the gap between images with dis-similar illumination with
-more images of intermediate illumination. It is suggested that these
-images be sorted by Sun azimuth angle, then they should be
+It is important to note that bundle adjustment may fail if the images
+have sufficiently different illumination, as it will not be able to
+find matches among images. A solution to this is discussed in
+:numref:`sfs-lola-comparison`, and it amounts to bridging the gap
+between images with dis-similar illumination with more images of
+intermediate illumination. It is suggested that these images be sorted
+by Sun azimuth angle (see :numref:`sfs-lola-dem`), then they should be
 mapprojected, and visual inspection be used to verify that the
 illumination is changing gradually. The bundle adjustment program
 should be invoked with the images sorted this way.
@@ -369,10 +365,10 @@ guess for SfS using ``pc_align``::
       --save-inv-transformed-reference-points
 
 This step is extremely important. Since we ran two bundle adjustment
-steps, and both were without ground control points, the resulting clouds
-may differ by a large translation, which we correct here. Hence we would
-like to make the “ground truth” terrain aligned with the datasets on
-which we will perform SfS.
+steps, and both were without ground control points, the resulting
+clouds may differ by a large translation, which we correct here. Hence
+we would like to make the “ground truth” terrain aligned with the
+datasets on which we will perform SfS.
 
 Next we create the “ground truth” DEM from the aligned high-resolution
 point cloud, and crop it to a desired region::
@@ -405,22 +401,22 @@ usually.
     sfs -i run_sub10/run-crop-DEM.tif A_crop_sub10.cub C_crop_sub10.cub \
       D_crop_sub10.cub -o sfs_sub10_ref1/run --threads 4                \
       --smoothness-weight 0.12 --initial-dem-constraint-weight 0.0001   \
-      --reflectance-type 1 --float-exposure                             \
-      --float-cameras --use-approx-camera-models                        \
+      --reflectance-type 1 --use-approx-camera-models                   \
       --max-iterations 10  --crop-input-images                          \
       --bundle-adjust-prefix run_ba_sub10/run                           \
       --shadow-thresholds '0.00162484 0.0012166 0.000781663'
 
-It is suggested to normally not float the cameras as done here, at least in a 
-first experiment, as that should be done by bundle adjustment, and
-``sfs`` will likely not arrive at a good solution for the cameras on its own.
+It is suggested to not float the cameras, as that should be done by
+bundle adjustment, and ``sfs`` will likely not arrive at a good
+solution for the cameras on its own.  Floating the exposures is likely
+also unnecessary.
 
 After this command finishes, we compare the initial guess to ``sfs`` to
 the “ground truth” DEM obtained earlier and the same for the final
 refined DEM using ``geodiff`` as in the previous section. Before SfS::
 
     geodiff --absolute run_full2/run-crop-DEM.tif \
-    run_sub10/run-crop-DEM.tif -o out
+      run_sub10/run-crop-DEM.tif -o out
     gdalinfo -stats out-diff.tif | grep Mean=  
 
 and after SfS::
@@ -453,19 +449,19 @@ otherwise the image will show as shifted from its true location::
    from ``sfs``, the “ground truth” DEM, and the first of the images
    used in SfS map-projected onto the optimized DEM.
 
-.. _sfs-lola:
+.. _sfs-lola-comparison:
 
-Dealing with large camera errors and LOLA comparison
-----------------------------------------------------
+SfS with big illumination changes and comparison with LOLA
+----------------------------------------------------------
 
 SfS is very sensitive to errors in camera positions and orientations.
-These can be optimized as part of the problem, but if they are too far
-off, the solution will not be correct. As discussed earlier, bundle
-adjustment should be used to correct these errors, and if the images
-have different enough illumination that bundle adjustment fails, one
-should add new images with intermediate illumination conditions (while
-sorting the full set of images by azimuth angle and verifying visually
-by mapprojection the gradual change in illumination).
+As discussed earlier, bundle adjustment should be used to correct
+these errors, and if the images have different enough illumination
+that bundle adjustment fails, one should add new images with
+intermediate illumination conditions (while sorting the full set of
+images by azimuth angle and verifying visually by mapprojection the
+gradual change in illumination, as described in
+:numref:`sfs-lola-dem`).
 
 As a fallback alternative, interest point matches among the images can
 be selected manually. Picking about 4 interest pints in each image may
@@ -481,6 +477,9 @@ by a factor of 4, making them nominally 4 m/pixel. This is not strictly
 necessary, the same exercise can be repeated with the original images,
 but it is easier to see the improvement due to SfS when comparing to
 LOLA when the images are coarser than the LOLA error itself.
+
+Initial terrain creation
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 We work with the same images as before. They are resampled as follows::
 
@@ -506,7 +505,7 @@ and here just the relevant commands are shown.
 
     for f in A B C D; do 
       mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif \
-        ${f}_crop_sub4.cub ${f}_crop_sub4_v1.tif         \
+        ${f}_crop_sub4.cub ${f}_crop_sub4.noba.tif       \
         --tile-size 128
     done
 
@@ -515,14 +514,13 @@ happen here. Those should be saved using the output prefix expected below.)
 
 ::
 
-    P='A_crop_sub4_v1.tif B_crop_sub4_v1.tif' # to avoid long lines below
-    Q='C_crop_sub4_v1.tif D_crop_sub4_v1.tif'           
+    mapped_images=$(echo {A,B,C,D}_crop_sub4.noba.tif)
+    dem=run_stereo_noba_sub4/run-DEM.tif
     bundle_adjust A_crop_sub4.cub B_crop_sub4.cub C_crop_sub4.cub  \
       D_crop_sub4.cub                                              \
-      --mapprojected-data "$P $Q run_stereo_noba_sub4/run-DEM.tif" \
+      --mapprojected-data "$mapped_images $dem"                    \
       --num-iterations 100 --save-intermediate-cameras             \
-      --min-matches 1                                              \
-      -o run_ba_sub4/run  
+      --min-matches 1 -o run_ba_sub4/run  
 
 An illustration is shown in :numref:`sfs3`.
 
@@ -555,7 +553,7 @@ with bundle-adjusted images::
 
     for f in A B C D; do 
       mapproject --tr 4 run_stereo_yesba_sub4/run-DEM.tif      \
-        ${f}_crop_sub4.cub ${f}_crop_sub4_v2.tif               \
+        ${f}_crop_sub4.cub ${f}_crop_sub4.ba.tif               \
         --tile-size 128 --bundle-adjust-prefix run_ba_sub4/run
     done
 
@@ -566,30 +564,33 @@ This will also show where the images overlap, and hence on what
 portion of the DEM we can run SfS. We select a clip for that as
 follows::
 
-    gdal_translate -srcwin 138 347 273 506                             \
-      run_stereo_yesba_sub4/run-DEM.tif                                \
-      run_stereo_yesba_sub4/run-crop1-DEM.tif 
+    gdal_translate -srcwin 138 347 273 506   \
+      run_stereo_yesba_sub4/run-DEM.tif      \
+      run_stereo_yesba_sub4/run-crop-DEM.tif 
 
-Then run SfS on that clip::
+SfS and alignment in current DEM's coordinate system
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    sfs -i run_stereo_yesba_sub4/run-crop1-DEM.tif A_crop_sub4.cub     \
-      C_crop_sub4.cub D_crop_sub4.cub                                  \
-      -o sfs_sub4_ref1_th_reg0.12_wt0.001/run                          \
-      --shadow-thresholds '0.00149055 0.00138248 0.000747531'          \
-      --threads 4 --smoothness-weight 0.12                             \
-      --initial-dem-constraint-weight 0.001 --reflectance-type 1       \
-      --float-exposure --float-cameras --max-iterations 20             \
-      --use-approx-camera-models --crop-input-images                   \
-      --bundle-adjust-prefix run_ba_sub4/run
+We would like to compare the DEM clip, before and after SfS, to measured 
+LOLA data. For that, an alignment of the two is first necessary. 
+Here we will bring the LOLA data in DEM's coordinate system, as that seems
+simpler, and later we will discuss the reverse approach.
+ 
+Run SfS::
 
-See the earlier note about perhaps considering not floating the cameras.
+    sfs -i run_stereo_yesba_sub4/run-crop-DEM.tif A_crop_sub4.cub \
+      C_crop_sub4.cub D_crop_sub4.cub                             \
+      -o sfs_sub4_ref1_th_reg0.12_wt0.001/run                     \
+      --shadow-thresholds '0.00149055 0.00138248 0.000747531'     \
+      --threads 4 --smoothness-weight 0.12                        \
+      --initial-dem-constraint-weight 0.001 --reflectance-type 1  \
+      --max-iterations 10 --use-approx-camera-models              \
+      --crop-input-images --bundle-adjust-prefix run_ba_sub4/run
 
-We fetch the portion of the LOLA dataset around the current DEM from the
+Fetch the portion of the LOLA dataset around the current DEM from the
 site described earlier, and save it as
-``RDR_354E355E_85p5S84SPointPerRow_csv_table.csv``. It is necessary to
-align our stereo DEM with this dataset to be able to compare them. We
-choose to bring the LOLA dataset into the coordinate system of the DEM,
-using::
+``RDR_354E355E_85p5S84SPointPerRow_csv_table.csv``. Bring the LOLA
+dataset into the coordinate system of the DEM::
 
     pc_align --max-displacement 280 run_stereo_yesba_sub4/run-DEM.tif \
       RDR_354E355E_85p5S84SPointPerRow_csv_table.csv                  \
@@ -599,7 +600,7 @@ Then we compare to the aligned LOLA dataset the input to SfS and its
 output::
 
     geodiff --absolute -o beg --csv-format '1:lon 2:lat 3:radius_km' \
-      run_stereo_yesba_sub4/run-crop1-DEM.tif                        \
+      run_stereo_yesba_sub4/run-crop-DEM.tif                        \
       run_stereo_yesba_sub4/run-trans_source.csv
     geodiff --absolute -o end --csv-format '1:lon 2:lat 3:radius_km' \
       sfs_sub4_ref1_th_reg0.12_wt0.001/run-DEM-final.tif             \
@@ -608,6 +609,65 @@ output::
 We see that the mean error between the DEM and LOLA goes down, after
 SfS, from 1.14 m to 0.90 m, while the standard deviation decreases from
 1.18 m to 1.06 m.
+
+.. _sfs-move-cameras:
+
+SfS and alignment in LOLA's coordinates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The alternative to the approach above is to work in the LOLA coordinate
+system. This requires moving the DEM clip (and later the cameras) to 
+the coordinate system of the LOLA dataset::
+
+    pc_align --max-displacement 280                  \
+      run_stereo_yesba_sub4/run-crop-DEM.tif         \
+      RDR_354E355E_85p5S84SPointPerRow_csv_table.csv \
+      --save-inv-transformed-reference-points        \
+      -o run_align/run 
+
+The transformed clip, now in LOLA coordinates, needs to be regridded::
+
+    point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003 \
+      run_align/run-trans_reference.tif --tr 4
+ 
+obtaining ``run_align/run-trans_reference-DEM.tif``.
+
+The cameras can be moved with ``bundle_adjust``::
+
+    bundle_adjust --input-adjustments-prefix run_ba_sub4/run  \
+      --initial-transform run_align/run-inverse-transform.txt \
+      --apply-initial-transform-only                          \
+      -o ba_align/run
+
+It is very important to note that we used above
+``run-inverse-transform.txt``, which goes from the DEM coordinate
+system to the LOLA one.
+
+It is suggested to mapproject the images using the obtained
+bundle-adjusted cameras onto the obtained DEM, and check for alignment
+errors. Large ones means that something went wrong. Very small
+alignment errors may be reduced by invoking ``bundle_adjust`` one more
+time, using latest cameras in ``ba_align/run``, with this aligned DEM
+as a constraint, and the option ``--heights-from-dem``, as discussed
+in :numref:`sfs-lola-dem`.
+
+SfS is done as above, while changing the initial terrain and the
+cameras to use the newly aligned versions::
+
+    sfs -i run_align/run-trans_reference-DEM.tif                 \
+      A_crop_sub4.cub C_crop_sub4.cub D_crop_sub4.cub            \
+      -o sfs_align_sub4_ref1_th_reg0.12_wt0.001/run              \
+      --shadow-thresholds '0.00149055 0.00138248 0.000747531'    \
+      --threads 4 --smoothness-weight 0.12                       \
+      --initial-dem-constraint-weight 0.001 --reflectance-type 1 \
+      --max-iterations 10 --use-approx-camera-models             \
+      --crop-input-images --bundle-adjust-prefix ba_align/run
+
+The ``geodiff`` tool can then be used to compare the obtained SfS DEM
+with the original LOLA dataset. Care is needed to populate correctly
+the ``--csv-format`` option of ``geodiff``.
+
+.. _sfs-lola-dem:
 
 Running SfS with an external initial guess DEM and extreme illumination
 -----------------------------------------------------------------------
@@ -792,6 +852,13 @@ in camera coordinates to ``ref.tif``::
       ref.tif ba/run-final_residuals_pointmap.csv                    \
       -o ba/run 
 
+This operation is rather fragile, and the resulting alignment may not
+be sufficiently precise. If among the input images there exists a
+stereo pair, it is suggested to instead align ``ref.tif`` to the DEM
+obtained from that stereo pair, then use that alignment to transform
+the cameras to the coordinate system of ``ref.tif``, before continuing
+with SfS, as shown in :numref:`sfs-move-cameras`.
+
 The value of ``--max-displacement`` could be too high perhaps, it is
 suggested to also experiment with half of that and keep the result that
 has the smaller error.
@@ -847,7 +914,7 @@ inaccurate. Then, one can refine the cameras using the reference
 terrain as a constraint in bundle adjustment::
 
     mkdir -p ba_align_ref
-    /bin/cp -rfv ba_align/* ba_align_ref
+    /bin/cp -rfv ba/* ba_align_ref
     bundle_adjust --skip-matching --num-iterations 20          \ 
       --force-reuse-match-files --num-passes 1                 \
       --input-adjustments-prefix ba_align/run <images>         \
@@ -856,9 +923,10 @@ terrain as a constraint in bundle adjustment::
       --heights-from-dem-robust-threshold 10                   \
       -o ba_align_ref/run
 
-Note the copy command, it is used to save time by not having to
-recreate the match files. It is a recursive copy, and can result
-in large duplicated directories.
+Note the copy command, and the options ``--force-reuse-match-files``
+and ``--skip-matching``. These are used to save time by not having to
+recreate the match files. That is a recursive copy, and can result in
+large duplicated directories.
 
 Ideally one should use more iterations in bundle adjustment though
 this may be slow. It is suggested that the images be map-projected
@@ -867,7 +935,7 @@ improve. If this procedure resulted in improved but imperfect
 alignment, it may be run second time using the new cameras as initial
 guess (and reusing the match files, etc., as before).
 
-The switch --save-intermediate cameras is helpful, as before, if
+The switch ``--save-intermediate cameras`` is helpful, as before, if
 desired to stop if things take too long.
 
 After mapprojecting with the newly refined cameras in
@@ -1140,7 +1208,7 @@ Here are a few suggestions we have found helpful when running ``sfs``:
 
 -  Bundle-adjustment for multiple images is crucial, to eliminate camera
    errors which will result in ``sfs`` converging to a local minimum.
-   This is described in :numref:`sfs-lola`.
+   This is described in :numref:`sfs-lola-comparison`.
 
 - More images with more diverse illumination conditions result in more 
   accurate terrain. Ideally there should be at least 3 images, with the 
@@ -1150,15 +1218,12 @@ Here are a few suggestions we have found helpful when running ``sfs``:
 
 -  Floating the albedo (option ``--float-albedo``) can introduce
    instability and divergence, it should be avoided unless obvious
-   albedo variation is seen in the images.
+   albedo variation is seen in the images. Floating the cameras in SfS
+   should be avoided, as bundle adjustment does a better job. Floating
+   the exposures was shown to produce marginal results.
 
 -  Floating the DEM at the boundary (option ``--float-dem-at-boundary``)
    is also suggested to be avoided.
-
--  Overall, the best strategy is to first use SfS for a single image and
-   not float any variables except the DEM being optimized, and then
-   gradually add images and float more variables and select whichever
-   approach seems to give better results.
 
 - If an input DEM is large, see the earlier section for a detailed recipe.
 

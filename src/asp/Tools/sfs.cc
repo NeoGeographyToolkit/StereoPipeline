@@ -3676,7 +3676,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
      "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
     ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
-     "Float the exposure for each image. Will give incorrect results if only one image is present.")
+     "Float the exposure for each image. Will give incorrect results if only one image is present. It usually gives marginal results.")
     ("float-cameras",   po::bool_switch(&opt.float_cameras)->default_value(false)->implicit_value(true),
      "Float the camera pose for each image except the first one. It is suggested that this option be avoided and bundle adjustment be used instead.")
     ("float-all-cameras",   po::bool_switch(&opt.float_all_cameras)->default_value(false)->implicit_value(true),
@@ -3721,8 +3721,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("use-semi-approx",   po::bool_switch(&opt.use_semi_approx)->default_value(false)->implicit_value(true),
      "This is an undocumented experiment.")
     ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
-     "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids.")
-    ("max-coarse-iterations", po::value(&opt.max_coarse_iterations)->default_value(50),
+     "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids. It is suggested to not use this option.")
+    ("max-coarse-iterations", po::value(&opt.max_coarse_iterations)->default_value(10),
      "How many iterations to do at levels of resolution coarser than the final result.")
     ("crop-input-images",   po::bool_switch(&opt.crop_input_images)->default_value(false)->implicit_value(true),
      "Crop the images to a region that was computed to be large enough, and keep them fully in memory, for speed.")

@@ -3,10 +3,12 @@
 bundle_adjust
 -------------
 
-The ``bundle_adjust`` program performs bundle adjustment on a given set
-of images and cameras. An introduction to bundle adjustment, and some
-advanced usage, including solving for intrinsics, can be found in
-:numref:`bundle_adjustment`.
+The ``bundle_adjust`` program performs bundle adjustment on a given
+set of images and cameras. An introduction to bundle adjustment, and
+some advanced usage, including solving for intrinsics, can be found in
+:numref:`bundle_adjustment`. If it is desired to process a large
+number of images, consider using ``parallel_bundle_adjust``
+(:numref:`parallel_bundle_adjust`).
 
 This tool can use several underlying least-squares minimization
 algorithms, the default is Google’s Ceres Solver
@@ -533,6 +535,9 @@ Command-line options for bundle_adjust
 --force-reuse-match-files
     Force reusing the match files even if older than the images or
     cameras.
+
+--skip-matching
+    Only use image matches which can be loaded from disk.
 
 --enable-rough-homography
     Enable the step of performing datum-based rough homography for
