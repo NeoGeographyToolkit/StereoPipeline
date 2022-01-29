@@ -112,7 +112,8 @@ Vector2 imageCoordToVector(csm::ImageCoord c) {
 // CsmModel class functions
 CsmModel::CsmModel():m_semi_major_axis(0.0),
                      m_semi_minor_axis(0.0),
-                     m_sun_position(vw::Vector3()) {}
+                     m_sun_position(vw::Vector3()),
+                     m_desired_precision(1.0e-8){}
                                       
 CsmModel::CsmModel(std::string const& isd_path) {
   load_model(isd_path);
@@ -520,11 +521,7 @@ Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
 
   csm::EcefCoord  ecef = vectorToEcefCoord(point);
 
-  // TODO(oalexan1): Think about how many digits of precision are
-  // needed here.  For bundle adjustment may need many. But it will
-  // slow down mapproject.
-  double desiredPrecision = 1e-8;
-  double achievedPrecision;
+  double achievedPrecision = -1.0;
   csm::WarningList warnings;
   csm::WarningList * warnings_ptr = NULL;
 
@@ -533,7 +530,7 @@ Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
   if (show_warnings) 
     warnings_ptr = &warnings;
 
-  csm::ImageCoord imagePt = m_csm_model->groundToImage(ecef, desiredPrecision,
+  csm::ImageCoord imagePt = m_csm_model->groundToImage(ecef, m_desired_precision,
 						       &achievedPrecision, warnings_ptr);
 
   if (show_warnings) {
@@ -555,12 +552,10 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   csm::EcefCoord  ctr = m_csm_model->getSensorPosition(imagePt);
 
   // Ground point
-  double desiredPrecision  = 1e-8; 
   double achievedPrecision = -1.0; // will be modified in the function
   double groundHeight      = 0.0;
-  csm::EcefCoord groundPt = m_csm_model->imageToGround(imagePt, groundHeight, desiredPrecision,
+  csm::EcefCoord groundPt = m_csm_model->imageToGround(imagePt, groundHeight, m_desired_precision,
                                                        &achievedPrecision);
-  
 
   // Normalized direction
   Vector3 dir0 = ecefCoordToVector(groundPt) - ecefCoordToVector(ctr);
@@ -576,7 +571,7 @@ Vector3 CsmModel::pixel_to_vector(Vector2 const& pix) const {
   // This function generates the vector from the camera at the camera origin,
   //  there is a different call that gets the vector near the ground.
   csm::EcefLocus locus = m_csm_model->imageToRemoteImagingLocus(imagePt,
-                                                                desiredPrecision,
+                                                                m_desired_precision,
                                                                 &achievedPrecision);
   Vector3 dir = ecefVectorToVector(locus.direction);
 

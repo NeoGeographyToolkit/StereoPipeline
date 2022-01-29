@@ -288,11 +288,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 // We store the tabulated values as a tif file, and modified
 // the routine to be callable from this executable.
 
-
-
-
-
-
 int main( int argc, char *argv[] ) {
 
   Options opt;

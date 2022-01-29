@@ -87,6 +87,12 @@ namespace asp {
     vw::Vector3 sun_position() const {
       return m_sun_position;
     }
+
+    // For bundle adjustment need a higher precision as CERES needs to do accurate
+    // numerical differences.
+    void setDesiredPrecision(double desired_precision) {
+      m_desired_precision = desired_precision;
+    }
     
   private:
 
@@ -116,6 +122,8 @@ namespace asp {
     double m_semi_major_axis, m_semi_minor_axis;
 
     vw::Vector3 m_sun_position;
+
+    double m_desired_precision;
     
   }; // End class CsmModel
 

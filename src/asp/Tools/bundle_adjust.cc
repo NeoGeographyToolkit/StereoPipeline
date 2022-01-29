@@ -2482,6 +2482,20 @@ int main(int argc, char* argv[]) {
 
     } // End loop through images loading all the camera models
 
+    // Since CERES does numerical differences, it needs high precision in the inputs.
+    // Inform about that the CSM cameras, which normally settle for less.
+    // TODO(oalexan1): Need to examine other cameras too.
+    if (opt.stereo_session == "csm") {
+      for (size_t icam = 0; icam < opt.camera_models.size(); icam++) {
+        CameraModel * base_cam = vw::camera::unadjusted_model(opt.camera_models[icam]).get();
+        asp::CsmModel * csm_cam = dynamic_cast<asp::CsmModel*>(base_cam);
+        if (csm_cam == NULL) 
+          vw::vw_throw(vw::ArgumentErr() << "Expected a CSM camera model.");
+        // When asked to get a 1.0e-12 precision, at most it delivers 1.0e-11.
+        csm_cam->setDesiredPrecision(1.0e-12); 
+      }
+    }
+
     // Create the match points.
     // Iterate through each pair of input images
 
