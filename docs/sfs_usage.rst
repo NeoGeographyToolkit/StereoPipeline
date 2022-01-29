@@ -924,8 +924,8 @@ terrain as a constraint in bundle adjustment::
 
 Note the copy command, and the options ``--force-reuse-match-files``
 and ``--skip-matching``. These are used to save time by not having to
-recreate the match files. That is a recursive copy, and can result in
-large duplicated directories.
+recreate the match files. If this command fails or exits quickly, there
+is a chance the match files were not copied successfully.
 
 Ideally one should use more iterations in bundle adjustment though
 this may be slow. It is suggested that the images be map-projected

@@ -89,14 +89,18 @@ dem_mosaic:
     different effects on each.
   * Bugfix for hole-filling and blurring. Tile artifacts got removed.
 
+image_calc:
+  * Add the option --no-georef to remove any georeference
+    information in the output image (useful with subsequent GDAL-based
+    processing).
+  * Bugfix: The --input-nodata value, if set, now overrides the value
+    set in the metadata (the previous value then becomes valid).
+
 Misc:
   * Added the tool parse_match_file.py to convert a binary match file
     to text and vice-versa.
   * Add the tool cam_test to compare two different camera models
     for the same image. 
-  * image_calc: Add the option --no-georef to remove any georeference
-    information in the output image (useful with subsequent GDAL-based
-    processing).
   * Stereo and bundle adjustment with RPC cameras now query the RPC
     model for the datum.
   * The cam2rpc program saves its datum which is read when needed by

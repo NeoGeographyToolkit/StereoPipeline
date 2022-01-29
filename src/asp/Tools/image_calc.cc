@@ -604,7 +604,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-file,o", po::value(&opt.output_file), "Output file name.")
     ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())
     ("output-data-type,d",  po::value(&opt.output_data_string)->default_value("float64"), data_type_string.c_str())
-    ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
+    ("input-nodata-value",  po::value(&opt.in_nodata_value), "Set the nodata value for the input images, overriding the value in the images, if present.")
     ("output-nodata-value", po::value(&opt.out_nodata_value), "Value to use for no-data in the output image.")
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-georef",         po::bool_switch(&opt.no_georef)->default_value(false),
@@ -718,23 +718,24 @@ void load_inputs_and_process(Options &opt, const std::string &output_file, const
     boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(input));
     //ChannelTypeEnum channel_type = rsrc->channel_type();
     //PixelFormatEnum pixel_format = rsrc->pixel_format();
-
+    
     // Check for nodata value in the file
-    if ( rsrc->has_nodata_read() ) {
+    if (opt.has_in_nodata) {
+      // User has specified a default nodata value, override its value in the file
+      has_nodata_vec[i]  = true;
+      nodata_vec   [i]  = PixelT(opt.in_nodata_value);
+      opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata.
+      std::cout << "\t--> Using as nodata value: " << nodata_vec[i] << ".\n";
+    }else if (rsrc->has_nodata_read() ) {
       nodata_vec[i] = rsrc->nodata_read();
-      std::cout << "\t--> Extracted nodata value from file: " << nodata_vec[i] << ".\n";
       has_nodata_vec[i] = true;
       opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata.
+      std::cout << "\t--> Extracted nodata value from file: " << nodata_vec[i] << ".\n";
+    } else {
+      std::cout << "\t--> No nodata value present.\n";
+      has_nodata_vec[i] = false;
     }
-    else { // File does not specify nodata
-      if (opt.has_in_nodata) { // User has specified a default nodata value
-        has_nodata_vec[i]  = true;
-        nodata_vec   [i]  = PixelT(opt.in_nodata_value);
-      }
-      else // Don't use nodata for this input
-        has_nodata_vec[i] = false;
-    }
-
+    
     DiskImageView<PixelT> this_disk_image(input);
     input_images[i] = this_disk_image;
 

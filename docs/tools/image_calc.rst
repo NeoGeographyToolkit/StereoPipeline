@@ -43,7 +43,8 @@ Command-line options for image_calc:
     int16, int32, float32, float64.
 
 --input-nodata-value <arg>
-    Set an override nodata value for the input images.
+    Set the nodata value for the input images, overriding the value in
+    the images, if present.
 
 --output-nodata-value
     Manually specify a nodata value for the output image (default
