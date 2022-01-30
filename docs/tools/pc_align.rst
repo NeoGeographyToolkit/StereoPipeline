@@ -271,18 +271,35 @@ after alignment.
 Output point clouds and convergence history
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The transformed input point clouds (the source transformed to match the
-reference, and the reference transformed to match the source) can also
-be saved to disk if desired. If an input point cloud is in CSV or ASP
-point cloud format, the output transformed cloud will be in the same
-format. If the input is a DEM, the output will be an ASP point cloud,
-since a gridded point cloud may not stay so after a 3D transform. The
-``point2dem`` program can be used to re-grid the obtained point cloud
-back to a DEM.
+The transformed input point clouds (the source transformed to match
+the reference, and the reference transformed to match the source) can
+also be saved to disk if desired. If an input point cloud is in CSV,
+ASP point cloud format, or LAS format, the output transformed cloud
+will be in the same format. If the input is a DEM, the output will be
+an ASP point cloud, since a gridded point cloud may not stay so after
+a 3D transform. The ``point2dem`` program can be used to re-grid the
+obtained point cloud back to a DEM.
+
+As an example, assume that ``pc_align`` is run as::
+
+    pc_align --max-displacement 100              \
+      --csv-format '1:x 2:y 3:z'                 \      
+      --save-transformed-source-points           \
+      --save-inv-transformed-reference-points    \
+      ref_dem.tif source.csv                     \
+      -o run/run 
+
+This will save ``run/run-trans_reference.tif`` which is a point cloud
+in the coordinate system of the source dataset, and
+``run/run-trans_source.csv`` which is in reference coordinate system
+of the refrence dataset.
 
 The convergence history for ``pc_align`` (the translation and rotation
-change at each iteration) is saved to disk and can be used to fine-tune
-the stopping criteria.
+change at each iteration) is saved to disk with name like::
+
+    output-prefix-iterationInfo.csv
+ 
+and can be used to fine-tune the stopping criteria.
 
 .. _manual-align:
 

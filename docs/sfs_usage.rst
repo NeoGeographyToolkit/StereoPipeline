@@ -624,7 +624,7 @@ system. This requires transforming the DEM clip (and later the cameras)::
       --save-inv-transformed-reference-points        \
       -o run_align/run 
 
-The resulting cloud needs to be regridded::
+The resulting transformed cloud needs to be regridded::
 
     point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003 \
       run_align/run-trans_reference.tif --tr 4
@@ -1044,7 +1044,8 @@ That alignment transform can then be applied to the full SfS DEM::
 (The number of points being used is not important since we will just
 apply the alignment and transform the full DEM.)
 
-The aligned SfS DEM can be regenerated from the obtained cloud as::
+The aligned SfS DEM can be regenerated from the obtained transformed
+cloud as::
 
     point2dem --tr 1 --search-radius-factor 2 --t_srs projection_str \
       align/run-trans_source.tif
@@ -1083,6 +1084,9 @@ the transform obtained with invoking
 
 If a manual rotation nudge is necessary, use ``pc_align`` with
 ``--initial-rotation-angle``.
+
+The transformed cloud then need to be regridded with ``point2dem``
+as before.
 
 It is very recommended to redo the whole process using the improved
 alignment. First, the alignment transform must be applied to the
