@@ -295,9 +295,9 @@ in the coordinate system of the source dataset, and
 of the refrence dataset.
 
 The convergence history for ``pc_align`` (the translation and rotation
-change at each iteration) is saved to disk with name like::
+change at each iteration) is saved to disk with a name like::
 
-    output-prefix-iterationInfo.csv
+    <output prefix>-iterationInfo.csv
  
 and can be used to fine-tune the stopping criteria.
 
