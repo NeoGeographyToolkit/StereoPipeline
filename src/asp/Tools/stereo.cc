@@ -886,22 +886,34 @@ namespace asp {
     }
   } // End user_safety_checks
 
-
+  // See if user's request to skip image normalization can be
+  // satisfied.  This option is a speedup switch which is only meant
+  // to work with with mapprojected images. It is also not documented.
   bool skip_image_normalization(ASPGlobalOptions const& opt){
 
+    if (!stereo_settings().skip_image_normalization) 
+      return false;
+    
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
     // Respect user's choice for skipping the normalization of the input
     // images, if feasible.
-    return (!crop_left && !crop_right                    &&
-            stereo_settings().skip_image_normalization   &&
-            stereo_settings().alignment_method == "none" &&
-            stereo_settings().cost_mode == 2             &&
-            has_tif_or_ntf_extension(opt.in_file1)       &&
-            has_tif_or_ntf_extension(opt.in_file2));
-  } // End function skip_image_normalization
+    bool is_good = (!crop_left && !crop_right                    &&
+                    stereo_settings().alignment_method == "none" &&
+                    stereo_settings().cost_mode == 2             &&
+                    has_tif_or_ntf_extension(opt.in_file1)       &&
+                    has_tif_or_ntf_extension(opt.in_file2));
 
+    if (!is_good) 
+      vw_throw(ArgumentErr()
+               << "Cannot skip image normalization unless there is no alignment, "
+               << "no use of --left-image-crop-win and --right-image-crop-win, "
+               << "the option --cost-mode is set to 2, and the input images have "
+               << ".tif or .ntf extension.");
+
+    return is_good;
+  } // End function skip_image_normalization
 
   // Convert, for example, 'asp_mgm' to '2'. For ASP algorithms we
   // use the numbers 0 (BM), 1 (SGM), 2 (MGM), 3 (Final MGM).  For
