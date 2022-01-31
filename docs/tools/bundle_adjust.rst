@@ -590,7 +590,7 @@ Command-line options for bundle_adjust
     than one thread and the Ceres option the results will vary
     slightly each time the tool is run.
 
--r, --report-level <integer (default: 10)>
-    Use a value >= 20 to get increasingly more verbose output.
+-v, --version
+    Display the version of software.
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

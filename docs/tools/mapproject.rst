@@ -152,3 +152,6 @@ Command-line options for mapproject:
 
 --tif-compress <None|LZW|Deflate|Packbits>
     TIFF compression method.
+
+-v, --version
+    Display the version of software.

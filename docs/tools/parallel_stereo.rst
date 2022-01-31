@@ -184,3 +184,5 @@ Command-line options
 -h, --help
     Display the help message.
 
+-v, --version
+    Display the version of software.

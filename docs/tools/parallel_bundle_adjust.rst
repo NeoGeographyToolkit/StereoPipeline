@@ -54,3 +54,6 @@ Command-line options for parallel_bundle_adjust:
 
 --threads <integer>
     The number of threads to use.
+
+-v, --version
+    Display the version of software.

@@ -318,10 +318,17 @@ def main(argsIn):
     parser.add_argument('--pixelStopY',  dest='pixelStopY', default=None, type=int,
                                          help=argparse.SUPPRESS)
 
-
+    parser.add_argument('-v', '--version', dest='version',  default=False, action='store_true',
+                        help='Display the version of software.')
+    
     # This call handles all the parallel_mapproject specific options.
     (options, args) = parser.parse_known_args(argsIn)
 
+    if options.version:
+        cmd = "mapproject_single --version"
+        ans = os.system(cmd)
+        sys.exit(0)
+    
     # This will parse all the mapproject options.
     requiredList, optionsList = handleArguments(args)
 
