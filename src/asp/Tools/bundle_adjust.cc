@@ -41,8 +41,6 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
-const int MAX_TRI_FAILURE_WARNINGS = 100;
-
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 
 typedef CameraRelationNetwork<JFeature> CRNJ;
@@ -1322,8 +1320,7 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                                opt.min_matches,
                                                opt.min_triangulation_angle*(M_PI/180),
                                                opt.forced_triangulation_distance,
-                                               opt.max_pairwise_matches,
-                                               MAX_TRI_FAILURE_WARNINGS);
+                                               opt.max_pairwise_matches);
   if (!opt.apply_initial_transform_only){
     if (!success) {
       vw_out() << "Failed to build a control network. Consider removing "
@@ -1429,15 +1426,14 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
     /*bool success = */
     // Building the control network below may fail if there are only GCP,
     // but we will continue nevertheless.
-    vw::ba::build_control_network( true, // Always have input cameras
-                                   cnet, new_cam_models,
-                                   opt.image_files,
-                                   opt.match_files,
-                                   opt.min_matches,
-                                   opt.min_triangulation_angle*(M_PI/180),
-                                   opt.forced_triangulation_distance,
-                                   opt.max_pairwise_matches,
-                                   MAX_TRI_FAILURE_WARNINGS);
+    vw::ba::build_control_network(true, // Always have input cameras
+                                  cnet, new_cam_models,
+                                  opt.image_files,
+                                  opt.match_files,
+                                  opt.min_matches,
+                                  opt.min_triangulation_angle*(M_PI/180),
+                                  opt.forced_triangulation_distance,
+                                  opt.max_pairwise_matches);
     
     // Restore the rest of the cnet object
     vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
