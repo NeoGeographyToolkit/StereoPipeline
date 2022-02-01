@@ -41,6 +41,8 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
+const int MAX_TRI_FAILURE_WARNINGS = 100;
+
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 
 typedef CameraRelationNetwork<JFeature> CRNJ;
@@ -1319,7 +1321,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                                opt.match_files,
                                                opt.min_matches,
                                                opt.min_triangulation_angle*(M_PI/180),
-                                               opt.forced_triangulation_distance);
+                                               opt.forced_triangulation_distance,
+                                               opt.max_pairwise_matches,
+                                               MAX_TRI_FAILURE_WARNINGS);
   if (!opt.apply_initial_transform_only){
     if (!success) {
       vw_out() << "Failed to build a control network. Consider removing "
@@ -1431,7 +1435,9 @@ void do_ba_ceres(Options & opt, std::vector<Vector3> const& estimated_camera_gcc
                                    opt.match_files,
                                    opt.min_matches,
                                    opt.min_triangulation_angle*(M_PI/180),
-                                   opt.forced_triangulation_distance);
+                                   opt.forced_triangulation_distance,
+                                   opt.max_pairwise_matches,
+                                   MAX_TRI_FAILURE_WARNINGS);
     
     // Restore the rest of the cnet object
     vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
@@ -1679,6 +1685,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
      "Set the minimum  number of matches between images that will be considered.")
+    ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(5000),
+     "Reduce the number of matches per pair of images to at most this "
+     "number, by selecting a random subset, if needed. This happens "
+     "when setting up the optimization, and before outlier filtering.")
     ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
      "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
     ("epipolar-threshold",      po::value(&opt.epipolar_threshold)->default_value(-1),
@@ -1968,6 +1978,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "When using a camera position file, the csv-format "
               << "option must be set.\n" << usage << general_options );
 
+  if (opt.max_pairwise_matches <= 0) 
+    vw_throw( ArgumentErr() << "Must have a positive number of max pairwise matches.\n"
+              << usage << general_options );
+  
   // Copy the IP settings to the global stereo_settings() object
   opt.copy_to_asp_settings();
 

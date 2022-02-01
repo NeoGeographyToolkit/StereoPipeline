@@ -238,6 +238,11 @@ Command-line options for bundle_adjust
 --min-matches <integer (default: 30)>
     Set the minimum number of matches between images that will be considered.
 
+--max-pairwise-matches <integer (default: 5000)>
+    Reduce the number of matches per pair of images to at most this
+    number, by selecting a random subset, if needed. This happens
+    when setting up the optimization, and before outlier filtering.
+
 --num-iterations <integer (default: 100)>
     Set the maximum number of iterations.
 

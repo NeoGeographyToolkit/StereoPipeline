@@ -89,6 +89,8 @@ namespace isis {
     boost::scoped_ptr<Isis::Camera> m_camera;
     boost::scoped_ptr<Isis::Cube  > m_cube;
 
+    vw::cartography::Datum m_datum;
+    
     friend std::ostream& operator<<( std::ostream&, IsisInterface* );
   };
 

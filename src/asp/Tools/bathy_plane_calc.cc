@@ -32,6 +32,7 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Core/ThreadPool.h>
+#include <vw/Math/RandomSet.h>
 
 #include <Eigen/Dense>
 
@@ -350,24 +351,23 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
   
 #endif
   
-  // See if to select a subset
   int num_pts = point_vec.size();
   if (num_pts > num_samples) {
     vw_out() << "Found " << num_pts << " points but only " << num_samples
              << " samples are desired. Picking a random subset of this size.\n";
 
+    // Select a subset
     std::vector<int> v(num_pts);
     for (int it = 0; it < num_pts; it++) 
       v[it] = it;
-    std::mt19937 g; // Each time this is run same random numbers should be produced
-    std::shuffle(v.begin(), v.end(), g);
+    std::vector<int> w;
+    vw::math::pick_random_subset(num_pts, num_samples, v, w);
     
     std::vector<Eigen::Vector3d> big_point_vec     = point_vec;     point_vec.clear();
     std::vector<vw::Vector3>     big_llh_vec       = llh_vec;       llh_vec.clear();
     std::vector<vw::Vector2>     big_used_vertices = used_vertices; used_vertices.clear();
-
-    for (int it = 0; it < num_samples; it++) {
-      int random_index = v[it];
+    for (size_t it = 0; it < w.size(); it++) {
+      int random_index = w[it];
       point_vec.push_back(big_point_vec[random_index]);
       llh_vec.push_back(big_llh_vec[random_index]);
       used_vertices.push_back(big_used_vertices[random_index]);

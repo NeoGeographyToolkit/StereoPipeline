@@ -52,6 +52,12 @@ IsisInterface::IsisInterface(std::string const& file) {
   // Opening Isis::Camera
   m_cube.reset(new Isis::Cube(QString::fromStdString(file)));
   m_camera.reset(Isis::CameraFactory::Create(*m_cube));
+
+  // Set the datum
+  // TODO(oalexan1): This is fragile. Need to find the right internal ISIS
+  // function to use to convert ECEF to lon-lat-height and vice-versa.
+  bool use_sphere_for_datum = false;
+  m_datum = this->get_datum(use_sphere_for_datum);
 }
 
 IsisInterface::~IsisInterface() {}

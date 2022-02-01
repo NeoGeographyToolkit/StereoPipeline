@@ -86,9 +86,14 @@ We obtain the images from http://wms.lroc.asu.edu/lroc/search (we search
 for EDR images of type NACL and NACR).
 
 A faster (but not as complete) interface is provided by
-http://ode.rsl.wustl.edu/moon/indexproductsearch.aspx. The related site
-http://ode.rsl.wustl.edu/moon/indextools.aspx?displaypage=lolardr can
-provide LOLA datasets which can be used as (sparse) ground truth.
+http://ode.rsl.wustl.edu/moon/indexproductsearch.aspx.
+This site allows for bulk downloads, but does not permit datasets
+bigger than several tens of GB, so several attempts may be necessary.
+
+The related site http://ode.rsl.wustl.edu/moon/indextools.aspx?displaypage=lolardr 
+can provide LOLA datasets which can be used as (sparse) ground truth.
+
+If desired to use gridded LOLA DEMs, see :numref:`sfs-lola-dem`.
 
 We advise the following strategy for picking images. First choose a
 small longitude-latitude window in which to perform a search for
@@ -111,6 +116,9 @@ various images. If they point in different directions in the images
 and perhaps also have different lengths, that means that illumination
 conditions are different enough, which will help constrain the ``sfs``
 problem better.
+
+An example for how to download and prepare the datasets is shown
+in :numref:`sfs_single_image`.
 
 .. _sfs_isis_vs_csm:
 
@@ -154,6 +162,8 @@ The option ``--use-approx-camera-models`` is no longer necessary
 as the CSM model is fast enough. It is however suggested to still
 keep the ``--crop-input-images`` option. 
 
+.. _sfs_single_image:
+
 Running SfS at 1 meter/pixel using a single image
 -------------------------------------------------
 
@@ -166,23 +176,28 @@ We first retrieve the data sets.
 
 ::
 
-    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
-         LROLRC_0005/DATA/SCI/2010267/NAC/M139939938LE.IMG
-    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
-         LROLRC_0005/DATA/SCI/2010267/NAC/M139946735RE.IMG
-    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
-         LROLRC_0009/DATA/SCI/2011284/NAC/M173004270LE.IMG
-    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/ \
-         LROLRC_0002/DATA/MAP/2010062/NAC/M122270273LE.IMG
+    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0005/DATA/SCI/2010267/NAC/M139939938LE.IMG
+    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0005/DATA/SCI/2010267/NAC/M139946735RE.IMG
+    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0009/DATA/SCI/2011284/NAC/M173004270LE.IMG
+    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010062/NAC/M122270273LE.IMG
 
 Then we convert them to ISIS cubes, initialize the SPICE kernels, and
 perform radiometric calibration and echo correction. Here are the steps,
 illustrated on the first image::
 
-    lronac2isis from = M139939938LE.IMG     to = M139939938LE.cub
-    spiceinit   from = M139939938LE.cub
-    lronaccal   from = M139939938LE.cub     to = M139939938LE.cal.cub
-    lronacecho  from = M139939938LE.cal.cub to = M139939938LE.cal.echo.cub
+    f=M139939938LE
+    lronac2isis from = ${f}.IMG     to = ${f}.cub
+    spiceinit   from = ${f}.cub
+    lronaccal   from = ${f}.cub     to = ${f}.cal.cub
+    lronacecho  from = ${f}.cal.cub to = ${f}.cal.echo.cub
+
+It can be convenient to create preview versions of these datasets, at
+10% of original resolution, for the purpose of inspection. That is
+done as follows::
+
+    f=M139939938LE
+    reduce from = ${f}.cal.echo.cub to = ${f}.cal.echo.sub10.cub  \
+      sscale = 10 lscale = 10
 
 We rename, for simplicity, the obtained four processed datasets to
 A.cub, B.cub, C.cub, and D.cub.
@@ -355,6 +370,10 @@ commands analogous to the above::
       run_sub10/run --subpixel-mode 3                   \
      --bundle-adjust-prefix run_ba_sub10/run
 
+Here we used an outrageous value for ``--ip-per-tile``, as this was a
+small clip, and likely there are not many matches. Normally, a value
+of 500 for this parameter is sufficient.
+ 
 We’ll obtain a point cloud named ``run_sub10/run-PC.tif``.
 
 We’ll bring the “ground truth” point cloud closer to the initial
@@ -803,7 +822,8 @@ and correct camera errors.
 
     parallel_bundle_adjust --processes 8 --ip-per-tile 1000  \
       --overlap-limit 30 --num-iterations 100 --num-passes 2 \
-      --min-matches 1 --datum D_MOON <images>                \
+      --min-matches 1 --max-pairwise-matches 4000            \
+      --datum D_MOON <images>                                \
       --mapprojected-data '<mapprojected images> ref.tif'    \
       --save-intermediate-cameras --match-first-to-last      \
       --min-triangulation-angle 0.1 -o ba/run 
@@ -814,7 +834,8 @@ was used later for shape-from-shading. Here more bundle adjustment
 iterations are desirable, but this step takes too long. And a large
 ``--ip-per-tile`` can make a difference in images with rather different
 different illumination conditions but it can also slow down the process
-a lot.
+a lot. It is suggested to decrease ``--max-pairwise-matches`` from the 
+current value of 4,000, if it is perceived that the process takes too long.
 
 It is very important to have a lot of images during bundle adjustment,
 to ensure that there are enough overlaps and sufficiently similar

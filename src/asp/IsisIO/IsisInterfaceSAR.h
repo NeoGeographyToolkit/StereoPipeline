@@ -67,11 +67,10 @@ namespace isis {
 
   private:
 
-    // Custom functions
+    // Custom data
     mutable vw::Vector3 m_center;
     mutable vw::Quat    m_pose;
 
-    vw::cartography::Datum m_datum;
   };
 
 }}

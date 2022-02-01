@@ -20,15 +20,19 @@
 #include <vw/Camera/CameraModel.h>
 #include <asp/IsisIO/IsisInterfaceLineScan.h>
 
-#include <algorithm>
-#include <vector>
-
+// Isis headers
 #include <Camera.h>
 #include <CameraDetectorMap.h>
 #include <CameraDistortionMap.h>
 #include <CameraFocalPlaneMap.h>
 #include <iTime.h>
+#include <SurfacePoint.h>
+#include <Latitude.h>
+#include <Longitude.h>
+#include <Angle.h>
 
+#include <algorithm>
+#include <vector>
 #include <boost/smart_ptr/scoped_ptr.hpp>
 
 using namespace vw;
@@ -119,7 +123,8 @@ EphemerisLMA::operator()(EphemerisLMA::domain_type const& x) const {
 Vector2
 IsisInterfaceLineScan::point_to_pixel(Vector3 const& point) const {
 
-  // First seed LMA with an ephemeris time in the middle of the image
+#if 1
+   // First seed LMA with an ephemeris time in the middle of the image
   double middle = lines() / 2;
   m_detectmap->SetParent(1, m_alphacube.AlphaLine(middle));
   double start_e = m_camera->time().Et();
@@ -135,7 +140,8 @@ IsisInterfaceLineScan::point_to_pixel(Vector3 const& point) const {
                                                         status);
 
   // Make sure we found ideal time
-  VW_ASSERT(status > 0, vw::camera::PointToPixelErr() << " Unable to project point into ISIS linescan camera ");
+  VW_ASSERT(status > 0, vw::camera::PointToPixelErr()
+            << " Unable to project point into ISIS linescan camera ");
 
   // Converting now to pixel
   m_camera->setTime(Isis::iTime(solution_e[0]));
@@ -167,6 +173,23 @@ IsisInterfaceLineScan::point_to_pixel(Vector3 const& point) const {
 
   pixel -= Vector2(1,1);
   return pixel;
+
+#else
+  // TODO(oalexan1): Why does this code not work?
+  // It is using the regular ISIS API, yet gives wrong answers.
+  // It works for IsisInterfaceLineSAR, apparently.
+  // May need to test with IsisInterfaceLineFrame first.
+  Vector3 llh = m_datum.cartesian_to_geodetic(point);
+  if (llh[0] < 0)
+    llh[0] += 360.0;
+  
+  if (!m_camera->SetGround(Isis::Latitude (llh[1], Isis::Angle::Degrees),
+                           Isis::Longitude(llh[0], Isis::Angle::Degrees)))
+    vw_throw(camera::PixelToRayErr() << "Failed in SetGround().");
+  
+  return Vector2(m_camera->Sample() - 1.0, m_camera->Line() - 1.0);
+#endif
+  
 }
 
 Vector3

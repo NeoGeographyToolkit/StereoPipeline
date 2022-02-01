@@ -470,16 +470,15 @@ to install these dependencies. This can be done as follows::
     conda activate sparse_disp
     conda install -c conda-forge scipy pyfftw
 
-Then set:: 
+Assuming that you used the default installation path for ``conda``,
+which is ``$HOME/miniconda3``, before running the ``parallel_stereo`` command, as shown
+above, one needs to set::
 
     export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.6/site-packages
 
-if you used the default installation path for conda before running
-``parallel_stereo``.
-
 It is very important to note that if GDAL is fetched from a different
 repository than conda-forge, one may run into issues with dependencies
-not being correct and then it will fail at runtime.
+not being correct, and then it will fail at runtime.
 
 Processing multi-spectral images
 --------------------------------

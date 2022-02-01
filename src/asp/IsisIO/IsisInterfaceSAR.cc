@@ -51,12 +51,6 @@ IsisInterfaceSAR::IsisInterfaceSAR(std::string const& filename):
   m_distortmap = m_camera->DistortionMap();
   m_focalmap   = m_camera->FocalPlaneMap();
   m_detectmap  = m_camera->DetectorMap();
-
-  // Set the datum
-  // TODO(oalexan1): This is fragile. Need to find the right internal ISIS
-  // function to use to convert ECEF to lon-lat-height and vice-versa.
-  bool use_sphere_for_datum = false;
-  m_datum = this->get_datum(use_sphere_for_datum);
 }
 
 Vector2 IsisInterfaceSAR::point_to_pixel(Vector3 const& point) const {

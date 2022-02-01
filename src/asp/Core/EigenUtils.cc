@@ -44,10 +44,11 @@ void null_check(const char* token, std::string const& line){
     vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
 }
 
+// Out of the elements 0, 1,..., n - 1, pick m unique
+// random elements and sort them in increasing order.
+// TODO(oalexan1): See the newly added pick_random_subset() function in VW,
+// but note that that one does not sort the elements.  
 void pick_at_most_m_unique_elems_from_n_elems(int m, int n, std::vector<int>& elems){
-
-  // Out of the elements 0, 1,..., n - 1, pick m unique
-  // random elements and sort them in increasing order.
 
   elems.clear();
 

@@ -19,6 +19,12 @@ bundle_adjust:
   * Add the option --apply-initial-transform-only to apply an initial
     transform to cameras while skipping image matching and other
     steps, making the process much faster.
+  * Add the option --max-pairwise-matches to put an upper limit on
+    the number of matches, as a large number can slow down bundle
+    adjustment. The default is 5000, likely an overestimate (but this
+    includes potential outliers).
+  * Stop printing warnings about failed triangulations if their number
+    goes over 100.
 
 stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
