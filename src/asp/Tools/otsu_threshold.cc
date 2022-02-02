@@ -35,7 +35,7 @@ using namespace vw;
 struct Options: vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files;
   bool has_nodata_value;
-  std::int64_t num_samples, num_bins;
+  int num_samples, num_bins;
   double nodata_value;
   Options(): has_nodata_value(false), num_samples(-1),
              nodata_value(std::numeric_limits<double>::quiet_NaN()){}
@@ -90,8 +90,6 @@ int main( int argc, char *argv[] ) {
     // Find command line options
     handle_arguments(argc, argv, opt);
 
-    std::cout << "--num samples " << opt.num_samples << std::endl;
-    
     for (size_t it = 0; it < opt.image_files.size(); it++) {
       std::string image_file = opt.image_files[it];
 
@@ -115,8 +113,6 @@ int main( int argc, char *argv[] ) {
       std::int64_t num_rows = image.rows(), num_cols = image.cols();
       std::int64_t num_vals = num_rows * num_cols;
 
-      std::cout << "--num vals " << num_vals << std::endl;
-      
       if (num_vals <= 0) 
         vw_throw(ArgumentErr() << "Found empty image: " << image_file << "\n");
       
@@ -125,13 +121,13 @@ int main( int argc, char *argv[] ) {
         samp_ratio = sqrt(double(num_vals) / double(opt.num_samples));
       samp_ratio = std::max(samp_ratio, 1.0);
 
-      std::int64_t num_sample_rows = round(num_rows / samp_ratio);
-      num_sample_rows = std::max(1L, num_sample_rows);
-      num_sample_rows = std::min(num_rows, num_sample_rows);
+      int num_sample_rows = round(num_rows / samp_ratio);
+      num_sample_rows = std::max(1, num_sample_rows);
+      num_sample_rows = std::min((int)num_rows, num_sample_rows);
       
-      std::int64_t num_sample_cols = round(num_cols / samp_ratio);
-      num_sample_cols = std::max(1L, num_sample_cols);
-      num_sample_cols = std::min(num_cols, num_sample_cols);
+      int num_sample_cols = round(num_cols / samp_ratio);
+      num_sample_cols = std::max(1, num_sample_cols);
+      num_sample_cols = std::min((int)num_cols, num_sample_cols);
       
       std::cout << "Number of image rows and columns: "
                 << num_rows << ", " << num_cols << "\n";
@@ -141,16 +137,17 @@ int main( int argc, char *argv[] ) {
       std::cout << "It may take several minutes to find the answer.\n";
 
       // The mask creation can handle a NaN for the opt.nodata_value.
-      double threshold1 = vw::otsu_threshold(create_mask(image, opt.nodata_value));
-      std::cout << "--thresh1 is " << threshold1 << std::endl;
-       
-      double threshold2 = asp::otsu_threshold(create_mask(image, opt.nodata_value),
+      double threshold = vw::otsu_threshold(create_mask(image, opt.nodata_value),
                                                num_sample_rows, num_sample_cols,
                                                opt.num_bins);
-      std::cout << "--thresh2 is " << threshold2 << std::endl;
 
+
+      // A different implementation, which gives the same result
+      // if above the full image is sampled and 256 bins are used.
+      //double threshold2 = vw::otsu_threshold(create_mask(image, opt.nodata_value));
+      
       vw_out() << std::setprecision(16)
-        << "Otsu threshold for image " << image_file << ": " << threshold1 << "\n";
+        << "Otsu threshold for image " << image_file << ": " << threshold << "\n";
     }
     
   } ASP_STANDARD_CATCHES;
