@@ -18,7 +18,7 @@
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
-#include <asp/Core/DisparityFilter.h>
+#include <asp/Core/DisparityProcessing.h>
 #include <vw/Math/Transform.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/InterestPoint/MatrixIO.h>

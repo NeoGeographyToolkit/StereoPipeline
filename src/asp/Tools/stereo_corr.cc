@@ -28,7 +28,7 @@
 #include <vw/Core/StringUtils.h>
 #include <vw/InterestPoint/Matcher.h>
 
-#include <asp/Core/DisparityFilter.h>
+#include <asp/Core/DisparityProcessing.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/InterestPointMatching.h>

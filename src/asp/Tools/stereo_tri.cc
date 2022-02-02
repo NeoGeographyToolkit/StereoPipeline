@@ -58,7 +58,8 @@ T make_transform_copy(T trans){
 
 enum OUTPUT_CLOUD_TYPE {FULL_CLOUD, BATHY_CLOUD, TOPO_CLOUD};
 
-/// The main class for taking in a set of disparities and returning a point cloud via joint triangulation.
+/// The main class for taking in a set of disparities and returning a
+/// point cloud via joint triangulation.
 template <class DisparityImageT, class StereoModelT>
 class StereoTXAndErrorView:
   public ImageViewBase<StereoTXAndErrorView<DisparityImageT, StereoModelT> > {
@@ -346,6 +347,7 @@ stereo_error_triangulate(vector<DisparityT> const& disparities,
                      bathy_correct, cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask);
 }
 
+// TODO(oalexan1): Move this out of here
 /// Compute an unwarped disparity image from the input disparity image
 /// and the image transforms.
 /// - Note that the output image size is not the same as the input disparity image.
@@ -670,6 +672,7 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
   
 }
 
+// TODO(oalexan1): Move this out of here
 /// Bin the disparities, and from each bin get a disparity value.
 /// This will create a correspondence from the left to right image,
 /// which we save in the match format.
@@ -1073,7 +1076,6 @@ void stereo_triangulation(string const& output_prefix,
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt_vec[p].session->camera_models(camera_model1, camera_model2);
 
-      //boost::shared_ptr<SessionT> sPtr = boost::dynamic_pointer_cast<SessionT>(opt_vec[p].session);
       boost::shared_ptr<SessionT> sPtr = opt_vec[p].session;
 
       if (p == 0){ // The first image is the "left" image for all pairs.
@@ -1116,10 +1118,10 @@ void stereo_triangulation(string const& output_prefix,
                              << "Will not be able to filter triangulated points by radius.\n";
     } // End try/catch
 
-    vector<PVImageT> disparity_maps;
-    for (int p = 0; p < (int)opt_vec.size(); p++){
-      disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
-    }
+    std::vector<PVImageT> disparity_maps;
+    for (int p = 0; p < (int)opt_vec.size(); p++)
+      disparity_maps.push_back
+        (opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
 
     // Create a disparity map with between the original unalinged images 
     if (stereo_settings().unalign_disparity) {

@@ -135,12 +135,6 @@ texture_aware_disparity_filter( ImageViewBase<ImageT    > const& img,
                      texture_smooth_range, texture_max, max_smooth_kernel_size);
 }
 
-
-
-
-
-
-
 // Erode blobs from given image by iterating through tiles, biasing
 // each tile by a factor of blob size, removing blobs in the tile,
 // then shrinking the tile back. The bias is necessary to help avoid

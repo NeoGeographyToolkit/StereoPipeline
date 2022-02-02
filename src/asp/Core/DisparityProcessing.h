@@ -16,8 +16,8 @@
 // __END_LICENSE__
 
 
-#ifndef __ASP_CORE_DISPARITY_FILTER_H__
-#define __ASP_CORE_DISPARITY_FILTER_H__
+#ifndef __ASP_CORE_DISPARITY_PROCESSING_H__
+#define __ASP_CORE_DISPARITY_PROCESSING_H__
 
 #include <vw/Image/ImageView.h>
 #include <vw/Camera/CameraModel.h>
@@ -40,4 +40,4 @@ namespace asp {
 
 } // End namespace asp
 
-#endif//__ASP_CORE_DISPARITY_FILTER_H__
+#endif//__ASP_CORE_DISPARITY_PROCESSING_H__
