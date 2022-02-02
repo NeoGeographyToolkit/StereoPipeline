@@ -20,12 +20,17 @@
 #define __ASP_CORE_DISPARITY_PROCESSING_H__
 
 #include <vw/Image/ImageView.h>
+#include <vw/Image/ImageViewRef.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/Datum.h>
 
 namespace asp {
 
-  class ASPGlobalOptions; // forward declaration
+  typedef boost::shared_ptr<vw::Transform> TransPtr;
+  typedef vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>  DispImageType;
+
+  // Forward declarations
+  class ASPGlobalOptions;
   
   // Filter D_sub. Must be called only for alignment method affineepipolar, homography,
   // and local_epipolar. For now this is not in use as a dataset where this would help
@@ -37,6 +42,11 @@ namespace asp {
                     std::string const& d_sub_file,
                     vw::Vector2 const& outlier_removal_params);
   
+  // Take a given disparity and make it between the original unaligned images
+  void unalign_disparity(std::vector<ASPGlobalOptions> const& opt_vec,
+                         std::vector<DispImageType>    const& disparities,
+                         std::vector<TransPtr>         const& transforms,
+                         std::string                   const& disp_file);
 
 } // End namespace asp
 

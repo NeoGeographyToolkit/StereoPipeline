@@ -24,6 +24,7 @@
 #include <vw/InterestPoint/InterestData.h>
 
 #include <asp/Camera/RPCModel.h>
+#include <asp/Core/DisparityProcessing.h>
 #include <asp/Core/Bathymetry.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Tools/jitter_adjust.h>
@@ -45,6 +46,8 @@ using namespace asp;
 using namespace std;
 
 typedef typename StereoSession::tx_type TXT;
+
+namespace asp{
 
 // A small function used in making a copy of the transform for map-projected images with
 // a sanity check.
@@ -351,10 +354,9 @@ stereo_error_triangulate(vector<DisparityT> const& disparities,
 /// Compute an unwarped disparity image from the input disparity image
 /// and the image transforms.
 /// - Note that the output image size is not the same as the input disparity image.
-template <typename DisparityT>
-class UnalignDisparityView: public ImageViewBase<UnalignDisparityView<DisparityT> >{
+class UnalignDisparityView: public ImageViewBase<UnalignDisparityView>{
   
-  DisparityT const& m_disparity;
+  DispImageType const& m_disparity;
   TXT        const& m_left_transform;
   TXT        const& m_right_transform;
 
@@ -363,7 +365,7 @@ class UnalignDisparityView: public ImageViewBase<UnalignDisparityView<DisparityT
   bool m_is_map_projected;
   std::map <std::pair<int, int>, Vector2> m_unaligned_trans;
 public:
-  UnalignDisparityView( DisparityT const& disparity,
+  UnalignDisparityView( DispImageType const& disparity,
                        TXT        const& left_transform,
                        TXT        const& right_transform,
                        ASPGlobalOptions const& opt):
@@ -409,7 +411,7 @@ public:
 	    continue;
 
 	  // This is quite important to avoid an incorrectly computed img_box.
-          typename DisparityT::pixel_type dpix = m_disparity(col, row);
+          typename DispImageType::pixel_type dpix = m_disparity(col, row);
           if (!is_valid(dpix))
 	    continue;
 
@@ -553,7 +555,7 @@ public:
     disp_bbox.crop(bounding_box(m_disparity));
 
     // Rasterize the section of the disparity image that we need for this tile
-    typedef typename DisparityT::pixel_type DispPixelT;
+    typedef typename DispImageType::pixel_type DispPixelT;
     ImageView<DispPixelT> disp = crop(m_disparity, disp_bbox);
 
     for (int col = 0; col < disp.cols(); col++) {
@@ -622,16 +624,15 @@ public:
 }; // End class UnalignDisparityView
 
 // Take a given disparity and make it between the original unaligned images
-template <class DisparityT>
 void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
-                       vector<DisparityT> const& disparities,
+                       vector<DispImageType> const& disparities,
                        vector<TXT>        const& transforms,
                        std::string        const& disp_file) {
   
   // This function is fairly specialized!
   VW_ASSERT( disparities.size() == 1 && transforms.size() == 2,
                vw::ArgumentErr() << "Expecting two images and one disparity.\n" );
-  DisparityT const& disp = disparities[0]; // pull the disparity
+  DispImageType const& disp = disparities[0]; // pull the disparity
 
   // Transforms to compensate for alignment
   TXT left_trans  = transforms[0];
@@ -660,9 +661,8 @@ void unalign_disparity(vector<ASPGlobalOptions> const& opt_vec,
   vw_out() << "Unaligning the disparity.\n";
   vw_out() << "Writing: " << disp_file << "\n";
   vw::cartography::block_write_gdal_image(disp_file, 
-					  UnalignDisparityView<DisparityT>(disparities[0],
-									   left_trans, 
-									   right_trans, opt),
+					  UnalignDisparityView
+                                          (disparities[0], left_trans, right_trans, opt),
 					  has_left_georef, left_georef,
 					  has_nodata, nodata, opt,
 					  TerminalProgressCallback("asp", "\t--> Undist disp:") );
@@ -899,7 +899,6 @@ void compute_matches_from_disp(vector<ASPGlobalOptions> const& opt_vec,
   ip::write_binary_match_file(match_file, left_ip, right_ip);
 }
 
-namespace asp{
 
   // TODO: Move some of these functions to a class or something!
 
@@ -1052,15 +1051,12 @@ namespace asp{
 
   }
 
-} // End namespace asp
-
 /// Main triangulation function
 void stereo_triangulation(string const& output_prefix,
                           vector<ASPGlobalOptions> const& opt_vec ) {
-  
-  typedef StereoSession                       SessionT;
-  typedef ImageViewRef<PixelMask<Vector2f> >  PVImageT;
-
+    
+    typedef StereoSession                       SessionT;
+    
   try { // Outer try/catch
 
     const bool is_map_projected = opt_vec[0].session->isMapProjected();
@@ -1118,7 +1114,7 @@ void stereo_triangulation(string const& output_prefix,
                              << "Will not be able to filter triangulated points by radius.\n";
     } // End try/catch
 
-    std::vector<PVImageT> disparity_maps;
+    std::vector<DispImageType> disparity_maps;
     for (int p = 0; p < (int)opt_vec.size(); p++)
       disparity_maps.push_back
         (opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
@@ -1326,6 +1322,7 @@ void stereo_triangulation(string const& output_prefix,
   } // End outer try/catch
 } // End function stereo_triangulation()
 
+} // End namespace asp
 
 int main(int argc, char* argv[]) {
 
@@ -1369,7 +1366,7 @@ int main(int argc, char* argv[]) {
     // Internal Processes
     //---------------------------------------------------------
 
-    stereo_triangulation(output_prefix, opt_vec);
+    asp::stereo_triangulation(output_prefix, opt_vec);
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : TRIANGULATION FINISHED \n";
 
