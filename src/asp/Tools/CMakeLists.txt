@@ -213,3 +213,7 @@ install(TARGETS cam_test DESTINATION bin)
 add_executable(ccd_solve ccd_solve.cc) 
 target_link_libraries(ccd_solve AspSessions ${SOLVER_LIBRARIES})
 install(TARGETS ccd_solve DESTINATION bin)
+
+add_executable(otsu_threshold otsu_threshold.cc) 
+target_link_libraries(otsu_threshold AspCore)
+install(TARGETS otsu_threshold DESTINATION bin)

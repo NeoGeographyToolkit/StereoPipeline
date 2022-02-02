@@ -64,7 +64,7 @@ typedef PixelMask< Vector<float, 2> > DispPixelT;
 int g_ba_num_errors = 0;
 Mutex g_ba_mutex;
 
-// TODO: Pass these properly
+// TODO: Pass these properly.
 double g_max_disp_error = -1.0, g_reference_terrain_weight = 1.0;
 
 double g_big_pixel_value = 10000; 

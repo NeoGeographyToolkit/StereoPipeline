@@ -828,14 +828,15 @@ and correct camera errors.
       --save-intermediate-cameras --match-first-to-last      \
       --min-triangulation-angle 0.1 -o ba/run 
 
-For bundle adjustment we in fact used even more images that overlap with
-this area, but likely this set is sufficient, and it is this set that
-was used later for shape-from-shading. Here more bundle adjustment
-iterations are desirable, but this step takes too long. And a large
-``--ip-per-tile`` can make a difference in images with rather different
-different illumination conditions but it can also slow down the process
-a lot. It is suggested to decrease ``--max-pairwise-matches`` from the 
-current value of 4,000, if it is perceived that the process takes too long.
+For bundle adjustment we in fact used even more images that overlap
+with this area, but likely this set is sufficient, and it is this set
+that was used later for shape-from-shading. Here more bundle
+adjustment iterations are desirable, but this step takes too long. And
+a large ``--ip-per-tile`` can make a difference in images with rather
+different different illumination conditions but it can also slow down
+the process a lot. It is suggested to decrease
+``--max-pairwise-matches`` from the current value of 4000, to perhaps
+2000, if it is perceived that the process takes too long.
 
 It is very important to have a lot of images during bundle adjustment,
 to ensure that there are enough overlaps and sufficiently similar
@@ -941,6 +942,7 @@ terrain as a constraint in bundle adjustment::
       --save-intermediate-cameras --camera-weight 1            \
       --heights-from-dem ref.tif --heights-from-dem-weight 0.1 \
       --heights-from-dem-robust-threshold 10                   \
+      --match-first-to-last --max-pairwise-matches 4000        \   
       -o ba_align_ref/run
 
 Note the copy command, and the options ``--force-reuse-match-files``

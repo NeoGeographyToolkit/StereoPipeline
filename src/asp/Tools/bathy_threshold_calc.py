@@ -94,7 +94,10 @@ if num_rows <= 0 or num_cols <= 0:
     sys.exit(1)
     
 num_vals = num_rows * num_cols
-samp_ratio = math.sqrt( float(num_vals) / float(options.num_samples) ) 
+samp_ratio = math.sqrt( float(num_vals) / float(options.num_samples) )
+if samp_ratio < 1.0:
+    samp_ratio = 1.0
+    
 num_sub_rows = round(num_rows / samp_ratio)
 
 if num_sub_rows < 1:
@@ -126,8 +129,10 @@ xvals = np.linspace(data.min(), data.max(), 1000)
 beg = time.time()
 kde = st.gaussian_kde(data)
 yvals = kde(xvals)
-min_pos  = argrelextrema(yvals, np.less);  min_vals = xvals[min_pos]
+min_pos  = argrelextrema(yvals, np.less)
+min_vals = xvals[min_pos]
 end = time.time()
+
 # Note that it is not universal for it to be first minimum. Sometimes
 # the second minimum is better!
 print("Positions of the minima: ", min_vals)

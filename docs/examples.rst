@@ -2536,7 +2536,6 @@ Published research
 For an application of this bathymetry module see
 :cite:`palaseanu2021bathy`.
 
-
 Software considerations
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2581,25 +2580,27 @@ A simple way of creating such a mask is to first determine a threshold
 such that pixels at or below threshold are under water, and those
 above threshold are on land.
 
-It was experimentally found that it is best to use band 7 for Digital
-Globe multispectral images to find this water threshold, as in them the
-water appears universally darker than the land.
+It was experimentally found that it is best to use band 7 (near
+infrared) for Digital Globe multispectral images to find this water
+threshold, as in them the water appears universally darker than the
+land.
 
 A manual approach for finding this threshold in an image is pick some
 sample pixels in ``stereo_gui`` over the water region, with the pixel
 of the largest value declared as the threshold. How to do this is
 described in :numref:`thresh`.
 
-ASP provides a tool for finding the threshold in automated way based
-on histogram analysis. Its reference page, which explains how to
-install its dependencies and its command-line options, can be found in
-:numref:`bathy_threshold_calc`.
+ASP provides two tools for finding the threshold in automated way based
+on histogram analysis. One is ``bathy_threshold_calc.py`` (:numref:`bathy_threshold_calc`),
+and the second one is ``otsu_threshold`` (:numref:`otsu_threshold`). 
+This last tool produces a somewhat higher threshold compared to the other one. 
 
-This program works based on the observation that in such an image the
-water appears darker than the land, hence, in a histogram of the
-pixels in the image, the water and land appear as two noticeable
-peaks, with a good value for the threshold then being the image value
-at the bottom of the valley between those peaks.
+The ``bathy_threshold_calc.py`` program works based on the observation
+that, since in such an image the water appears darker than the land,
+then in a histogram of the pixels in the image, the water and land
+appear as two noticeable peaks, with a good value for the threshold
+then being the image value at the bottom of the valley between those
+peaks.
 
 For robustness to noise, this histogram is approximated by a
 kernel-density estimate (``KDE``) using Gaussian kernels. It is very

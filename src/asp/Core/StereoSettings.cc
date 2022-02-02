@@ -148,8 +148,6 @@ namespace asp {
        "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
       ("nodata-pixel-percentage",  po::value(&global.nodata_pixel_percentage)->default_value(nan),
        "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
-      ("nodata-optimal-threshold-factor", po::value(&global.nodata_optimal_threshold_factor)->default_value(nan),
-                     "Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data. Suggested value: 0.1 to 0.2.")
       ("stddev-mask-thresh",  po::value(&global.nodata_stddev_thresh)->default_value(0.5),
        "Mask out pixels from regions where the local standard deviation score is less than this value. If set < 0, debug files will be written containing the filter output instead of masking out pixels.")
       ("stddev-mask-kernel",  po::value(&global.nodata_stddev_kernel)->default_value(-1),

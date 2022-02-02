@@ -255,22 +255,11 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     double left_threshold  = numeric_limits<double>::quiet_NaN();
     double right_threshold = numeric_limits<double>::quiet_NaN();
     double nodata_fraction = stereo_settings().nodata_pixel_percentage/100.0;
-    double nodata_factor   = stereo_settings().nodata_optimal_threshold_factor;
-    if ( skip_img_norm && ((!std::isnan(nodata_fraction)) || (!std::isnan(nodata_factor))) ){
+    if ( skip_img_norm && (!std::isnan(nodata_fraction)) ){
       vw_throw( ArgumentErr() << "\nCannot skip image normalization while attempting "
-                              << "to apply a normalized threshold.\n");
+                << "to apply a normalized threshold.\n");
     }
-    if ( (!std::isnan(nodata_fraction)) && (!std::isnan(nodata_factor)) ){
-      vw_throw( ArgumentErr() << "\nCannot set both nodata-pixel-percentage and "
-                              << "nodata-optimal-threshold-factor at the same time.\n");
-    }
-    if ( !std::isnan(nodata_factor) ){
-      // TODO(oalexan1): Wipe this code.
-      // Find the black pixels threshold using Otsu's optimal threshold method.
-      left_threshold  = nodata_factor*optimal_threshold(left_image );
-      right_threshold = nodata_factor*optimal_threshold(right_image);
-    }
-    if ( !std::isnan(nodata_fraction) ){
+    if (!std::isnan(nodata_fraction)){
       // Declare a fixed proportion of low-value pixels to be no-data.
       math::CDFAccumulator< PixelGray<float> > left_cdf (1024, 1024),
                                                right_cdf(1024, 1024);

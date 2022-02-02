@@ -79,7 +79,9 @@ sfs:
 
 bathymetry:
   * bathy_plane_calc can use a mask to find the water-land interface.
-  
+  * Added the program ``otsu_threshold`` for computing the image threshold
+    (in the WorldView MS NIR bands) separating land from water.
+
 dem_mosaic:
   * Add the option ``--tap``, to have the output grid be at integer
     multiples of the grid size (like the default behavior of
