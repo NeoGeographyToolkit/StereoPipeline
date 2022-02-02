@@ -51,8 +51,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "the full image will be used.")
     ("num-bins", po::value(&opt.num_bins)->default_value(256),
      "Number of bins to use for the histogram. A larger value is "
-     "suggested if the image has some pixels of unexpectedly high "
-     "values.")
+     "suggested if the image has outlying pixel values.")
     ("nodata-value", po::value(&opt.nodata_value),
      "Use this nodata value instead of what is read from the file, if present.");
   

@@ -151,12 +151,12 @@ coming from the .json files.
 For example, if ``sfs`` is run with an ISIS camera as::
 
   sfs --use-approx-camera-models --crop-input-images \
-    input_dem.tif image.cub -o sfs_isis/run
+    -i input_dem.tif image.cub -o sfs_isis/run
 
 then, the corresponding command using the CSM model will be::
 
-  sfs --crop-input-images                           \
-    input_dem.tif image.cub image.json -o sfs_csm/run
+  sfs --crop-input-images                                \
+    -i input_dem.tif image.cub image.json -o sfs_csm/run
 
 The option ``--use-approx-camera-models`` is no longer necessary
 as the CSM model is fast enough. It is however suggested to still
@@ -241,15 +241,18 @@ Then we run ``sfs`` (for a larger clip ``parallel_sfs`` should be used
 instead)::
 
     sfs -i run_full1/run-crop-DEM.tif A.cub -o sfs_ref1/run           \
-      --reflectance-type 1                                            \
+      --reflectance-type 1 --crop-input-images                        \
       --smoothness-weight 0.08 --initial-dem-constraint-weight 0.0001 \
-      --max-iterations 10 --use-approx-camera-models                  \
-      --crop-input-images
+      --max-iterations 10 --use-approx-camera-models
 
 The smoothness weight is a parameter that needs tuning. If it is too
 small, SfS will return noisy results, if it is too large, too much
 detail will be blurred. Here we used the Lunar Lambertian model. The
 meaning of the other ``sfs`` options can be looked up in :numref:`sfs`.
+
+In the next sections, where SfS will be done with multiple images,
+more parameters which can control the quality of the result will be
+explored.
 
 We show the results of running this program in :numref:`sfs1`. The
 left-most figure is the hill-shaded original DEM, which was obtained
@@ -343,7 +346,8 @@ Then we bundle-adjust and run parallel_stereo
 
     bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub \
       --num-iterations 100 --save-intermediate-cameras        \
-      --min-matches 1 -o run_ba/run
+      --max-pairwise-matches 1000 --min-matches 1             \
+      -o run_ba/run
     parallel_stereo A_crop.cub B_crop.cub run_full2/run       \
       --subpixel-mode 3 --bundle-adjust-prefix run_ba/run
 
@@ -365,14 +369,18 @@ commands analogous to the above::
     bundle_adjust A_crop_sub10.cub B_crop_sub10.cub     \
       C_crop_sub10.cub D_crop_sub10.cub --min-matches 1 \
       --num-iterations 100 --save-intermediate-cameras  \
-      -o run_ba_sub10/run --ip-per-tile 100000
+      -o run_ba_sub10/run --ip-per-tile 100000          \
+      --max-pairwise-matches 1000
+ 
     parallel_stereo A_crop_sub10.cub B_crop_sub10.cub   \
       run_sub10/run --subpixel-mode 3                   \
      --bundle-adjust-prefix run_ba_sub10/run
 
 Here we used an outrageous value for ``--ip-per-tile``, as this was a
 small clip, and likely there are not many matches. Normally, a value
-of 500 for this parameter is sufficient.
+of 500 for this parameter is sufficient. The option
+``--max-pairwise-matches`` should reduce the number of matches to the
+set value, if too many were created originally.
  
 We’ll obtain a point cloud named ``run_sub10/run-PC.tif``.
 
@@ -404,18 +412,21 @@ We repeat the same steps for the initial guess for SfS::
     gdal_translate -projwin -15540.7 151403 -14554.5 150473               \
       run_sub10/run-DEM.tif run_sub10/run-crop-DEM.tif
 
-After this, we run ``sfs`` itself. Since our dataset has many shadows,
-we found that specifying the shadow thresholds for the tool improves
-the results. The thresholds can be determined using
-``stereo_gui``. This can be done by turning on threshold mode from the
-GUI menu, and then clicking on a few points in the shadows. The
-largest of the determined pixel values will be the used as the shadow
-threshold. Then, the thresholded images can be visualized/updated from
-the menu as well, and this process can be iterated. We also found that
-for LRO NAC a shadow threshold value of 0.003 works well enough
-usually.
+Since our dataset has many shadows, we found that specifying the
+shadow thresholds for the tool improves the results. The thresholds
+can be determined using ``stereo_gui``. This can be done by turning on
+threshold mode from the GUI menu, and then clicking on a few points in
+the shadows. The largest of the determined pixel values will be the
+used as the shadow threshold. Then, the thresholded images can be
+visualized/updated from the menu as well, and this process can be
+iterated. We also found that for LRO NAC a shadow threshold value of
+0.003 works well enough usually.
 
-::
+Alternatively, the ``otsu_threshold`` tool (:numref:`otsu_threshold`)
+can be used to find the shadow thresholds automatically. It can
+overestimate them somewhat.
+
+Then, we run ``sfs``::
 
     sfs -i run_sub10/run-crop-DEM.tif A_crop_sub10.cub C_crop_sub10.cub \
       D_crop_sub10.cub -o sfs_sub10_ref1/run --threads 4                \
@@ -423,12 +434,16 @@ usually.
       --reflectance-type 1 --use-approx-camera-models                   \
       --max-iterations 10  --crop-input-images                          \
       --bundle-adjust-prefix run_ba_sub10/run                           \
+      --blending-dist 10 --min-blend-size 100                           \
       --shadow-thresholds '0.00162484 0.0012166 0.000781663'
 
 It is suggested to not float the cameras, as that should be done by
 bundle adjustment, and ``sfs`` will likely not arrive at a good
 solution for the cameras on its own.  Floating the exposures is likely
 also unnecessary.
+
+Note the two "blending" parameters, those help where there are seams or
+light-shadow boundaries. The precise numbers may need adjustment.
 
 After this command finishes, we compare the initial guess to ``sfs`` to
 the “ground truth” DEM obtained earlier and the same for the final
@@ -539,7 +554,8 @@ happen here. Those should be saved using the output prefix expected below.)
       D_crop_sub4.cub                                              \
       --mapprojected-data "$mapped_images $dem"                    \
       --num-iterations 100 --save-intermediate-cameras             \
-      --min-matches 1 -o run_ba_sub4/run  
+      --min-matches 1 --max-pairwise-matches 1000                  \
+      -o run_ba_sub4/run  
 
 An illustration is shown in :numref:`sfs3`.
 
@@ -604,6 +620,7 @@ Run SfS::
       --threads 4 --smoothness-weight 0.12                        \
       --initial-dem-constraint-weight 0.001 --reflectance-type 1  \
       --max-iterations 10 --use-approx-camera-models              \
+      --blending-dist 10 --min-blend-size 100                     \
       --crop-input-images --bundle-adjust-prefix run_ba_sub4/run
 
 Fetch the portion of the LOLA dataset around the current DEM from the
@@ -679,6 +696,7 @@ cameras to use the newly aligned versions::
       --threads 4 --smoothness-weight 0.12                       \
       --initial-dem-constraint-weight 0.001 --reflectance-type 1 \
       --max-iterations 10 --use-approx-camera-models             \
+      --blending-dist 10 --min-blend-size 100                    \
       --crop-input-images --bundle-adjust-prefix ba_align/run
 
 The ``geodiff`` tool can then be used to compare the obtained SfS DEM
@@ -822,7 +840,7 @@ and correct camera errors.
 
     parallel_bundle_adjust --processes 8 --ip-per-tile 1000  \
       --overlap-limit 30 --num-iterations 100 --num-passes 2 \
-      --min-matches 1 --max-pairwise-matches 4000            \
+      --min-matches 1 --max-pairwise-matches 1000            \
       --datum D_MOON <images>                                \
       --mapprojected-data '<mapprojected images> ref.tif'    \
       --save-intermediate-cameras --match-first-to-last      \
@@ -834,9 +852,10 @@ that was used later for shape-from-shading. Here more bundle
 adjustment iterations are desirable, but this step takes too long. And
 a large ``--ip-per-tile`` can make a difference in images with rather
 different different illumination conditions but it can also slow down
-the process a lot. It is suggested to decrease
-``--max-pairwise-matches`` from the current value of 4000, to perhaps
-2000, if it is perceived that the process takes too long.
+the process a lot. Note that the value of 
+``--max-pairwise-matches`` was set to 1000. That should hopefully create
+enough matches among any two images. A higher value here will make bundle
+adjustment run slower.
 
 It is very important to have a lot of images during bundle adjustment,
 to ensure that there are enough overlaps and sufficiently similar
@@ -936,13 +955,13 @@ terrain as a constraint in bundle adjustment::
 
     mkdir -p ba_align_ref
     /bin/cp -rfv ba/* ba_align_ref
-    bundle_adjust --skip-matching --num-iterations 20          \ 
+    bundle_adjust --skip-matching --num-iterations 20          \
       --force-reuse-match-files --num-passes 1                 \
       --input-adjustments-prefix ba_align/run <images>         \
       --save-intermediate-cameras --camera-weight 1            \
       --heights-from-dem ref.tif --heights-from-dem-weight 0.1 \
       --heights-from-dem-robust-threshold 10                   \
-      --match-first-to-last --max-pairwise-matches 4000        \   
+      --match-first-to-last --max-pairwise-matches 1000        \
       -o ba_align_ref/run
 
 Note the copy command, and the options ``--force-reuse-match-files``
@@ -1225,16 +1244,18 @@ Insights for getting the most of SfS
 
 Here are a few suggestions we have found helpful when running ``sfs``:
 
--  First determine the appropriate smoothing weight :math:`\mu` by
-   running a small clip, and using just one image. A value between 0.06
-   and 0.12 seems to work all the time with LRO NAC, even when the
-   images are subsampled. The other weight, :math:`\lambda,` can be set
-   to something small, like :math:`0.0001.` This can be increased to
-   :math:`0.001` if noticing that the output DEM strays too far.
+- First determine the appropriate smoothing weight :math:`\mu` by
+  running a small clip, and using just one image. A value between 0.06
+  and 0.12 seems to work all the time with LRO NAC, even when the
+  images are subsampled. The other weight, :math:`\lambda,` 
+  that is, the value of ``--initial-dem-constraint-weight``, can be
+  set to something small, like :math:`0.0001.` This can be increased to
+  :math:`0.001` if noticing that the output DEM strays too far.
 
--  Bundle-adjustment for multiple images is crucial, to eliminate camera
-   errors which will result in ``sfs`` converging to a local minimum.
-   This is described in :numref:`sfs-lola-comparison`.
+- Bundle-adjustment for multiple images and alignment to ground is
+  crucial, to eliminate camera errors which will result in ``sfs``
+  converging to a local minimum. This is described in
+  :numref:`sfs-lola-comparison`.
 
 - More images with more diverse illumination conditions result in more 
   accurate terrain. Ideally there should be at least 3 images, with the 
@@ -1242,35 +1263,39 @@ Here are a few suggestions we have found helpful when running ``sfs``:
   missing or small. Images with intermediate illumination conditions may 
   be needed for bundle adjustment to work.
 
--  Floating the albedo (option ``--float-albedo``) can introduce
-   instability and divergence, it should be avoided unless obvious
-   albedo variation is seen in the images. Floating the cameras in SfS
-   should be avoided, as bundle adjustment does a better job. Floating
-   the exposures was shown to produce marginal results.
+- Floating the albedo (option ``--float-albedo``) can introduce
+  instability and divergence, it should be avoided unless obvious
+  albedo variation is seen in the images. 
 
--  Floating the DEM at the boundary (option ``--float-dem-at-boundary``)
-   is also suggested to be avoided.
+- Floating the cameras in SfS should be avoided, as bundle adjustment
+  does a better job. Floating the exposures was shown to produce
+  marginal results.
 
-- If an input DEM is large, see the earlier section for a detailed recipe.
+- Floating the DEM at the boundary (option ``--float-dem-at-boundary``)
+  is also suggested to be avoided.
 
--  The ``mapproject`` program can be used to map-project each image onto
-   the resulting SfS DEM (with the camera adjustments solved using SfS).
-   These orthoimages can be mosaicked using ``dem_mosaic``. If the
-   ``--max`` option is used with this tool, it create a mosaic with the
-   most illuminated pixels from this image. If during SfS the camera
-   adjustments were solved accurately, this mosaic should have little or
-   no blur.
+- If an input DEM is large, see the :numref:`sfs-lola-dem` for a detailed
+  recipe using ``parallel_sfs``.
 
--  For challenging datasets it is suggested to first work at 1/4th of
-   the full resolution (the resolution of an ISIS cube can be changed
-   using the ``reduce`` command, and the DEM can be made coarser with
-   ``gdalwarp`` or by converting it to a cloud with ``pc_align`` with
-   zero iterations and then regenerated with ``point2dem``). This should
-   make the whole process perhaps an order of magnitude faster. Any
-   obtained camera adjustment files are still usable at the full
-   resolution (after an appropriate rename), but it is suggested that
-   these adjustments be reoptimized using the full resolution cameras,
-   hence these should be initial guesses for ``bundle_adjust``'s
-   ``--input-adjustments-prefix`` option.
+- The ``mapproject`` program can be used to map-project each image onto
+  the resulting SfS DEM (with the camera adjustments solved using SfS).
+  These orthoimages can be mosaicked using ``dem_mosaic``. If the
+  ``--max`` option is used with this tool, it create a mosaic with the
+  most illuminated pixels from this image. If the camera
+  adjustments were solved accurately, this mosaic should have little or
+  no blur or misregistration (ghosting).
+
+- For challenging datasets it is suggested to first work at 1/4th of
+  the full resolution (the resolution of an ISIS cube can be changed
+  using the ``reduce`` command, and the DEM can be made coarser with
+  ``gdalwarp`` or by converting it to a cloud with ``pc_align`` with
+  zero iterations and then regenerated with ``point2dem``). This should
+  make the whole process perhaps an order of magnitude faster. Any
+  obtained camera adjustment files are still usable at the full
+  resolution (after an appropriate rename), but it is suggested that
+  these adjustments be reoptimized using the full resolution cameras,
+  hence these should be initial guesses for ``bundle_adjust``'s
+  ``--input-adjustments-prefix`` option, and also using the
+  ``--heights-from-dem`` option.
 
  .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

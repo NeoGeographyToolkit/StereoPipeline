@@ -293,7 +293,7 @@ def main(argsIn):
     if '--crop-win' in argsIn:
         parser.print_help()
         parser.error("parallel_sfs cannot take the --crop-win option. " +
-                      "Use the sfs tool directly if this is desired.\n" );
+                      "Crop the input DEM using gdal_translate.\n" );
 
     if     '--float-exposure'          in argsIn or \
            '--float-cameras'           in argsIn or \

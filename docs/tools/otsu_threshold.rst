@@ -11,13 +11,13 @@ with some example images and thresholds plotted vs histograms at the very bottom
 
 If the input image is, for example, band 7 of a WorldView multispectral
 image, this will return a value for the threshold separating land from water
-(since water shows up rather dark in the infrared, being cooler).
+(since water shows up rather dark in the infrared).
 If the input is an image of the Moon, with shadows present, the threshold
-will separate shadow pixels from lit pixels.
+will separate shadowed and lit regions.
 
-Note that the value returned by this tool is not necessarily the
-position corresponding to the bottom of the "saddle" of the histogram
-of this image, if it is bi-modal (see the figure further down). To get
+Note that the threshold value returned by this tool is not necessarily
+the position corresponding to the bottom of the "saddle" of the
+histogram of this image, if it is bi-modal (see the figure). To get
 that behavior, use instead ``bathy_threshold_calc.py``
 (:numref:`bathy_threshold_calc`).
 
@@ -41,6 +41,5 @@ Command-line options for otsu_threshold:
 
 --num-bins <integer (default: 256)>
     Number of bins to use for the histogram. A larger value is
-    suggested if the image has some pixels of unexpectedly high
-    values.
+    suggested if the image has some outlying pixel values.
 

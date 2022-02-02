@@ -10,6 +10,12 @@ New camera additions:
   * Added support for the PeruSat-1 linescan camera model (so far just
     the RPC model was supported for this satellite).
 
+Tool additions:
+    Added the program ``otsu_threshold`` for computing an image
+    threshold. It can be used for separating land from water (in
+    WorldView multispectral NIR bands), and shadowed from lit areas in
+    Lunar images.
+
 bundle_adjust:
   * Rename verbose final_residuals_no_loss_function_pointmap_point_log.csv
     to final_residuals_pointmap.csv and
@@ -79,9 +85,7 @@ sfs:
 
 bathymetry:
   * bathy_plane_calc can use a mask to find the water-land interface.
-  * Added the program ``otsu_threshold`` for computing the image threshold
-    (in the WorldView MS NIR bands) separating land from water.
-
+   
 dem_mosaic:
   * Add the option ``--tap``, to have the output grid be at integer
     multiples of the grid size (like the default behavior of
