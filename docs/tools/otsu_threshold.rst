@@ -5,7 +5,9 @@ otsu_threshold
 
 The ``otsu_threshold`` program takes as input a single-channel image
 and computes the optimal `Otsu threshold
-<https://en.wikipedia.org/wiki/Otsu%27s_method>`_.
+<https://en.wikipedia.org/wiki/Otsu%27s_method>`_. See also 
+`this overview <http://www.labbookpages.co.uk/software/imgProc/otsuThreshold.html>`_ 
+with some example images and thresholds plotted vs histograms at the very bottom of that page.
 
 If the input image is, for example, band 7 of a WorldView multispectral
 image, this will return a value for the threshold separating land from water
