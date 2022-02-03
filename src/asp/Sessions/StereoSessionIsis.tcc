@@ -209,41 +209,7 @@ void write_preprocessed_isis_image(vw::cartography::GdalWriteOptions const& opt,
 
 }
 
-// TODO(oalexan1): Move that file_has_isd_extension function to Common
-// so that ISIS does not know about CSM.
-bool StereoSessionIsis::supports_multi_threading () const {
-  return (asp::CsmModel::file_has_isd_extension(m_left_camera_file) && 
-          asp::CsmModel::file_has_isd_extension(m_right_camera_file)  );
-}
-
-/// Returns the target datum to use for a given camera model.
-/// Note the parameter use_sphere_for_datum.
-/// During alignment, we'd like to use the most accurate
-/// non-spherical datum, hence radii[2]. However, for the purpose
-/// of creating a DEM on non-Earth planets people usually just use
-/// a spherrical datum, which we'll do as well.  Maybe at some
-/// point this needs to change.
-vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam,
-                                                    bool use_sphere_for_datum) const {
-  const IsisCameraModel * isis_cam
-    = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
-  VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid camera.\n");
-
-  return isis_cam->get_datum(use_sphere_for_datum);
-}
-
-// TODO: Can we share more code with the DG implementation?
-
-boost::shared_ptr<vw::camera::CameraModel>
-StereoSessionIsis::load_camera_model
-      (std::string const& image_file, std::string const& camera_file, Vector2 pixel_offset) const{
-
-  return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
-                            image_file, camera_file, pixel_offset);
-}
-
-
-void StereoSessionIsis::
+inline void StereoSessionIsis::
 pre_preprocessing_hook(bool adjust_left_image_size,
                        std::string const& left_input_file,
                        std::string const& right_input_file,
@@ -443,7 +409,7 @@ inline std::string write_shadow_mask(vw::cartography::GdalWriteOptions const& op
 //
 // Pre file is a pair of grayscale images.  (ImageView<PixelGray<float> >)
 // Post file is a disparity map.            (ImageView<PixelMask<Vector2f> >)
-void StereoSessionIsis
+inline void StereoSessionIsis
 ::pre_filtering_hook(std::string const& input_file,
                      std::string      & output_file) {
   output_file = input_file;
@@ -481,28 +447,12 @@ void StereoSessionIsis
   }
 } // End function pre_filtering_hook()
 
-// Reverse any pre-alignment that was done to the disparity.
-ImageViewRef<PixelMask<Vector2f> > StereoSessionIsis
-::pre_pointcloud_hook(std::string const& input_file) {
 
-  std::string dust_result = input_file;
-  if (stereo_settings().mask_flatfield) {
-    // ****************************************************
-    // The following code is for Apollo Metric Camera ONLY!
-    // (use at your own risk)
-    // ****************************************************
-    vw_out() << "\t--> Masking pixels that appear to be dust. "
-             << "(NOTE: Use this option with Apollo Metric Camera frames only!)\n";
-    photometric_outlier_rejection(this->m_options, this->m_out_prefix, input_file,
-                                  dust_result, stereo_settings().corr_kernel[0]);
-  }
-  return DiskImageView<PixelMask<Vector2f>>(dust_result);
-} // End function pre_pointcloud_hook()
-
-
-
+inline bool StereoSessionIsis::supports_multi_threading () const {
+  return false;
+}
+  
 } // end namespace asp
-
 
 
 #endif  // ASP_HAVE_PKG_ISISIO

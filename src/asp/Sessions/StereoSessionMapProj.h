@@ -104,10 +104,8 @@ namespace asp {
     virtual std::string name() const { return "isismapisis"; }
     virtual bool uses_rpc_map_projection() const {return false;}
 
-    /// Only the alternative CSM sensor model for ISIS images supports multi threading.
     virtual bool supports_multi_threading() const {
-      return (asp::CsmModel::file_has_isd_extension(m_left_camera_file ) && 
-              asp::CsmModel::file_has_isd_extension(m_right_camera_file)   );
+      false;
     }
 
     static StereoSession* construct() { return new StereoSessionIsisMapIsis; }

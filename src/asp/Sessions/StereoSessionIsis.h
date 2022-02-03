@@ -150,7 +150,6 @@ namespace asp {
 
     virtual std::string name() const { return "isis"; }
     
-    /// Only the alternative CSM sensor model for ISIS images supports multi threading.
     virtual bool supports_multi_threading() const;
     
     /// Returns the target datum to use for a given camera model
