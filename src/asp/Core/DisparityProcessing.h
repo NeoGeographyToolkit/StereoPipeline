@@ -28,7 +28,7 @@
 namespace asp {
 
   typedef boost::shared_ptr<vw::Transform> TransPtr;
-  typedef vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>  DispImageType;
+  typedef vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> DispImageType;
 
   // Forward declarations
   class ASPGlobalOptions;
@@ -54,7 +54,21 @@ namespace asp {
                          TransPtr         const& right_trans,
                          ASPGlobalOptions const& opt,
                          std::string      const& disp_file);
-    
+
+  /// Bin the disparities, and from each bin get a disparity value.
+  /// This will create a correspondence from the left to right image,
+  /// which we save in the match format.
+  /// When gen_triplets is true, and there are many overlapping images,
+  /// try hard to have many IP with the property that each such IP is seen
+  /// in more than two images. This helps with bundle adjustment.
+  void compute_matches_from_disp(ASPGlobalOptions const& opt,
+                                 DispImageType    const& disp,
+                                 TransPtr         const& left_trans,
+                                 TransPtr         const& right_trans,
+                                 std::string      const& match_file,
+                                 int max_num_matches,
+                                 bool gen_triplets);
+  
 } // End namespace asp
 
 #endif//__ASP_CORE_DISPARITY_PROCESSING_H__
