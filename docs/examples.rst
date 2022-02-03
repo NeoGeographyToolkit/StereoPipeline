@@ -2709,9 +2709,9 @@ Having these in place, stereo can then happen as follows:
     --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
     --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
     run_bathy/run 
-    
-Note that we specified the two masks, the water index of refraction,
-and the water plane found before. 
+ 
+Here we specified the two masks, the water index of refraction, and
+the water plane found before.
 
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices.
@@ -2750,10 +2750,50 @@ map-projected, and then a DEM is expected, stereo may happen only in
 certain regions as chosen in the GUI, bundle adjustment may be used,
 the output point cloud may be converted to LAS, etc. 
 
+Bathymetry correction and alignment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is important to note that we did not use bundle adjustment or
+``pc_align`` (:numref:`pc_align`) for alignment. That in principle may
+be possible, but then one has to ensure the bathy plane is obtained in
+a way which is consistent with such operations which move the
+cameras. Yet, the ``bathy_plane_calc`` tool when used with a camera
+and a mask, as shown in the first example at
+:numref:`bathy_plane_calc`, does not accept camera adjustments or an
+alignment transform. (But, in the second example it only uses a DEM
+and a shapefile, with no camera, it would prduce a plane
+consistent with the input DEM, even if that one had bundle adjustment
+and alignment.)
+
+Hence, if desired to do alignment, it is best to do the processing as
+above, and only later, when DEMs are obtained, with and without
+bathymetry correction, to align them to a reference terrain, if
+desired to do comparisons. 
+
+Only the "topo" component of a DEM obtained with ASP should be used
+for alignment, that is, the part above water, as the part under water
+can be quite variable given the water level.
+
+After the alignment transform is found, the same transform can be
+applied with ``pc_align`` to the full DEM, that is, with the
+underwater component as well, using the option ``--initial-transform``
+and zero iterations, and the switches ``--save-transformed-source-points``
+or ``--save-inv-transformed-reference-points``. 
+
+It is suggested to read ``pc_align``'s manual with some care. In
+particular, the order of the input clouds passed to this tool
+determines which cloud (the second one) is aligned to which (the first
+one), with the ``transform.txt`` output by this tool going from the
+second cloud to the first, and ``inverse-transform.txt`` from the
+first to the second. Hence, the argument to ``--initial-transform``
+would need to use one of these two transforms, depending on which 
+way the DEM to be moved must go.
+
 Bathymetry correction with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Given an external DEM, the left and right images can be mapprojected onto this DEM, for example as:
+Given an external DEM, the left and right images can be mapprojected
+onto this DEM, for example as:
 
 ::
 
