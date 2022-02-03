@@ -26,13 +26,28 @@ that behavior, use instead ``bathy_threshold_calc.py``
 
    Illustration of the Otsu threshold.
 
+Example::
+
+    otsu_threshold image.tif
+
+It will produce output as follows::
+
+    Reading image: image.tif
+    No nodata value present in the file.
+    Number of image rows and columns: 7276, 8820
+    Picking a uniform sample of dimensions 7276, 8820
+    Number of bins in the histogram: 256
+    It may take several minutes to find the answer.
+    Otsu threshold for image image.tif: 224.7686274509804
+
+Usage::
+
+    otsu_threshold <options> <images>
+
 Command-line options for otsu_threshold:
 
 -h, --help
     Display the help message.
-
---image <filename>
-    The single-channel image to use to find the water-land threshold.
 
 --num-samples <integer (default: -1)>
     The number of samples to pick from the image (more samples will
@@ -42,4 +57,8 @@ Command-line options for otsu_threshold:
 --num-bins <integer (default: 256)>
     Number of bins to use for the histogram. A larger value is
     suggested if the image has some outlying pixel values.
+
+--nodata-value <double>
+    Use this nodata value instead of what is read from the file, if
+    present.
 
