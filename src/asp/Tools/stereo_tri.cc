@@ -557,7 +557,8 @@ void stereo_triangulation(std::string const& output_prefix,
     bool disp_or_match_work = (stereo_settings().unalign_disparity ||
                                stereo_settings().num_matches_from_disparity > 0 ||
                                stereo_settings().num_matches_from_disp_triplets > 0 ||
-                               stereo_settings().image_lines_per_piecewise_adjustment > 0);
+                               stereo_settings().image_lines_per_piecewise_adjustment > 0 ||
+                               stereo_settings().compute_piecewise_adjustments_only);
     if (disp_or_match_work) {
       
       // Sanity check for some of the operations below
