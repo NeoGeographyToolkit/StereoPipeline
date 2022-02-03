@@ -455,7 +455,8 @@ void asp::StereoSessionPinhole::pinhole_cam_trans(tx_type & left_trans,
   typedef vw::camera::PinholeModel PinModel;
   PinModel* left_in_ptr = dynamic_cast<PinModel*>(&(*left_input_model));
   if (!left_in_ptr)
-    vw_throw( NoImplErr() << "StereoSessionPinhole::pinhole_cam_trans is only implemented for PinholeModel classes!\n" );
+    vw_throw( NoImplErr() << "StereoSessionPinhole::pinhole_cam_trans is only "
+              << "implemented for PinholeModel classes!\n" );
 
   // Set up transform objects
   left_trans.reset (new asp::PinholeCamTrans(*dynamic_cast<PinModel*>(&(*left_input_model   )),

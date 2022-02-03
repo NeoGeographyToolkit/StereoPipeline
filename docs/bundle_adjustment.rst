@@ -13,7 +13,7 @@ errors in the overall position and slope of the DEM. Severe distortions
 can occur as well, resulting in twisted or "taco-shaped" DEMs, though in
 most cases these effects are quite subtle and hard to detect. In the
 worst case, such as with old mission data like Voyager or Apollo, these
-gross camera misalignments can inhibit Stereo Pipeline’s internal
+gross camera misalignments can inhibit Stereo Pipeline's internal
 interest point matcher and block auto search range detection.
 
 .. figure:: images/ba_orig_adjusted.png
@@ -182,12 +182,14 @@ images, which can be a very good constraint on bundle adjustment
 later.
 
 If the interest points are good and the mean intersection error is
-acceptable, but this error shows an odd nonlinear pattern, that means it
-may be necessary to optimize the intrinsics. We do so by using the
-cameras with the optimized extrinsics found earlier, that is::
+acceptable, but this error shows an odd nonlinear pattern, that means
+it may be necessary to optimize the intrinsics. We do so by using the
+cameras with the optimized extrinsics found earlier. This is just an
+early such attempt, better approaches will be suggested below::
 
      bundle_adjust -t nadirpinhole --inline-adjustments               \
        --solve-intrinsics --camera-weight 1                           \
+       --max-pairwise-matches 10000                                   \
        left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai  \
        -o run_ba_intr/run
 
@@ -262,18 +264,27 @@ disparity obtained in stereo and remove any intermediate transforms
 stereo applied to the images and the disparity. This can be done as
 follows::
 
-     stereo_tri -t nadirpinhole --alignment-method epipolar left.tif right.tif  \
-       run_ba/run-left.tsai run_ba/run-right.tsai run_stereo/run                \
-       --unalign-disparity 
+     stereo_tri -t nadirpinhole --alignment-method epipolar \
+       --unalign-disparity                                  \
+       left.tif right.tif                                   \
+       run_ba/run-left.tsai run_ba/run-right.tsai           \
+       run_stereo/run               
 
 and then bundle adjustment can be invoked with this disparity and the
 lidar/DEM file. Note that we use the cameras obtained after alignment::
 
-     bundle_adjust -t nadirpinhole --inline-adjustments --solve-intrinsics              \
-       left.tif right.tif run_align/run-run-left.tsai run_align/run-run-right.tsai      \
-       --reference-terrain lidar.csv --disparity-list run_stereo/run-unaligned-D.tif    \
-       --camera-weight 0 --max-disp-error 50 --max-num-reference-points 1000000         \
-       --parameter-tolerance 1e-12 --reference-terrain-weight 5 -o run_ba_intr_lidar/run
+     bundle_adjust -t nadirpinhole --inline-adjustments         \
+       --solve-intrinsics --camera-weight 0                     \
+       --max-disp-error 50                                      \
+       --max-num-reference-points 1000000                       \
+       --max-pairwise-matches 10000                             \
+       --parameter-tolerance 1e-12                              \
+       --reference-terrain lidar.csv                            \
+       --reference-terrain-weight 5                             \
+       --disparity-list run_stereo/run-unaligned-D.tif          \
+       left.tif right.tif                                       \
+       run_align/run-run-left.tsai run_align/run-run-right.tsai \
+       -o run_ba_intr_lidar/run
 
 Here we set the camera weight all the way to 0, since it is hoped that
 having a reference terrain is a sufficient constraint to prevent
@@ -309,34 +320,6 @@ lidar/DEM file).
 When the lidar file is large, in bundle adjustment one can use the flag
 ``--lon-lat-limit`` to read only a relevant portion of it. This can
 speed up setting up the problem but does not affect the optimization.
-
-Using the heights from a reference DEM
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In some situations the DEM obtained with ASP is, after alignment, quite
-similar to the reference DEM, but the heights may be off. This can
-happen, for example, if the focal length is not accurately known. It is
-then possible after triangulating the interest point matches in bundle
-adjustment to replace their heights above datum with values obtained
-from the reference DEM, which are presumably more accurate. These
-triangulated points can be kept fixed while the extrinsics and
-intrinsics of the cameras are varied. The option for this is
-``--heights-from-dem arg``. To allow these triangulated points to vary
-somewhat, one can pass a positive value to
-``--heights-from-dem-weight``. The larger its value is, the more
-constrained those points will be.
-
-This option can be used instead of the ``--reference-terrain`` option or
-together with it, and the DEM provided need not be the same for the two
-options.
-
-It is important to note that here we assume that a simple height
-correction is enough. Hence this option is an approximation, and perhaps
-it should be used iteratively, and a subsequent pass of bundle
-adjustment should be done without it, or one should consider using a
-smaller weight above. This option can however be more effective than
-using ``--reference-terrain`` when there is a large uncertainty in
-camera intrinsics.
 
 Using multiple images
 ^^^^^^^^^^^^^^^^^^^^^
@@ -396,6 +379,47 @@ to the reference terrain.
 Also note the earlier comment about sharing and floating the intrinsics
 individually.
 
+Using the heights from a reference DEM
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In some situations the DEM obtained with ASP is, after alignment,
+quite similar to the reference DEM, but the heights may be off. This
+can happen, for example, if the focal length is not accurately
+known. It is then possible after triangulating the interest point
+matches in bundle adjustment to replace their heights above datum with
+values obtained from the reference DEM, which are presumably more
+accurate. These triangulated points can then be constrained to not
+vary too much from these initial positions while the extrinsics and
+intrinsics of the cameras are varied. The option for this is
+``--heights-from-dem arg``. An additional control is given, in the
+form of the option ``--heights-from-dem-weight``. The larger its value
+is, the more constrained those points will be.
+
+Here is an example, and note that, as in the earlier section,
+we assume that the cameras and the terrain are already aligned::
+
+     bundle_adjust -t nadirpinhole --inline-adjustments         \
+       --max-pairwise-matches 10000                             \
+       --solve-intrinsics --camera-weight 1                     \
+       --heights-from-dem dem.tif                               \
+       --heights-from-dem-weight 0.1                            \
+       --heights-from-dem-robust-threshold 10                   \
+       --parameter-tolerance 1e-12                              \
+       left.tif right.tif                                       \
+       run_align/run-run-left.tsai run_align/run-run-right.tsai \
+       -o run_ba_hts_from_dem/run
+
+It is suggested to look at the documentation of all the options
+above and adjust them for your use case.
+
+It is important to note that here we assume that a simple height
+correction is enough. Hence this option is an approximation, and perhaps
+it should be used iteratively, and a subsequent pass of bundle
+adjustment should be done without it, or one should consider using a
+smaller weight above. This option can however be more effective than
+using ``--reference-terrain`` when there is a large uncertainty in
+camera intrinsics.
+
 RPC lens distortion
 ^^^^^^^^^^^^^^^^^^^
 
@@ -433,7 +457,7 @@ Bundle adjustment using ISIS
 In what follows we describe how to do bundle adjustment using ISIS’s
 tool-chain. It also serves to describe bundle adjustment in more detail,
 which is applicable to other bundle adjustment tools as well, including
-Stereo Pipeline’s own tool.
+Stereo Pipeline's own tool.
 
 In bundle adjustment, the position and orientation of each camera
 station are determined jointly with the 3D position of a set of image
@@ -487,7 +511,7 @@ evaluate the above cost function, you’ll find that the error is indeed
 zero. This is not the correct solution if the images were taken from
 orbit. Another example is if a translation was applied equally to all 3D
 points and camera locations. This again would not affect the cost
-function. This fault comes from bundle adjustment’s inability to control
+function. This fault comes from bundle adjustment's inability to control
 the scale and translation of the solution. It will correct the geometric
 shape of the problem, yet it cannot guarantee that the solution will
 have correct scale and translation.

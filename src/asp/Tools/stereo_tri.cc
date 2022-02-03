@@ -553,102 +553,110 @@ void stereo_triangulation(std::string const& output_prefix,
       disparity_maps.push_back
         (opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
 
-    ASPGlobalOptions opt = opt_vec[0];
-    
-    // Transforms to compensate for alignment
-    TransPtr left_trans  = transforms[0];
-    TransPtr right_trans = transforms[1];
-    // Special case to overwrite the transforms
-    bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
-                                ( opt.session->name() == "pinhole" ||
-                                  opt.session->name() == "nadirpinhole") );
-    if (usePinholeEpipolar) {
-      StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
-      if (pinPtr == NULL) 
-        vw_throw(ArgumentErr() << "Expected a pinhole camera.\n");
-      pinPtr->pinhole_cam_trans(left_trans, right_trans);
-    }
-    
-    // Sanity check for some of the operations below
-    if (stereo_settings().unalign_disparity ||
-        stereo_settings().num_matches_from_disparity > 0 ||
-        stereo_settings().num_matches_from_disp_triplets > 0 ||
-        stereo_settings().image_lines_per_piecewise_adjustment > 0) 
-      VW_ASSERT( disparity_maps.size() == 1 && transforms.size() == 2,
-                 vw::ArgumentErr() << "Expecting two images and one disparity.\n" );
-    
-    // Create a disparity map with between the original unaligned images 
-    if (stereo_settings().unalign_disparity) {
-      std::string unaligned_disp_file = asp::unwarped_disp_file(output_prefix,
-                                                                opt_vec[0].in_file1, 
-                                                                opt_vec[0].in_file2);
-      unalign_disparity(is_map_projected, disparity_maps[0], left_trans, right_trans,  
-                        opt,  unaligned_disp_file);
-    }
-    
-    std::string match_file = ip::match_filename(output_prefix + "-disp",
-                                                opt_vec[0].in_file1, 
-                                                opt_vec[0].in_file2);
-
-    // Pull matches from disparity. Highly experimental.
-    if (stereo_settings().num_matches_from_disparity > 0 && 
-        stereo_settings().num_matches_from_disp_triplets > 0) {
-      vw_throw( ArgumentErr() << "Cannot have both --num-matches-from-disparity and  "
-                              << "--num-matches-from-disp-triplets.\n" );
-    }
-
-    if (stereo_settings().num_matches_from_disparity > 0) {
-      bool gen_triplets = false;
-      compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
-                                stereo_settings().num_matches_from_disparity, gen_triplets);
-    }
-    if (stereo_settings().num_matches_from_disp_triplets > 0) {
-      bool gen_triplets = true;
-      compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
-                                stereo_settings().num_matches_from_disp_triplets, gen_triplets);
-    }
-    
-    // Piecewise adjustments for jitter
-    if (stereo_settings().image_lines_per_piecewise_adjustment > 0 &&
-        !stereo_settings().skip_computing_piecewise_adjustments){
-
-      // TODO: This must be proportional to how many adjustments have!
-      double max_num_matches = stereo_settings().num_matches_for_piecewise_adjustment;
-
-      bool gen_triplets = false;
-      compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
-                                max_num_matches, gen_triplets);
-
-      int num_threads = opt_vec[0].num_threads;
-      if (opt_vec[0].session->name() == "isis" || opt_vec[0].session->name() == "isismapisis")
-        num_threads = 1;
-      asp::jitter_adjust(image_files, camera_files, cameras,
-                         output_prefix, opt_vec[0].session->name(),
-                         match_file,  num_threads);
-      //asp::ccd_adjust(image_files, camera_files, cameras, output_prefix,
-      //                match_file,  num_threads);
-    }
-
-    if (stereo_settings().compute_piecewise_adjustments_only) {
-      vw_out() << "Computed the piecewise adjustments. Will stop here." << std::endl;
-      return;
-    }
-
-    // Reload the cameras, loading the piecewise corrections for jitter.
-    if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
-
-      stereo_settings().bundle_adjust_prefix = output_prefix; // trigger loading adj cams
-      cameras.clear();
-      for (int p = 0; p < (int)opt_vec.size(); p++){
-
-        boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-        opt_vec[p].session->camera_models(camera_model1, camera_model2);
-        if (p == 0) // The first image is the "left" image for all pairs.
-          cameras.push_back(camera_model1);
-        cameras.push_back(camera_model2);
+    // TODO(oalexan1): This block needs to be factored out
+    bool disp_or_match_work = (stereo_settings().unalign_disparity ||
+                               stereo_settings().num_matches_from_disparity > 0 ||
+                               stereo_settings().num_matches_from_disp_triplets > 0 ||
+                               stereo_settings().image_lines_per_piecewise_adjustment > 0);
+    if (disp_or_match_work) {
+      
+      // Sanity check for some of the operations below
+      VW_ASSERT(disparity_maps.size() == 1 && transforms.size() == 2,
+                 vw::ArgumentErr() << "Expecting two images and one disparity.\n");
+      
+      ASPGlobalOptions opt = opt_vec[0];
+      
+      // Transforms to compensate for alignment
+      TransPtr left_trans  = transforms[0];
+      TransPtr right_trans = transforms[1];
+      // Special case to overwrite the transforms
+      bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
+                                  ( opt.session->name() == "pinhole" ||
+                                    opt.session->name() == "nadirpinhole") );
+      if (usePinholeEpipolar) {
+        StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
+        if (pinPtr == NULL) 
+          vw_throw(ArgumentErr() << "Expected a pinhole session.\n");
+        try {
+          pinPtr->pinhole_cam_trans(left_trans, right_trans);
+        } catch(...) {
+          vw_throw(ArgumentErr() << "Expected a non-cahv* type camera for disparity operations.\n");
+        }
+      }
+      
+      // Create a disparity map with between the original unaligned images 
+      if (stereo_settings().unalign_disparity) {
+        std::string unaligned_disp_file = asp::unwarped_disp_file(output_prefix,
+                                                                  opt_vec[0].in_file1, 
+                                                                  opt_vec[0].in_file2);
+        unalign_disparity(is_map_projected, disparity_maps[0], left_trans, right_trans,  
+                          opt,  unaligned_disp_file);
+      }
+      
+      std::string match_file = ip::match_filename(output_prefix + "-disp",
+                                                  opt_vec[0].in_file1, 
+                                                  opt_vec[0].in_file2);
+      
+      // Pull matches from disparity. Highly experimental.
+      if (stereo_settings().num_matches_from_disparity > 0 && 
+          stereo_settings().num_matches_from_disp_triplets > 0) {
+        vw_throw( ArgumentErr() << "Cannot have both --num-matches-from-disparity and  "
+                  << "--num-matches-from-disp-triplets.\n" );
+      }
+      
+      if (stereo_settings().num_matches_from_disparity > 0) {
+        bool gen_triplets = false;
+        compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
+                                  stereo_settings().num_matches_from_disparity, gen_triplets);
+      }
+      if (stereo_settings().num_matches_from_disp_triplets > 0) {
+        bool gen_triplets = true;
+        compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
+                                  stereo_settings().num_matches_from_disp_triplets, gen_triplets);
+      }
+      
+      // Piecewise adjustments for jitter
+      if (stereo_settings().image_lines_per_piecewise_adjustment > 0 &&
+          !stereo_settings().skip_computing_piecewise_adjustments){
+        
+        // TODO: This must be proportional to how many adjustments have!
+        double max_num_matches = stereo_settings().num_matches_for_piecewise_adjustment;
+        
+        bool gen_triplets = false;
+        compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
+                                  max_num_matches, gen_triplets);
+      
+        int num_threads = opt_vec[0].num_threads;
+        if (opt_vec[0].session->name() == "isis" || opt_vec[0].session->name() == "isismapisis")
+          num_threads = 1;
+        asp::jitter_adjust(image_files, camera_files, cameras,
+                           output_prefix, opt_vec[0].session->name(),
+                           match_file,  num_threads);
+        //asp::ccd_adjust(image_files, camera_files, cameras, output_prefix,
+        //                match_file,  num_threads);
+      }
+      
+      if (stereo_settings().compute_piecewise_adjustments_only) {
+        vw_out() << "Computed the piecewise adjustments. Will stop here." << std::endl;
+        return;
+      }
+      
+      // Reload the cameras, loading the piecewise corrections for jitter.
+      if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
+        
+        stereo_settings().bundle_adjust_prefix = output_prefix; // trigger loading adj cams
+        cameras.clear();
+        for (int p = 0; p < (int)opt_vec.size(); p++){
+          
+          boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+          opt_vec[p].session->camera_models(camera_model1, camera_model2);
+          if (p == 0) // The first image is the "left" image for all pairs.
+            cameras.push_back(camera_model1);
+          cameras.push_back(camera_model2);
+        }
       }
     }
-
+    
     if (is_map_projected)
       vw_out() << "\t--> Inputs are map projected" << std::endl;
 
@@ -700,7 +708,7 @@ void stereo_triangulation(std::string const& output_prefix,
       read_bathy_plane(stereo_settings().bathy_plane,
                        bathy_plane, use_curved_water_surface,
                        water_surface_projection);
-      asp::read_vec(stereo_settings().bathy_plane, bathy_plane);
+      
       opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
                                                    right_aligned_bathy_mask); 
       

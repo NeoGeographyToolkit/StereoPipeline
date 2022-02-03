@@ -27,9 +27,11 @@ bundle_adjust:
     steps, making the process much faster.
   * Add the option --max-pairwise-matches to put an upper limit on
     the number of matches, as a large number can slow down bundle
-    adjustment. The default is 5000, likely an overestimate (but this
-    includes potential outliers).
-  * Stop printing warnings about failed triangulations if their number
+    adjustment. The default is 10000, likely a large overestimate (but
+    this includes potential outliers). If creating interest points
+    from disparity using --num-matches-from-disp-triplets, similar
+    values should be used for both of these options.
+  * Stop printing warnings about failed triangulation if their number
     goes over 100.
 
 stereo:

@@ -1681,7 +1681,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
      "Set the minimum  number of matches between images that will be considered.")
-    ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(5000),
+    ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(10000),
      "Reduce the number of matches per pair of images to at most this "
      "number, by selecting a random subset, if needed. This happens "
      "when setting up the optimization, and before outlier filtering.")
