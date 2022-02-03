@@ -189,8 +189,6 @@ namespace asp {
 
 } // end namespace asp
 
-#include <asp/Sessions/StereoSessionIsis.tcc>
-
 #endif  // ASP_HAVE_PKG_ISISIO
 
 #endif // __STEREO_SESSION_ISIS_H__
