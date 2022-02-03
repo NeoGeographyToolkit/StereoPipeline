@@ -179,14 +179,13 @@ namespace asp {
     /// Simple factory function.
     static StereoSession* construct() { return new StereoSessionIsis; }
 
-    
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
-                                                                         std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) const;
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const;
   };
-
 
 } // end namespace asp
 
