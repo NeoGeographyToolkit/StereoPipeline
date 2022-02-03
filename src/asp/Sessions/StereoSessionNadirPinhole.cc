@@ -63,11 +63,13 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   DiskImageView<float> left_disk_image (left_cropped_file),
                        right_disk_image(right_cropped_file);
 
+  // Set up image masks
   ImageViewRef< PixelMask<float> > left_masked_image
     = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
   ImageViewRef< PixelMask<float> > right_masked_image
     = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
+  // Compute input image statistics
   Vector6f left_stats  = gather_stats(left_masked_image,  "left",
                                       this->m_out_prefix, left_cropped_file);
   Vector6f right_stats = gather_stats(right_masked_image, "right",
@@ -96,7 +98,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
 
     if (do_bathy) {
       // I could not code and test in reasonable time bathymery with cropped
-      // images
+      // images and epipolar alignment. 
       bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
       bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
       if (crop_left || crop_right) 

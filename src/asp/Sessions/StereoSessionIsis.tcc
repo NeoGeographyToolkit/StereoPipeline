@@ -209,7 +209,8 @@ void write_preprocessed_isis_image(vw::cartography::GdalWriteOptions const& opt,
 
 }
 
-
+// TODO(oalexan1): Move that file_has_isd_extension function to Common
+// so that ISIS does not know about CSM.
 bool StereoSessionIsis::supports_multi_threading () const {
   return (asp::CsmModel::file_has_isd_extension(m_left_camera_file) && 
           asp::CsmModel::file_has_isd_extension(m_right_camera_file)  );

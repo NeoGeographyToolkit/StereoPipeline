@@ -45,7 +45,8 @@ namespace asp {
     IsisSpecialPixelFunc() : m_replacement_low(0), m_replacement_high(0), m_replacement_null(0) {}
 
   public:
-    IsisSpecialPixelFunc(PixelT const& pix_l, PixelT const& pix_h, PixelT const& pix_n) : m_replacement_low(pix_l), m_replacement_high(pix_h), m_replacement_null(pix_n) {}
+    IsisSpecialPixelFunc(PixelT const& pix_l, PixelT const& pix_h, PixelT const& pix_n):
+      m_replacement_low(pix_l), m_replacement_high(pix_h), m_replacement_null(pix_n) {}
 
     // TODO: What is all this helper stuff??
 
@@ -137,10 +138,9 @@ namespace asp {
                              typename ViewT::pixel_type r_high = typename ViewT::pixel_type(),
                              typename ViewT::pixel_type r_null = typename ViewT::pixel_type()) {
     return vw::per_pixel_filter(image.impl(),
-                                IsisSpecialPixelFunc<typename ViewT::pixel_type>(r_low,r_high,r_null));
+                                IsisSpecialPixelFunc<typename ViewT::pixel_type>
+                                (r_low,r_high,r_null));
   }
-
-
 
   /// Derived StereoSession class for ISIS images.
   class StereoSessionIsis : public StereoSession {

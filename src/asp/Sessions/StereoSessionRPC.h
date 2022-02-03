@@ -25,9 +25,7 @@
 #include <asp/Camera/RPCStereoModel.h>
 #include <asp/Sessions/StereoSessionGdal.h>
 
-
 namespace asp {
-
 
   /// Derived StereoSession class using the RPC camera model.
   class StereoSessionRPC : public StereoSessionGdal {
@@ -44,7 +42,6 @@ namespace asp {
     /// Returns the target datum to use for a given camera model.
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
                                              bool use_sphere_for_datum) const {
-
       const asp::RPCModel *rpc_cam
         = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(cam));
       if (rpc_cam == NULL) 
@@ -56,9 +53,10 @@ namespace asp {
     
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel> load_camera_model(std::string const& image_file, 
-                                                                         std::string const& camera_file,
-                                                                         vw::Vector2 pixel_offset) const {
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    load_camera_model(std::string const& image_file, 
+                      std::string const& camera_file,
+                      vw::Vector2 pixel_offset) const {
       return load_rpc_camera_model(image_file, camera_file, pixel_offset);
     }
   }; // End class StereoSessionRPC

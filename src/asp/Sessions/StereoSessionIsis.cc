@@ -15,38 +15,13 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/*
 /// \file StereoSessionIsis.cc
 ///
 
-// Vision Workbench
-#include <vw/Core/Settings.h>
-#include <vw/Core/Log.h>
-#include <vw/Math/Functors.h>
-#include <vw/Image/Algorithms.h>
-#include <vw/Image/EdgeExtension.h>
-#include <vw/Image/ImageViewRef.h>
-#include <vw/Image/Manipulation.h>
-#include <vw/Image/ImageMath.h>
-#include <vw/Image/MaskViews.h>
-#include <vw/Image/Statistics.h>
-#include <vw/Image/Transform.h>
-#include <vw/FileIO/DiskImageView.h>
-#include <vw/FileIO/DiskImageResourceGDAL.h>
-#include <vw/FileIO/DiskImageResourceOpenEXR.h>
-#include <vw/Camera/CameraModel.h>
-#include <vw/Stereo/DisparityMap.h>
-#include <vw/InterestPoint/Descriptor.h>
-#include <vw/InterestPoint/Detector.h>
-#include <vw/InterestPoint/Matcher.h>
-#include <vw/InterestPoint/MatrixIO.h>
-#include <vw/Cartography/Datum.h>
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
-// Stereo Pipeline
-#include <asp/Core/InterestPointMatching.h>
-#include <asp/Core/AffineEpipolar.h>
-#include <asp/Core/PhotometricOutlier.h>
-#include <asp/Sessions/StereoSessionIsis.h>
+//#include <asp/Sessions/StereoSessionIsis.h>
+
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #include <asp/IsisIO/Equation.h>
@@ -63,7 +38,6 @@ using namespace vw;
 using namespace vw::camera;
 using namespace asp;
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
@@ -71,4 +45,3 @@ namespace vw {
 }
 
 #endif  // ASP_HAVE_PKG_ISISIO
-*/

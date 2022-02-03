@@ -44,23 +44,23 @@ using namespace vw;
 
 namespace asp{
 
-enum OUTPUT_CLOUD_TYPE {FULL_CLOUD, BATHY_CLOUD, TOPO_CLOUD};
+enum OUTPUT_CLOUD_TYPE {FULL_CLOUD, BATHY_CLOUD, TOPO_CLOUD}; // all, below water, above water
 
 /// The main class for taking in a set of disparities and returning a
 /// point cloud via joint triangulation.
-template <class DisparityImageT, class StereoModelT>
 class StereoTXAndErrorView:
-  public ImageViewBase<StereoTXAndErrorView<DisparityImageT, StereoModelT> > {
-  std::vector<DisparityImageT> m_disparity_maps;
-  std::vector<TransPtr>  m_transforms; // e.g., map-projection or homography to undo
-  StereoModelT m_stereo_model;
-  bool         m_is_map_projected;
-  bool         m_bathy_correct;
-  OUTPUT_CLOUD_TYPE m_cloud_type;
+  public ImageViewBase<StereoTXAndErrorView> {
+  std::vector<DispImageType> m_disparity_maps;
+  std::vector<TransPtr>      m_transforms; // e.g., map-projection or homography to undo
+  vw::stereo::StereoModel    m_stereo_model;
+  asp::BathyStereoModel      m_bathy_model;
+  bool                       m_is_map_projected;
+  bool                       m_bathy_correct;
+  OUTPUT_CLOUD_TYPE          m_cloud_type;
   ImageViewRef<PixelMask<float>> m_left_aligned_bathy_mask;
   ImageViewRef<PixelMask<float>> m_right_aligned_bathy_mask;
 
-  typedef typename DisparityImageT::pixel_type DPixelT;
+  typedef typename DispImageType::pixel_type DPixelT;
 
 public:
 
@@ -69,9 +69,10 @@ public:
   typedef ProceduralPixelAccessor<StereoTXAndErrorView> pixel_accessor;
 
   /// Constructor
-  StereoTXAndErrorView(std::vector<DisparityImageT> const& disparity_maps,
-                       std::vector<TransPtr>             const& transforms,
-                       StereoModelT            const& stereo_model,
+  StereoTXAndErrorView(std::vector<DispImageType> const& disparity_maps,
+                       std::vector<TransPtr>      const& transforms,
+                       vw::stereo::StereoModel    const& stereo_model,
+                       asp::BathyStereoModel      const& bathy_model,
                        bool is_map_projected,
                        bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
                        ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
@@ -79,6 +80,7 @@ public:
     m_disparity_maps(disparity_maps),
     m_transforms(transforms),
     m_stereo_model(stereo_model),
+    m_bathy_model(bathy_model),
     m_is_map_projected(is_map_projected),
     m_bathy_correct(bathy_correct),
     m_cloud_type(cloud_type),
@@ -121,16 +123,11 @@ public:
     
     // Compute the location of the 3D point observed by each input pixel
     // when no bathymetry correction is needed.
-    // TODO(oalexan1): Wipe any mention of bathy from the base stereo model,
-    // and here employ a regular model which knows nothing about bathy
-    // and a bathy stereo model to be called as needed.
     Vector3 errorVec;
     pixel_type result;
-    bool do_bathy = false;
-    bool did_bathy = false;
     if (!m_bathy_correct) {
       try {
-        subvector(result,0,3) = m_stereo_model(pixVec, errorVec, do_bathy, did_bathy);
+        subvector(result,0,3) = m_stereo_model(pixVec, errorVec);
         subvector(result,3,3) = errorVec;
       }catch(...) {
         return result;
@@ -155,7 +152,7 @@ public:
     Vector2 irpix(round(rpix.x()), round(rpix.y())); // integer version
 
     // Do bathy only when the mask is invalid (under water)
-    do_bathy = (!is_valid(m_left_aligned_bathy_mask(lpix.x(), lpix.y())) &&
+    bool do_bathy = (!is_valid(m_left_aligned_bathy_mask(lpix.x(), lpix.y())) &&
                 0 <= irpix.x() && irpix.x() < m_right_aligned_bathy_mask.cols() &&
                 0 <= irpix.y() && irpix.y() < m_right_aligned_bathy_mask.rows() &&
                 !is_valid(m_right_aligned_bathy_mask(irpix.x(), irpix.y())));
@@ -170,8 +167,8 @@ public:
     }
 
     // Do the triangulation. The did_bathy variable may change. 
-    did_bathy = false;
-    subvector(result, 0, 3) = m_stereo_model(pixVec, errorVec, do_bathy, did_bathy);
+    bool did_bathy = false;
+    subvector(result, 0, 3) = m_bathy_model(pixVec, errorVec, do_bathy, did_bathy);
     subvector(result, 3, 3) = errorVec;
 
     // If we wanted to do bathy correction and it did not happen, or the opposite,
@@ -186,13 +183,13 @@ public:
     return result; // Contains location and error vector
   }
   
-  typedef StereoTXAndErrorView<ImageViewRef<DPixelT>, StereoModelT> prerasterize_type;
+  typedef StereoTXAndErrorView prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
-    return PreRasterHelper( bbox, m_transforms );
+    return PreRasterHelper(bbox, m_transforms);
   }
   template <class DestT>
   inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
-    vw::rasterize( prerasterize(bbox), dest, bbox );
+    vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 
 private:
@@ -247,7 +244,8 @@ private:
         }
       }
 
-      return prerasterize_type(disparity_cropviews, transforms, m_stereo_model,
+      return prerasterize_type(disparity_cropviews, transforms,
+                               m_stereo_model, m_bathy_model,
                                m_is_map_projected, m_bathy_correct, m_cloud_type,
                                in_memory_left_aligned_bathy_mask,
                                in_memory_right_aligned_bathy_mask);
@@ -263,10 +261,10 @@ private:
     // - Without some sort of duplication function in the transform base class we need
     //   to manually copy the Map2CamTrans type which is pretty hacky.
     std::vector<T> transforms_copy(transforms.size());
-    for (size_t i = 0; i < transforms.size(); ++i) {
+    for (size_t i = 0; i < transforms.size(); ++i)
       transforms_copy[i] = make_transform_copy(transforms[i]);
-    }
-    // As a side effect this call makes transforms_copy create a local cache we want later
+
+    // As a side effect, this call makes transforms_copy create a local cache we want later
     transforms_copy[0]->reverse_bbox(bbox); 
 
     if (transforms_copy.size() != m_disparity_maps.size() + 1){
@@ -275,7 +273,7 @@ private:
                 << "than the number of images." );
     }
 
-    std::vector< ImageViewRef<DPixelT> > disparity_cropviews;
+    std::vector<ImageViewRef<DPixelT>> disparity_cropviews;
     for (int p = 0; p < (int)m_disparity_maps.size(); p++){
 
       // We explicitly bring in-memory the disparities for the current
@@ -311,7 +309,8 @@ private:
       transforms_copy[p+1]->reverse_bbox(right_bbox); 
     }
 
-    return prerasterize_type(disparity_cropviews, transforms_copy, m_stereo_model,
+    return prerasterize_type(disparity_cropviews, transforms_copy,
+                             m_stereo_model, m_bathy_model,
                              m_is_map_projected, m_bathy_correct, m_cloud_type,
                              in_memory_left_aligned_bathy_mask, in_memory_right_aligned_bathy_mask);
   } // End function PreRasterHelper() DGMapRPC version
@@ -319,24 +318,25 @@ private:
 }; // End class StereoTXAndErrorView
 
 /// Just a wrapper function for StereoTXAndErrorView view construction
-template <class DisparityT, class StereoModelT>
-StereoTXAndErrorView<DisparityT, StereoModelT>
-stereo_error_triangulate(std::vector<DisparityT> const& disparities,
+StereoTXAndErrorView
+stereo_error_triangulate(std::vector<DispImageType> const& disparities,
                          std::vector<TransPtr>   const& transforms,
-                         StereoModelT            const& model,
+                         vw::stereo::StereoModel const& stereo_model,
+                         asp::BathyStereoModel   const& bathy_model,
                          bool is_map_projected,
                          bool bathy_correct,
                          OUTPUT_CLOUD_TYPE cloud_type,
                          ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
                          ImageViewRef<PixelMask<float>> right_aligned_bathy_mask) {
   
-  typedef StereoTXAndErrorView<DisparityT, StereoModelT> result_type;
-  return result_type(disparities, transforms, model, is_map_projected,
-                     bathy_correct, cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask);
+  typedef StereoTXAndErrorView result_type;
+  return result_type(disparities, transforms, stereo_model, bathy_model,
+                     is_map_projected, bathy_correct, cloud_type,
+                     left_aligned_bathy_mask, right_aligned_bathy_mask);
 }
 
 
-// TODO: Move some of these functions to a class or something!
+// TODO(oalexan1): Move some of these functions to a class or something!
   
 // ImageView operator that takes the last three elements of a vector
 // (the error part) and replaces them with the norm of that 3-vector.
@@ -664,9 +664,11 @@ void stereo_triangulation(std::string const& output_prefix,
     double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
       (stereo_settings().min_triangulation_angle*M_PI/180);
 
-    // Create both a regular stereo model and a bathy stereo model. Will use
-    // the latter only if we do bathymetry. There seems to be no elegant
-    // way of doing that.
+    // Create both a regular stereo model and a bathy stereo
+    // model. Will use the latter only if we do bathymetry. This way
+    // the regular stereo model and bathy stereo model can have
+    // different interfaces and the former need not know about the
+    // latter. Templates are avoided too.
     vw::stereo::StereoModel stereo_model(camera_ptrs, stereo_settings().use_least_squares,
                                          angle_tol);
     asp::BathyStereoModel bathy_stereo_model(camera_ptrs, stereo_settings().use_least_squares,
@@ -684,15 +686,14 @@ void stereo_triangulation(std::string const& output_prefix,
       cloud_type = TOPO_CLOUD;
     else
       vw_throw(ArgumentErr() << "Unknown value for --output-cloud-type.\n");
-      
+
+    // Load the bathy masks and plane
     ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
-    
     std::vector<double> bathy_plane;
     bool use_curved_water_surface = false; // may change below
     vw::cartography::GeoReference water_surface_projection;
     bool bathy_correct = opt_vec[0].session->do_bathymetry();
     if (bathy_correct) {
-
       if (disparity_maps.size() != 1)
         vw_throw(ArgumentErr() << "Bathymetry correction does not work with multiview stereo\n");
 
@@ -715,17 +716,10 @@ void stereo_triangulation(std::string const& output_prefix,
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << std::endl;
-    ImageViewRef<Vector6> point_cloud;
-    if (!bathy_correct) 
-      point_cloud = per_pixel_filter
+    ImageViewRef<Vector6> point_cloud = per_pixel_filter
         (stereo_error_triangulate
-         (disparity_maps, transforms, stereo_model, is_map_projected, bathy_correct,
-          cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask),
-         universe_radius_func);
-    else
-      point_cloud = per_pixel_filter
-        (stereo_error_triangulate
-         (disparity_maps, transforms, bathy_stereo_model, is_map_projected, bathy_correct,
+         (disparity_maps, transforms, stereo_model, bathy_stereo_model,
+          is_map_projected, bathy_correct,
           cloud_type, left_aligned_bathy_mask, right_aligned_bathy_mask),
          universe_radius_func);
     

@@ -75,6 +75,12 @@ namespace asp {
     ImageViewRef< PixelMask<float> > right_masked_image
       = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
+    // Compute input image statistics
+    Vector6f left_stats  = gather_stats(left_masked_image,  "left",
+                                        this->m_out_prefix, left_cropped_file);
+    Vector6f right_stats = gather_stats(right_masked_image, "right",
+                                        this->m_out_prefix, right_cropped_file);
+
     ImageViewRef< PixelMask<float> > left_bathy_mask, right_bathy_mask;
     bool do_bathy = StereoSession::do_bathymetry();
     float left_bathy_nodata = -std::numeric_limits<float>::max();
@@ -83,12 +89,6 @@ namespace asp {
       StereoSession::read_bathy_masks(left_masked_image, right_masked_image,
                                       left_bathy_nodata, right_bathy_nodata,
                                       left_bathy_mask, right_bathy_mask);
-
-    // Compute input image statistics
-    Vector6f left_stats  = gather_stats(left_masked_image,  "left",
-                                        this->m_out_prefix, left_cropped_file);
-    Vector6f right_stats = gather_stats(right_masked_image, "right",
-                                        this->m_out_prefix, right_cropped_file);
 
     ImageViewRef< PixelMask<float> > Limg, Rimg;
     ImageViewRef< PixelMask<float> > left_aligned_bathy_mask, right_aligned_bathy_mask;
@@ -262,7 +262,10 @@ namespace asp {
       // Write out the right image cropped to align with the left image.
       vw_out() << "\t--> Writing: " << right_output_file << ".\n";
       block_write_gdal_image(right_output_file,
-                             apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()),
+                             apply_mask(crop(edge_extend(Rimg,
+                                                         // TODO(oalexan1): Put here
+                                                         // ext_nodata, like NadirPinhole?
+                                                         ConstantEdgeExtension()),
                                              bounding_box(Limg)), output_nodata),
                              has_right_georef, right_georef,
                              has_nodata, output_nodata, options,
