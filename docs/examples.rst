@@ -2756,13 +2756,13 @@ Bathymetry correction and alignment
 It is important to note that we did not use bundle adjustment or
 ``pc_align`` (:numref:`pc_align`) for alignment. That is possible, but
 then one has to ensure the bathy plane is obtained in a way which is
-consistent with such operations which move the cameras. Yet, the
-``bathy_plane_calc`` tool when used with a camera and a mask, as shown
-in the first example at :numref:`bathy_plane_calc`, does not accept
-camera adjustments or an alignment transform. (But, in the second
-example it only uses a DEM and a shapefile, with no camera, it would
-prduce a plane consistent with the input DEM, even if that one had
-bundle adjustment and alignment.)
+consistent with such operations which move the cameras and the
+DEM. Yet, the ``bathy_plane_calc`` tool when used with a camera and a
+mask, as shown in the first example at :numref:`bathy_plane_calc`,
+does not accept camera adjustments or an alignment transform. (But, in
+the second example it only uses a DEM and a shapefile, with no camera,
+it would produce a plane consistent with the input DEM, even if that
+one had bundle adjustment and alignment.)
 
 Hence, if desired to do alignment, it is best to do the processing as
 above, and only later, when DEMs are obtained, with and without
