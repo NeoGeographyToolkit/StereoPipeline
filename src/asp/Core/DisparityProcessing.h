@@ -22,6 +22,7 @@
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Camera/CameraModel.h>
+#include <vw/Math/Transform.h>
 #include <vw/Cartography/Datum.h>
 
 namespace asp {
@@ -31,7 +32,7 @@ namespace asp {
 
   // Forward declarations
   class ASPGlobalOptions;
-  
+
   // Filter D_sub. Must be called only for alignment method affineepipolar, homography,
   // and local_epipolar. For now this is not in use as a dataset where this would help
   // was not found. It was tested though.
@@ -42,12 +43,18 @@ namespace asp {
                     std::string const& d_sub_file,
                     vw::Vector2 const& outlier_removal_params);
   
+  // A small function used in making a copy of the transform for
+  // map-projected images with a sanity check.
+  TransPtr make_transform_copy(TransPtr trans);
+  
   // Take a given disparity and make it between the original unaligned images
-  void unalign_disparity(std::vector<ASPGlobalOptions> const& opt_vec,
-                         std::vector<DispImageType>    const& disparities,
-                         std::vector<TransPtr>         const& transforms,
-                         std::string                   const& disp_file);
-
+  void unalign_disparity(bool is_map_projected,
+                         DispImageType    const& disparity,
+                         TransPtr         const& left_trans,
+                         TransPtr         const& right_trans,
+                         ASPGlobalOptions const& opt,
+                         std::string      const& disp_file);
+    
 } // End namespace asp
 
 #endif//__ASP_CORE_DISPARITY_PROCESSING_H__
