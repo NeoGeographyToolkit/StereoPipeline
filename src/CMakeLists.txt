@@ -35,6 +35,12 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+# Find the build date in UTC. Will agree with the daily build date.
+# That because the build is started late at night in PST, and which is
+# next morning in UTC, and by the time it is published it is next day
+# in PST, but midday or early evening in UTC.
+string(TIMESTAMP ASP_BUILD_DATE "%Y-%m-%d" UTC)
+
 #===============================================================================
 
 # Set the install path if not specified by the user.

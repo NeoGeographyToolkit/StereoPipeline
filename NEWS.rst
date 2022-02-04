@@ -131,6 +131,7 @@ Misc:
   * Bugfix in handling projections specified via an EPSG code.
   * Bugfix when some environmental variables or the path to ASP
     itself have spaces. (It happens under Microsoft WSL.)
+  * Add the build date to the ``--version`` option in the ASP tools.
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------

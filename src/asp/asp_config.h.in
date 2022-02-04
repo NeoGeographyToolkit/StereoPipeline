@@ -571,3 +571,6 @@
 //#endif
 
 #define ASP_COMMIT_ID "@ASP_COMMIT_ID@"
+
+#define ASP_BUILD_DATE "@ASP_BUILD_DATE@"
+

@@ -551,6 +551,9 @@ asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOption
 #if defined(ASP_COMMIT_ID)
     ostr << "  Build ID: " << ASP_COMMIT_ID << "\n";
 #endif
+#if defined(ASP_BUILD_DATE)
+    ostr << "  Build date: " << ASP_BUILD_DATE << "\n";
+#endif
     ostr << "\nBuilt against:\n  " << VW_PACKAGE_STRING << "\n";
 #if defined(VW_COMMIT_ID)
     ostr << "    Build ID: " << VW_COMMIT_ID << "\n";
