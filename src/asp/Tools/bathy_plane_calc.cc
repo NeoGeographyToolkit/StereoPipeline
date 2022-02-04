@@ -352,8 +352,9 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
   
   int num_pts = point_vec.size();
   if (num_pts > num_samples) {
-    vw_out() << "Found " << num_pts << " points but only " << num_samples
-             << " samples are desired. Picking a random subset of this size.\n";
+    vw_out() << "Found " << num_pts << " samples at mask boundary, points but only "
+             << num_samples << " samples are desired. Picking a random subset "
+             << "of this size.\n";
 
     // Select a subset
     // TODO(oalexan1): Use the wrapper function on top of that
@@ -768,7 +769,7 @@ DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
 struct Options : vw::cartography::GdalWriteOptions {
   std::string shapefile, dem, mask, camera, stereo_session, bathy_plane,
     water_height_measurements, csv_format_str, output_inlier_shapefile,
-    output_outlier_shapefile, dem_minus_plane;
+    bundle_adjust_prefix, output_outlier_shapefile, dem_minus_plane;
   double outlier_threshold;
   int num_ransac_iterations, num_samples;
   bool save_shapefiles_as_polygons, use_ecef_water_surface;
@@ -803,6 +804,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "values on water.")
     ("camera",   po::value(&opt.camera),
      "The camera file to use with the mask.")
+    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
+     "Use the camera adjustment at this output prefix, if the cameras changed "
+     "based on bundle adjustment or alignment.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the stereo session type to use for processing. Usually the program can select "
      "this automatically by the file extension, except for xml cameras. See the doc for options.")
@@ -862,6 +866,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
+  // Need this to be able to load adjusted camera models. This must be set
+  // before loading the cameras. 
+  asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
+  
   bool use_shapefile = !opt.shapefile.empty();
   bool use_mask      = !opt.mask.empty();
   bool use_meas      = !opt.water_height_measurements.empty();

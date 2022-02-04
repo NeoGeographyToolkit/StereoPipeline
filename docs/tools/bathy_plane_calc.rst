@@ -4,14 +4,16 @@ bathy_plane_calc
 ----------------
 
 The ``bathy_plane_calc`` program estimates the surface of a body of
-water. It can take inputs in two ways. In one, a DEM is given, a
+water. It can take inputs in three ways. In one, a DEM is given, a
 camera model, and a mask obtained from a raw image with that camera
 model. The mask has the value 1 on land and 0 where there is water, or
 positive values on land and no-data values on water. 
 
-In the second way of specifying the inputs, a DEM and a shapefile
-are provided, with the latter's vertices at the water-land
-interface.
+Alternatively, one can pass a set of water height measurements, and the 
+tool will fit a plane through them.
+
+In the third way of specifying the inputs, a DEM and a shapefile are
+provided, with the latter's vertices at the water-land interface.
 
 The output water surface produced by this program is parameterized as
 a plane in a local stereographic projection. This plane can be
@@ -22,15 +24,20 @@ Further context is given in :numref:`shallow_water_bathy`.
 
 .. _bathy_plane_calc_example1:
 
-Example 1
-~~~~~~~~~
+Example 1 (using a camera, a mask, and a DEM)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Using a DEM, a camera file, and a mask for the camera image::
+Preparation and running the program
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-     bathy_plane_calc --session-type dg --mask mask.tif  \
-       --camera camera.xml --bundle-adjust-prefix ba/run \
-       --dem dem.tif --num-samples 10000                 \
-       --outlier-threshold 0.5 --bathy-plane plane.txt   \
+Given a multispectral stereo dataset, a DEM obtained from a pair of
+images for one of the bands, a camera file from that pair, and a mask
+for the corresponding image delineating water from land, the water
+plane can be found as follows::
+
+     bathy_plane_calc --session-type dg --mask mask.tif      \
+       --camera camera.xml --dem dem.tif --num-samples 10000 \
+       --outlier-threshold 0.5 --bathy-plane plane.txt       \
        --output-inlier-shapefile inliers.shp
 
 Such a mask can be obtained by thresholding an image where the water
@@ -42,37 +49,21 @@ follows::
     image_calc -c "max($thresh, var_0)" --output-nodata-value $thresh \
       image.tif -o mask.tif
 
-It is important that the image be raw, not projected, and if
-the image is part of a stereo pair, the corresponding camera
-for that image be used. For a stereo pair, this exercise can be
-done with both the left image and left camera, then separately
-for the right image and right camera.
+It is important that the image be raw, not projected, and if the image
+is part of a stereo pair, the corresponding camera for that image be
+used. In particular, since the image is multispectral, the camera must
+be for this dataset, not for the PAN one.
+
+For a stereo pair, this tool can be run done with both the left image
+and left camera, then separately for the right image and right camera.
+Ideally the results should be very similar.
 
 The ``--session-type`` option determines which camera model to
 use (Digital Globe files have both an exact ``dg`` model and an
 approximate ``rpc`` model).
 
-The DEM itself must be in very good alignment with the mask used
-earlier. For Digital Globe images, it can be created using stereo
-either with the left and right PAN images from the same set as the
-multispectral images, or with the multispectral images themselves (the
-latter's resolution is coarser by a factor of 4 hence the DEM may turn
-out to be less precise.)  
-
-Great care must be used if bundle adjustment or alignment takes place,
-to keep all datasets consistent. If the multispectral images were
-bundle-adjusted, the same adjustments can be used with all
-multispectral bands. If the DEM is obtained with bundle-adjusted
-images multispectral images, then ``--bundle-adjust-prefix`` must be
-passed to ``bathy_plane_calc`` as shown in the example above.
-
-If, however, bundle adjustment happened, with one or both
-of the MS and PAN pairs, the produced DEMs will no longer be
-aligned to each other. Hence, these must be individually aligned
-to a chosen reference DEM, the alignments applied to the cameras, 
-as discussed in :numref:`ba_pc_align`.
-
-This is further discussed in :numref:`bathy_and_align`.
+See the next section for when it is posible to use the PAN DEM and/or
+data with alignments applied to them.
 
 Running this command will produce an output as follows::
 
@@ -94,7 +85,7 @@ in that local coordinate system as::
 
     a * x + b * y + c * z + d = 0.
 
-The value of ``c`` is almost 1 hence this plane is almost perfectly
+The value of ``c`` is almost 1, hence this plane is almost perfectly
 horizontal in local coordinates and the value of ``-d/c`` gives its
 height above the datum (The small deviation from the horizontal may be
 due to the orientations of the satellites taking the pictures not
@@ -106,10 +97,41 @@ that the outlier threshold is too strict. Above, the inliers are saved
 as a shapefile and can be inspected. The inliers should be
 well-distributed over the entire shoreline.
 
+Handling adjusted cameras and alignment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The DEM and camera to be passed to ``bathy_plane_calc`` must be 
+in the same coordinate system. 
+
+That is the case, for example, for Digital Globe images, when no
+bundle adjustment or alignment is performed by the user. Without these,
+given a stereo pair having PAN and multispectral images, the DEM
+obtained with the PAN images is consistent with any DEM obtained by
+running stereo on a pair of multispectral images from the same band,
+with the only difference being that the latter's resolution is coarser
+by a factor of 4, hence the DEM is less precise. Therefore, it is possible
+to use the PAN DEM instead of multispectral DEM with this tool.
+
+Great care must be used if bundle adjustment or alignment takes place,
+to keep all datasets consistent. If the multispectral images were
+bundle-adjusted, the same adjustments can be used with all
+multispectral bands. If the DEM above is obtained with bundle-adjusted
+multispectral images, then ``--bundle-adjust-prefix`` must be passed
+to ``bathy_plane_calc`` above.
+
+If it is desired to use the PAN DEM with ``bathy_plane_calc``, but
+bundle adjustment or alignment happened, with one or both of the MS
+and PAN pairs, the produced MS and PAN DEMs will no longer be aligned
+to each other. Thus, these must be individually aligned to a chosen
+reference DEM, the alignments applied to the cameras, as discussed in
+:numref:`ba_pc_align`, and then the updated multispectral camera
+adjustments must be passed to ``bathy_plane_calc`` via
+``--bundle-adjust-prefix``.
+
 .. _bathy_plane_calc_example2:
 
-Example 2
-~~~~~~~~~
+Example 2 (using water height measurements)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In this example, a set of actual measurements of the water surface is
 provided, as the longitude and latitude (in degrees, in decimal
@@ -159,10 +181,11 @@ discussed further in :numref:`bathy_and_align`.
 
 .. _bathy_plane_calc_example3:
 
-Example 3
-~~~~~~~~~
+Example 3 (using a DEM and shapefile)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This example uses a DEM and a shapefile as inputs::
+This example uses a DEM and a shapefile tracing the water edge as
+inputs::
 
      bathy_plane_calc --shapefile shape.shp --dem dem.tif    \
        --outlier-threshold 0.5                               \ 

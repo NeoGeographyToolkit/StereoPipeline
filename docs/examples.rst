@@ -2755,34 +2755,35 @@ the output point cloud may be converted to LAS, etc.
 Bathymetry correction and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-It is important to note that we did not use bundle adjustment or
-``pc_align`` (:numref:`pc_align`) for alignment. That is possible, but
-then one has to ensure the bathy plane is obtained in a way which is
-consistent with such operations which move the cameras and the
-DEM. Yet, the ``bathy_plane_calc`` tool when used with a camera and a
-mask, as shown in the example in :numref:`bathy_plane_calc_example1`,
-does not accept camera adjustments or an alignment transform. (But, in
-the example in :numref:`bathy_plane_calc_example3`, 
-it only uses a DEM and a shapefile, with no camera,
-it would produce a plane consistent with the input DEM, even if that
-one had bundle adjustment and alignment.)
+It is important to note that we did not use bundle adjustment
+(:numref:`bundle_adjust`) or ``pc_align`` (:numref:`pc_align`) for
+alignment. That is possible, but then one has to ensure that all the
+data are kept consistent under such operations.
 
-Hence, if desired to do alignment, it is best to do the processing as
-above, and only later, when DEMs are obtained, with and without
-bathymetry correction, to align them to a reference terrain, if
-desired to do comparisons. 
+In particular, running bundle adjustment on a PAN image pair, and then
+on a corresponding multispectral band pair, will result in DEMs which
+are no longer aligned either to each other, or to their versions
+before bundle adjustement. (The cameras can be prevented by moing too
+far if ``bundle_adjust`` is called with, for example,
+``--camera-weight 1000``, or some larger value, yet, by its very
+nature, this program changes the positions and orientations of the
+cameras, and therefore the coordinate system.)
+
+It is suggested to use these tools only if a trusted reference dataset
+exists, and then the produced DEMs should be aligned to that dataset.
 
 Only the "topo" component of a DEM obtained with ASP should be used
 for alignment, that is, the part above water, as the part under water
-can be quite variable given the water level.
+can be quite variable given the water level. Then the alignment
+transform can be applied to the full DEM as detailed in
+:numref:`prevtrans`.  The input cameras can be aligned using the same
+transform (:numref:`ba_pc_align`).
 
-After the alignment transform is found, the same transform can be
-applied with ``pc_align`` to the full DEM, that is, with the
-underwater component as well, using the option ``--initial-transform``
-and zero iterations, and one of the switches
-``--save-transformed-source-points`` and
-``--save-inv-transformed-reference-points``. This is discussed in
-:numref:`prevtrans`.
+When the water surface is determined using a DEM, a mask of the image
+portion above water, and corresponding camera, and the cameras have
+been bundle-adjuted or aligned, the option ``--bundle-adjust-prefix``
+must be used with ``bathy_plane_calc`` (see
+:numref:`bathy_plane_calc_example1`).
 
 Bathymetry correction with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
