@@ -62,7 +62,7 @@ The ``--session-type`` option determines which camera model to
 use (Digital Globe files have both an exact ``dg`` model and an
 approximate ``rpc`` model).
 
-See the next section for when it is posible to use the PAN DEM and/or
+See the next section for when it is possible to use the PAN DEM and/or
 data with alignments applied to them.
 
 Running this command will produce an output as follows::
@@ -122,8 +122,8 @@ multispectral images, then ``--bundle-adjust-prefix`` must be passed
 to ``bathy_plane_calc`` above.
 
 If it is desired to use the PAN DEM with ``bathy_plane_calc``, but
-bundle adjustment or alignment happened, with one or both of the MS
-and PAN pairs, the produced MS and PAN DEMs will no longer be aligned
+bundle adjustment or alignment happened, with one or both of the multispectral
+and PAN pairs, the produced multispectral and PAN DEMs will no longer be aligned
 to each other. Thus, these must be individually aligned to a chosen
 reference DEM, the alignments applied to the cameras, as discussed in
 :numref:`ba_pc_align`, and then the updated multispectral camera
@@ -145,7 +145,9 @@ or some other datum (such as NAD83), those need to be converted to
 WGS_1984.
 
 It is expected that the measurements are given in a CSV file, with
-commas or spaces used as separators. Here is an example file, named
+commas or spaces used as separators. A procedure for collecting such
+data is outlined further down this document
+(:numref:`water_meas_collection`). Here is an sample file, named
 ``meas.csv``, for Florida Keys::
     
    FID,Lon,Lat,WGS84_m
@@ -300,4 +302,60 @@ Command-line options for bathy_plane_calc
     local stereographic projection. Hence don't model the Earth
     curvature. Not recommended.
 
+.. _water_meas_collection:
+
+Acquisition of water height data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This section descries how to acquire a set of water height measurements,
+which then could be used to create the best-fit water plane
+for the purpose of shallow-water bathymetry. An example of using
+this data is given in :numref:`bathy_plane_calc_example2`.
+
+Absent direct measurements of water surface level at the date and time of
+satellite image acquisition, it is suggested to use the
+discrete tidal zoning information provided by the 
+`National Ocean Service 
+<https://noaa.maps.arcgis.com/home/webmap/viewer.html?webmap=21d7b399e6fa42e18a72ee30be9aa5c9>`_
+, while for the metadata use the  
+`CO-OPS Discrete Tidal Zoning Map <https://noaa.maps.arcgis.com/home/item.html?id=21d7b399e6fa42e18a72ee30be9aa5c9>`_. An organizational Esri GIS online login is needed to access the data.
+
+Each polygon on the map is a discrete tidal zone, within which NOAA
+considers the tide characteristics the same. If the user clicks a
+polygon on the map, a window will pop up and show the control tide
+station (ControlStn) for that zone, average time corrector
+(AvgTimeCorr, in minutes), and range ratio (RangeRatio). Note that:
+
+ - The control station is usually an active water level station of NOAA.
+
+ - ``Average time corrector`` is the time difference (phase difference)
+   between the tide at the tide zone and at the control
+   station. Positive/negative time means the tide level is this many minutes
+   earlier/later in the tidal zone polygon than at the control station.
+
+ - ``Range ratio`` is the ratio of tide range at the tidal zone divided by
+   that at the control station. 
+
+The user can access tidal gauge data for
+the satellite day and time of acquisition at the 
+`Center for Operational Oceanographic Products and Services 
+<https://opendap.co-ops.nos.noaa.gov/axis/>`_. Choose Verified Data->
+Six Minutes Data->Try me. 
+
+The user can download tide data in any
+reference as long as the value is expressed in meters. This value
+needs to be transformed into an ellipsoid heights value relative to the WGS_1984 datum. For
+this the `NOAA VDATUM Java program <https://vdatum.noaa.gov/>`_ can be used,
+or the `NOAA online app <https://www.vdatum.noaa.gov/vdatumweb/>`_. 
+
+Please note that even if lots of points on the land/water limit belong to the
+same tidal zone polygon, so they will have same elevation value, the
+transformation in ellipsoid heights with VDATUM will result in
+different ellipsoid heights since VDATUM uses the position of the
+point in latitude/longitude besides the height of the point.
+
+Export your data in a CSV file with a header having ID, longitude, latitude, and
+WGS_1984 height measurements.
+
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
+
