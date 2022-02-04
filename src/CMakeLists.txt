@@ -21,8 +21,8 @@ project (StereoPipeline)
 
 # The line below is used by the docs/ so don't change it
 # without testing the result.  Versioning is based on https://semver.org
-set(PACKAGE_VERSION "3.0.0")
-#set(PACKAGE_VERSION "3.0.1-alpha")
+#set(PACKAGE_VERSION "3.0.0")
+set(PACKAGE_VERSION "3.0.1-alpha")
 set(PACKAGE_NAME "NASA Ames Stereo Pipeline")
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 set(PACKAGE_BUGREPORT "scott.t.mcmichael@nasa.gov, oleg.alexandrov@nasa.gov")
@@ -36,7 +36,7 @@ execute_process(
 )
 
 # Find the build date in UTC. Will agree with the daily build date.
-# That because the build is started late at night in PST, and which is
+# That because the build is started late at night in PST, which is
 # next morning in UTC, and by the time it is published it is next day
 # in PST, but midday or early evening in UTC.
 string(TIMESTAMP ASP_BUILD_DATE "%Y-%m-%d" UTC)
