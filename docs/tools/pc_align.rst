@@ -162,46 +162,87 @@ The transform obtained by ``pc_align`` is output to a text file as
 a 4 |times| 4 matrix with the upper-left 3 |times| 3 submatrix being
 the rotation (and potentially also a scale, per :numref:`align-method`)
 and the top three elements of the right-most column being the
-translation. This transform, if applied to the source point cloud,
+translation. It is named ``<output prefix>-transform.txt``.
+
+This transform, if applied to the source point cloud,
 will bring it in alignment with the reference point cloud.  The
 transform assumes the 3D Cartesian coordinate system with the origin
 at the planet center (known as ECEF). This matrix can be supplied
-back to the tool as an initial guess (:numref:`prevtrans`). The
-inverse transform is saved to a file as well.
+back to the tool as an initial guess (:numref:`prevtrans`). 
+
+The inverse transform, from the reference cloud to the source cloud is saved
+as well, as ``<output prefix>-inverse-transform.txt``. 
+
+These two transforms can be used to move cameras from one cloud's coordinate
+system to another one's, as shown in :numref:`ba_pc_align`.
 
 .. _prevtrans:
 
 Applying an initial transform
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The transform output by ``pc_align`` can be supplied back to the tool as
-an initial guess via the ``--initial-transform`` option, with the same
-or different clouds. If it is desired to simply apply this transform to
-the clouds without further work, one can specify ``--num-iterations 0``.
+The transform output by ``pc_align`` can be supplied back to the tool
+as an initial guess via the ``--initial-transform`` option, with the
+same clouds as earlier, or some supersets or subsets of them. If it is
+desired to simply apply this transform without further work, one can
+specify ``--num-iterations 0``.
+
 This may be useful, for example, in first finding the alignment
 transform over a smaller, more reliable region (e.g., over rock,
 excluding moving ice), then applying it over the entire available
-dataset.
+dataset. To illustrate this, consider a DEM, named ``dem.tif``, obtained
+with ASP, from whom just a portion, ``dem_crop.tif`` is known to have
+reliable measurements, which are stored, for example, in a file called
+``meas.csv``. Hence, ``pc_align`` is first used on the smaller DEM, as::
 
-Alternatively, one can apply to the source cloud an initial shift,
-expressed in the North-East-Down coordinate system at the centroid of
-the source points, before the alignment algorithm is invoked. Hence, if
-it is desired to move the source cloud North by 5 m, East by 10 m, and
-down by 15 m relative to the point on planet surface which is the
-centroid of the source points, one can invoke ``pc_align`` with
-``--initial-ned-translation ’5 10 15’`` (notice the quotes).
+    pc_align <other options> dem_crop.tif meas.csv -o run/run
 
-The option ``--initial-rotation-angle`` can be used for similar
-purposes.
+Then, the command::
 
-If an initial transform is used, the alignment transform output by the
-program will be from the source points *before* the initial transform,
-hence the output alignment transform will incorporate the initial
-transform.
+    pc_align --max-displacement -1 --num-iterations 0 \
+      --save-transformed-source-points                \
+      --save-inv-transformed-reference-points         \
+      --initial-transform run/run-transform.txt       \
+      --csv-format <csv format string>                \
+      dem.tif meas.csv -o run_full/run
+
+will transform the full ``dem.tif`` into the coordinate system of
+``meas.csv``, and ``meas.csv`` into the coordinate system of
+``ref.tif`` with no further iterations. See also :numref:`ba_pc_align`
+for how to use such transforms with cameras.
+
+If an initial transform is used, with zero or more iterations, the
+output transform produced by such an invocation will be from the source
+points *before* the initial transform, hence the output alignment
+transform will incorporate the initial transform.
 
 If a good initial alignment is found, it is suggested to use a smaller
 value for ``--max-displacement``, as the clouds will already be mostly
 on top of each other after the initial transform is applied.
+
+Applying an initial specified translation or rotation 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+One can apply to the source cloud an initial shift, expressed in the
+North-East-Down coordinate system at the centroid of the source
+points, before the alignment algorithm is invoked. Hence, if it is
+desired to first move the source cloud North by 5 m, East by 10 m, and
+down by 15 m relative to the point on planet surface which is the
+centroid of the source points, the continue with alignment, one can
+invoke ``pc_align`` with::
+
+
+    --initial-ned-translation "5 10 15"
+
+(Notice the quotes.)
+
+The option ``--initial-rotation-angle`` can be used analogously.
+
+As in :numref:`prevtrans`, one can simply stop after such an
+operation, if using zero iterations. In either case, such initial
+transform will be incorporated into the transform file output by
+``pc_align``, hence that one will go from the source cloud before
+user's initial transform to the reference cloud.
 
 Interpreting the transform
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -292,7 +333,7 @@ As an example, assume that ``pc_align`` is run as::
 This will save ``run/run-trans_reference.tif`` which is a point cloud
 in the coordinate system of the source dataset, and
 ``run/run-trans_source.csv`` which is in reference coordinate system
-of the refrence dataset.
+of the reference dataset.
 
 The convergence history for ``pc_align`` (the translation and rotation
 change at each iteration) is saved to disk with a name like::
@@ -374,6 +415,13 @@ transform::
 DEMs in reverse order, the transform to use is::
 
     align/run-inverse-transform.txt
+
+The idea here is that ``run-transform.txt`` goes from the second DEM
+passed to ``pc_align`` to the first, hence, ``bundle_adjust`` invoked
+with this transform would move cameras from second DEM's coordinate
+system's to first. And vice-versa, if ``run-inverse-transform.txt`` is
+used, cameras from first DEM's coordinate system would be moved to
+second's.
 
 As an application, the cameras can now be mapprojected onto the 
 reference DEM, hopefully with no registration error as::

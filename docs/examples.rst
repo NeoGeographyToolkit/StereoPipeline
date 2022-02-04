@@ -2781,16 +2781,8 @@ applied with ``pc_align`` to the full DEM, that is, with the
 underwater component as well, using the option ``--initial-transform``
 and zero iterations, and one of the switches
 ``--save-transformed-source-points`` and
-``--save-inv-transformed-reference-points``.
-
-It is suggested to read ``pc_align``'s manual with some care. In
-particular, the order of the input clouds passed to this tool
-determines which cloud (the second one) is aligned to which (the first
-one), with the ``transform.txt`` output by this tool going from the
-second cloud to the first, and ``inverse-transform.txt`` from the
-first to the second. Hence, the argument to ``--initial-transform``
-would need to use one of these two transforms, depending on which 
-way the DEM to be moved must go.
+``--save-inv-transformed-reference-points``. This is discussed in
+:numref:`prevtrans`.
 
 Bathymetry correction with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

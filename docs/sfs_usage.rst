@@ -676,15 +676,19 @@ The cameras can be moved with ``bundle_adjust``::
 
 It is very important to note that we used above
 ``run-inverse-transform.txt``, which goes from the DEM coordinate
-system to the LOLA one.
+system to the LOLA one. This is discussed in detail in
+:numref:`ba_pc_align`.
 
 It is suggested to mapproject the images using the obtained
 bundle-adjusted cameras onto the obtained DEM, and check for alignment
-errors. Large ones means that something went wrong. Very small
-alignment errors may be reduced by invoking ``bundle_adjust`` one more
-time, using latest cameras in ``ba_align/run``, with this aligned DEM
-as a constraint, and the option ``--heights-from-dem``, as discussed
-in :numref:`sfs-lola-dem`.
+errors. Large ones means that something went wrong. Either not enough
+iterations took place, or there are not enough matches among some
+images.
+
+Very small alignment errors may be reduced by invoking
+``bundle_adjust`` one more time, using latest cameras in
+``ba_align/run``, with this aligned DEM as a constraint, and the
+option ``--heights-from-dem``, as discussed in :numref:`sfs-lola-dem`.
 
 SfS is done as above, while changing the initial terrain and the
 cameras to use the newly aligned versions::
@@ -929,7 +933,7 @@ coordinate system of cameras to the one of ``ref.tif``. If
 reason, then this transform would go from ``ref.tif`` to camera
 coordinates, so to bring the cameras in the coordinates of ``ref.tif``
 one would then apply the transform in
-``ba/run-inverse-transform.txt``.
+``ba/run-inverse-transform.txt``. See also :numref:`ba_pc_align`.
 
 The images should now be projected onto this DEM as::
 
@@ -949,8 +953,8 @@ not have accurate 3D positions. If a stereo pair exists among the
 bundle-adjusted images, it may be preferable to create a DEM from
 that one and use it for alignment to the reference DEM.
 
-There are occasions in which the alignment transform is still slightly
-inaccurate. Then, one can refine the cameras using the reference
+If the images project reasonably well, but there are still some small
+registration errors, one can refine the cameras using the reference
 terrain as a constraint in bundle adjustment::
 
     mkdir -p ba_align_ref
