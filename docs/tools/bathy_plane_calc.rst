@@ -63,8 +63,8 @@ Great care must be used if bundle adjustment or alignment takes place,
 to keep all datasets consistent. If the multispectral images were
 bundle-adjusted, the same adjustments can be used with all
 multispectral bands. If the DEM is obtained with bundle-adjusted
-images, then, as mentioned above, the ``--bundle-adjust-prefix``
-must be passed to ``bathy_plane_calc`` as shown in the example above.
+images multispectral images, then ``--bundle-adjust-prefix`` must be
+passed to ``bathy_plane_calc`` as shown in the example above.
 
 If, however, bundle adjustment happened, with one or both
 of the MS and PAN pairs, the produced DEMs will no longer be
