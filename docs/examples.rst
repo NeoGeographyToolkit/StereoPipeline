@@ -2750,6 +2750,8 @@ map-projected, and then a DEM is expected, stereo may happen only in
 certain regions as chosen in the GUI, bundle adjustment may be used,
 the output point cloud may be converted to LAS, etc. 
 
+.. _bathy_and_align:
+
 Bathymetry correction and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

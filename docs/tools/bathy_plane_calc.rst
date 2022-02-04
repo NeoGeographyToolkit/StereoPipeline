@@ -27,10 +27,10 @@ Example 1
 
 Using a DEM, a camera file, and a mask for the camera image::
 
-     bathy_plane_calc --mask mask.tif --session-type dg \
-       --camera camera.xml --dem dem.tif                \
-       --num-samples 10000 --outlier-threshold 0.5      \
-       --bathy-plane plane.txt                          \
+     bathy_plane_calc --session-type dg --mask mask.tif  \
+       --camera camera.xml --bundle-adjust-prefix ba/run \
+       --dem dem.tif --num-samples 10000                 \
+       --outlier-threshold 0.5 --bathy-plane plane.txt   \
        --output-inlier-shapefile inliers.shp
 
 Such a mask can be obtained by thresholding an image where the water
@@ -48,18 +48,31 @@ for that image be used. For a stereo pair, this exercise can be
 done with both the left image and left camera, then separately
 for the right image and right camera.
 
-The DEM itself must be in very good good alignment with the mask used
+The ``--session-type`` option determines which camera model to
+use (Digital Globe files have both an exact ``dg`` model and an
+approximate ``rpc`` model).
+
+The DEM itself must be in very good alignment with the mask used
 earlier. For Digital Globe images, it can be created using stereo
 either with the left and right PAN images from the same set as the
 multispectral images, or with the multispectral images themselves (the
 latter's resolution is coarser by a factor of 4 hence the DEM may turn
-out to be less precise.)  It is best to not use bundle adjustment or
-alignment before any of these steps, as that may result in the MS and
-PAN images no longer being aligned to each other.
+out to be less precise.)  
 
-Above, the ``--session-type`` option determines which camera model to
-use (Digital Globe files have both an exact ``dg`` model and an
-approximate ``rpc`` model).
+Great care must be used if bundle adjustment or alignment takes place,
+to keep all datasets consistent. If the multispectral images were
+bundle-adjusted, the same adjustments can be used with all
+multispectral bands. If the DEM is obtained with bundle-adjusted
+images, then, as mentioned above, the ``--bundle-adjust-prefix``
+must be passed to ``bathy_plane_calc`` as shown in the example above.
+
+If, however, bundle adjustment happened, with one or both
+of the MS and PAN pairs, the produced DEMs will no longer be
+aligned to each other. Hence, these must be individually aligned
+to a chosen reference DEM, the alignments applied to the cameras, 
+as discussed in :numref:`ba_pc_align`.
+
+This is further discussed in :numref:`bathy_and_align`.
 
 Running this command will produce an output as follows::
 
@@ -99,26 +112,27 @@ Example 2
 ~~~~~~~~~
 
 In this example, a set of actual measurements of the water surface is
-provided, as the longitude, latitude, and water height above the
-WGS_1984 datum, with the first two measured in degrees and the last
-one in meters.
+provided, as the longitude and latitude (in degrees, in decimal
+format), and water height above the WGS_1984 datum (ellipsoid
+heights), measured in meters.
 
-If the water heights are given relative to a geoid, or some other
-datum, those need to be converted to WGS_1984.
+If the water heights are given relative to a geoid (such as EGM2008),
+or some other datum (such as NAD83), those need to be converted to
+WGS_1984.
 
 It is expected that the measurements are given in a CSV file, with
 commas or spaces used as separators. Here is an example file, named
 ``meas.csv``, for Florida Keys::
     
-    # ID,lon,lat,NAVD88_m,WGS84_m
-    0,-81.598635,24.587748,-0.28662,-23.72363
-    1,-81.623768,24.581799,-0.28662,-23.70866
-    2,-81.629865,24.578379,-0.2703,-23.69243
-    3,-81.674545,24.564429,-0.2703,-23.6798
-    4,-81.711308,24.555744,-0.2703,-23.67532
-    5,-81.754465,24.55158,-0.2703,-23.67209
-    6,-81.756012,24.551758,-0.23154,-23.63346
-    7,-81.779985,24.548427,-0.23154,-23.63514
+   FID,Lon,Lat,WGS84_m
+   0,-81.59864018,24.58775288,-23.86539
+   1,-81.62377319,24.58180388,-23.84653
+   2,-81.62987019,24.57838388,-23.8864
+   3,-81.6745502,24.56443387,-23.86815
+   4,-81.71131321,24.55574886,-23.86031
+   5,-81.75447022,24.55158486,-23.85464
+   6,-81.75601722,24.55176286,-23.89892
+   7,-81.77999023,24.54843186,-23.89824
 
 Any lines starting with the pound sign (``#``) will be ignored as
 comments. If the first line does not start this way but does not have
@@ -127,22 +141,22 @@ valid data it will be ignored as well.
 The program is called as follows::
 
     bathy_plane_calc --water-height-measurements meas.csv \
-      --csv-format "2:lon 3:lat 5:height_above_datum"     \
+      --csv-format "2:lon 3:lat 4:height_above_datum"     \
       --num-samples 10000 --outlier-threshold 0.5         \
       --bathy-plane meas_plane.txt                        \
       --output-inlier-shapefile meas_inliers.shp
 
 Note the ``--csv-format`` option, which should be set correctly. As
-specified here, it will result in columns 2, 3, and 5, being read,
-hence ignoring the ID in column 1 and the NAVD88 measurements in
-column 4, and treating the read values as longitude, latitude, and
-height above the WGS_1984 datum.
+specified here, it will result in columns 2, 3, and 4, being read,
+having the longitude, latitude, and height above datum (WGS84
+ellipsoid).  The order in which the columns show up is not important,
+as long as ``--csv-format`` correctly reflects that. Any extraneous
+columns will be ignored, such as the ID in column 1.
 
-Here we assume that the WorldView images we use for processing later
-are well-aligned to the world coordinates in which the above
-measurements take place. How well that assumption holds and what to do
-when it does not, is still to be determined.
- 
+Care must be taken to ensure all the measurements, resulting bathy
+plane, and any DEMs are in the same coordinate system. This is
+discussed further in :numref:`bathy_and_align`.
+
 .. _bathy_plane_calc_example3:
 
 Example 3
@@ -198,6 +212,10 @@ Command-line options for bathy_plane_calc
 
 --camera <string>
     The camera file to use with the mask.
+
+--bundle-adjust-prefix <string>
+    Use the camera adjustment at this output prefix, if the cameras
+    changed based on bundle adjustment or alignment.
 
 -t, --session-type <string>
     Select the stereo session type to use for processing. Usually
