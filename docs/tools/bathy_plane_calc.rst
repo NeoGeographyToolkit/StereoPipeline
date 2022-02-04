@@ -98,10 +98,10 @@ well-distributed over the entire shoreline.
 Example 2
 ~~~~~~~~~
 
-In this example, a set of actual measurements is provided, as the
-longitude, latitude, and water height above the WGS_1984 datum,
-with the first two measured in degrees and the last one
-in meters.
+In this example, a set of actual measurements of the water surface is
+provided, as the longitude, latitude, and water height above the
+WGS_1984 datum, with the first two measured in degrees and the last
+one in meters.
 
 If the water heights are given relative to a geoid, or some other
 datum, those need to be converted to WGS_1984.
