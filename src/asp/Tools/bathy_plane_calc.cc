@@ -862,25 +862,29 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  bool use_shapefile = (!opt.shapefile.empty());
-  bool use_mask      = (!opt.mask.empty() && !opt.camera.empty());
-  bool use_meas      = (!opt.water_height_measurements.empty());
+  bool use_shapefile = !opt.shapefile.empty();
+  bool use_mask      = !opt.mask.empty();
+  bool use_meas      = !opt.water_height_measurements.empty();
 
+  if (use_mask && opt.camera.empty()) 
+    vw_throw(ArgumentErr() << "If using a mask, must specify a camera.\n"
+             << usage << general_options);
+    
   if (use_shapefile + use_mask + use_meas != 1)
-    vw_throw( ArgumentErr() << "Must use either a mask and camera, a shapefile, or water "
-              << "height measurements, but just one of these.\n"
+    vw_throw(ArgumentErr() << "Must use either a mask and camera, a shapefile, or water "
+              << "height measurements, and just one of these.\n"
               << usage << general_options);
   if (!use_meas && opt.dem == "")
-    vw_throw( ArgumentErr() << "Missing the input dem.\n" << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing the input dem.\n" << usage << general_options );
   if (opt.bathy_plane == "")
-    vw_throw( ArgumentErr() << "Missing the output bathy plane file.\n"
+    vw_throw(ArgumentErr() << "Missing the output bathy plane file.\n"
               << usage << general_options );
   if (use_meas && opt.csv_format_str == "") 
-    vw_throw( ArgumentErr() << "Must set the option --csv-format.\n"
+    vw_throw(ArgumentErr() << "Must set the option --csv-format.\n"
               << usage << general_options );
 
   if (opt.use_ecef_water_surface && use_meas) {
-    vw_throw( ArgumentErr() << "Cannot use use-ecef-water-surface with "
+    vw_throw(ArgumentErr() << "Cannot use use-ecef-water-surface with "
               << "--water-height-measurements.\n"
               << usage << general_options );
   }
@@ -895,9 +899,9 @@ int main( int argc, char *argv[] ) {
     handle_arguments(argc, argv, opt);
 
     // Load the camera if we use the mask and the camera
-    bool use_shapefile = (!opt.shapefile.empty());
-    bool use_mask      = (!opt.mask.empty() && !opt.camera.empty());
-    bool use_meas      = (!opt.water_height_measurements.empty());
+    bool use_shapefile = !opt.shapefile.empty();
+    bool use_mask      = !opt.mask.empty();
+    bool use_meas      = !opt.water_height_measurements.empty();
 
     boost::shared_ptr<CameraModel> camera_model;
     if (use_mask) {
@@ -927,11 +931,11 @@ int main( int argc, char *argv[] ) {
       // TODO(oalexan1): Think more about the interpolation method
       vw_out() << "Reading the DEM: " << opt.dem << std::endl;
       if (!read_georeference(dem_georef, opt.dem))
-        vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
+        vw_throw(ArgumentErr() << "The input DEM has no georeference.\n" );
       
       // We assume the WGS_1984 datum
       if (dem_georef.datum().name() != "WGS_1984")
-        vw_throw( ArgumentErr() << "Only an input DEM with the "
+        vw_throw(ArgumentErr() << "Only an input DEM with the "
                   << "WGS_1984 datum is supported.\n"
                   << "Got: " << dem_georef.datum().name() << ".\n");
       
@@ -991,7 +995,7 @@ int main( int argc, char *argv[] ) {
       read_shapefile(opt.shapefile, poly_color, has_shape_georef, shape_georef, polyVec);
       
       if (!has_shape_georef) 
-        vw_throw( ArgumentErr() << "The input shapefile has no georeference.\n" );
+        vw_throw(ArgumentErr() << "The input shapefile has no georeference.\n" );
       
       // Find the ECEF coordinates of the shape corners
       find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, point_vec,
@@ -1002,8 +1006,8 @@ int main( int argc, char *argv[] ) {
         csv_conv.parse_csv_format(opt.csv_format_str, csv_proj4_str);
       }catch (...) {
         // Give a more specific error message
-        vw_throw( ArgumentErr() << "Could not parse --csv-format. Was given: "
-                  << opt.csv_format_str << ".\n");
+        vw_throw(ArgumentErr() << "Could not parse --csv-format. Was given: "
+                 << opt.csv_format_str << ".\n");
       }
 
       // TODO(oalexan1): Move this to a function
