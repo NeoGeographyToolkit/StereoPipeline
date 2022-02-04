@@ -104,13 +104,15 @@ The DEM and camera to be passed to ``bathy_plane_calc`` must be
 in the same coordinate system. 
 
 That is the case, for example, for Digital Globe images, when no
-bundle adjustment or alignment is performed by the user. Without these,
-given a stereo pair having PAN and multispectral images, the DEM
-obtained with the PAN images is consistent with any DEM obtained by
-running stereo on a pair of multispectral images from the same band,
-with the only difference being that the latter's resolution is coarser
-by a factor of 4, hence the DEM is less precise. Therefore, it is possible
-to use the PAN DEM instead of multispectral DEM with this tool.
+bundle adjustment or alignment is performed by the user. Without
+these, given a stereo pair having multispectral and PAN images, the
+DEM obtained with the multispectral images and cameras themselves are
+consistent with the DEM obtained from the PAN images and corresponding
+cameras, with the only difference being that the multispectral images
+are coarser by a factor of 4, hence the resulting DEM is less
+precise. Therefore, it is possible to use the PAN DEM instead of
+multispectral DEM with this tool, while still using the multispectral
+cameras.
 
 Great care must be used if bundle adjustment or alignment takes place,
 to keep all datasets consistent. If the multispectral images were
