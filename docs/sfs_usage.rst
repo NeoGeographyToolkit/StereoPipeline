@@ -139,8 +139,8 @@ below. The DEMs obtained with these two methods were observed to
 differ by several millimeters at most, on average, but an evaluation
 may be necessary for your particular case.
 
-This will work only for datasets at full resolution, so not when the 
-``reduce`` command is used to downsample the data.
+This will work only for the datasets of the original dimensions, so
+not when the ``reduce`` or ``crop`` commands were used on the data.
 
 Any of the commands further down which only use .cub files can be
 adapted for use with CSM cameras by appending to those commands the

@@ -60,14 +60,15 @@ void find_projection(// Inputs
   // Initialize the outputs
   proj_lat = -1.0;
   proj_lon = -1.0;
-
+  point_vec.clear();
+  
   // Find the mean water height
   Vector3 mean_llh;
   for (size_t it = 0; it < llh_vec.size(); it++) 
     mean_llh += llh_vec[it];
   
   mean_llh /= llh_vec.size();
-  
+
   stereographic_georef.set_datum(dem_georef.datum());
   double scale = 1.0;
   proj_lat = mean_llh[1];
@@ -81,8 +82,8 @@ void find_projection(// Inputs
     Eigen::Vector3d eigen_point;
     for (size_t coord = 0; coord < 3; coord++) 
       eigen_point[coord] = point[coord];
-    
-    point_vec[it] = eigen_point;
+
+    point_vec.push_back(eigen_point);
   }
 }
 
@@ -128,8 +129,6 @@ public:
     BBox2i extra_box = m_bbox;
     extra_box.expand(1); 
     extra_box.crop(bounding_box(m_mask));
-
-    std::cout << "--extra box " << extra_box << std::endl;
 
     // Make a local copy of the tile
     ImageView<float> mask_tile = crop(m_mask, extra_box);
@@ -357,6 +356,7 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
              << " samples are desired. Picking a random subset of this size.\n";
 
     // Select a subset
+    // TODO(oalexan1): Use the wrapper function on top of that
     std::vector<int> v(num_pts);
     for (int it = 0; it < num_pts; it++) 
       v[it] = it;
@@ -767,12 +767,27 @@ DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
 
 struct Options : vw::cartography::GdalWriteOptions {
   std::string shapefile, dem, mask, camera, stereo_session, bathy_plane,
-    output_inlier_shapefile, output_outlier_shapefile, dem_minus_plane;
+    water_height_measurements, csv_format_str, output_inlier_shapefile,
+    output_outlier_shapefile, dem_minus_plane;
   double outlier_threshold;
   int num_ransac_iterations, num_samples;
   bool save_shapefiles_as_polygons, use_ecef_water_surface;
   Options(): outlier_threshold(0.2), num_ransac_iterations(1000) {}
 };
+
+// Given a set of polygons stored in dPoly, create a single polygon with all those vertices
+void formSinglePoly(vw::geometry::dPoly const& inPoly,
+                    vw::geometry::dPoly & outPoly) {
+
+  int num_pts = inPoly.get_totalNumVerts();
+  const double * xv = inPoly.get_xv();
+  const double * yv = inPoly.get_yv();
+  
+  bool isPolyClosed = true;
+  std::string layer = "";
+  std::string poly_color = "green";
+  outPoly.setPolygon(num_pts, xv, yv, isPolyClosed, poly_color, layer);
+}
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
   
@@ -783,11 +798,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem",   po::value(&opt.dem),
      "The DEM to use.")
     ("mask",   po::value(&opt.mask),
-     "A input mask, created from a raw camera image and hence having the same dimensions, with values of 1 on land and 0 on water, or positive values on land and no-data values on water.")
+     "A input mask, created from a raw camera image and hence having the same dimensions, "
+     "with values of 1 on land and 0 on water, or positive values on land and no-data "
+     "values on water.")
     ("camera",   po::value(&opt.camera),
      "The camera file to use with the mask.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
+     "Select the stereo session type to use for processing. Usually the program can select "
+     "this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("bathy-plane",   po::value(&opt.bathy_plane),
      "The output file storing the computed plane as four coefficients a, b, c, d, "
      "with the plane being a*x + b*y + c*z + d = 0.")
@@ -810,6 +828,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      po::bool_switch(&opt.save_shapefiles_as_polygons)->default_value(false),
      "Save the inlier and outlier shapefiles as polygons, rather than "
      "discrete vertices. May be more convenient for processing in a GIS tool.")
+    ("water-height-measurements", po::value(&opt.water_height_measurements)->default_value(""),
+     "Use this CSV file having longitude, latitude, and height measurements "
+     "for the water surface, in degrees and meters, respectively, relative to the WGS84 datum. "
+     "The option --csv-format must be used.")
+     ("csv-format", po::value(&opt.csv_format_str)->default_value(""),
+      "Specify the format of the CSV file having water height measurements. "
+      "The format should have a list of entries with syntax column_index:column_type "
+      "(indices start from 1). Example: '2:lon 3:lat 4:height_above_datum'.")
     ("dem-minus-plane",
      po::value(&opt.dem_minus_plane),
      "If specified, subtract from the input DEM the best-fit plane and save the "
@@ -837,29 +863,27 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             allow_unregistered, unregistered);
 
   bool use_shapefile = (!opt.shapefile.empty());
-  
-  if (!use_shapefile && (opt.mask.empty() || opt.camera.empty()))
-    vw_throw( ArgumentErr() << "A shape file must be specified, or a mask and a camera.\n"
-              << usage << general_options );
-  if (opt.dem == "")
+  bool use_mask      = (!opt.mask.empty() && !opt.camera.empty());
+  bool use_meas      = (!opt.water_height_measurements.empty());
+
+  if (use_shapefile + use_mask + use_meas != 1)
+    vw_throw( ArgumentErr() << "Must use either a mask and camera, a shapefile, or water "
+              << "height measurements, but just one of these.\n"
+              << usage << general_options);
+  if (!use_meas && opt.dem == "")
     vw_throw( ArgumentErr() << "Missing the input dem.\n" << usage << general_options );
   if (opt.bathy_plane == "")
     vw_throw( ArgumentErr() << "Missing the output bathy plane file.\n"
               << usage << general_options );
-}
+  if (use_meas && opt.csv_format_str == "") 
+    vw_throw( ArgumentErr() << "Must set the option --csv-format.\n"
+              << usage << general_options );
 
-// Given a set of polygons stored in dPoly, create a single polygon with all those vertices
-void formSinglePoly(vw::geometry::dPoly const& inPoly,
-                    vw::geometry::dPoly & outPoly) {
-
-  int num_pts = inPoly.get_totalNumVerts();
-  const double * xv = inPoly.get_xv();
-  const double * yv = inPoly.get_yv();
-  
-  bool isPolyClosed = true;
-  std::string layer = "";
-  std::string poly_color = "green";
-  outPoly.setPolygon(num_pts, xv, yv, isPolyClosed, poly_color, layer);
+  if (opt.use_ecef_water_surface && use_meas) {
+    vw_throw( ArgumentErr() << "Cannot use use-ecef-water-surface with "
+              << "--water-height-measurements.\n"
+              << usage << general_options );
+  }
 }
 
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
@@ -872,8 +896,11 @@ int main( int argc, char *argv[] ) {
 
     // Load the camera if we use the mask and the camera
     bool use_shapefile = (!opt.shapefile.empty());
+    bool use_mask      = (!opt.mask.empty() && !opt.camera.empty());
+    bool use_meas      = (!opt.water_height_measurements.empty());
+
     boost::shared_ptr<CameraModel> camera_model;
-    if (!use_shapefile) {
+    if (use_mask) {
       std::string out_prefix;
       SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
                                                            opt,
@@ -883,32 +910,46 @@ int main( int argc, char *argv[] ) {
       camera_model = session->camera_model(opt.mask, opt.camera);
     }
 
-    // Read the DEM and its associated data
-    // TODO(oalexan1): Think more about the interpolation method
-    vw_out() << "Reading the DEM: " << opt.dem << std::endl;
+    // Only WGS84 is supported. Note that this georef may or may not
+    // be overwritten below.
     vw::cartography::GeoReference dem_georef;
-    if (!read_georeference(dem_georef, opt.dem))
-      vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
-    
-    // We assume the WGS_1984 datum
-    if (dem_georef.datum().name() != "WGS_1984")
-      vw_throw( ArgumentErr() << "Only an input DEM with the "
-                << "WGS_1984 datum is supported.\n"
-                << "Got: " << dem_georef.datum().name() << ".\n");
-    
-    // Note we use a float nodata
-    float dem_nodata_val = -std::numeric_limits<float>::max();
-    if (!vw::read_nodata_val(opt.dem, dem_nodata_val))
-      vw_out() << "Warning: Could not read the DEM nodata value. "
-                << "Using: " << dem_nodata_val << ".\n";
-    else
-      vw_out() << "Read DEM nodata value: " << dem_nodata_val << ".\n";
+    vw::cartography::Datum datum("WGS_1984");
+    dem_georef.set_datum(datum);
+    dem_georef.set_geographic(); // will be used with opt.water_height_measurements
 
-    // Read the DEM
-    DiskImageView<float> dem(opt.dem);
-    ImageViewRef<PixelMask<float>> masked_dem = create_mask(dem, dem_nodata_val);
-    ImageViewRef< PixelMask<float> > interp_dem
-      = interpolate(masked_dem, BilinearInterpolation(), ConstantEdgeExtension());
+    float dem_nodata_val = -std::numeric_limits<float>::max();
+    ImageViewRef<float> dem;
+    ImageViewRef<PixelMask<float>> masked_dem;
+    ImageViewRef< PixelMask<float>> interp_dem;
+
+    if (use_shapefile || use_mask) {
+      // Read the DEM and its associated data
+      // TODO(oalexan1): Think more about the interpolation method
+      vw_out() << "Reading the DEM: " << opt.dem << std::endl;
+      if (!read_georeference(dem_georef, opt.dem))
+        vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
+      
+      // We assume the WGS_1984 datum
+      if (dem_georef.datum().name() != "WGS_1984")
+        vw_throw( ArgumentErr() << "Only an input DEM with the "
+                  << "WGS_1984 datum is supported.\n"
+                  << "Got: " << dem_georef.datum().name() << ".\n");
+      
+      // Note we use a float nodata
+      if (!vw::read_nodata_val(opt.dem, dem_nodata_val))
+        vw_out() << "Warning: Could not read the DEM nodata value. "
+                 << "Using: " << dem_nodata_val << ".\n";
+      else
+        vw_out() << "Read DEM nodata value: " << dem_nodata_val << ".\n";
+      
+      // Read the DEM
+      dem = DiskImageView<float>(opt.dem);
+      masked_dem = create_mask(dem, dem_nodata_val);
+      interp_dem = interpolate(masked_dem, BilinearInterpolation(), ConstantEdgeExtension());
+    }
+    
+    // Configure a CSV converter object according to the input parameters
+    asp::CsvConv csv_conv;
     
     bool use_proj_water_surface = !opt.use_ecef_water_surface;
     std::vector<Eigen::Vector3d> point_vec;
@@ -920,7 +961,7 @@ int main( int argc, char *argv[] ) {
     vw::cartography::GeoReference shape_georef;
     std::string poly_color = "green";
 
-    if (!use_shapefile) {
+    if (use_mask) {
       
       // Read the mask. The no-data value is the largest of what
       // is read from the mask file and the value 0, as pixels
@@ -942,7 +983,7 @@ int main( int argc, char *argv[] ) {
                                    opt.num_samples,
                                    point_vec, llh_vec,  
                                    used_vertices);
-    } else { 
+    } else if (use_shapefile) { 
     
       // Read the shapefile
       vw_out() << "Reading the shapefile: " << opt.shapefile << std::endl;
@@ -955,8 +996,39 @@ int main( int argc, char *argv[] ) {
       // Find the ECEF coordinates of the shape corners
       find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, point_vec,
                                    llh_vec, used_vertices);
-    }
+    } else if (use_meas) {
+      std::string csv_proj4_str = ""; // not needed
+      try {
+        csv_conv.parse_csv_format(opt.csv_format_str, csv_proj4_str);
+      }catch (...) {
+        // Give a more specific error message
+        vw_throw( ArgumentErr() << "Could not parse --csv-format. Was given: "
+                  << opt.csv_format_str << ".\n");
+      }
 
+      // TODO(oalexan1): Move this to a function
+      
+      std::list<asp::CsvConv::CsvRecord> pos_records;
+      typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
+      csv_conv.read_csv_file(opt.water_height_measurements, pos_records);
+
+      // Use user's csv_proj4 string, if provided, to add info to the georef.
+      // csv_conv.parse_georef(dem_georef);
+      llh_vec.clear();
+
+      for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
+        Vector3 llh = csv_conv.csv_to_geodetic(*iter, dem_georef);
+        llh_vec.push_back(llh);
+        
+        Vector2 proj_pt = shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
+        used_vertices.push_back(proj_pt);
+      }
+
+      // This is needed to create shapefiles of inliers and outliers
+      has_shape_georef = true;
+      shape_georef = dem_georef;
+    }
+    
     // See if to convert to local stereographic projection
     if (use_proj_water_surface)
       find_projection(// Inputs
@@ -965,7 +1037,7 @@ int main( int argc, char *argv[] ) {
                       proj_lat, proj_lon,  
                       stereographic_georef,  
                       point_vec);
-    
+
     // Compute the water surface using RANSAC
     std::vector<Eigen::Vector3d> dummy_vec(point_vec.size()); // Required by the interface
     std::vector<size_t> inlier_indices;
@@ -999,6 +1071,8 @@ int main( int argc, char *argv[] ) {
     save_plane(use_proj_water_surface, proj_lat, proj_lon,  
                plane, opt.bathy_plane);
 
+    // TODO(oalexan1): Must move that to a function and call here
+    
     // Save the shape having the inliers.
     if (opt.output_inlier_shapefile != "") {
       vw::geometry::dPoly inlierPoly;

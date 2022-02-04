@@ -98,9 +98,11 @@ namespace asp {
     size_t read_csv_file(std::string const    & file_path,
                              std::list<CsvRecord> & output_list) const;
 
-    /// Convert values read from a csv file using parse_csv_line (in the same order they appear in the file)
-    /// to a Cartesian point. If return_point_height is true, and the csv point is not
-    /// in xyz format, return instead the projected point and height above datum.
+    /// Convert values read from a csv file using parse_csv_line (in
+    /// the same order they appear in the file) to a Cartesian
+    /// point. If return_point_height is true, and the csv point is
+    /// not in xyz format, return instead the projected point and
+    /// height above datum.
     vw::Vector3 csv_to_cartesian_or_point_height(CsvRecord const& csv,
                                                  vw::cartography::GeoReference const& geo,
                                                  bool return_point_height) const;
@@ -168,7 +170,6 @@ namespace asp {
                          vw::cartography::GdalWriteOptions * opt,
                          vw::cartography::GeoReference const& csv_georef,
                          asp::CsvConv const& csv_conv);
-
 
   bool is_las              (std::string const& file); ///< Return true if this is a LAS file
   bool is_csv              (std::string const& file); ///< Return true if this is a CSV file

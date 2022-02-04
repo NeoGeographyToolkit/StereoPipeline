@@ -20,6 +20,8 @@ orientations of the cameras that were used to create the input DEM.
 
 Further context is given in :numref:`shallow_water_bathy`.
 
+.. _bathy_plane_calc_example1:
+
 Example 1
 ~~~~~~~~~
 
@@ -91,10 +93,62 @@ that the outlier threshold is too strict. Above, the inliers are saved
 as a shapefile and can be inspected. The inliers should be
 well-distributed over the entire shoreline.
 
+.. _bathy_plane_calc_example2:
+
 Example 2
 ~~~~~~~~~
 
-Using a DEM and a shapefile as inputs::
+In this example, a set of actual measurements is provided, as the
+longitude, latitude, and water height above the WGS_1984 datum,
+with the first two measured in degrees and the last one
+in meters.
+
+If the water heights are given relative to a geoid, or some other
+datum, those need to be converted to WGS_1984.
+
+It is expected that the measurements are given in a CSV file, with
+commas or spaces used as separators. Here is an example file, named
+``meas.csv``, for Florida Keys::
+    
+    # ID,lon,lat,NAVD88_m,WGS84_m
+    0,-81.598635,24.587748,-0.28662,-23.72363
+    1,-81.623768,24.581799,-0.28662,-23.70866
+    2,-81.629865,24.578379,-0.2703,-23.69243
+    3,-81.674545,24.564429,-0.2703,-23.6798
+    4,-81.711308,24.555744,-0.2703,-23.67532
+    5,-81.754465,24.55158,-0.2703,-23.67209
+    6,-81.756012,24.551758,-0.23154,-23.63346
+    7,-81.779985,24.548427,-0.23154,-23.63514
+
+Any lines starting with the pound sign (``#``) will be ignored as
+comments. If the first line does not start this way but does not have
+valid data it will be ignored as well.
+
+The program is called as follows::
+
+    bathy_plane_calc --water-height-measurements meas.csv \
+      --csv-format "2:lon 3:lat 5:height_above_datum"     \
+      --num-samples 10000 --outlier-threshold 0.5         \
+      --bathy-plane meas_plane.txt                        \
+      --output-inlier-shapefile meas_inliers.shp
+
+Note the ``--csv-format`` option, which should be set correctly. As
+specified here, it will result in columns 2, 3, and 5, being read,
+hence ignoring the ID in column 1 and the NAVD88 measurements in
+column 4, and treating the read values as longitude, latitude, and
+height above the WGS_1984 datum.
+
+Here we assume that the WorldView images we use for processing later
+are well-aligned to the world coordinates in which the above
+measurements take place. How well that assumption holds and what to do
+when it does not, is still to be determined.
+ 
+.. _bathy_plane_calc_example3:
+
+Example 3
+~~~~~~~~~
+
+This example uses a DEM and a shapefile as inputs::
 
      bathy_plane_calc --shapefile shape.shp --dem dem.tif    \
        --outlier-threshold 0.5                               \ 
@@ -164,6 +218,18 @@ Command-line options for bathy_plane_calc
 --num-samples <integer>
     Number of samples to pick at the water-land interface if using a
     mask. The default is 10000.
+
+--water-height-measurements <string>
+    Use this CSV file having longitude, latitude, and height
+    measurements for the water surface, in degrees and meters,
+    respectively, relative to the WGS84 datum. The option --csv-format
+    must be used.
+
+--csv-format <string>
+    Specify the format of the CSV file having water height
+    measurements. The format should have a list of entries
+    with syntax column_index:column_type (indices start from
+    1). Example: '2:lon 3:lat 4:height_above_datum'.
 
 --bathy-plane arg                     
     The output file storing the computed plane as four coefficients

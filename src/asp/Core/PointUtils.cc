@@ -132,9 +132,6 @@ namespace asp{
 
   }; // End class CsvReader
 
-
-
-
   void PcdReader::read_header() {
     // Open the file as text
     std::ifstream handle;
@@ -345,7 +342,6 @@ namespace asp{
       int max_num_pts_to_read = num_cols*num_rows;
       int count = 0;
       PointBuffer in;
-      std::vector<PointBuffer> outVec;
       while (m_reader->ReadNextPoint()){
         in.push_back(m_reader->GetPoint());
         count++;
@@ -412,7 +408,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
 
   // Make sure that these custom terms do not appear in the proj4 string.
   if ((csv_proj4_str.find("D_MOON") != std::string::npos) ||
-      (csv_proj4_str.find("D_MARS") != std::string::npos)   ) {
+      (csv_proj4_str.find("D_MARS") != std::string::npos)) {
     vw_throw(ArgumentErr() << "D_MOON and D_MARS are not official proj4 names."
                            << "Specify the datum elsewhere or define radii manually.\n");
   }
@@ -425,7 +421,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   std::string local = csv_format_str; // Make lowercase
   boost::algorithm::to_lower(local);
 
-  if (local == "") // No format string passed in!
+  if (local == "") // No format string passed in
     return;
 
   boost::replace_all(local, ":", " "); // Convert to space delimited
@@ -781,6 +777,7 @@ vw::Vector3 asp::CsvConv::csv_to_cartesian(CsvRecord const& csv,
   return xyz;
 }
 
+// Returns Vector3(lon, lat, height_above_datum)
 vw::Vector3 asp::CsvConv::csv_to_geodetic(CsvRecord const& csv,
                                           vw::cartography::GeoReference const& geo) const {
   Vector3 ordered_csv = sort_parsed_vector3(csv);
