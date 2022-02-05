@@ -268,7 +268,11 @@ The third image is, for comparison, the map-projection of A.cub onto the
 original DEM, obtained via the command::
 
     mapproject --tr 1 run_full1/run-crop-DEM.tif A.cub A_map.tif \
-      --tile-size 128
+      --tile-size 1024
+
+(For small DEMs one can use a smaller ``--tile-size`` to start more
+subprocesses in parallel to do the mapprojection. That is not needed
+with CSM cameras as then ``mapproject`` is multithreaded.)
 
 The fourth image is the colored absolute difference between the original
 DEM and the SfS output, obtained by running::
@@ -540,7 +544,7 @@ and here just the relevant commands are shown.
     for f in A B C D; do 
       mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif \
         ${f}_crop_sub4.cub ${f}_crop_sub4.noba.tif       \
-        --tile-size 128
+        --tile-size 1024
     done
 
 (Optional manual interest point picking in the mapprojected images can
@@ -589,7 +593,7 @@ with bundle-adjusted images::
     for f in A B C D; do 
       mapproject --tr 4 run_stereo_yesba_sub4/run-DEM.tif      \
         ${f}_crop_sub4.cub ${f}_crop_sub4.ba.tif               \
-        --tile-size 128 --bundle-adjust-prefix run_ba_sub4/run
+        --tile-size 1024 --bundle-adjust-prefix run_ba_sub4/run
     done
 
 A good sanity check is to overlay this DEM and the resulting
