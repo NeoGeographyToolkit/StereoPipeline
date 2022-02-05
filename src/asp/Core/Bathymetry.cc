@@ -54,7 +54,7 @@ namespace asp {
     bathy_plane.resize(4);
     {
       std::istringstream iss(lines[0]);
-      if (!(iss >> bathy_plane[0] >> bathy_plane[1] >> bathy_plane[2] >>bathy_plane[3])) 
+      if (!(iss >> bathy_plane[0] >> bathy_plane[1] >> bathy_plane[2] >> bathy_plane[3])) 
         vw_throw(vw::IOErr() << "Could not read four values from first "
                  << "line of the bathy plane.\n");
     }
@@ -93,6 +93,32 @@ namespace asp {
              << std::endl;
   }
 
+  // Read left and right bathy plane settings and associated data.
+  // More often than not they will be identical.
+  void read_bathy_plane_set(std::string const& bathy_plane_files,
+                            std::vector<BathyPlaneSettings> & bathy_plane_set) {
+
+    bathy_plane_set.clear();
+    
+    std::string bathy_plane_file;
+    std::istringstream iss(bathy_plane_files);
+    while (iss >> bathy_plane_file) {
+
+      bathy_plane_set.push_back(BathyPlaneSettings());
+      read_bathy_plane(bathy_plane_file,
+                       bathy_plane_set.back().bathy_plane,  
+                       bathy_plane_set.back().use_curved_water_surface,  
+                       bathy_plane_set.back().water_surface_projection);
+    }
+
+    if (bathy_plane_set.size() != 1 && bathy_plane_set.size() != 2) 
+      vw_throw(vw::ArgumentErr() << "One or two bathy planes expected.\n");
+
+    // Clone the bathy plane if there's only one
+    if (bathy_plane_set.size() == 1)
+      bathy_plane_set.push_back(bathy_plane_set[0]);
+  }
+    
   // Given a plane as four values a, b, c, d, with the plane being a * x + b * y + c * z + d = 0,
   // find how far off a point (x, y, z) is from the plane by evaluating the above expression.
   double signed_dist_to_plane(std::vector<double> const& plane, vw::Vector3 const& point) {
@@ -118,6 +144,96 @@ namespace asp {
     return projection.datum().geodetic_to_cartesian(projection.point_to_geodetic(proj_pt));
   }
 
+  // See the .h file for more info
+  bool snells_law(Vector3 const& c, Vector3 const& d,
+                  std::vector<double> const& plane,
+                  double refraction_index, 
+                  Vector3 & c2, Vector3 & d2) {
+
+    // The ray is given as c + alpha * d, where alpha is real.
+    // See where it intersects the plane.
+    double cn = 0.0, dn = 0.0; // Dot product of c and d with plane normal n
+    for (size_t it = 0; it < 3; it++) {
+      cn += plane[it] * c[it];
+      dn += plane[it] * d[it];
+    }
+
+    // The ray must descend to the plane, or else something is not right
+    if (dn >= 0.0)
+      return false;
+    
+    double alpha = -(plane[3] + cn)/dn;
+  
+    // The intersection with the plane
+    c2 = c + alpha * d;
+
+    // Let n be the plane normal pointing up (the first three components
+    // of the plane vector). Let d2 be the outgoing vector after the
+    // ray hits the water, according to Snell's law, with d being the
+    // incoming ray. Let a1 be the angles between -d and n, a2 be the
+    // angle between d2 and -n.
+  
+    // Then sin(a1) = refraction_index * sin(a2) per Snell's law.
+    // Square this. Note that cos^2 (x) + sin^2 (x) = 1.
+    // So, 1 - cos(a1)^2 = refraction_index^2 * (1 - cos(a2)^2).
+    // But cos(a1) = dot_product(-d, n) = -dn.
+    // So, cos(a2)^2 = 1 - (1 - dn^2)/refraction_index^2
+    // Call the left-hand value cos_sq.
+
+    double cos_sq = 1.0 - (1.0 - dn * dn)/refraction_index/refraction_index;
+  
+    // The outgoing vector d2 will be a linear combination of -n and d1,
+    // normalized to unit length. Let alpha > 0 be the value which will
+    // produce the linear combination.  So,
+    // d2 = (-n + alpha * d)/norm(-n + alpha * d)
+    // But dot(d2, -n) = cos(a2). Hence, if we dot the above with n and square it,
+    // we get 
+    // cos(a2)^2 = (-1 + alpha * dn)^2 / dot( -n + alpha * d, -n + alpha * d)
+    // or 
+    // cos(a2)^2 * dot( -n + alpha * d, -n + alpha * d) = (-1 + alpha * dn)^2  
+    // or
+    // cos_sq * (1 - 2 * alpha * dn + alpha^2) = ( 1 - 2*alpha * dn + alpha^2 * dn^2)
+    //
+    // Note that we computed cos_sq from Snell's law above.
+  
+    // Move everything to the left and find the coefficients of the
+    // quadratic equation in alpha, so u * alpha^2 + v * alpha + w = 0.
+    double u = cos_sq - dn * dn;  // this is cos(a2)^2 - cos(a1)^2 > 0 as a2 < a1
+    double v = -2 * dn * cos_sq + 2.0 * dn;
+    double w = cos_sq - 1.0;
+    double delta = v * v - 4 * u * w; // discriminant
+    if (u <= 0.0 || delta < 0.0) 
+      return false; // must not happen
+  
+    alpha = (-v + sqrt(delta)) / (2.0 * u); // pick the positive quadratic root
+
+    if (alpha < 0) 
+      return false; // must not happen
+    
+    // The normalized direction after the ray is bent
+    d2 = -Vector3(plane[0], plane[1], plane[2]) + alpha * d;
+    d2 = d2 / norm_2(d2);
+
+    return true;
+  }  
+
+  // See the .h file for more info.
+  bool snells_law_maybe(Vector3 const& c, Vector3 const& d,
+                        std::vector<double> const& plane,
+                        double refraction_index,
+                        Vector3 const& point_on_ray,
+                        Vector3 & c2, Vector3 & d2) {
+    
+    double ht_val = signed_dist_to_plane(plane, point_on_ray);
+    if (ht_val >= 0.0 || std::isnan(ht_val)) {
+      c2 = c;
+      d2 = d;
+      return true;
+    }
+    
+    return snells_law(c, d, plane, refraction_index, c2, d2);
+  }
+  
   // Consider a stereographic projection and a plane
   // a * x + b * y + c * z + d = 0 for (x, y, z) in this projection.
   // Intersect it with a ray given in ECEF coordinates.
@@ -165,103 +281,42 @@ namespace asp {
   
   // Settings used for bathymetry correction
   void BathyStereoModel::set_bathy(double refraction_index,
-                                   std::vector<double> const& bathy_plane,
-                                   bool use_curved_water_surface,
-                                   vw::cartography::GeoReference
-                                   const& water_surface_projection) {
+                                   std::vector<BathyPlaneSettings> const& bathy_set) {
     
     m_bathy_correct = true;
     m_refraction_index = refraction_index;
-    m_bathy_plane = bathy_plane;
-    m_use_curved_water_surface = use_curved_water_surface;
-    m_water_surface_projection = water_surface_projection;
+    m_bathy_set = bathy_set;
     
     if (m_refraction_index <= 1) 
       vw::vw_throw(vw::ArgumentErr() << "The water refraction index must be bigger than 1.");
 
-    if (m_bathy_plane.size() != 4)
-      vw::vw_throw(vw::ArgumentErr() << "The bathymetry plane must have 4 coefficients.");
-  
-  }
+    if (m_bathy_set.size() != 2) 
+      vw::vw_throw(vw::ArgumentErr() << "Expecting two bathy planes (left and right).");
 
-  // Given a ray going down towards Earth, starting at point c and
-  // with unit direction d, a plane 'p' to the water surface with four
-  // coefficients such that the plane equation is p[0] * x + p[1] * y
-  // + p[2] * z + p[3] = 0, the normal (p[0], p[1], p[2]) pointing
-  // upwards away from Earth, and water refraction index, find where
-  // this ray meets the water plane named c2, and the ray direction d2
-  // after it bends according to Snell's law. Return true on success.
-  bool BathyStereoModel::snells_law(Vector3 const& c, Vector3 const& d,
-                                    std::vector<double> const& p,
-                                    double refraction_index, 
-                                    Vector3 & c2, Vector3 & d2) {
-
-    // The ray is given as c + alpha * d, where alpha is real.
-    // See where it intersects the plane.
-    double cn = 0.0, dn = 0.0; // Dot product of c and d with plane normal n
-    for (size_t it = 0; it < 3; it++) {
-      cn += p[it] * c[it];
-      dn += p[it] * d[it];
+    for (int it = 0; it < 2; it++) {
+      if (m_bathy_set[it].bathy_plane.size() != 4)
+        vw::vw_throw(vw::ArgumentErr() << "The bathy plane must have 4 coefficients.");
     }
 
-    // The ray must descend to the plane, or else something is not right
-    if (dn >= 0.0)
-      return false;
-    
-    double alpha = -(p[3] + cn)/dn;
-  
-    // The intersection with the plane
-    c2 = c + alpha * d;
+    if (m_bathy_set[0].use_curved_water_surface != m_bathy_set[1].use_curved_water_surface)
+      vw::vw_throw(vw::ArgumentErr()
+                   << "Either both or none of the bathy planes must model the "
+                   << "curvature of the water surface.");
 
-    // Let n be the plane normal pointing up (the first three components
-    // of the plane vector p). Let d2 be the outgoing vector after the
-    // ray hits the water, according to Snell's law, with d being the
-    // incoming ray. Let a1 be the angles between -d and n, a2 be the
-    // angle between d2 and -n.
-  
-    // Then sin(a1) = refraction_index * sin(a2) per Snell's law.
-    // Square this. Note that cos^2 (x) + sin^2 (x) = 1.
-    // So, 1 - cos(a1)^2 = refraction_index^2 * (1 - cos(a2)^2).
-    // But cos(a1) = dot_product(-d, n) = -dn.
-    // So, cos(a2)^2 = 1 - (1 - dn^2)/refraction_index^2
-    // Call the left-hand value cos_sq.
+    // The default behavior is for the left and right bathy planes to be the same.
+    // Yet we allow them to be different. Here need to check.
+    m_single_bathy_plane = true;
+    if (m_bathy_set[0].use_curved_water_surface != m_bathy_set[1].use_curved_water_surface)
+      m_single_bathy_plane = false;
+    if (m_bathy_set[0].water_surface_projection.proj4_str()
+        != m_bathy_set[1].water_surface_projection.proj4_str())
+       m_single_bathy_plane = false;
+    if (m_bathy_set[0].bathy_plane != m_bathy_set[1].bathy_plane)
+      m_single_bathy_plane = false;
 
-    double cos_sq = 1.0 - (1.0 - dn * dn)/refraction_index/refraction_index;
-  
-    // The outgoing vector d2 will be a linear combination of -n and d1,
-    // normalized to unit length. Let alpha > 0 be the value which will
-    // produce the linear combination.  So,
-    // d2 = (-n + alpha * d)/norm(-n + alpha * d)
-    // But dot(d2, -n) = cos(a2). Hence, if we dot the above with n and square it,
-    // we get 
-    // cos(a2)^2 = (-1 + alpha * dn)^2 / dot( -n + alpha * d, -n + alpha * d)
-    // or 
-    // cos(a2)^2 * dot( -n + alpha * d, -n + alpha * d) = (-1 + alpha * dn)^2  
-    // or
-    // cos_sq * (1 - 2 * alpha * dn + alpha^2) = ( 1 - 2*alpha * dn + alpha^2 * dn^2)
-    //
-    // Note that we computed cos_sq from Snell's law above.
-  
-    // Move everything to the left and find the coefficients of the
-    // quadratic equation in alpha, so u * alpha^2 + v * alpha + w = 0.
-    double u = cos_sq - dn * dn;  // this is cos(a2)^2 - cos(a1)^2 > 0 as a2 < a1
-    double v = -2 * dn * cos_sq + 2.0 * dn;
-    double w = cos_sq - 1.0;
-    double delta = v * v - 4 * u * w; // discriminant
-    if (u <= 0.0 || delta < 0.0) 
-      return false; // must not happen
-  
-    alpha = (-v + sqrt(delta)) / (2.0 * u); // pick the positive quadratic root
-
-    if (alpha < 0) 
-      return false; // must not happen
-    
-    // The normalized direction after the ray is bent
-    d2 = -Vector3(p[0], p[1], p[2]) + alpha * d;
-    d2 = d2 / norm_2(d2);
-
-    return true;
-  }  
+    std::cout << "--proj 4 " << m_bathy_set[0].water_surface_projection.proj4_str() << std::endl;
+    std::cout << "--single bathy plane is " << m_single_bathy_plane << std::endl;
+  }
 
   // Compute the rays intersection. Note that even if we are in
   // bathymetry mode, so m_bathy_correct is true, for this particular
@@ -275,7 +330,11 @@ namespace asp {
     // Initialize the outputs
     did_bathy = false;
     errorVec = Vector3();
-  
+
+    // It was verified beforehand that both bathy planes have the same
+    // value for use_curved_water_surface.
+    bool use_curved_water_surface = m_bathy_set[0].use_curved_water_surface;
+    
     int num_cams = m_cameras.size();
     VW_ASSERT((int)pixVec.size() == num_cams,
               vw::ArgumentErr() << "the number of rays must match "
@@ -337,32 +396,49 @@ namespace asp {
                      << "this mode was not set up.");
 
       // Find the rays after bending, according to Snell's law
-      
+
       std::vector<Vector3> waterDirs(2), waterCtrs(2);
-      if (!m_use_curved_water_surface) {
+      if (!use_curved_water_surface) {
         
         // The simple case, when the water surface is a plane in ECEF
 
         // If the intersection point is above the water plane, don't do
-        // bathymetry correction.
-        double ht_val = signed_dist_to_plane(m_bathy_plane, result);
-        if (!(ht_val < 0)) // take into account also the NaN case
-          return result;
-        
-        // Find where the rays intersect the plane and how the water bends
-        // them
-        for (size_t it = 0; it < 2; it++) {
-          bool ans = snells_law(camCtrs[it], camDirs[it], m_bathy_plane,  
-                                m_refraction_index,  
-                                waterCtrs[it], waterDirs[it]);
-          
-          // If Snell's law failed to work, return the result before it
-          if (!ans)
+        // bathymetry correction. It is not so simple if there are two bathy planes.
+        if (m_single_bathy_plane) {
+          double ht_val = signed_dist_to_plane(m_bathy_set[0].bathy_plane, result);
+          if (ht_val >= 0.0 || std::isnan(ht_val))
             return result;
+        
+          // Find where the rays intersect the plane and how the water bends
+          // them
+          for (size_t it = 0; it < 2; it++) {
+            bool ans = snells_law(camCtrs[it], camDirs[it], m_bathy_set[it].bathy_plane,  
+                                  m_refraction_index,  
+                                  waterCtrs[it], waterDirs[it]);
+            
+            // If Snell's law failed to work, return the result before it
+            if (!ans)
+              return result;
+          }
+          
+        } else {
+          // This is a little slower and more complicated. The rays are bent
+          // by different planes.
+          for (size_t it = 0; it < 2; it++) {
+            bool ans = snells_law_maybe(camCtrs[it], camDirs[it], m_bathy_set[it].bathy_plane,
+                                        m_refraction_index, result, 
+                                        waterCtrs[it], waterDirs[it]);
+            
+            // If Snell's law failed to work, return the result before it
+            if (!ans)
+              return result;
+          }
         }
         
       }else{
 
+        // TODO(oalexan1): This needs to be modularized.
+         
         // The more complex case, the water surface is curved. It is
         // however flat (a plane) if we switch to projected
         // coordinates.
@@ -378,19 +454,24 @@ namespace asp {
         // enough.
         
         // If the rays intersect above the water surface, don't do the
-        // correction.
-        Vector3 proj_pt = proj_point(m_water_surface_projection, result);
-        double ht_val = signed_dist_to_plane(m_bathy_plane, proj_pt);
-        if (!(ht_val < 0)) // take into account also the NaN case
-          return result;
+        // correction. This only works with a single bathy plane.
 
-        // Find the mean water surface
-        double mean_ht = -m_bathy_plane[3] / m_bathy_plane[2];
-        double major_radius = m_water_surface_projection.datum().semi_major_axis() + mean_ht;
-        double minor_radius = m_water_surface_projection.datum().semi_minor_axis() + mean_ht;
-
+        if (m_single_bathy_plane) {
+          Vector3 proj_pt = proj_point(m_bathy_set[0].water_surface_projection, result);
+          double ht_val = signed_dist_to_plane(m_bathy_set[0].bathy_plane, proj_pt);
+          if (ht_val >= 0.0 || std::isnan(ht_val))
+            return result;
+        }
+        
         // Bend each ray at the surface according to Snell's law. Takes some work.
         for (size_t it = 0; it < 2; it++) {
+
+          // Find the mean water surface
+          double mean_ht = -m_bathy_set[it].bathy_plane[3] / m_bathy_set[it].bathy_plane[2];
+          double major_radius
+            = m_bathy_set[it].water_surface_projection.datum().semi_major_axis() + mean_ht;
+          double minor_radius
+            = m_bathy_set[it].water_surface_projection.datum().semi_minor_axis() + mean_ht;
           
           // Intersect the ray with the mean water surface, this will
           // give us the initial guess for intersecting with that
@@ -399,13 +480,16 @@ namespace asp {
                                                                   camCtrs[it], camDirs[it]);
 
 # if 0
+          // TODO(oalexan1): Make this block a function. Test it again.
+          
           // Use a solver. This is way too slow in practice.
+          // This was tested only with a single water plane.
           
           // Find the position on the ray and convert to projected coordinates
           double guess_t = dot_prod(guess_xyz - camCtrs[it], camDirs[it]);
           
-          Vector3 proj_pt = proj_point(m_water_surface_projection, guess_xyz);
-          double err = signed_dist_to_plane(m_bathy_plane, proj_pt);
+          Vector3 proj_pt = proj_point(m_bathy_set[it].water_surface_projection, guess_xyz);
+          double err = signed_dist_to_plane(m_bathy_set[it].bathy_plane, proj_pt);
 
           // std::cout << "Initial plane error " << err << "\n";
 
@@ -418,8 +502,8 @@ namespace asp {
           const double rel_tolerance  = 1e-16;
           const int    max_iterations = 10;
           SolveCurvedPlaneIntersection model(camCtrs[it], camDirs[it],
-                                             m_water_surface_projection,
-                                             m_bathy_plane);
+                                             m_bathy_set[it].water_surface_projection,
+                                             m_bathy_set[it].bathy_plane);
           Vector<double, 1> solved_t
             = vw::math::levenberg_marquardt(model, initial_t, observation,
                                             status, abs_tolerance, rel_tolerance,
@@ -427,28 +511,31 @@ namespace asp {
 
           // The solved-for point on the surface
           Vector3 in_pt
-            = proj_point(m_water_surface_projection, camCtrs[it] + solved_t[0] * camDirs[it]);
+            = proj_point(m_bathy_set[it].water_surface_projection,
+                         camCtrs[it] + solved_t[0] * camDirs[it]);
 
           // std::cout << "Final plane error "
-          // << signed_dist_to_plane(m_bathy_plane, in_pt) << "\n";
+          // << signed_dist_to_plane(m_bathy_set[it].bathy_plane, in_pt) << "\n";
 
           Vector3 prev_pt
-            = proj_point(m_water_surface_projection, camCtrs[it]
+            = proj_point(m_bathy_set[it].water_surface_projection, camCtrs[it]
                          + (solved_t[0] - 1.0)* camDirs[it]);
 #else
           // No solver, just a one-step solution, gives very similar results
           Vector3 prev_xyz = guess_xyz - 1.0 * camDirs[it];
           
-          Vector3 in_pt = proj_point(m_water_surface_projection, guess_xyz);
-          Vector3 prev_pt = proj_point(m_water_surface_projection, prev_xyz);
+          Vector3 in_pt = proj_point(m_bathy_set[it].water_surface_projection, guess_xyz);
+          Vector3 prev_pt = proj_point(m_bathy_set[it].water_surface_projection, prev_xyz);
 #endif
           
           Vector3 in_dir = in_pt - prev_pt;
           in_dir /= norm_2(in_dir);
 
+          // TODO(oalexan1): Need to call snells_law_maybe() when there's more than one plane.
+          // TODO(oalexan1): Add a new function called snells_law_curved_surf().
           Vector3 out_pt, out_dir;
           bool ans = snells_law(in_pt, in_dir,
-                                m_bathy_plane, m_refraction_index,
+                                m_bathy_set[it].bathy_plane, m_refraction_index,
                                 out_pt, out_dir);
 
           // If Snell's law failed to work, return the result before it
@@ -459,19 +546,23 @@ namespace asp {
           Vector3 next_pt = out_pt + 1.0 * out_dir;
 
           // Convert back to ECEF
-          Vector3 out_xyz = unproj_point(m_water_surface_projection, out_pt);
-          Vector3 next_xyz = unproj_point(m_water_surface_projection, next_pt);
+          Vector3 out_xyz = unproj_point(m_bathy_set[it].water_surface_projection, out_pt);
+          Vector3 next_xyz = unproj_point(m_bathy_set[it].water_surface_projection, next_pt);
 
           // Finally get the outgoing direction according to Snell's law in ECEF
           waterCtrs[it] = out_xyz;
           waterDirs[it] = next_xyz - out_xyz;
           waterDirs[it] /= norm_2(waterDirs[it]);
 
+          // TODO(oalexan1): The block below needs to be a function,
+          // and part of the tests
 #if DEBUG_BATHY
           // Test Snell's law in projected and unprojected coordinates
           
           // Projected coordinates
-          Vector3 plane_normal(m_bathy_plane[0], m_bathy_plane[1], m_bathy_plane[2]);
+          Vector3 plane_normal(m_bathy_set[it].bathy_plane[0],
+                               m_bathy_set[it].bathy_plane[1],
+                               m_bathy_set[it].bathy_plane[2]);
           double sin_in = sin(acos(dot_prod(plane_normal, -in_dir)));
           double sin_out = sin(acos(dot_prod(-plane_normal, out_dir)));
           std::cout << "proj sin_in, sin_out, sin_in - index * sin_out "
@@ -480,7 +571,8 @@ namespace asp {
           
           // Unprojected coordinates
           Vector3 pt_above_normal = out_pt + 1.0 * plane_normal; // go up a bit along the normal
-          Vector3 xyz_above_normal = unproj_point(m_water_surface_projection, pt_above_normal);
+          Vector3 xyz_above_normal = unproj_point(m_bathy_set[it].water_surface_projection,
+                                                  pt_above_normal);
           Vector3 unproj_normal = xyz_above_normal - out_xyz;
           unproj_normal /= norm_2(unproj_normal); // normalize
           sin_in = sin(acos(dot_prod(unproj_normal, -camDirs[it])));

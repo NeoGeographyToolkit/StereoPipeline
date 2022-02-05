@@ -28,10 +28,39 @@
 
 namespace asp {
 
-  void read_bathy_plane(std::string const& bathy_plane_file,
-                        std::vector<double> & bathy_plane, bool & use_curved_water_surface,
-                        vw::cartography::GeoReference & water_surface_projection);
+  struct BathyPlaneSettings {
+    std::vector<double> bathy_plane;
+    bool use_curved_water_surface;
+    vw::cartography::GeoReference water_surface_projection;
+    
+    BathyPlaneSettings(): use_curved_water_surface(false) {}
+  };
+    
+  // Read left and right bathy plane settings and associated data.
+  // More often than not they will be identical.
+  void read_bathy_plane_set(std::string const& bathy_plane_files,
+                            std::vector<BathyPlaneSettings> & bathy_plane_set);
 
+  // Given a ray going down towards Earth, starting at point c and
+  // with unit direction d, a plane 'p' to the water surface with four
+  // coefficients such that the plane equation is p[0] * x + p[1] * y
+  // + p[2] * z + p[3] = 0, the normal (p[0], p[1], p[2]) pointing
+  // upwards away from Earth, and water refraction index, find where
+  // this ray meets the water plane named c2, and the ray direction d2
+  // after it bends according to Snell's law. Return true on success.
+  bool snells_law(vw::Vector3 const& c, vw::Vector3 const& d,
+                  std::vector<double> const& plane, double refraction_index,
+                           vw::Vector3 & c2, vw::Vector3 & d2);
+  
+  // In this version of snells_law(), we are given given a point
+  // further down on the incoming ray, where this ray may intersect
+  // another ray if no correction due to refraction index happens. if
+  // that further down point is above the water plane, there is no
+  // need to bend the ray.
+  bool snells_law_maybe(vw::Vector3 const& c, vw::Vector3 const& d,
+                        std::vector<double> const& plane, double refraction_index,
+                        vw::Vector3 & c2, vw::Vector3 & d2);
+  
   class BathyStereoModel: public vw::stereo::StereoModel {
   public:
     
@@ -48,7 +77,7 @@ namespace asp {
                      bool least_squares_refine = false,
                      double angle_tol = 0.0):
       vw::stereo::StereoModel(camera_model1, camera_model2, least_squares_refine, angle_tol),
-      m_bathy_correct(false) {}
+      m_bathy_correct(false), m_single_bathy_plane(true) {}
     
     virtual ~BathyStereoModel() {}
     
@@ -68,22 +97,17 @@ namespace asp {
     virtual vw::Vector3 operator()(vw::Vector2 const& pix1, vw::Vector2 const& pix2,
                                    double & error) const;
     
-    // Settings used for bathymetry correction
-    void set_bathy(double refraction_index, std::vector<double> const& bathy_plane,
-                   bool use_curved_water_surface,
-                   vw::cartography::GeoReference const& water_surface_projection);
-    
-    static bool snells_law(vw::Vector3 const& c, vw::Vector3 const& d,
-                           std::vector<double> const& p, double refraction_index,
-                           vw::Vector3 & c2, vw::Vector3 & d2);
+    // Settings used for bathymetry correction. The left and right images
+    // get individual bathy plane settings, but they may be identical.
+    void set_bathy(double refraction_index,
+                   std::vector<BathyPlaneSettings> const& bathy_set);
     
   private:
     // Used for bathymetry
-    bool m_bathy_correct;              // If to do bathy correction
-    std::vector<double> m_bathy_plane; // the water plane
-    double m_refraction_index;         // Water refraction index
-    bool m_use_curved_water_surface;
-    vw::cartography::GeoReference m_water_surface_projection;
+    bool m_bathy_correct;                        // If to do bathy correction
+    bool m_single_bathy_plane;                   // if the left and right images use same plane 
+    double m_refraction_index;                   // Water refraction index
+    std::vector<BathyPlaneSettings> m_bathy_set; // Bathy plane settings
   };
   
 } // end namespace asp

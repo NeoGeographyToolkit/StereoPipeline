@@ -767,12 +767,8 @@ namespace asp {
         vw_throw(ArgumentErr() << "The water plane needed for bathymetry was not found.\n");
 
       // Sanity check reading the bathy plane
-      std::vector<double> bathy_plane;
-      bool use_curved_water_surface = false; // may change below
-      vw::cartography::GeoReference water_surface_projection;
-      read_bathy_plane(stereo_settings().bathy_plane,
-                       bathy_plane, use_curved_water_surface,
-                       water_surface_projection);
+      std::vector<BathyPlaneSettings> bathy_plane_set;
+      read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
       
       if (opt.session->name() != "dg" &&
           opt.session->name() != "rpc" &&

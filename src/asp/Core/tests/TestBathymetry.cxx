@@ -37,9 +37,9 @@ TEST(Bathymetry, BathyStereoModel) {
   bathy_plane.push_back(-6374384.66267670784);
 
   Vector3 waterCtr, waterDir;
-  bool ans = BathyStereoModel::snells_law(camCtr, camDir, bathy_plane,  
-                                          water_refraction_index,  
-                                          waterCtr, waterDir);
+  bool ans = asp::snells_law(camCtr, camDir, bathy_plane,  
+                             water_refraction_index,  
+                             waterCtr, waterDir);
   
   EXPECT_TRUE(ans);
   

@@ -696,19 +696,16 @@ void stereo_triangulation(std::string const& output_prefix,
     else
       vw_throw(ArgumentErr() << "Unknown value for --output-cloud-type.\n");
 
-    // Load the bathy masks and plane
-    ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
-    std::vector<double> bathy_plane;
-    bool use_curved_water_surface = false; // may change below
-    vw::cartography::GeoReference water_surface_projection;
+    // Load the bathy plane and masks
     bool bathy_correct = opt_vec[0].session->do_bathymetry();
+    std::vector<BathyPlaneSettings> bathy_plane_set;
+    ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
     if (bathy_correct) {
+
       if (disparity_maps.size() != 1)
         vw_throw(ArgumentErr() << "Bathymetry correction does not work with multiview stereo\n");
-
-      read_bathy_plane(stereo_settings().bathy_plane,
-                       bathy_plane, use_curved_water_surface,
-                       water_surface_projection);
+      
+      read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
       
       opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
                                                    right_aligned_bathy_mask); 
@@ -719,8 +716,7 @@ void stereo_triangulation(std::string const& output_prefix,
                   << "aligned bathymetry mask must agree.\n");
       
       // Pass bathy data to the stereo model
-      bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane,
-                                   use_curved_water_surface, water_surface_projection);
+      bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane_set);
     }
 
     // Apply radius function and stereo model in one go

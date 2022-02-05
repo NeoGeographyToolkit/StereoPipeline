@@ -189,7 +189,7 @@ namespace asp {
       ("right-bathy-mask", po::value(&global.right_bathy_mask),
        "Mask to use for the right image when doing bathymetry.")
       ("bathy-plane", po::value(&global.bathy_plane),
-       "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0.")
+       "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0. Separate bathy planes can be used for the left and right images, to be passed in as 'left_plane.txt right_plane.txt'.")
       ("refraction-index", po::value(&global.refraction_index)->default_value(0),
        "The index of refraction of water to be used in bathymetry correction. (Must be specified and bigger than 1.)")
       ("output-cloud-type", po::value(&global.output_cloud_type)->default_value("all"),
