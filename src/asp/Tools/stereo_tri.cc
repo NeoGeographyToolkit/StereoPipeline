@@ -50,13 +50,13 @@ enum OUTPUT_CLOUD_TYPE {FULL_CLOUD, BATHY_CLOUD, TOPO_CLOUD}; // all, below wate
 /// point cloud via joint triangulation.
 class StereoTXAndErrorView:
   public ImageViewBase<StereoTXAndErrorView> {
-  std::vector<DispImageType> m_disparity_maps;
-  std::vector<TransPtr>      m_transforms; // e.g., map-projection or homography to undo
-  vw::stereo::StereoModel    m_stereo_model;
-  asp::BathyStereoModel      m_bathy_model;
-  bool                       m_is_map_projected;
-  bool                       m_bathy_correct;
-  OUTPUT_CLOUD_TYPE          m_cloud_type;
+  std::vector<DispImageType>    m_disparity_maps;
+  std::vector<vw::TransformPtr> m_transforms; // e.g., map-projection or homography to undo
+  vw::stereo::StereoModel       m_stereo_model;
+  asp::BathyStereoModel         m_bathy_model;
+  bool                          m_is_map_projected;
+  bool                          m_bathy_correct;
+  OUTPUT_CLOUD_TYPE             m_cloud_type;
   ImageViewRef<PixelMask<float>> m_left_aligned_bathy_mask;
   ImageViewRef<PixelMask<float>> m_right_aligned_bathy_mask;
 
@@ -69,10 +69,10 @@ public:
   typedef ProceduralPixelAccessor<StereoTXAndErrorView> pixel_accessor;
 
   /// Constructor
-  StereoTXAndErrorView(std::vector<DispImageType> const& disparity_maps,
-                       std::vector<TransPtr>      const& transforms,
-                       vw::stereo::StereoModel    const& stereo_model,
-                       asp::BathyStereoModel      const& bathy_model,
+  StereoTXAndErrorView(std::vector<DispImageType>    const& disparity_maps,
+                       std::vector<vw::TransformPtr> const& transforms,
+                       vw::stereo::StereoModel       const& stereo_model,
+                       asp::BathyStereoModel         const& bathy_model,
                        bool is_map_projected,
                        bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
                        ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
@@ -206,7 +206,7 @@ private:
   
   /// RPC Map Transform needs to be explicitly copied and told to cache for performance.
   template <class T>
-  prerasterize_type PreRasterHelper( BBox2i const& bbox, std::vector<T> const& transforms) const {
+  prerasterize_type PreRasterHelper(BBox2i const& bbox, std::vector<T> const& transforms) const {
 
     ImageViewRef<PixelMask<float>> in_memory_left_aligned_bathy_mask;
     ImageViewRef<PixelMask<float>> in_memory_right_aligned_bathy_mask;
@@ -216,10 +216,9 @@ private:
       // We explicitly bring in-memory the disparities for the current box
       // to speed up processing later, and then we pretend this is the entire
       // image by virtually enlarging it using a CropView.
-
       std::vector<ImageViewRef<DPixelT>> disparity_cropviews;
       for (int p = 0; p < (int)m_disparity_maps.size(); p++){
-        ImageView<DPixelT> clip( crop( m_disparity_maps[p], bbox ));
+        ImageView<DPixelT> clip = crop(m_disparity_maps[p], bbox);
         ImageViewRef<DPixelT> cropview_clip = crop(clip, -bbox.min().x(), -bbox.min().y(),
                                                    cols(), rows());
         disparity_cropviews.push_back(cropview_clip);
@@ -258,15 +257,14 @@ private:
     // we were using a TransformView. Copies are made of the
     // transforms so we are not having a race condition with setting
     // the cache in both transforms while the other threads want to do the same.
-    // - Without some sort of duplication function in the transform base class we need
-    //   to manually copy the Map2CamTrans type which is pretty hacky.
+    // Without some sort of duplication function in the transform base class we need
+    // to manually copy the Map2CamTrans type which is pretty hacky.
     std::vector<T> transforms_copy(transforms.size());
     for (size_t i = 0; i < transforms.size(); ++i)
-      transforms_copy[i] = make_transform_copy(transforms[i]);
+      transforms_copy[i] = vw::cartography::mapproj_trans_copy(transforms[i]);
 
     // As a side effect, this call makes transforms_copy create a local cache we want later
     transforms_copy[0]->reverse_bbox(bbox); 
-
     if (transforms_copy.size() != m_disparity_maps.size() + 1){
       vw_throw( ArgumentErr() << "In multi-view triangulation, "
                 << "the number of disparities must be one less "
@@ -280,7 +278,7 @@ private:
       // box to speed up processing later, and then we pretend this is
       // the entire image by virtually enlarging it using a CropView.
 
-      ImageView<DPixelT> clip( crop( m_disparity_maps[p], bbox ));
+      ImageView<DPixelT> clip(crop(m_disparity_maps[p], bbox));
       ImageViewRef<DPixelT> cropview_clip = crop(clip, -bbox.min().x(), -bbox.min().y(),
                                                  cols(), rows());
       disparity_cropviews.push_back(cropview_clip);
@@ -306,23 +304,22 @@ private:
       
       // Also cache the data for subsequent transforms
       // As a side effect this call makes transforms_copy create a local cache we want later
-      transforms_copy[p+1]->reverse_bbox(right_bbox); 
+      transforms_copy[p+1]->reverse_bbox(right_bbox);
     }
 
     return prerasterize_type(disparity_cropviews, transforms_copy,
                              m_stereo_model, m_bathy_model,
                              m_is_map_projected, m_bathy_correct, m_cloud_type,
                              in_memory_left_aligned_bathy_mask, in_memory_right_aligned_bathy_mask);
-  } // End function PreRasterHelper() DGMapRPC version
-
+  } // End function PreRasterHelper() maprojected version
 }; // End class StereoTXAndErrorView
 
 /// Just a wrapper function for StereoTXAndErrorView view construction
 StereoTXAndErrorView
 stereo_error_triangulate(std::vector<DispImageType> const& disparities,
-                         std::vector<TransPtr>   const& transforms,
-                         vw::stereo::StereoModel const& stereo_model,
-                         asp::BathyStereoModel   const& bathy_model,
+                         std::vector<vw::TransformPtr>  const& transforms,
+                         vw::stereo::StereoModel        const& stereo_model,
+                         asp::BathyStereoModel          const& bathy_model,
                          bool is_map_projected,
                          bool bathy_correct,
                          OUTPUT_CLOUD_TYPE cloud_type,
@@ -411,21 +408,24 @@ Vector3 find_approx_points_median(std::vector<Vector3> const& points){
 }
 
 // TODO(oalexan1): Move this to some low-level point cloud utils file
+// Compute the point cloud in a tile around the center of the
+// cloud. Find the median of all the points in that cloud.  That
+// will be the cloud center. If the tile is too small, spiral away
+// from the center adding other tiles.  Keep the tiles aligned to a
+// multiple of tile_size, for consistency with how the point cloud
+// is written to disk later on.
+// The logic is done on tiles of pixels, rather than per individual
+// pixel, as that's the only way we can access the point cloud structure.
 Vector3 find_point_cloud_center(Vector2i const& tile_size,
                                 ImageViewRef<Vector6> const& point_cloud){
-
-  // Compute the point cloud in a tile around the center of the
-  // cloud. Find the median of all the points in that cloud.  That
-  // will be the cloud center. If the tile is too small, spiral away
-  // from the center adding other tiles.  Keep the tiles aligned to a
-  // multiple of tile_size, for consistency with how the point cloud
-  // is written to disk later on.
 
   int numx = (int)ceil(point_cloud.cols()/double(tile_size[0]));
   int numy = (int)ceil(point_cloud.rows()/double(tile_size[1]));
 
   std::vector<Vector3> points;
+  // Trace an ever growing square "ring"
   for (int r = 0; r <= std::max(numx/2, numy/2); r++){
+    
     // We are now on the boundary of the square of size 2*r with
     // center at (numx/2, numy/2). Iterate over that boundary.
     for (int x = numx/2-r; x <= numx/2+r; x++){
@@ -433,19 +433,21 @@ Vector3 find_point_cloud_center(Vector2i const& tile_size,
 
         if ( x != numx/2-r && x != numx/2+r &&
              y != numy/2-r && y != numy/2+r)
-          continue; // skip inner points
+          continue; // Skip inner points; we must keep on the "ring" for given r.
 
         if (x < 0 || y < 0 || x >= numx || y >= numy)
           continue; // out of bounds
 
-        BBox2i box(x*tile_size[0], y*tile_size[1], tile_size[0], tile_size[1]);
-        box.crop(bounding_box(point_cloud));
+        BBox2i tile(x*tile_size[0], y*tile_size[1], tile_size[0], tile_size[1]);
+        tile.crop(bounding_box(point_cloud));
 
         // Crop to the cloud area actually having points
-        box.crop(stereo_settings().trans_crop_win);
+        tile.crop(stereo_settings().trans_crop_win);
 
-        // Triangulate in the existing box
-        ImageView<Vector6> cropped_cloud = crop(point_cloud, box);
+        // Triangulate in the existing tile. That will trigger
+        // many complicated calculations and the result will be
+        // in memory in cropped_cloud.
+        ImageView<Vector6> cropped_cloud = crop(point_cloud, tile);
         for (int px = 0; px < cropped_cloud.cols(); px++){
           for (int py = 0; py < cropped_cloud.rows(); py++){
             Vector3 xyz = subvector(cropped_cloud(px, py), 0, 3);
@@ -487,20 +489,125 @@ void write_point(std::string const& file, Vector3 const& point){
   fh << std::endl;
 }
 
+// This is some logic unrelated to triangulation, but there seems to be no
+// good place to put it. Unalign the disparity, and/or create match points
+// from disparity, and/or solve for jitter.
+bool disp_or_matches_or_jitter_work(std::string const& output_prefix,
+                                    std::vector<ASPGlobalOptions> const& opt_vec,
+                                    std::vector<vw::TransformPtr> const& transforms,
+                                    std::vector<DispImageType> const& disparity_maps,
+                                    std::vector<std::string> const& image_files,
+                                    std::vector<std::string> const& camera_files,
+                                    // Cameras can change
+                                    std::vector<boost::shared_ptr<camera::CameraModel>> & cameras) {
+  // Sanity check for some of the operations below
+  VW_ASSERT(disparity_maps.size() == 1 && transforms.size() == 2,
+            vw::ArgumentErr() << "Expecting two images and one disparity.\n");
+   
+  ASPGlobalOptions opt = opt_vec[0];
+  const bool is_map_projected = opt.session->isMapProjected();
+    
+  // Transforms to compensate for alignment
+  vw::TransformPtr left_trans  = transforms[0];
+  vw::TransformPtr right_trans = transforms[1];
+  // Special case to overwrite the transforms
+  bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
+                              (opt.session->name() == "pinhole" ||
+                                opt.session->name() == "nadirpinhole") );
+  if (usePinholeEpipolar) {
+    StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
+    if (pinPtr == NULL) 
+      vw_throw(ArgumentErr() << "Expected a pinhole session.\n");
+    try {
+      pinPtr->pinhole_cam_trans(left_trans, right_trans);
+    } catch(...) {
+      vw_throw(ArgumentErr() << "Expected a non-cahv* type camera for disparity operations.\n");
+    }
+  }
+      
+  // Create a disparity map with between the original unaligned images 
+  if (stereo_settings().unalign_disparity) {
+    std::string unaligned_disp_file = asp::unwarped_disp_file(output_prefix,
+                                                              opt.in_file1, 
+                                                              opt.in_file2);
+    unalign_disparity(is_map_projected, disparity_maps[0], left_trans, right_trans,  
+                      opt, unaligned_disp_file);
+  }
+      
+  std::string match_file = ip::match_filename(output_prefix + "-disp",
+                                              opt.in_file1, opt.in_file2);
+      
+  // Pull matches from disparity.
+  if (stereo_settings().num_matches_from_disparity > 0 && 
+      stereo_settings().num_matches_from_disp_triplets > 0) {
+    vw_throw( ArgumentErr() << "Cannot have both --num-matches-from-disparity and  "
+              << "--num-matches-from-disp-triplets.\n" );
+  }
+      
+  if (stereo_settings().num_matches_from_disparity > 0) {
+    bool gen_triplets = false;
+    compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
+                              stereo_settings().num_matches_from_disparity, gen_triplets);
+  }
+  if (stereo_settings().num_matches_from_disp_triplets > 0) {
+    bool gen_triplets = true;
+    compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
+                              stereo_settings().num_matches_from_disp_triplets, gen_triplets);
+  }
+      
+  // Piecewise adjustments for jitter
+  if (stereo_settings().image_lines_per_piecewise_adjustment > 0 &&
+      !stereo_settings().skip_computing_piecewise_adjustments) {
+        
+    // TODO: This must be proportional to how many adjustments have!
+    double max_num_matches = stereo_settings().num_matches_for_piecewise_adjustment;
+        
+    bool gen_triplets = false;
+    compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
+                              max_num_matches, gen_triplets);
+      
+    int num_threads = opt.num_threads;
+    if (!opt.session->supports_multi_threading()) 
+      num_threads = 1;
+        
+    asp::jitter_adjust(image_files, camera_files, cameras,
+                       output_prefix, opt.session->name(),
+                       match_file,  num_threads);
+    //asp::ccd_adjust(image_files, camera_files, cameras, output_prefix,
+    //                match_file,  num_threads);
+  }
+      
+  // Reload the cameras, loading the piecewise corrections for jitter.
+  if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
+        
+    stereo_settings().bundle_adjust_prefix = output_prefix; // trigger loading adj cams
+    cameras.clear();
+    for (int p = 0; p < (int)opt_vec.size(); p++){
+      boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+      opt_vec[p].session->camera_models(camera_model1, camera_model2);
+      if (p == 0) // The first image is the "left" image for all pairs.
+        cameras.push_back(camera_model1);
+      cameras.push_back(camera_model2);
+    }
+  }
+
+  return;
+}
+
 /// Main triangulation function
 void stereo_triangulation(std::string const& output_prefix,
-                          std::vector<ASPGlobalOptions> const& opt_vec ) {
+                          std::vector<ASPGlobalOptions> const& opt_vec) {
     
   try { // Outer try/catch
-
-    const bool is_map_projected = opt_vec[0].session->isMapProjected();
+    
+    bool is_map_projected = opt_vec[0].session->isMapProjected();
 
     // Collect the images, cameras, and transforms. The left image is
     // the same in all n-1 stereo pairs forming the n images multiview
     // system. Same for cameras and transforms.
     std::vector<std::string> image_files, camera_files;
     std::vector<boost::shared_ptr<camera::CameraModel>> cameras;
-    std::vector<TransPtr> transforms;
+    std::vector<vw::TransformPtr> transforms;
     for (int p = 0; p < (int)opt_vec.size(); p++){
 
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
@@ -526,7 +633,7 @@ void stereo_triangulation(std::string const& output_prefix,
     // replace it with a zero vector, which is the missing pixel value in the point_image.
     //
     // We apply the universe radius here and then write the result directly to a file on disk.
-    stereo::UniverseRadiusFunc universe_radius_func(Vector3(),0,0);
+    stereo::UniverseRadiusFunc universe_radius_func(Vector3(), 0, 0);
     try{
       if ( stereo_settings().universe_center == "camera" ) {
         if (opt_vec[0].session->name() == "rpc") {
@@ -553,108 +660,20 @@ void stereo_triangulation(std::string const& output_prefix,
       disparity_maps.push_back
         (opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
 
-    // TODO(oalexan1): This block needs to be factored out
-    bool disp_or_match_work = (stereo_settings().unalign_disparity ||
-                               stereo_settings().num_matches_from_disparity > 0 ||
-                               stereo_settings().num_matches_from_disp_triplets > 0 ||
-                               stereo_settings().image_lines_per_piecewise_adjustment > 0 ||
-                               stereo_settings().compute_piecewise_adjustments_only);
-    if (disp_or_match_work) {
-      
-      // Sanity check for some of the operations below
-      VW_ASSERT(disparity_maps.size() == 1 && transforms.size() == 2,
-                 vw::ArgumentErr() << "Expecting two images and one disparity.\n");
-      
-      ASPGlobalOptions opt = opt_vec[0];
-      
-      // Transforms to compensate for alignment
-      TransPtr left_trans  = transforms[0];
-      TransPtr right_trans = transforms[1];
-      // Special case to overwrite the transforms
-      bool usePinholeEpipolar = ( (stereo_settings().alignment_method == "epipolar") &&
-                                  ( opt.session->name() == "pinhole" ||
-                                    opt.session->name() == "nadirpinhole") );
-      if (usePinholeEpipolar) {
-        StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
-        if (pinPtr == NULL) 
-          vw_throw(ArgumentErr() << "Expected a pinhole session.\n");
-        try {
-          pinPtr->pinhole_cam_trans(left_trans, right_trans);
-        } catch(...) {
-          vw_throw(ArgumentErr() << "Expected a non-cahv* type camera for disparity operations.\n");
-        }
-      }
-      
-      // Create a disparity map with between the original unaligned images 
-      if (stereo_settings().unalign_disparity) {
-        std::string unaligned_disp_file = asp::unwarped_disp_file(output_prefix,
-                                                                  opt_vec[0].in_file1, 
-                                                                  opt_vec[0].in_file2);
-        unalign_disparity(is_map_projected, disparity_maps[0], left_trans, right_trans,  
-                          opt,  unaligned_disp_file);
-      }
-      
-      std::string match_file = ip::match_filename(output_prefix + "-disp",
-                                                  opt_vec[0].in_file1, 
-                                                  opt_vec[0].in_file2);
-      
-      // Pull matches from disparity. Highly experimental.
-      if (stereo_settings().num_matches_from_disparity > 0 && 
-          stereo_settings().num_matches_from_disp_triplets > 0) {
-        vw_throw( ArgumentErr() << "Cannot have both --num-matches-from-disparity and  "
-                  << "--num-matches-from-disp-triplets.\n" );
-      }
-      
-      if (stereo_settings().num_matches_from_disparity > 0) {
-        bool gen_triplets = false;
-        compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
-                                  stereo_settings().num_matches_from_disparity, gen_triplets);
-      }
-      if (stereo_settings().num_matches_from_disp_triplets > 0) {
-        bool gen_triplets = true;
-        compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
-                                  stereo_settings().num_matches_from_disp_triplets, gen_triplets);
-      }
-      
-      // Piecewise adjustments for jitter
-      if (stereo_settings().image_lines_per_piecewise_adjustment > 0 &&
-          !stereo_settings().skip_computing_piecewise_adjustments){
-        
-        // TODO: This must be proportional to how many adjustments have!
-        double max_num_matches = stereo_settings().num_matches_for_piecewise_adjustment;
-        
-        bool gen_triplets = false;
-        compute_matches_from_disp(opt, disparity_maps[0], left_trans, right_trans, match_file,
-                                  max_num_matches, gen_triplets);
-      
-        int num_threads = opt_vec[0].num_threads;
-        if (opt_vec[0].session->name() == "isis" || opt_vec[0].session->name() == "isismapisis")
-          num_threads = 1;
-        asp::jitter_adjust(image_files, camera_files, cameras,
-                           output_prefix, opt_vec[0].session->name(),
-                           match_file,  num_threads);
-        //asp::ccd_adjust(image_files, camera_files, cameras, output_prefix,
-        //                match_file,  num_threads);
-      }
-      
+    bool do_disp_or_matches_or_jitter_work
+      = (stereo_settings().unalign_disparity                        ||
+         stereo_settings().num_matches_from_disparity > 0           ||
+         stereo_settings().num_matches_from_disp_triplets > 0       ||
+         stereo_settings().image_lines_per_piecewise_adjustment > 0 ||
+         stereo_settings().compute_piecewise_adjustments_only);
+    if (do_disp_or_matches_or_jitter_work) {
+      disp_or_matches_or_jitter_work(output_prefix, opt_vec, transforms,  
+                                     disparity_maps, image_files, camera_files,  
+                                     // Cameras can change
+                                     cameras);
       if (stereo_settings().compute_piecewise_adjustments_only) {
         vw_out() << "Computed the piecewise adjustments. Will stop here." << std::endl;
         return;
-      }
-      
-      // Reload the cameras, loading the piecewise corrections for jitter.
-      if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
-        
-        stereo_settings().bundle_adjust_prefix = output_prefix; // trigger loading adj cams
-        cameras.clear();
-        for (int p = 0; p < (int)opt_vec.size(); p++){
-          
-          boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-          opt_vec[p].session->camera_models(camera_model1, camera_model2);
-          if (p == 0) // The first image is the "left" image for all pairs.
-            cameras.push_back(camera_model1);
-          cameras.push_back(camera_model2);
-        }
       }
     }
     
