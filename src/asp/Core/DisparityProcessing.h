@@ -27,7 +27,6 @@
 
 namespace asp {
 
-  typedef boost::shared_ptr<vw::Transform> TransPtr;
   typedef vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> DispImageType;
 
   // Forward declarations
@@ -43,15 +42,11 @@ namespace asp {
                     std::string const& d_sub_file,
                     vw::Vector2 const& outlier_removal_params);
   
-  // A small function used in making a copy of the transform for
-  // map-projected images with a sanity check.
-  TransPtr make_transform_copy(TransPtr trans);
-  
   // Take a given disparity and make it between the original unaligned images
   void unalign_disparity(bool is_map_projected,
                          DispImageType    const& disparity,
-                         TransPtr         const& left_trans,
-                         TransPtr         const& right_trans,
+                         vw::TransformPtr const& left_trans,
+                         vw::TransformPtr const& right_trans,
                          ASPGlobalOptions const& opt,
                          std::string      const& disp_file);
 
@@ -63,8 +58,8 @@ namespace asp {
   /// in more than two images. This helps with bundle adjustment.
   void compute_matches_from_disp(ASPGlobalOptions const& opt,
                                  DispImageType    const& disp,
-                                 TransPtr         const& left_trans,
-                                 TransPtr         const& right_trans,
+                                 vw::TransformPtr const& left_trans,
+                                 vw::TransformPtr const& right_trans,
                                  std::string      const& match_file,
                                  int max_num_matches,
                                  bool gen_triplets);

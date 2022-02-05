@@ -214,23 +214,14 @@ void filter_D_sub(ASPGlobalOptions const& opt,
                          TerminalProgressCallback("asp","\t D_sub: "));
 } 
 
-// A small function used in making a copy of the transform for map-projected images with
-// a sanity check.
-TransPtr make_transform_copy(TransPtr trans){
-  vw::cartography::Map2CamTrans* t_ptr = dynamic_cast<vw::cartography::Map2CamTrans*>(trans.get());
-  if (!t_ptr)
-    vw_throw( vw::NoImplErr() << "Need to support new map projection transform in stereo_tri.");
-  return TransPtr(new vw::cartography::Map2CamTrans(*t_ptr));
-}
-  
 // Compute an unaligned disparity image from the input disparity image
 // and the image transforms.
 // Note that the output image size is not the same as the input disparity image.
 class UnalignDisparityView: public ImageViewBase<UnalignDisparityView>{
   
-  DispImageType const& m_disparity;
-  TransPtr        const& m_left_transform;
-  TransPtr        const& m_right_transform;
+  DispImageType    const& m_disparity;
+  vw::TransformPtr const& m_left_transform;
+  vw::TransformPtr const& m_right_transform;
 
   ASPGlobalOptions const& m_opt;
   int m_num_cols, m_num_rows;
@@ -238,9 +229,9 @@ class UnalignDisparityView: public ImageViewBase<UnalignDisparityView>{
   std::map <std::pair<int, int>, Vector2> m_unaligned_trans;
 public:
   UnalignDisparityView(bool is_map_projected,
-                       DispImageType const& disparity,
-                       TransPtr        const& left_transform,
-                       TransPtr        const& right_transform,
+                       DispImageType    const& disparity,
+                       vw::TransformPtr const& left_transform,
+                       vw::TransformPtr const& right_transform,
                        ASPGlobalOptions const& opt):
     m_is_map_projected(is_map_projected), 
     m_disparity(disparity), m_left_transform(left_transform), 
@@ -341,8 +332,8 @@ public:
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
-    TransPtr local_left_transform;
-    TransPtr local_right_transform;
+    vw::TransformPtr local_left_transform;
+    vw::TransformPtr local_right_transform;
 
     // For map-projected images the transforms are not thread-safe,
     // hence need to make a copy of them.
@@ -350,8 +341,8 @@ public:
       local_left_transform = m_left_transform;
       local_right_transform = m_right_transform;
     }else{
-      local_left_transform = make_transform_copy(m_left_transform);
-      local_right_transform = make_transform_copy(m_right_transform);
+      local_left_transform = vw::cartography::mapproj_trans_copy(m_left_transform);
+      local_right_transform = vw::cartography::mapproj_trans_copy(m_right_transform);
     }
 
     // We will do some averaging
@@ -500,8 +491,8 @@ public:
 // Take a given disparity and make it between the original unaligned images
 void unalign_disparity(bool is_map_projected,
                        DispImageType    const& disparity,
-                       TransPtr         const& left_trans,
-                       TransPtr         const& right_trans,
+                       vw::TransformPtr const& left_trans,
+                       vw::TransformPtr const& right_trans,
                        ASPGlobalOptions const& opt,
                        std::string      const& disp_file) {
   Stopwatch sw;
@@ -533,8 +524,8 @@ void unalign_disparity(bool is_map_projected,
 /// in more than two images. This helps with bundle adjustment.
 void compute_matches_from_disp(ASPGlobalOptions const& opt,
                                DispImageType    const& disp,
-                               TransPtr         const& left_trans,
-                               TransPtr         const& right_trans,
+                               vw::TransformPtr const& left_trans,
+                               vw::TransformPtr const& right_trans,
                                std::string      const& match_file,
                                int max_num_matches,
                                bool gen_triplets) {
