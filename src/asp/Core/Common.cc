@@ -45,12 +45,16 @@
 #include "ogr_spatialref.h"
 #endif
 
-// TODO(oalexan1): Set these based on the location of libisis rather
-// than have the user set them by hand.
-
 // These variables must never go out of scope or else the environmental
 // variables set by them using putenv() will disappear.
-std::string ISISROOT_ENV_STR, QT_PLUGIN_PATH_ENV_STR, GDAL_DATA_ENV_STR;
+// TODO(oalexan1): Set these based on the location of libisis rather
+// than have the user set them by hand.
+namespace asp {
+  const int COMMON_BUF_SIZE = 5120;
+  char ISISROOT_ENV_STR[COMMON_BUF_SIZE];
+  char QT_PLUGIN_PATH_ENV_STR[COMMON_BUF_SIZE];
+  char GDAL_DATA_ENV_STR[COMMON_BUF_SIZE];
+}
 
 using namespace vw;
 namespace po = boost::program_options;
@@ -462,25 +466,30 @@ void asp::set_asp_env_vars() {
   }
 
   // Set ISISROOT and check for IsisPreferences
-  ISISROOT_ENV_STR = "ISISROOT=" + base_dir;
-  if (putenv((char*)ISISROOT_ENV_STR.c_str()) != 0) 
-    vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << ISISROOT_ENV_STR << "\n");
-  if (!fs::exists( std::string(getenv("ISISROOT")) + "/IsisPreferences" )) 
+  // ISISROOT_ENV_STR = "ISISROOT=" + base_dir;
+  snprintf(ISISROOT_ENV_STR, COMMON_BUF_SIZE, "ISISROOT=%s", base_dir.c_str());
+  if (putenv(ISISROOT_ENV_STR) != 0) 
+    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << ISISROOT_ENV_STR << "\n");
+  if (!fs::exists(std::string(getenv("ISISROOT")) + "/IsisPreferences")) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find IsisPreferences in "
                  << getenv("ISISROOT"));
 
   // Set QT_PLUGIN_PATH as the path to /plugins
-  QT_PLUGIN_PATH_ENV_STR = "QT_PLUGIN_PATH=" + base_dir + "/plugins";
-  if (putenv((char*)QT_PLUGIN_PATH_ENV_STR.c_str()) != 0) 
-    vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << QT_PLUGIN_PATH_ENV_STR << "\n");
+  // QT_PLUGIN_PATH_ENV_STR = "QT_PLUGIN_PATH=" + base_dir + "/plugins";
+  snprintf(QT_PLUGIN_PATH_ENV_STR, COMMON_BUF_SIZE, "QT_PLUGIN_PATH=%s%s",
+           base_dir.c_str(), "/plugins");
+  if (putenv(QT_PLUGIN_PATH_ENV_STR) != 0) 
+    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << QT_PLUGIN_PATH_ENV_STR << "\n");
   if (!fs::exists(std::string(getenv("QT_PLUGIN_PATH"))))
     vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in " << getenv("QT_PLUGIN_PATH"));
   
   // Set GDAL_DATA and check for share/gdal
-  GDAL_DATA_ENV_STR = "GDAL_DATA=" + base_dir + "/share/gdal";
-  if (putenv((char*)GDAL_DATA_ENV_STR.c_str()) != 0) 
-    vw::vw_throw( vw::ArgumentErr() << "Failed to set: " << GDAL_DATA_ENV_STR << "\n");
-  if (!fs::exists( std::string(getenv("GDAL_DATA")) )) 
+  // GDAL_DATA_ENV_STR = "GDAL_DATA=" + base_dir + "/share/gdal";
+  snprintf(GDAL_DATA_ENV_STR, COMMON_BUF_SIZE, "GDAL_DATA=%s%s",
+           base_dir.c_str(), "/share/gdal");
+  if (putenv(GDAL_DATA_ENV_STR) != 0) 
+    vw::vw_throw(vw::ArgumentErr() << "Failed to set: " << GDAL_DATA_ENV_STR << "\n");
+  if (!fs::exists(std::string(getenv("GDAL_DATA")))) 
     vw::vw_throw(vw::ArgumentErr() << "Cannot find GDAL data in "
                  << getenv("GDAL_DATA"));
 }
