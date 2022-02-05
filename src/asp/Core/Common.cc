@@ -45,10 +45,10 @@
 #include "ogr_spatialref.h"
 #endif
 
-// These variables must never go out of scope or else the environmental
-// variables set by them using putenv() will disappear.
-// TODO(oalexan1): Set these based on the location of libisis rather
-// than have the user set them by hand.
+// These variables must never go out of scope or else the
+// environmental variables set by them using putenv() will disappear.
+// Use C style strings, rather than std::string, as then putenv() and
+// getenv() give valgrind warnings.
 namespace asp {
   const int COMMON_BUF_SIZE = 5120;
   char ISISROOT_ENV_STR[COMMON_BUF_SIZE];

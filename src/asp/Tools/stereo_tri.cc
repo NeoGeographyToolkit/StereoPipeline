@@ -492,7 +492,7 @@ void write_point(std::string const& file, Vector3 const& point){
 // This is some logic unrelated to triangulation, but there seems to be no
 // good place to put it. Unalign the disparity, and/or create match points
 // from disparity, and/or solve for jitter.
-bool disp_or_matches_or_jitter_work(std::string const& output_prefix,
+void disp_or_matches_or_jitter_work(std::string const& output_prefix,
                                     std::vector<ASPGlobalOptions> const& opt_vec,
                                     std::vector<vw::TransformPtr> const& transforms,
                                     std::vector<DispImageType> const& disparity_maps,
