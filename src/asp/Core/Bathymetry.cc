@@ -313,9 +313,6 @@ namespace asp {
        m_single_bathy_plane = false;
     if (m_bathy_set[0].bathy_plane != m_bathy_set[1].bathy_plane)
       m_single_bathy_plane = false;
-
-    std::cout << "--proj 4 " << m_bathy_set[0].water_surface_projection.proj4_str() << std::endl;
-    std::cout << "--single bathy plane is " << m_single_bathy_plane << std::endl;
   }
 
   // Compute the rays intersection. Note that even if we are in
