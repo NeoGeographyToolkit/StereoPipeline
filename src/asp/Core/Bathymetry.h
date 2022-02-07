@@ -41,25 +41,16 @@ namespace asp {
   void read_bathy_plane_set(std::string const& bathy_plane_files,
                             std::vector<BathyPlaneSettings> & bathy_plane_set);
 
-  // Given a ray going down towards Earth, starting at point c and
-  // with unit direction d, a plane 'p' to the water surface with four
+  // Given a ray going down towards Earth, starting at point in_xyz and
+  // with unit direction in_dir, a plane 'p' to the water surface with four
   // coefficients such that the plane equation is p[0] * x + p[1] * y
   // + p[2] * z + p[3] = 0, the normal (p[0], p[1], p[2]) pointing
   // upwards away from Earth, and water refraction index, find where
-  // this ray meets the water plane named c2, and the ray direction d2
+  // this ray meets the water plane named out_xyz, and the ray direction out_dir
   // after it bends according to Snell's law. Return true on success.
-  bool snells_law(vw::Vector3 const& c, vw::Vector3 const& d,
+  bool snells_law(vw::Vector3 const& in_xyz, vw::Vector3 const& in_dir,
                   std::vector<double> const& plane, double refraction_index,
-                           vw::Vector3 & c2, vw::Vector3 & d2);
-  
-  // In this version of snells_law(), we are given given a point
-  // further down on the incoming ray, where this ray may intersect
-  // another ray if no correction due to refraction index happens. if
-  // that further down point is above the water plane, there is no
-  // need to bend the ray.
-  bool snells_law_maybe(vw::Vector3 const& c, vw::Vector3 const& d,
-                        std::vector<double> const& plane, double refraction_index,
-                        vw::Vector3 & c2, vw::Vector3 & d2);
+                           vw::Vector3 & out_xyz, vw::Vector3 & out_dir);
   
   class BathyStereoModel: public vw::stereo::StereoModel {
   public:
