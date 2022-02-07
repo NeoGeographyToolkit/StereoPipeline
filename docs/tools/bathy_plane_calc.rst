@@ -327,14 +327,13 @@ station (ControlStn) for that zone, average time corrector
 (AvgTimeCorr, in minutes), and range ratio (RangeRatio). Note that:
 
  - The control station is usually an active water level station of NOAA.
-
  - ``Average time corrector`` is the time difference (phase difference)
    between the tide at the tide zone and at the control
-   station. Positive/negative time means the tide level is this many minutes
-   earlier/later in the tidal zone polygon than at the control station.
-
- - ``Range ratio`` is the ratio of tide range at the tidal zone divided by
-   that at the control station. 
+   station. Positive time means the tide level is this many minutes
+   later in the tidal zone polygon than that at the control station
+   (and vice versa).
+ - ``Range ratio`` is the ratio of tide range at the tidal zone
+   divided by that at the control station.
 
 The user can access tidal gauge data for
 the satellite day and time of acquisition at the 
