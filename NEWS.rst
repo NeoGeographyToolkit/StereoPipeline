@@ -86,8 +86,15 @@ sfs:
     (the doc has more info).
 
 bathymetry:
-  * bathy_plane_calc can use a mask to find the water-land interface.
-   
+  * Can have different water surfaces in left and right images, so the
+    triangulating rays bend at different heights.
+  * bathy_plane_calc can use a mask of points above water to find the
+    water-land interface, and also a set of actual lon,lat,height
+    measurements.
+  * Added documentation for how to find water level heights at given 
+    times and coordinates using National Ocean Service's tidal zoning
+    map.
+ 
 dem_mosaic:
   * Add the option ``--tap``, to have the output grid be at integer
     multiples of the grid size (like the default behavior of

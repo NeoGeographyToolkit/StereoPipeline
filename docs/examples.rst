@@ -14,6 +14,9 @@ a cookbook for strategies that will get you started in processing your
 own data. We recommend that you second check your results against
 another source.
 
+
+.. _stereo_pairs:
+
 Guidelines for selecting stereo pairs
 -------------------------------------
 
@@ -26,15 +29,17 @@ non-small convergence angle between the matching rays emanating from
 the two cameras, for stereo triangulation to be accurate. Yet, if the
 perspectives are very different, it will be challenging to compute the
 stereo correlation between images. A convergence angle of 10 to 45
-degrees is likely reasonable. The value of this angle for a given
-stereo pair is computed and printed at the stereo preprocessing stage
-(:numref:`entrypoints`).
+degrees is likely reasonable. 
 
 Depending on the characteristics of the mission data set and the
 individual images, the degree of acceptable variation will
 differ. Significant differences between image characteristics
 increases the likelihood of stereo matching error and artifacts, and
 these errors will propagate through to the resulting data products.
+
+The ``parallel_stereo`` program computes and prints the convergence
+angle for a given stereo pair at the stereo preprocessing stage
+(:numref:`entrypoints`).
 
 Although images do not need to be map-projected before running the
 ``parallel_stereo`` program, we recommend that you do run ``cam2map`` (or
@@ -2773,17 +2778,39 @@ It is suggested to use these tools only if a trusted reference dataset
 exists, and then the produced DEMs should be aligned to that dataset.
 
 Only the "topo" component of a DEM obtained with ASP should be used
-for alignment, that is, the part above water, as the part under water
-can be quite variable given the water level. Then the alignment
-transform can be applied to the full DEM as detailed in
-:numref:`prevtrans`.  The input cameras can be aligned using the same
-transform (:numref:`ba_pc_align`).
+for alignment (see ``--output-cloud-type``), that is, the part above
+water, as the part under water can be quite variable given the water
+level. Then the alignment transform can be applied to the full DEM as
+detailed in :numref:`prevtrans`.  The input cameras can be aligned
+using the same transform (:numref:`ba_pc_align`).
 
 When the water surface is determined using a DEM, a mask of the image
 portion above water, and corresponding camera, and the cameras have
 been bundle-adjuted or aligned, the option ``--bundle-adjust-prefix``
 must be used with ``bathy_plane_calc`` (see
 :numref:`bathy_plane_calc_example1`).
+
+Bathymetry with changing water level
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the left and right images were acquired at different times,
+the water level may be different among the two, for example because
+of the tide. Then, ``bathy_plane_calc`` (:numref:`bathy_plane_calc`) 
+can be used independently for the left and right images, obtaining
+two such surfaces. These can be passed to ASP as follows::
+
+    parallel_stereo --bathy-plane "left_plane.txt right_plane.txt" \
+      <other options>
+ 
+The computation will go as before until the triangulation stage.
+There, the rays emanating from the cameras will bend when meeting the
+water at different elevations given by these planes, and their
+intersection may happen in three possible regimes (above both planes,
+in between them, or below both of them).
+
+Care must be taken when doing stereo with images acquired at a different
+times as the illumination may be too different. A good convergence
+angle is also expected (:numref:`stereo_pairs`).
 
 Bathymetry correction with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

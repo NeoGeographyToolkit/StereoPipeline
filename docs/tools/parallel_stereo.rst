@@ -69,7 +69,10 @@ Step 0 (Preprocessing)
     Runs ``stereo_pprc``. Normalizes the two images and aligns them by
     locating interest points and matching them in both images. The
     program is designed to reject outlier interest points. This stage
-    writes out the pre-aligned images and the image masks.
+    writes out the pre-aligned images and the image masks. It also 
+    computes the convergence angle for this stereo pair (for
+    non-mapprojected images and with aligment method ``homography``,
+    ``affineepipolar``, or ``local_epipolar``).
 
 Step 1 (Stereo correlation)
     Runs ``stereo_corr``. Performs correlation using various

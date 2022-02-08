@@ -423,8 +423,9 @@ system's to first. And vice-versa, if ``run-inverse-transform.txt`` is
 used, cameras from first DEM's coordinate system would be moved to
 second's.
 
-As an application, the cameras can now be mapprojected onto the 
-reference DEM, hopefully with no registration error as::
+After applying a transform this way, cameras which are now aligned
+with the reference DEM can be used to mapproject onto it, hopefully
+with no registration error as::
 
     mapproject ref.tif left.tif left_map.tif \
       --bundle-adjust-prefix ba_align/run
@@ -432,7 +433,7 @@ reference DEM, hopefully with no registration error as::
 and in the same way for the right image.
     
 If, however, the initial stereo was done with cameras that already
-were bundle adjusted, so the stereo command had the option::
+were bundle-adjusted, so the stereo command had the option::
 
   --bundle-adjust-prefix initial_ba/run
 
@@ -444,7 +445,7 @@ transform. To do that, run the slightly modified command::
       --input-adjustments-prefix initial_ba/run         \
       --apply-initial-transform-only -o ba_align/run
 
-Note that this way bundle adjustments will not do any camera
+Note that this way bundle adjustment will not do any further camera
 refinements after the initial transform is applied.
 
 Troubleshooting
