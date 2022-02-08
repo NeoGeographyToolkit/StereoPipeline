@@ -572,100 +572,97 @@ namespace asp {
 
       // The case of left and right images having their own bathy planes
       
-//         bool good1 = false, good2 = false, good3 = false, good4 = false;
-//         {
-//           std::cout << "above above" << std::endl;
-//           Vector3 errorVec1; 
-//           Vector3 tri_pt1 = triangulate_pair(camDirs[0], camCtrs[0], camDirs[1], camCtrs[1],
-//                                              errorVec1);
-//           double ht_val0 = signed_dist_to_plane
-//             (m_bathy_set[0].bathy_plane,
-//              proj_point(m_bathy_set[0].water_surface_projection, tri_pt1));
-//           double ht_val1 = signed_dist_to_plane
-//             (m_bathy_set[1].bathy_plane,
-//              proj_point(m_bathy_set[1].water_surface_projection, tri_pt1));
-//           std::cout << "-ht " << ht_val0 << ' ' << ht_val1 << std::endl;
-//           good1 = (ht_val0 >= 0) && (ht_val1 >= 0);
-//         }
-//         {
-//           std::cout << "above below" << std::endl;
-//           Vector3 errorVec1; 
-//           Vector3 tri_pt1 = triangulate_pair(camDirs[0], camCtrs[0], waterDirs[1], waterCtrs[1],
-//                                              errorVec1);
-//           double ht_val0 = signed_dist_to_plane
-//             (m_bathy_set[0].bathy_plane,
-//              proj_point(m_bathy_set[0].water_surface_projection, tri_pt1));
-//           double ht_val1 = signed_dist_to_plane
-//             (m_bathy_set[1].bathy_plane,
-//              proj_point(m_bathy_set[1].water_surface_projection, tri_pt1));
-//           std::cout << "-ht " << ht_val0 << ' ' << ht_val1 << std::endl;
-//           good2 = (ht_val0 >= 0) && (ht_val1 <= 0);
-//         }
-//         {
-//           std::cout << "below above" << std::endl;
-//           Vector3 errorVec1; 
-//           Vector3 tri_pt1 = triangulate_pair(waterDirs[0], waterCtrs[0], camDirs[1], camCtrs[1],
-//                                              errorVec1);
-//           double ht_val0 = signed_dist_to_plane
-//             (m_bathy_set[0].bathy_plane,
-//              proj_point(m_bathy_set[0].water_surface_projection, tri_pt1));
-//           double ht_val1 = signed_dist_to_plane
-//             (m_bathy_set[1].bathy_plane,
-//              proj_point(m_bathy_set[1].water_surface_projection, tri_pt1));
-//           std::cout << "-ht " << ht_val0 << ' ' << ht_val1 << std::endl;
-//           good3 = (ht_val0 <= 0) && (ht_val1 >= 0);
-//         }
-        
-//         {
-//           std::cout << "below below" << std::endl;
-//           Vector3 errorVec1; 
-//           Vector3 tri_pt1 = triangulate_pair(waterDirs[0], waterCtrs[0], waterDirs[1], waterCtrs[1],
-//                                              errorVec1);
-//           double ht_val0 = signed_dist_to_plane
-//             (m_bathy_set[0].bathy_plane,
-//              proj_point(m_bathy_set[0].water_surface_projection, tri_pt1));
-//           double ht_val1 = signed_dist_to_plane
-//             (m_bathy_set[1].bathy_plane,
-//              proj_point(m_bathy_set[1].water_surface_projection, tri_pt1));
-//           std::cout << "-ht " << ht_val0 << ' ' << ht_val1 << std::endl;
-//           good4 = (ht_val0 <= 0) && (ht_val1 <= 0);
-//         }
+      if (!use_curved_water_surface) {
+        // will handle this later
+        vw::vw_throw(vw::ArgumentErr()
+                     << "Bathymetry with left and right bathy planes and without "
+                     << "modeling Earth curvature is not implemented yet.");
+      }
 
-//         std::cout << "--good is " << good1 << ' ' << good2 << ' ' << good3 << ' ' << good4
-//                   << std::endl;
-//         corr_tri_pt = triangulate_point(waterDirs, waterCtrs, errorVec);
-        
-        
-//      } // end considering the curved water surface
-        
-        // Re-triangulate with the new rays
-        //corr_tri_pt = triangulate_point(waterDirs, waterCtrs, errorVec);
+      // Bend the rays
+      for (size_t it = 0; it < 2; it++) {
+        // Bend each ray at the surface according to Snell's law.
+        bool ans = snells_law_curved(camCtrs[it], camDirs[it],
+                                     m_bathy_set[it].bathy_plane,  
+                                     m_bathy_set[it].water_surface_projection,
+                                     m_refraction_index,
+                                     waterCtrs[it], waterDirs[it]);
+        if (!ans)
+          return uncorr_tri_pt;
+      }
+
+      // TODO(oalexan1): Factor out common logic below, and make it work
+      // also when the water surface is not curved.
       
-//         std::cout << "-uncorr tri pt "
-//                   << m_bathy_set[0].water_surface_projection.datum().cartesian_to_geodetic(uncorr_tri_pt) << std::endl;
-//         std::cout << "--corr tri pt "
-//                   << m_bathy_set[0].water_surface_projection.datum().cartesian_to_geodetic(corr_tri_pt)  << std::endl;
+      // Each ray has two parts: before bending and after it. Two
+      // bent rays can intersect on their unbent parts, the bent part
+      // of one ray with unbent part of another ray, unbent part of
+      // one ray with bent part of another ray, and bent parts of both
+      // rays. Handle all these with much care. 
 
-//         if (norm_2(uncorr_tri_pt - corr_tri_pt) < 1.0e-10) {
-//           // Nothing changed, no need for another pass
-//           // break;
-//           std::cout << "---uncorr and corr are equal at pass " << pass << std::endl;
-//         } else {
-//           std::cout << "--uncorr and corr not equal at pass " << pass << std::endl;
-//         }
-        
-//         // Per the earlier explanation
-//         uncorr_tri_pt = corr_tri_pt;
-        
-      //did_bathy = true;
-      // return corr_tri_pt;
+      Vector3 err, tri_pt;
+      double ht_vals[2];
+
+      // See if the unbent portions intersect above their planes
+      tri_pt = triangulate_pair(camDirs[0], camCtrs[0], camDirs[1], camCtrs[1], err);
+      for (size_t it = 0; it < 2; it++) {
+        ht_vals[it] = signed_dist_to_plane
+          (m_bathy_set[it].bathy_plane,
+           proj_point(m_bathy_set[it].water_surface_projection, tri_pt));
+      }
+      if (ht_vals[0] >= 0 && ht_vals[1] >= 0) {
+        did_bathy = false; // since the rays did not reach the bathy plane
+        errorVec = err;
+        return tri_pt;
+      }
       
-    } catch (const camera::PixelToRayErr& /*e*/) {
-      return Vector3();
-    }
+      // See if the bent portions intersect below their planes
+      tri_pt = triangulate_pair(waterDirs[0], waterCtrs[0], waterDirs[1], waterCtrs[1], err);
+      for (size_t it = 0; it < 2; it++) {
+        ht_vals[it] = signed_dist_to_plane
+          (m_bathy_set[it].bathy_plane,
+           proj_point(m_bathy_set[it].water_surface_projection, tri_pt));
+      }
+      if (ht_vals[0] <= 0 && ht_vals[1] <= 0) {
+        did_bathy = true;
+        errorVec = err;
+        return tri_pt;
+      }
 
-    // Should not get here, but have a return statement for completeness
-    return Vector3();
+      // See if the left unbent portion intersects the right bent portion,
+      // above left's water plane and below right's water plane
+      tri_pt = triangulate_pair(camDirs[0], camCtrs[0], waterDirs[1], waterCtrs[1], err);
+      for (size_t it = 0; it < 2; it++) {
+        ht_vals[it] = signed_dist_to_plane
+          (m_bathy_set[it].bathy_plane,
+           proj_point(m_bathy_set[it].water_surface_projection, tri_pt));
+      }
+      if (ht_vals[0] >= 0 && ht_vals[1] <= 0) {
+        did_bathy = true;
+        errorVec = err;
+        return tri_pt;
+      }
+      
+      // See if the left bent portion intersects the right unbent portion,
+      // below left's water plane and above right's water plane
+      tri_pt = triangulate_pair(waterDirs[0], waterCtrs[0], camDirs[1], camCtrs[1], err);
+      for (size_t it = 0; it < 2; it++) {
+        ht_vals[it] = signed_dist_to_plane
+          (m_bathy_set[it].bathy_plane,
+           proj_point(m_bathy_set[it].water_surface_projection, tri_pt));
+      }
+      if (ht_vals[0] <= 0 && ht_vals[1] >= 0) {
+        did_bathy = true;
+        errorVec = err;
+        return tri_pt;
+      }
+      
+    } catch (const camera::PixelToRayErr& /*e*/) {}
+
+    // We arrive here only when there's bad luck
+    did_bathy = false;
+    errorVec = vw::Vector3();
+    return vw::Vector3();
   }
 
   Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
