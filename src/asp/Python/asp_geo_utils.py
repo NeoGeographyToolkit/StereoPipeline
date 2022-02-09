@@ -431,8 +431,12 @@ def getImageBoundingBox(filePath):
     # Any other file types will end up raising some sort of exception
     
     
-
-def build_vrt( fullImageSize, tileLocs, tilePaths, outputPath ):
+# This function is not used. If it gets used, see the function with
+# same name in parallel_stereo. It is essential to add to the lines
+# below the line "<SourceProperties" element, as done there, to avoid
+# the "too many open files" problem when there are more than 1024
+# tiles.
+def build_vrt(fullImageSize, tileLocs, tilePaths, outputPath):
     """Generates a VRT file from a set of image tiles and their locations in the output image"""
 
     outputFolder = os.path.dirname(outputPath)

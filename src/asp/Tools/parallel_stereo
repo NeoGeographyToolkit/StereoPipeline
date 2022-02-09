@@ -92,15 +92,15 @@ def check_system_memory(opt, args, settings):
 def tile_dir(prefix, tile):
     return prefix + '-' + tile.name_str()
 
-def produce_tiles( settings, tile_w, tile_h ):
+def produce_tiles(settings, tile_w, tile_h):
     '''Generate a list of bounding boxes for each output tile.'''
     image_size = settings["trans_left_image_size"]
-    tiles_nx   = int(math.ceil( float(image_size[0]) / tile_w ))
-    tiles_ny   = int(math.ceil( float(image_size[1]) / tile_h ))
+    tiles_nx   = int(math.ceil(float(image_size[0]) / tile_w))
+    tiles_ny   = int(math.ceil(float(image_size[1]) / tile_h))
 
     tiles = []
-    for j in range( tiles_ny ):
-        for i in range( tiles_nx ):
+    for j in range(tiles_ny):
+        for i in range(tiles_nx):
             c_tile_w = tile_w
             c_tile_h = tile_h
             if i == tiles_nx - 1:
@@ -158,7 +158,7 @@ def create_subproject_dirs(settings, **kw):
 
     fout.close()
     
-def rename_files( settings, postfix_in, postfix_out, **kw ):
+def rename_files(settings, postfix_in, postfix_out, **kw):
 
     # Rename tile_dir/file_in.tif to tile_dir/file_out.tif
     tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
@@ -225,7 +225,7 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
     print("Writing: " + vrt_file)
     f = open(vrt_file,'w')
     f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" %
-            (int(image_size[0]),int(image_size[1])) )
+            (int(image_size[0]),int(image_size[1])))
 
     # Write the datum, projection, and georeference transform in XML format
     f.write("  <SRS>" + georef["WKT"] + "</SRS>\n")
@@ -258,6 +258,18 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
             data_type = m.group(1)
             break
 
+    # Extract the block size, e.g., 256x256, from 'Band 2 Block=256x256'
+    BlockXSize = 0
+    BlockYSize = 0
+    for s in gdal_settings:
+        val = " ".join(gdal_settings[s])
+        if re.match("^\s*Band\s+\d", s):
+            m = re.match('^\s*(\d+)x(\d+)', val)
+            if m:
+                BlockXSize = m.group(1)
+                BlockYSize = m.group(2)
+                break
+        
     # Find how many bands are in the file
     num_bands = 0
     for s in gdal_settings:
@@ -274,8 +286,8 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
                 gdal_settings[POINT_OFFSET][0] + "</MDI>\n  </Metadata>\n")
 
     # Write each band
-    for b in range( 1, num_bands + 1 ):
-        f.write("  <VRTRasterBand dataType=\"%s\" band=\"%i\">\n" % (data_type,b) )
+    for b in range(1, num_bands + 1):
+        f.write("  <VRTRasterBand dataType=\"%s\" band=\"%i\">\n" % (data_type,b))
 
         for tile in tiles:
             directory = tile_dir(settings['out_prefix'][0], tile)
@@ -286,15 +298,20 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
                 #filename = goodFilename # TODO: Use a blank tile!
                 continue # Leave empty
 
-            relative  = os.path.relpath(filename, os.path.dirname( settings['out_prefix'][0] ) )
+            relative  = os.path.relpath(filename, os.path.dirname(settings['out_prefix'][0]))
             f.write("    <SimpleSource>\n")
             f.write("       <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % relative)
             f.write("       <SourceBand>%i</SourceBand>\n" % b)
+
+            # Bugfix for the "too many open files" problem
+            # Per https://lists.osgeo.org/pipermail/gdal-dev/2017-October/047370.html
+            f.write('       <SourceProperties RasterXSize="%i" RasterYSize="%i" DataType="%s" BlockXSize="%s" BlockYSize="%s"/>\n' % (tile.width, tile.height, data_type, BlockXSize, BlockYSize))
+
+            min_x  = 0
+            min_y  = 0
             if (contract_tiles):
                 # Need to account for the padding
                 pad_amount = int(settings['collar_size'][0])
-                min_x  = 0
-                min_y  = 0
                 user_min_x = int(settings['transformed_window'][0])
                 user_min_y = int(settings['transformed_window'][1])
                 # For the tiles not starting at zero, account for the fact that they
@@ -303,13 +320,12 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
                     min_x  += pad_amount
                 if (tile.y > user_min_y):
                     min_y  += pad_amount
-                f.write('       <SrcRect xOff="%i" yOff="%i" xSize="%i" ySize="%i"/>\n' %
-                        (min_x, min_y, tile.width, tile.height) )
-            else: # Use the entire tile
-                f.write('       <SrcRect xOff="0" yOff="0" xSize="%i" ySize="%i"/>\n' %
-                        (tile.width, tile.height) )
+
+            f.write('       <SrcRect xOff="%i" yOff="%i" xSize="%i" ySize="%i"/>\n' %
+                    (min_x, min_y, tile.width, tile.height))
+
             f.write('       <DstRect xOff="%i" yOff="%i" xSize="%i" ySize="%i"/>\n' %
-                    (tile.x, tile.y, tile.width, tile.height) )
+                    (tile.x, tile.y, tile.width, tile.height))
             f.write("    </SimpleSource>\n")
         # End tile loop
         f.write("  </VRTRasterBand>\n")
@@ -510,7 +526,7 @@ def tile_run(prog, args, settings, tile, **kw):
         crop_str = crop_box.crop_str() # Get the --trans-crop-win string
 
         cmd = call+crop_str
-        cmd[cmd.index( settings['out_prefix'][0] )] = tile_dir_string
+        cmd[cmd.index(settings['out_prefix'][0])] = tile_dir_string
 
         if opt.dryrun:
             print(" ".join(cmd))
@@ -838,8 +854,8 @@ if __name__ == '__main__':
         
         # Preprocessing
         step = Step.pprc
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ):
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step):
                 sys.exit()
             normal_run('stereo_pprc', args, msg='%d: Preprocessing' % step)
             create_subproject_dirs(settings) # symlink L.tif, etc
@@ -850,8 +866,8 @@ if __name__ == '__main__':
 
         # Correlation.
         step = Step.corr
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ):
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step):
                 sys.exit()
 
             # This can be a stray option if reading the command from a log file
@@ -875,7 +891,7 @@ if __name__ == '__main__':
             # rename all correlation tiles to something else,
             # build the vrt of all correlation tiles, and sym link
             # that vrt from all tile directories.
-            rename_files( settings, "-D.tif", "-Dnosym.tif" )
+            rename_files(settings, "-D.tif", "-Dnosym.tif")
             build_vrt(settings, georef, "-D.tif", "-Dnosym.tif", 
                       contract_tiles = using_tiles)
             create_subproject_dirs(settings) # symlink D.tif
@@ -885,15 +901,15 @@ if __name__ == '__main__':
         # Blending (only for SGM/MGM and external tile-based algorithms)
         if using_tiles:
             step = Step.blend
-            if ( opt.entry_point <= step ):
-                if ( opt.stop_point <= step ):
+            if (opt.entry_point <= step):
+                if (opt.stop_point <= step):
                     sys.exit()
                 create_subproject_dirs(settings)
                 spawn_to_nodes(step, settings, self_args)
 
                 if not skip_refine_step:
                     # Do the same trick as after stereo_corr
-                    rename_files( settings, "-B.tif", "-Bnosym.tif" )
+                    rename_files(settings, "-B.tif", "-Bnosym.tif")
                     build_vrt(settings, georef, "-B.tif", "-Bnosym.tif", 
                               contract_tiles = False)
                     create_subproject_dirs(settings) # symlink B.tif
@@ -901,8 +917,8 @@ if __name__ == '__main__':
 
         # Refinement
         step = Step.rfne
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ):
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step):
                 sys.exit()
             # If we used SGM/MGM or some other method making use of
             # tiles, need to read from the blend file.
@@ -914,18 +930,18 @@ if __name__ == '__main__':
 
         # Filtering
         step = Step.fltr
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ):
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step):
                 sys.exit()
-                
+
             build_vrt(settings, georef, "-RD.tif", "-RD.tif")
             normal_run('stereo_fltr', args, msg='%d: Filtering' % step)
             create_subproject_dirs(settings) # symlink F.tif
 
         # Triangulation
         step = Step.tri
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ):
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step):
                 sys.exit()
 
             # These can be stray options if pasting the stereo command
