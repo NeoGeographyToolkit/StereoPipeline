@@ -225,9 +225,9 @@ Example 4 (pick a sample set of points at mask boundary)
 In this example, the ``bathy_plane_calc`` tool will take as inputs a
 DEM, a mask, and a camera (with the latter two corresponding to same
 image), as in :numref:`bathy_plane_calc_example1`, but instead of
-finding the best-fitting plane it finds a set of samples (given by
+computing the best-fitting plane it finds a set of samples (given by
 ``--num-samples``) at the mask boundary (water-land interface), and
-saves them as a shapefile of of points, having longitude-latitude
+saves them as a shapefile of points, having longitude-latitude
 pairs relative to the WGS_1984 datum (ellipsoid). 
 
 Example::
