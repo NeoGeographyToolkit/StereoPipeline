@@ -28,6 +28,7 @@
 namespace asp {
 
   using namespace vw;
+  using namespace vw::stereo;
 
   void read_bathy_plane(std::string const& bathy_plane_file,
                         std::vector<double> & bathy_plane,
@@ -422,24 +423,6 @@ namespace asp {
       m_single_bathy_plane = false;
   }
 
-  // Two-ray triangulation. Triangulate the point by finding the
-  // midpoint of the segment joining the closest points on the two
-  // rays emanating from the camera.
-  vw::Vector3 triangulate_pair(vw::Vector3 const& dir0, vw::Vector3 const& ctr0, 
-                               vw::Vector3 const& dir1, vw::Vector3 const& ctr1, 
-                               vw::Vector3& errorVec){
-    
-    vw::Vector3 v12 = cross_prod(dir0, dir1);
-    vw::Vector3 v1 = cross_prod(v12, dir0);
-    vw::Vector3 v2 = cross_prod(v12, dir1);
-    
-    vw::Vector3 closestPoint1 = ctr0 + dot_prod(v2, ctr1-ctr0)/dot_prod(v2, dir0)*dir0;
-    vw::Vector3 closestPoint2 = ctr1 + dot_prod(v1, ctr0-ctr1)/dot_prod(v1, dir1)*dir1;
-
-    errorVec = closestPoint1 - closestPoint2;
-    return 0.5 * (closestPoint1 + closestPoint2);
-  }
-  
   // Compute the rays intersection. Note that even if we are in
   // bathymetry mode, so m_bathy_correct is true, for this particular
   // pair of rays we may have do_bathy false, and then we won't do the
