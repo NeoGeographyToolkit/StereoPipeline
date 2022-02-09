@@ -769,7 +769,9 @@ DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
 struct Options : vw::cartography::GdalWriteOptions {
   std::string shapefile, dem, mask, camera, stereo_session, bathy_plane,
     water_height_measurements, csv_format_str, output_inlier_shapefile,
-    bundle_adjust_prefix, output_outlier_shapefile, dem_minus_plane;
+    bundle_adjust_prefix, output_outlier_shapefile, mask_boundary_shapefile,
+    dem_minus_plane;
+  
   double outlier_threshold;
   int num_ransac_iterations, num_samples;
   bool save_shapefiles_as_polygons, use_ecef_water_surface;
@@ -825,6 +827,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If specified, save at this location the shape file with the inlier vertices.")
     ("output-outlier-shapefile", po::value(&opt.output_outlier_shapefile)->default_value(""),
      "If specified, save at this location the shape file with the outlier vertices.")
+    ("mask-boundary-shapefile", po::value(&opt.mask_boundary_shapefile)->default_value(""),
+     "If specified together with a mask, camera, and DEM, save a random "
+     "sample of points (their number given by ``--num-samples``) at the "
+     "mask boundary (water-land interface) to this shapefile and exit.")
     ("num-samples", 
      po::value(&opt.num_samples)->default_value(10000),
      "Number of samples to pick at the water-land interface if using a mask.")
@@ -882,20 +888,46 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Must use either a mask and camera, a shapefile, or water "
               << "height measurements, and just one of these.\n"
               << usage << general_options);
+
   if (!use_meas && opt.dem == "")
     vw_throw(ArgumentErr() << "Missing the input dem.\n" << usage << general_options );
-  if (opt.bathy_plane == "")
+
+  if (opt.mask_boundary_shapefile.empty() && opt.bathy_plane == "")
     vw_throw(ArgumentErr() << "Missing the output bathy plane file.\n"
-              << usage << general_options );
+             << usage << general_options );
+  
   if (use_meas && opt.csv_format_str == "") 
     vw_throw(ArgumentErr() << "Must set the option --csv-format.\n"
-              << usage << general_options );
-
+             << usage << general_options );
+  
   if (opt.use_ecef_water_surface && use_meas) {
     vw_throw(ArgumentErr() << "Cannot use use-ecef-water-surface with "
-              << "--water-height-measurements.\n"
-              << usage << general_options );
+             << "--water-height-measurements.\n"
+             << usage << general_options);
+    
+    if (!opt.mask_boundary_shapefile.empty() && 
+        (opt.mask.empty() || opt.camera.empty() || opt.dem.empty()))
+      vw_throw(ArgumentErr() << "If using --mask-boundary-shapefile, then "
+               << "must specify a mask, a camera, and a DEM.\n"
+               << usage << general_options);
+
+    if (opt.num_samples <= 0) 
+      vw_throw(ArgumentErr() << "A positive number of samples must be specified.\n"
+               << usage << general_options);
   }
+}
+
+// Add a polygon made up of just one point to given set of polygons.
+// Later that set will be saved as a shapefile made up of points.
+void addPointToPoly(vw::geometry::dPoly & poly, Vector2 const& p) {
+  std::vector<double> vx, vy;
+  vx.push_back(p.x());
+  vy.push_back(p.y());
+  bool isPolyClosed = true;
+  std::string poly_color = "green";
+  std::string layer = "";
+  poly.appendPolygon(vx.size(), vw::geometry::vecPtr(vx), vw::geometry::vecPtr(vy),
+                     isPolyClosed, poly_color, layer);
 }
 
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
@@ -995,6 +1027,30 @@ int main( int argc, char *argv[] ) {
                                    opt.num_samples,
                                    point_vec, llh_vec,  
                                    used_vertices);
+
+      if (!opt.mask_boundary_shapefile.empty()) {
+        // TODO(oalexan1): Make this into a function
+        vw::cartography::GeoReference shape_georef;
+        shape_georef.set_geographic();
+        vw::cartography::Datum datum("WGS_1984");
+        shape_georef.set_datum(datum);
+        vw::geometry::dPoly samplePoly;
+        for (size_t ptIter = 0; ptIter < llh_vec.size(); ptIter++) {
+          vw::Vector3 xyz; // convert Eigen:Vector3 to vw::Vector3
+          for (int c = 0; c < 3; c++) xyz[c] = point_vec[ptIter][c];
+          vw::Vector3 llh = shape_georef.datum().cartesian_to_geodetic(xyz);
+          addPointToPoly(samplePoly, subvector(llh, 0, 2));
+        }
+        std::vector<vw::geometry::dPoly> samplePolyVec;
+        samplePolyVec.push_back(samplePoly);
+        vw_out() << "Writing shapefile of samples at mask boundary: "
+                 << opt.mask_boundary_shapefile << "\n";
+        bool has_shape_georef = true;
+        write_shapefile(opt.mask_boundary_shapefile, has_shape_georef, shape_georef,
+                        samplePolyVec);
+        return 0;
+      }
+      
     } else if (use_shapefile) { 
     
       // Read the shapefile
@@ -1088,19 +1144,9 @@ int main( int argc, char *argv[] ) {
     // Save the shape having the inliers.
     if (opt.output_inlier_shapefile != "") {
       vw::geometry::dPoly inlierPoly;
-      for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) {
-        Vector2 p = used_vertices[inlier_indices[inlier_it]];
-        std::vector<double> inlier_x, inlier_y;
-        inlier_x.push_back(p.x());
-        inlier_y.push_back(p.y());
-        bool isPolyClosed = true;
-        std::string layer = "";
-        inlierPoly.appendPolygon(inlier_x.size(),
-                                 vw::geometry::vecPtr(inlier_x),
-                                 vw::geometry::vecPtr(inlier_y),
-                                 isPolyClosed, poly_color, layer);
-      }
-
+      for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) 
+        addPointToPoly(inlierPoly, used_vertices[inlier_indices[inlier_it]]);
+      
       if (opt.save_shapefiles_as_polygons) {
         vw::geometry::dPoly localPoly; 
         formSinglePoly(inlierPoly, localPoly);
@@ -1127,17 +1173,8 @@ int main( int argc, char *argv[] ) {
         
         if (inlier_set.find(it) != inlier_set.end())
           continue; // an inlier, skip it
-        
-        Vector2 p = used_vertices[it];
-        std::vector<double> outlier_x, outlier_y;
-        outlier_x.push_back(p.x());
-        outlier_y.push_back(p.y());
-        bool isPolyClosed = true;
-        std::string layer = "";
-        outlierPoly.appendPolygon(outlier_x.size(),
-                                 vw::geometry::vecPtr(outlier_x),
-                                 vw::geometry::vecPtr(outlier_y),
-                                 isPolyClosed, poly_color, layer);
+
+        addPointToPoly(outlierPoly, used_vertices[it]);
       }
 
       if (opt.save_shapefiles_as_polygons) {

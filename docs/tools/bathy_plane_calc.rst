@@ -219,6 +219,26 @@ Here is an example of a shapefile created on top of an orthoimage:
 
    Example of a shapefile whose vertices are at the water-land boundary.
 
+Example 4 (pick a sample set of points at mask boundary)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this example, the ``bathy_plane_calc`` tool will take as inputs a
+DEM, a mask, and a camera (with the latter two corresponding to same
+image), as in :numref:`bathy_plane_calc_example1`, but instead of
+finding the best-fitting plane it finds a set of samples (given by
+``--num-samples``) at the mask boundary (water-land interface), and
+saves them as a shapefile of of points, having longitude-latitude
+pairs relative to the WGS_1984 datum (ellipsoid). 
+
+Example::
+
+     bathy_plane_calc --session-type dg --mask mask.tif    \
+       --camera camera.xml --dem dem.tif --num-samples 100 \
+       --mask-boundary-shapefile samples.shp
+
+This shapefile may then be passed to some external tool for looking
+up water level heights at these points.
+
 Command-line options for bathy_plane_calc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -232,19 +252,19 @@ Command-line options for bathy_plane_calc
 --dem <filename>
     The DEM to use.
 
---mask <string>
+--mask <string (default: "")>
     A input mask, created from a raw camera image and hence having the
     same dimensions, with values of 1 on land and 0 on water, or
     positive values on land and no-data values on water.
 
---camera <string>
+--camera <string (default: "")>
     The camera file to use with the mask.
 
---bundle-adjust-prefix <string>
+--bundle-adjust-prefix <string (default: "")>
     Use the camera adjustment at this output prefix, if the cameras
     changed based on bundle adjustment or alignment.
 
--t, --session-type <string>
+-t, --session-type <string (default: "")>
     Select the stereo session type to use for processing. Usually
     the program can select this automatically by the file extension, 
     except for xml cameras. See :numref:`parallel_stereo_options` for
@@ -264,13 +284,13 @@ Command-line options for bathy_plane_calc
     Number of samples to pick at the water-land interface if using a
     mask. The default is 10000.
 
---water-height-measurements <string>
+--water-height-measurements <string (default: "")>
     Use this CSV file having longitude, latitude, and height
     measurements for the water surface, in degrees and meters,
     respectively, relative to the WGS84 datum. The option --csv-format
     must be used.
 
---csv-format <string>
+--csv-format <string (default: "")>
     Specify the format of the CSV file having water height
     measurements. The format should have a list of entries
     with syntax column_index:column_type (indices start from
@@ -280,13 +300,18 @@ Command-line options for bathy_plane_calc
     The output file storing the computed plane as four coefficients
     a, b, c, d, with the plane being a*x + b*y + c*z + d = 0.
 
---output-inlier-shapefile <string>
+--output-inlier-shapefile <string (default: "")>
     If specified, save at this location the shape file with the inlier
     vertices.
 
---output-outlier-shapefile <string>
+--output-outlier-shapefile <string (default: "")>
     If specified, save at this location the shape file with the outlier
     vertices.
+
+--mask-boundary-shapefile <string (default: "")>
+    If specified together with a mask, camera, and DEM, save a random
+    sample of points (their number given by ``--num-samples``) at the
+    mask boundary (water-land interface) to this shapefile and exit.
 
 --save-shapefiles-as-polygons
     Save the inlier and outlier shapefiles as polygons, rather than
