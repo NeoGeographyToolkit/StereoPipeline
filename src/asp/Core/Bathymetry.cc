@@ -145,6 +145,28 @@ namespace asp {
     return projection.datum().geodetic_to_cartesian(projection.point_to_geodetic(proj_pt));
   }
 
+  // Given a ECEF point xyz, and two planes, find if xyz is above or below each of the
+  // plane by finding the signed distances to them.
+  void signed_distances_to_planes(bool use_curved_water_surface,
+                                  std::vector<BathyPlaneSettings> const& bathy_set,
+                                  vw::Vector3 const& xyz,
+                                  std::vector<double> & distances) {
+    
+    if (bathy_set.size() != 2) 
+      vw_throw(vw::ArgumentErr() << "Two bathy planes expected.\n");
+    
+    distances.resize(2);
+    for (size_t it = 0; it < 2; it++) {
+      // For a curved water surface need to first convert xyz to projected coordinates
+      if (use_curved_water_surface)
+        distances[it] = signed_dist_to_plane(bathy_set[it].bathy_plane,
+                                             proj_point(bathy_set[it].water_surface_projection,
+                                                        xyz));
+      else
+        distances[it] = signed_dist_to_plane(bathy_set[it].bathy_plane, xyz);
+    }
+  }
+
   // See the .h file for more info
   bool snells_law(Vector3 const& in_xyz, Vector3 const& in_dir,
                   std::vector<double> const& plane,
@@ -315,14 +337,10 @@ namespace asp {
     typedef vw::Matrix<double>    jacobian_type;
 
     /// Instantiate the solver with a set of xyz to pixel pairs and a pinhole model
-    SolveCurvedPlaneIntersection(vw::Vector3 const& ray_pt,
-                                 vw::Vector3 const& ray_dir,
+    SolveCurvedPlaneIntersection(vw::Vector3 const& ray_pt, vw::Vector3 const& ray_dir,
                                  vw::cartography::GeoReference const& projection,
                                  std::vector<double> const& proj_plane):
-      m_ray_pt(ray_pt),
-      m_ray_dir(ray_dir),
-      m_projection(projection),
-      m_proj_plane(proj_plane) {}
+      m_ray_pt(ray_pt), m_ray_dir(ray_dir), m_projection(projection), m_proj_plane(proj_plane) {}
 
     /// Given the camera, project xyz into it
     inline result_type operator()(domain_type const& t) const {
@@ -512,8 +530,11 @@ namespace asp {
         if (!use_curved_water_surface) {
           
           double ht_val = signed_dist_to_plane(m_bathy_set[0].bathy_plane, uncorr_tri_pt);
-          if (ht_val >= 0) // the rays intersect above the water surface, no need to go on
+          if (ht_val >= 0) {
+            // the rays intersect above the water surface, no need to go on
+            did_bathy = false;
             return uncorr_tri_pt;
+          }
           
           // The simple case, when the water surface is a plane in ECEF
           for (size_t it = 0; it < 2; it++) {
@@ -521,8 +542,10 @@ namespace asp {
                                   m_refraction_index, 
                                   waterCtrs[it], waterDirs[it]);
             // If Snell's law failed to work, return the result before it
-            if (!ans)
+            if (!ans) {
+              did_bathy = false;
               return uncorr_tri_pt;
+            }
           }
           
         } else{
@@ -531,8 +554,11 @@ namespace asp {
           // however flat (a plane) if we switch to proj coordinates.
           Vector3 proj_pt = proj_point(m_bathy_set[0].water_surface_projection, uncorr_tri_pt);
           double ht_val = signed_dist_to_plane(m_bathy_set[0].bathy_plane, proj_pt);
-          if (ht_val >= 0) // the rays intersect above the water surface
+          if (ht_val >= 0) {
+            // the rays intersect above the water surface
+            did_bathy = false;
             return uncorr_tri_pt;
+          }
           
           for (size_t it = 0; it < 2; it++) {
             // Bend each ray at the surface according to Snell's law.
@@ -541,8 +567,10 @@ namespace asp {
                                          m_bathy_set[it].water_surface_projection,
                                          m_refraction_index,
                                          waterCtrs[it], waterDirs[it]);
-            if (!ans)
+            if (!ans) {
+              did_bathy = false;
               return uncorr_tri_pt;
+            }
           }
         }
         
@@ -555,27 +583,28 @@ namespace asp {
 
       // The case of left and right images having their own bathy planes
       
-      if (!use_curved_water_surface) {
-        // will handle this later
-        vw::vw_throw(vw::ArgumentErr()
-                     << "Bathymetry with left and right bathy planes and without "
-                     << "modeling Earth curvature is not implemented yet.");
-      }
-
       // Bend the rays
-      for (size_t it = 0; it < 2; it++) {
-        // Bend each ray at the surface according to Snell's law.
-        bool ans = snells_law_curved(camCtrs[it], camDirs[it],
-                                     m_bathy_set[it].bathy_plane,  
-                                     m_bathy_set[it].water_surface_projection,
-                                     m_refraction_index,
-                                     waterCtrs[it], waterDirs[it]);
-        if (!ans)
-          return uncorr_tri_pt;
+      if (!use_curved_water_surface) {
+        for (size_t it = 0; it < 2; it++) {
+          bool ans = snells_law(camCtrs[it], camDirs[it],
+                                m_bathy_set[it].bathy_plane,  
+                                m_refraction_index,
+                                waterCtrs[it], waterDirs[it]);
+          if (!ans)
+            return uncorr_tri_pt;
+        }
+      } else {
+        for (size_t it = 0; it < 2; it++) {
+          // Bend each ray at the surface according to Snell's law.
+          bool ans = snells_law_curved(camCtrs[it], camDirs[it],
+                                       m_bathy_set[it].bathy_plane,  
+                                       m_bathy_set[it].water_surface_projection,
+                                       m_refraction_index,
+                                       waterCtrs[it], waterDirs[it]);
+          if (!ans)
+            return uncorr_tri_pt;
+        }
       }
-
-      // TODO(oalexan1): Factor out common logic below, and make it work
-      // also when the water surface is not curved.
       
       // Each ray has two parts: before bending and after it. Two
       // bent rays can intersect on their unbent parts, the bent part
@@ -584,16 +613,12 @@ namespace asp {
       // rays. Handle all these with much care. 
 
       Vector3 err, tri_pt;
-      double ht_vals[2];
+      std::vector<double> signed_dists;
 
       // See if the unbent portions intersect above their planes
       tri_pt = triangulate_pair(camDirs[0], camCtrs[0], camDirs[1], camCtrs[1], err);
-      for (size_t it = 0; it < 2; it++) {
-        ht_vals[it] = signed_dist_to_plane
-          (m_bathy_set[it].bathy_plane,
-           proj_point(m_bathy_set[it].water_surface_projection, tri_pt));
-      }
-      if (ht_vals[0] >= 0 && ht_vals[1] >= 0) {
+      signed_distances_to_planes(use_curved_water_surface, m_bathy_set, tri_pt, signed_dists);
+      if (signed_dists[0] >= 0 && signed_dists[1] >= 0) {
         did_bathy = false; // since the rays did not reach the bathy plane
         errorVec = err;
         return tri_pt;
@@ -601,13 +626,9 @@ namespace asp {
       
       // See if the bent portions intersect below their planes
       tri_pt = triangulate_pair(waterDirs[0], waterCtrs[0], waterDirs[1], waterCtrs[1], err);
-      for (size_t it = 0; it < 2; it++) {
-        ht_vals[it] = signed_dist_to_plane
-          (m_bathy_set[it].bathy_plane,
-           proj_point(m_bathy_set[it].water_surface_projection, tri_pt));
-      }
-      if (ht_vals[0] <= 0 && ht_vals[1] <= 0) {
-        did_bathy = true;
+      signed_distances_to_planes(use_curved_water_surface, m_bathy_set, tri_pt, signed_dists);
+      if (signed_dists[0] <= 0 && signed_dists[1] <= 0) {
+        did_bathy = true; // the resulting point is at least under one plane
         errorVec = err;
         return tri_pt;
       }
@@ -615,13 +636,9 @@ namespace asp {
       // See if the left unbent portion intersects the right bent portion,
       // above left's water plane and below right's water plane
       tri_pt = triangulate_pair(camDirs[0], camCtrs[0], waterDirs[1], waterCtrs[1], err);
-      for (size_t it = 0; it < 2; it++) {
-        ht_vals[it] = signed_dist_to_plane
-          (m_bathy_set[it].bathy_plane,
-           proj_point(m_bathy_set[it].water_surface_projection, tri_pt));
-      }
-      if (ht_vals[0] >= 0 && ht_vals[1] <= 0) {
-        did_bathy = true;
+      signed_distances_to_planes(use_curved_water_surface, m_bathy_set, tri_pt, signed_dists);
+      if (signed_dists[0] >= 0 && signed_dists[1] <= 0) {
+        did_bathy = true; // the resulting point is at least under one plane
         errorVec = err;
         return tri_pt;
       }
@@ -629,13 +646,9 @@ namespace asp {
       // See if the left bent portion intersects the right unbent portion,
       // below left's water plane and above right's water plane
       tri_pt = triangulate_pair(waterDirs[0], waterCtrs[0], camDirs[1], camCtrs[1], err);
-      for (size_t it = 0; it < 2; it++) {
-        ht_vals[it] = signed_dist_to_plane
-          (m_bathy_set[it].bathy_plane,
-           proj_point(m_bathy_set[it].water_surface_projection, tri_pt));
-      }
-      if (ht_vals[0] <= 0 && ht_vals[1] >= 0) {
-        did_bathy = true;
+      signed_distances_to_planes(use_curved_water_surface, m_bathy_set, tri_pt, signed_dists);
+      if (signed_dists[0] <= 0 && signed_dists[1] >= 0) {
+        did_bathy = true; // the resulting point is at least under one plane
         errorVec = err;
         return tri_pt;
       }
