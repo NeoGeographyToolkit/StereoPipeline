@@ -361,10 +361,10 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
   } // End constructor
 
 
-  // Grammer rules
+  // Grammar rules
   b_s::qi::rule<ITER, calc_operation(), b_s::ascii::space_type> expression, term, factor;
 
-}; // End struct calc_grammer
+}; // End struct calc_grammar
 
 
 //=================================================================================
@@ -763,16 +763,16 @@ int main( int argc, char *argv[] ) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     std::string exp(opt.calc_string);
 
-    calc_grammar<std::string::const_iterator> grammerParser;
+    calc_grammar<std::string::const_iterator> grammarParser;
     calc_operation calc_tree;
 
     std::string::const_iterator iter = exp.begin();
     std::string::const_iterator end = exp.end();
-    bool r = phrase_parse(iter, end, grammerParser, boost::spirit::ascii::space, calc_tree);
+    bool r = phrase_parse(iter, end, grammarParser, boost::spirit::ascii::space, calc_tree);
 
     if (r && iter == end) {// Successfully parsed the calculation expression
       //std::cout << "-------------------------\n";
