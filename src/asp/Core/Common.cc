@@ -397,11 +397,29 @@ void asp::log_to_file(int argc, char *argv[],
   std::ofstream lg(log_file.c_str());
 
   // Write the version
-  lg << "ASP " << ASP_VERSION << "\n\n";
+  lg << "ASP " << ASP_VERSION << "\n";
 
-  // Write the program name and its arguments
-  for (int s = 0; s < argc; s++)
-    lg << std::string(argv[s]) + " ";
+#if defined(ASP_COMMIT_ID)
+    lg << "Build ID: " << ASP_COMMIT_ID << "\n";
+#endif
+#if defined(ASP_BUILD_DATE)
+    lg << "Build date: " << ASP_BUILD_DATE << "\n";
+#endif
+
+    lg << "\n"; // leave some separation
+    
+    // Write the program name and its arguments
+    for (int s = 0; s < argc; s++) {
+      std::string token = std::string(argv[s]);
+      // Skip adding empty spaces
+      if (token == " ")
+        continue;
+      // Use quotes if there are spaces
+      if (token.find(" ") != std::string::npos || token.find("\t") != std::string::npos) 
+        token = '"' + token + '"';
+      lg << token + " ";
+    }
+    
   lg << std::endl << std::endl;
 
   // Must ensure to close the file handle before further appending to
