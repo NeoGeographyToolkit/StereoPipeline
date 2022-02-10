@@ -763,9 +763,6 @@ namespace asp {
       if (stereo_settings().bathy_plane == "") 
         vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
 
-      if (!fs::exists(stereo_settings().bathy_plane)) 
-        vw_throw(ArgumentErr() << "The water plane needed for bathymetry was not found.\n");
-
       // Sanity check reading the bathy plane
       std::vector<BathyPlaneSettings> bathy_plane_set;
       read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
