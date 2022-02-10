@@ -2768,11 +2768,13 @@ data are kept consistent under such operations.
 In particular, running bundle adjustment on a PAN image pair, and then
 on a corresponding multispectral band pair, will result in DEMs which
 are no longer aligned either to each other, or to their versions
-before bundle adjustement. (The cameras can be prevented by moing too
+before bundle adjustment. (The cameras can be prevented by moving too
 far if ``bundle_adjust`` is called with, for example,
 ``--camera-weight 1000``, or some larger value, yet, by its very
 nature, this program changes the positions and orientations of the
-cameras, and therefore the coordinate system.)
+cameras, and therefore the coordinate system. And note that a very
+high camera weight may interfere with the convergence of bundle
+adjustment.)
 
 It is suggested to use these tools only if a trusted reference dataset
 exists, and then the produced DEMs should be aligned to that dataset.
@@ -2786,7 +2788,7 @@ using the same transform (:numref:`ba_pc_align`).
 
 When the water surface is determined using a DEM, a mask of the image
 portion above water, and corresponding camera, and the cameras have
-been bundle-adjuted or aligned, the option ``--bundle-adjust-prefix``
+been bundle-adjusted or aligned, the option ``--bundle-adjust-prefix``
 must be used with ``bathy_plane_calc`` (see
 :numref:`bathy_plane_calc_example1`).
 
