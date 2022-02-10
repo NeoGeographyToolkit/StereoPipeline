@@ -48,6 +48,19 @@ using namespace vw::camera;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+// Add a polygon made up of just one point to given set of polygons.
+// Later that set will be saved as a shapefile made up of points.
+void addPointToPoly(vw::geometry::dPoly & poly, Vector2 const& p) {
+  std::vector<double> vx, vy;
+  vx.push_back(p.x());
+  vy.push_back(p.y());
+  bool isPolyClosed = true;
+  std::string poly_color = "green";
+  std::string layer = "";
+  poly.appendPolygon(vx.size(), vw::geometry::vecPtr(vx), vw::geometry::vecPtr(vy),
+                     isPolyClosed, poly_color, layer);
+}
+
 // Estimate the projection and convert point_vec to projected coordinates
 void find_projection(// Inputs
                      vw::cartography::GeoReference const& dem_georef,
@@ -222,7 +235,6 @@ public:
 // Find the mask boundary (points where the points in the mask have
 // neighbors not in the mask), shoot points from there onto the DEM,
 // and return the obtained points.
-// TODO(oalexan1): Should we move the boundary a bit outward?
 void find_points_at_mask_boundary(ImageViewRef<float> mask,
                                   float mask_nodata_val,
                                   boost::shared_ptr<CameraModel> camera_model,
@@ -270,7 +282,6 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
   // Let the mask boundary be the mask pixels whose value
   // is above threshold and which border pixels whose values
   // is not above threshold.
-  // TODO(oalexan1): Make this multi-threaded.
 
   vw_out() << "Processing points at mask boundary.\n";
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
@@ -357,13 +368,8 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
              << "of this size.\n";
 
     // Select a subset
-    // TODO(oalexan1): Use the wrapper function on top of that
-    std::vector<int> v(num_pts);
-    for (int it = 0; it < num_pts; it++) 
-      v[it] = it;
     std::vector<int> w;
-    vw::math::pick_random_subset(num_pts, num_samples, v, w);
-    
+    vw::math::pick_random_indices_in_range(num_pts, num_samples, w);
     std::vector<Eigen::Vector3d> big_point_vec     = point_vec;     point_vec.clear();
     std::vector<vw::Vector3>     big_llh_vec       = llh_vec;       llh_vec.clear();
     std::vector<vw::Vector2>     big_used_vertices = used_vertices; used_vertices.clear();
@@ -449,6 +455,66 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
 
   vw_out() << "Read " << total_num_pts << " vertices, with " << llh_vec.size()
             << " of them having a valid DEM height value."  << std::endl;
+}
+
+// Read a set of measurements in CSV format, to use later to fit the water surface
+void find_points_from_meas_csv(std::string const& water_height_measurements,
+                               std::string const& csv_format_str,
+                               vw::cartography::GeoReference const& shape_georef,
+                               // Outputs
+                               std::vector<vw::Vector3> & llh_vec,
+                               std::vector<vw::Vector2> & used_vertices) {
+  // Wipe the outputs
+  llh_vec.clear();
+  used_vertices.clear();
+
+  // Read the CSV file
+  asp::CsvConv csv_conv;
+  std::string csv_proj4_str = ""; // not needed
+  try {
+    csv_conv.parse_csv_format(csv_format_str, csv_proj4_str);
+  }catch (...) {
+    // Give a more specific error message
+    vw_throw(ArgumentErr() << "Could not parse --csv-format. Was given: "
+             << csv_format_str << ".\n");
+  }
+  std::list<asp::CsvConv::CsvRecord> pos_records;
+  typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
+  csv_conv.read_csv_file(water_height_measurements, pos_records);
+  
+  // Create llh and vertices
+  for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
+    Vector3 llh = csv_conv.csv_to_geodetic(*iter, shape_georef);
+    llh_vec.push_back(llh);
+    Vector2 proj_pt = shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
+    used_vertices.push_back(proj_pt);
+  }
+
+  return;
+}
+
+void sample_mask_boundary(std::vector<Eigen::Vector3d> const& point_vec,
+                          std::string const& mask_boundary_shapefile) {
+  
+  vw::cartography::GeoReference llh_georef; // create a new explicit longlat WGS84 georef
+  llh_georef.set_geographic();
+  vw::cartography::Datum datum("WGS_1984");
+  llh_georef.set_datum(datum);
+  vw::geometry::dPoly samplePoly;
+  for (size_t ptIter = 0; ptIter < point_vec.size(); ptIter++) {
+    vw::Vector3 xyz; // convert Eigen:Vector3 to vw::Vector3
+    for (int c = 0; c < 3; c++) xyz[c] = point_vec[ptIter][c];
+    vw::Vector3 llh = llh_georef.datum().cartesian_to_geodetic(xyz);
+    addPointToPoly(samplePoly, subvector(llh, 0, 2));
+  }
+
+  std::vector<vw::geometry::dPoly> samplePolyVec;
+  samplePolyVec.push_back(samplePoly);
+  vw_out() << "Writing shapefile of samples at mask boundary: "
+           << mask_boundary_shapefile << "\n";
+  bool has_llh_georef = true;
+  write_shapefile(mask_boundary_shapefile, has_llh_georef, llh_georef,
+                  samplePolyVec);
 }
 
 // Best fit plane without outlier removal
@@ -572,9 +638,8 @@ void calc_plane_properties(bool use_proj_water_surface,
                            vw::Matrix<double> const& plane) {
 
   double max_error = - 1.0, max_inlier_error = -1.0;
-  for (size_t it = 0; it < point_vec.size(); it++) {
+  for (size_t it = 0; it < point_vec.size(); it++)
     max_error = std::max(max_error, dist_to_plane(plane, point_vec[it]));
-  }
   
   // Do estimates for the mean height and angle of the plane
   Vector3 mean_point(0, 0, 0);
@@ -917,19 +982,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
 }
 
-// Add a polygon made up of just one point to given set of polygons.
-// Later that set will be saved as a shapefile made up of points.
-void addPointToPoly(vw::geometry::dPoly & poly, Vector2 const& p) {
-  std::vector<double> vx, vy;
-  vx.push_back(p.x());
-  vy.push_back(p.y());
-  bool isPolyClosed = true;
-  std::string poly_color = "green";
-  std::string layer = "";
-  poly.appendPolygon(vx.size(), vw::geometry::vecPtr(vx), vw::geometry::vecPtr(vy),
-                     isPolyClosed, poly_color, layer);
-}
-
 typedef boost::shared_ptr<asp::StereoSession> SessionPtr;
 
 int main( int argc, char *argv[] ) {
@@ -954,12 +1006,14 @@ int main( int argc, char *argv[] ) {
       camera_model = session->camera_model(opt.mask, opt.camera);
     }
 
-    // Only WGS84 is supported. Note that this georef may or may not
-    // be overwritten below.
+    // Only WGS84 is supported. Note that dem_georef and shape_georef
+    // may or may not be overwritten below depending on the case.
     vw::cartography::GeoReference dem_georef;
     vw::cartography::Datum datum("WGS_1984");
     dem_georef.set_datum(datum);
-    dem_georef.set_geographic(); // will be used with opt.water_height_measurements
+    dem_georef.set_geographic();
+    bool has_shape_georef = true;
+    vw::cartography::GeoReference shape_georef = dem_georef;
 
     float dem_nodata_val = -std::numeric_limits<float>::max();
     ImageViewRef<float> dem;
@@ -992,21 +1046,15 @@ int main( int argc, char *argv[] ) {
       interp_dem = interpolate(masked_dem, BilinearInterpolation(), ConstantEdgeExtension());
     }
     
-    // Configure a CSV converter object according to the input parameters
-    asp::CsvConv csv_conv;
-    
     bool use_proj_water_surface = !opt.use_ecef_water_surface;
     std::vector<Eigen::Vector3d> point_vec;
     std::vector<vw::Vector3> llh_vec;
     double proj_lat = -1.0, proj_lon = -1.0; // only for curved water surface
     std::vector<vw::Vector2> used_vertices;
     vw::cartography::GeoReference stereographic_georef;
-    bool has_shape_georef = false;
-    vw::cartography::GeoReference shape_georef;
     std::string poly_color = "green";
 
     if (use_mask) {
-      
       // Read the mask. The no-data value is the largest of what
       // is read from the mask file and the value 0, as pixels
       // over land are supposed to be positive and be valid data.
@@ -1019,7 +1067,6 @@ int main( int argc, char *argv[] ) {
                << " are classified as water.\n"; 
       DiskImageView<float> mask(opt.mask);
       
-      has_shape_georef = true;
       shape_georef = dem_georef;
       find_points_at_mask_boundary(mask, mask_nodata_val,  
                                    camera_model, shape_georef,  
@@ -1029,31 +1076,14 @@ int main( int argc, char *argv[] ) {
                                    used_vertices);
 
       if (!opt.mask_boundary_shapefile.empty()) {
-        // TODO(oalexan1): Make this into a function
-        vw::cartography::GeoReference shape_georef;
-        shape_georef.set_geographic();
-        vw::cartography::Datum datum("WGS_1984");
-        shape_georef.set_datum(datum);
-        vw::geometry::dPoly samplePoly;
-        for (size_t ptIter = 0; ptIter < llh_vec.size(); ptIter++) {
-          vw::Vector3 xyz; // convert Eigen:Vector3 to vw::Vector3
-          for (int c = 0; c < 3; c++) xyz[c] = point_vec[ptIter][c];
-          vw::Vector3 llh = shape_georef.datum().cartesian_to_geodetic(xyz);
-          addPointToPoly(samplePoly, subvector(llh, 0, 2));
-        }
-        std::vector<vw::geometry::dPoly> samplePolyVec;
-        samplePolyVec.push_back(samplePoly);
-        vw_out() << "Writing shapefile of samples at mask boundary: "
-                 << opt.mask_boundary_shapefile << "\n";
-        bool has_shape_georef = true;
-        write_shapefile(opt.mask_boundary_shapefile, has_shape_georef, shape_georef,
-                        samplePolyVec);
+        // Just sample the mask boundary and return
+        sample_mask_boundary(point_vec, opt.mask_boundary_shapefile);
         return 0;
       }
       
     } else if (use_shapefile) { 
     
-      // Read the shapefile
+      // Read the shapefile, overwriting shape_georef
       vw_out() << "Reading the shapefile: " << opt.shapefile << std::endl;
       std::vector<vw::geometry::dPoly> polyVec;
       read_shapefile(opt.shapefile, poly_color, has_shape_georef, shape_georef, polyVec);
@@ -1065,36 +1095,10 @@ int main( int argc, char *argv[] ) {
       find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, point_vec,
                                    llh_vec, used_vertices);
     } else if (use_meas) {
-      std::string csv_proj4_str = ""; // not needed
-      try {
-        csv_conv.parse_csv_format(opt.csv_format_str, csv_proj4_str);
-      }catch (...) {
-        // Give a more specific error message
-        vw_throw(ArgumentErr() << "Could not parse --csv-format. Was given: "
-                 << opt.csv_format_str << ".\n");
-      }
-
-      // TODO(oalexan1): Move this to a function
-      
-      std::list<asp::CsvConv::CsvRecord> pos_records;
-      typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
-      csv_conv.read_csv_file(opt.water_height_measurements, pos_records);
-
-      // Use user's csv_proj4 string, if provided, to add info to the georef.
-      // csv_conv.parse_georef(dem_georef);
-      llh_vec.clear();
-
-      for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
-        Vector3 llh = csv_conv.csv_to_geodetic(*iter, dem_georef);
-        llh_vec.push_back(llh);
-        
-        Vector2 proj_pt = shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
-        used_vertices.push_back(proj_pt);
-      }
-
-      // This is needed to create shapefiles of inliers and outliers
-      has_shape_georef = true;
-      shape_georef = dem_georef;
+      find_points_from_meas_csv(opt.water_height_measurements, opt.csv_format_str, 
+                               shape_georef,  
+                               // Outputs
+                               llh_vec, used_vertices);
     }
     
     // See if to convert to local stereographic projection
@@ -1139,8 +1143,6 @@ int main( int argc, char *argv[] ) {
     save_plane(use_proj_water_surface, proj_lat, proj_lon,  
                plane, opt.bathy_plane);
 
-    // TODO(oalexan1): Must move that to a function and call here
-    
     // Save the shape having the inliers.
     if (opt.output_inlier_shapefile != "") {
       vw::geometry::dPoly inlierPoly;
