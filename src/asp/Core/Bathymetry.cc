@@ -167,6 +167,53 @@ namespace asp {
     }
   }
 
+  // Test Snell's law in projected and unprojected coordinates
+  bool test_snells_law(std::vector<double> const& plane,
+                       vw::cartography::GeoReference const& water_surface_projection,
+                       double refraction_index,
+                       vw::Vector3 const& out_unproj_xyz,
+                       vw::Vector3 const& in_unproj_dir, vw::Vector3 const& out_unproj_dir,
+                       vw::Vector3 const& out_proj_xyz, 
+                       vw::Vector3 const& in_proj_dir, vw::Vector3 const& out_proj_dir) {
+  
+    // Verify Snell's law.
+    
+    // 1. In projected coordinates
+    Vector3 proj_normal(plane[0], plane[1], plane[2]);
+    double sin_in = sin(acos(dot_prod(proj_normal, -in_proj_dir)));
+    double sin_out = sin(acos(dot_prod(-proj_normal, out_proj_dir)));
+    std::cout << "proj sin_in, sin_out, sin_in - index * sin_out "
+              << sin_in << ' ' << sin_out << ' '
+              << sin_in - refraction_index * sin_out << std::endl;
+  
+    // 2. In unprojected coordinates
+    Vector3 proj_xyz_above_normal = out_proj_xyz + 1.0 * proj_normal; // go 1 m along the normal
+    Vector3 unproj_xyz_above_normal = unproj_point(water_surface_projection,
+                                                   proj_xyz_above_normal);
+    Vector3 unproj_normal = unproj_xyz_above_normal - out_unproj_xyz;
+    unproj_normal /= norm_2(unproj_normal); // normalize
+    sin_in = sin(acos(dot_prod(unproj_normal, -in_unproj_dir)));
+    sin_out = sin(acos(dot_prod(-unproj_normal, out_unproj_dir)));
+    std::cout << "unproj sin_in, sin_out, sin_in - index * sin_out "
+              << sin_in << ' ' << sin_out << ' '
+              << sin_in - refraction_index * sin_out << std::endl;
+  
+    // Verify that the incoming ray, outgoing ray, and the
+    // normal are in the same plane in projected coordinates
+  
+    // 1. In projected coordinates
+    Vector3 in_out_normal = vw::math::cross_prod(in_proj_dir, out_proj_dir);
+    double plane_error = dot_prod(in_out_normal, proj_normal);
+    std::cout << "proj plane error " << plane_error << std::endl;
+  
+    // 2. In unprojected coordinates
+    in_out_normal = vw::math::cross_prod(in_unproj_dir, out_unproj_dir);
+    plane_error = dot_prod(in_out_normal, unproj_normal);
+    std::cout << "unproj plane error " << plane_error << std::endl;
+  
+    std::cout << std::endl;
+  }
+
   // See the .h file for more info
   bool snells_law(Vector3 const& in_xyz, Vector3 const& in_dir,
                   std::vector<double> const& plane,
@@ -240,6 +287,48 @@ namespace asp {
     return true;
   }  
 
+  // Consider a stereographic projection and a plane
+  // a * x + b * y + c * z + d = 0 for (x, y, z) in this projection.
+  // Intersect it with a ray given in ECEF coordinates.
+  // If the values a and b are 0, that is the same as intersecting
+  // the ray with the spheroid of values -d/c above the datum.
+  // This solver was not used as it was too slow. An approximate
+  // solution was instead found.
+  class SolveCurvedPlaneIntersection:
+    public vw::math::LeastSquaresModelBase<SolveCurvedPlaneIntersection> {
+    vw::Vector3 const& m_ray_pt;
+    vw::Vector3 const& m_ray_dir;
+    vw::cartography::GeoReference const& m_projection;
+    std::vector<double> const& m_proj_plane;
+  public:
+
+    // This is a one-parameter problem, yet have to use a vector (of size 1)
+    // as required by the API.
+    typedef vw::Vector<double, 1> result_type;   // residual
+    typedef vw::Vector<double, 1> domain_type;   // parameter giving the position on the ray
+    typedef vw::Matrix<double>    jacobian_type;
+
+    /// Instantiate the solver with a set of xyz to pixel pairs and a pinhole model
+    SolveCurvedPlaneIntersection(vw::Vector3 const& ray_pt, vw::Vector3 const& ray_dir,
+                                 vw::cartography::GeoReference const& projection,
+                                 std::vector<double> const& proj_plane):
+      m_ray_pt(ray_pt), m_ray_dir(ray_dir), m_projection(projection), m_proj_plane(proj_plane) {}
+
+    /// Given the camera, project xyz into it
+    inline result_type operator()(domain_type const& t) const {
+
+      // Get the current point along the ray
+      Vector3 xyz = m_ray_pt + t[0] * m_ray_dir;
+
+      // Convert to projected coordinates
+      Vector3 proj_pt = proj_point(m_projection, xyz);
+
+      result_type ans;
+      ans[0] = signed_dist_to_plane(m_proj_plane, proj_pt);
+      return ans;
+    }
+  }; // End class SolveCurvedPlaneIntersection
+
   // Given a ray in ECEF and a water surface which is a plane only in
   // a local stereographic projection, compute how the ray bends under
   // Snell's law. Use the following approximate logic. Find where the
@@ -302,107 +391,28 @@ namespace asp {
     out_dir /= norm_2(out_dir);
 
 #if 0
-    // TODO(oalexan1): The block below needs to be and part of the tests
+    // Refine out_xyz with a solver, with 1e-16 tolerance. The parameter determining the position
+    // on the ray changes by under 2.6e-8, so it is not worth it. It is rather slow too.
+    SolveCurvedPlaneIntersection model(in_xyz, in_dir, water_surface_projection, plane);
+    vw::Vector<double> objective(1), start(1);
+    start[0] = norm_2(out_xyz - in_xyz);
+    objective[0] = 0.0; 
+    int status = -1; // will change
+    Vector<double> solution = math::levenberg_marquardt(model, start, objective, status);
+
+    out_xyz = in_xyz + solution[0] * in_dir; 
+#endif
+    
+#if 0
+    // Sanity check
     test_snells_law(plane,  
                     water_surface_projection,  
-                    m_refraction_index,
+                    refraction_index,
                     out_xyz, in_dir, out_dir,
                     out_proj_xyz, in_proj_dir, out_proj_dir);
 #endif
 
     return true;
-  }
-  
-  
-  // Consider a stereographic projection and a plane
-  // a * x + b * y + c * z + d = 0 for (x, y, z) in this projection.
-  // Intersect it with a ray given in ECEF coordinates.
-  // If the values a and b are 0, that is the same as intersecting
-  // the ray with the spheroid of values -d/c above the datum.
-  
-  // This solver was not used as it was too slow. An approximate
-  // solution was instead found.
-  class SolveCurvedPlaneIntersection:
-    public vw::math::LeastSquaresModelBase<SolveCurvedPlaneIntersection> {
-    vw::Vector3 const& m_ray_pt;
-    vw::Vector3 const& m_ray_dir;
-    vw::cartography::GeoReference const& m_projection;
-    std::vector<double> const& m_proj_plane;
-  public:
-
-    // This is a one-parameter problem, yet have to use a vector (of size 1)
-    // as required by the API.
-    typedef vw::Vector<double, 1> result_type;   // residual
-    typedef vw::Vector<double, 1> domain_type;   // parameter giving the position on the ray
-    typedef vw::Matrix<double>    jacobian_type;
-
-    /// Instantiate the solver with a set of xyz to pixel pairs and a pinhole model
-    SolveCurvedPlaneIntersection(vw::Vector3 const& ray_pt, vw::Vector3 const& ray_dir,
-                                 vw::cartography::GeoReference const& projection,
-                                 std::vector<double> const& proj_plane):
-      m_ray_pt(ray_pt), m_ray_dir(ray_dir), m_projection(projection), m_proj_plane(proj_plane) {}
-
-    /// Given the camera, project xyz into it
-    inline result_type operator()(domain_type const& t) const {
-
-      // Get the current point along the ray
-      Vector3 xyz = m_ray_pt + t[0] * m_ray_dir;
-
-      // Convert to projected coordinates
-      Vector3 proj_pt = proj_point(m_projection, xyz);
-
-      result_type ans;
-      ans[0] = signed_dist_to_plane(m_proj_plane, proj_pt);
-      return ans;
-    }
-  }; // End class SolveCurvedPlaneIntersection
-
-  // TODO(oalexan1): This must be called from unit tests
-  // Test Snell's law in projected and unprojected coordinates
-  bool test_snells_law(std::vector<double> const& plane,
-                       vw::cartography::GeoReference const& water_surface_projection,
-                       double refraction_index,
-                       vw::Vector3 const& out_unproj_xyz,
-                       vw::Vector3 const& in_unproj_dir, vw::Vector3 const& out_unproj_dir,
-                       vw::Vector3 const& out_proj_xyz, 
-                       vw::Vector3 const& in_proj_dir, vw::Vector3 const& out_proj_dir) {
-  
-    // Verify Snell's law.
-    
-    // 1. In projected coordinates
-    Vector3 proj_normal(plane[0], plane[1], plane[2]);
-    double sin_in = sin(acos(dot_prod(proj_normal, -in_proj_dir)));
-    double sin_out = sin(acos(dot_prod(-proj_normal, out_proj_dir)));
-    std::cout << "proj sin_in, sin_out, sin_in - index * sin_out "
-              << sin_in << ' ' << sin_out << ' '
-              << sin_in - refraction_index * sin_out << std::endl;
-  
-    // 2. In unprojected coordinates
-    Vector3 proj_xyz_above_normal = out_proj_xyz + 1.0 * proj_normal; // go 1 m along the normal
-    Vector3 unproj_xyz_above_normal = unproj_point(water_surface_projection,
-                                                   proj_xyz_above_normal);
-    Vector3 unproj_normal = unproj_xyz_above_normal - out_unproj_xyz;
-    unproj_normal /= norm_2(unproj_normal); // normalize
-    sin_in = sin(acos(dot_prod(unproj_normal, -in_unproj_dir)));
-    sin_out = sin(acos(dot_prod(-unproj_normal, out_unproj_dir)));
-    std::cout << "unproj sin_in, sin_out, sin_in - index * sin_out "
-              << sin_in << ' ' << sin_out << ' '
-              << sin_in - refraction_index * sin_out << std::endl;
-  
-    // Verify that the incoming ray, outgoing ray, and the
-    // normal are in the same plane in projected coordinates
-  
-    // 1. In projected coordinates
-    Vector3 in_out_normal = vw::math::cross_prod(in_proj_dir, out_proj_dir);
-    double plane_error = dot_prod(in_out_normal, proj_normal);
-    std::cout << "proj plane error " << plane_error << std::endl;
-  
-    // 2. In unprojected coordinates
-    in_out_normal = vw::math::cross_prod(in_unproj_dir, out_unproj_dir);
-    plane_error = dot_prod(in_out_normal, unproj_normal);
-    std::cout << "unproj plane error " << plane_error << std::endl;
-  
-    std::cout << std::endl;
   }
   
   // Settings used for bathymetry correction
