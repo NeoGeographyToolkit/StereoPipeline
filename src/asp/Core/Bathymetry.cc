@@ -391,8 +391,11 @@ namespace asp {
     out_dir /= norm_2(out_dir);
 
 #if 0
-    // Refine out_xyz with a solver, with 1e-16 tolerance. The parameter determining the position
-    // on the ray changes by under 2.6e-8, so it is not worth it. It is rather slow too.
+    // Refine out_xyz with a solver, with 1e-16 tolerance, after using
+    // that 1 m perturbation, as above. The parameter determining the
+    // position on the ray changes by under 2.6e-8, so it is not worth
+    // it. It is rather slow too.  Then one would need to still
+    // recompute out_dir somehow, if doing things this way.
     SolveCurvedPlaneIntersection model(in_xyz, in_dir, water_surface_projection, plane);
     vw::Vector<double> objective(1), start(1);
     start[0] = norm_2(out_xyz - in_xyz);
