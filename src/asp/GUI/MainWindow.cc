@@ -1113,11 +1113,20 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
 
   // Add the options
   for (int i = 1; i < m_argc; i++) {
-    if (std::string(m_argv[i]) != " ") {
-      // Skip adding empty spaces we may have introduced with rm_option_and_vals().
-      run_cmd += " " + std::string(m_argv[i]);
-    }
+
+    std::string token = std::string(m_argv[i]);
+
+    // Skip adding empty spaces we may have introduced with rm_option_and_vals().
+    if (token == " ")
+      continue;
+
+    // Use quotes if there are spaces
+    if (token.find(" ") != std::string::npos || token.find("\t") != std::string::npos) 
+      token = '"' + token + '"';
+    
+    run_cmd += " " + token;
   }
+  
   std::ostringstream os;
   os << " --left-image-crop-win " << left_x << " " << left_y << " "
      << left_wx << " " << left_wy;
