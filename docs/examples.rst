@@ -2896,7 +2896,10 @@ Then, just triangulation gets redone, which is ``--entry-point 5``.
 The explanation behind the shortcut employed above is that the precise
 cameras and the bathy info are fully used only at the triangulation
 stage. The preprocessing step (step 0), mostly does alignment, for
-which some general knowledge of the cameras is sufficient.
+which some general knowledge of the cameras and bathy information is
+sufficient. But the alignment of land-water masks happen at the
+preprocessing stage, and that is why one cannot change these at the
+triangulation step.
 
 .. _bathy_map:
 
@@ -2988,7 +2991,7 @@ image collection that height may not be 29072, so that will need to be
 adjusted for any specific dataset. The width of the magnified mask
 image should be 35280, and above we used 100 less than this value.
 
-Ths workflow was tested for WV-2, and for other sensors adjustments
+This workflow was tested for WV-2, and for other sensors adjustments
 may be needed.
 
 The result of this command must be a mask image which has precisely
