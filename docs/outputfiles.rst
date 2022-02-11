@@ -82,7 +82,15 @@ line argument to ``parallel_stereo``. Run ``stereo --help`` for details.
 
     Disparity map files are stored in OpenEXR format as 3-channel, 32-bit
     floating point images. (Channel 0 = horizontal disparity, Channel 1 =
-    vertical disparity, and Channel 2 = good pixel mask)
+    vertical disparity, and Channel 2 = good pixel mask.)
+
+\*sub\*.tif - low-resolution version of input images, masks, and disparity.
+
+\*-cropped\*.tif - cropped versions of the inputs, when
+    ``--left-image-crop-win`` and/or ``--right-image-crop-win`` are used.
+
+\*bathy_mask\*.tif - data related to water-land masks, for stereo with
+    shallow water (:numref:`shallow_water_bathy`).
 
 \*-RD.tif - disparity map after sub-pixel correlation
     This file contains the disparity map after sub-pixel refinement.

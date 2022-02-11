@@ -490,19 +490,33 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
   // Note: Must make sure all outputs are initialized before we
   // get to this part where we exit early.
   
-  std::vector<std::string> check_files;
-  check_files.push_back(left_input_file    );
-  check_files.push_back(right_input_file   );
-  check_files.push_back(m_left_camera_file );
-  check_files.push_back(m_right_camera_file);
-  bool rebuild = (!is_latest_timestamp(left_output_file, check_files ) ||
-                  !is_latest_timestamp(right_output_file, check_files)  );
+  bool do_bathy = StereoSession::do_bathymetry();
 
-  if ( !rebuild && !crop_left && !crop_right) {
+  std::vector<std::string> check_files;
+  check_files.push_back(left_input_file);
+  check_files.push_back(right_input_file);
+  check_files.push_back(m_left_camera_file);
+  check_files.push_back(m_right_camera_file);
+  bool rebuild = (!is_latest_timestamp(left_output_file, check_files) ||
+                  !is_latest_timestamp(right_output_file, check_files));
+
+  if (do_bathy) {
+    rebuild = (rebuild ||
+               (!is_latest_timestamp(left_aligned_bathy_mask(), check_files) ||
+                !is_latest_timestamp(right_aligned_bathy_mask(), check_files)));
+  }
+  
+  if (!rebuild && !crop_left && !crop_right) {
     try {
       vw_log().console_log().rule_set().add_rule(-1, "fileio");
       DiskImageView<PixelGray<float32> > out_left (left_output_file );
       DiskImageView<PixelGray<float32> > out_right(right_output_file);
+
+      if (do_bathy) {
+        DiskImageView<float> left_bathy_mask (left_aligned_bathy_mask());
+        DiskImageView<float> right_bathy_mask(right_aligned_bathy_mask());
+      }
+      
       vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
       vw_settings().reload_config();
       return true; // Return true if we exist early since the images exist
@@ -513,8 +527,6 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
       vw_settings().reload_config();
     }
   } // End check for existing output files
-
-  bool do_bathy = StereoSession::do_bathymetry();
   
   // See if to crop the images
   if (crop_left) {
@@ -546,22 +558,22 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
                            has_nodata, left_nodata_value,
                            options,
                            TerminalProgressCallback("asp", "\t:  "));
-
+    
     if (do_bathy) {
       std::string left_bathy_mask_file = stereo_settings().left_bathy_mask;
       if (left_bathy_mask_file == "") 
         vw_throw( ArgumentErr() << "The left bathy mask file was not specified.");
-
+    
       DiskImageView<float> left_bathy_mask(left_bathy_mask_file);
       if (left_bathy_mask.cols() != left_orig_image.cols() ||
           left_bathy_mask.rows() != left_orig_image.rows()) 
         vw_throw(ArgumentErr() << "The left image and left bathy "
                  << "mask don't have the same dimensions.");
-      
+    
       float left_mask_nodata_value = -std::numeric_limits<float>::max();
       if (!vw::read_nodata_val(left_bathy_mask_file, left_mask_nodata_value))
         vw_throw(ArgumentErr() << "Unable to read the nodata value from " << left_bathy_mask_file);
-      
+    
       bool has_mask_nodata = true;
       std::string left_cropped_mask_file = left_cropped_bathy_mask();
       vw_out() << "\t--> Writing cropped image: " << left_cropped_mask_file << "\n";
@@ -604,22 +616,21 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
                            has_nodata, right_nodata_value,
                            options,
                            TerminalProgressCallback("asp", "\t:  "));
-
     if (do_bathy) {
       std::string right_bathy_mask_file = stereo_settings().right_bathy_mask;
       if (right_bathy_mask_file == "") 
         vw_throw( ArgumentErr() << "The right bathy mask file was not specified.");
-
+    
       DiskImageView<float> right_bathy_mask(right_bathy_mask_file);
       if (right_bathy_mask.cols() != right_orig_image.cols() ||
           right_bathy_mask.rows() != right_orig_image.rows()) 
         vw_throw(ArgumentErr() << "The right image and right bathy "
                  << "mask don't have the same dimensions.");
-      
+    
       float right_mask_nodata_value = -std::numeric_limits<float>::max();
       if (!vw::read_nodata_val(right_bathy_mask_file, right_mask_nodata_value))
         vw_throw(ArgumentErr() << "Unable to read the nodata value from " << right_bathy_mask_file);
-      
+    
       bool has_mask_nodata = true;
       std::string right_cropped_mask_file = right_cropped_bathy_mask();
       vw_out() << "\t--> Writing cropped image: " << right_cropped_mask_file << "\n";
@@ -631,8 +642,8 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
                              TerminalProgressCallback("asp", "\t:  "));
     }
   }
-
-  // Re-read the georef, since it changed above.
+  
+  // Re-read the georef, since it may have changed above.
   has_left_georef  = read_georeference(left_georef,  left_cropped_file);
   has_right_georef = read_georeference(right_georef, right_cropped_file);
   if ( stereo_settings().alignment_method != "none") {
@@ -640,28 +651,31 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
     has_left_georef  = false;
     has_right_georef = false;
   }
-
+  
   return false; // don't exit early
 }
 
-void StereoSession::read_bathy_masks(ImageViewRef< PixelMask<float> > const& left_masked_image,
-                                     ImageViewRef< PixelMask<float> > const& right_masked_image,
-                                     float & left_bathy_nodata, 
-                                     float & right_bathy_nodata, 
-                                     vw::ImageViewRef< vw::PixelMask<float> > & left_bathy_mask,
-                                     vw::ImageViewRef< vw::PixelMask<float> > & right_bathy_mask) {
+void StereoSession::read_bathy_masks
+(ImageViewRef<vw::PixelMask<float>> const& left_masked_image,
+ ImageViewRef<vw::PixelMask<float>> const& right_masked_image,
+ float & left_bathy_nodata, 
+ float & right_bathy_nodata, 
+ vw::ImageViewRef<vw::PixelMask<float>> & left_bathy_mask,
+ vw::ImageViewRef<vw::PixelMask<float>> & right_bathy_mask) {
 
   std::string left_cropped_mask_file = left_cropped_bathy_mask();
   left_bathy_nodata = -std::numeric_limits<float>::max();
   if (!vw::read_nodata_val(left_cropped_mask_file, left_bathy_nodata))
-    vw_throw(ArgumentErr() << "Unable to read the nodata value from " << left_cropped_mask_file);
+    vw_throw(ArgumentErr() << "Unable to read the nodata value from "
+             << left_cropped_mask_file);
   left_bathy_mask = create_mask(DiskImageView<float>(left_cropped_mask_file),
                                 left_bathy_nodata);
 
   std::string right_cropped_mask_file = right_cropped_bathy_mask();
   right_bathy_nodata = -std::numeric_limits<float>::max();
   if (!vw::read_nodata_val(right_cropped_mask_file, right_bathy_nodata))
-    vw_throw(ArgumentErr() << "Unable to read the nodata value from " << right_cropped_mask_file);
+    vw_throw(ArgumentErr() << "Unable to read the nodata value from "
+             << right_cropped_mask_file);
   right_bathy_mask = create_mask(DiskImageView<float>(right_cropped_mask_file),
                                 right_bathy_nodata);
   
@@ -678,20 +692,22 @@ void StereoSession::read_bathy_masks(ImageViewRef< PixelMask<float> > const& lef
 }
 
 void StereoSession::read_aligned_bathy_masks
-(vw::ImageViewRef< vw::PixelMask<float> > & left_aligned_bathy_mask_image,
- vw::ImageViewRef< vw::PixelMask<float> > & right_aligned_bathy_mask_image) {
+(vw::ImageViewRef<vw::PixelMask<float>> & left_aligned_bathy_mask_image,
+ vw::ImageViewRef<vw::PixelMask<float>> & right_aligned_bathy_mask_image) {
 
   std::string left_aligned_mask_file = left_aligned_bathy_mask();
   float left_bathy_nodata = -std::numeric_limits<float>::max();
   if (!vw::read_nodata_val(left_aligned_mask_file, left_bathy_nodata))
-    vw_throw(ArgumentErr() << "Unable to read the nodata value from " << left_aligned_mask_file);
+    vw_throw(ArgumentErr() << "Unable to read the nodata value from "
+             << left_aligned_mask_file);
   left_aligned_bathy_mask_image = create_mask(DiskImageView<float>(left_aligned_mask_file),
                                               left_bathy_nodata);
   
   std::string right_aligned_mask_file = right_aligned_bathy_mask();
   float right_bathy_nodata = -std::numeric_limits<float>::max();
   if (!vw::read_nodata_val(right_aligned_mask_file, right_bathy_nodata))
-    vw_throw(ArgumentErr() << "Unable to read the nodata value from " << right_aligned_mask_file);
+    vw_throw(ArgumentErr() << "Unable to read the nodata value from "
+             << right_aligned_mask_file);
   right_aligned_bathy_mask_image = create_mask(DiskImageView<float>(right_aligned_mask_file),
                                 right_bathy_nodata);
 }

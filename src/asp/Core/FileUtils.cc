@@ -29,7 +29,7 @@ namespace asp{
     if (!boost::filesystem::exists(test_file))
       return false;
     std::time_t test_time = boost::filesystem::last_write_time(test_file);
-    for (size_t i=0; i<other_files.size(); ++i) {
+    for (size_t i = 0; i < other_files.size(); i++) {
       if (other_files[i] == "") // Ignore blank files that were passed in.
         continue;
       if (!boost::filesystem::exists(other_files[i]))

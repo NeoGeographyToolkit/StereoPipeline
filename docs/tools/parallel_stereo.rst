@@ -71,7 +71,7 @@ Step 0 (Preprocessing)
     program is designed to reject outlier interest points. This stage
     writes out the pre-aligned images and the image masks. It also 
     computes the convergence angle for this stereo pair (for
-    non-mapprojected images and with aligment method ``homography``,
+    non-mapprojected images and with alignment method ``homography``,
     ``affineepipolar``, or ``local_epipolar``).
 
 Step 1 (Stereo correlation)
@@ -101,6 +101,12 @@ Step 5 (Triangulation)
     Runs ``stereo_tri``. Generates a 3D triangulated point cloud from
     the disparity map by intersecting rays traced from the cameras.
 
+It is important to note that since ``parallel_stereo`` can use a lot
+of computational and storage resources, all the intermediate data up
+to but not including triangulation can often be reused, if only the camera
+adjustments change (:numref:`ba_pc_align`). Such reuse is discussed in
+:numref:`bathy_reuse_run` (in the context of stereo with shallow
+water).
 
 .. _parallel_stereo_options:
 

@@ -590,8 +590,8 @@ if __name__ == '__main__':
     # Python does not know how to disambiguate between two
     # options which start with a similar prefix.
     if '--threads' in sys.argv:
-        print("Ignoring the option --threads. Please use --threads-multi-process " + \
-              "and --threads-single-process.")
+        print("Ignoring the option --threads. Please use --threads-multiprocess " + \
+              "and --threads-singleprocess.")
         wipe_option(sys.argv, '--threads', 1)
 
     p = argparse.ArgumentParser(usage=usage)

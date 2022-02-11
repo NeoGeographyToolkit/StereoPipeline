@@ -756,12 +756,14 @@ void stereo_triangulation(std::string const& output_prefix,
     Vector3 cloud_center = Vector3();
     if (!stereo_settings().save_double_precision_point_cloud){
       std::string cloud_center_file = output_prefix + "-PC-center.txt";
-      
       if (!read_point(cloud_center_file, cloud_center) || crop_left || crop_right){
         if (!stereo_settings().skip_point_cloud_center_comp) {
           cloud_center = find_point_cloud_center(opt_vec[0].raster_tile_size, point_cloud);
+          vw_out() << "Writing point cloud center: " << cloud_center_file << std::endl;
           write_point(cloud_center_file, cloud_center);
         }
+      } else {
+        vw_out() << "Reading existing point cloud center: " << cloud_center_file << std::endl;
       }
     }
     if (stereo_settings().compute_point_cloud_center_only){

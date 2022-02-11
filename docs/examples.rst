@@ -2546,8 +2546,10 @@ Software considerations
 
 ASP supports the bathymetry mode only with the ``dg``, ``rpc``, and
 ``nadirpinhole`` sessions, so with Digital Globe linescan cameras, RPC
-cameras, and pinhole cameras, all for Earth. Both raw and mapprojected
-images can be used, with or without bundle adjustment.
+cameras, and pinhole cameras (:numref:`bathy_non_dg`), all for
+Earth. Both raw and mapprojected images can be used
+(:numref:`bathy_map`), with or without bundle adjustment or alignment
+(:numref:`bathy_and_align`).
 
 Physics considerations
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -2595,10 +2597,12 @@ sample pixels in ``stereo_gui`` over the water region, with the pixel
 of the largest value declared as the threshold. How to do this is
 described in :numref:`thresh`.
 
-ASP provides two tools for finding the threshold in automated way based
-on histogram analysis. One is ``bathy_threshold_calc.py`` (:numref:`bathy_threshold_calc`),
-and the second one is ``otsu_threshold`` (:numref:`otsu_threshold`). 
-This last tool produces a somewhat higher threshold compared to the other one. 
+ASP provides two tools for finding the threshold in automated way
+based on histogram analysis. One is ``bathy_threshold_calc.py``
+(:numref:`bathy_threshold_calc`), and the second one is
+``otsu_threshold`` (:numref:`otsu_threshold`). This last tool produces
+a somewhat higher threshold compared to the other one, but in practice
+the results with both approaches are very similar.
 
 The ``bathy_threshold_calc.py`` program works based on the observation
 that, since in such an image the water appears darker than the land,
@@ -2814,14 +2818,29 @@ Care must be taken when doing stereo with images acquired at a different
 times as the illumination may be too different. A good convergence
 angle is also expected (:numref:`stereo_pairs`).
 
+.. _bathy_reuse_run:
+
 How to reuse most of a run
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Stereo can take a long time, and the results can have a large size on
-disk. It is possible to reuse most of such a run if camera adjustments,
-water surfaces, or land-water masks change, with some care.
+disk. It is possible to reuse most of such a run if camera adjustments
+(``--bundle-adjust-prefix``) get added, removed, or change, or if the
+water surface (``--bathy-plane``) or index of refraction
+change. However, reuse is not possible if desired to add or change
+the water-land masks (``--left-bathy-mask`` and
+``--right-bathy-mask``), but it is possible to stop using these (so if
+no longer doing bathymetry).
 
-For example, consider the run as earlier in this document,
+One must not use ``--left-image-crop-win`` and
+``--right-image-crop-win``, as that may invalidate the intermediate
+files we want to reuse. The approach outlined below will not work with
+pinhole cameras and epipolar alignment, or with mapprojected
+images. (Note that with Digital Globe non-mapprojected images the
+alignment method is ``affineepipolar``, ``homography``, or
+``local_epipolar``, so the case of epipolar alignment does not occur.)
+
+As an example, consider the run as earlier in this document,
 using land-water masks::
 
     parallel_stereo -t dg left.tif right.tif left.xml right.xml       \
@@ -2829,16 +2848,20 @@ using land-water masks::
     --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
     run_bathy/run 
  
-If a second run is desired, and, for the moment, with the same masks,
-one can get away by simply re-running the triangulation component of
-``parallel_stereo`` (:numref:`entrypoints`), while cloning some results
-of previous steps via symbolic links. That goes as follows::
+If a second run is desired, with the same land-water masks (or no
+masks), one can get away by simply re-running the triangulation
+component of ``parallel_stereo`` (:numref:`entrypoints`), while
+cloning some results of previous steps via symbolic links. That goes
+as follows::
 
     currDir=run_bathy 
     newDir=run_v2
     mkdir -p $newDir
-    rm -fv $newDir/* # ensure it is clean
-    for f in L.tif run-R.tif F.tif .exr bathy_mask.tif; do 
+    for f in $newDir/*; do
+      rm -fv $f # ensure the directory is empty
+    done
+    for f in L.tif R.tif F.tif .exr .match stats.tif \
+      Mask.tif bathy_mask.tif; do 
       for g in $(ls $currDir/*$f); do
         ln -s $(pwd)/$g $newDir
       done
@@ -2860,10 +2883,6 @@ The ``touch`` command was used to update the modification times of all
 the files, so that the tools assume them be "fresh" enough to not need
 recreating.
 
-One must not use ``--left-image-crop-win`` and
-``--right-image-crop-win`` with ``parallel_stereo``, as that may
-invalidate the intermediate files we want to reuse.
-
 Then, a new run can go as::
 
     parallel_stereo -t dg left.tif right.tif left.xml right.xml       \
@@ -2872,40 +2891,14 @@ Then, a new run can go as::
     --bundle-adjust-prefix ba_v2/run                                  \
     $newDir/run --entry-point 5
 
-The only things that must be preserved among the inputs are the
-images, cameras, and bathy masks. The bathy masks need not be
-specified now, if desired, but they can't be changed or added (these
-cases are handled below). The bundle adjustment prefix can be added,
-removed, or changed, (say after new ``bundle_adjust`` and/or
-``pc_align`` operations are applied, per
-:numref:`bathy_and_align`). The index of refraction can be changed,
-and also what is in ``--bathy-plane``.
- 
 Then, just triangulation gets redone, which is ``--entry-point 5``.
 
-If it is desired to change or add bathy masks, note that alignment of
-these masks is handled in step 0 of ``parallel_stereo``, so that one
-needs to be redone after the earlier cloning::
+The explanation behind the shortcut employed above is that the precise
+cameras and the bathy info are fully used only at the triangulation
+stage. The preprocessing step (step 0), mostly does alignment, for
+which some general knowledge of the cameras is sufficient.
 
-    rm -fv $newDir/*bathy_mask*
-    touch $currDir/* $newDir/*
-    parallel_stereo --entry-point 0 --stop-point 1 \
-      <the rest of the new run options>
-
-This step is expected to process only the new bathy masks, without
-changing existing ``L.tif``, ``align-L.exr``, etc. Hence one must not
-use ``--left-image-crop-win`` and ``--right-image-crop-win``, as
-mentioned above.
-
-With newly aligned bathy masks, one can, as before, run
-``parallel_stereo`` starting with ``--entry-point 5``.
-
-The explanation behind these shortcuts employed above is that the
-precise cameras and the bathy info are fully used only at the
-triangulation stage. The preprocessing step (step 0), mostly does
-alignment, for which some general knowledge of the cameras is
-sufficient, and the other stereo steps before triangulation do not use
-cameras or bathy-related knowledge.
+.. _bathy_map:
 
 Bathymetry correction with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2978,8 +2971,8 @@ the PAN image, do:
 
   gdalinfo image.tif | grep Size
 
-Then, one has to crop 50 columns from the left and right sides, which
-can be accomplished, for example, as:
+Then, one has to crop 50 columns from the left and right sides of an
+image, which can be accomplished, for example, as:
 
 ::
 
@@ -2989,19 +2982,21 @@ can be accomplished, for example, as:
 
 Some calculation is needed to get the above four numbers passed to
 ``-srcwin``.  They represent the starting column and row of the crop,
-and its width and height (from left to right). The PAN image and the
+and its width and height. The PAN image and the
 magnified mask hopefully have the same heights, though for a different
 image collection that height may not be 29072, so that will need to be
 adjusted for any specific dataset. The width of the magnified mask
 image should be 35280, and above we used 100 less than this value.
 
-The above flow was tested for WV-2, and for other sensors adjustments
+Ths workflow was tested for WV-2, and for other sensors adjustments
 may be needed.
 
 The result of this command must be a mask image which has precisely
 the same dimensions as the PAN image, and the two must agree perfectly 
 (with no offsets) if they are drawn on top of each other in
 ``stereo_gui`` in the ``View->Single window`` mode.
+
+.. _bathy_non_dg:
 
 Using non-Digital Globe images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
