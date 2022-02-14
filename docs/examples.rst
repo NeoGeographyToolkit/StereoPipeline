@@ -2714,10 +2714,11 @@ Having these in place, stereo can then happen as follows:
 
 ::
 
-    parallel_stereo -t dg left.tif right.tif left.xml right.xml       \
-    --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
-    --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
-    run_bathy/run 
+    parallel_stereo -t dg left.tif right.tif left.xml right.xml \
+      --left-bathy-mask left_mask.tif                           \
+      --right-bathy-mask right_mask.tif                         \
+      --refraction-index 1.34 --bathy-plane bathy_plane.txt     \
+      run_bathy/run 
  
 Here we specified the two masks, the water index of refraction, and
 the water plane found before.
@@ -2786,9 +2787,21 @@ exists, and then the produced DEMs should be aligned to that dataset.
 Only the "topo" component of a DEM obtained with ASP should be used
 for alignment (see ``--output-cloud-type``), that is, the part above
 water, as the part under water can be quite variable given the water
-level. Then the alignment transform can be applied to the full DEM as
-detailed in :numref:`prevtrans`.  The input cameras can be aligned
-using the same transform (:numref:`ba_pc_align`).
+level. Here's an example, just the triangulation stage processing
+needs modification::
+
+    parallel_stereo -t dg left.tif right.tif left.xml right.xml \
+      <other options>                                           \
+      --entry-point 5 --output-cloud-type topo                  \
+        run_bathy/run
+   point2dem run_bathy/run-PC.tif -o run_bathy/run-topo
+
+which will create ``run_bathy/run-topo-DEM.tif``.
+
+Then the alignment transform can be applied to the full DEM (obtained
+at triangulation stage with ``--output-cloud-type all``) as detailed
+in :numref:`prevtrans`.  The input cameras can be aligned using the
+same transform (:numref:`ba_pc_align`).
 
 When the water surface is determined using a DEM, a mask of the image
 portion above water, and corresponding camera, and the cameras have
@@ -2873,14 +2886,14 @@ particular, we exclude any PC and DEM files that we want to
 recreate. This can be a fragile operation, and some examination
 of what is produced in the new directory is necessary. One may also
 cross-check with :numref:`outputfiles` for what files stereo needs.
-Normally at triangulation stage only ``F.tif`` is needed and some
+Normally at the triangulation stage only ``F.tif`` is needed and some
 results from preprocessing.
 
 Since the new files are symbolic links, the data in the existing run
 should not be removed.
 
 The ``touch`` command was used to update the modification times of all
-the files, so that the tools assume them be "fresh" enough to not need
+the files, so that the tools assume them to be "fresh" enough to not need
 recreating.
 
 Then, a new run can go as::
@@ -2897,7 +2910,7 @@ The explanation behind the shortcut employed above is that the precise
 cameras and the bathy info are fully used only at the triangulation
 stage. The preprocessing step (step 0), mostly does alignment, for
 which some general knowledge of the cameras and bathy information is
-sufficient. But the alignment of land-water masks happen at the
+sufficient. But the alignment of land-water masks happens at the
 preprocessing stage, and that is why one cannot change these at the
 triangulation step.
 
@@ -2950,7 +2963,7 @@ Using Digital Globe PAN images
 
 The bathymetry mode can be used with Digital Globe PAN images as well,
 though likely the water bottom may not be as transparent in this case
-as for the green band.
+as for the Green band.
 
 Yet, if desired to do so, a modification is necessary if the mask
 for pixels above water is obtained not from the PAN image itself,

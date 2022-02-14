@@ -49,10 +49,23 @@ follows::
     image_calc -c "max($thresh, var_0)" --output-nodata-value $thresh \
       image.tif -o mask.tif
 
-It is important that the image be raw, not projected, and if the image
+The image must be raw, not projected, and if the image
 is part of a stereo pair, the corresponding camera for that image be
-used. In particular, since the image is multispectral, the camera must
+used. In particular, if the image is multispectral, the camera must
 be for this dataset, not for the PAN one.
+
+For the DEM, it is suggested to use the one obtained from PAN images,
+as it is more accurate, or otherwise from the Green band images. 
+The NIR1 band is good for finding the masks, as the water is dark in them,
+but the DEM with NIR1 images may not be that accurate to use here.
+
+It is important to decide carefully what outlier threshold to use and
+to check the number of resulting inliers. If too few, that may mean
+that the outlier threshold is too strict. Above, the inliers are saved
+as a shapefile and can be inspected. The inliers should be
+well-distributed over the entire shoreline.
+
+For some datasets an outlier threshold of 1.0 works better than 0.5.
 
 For a stereo pair, this tool can be run done with both the left image
 and left camera, then separately for the right image and right camera.
@@ -90,12 +103,6 @@ horizontal in local coordinates and the value of ``-d/c`` gives its
 height above the datum (The small deviation from the horizontal may be
 due to the orientations of the satellites taking the pictures not
 being perfectly known.)
-
-It is important to decide carefully what outlier threshold to use and
-to check the number of resulting inliers. If too few, that may mean
-that the outlier threshold is too strict. Above, the inliers are saved
-as a shapefile and can be inspected. The inliers should be
-well-distributed over the entire shoreline.
 
 Handling adjusted cameras and alignment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -274,7 +281,8 @@ Command-line options for bathy_plane_calc
     A value, in meters, to determine the distance from a sampled point
     on the DEM to the best-fit plane to determine if it will be marked as 
     outlier and not included in the calculation of that plane. The default
-    is 0.2.
+    is 0.5. Its value should be roughly the expected vertical uncertainty
+    of the DEM.
 
 --num-ransac-iterations <integer>
     Number of RANSAC iterations to use to find the best-fitting plane.

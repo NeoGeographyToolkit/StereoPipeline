@@ -384,7 +384,8 @@ Example for ISIS images
    map-projected images (right). Their quality will be comparable for
    relatively flat terrain and the second will be much better for rugged
    terrain. The right image has some artifacts, but those are limited to
-   areas close to the boundary.
+   areas close to the boundary. Things can be further improved with
+   the ``asp_mgm`` algorithm (:numref:`running-stereo`).
 
 In this example we illustrate how to run stereo with map-projected
 images for ISIS data. We start with LRO NAC Lunar images M1121224102LE
@@ -600,7 +601,7 @@ Multi-view stereo
 
 ASP supports multi-view stereo at the triangulation stage. This mode is
 somewhat experimental, and not used widely. We have obtained higher
-quality results by doing pairwise stereo and merging the result, as
+quality results by doing pairwise stereo and merging the results, as
 described later on in this section.
 
 In the multiview scenario, the first image is set as reference,
