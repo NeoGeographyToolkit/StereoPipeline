@@ -5,7 +5,7 @@ Experimental features
 
 .. _jitter:
 
-Managing Camera Jitter
+Managing camera jitter
 ----------------------
 
 In this section we will talk about big source of inaccuracies in
