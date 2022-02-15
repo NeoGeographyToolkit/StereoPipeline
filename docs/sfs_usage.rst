@@ -216,7 +216,8 @@ necessary to obtain a good stereo result.
       --threads 16 --corr-seed-mode 1  --subpixel-mode 3            \
       run_full1/run
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices,
+and :numref:`mapproj-example` about handling artifacts in steep terrain.
 
 Next we create a DEM at 1 meter/pixel, which is about the resolution of
 the input images. We use the stereographic projection since this dataset
@@ -323,11 +324,13 @@ have sufficiently different illumination, as it will not be able to
 find matches among images. A solution to this is discussed in
 :numref:`sfs-lola-comparison`, and it amounts to bridging the gap
 between images with dis-similar illumination with more images of
-intermediate illumination. It is suggested that these images be sorted
-by Sun azimuth angle (see :numref:`sfs-lola-dem`), then they should be
-mapprojected, and visual inspection be used to verify that the
-illumination is changing gradually. The bundle adjustment program
-should be invoked with the images sorted this way.
+intermediate illumination. 
+
+It is strongly suggested that, when doing bundle adjustment, the
+images should be specified in the order given by Sun azimuth angle
+(see :numref:`sfs-lola-dem`). The images should also be mapprojected
+and visualized (in the same order), to verify that the illumination is
+changing gradually.
 
 To make bundle adjustment and stereo faster, we first crop the images,
 such as shown below (the crop parameters can be determined via
@@ -355,7 +358,13 @@ Then we bundle-adjust and run parallel_stereo
     parallel_stereo A_crop.cub B_crop.cub run_full2/run       \
       --subpixel-mode 3 --bundle-adjust-prefix run_ba/run
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
+One can consider using the stereo option ``--nodata-value``
+(:numref:`stereodefault`) to mask away shadowed regions, which may
+result in more holes but less noise in the terrain created from
+stereo.
+
+See :numref:`nextsteps` for a discussion about various speed-vs-quality choices,
+and :numref:`mapproj-example` about handling artifacts in steep terrain.
 
 This will result in a point cloud, ``run_full2/run-PC.tif``, which
 will lead us to the “ground truth” DEM. As mentioned before,
@@ -532,6 +541,11 @@ Bundle adjustment is not done at this stage yet::
       run_stereo_noba_sub4/run --subpixel-mode 3
     point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003 \
       run_stereo_noba_sub4/run-PC.tif --tr 4 
+
+One can consider using the stereo option ``--nodata-value``
+(:numref:`stereodefault`) to mask away shadowed regions, which may
+result in more holes but less noise in the terrain created from
+stereo.
 
 We would like now to automatically or manually pick interest points
 for the purpose of doing bundle adjustment. It much easier to compute
@@ -842,11 +856,12 @@ Consider using here CSM models instead of ISIS models, as mentioned in
 :numref:`sfs_isis_vs_csm`.
 
 The ``parallel_bundle_adjust`` tool is employed to co-register the images
-and correct camera errors.
+and correct camera errors. The images should be, as mentined earlier,
+ordered by Sun azimuth angle.
 
 ::
 
-    parallel_bundle_adjust --processes 8 --ip-per-tile 1000  \
+    parallel_bundle_adjust --processes 8 --ip-per-tile 400   \
       --overlap-limit 30 --num-iterations 100 --num-passes 2 \
       --min-matches 1 --max-pairwise-matches 1000            \
       --datum D_MOON <images>                                \
@@ -866,11 +881,12 @@ enough matches among any two images. A higher value here will make bundle
 adjustment run slower.
 
 It is very important to have a lot of images during bundle adjustment,
-to ensure that there are enough overlaps and sufficiently similar
-illumination conditions among them for bundle adjustment to
-succeed. Later, just a subset can be used for shape-from-shading, enough
-to cover the entire region, preferable with multiple illumination
-conditions at each location.
+and that they are sorted by illumination (Sun azimuth) to ensure that
+there are enough overlaps and sufficiently similar illumination
+conditions among them for bundle adjustment to succeed. Later, just a
+subset can be used for shape-from-shading, enough to cover the entire
+region, preferable with multiple illumination conditions at each
+location.
 
 Towards the poles the Sun may describe a full loop in the sky, and
 hence the earliest images (sorted by azimuth) may become similar to
