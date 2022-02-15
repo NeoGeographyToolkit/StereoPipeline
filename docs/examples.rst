@@ -2765,10 +2765,9 @@ the output point cloud may be converted to LAS, etc.
 Performing sanity checks on a bathy run
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The results produced with the stereo bathymetry mode need careful
+The results produced with the bathymetry mode for stereo need careful
 validation. Here we will show how to examine if the water-land
-boundary and corresponding water surface determination were found
-correctly.
+boundary and corresponding water surface were found correctly.
 
 Before that, it is important to note that such runs can take a long
 time, and one should to try to first perform a bathymetry experiment
