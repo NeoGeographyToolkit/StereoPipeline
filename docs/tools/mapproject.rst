@@ -15,7 +15,7 @@ into tiles, distributes the tiles to sub-processes, and then merges
 the tiles into the requested output image. If the input image is small
 but takes a while to process, smaller tiles can be used to
 start more simultaneous processes (use the parameters ``--tile-size``
-and ``--num-processes``).
+and ``--processes``).
 
 It is important to note that processing more tiles at a time may
 actually slow things down, if all processes write to the same disk and
@@ -122,8 +122,12 @@ Command-line options for mapproject:
     ``VAR1=VALUE1 VAR2=VALUE2``.  Neither the variable names nor
     the values should contain spaces.
 
+--processes <integer>
+    Number of processes to use on each node (the default is for the
+    program to choose).
+
 --num-processes <integer>
-    Number of parallel processes to use (default program chooses).
+    Same as --processes. Used for backwards compatibility.
 
 --nodes-list
     List of available computing nodes.
@@ -144,7 +148,7 @@ Command-line options for mapproject:
 --suppress-output
     Suppress output from sub-processes.
 
---threads <int (default: 0)>
+--threads <int (default: 8)>
     Select the number of processors (threads) to use.
 
 --no-bigtiff

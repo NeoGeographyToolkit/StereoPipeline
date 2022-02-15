@@ -352,7 +352,7 @@ void calc_target_geom(// Inputs
   //   This is in a unit defined by dem_georef and also might not be meters.
   // - This call WILL intersect pixels outside the dem valid area!
   // - TODO: Modify this function to optionally disable intersection outside the DEM
-  float auto_res;
+  float auto_res = -1.0;  // will be updated
   bool quick = datum_dem; // The non-quick option does not make sense with huge DEMs.
   try {
     cam_box = camera_bbox(dem, dem_georef,

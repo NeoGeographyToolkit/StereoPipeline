@@ -269,18 +269,24 @@ def main(argsIn):
     version = baseHelp[vStart:vEnd]
     baseHelpText = baseHelp[vEnd:]
 
-    # Use parser that ignores unknown options
-    usage  = "mapproject [options] <dem> <camera-image> <camera-model> <output-image>\nInstead of the DEM file, a datum can be provided, such as\nWGS84, NAD83, NAD27, D_MOON, D_MARS, and MOLA."
+    # Use a parser that ignores unknown options. Those will be passed to mapproject_single.
+    usage  = "mapproject [options] <dem> <camera-image> <camera-model> <output-image>\n" + \
+             "Instead of the DEM file, a datum can be provided, such as\n" + \
+             "WGS84, NAD83, NAD27, D_MOON, D_MARS, and MOLA."
     parser = argparse.ArgumentParser(usage=usage, epilog=baseHelpText,
                                      formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument("--num-processes",  dest="numProcesses", type=int, default=None,
-                        help="Number of processes per machine to use (default: program tries to choose best)")
+    parser.add_argument("--processes",  dest="numProcesses", type=int, default=None,
+                        help="Number of processes to use on each node (the default is for the " + \
+                        "program to choose).")
+
+    parser.add_argument("--num-processes",  dest="numProcesses2", type=int, default=None,
+                        help="Same as --processes. Used for backwards compatibility.")
 
     parser.add_argument('--nodes-list',  dest='nodesListPath', default=None,
-                                         help='The list of computing nodes, one per line. ' + \
-                                         'If not provided, run on the local machine.')
-
+                        help='The list of computing nodes, one per line. ' + \
+                        'If not provided, run on the local machine.')
+    
     parser.add_argument('--tile-size',  dest='tileSize', default=None, type=int,
                         help = 'Size of square tiles to break up processing up into. '          + \
                         'Each tile is run by an individual process. '                           + \
@@ -461,6 +467,13 @@ def main(argsIn):
 
     processesPerCpu = 1
 
+    # Handle the situation that both --processes and --num-processes can happen
+    if (options.numProcesses is not None) and (options.numProcesses2 is not None):
+        raise Exception("Cannot set both --processes and --num-processes.")
+    if options.numProcesses is None and (options.numProcesses2 is not None):
+        # Copy over --num-processes to --processes
+        options.numProcesses = options.numProcesses2
+    
     # Set the optimal number of processes if the user did not specify
     if not options.numProcesses:
         options.numProcesses = cpusPerNode * processesPerCpu
@@ -488,7 +501,7 @@ def main(argsIn):
                      options.imagePath, options.cameraPath,
                      options.outputPath]
     if '--threads' not in options.extraArgs:
-        commandList = commandList + ['--threads', '2'] # If not specified use a small number of threads per process
+        commandList = commandList + ['--threads', '8'] # If not specified use 8 threads
     if options.convertTiles:
         commandList = commandList + ['--convert-tiles']
     if options.suppressOutput:
