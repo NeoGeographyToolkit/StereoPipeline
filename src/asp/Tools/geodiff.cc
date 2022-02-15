@@ -163,7 +163,7 @@ void dem2dem_diff(Options& opt){
   if (crop_box.empty()) 
     vw_throw(ArgumentErr() << "The two DEMs do not have a common area.\n");
     
-  ImageViewRef<PixelMask<double> > dem2_trans =
+  ImageViewRef<PixelMask<double>> dem2_trans =
     per_pixel_filter(crop(geo_transform
                           (per_pixel_filter(dem_to_geodetic
                                             (create_mask(dem2_disk_image_view, dem2_nodata),

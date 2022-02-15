@@ -33,11 +33,16 @@ would be the same but the cameras would differ::
     cam_test --image input.tif --cam1 in.tsai --cam2 out.tsai \
       --session1 pinhole --session2 pinhole
 
-Example (Evaluate a CSM camera against itself, with no image file; the
-image dimensions are contained in the camera file):
+In the following example we evaluate a CSM camera against itself, with
+no .cub image file. The image dimensions are contained in the camera
+file. This verifies that the ground-to-image and image-to-ground
+functions are inverse of each other, up to a certain tolerance.
+
+::
 
     cam_test --image input.json --cam1 input.json --cam2 input.json \
-      --session1 csm --session2 csm --sample-rate 100
+      --session1 csm --session2 csm --sample-rate 100               \
+      --subpixel-offset 0.3
 
 Usage::
 
