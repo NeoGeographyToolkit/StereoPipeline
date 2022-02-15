@@ -127,7 +127,7 @@ Command-line options:
 --coarse-levels <integer (default: 0)>
     Solve the problem on a grid coarser than the original by a
     factor of 2 to this power, then refine the solution on finer
-    grids. Experimental. It is suggested to not use this opiton.
+    grids. Experimental. It is suggested to not use this option.
 
 --max-coarse-iterations <integer (default: 10)>
     How many iterations to do at levels of resolution coarser than
@@ -215,8 +215,11 @@ Command-line options:
     the camera position if it is being floated (which may result
     in a better solution or in divergence).
 
---threads <integer (default: 0)>
-    Select the number of processors (threads) to use.
+--threads <integer (default: 8)>
+    How many threads each process should use. This will be changed to 
+    1 for ISIS cameras when ``--use-approx-camera-models`` is not set,
+    as ISIS is single-threaded. Not all parts of the computation
+    benefit from parallelization.
 
 --no-bigtiff
     Tell GDAL to not create bigtiffs.

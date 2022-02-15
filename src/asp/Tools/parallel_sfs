@@ -257,14 +257,21 @@ def main(argsIn):
     parser.add_argument('--padding',  dest='padding', default=50, type=int,
                                         help='How much to expand a tile in each direction. This helps with reducing artifacts in the final mosaicked SfS output.')
 
-    parser.add_argument("--num-processes",  dest="numProcesses", type=int, default=None,
-                                          help="Number of processes to use per machine (the default program tries to choose best).")
+    parser.add_argument("--processes",  dest="numProcesses", type=int, default=None,
+                        help="Number of processes to use on each node (the default is for the " + \
+                        "program to choose).")
+
+    parser.add_argument("--num-processes",  dest="numProcesses2", type=int, default=None,
+                        help="Same as --processes. Used for backwards compatibility.")
 
     parser.add_argument('--nodes-list',  dest='nodesListPath', default=None,
                                         help='A file containing the list of computing nodes, one per line. If not provided, run on the local machine.')
 
-    parser.add_argument('--threads',  dest='threads', default=1, type=int,
-                      help='How many threads each process should use. The sfs executable is single-threaded in most of its execution, so a large number will not help here.')
+    parser.add_argument('--threads',  dest='threads', default=8, type=int,
+                        help='How many threads each process should use. This will be changed to ' + \
+                        '1 for ISIS cameras when --use-approx-camera-models is not set, ' + \
+                        'as ISIS is single-threaded. Not all parts of the computation ' + \
+                        'benefit from parallelization.')
 
     parser.add_argument("--resume", action="store_true", default=False,
                       dest="resume", help="Only run tiles for which the final DEM is missing or invalid.")
@@ -326,6 +333,13 @@ def main(argsIn):
             parser.print_help()
             parser.error("The --resume option cannot be used unless this " + \
                          "tool is invoked to produce a DEM.\n" )
+
+    # Handle the situation that both --processes and --num-processes can happen
+    if (options.numProcesses is not None) and (options.numProcesses2 is not None):
+        raise Exception("Cannot set both --processes and --num-processes.")
+    if options.numProcesses is None and (options.numProcesses2 is not None):
+        # Copy over --num-processes to --processes
+        options.numProcesses = options.numProcesses2
 
     # Set up output folder
     outputFolder = os.path.dirname(options.output_prefix)

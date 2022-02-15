@@ -28,18 +28,22 @@ Command-line options for parallel_sfs:
     How much to expand a tile in each direction. This helps with
     reducing artifacts in the final mosaicked SfS output.
 
+--processes <integer>
+    Number of processes to use on each node (the default is for the
+    program to choose).
+
 --num-processes <integer>
-    Number of processes to use (the default program tries to choose
-    best).
+    Same as ``--processes``. Used for backwards compatibility.
 
 --nodes-list <filename>
     A file containing the list of computing nodes, one per line.
     If not provided, run on the local machine.
 
---threads <integer (default: 1)>
-    How many threads each process should use. The sfs executable
-    is single-threaded in most of its execution, so a large number
-    will not help here.
+--threads <integer (default: 8)>
+    How many threads each process should use. This will be changed to 
+    1 for ISIS cameras when ``--use-approx-camera-models`` is not set 
+    (:numref:`sfs`), as ISIS is single-threaded. Not all parts of the
+    computation benefit from parallelization.
 
 --suppress-output
     Suppress output of sub-calls.

@@ -1058,7 +1058,7 @@ Next, SfS follows::
       --blending-dist 10 --min-blend-size 100 --threads 4            \
       --smoothness-weight 0.08 --initial-dem-constraint-weight 0.001 \
       --reflectance-type 1 --max-iterations 5  --save-sparingly      \
-      --tile-size 200 --padding 50 --num-processes 20                \
+      --tile-size 200 --padding 50 --processes 20                    \
       --nodes-list <machine list>
 
 It was found empirically that a shadow threshold of 0.005 was good
