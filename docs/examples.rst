@@ -2812,7 +2812,7 @@ no bathy information::
       --entry-point 5 run_bathy/run 
     point2dem run_bathy/run-PC.tif -o run_bathy/run-nobathy
     
-Noe that we started by renaming the bathy DEM. The result of these
+Note that we started by renaming the bathy DEM. The result of these
 commands will be ``run_bathy/run-nobathy-DEM.tif``. The differencing
 and colorizing is done as::
 
