@@ -26,13 +26,18 @@ Globe file)::
     cam_test --image input.tif --cam1 input.xml --cam2 input.xml \
       --session1 dg --session2 rpc --sample-rate 1000
 
-
 Evaluate a camera transformed with ``convert_pinhole_model`` 
 (:numref:`convert_pinhole_model`). In this case the session names
 would be the same but the cameras would differ::
 
     cam_test --image input.tif --cam1 in.tsai --cam2 out.tsai \
       --session1 pinhole --session2 pinhole
+
+Example (Evaluate a CSM camera against itself, with no image file; the
+image dimensions are contained in the camera file):
+
+    cam_test --image input.json --cam1 input.json --cam2 input.json \
+      --session1 csm --session2 csm --sample-rate 100
 
 Usage::
 
@@ -58,6 +63,11 @@ Command-line options for cam_test:
 
 --sample-rate <integer (default: 100)>
     Use one out of these many pixels when sampling the image.
+
+--subpixel-offset <double (default: 0)>
+    Add to each integer pixel this offset (in x and y) when sampling
+    the image. Sampling at non-integer location may make testing
+    more thorough.
 
 -h, --help
     Display the help message.

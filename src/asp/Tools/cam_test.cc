@@ -47,6 +47,7 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 struct Options : vw::cartography::GdalWriteOptions {
   std::string image_file, cam1_file, cam2_file, session1, session2;
   int sample_rate; // use one out of these many pixels
+  double subpixel_offset;
   Options() {}
 };
 
@@ -62,7 +63,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("session2", po::value(&opt.session2),
      "Session to use for camera 2 (if not provided it will be guessed).")
     ("sample-rate",   po::value(&opt.sample_rate)->default_value(100),
-     "Use one out of these many pixels when sampling the image.");
+     "Use one out of these many pixels when sampling the image.")
+    ("subpixel-offset",   po::value(&opt.subpixel_offset)->default_value(0.0),
+     "Add to each integer pixel this offset (in x and y) when sampling the image.");
   
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
@@ -143,16 +146,33 @@ int main(int argc, char *argv[]) {
                << "were guessed as: '" << opt.session1 << "'. It is suggested that they be "
                << "explicitly specified using --session1 and --session2.\n");
     
-    // The input image
-    DiskImageView<float> image(opt.image_file);
-    std::cout << "Image dimensions: " << image.cols() << ' ' << image.rows() << std::endl;
+    // Find the input image dimensions
+    int image_cols = 0, image_rows = 0;
+    try {
+      DiskImageView<float> image(opt.image_file);
+      image_cols = image.cols();
+      image_rows = image.rows();
+    } catch(const std::exception& e) {
+      // For CSM-to-CSM ground-to-image and image-to-ground comparisons only,
+      // the camera has the dimensions if the .cub image is missing.
+      asp::CsmModel * csm_model
+        = dynamic_cast<asp::CsmModel*>(vw::camera::unadjusted_model(cam1_model.get()));
+      if (csm_model != NULL) {
+        image_cols = csm_model->get_image_size()[0];
+        image_rows = csm_model->get_image_size()[1];
+      } else {
+        vw::vw_throw(ArgumentErr() << e.what());
+      }
+    }
+    
+    std::cout << "Image dimensions: " << image_cols << ' ' << image_rows << std::endl;
 
     // Iterate over the image
     std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff;
-    for (int col = 0; col < image.cols(); col += opt.sample_rate) {
-      for (int row = 0; row < image.rows(); row += opt.sample_rate) {
+    for (int col = 0; col < image_cols; col += opt.sample_rate) {
+      for (int row = 0; row < image_rows; row += opt.sample_rate) {
 
-        Vector2 image_pix(col, row);
+        Vector2 image_pix(col + opt.subpixel_offset, row + opt.subpixel_offset);
         Vector3 cam1_ctr = cam1_model->camera_center(image_pix);
         Vector3 cam2_ctr = cam2_model->camera_center(image_pix);
         ctr_diff.push_back(norm_2(cam1_ctr - cam2_ctr));
