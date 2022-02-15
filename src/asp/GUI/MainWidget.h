@@ -184,6 +184,7 @@ public slots:
     void pushImageToBottomSlot  (); ///< Show all other images on top of this
     void zoomToImage            (); ///< Zoom to have this image in full view.
     void deleteImage            (); ///< Delete an image from the gui and refresh
+    void changePolyColor        (); ///< Change the color of given set of polygons
     void allowMultipleSelections(); ///< Allow the user to select multiple regions
     void deleteSelection        (); ///< Delete an area selected with the mouse at current point
     void hideImagesNotInRegion  (); ///< Hide images not intersecting a given region 
@@ -278,6 +279,7 @@ public slots:
     QPixmap m_pixmap;
 
     std::string m_polyColor;
+    std::map<int, std::string> m_perImagePolyColor;
     int m_lineWidth;
     
     std::vector<imageData> m_images;
@@ -337,6 +339,7 @@ public slots:
     QAction* m_bringImageOnTopFromTable;
     QAction* m_pushImageToBottomFromTable;
     QAction* m_deleteImage;
+    QAction* m_changePolyColor;
     QAction* m_allowMultipleSelections_action;
     QAction* m_deleteSelection;
     QAction* m_hideImagesNotInRegion;

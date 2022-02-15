@@ -120,13 +120,16 @@ int main(int argc, char** argv) {
     std::vector<std::string> images;
 
     // First try to parse a regular stereo command
+    // TODO(oalexan1): This will choke on parallel_stereo commands!
     try {
 
-      // If we found a match file, go right to displaying images 
+      // If we found .vwip/.match/.shp files, go right to displaying images 
       for (int it = 1; it < argc; it++) {
-        if (get_extension(argv[it]) == ".match") {
+        if (get_extension(argv[it]) == ".vwip"  ||
+            get_extension(argv[it]) == ".match" ||
+            get_extension(argv[it]) == ".shp"   ) {
           // This error will be quiet
-          vw_throw(ArgumentErr() << "Found an unexpected match file.\n");
+          vw_throw(ArgumentErr() << "Found an unexpected file.\n");
         }
       }
       

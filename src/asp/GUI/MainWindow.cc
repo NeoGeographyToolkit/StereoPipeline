@@ -125,7 +125,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
     // Accept shape files along image files
     if (!is_image && !asp::has_shp_extension(images[i]))
       continue;
-    
+
     m_image_files.push_back(images[i]);
   }
 
@@ -541,9 +541,9 @@ void MainWindow::createMenus() {
   m_setLineWidth_action->setStatusTip(tr("Set line width"));
   connect(m_setLineWidth_action, SIGNAL(triggered()), this, SLOT(setLineWidth()));
 
-  // Set poly color
-  m_setPolyColor_action = new QAction(tr("Set poly color"), this);
-  m_setPolyColor_action->setStatusTip(tr("Set poly color"));
+  // Set color of polygons
+  m_setPolyColor_action = new QAction(tr("Set color of polygons"), this);
+  m_setPolyColor_action->setStatusTip(tr("Set color of polygons"));
   connect(m_setPolyColor_action, SIGNAL(triggered()), this, SLOT(setPolyColor()));
 
   // Contour image
@@ -1110,6 +1110,10 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
   // Wipe pre-existing left-image-crop-win and right-image-crop-win
   rm_option_and_vals(m_argc, m_argv, "--left-image-crop-win", 4);
   rm_option_and_vals(m_argc, m_argv, "--right-image-crop-win", 4);
+
+  // Wipe the stereo_gui --window-size option, has no use for 
+  // batch stereo.
+  rm_option_and_vals(m_argc, m_argv, "--window-size", 2);
 
   // Add the options
   for (int i = 1; i < m_argc; i++) {
