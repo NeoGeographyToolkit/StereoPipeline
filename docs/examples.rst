@@ -2760,6 +2760,74 @@ map-projected, and then a DEM is expected, stereo may happen only in
 certain regions as chosen in the GUI, bundle adjustment may be used,
 the output point cloud may be converted to LAS, etc. 
 
+.. _bathy_validation:
+
+Performing sanity checks on a bathy run
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The results produced with the stereo bathymetry mode need careful
+validation. Here we will show how to examine if the water-land
+boundary and corresponding water surface determination were found
+correctly.
+
+Before that, it is important to note that such runs can take a long
+time, and one should to try to first perform a bathymetry experiment
+in a carefully chosen small area by running ``stereo_gui`` instead of
+``parallel_stereo``, while keeping the rest of the bathy options as
+above, and then selecting clips in the left and right images with the
+mouse to run ``parallel_stereo`` on. See :numref:`stereo_gui` for more
+info.
+
+If the ``bathy_plane_calc`` is run with the option::
+
+    --output-inlier-shapefile inliers.shp
+
+it will produce a shapefile for the inliers.
+
+Create an orthoimage from the aligned bathy mask, for example,
+such as::
+
+    point2dem --no-dem run_bathy/run-PC.tif                \
+      --orthoimage run_bathy/run-L_aligned_bathy_mask.tif  \
+      -o run_bathy/run-bathy_mask
+
+This should create ``run_bathy/run-bathy_mask-DRG.tif``.
+
+This should be overlayed in ``stereo_gui`` on top of the inliers
+from the bathy plane calculation, as::
+
+    stereo_gui --single-window --use-georef inliers.shp    \
+      run_bathy/run-bathy_mask-DRG.tif
+
+The inliers should be well-distributed on the land-water interface
+as shown by the mask.
+
+To verify that the water surface was found correctly, one can
+create a DEM with no bathymetry correction, subtract from that one the
+DEM with bathymetry correction, and colorize the result. This can be
+done by redoing the triangulation in the previous run, this time with
+no bathy information::
+
+    mv run_bathy/run-DEM.tif run_bathy/run-yesbathy-DEM.tif
+    parallel_stereo -t dg left.tif right.tif left.xml right.xml \
+      --entry-point 5 run_bathy/run 
+    point2dem run_bathy/run-PC.tif -o run_bathy/run-nobathy
+    
+Noe that we started by renaming the bathy DEM. The result of these
+commands will be ``run_bathy/run-nobathy-DEM.tif``. The differencing
+and colorizing is done as::
+
+    geodiff run_bathy/run-nobathy-DEM.tif             \
+      run_bathy/run-yesbathy-DEM.tif -o run_bathy/run
+   colormap --min 0 --max 1 run_bathy/run-diff.tif
+
+The obtained file, ``run_bathy/run-diff_CMAP.tif``, can be added to
+the ``stereo_gui`` command from above. Colors hotter than blue will be
+suggestive of how much the depth elevation changed as result of
+bathymetry correction. It is hoped that no changes will be seen on
+land, and that the inliers bound well the region where change of depth
+happened.
+
 .. _bathy_and_align:
 
 Bathymetry correction and alignment
