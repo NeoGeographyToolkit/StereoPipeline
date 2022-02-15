@@ -2770,7 +2770,7 @@ validation. Here we will show how to examine if the water-land
 boundary and corresponding water surface were found correctly.
 
 Before that, it is important to note that such runs can take a long
-time, and one should to try to first perform a bathymetry experiment
+time, and one should try to first perform a bathymetry experiment
 in a carefully chosen small area by running ``stereo_gui`` instead of
 ``parallel_stereo``, while keeping the rest of the bathy options as
 above, and then selecting clips in the left and right images with the
@@ -2854,8 +2854,8 @@ exists, and then the produced DEMs should be aligned to that dataset.
 Only the "topo" component of a DEM obtained with ASP should be used
 for alignment (see ``--output-cloud-type``), that is, the part above
 water, as the part under water can be quite variable given the water
-level. Here's an example, just the triangulation stage processing
-needs modification::
+level. Here's an example for creating the "topo" DEM, just the
+triangulation stage processing needs modification::
 
     parallel_stereo -t dg left.tif right.tif left.xml right.xml \
       <other options>                                           \
@@ -2865,10 +2865,11 @@ needs modification::
 
 which will create ``run_bathy/run-topo-DEM.tif``.
 
-Then the alignment transform can be applied to the full DEM (obtained
-at triangulation stage with ``--output-cloud-type all``) as detailed
-in :numref:`prevtrans`.  The input cameras can be aligned using the
-same transform (:numref:`ba_pc_align`).
+Then, after the "topo" DEM is aligned, the alignment transform can be
+applied to the full DEM (obtained at triangulation stage with
+``--output-cloud-type all``), as detailed in :numref:`prevtrans`. The
+input cameras can be aligned using the same transform
+(:numref:`ba_pc_align`).
 
 When the water surface is determined using a DEM, a mask of the image
 portion above water, and corresponding camera, and the cameras have

@@ -57,7 +57,7 @@ be for this dataset, not for the PAN one.
 For the DEM, it is suggested to use the one obtained from PAN images,
 as it is more accurate, or otherwise from the Green band images. 
 The NIR1 band is good for finding the masks, as the water is dark in them,
-but the DEM with NIR1 images may not be that accurate to use here.
+but the DEM with NIR1 images may not be that accurate to use in this context.
 
 It is important to decide carefully what outlier threshold to use and
 to check the number of resulting inliers. If too few, that may mean
@@ -67,7 +67,7 @@ well-distributed over the entire shoreline.
 
 For some datasets an outlier threshold of 1.0 works better than 0.5.
 
-For a stereo pair, this tool can be run done with both the left image
+For a stereo pair, this tool can be run with both the left image
 and left camera, then separately for the right image and right camera.
 Ideally the results should be very similar.
 
@@ -173,10 +173,9 @@ valid data it will be ignored as well.
 
 The program is called as follows::
 
-    bathy_plane_calc --water-height-measurements meas.csv \
-      --csv-format "2:lon 3:lat 4:height_above_datum"     \
-      --num-samples 10000 --outlier-threshold 0.5         \
-      --bathy-plane meas_plane.txt                        \
+    bathy_plane_calc --water-height-measurements meas.csv  \
+      --csv-format "2:lon 3:lat 4:height_above_datum"      \
+      --outlier-threshold 0.5 --bathy-plane meas_plane.txt \
       --output-inlier-shapefile meas_inliers.shp
 
 Note the ``--csv-format`` option, which should be set correctly. As
