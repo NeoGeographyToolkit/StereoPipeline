@@ -840,7 +840,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   double outlier_threshold;
   int num_ransac_iterations, num_samples;
   bool save_shapefiles_as_polygons, use_ecef_water_surface;
-  Options(): outlier_threshold(0.2), num_ransac_iterations(1000) {}
+  Options(): outlier_threshold(0.5), num_ransac_iterations(1000) {}
 };
 
 // Given a set of polygons stored in dPoly, create a single polygon with all those vertices
@@ -881,10 +881,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The output file storing the computed plane as four coefficients a, b, c, d, "
      "with the plane being a*x + b*y + c*z + d = 0.")
     ("outlier-threshold",
-     po::value(&opt.outlier_threshold)->default_value(0.2),
+     po::value(&opt.outlier_threshold)->default_value(0.5),
      "A value, in meters, to determine the distance from a sampled point on the DEM to the "
      "best-fit plane to determine if it will be marked as outlier and not "
-     "included in the calculation of that plane.")
+     "included in the calculation of that plane. Its value should be roughly the expected "
+     "vertical uncertainty of the DEM.")
     ("num-ransac-iterations", 
      po::value(&opt.num_ransac_iterations)->default_value(1000),
      "Number of RANSAC iterations to use to find the best-fitting plane.")

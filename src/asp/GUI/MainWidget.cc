@@ -33,7 +33,6 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/shapeFile.h>
-#include <vw/Cartography/shapeFile.h>
 #include <vw/Core/Stopwatch.h>
 
 #include <asp/GUI/MainWidget.h>
@@ -421,6 +420,17 @@ namespace vw { namespace gui {
     m_deleteImage = menu->addAction("Delete image");
     connect(m_deleteImage, SIGNAL(triggered()), this, SLOT(deleteImage()));
 
+    // If having shapefiles, make it possible to change their colors
+    bool has_shp = false;
+    for (size_t it = 0; it < m_images.size(); it++) {
+      if (vw::get_extension(m_images[it].name) == ".shp")
+        has_shp = true;
+    }
+    if (has_shp) {
+      m_changePolyColor = menu->addAction("Change colors of polygons");
+      connect(m_changePolyColor, SIGNAL(triggered()), this, SLOT(changePolyColor()));
+    }
+    
     menu->exec(filesTable->mapToGlobal(pos));
   }
 
@@ -791,6 +801,37 @@ namespace vw { namespace gui {
     emit removeImageAndRefreshSignal();
   }
 
+  // Change the color of given layer of polygons
+  void MainWidget::changePolyColor(){
+    std::string polyColor;
+    bool ans = getStringFromGui(this,
+                                "Polygonal line color",
+                                "Polygonal line color",
+                                polyColor, polyColor);
+    if (!ans)
+      return;
+    
+    if (polyColor == "") {
+      popUp("The polygonal line color must be set.");
+      return;
+    }
+    
+    for (std::set<int>::iterator it = m_indicesWithAction.begin();
+	 it != m_indicesWithAction.end(); it++) {
+
+      // We will assume if the user wants to zoom to this image,
+      // it should be on top.
+      bringImageOnTop(*it);
+      m_perImagePolyColor[*it] = polyColor;
+    }
+
+    // This is no longer needed
+    m_indicesWithAction.clear();
+
+    // Redraw everything, which will change the color
+    refreshPixmap();
+  }
+  
   // Allow the user to select multiple windows. 
   void MainWidget::allowMultipleSelections(){
     m_allowMultipleSelections = !m_allowMultipleSelections;
@@ -1397,12 +1438,12 @@ namespace vw { namespace gui {
 
       bool currDrawnPoly = (j == m_images.size());
       
-      int i = j;
+      int image_it = j;
       if (!currDrawnPoly) {
-        i = m_filesOrder[j];
+        image_it = m_filesOrder[j];
       
         // Don't show files the user wants hidden
-        std::string fileName = m_images[i].name;
+        std::string fileName = m_images[image_it].name;
         if (m_filesToHide.find(fileName) != m_filesToHide.end())
           continue;
       }
@@ -1412,7 +1453,7 @@ namespace vw { namespace gui {
       // TODO(oalexan1): How to avoid a deep copy?
       std::vector<vw::geometry::dPoly> polyVec;
       if (!currDrawnPoly) {
-        polyVec = m_images[i].polyVec; // deep copy
+        polyVec = m_images[image_it].polyVec; // deep copy
       } else {
           if (m_currPolyX.empty() || !m_polyEditMode)
             continue;
@@ -1427,6 +1468,14 @@ namespace vw { namespace gui {
                              vw::geometry::vecPtr(m_currPolyY),  
                              isPolyClosed, polyColorStr, layer);
           polyVec.push_back(poly);
+      }
+
+      
+      // See if to use a custom color for this polygon
+      QColor currPolyColor = polyColor;
+      auto color_it = m_perImagePolyColor.find(image_it);
+      if (color_it != m_perImagePolyColor.end()) {
+        currPolyColor = QColor((color_it->second).c_str());
       }
       
       // Plot the polygon being drawn now, and pre-existing polygons
@@ -1445,7 +1494,7 @@ namespace vw { namespace gui {
 
           Vector2 P;
           if (!currDrawnPoly) 
-            P = projpoint2world(Vector2(xv[vIter], yv[vIter]), i);
+            P = projpoint2world(Vector2(xv[vIter], yv[vIter]), image_it);
           else
             P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyLayerIndex);
 
@@ -1471,8 +1520,7 @@ namespace vw { namespace gui {
 
         MainWidget::plotDPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
                               m_showIndices->isChecked(),
-                              lineWidth,  
-                              drawVertIndex, polyColor, paint, poly);
+                              lineWidth, drawVertIndex, currPolyColor, paint, poly);
       }
     } // end iterating over polygons for all images
     
@@ -2824,6 +2872,7 @@ namespace vw { namespace gui {
           double val      = m_images[0].img.get_value_as_double(col, row);
           m_thresh = std::max(m_thresh, val);
         }
+
         vw_out() << "Image threshold for "
                  << m_images[0].name
                  << ": " << m_thresh << std::endl;
@@ -2870,46 +2919,46 @@ namespace vw { namespace gui {
       
       for (int j = 0; j < (int)m_images.size(); j++){
         
-        int i = m_filesOrder[j];
+        int image_it = m_filesOrder[j];
         
         // Don't show files the user wants hidden
-        std::string fileName = m_images[i].name;
+        std::string fileName = m_images[image_it].name;
         if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
 
-        BBox2 image_box = world2image(m_stereoCropWin, i);
+        BBox2 image_box = world2image(m_stereoCropWin, image_it);
         vw_out().precision(8);
         vw_out() << "Crop src win for  "
-                 << m_images[i].name
+                 << m_images[image_it].name
                  << ": "
                  << image_box.min().x() << ' '
                  << image_box.min().y() << ' '
                  << image_box.width()   << ' '
                  << image_box.height()  << std::endl;
 
-        if (m_images[i].has_georef){
+        if (m_images[image_it].has_georef){
           Vector2 proj_min, proj_max;
           // Convert pixels to projected coordinates
           BBox2 point_box;
-          if (m_images[i].isPoly())
+          if (m_images[image_it].isPoly())
             point_box = image_box;
           else 
-            point_box = m_images[i].georef.pixel_to_point_bbox(image_box);
+            point_box = m_images[image_it].georef.pixel_to_point_bbox(image_box);
 
           proj_min = point_box.min();
           proj_max = point_box.max();
           // Below we flip in y to make gdal happy
           vw_out() << "Crop proj win for "
-                   << m_images[i].name << ": "
+                   << m_images[image_it].name << ": "
                    << proj_min.x() << ' ' << proj_max.y() << ' '
                    << proj_max.x() << ' ' << proj_min.y() << std::endl;
 
           Vector2 lonlat_min, lonlat_max;
-          BBox2 lonlat_box = m_images[i].georef.point_to_lonlat_bbox(point_box);
+          BBox2 lonlat_box = m_images[image_it].georef.point_to_lonlat_bbox(point_box);
           lonlat_min = lonlat_box.min();
           lonlat_max = lonlat_box.max();
           // Again, miny and maxy are flipped on purpose
           vw_out() << "lonlat win for    "
-                   << m_images[i].name << ": "
+                   << m_images[image_it].name << ": "
                    << lonlat_min.x() << ' ' << lonlat_max.y() << ' '
                    << lonlat_max.x() << ' ' << lonlat_min.y() << std::endl;
         }
@@ -3218,14 +3267,14 @@ namespace vw { namespace gui {
 
     for (int j = 0; j < (int)m_images.size(); j++){
       
-      int i = m_filesOrder[j];
+      int image_it = m_filesOrder[j];
       
-      std::string fileName = m_images[i].name;
+      std::string fileName = m_images[image_it].name;
       
-      BBox2i image_box = world2image(m_stereoCropWin, i);
-      image_box.crop(BBox2(0, 0, m_images[i].img.cols(), m_images[i].img.rows()));
+      BBox2i image_box = world2image(m_stereoCropWin, image_it);
+      image_box.crop(BBox2(0, 0, m_images[image_it].img.cols(), m_images[image_it].img.rows()));
 
-      QTableWidgetItem *item = filesTable->item(i, 0);
+      QTableWidgetItem *item = filesTable->item(image_it, 0);
 
       if (image_box.empty()) {
         item->setCheckState(Qt::Unchecked);
