@@ -111,7 +111,7 @@ To locate the area of spatial overlap, the images can be map-projected
 ``mapproject``, using for example the LOLA DEM as the terrain to
 project onto, or the DEM obtained from running ``parallel_stereo`` on those
 images. Then the images can be overlayed as georeferenced images in
-``stereo_gui``. A good sanity check is to examine the shadows in
+``stereo_gui`` (:numref:`stereo_gui`). A good sanity check is to examine the shadows in
 various images. If they point in different directions in the images
 and perhaps also have different lengths, that means that illumination
 conditions are different enough, which will help constrain the ``sfs``
@@ -135,7 +135,8 @@ it is suggested to attempt to convert them to corresponding CSM models
 as described in :numref:`create_csm`, and if the pixel errors as
 output by ``cam_test`` are no more than the order of 0.5 pixels, to
 use the CSM models instead of the ISIS ones in all the tools outlined
-below. The DEMs obtained with these two methods were observed to
+below (``parallel_bundle_adjust``, ``parallel_stereo``, ``mapproject``, and
+``parallel_sfs``). The SfS DEMs obtained with these two methods were observed to
 differ by several millimeters at most, on average, but an evaluation
 may be necessary for your particular case.
 
@@ -216,8 +217,9 @@ necessary to obtain a good stereo result.
       --threads 16 --corr-seed-mode 1  --subpixel-mode 3            \
       run_full1/run
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices,
+See :numref:`running-stereo` for a discussion about various speed-vs-quality choices,
 and :numref:`mapproj-example` about handling artifacts in steep terrain.
+Consider using CSM cameras instead of ISIS cameras (:numref:`sfs_isis_vs_csm`).
 
 Next we create a DEM at 1 meter/pixel, which is about the resolution of
 the input images. We use the stereographic projection since this dataset
@@ -334,7 +336,7 @@ changing gradually.
 
 To make bundle adjustment and stereo faster, we first crop the images,
 such as shown below (the crop parameters can be determined via
-``stereo_gui``).
+``stereo_gui``, :numref:`stereo_gui`).
 
 ::
 
@@ -358,13 +360,14 @@ Then we bundle-adjust and run parallel_stereo
     parallel_stereo A_crop.cub B_crop.cub run_full2/run       \
       --subpixel-mode 3 --bundle-adjust-prefix run_ba/run
 
-One can consider using the stereo option ``--nodata-value``
+One can try using the stereo option ``--nodata-value``
 (:numref:`stereodefault`) to mask away shadowed regions, which may
 result in more holes but less noise in the terrain created from
 stereo.
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices,
+See :numref:`running-stereo` for a discussion about various speed-vs-quality choices,
 and :numref:`mapproj-example` about handling artifacts in steep terrain.
+Consider using CSM cameras instead of ISIS cameras (:numref:`sfs_isis_vs_csm`).
 
 This will result in a point cloud, ``run_full2/run-PC.tif``, which
 will lead us to the “ground truth” DEM. As mentioned before,
@@ -542,10 +545,15 @@ Bundle adjustment is not done at this stage yet::
     point2dem --stereographic --proj-lon -5.7113 --proj-lat -85.0003 \
       run_stereo_noba_sub4/run-PC.tif --tr 4 
 
-One can consider using the stereo option ``--nodata-value``
+One can try using the stereo option ``--nodata-value``
 (:numref:`stereodefault`) to mask away shadowed regions, which may
 result in more holes but less noise in the terrain created from
 stereo.
+
+See :numref:`running-stereo` for a discussion about various
+speed-vs-quality choices, and :numref:`mapproj-example` about handling
+artifacts in steep terrain.  Consider using CSM cameras instead of
+ISIS cameras (:numref:`sfs_isis_vs_csm`).
 
 We would like now to automatically or manually pick interest points
 for the purpose of doing bundle adjustment. It much easier to compute
@@ -730,6 +738,9 @@ the ``--csv-format`` option of ``geodiff``.
 Running SfS with an external initial guess DEM and extreme illumination
 -----------------------------------------------------------------------
 
+Challenges
+^^^^^^^^^^
+
 Here we will illustrate how SfS can be run in a very difficult
 situation. We chose a site very close to the Lunar South Pole, at around
 89.7° South. We used an external DEM as an initial guess
@@ -760,6 +771,9 @@ representative images.
 We recommend that the process outlined below first be practiced
 with just a couple of images on a small region, which will make it much
 faster to iron out any issues.
+
+Initial LOLA terrain
+^^^^^^^^^^^^^^^^^^^^
 
 The first step is to fetch the underlying LOLA DEM. We use the 20
 meter/pixel one, resampled to 1 meter/pixel, creating a DEM named
@@ -795,6 +809,9 @@ with the ``-te`` option, with the bounds having a fractional part of 0.5.
 Note that the bounds passed to ``-te`` are in the order::
 
     xmin, ymin, xmax, ymax
+
+Image selection and sorting by illumination
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 By far the hardest part of this exercise is choosing the images. We
 downloaded several hundred of them by visiting the web site noted
@@ -855,8 +872,11 @@ stereographic projection specified in this DEM.
 Consider using here CSM models instead of ISIS models, as mentioned in
 :numref:`sfs_isis_vs_csm`.
 
+Bundle adjustment (registration)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 The ``parallel_bundle_adjust`` tool is employed to co-register the images
-and correct camera errors. The images should be, as mentined earlier,
+and correct camera errors. The images should be, as mentioned earlier,
 ordered by Sun azimuth angle.
 
 ::
@@ -900,6 +920,9 @@ obtained so far can still be usable, if invoking bundle adjustment,
 as above, with ``--save-intermediate-cameras``. One may also
 consider reducing ``--overlap-limit`` to perhaps 20 though
 there is some risk in doing that if images fail to overlap enough.
+
+Alignment to ground
+^^^^^^^^^^^^^^^^^^^
 
 A very critical part of the process is to move from the coordinate
 system of the cameras to the coordinate system of the ground in
@@ -961,17 +984,24 @@ The images should now be projected onto this DEM as::
       ref.tif image.cub image.map.tif
 
 One should verify if they are precisely on top of each other and on
-top of the LOLA DEM in ``stereo_gui``. If any shifts are noticed, with
-the images relative to each other, or to this DEM, that is a sign of
-some issues. If the shift is relative to this DEM, perhaps one can
-try the alignment above with a different value of the max
-displacement.
+top of the LOLA DEM in ``stereo_gui`` :numref:`stereo_gui`). If any
+shifts are noticed, with the images relative to each other, or to this
+DEM, that is a sign of some issues. If the shift is relative to this
+DEM, perhaps one can try the alignment above with a different value of
+the max displacement.
 
-This alignment may not always be successful, since, if all the cameras
-have small convergence angles, the ``residuals_pointmap.csv`` file may
-not have accurate 3D positions. If a stereo pair exists among the
-bundle-adjusted images, it may be preferable to create a DEM from
-that one and use it for alignment to the reference DEM.
+Alignment using a stereo terrain
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The above alignment may not always be successful, since, if all the
+cameras have small convergence angles, the ``residuals_pointmap.csv``
+file may not have accurate 3D positions. If a stereo pair exists among
+the bundle-adjusted images, it may be preferable to create a DEM from
+that one and use it for alignment to the reference DEM
+(:numref:`sfs-move-cameras`).
+
+Registration refinement
+^^^^^^^^^^^^^^^^^^^^^^^
 
 If the images project reasonably well, but there are still some small
 registration errors, one can refine the cameras using the reference
@@ -1050,6 +1080,9 @@ should be added and the process should be restarted. As a last resort,
 any images that do not overlay correctly must be removed from
 consideration for the shape-from-shading step.
 
+Running SfS
+^^^^^^^^^^^
+
 Next, SfS follows::
 
     parallel_sfs -i ref.tif <images> --shadow-threshold 0.005        \
@@ -1082,6 +1115,9 @@ be the number of tiles over 20, or perhaps half or a quarter of that,
 in which case it will take longer to run things. One should examine
 how much memory these processes use and adjust this number
 accordingly.
+
+Inspection and further iterations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The obtained shape-from-shading terrain should be studied carefully to
 see if it shows any systematic shift or rotation compared to the
@@ -1169,6 +1205,9 @@ if copying them over to the new output directory.)
 Ideally, after all this, there should be no systematic offset
 between the SfS terrain and the reference LOLA terrain.
  
+Comparison with initial terrain and image mosaic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 The ``geodiff`` tool can be deployed to see how the SfS DEM compares
 to the initial guess or to the raw ungridded LOLA measurements.
 One can use the ``--absolute`` option for this tool and then invoke
@@ -1180,6 +1219,9 @@ images using the same camera adjustments that were used for SfS. That is
 done as follows::
 
     dem_mosaic --max -o max_lit.tif image1.map.tif ... imageN.map.tif
+
+Handling issues
+^^^^^^^^^^^^^^^
 
 After an SfS solution was found, with the cameras well-adjusted to
 each other and to the ground, and it is desired to add new camera
@@ -1212,6 +1254,9 @@ with the result, this SfS clip can be blended back to the larger SfS
 DEM with ``dem_mosaic`` with the ``--priority-blending-length``
 option, whose value can be set, for example, to 50, to blend over this
 many pixels inward from the boundary of the clip to be inserted.
+
+Blending the SfS result with the initial terrain
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 After computing a satisfactory SfS DEM, it can be processed to replace
 the values in the permanently shadowed areas with values from the
@@ -1251,6 +1296,9 @@ terrain, with any desired transform applied to the cameras before
 terrains will agree. Or, though this is not recommended, the SfS
 terrain which exists so far and the LOLA terrain can both be
 interpolated using the same ``gdalwarp -te <corners>`` command.)
+
+SfS height uncertainty map
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The error in the SfS DEM (before or after the blending with LOLA) 
 can be estimated as::
