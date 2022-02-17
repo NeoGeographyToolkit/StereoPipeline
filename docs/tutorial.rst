@@ -22,7 +22,8 @@ simply pass two image files to the ``parallel_stereo`` command::
       left_image.cub right_image.cub results/run
 
 Here it is assumed that the ``PATH`` and ``ISISDATA`` environmental
-variables have been set as detailed in :numref:`installation`.
+variables have been set, as shown in :numref:`installation`. How to 
+prepare the .cub files is discussed further down.
 
 Higher quality results, at the expense of more computation, can be
 achieved by running::
@@ -50,7 +51,7 @@ are created by the ``parallel_stereo`` program above)::
      ISIS> point2mesh results/run-PC.tif results/run-L.tif
      ISIS> point2dem  results/run-PC.tif
 
-More details are provided in :numref:`visualising`.
+Visualization is further discussed in :numref:`visualising`.
 
 Preparing the data
 ------------------
@@ -107,9 +108,9 @@ Aligning images
 Once the ``.cub`` files are obtained, it is possible to run parallel_stereo right
 away::
 
-     ISIS> parallel_stereo E0201461.cub M0100115.cub      \
-               --alignment-method affineepipolar          \
-               -s stereo.default.example results/output
+     ISIS> parallel_stereo E0201461.cub M0100115.cub    \
+             --alignment-method affineepipolar          \
+             -s stereo.default.example results/output
 
 In this case, the first thing ``parallel_stereo`` does is to internally align (or
 rectify) the images, which helps with finding stereo matches. Here we
@@ -130,8 +131,9 @@ described in :numref:`mapproj-example`.)
 
 The ISIS ``cam2map`` program will map-project these images::
 
-  ISIS> cam2map from=M0100115.cub to=M0100115.map.cub
-  ISIS> cam2map from=E0201461.cub to=E0201461.map.cub map=M0100115.map.cub matchmap=true
+    ISIS> cam2map from=M0100115.cub to=M0100115.map.cub
+    ISIS> cam2map from=E0201461.cub to=E0201461.map.cub \
+            map=M0100115.map.cub matchmap=true
 
 Notice the order in which the images were run through ``cam2map``. The
 first projection with ``M0100115.cub`` produced a map-projected image
@@ -206,9 +208,11 @@ intersection to use as the boundaries for ``cam2map``:
 
 ::
 
-     ISIS> cam2map from=M0100115.cub to=M0100115.map.cub DEFAULTRANGE=CAMERA \
-                     MINLAT=34.10 MAXLAT=34.44 MINLON=141.50 MAXLON=141.63
-     ISIS> cam2map from=E0201461.cub to=E0201461.map.cub map=M0100115.map.cub matchmap=true
+     ISIS> cam2map from=M0100115.cub to=M0100115.map.cub   \
+             DEFAULTRANGE=CAMERA MINLAT=34.10 MAXLAT=34.44 \
+             MINLON=141.50 MAXLON=141.63
+     ISIS> cam2map from=E0201461.cub to=E0201461.map.cub \
+             map=M0100115.map.cub matchmap=true
 
 You only have to do the boundaries explicitly for the first run of
 ``cam2map``, because the second one uses the ``map=`` parameter to mimic
@@ -224,9 +228,9 @@ At this stage we can run the stereo program with map-projected images:
 
 ::
 
-     ISIS> parallel_stereo E0201461.map.cub M0100115.map.cub \
-           --alignment-method none -s stereo.default.example \
-           results/output
+     ISIS> parallel_stereo E0201461.map.cub M0100115.map.cub   \
+             --alignment-method none -s stereo.default.example \
+             results/output
 
 Here we have used ``alignment-method none`` since ``cam2map4stereo.py``
 brought the two images into the same perspective and using the same
@@ -308,7 +312,7 @@ Processing raw
 After you have downloaded the example stereo images of Stockholm, you
 will find a directory titled::
 
-     056082198020_01_P001_PAN
+    056082198020_01_P001_PAN
 
 It has a lot of files and many of them contain redundant information
 just displayed in different formats. We are interested only in the TIF
@@ -322,7 +326,7 @@ observation. The tool named ``dg_mosaic`` can be used to mosaic (and
 optionally reduce the resolution of) such a set of sub-observations into
 a single image file and create an appropriate camera file::
 
-  > dg_mosaic 12FEB16101327*TIF --output-prefix 12FEB16101327
+    dg_mosaic 12FEB16101327*TIF --output-prefix 12FEB16101327
 
 and analogously for the second set. See :numref:`dg_mosaic` for more
 details. The ``parallel_stereo`` program can use either the original or the
@@ -382,7 +386,7 @@ named ``wv_correct``, that can largely correct such artifacts for World
 View-1 and WorldView-2 images for most TDI. It can be invoked as
 follows::
 
-       > wv_correct image_in.ntf image.xml image_out.tif
+    wv_correct image_in.ntf image.xml image_out.tif
 
 The corrected images can be used just as the originals, and the camera
 models do not change. When working with such images, we recommend that

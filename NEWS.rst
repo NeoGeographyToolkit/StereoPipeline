@@ -141,6 +141,8 @@ Misc:
   * Bugfix for the "too many open files" error for large images.
   * Add the build date to the ``--version`` option in the ASP tools
     and to the log files.
+  * In stereo_gui, polygon layers can be set to desired colors from
+    the left pane, when overlaid.
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------
