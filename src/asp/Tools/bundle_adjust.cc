@@ -1782,7 +1782,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Turn off atmospheric refraction correction for non-ISIS linescan cameras.")
     
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
-     "Given map-projected versions of the input images, the DEM they were mapprojected onto, and IP matches among the mapprojected images, create IP matches among the un-projected images before doing bundle adjustment. Specify the mapprojected images and the DEM as a string in quotes, separated by spaces. An example is in the documentation.")
+     "Given map-projected versions of the input images and the DEM they "
+     "were mapprojected onto, create interest point matches among the  "
+     "mapprojected images, unproject and save those matches, then  "
+     "continue with bundle adjustment. Existing match files will be  "
+     "reused. Specify the mapprojected images and the DEM as a string in  "
+     "quotes, separated by spaces. An example is in the documentation.")
+    
     ("save-cnet-as-csv", po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
      "Save the control network containing all interest points in the format used by ground control points, so it can be inspected.")
     ("gcp-from-mapprojected-images", po::value(&opt.gcp_from_mapprojected)->default_value(""),

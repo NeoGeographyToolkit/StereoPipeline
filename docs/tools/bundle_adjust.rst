@@ -566,12 +566,12 @@ Command-line options for bundle_adjust
     shaped bodies.
 
 --mapprojected-data <string>
-    Given map-projected versions of the input images, the DEM they
-    were mapprojected onto, and IP matches among the mapprojected
-    images, create IP matches among the un-projected images before
-    doing bundle adjustment. Specify the mapprojected images and
-    the DEM as a string in quotes, separated by spaces. An example
-    is in the documentation.
+    Given map-projected versions of the input images and the DEM they
+    were mapprojected onto, create interest point matches among the
+    mapprojected images, unproject and save those matches, then
+    continue with bundle adjustment. Existing match files will be
+    reused. Specify the mapprojected images and the DEM as a string in
+    quotes, separated by spaces. See :numref:`mapip` for an example.
 
 --save-intermediate-cameras
     Save the values for the cameras at each iteration.
