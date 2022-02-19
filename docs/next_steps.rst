@@ -225,6 +225,8 @@ field will use each algorithm's own subpixel mode.
 The fifth line sets the kernel size to use during subpixel refinement
 *(also 21 pixels square)*.
 
+.. _search_range:
+
 Search range determination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -742,11 +744,19 @@ Dealing with long run-times
 
 If ``stereo_corr`` takes unreasonably long, it may have encountered a
 portion of the image where, due to noise (such as clouds, shadows, etc.)
-the determined search range is much larger than what it should be. The
-option ``--corr-timeout integer`` can be used to limit how long each
-1024 |times| 1024 pixel tile can take. A good value here could
-be 300 (seconds) or more if your terrain is expected to have large
-height variations.
+the determined search range is much larger than what it should be. 
+
+With the default block-matching algorithm, ``--stereo-algorithm
+asp_bm``, the option ``--corr-timeout integer`` can be used to limit
+how long each 1024 |times| 1024 pixel tile can take. A good value here
+could be 300 (seconds) or more if your terrain is expected to have
+large height variations.
+
+If using the ``asp_sgm`` or ``asp_mgm`` algorithms, one can use a lower
+value for ``--corr-memory-limit-mb`` (:numref:`asp_sgm`).  One may
+also tighten ``--outlier-removal-params`` (:numref:`stereodefault`),
+or mapproject the images (:numref:`mapproj-example`). A smaller manual
+search range can also be specified (:numref:`search_range`).
 
 .. _visualising:
 
