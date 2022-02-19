@@ -78,6 +78,7 @@ namespace vw { namespace gui {
     void writeGroundControlPoints   (); ///< Write a ground control point file for bundle_adjust
     void save_screenshot            ();
     void select_region              ();
+    void change_cursor              ();
     void run_stereo                 ();
     void run_parallel_stereo        ();
     void thresholdCalc              ();
@@ -163,6 +164,7 @@ namespace vw { namespace gui {
     QAction *m_writeGcp_action;
     QAction *m_save_screenshot_action;
     QAction *m_select_region_action;
+    QAction *m_change_cursor_action;
     QAction *m_run_stereo_action;
     QAction *m_run_parallel_stereo_action;
     QAction *m_exit_action;
@@ -188,7 +190,8 @@ namespace vw { namespace gui {
     MatchList m_matchlist;
     int       m_editMatchPointVecIndex; ///< Point being edited
 
-   };
+    int m_cursor_count;
+  };
 
 }} // namespace vw::gui
 

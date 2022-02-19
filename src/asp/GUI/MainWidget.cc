@@ -774,8 +774,16 @@ namespace vw { namespace gui {
       std::string input_file = m_images[image_iter].name;
       int num_channels = m_images[image_iter].img.planes();
       if (num_channels != 1) {
+        // Turn off hillshade mode for all images which don't support it,
+        // or else this error will keep on coming up
+        for (int iter2 = 0; iter2 < num_images; iter2++) {
+          int num_channels2 = m_images[iter2].img.planes();
+          if (num_channels2 != 1) {
+            m_hillshade_mode[iter2] = false;
+          }
+        }
+        
         popUp("Hill-shading makes sense only for single-channel images.");
-        m_hillshade_mode[image_iter] = false;
         return;
       }
 

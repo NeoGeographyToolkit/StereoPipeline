@@ -103,7 +103,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   m_use_georef(use_georef), m_hillshade(hillshade), m_view_matches(view_matches),
   m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
   m_allowMultipleSelections(false), m_matches_exist(false),
-  m_argc(argc), m_argv(argv) {
+  m_argc(argc), m_argv(argv), m_cursor_count(0) {
 
   // Window size
   resize(window_size[0], window_size[1]);
@@ -390,6 +390,12 @@ void MainWindow::createMenus() {
   m_select_region_action->setStatusTip(tr("Select rectangular region"));
   connect(m_select_region_action, SIGNAL(triggered()), this, SLOT(select_region()));
   
+  // Change cursor shape (a workaround for Qt not setting the cursor correctly in vnc)
+  m_change_cursor_action = new QAction(tr("Change cursor shape"), this);
+  m_change_cursor_action->setStatusTip(tr("Change cursor shape"));
+  connect(m_change_cursor_action, SIGNAL(triggered()), this, SLOT(change_cursor()));
+  m_change_cursor_action->setShortcut(tr("C"));
+
   // Run parallel_stereo
   m_run_parallel_stereo_action = new QAction(tr("Run parallel_stereo"), this);
   m_run_parallel_stereo_action->setStatusTip(tr("Run parallel_stereo on selected clips"));
@@ -565,6 +571,7 @@ void MainWindow::createMenus() {
   m_file_menu = menu->addMenu(tr("&File"));
   m_file_menu->addAction(m_save_screenshot_action);
   m_file_menu->addAction(m_select_region_action);
+  m_file_menu->addAction(m_change_cursor_action);
   m_file_menu->addAction(m_exit_action);
 
   // Run menu
@@ -795,7 +802,6 @@ void MainWindow::deleteImageFromWidget(){
   // Must re-create everything
   createLayout();
 }
-
 
 // Show or hide matches depending on the value of m_viewMatches.  We
 // assume first ip in first image mananages first ip in all other
@@ -1151,6 +1157,17 @@ void MainWindow::save_screenshot(){
 void MainWindow::select_region(){
   QMessageBox::about(this, tr("Info"), tr("Use Control-Left Mouse to select a region. Its bounds will be printed in a terminal. Stereo can be run on selected regions."));
   return;
+}
+
+void MainWindow::change_cursor(){
+  m_cursor_count = (m_cursor_count + 1) % 3;
+  if (m_cursor_count == 0) {
+    setCursor(Qt::PointingHandCursor);
+  } else if (m_cursor_count == 1) {
+    setCursor(Qt::UpArrowCursor);
+  }  else{
+    setCursor(Qt::ArrowCursor);
+  }
 }
 
 void MainWindow::run_stereo(){
@@ -1565,22 +1582,18 @@ void MainWindow::about() {
 
 }
 
-// For now this does nothing
 bool MainWindow::eventFilter(QObject *obj, QEvent *event){
 
 #if 0
+  // Logic which for now does nothing but may be useful one day
   if (event->type() == QEvent::KeyPress) {
     QKeyEvent *key_event = static_cast<QKeyEvent*>(event);
-    return true;
-    
-    switch (event->key()) {
-    case Qt::Key_Escape:  // Quit
-      close();
-      break;
+    if (int(key_event->key()) == 67) {
+      // do something
     }
   }
 #endif
-    
+  
   return QMainWindow::eventFilter(obj, event);
 }
 
