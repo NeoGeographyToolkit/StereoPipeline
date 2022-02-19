@@ -21,8 +21,6 @@
 // Then also remove all the logic using unadjusted cameras except the place
 // when the sun positions are read.
 // Evaluate RPC accuracy.
-// Make the non-ISIS code multithreaded.
-// Add option --num-ip-matches.
 // Deal with outliers in image intensity.
 // The rpc approximation should also approximate the adjusted cameras if those won't float.
 // This approximation needs to remember is domain of validity.
@@ -82,6 +80,7 @@
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/InpaintView.h>
+#include <vw/Image/BoundedSignedDist.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Stopwatch.h>
 #include <asp/Core/Macros.h>
@@ -1254,9 +1253,12 @@ struct Options : public vw::cartography::GdalWriteOptions {
     use_rpc_approximation, use_semi_approx,
     crop_input_images, float_dem_at_boundary, boundary_fix, fix_dem, 
     float_reflectance_model, float_sun_position, query, save_sparingly, float_haze;
-  double smoothness_weight, integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
+  double smoothness_weight, steepness_factor, curvature_in_shadow, curvature_in_shadow_weight,
+    lit_curvature_dist, shadow_curvature_dist,
+    integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
     initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
-    rpc_penalty_weight, rpc_max_error, unreliable_intensity_threshold, robust_threshold, shadow_threshold;
+    rpc_penalty_weight, rpc_max_error, unreliable_intensity_threshold, robust_threshold,
+    shadow_threshold;
   vw::BBox2 crop_win;
   vw::Vector2 height_error_params;
   
@@ -1279,7 +1281,10 @@ struct Options : public vw::cartography::GdalWriteOptions {
             float_dem_at_boundary(false), boundary_fix(false), fix_dem(false),
             float_reflectance_model(false), float_sun_position(false),
             query(false), save_sparingly(false), float_haze(false),
-            smoothness_weight(0), integrability_weight(0), smoothness_weight_pq(0),
+            smoothness_weight(0), steepness_factor(1.0),
+            curvature_in_shadow(0), curvature_in_shadow_weight(0.0),
+            lit_curvature_dist(0.0), shadow_curvature_dist(0.0),
+            integrability_weight(0), smoothness_weight_pq(0),
             initial_dem_constraint_weight(0.0),
             albedo_constraint_weight(0.0),
             camera_position_step_size(1.0), rpc_penalty_weight(0.0),
@@ -1303,11 +1308,18 @@ struct ModelParams {
 
 // Make the reflectance nonlinear using a rational function
 double nonlin_reflectance(double reflectance, double exposure,
+                          double steepness_factor,
                           double const* haze, int num_haze_coeffs){
 
+  // Make the exposure smaller. This will result in higher reflectance
+  // to compensate, as intensity = exposure * reflectance, hence
+  // steeper terrain. Things become more complicated if the haze
+  // and nonlinear reflectance is modeled.
+  exposure /= steepness_factor;
+  
   double r = reflectance; // for short
-  if (num_haze_coeffs == 0) return exposure*r;
-  if (num_haze_coeffs == 1) return exposure*r + haze[0];
+  if (num_haze_coeffs == 0) return (exposure*r);
+  if (num_haze_coeffs == 1) return (exposure*r + haze[0]);
   if (num_haze_coeffs == 2) return (exposure*r + haze[0])/(haze[1]*r + 1);
   if (num_haze_coeffs == 3) return (haze[2]*r*r + exposure*r + haze[0])/(haze[1]*r + 1);
   if (num_haze_coeffs == 4) return (haze[2]*r*r + exposure*r + haze[0])/(haze[3]*r*r + haze[1]*r + 1);
@@ -1891,6 +1903,7 @@ void estimateSlopeError(Vector3 const& cameraPosition,
 
       double comp_intensity = albedo(col, row) *
         nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
+                           opt.steepness_factor,
                            &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
 
       if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
@@ -2010,6 +2023,7 @@ void estimateHeightError(ImageView<double> const& dem,
 
         double comp_intensity = albedo(col, row) *
           nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
+                             opt.steepness_factor,
                              &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
 
         if (std::abs(comp_intensity - meas_intensity) > max_intensity_err) {
@@ -2189,6 +2203,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     ImageView<double> & albedo = *slopeErrEstim->albedo; // alias
     double comp_intensity = albedo(col, row) *
       nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
+                         opt.steepness_factor,
                          &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
 
     // We use twice the discrepancy between the computed and measured intensity
@@ -2213,6 +2228,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     ImageView<double> & albedo = *heightErrEstim->albedo; // alias
     double comp_intensity = albedo(col, row) *
       nonlin_reflectance(reflectance, opt.image_exposures_vec[image_iter],
+                         opt.steepness_factor,
                          &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
     
     // We use twice the discrepancy between the computed and measured intensity
@@ -2648,6 +2664,7 @@ public:
             comp_intensity(col, row)
               = (*g_albedo)[dem_iter](col, row) *
               nonlin_reflectance(reflectance(col, row), (*g_exposures)[image_iter],
+                                 g_opt->steepness_factor,
                                  &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs);
           }
         }
@@ -2695,6 +2712,7 @@ public:
             else
               measured_albedo(col, row) = intensity(col, row) /
                 nonlin_reflectance(reflectance(col, row), (*g_exposures)[image_iter],
+                                   g_opt->steepness_factor,
                                    &(*g_haze)[image_iter][0], g_opt->num_haze_coeffs);
           }
         }
@@ -2861,9 +2879,10 @@ calc_intensity_residual(const F* const exposure,
     }
       
     if (success && is_valid(intensity) && is_valid(reflectance))
-      residuals[0] = weight*( intensity - albedo[0] *
-                              nonlin_reflectance(reflectance.child(), exposure[0],
-                                                 haze, g_opt->num_haze_coeffs) );
+      residuals[0] = weight * (intensity - albedo[0] *
+                               nonlin_reflectance(reflectance.child(), exposure[0],
+                                                  g_opt->steepness_factor,
+                                                  haze, g_opt->num_haze_coeffs));
     
 
   } catch (const camera::PointToPixelErr& e) {
@@ -3386,6 +3405,44 @@ struct SmoothnessError {
   double m_smoothness_weight, m_gridx, m_gridy;
 };
 
+// Try to make the DEM in shadow have positive curvature. The error term is
+// (curvature_weight *(terrain_xx + terrain_xy - curvature))^2 in the shadow,
+// and not used in lit areas.
+struct CurvatureInShadowError {
+  CurvatureInShadowError(double curvature_in_shadow, double curvature_in_shadow_weight,
+                         double gridx, double gridy):
+    m_curvature_in_shadow(curvature_in_shadow),
+    m_curvature_in_shadow_weight(curvature_in_shadow_weight),
+    m_gridx(gridx), m_gridy(gridy) {}
+
+  template <typename T>
+  bool operator()(const T* const bottom, const T* const left, const T* const center,
+                  const T* const right, const T* const top, T* residuals) const {
+
+    // Normalize by grid size seems to make the functional less
+    // sensitive to the actual grid size used.
+    double u_xx = (left[0] + right[0] - 2*center[0])/m_gridx/m_gridx;   // u_xx
+    double u_yy = (bottom[0] + top[0] - 2*center[0])/m_gridy/m_gridy;   // u_yy
+    
+    residuals[0] = m_curvature_in_shadow_weight*(u_xx + u_yy - m_curvature_in_shadow);
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double curvature_in_shadow,
+                                     double curvature_in_shadow_weight,
+                                     double gridx, double gridy){
+    return (new ceres::NumericDiffCostFunction<CurvatureInShadowError,
+            ceres::CENTRAL, 1, 1, 1, 1, 1, 1>
+            (new CurvatureInShadowError(curvature_in_shadow, curvature_in_shadow_weight,
+                                        gridx, gridy)));
+  }
+
+  double m_curvature_in_shadow, m_curvature_in_shadow_weight, m_gridx, m_gridy;
+};
+
 struct SmoothnessErrorPQ {
   SmoothnessErrorPQ(double smoothness_weight_pq, double gridx, double gridy):
     m_smoothness_weight_pq(smoothness_weight_pq),
@@ -3732,6 +3789,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A higher value will result in smoother blending.")
     ("min-blend-size", po::value(&opt.min_blend_size)->default_value(0),
      "Do not apply blending in shadowed areas of dimensions less than this.")
+    ("steepness-factor", po::value(&opt.steepness_factor)->default_value(1.0),
+     "Try to make the terrain steeper by this factor. This is not recommended in regular use.")
+    ("curvature-in-shadow", po::value(&opt.curvature_in_shadow)->default_value(0.0),
+     "Attempt to make the curvature of the DEM (the Laplacian) at points in shadow in all images equal to this value, which should make the DEM curve down.")
+    ("curvature-in-shadow-weight", po::value(&opt.curvature_in_shadow_weight)->default_value(0.0),
+     "The weight to give to the curvature in shadow constraint.")
+    ("lit-curvature-dist", po::value(&opt.lit_curvature_dist)->default_value(0.0),
+     "If using a curvature in shadow, start phasing it in this far from the shadow boundary in the lit region (in units of pixels).")
+    ("shadow-curvature-dist", po::value(&opt.shadow_curvature_dist)->default_value(0.0),
+     "If using a curvature in shadow, have it fully phased in this far from shadow boundary in the shadow region (in units of pixels).")
     ("image-exposures-prefix", po::value(&opt.image_exposure_prefix)->default_value(""),
      "Use this prefix to optionally read initial exposures (filename is <prefix>-exposures.txt).")
     ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
@@ -3746,7 +3813,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "This determines how non-linear the reflectance is. Values are from 0 to 6.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
-    ("crop-win", po::value(&opt.crop_win)->default_value(BBox2i(0, 0, 0, 0), "startx starty stopx stopy"),
+    ("crop-win", po::value(&opt.crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
      "Crop the input DEM to this region before continuing.")
     ("nodata-value", po::value(&opt.nodata_val)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this as the DEM no-data value, over-riding what is in the initial guess DEM.")
@@ -3837,7 +3904,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.use_approx_camera_models = false;
     opt.use_approx_adjusted_camera_models = true;
   }
-  
+
+  // Curvature in shadow params
+  if (opt.curvature_in_shadow < 0.0 || opt.curvature_in_shadow_weight < 0.0) 
+    vw_throw(ArgumentErr() << "Cannot have negative curvature in shadow or its weight.\n");
+  if (opt.lit_curvature_dist < 0.0 || opt.shadow_curvature_dist < 0.0) 
+    vw_throw(ArgumentErr() << "Cannot have negative curvature distances.\n");    
+  if (opt.curvature_in_shadow > 0.0 &&
+      opt.shadow_curvature_dist + opt.lit_curvature_dist <= 0.0)
+    vw_throw(ArgumentErr() << "When modeling curvature in shadow, expecting a "
+             << "positive value of shadow-curvature-dist or list-curvature-dist.\n");    
+
+  if (opt.steepness_factor <= 0.0) 
+    vw_throw(ArgumentErr() << "The steepness factor must be positive.\n");    
+      
   if (opt.compute_exposures_only){
     if (opt.use_approx_camera_models ||
         opt.use_approx_adjusted_camera_models ||
@@ -3977,6 +4057,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.image_exposure_prefix != "" && exp_count == 0) 
     vw_throw(ArgumentErr()
              << "Could not find the exposures file: " << exposure_file << ".\n");
+  
+  if (opt.steepness_factor != 1.0) 
+    vw_out() << "Making the terrain artificially steeper by factor: " << opt.steepness_factor
+             << ".\n";
   
   // Initial image haze, if provided. First read them in a map,
   // as perhaps the initial haze were created using more images
@@ -4177,6 +4261,8 @@ void run_sfs_level(// Fixed inputs
                    std::vector<ModelParams> const & model_params,
                    std::vector< ImageView<double> > const& orig_dems, 
                    double initial_albedo,
+                   ImageView<int> const& lit_image_mask,
+                   ImageView<double> const& curvature_in_shadow_weight,
                    // Quantities that will float
                    std::vector< ImageView<double> > & dems,
                    std::vector< ImageView<double> > & albedos,
@@ -4389,7 +4475,23 @@ void run_sfs_level(// Fixed inputs
                                    &dems[dem_iter](col-1, row-1),  // top left
                                    &dems[dem_iter](col, row-1),    // top
                                    &dems[dem_iter](col+1, row-1)); // top right
-          
+
+          // Add curvature in shadow. Note that we use a per-pixel curvature_in_shadow_weight,
+          // to gradually phase it in to avoid artifacts.
+          if (opt.curvature_in_shadow_weight > 0.0 && curvature_in_shadow_weight(col, row) > 0) {
+            ceres::LossFunction* loss_function_cv = NULL;
+            ceres::CostFunction* cost_function_cv =
+              CurvatureInShadowError::Create(opt.curvature_in_shadow,
+                                             curvature_in_shadow_weight(col, row),
+                                             gridx, gridy);
+            problem.AddResidualBlock(cost_function_cv, loss_function_cv,
+                                     &dems[dem_iter](col,   row+1),  // bottom 
+                                     &dems[dem_iter](col-1, row),    // left
+                                     &dems[dem_iter](col,   row),    // center
+                                     &dems[dem_iter](col+1, row),    // right 
+                                     &dems[dem_iter](col,   row-1)); // top
+          }
+
           if (opt.integrability_weight > 0) {
             ceres::LossFunction* loss_function_int = NULL;
             ceres::CostFunction* cost_function_int =
@@ -5431,7 +5533,7 @@ int main(int argc, char* argv[]) {
         if (opt.skip_images[dem_iter].find(image_iter) !=
             opt.skip_images[dem_iter].end()) continue;
         
-        ImageView< PixelMask<double> > reflectance, intensity;
+        ImageView<PixelMask<double>> reflectance, intensity;
         ImageView<double> weight;
         ImageView<Vector2> pq; // no need for these just for initialization
         
@@ -5509,12 +5611,28 @@ int main(int argc, char* argv[]) {
       // all done
       return 0;
     }
+
+    // Need to compute the valid data image to be able to find the grid points always
+    // in shadow, so when this image is zero.
+    ImageView<int> lit_image_mask;
+    if (opt.curvature_in_shadow_weight > 0.0) {
+      if (num_dems > 1 || levels > 0) 
+        vw_throw(ArgumentErr() << "Enforcing positive curvature in shadow does not work "
+                 << "with more than one input DEM clip or a positive number of "
+                 << "coarseness levels.\n");
+      lit_image_mask.set_size(dems[0][0].cols(), dems[0][0].rows());
+      for (int col = 0; col < lit_image_mask.cols(); col++) {
+        for (int row = 0; row < lit_image_mask.rows(); row++) {
+          lit_image_mask(col, row) = 0; // no valid points originally
+        }
+      }
+    }
     
     // Note that below we may use the exposures computed at the previous step
     if (opt.save_computed_intensity_only || opt.estimate_slope_errors ||
-        opt.estimate_height_errors) {
-      // In this case simply save the computed and actual intensity and quit
-      ImageView< PixelMask<double> > reflectance, meas_intensity, comp_intensity;
+        opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0) {
+      // In this case simply save the computed and actual intensity, and for most of these quit
+      ImageView<PixelMask<double>> reflectance, meas_intensity, comp_intensity;
       ImageView<double> weight;
       ImageView<Vector2> pq; // no need for these just for initialization
       int sample_col_rate = 1, sample_row_rate = 1;
@@ -5575,10 +5693,31 @@ int main(int argc, char* argv[]) {
             comp_intensity(col, row)
               = albedos[0][0](col, row) *
               nonlin_reflectance(reflectance(col, row), opt.image_exposures_vec[image_iter],
+                                 opt.steepness_factor,
                                  &opt.image_haze_vec[image_iter][0], opt.num_haze_coeffs);
           }
         }
-
+        
+        if (opt.curvature_in_shadow_weight > 0.0) {
+          if (meas_intensity.cols() != lit_image_mask.cols() ||
+              meas_intensity.rows() != lit_image_mask.rows()) {
+            vw_throw(ArgumentErr()
+                     << "Intensity image dimensions disagree with DEM clip dimensions.\n");
+          }
+          for (int col = 0; col < lit_image_mask.cols(); col++) {
+            for (int row = 0; row < lit_image_mask.rows(); row++) {
+              if (is_valid(meas_intensity(col, row))           || 
+                  col == 0 || col == lit_image_mask.cols() - 1 ||
+                  row == 0 || row == lit_image_mask.rows() - 1) {
+                // Boundary pixels are declared lit. Otherwise they are
+                // always unlit due to the peculiarities of how the intensity
+                // is found at the boundary.
+                lit_image_mask(col, row) = 1;
+              }
+            }
+          }
+        }
+        
         if (opt.save_computed_intensity_only) {
           TerminalProgressCallback tpc("asp", ": ");
           bool has_georef = true, has_nodata = true;
@@ -5674,6 +5813,44 @@ int main(int argc, char* argv[]) {
       save_exposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
       // All done
       return 0;
+    }
+
+    ImageView<double> curvature_in_shadow_weight;
+    if (opt.curvature_in_shadow_weight > 0.0) {
+      TerminalProgressCallback tpc("asp", ": ");
+      bool has_georef = true, has_nodata = false;
+      double nodata_val = -1; // will not be used
+      std::string lit_image_mask_file = opt.out_prefix + "-lit_image_mask.tif";
+      vw_out() << "Writing: " << lit_image_mask_file << std::endl;
+      block_write_gdal_image(lit_image_mask_file, lit_image_mask,
+                             has_georef, geos[0][0], has_nodata, nodata_val, opt, tpc);
+
+      // Form the curvature_in_shadow_weight image. It will start at 0
+      // at distance opt.lit_curvature_dist from the shadow
+      // boundary in the lit area, and then reach value
+      // opt.curvature_in_shadow_weight when at distance
+      // opt.shadow_curvature_dist from the boundary in the shadowed
+      // area. This is done to avoid boundary artifacts.
+      double max_dist = std::max(opt.lit_curvature_dist, opt.shadow_curvature_dist);
+      vw::bounded_signed_dist<int>(vw::create_mask(lit_image_mask, 0), max_dist,
+                                   curvature_in_shadow_weight);
+      // Do further adjustments
+      for (int col = 0; col < curvature_in_shadow_weight.cols(); col++) {
+        for (int row = 0; row < curvature_in_shadow_weight.rows(); row++) {
+          double val = curvature_in_shadow_weight(col, row);
+          val = std::min(val, opt.lit_curvature_dist);
+          val = std::max(val, -opt.shadow_curvature_dist);
+          val = (opt.lit_curvature_dist - val) /
+            (opt.lit_curvature_dist + opt.shadow_curvature_dist);
+          curvature_in_shadow_weight(col, row) = val * opt.curvature_in_shadow_weight;
+        }
+      }
+      
+      std::string curvature_in_shadow_weight_file = opt.out_prefix
+        + "-curvature_in_shadow_weight.tif";
+      vw_out() << "Writing: " << curvature_in_shadow_weight_file << std::endl;
+      block_write_gdal_image(curvature_in_shadow_weight_file, curvature_in_shadow_weight,
+                             has_georef, geos[0][0], has_nodata, nodata_val, opt, tpc);
     }
     
     if (opt.num_haze_coeffs > 0) {
@@ -5889,6 +6066,7 @@ int main(int argc, char* argv[]) {
                     masked_images_vec[level], blend_weights_vec[level],
                     global_params, model_params,
                     orig_dems[level], initial_albedo,
+                    lit_image_mask, curvature_in_shadow_weight,
                     // Quantities that will float
                     dems[level], albedos[level], cameras,
                     opt.image_exposures_vec,

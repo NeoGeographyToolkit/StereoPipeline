@@ -210,6 +210,26 @@ Command-line options:
     except for xml cameras. See :numref:`parallel_stereo_options` for
     options.
  
+--steepness-factor <double (default: 1)>
+    Try to make the terrain steeper by this factor. This is not
+    recommended in regular use.
+
+--curvature-in-shadow <double (default: 0)>
+     Attempt to make the curvature of the DEM (the Laplacian) at
+     points in shadow in all images equal to this value, which should
+     make the DEM curve down.
+
+--curvature-in-shadow-weight <double (default: 0)>
+     The weight to give to the curvature in shadow constraint.
+
+--lit-curvature-dist <double (default: 0)>
+    If using a curvature in shadow, start phasing it in this far from
+    the shadow boundary in the lit region (in units of pixels).
+
+--shadow-curvature-dist <double (default: 0)>
+    If using a curvature in shadow, have it fully phased in this far
+    from shadow boundary in the shadow region (in units of pixels).
+
 --camera-position-step-size <integer (default: 1)>
     Larger step size will result in more aggressiveness in varying
     the camera position if it is being floated (which may result
