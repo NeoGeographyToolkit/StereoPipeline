@@ -53,6 +53,9 @@ are created by the ``parallel_stereo`` program above)::
 
 Visualization is further discussed in :numref:`visualising`.
 
+What follows is an example using Mars ``MOC`` data. More examples
+can be found in :numref:`examples`.
+
 Preparing the data
 ------------------
 
