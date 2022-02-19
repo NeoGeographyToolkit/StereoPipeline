@@ -256,7 +256,7 @@ small, SfS will return noisy results, if it is too large, too much
 detail will be blurred. Here we used the Lunar Lambertian model. The
 meaning of the other ``sfs`` options can be looked up in :numref:`sfs`.
 
-An experimetanl approach for making the crater bottom not flat
+An experimetanl approach for making the crater bottoms not flat
 is to use options along the lines of::
 
     --curvature-in-shadow 0.4 --curvature-in-shadow-weight 0.7 \
@@ -433,7 +433,7 @@ Run stereo and create a DEM::
     parallel_stereo A_crop_sub10.cub B_crop_sub10.cub   \
       run_sub10/run --subpixel-mode 3                   \
      --bundle-adjust-prefix run_ba_sub10/run
-     point2dem -r moon --tr 10 --stereographic \
+     point2dem -r moon --tr 10 --stereographic          \
         --proj-lon 0 --proj-lat -90 run_sub10/run-PC.tif 
 
 This will create a point cloud named ``run_sub10/run-PC.tif`` and
