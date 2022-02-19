@@ -23,21 +23,20 @@ some experiments were done with Mars HiRISE images and with pictures
 from Charon, Pluto’s moon. As seen later in the text, it returns
 reasonable results on the Moon as far as 85° and even 89.6° South.
 
-Currently, ``sfs`` is computationally expensive, and is practical only
-for DEMs whose width and height are several thousand pixels. It can be
-sensitive to errors in the position and orientation of the cameras, the
-accuracy of the initial DEM, and to the value of the two weights it
-uses. Yet, with some effort, it can work quite well.
+The ``sfs`` program is sensitive to errors in the position and
+orientation of the cameras, the accuracy of the initial DEM, and to
+the value of the weights it uses. Yet, with some effort, it can
+work quite well.
 
 A tool named ``parallel_sfs`` is provided (:numref:`parallel_sfs`)
 that parallelizes ``sfs`` using multiple processes (optionally on
 multiple machines) by splitting the input DEM into tiles with padding,
-running ``sfs`` on each tile, and then blending the results.
+running ``sfs`` on each tile, and then blending the results. It was used
+to create DEMs of dimensions 10,000 by 10,000 pixels.
 
 The ``sfs`` program can model position-dependent albedo, different
 exposure values for each camera, shadows in the input images, and
-regions in the DEM occluded from the Sun. It can refine the positions
-and orientations of the cameras.
+regions in the DEM occluded from the Sun.
 
 The tool works by minimizing the cost function
 
@@ -188,7 +187,7 @@ illustrated on the first image::
 
     f=M139939938LE
     lronac2isis from = ${f}.IMG     to = ${f}.cub
-    spiceinit   from = ${f}.cub
+    spiceinit   from = ${f}.cub shape = ellipsoid
     lronaccal   from = ${f}.cub     to = ${f}.cal.cub
     lronacecho  from = ${f}.cal.cub to = ${f}.cal.echo.cub
 
@@ -200,8 +199,12 @@ done as follows::
     reduce from = ${f}.cal.echo.cub to = ${f}.cal.echo.sub10.cub  \
       sscale = 10 lscale = 10
 
-We rename, for simplicity, the obtained four processed datasets to
-A.cub, B.cub, C.cub, and D.cub.
+For simplicity, we create we create shorter aliases for these images::
+
+    ln -s M139939938LE.cal.echo.cub A.cub
+    ln -s M139946735RE.cal.echo.cub B.cub
+    ln -s M173004270LE.cal.echo.cub C.cub
+    ln -s M122270273LE.cal.echo.cub D.cub
 
 The first step is to run stereo to create an initial guess DEM. We
 picked for this the first two of these images. These form a stereo pair,
@@ -245,13 +248,22 @@ instead)::
 
     sfs -i run_full1/run-crop-DEM.tif A.cub -o sfs_ref1/run           \
       --reflectance-type 1 --crop-input-images                        \
-      --smoothness-weight 0.08 --initial-dem-constraint-weight 0.0001 \
+      --smoothness-weight 0.08 --initial-dem-constraint-weight 0.001  \
       --max-iterations 10 --use-approx-camera-models
 
 The smoothness weight is a parameter that needs tuning. If it is too
 small, SfS will return noisy results, if it is too large, too much
 detail will be blurred. Here we used the Lunar Lambertian model. The
 meaning of the other ``sfs`` options can be looked up in :numref:`sfs`.
+
+An experimetanl approach for making the crater bottom not flat
+is to use options along the lines of::
+
+    --curvature-in-shadow 0.4 --curvature-in-shadow-weight 0.7 \
+    --lit-curvature-dist 20 --shadow-curvature-dist 20
+
+but this only somewhat satisactory and a lot of tuning of these
+numbers should be done.
 
 In the next sections, where SfS will be done with multiple images,
 more parameters which can control the quality of the result will be
@@ -349,9 +361,17 @@ such as shown below (the crop parameters can be determined via
     crop from = D.cub to = D_crop.cub sample = 1 line = 1    \
       nsamples = 2531 nlines = 2740
 
-Then we bundle-adjust and run parallel_stereo
+Note that manual cropping is not practical for a very large number of
+images. In that case, it is suggested to maproject the input images
+onto some smooth DEM whose extent corresponds to the terrain to be
+created with ``sfs`` (with some extra padding), then run bundle
+adjustment with mapprojected images (option ``--mapprojected-data``,
+illustrated in :numref:`sfs-lola-comparison`) and stereo also with
+mapprojected images (:numref:`mapproj-example`). This will not only be
+automated and faster, but also more accurate, as the inputs will be
+more similar after mapprojection.
 
-::
+Bundle adjustment and stereo happens as follows::
 
     bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub \
       --num-iterations 100 --save-intermediate-cameras        \
@@ -369,36 +389,65 @@ See :numref:`running-stereo` for a discussion about various speed-vs-quality cho
 and :numref:`mapproj-example` about handling artifacts in steep terrain.
 Consider using CSM cameras instead of ISIS cameras (:numref:`sfs_isis_vs_csm`).
 
-This will result in a point cloud, ``run_full2/run-PC.tif``, which
-will lead us to the “ground truth” DEM. As mentioned before,
-we’ll in fact run SfS with images subsampled by a factor of
-10. Subsampling is done by running the ISIS ``reduce`` command::
+The resulting cloud, ``run_full2/run-PC.tif``, will be used to create
+the "ground truth" DEM. As mentioned before, we'll in fact run SfS
+with images subsampled by a factor of 10. Subsampling is done by
+running the ISIS ``reduce`` command::
 
     for f in A B C D; do 
       reduce from = ${f}_crop.cub to = ${f}_crop_sub10.cub \
         sscale = 10 lscale = 10
     done
 
-We run bundle adjustment and parallel_stereo with the subsampled images using
-commands analogous to the above::
+We run bundle adjustment and parallel_stereo with the subsampled
+images using commands analogous to the above. It was quite challenging
+to find match points, hence the ``--mapprojected-data`` option in
+``bundle_adjust`` was used, to find interest matches among
+mapprojected images, so the process went as follows::
 
+    # Prepare mapprojected images
+    parallel_stereo A_crop_sub10.cub B_crop_sub10.cub \
+      --subpixel-mode 3 run_sub10_noba/run
+    point2dem -r moon --tr 10 --stereographic     \
+      --proj-lon 0 --proj-lat -90                 \
+      run_sub10_noba/run-PC.tif
+    for f in A B C D; do 
+      mapproject run_sub10_noba/run-DEM.tif \
+        ${f}_crop_sub10.cub ${f}_sub10.map.noba.tif
+    done
+
+    # Run bundle adjustment
     bundle_adjust A_crop_sub10.cub B_crop_sub10.cub     \
       C_crop_sub10.cub D_crop_sub10.cub --min-matches 1 \
       --num-iterations 100 --save-intermediate-cameras  \
-      -o run_ba_sub10/run --ip-per-tile 100000          \
-      --max-pairwise-matches 1000
+      -o run_ba_sub10/run --max-pairwise-matches 1000   \
+      --mapprojected-data \
+      "$(ls [A-D]_sub10.map.noba.tif) run_sub10_noba/run-DEM.tif"
  
+The option ``--max-pairwise-matches`` in ``bundle_adjust`` should
+reduce the number of matches to the set value, if too many were
+created originally.
+ 
+Run stereo and create a DEM::
+
     parallel_stereo A_crop_sub10.cub B_crop_sub10.cub   \
       run_sub10/run --subpixel-mode 3                   \
      --bundle-adjust-prefix run_ba_sub10/run
+     point2dem -r moon --tr 10 --stereographic \
+        --proj-lon 0 --proj-lat -90 run_sub10/run-PC.tif 
 
-Here we used an outrageous value for ``--ip-per-tile``, as this was a
-small clip, and likely there are not many matches. Normally, a value
-of 500 for this parameter is sufficient. The option
-``--max-pairwise-matches`` should reduce the number of matches to the
-set value, if too many were created originally.
- 
-We’ll obtain a point cloud named ``run_sub10/run-PC.tif``.
+This will create a point cloud named ``run_sub10/run-PC.tif`` and
+a DEM DEM ``run_sub10/run-DEM.tif``.
+
+It is strongly suggested to mapproject the bundle-adjusted images
+onto this DEM and verify that the obtained images agree::
+
+   for f in A B C D; do 
+      mapproject run_sub10/run-DEM.tif               \
+        ${f}_crop_sub10.cub ${f}_sub10.map.yesba.tif \
+        --bundle-adjust-prefix run_ba_sub10/run
+    done
+    stereo_gui --use-georef --single-window *yesba.tif
 
 We’ll bring the “ground truth” point cloud closer to the initial
 guess for SfS using ``pc_align``::
@@ -446,16 +495,16 @@ Then, we run ``sfs``::
 
     sfs -i run_sub10/run-crop-DEM.tif A_crop_sub10.cub C_crop_sub10.cub \
       D_crop_sub10.cub -o sfs_sub10_ref1/run --threads 4                \
-      --smoothness-weight 0.12 --initial-dem-constraint-weight 0.0001   \
+      --smoothness-weight 0.12 --initial-dem-constraint-weight 0.001    \
       --reflectance-type 1 --use-approx-camera-models                   \
-      --max-iterations 10  --crop-input-images                          \
+      --max-iterations 5  --crop-input-images                           \
       --bundle-adjust-prefix run_ba_sub10/run                           \
       --blending-dist 10 --min-blend-size 100                           \
       --shadow-thresholds '0.00162484 0.0012166 0.000781663'
 
-It is suggested to not float the cameras, as that should be done by
+It is suggested to not vary the cameras with ``sfs``, as that should be done by
 bundle adjustment, and ``sfs`` will likely not arrive at a good
-solution for the cameras on its own.  Floating the exposures is likely
+solution for the cameras on its own.  Varying the exposures is likely
 also unnecessary.
 
 Note the two "blending" parameters, those help where there are seams or
@@ -569,8 +618,12 @@ and here just the relevant commands are shown.
         --tile-size 1024
     done
 
-(Optional manual interest point picking in the mapprojected images can
-happen here. Those should be saved using the output prefix expected below.)
+Optional manual interest point picking in the mapprojected images can
+happen here. Those should be saved using the output prefix expected
+below.  Here mapprojection was used without
+``--bundle-adjust-prefix``. Here it is not important that the
+mapprojected images are misaligned, as after match points are found
+these points will be projected back to camera pixel space.
 
 ::
 
@@ -748,25 +801,12 @@ terrain, in this case the LOLA gridded DEM, as such a DEM has values in
 permanently shadowed regions. The terrain size is 5 km by 5 km at 1
 meter/pixel (we also ran a 10 km by 10 km region in the same location).
 
-It is important to note that the LOLA DEM is rather coarse, and for
-that reason it appears overly smooth, which may result in image
-exposures being overestimated and the resulting SfS-created terrain
-could have craters that may be somewhat shallower than what they
-should be. To make the craters deeper one can re-run SfS with the
-``--image-exposures-prefix`` option, with the exposures in that file
-being perhaps 0.85 times the values than what SfS estimates based on
-the input LOLA terrain. One could also try to run SfS with a given set
-of exposures and images at 1/10 the resolution (as earlier in this
-document), when the SfS terrain resolution may be more similar to LOLA
-and hence one could use LOLA to estimate if the SfS-produced craters
-have the correct depth.
-
-Another difficulty here is that the topography is very steep, the
+A difficulty here is that the topography is very steep, the
 shadows are very long and vary drastically from image to image, and
 some portions of the terrain show up only in some images. All this
 makes it very hard to register images to each other and to the
 ground. We solved this by choosing very carefully a large set of
-representative images.
+representative images with gradually varying illumination.
 
 We recommend that the process outlined below first be practiced
 with just a couple of images on a small region, which will make it much
@@ -809,6 +849,12 @@ with the ``-te`` option, with the bounds having a fractional part of 0.5.
 Note that the bounds passed to ``-te`` are in the order::
 
     xmin, ymin, xmax, ymax
+
+The ``dem_mosaic`` program can be used to automatically compute the bounds
+of a DEM or orthoimage and change them to integer multiples at pixel size. It
+can be invoked, for example, as::
+
+    dem_mosaic --tr 1 --tap input.tif -o output.tif
 
 Image selection and sorting by illumination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1295,7 +1341,8 @@ terrain, with any desired transform applied to the cameras before
 ``parallel_sfs`` is rerun, and then the extent of the LOLA and SfS
 terrains will agree. Or, though this is not recommended, the SfS
 terrain which exists so far and the LOLA terrain can both be
-interpolated using the same ``gdalwarp -te <corners>`` command.)
+interpolated using the same ``gdalwarp -te <corners>`` command, or with 
+``dem_mosaic --tap`` as mentioned above.)
 
 SfS height uncertainty map
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
