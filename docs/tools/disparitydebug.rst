@@ -3,19 +3,20 @@
 disparitydebug
 --------------
 
-The ``disparitydebug`` program produces output images for debugging
-disparity images created from ``stereo``. The ``stereo`` tool
-produces several different versions of the disparity map; the most
-important ending with extensions ``*-D.tif`` and ``*-F.tif``. (see
-:numref:`outputfiles` for more information.) These raw disparity
-map files can be useful for debugging because they contain raw
-disparity values as measured by the correlator; however they cannot
-be directly visualized or opened in a conventional image browser.
-The ``disparitydebug`` tool converts a single disparity map file
-into two normalized TIFF image files (``*-H.tif`` and ``*-V.tif``,
-containing the horizontal and vertical, or line and sample, components
-of disparity, respectively) that can be viewed using any image
-display program.
+The ``disparitydebug`` program produces visualizable images from
+disparity maps created with ``parallel_stereo`` and ``stereo``. These
+are named ``D_sub.tif``, ``D.tif``, ``RD.tif``, and ``F.tif`` (see
+:numref:`outputfiles` for what each is).
+
+The disparity map files can be useful for debugging because they
+contain raw disparity values as measured by the correlator; however
+they cannot be directly visualized or opened in a conventional image
+browser.  The ``disparitydebug`` tool converts a single disparity map
+file into two normalized TIFF image files (``*-H.tif`` and
+``*-V.tif``, containing the horizontal and vertical, or line and
+sample, components of disparity, respectively) that can be viewed
+using any image display program, including with the ``stereo_gui``
+tool shipped with ASP (:numref:`stereo_gui`).
 
 The ``disparitydebug`` program will also print out the range of
 disparity values in a disparity map, that can serve as useful summary
