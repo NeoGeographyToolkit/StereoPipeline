@@ -10,18 +10,31 @@ New camera additions:
   * Added support for the PeruSat-1 linescan camera model (so far just
     the RPC model was supported for this satellite).
 
-Tool additions:
-    Added the program ``otsu_threshold`` for computing an image
-    threshold. It can be used for separating land from water (in
-    WorldView multispectral NIR bands), and shadowed from lit areas in
-    Lunar images.
+stereo:
+  * Many fixes for reliability of stereo with local epipolar alignment.
+  * Bugfix: Eliminate edge artifacts in stereo refinement (for
+    subpixel modes 1, 2, and 3).
+  * Print in stereo_pprc the estimated convergence angle between rays
+    (for alignment methods affineepipolar, local_epipolar, and
+    homography).
+  * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
+    and SPOT5 was not enabled correctly.
+  * Bugfix for ASTER cameras; this was fully broken.
+    --alignment-method local_epipolar, which blends the local results.
+  * ASP's SGM and MGM algorithms will always use the cross-check for
+    disparity by default, to improve the quality, even if that takes
+    more time. It can be turned off with --xcorr-threshold -1.
+  * Filter outliers in low-resolution disparity D_sub.tif. Can be
+    turned off by setting the percentage in --outlier-removal-params
+    to 100.
+  * Removed the --local-homography option, as it is superseded by 
+  * The stereo tool is deprecated, and can be used only with the
+    ASP_BM classical block-matching algorithm when invoked without
+    local epipolar alignment. Use parallel_stereo instead. 
+  * Added the experimental --gotcha-disparity-refinement option, under
+    NASA proposal 19-PDART19_2-0094 (still in development).
 
 bundle_adjust:
-  * Rename verbose final_residuals_no_loss_function_pointmap_point_log.csv
-    to final_residuals_pointmap.csv and
-    final_residuals_no_loss_function_raw_pixels.txt to 
-    final_residuals_raw_pixels.txt, etc.
-  * Document the useful initial and final residuals_stats.txt files. 
   * Add the option --apply-initial-transform-only to apply an initial
     transform to cameras while skipping image matching and other
     steps, making the process much faster.
@@ -33,37 +46,27 @@ bundle_adjust:
     values should be used for both of these options.
   * Stop printing warnings about failed triangulation if their number
     goes over 100.
+  * Rename verbose final_residuals_no_loss_function_pointmap_point_log.csv
+    to final_residuals_pointmap.csv and
+    final_residuals_no_loss_function_raw_pixels.txt to 
+    final_residuals_raw_pixels.txt, etc.
+  * Document the useful initial and final residuals_stats.txt files. 
 
-stereo:
-  * Many fixes for reliability of stereo with local epipolar alignment.
-  * Print in stereo_pprc the estimated convergence angle between rays
-    (for alignment methods affineepipolar, local_epipolar, and
-    homography).
-  * Removed the --local-homography option, as it is superseded by 
-    --alignment-method local_epipolar, which blends the local results.
-  * ASP's SGM and MGM algorithms will always use the cross-check for
-    disparity by default, to improve the quality, even if that takes
-    more time. It can be turned off with --xcorr-threshold -1.
-  * Filter outliers in low-resolution disparity D_sub.tif. Can be
-    turned off by setting the percentage in --outlier-removal-params
-    to 100.
-  * The stereo tool is deprecated, and can be used only with the
-    ASP_BM classical block-matching algorithm when invoked without
-    local epipolar alignment. Use parallel_stereo instead. 
-  * Added the experimental --gotcha-disparity-refinement option, under
-    NASA proposal 19-PDART19_2-0094 (still in development).
-  * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
-    and SPOT5 was not enabled correctly.
-  * Bugfix for ASTER cameras; this was fully broken.
+csm:
+  * Save the camera state on multiple lines. On reading both the
+    single-line and multiple-line formats are accepted.
+  * Bundle adjustment, mapproject, and SfS with the CSM model can be
+    7-15 times faster than done with the corresponding ISIS model.
+  * Bugfix in CSM linescan implementation for some LRO NAC sensors.
 
-stereo_gui: 
-  * Bugfix when overlaying shapefiles with different georeferences.
-  * Can save a shapefile having points, segments, or polygons (yet the
-    shapefile format requires that these not be mixed in the same
-    shapefile).
-  * Can cycle through given images from the View menu, or with the 'n'
-    and 'p' keys.
- 
+sfs:
+  * SfS was made to work with any camera model supported by ASP,
+    including for Earth. For non-ISIS and non-CSM cameras, the option
+    --sun-positions should be used.
+  * Exhaustively tested with the CSM model. It is very remmended to
+    use that one instead of ISIS .cub cameras, to get a very large
+    speedup and multithreading. 
+
 mapproject:
   * If the input image file has an embedded RPC camera model, append
     it to the output mapprojected file. (Which makes stereo with
@@ -72,22 +75,13 @@ mapproject:
     is set to 5120 for non-ISIS cameras and to 1024 for ISIS. Use
     a large value of --tile-size to use fewer processes.
 
-csm:
-  * Save the camera state on multiple lines. On reading both the
-    single-line and multiple-line formats are accepted.
-
-sfs:
-  * SfS was made to work with any camera model supported by ASP,
-    including for Earth. For non-ISIS and non-CSM cameras, the option
-    --sun-positions should be used.
-  * Bundle adjustment, mapproject, and SfS with the CSM model can be
-    7-15 times faster than done with the corresponding ISIS model. But
-    the CSM model does not always approximate an ISIS model correctly
-    (the doc has more info).
-
 bathymetry:
   * Can have different water surfaces in left and right images, so the
     triangulating rays bend at different heights.
+  * Added the program ``otsu_threshold`` for computing an image
+    threshold. It can be used for separating land from water (in
+    WorldView multispectral NIR bands), and shadowed from lit areas
+    (in Lunar images).
   * bathy_plane_calc can use a mask of points above water to find the
     water-land interface, and also a set of actual lon,lat,height
     measurements.
@@ -109,6 +103,16 @@ dem_mosaic:
     can have different grid sizes and hence the input parameters have
     different effects on each.
   * Bugfix for hole-filling and blurring. Tile artifacts got removed.
+
+stereo_gui: 
+  * Can cycle through given images from the View menu, or with the 'n'
+    and 'p' keys, when all are in the same window.
+  * Can save a shapefile having points, segments, or polygons. (These
+    are distinct classes for a shapefile. The shapefile format
+    requires that these not be mixed in the same file.)
+  * Bugfix when overlaying shapefiles with different georeferences.
+  * Polygon layers can be set to desired colors from the left pane,
+    when overlaid.
 
 image_calc:
   * Add the option --no-georef to remove any georeference
@@ -134,15 +138,13 @@ Misc:
   * The mapprojected image saves as metadata the adjustments it was
     created with.
   * The ipmatch program can take as input just images, with the 
-    .vwip files filled in.
+    .vwip files looked up by extension.
   * Bugfix in handling projections specified via an EPSG code.
   * Bugfix when some environmental variables or the path to ASP
     itself have spaces. (It happens under Microsoft WSL.)
   * Bugfix for the "too many open files" error for large images.
   * Add the build date to the ``--version`` option in the ASP tools
     and to the log files.
-  * In stereo_gui, polygon layers can be set to desired colors from
-    the left pane, when overlaid.
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------
