@@ -120,11 +120,11 @@ images are from different perspectives.  Several alignment methods are
 supported, including ``local_epipolar``, ``affineepipolar`` and
 ``homography`` (see :numref:`image_alignment` for details).
 
-Alternatively, stereo can be performed with map-projected images
+Alternatively, stereo can be performed with mapprojected images
 (:numref:`mapproj-example`). In effect we take a smooth
 low-resolution terrain and map both the left and right raw images onto
 that terrain. This automatically brings both images into the same
-perspective, and as such, for map-projected images the alignment method
+perspective, and as such, for mapprojected images the alignment method
 is always set to ``none``.
 
 .. _stereo_algos:
@@ -325,7 +325,7 @@ option of ``parallel_stereo`` can be used. See
 
 .. _mapproj-example:
 
-Running stereo with map-projected images
+Running stereo with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The way stereo correlation works is by matching a neighborhood of each
@@ -336,7 +336,7 @@ the two cameras are very different or the underlying terrain has steep
 portions. This will result in ASP producing terrains with noise or
 missing data.
 
-ASP can mitigate this by *map-projecting* the left and right images onto
+ASP can mitigate this by *mapprojecting* the left and right images onto
 some pre-existing low-resolution smooth terrain model without holes, and
 using the output images to do stereo. In effect, this makes the images
 much more similar and more likely for stereo correlation to succeed.
@@ -361,17 +361,17 @@ factor, use hole-filling, invoke more aggressive outlier removal, and
 erode pixels at the boundary (those tend to be less reliable).
 Alternatively, holes can be filled with ``dem_mosaic``.
 
-The tool used for map-projecting the images is called ``mapproject``
+The tool used for mapprojecting the images is called ``mapproject``
 (:numref:`mapproject`). It is very important to specify correctly
 the output resolution (the ``--tr`` option for ``mapproject``) when
-creating map-projected images. For example, if the input images are
+creating mapprojected images. For example, if the input images are
 about 1 meter/pixel, the same number should be used in ``mapproject``
 (if the desired projection is in degrees, this value should be
 converted to degrees). If the output resolution is not correct,
 there will be artifacts in the stereo results.
 
 Some experimentation on a small area may be necessary to obtain the best
-results. Once images are map-projected, they can be cropped to a small
+results. Once images are mapprojected, they can be cropped to a small
 shared region using ``gdal_translate -projwin`` and then stereo with
 these clips can be invoked.
 
@@ -380,16 +380,16 @@ Example for ISIS images
 
 .. figure:: images/stereo_mapproj_400px.png
    :name: mapproj-example-fig
-   :alt: DEMs from camera geometry images and from map-projected images.
+   :alt: DEMs from camera geometry images and from mapprojected images.
 
    A DEM obtained using plain stereo (left) and stereo with
-   map-projected images (right). Their quality will be comparable for
+   mapprojected images (right). Their quality will be comparable for
    relatively flat terrain and the second will be much better for rugged
    terrain. The right image has some artifacts, but those are limited to
    areas close to the boundary. Things can be further improved with
    the ``asp_mgm`` algorithm (:numref:`running-stereo`).
 
-In this example we illustrate how to run stereo with map-projected
+In this example we illustrate how to run stereo with mapprojected
 images for ISIS data. We start with LRO NAC Lunar images M1121224102LE
 and M1121209902LE from ASU’s LRO NAC web site (http://lroc.sese.asu.edu).
 We convert them to ISIS cubes using the ISIS
@@ -399,7 +399,7 @@ radiometric and echo correction. We name the two obtained .cub files
 ``left.cub`` and ``right.cub``.
 
 Here we decided to run ASP to create the low-resolution DEM needed for
-map-projection, rather than get them from an external source. For speed,
+mapprojection, rather than get them from an external source. For speed,
 we process just a small portion of the images::
 
      parallel_stereo left.cub right.cub            \
@@ -424,9 +424,9 @@ As mentioned earlier, some tweaks to the parameters used by
 ``point2dem`` may be necessary for this low-resolution DEM to be smooth
 enough and with no holes.
 
-Note that we used ``--search-radius-factor 5`` to expand the DEM a bit,
-to counteract future erosion in stereo due to the correlation kernel
-size.
+Note that we used ``--search-radius-factor 5`` to expand the DEM a
+bit, to counteract future erosion at image boundary in stereo due to
+the correlation kernel size. This is optional.
 
 If this terrain is close to the poles, say within 25 degrees of
 latitude, it is advised to use a stereographic projection, centered
@@ -441,29 +441,31 @@ can be found, which can be used in mapprojection later, and with the
 resolution switched to meters from degrees (see :numref:`dg-mapproj`
 for more details).
 
-Next, we map-project the images onto this DEM, using the original
+Next, we mapproject the images onto this DEM, using the original
 resolution of :math:`3.3 \times 10^{-5}` degrees::
 
-     mapproject --tr 0.000033 run_nomap/run-DEM.tif left.cub left_proj.tif \
+     mapproject --tr 0.000033 run_nomap/run-DEM.tif           \
+       left.cub left_proj.tif                                 \
        --t_projwin 3.6175120 25.5669989 3.6653695 25.4952127
-     mapproject --tr 0.000033 run_nomap/run-DEM.tif right.cub right_proj.tif \
+     mapproject --tr 0.000033 run_nomap/run-DEM.tif           \
+       right.cub right_proj.tif                               \
        --t_projwin 3.6175120 25.5669989 3.6653695 25.4952127
 
 Notice that we restricted the area of computation using ``--t_projwin``
 to again make the process faster.
 
-Next, we do stereo with these map-projected images::
+Next, we do stereo with these mapprojected images::
 
      parallel_stereo --job-size-w 1024 --job-size-h 1024 \
        --subpixel-mode 3                                 \
        left_proj.tif right_proj.tif left.cub right.cub   \
        run_map/run run_nomap/run-DEM.tif
 
-Notice that even though we use map-projected images, we still specified
+Notice that even though we use mapprojected images, we still specified
 the original images as the third and fourth arguments. That because we
 need the camera information from those files. The fifth argument is the
 output prefix, while the sixth is the low-resolution DEM we used for
-map-projection. We have used here ``--subpixel-mode 3`` as this will be
+mapprojection. We have used here ``--subpixel-mode 3`` as this will be
 the final point cloud and we want the increased accuracy.
 
 Lastly, we create a DEM at 1 meter resolution::
@@ -476,12 +478,12 @@ meter in this DEM, as the stereo process is lossy. This is explained in
 more detail in :numref:`post-spacing`.
 
 In :numref:`mapproj-example` we show the effect of using
-map-projected images on accuracy of the final DEM.
+mapprojected images on accuracy of the final DEM.
 
-It is important to note that we could have map-projected the images
+It is important to note that we could have mapprojected the images
 using the ISIS tool ``cam2map``, as described in :numref:`aligning-images`.
 The current approach could be
-preferable since it allows us to choose the DEM to map-project onto, and
+preferable since it allows us to choose the DEM to mapproject onto, and
 it is much faster, since ASP’s ``mapproject`` uses multiple processes,
 while ``cam2map`` is restricted to one process and one thread.
 
@@ -490,7 +492,7 @@ while ``cam2map`` is restricted to one process and one thread.
 Example for DigitalGlobe/Maxar images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In this section we will describe how to run stereo with map-projected
+In this section we will describe how to run stereo with mapprojected
 images for DigitalGlobe/Maxar cameras for Earth. The same process can be used
 with very minor modifications for any satellite images that use the
 the RPC camera model. All that is needed is to replace the stereo
@@ -498,7 +500,7 @@ session when invoking ``parallel_stereo`` below with ``rpcmaprpc`` from
 ``dgmaprpc``.
 
 Unlike the previous section, here we will use an external DEM to
-map-project onto, rather than creating our own. We will use a variant of
+mapproject onto, rather than creating our own. We will use a variant of
 NASA SRTM data with no holes. Other choices have been mentioned earlier.
 
 It is important to note that ASP expects the input low-resolution DEM to
@@ -522,7 +524,7 @@ modification of the original NASA SRTM product
 :cite:`cgiar:srtm90m`. The NASA SRTM square for this example
 spot in India is N26E080.
 
-Below are the commands for map-projecting the input and then running
+Below are the commands for mapprojecting the input and then running
 through stereo. You can use any projection you like as long as it
 preserves detail in the images. Note that the last parameter in the
 stereo call is the input low-resolution DEM. The dataset is the same as
@@ -568,7 +570,7 @@ The complete list of options for ``mapproject`` is described in
 
 In the ``parallel_stereo`` command, we have used ``subpixel-mode 1`` which is
 less accurate but reasonably fast. We have also used
-``alignment-method none``, since the images are map-projected onto the
+``alignment-method none``, since the images are mapprojected onto the
 same terrain with the same resolution, thus no additional alignment is
 necessary. More details about how to set these and other ``parallel_stereo``
 parameters can be found in :numref:`settingoptionsinstereodefault`.
@@ -576,24 +578,24 @@ parameters can be found in :numref:`settingoptionsinstereodefault`.
 It is important to note here that any DigitalGlobe/Maxar camera file has two
 models in it, the exact linescan model (which we name ``DG``), and its
 ``RPC`` approximation. Above, we have used the approximate RPC model for
-map-projection, since map-projection is just a pre-processing step to
+mapprojection, since mapprojection is just a pre-processing step to
 make the images more similar to each other, this step will be undone
 during stereo triangulation, and hence using the RPC model is good
 enough, while being much faster than the exact ``DG`` model. At the
 stereo stage, we see above that we invoked the ``dgmaprpc`` session,
-which suggests that we have used the RPC model during map-projection,
+which suggests that we have used the RPC model during mapprojection,
 but we would like to use the accurate DG model when performing actual
 triangulation from the cameras to the ground.
 
 RPC and Pinhole camera models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Map-projected images can also be used with RPC and Pinhole camera
+mapprojected images can also be used with RPC and Pinhole camera
 models. The ``mapproject`` command needs to be invoked with ``-t rpc``
 and ``-t pinhole`` respectively. As earlier, when invoking ``parallel_stereo``
-the the first two arguments should be the map-projected images, followed
+the the first two arguments should be the mapprojected images, followed
 by the camera models, output prefix, and the name of the DEM used for
-map-projection. The session name passed to ``parallel_stereo`` should be
+mapprojection. The session name passed to ``parallel_stereo`` should be
 ``rpcmaprpc`` and ``pinholemappinhole`` respectively.
 
 .. _multiview:
@@ -612,7 +614,7 @@ triangulation is performed :cite:`slabaugh2001optimal`. A
 single point cloud is generated with one 3D point for each pixel in the
 first image. The inputs to multi-view stereo and its output point cloud
 are handled in the same way as for two-view stereo (e.g., inputs can be
-map-projected, the output can be converted to a DEM, etc.).
+mapprojected, the output can be converted to a DEM, etc.).
 
 It is suggested that images be bundle-adjusted (:numref:`baasp`)
 before running multi-view stereo.
@@ -621,7 +623,7 @@ Example (for ISIS with three images)::
 
      parallel_stereo file1.cub file2.cub file3.cub results/run
 
-Example (for DigitalGlobe/Maxar data with three map-projected images)::
+Example (for DigitalGlobe/Maxar data with three mapprojected images)::
 
      parallel_stereo file1.tif file2.tif file3.tif \
        file1.xml file2.xml file3.xml               \
@@ -731,7 +733,7 @@ using the ``point2mesh`` or ``point2dem`` tools, respectively.
 
 :numref:`p19-disparity` shows the outputs of ``disparitydebug``.
 
-If the input images are map-projected (georeferenced) and the alignment
+If the input images are mapprojected (georeferenced) and the alignment
 method is ``none``, all images output by stereo are georeferenced as
 well, such as GoodPixelMap, D_sub, disparity, etc. As such, all these
 data can be overlayed in ``stereo_gui``. ``disparitydebug`` also
@@ -804,7 +806,7 @@ The ``point2dem`` program (page ) creates a Digital Elevation Model
 
      point2dem results/output-PC.tif
 
-The resulting TIFF file is map-projected and will contain georeference
+The resulting TIFF file is mapprojected and will contain georeference
 information stored as GeoTIFF tags.
 
 The tool will infer the datum and projection from the input images, if
@@ -966,7 +968,7 @@ Alignment and orthoimages
 
 Two related issues are discussed here. The first is that sometimes,
 after ASP has created a DEM, and the left and right images are
-map-projected to it, they are shifted in respect to each other. That is
+mapprojected to it, they are shifted in respect to each other. That is
 due to the errors in camera positions. To rectify it, one has to run
 ``bundle_adjust`` first, then rerun the stereo and mapprojection tools,
 with the adjusted cameras being passed to both via
