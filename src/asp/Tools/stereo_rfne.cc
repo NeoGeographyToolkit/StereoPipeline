@@ -28,7 +28,9 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageResourceOpenEXR.h>
+#include <vw/Image/InpaintView.h>
 #include <asp/Sessions/StereoSession.h>
+
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
@@ -43,7 +45,7 @@ refine_disparity(Image1T const& left_image,
                  ImageViewRef< PixelMask<Vector2f> > const& integer_disp,
                  ASPGlobalOptions const& opt, bool verbose){
 
-  ImageViewRef<PixelMask<Vector2f> > refined_disp = integer_disp;
+  ImageViewRef<PixelMask<Vector2f>> refined_disp = integer_disp;
 
   PrefilterModeType prefilter_mode = 
     static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
@@ -95,13 +97,12 @@ refine_disparity(Image1T const& left_image,
     // Fast affine
     if (verbose)
       vw_out() << "\t--> Using affine subpixel mode\n";
-
     refined_disp =
       affine_subpixel(integer_disp,
-                       left_image, right_image,
-                       prefilter_mode, stereo_settings().slogW,
-                       stereo_settings().subpixel_kernel,
-                       stereo_settings().subpixel_max_levels);
+                      left_image, right_image,
+                      prefilter_mode, stereo_settings().slogW,
+                      stereo_settings().subpixel_kernel,
+                      stereo_settings().subpixel_max_levels);
 
   } // End Fast affine cases
   if (stereo_settings().subpixel_mode == 4) {
@@ -194,7 +195,6 @@ template <class Image1T, class Image2T, class SeedDispT>
 class PerTileRfne: public ImageViewBase<PerTileRfne<Image1T, Image2T, SeedDispT> >{
   Image1T              m_left_image;
   Image2T              m_right_image;
-  ImageViewRef<uint8>  m_right_mask;
   SeedDispT            m_integer_disp;
   SeedDispT            m_sub_disp;
   ASPGlobalOptions const&       m_opt;
@@ -203,12 +203,10 @@ class PerTileRfne: public ImageViewBase<PerTileRfne<Image1T, Image2T, SeedDispT>
 public:
   PerTileRfne(ImageViewBase<Image1T>   const& left_image,
                ImageViewBase<Image2T>   const& right_image,
-               ImageViewRef <uint8>     const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
                ImageViewBase<SeedDispT> const& sub_disp,
                ASPGlobalOptions const& opt):
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
-    m_right_mask(right_mask),
     m_integer_disp(integer_disp.impl()), m_sub_disp(sub_disp.impl()),
     m_opt(opt){
 
@@ -234,7 +232,6 @@ public:
 
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
-
     ImageView<pixel_type> tile_disparity;
     bool verbose = false;
     tile_disparity = crop(refine_disparity(m_left_image, m_right_image,
@@ -256,19 +253,16 @@ template <class Image1T, class Image2T, class SeedDispT>
 PerTileRfne<Image1T, Image2T, SeedDispT>
 per_tile_rfne(ImageViewBase<Image1T  > const& left,
                ImageViewBase<Image2T  > const& right,
-               ImageViewRef<uint8     > const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
                ImageViewBase<SeedDispT> const& sub_disp,
                ASPGlobalOptions const& opt) {
   typedef PerTileRfne<Image1T, Image2T, SeedDispT> return_type;
-  return return_type(left.impl(), right.impl(), right_mask,
-                      integer_disp.impl(), sub_disp.impl(), opt);
+  return return_type(left.impl(), right.impl(), integer_disp.impl(), sub_disp.impl(), opt);
 }
 
 void stereo_refinement(ASPGlobalOptions const& opt) {
 
-  ImageViewRef<PixelGray<float>    > left_image, right_image;
-  ImageViewRef<uint8               > left_mask,  right_mask;
+  ImageViewRef<PixelGray<float>> left_image, right_image;
   ImageViewRef<PixelMask<Vector2f> > input_disp;
   ImageViewRef<PixelMask<Vector2f> > sub_disp;
   string left_image_file  = opt.out_prefix+"-L.tif";
@@ -276,38 +270,53 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
   string left_mask_file   = opt.out_prefix+"-lMask.tif";
   string right_mask_file  = opt.out_prefix+"-rMask.tif";
 
-  try {
-    left_image   = DiskImageView< PixelGray<float> >(left_image_file);
-    right_image  = DiskImageView< PixelGray<float> >(right_image_file);
-    left_mask    = DiskImageView<uint8>(left_mask_file);
-    right_mask   = DiskImageView<uint8>(right_mask_file);
-
-    // Read the correct type of correlation file (float for SGM/MGM, otherwise integer)
-    std::string disp_file  = opt.out_prefix + "-D.tif";
-    std::string blend_file = opt.out_prefix + "-B.tif";
-
-    if (stereo_settings().subpix_from_blend) { // Read the stereo_blend output file
-      input_disp = DiskImageView< PixelMask<Vector2f> >(blend_file);
-    } else {
-      // Read the stereo_corr output file
-      boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(disp_file));
-      ChannelTypeEnum disp_data_type = rsrc->channel_type();
-      if (disp_data_type == VW_CHANNEL_INT32)
-        input_disp = pixel_cast<PixelMask<Vector2f> >(
-                        DiskImageView< PixelMask<Vector2i> >(disp_file));
-      else // File on disk is float
-        input_disp = DiskImageView< PixelMask<Vector2f> >(disp_file);
-    }
-    
-  } catch (IOErr const& e) {
-    vw_throw(ArgumentErr() << "\nUnable to start at refinement stage, could not read input files.\n" 
-                            << e.what() << "\nExiting.\n\n");
+  int kernel_size = std::max(stereo_settings().subpixel_kernel[0],
+                             stereo_settings().subpixel_kernel[1]);
+  
+  left_image  = DiskImageView<PixelGray<float>>(left_image_file);
+  right_image = DiskImageView<PixelGray<float>>(right_image_file);
+  
+  // It is better to fill no-data pixels with an average from
+  // neighbors than to use no-data values in processing. This is a
+  // temporary band-aid solution.
+  float left_nodata_val = -std::numeric_limits<float>::max();
+  if (vw::read_nodata_val(left_image_file, left_nodata_val))
+    vw_out() << "Left image nodata: " << left_nodata_val << std::endl;
+  float right_nodata_val = -std::numeric_limits<float>::max();
+  if (vw::read_nodata_val(right_image_file, right_nodata_val))
+    vw_out() << "Right image nodata: " << right_nodata_val << std::endl;
+  
+  left_image = apply_mask(vw::fill_nodata_with_avg
+                          (create_mask(left_image, left_nodata_val), kernel_size));
+  right_image = apply_mask(vw::fill_nodata_with_avg
+                           (create_mask(right_image, right_nodata_val), kernel_size));
+  
+  // Read the correct type of correlation file (float for SGM/MGM, otherwise integer)
+  std::string disp_file  = opt.out_prefix + "-D.tif";
+  std::string blend_file = opt.out_prefix + "-B.tif";
+  
+  if (stereo_settings().subpix_from_blend) { // Read the stereo_blend output file
+    input_disp = DiskImageView< PixelMask<Vector2f> >(blend_file);
+  } else {
+    // Read the stereo_corr output file
+    boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(disp_file));
+    ChannelTypeEnum disp_data_type = rsrc->channel_type();
+    if (disp_data_type == VW_CHANNEL_INT32)
+      input_disp = pixel_cast<PixelMask<Vector2f> >
+        (DiskImageView< PixelMask<Vector2i> >(disp_file));
+    else // File on disk is float
+      input_disp = DiskImageView< PixelMask<Vector2f> >(disp_file);
   }
-
+  
   bool skip_img_norm = asp::skip_image_normalization(opt);
   if (skip_img_norm && stereo_settings().subpixel_mode == 2){
+    // TODO(oalexan1): Test with subpixel mode 2 and 3.
     // Images were not normalized in pre-processing. Must do so now
     // as bayes_em_subpixel assumes them to be normalized.
+    ImageViewRef<uint8> left_mask,  right_mask;
+    left_mask    = DiskImageView<uint8>(left_mask_file);
+    right_mask   = DiskImageView<uint8>(right_mask_file);
+    
     ImageViewRef< PixelMask< PixelGray<float> > > Limg
       = copy_mask(left_image, create_mask(left_mask));
     ImageViewRef< PixelMask< PixelGray<float> > > Rimg
@@ -328,8 +337,10 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
                           use_percentile_stretch, 
                           do_not_exceed_min_max,
                           left_stats, right_stats, Limg, Rimg);
-    left_image  = apply_mask(Limg);
-    right_image = apply_mask(Rimg);
+
+    // As above, fill no-data with average from neighbors
+    left_image  = apply_mask(vw::fill_nodata_with_avg(Limg, kernel_size));
+    right_image = apply_mask(vw::fill_nodata_with_avg(Rimg, kernel_size));
   }
 
   // The whole goal of this block it to go through the motions of
@@ -341,7 +352,7 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
   refine_disparity(left_dummy, right_dummy, dummy_disp, opt, verbose);
 
   ImageViewRef< PixelMask<Vector2f> > refined_disp
-    = crop(per_tile_rfne(left_image, right_image, right_mask,
+    = crop(per_tile_rfne(left_image, right_image, 
                          input_disp, sub_disp, opt), 
            stereo_settings().trans_crop_win);
   
