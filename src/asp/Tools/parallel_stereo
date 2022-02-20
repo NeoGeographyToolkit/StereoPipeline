@@ -780,6 +780,14 @@ if __name__ == '__main__':
         wipe_option(self_args, '-e', 1)
         wipe_option(self_args, '--entry-point', 1)
         wipe_option(self_args, '--stop-point', 1)
+        
+        # These can be stray options if pasting the stereo command
+        # from a log file where these particular operations
+        # happened, and they will result in the overall stereo
+        # command misbehaving. They are needed only at a certain stage.
+        wipe_option(args, '--compute-low-res-disparity-only', 0)
+        wipe_option(args, '--compute-point-cloud-center-only', 0)
+        wipe_option(args, '--compute-piecewise-adjustments-only', 0)
 
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1:
@@ -870,10 +878,6 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
 
-            # This can be a stray option if reading the command from a log file
-            # for low-res disparity computation
-            wipe_option(args, '--compute-low-res-disparity-only', 0)
-
             # Do low-res correlation, this happens just once.
             calc_lowres_disp(args, opt, sep)
 
@@ -943,13 +947,6 @@ if __name__ == '__main__':
         if (opt.entry_point <= step):
             if (opt.stop_point <= step):
                 sys.exit()
-
-            # These can be stray options if pasting the stereo command
-            # from a log file where these particular operations
-            # happened, and they will result in the overall stereo
-            # command misbehaving. They are needed only at a certain stage.
-            wipe_option(args, '--compute-point-cloud-center-only', 0)
-            wipe_option(args, '--compute-piecewise-adjustments-only', 0)
 
             # First compute jitter correction (optional). Done just once per run.
             if '--image-lines-per-piecewise-adjustment' in args:

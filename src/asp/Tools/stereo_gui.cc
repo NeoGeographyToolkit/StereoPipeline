@@ -178,7 +178,6 @@ int main(int argc, char** argv) {
               is_image = false;
             }else if (asp::has_shp_extension(file)) {
               // See if this is a shape file
-              vw_out() << "Reading shapefile: " << file << std::endl;
               is_image = true; // will load it in the same struct as for images
             }else{
               vw_out() << "Not a valid image: " << file << ".\n";

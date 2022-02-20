@@ -219,6 +219,7 @@ void MainWindow::createLayout() {
         m_hillshade_vec.push_back(m_widgets[wit]->hillshadeMode());
     }
   }else{
+    // No widgets yet
     m_hillshade_vec.resize(m_image_files.size());
     for (size_t wit = 0; wit < m_image_files.size(); wit++)
       m_hillshade_vec[wit] = m_hillshade;

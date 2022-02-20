@@ -131,6 +131,15 @@ if __name__ == '__main__':
                         "except ASP_BM can be used only with parallel_stereo.")
 
     try:
+
+        # These can be stray options if pasting the stereo command
+        # from a log file where these particular operations
+        # happened, and they will result in the overall stereo
+        # command misbehaving. They are needed only at a certain stage.
+        wipe_option(args, '--compute-low-res-disparity-only', 0)
+        wipe_option(args, '--compute-point-cloud-center-only', 0)
+        wipe_option(args, '--compute-piecewise-adjustments-only', 0)
+
         # Invoke itself for multiview if appropriate
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1 and opt.entry_point < Step.tri:
@@ -150,11 +159,7 @@ if __name__ == '__main__':
         if (opt.entry_point <= step):
             if ( opt.stop_point <= step ): sys.exit()
 
-            # This can be a stray option if reading the command from a log file
-            # for low-res disparity computation
-            wipe_option(args, '--compute-low-res-disparity-only', 0)
-            
-            if ( opt.seed_mode == 0 ):
+            if (opt.seed_mode == 0):
                 # No low resolution seed, go straight to full resolution correlation
                 stereo_run('stereo_corr', args, opt, msg='%d: Correlation' % step)           
             else:

@@ -2933,15 +2933,15 @@ namespace vw { namespace gui {
         std::string fileName = m_images[image_it].name;
         if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
 
-        BBox2 image_box = world2image(m_stereoCropWin, image_it);
+        BBox2 image_box = world2image(m_stereoCropWin, image_it); 
         vw_out().precision(8);
         vw_out() << "Crop src win for  "
                  << m_images[image_it].name
                  << ": "
-                 << image_box.min().x() << ' '
-                 << image_box.min().y() << ' '
-                 << image_box.width()   << ' '
-                 << image_box.height()  << std::endl;
+                 << round(image_box.min().x()) << ' '
+                 << round(image_box.min().y()) << ' '
+                 << round(image_box.width())   << ' '
+                 << round(image_box.height())  << std::endl;
 
         if (m_images[image_it].has_georef){
           Vector2 proj_min, proj_max;
