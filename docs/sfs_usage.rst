@@ -256,13 +256,13 @@ small, SfS will return noisy results, if it is too large, too much
 detail will be blurred. Here we used the Lunar Lambertian model. The
 meaning of the other ``sfs`` options can be looked up in :numref:`sfs`.
 
-An experimetanl approach for making the crater bottoms not flat
+An experimental approach for making the crater bottoms not flat
 is to use options along the lines of::
 
     --curvature-in-shadow 0.4 --curvature-in-shadow-weight 0.7 \
     --lit-curvature-dist 20 --shadow-curvature-dist 20
 
-but this only somewhat satisactory and a lot of tuning of these
+but this only somewhat satisfactory and a lot of tuning of these
 numbers should be done.
 
 In the next sections, where SfS will be done with multiple images,
@@ -362,7 +362,7 @@ such as shown below (the crop parameters can be determined via
       nsamples = 2531 nlines = 2740
 
 Note that manual cropping is not practical for a very large number of
-images. In that case, it is suggested to maproject the input images
+images. In that case, it is suggested to mapproject the input images
 onto some smooth DEM whose extent corresponds to the terrain to be
 created with ``sfs`` (with some extra padding), then run bundle
 adjustment with mapprojected images (option ``--mapprojected-data``,
