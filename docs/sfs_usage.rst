@@ -10,6 +10,8 @@ and cameras, a DEM at roughly the same resolution as the
 images, and returns a refined DEM. This chapter shows in a lot of
 detail how this tool is to be used.
 
+.. _sfs_overview:
+
 Overview
 --------
 
@@ -43,7 +45,6 @@ The tool works by minimizing the cost function
 .. math::
 
    \label{cost}
-     % \begin{multline}\label{cost}
      \int\!\! \int \! \sum_k \left[ I_k(\phi(x, y)) - T_k A(x, y)
        R_k(\phi(x, y)) \right]^2\,  
      % R_k(\phi(x, y)) \right]^2\,  \\
@@ -253,17 +254,8 @@ instead)::
 
 The smoothness weight is a parameter that needs tuning. If it is too
 small, SfS will return noisy results, if it is too large, too much
-detail will be blurred. Here we used the Lunar Lambertian model. The
+detail will be blurred. Here we used the Lunar-Lambertian model. The
 meaning of the other ``sfs`` options can be looked up in :numref:`sfs`.
-
-An experimental approach for making the crater bottoms not flat
-is to use options along the lines of::
-
-    --curvature-in-shadow 0.4 --curvature-in-shadow-weight 0.7 \
-    --lit-curvature-dist 20 --shadow-curvature-dist 20
-
-but this only somewhat satisfactory and a lot of tuning of these
-numbers should be done.
 
 In the next sections, where SfS will be done with multiple images,
 more parameters which can control the quality of the result will be
@@ -539,14 +531,67 @@ otherwise the image will show as shifted from its true location::
     mapproject sfs_sub10_ref1/run-DEM-final.tif A_crop_sub10.cub   \
       A_crop_sub10_map.tif --bundle-adjust-prefix run_ba_sub10/run
 
+.. _sfs2_fig:
 .. figure:: images/sfs2.jpg
-   :name: sfs2
+   :name: sfs2_fig_name
    :alt: Another sfs illustration 
 
    An illustration of ``sfs``. The images are, from left to right, the
    hill-shaded initial guess DEM for SfS, the hill-shaded DEM obtained
    from ``sfs``, the “ground truth” DEM, and the first of the images
    used in SfS map-projected onto the optimized DEM.
+
+.. _sfs2_fix_fig:
+.. figure:: images/sfs2_fix_depth.jpg
+   :name: sfs2_fix_fig_name
+   :alt: SfS with curved crater bottom
+
+   An illustration of adding a curvature term to the SfS cost
+   function, per :numref:`sfs_crater_bottoms`. It can be seen that,
+   compared to the earlier figure, the crater bottom is now curved,
+   rather than flat, but more modeling is needed to ensure a seamless
+   transition.
+
+.. _sfs_crater_bottoms:
+
+Handling lack of data in shadowed crater bottoms
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+An approach for making the crater bottoms not flat in shadowed areas
+where is no data (see Figure :numref:`sfs2_fig`), is to add a
+new curvature term in areas in shadow, of the form
+
+.. math::
+
+   \label{curvature}
+     w \left(\frac{\partial^2 \phi}{\partial x^2} + 
+      \frac{\partial^2 \phi}{\partial y^2} - c\right)
+
+to the SfS formulation in :numref:`sfs_overview`. As an example, running::
+
+    sfs -i run_sub10/run-crop-DEM.tif                               \
+        A_crop_sub10.cub C_crop_sub10.cub D_crop_sub10.cub          \
+        -o sfs_sub10_v2/run                                         \
+        --threads 4 --smoothness-weight 0.12                        \
+        --max-iterations 5 --initial-dem-constraint-weight 0.0001   \
+        --reflectance-type 1                                        \
+        --use-approx-camera-models                                  \
+        --crop-input-images                                         \
+        --bundle-adjust-prefix run_ba_sub10/run                     \
+        --shadow-thresholds '0.002 0.002 0.002'                     \
+        --curvature-in-shadow 0.15 --curvature-in-shadow-weight 0.1 \
+        --lit-curvature-dist 10 --shadow-curvature-dist 5
+
+will produce the terrain in Figure :numref:`sfs2_fix_fig`.
+ 
+The curvature ``c`` is given by option ``--curvature-in-shadow``, its
+weight ``w`` by ``--curvature-in-shadow-weight``, and the parameters
+``--lit-curvature-dist` and ``--shadow-curvature-dist`` help gradually
+phase in this term at the light-shadow interface, this many pixels
+inside each corresponding region.
+
+Some tuning of these parameters should be done depending on the
+resolution.
 
 .. _sfs-lola-comparison:
 
