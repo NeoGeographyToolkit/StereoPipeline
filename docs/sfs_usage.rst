@@ -573,7 +573,7 @@ will produce the terrain in :numref:`sfs2_fix_fig`.
  
 The curvature ``c`` is given by option ``--curvature-in-shadow``, its
 weight ``w`` by ``--curvature-in-shadow-weight``, and the parameters
-``--lit-curvature-dist` and ``--shadow-curvature-dist`` help gradually
+``--lit-curvature-dist`` and ``--shadow-curvature-dist`` help gradually
 phase in this term at the light-shadow interface, this many pixels
 inside each corresponding region.
 
