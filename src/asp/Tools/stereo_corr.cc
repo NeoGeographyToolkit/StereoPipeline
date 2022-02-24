@@ -158,7 +158,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     const int rm_half_kernel = 5; // Filter kernel size used by CorrelationView
     double seconds_per_op = 0.0;
     if (corr_timeout > 0)
-      seconds_per_op = calc_seconds_per_op(cost_mode, left_sub, right_sub, kernel_size);
+      seconds_per_op = calc_seconds_per_op(cost_mode, kernel_size);
 
     SemiGlobalMatcher::SgmSubpixelMode sgm_subpixel_mode = get_sgm_subpixel_mode();
     Vector2i sgm_search_buffer = stereo_settings().sgm_search_buffer;;
@@ -836,7 +836,7 @@ public:
                        SpreadImageType       const& sub_disp_spread,
                        Vector2i const& kernel_size,
                        stereo::CostFunctionType cost_mode,
-                       int corr_timeout, double seconds_per_op) :
+                       int corr_timeout, double seconds_per_op):
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_left_mask (left_mask.impl ()), m_right_mask (right_mask.impl ()),
     m_sub_disp(sub_disp.impl()), m_sub_disp_spread(sub_disp_spread.impl()),
@@ -1055,7 +1055,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   int corr_timeout   = stereo_settings().corr_timeout;
   double seconds_per_op = 0.0;
   if (corr_timeout > 0)
-    seconds_per_op = calc_seconds_per_op(cost_mode, left_disk_image, right_disk_image, kernel_size);
+    seconds_per_op = calc_seconds_per_op(cost_mode, kernel_size);
 
   // Set up the reference to the stereo disparity code
   // - Processing is limited to left_trans_crop_win for use with parallel_stereo.
@@ -1273,8 +1273,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     
     double seconds_per_op = 0.0;
     if (corr_timeout > 0)
-      seconds_per_op = calc_seconds_per_op(cost_mode, left_image, right_image,
-                                           kernel_size);
+      seconds_per_op = calc_seconds_per_op(cost_mode, kernel_size);
 
     // Start with no seed
     ImageView<PixelMask<Vector2f>> sub_disp;
