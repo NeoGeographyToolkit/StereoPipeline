@@ -189,13 +189,14 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
            stereo_settings().xcorr_threshold, 
            stereo_settings().min_xcorr_level,
            rm_half_kernel,
+           // TODO(oalexan1): Do we need corr_max_levels even for D_sub? Then
+           // the image becomes really coarse.
            stereo_settings().corr_max_levels,
            stereo_alg,
            collar_size, sgm_subpixel_mode, sgm_search_buffer,
            stereo_settings().corr_memory_limit_mb,
            stereo_settings().corr_blob_filter_area*mean_scale,
-           stereo_settings().stereo_debug
-           ),
+           stereo_settings().stereo_debug),
           // To do: all these hard-coded values must be replaced with
           // appropriate params from user's stereo.default, for
           // consistency with how disparity is filtered in stereo_fltr,
@@ -238,7 +239,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       // Use quantile based filtering. This filter needs to be profiled to improve its speed.
       
       // Compute image correlation using the PyramidCorrelationView class
-      ImageView< PixelMask<Vector2f> > disp_image
+      ImageView<PixelMask<Vector2f>> disp_image
         = vw::stereo::pyramid_correlate
         (left_sub, right_sub,
          left_mask_sub, right_mask_sub,
@@ -863,15 +864,8 @@ public:
   }
 
   /// Does the work
-  typedef CropView<ImageView<pixel_type> > prerasterize_type;
+  typedef CropView<ImageView<pixel_type>> prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
-
-    Matrix<double> lowres_hom  = math::identity_matrix<3>();
-    Matrix<double> fullres_hom = math::identity_matrix<3>();
-    ImageViewRef<InputPixelType> right_trans_img;
-    ImageViewRef<vw::uint8     > right_trans_mask;
-
-    bool do_round = true; // round integer disparities after transform
 
     vw::stereo::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
@@ -939,28 +933,33 @@ public:
     SemiGlobalMatcher::SgmSubpixelMode sgm_subpixel_mode = get_sgm_subpixel_mode();
     Vector2i sgm_search_buffer = stereo_settings().sgm_search_buffer;
 
-    // Now we are ready to actually perform correlation
+    // Now we are ready to actually perform correlation. 
     const int rm_half_kernel = 5; // Filter kernel size used by CorrelationView
-    typedef vw::stereo::PyramidCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
-    CorrView corr_view(m_left_image,   m_right_image,
-                       m_left_mask,    m_right_mask,
-                       static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
-                       stereo_settings().slogW,
-                       local_search_range,
-                       m_kernel_size,  m_cost_mode,
-                       m_corr_timeout, m_seconds_per_op,
-                       stereo_settings().xcorr_threshold,
-                       stereo_settings().min_xcorr_level,
-                       rm_half_kernel,
-                       stereo_settings().corr_max_levels,
-                       stereo_alg, 
-                       stereo_settings().sgm_collar_size,
-                       sgm_subpixel_mode, sgm_search_buffer,
-                       stereo_settings().corr_memory_limit_mb,
-                       stereo_settings().corr_blob_filter_area,
-                       stereo_settings().stereo_debug);
-    return corr_view.prerasterize(bbox);
-    
+    vw::stereo::PrefilterModeType prefilter_mode =
+      static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
+    ImageViewRef<PixelMask<Vector2f>> disparity_map
+      = stereo::pyramid_correlate(m_left_image,   m_right_image,
+                                  m_left_mask,    m_right_mask,
+                                  prefilter_mode,
+                                  stereo_settings().slogW,
+                                  local_search_range,
+                                  m_kernel_size,  m_cost_mode,
+                                  m_corr_timeout, m_seconds_per_op,
+                                  stereo_settings().xcorr_threshold,
+                                  stereo_settings().min_xcorr_level,
+                                  rm_half_kernel,
+                                  stereo_settings().corr_max_levels,
+                                  stereo_alg, 
+                                  stereo_settings().sgm_collar_size,
+                                  sgm_subpixel_mode, sgm_search_buffer,
+                                  stereo_settings().corr_memory_limit_mb,
+                                  stereo_settings().corr_blob_filter_area,
+                                  stereo_settings().stereo_debug);
+
+    // Run the correlation in given box only
+    return CropView<ImageView<result_type>>(crop(disparity_map, bbox),
+                                            -bbox.min().x(), -bbox.min().y(),
+                                            cols(), rows());
   } // End function prerasterize_helper
 
   template <class DestT>
@@ -1060,14 +1059,15 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 
   // Set up the reference to the stereo disparity code
   // - Processing is limited to left_trans_crop_win for use with parallel_stereo.
-  ImageViewRef<PixelMask<Vector2f> > fullres_disparity =
+  ImageViewRef<PixelMask<Vector2f>> fullres_disparity =
     crop(SeededCorrelatorView(left_disk_image, right_disk_image, Lmask, Rmask,
                               sub_disp, sub_disp_spread, kernel_size, 
                               cost_mode, corr_timeout, seconds_per_op), 
          left_trans_crop_win);
 
-  // With SGM, we must do the entire image chunk as one tile. Otherwise,
-  // if it gets done in smaller tiles, there will be artifacts at tile boundaries.
+  // With SGM, we must do the entire image chunk as one
+  // tile. Otherwise, if it gets done in smaller tiles, there will be
+  // artifacts at tile boundaries.
   vw::stereo::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
   
