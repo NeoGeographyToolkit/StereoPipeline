@@ -96,7 +96,7 @@ Command-line options:
     twice the discrepancy between the unperturbed simulated image and
     the measured image. The SfS DEM must be provided via the -i option.
 
---height-error-params (*double integer*) (default = 5.0 1000)
+--height-error-params <double integer (default: 5.0 1000)>
     Specify the largest height deviation to examine (in meters), and
     how many samples to use from 0 to that height.
 
@@ -156,6 +156,12 @@ Command-line options:
 --image-exposures-prefix <path>
     Use this prefix to optionally read initial exposures (filename
     is ``<path>-exposures.txt``).
+
+--save-computed-intensity-only
+    Save the computed (simulated) image intensities for given DEM,
+    images, cameras, and reflectance model, without refining the
+    DEM. The exposures will be computed along the way unless specified
+    via ``--image-exposures-prefix``.
 
 --model-coeffs-prefix <path>
     Use this prefix to optionally read model coefficients from a
