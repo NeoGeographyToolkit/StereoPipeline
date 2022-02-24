@@ -263,6 +263,9 @@ small, SfS will return noisy results, if it is too large, too much
 detail will be blurred. Here we used the Lunar-Lambertian model. The
 meaning of the other ``sfs`` options can be looked up in :numref:`sfs`.
 
+See :numref:`sfs_crater_bottoms` for a potential solution to areas
+in shadow.
+
 In the next sections, where SfS will be done with multiple images,
 more parameters which can control the quality of the result will be
 explored.
@@ -435,7 +438,7 @@ Run stereo and create a DEM::
         --proj-lon 0 --proj-lat -90 run_sub10/run-PC.tif 
 
 This will create a point cloud named ``run_sub10/run-PC.tif`` and
-a DEM DEM ``run_sub10/run-DEM.tif``.
+a DEM ``run_sub10/run-DEM.tif``.
 
 It is strongly suggested to mapproject the bundle-adjusted images
 onto this DEM and verify that the obtained images agree::
@@ -447,7 +450,7 @@ onto this DEM and verify that the obtained images agree::
     done
     stereo_gui --use-georef --single-window *yesba.tif
 
-We’ll bring the “ground truth” point cloud closer to the initial
+We'll bring the “ground truth” point cloud closer to the initial
 guess for SfS using ``pc_align``::
 
     pc_align --max-displacement 200 run_full2/run-PC.tif \
@@ -1214,6 +1217,10 @@ be the number of tiles over 20, or perhaps half or a quarter of that,
 in which case it will take longer to run things. One should examine
 how much memory these processes use and adjust this number
 accordingly.
+
+See :numref:`sfs_crater_bottoms` for a potential solution for SfS 
+producing flat crater bottoms where there is no illumination to guide
+the solver.
 
 Inspection and further iterations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
