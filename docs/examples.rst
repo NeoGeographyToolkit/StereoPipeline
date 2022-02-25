@@ -440,7 +440,7 @@ Preparing the inputs without stitching
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The individual ``L`` and ``R`` images in an LRO NAC observation can be
-used without stitching if desired to keep the original sensors.
+used without stitching if desired to keep the original camera models.
 Unstitched cameras can also be converted to CSM (:numref:`csm`), which
 will provide a great speed up for stereo, bundle adjustment, and
 Shape-from-Shading (:numref:`sfs_usage`).

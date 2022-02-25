@@ -133,7 +133,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     // we will create now.
     fs::remove(spread_file);
   }
-  
+
   if (stereo_settings().seed_mode == 1) {
 
     // For D_sub always use a cross-check even if it takes more time.
@@ -189,8 +189,6 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
            stereo_settings().xcorr_threshold, 
            stereo_settings().min_xcorr_level,
            rm_half_kernel,
-           // TODO(oalexan1): Do we need corr_max_levels even for D_sub? Then
-           // the image becomes really coarse.
            stereo_settings().corr_max_levels,
            stereo_alg,
            collar_size, sgm_subpixel_mode, sgm_search_buffer,
@@ -1113,11 +1111,11 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
     // SGM and external algorithms perform subpixel correlation in
     // this step, so write out floats.
     
-    // Rasterize the image first as one block, then write it out using multiple blocks.
+    // Rasterize the image first as one block, then write it out using multiple small blocks.
     // - If we don't do this, the output image file is not tiled and handles very slowly.
     // - This is possible because with SGM the image must be small enough to fit in memory.
     ImageView<PixelMask<Vector2f>> result = fullres_disparity;
-    opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),
+    opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(), // small block size
                                     ASPGlobalOptions::rfne_tile_size());
     vw::cartography::block_write_gdal_image(d_file, result,
                                             has_left_georef, left_georef,

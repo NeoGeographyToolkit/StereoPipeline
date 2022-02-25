@@ -501,16 +501,19 @@ Then, we run ``sfs``::
       --blending-dist 10 --min-blend-size 100                           \
       --shadow-thresholds '0.00162484 0.0012166 0.000781663'
 
-It is suggested to not vary the cameras with ``sfs``, as that should be done by
-bundle adjustment, and ``sfs`` will likely not arrive at a good
-solution for the cameras on its own.  Varying the exposures is likely
+It is suggested to not vary the cameras with ``sfs`` (option
+``--float-cameras``), as that should be done by bundle adjustment, and
+``sfs`` will likely not arrive at a good solution for the cameras on
+its own. Varying the exposures (option ``--float-exposure``) is likely
 also unnecessary.
 
-Note the two "blending" parameters, those help where there are seams or
-light-shadow boundaries. The precise numbers may need adjustment.
+Note the two "blending" parameters, those help where there are seams
+or light-shadow boundaries. The precise numbers may need
+adjustment. In particular, decreasing ``--min-blend-size`` may result
+in more seamless terrain models at the expense of some erosion.
 
 After this command finishes, we compare the initial guess to ``sfs`` to
-the “ground truth” DEM obtained earlier and the same for the final
+the "ground truth" DEM obtained earlier and the same for the final
 refined DEM using ``geodiff`` as in the previous section. Before SfS::
 
     geodiff --absolute run_full2/run-crop-DEM.tif \
@@ -697,7 +700,8 @@ An illustration is shown in :numref:`sfs3`.
    :alt: interest points picked manually
 
    An illustration of how interest points are picked manually for the
-   purpose of bundle adjustment and then SfS.
+   purpose of bundle adjustment and then SfS. This is normally not necessary
+   if there exist images with intermediate illumination.
 
 If in doubt, it is suggested that more points be picked, and one should
 examine the resulting reprojection errors in the final ``pointmap`` file
