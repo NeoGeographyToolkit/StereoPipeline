@@ -35,10 +35,10 @@ Command-line options:
     3. Experimental extension of Lunar-Lambert
     4. Charon model (a variation of Lunar-Lambert)
 
---smoothness-weight <float (default 0.04)>
+--smoothness-weight <float (default: 0.04)>
     A larger value will result in a smoother solution.
 
---initial-dem-constraint-weight <float (default:0)>
+--initial-dem-constraint-weight <float (default: 0)>
     A larger value will try harder to keep the SfS-optimized DEM
     closer to the initial guess DEM.
 

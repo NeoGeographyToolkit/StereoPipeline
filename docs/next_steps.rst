@@ -389,13 +389,18 @@ Example for ISIS images
    areas close to the boundary. Things can be further improved with
    the ``asp_mgm`` algorithm (:numref:`running-stereo`).
 
-In this example we illustrate how to run stereo with mapprojected
+This example illustrates how to run stereo with mapprojected
 images for ISIS data. We start with LRO NAC Lunar images M1121224102LE
-and M1121209902LE from ASU’s LRO NAC web site (http://lroc.sese.asu.edu).
-We convert them to ISIS cubes using the ISIS
-program ``lronac2isis``, then we use the ISIS tools ``spiceinit``,
-``lronaccal``, and ``lrnonacecho`` to update the SPICE kernels and to do
-radiometric and echo correction. We name the two obtained .cub files
+and M1121209902LE from ASU’s LRO NAC web site (https://wms.lroc.asu.edu/lroc/search), fetching them as::
+
+    wget http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0015/DATA/ESM/2013111/NAC/M1121224102LE.IMG
+    wget http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0015/DATA/ESM/2013111/NAC/M1121209902LE.IMG
+
+We convert them to ISIS cubes using the ISIS program ``lronac2isis``,
+then we use the ISIS tools ``spiceinit``, ``lronaccal``, and
+``lrnonacecho`` to update the SPICE kernels and to do radiometric and
+echo correction. This process is described in
+:numref:`lro_nac_no_stitch`.  We name the two obtained .cub files
 ``left.cub`` and ``right.cub``.
 
 Here we decided to run ASP to create the low-resolution DEM needed for

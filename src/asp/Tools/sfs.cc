@@ -3720,10 +3720,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Reflectance type (0 = Lambertian, 1 = Lunar-Lambert, 2 = Hapke, 3 = Experimental extension of Lunar-Lambert, 4 = Charon model (a variation of Lunar-Lambert)).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
-    ("integrability-constraint-weight", po::value(&opt.integrability_weight)->default_value(0.0),
-     "Use the integrability constraint from Horn 1990 with this value of its weight.")
-    ("smoothness-weight-pq", po::value(&opt.smoothness_weight_pq)->default_value(0.00),
-     "Smoothness weight for p and q. A larger value will result in a smoother solution.")
     ("initial-dem-constraint-weight", po::value(&opt.initial_dem_constraint_weight)->default_value(0),
      "A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM.")
     ("albedo-constraint-weight", po::value(&opt.albedo_constraint_weight)->default_value(0),
@@ -3740,10 +3736,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Float the camera pose for each image, including the first one. Experimental. It is suggested to avoid this option.")
     ("model-shadows",   po::bool_switch(&opt.model_shadows)->default_value(false)->implicit_value(true),
      "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
-    ("save-computed-intensity-only",   po::bool_switch(&opt.save_computed_intensity_only)->default_value(false)->implicit_value(true),
-     "Do not run any optimization. Simply compute the intensity for a given DEM with exposures, camera positions, etc, coming from a previous SfS run. Useful with --model-shadows.")
     ("compute-exposures-only",   po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
      "Quit after saving the exposures. This should be done once for a big DEM, before using these for small sub-clips without recomputing them.")
+
+    ("save-computed-intensity-only",   po::bool_switch(&opt.save_computed_intensity_only)->default_value(false)->implicit_value(true),
+     "Save the computed (simulated) image intensities for given DEM, "
+     "images, cameras, and reflectance model, without refining the "
+     "DEM. The exposures will be computed along the way unless specified "
+     "via --image-exposures-prefix.")
+    
     ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
      "Estimate the error for each slope (normal to the DEM). This is experimental.")
     ("estimate-height-errors",   po::bool_switch(&opt.estimate_height_errors)->default_value(false)->implicit_value(true),
@@ -3827,6 +3828,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Allow the coefficients of the reflectance model to float (not recommended).")
     ("float-sun-position",   po::bool_switch(&opt.float_sun_position)->default_value(false)->implicit_value(true),
      "Allow the position of the sun to float.")
+    ("integrability-constraint-weight", po::value(&opt.integrability_weight)->default_value(0.0),
+     "Use the integrability constraint from Horn 1990 with this value of its weight.")
+    ("smoothness-weight-pq", po::value(&opt.smoothness_weight_pq)->default_value(0.00),
+     "Smoothness weight for p and q, when the integrability constraint "
+     "is used. A larger value will result in a smoother solution "
+     "(experimental).")
     ("query",   po::bool_switch(&opt.query)->default_value(false)->implicit_value(true),
      "Print some info and exit. Invoked from parallel_sfs.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
@@ -5453,9 +5460,9 @@ int main(int argc, char* argv[]) {
                                          std::max(img_nodata_val, shadow_thresh),
                                          opt.max_valid_image_vals_vec[image_iter]
                                          );
-            
-            // Compute blending weights only when using an approx camera model and
-            // cropping the images. Otherwise the weights are too huge.
+
+            // Compute blending weights only when cropping the
+            // images. Otherwise the weights are too huge.
             if (opt.blending_dist > 0)
               blend_weights_vec[0][dem_iter][image_iter]
                 = comp_blending_weights(masked_images_vec[0][dem_iter][image_iter],

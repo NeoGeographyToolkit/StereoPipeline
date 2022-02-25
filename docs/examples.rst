@@ -389,11 +389,11 @@ only the creation of a point cloud is supported.
 
 .. _lronac-example:
 
-Lunar Reconnaissance Orbiter LROC NAC
--------------------------------------
+Lunar Reconnaissance Orbiter (LRO) NAC
+--------------------------------------
 
-Lee-Lincoln Scarp
-~~~~~~~~~~~~~~~~~
+The site
+~~~~~~~~
 
 This stereo pair covers the Taurus-Littrow valley on the Moon where, on
 December 11, 1972, the astronauts of Apollo 17 landed. However, this
@@ -404,44 +404,94 @@ an 80 m high feature that is the only visible sign of a deep fault.
 .. figure:: images/examples/lrocna/lroc-na-example2_combined.png
 
    Example output possible with a LROC NA stereo pair, using both
-   CCDs from each observation courtesy of the lronac2mosaic.py tool.
+   CCDs from each observation, courtesy of the lronac2mosaic.py tool.
 
-.. _commands-4:
+LRO NAC camera design
+~~~~~~~~~~~~~~~~~~~~~
 
-Commands
-^^^^^^^^
+LRO has two Narrow Angle Cameras (NAC), with both acquiring image data
+at the same time, so each observation consists
+of two images, left and right, denoted with ``L`` and ``R``.
+These are not meant to be used as a stereo pair, as the camera
+center is virtually in the same place for both, and they have very little
+overlap. For stereo one needs two such observations, with a
+reasonable perspective difference (baseline) among the two.
+ 
+Then stereo can happen by pairing an L or R image from the first
+observation with an L or R image from the second. Alternatively, each
+observation's L and R images can be stitched first, then stereo happens
+between the two stitched images. Both of these approaches will be
+discussed below.
 
-Download the EDRs for the left and right CCDs for observations
-M104318871 and M104318871 from http://wms.lroc.asu.edu/lroc/search.
-Alternatively you can search by original IDs of 2DB8 and 4C86 in the
-PDS.
+Download
+~~~~~~~~
 
-All ISIS preprocessing of the EDRs is performed via the
-``lronac2mosaic.py`` command. This runs ``lronac2isis``, ``lronaccal``,
-``lronacecho``, ``spiceinit``, ``noproj``, and ``handmos`` to create a
-stitched unprojected image for a single observation. In this example we
-don’t map-project the images as ASP can usually get good results. More
+Download the experimental data records (EDR) for observations
+M104318871 and M104311715 from http://wms.lroc.asu.edu/lroc/search.
+Alternatively, search by original IDs of 2DB8 and 4C86 in the
+PDS. 
+
+The download will result in four files, named M104318871LE.img,
+M104318871RE.img, M104311715LE.img, and M104311715RE.img.
+
+.. _lro_nac_no_stitch:
+
+Preparing the inputs without stitching
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The individual ``L`` and ``R`` images in an LRO NAC observation can be
+used without stitching if desired to keep the original sensors.
+Unstitched cameras can also be converted to CSM (:numref:`csm`), which
+will provide a great speed up for stereo, bundle adjustment, and
+Shape-from-Shading (:numref:`sfs_usage`).
+
+We convert each .img file to an ISIS .cub camera image, initialize the
+SPICE kernels, and perform radiometric calibration and echo
+correction. Here are the steps, illustrated on one image::
+
+    f=M104318871LE
+    lronac2isis from = ${f}.IMG     to = ${f}.cub
+    spiceinit   from = ${f}.cub shape = ellipsoid
+    lronaccal   from = ${f}.cub     to = ${f}.cal.cub
+    lronacecho  from = ${f}.cal.cub to = ${f}.cal.echo.cub
+
+
+Stitching the LE and RE observations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this case all ISIS preprocessing of the EDRs is performed via the
+``lronac2mosaic.py`` command (:numref:`lronac2mosaic`)::
+
+    lronac2mosaic.py M104318871LE.img M104318871RE.img
+    lronac2mosaic.py M104311715LE.img M104311715RE.img
+
+This runs ``lronac2isis``, ``lronaccal``, ``lronacecho``,
+``spiceinit``, ``noproj``, and ``handmos`` to create a stitched
+unprojected image for each observation. In this example we don't
+map-project the images as ASP can usually get good results. More
 aggressive terrain might require an additional ``cam2map4stereo.py``
 step.
 
+.. _commands-4:
+
+Running stereo
+~~~~~~~~~~~~~~
+
 ::
 
-       ISIS> lronac2mosaic.py M104318871LE.img M104318871RE.img
-       ISIS> lronac2mosaic.py M104311715LE.img M104311715RE.img
-       ISIS> parallel_stereo M104318871LE*.mosaic.norm.cub      \
-                 M104311715LE*.mosaic.norm.cub result/output    \
-                 --alignment-method affineepipolar
+    parallel_stereo M104318871LE*.mosaic.norm.cub  \
+      M104311715LE*.mosaic.norm.cub result/output  \
+      --alignment-method affineepipolar
 
-.. _stereo.default-4:
+See :numref:`nextsteps` for a discussion about various stereo
+speed-vs-quality choices. Consider using mapprojection
+(:numref:`mapproj-example`).
 
-See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.
-
-Map-projecting is optional. When map-projecting the images use
-``alignment-method none``, otherwise use ``alignment-method
-affineepipolar``. Better map-project results can be achieved by
-projecting on a higher resolution elevation source like the WAC
-DTM. This is achieved using the ISIS command ``demprep`` and attaching
-to cube files via ``spiceinit``\ ’s SHAPE and MODEL options.
+Mapprojection can also be done with the ISIS tools. Better mapproject
+results can be achieved by projecting on a higher resolution elevation
+source like the WAC DTM. This is achieved using the ISIS command
+``demprep`` and attaching to cube files via ``spiceinit``\ ’s SHAPE
+and MODEL options.
 
 Apollo 15 Metric Camera Images
 ------------------------------

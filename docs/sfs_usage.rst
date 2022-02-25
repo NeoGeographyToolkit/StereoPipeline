@@ -188,15 +188,9 @@ We first retrieve the data sets.
     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0009/DATA/SCI/2011284/NAC/M173004270LE.IMG
     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010062/NAC/M122270273LE.IMG
 
-Then we convert them to ISIS cubes, initialize the SPICE kernels, and
-perform radiometric calibration and echo correction. Here are the steps,
-illustrated on the first image::
-
-    f=M139939938LE
-    lronac2isis from = ${f}.IMG     to = ${f}.cub
-    spiceinit   from = ${f}.cub shape = ellipsoid
-    lronaccal   from = ${f}.cub     to = ${f}.cal.cub
-    lronacecho  from = ${f}.cal.cub to = ${f}.cal.echo.cub
+We convert these to ISIS cubes, initialize the SPICE kernels, and
+perform radiometric calibration and echo correction. That is explained
+in :numref:`lro_nac_no_stitch`.
 
 It can be convenient to create preview versions of these datasets, at
 10% of original resolution, for the purpose of inspection. That is
@@ -262,6 +256,10 @@ The smoothness weight is a parameter that needs tuning. If it is too
 small, SfS will return noisy results, if it is too large, too much
 detail will be blurred. Here we used the Lunar-Lambertian model. The
 meaning of the other ``sfs`` options can be looked up in :numref:`sfs`.
+
+The value of ``--initial-dem-constraint-weight`` is best set to 0 when
+the initial DEM is not very reliable, as otherwise defects from it can
+be inherited by the SfS result.
 
 See :numref:`sfs_crater_bottoms` for a potential solution to areas
 in shadow.
