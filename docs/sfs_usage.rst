@@ -227,25 +227,30 @@ Consider using CSM cameras instead of ISIS cameras (:numref:`sfs_isis_vs_csm`).
 
 Next we create a DEM at 1 meter/pixel, which is about the resolution of
 the input images. We use the stereographic projection since this dataset
-is very close to the South Pole. Then we crop it to the region we’d like
-to do SfS on.
+is very close to the South Pole.
 
 ::
 
     point2dem -r moon --stereographic --proj-lon 0           \
       --proj-lat -90 run_full1/run-PC.tif
+
+SfS can only be run on a DEM with valid data at each grid point.  The
+DEM obtained above should be opened in ``stereo_gui``, and the bounds
+of a clip having only valid data should be determined
+(:numref:`image_bounds`). Such a clip is cropped as::
+
     gdal_translate -projwin -15471.9 150986 -14986.7 150549  \
       run_full1/run-DEM.tif run_full1/run-crop-DEM.tif
 
-This creates a DEM of size 456 |times| 410 pixels. 
+This creates a DEM clip of size 456 |times| 410 pixels.  
 
 If this DEM has holes, those can be filled in ``dem_mosaic`` or with
 ``point2dem`` itself. The ``dem_mosaic`` tool can also apply some blur
 to attenuate artifacts, though ``sfs`` has a smoothing term itself
 which should take care of small imperfections in the input.
 
-Then we run ``sfs`` (for a larger clip ``parallel_sfs`` should be used
-instead)::
+Then we run ``sfs`` on this clip (for a larger clip ``parallel_sfs``
+should be used instead, see :numref:`parallel_sfs`)::
 
     sfs -i run_full1/run-crop-DEM.tif A.cub -o sfs_ref1/run           \
       --reflectance-type 1 --crop-input-images                        \

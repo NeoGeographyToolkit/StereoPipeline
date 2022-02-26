@@ -5058,7 +5058,8 @@ int main(int argc, char* argv[]) {
           if (dems[0][dem_iter](col, row) == dem_nodata_val ||
               std::isnan(dems[0][dem_iter](col, row))) {
             vw_throw( ArgumentErr() << "Found a no-data or NaN pixel in the DEM. Cannot continue. "
-                      << "The dem_mosaic tool can be used to fill in holes.");
+                      << "The dem_mosaic tool can be used to fill in holes. Then "
+                      << "crop and use a clip from this DEM having only valid data.");
           }
         }
       }
