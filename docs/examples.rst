@@ -918,8 +918,8 @@ satellites, Airbus, with its SPOT and Pleiades satellites, the Indian
 Cartosat-1 satellite, PeruSat-1, the Spanish Deimos 1 and 2, etc.,
 provide Rational Polynomial Coefficient (RPC) camera models. (Some of
 these vendors also provide exact linescan models, ASP supports the
-ones from DigitalGlobe/Maxar (:numref:`dg_tutorial`) and PeruSat-1
-(:numref:`perusat1`)).
+exact models from DigitalGlobe/Maxar (:numref:`dg_tutorial`) and PeruSat-1
+(:numref:`perusat1`).)
 
 RPC represents four 20-element polynomials that map geodetic coordinates
 (longitude-latitude-height above datum) to image pixels. Since they are
@@ -936,24 +936,26 @@ Earth, Moon and Mars are supported). In such situations, the planet
 datum must be passed to the tools reading the RPC models, as shown
 below.
 
-Our RPC read driver is GDAL. If the command ``gdalinfo`` can identify
-the RPC information inside the headers of your image files (whether that
-information is actually embedded in the images, or stored separately in
-some auxiliary files with a convention GDAL understands), ASP will
-likely be able to see it as well. This means that sometimes we can get
-away with only providing a left and right image, with no extra files
-containing camera information. This is specifically the case for GeoEye,
-and Cartosat-1. Otherwise, the camera files must be specified separately
-in XML files, as done for DigitalGlobe/Maxar images (:numref:`rawdg`) and PeruSat-1.
+Our RPC read driver is GDAL. If the command ``gdalinfo``
+(:numref:`gdal_tools`) can identify the RPC information inside the
+headers of your image files (whether that information is actually
+embedded in the images, or stored separately in some auxiliary files
+with a convention GDAL understands), ASP will likely be able to see it
+as well. This means that sometimes we can get away with only providing
+a left and right image, with no extra files containing camera
+information. This is specifically the case for GeoEye, and
+Cartosat-1. Otherwise, the camera files must be specified separately
+in XML files, as done for DigitalGlobe/Maxar images (:numref:`rawdg`)
+and PeruSat-1.
 
-For a first test, you can download an example stereo pair from GeoEye's
-website at :cite:`geoeye:samples`. When we accessed the
-site, we downloaded a GeoEye-1 image of Hobart, Australia. As previously
-stated in the DigitalGlobe/Maxar section, these types of images are not ideal
-for ASP. This is both a forest and a urban area which makes correlation
-difficult. ASP was designed more for modeling bare rock and ice. Any
-results we produce in other environments is a bonus but is not our
-objective.
+For a first test, you can download an example stereo pair from
+GeoEye's website at :cite:`geoeye:samples`. When we accessed the site,
+we downloaded a GeoEye-1 image of Hobart, Australia. As previously
+stated in :numref:`dg_tutorial`, these types of images are not ideal
+for ASP. This is both a forest and a urban area which makes
+correlation difficult. ASP was designed more for modeling bare rock
+and ice. Any results we produce in other environments is a bonus but
+is not our objective.
 
 .. figure:: images/examples/geoeye/GeoEye_CloseUp_triple.png
    :name: geoeye-nomap-example
