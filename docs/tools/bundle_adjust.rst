@@ -32,6 +32,15 @@ Here, we invoked the tool with two passes, which also enables removal of
 outliers by reprojection error and disparity (the options below have
 more detail).
 
+Examples for RPC cameras. With the cameras stored separately::
+
+    bundle_adjust -t rpc left.tif right.tif left.xml right.xml \
+      -o run_ba/run
+
+With the cameras embedded in the images::
+
+    bundle_adjust -t rpc left.tif right.tif -o run_ba/run
+
 Example (for generic pinhole camera data, using optional estimated camera
 positions)::
 
