@@ -1218,7 +1218,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     opt.session->camera_models(left_camera_model, right_camera_model);
     cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
     local_alignment(// Inputs
-                    opt, opt.session->name(),
+                    opt, alg_name, opt.session->name(),
                     max_tile_size, tile_crop_win,
                     write_nodata,
                     left_camera_model.get(),
@@ -1313,6 +1313,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   } else if (stereo_alg == vw::stereo::VW_CORRELATION_OTHER) {
 
     // External algorithms using 1D disparity
+    
+    // TODO(oalexan1): Make this into a function
     
     vw::ImageView<float> aligned_disp;
 
@@ -1479,6 +1481,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       }
       
       if (alg_name == "msmw" || alg_name == "msmw2") {
+        // TODO(oalexan1): Make this into a function
         // Apply the mask, which for this algorithm is stored separately.
         // For that need to read things in memory.
         ImageView<float> local_disp(aligned_disp.cols(), aligned_disp.rows());
@@ -1520,8 +1523,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     }
 
     if (0) {
-      // This needs more testing.
       // TODO(oalexan1): Make this into a function. Filter the disparity.
+      // This needs more testing.
       // Wipe disparities which map to an invalid pixel
       float nan  = std::numeric_limits<float>::quiet_NaN();
       ImageView<PixelMask<PixelGray<float>>> left_masked_image
@@ -1637,9 +1640,10 @@ int main(int argc, char* argv[]) {
     if (stereo_settings().alignment_method == "local_epipolar") {
       // Need to have the low-res 2D disparity to later guide the
       // per-tile correlation. Use here the ASP MGM algorithm as the
-      // most reliable one.
+      // most reliable one, unless we do good old block-matching
       if (stereo_settings().compute_low_res_disparity_only) {
-        stereo_settings().stereo_algorithm = "asp_mgm";
+        if (stereo_settings().stereo_algorithm != "asp_bm")
+          stereo_settings().stereo_algorithm = "asp_mgm";
         stereo_correlation_2D(opt);
         return 0;
       }

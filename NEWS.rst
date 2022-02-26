@@ -63,7 +63,7 @@ sfs:
   * SfS was made to work with any camera model supported by ASP,
     including for Earth. For non-ISIS and non-CSM cameras, the option
     --sun-positions should be used.
-  * Exhaustively tested with the CSM model. It is very remmended to
+  * Exhaustively tested with the CSM model. It is very recommended to
     use that one instead of ISIS .cub cameras, to get a very large
     speedup and multithreading. 
 
@@ -113,6 +113,9 @@ stereo_gui:
   * Bugfix when overlaying shapefiles with different georeferences.
   * Polygon layers can be set to desired colors from the left pane,
     when overlaid.
+  * On startup, draw rectangular regions corresponding to values of
+    ``--left-image-crop-win`` and ``--right-image-crop-win``, if these
+    are passed in as command line arguments together with two images.
 
 image_calc:
   * Add the option --no-georef to remove any georeference

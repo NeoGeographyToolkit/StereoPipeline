@@ -153,6 +153,10 @@ namespace vw { namespace gui {
     BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
     void setWorldBox(vw::BBox2 const& world_box);
     vw::BBox2 worldBox() const;
+    
+    void setCropWin(vw::BBox2 const& stereoCropWin) {
+      m_stereoCropWin = stereoCropWin;
+    }
 
 signals:
     void turnOnViewMatchesSignal    ();

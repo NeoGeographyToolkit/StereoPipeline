@@ -177,12 +177,12 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
     m_grid_cols = std::numeric_limits<int>::max();
 
   m_view_type = VIEW_SIDE_BY_SIDE;
-  if (m_grid_cols > 0 && m_grid_cols < int(m_image_files.size())) {
+  if (m_grid_cols > 0 && m_grid_cols < int(m_image_files.size()))
     m_view_type = VIEW_AS_TILES_ON_GRID;
-  }
-  if (single_window) {
+  
+  if (single_window)
     m_view_type = VIEW_IN_SINGLE_WINDOW;
-  }
+  
   m_view_type_old = m_view_type; // initialize this
   
   // Set up the basic layout of the window and its menus
@@ -369,6 +369,20 @@ void MainWindow::createLayout() {
   m_viewHillshadedImages_action->setChecked(m_hillshade);
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
   m_overlayGeoreferencedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
+
+  if (m_widgets.size() == 2                             &&
+      m_image_files.size() == 2                         &&
+      stereo_settings().left_image_crop_win  != BBox2() &&
+      stereo_settings().right_image_crop_win != BBox2()) {
+    // Draw crop windows passed as arguments
+    m_widgets[0]->setCropWin(stereo_settings().left_image_crop_win);
+    m_widgets[1]->setCropWin(stereo_settings().right_image_crop_win);
+    // Do this just once, on startup
+    stereo_settings().left_image_crop_win  = BBox2();
+    stereo_settings().right_image_crop_win = BBox2();
+  }
+
+  return;
 }
 
 void MainWindow::createMenus() {

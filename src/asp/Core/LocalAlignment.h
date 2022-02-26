@@ -53,6 +53,7 @@ namespace asp {
   
   void local_alignment(// Inputs
                        ASPGlobalOptions const & opt,
+                       std::string             const & alg_name,
                        std::string      const & session_name,
                        int                      max_tile_size,
                        vw::BBox2i       const & tile_crop_win,

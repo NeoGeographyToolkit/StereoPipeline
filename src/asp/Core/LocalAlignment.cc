@@ -271,6 +271,7 @@ namespace asp {
 
   void local_alignment(// Inputs
                        ASPGlobalOptions        const & opt,
+                       std::string             const & alg_name,
                        std::string             const & session_name,
                        int                             max_tile_size,
                        vw::BBox2i              const & tile_crop_win,
@@ -502,6 +503,12 @@ namespace asp {
                                 ValueEdgeExtension<PixelMask<float>>(nodata_mask)),
                     bounding_box(left_aligned_image)), // note the left bounding box
                    nan_nodata);
+
+    if (alg_name == "msmw" || alg_name == "msmw2") {
+      // msmw does not like nan
+      left_trans_clip = apply_mask(create_mask(left_trans_clip, 0), 0); 
+      right_trans_clip = apply_mask(create_mask(right_trans_clip, 0), 0); 
+    }
     
     // Write the locally aligned images to disk
     vw::cartography::GeoReference georef;

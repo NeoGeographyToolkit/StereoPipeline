@@ -36,6 +36,11 @@ Example (for RPC cameras)::
  
     stereo_gui -t rpc left.tif right.tif left.xml right.xml run/run
 
+If this program is invoked with two images (with or without cameras
+and output prefix) and with values for ``--left-image-crop-win`` and
+``--right-image-crop-win``, it will draw the corresponding regions on
+startup.
+
 See also our tutorials in :numref:`moc_tutorial` and
 :numref:`dg_tutorial`.
 
