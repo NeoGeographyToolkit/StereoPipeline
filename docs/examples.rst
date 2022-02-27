@@ -477,7 +477,8 @@ step.
 Running stereo
 ~~~~~~~~~~~~~~
 
-::
+Stereo can then be run either with unstitched or stitched .cub files.
+Here's an example::
 
     parallel_stereo M104318871LE*.mosaic.norm.cub  \
       M104311715LE*.mosaic.norm.cub result/output  \

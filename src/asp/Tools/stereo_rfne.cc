@@ -347,11 +347,11 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
   // refining disparity solely for the purpose of printing
   // the relevant messages.
   bool verbose = true;
-  ImageView<PixelGray<float>    > left_dummy(1, 1), right_dummy(1, 1);
-  ImageView<PixelMask<Vector2f> > dummy_disp(1, 1);
+  ImageView<PixelGray<float>> left_dummy(1, 1), right_dummy(1, 1);
+  ImageView<PixelMask<Vector2f>> dummy_disp(1, 1);
   refine_disparity(left_dummy, right_dummy, dummy_disp, opt, verbose);
 
-  ImageViewRef< PixelMask<Vector2f> > refined_disp
+  ImageViewRef<PixelMask<Vector2f>> refined_disp
     = crop(per_tile_rfne(left_image, right_image, 
                          input_disp, sub_disp, opt), 
            stereo_settings().trans_crop_win);

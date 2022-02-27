@@ -27,6 +27,7 @@
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/InterestPoint/Matcher.h>
+#include <vw/Stereo/Correlation.h>
 
 #include <asp/Core/DisparityProcessing.h>
 #include <asp/Core/AffineEpipolar.h>
