@@ -80,7 +80,7 @@ vw::int64 load_las_aux(std::string const& file_name,
   vw::cartography::GeoReference las_georef;
   bool has_georef = georef_from_las(file_name, las_georef);
   if (!has_georef)
-    vw_throw(vw::ArgumentErr() << "LAS: " << file_name
+    vw::vw_throw(vw::ArgumentErr() << "LAS: " << file_name
                                << " does not have a georeference.\n");
 
   std::ifstream ifs;
@@ -211,11 +211,15 @@ void load_cloud(std::string const& file_name,
                 mean_longitude, verbose, data
                 );
   }else
-    vw_throw( vw::ArgumentErr() << "Unknown file type: " << file_name << "\n" );
+    vw::vw_throw(vw::ArgumentErr() << "Unknown file type: " << file_name << "\n");
 
+  if (data.cols() == 0) 
+    vw::vw_throw(vw::ArgumentErr() << "File: " << file_name << " has 0 valid points.\n");
+  
   if (verbose)
     vw::vw_out() << "Loaded points: " << data.cols() << std::endl;
 
+  return;
 }
 
 // Load xyz points from disk in libpointmatcher's format.

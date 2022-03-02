@@ -89,6 +89,11 @@ bathymetry:
     times and coordinates using National Ocean Service's tidal zoning
     map.
  
+pc_align:
+  * Bugfix with alignment method point-to-point and
+    similarity-point-to-point.
+  * Add alignment method similarity-point-to-plane.
+   
 dem_mosaic:
   * Add the option ``--tap``, to have the output grid be at integer
     multiples of the grid size (like the default behavior of

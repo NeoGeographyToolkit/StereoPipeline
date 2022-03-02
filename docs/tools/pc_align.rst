@@ -79,14 +79,15 @@ alignment at the expense of using more memory and processing time.
 
 The default alignment transform is rigid, that is, a combination of
 rotation and translation. With Point-to-Point ICP, it is also possible
-to solve for a scale change (to obtain a so-called
-``similarity transform``). It is suggested this approach be used only
-when a scale change is expected. It can be turned on by setting
-``--alignment-method similarity-point-to-point``. (This method works
-best if an initial alignment is first performed with, for example, the
-Point-to-Plane approach, to determine the rotation and translation part
-of the transform, and then that one can be used as an initial guess in
-order to solve for the scale as well.)
+to solve for a scale change (to obtain a so-called ``similarity
+transform``). It is suggested this approach be used only when a scale
+change is expected. It can be turned on by setting
+``--alignment-method`` to ``similarity-point-to-plane`` or
+``similarity-point-to-point``. (This method works best if an initial
+alignment is first performed with, for example, the Point-to-Plane
+approach, to determine the rotation and translation part of the
+transform, and then that one can be used as an initial guess in order
+to solve for the scale as well.)
 
 For very large scale difference or translation among the two clouds,
 both of these algorithms may fail. If the clouds are DEMs, one may
@@ -488,9 +489,10 @@ Command-line options for pc_align
     discarding gross outliers).
 
 --alignment-method <string (default: point-to-plane)>
-    The type of iterative closest point method to use.  Choices: point-to-plane,
-    point-to-point, similarity-point-to-point, fgr, least-squares,
-    similarity-least-squares
+    The type of iterative closest point method to use.  Choices:
+    point-to-plane, point-to-point, similarity-point-to-plane,
+    similarity-point-to-point, fgr, least-squares,
+    similarity-least-squares.
 
 --highest-accuracy
     Compute with highest accuracy for point-to-plane (can be much slower).
