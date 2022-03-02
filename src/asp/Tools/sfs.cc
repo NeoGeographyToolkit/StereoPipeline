@@ -2485,18 +2485,18 @@ public:
       mcf.close();
     }
     
-    vw_out() << "Model coefficients: "; 
-    for (size_t i = 0; i < g_num_model_coeffs; i++)
-      vw_out() << g_reflectance_model_coeffs[i] << " ";
-    vw_out() << std::endl;
+    //vw_out() << "Model coefficients: "; 
+    //for (size_t i = 0; i < g_num_model_coeffs; i++)
+    //  vw_out() << g_reflectance_model_coeffs[i] << " ";
+    //vw_out() << std::endl;
     
-    if (!g_opt->use_approx_adjusted_camera_models) {
-      vw_out() << "cam adj: ";
-      for (int s = 0; s < int((*g_adjustments).size()); s++) {
-        vw_out() << (*g_adjustments)[s] << " ";
-      }
-      vw_out() << std::endl;
-    }
+    //if (!g_opt->use_approx_adjusted_camera_models) {
+    //  vw_out() << "cam adj: ";
+    //  for (int s = 0; s < int((*g_adjustments).size()); s++) {
+    //    vw_out() << (*g_adjustments)[s] << " ";
+    // }
+    // vw_out() << std::endl;
+    //}
     
     //vw_out() << "scaled sun position: ";
     //for (int s = 0; s < int((*g_scaled_sun_posns).size()); s++) 
@@ -2609,14 +2609,15 @@ public:
           Quaternion<double> rotation = icam->rotation();
           //asp::write_adjustments(out_camera_file, translation, rotation);
           
-          // Save adjusted files in the format <out prefix>-<input-img>.adjust
+          // Used to save adjusted files in the format <out prefix>-<input-img>.adjust
           // so we can later read them with --bundle-adjust-prefix to be
-          // used in another SfS run.
+          // used in another SfS run. Don't do that anymore as normally
+          // the adjustments don't change.
           //if (g_level == 0) {
-          if (!g_opt->save_computed_intensity_only){
-            vw_out() << "Writing: " << out_camera_file << std::endl;
-            asp::write_adjustments(out_camera_file, translation, rotation);
-          }
+          //if (!g_opt->save_computed_intensity_only){
+          //  vw_out() << "Writing: " << out_camera_file << std::endl;
+          //  asp::write_adjustments(out_camera_file, translation, rotation);
+          //}
         }
         
         if (g_opt->save_sparingly && !g_opt->save_dem_with_nodata) 

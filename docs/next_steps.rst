@@ -968,6 +968,24 @@ talks in more detail about the Mars datums.
 :numref:`pc-align-fig` shows an example of using ``pc_align``.
 The complete documentation for this program is in :numref:`pc_align`.
 
+.. _pc_align_validation:
+
+Validation of alignment
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``pc_align`` program can save the source cloud after being aligned
+to the reference cloud and vice-versa, via
+``--save-transformed-source-points`` and
+``--save-inv-transformed-reference-points``. To validate that the
+aligned source cloud is very close to the reference cloud, DEMs can be
+made out of them with ``point2dem``, and those can be overlayed
+in ``stereo_gui`` (:numref:`stereo_gui`) for inspection.
+
+Alternatively, the ``geodiff`` program (:numref:`geodiff`) can be used
+to compute the (absolute) difference between aligned DEMs, which can
+be colorized with ``colormap`` (:numref:`colormap`). The ``geodiff``
+tool can take the difference between a DEM and a CSV file as well.
+
 Alignment and orthoimages
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 

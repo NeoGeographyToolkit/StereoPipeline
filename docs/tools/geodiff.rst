@@ -1,3 +1,5 @@
+.. _geodiff:
+
 geodiff
 -------
 
@@ -5,7 +7,7 @@ The ``geodiff`` program takes as input two DEMs (or a DEM and a CSV
 file, with the latter in the same format as used for ``pc_align`` and
 ``point2dem``), and subtracts the second from the first. The grid used
 is the one from the first DEM, so the second one is interpolated into it
-usign bilinear interpolation (when one file is a CSV, the grid from the
+using bilinear interpolation (when one file is a CSV, the grid from the
 other one, the DEM, is used). The tool can also take the absolute
 difference of the two DEMs.
 
@@ -16,9 +18,24 @@ second.
 
 Usage::
 
-     > geodiff [options] <dem1> <dem2> [ -o output_file_prefix ]
+    geodiff [options] <dem1> <dem2> [ -o output_file_prefix ]
 
-Command-line options for geodiff:
+Example with two DEMs (when computing an absolute difference)::
+
+    geodiff --absolute dem1.tif dem2.tif -o run
+ 
+This will create ``run-diff.tif``.
+
+The ``colormap`` program (:numref:`colormap`) can be used to
+colorize the difference image.
+
+Example with a DEM and a CSV file::
+
+    geodiff dem1.tif file.csv                         \
+      --csv-format '1:lon 2:lat 3:height_above_datum' \
+      -o run
+
+Command-line options for ``geodiff``:
 
 -h, --help
     Display the help message.

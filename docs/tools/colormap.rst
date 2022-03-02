@@ -7,9 +7,10 @@ The ``colormap`` tool reads a DEM and writes a corresponding color-coded
 height image that can be used for visualization.
 
 Usage::
+
     colormap [options] <input DEM>
 
-Command-line options for colormap:
+Command-line options for ``colormap``:
 
 --help
     Display a help message.

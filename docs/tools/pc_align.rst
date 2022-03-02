@@ -24,7 +24,8 @@ Usage::
      pc_align --max-displacement <float> [other options]    \
        <reference cloud> <source cloud> -o <output prefix>}
 
-An example of using this tool is in :numref:`pc-align-example`.
+An example of using this tool is in :numref:`pc-align-example`. Validation
+of alignment is discussed in :numref:`pc_align_validation`.
 
 Several important things need to be kept in mind if ``pc_align`` is to
 be used successfully and give accurate results, as described below.

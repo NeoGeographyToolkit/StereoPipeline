@@ -145,7 +145,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-source-points",    po::value(&opt.max_num_source_points)->default_value(100000),
                                  "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("alignment-method",         po::value(&opt.alignment_method)->default_value("point-to-plane"),
-                                 "The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point, similarity-point-to-plane, fgr, least-squares, similarity-least-squares]")
+                                 "The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-plane, similarity-point-to-point, fgr, least-squares, similarity-least-squares]")
     ("highest-accuracy",         po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
                                  "Compute with highest accuracy for point-to-plane (can be much slower).")
     ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
