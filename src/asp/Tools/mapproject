@@ -78,6 +78,7 @@ def generateTileList(fullWidth, fullHeight, tileSize):
 def handleArguments(args):
     """Split up arguments into required and optional lists which will be passed to subprocess"""
 
+    # TODO(oalexan1): This is buggy. Boolean options won't be handled well.
     requiredList = []
     optionsList  = []
 

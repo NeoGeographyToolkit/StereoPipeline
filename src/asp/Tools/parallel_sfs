@@ -79,50 +79,7 @@ def generateTileList(sizeX, sizeY, tileSize, padding):
 def generateTilePrefix(outputFolder, tileName, outputName):
     return os.path.join(outputFolder, tileName, outputName)
 
-def handleArguments(args):
-    """Split up arguments into input cameras and arguments."""
-    # TODO: This code is buggy. A boolean option followed by a value will be taken
-    # as the value of the boolean option but that one does not take a value.
-    # As of now, all boolean options must either be followed by other options
-    # or be at the end.
-    cameras = []
-    optionsList  = []
-
-    # Loop through all entries.
-    iterable = iter(range(0, len(args)))
-    for i in iterable:
-        a = args[i]
-        if (i < len(args)-1): # Don't load the next value when we are at the end!
-            n = args[i+1]
-        else:
-            n = '-' # This will just cause us to get out of the loop
-
-        if asp_cmd_utils.isCmdOption(a):      # This is the start of an option.
-            optionsList.append(a)  # Record this entry.
-
-            # The next entry is the start of another option so this one has no values.
-            if asp_cmd_utils.isCmdOption(n): 
-                continue
-
-            optionsList.append(n)  # Otherwise record the next entry has a value.
-            next(iterable)        # Skip the next entry in the loop.
-
-            if (a == '--crop-win'):  # These arguments have four values, not just one.
-                # Add the additional three arguments and skip them in the loop.
-                optionsList.append(args[i+2])           
-                optionsList.append(args[i+3])
-                optionsList.append(args[i+4])
-                next(iterable)
-                next(iterable)
-                next(iterable)
-
-        else: # This is one of the three positional arguments
-            cameras.append(a)
-
-    # Return the two lists
-    return (cameras, optionsList)
-
-def runSfs(options, cameras, outputFolder, outputName):
+def runSfs(options, outputFolder, outputName):
     """Run sfs in a single tile."""
 
     # Determine the name of the tile we need to write
@@ -172,7 +129,7 @@ def runSfs(options, cameras, outputFolder, outputName):
     # Call the command for a single tile
     cmd = timeCmd + ['sfs',  '--crop-win', str(startX), str(startY), str(stopX), str(stopY)]
 
-    cmd = cmd + cameras + extraArgs # Append other options
+    cmd = cmd + extraArgs # Append other options
     willRun = True
     if options.resume:
         finalDem = tilePrefix + '-DEM-final.tif'
@@ -221,7 +178,6 @@ def write_cmd_output(output_prefix, cmd, out, err, status):
 
 def main(argsIn):
 
-    cameras = []
     sfsPath = asp_system_utils.bin_path('sfs')
 
     try:
@@ -292,9 +248,6 @@ def main(argsIn):
     # This call handles all the parallel_sfs specific options.
     (options, args) = parser.parse_known_args(argsIn)
 
-    # Split up arguments into input cameras and the rest
-    cameras, optionsList = handleArguments(args)
-
     # The parallel_sfs tool must not take the option --crop-win as it will
     # work on the entire input DEM.
     if '--crop-win' in argsIn:
@@ -314,13 +267,8 @@ def main(argsIn):
                      "will be obtained in different tiles. If desired to float these, do that " +
                      "on a clip where all images have good coverage, and using the sfs tool.\n");
         
-    # Check the cameras.
-    if len(cameras) < 1:
-        parser.print_help()
-        parser.error("Missing inputs.\n" );
-
     # Any additional arguments need to be forwarded to the sfs function
-    options.extraArgs = optionsList
+    options.extraArgs = args
 
     # Pass to the sfs executable the -i and -o options we filtered out
     options.extraArgs = ['-i', options.input_dem, '-o', options.output_prefix,
@@ -358,7 +306,7 @@ def main(argsIn):
     if spawnedCopy:
         # This copy was spawned to process a single tile. Just call a
         # function to handle this and then we are done.
-        return runSfs(options, cameras, outputFolder, outputName) 
+        return runSfs(options, outputFolder, outputName) 
 
     # Otherwise this is the original called process and there are multiple steps to go through
 
@@ -367,7 +315,7 @@ def main(argsIn):
     # each small DEM tile.
     if '--image-exposures-prefix' not in options.extraArgs:
         print("Computing exposures.\n")
-        cmd = timeCmd + [sfsPath] + cameras + options.extraArgs + ['--compute-exposures-only']
+        cmd = timeCmd + [sfsPath] + options.extraArgs + ['--compute-exposures-only']
         asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
         options.extraArgs += ['--image-exposures-prefix', options.output_prefix]
 
@@ -378,10 +326,9 @@ def main(argsIn):
     # What is the size of the DEM on which to do SfS
     sep = ","
     verbose = False
-    settings = asp_system_utils.run_and_parse_output( sfsPath, 
-                                                      cameras + \
-                                                      options.extraArgs + ['--query'],
-                                                      sep, verbose )
+    settings = asp_system_utils.run_and_parse_output(sfsPath, 
+                                                     options.extraArgs + ['--query'],
+                                                     sep, verbose)
     sizeX = int(settings['dem_cols'][0])
     sizeY = int(settings['dem_rows'][0])
 
@@ -398,7 +345,7 @@ def main(argsIn):
     
     # If there is only going to be one output tile, just use the non-parallel call
     if (numTilesX*numTilesY == 1):
-        cmd = timeCmd + [sfsPath] + cameras + options.extraArgs
+        cmd = timeCmd + [sfsPath] + options.extraArgs
         (out, err, status) = asp_system_utils.executeCommand(cmd,
                                                              suppressOutput=options.suppressOutput)
         write_cmd_output(options.output_prefix, cmd, out, err, status)
@@ -456,7 +403,7 @@ def main(argsIn):
     if options.resume:
         commandList.append('--resume')
         
-    commandList   = commandList + cameras + options.extraArgs # Append other options
+    commandList   = commandList + options.extraArgs # Append other options
     commandString = asp_string_utils.argListToString(commandList)
 
     # Use GNU parallel call to distribute the work across computers
