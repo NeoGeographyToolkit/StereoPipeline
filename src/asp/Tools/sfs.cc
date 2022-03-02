@@ -3769,7 +3769,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("save-dem-with-nodata",   po::bool_switch(&opt.save_dem_with_nodata)->default_value(false)->implicit_value(true),
      "Save a copy of the DEM while using a no-data value at a DEM grid point where all images show shadows. To be used if shadow thresholds are set.")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
-     "Use approximate camera models for speed.")
+     "Use approximate camera models for speed. Only with ISIS .cub cameras.")
     ("use-rpc-approximation",   po::bool_switch(&opt.use_rpc_approximation)->default_value(false)->implicit_value(true),
      "Use RPC approximations for the camera models instead of approximate tabulated camera models (invoke with --use-approx-camera-models). This is broken and should not be used.")
     ("rpc-penalty-weight", po::value(&opt.rpc_penalty_weight)->default_value(0.1),
@@ -5137,9 +5137,17 @@ int main(int argc, char* argv[]) {
     if (opt.query) 
       return 0;
 
+    // This check must be here, after we find the session
     if (opt.stereo_session != "isis" &&
-        (opt.use_approx_camera_models || opt.use_approx_adjusted_camera_models))
-      vw_throw( ArgumentErr() << "Approximate models work with ISIS cameras only." );
+        (opt.use_approx_camera_models || opt.use_approx_adjusted_camera_models ||
+         opt.use_rpc_approximation || opt.use_semi_approx)) {
+      vw_out() << "Computing approximate models works only with ISIS cameras. "
+               << "Ignoring that option.\n";
+      opt.use_approx_camera_models = false;
+      opt.use_approx_adjusted_camera_models = false;
+      opt.use_rpc_approximation = false;
+      opt.use_semi_approx = false;
+    }
       
     // Since we may float the cameras, ensure our camera models are
     // always adjustable. Note that if the user invoked this tool with

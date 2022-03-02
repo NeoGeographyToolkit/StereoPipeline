@@ -112,7 +112,8 @@ Command-line options:
     thresholds are set.
 
 --use-approx-camera-models
-    Use approximate camera models for speed.
+    Use approximate camera models for speed. Only with ISIS .cub
+    cameras.
 
 --use-rpc-approximation
     Use RPC approximations for the camera models instead of approximate
