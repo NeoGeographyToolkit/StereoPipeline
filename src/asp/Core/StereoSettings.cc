@@ -93,7 +93,8 @@ namespace asp {
     disable_correct_velocity_aberration    = false;
     disable_correct_atmospheric_refraction = false;
     
-
+    default_corr_timeout = 900; // in seconds
+    
     double nan = std::numeric_limits<double>::quiet_NaN();
     nodata_value = nan;
   }
@@ -247,7 +248,7 @@ namespace asp {
                      "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
       ("disparity-estimation-dem-error", po::value(&global.disparity_estimation_dem_error)->default_value(0.0),
                      "Error (in meters) of the disparity estimation DEM.")
-      ("corr-timeout",           po::value(&global.corr_timeout)->default_value(900),
+      ("corr-timeout",           po::value(&global.corr_timeout)->default_value(global.default_corr_timeout),
                      "Correlation timeout for an image tile, in seconds.")
       ("stereo-algorithm",       po::value(&global.stereo_algorithm)->default_value("asp_bm"),
                      "Stereo algorithm to use. Options: asp_bm, asp_sgm, asp_mgm, asp_final_mgm, mgm (original author implementation), opencv_sgbm, libelas, msmw, msmw2, and opencv_bm.")

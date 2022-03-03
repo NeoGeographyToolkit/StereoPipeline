@@ -354,6 +354,17 @@ namespace asp {
 
     asp::stereo_settings().validate();
 
+    // Make sure that algorithm 0 is same as asp_bm, etc.
+    boost::to_lower(stereo_settings().stereo_algorithm);
+    if (stereo_settings().stereo_algorithm == "0") 
+      stereo_settings().stereo_algorithm = "asp_bm";
+    else if (stereo_settings().stereo_algorithm == "1") 
+      stereo_settings().stereo_algorithm = "asp_sgm";
+    else if (stereo_settings().stereo_algorithm == "2") 
+      stereo_settings().stereo_algorithm = "asp_mgm";
+    else if (stereo_settings().stereo_algorithm == "3") 
+      stereo_settings().stereo_algorithm = "asp_final_mgm";
+    
     // Add the options to the usage
     std::ostringstream os;
     os << usage << general_options;
@@ -506,9 +517,19 @@ namespace asp {
     const int SGM_DEFAULT_MEDIAN_FILTER_SIZE   = 3;
     const int SGM_DEFAULT_TEXTURE_SMOOTH_SIZE  = 11;
     const double SGM_DEFAULT_TEXTURE_SMOOTH_SCALE = 0.13;
-    
-    // TODO: Modify SGM tile sizes?
 
+    // Increase the timeout for MGM, unless specified, as that one is slow.
+    // Need some care here, to make sure that even if the parent function is called
+    // twice, the increase happens just once.
+    if (stereo_settings().stereo_algorithm == "mgm" &&
+        stereo_settings().corr_timeout == stereo_settings().default_corr_timeout) {
+        stereo_settings().corr_timeout = 10 * stereo_settings().default_corr_timeout;
+      vw_out() << "For the original mgm algorithm increasing the --corr-timeout to: " <<
+        stereo_settings().corr_timeout << ".\n";
+    }
+      
+    // TODO: Modify SGM tile sizes?
+    
     vw::stereo::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
     
@@ -916,6 +937,10 @@ namespace asp {
 
     // Make it lowercase first
     boost::to_lower(alg);
+
+    // Sanity check
+    if (alg == "") 
+      vw_throw(ArgumentErr() << "No stereo algorithm was specified.\n");
     
     if (alg.rfind("0", 0) == 0 || alg.rfind("asp_bm", 0) == 0) 
       return vw::stereo::VW_CORRELATION_BM;
@@ -929,6 +954,11 @@ namespace asp {
     if (alg.rfind("3", 0) == 0 || alg.rfind("asp_final_mgm", 0) == 0) 
       return vw::stereo::VW_CORRELATION_FINAL_MGM;
 
+    // Sanity check. Any numerical values except 0, 1, 2, 3 are not accepted.
+    int num = atof(alg.c_str());
+    if (num < 0 || num > 3) 
+      vw_throw(ArgumentErr() << "Unknown algorithm: " << alg << ".\n");
+    
     // An external stereo algorithm
     return vw::stereo::VW_CORRELATION_OTHER;
   }
