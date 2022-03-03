@@ -169,7 +169,7 @@ namespace asp {
     std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity
     double disparity_estimation_dem_error; // Error (in meters) of the disparity estimation DEM
     int    corr_timeout;              // Correlation timeout for a tile, in seconds
-    int default_corr_timeout;         // will be used to adjust corr_timeout
+    int default_corr_timeout;         // Will be used to adjust corr_timeout
     std::string stereo_algorithm;     // See StereoSettings.cc for the possible values.
     int    corr_blob_filter_area;     // Use blob filtering in pyramidal correlation
     int    corr_tile_size_ovr;        // Override the default tile size used for processing.
