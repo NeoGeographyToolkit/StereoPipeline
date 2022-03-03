@@ -267,7 +267,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   opt.init_transform = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
   if (opt.init_transform_file != ""){
     asp::read_transform(opt.init_transform, opt.init_transform_file);
-    vw_out() << "Initial guess transform:\n" << opt.init_transform << endl;
+    vw_out() << std::setprecision(16) << "Initial guess transform:\n" << opt.init_transform << endl;
+    vw_out() << std::setprecision(8); // undo the higher precision
   }
 
   if (opt.alignment_method != "point-to-plane"            &&
@@ -1465,7 +1466,10 @@ int main( int argc, char *argv[] ) {
     PointMatcher<RealT>::Matrix globalT = apply_shift(combinedT, -shift);
 
     // Print statistics
-    vw_out() << "Alignment transform (origin is planet center):" << endl << globalT << endl;
+    vw_out() << std::setprecision(16)
+             << "Alignment transform (origin is planet center):" << endl << globalT << endl;
+    vw_out() << std::setprecision(8); // undo the higher precision
+
     vw_out() << "Centroid of source points (Cartesian, meters): " << source_ctr_vec << std::endl;
     // Swap lat and lon, as we want to print lat first
     std::swap(source_ctr_llh[0], source_ctr_llh[1]);
@@ -1501,6 +1505,8 @@ int main( int argc, char *argv[] ) {
     for (int r = 0; r < DIM; r++)
       for (int c = 0; c < DIM; c++)
         rot(r, c) /= scale;
+
+    // Subtract one before printing the scale, to see a lot of digits of precision
     vw_out() << "Transform scale - 1 = " << (scale-1.0) << std::endl;
     
     Matrix3x3 rot_NED = inverse(NED2ECEF) * rot * NED2ECEF;

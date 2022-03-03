@@ -84,11 +84,8 @@ to solve for a scale change (to obtain a so-called ``similarity
 transform``). It is suggested this approach be used only when a scale
 change is expected. It can be turned on by setting
 ``--alignment-method`` to ``similarity-point-to-plane`` or
-``similarity-point-to-point``. (This method works best if an initial
-alignment is first performed with, for example, the Point-to-Plane
-approach, to determine the rotation and translation part of the
-transform, and then that one can be used as an initial guess in order
-to solve for the scale as well.)
+``similarity-point-to-point``. (The first of these is better than the
+second one.)
 
 For very large scale difference or translation among the two clouds,
 both of these algorithms may fail. If the clouds are DEMs, one may
@@ -580,18 +577,18 @@ Command-line options for pc_align
 --ipfind-options
     Options to pass to the ``ipfind`` program when computing the
     transform from hillshading. Default: ``--ip-per-image 1000000
-    --interest-operator sift --descriptor-generator sift``
+    --interest-operator sift --descriptor-generator sift``.
 
 --ipmatch-options
     Options to pass to the ``ipmatch`` program when computing the
     transform from hillshading. Default: ``--inlier-threshold 100
-    --ransac-iterations 10000 --ransac-constraint similarity``
+    --ransac-iterations 10000 --ransac-constraint similarity``.
 
 --match-file
     Compute an initial transform from the source to the reference
     point cloud using manually selected point correspondences
     (obtained for example using stereo_gui). The type of transform
-    can be set via ``--initial-transform-from-hillshading string``
+    can be set via ``--initial-transform-from-hillshading string``.
 
 --initial-transform-outlier-removal-params <pct factor (default: 75.0 3.0)>
     When computing an initial transform based on features, either
@@ -604,18 +601,18 @@ Command-line options for pc_align
     Options to pass to the Fast Global Registration algorithm, if
     used. Default: ``div_factor: 1.4 use_absolute_scale: 0
     max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95
-    tuple_max_cnt: 10000``
+    tuple_max_cnt: 10000``.
 
---diff-rotation-error <float (default: 10^{-8})>
+--diff-rotation-error <float (default: 1e-8)>
     Change in rotation amount below which the algorithm will stop
     (if translation error is also below bound), in degrees.
 
---diff-translation-error <float (default: 10^{-3})>
+--diff-translation-error <float (default: 1e-3)>
     Change in translation amount below which the algorithm will
     stop (if rotation error is also below bound), in meters.
 
 --no-dem-distances
-    For reference point clouds that are DEMs, don’t take advantage
+    For reference point clouds that are DEMs, don't take advantage
     of the fact that it is possible to interpolate into this DEM
     when finding the closest distance to it from a point in the
     source cloud (the text above has more detailed information).

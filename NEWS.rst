@@ -90,9 +90,10 @@ bathymetry:
     map.
  
 pc_align:
-  * Bugfix with alignment method point-to-point and
+  * Add alignment method similarity-point-to-plane. It works better
+    than similarity-point-to-point to find a scale between the clouds.
+  * Bugfix with alignment methods point-to-point and
     similarity-point-to-point.
-  * Add alignment method similarity-point-to-plane.
    
 dem_mosaic:
   * Add the option ``--tap``, to have the output grid be at integer
