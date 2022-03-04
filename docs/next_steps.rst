@@ -765,6 +765,10 @@ also tighten ``--outlier-removal-params`` (:numref:`stereodefault`),
 or mapproject the images (:numref:`mapproj-example`). A smaller manual
 search range can also be specified (:numref:`search_range`).
 
+If a run failed partially during correlation, it can be resumed with
+the ``parallel_stereo`` option ``--resume-at-corr``
+(:numref:`parallel_stereo`).
+
 .. _visualising:
 
 Visualizing and manipulating the results

@@ -557,7 +557,7 @@ def tile_run(prog, args, settings, tile, **kw):
             
             # We are left with the situation that there is no image which is both
             # valid and not a symlink. Perhaps D does not exist or is corrupted.
-            # Then wipe D and Dnosym, if present, and redo the  correlation.
+            # Then wipe D and Dnosym, if present, and redo the correlation.
             print("Will run correlation to create a valid image for " + D)
             if os.path.exists(D):
                 os.remove(D)
