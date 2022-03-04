@@ -176,6 +176,11 @@ Command-line options
     The number of threads to use when running a single process (for
     pre-processing and filtering).
 
+--resume-at-corr
+   Start at the correlation stage and skip recomputing the valid low
+   and full-res disparities for that stage. Do not change
+   ``--left-image-crop-win``, etc, when running this.
+
 --verbose
     Display the commands being executed.
 

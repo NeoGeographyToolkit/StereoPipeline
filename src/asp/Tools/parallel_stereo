@@ -167,6 +167,8 @@ def rename_files(settings, postfix_in, postfix_out, **kw):
         filename_in  = directory + "/" + tile.name_str() + postfix_in
         filename_out = directory + "/" + tile.name_str() + postfix_out
         if os.path.isfile(filename_in) and not os.path.islink(filename_in):
+            if os.path.exists(filename_out):
+                os.remove(filename_out)
             os.rename(filename_in, filename_out)
 
 def create_symlinks_for_multiview(settings, opt):
@@ -534,13 +536,40 @@ def tile_run(prog, args, settings, tile, **kw):
         if opt.verbose:
             print(" ".join(cmd))
 
+        # See if perhaps we can skip correlation
+        if prog == 'stereo_corr' and opt.resume_at_corr:
+
+            D = tile_dir_string + '-D.tif'
+            if (not os.path.islink(D)) and asp_system_utils.is_valid_image(D):
+                # The disparity D.tif is valid and not a symlink. No need
+                # to recreate it.
+                return
+
+            Dnosym = tile_dir_string + '-Dnosym.tif'
+            if (not os.path.islink(Dnosym)) and asp_system_utils.is_valid_image(Dnosym):
+                # In a previous run D.tif was renamed to Dnosym.tif
+                # and D.tif was made into a symlink. Still good.
+                # Just undo the rename.
+                if os.path.exists(D):
+                    os.remove(D)
+                os.rename(Dnosym, D)
+                return
+            
+            # We are left with the situation that there is no image which is both
+            # valid and not a symlink. Perhaps D does not exist or is corrupted.
+            # Then wipe D and Dnosym, if present, and redo the  correlation.
+            print("Will run correlation to create a valid image for " + D)
+            if os.path.exists(D):
+                os.remove(D)
+            if os.path.exists(Dnosym):
+                os.remove(Dnosym)
+            
         code = subprocess.call(cmd)
         if code != 0:
             raise Exception('Stereo step ' + kw['msg'] + ' failed')
 
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
-
 
 def normal_run(prog, args, **kw):
     '''Job launch wrapper for a non-tile stereo call.'''
@@ -624,6 +653,10 @@ if __name__ == '__main__':
                    type=int)
     p.add_argument('--sparse-disp-options', dest='sparse_disp_options',
                    help='Options to pass directly to sparse_disp. Use quotes around this string.')
+    p.add_argument('--resume-at-corr', dest='resume_at_corr', default=False, action='store_true',
+                   help='Start at the correlation stage and skip recomputing the valid low ' + \
+                   'and full-res disparities for that stage. Do not change ' + \
+                   '--left-image-crop-win, etc, when running this.')
     p.add_argument('-v', '--version',        dest='version', default=False,
                    action='store_true', help='Display the version of software.')
     p.add_argument('-s', '--stereo-file',    dest='stereo_file', default='./stereo.default',
@@ -663,6 +696,13 @@ if __name__ == '__main__':
     # Ensure our 'parallel' is not out of date
     check_parallel_version()
 
+    if opt.tile_id is None and opt.resume_at_corr:
+        print("Resuming at the correlation stage.")
+        opt.entry_point = Step.corr
+        if opt.stop_point <= Step.corr:
+            raise Exception('Cannot resume at correlation if --stop-point ' + \
+                            'is set to stop before that.')
+        
     if opt.threads_single is None:
         opt.threads_single = get_num_cpus()
 
@@ -708,7 +748,7 @@ if __name__ == '__main__':
     # hence no earlier than this point.
     sep = ","
     settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
-
+    
     # Check if we are doing SGM instead of block match processing
     alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
     
@@ -879,9 +919,9 @@ if __name__ == '__main__':
                 sys.exit()
 
             # Do low-res correlation, this happens just once.
-            calc_lowres_disp(args, opt, sep)
+            calc_lowres_disp(args, opt, sep, resume = opt.resume_at_corr)
 
-            # symlink D_sub
+            # symlink D_sub, D_sub_spread, etc.
             create_subproject_dirs(settings)
 
             # Run full-res stereo using multiple processes.
@@ -917,7 +957,6 @@ if __name__ == '__main__':
                     build_vrt(settings, georef, "-B.tif", "-Bnosym.tif", 
                               contract_tiles = False)
                     create_subproject_dirs(settings) # symlink B.tif
-
 
         # Refinement
         step = Step.rfne
@@ -986,7 +1025,6 @@ if __name__ == '__main__':
             print("Running on machine: ", os.uname())
 
         try:
-
             # Pick the tile we want from the list of tiles
             tiles = produce_tiles(settings, opt.job_size_w, opt.job_size_h)
             tile  = tiles[opt.tile_id]

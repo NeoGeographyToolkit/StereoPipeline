@@ -10,8 +10,11 @@ New camera additions:
   * Added support for the PeruSat-1 linescan camera model (so far just
     the RPC model was supported for this satellite).
 
-stereo:
+parallel_stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
+  * Added the option --resume-at-corr. Start at the correlation stage
+    and skip recomputing the valid low and full-res disparities for
+    that stage.
   * Bugfix: Eliminate edge artifacts in stereo refinement (for
     subpixel modes 1, 2, and 3).
   * Print in stereo_pprc the estimated convergence angle between rays

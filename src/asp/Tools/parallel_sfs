@@ -133,11 +133,8 @@ def runSfs(options, outputFolder, outputName):
     willRun = True
     if options.resume:
         finalDem = tilePrefix + '-DEM-final.tif'
-        verbose = True
-        # See if it is a valid tif file
-        ans = asp_system_utils.run_with_return_code(['gdalinfo',
-                                                     finalDem], verbose) 
-        if ans == 0:
+
+        if asp_system_utils.is_valid_image(finalDem):
             print("Will skip this tile, as file exists and is valid: " + finalDem)
             willRun = False
             

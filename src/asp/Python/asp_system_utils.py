@@ -306,6 +306,19 @@ def run_with_return_code(cmd, verbose=False):
 
     return p.returncode
 
+def is_valid_image(filename):
+    """See if the current image file exists and is valid."""
+
+    if not os.path.exists(filename):
+        return False
+    
+    verbose = False
+    ans = run_with_return_code(['gdalinfo', filename], verbose) 
+    if ans == 0:
+        return True
+
+    return False
+    
 # For timeout
 def timeout_alarm_handler(signum, frame):
     raise Exception("Timeout reached!")

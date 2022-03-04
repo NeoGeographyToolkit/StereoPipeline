@@ -256,15 +256,35 @@ def run_sparse_disp(args, opt):
                msg='%d: Low-res correlation with sparse_disp' % Step.corr)
 
 # Do low-res correlation.
-def calc_lowres_disp(args, opt, sep):
+def calc_lowres_disp(args, opt, sep, resume = False):
 
-    if (opt.seed_mode == 3):
-        run_sparse_disp(args, opt)
-    else:
-        local_args = args[:] # deep copy to use locally
-        local_args.extend(['--compute-low-res-disparity-only'])
-        # invoke here stereo_run to be able to see the output on screen
-        stereo_run('stereo_corr', local_args, opt, msg='')
+    will_run = True
+    if resume:
+        settings     = run_and_parse_output("stereo_parse", args, ",", opt.verbose)
+        out_prefix   = settings["out_prefix"][0]
+        d_sub        = out_prefix + '-D_sub.tif'
+        d_sub_spread = out_prefix + '-D_sub_spread.tif'
+    
+        if (opt.seed_mode != 3):
+            if asp_system_utils.is_valid_image(d_sub):
+                will_run = False
+            else:
+                print("Will recreate: " + d_sub)
+        else:
+            if asp_system_utils.is_valid_image(d_sub) and \
+                   asp_system_utils.is_valid_image(d_sub_spread):
+                will_run = False
+            else:
+                print("Will recreate: " + d_sub + " and " + d_sub_spread)
+
+    if will_run:
+        if (opt.seed_mode == 3):
+            run_sparse_disp(args, opt)
+        else:
+            local_args = args[:] # deep copy to use locally
+            local_args.extend(['--compute-low-res-disparity-only'])
+            # invoke here stereo_run to be able to see the output on screen
+            stereo_run('stereo_corr', local_args, opt, msg='')
 
     # Attach a georef to D_sub and D_sub_spread if appropriate
     local_args = args[:] # deep copy to use locally

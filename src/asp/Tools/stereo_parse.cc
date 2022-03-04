@@ -146,7 +146,7 @@ int main( int argc, char* argv[] ) {
     // C++ or in Python. It will attach a georeference to this disparity.
     std::string left_image_file = opt.out_prefix + "-L.tif";
     if (stereo_settings().attach_georeference_to_lowres_disparity &&
-        fs::exists(left_image_file) ) {
+        fs::exists(left_image_file)) {
 
       cartography::GeoReference left_georef, left_sub_georef;
       bool   has_left_georef = read_georeference(left_georef, left_image_file);
@@ -180,7 +180,7 @@ int main( int argc, char* argv[] ) {
                                       );
         } // End i loop
       } // End has_left_georef
-    } // End georef attach ?
+    } // End georef attach 
 
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
