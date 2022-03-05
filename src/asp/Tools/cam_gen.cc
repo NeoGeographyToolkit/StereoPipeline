@@ -148,7 +148,7 @@ void fit_camera_to_xyz_ht(bool parse_ecef,
   Matrix<double, 3, 3> rotation;
   Vector3 translation;
   double scale;
-  find_3D_affine_transform(in, out, rotation, translation, scale);
+  find_3D_transform(in, out, rotation, translation, scale);
   if (camera_type == "opticalbar")
     ((vw::camera::OpticalBarModel*)out_cam.get())->apply_transform(rotation,
 								   translation, scale);

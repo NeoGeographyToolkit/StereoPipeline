@@ -97,7 +97,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   string reference, source, init_transform_file, alignment_method, config_file,
     datum, csv_format_str, csv_proj4_str, match_file, hillshade_options,
     ipfind_options, ipmatch_options, fgr_options;
-  Vector2 outlier_removal_params;
+  Vector2 initial_transform_ransac_params;
   PointMatcher<RealT>::Matrix init_transform;
   int    num_iter,
          max_num_reference_points,
@@ -176,11 +176,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("ipfind-options", po::value(&opt.ipfind_options)->default_value("--ip-per-image 1000000 --interest-operator sift --descriptor-generator sift"), "Options to pass to the ipfind program when computing the transform from hillshading.")
     ("ipmatch-options", po::value(&opt.ipmatch_options)->default_value("--inlier-threshold 100 --ransac-iterations 10000 --ransac-constraint similarity"), "Options to pass to the ipmatch program when computing the transform from hillshading.")
     ("match-file", po::value(&opt.match_file)->default_value(""), "Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences from the reference to the source (obtained for example using stereo_gui).")
-    ("initial-transform-outlier-removal-params", po::value(&opt.outlier_removal_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
-     "When computing an initial transform based on features, either via the "
-     "`--initial-transform-from-hillshading` or `--match-file` options, remove "
-     "outliers when this transform is applied by excluding the errors larger "
-     "than this percentile times this factor. [default: pct=75.0, factor=3.0]")
+    ("initial-transform-ransac-params", po::value(&opt.initial_transform_ransac_params)->default_value(Vector2(10000, 1.0), "num_iter factor"),
+     "When computing an initial transform based on hillshading, use "
+     "this number of RANSAC iterations and outlier factor. A smaller factor "
+     "will reject more outliers.")
     ("fgr-options", po::value(&opt.fgr_options)->default_value("div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000"), "Options to pass to the Fast Global Registration algorithm, if used.")
     
     ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
@@ -300,12 +299,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	      << "Least squares alignment can be used only when the "
 	      << "reference cloud is a DEM.\n" );
 
-  double pct = opt.outlier_removal_params[0], factor = opt.outlier_removal_params[1];
-  if (pct <= 0.0 || pct > 100.0 || factor <= 0.0){
+  int num_iter  = opt.initial_transform_ransac_params[0];
+  double factor = opt.initial_transform_ransac_params[1];
+  if (num_iter < 1 || factor <= 0.0)
     vw_throw( ArgumentErr() << "Invalid values were provided for "
-              << "--initial-transform-outlier-removal-params.\n");
-  }
-  
+              << "--initial-transform-ransac-params.\n");
 }
 
 /// Compute output statistics for pc_align
@@ -973,7 +971,7 @@ initial_transform_from_match_file(std::string const& ref_file,
                                   std::string const& source_file,
                                   std::string const& match_file,
                                   std::string const& hillshading_transform,
-                                  Vector2 outlier_removal_params){
+                                  Vector2 initial_transform_ransac_params){
   
   if (asp::get_cloud_type(ref_file) != "DEM" ||
       asp::get_cloud_type(source_file) != "DEM" )
@@ -1050,11 +1048,11 @@ initial_transform_from_match_file(std::string const& ref_file,
   vw::Vector3   translation;
   double        scale;
   bool filter_outliers = true;
-  vw::math::find_3D_affine_transform(points_src, points_ref,
-                                     rotation, translation, scale,
-                                     hillshading_transform,
-                                     filter_outliers,
-                                     outlier_removal_params);
+  vw::math::find_3D_transform(points_src, points_ref,
+                                         rotation, translation, scale,
+                                         hillshading_transform,
+                                         filter_outliers,
+                                         initial_transform_ransac_params);
 
   // Convert to pc_align transform format.
   PointMatcher<RealT>::Matrix globalT = Eigen::MatrixXd::Identity(DIM+1, DIM+1);
@@ -1205,7 +1203,7 @@ int main( int argc, char *argv[] ) {
       opt.init_transform = initial_transform_from_match_file(opt.reference, opt.source,
                                                              opt.match_file,
                                                              opt.hillshading_transform,
-                                                             opt.outlier_removal_params);
+                                                             opt.initial_transform_ransac_params);
     }
 
     // See if to apply an initial north-east-down translation relative

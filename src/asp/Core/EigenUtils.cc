@@ -593,7 +593,7 @@ void load_pc(std::string const& file_name,
 
 // Compute a rigid transform between n point correspondences.
 // There exists another version of this using vw matrices
-// in VisionWorkbench called find_3D_affine_transform().  
+// in VisionWorkbench called find_3D_transform().  
 void computeRigidTransform(const std::vector<Eigen::Vector3d>& src,
                            const std::vector<Eigen::Vector3d>& dst,
                            Eigen::Matrix3d & rot, Eigen::Vector3d & trans){

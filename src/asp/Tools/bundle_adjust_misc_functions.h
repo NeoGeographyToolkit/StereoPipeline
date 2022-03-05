@@ -987,7 +987,7 @@ bool init_pinhole_model_with_camera_positions
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
-  vw::math::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
+  vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
 
   // Update the camera and point information with the new transform
   apply_rigid_transform(rotation, translation, scale, camera_models, cnet);
@@ -1092,7 +1092,7 @@ void init_pinhole_model_with_multi_gcp(boost::shared_ptr<ControlNetwork> const& 
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
-  vw::math::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
+  vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
   
   // Update the camera and point information with the new transform
   vw_out() << "Applying transform based on GCP:\n";
@@ -1236,7 +1236,7 @@ void align_cameras_to_ground(std::vector< std::vector<Vector3> > const& xyz,
 
   // The initial transform to world coordinates
   Vector<double> C;
-  vw::math::find_3D_affine_transform(in_pts, out_pts, rotation, translation, scale);
+  vw::math::find_3D_transform(in_pts, out_pts, rotation, translation, scale);
 
   // Copy into C
   transform_to_vector(C, rotation, translation, scale);

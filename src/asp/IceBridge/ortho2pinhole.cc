@@ -498,7 +498,7 @@ void get_estimated_camera_position(Options const& opt,
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
-  vw::math::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
+  vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
 
   vw_out() << "Determined camera extrinsics from orthoimage: " << std::endl;
   vw_out() << "scale: " << scale << std::endl;

@@ -94,7 +94,7 @@ which will hillshade the two DEMs, find interest point matches among
 them, and use that to compute an initial transform between the
 clouds (:numref:`prevtrans`), which may or may not contain scale,
 after which the earlier algorithms will be applied to refine the
-transform.  This functionality is implemented with ASP’s ``hillshade``,
+transform.  This functionality is implemented with ASP's ``hillshade``,
 ``ipfind``, and ``ipmatch`` tools, and ``pc_align`` has options to
 pass flags to these programs, such as to increase the number interest
 points being found, if the defaults are not sufficient. If the two
@@ -590,12 +590,10 @@ Command-line options for pc_align
     (obtained for example using stereo_gui). The type of transform
     can be set via ``--initial-transform-from-hillshading string``.
 
---initial-transform-outlier-removal-params <pct factor (default: 75.0 3.0)>
-    When computing an initial transform based on features, either
-    via the ``--initial-transform-from-hillshading`` or ``--match-file``
-    options, remove outliers when this transform is applied by
-    excluding the errors larger than this percentile times this
-    factor.
+--initial-transform-ransac-params <num_iter factor (default: 10000 1.0)>
+    When computing an initial transform based on hillshading, use
+    this number of RANSAC iterations and outlier factor. A smaller
+    factor will reject more outliers. 
 
 --fgr-options
     Options to pass to the Fast Global Registration algorithm, if

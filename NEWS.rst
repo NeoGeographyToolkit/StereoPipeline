@@ -97,7 +97,11 @@ pc_align:
     than similarity-point-to-point to find a scale between the clouds.
   * Bugfix with alignment methods point-to-point and
     similarity-point-to-point.
-   
+  *  Use RANSAC with --initial-transform-from-hillshading, for increased
+     robustnes to outliers. Replaced
+     --initial-transform-outlier-removal-params with
+     --initial-transform-ransac-params.
+
 dem_mosaic:
   * Add the option ``--tap``, to have the output grid be at integer
     multiples of the grid size (like the default behavior of
