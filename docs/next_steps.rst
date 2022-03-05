@@ -256,7 +256,7 @@ Performing stereo correlation
    ``results/output-R.tif``). The next two are mask images
    (``results/output-lMask.tif`` and ``results/output-rMask.tif``),
    which indicate which pixels in the aligned images are good to use in
-   stereo correlation. The image on the right is the “Good Pixel map”,
+   stereo correlation. The image on the right is the "Good Pixel map",
    (``results/output-GoodPixelMap.tif``), which indicates (in gray)
    which were successfully matched with the correlator, and (in red)
    those that were not matched.
@@ -302,10 +302,10 @@ Specifying settings on the command line
 
 All the settings given via the ``stereo.default`` file can be
 over-ridden from the command line. Just add a double hyphen (``--``) in
-front the option’s name and then fill out the option just as you would
+front the option's name and then fill out the option just as you would
 in the configuration file. For options in the ``stereo.default`` file
 that take multiple numbers, they must be separated by spaces (like
-‘``corr-kernel 25 25``’) on the command line. Here is an example in
+``corr-kernel 25 25``) on the command line. Here is an example in
 which we override the search range and subpixel mode from the command
 line.
 
@@ -391,7 +391,7 @@ Example for ISIS images
 
 This example illustrates how to run stereo with mapprojected
 images for ISIS data. We start with LRO NAC Lunar images M1121224102LE
-and M1121209902LE from ASU’s LRO NAC web site (https://wms.lroc.asu.edu/lroc/search), fetching them as::
+and M1121209902LE from ASU's LRO NAC web site (https://wms.lroc.asu.edu/lroc/search), fetching them as::
 
     wget http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0015/DATA/ESM/2013111/NAC/M1121224102LE.IMG
     wget http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0015/DATA/ESM/2013111/NAC/M1121209902LE.IMG
@@ -436,7 +436,7 @@ the correlation kernel size. This is optional.
 If this terrain is close to the poles, say within 25 degrees of
 latitude, it is advised to use a stereographic projection, centered
 either at the nearest pole, or close to the center of the current DEM.
-Its center’s longitude and latitude can be found with
+Its center's longitude and latitude can be found with
 ``gdalinfo -stats``, which can then be passed to ``point2dem`` such as::
 
      point2dem --stereographic --proj-lon <lon_ctr> --proj-lat <lat_ctr> ...
@@ -478,7 +478,7 @@ Lastly, we create a DEM at 1 meter resolution::
      point2dem --nodata-value -32768 --tr 0.000033 run_map/run-PC.tif
 
 Note here that we could have used a coarser resolution for the final
-DEM, such as 4 meters/pixel, since we won’t see detail at the level of 1
+DEM, such as 4 meters/pixel, since we won't see detail at the level of 1
 meter in this DEM, as the stereo process is lossy. This is explained in
 more detail in :numref:`post-spacing`.
 
@@ -489,7 +489,7 @@ It is important to note that we could have mapprojected the images
 using the ISIS tool ``cam2map``, as described in :numref:`aligning-images`.
 The current approach could be
 preferable since it allows us to choose the DEM to mapproject onto, and
-it is much faster, since ASP’s ``mapproject`` uses multiple processes,
+it is much faster, since ASP's ``mapproject`` uses multiple processes,
 while ``cam2map`` is restricted to one process and one thread.
 
 .. _dg-mapproj:
@@ -521,7 +521,7 @@ results. In other words, sometimes one may be able to ignore the
 vertical datums on the input but we do not recommend doing that. Also,
 you should note that the geoheader attached to those types of files
 usually does not describe the vertical datum they used. That can only be
-understood by careful reading of your provider’s documents.
+understood by careful reading of your provider's documents.
 
 In this example we use as an input low-resolution DEM the file
 ``srtm_53_07.tif``, a 90 meter resolution tile from the CGIAR-CSI
@@ -704,16 +704,16 @@ tune the parameters to improve the results.
    acquired by rolling the spacecraft across-track, most of the
    disparity that represents topography is present in the horizontal
    disparity map. The vertical disparity map shows disparity due to
-   “wash-boarding,” which is not from topography but from spacecraft
+   "wash-boarding", which is not due to topography but because of spacecraft
    movement. Note however that the horizontal and vertical disparity
    images are normalized independently. Although both have the same
    range of gray values from white to black, they represent
    significantly different absolute ranges of disparity.
 
 Whenever ``parallel_stereo``, ``point2dem``, and other executables are run, they
-create log files in given tool’s results directory, containing a copy of
+create log files in given tool's results directory, containing a copy of
 the configuration file, the command that was run, your system settings,
-and tool’s console output. This will help track what was performed so
+and tool's console output. This will help track what was performed so
 that others in the future can recreate your work.
 
 Another handy debugging tool is the ``disparitydebug`` program, which
@@ -886,7 +886,7 @@ complete documentation is in :numref:`point2dem`.
    :alt: Normalized DEM and orthoimage.
 
    The image on the left is a normalized DEM (generated using 
-   ``point2dem``’s ``-n`` option), which shows low terrain
+   the ``point2dem`` option ``-n``), which shows low terrain
    values as black and high terrain values as white. The image on the
    right is the left input image projected onto the DEM (created using
    the ``--orthoimage`` option to ``point2dem``).
@@ -1114,7 +1114,7 @@ These images were generated respectively by using ``point2dem`` with the
 ``point2dem`` which projects the left image onto the DEM, and the images
 created earlier with ``colormap``.
 
-Here’s an example of how to invoke this program::
+Here's an example of how to invoke this program::
 
     image2qtree shaded-colorized.tif -m kml --draw-order 100
 
@@ -1144,20 +1144,20 @@ Using Blender to visualize meshes
 
 The :ref:`point2mesh` program will create ``.obj`` and ``.mtl`` files
 that you can import directly into Blender (https://www.blender.org/).
-Remember that ``.obj`` files don’t particularly have a way to
+Remember that ``.obj`` files don't particularly have a way to
 specify 'units' but the 'units' of an ``.obj`` file written out by ASP
 are going to be 'meters.'  If you open a large .obj model created by
-ASP (like HiRISE), you’ll need to remember to move the default
+ASP (like HiRISE), you'll need to remember to move the default
 viewpoint away from the origin, and extend the clipping distance to a
 few thousand (which will be a few kilometers), otherwise it may
-‘appear’ that the model hasn’t loaded (because 
-your viewpoint is inside of it, and you can’t see far enough).
+'appear' that the model hasn't loaded (because 
+your viewpoint is inside of it, and you can't see far enough).
 
 The default step size for :ref:`point2mesh` is 10, which only samples
 every 10th point, so you may want to read the documentation which
 talks more about the ``-s`` argument to :ref:`point2mesh`.  Depending on how
-big your model is, even that might be too small, and I’d be very
-cautious about using ``-s 1`` on a HiRISE model that isn’t cropped
+big your model is, even that might be too small, and I'd be very
+cautious about using ``-s 1`` on a HiRISE model that isn't cropped
 somehow first.
 
 You can also use :ref:`point2mesh` to pull off this trick with

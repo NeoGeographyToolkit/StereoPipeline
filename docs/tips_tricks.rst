@@ -7,7 +7,7 @@ Here we summarize, in one place, some insights in how to get the most
 from ASP, particularly the highest quality results in the smallest
 amount of time.
 
--  Ask for help or if you have questions. We’re always glad to share
+-  Ask for help or if you have questions. We're always glad to share
    what we know, implement suggestions, and fix issues (:numref:`get-help`).
 
 -  Use the GUI (:numref:`stereo_gui`) to get
@@ -69,7 +69,7 @@ amount of time.
    data one can invoke the ``dg_mosaic`` tool (:numref:`dg_mosaic`,
    though note that this tool may introduce
    aliasing). With subsampling, you are trading resolution for speed, so
-   this probably only makes sense for debugging or “previewing” 3D
+   this probably only makes sense for debugging or "previewing" 3D
    terrain. That said, subsampling will tend to increase the signal to
    noise ratio, so it may also be helpful for obtaining 3D terrain out
    of noisy, low quality images.
@@ -86,5 +86,5 @@ amount of time.
    though this is a computationally expensive process and its results
    are not easy to validate.
 
-We’ll be happy to add here more suggestions from community’s accumulated
+We'll be happy to add here more suggestions from community's accumulated
 wisdom on using ASP.

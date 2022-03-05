@@ -46,7 +46,7 @@ transform of both the left and right images (also based on tie-point
 measurements as earlier), the effect of which is equivalent to
 rotating the original cameras which took the pictures, (3) a 3D
 rotation that achieves epipolar rectification (only implemented for
-Pinhole sessions for missions like MER or K10 – see
+Pinhole sessions for missions like MER or K10, see
 :numref:`mer-example` and :numref:`k10example`) or (4)
 map-projection of both the left and right images using the ISIS
 ``cam2map`` command or through the more general ``mapproject`` tool
@@ -155,7 +155,7 @@ the previous lower resolution level of the pyramid
 Naive correlation itself is carried out by moving a small, rectangular
 template window from the from left image over the specified search
 region of the right image, as in :numref:`correlation_window`. The
-“best” match is determined by applying a cost function that compares the
+"best" match is determined by applying a cost function that compares the
 two windows. The location at which the window evaluates to the lowest
 cost compared to all the other search locations is reported as the
 disparity value. The ``cost-mode`` variable allows you to choose one of
@@ -168,7 +168,7 @@ Our implementation of pyramid correlation is a little unique in that it
 is actually split into two levels of pyramid searching. There is a
 ``output_prefix-D_sub.tif`` disparity image that is computed from the
 greatly reduced input images ``*-L_sub.tif`` and
-``output_prefix-R_sub.tif``. Those “sub” images have their size chosen
+``output_prefix-R_sub.tif``. Those "sub" images have their size chosen
 so that their area is around 2.25 megapixels, a size that is easily
 viewed on the screen unlike the raw source images. The low-resolution
 disparity image then defines the per thread search range of the higher
@@ -178,7 +178,7 @@ This solution is imperfect but comes from our model of multi-threaded
 processing. ASP processes individual tiles of the output disparity in
 parallel. The smaller the tiles, the easier it is to distribute evenly
 among the CPU cores. The size of the tile unfortunately limits the max
-number of pyramid levels we can process. We’ve struck a balance where
+number of pyramid levels we can process. We've struck a balance where
 every 1024 by 1024 pixel area is processed individually in a tile. This
 practice allows only 5 levels of pyramid processing. With the addition
 of the second tier of pyramid searching with
@@ -234,7 +234,7 @@ reasons:
    scale/resolution. Mapprojection is used to at least partially rectify
    these issues (:numref:`mapproj-example`).
 
-Bad matches, often called “blunders” or “artifacts” are also common, and
+Bad matches, often called "blunders" or "artifacts" are also common, and
 can happen for many of the same reasons listed above. The Stereo
 Pipeline does its best to automatically detect and eliminate these
 blunders, but the effectiveness of these outlier rejection strategies
@@ -255,7 +255,7 @@ address most problems.
 
 If you are seeing too many holes in your disparity images, one option
 that may give good results is to increase the size of the correlation
-kernel used by ``stereo_corr`` with the ``–corr-kernel`` option.
+kernel used by ``stereo_corr`` with the ``--corr-kernel`` option.
 Increasing the kernel size will increase the processing time but should
 help fill in regions of the image where no match was found.
 
@@ -290,18 +290,18 @@ and they disappear during the resampling that is necessary to obtain
 ``D_sub.tif``. In this case, it is possible to set ``corr-seed-mode`` to
 0, and manually set a search range to use for full-resolution
 correlation via the parameter ``corr-search``. In ``stereo.default``
-this parameter’s entry will look like::
+this parameter's entry will look like::
 
            corr-search -80 -2 20 2
 
-The exact values to use with this option you’ll have to discover
+The exact values to use with this option you'll have to discover
 yourself. The numbers right of ``corr-search`` represent the horizontal
 minimum boundary, vertical minimum boundary, horizontal maximum
 boundary, and finally the horizontal maximum boundary within which we
 will search for the disparity during correlation.
 
 It can be tricky to select a good search range for the
-``stereo.default`` file. That’s why the best way is to let ``parallel_stereo``
+``stereo.default`` file. That's why the best way is to let ``parallel_stereo``
 perform an automated guess for the search range. If you find that you
 can do a better estimate of the search range, take look at the
 intermediate disparity images using the ``disparitydebug`` program to
@@ -336,14 +336,14 @@ sub-pixel refinement stage based on the ``subpixel-mode`` setting.
 The first mode is parabola-fitting sub-pixel refinement
 (``subpixel-mode 1``). This technique fits a 2D parabola to points on
 the correlation cost surface in an 8-connected neighborhood around the
-cost value that was the “best” as measured during disparity map
-initialization. The parabola’s minimum can then be computed analytically
+cost value that was the "best" as measured during disparity map
+initialization. The parabola's minimum can then be computed analytically
 and taken as as the new sub-pixel disparity value.
 
 This method is easy to implement and extremely fast to compute, but it
 exhibits a problem known as pixel-locking: the sub-pixel disparities
-tend toward their integer estimates and can create noticeable “stair
-steps” on surfaces that should be smooth
+tend toward their integer estimates and can create noticeable "stair
+steps" on surfaces that should be smooth
 :cite:`Stein06:attenuating,Szeliski03sampling`. See for
 example :numref:`parabola_subpixel`.
 Furthermore, the parabola subpixel mode is not capable of refining a
@@ -351,7 +351,7 @@ disparity estimate by more than one pixel, so although it produces
 smooth disparity maps, these results are not much more accurate than the
 results that come out of the disparity map initialization in the first
 place. However, the speed of this method makes it very useful as a
-“draft” mode for quickly generating a DEM for visualization (i.e.
+"draft" mode for quickly generating a DEM for visualization (i.e.
 non-scientific) purposes. It is also beneficial in the event that a user
 will simply downsample their DEM after generation in Stereo Pipeline.
 
@@ -423,7 +423,7 @@ Triangulation
 When running an ISIS session, the Stereo Pipeline uses geometric camera
 models available in ISIS :cite:`anderson08:isis`. These
 highly accurate models are customized for each instrument that ISIS
-supports. Each ISIS “cube” file contains all of the information that is
+supports. Each ISIS "cube" file contains all of the information that is
 required by the Stereo Pipeline to find and use the appropriate camera
 model for that observation.
 
@@ -448,9 +448,9 @@ after the two input images for ``parallel_stereo``.
 ISIS camera models account for all aspects of camera geometry, including
 both intrinsic (i.e. focal length, pixel size, and lens distortion) and
 extrinsic (e.g. camera position and orientation) camera parameters.
-Taken together, these parameters are sufficient to “forward project” a
+Taken together, these parameters are sufficient to "forward project" a
 3D point in the world onto the image plane of the sensor. It is also
-possible to “back project” from the camera’s center of projection
+possible to "back project" from the camera's center of projection
 through a pixel corresponding to the original 3D point.
 
 .. figure:: images/correlation/triangulation_400px.png
@@ -465,12 +465,12 @@ through a pixel corresponding to the original 3D point.
    it captured images in a stereo pair.
 
 Notice, however, that forward and back projection are not symmetric
-operations. One camera is sufficient to “image” a 3D point onto a pixel
+operations. One camera is sufficient to "image" a 3D point onto a pixel
 located on the image plane, but the reverse is not true. Given only a
 single camera and a pixel location :math:`x = (u,v),` that is the image
 of an unknown 3D point :math:`P = (x,y,z)`, it is only possible to
 determine that :math:`P` lies somewhere along a ray that emanates from
-the camera’s center of projection through the pixel location :math:`x`
+the camera center through the pixel location :math:`x`
 on the image plane (see :numref:`camera_models`).
 
 Alas, once images are captured, the route from image pixel back to
@@ -485,7 +485,7 @@ The location where they meet must be the original location of
 
 In practice, the two rays rarely intersect perfectly because any slight
 error in the camera position or pointing information will effect the
-rays’ positions as well. Instead, we take the *closest point of
+rays' positions as well. Instead, we take the *closest point of
 intersection* of the two rays as the location of point :math:`P`.
 
 Additionally, the actual distance between the rays at this point is an

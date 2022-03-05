@@ -22,8 +22,9 @@ is not set, the Sun information is read from the camera files.
 
 ``sfs`` has been tested thoroughly with Lunar LRO NAC datasets, and
 some experiments were done with Mars HiRISE images and with pictures
-from Charon, Pluto’s moon. As seen later in the text, it returns
-reasonable results on the Moon as far as 85° and even 89.6° South.
+from Charon, Pluto's moon. As seen later in the text, it returns
+reasonable results on the Moon as far as 85 degrees and even 89.6
+degrees South.
 
 The ``sfs`` program is sensitive to errors in the position and
 orientation of the cameras, the accuracy of the initial DEM, and to
@@ -105,7 +106,7 @@ We advise the following strategy for picking images. First choose a
 small longitude-latitude window in which to perform a search for
 images. Pick two images that are very close in time and with a big
 amount of overlap (ideally they would have consecutive orbit numbers).
-Those can be passed to ASP’s ``parallel_stereo`` tool to create an
+Those can be passed to ASP's ``parallel_stereo`` tool to create an
 initial DEM.  Then, search for other images close to the center of the
 maximum overlap of the first two images. Pick one or more of those,
 ideally with different illumination conditions than the first
@@ -175,7 +176,7 @@ Running SfS at 1 meter/pixel using a single image
 -------------------------------------------------
 
 In both this and the next sections we will work with LRO NAC images
-taken close to the Lunar South Pole, at a latitude of 85°
+taken close to the Lunar South Pole, at a latitude of 85 degrees
 South (the tool was tested on equatorial regions as well). We will use
 four images, M139939938LE, M139946735RE, M173004270LE, and M122270273LE.
 
@@ -266,6 +267,9 @@ The value of ``--initial-dem-constraint-weight`` is best set to 0 when
 the initial DEM is not very reliable, as otherwise defects from it can
 be inherited by the SfS result.
 
+In areas with strong albedo variation it is suggested to try the option
+``--float-albedo``.
+
 See :numref:`sfs_crater_bottoms` for a potential solution to areas
 in shadow.
 
@@ -330,7 +334,7 @@ SfS using the stereo result as an initial guess and with the resampled
 images. As ground truth, we create a DEM from the original images at
 the higher resolution of 1 meter/pixel, which we bring closer to the
 initial guess for SfS using ``pc_align``. We would like to know if
-running SfS brings us even closer to this “ground truth” DEM.
+running SfS brings us even closer to this "ground truth" DEM.
 
 The most significant challenge in running SfS with multiple images is
 that shape-from-shading is highly sensitive to errors in camera
@@ -453,7 +457,7 @@ onto this DEM and verify that the obtained images agree::
     done
     stereo_gui --use-georef --single-window *yesba.tif
 
-We'll bring the “ground truth” point cloud closer to the initial
+We'll bring the "ground truth" point cloud closer to the initial
 guess for SfS using ``pc_align``::
 
     pc_align --max-displacement 200 run_full2/run-PC.tif \
@@ -463,10 +467,10 @@ guess for SfS using ``pc_align``::
 This step is extremely important. Since we ran two bundle adjustment
 steps, and both were without ground control points, the resulting
 clouds may differ by a large translation, which we correct here. Hence
-we would like to make the “ground truth” terrain aligned with the
+we would like to make the "ground truth" terrain aligned with the
 datasets on which we will perform SfS.
 
-Next we create the “ground truth” DEM from the aligned high-resolution
+Next we create the "ground truth" DEM from the aligned high-resolution
 point cloud, and crop it to a desired region::
 
     point2dem -r moon --tr 10 --stereographic --proj-lon 0 --proj-lat -90 \
@@ -531,8 +535,8 @@ and after SfS::
       sfs_sub10_ref1/run-DEM-final.tif -o out
     gdalinfo -stats out-diff.tif | grep Mean=
 
-The mean error goes from 2.64 m to 1.29 m, while the standard deviation
-decreases from 2.50 m to 1.29 m. 
+The mean error goes from 2.64 m to 1.29 m, while the standard deviation
+decreases from 2.50 m to 1.29 m. 
 
 See :numref:`sfs2_fig` for an illustration. Visually the
 refined DEM looks more detailed. The same
@@ -596,7 +600,7 @@ resolution.
 
    An illustration of ``sfs``. The images are, from left to right, the
    hill-shaded initial guess DEM for SfS, the hill-shaded DEM obtained
-   from ``sfs``, the “ground truth” DEM, and the first of the images
+   from ``sfs``, the "ground truth" DEM, and the first of the images
    used in SfS map-projected onto the optimized DEM.
 
 .. _sfs2_fix_fig:
@@ -632,7 +636,7 @@ to improve the accuracy.
 Below is one example of how we select interest points, run SfS, and then
 compare to LOLA, which is an independently acquired sparse dataset of 3D
 points on the Moon. According to :cite:`smith2011results`,
-the LOLA accuracy is on the order of 1 m. To ensure a meaningful
+the LOLA accuracy is on the order of 1 m. To ensure a meaningful
 comparison of stereo and SfS with LOLA, we resample the LRO NAC images
 by a factor of 4, making them nominally 4 m/pixel. This is not strictly
 necessary, the same exercise can be repeated with the original images,
@@ -785,8 +789,8 @@ output::
       run_stereo_yesba_sub4/run-trans_source.csv
 
 We see that the mean error between the DEM and LOLA goes down, after
-SfS, from 1.14 m to 0.90 m, while the standard deviation decreases from
-1.18 m to 1.06 m.
+SfS, from 1.14 m to 0.90 m, while the standard deviation decreases from
+1.18 m to 1.06 m.
 
 .. _sfs-move-cameras:
 
@@ -859,7 +863,7 @@ Challenges
 
 Here we will illustrate how SfS can be run in a very difficult
 situation. We chose a site very close to the Lunar South Pole, at around
-89.7° South. We used an external DEM as an initial guess
+89.7 degrees South. We used an external DEM as an initial guess
 terrain, in this case the LOLA gridded DEM, as such a DEM has values in
 permanently shadowed regions. The terrain size is 5 km by 5 km at 1
 meter/pixel (we also ran a 10 km by 10 km region in the same location).

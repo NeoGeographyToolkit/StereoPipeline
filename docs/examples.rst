@@ -63,7 +63,7 @@ defects can be misinterpreted as topography.
 
 Remember, in order for ``parallel_stereo`` to process stereo pairs in
 ISIS cube format, the images must have had SPICE data associated by
-running ISIS’s ``spiceinit`` program run on them first.
+running ISIS's ``spiceinit`` program run on them first.
 
 
 Mars Reconnaissance Orbiter HiRISE
@@ -83,11 +83,11 @@ and involves living with some imperfections.
 One cannot simply use the HiRISE RDR products, as they do not have the
 required geometric stability. Instead, the HiRISE EDR products must be
 assembled using ISIS ``noproj``. The USGS distributes a script in use by
-the HiRISE team that works forward from the team-produced ‘balance’
-cubes, which provides a de-jittered, noproj’ed mosaic of a single
+the HiRISE team that works forward from the team-produced 'balance'
+cubes, which provides a de-jittered, noproj'ed mosaic of a single
 observation, which is perfectly suitable for use by the Stereo Pipeline
 (this script was originally engineered to provide input for SOCET SET).
-However, the ‘balance’ cubes are not available to the general public,
+However, the 'balance' cubes are not available to the general public,
 and so we include a program (``hiedr2mosaic.py``, written in
 `Python <http://www.python.org>`__) that will take PDS available HiRISE
 EDR products and walk through the processing steps required to provide
@@ -141,8 +141,8 @@ EDR files like so::
 
        hiedr2mosaic.py *.IMG
 
-If you have more than one observation’s worth of EDRs in that directory,
-then limit the program to just one observation’s EDRs at a time, e.g.
+If you have more than one observation's worth of EDRs in that directory,
+then limit the program to just one observation's EDRs at a time, e.g.
 ``hiedr2mosaic.py PSP_001513_1655*IMG``. If you run into problems, try
 using the ``-k`` option to retain all of the intermediary image files to
 help track down the issue. The ``hiedr2mosaic.py`` program will create a
@@ -151,7 +151,7 @@ warned that the operations carried out by ``hiedr2mosaic.py`` can take
 many hours to complete on the very large HiRISE images.
 
 An example of using ASP with HiRISE data is included in the
-``examples/HiRISE`` directory (just type ’make’ there).
+``examples/HiRISE`` directory (just type 'make' there).
 
 Columbia Hills
 ~~~~~~~~~~~~~~
@@ -209,7 +209,7 @@ triangulation of map-projected images is 10x slower than
 non-map-projected images.
 
 This example is distributed in the ``examples/CTX`` directory (type
-’make’ there to run it).
+'make' there to run it).
 
 .. figure:: images/examples/ctx/n_terra_meridiani_ctx_combined.png
    :name: ctx_example
@@ -325,16 +325,16 @@ These cameras are all variations of a simple pinhole camera model so
 they are processed with ASP in the ``Pinhole`` session instead of the
 usual ``ISIS``. ASP only supports creating of point clouds. *The
 \*-PC.tif is a raw point cloud with the first 3 channels being XYZ in
-the rover site’s coordinate frame*. We don’t support the creation of
+the rover site's coordinate frame*. We don't support the creation of
 DEMs from these images and that is left as an exercise for the user.
 
 An example of using ASP with MER data is included in the
-``examples/MER`` directory (just type ’make’ there).
+``examples/MER`` directory (just type 'make' there).
 
 PANCAM, NAVCAM, HAZCAM
 ~~~~~~~~~~~~~~~~~~~~~~
 
-All of these cameras are processed the same way. We’ll be showing 3D
+All of these cameras are processed the same way. We'll be showing 3D
 processing of the front hazard cams. The only new things in the pipeline
 is the new executable ``mer2camera`` along with the use of
 ``alignment-method epipolar``. This example is also provided in the MER
@@ -383,7 +383,7 @@ K10
 K10 is an Earth-based research rover within the Intelligent Robotics
 Group at NASA Ames, the group ASP developers belong to. The cameras on
 this rover use a simple Pinhole model. The use of ASP with these cameras
-is illustrated in the ``examples/K10`` directory (just type ’make’
+is illustrated in the ``examples/K10`` directory (just type 'make'
 there). Just as for the MER datatset (:numref:`mer-example`),
 only the creation of a point cloud is supported.
 
@@ -399,7 +399,7 @@ This stereo pair covers the Taurus-Littrow valley on the Moon where, on
 December 11, 1972, the astronauts of Apollo 17 landed. However, this
 stereo pair does not contain the landing site. It is slightly west;
 focusing on the Lee-Lincoln scarp that is on North Massif. The scarp is
-an 80 m high feature that is the only visible sign of a deep fault.
+an 80 m high feature that is the only visible sign of a deep fault.
 
 .. figure:: images/examples/lrocna/lroc-na-example2_combined.png
 
@@ -491,7 +491,7 @@ speed-vs-quality choices. Consider using mapprojection
 Mapprojection can also be done with the ISIS tools. Better mapproject
 results can be achieved by projecting on a higher resolution elevation
 source like the WAC DTM. This is achieved using the ISIS command
-``demprep`` and attaching to cube files via ``spiceinit``\ ’s SHAPE
+``demprep`` and attaching to cube files via ``spiceinit``\ 's SHAPE
 and MODEL options.
 
 Apollo 15 Metric Camera Images
@@ -614,7 +614,7 @@ Identifying stereo pairs from spacecraft that do not orbit their target
 is a challenge. We have found that one usually has to settle with images
 that are not ideal: different lighting, little perspective change, and
 little or no stereo parallax. So far we have had little success with
-Cassini’s data, but nonetheless we provide this example as a potential
+Cassini's data, but nonetheless we provide this example as a potential
 starting point.
 
 Rhea
@@ -622,7 +622,7 @@ Rhea
 
 Rhea is the second largest moon of Saturn and is roughly a third the
 size of our own Moon. This example shows, at the top right of both
-images, a giant impact basin named Tirawa that is 220 miles across. The
+images, a giant impact basin named Tirawa that is 220 miles across. The
 bright white area south of Tirawa is ejecta from a new crater. The lack
 of texture in this area poses a challenge for our correlator. The
 results are just barely useful: the Tirawa impact can barely be made out
@@ -1377,7 +1377,7 @@ with it. That is due to the following factors:
    cameras.
 
 Below a recipe for how to deal with this data is described, together
-with things to watch for and advice when things don’t work.
+with things to watch for and advice when things don't work.
 
 The input data
 ~~~~~~~~~~~~~~
@@ -1409,12 +1409,12 @@ procedure outlined in this section will fail.
 Initial camera models and a reference DEM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Based on vendor’s documentation, these images are
+Based on vendor's documentation, these images are
 :math:`2560 \times 1080` pixels. We use the geometric center of the
 image as the optical center, which turned out to be a reasonable enough
 assumption (verified by allowing it to float later). Since the focal
-length is given as 3.6 m and the pixel pitch is
-:math:`6.5 \times 10^{-6}` m, the focal length in pixels is
+length is given as 3.6 m and the pixel pitch is
+:math:`6.5 \times 10^{-6}` m, the focal length in pixels is
 
 .. math:: 3.6/6.5 \times 10^{-6} = 553846.153846.
 
@@ -1481,7 +1481,7 @@ edited to reflect this. The same will apply to the other files. We will
 have then four images, ``v1.tif, v2.tif, v3.tif, v4.tif``, and
 corresponding camera and GCP files.
 
-A good sanity check is to visualize these computed cameras in ASP’s
+A good sanity check is to visualize these computed cameras in ASP's
 ``orbitviz`` tool. It can be invoked as::
 
       orbitviz v[1-4].tif v[1-4].tsai -o orbit.kml
@@ -1534,7 +1534,7 @@ It is very important to not use the ``pinhole`` session here, rather
 in this steep terrain.
 
 The output optimized cameras will be named ``ba/run-run-v[1-4].tsai``.
-The reason one has the word “run” repeated is because we ran this tool
+The reason one has the word "run" repeated is because we ran this tool
 twice. The intermediate cameras from the first run were called
 ``ba/run-v[1-4].tsai``.
 
@@ -1810,7 +1810,7 @@ further.
 
 For that, one should repeat the ``stereo_tri`` part of of the stereo
 commands from :numref:`skysat-stereo` with the flags
-``--num-matches-from-disp-triplets 10000`` and  ``--unalign-disparity``
+``--num-matches-from-disp-triplets 10000`` and ``--unalign-disparity``
 to obtain dense interest points and unaligned disparity.
 
 The match points can be examined as::
@@ -1871,8 +1871,8 @@ The value of ``--reference-terrain-weight`` can be increased to make the
 alignment to the reference terrain a little tighter.
 
 It is hoped that after running ``parallel_stereo`` with these refined
-cameras, the obtained DEMs will differ by less than 2 m among
-themselves, and by less than 4 m as compared to the reference DEM.
+cameras, the obtained DEMs will differ by less than 2 m among
+themselves, and by less than 4 m as compared to the reference DEM.
 
 Floating the camera intrinsics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1964,7 +1964,7 @@ Stitching the images
 
 Each downloaded image will be made up of 2-4 portions, presumably due to
 the limitations of the scanning equipment. They can be stitched together
-using ASP’s ``image_mosaic`` tool (:numref:`image_mosaic`).
+using ASP's ``image_mosaic`` tool (:numref:`image_mosaic`).
 
 For some reason, the KH-4B images are scanned in an unusual order. To
 mosaic them, the last image must be placed first, the next to last
@@ -2029,8 +2029,8 @@ The SRTM DEM may need adjustment, as discussed in :numref:`refdem`.
 Creating camera files
 ~~~~~~~~~~~~~~~~~~~~~
 
-ASP provides the tool named ``cam_gen`` that, based on a camera’s
-intrinsics and the positions of the image corners on Earth’s surface
+ASP provides the tool named ``cam_gen`` that, based on a camera's
+intrinsics and the positions of the image corners on Earth's surface
 will create initial camera models that will be the starting point for
 aligning the cameras.
 
@@ -2062,7 +2062,7 @@ image (DS1105-2248DF076) the following values were used::
 
 For a description of each value, see :numref:`panoramic`. For
 the other image (aft camera) the forward tilt was set to -0.2618 and
-scan_dir was set to ’left’. The correct values for scan_dir (left or
+scan_dir was set to 'left'. The correct values for scan_dir (left or
 right) and use_motion_compensation (1.0 or -1.0) are not known for
 certain due to uncertainties about how the images were recorded and may
 even change between launches of the KH-4 satellite. You will need to
@@ -2239,7 +2239,7 @@ the reference terrain and the DEM obtained with the camera models
 terrain being the first of the two clouds passed to the alignment
 program). The unaligned disparity in the disparity list should be from
 the stereo run with these initial guess camera models (hence stereo
-should be used with the ``–-unalign-disparity`` option). It is suggested
+should be used with the ``--unalign-disparity`` option). It is suggested
 that the optical center and focal lengths of the two cameras be kept
 fixed, as RPC distortion should be able model any changes in those
 quantities as well.
@@ -2506,7 +2506,7 @@ as in the previous examples.
        aft.tif --reference-dem aster_dem.tif --refine-camera  -o aft.tsai
 
 As with KH-4B, it is best to first experiment with low resolution copies
-of the images. Don’t forget to scale the image size, center location,
+of the images. Don't forget to scale the image size, center location,
 and pixel size in the new camera files!
 
 ::
@@ -2544,7 +2544,7 @@ using techniques such as the ``--disparity-list`` option described in
 We will try to solve for all intrinsics but will share the focal length
 and optical center since we expect them to be very similar. If we get
 good values for the other intrinsics we could do another pass where we
-don’t share those values in order to find small difference between the
+don't share those values in order to find small difference between the
 two cameras. We specify intrinsic scaling limits here. The first three
 pairs are for the focal length and the two optical center values. For an
 optical bar camera, the next three values are for ``speed``,

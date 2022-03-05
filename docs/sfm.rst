@@ -21,7 +21,7 @@ The ``camera_solve`` tool is implemented as a Python wrapper around two
 other tools. The first of these is the the THEIA software library, which
 is used to generate initial camera position estimates in a local
 coordinate space. You can learn more about THEIA at
-http://www.theia-sfm.org/index.html. The second tool is ASP’s own
+http://www.theia-sfm.org/index.html. The second tool is ASP's own
 ``bundle_adjust`` tool. The second step improves the solution to account
 for lens distortion and transforms the solution from local to global
 coordinates by making use of additional input data.
@@ -91,7 +91,7 @@ information we need. Using the data sheets available at
 http://apollo.sese.asu.edu/SUPPORT_DATA/AS15_SIMBAY_SUMMARY.pdf we can
 find the lens distortion parameters for metric camera. Looking at the
 ASP lens distortion models in :numref:`pinholemodels`, we see that the description
-matches ASP’s Brown-Conrady model. Using the example in the appendix we
+matches ASP's Brown-Conrady model. Using the example in the appendix we
 can fill out the rest of the sensor model file (metric_model.tsai) so it
 looks as follows::
 
@@ -139,8 +139,8 @@ If your input images are not all from the same camera or were scanned
 such that the center point is not at the same pixel, you can run
 ``camera_solve`` with one camera model file per input image. To do so
 pass a space-separated list of files surrounded by quotes to the
-``–calib-file`` option such as
-``–calib-file "c1.tsai c2.tsai c3.tsai"``.
+``--calib-file`` option such as
+``--calib-file "c1.tsai c2.tsai c3.tsai"``.
 
 If we do not see any obvious problems we can go ahead and run the
 ``camera_solve`` tool::
@@ -157,11 +157,11 @@ information::
    Final                            7.461198e+00
    Change                           7.042649e+00
 
-We can’t generate a DEM with these local camera models but we can run
+We can't generate a DEM with these local camera models but we can run
 stereo anyways and look at the intersection error in the fourth band of
 the ``PC.tif`` file. While there are many speckles in this example where
 stereo correlation failed the mean intersection error is low and we
-don’t see any evidence of lens distortion error.
+don't see any evidence of lens distortion error.
 
 ::
 
@@ -200,7 +200,7 @@ we end up with results that can be compared with the a DEM created from
 LRONAC images. The stereo results on the Apollo 15 images leave
 something to be desired but the DEM they produced has been moved to the
 correct location. You can easily visualize the output camera positions
-using the ``orbitviz`` tool with the ``–load-camera-solve`` option as
+using the ``orbitviz`` tool with the ``--load-camera-solve`` option as
 shown below. Green lines between camera positions mean that a sufficient
 number of matching interest points were found between those two images.
 
@@ -302,7 +302,7 @@ The following camera model (icebridge_model.tsai) was used (see
 
 Note that these images are RGB format which is not supported by all ASP
 tools. To use the files with ASP, first convert them to single channel
-images using a tool such as ImageMagick’s ``convert``,
+images using a tool such as ImageMagick's ``convert``,
 ``gdal_translate``, or ``gdal_edit.py``. Different conversion methods
 may produce slightly different results depending on the contents of your
 input images. Some conversion command examples are shown below::

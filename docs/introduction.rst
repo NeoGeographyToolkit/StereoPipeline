@@ -17,9 +17,9 @@ analysis, mission planning, and public outreach.
 
    This 3D model was generated from a image pair M01/00115 and E02/01461
    (34.66N, 141.29E). The complete stereo reconstruction process takes
-   approximately thirty minutes on a 3.0 GHz workstation for input
+   approximately thirty minutes on a 3.0 GHz workstation for input
    images of this size (1024 |times| 8064 pixels). This model,
-   shown here without vertical exaggeration, is roughly 2 km wide in the
+   shown here without vertical exaggeration, is roughly 2 km wide in the
    cross-track dimension. 
 
 Background
@@ -235,7 +235,7 @@ Referencing the Ames Stereo Pipeline in Your Work
 In general, please use this reference for the Ames Stereo Pipeline:
 
   Beyer, Ross A., Oleg Alexandrov, and Scott McMichael. 2018. The Ames
-  Stereo Pipeline: NASA’s open source software for deriving and processing
+  Stereo Pipeline: NASA's open source software for deriving and processing
   terrain data. *Earth and Space Science*, **5**.
   https://doi.org/10.1029/2018EA000409.
 
@@ -265,7 +265,7 @@ Of course, every new release of ASP will have its own unique DOI, and
 this link should always point to the `latest
 DOI <https://doi.org/10.5281/zenodo.598174>`__ for ASP.
 
-If you publish a paper using ASP, please let us know. We’ll cite your
+If you publish a paper using ASP, please let us know. We'll cite your
 work in this document, in :numref:`papersusingasp`.
 
 
@@ -276,7 +276,7 @@ Ames Stereo Pipeline is a **research** product. There may be bugs or
 incomplete features. We reserve the ability to change the API and
 command line options of the tools we provide. Although we hope you will
 find this release helpful, you use it at your own risk. Please check
-each release’s **NEWS** file to see a summary of our recent changes.
+each release's **NEWS** file to see a summary of our recent changes.
 
 While we are confident that the algorithms used by this software are
 robust, the Ames Stereo Pipeline has a lot of adjustable parameters, and

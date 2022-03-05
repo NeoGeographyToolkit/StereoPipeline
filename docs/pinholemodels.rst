@@ -215,7 +215,7 @@ The first half of the file is the same for all Pinhole models:
 * ``C`` = The location of the camera center, usually in the geocentric
   coordinate system (GCC/ECEF).
 
-* ``R`` = The rotation matrix describing the camera’s absolute pose in
+* ``R`` = The rotation matrix describing the camera's absolute pose in
   the coordinate system (:numref:`pinholemath`).
 
 * ``pitch`` = The pitch intrinsic parameter described in the previous

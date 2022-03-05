@@ -324,7 +324,7 @@ or NTF images and the similarly named XML files.
 Some Worldview folders will contain multiple image files. This is
 because DigitalGlobe/Maxar breaks down a single observation into multiple
 files for what we assume are size reasons. These files have a pattern
-string of “\_R[N]C1-”, where N increments for every subframe of the full
+string of "_R[N]C1-", where N increments for every subframe of the full
 observation. The tool named ``dg_mosaic`` can be used to mosaic (and
 optionally reduce the resolution of) such a set of sub-observations into
 a single image file and create an appropriate camera file::

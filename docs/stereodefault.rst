@@ -488,7 +488,7 @@ subpixel-mode (*integer*) (default = 1)
     slightly more accurate than those produced by the initialization
     step. Bayes EM (mode 2) is very slow but offers the best quality.
     When tuning ``stereo.default`` parameters, it is expedient to start
-    out using parabola subpixel as a “draft mode.” When the results are
+    out using parabola subpixel as a "draft mode." When the results are
     looking good with parabola subpixel, then they will look even
     better with subpixel mode 2. For inputs with little noise, the
     affine method (subpixel mode 3) may produce results equivalent to
@@ -566,7 +566,7 @@ filter-mode (*integer*) (default = 1)
 
 rm-half-kernel (*integer integer*) (default = 5 5)
     This setting adjusts the behavior of an outlier rejection scheme
-    that “erodes” isolated regions of pixels in the disparity map that
+    that "erodes" isolated regions of pixels in the disparity map that
     are in disagreement with their neighbors.
 
     The two parameters determine the size of the half kernel that is used
@@ -617,7 +617,7 @@ texture-smooth-scale (*float*) (default = 0.15)
 
 enable-fill-holes (default = false)
     Enable filling of holes in disparity using an inpainting method.
-    Obsolete. It is suggested to use instead point2dem’s analogous
+    Obsolete. It is suggested to use instead point2dem's analogous
     functionality.
 
 fill-holes-max-size (*integer*) (default = 100,000)

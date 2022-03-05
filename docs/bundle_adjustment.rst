@@ -352,7 +352,7 @@ follows (the example here is for 4 images)::
        -o run_ba_intr_lidar/run
 
 In case it is desired to omit the disparity between one pair of images,
-for example, if they don’t overlap, instead of the needed unaligned
+for example, if they don't overlap, instead of the needed unaligned
 disparity one can put the word ``none`` in this list.
 
 Notice that since this joint adjustment was initialized from several
@@ -454,7 +454,7 @@ the ground sample distance for the raw images for best results.
 Bundle adjustment using ISIS
 ----------------------------
 
-In what follows we describe how to do bundle adjustment using ISIS’s
+In what follows we describe how to do bundle adjustment using ISIS's
 tool-chain. It also serves to describe bundle adjustment in more detail,
 which is applicable to other bundle adjustment tools as well, including
 Stereo Pipeline's own tool.
@@ -466,7 +466,7 @@ points, as suggested by the name, tie multiple camera images together.
 Their physical manifestation would be a rock or small crater than can be
 observed across more than one image.
 
-Tie-points are automatically extracted using ISIS’s ``autoseed`` and
+Tie-points are automatically extracted using ISIS's ``autoseed`` and
 ``pointreg`` (alternatively one could use a number of outside methods
 such as the famous SURF :cite:`surf08`). Creating a
 collection of tie points, called a *control network*, is a three step
@@ -489,7 +489,7 @@ measurement is looking at the same feature.
 
 Bundle Adjustment in ISIS is performed with the ``jigsaw`` executable.
 It generally follows the method described
-in :cite:`triggs00` and determines the best camera
+in :cite:`triggs00` and determines the best camera
 parameters that minimize the projection error given by
 :math:`{\bf \epsilon} =
 \sum_k\sum_j(I_k-I(C_j, X_k))^2` where :math:`I_k` are the tie points on
@@ -507,7 +507,7 @@ sparse methods as described in :cite:`hartley04`,
 Even though the arithmetic for bundle adjustment sounds clever, there
 are faults with the base implementation. Imagine a case where all
 cameras and 3D points were collapsed into a single point. If you
-evaluate the above cost function, you’ll find that the error is indeed
+evaluate the above cost function, you'll find that the error is indeed
 zero. This is not the correct solution if the images were taken from
 orbit. Another example is if a translation was applied equally to all 3D
 points and camera locations. This again would not affect the cost
@@ -543,7 +543,7 @@ not have finished refining the parameters of the cameras.
 Tutorial: Processing Mars Orbital Camera images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This tutorial for ISIS’s bundle adjustment tools is taken from
+This tutorial for ISIS's bundle adjustment tools is taken from
 :cite:`lunokhod:controlnetwork` and
 :cite:`lunokhod:gcp`. These tools are not a product of NASA
 nor the authors of Stereo Pipeline. They were created by USGS and their
@@ -552,7 +552,7 @@ documentation is available at :cite:`isis:documentation`.
 What follows is an example of bundle adjustment using two MOC images of
 Hrad Vallis. We use images E02/01461 and M01/00115, the same as used in
 :numref:`moc_tutorial`. These images are
-available from NASA’s PDS (the ISIS ``mocproc`` program will operate on
+available from NASA's PDS (the ISIS ``mocproc`` program will operate on
 either the IMQ or IMG format files, we use the ``.imq`` below in the
 example). For reference, the following ISIS commands are how to convert
 the MOC images to ISIS cubes.
@@ -568,7 +568,7 @@ frame. The process of map-projecting an image dissociates the camera
 model from the image. Map-projecting can be perceived as the generation
 of a new infinitely large camera sensor that may be parallel to the
 surface, a conic shape, or something more complex. That makes it
-extremely hard to project a random point into the camera’s original
+extremely hard to project a random point into the camera's original
 model. The math would follow the transformation from projection into the
 camera frame, then projected back down to surface that ISIS uses, then
 finally up into the infinitely large sensor. ``Jigsaw`` does not support
@@ -695,7 +695,7 @@ the main Qnet window. Save the final control network as
    Note that the marks now appear in the same location between images.
 
 Once the control network is finished, it is finally time to start bundle
-adjustment. Here’s what the call to ``jigsaw`` looks like::
+adjustment. Here's what the call to ``jigsaw`` looks like::
 
      ISIS> jigsaw fromlist=cube.lis update=yes twist=no radius=yes \
                 cnet=control_qnet.net onet=control_ba.net
