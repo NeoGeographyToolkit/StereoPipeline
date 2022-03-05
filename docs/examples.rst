@@ -491,7 +491,7 @@ speed-vs-quality choices. Consider using mapprojection
 Mapprojection can also be done with the ISIS tools. Better mapproject
 results can be achieved by projecting on a higher resolution elevation
 source like the WAC DTM. This is achieved using the ISIS command
-``demprep`` and attaching to cube files via ``spiceinit``\ 's SHAPE
+``demprep`` and attaching to cube files via the ``spiceinit`` SHAPE
 and MODEL options.
 
 Apollo 15 Metric Camera Images
