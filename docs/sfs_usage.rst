@@ -267,11 +267,14 @@ The value of ``--initial-dem-constraint-weight`` is best set to 0 when
 the initial DEM is not very reliable, as otherwise defects from it can
 be inherited by the SfS result.
 
-In areas with strong albedo variation it is suggested to try the option
-``--float-albedo``.
-
 See :numref:`sfs_crater_bottoms` for a potential solution to areas
 in shadow.
+
+The albedo was not floated here (option ``--float-albedo``) since for
+a single image it is not possible to distinguish if a bright image area
+comes from lighter-colored terrain or from having in inclination which
+makes it face the Sun more. Albedo will should be floated with two or
+more images.
 
 In the next sections, where SfS will be done with multiple images,
 more parameters which can control the quality of the result will be
@@ -507,7 +510,7 @@ Then, we run ``sfs``::
       --reflectance-type 1 --use-approx-camera-models                   \
       --max-iterations 5  --crop-input-images                           \
       --bundle-adjust-prefix run_ba_sub10/run                           \
-      --blending-dist 10 --min-blend-size 100                           \
+      --blending-dist 10 --min-blend-size 20                            \
       --shadow-thresholds '0.00162484 0.0012166 0.000781663'
 
 It is suggested to not vary the cameras with ``sfs`` (option
@@ -520,6 +523,9 @@ Note the two "blending" parameters, those help where there are seams
 or light-shadow boundaries. The precise numbers may need
 adjustment. In particular, decreasing ``--min-blend-size`` may result
 in more seamless terrain models at the expense of some erosion.
+
+One should experiment with floating the albedo (option ``--float-albedo``)
+if noticeable albedo variations are seen in the images. 
 
 After this command finishes, we compare the initial guess to ``sfs`` to
 the "ground truth" DEM obtained earlier and the same for the final
@@ -766,8 +772,15 @@ Run SfS::
       --threads 4 --smoothness-weight 0.12                        \
       --initial-dem-constraint-weight 0.001 --reflectance-type 1  \
       --max-iterations 10 --use-approx-camera-models              \
-      --blending-dist 10 --min-blend-size 100                     \
+      --blending-dist 10 --min-blend-size 30                      \
       --crop-input-images --bundle-adjust-prefix run_ba_sub4/run
+
+One should experiment with floating the albedo (option
+``--float-albedo``) if noticeable albedo variations are seen in the
+images. To get more seamless results around small shadowed craters
+reduce the value of ``--min-blend-size``. If you have many such
+craters very close to each other, this may result in some erosion,
+however.
 
 Fetch the portion of the LOLA dataset around the current DEM from the
 site described earlier, and save it as
@@ -846,8 +859,11 @@ cameras to use the newly aligned versions::
       --threads 4 --smoothness-weight 0.12                       \
       --initial-dem-constraint-weight 0.001 --reflectance-type 1 \
       --max-iterations 10 --use-approx-camera-models             \
-      --blending-dist 10 --min-blend-size 100                    \
+      --blending-dist 10 --min-blend-size 30                     \
       --crop-input-images --bundle-adjust-prefix ba_align/run
+
+See more comments about some of these parameters at the previous
+invocation of ``sfs`` higher up.
 
 The ``geodiff`` tool can then be used to compare the obtained SfS DEM
 with the original LOLA dataset. Care is needed to populate correctly
@@ -1201,7 +1217,7 @@ Next, SfS follows::
     parallel_sfs -i ref.tif <images> --shadow-threshold 0.005        \
       --bundle-adjust-prefix ba_align_ref/run -o sfs/run             \ 
       --use-approx-camera-models --crop-input-images                 \
-      --blending-dist 10 --min-blend-size 100 --threads 4            \
+      --blending-dist 10 --min-blend-size 50 --threads 4             \
       --smoothness-weight 0.08 --initial-dem-constraint-weight 0.001 \
       --reflectance-type 1 --max-iterations 5  --save-sparingly      \
       --tile-size 200 --padding 50 --processes 20                    \
@@ -1219,6 +1235,15 @@ exposures. That one can be a bit slow, and can be done offline, using
 the flag ``--compute-exposures-only`` in this tool, and then the
 computed exposures can be passed to the command above via the
 ``--image-exposures-prefix`` option.
+
+One should experiment with floating the albedo (option
+``--float-albedo``) if noticeable albedo variations are seen in the
+images.
+
+To get more seamless results around small shadowed craters reduce the
+value of ``--min-blend-size``. If you have many such
+craters very close to each other, this may result in some erosion,
+however.
 
 When it comes to selecting the number of nodes to use, it is good to
 notice how many tiles the ``parallel_sfs`` program produces (the tool
