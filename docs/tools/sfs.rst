@@ -54,25 +54,25 @@ outputs are:
  - run/run-exposures.txt - computed exposures for the images. These can be passed
    back to ``sfs`` via ``--image-exposures-prefix``.
 
- - run/run-image*-final-meas-intensity.tif - For each input image, this
+ - run/run-<image>-final-meas-intensity.tif - For each input image, this
    has the actual (measured) image values at each refined DEM grid point. 
 
- - run/run-image*-final-comp-intensity.tif - For each input image,
+ - run/run-<image>-final-comp-intensity.tif - For each input image,
    this has the simulated image values at each refined DEM grid point using
-   the reflectance model and the appropriate Sun position for the
+   the reflectance model and the Sun position for the
    current image. If the modeling is perfect, the measured input image
    will precisely agree with the simulated (modeled) image. In reality
    these are close but different.
 
- - run/run-image*-final-meas-albedo.tif - This stores the measured
+ - run/run-<image>-final-meas-albedo.tif - This stores the measured
    input image divided by the exposure times computed reflectance. Hence
    this is more of an input quantity rather than the result of computing
    the albedo. That one is mentioned above.
 
-In addition, SfS saves intermediate values of the above data at each
-iteration, unless the flag ``--save-sparingly`` is used. SfS may also
-save the "haze" values if this is solved for (see the appropriate
-options below).
+In addition, SfS saves intermediate values of many of these quantities
+at each iteration, unless the flag ``--save-sparingly`` is used. SfS
+may also save the "haze" values if this is solved for (see the
+appropriate options below).
 
 Command-line options for sfs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

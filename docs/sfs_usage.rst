@@ -330,11 +330,11 @@ was used.
 Albedo modeling with one or more images
 ---------------------------------------
 
-When using a single input image, it may be preferrable to avoid floating
+When using a single input image, it may be preferable to avoid floating
 (solving for) the albedo (option ``--float-albedo``), hence to have it
 set to 1 and kept fixed. The reason for that is because for a single
 image it is not possible to distinguish if a bright image area comes
-from lighter-colored terrain or from having in inclination which makes
+from lighter-colored terrain or from having an inclination which makes
 it face the Sun more.
 
 If desired to float the albedo with one image, it is suggested to use
@@ -351,7 +351,7 @@ it may be prudent to keep the albedo fixed at the nominal value of 1.
 
 It is important to use appropriate values for the
 ``--shadow-thresholds`` parameter, as otherwise regions in shadow will
-be interpretted as lit terrain with a pitch-black color, and the computed
+be interpreted as lit terrain with a pitch-black color, and the computed
 albedo and terrain will have artifacts.
 
 See :numref:`sfs_outputs` for the location of the computed albedo.
