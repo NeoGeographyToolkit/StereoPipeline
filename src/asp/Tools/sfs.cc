@@ -3744,7 +3744,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save the computed (simulated) image intensities for given DEM, "
      "images, cameras, and reflectance model, without refining the "
      "DEM. The exposures will be computed along the way unless specified "
-     "via --image-exposures-prefix.")
+     "via --image-exposures-prefix, and will be saved to <output prefix>-exposures.txt.")
     
     ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
      "Estimate the error for each slope (normal to the DEM). This is experimental.")
@@ -3807,12 +3807,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use this prefix to optionally read model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
     ("model-coeffs", po::value(&opt.model_coeffs)->default_value(""),
      "Use the model coefficients specified as a list of numbers in quotes. Lunar-Lambertian: O, A, B, C, e.g., '1 -0.019 0.000242 -0.00000146'. Hapke: omega, b, c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.")
-    ("float-haze",   po::bool_switch(&opt.float_haze)->default_value(false)->implicit_value(true),
-     "Float the haze coefficients as part of the optimization, if haze is modeled.")
-    ("haze-prefix", po::value(&opt.image_haze_prefix)->default_value(""),
-     "Use this prefix to read the haze values (filename is <prefix>-haze.txt).")
     ("num-haze-coeffs", po::value(&opt.num_haze_coeffs)->default_value(0),
-     "This determines how non-linear the reflectance is. Values are from 0 to 6.")
+     "Set this to 1 to model the problem as image = exposure * albedo * reflectance + haze, where haze is a single value for each image. This models a small quantity of stray light entering the lens due to scattering and other effects. Use --float-haze to actually optimize the haze (it starts as 0). It will be written as <output-prefix>-haze.txt (ignore all columns of numbers in that file except the first one).")
+    ("float-haze",   po::bool_switch(&opt.float_haze)->default_value(false)->implicit_value(true),
+     "If specified, float the haze coefficients as part of the optimization, if haze is modeled, so if --num-haze-coeffs is 1.")
+    ("haze-prefix", po::value(&opt.image_haze_prefix)->default_value(""),
+     "Use this prefix to read initial haze values (filename is <haze-prefix>-haze.txt). The file format is the same as what the tool writes itself, when triggered by the earlier options. If haze is modeled, it will be initially set to 0 unless read from such a file, and will be floated or not depending on whether --float-haze is on. The final haze values will be saved to <output prefix>-haze.txt.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
     ("crop-win", po::value(&opt.crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),

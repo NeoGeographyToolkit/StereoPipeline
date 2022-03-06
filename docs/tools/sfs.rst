@@ -162,7 +162,8 @@ Command-line options:
     Save the computed (simulated) image intensities for given DEM,
     images, cameras, and reflectance model, without refining the
     DEM. The exposures will be computed along the way unless specified
-    via ``--image-exposures-prefix``.
+    via ``--image-exposures-prefix``, and saved to 
+    <output prefix>-exposures.txt.
 
 --model-coeffs-prefix <path>
     Use this prefix to optionally read model coefficients from a
@@ -236,6 +237,27 @@ Command-line options:
 --shadow-curvature-dist <double (default: 0)>
     If using a curvature in shadow, have it fully phased in this far
     from shadow boundary in the shadow region (in units of pixels).
+
+--num-haze-coeffs <integer (default: 0)>
+    Set this to 1 to model the problem as ``image = exposure * albedo *
+    reflectance + haze``, where ``haze`` is a single value for each
+    image. This models a small quantity of stray light entering the lens
+    due to scattering and other effects. Use ``--float-haze`` to actually
+    optimize the haze (it starts as 0). It will be written as ``<output prefix>-haze.txt``
+    (ignore all columns of numbers in that file except the first one).
+
+--float-haze
+    If specified, float the haze coefficients as part of the
+    optimization, if haze is modeled, so if ``--num-haze-coeffs`` is 1.
+
+--haze-prefix <string (default: "")>
+    Use this prefix to read initial haze values (filename is
+    ``<haze prefix>-haze.txt``). The file format is the same as what the
+    tool writes itself, when triggered by the earlier options. If haze is
+    modeled, it will be initially set to 0 unless read from such a
+    file, and will be floated or not depending on whether ``--float-haze``
+    is on. The final haze values will be saved to ``<output
+    prefix>-haze.txt``.
 
 --camera-position-step-size <integer (default: 1)>
     Larger step size will result in more aggressiveness in varying
