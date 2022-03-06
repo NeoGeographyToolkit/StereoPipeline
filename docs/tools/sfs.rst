@@ -67,10 +67,6 @@ Command-line options:
     Float the camera pose for each image, including the first
     one. Experimental. It is suggested to avoid this option.
 
---model-shadows
-    Model the fact that some points on the DEM are in the shadow
-    (occluded from the Sun).
-
 --shadow-thresholds <arg>
     Optional shadow thresholds for the input images (a list of real
     values in quotes, one per image).
@@ -99,6 +95,10 @@ Command-line options:
 --height-error-params <double integer (default: 5.0 1000)>
     Specify the largest height deviation to examine (in meters), and
     how many samples to use from 0 to that height.
+
+--model-shadows
+    Model the fact that some points on the DEM are in the shadow
+    (occluded from the Sun).
 
 --sun-positions <string>
     A file having on each line an image name and three values in

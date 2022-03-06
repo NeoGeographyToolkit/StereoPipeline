@@ -271,10 +271,18 @@ See :numref:`sfs_crater_bottoms` for a potential solution to areas
 in shadow.
 
 The albedo was not floated here (option ``--float-albedo``) since for
-a single image it is not possible to distinguish if a bright image area
-comes from lighter-colored terrain or from having in inclination which
-makes it face the Sun more. Albedo will should be floated with two or
-more images.
+a single image it is not possible to distinguish if a bright image
+area comes from lighter-colored terrain or from having in inclination
+which makes it face the Sun more. If desired to float the albedo with
+one image, it is suggested to use a higher value of
+``--initial-dem-constraint-weight`` to constrain the terrain better in
+order to make albedo determination more reliable.  The albedo can be
+prevented from changing too much if in addition the
+``--albedo-constraint-weight`` parameter is used.
+
+Albedo should be floated with two or more images, if those images have
+sufficiently different illumination conditions, as then the albedo and
+slope effects can be separated more easily.
 
 In the next sections, where SfS will be done with multiple images,
 more parameters which can control the quality of the result will be
