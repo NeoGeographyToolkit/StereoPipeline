@@ -225,7 +225,7 @@ field will use each algorithm's own subpixel mode.
 The fifth line sets the kernel size to use during subpixel refinement
 *(also 21 pixels square)*.
 
-.. _search_range:
+.. _search_range2:
 
 Search range determination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -237,9 +237,9 @@ option::
 
     corr-search -80 -2 20 2
 
-It is suggested that this setting be used very rarely. More details
-about this option and the inner workings of stereo correlation can be
-found in :numref:`correlation`.
+It is suggested that this setting be used rarely. For more details see
+:numref:`search_range`. The inner working of stereo correlation can be
+found in section :numref:`correlation`.
 
 .. _perform-stereo:
 
@@ -763,7 +763,7 @@ If using the ``asp_sgm`` or ``asp_mgm`` algorithms, one can use a lower
 value for ``--corr-memory-limit-mb`` (:numref:`asp_sgm`).  One may
 also tighten ``--outlier-removal-params`` (:numref:`stereodefault`),
 or mapproject the images (:numref:`mapproj-example`). A smaller manual
-search range can also be specified (:numref:`search_range`).
+search range can also be specified (:numref:`search_range2`).
 
 If a run failed partially during correlation, it can be resumed with
 the ``parallel_stereo`` option ``--resume-at-corr``

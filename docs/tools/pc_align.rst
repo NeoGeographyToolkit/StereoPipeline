@@ -567,7 +567,8 @@ Command-line options for pc_align
     transform to apply to the source cloud before proceeding with
     alignment.  Specify here the type of transform, as one of:
     'similarity' (rotation + translation + scale), 'rigid' (rotation
-    + translation) or 'translation'.
+    + translation) or 'translation'. See the options further down 
+    for tuning this.
 
 --hillshade-options
     Options to pass to the ``hillshade`` program when computing the
@@ -584,16 +585,18 @@ Command-line options for pc_align
     transform from hillshading. Default: ``--inlier-threshold 100
     --ransac-iterations 10000 --ransac-constraint similarity``.
 
+--initial-transform-ransac-params <num_iter factor (default: 10000 1.0)>
+    When computing an initial transform based on hillshading, use
+    this number of RANSAC iterations and outlier factor. A smaller
+    factor will reject more outliers. 
+
 --match-file
     Compute an initial transform from the source to the reference
     point cloud using manually selected point correspondences
     (obtained for example using stereo_gui). The type of transform
     can be set via ``--initial-transform-from-hillshading string``.
-
---initial-transform-ransac-params <num_iter factor (default: 10000 1.0)>
-    When computing an initial transform based on hillshading, use
-    this number of RANSAC iterations and outlier factor. A smaller
-    factor will reject more outliers. 
+    It may be desired to change ``--initial-transform-ransac-params``
+    if it rejects as outliers some manual matches.
 
 --fgr-options
     Options to pass to the Fast Global Registration algorithm, if
