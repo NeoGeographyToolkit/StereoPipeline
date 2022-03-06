@@ -239,7 +239,7 @@ option::
 
 It is suggested that this setting be used rarely. For more details see
 :numref:`search_range`. The inner working of stereo correlation can be
-found in section :numref:`correlation`.
+found in :numref:`correlation`.
 
 .. _perform-stereo:
 
