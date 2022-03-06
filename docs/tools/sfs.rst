@@ -3,26 +3,85 @@
 sfs
 ---
 
-The ``sfs`` tool can improve a DEM using shape-from-shading. Examples
-for how to invoke it are in :numref:`sfs_usage`. The tool
-``parallel_sfs`` (:numref:`parallel_sfs`) extends ``sfs`` to run using
-multiple processes on multiple machines.
+The ``sfs`` tool can improve a DEM using shape-from-shading
+(:cite:`alexandrov2018multiview`). The tool ``parallel_sfs``
+(:numref:`parallel_sfs`) extends ``sfs`` to run using multiple
+processes on multiple machines.
 
 Usage::
 
      sfs -i <input DEM> -n <max iterations> -o <output prefix> \
        [other options] <images> <cameras>
 
-The tool outputs at each iteration the current DEM and a slew of other
-auxiliary and appropriately-named datasets.
+The tool outputs at each iteration the current DEM and other auxiliary
+and appropriately-named datasets, which are documented further down.
 
-Command-line options:
+Example
+~~~~~~~
+
+::
+
+     sfs --max-iterations 5 --use-approx-camera-models    \
+       --crop-input-images --bundle-adjust-prefix ba/run  \
+        -i input_dem.tif image1.cub image2.cub -o run/run \
+
+See many detailed worked-out examples in :numref:`sfs_usage`.
+
+Inputs
+~~~~~~
+
+The SfS program takes as input a DEM to refine, images, cameras
+(contained within the ``.cub`` image files for ISIS data), Sun positions
+(normally embedded in the cameras), and (optionally but strongly
+suggested) camera adjustments, which makes sure the images are
+registered to each other and to the ground (the detailed examples in
+:numref:`sfs_usage` discuss this).
+
+.. _sfs_outputs:
+
+Outputs
+~~~~~~~
+
+The ``sfs`` outputs are saved at a location given by the output prefix (option
+``-o``).  If that is set to ``run/run`` as in the example above, the
+outputs are:
+
+ - run/run-DEM-final.tif - The refined SfS DEM.
+
+ - run/run-comp-albedo-final.tif - The computed albedo. All its values are 1 unless
+   the option ``--float-albedo`` is used. 
+
+ - run/run-exposures.txt - computed exposures for the images. These can be passed
+   back to ``sfs`` via ``--image-exposures-prefix``.
+
+ - run/run-image*-final-meas-intensity.tif - For each input image, this
+   has the actual (measured) image values at each refined DEM grid point. 
+
+ - run/run-image*-final-comp-intensity.tif - For each input image,
+   this has the simulated image values at each refined DEM grid point using
+   the reflectance model and the appropriate Sun position for the
+   current image. If the modeling is perfect, the measured input image
+   will precisely agree with the simulated (modeled) image. In reality
+   these are close but different.
+
+ - run/run-image*-final-meas-albedo.tif - This stores the measured
+   input image divided by the exposure times computed reflectance. Hence
+   this is more of an input quantity rather than the result of computing
+   the albedo. That one is mentioned above.
+
+In addition, SfS saves intermediate values of the above data at each
+iteration, unless the flag ``--save-sparingly`` is used. SfS may also
+save the "haze" values if this is solved for (see the appropriate
+options below).
+
+Command-line options for sfs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -i, --input-dem <filename>
     The input DEM to refine using SfS.
 
 -o, --output-prefix <string>
-    Prefix for output filenames.
+    Prefix for output filenames. 
 
 -n, --max-iterations <integer (default: 10)>
     Set the maximum number of iterations.
@@ -258,6 +317,10 @@ Command-line options:
     file, and will be floated or not depending on whether ``--float-haze``
     is on. The final haze values will be saved to ``<output
     prefix>-haze.txt``.
+
+-- save-sparingly
+    Avoid saving any results except the adjustments and the DEM, as
+    that's a lot of files.
 
 --camera-position-step-size <integer (default: 1)>
     Larger step size will result in more aggressiveness in varying

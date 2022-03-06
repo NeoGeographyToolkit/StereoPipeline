@@ -10,6 +10,9 @@ and cameras, a DEM at roughly the same resolution as the
 images, and returns a refined DEM. This chapter shows in a lot of
 detail how this tool is to be used.
 
+The modeling approach used by this program can be found in
+:cite:`alexandrov2018multiview`.
+
 .. _sfs_overview:
 
 Overview
@@ -37,9 +40,9 @@ multiple machines) by splitting the input DEM into tiles with padding,
 running ``sfs`` on each tile, and then blending the results. It was used
 to create DEMs of dimensions 10,000 by 10,000 pixels.
 
-The ``sfs`` program can model position-dependent albedo, different
-exposure values for each camera, shadows in the input images, and
-regions in the DEM occluded from the Sun.
+The ``sfs`` program can model position-dependent albedo
+(:numref:`sfs_albedo`), exposure values for each camera, shadows in the input
+images, and regions in the DEM occluded from the Sun.
 
 .. _sfs_formulation:
 
@@ -267,26 +270,15 @@ The value of ``--initial-dem-constraint-weight`` is best set to 0 when
 the initial DEM is not very reliable, as otherwise defects from it can
 be inherited by the SfS result.
 
-See :numref:`sfs_crater_bottoms` for a potential solution to areas
-in shadow.
-
-The albedo was not floated here (option ``--float-albedo``) since for
-a single image it is not possible to distinguish if a bright image
-area comes from lighter-colored terrain or from having in inclination
-which makes it face the Sun more. If desired to float the albedo with
-one image, it is suggested to use a higher value of
-``--initial-dem-constraint-weight`` to constrain the terrain better in
-order to make albedo determination more reliable.  The albedo can be
-prevented from changing too much if in addition the
-``--albedo-constraint-weight`` parameter is used.
-
-Albedo should be floated with two or more images, if those images have
-sufficiently different illumination conditions, as then the albedo and
-slope effects can be separated more easily.
+See :numref:`sfs_albedo` for modeling of albedo. See
+:numref:`sfs_crater_bottoms` for a potential solution to areas in
+shadow.
 
 In the next sections, where SfS will be done with multiple images,
 more parameters which can control the quality of the result will be
 explored.
+
+See :numref:`sfs_outputs` for where ``sfs`` stores its outputs.
 
 We show the results of running this program in :numref:`sfs1`. The
 left-most figure is the hill-shaded original DEM, which was obtained
@@ -332,6 +324,37 @@ SfS is in fact able to make the refined DEM more accurate than the
 initial guess (as compared to some known ground truth), though that is
 not guaranteed, and most likely did not happen here where just one image
 was used.
+
+.. _sfs_albedo:
+
+Albedo modeling with one or more images
+---------------------------------------
+
+When using a single input image, it may be preferrable to avoid floating
+(solving for) the albedo (option ``--float-albedo``), hence to have it
+set to 1 and kept fixed. The reason for that is because for a single
+image it is not possible to distinguish if a bright image area comes
+from lighter-colored terrain or from having in inclination which makes
+it face the Sun more.
+
+If desired to float the albedo with one image, it is suggested to use
+a higher value of ``--initial-dem-constraint-weight`` to constrain the
+terrain better in order to make albedo determination more reliable.
+The albedo can be prevented from changing too much if the
+``--albedo-constraint-weight`` parameter is used.
+
+Albedo should be floated with two or more images, if albedo variations
+are clearly visible, and if those images have sufficiently different
+illumination conditions, as then the albedo and slope effects can be
+separated more easily. For images not having obvious albedo variations
+it may be prudent to keep the albedo fixed at the nominal value of 1.
+
+It is important to use appropriate values for the
+``--shadow-thresholds`` parameter, as otherwise regions in shadow will
+be interpretted as lit terrain with a pitch-black color, and the computed
+albedo and terrain will have artifacts.
+
+See :numref:`sfs_outputs` for the location of the computed albedo.
 
 SfS with multiple images in the presence of shadows
 ---------------------------------------------------
@@ -532,8 +555,9 @@ or light-shadow boundaries. The precise numbers may need
 adjustment. In particular, decreasing ``--min-blend-size`` may result
 in more seamless terrain models at the expense of some erosion.
 
-One should experiment with floating the albedo (option ``--float-albedo``)
-if noticeable albedo variations are seen in the images. 
+One should experiment with floating the albedo (option
+``--float-albedo``) if noticeable albedo variations are seen in the
+images. See :numref:`sfs_albedo` for a longer discussion.
 
 After this command finishes, we compare the initial guess to ``sfs`` to
 the "ground truth" DEM obtained earlier and the same for the final
@@ -785,10 +809,11 @@ Run SfS::
 
 One should experiment with floating the albedo (option
 ``--float-albedo``) if noticeable albedo variations are seen in the
-images. To get more seamless results around small shadowed craters
-reduce the value of ``--min-blend-size``. If you have many such
-craters very close to each other, this may result in some erosion,
-however.
+images. See :numref:`sfs_albedo` for a longer discussion.
+
+To get more seamless results around small shadowed craters reduce the
+value of ``--min-blend-size``. If you have many such craters very
+close to each other, this may result in some erosion, however.
 
 Fetch the portion of the LOLA dataset around the current DEM from the
 site described earlier, and save it as
@@ -1246,7 +1271,7 @@ computed exposures can be passed to the command above via the
 
 One should experiment with floating the albedo (option
 ``--float-albedo``) if noticeable albedo variations are seen in the
-images.
+images. See :numref:`sfs_albedo` for a longer discussion.
 
 To get more seamless results around small shadowed craters reduce the
 value of ``--min-blend-size``. If you have many such
@@ -1488,7 +1513,8 @@ Here are a few suggestions we have found helpful when running ``sfs``:
 
 - Floating the albedo (option ``--float-albedo``) can introduce
   instability and divergence, it should be avoided unless obvious
-  albedo variation is seen in the images. 
+  albedo variation is seen in the images. See :numref:`sfs_albedo` for
+  a longer discussion.
 
 - Floating the cameras in SfS should be avoided, as bundle adjustment
   does a better job. Floating the exposures was shown to produce
