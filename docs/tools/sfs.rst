@@ -42,7 +42,7 @@ registered to each other and to the ground (the detailed examples in
 Outputs
 ~~~~~~~
 
-The ``sfs`` outputs are saved at a location given by the output prefix (option
+The ``sfs`` outputs are saved at the location given by the output prefix (option
 ``-o``).  If that is set to ``run/run`` as in the example above, the
 outputs are:
 
@@ -92,10 +92,13 @@ Command-line options for sfs
     1. Lunar-Lambert
     2. Hapke
     3. Experimental extension of Lunar-Lambert
-    4. Charon model (a variation of Lunar-Lambert)
+    4. Charon model (a variation of Lunar-Lambert).
 
 --smoothness-weight <float (default: 0.04)>
-    A larger value will result in a smoother solution.
+    The weight given to the cost function term which consists of sums
+    of squares of second-order derivatives. A larger value will result
+    in a smoother solution with fewer artifacts. See also
+    ``--gradient-weight``.
 
 --initial-dem-constraint-weight <float (default: 0)>
     A larger value will try harder to keep the SfS-optimized DEM
@@ -150,6 +153,10 @@ Command-line options for sfs
     one of the simulated images at that point change by more than
     twice the discrepancy between the unperturbed simulated image and
     the measured image. The SfS DEM must be provided via the -i option.
+    The number of iterations, blending parameters (``--blending-dist``,
+    etc.), and smoothness weight are ignored. Results are not
+    computed at image pixels in shadow. This produces <output
+    prefix>-height-error.tif. No SfS DEM is computed.
 
 --height-error-params <double integer (default: 5.0 1000)>
     Specify the largest height deviation to examine (in meters), and
@@ -258,15 +265,6 @@ Command-line options for sfs
     Allow the coefficients of the reflectance model to float (not
     recommended).
 
---integrability-constraint-weight <float (default: 0.0)>
-    Use the integrability constraint from Horn 1990 with this value
-    of its weight (experimental).
-
---smoothness-weight-pq <float (default: 0.0)>
-    Smoothness weight for p and q, when the integrability constraint
-    is used. A larger value will result in a smoother solution
-    (experimental).
-
 --query
     Print some info, including DEM size and the solar azimuth and
     elevation for the images, and exit. Invoked from parallel_sfs.
@@ -297,6 +295,15 @@ Command-line options for sfs
     If using a curvature in shadow, have it fully phased in this far
     from shadow boundary in the shadow region (in units of pixels).
 
+--integrability-constraint-weight <float (default: 0.0)>
+    Use the integrability constraint from Horn 1990 with this value
+    of its weight (experimental).
+
+--smoothness-weight-pq <float (default: 0.0)>
+    Smoothness weight for p and q, when the integrability constraint
+    is used. A larger value will result in a smoother solution
+    (experimental).
+
 --num-haze-coeffs <integer (default: 0)>
     Set this to 1 to model the problem as ``image = exposure * albedo *
     reflectance + haze``, where ``haze`` is a single value for each
@@ -318,7 +325,13 @@ Command-line options for sfs
     is on. The final haze values will be saved to ``<output
     prefix>-haze.txt``.
 
--- save-sparingly
+--gradient-weight <float (default: 0.0)>
+    The weight given to the cost function term which consists of sums
+    of squares of first-order derivatives. A larger value will result
+    in a smoother solution. This can be used in conjunction with 
+    ``--smoothness-weight``.
+
+--save-sparingly
     Avoid saving any results except the adjustments and the DEM, as
     that's a lot of files.
 

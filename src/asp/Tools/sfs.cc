@@ -1254,7 +1254,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     crop_input_images, float_dem_at_boundary, boundary_fix, fix_dem, 
     float_reflectance_model, float_sun_position, query, save_sparingly, float_haze;
   double smoothness_weight, steepness_factor, curvature_in_shadow, curvature_in_shadow_weight,
-    lit_curvature_dist, shadow_curvature_dist,
+    lit_curvature_dist, shadow_curvature_dist, gradient_weight,
     integrability_weight, smoothness_weight_pq, init_dem_height, nodata_val,
     initial_dem_constraint_weight, albedo_constraint_weight, camera_position_step_size,
     rpc_penalty_weight, rpc_max_error, unreliable_intensity_threshold, robust_threshold,
@@ -1284,7 +1284,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
             smoothness_weight(0), steepness_factor(1.0),
             curvature_in_shadow(0), curvature_in_shadow_weight(0.0),
             lit_curvature_dist(0.0), shadow_curvature_dist(0.0),
-            integrability_weight(0), smoothness_weight_pq(0),
+            gradient_weight(0.0), integrability_weight(0), smoothness_weight_pq(0),
             initial_dem_constraint_weight(0.0),
             albedo_constraint_weight(0.0),
             camera_position_step_size(1.0), rpc_penalty_weight(0.0),
@@ -3406,6 +3406,48 @@ struct SmoothnessError {
   double m_smoothness_weight, m_gridx, m_gridy;
 };
 
+// The gradient error is the sum of squares of
+// the first order partial derivatives, with a weight:
+// error = gradient_weight * (u_x^2 + u_y^2)
+
+// We will use finite differences to compute these. See
+// SmoothnessError() for more details.
+
+// TODO(oalexan1): This does not work when the smoothness weight (2nd
+// derivatives constraint) is 0. Need to understand why. The implementation
+// here seems correct.
+struct GradientError {
+  GradientError(double gradient_weight, double gridx, double gridy):
+    m_gradient_weight(gradient_weight), m_gridx(gridx), m_gridy(gridy) {}
+
+  template <typename T>
+  bool operator()(const T* const bottom, const T* const left, const T* const center,
+                  const T* const right, const T* const top, T* residuals) const {
+
+    // This results in a smoother solution than using centered differences
+    residuals[0] = (right[0]  - center[0])/m_gridx; // u_x
+    residuals[1] = (center[0] - left[0]  )/m_gridx; // u_x
+    residuals[2] = (top[0]    - center[0])/m_gridy; // u_y
+    residuals[3] = (center[0] - bottom[0])/m_gridy; // u_y
+    
+    for (int i = 0; i < 4; i++)
+      residuals[i] *= m_gradient_weight;
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double gradient_weight,
+                                     double gridx, double gridy){
+    return (new ceres::NumericDiffCostFunction<GradientError,
+            ceres::CENTRAL, 4, 1, 1, 1, 1, 1>
+            (new GradientError(gradient_weight, gridx, gridy)));
+  }
+
+  double m_gradient_weight, m_gridx, m_gridy;
+};
+
 // Try to make the DEM in shadow have positive curvature. The error term is
 // (curvature_weight *(terrain_xx + terrain_xy - curvature))^2 in the shadow,
 // and not used in lit areas.
@@ -3720,7 +3762,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("reflectance-type", po::value(&opt.reflectance_type)->default_value(1),
      "Reflectance type (0 = Lambertian, 1 = Lunar-Lambert, 2 = Hapke, 3 = Experimental extension of Lunar-Lambert, 4 = Charon model (a variation of Lunar-Lambert)).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
-     "A larger value will result in a smoother solution.")
+     "The weight given to the cost function term which consists of sums of squares of second-order derivatives. A larger value will result in a smoother solution with fewer artifacts. See also --gradient-weight.")
     ("initial-dem-constraint-weight", po::value(&opt.initial_dem_constraint_weight)->default_value(0),
      "A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM.")
     ("albedo-constraint-weight", po::value(&opt.albedo_constraint_weight)->default_value(0),
@@ -3749,7 +3791,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("estimate-slope-errors",   po::bool_switch(&opt.estimate_slope_errors)->default_value(false)->implicit_value(true),
      "Estimate the error for each slope (normal to the DEM). This is experimental.")
     ("estimate-height-errors",   po::bool_switch(&opt.estimate_height_errors)->default_value(false)->implicit_value(true),
-     "Estimate the SfS DEM height uncertainty by finding the height perturbation (in meters) at each grid point which will make at least one of the simulated images at that point change by more than twice the discrepancy between the unperturbed simulated image and the measured image. The SfS DEM must be provided via the -i option.")
+     "Estimate the SfS DEM height uncertainty by finding the height perturbation (in meters) at each grid point which will make at least one of the simulated images at that point change by more than twice the discrepancy between the unperturbed simulated image and the measured image. The SfS DEM must be provided via the -i option. The number of iterations, blending parameters (--blending-dist, etc.), and smoothness weight are ignored. Results are not computed at image pixels in shadow. This produces <output prefix>-height-error.tif. No SfS DEM is computed.")
     ("height-error-params", po::value(&opt.height_error_params)->default_value(Vector2(5.0,1000.0), "5.0 1000"),
      "Specify the largest height deviation to examine (in meters), and how many samples to use from 0 to that height.")
     ("sun-positions", po::value(&opt.sun_positions_list)->default_value(""),
@@ -3839,6 +3881,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Print some info and exit. Invoked from parallel_sfs.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
+    ("gradient-weight", po::value(&opt.gradient_weight)->default_value(0.0),
+     "The weight given to the cost function term which consists of sums of squares of first-order derivatives. This can be used in conjunction with --smoothness-weight.")
     ("save-sparingly",   po::bool_switch(&opt.save_sparingly)->default_value(false)->implicit_value(true),
      "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
     ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),
@@ -3880,17 +3924,25 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.input_dems.empty())
     vw_throw( ArgumentErr() << "Missing input DEM(s).\n"
               << usage << general_options );
+
   if (opt.out_prefix.empty())
     vw_throw( ArgumentErr() << "Missing output prefix.\n"
               << usage << general_options );
+
   if (opt.max_iterations < 0)
     vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n"
               << usage << general_options );
+
   if (opt.input_images.empty())
     vw_throw( ArgumentErr() << "Missing input images.\n"
               << usage << general_options );
+
   if (opt.smoothness_weight < 0) 
     vw_throw(ArgumentErr() << "Expecting a non-negative smoothness weight.\n");
+
+  if (opt.gradient_weight < 0) 
+    vw_throw(ArgumentErr() << "Expecting a non-negative gradient weight.\n");
+
   if (opt.integrability_weight < 0) 
     vw_throw(ArgumentErr() << "Expecting a non-negative integrability weight.\n");
 
@@ -4353,7 +4405,7 @@ void run_sfs_level(// Fixed inputs
   if (opt.float_albedo || opt.float_exposure || opt.float_cameras ||
       opt.float_all_cameras || opt.float_dem_at_boundary ||
       opt.boundary_fix || opt.fix_dem || opt.float_reflectance_model ||
-      opt.float_sun_position || opt.float_haze || opt.integrability_weight > 0 ){
+      opt.float_sun_position || opt.float_haze || opt.integrability_weight > 0){
     float_dem_only = false;
   }
   
@@ -4500,6 +4552,19 @@ void run_sfs_level(// Fixed inputs
                                      &dems[dem_iter](col,   row-1)); // top
           }
 
+          // Add gradient weight
+          if (opt.gradient_weight > 0.0) {
+            ceres::LossFunction* loss_function_grad = NULL;
+            ceres::CostFunction* cost_function_grad =
+              GradientError::Create(opt.gradient_weight, gridx, gridy);
+            problem.AddResidualBlock(cost_function_grad, loss_function_grad,
+                                     &dems[dem_iter](col,   row+1),  // bottom 
+                                     &dems[dem_iter](col-1, row),    // left
+                                     &dems[dem_iter](col,   row),    // center
+                                     &dems[dem_iter](col+1, row),    // right 
+                                     &dems[dem_iter](col,   row-1)); // top
+          }
+        
           if (opt.integrability_weight > 0) {
             ceres::LossFunction* loss_function_int = NULL;
             ceres::CostFunction* cost_function_int =

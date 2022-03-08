@@ -20,6 +20,10 @@ parallel_stereo:
   * Print in stereo_pprc the estimated convergence angle between rays
     (for alignment methods affineepipolar, local_epipolar, and
     homography).
+  * Added option --save-left-right-disparity-difference to save the
+    discrepancy between left-to-right and right-to-left
+    disparities, which may help with filtering offline unreliable
+    disparities.
   * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
     and SPOT5 was not enabled correctly.
   * Bugfix for ASTER cameras; this was fully broken.
@@ -69,6 +73,12 @@ sfs:
   * Exhaustively tested with the CSM model. It is very recommended to
     use that one instead of ISIS .cub cameras, to get a very large
     speedup and multithreading. 
+  * Added a new --gradient-weight parameter, constraining the 
+    first-order derivatives. Can be used in combination with the
+    --smoothness-weight parameter which constrains the second-order
+    derivatives. The goal is to avoid a noisy solution without losing
+    detail.
+  * Much work done on expanding the documentation.
 
 mapproject:
   * If the input image file has an embedded RPC camera model, append
@@ -99,8 +109,8 @@ pc_align:
     similarity-point-to-point.
   *  Use RANSAC with --initial-transform-from-hillshading, for increased
      robustnes to outliers. Replaced
-     --initial-transform-outlier-removal-params with
-     --initial-transform-ransac-params.
+     --initial-transform-outlier-removal-params (based on percentiles)
+     with --initial-transform-ransac-params.
 
 dem_mosaic:
   * Add the option ``--tap``, to have the output grid be at integer
@@ -108,13 +118,13 @@ dem_mosaic:
     ``point2dem`` and ``mapproject``, and ``gdalwarp`` when invoked
     with ``-tap``). If not set, the input grids determine
     the output grid.
-  * Do not allow more than one of these operations in a given tool
-    invocation: fill holes, blur, or erode. These won't work when
-    also having more than one input DEM, reprojection is desired, or
-    priority blending length is used. This is done to avoid confusion
-    about order of operations, and the fact that different input DEMs
-    can have different grid sizes and hence the input parameters have
-    different effects on each.
+  * Do not allow more than one of these operations in a given
+    dem_mosaic invocation: fill holes, blur, or erode. These won't
+    work when also having more than one input DEM, reprojection is
+    desired, or priority blending length is used. This is done to
+    avoid confusion about order of operations, and the fact that
+    different input DEMs can have different grid sizes and hence the
+    input parameters have different effects on each.
   * Bugfix for hole-filling and blurring. Tile artifacts got removed.
 
 stereo_gui: 
@@ -161,6 +171,8 @@ Misc:
   * Bugfix for the "too many open files" error for large images.
   * Add the build date to the ``--version`` option in the ASP tools
     and to the log files.
+  * Bugfix in the original author's mgm implementation, accepted by
+    the author.
 
 RELEASE 3.0.0, July 27, 2021
 ----------------------------

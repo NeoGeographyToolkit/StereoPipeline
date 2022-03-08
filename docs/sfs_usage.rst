@@ -270,9 +270,10 @@ The value of ``--initial-dem-constraint-weight`` is best set to 0 when
 the initial DEM is not very reliable, as otherwise defects from it can
 be inherited by the SfS result.
 
-See :numref:`sfs_albedo` for modeling of albedo. See
-:numref:`sfs_crater_bottoms` for a potential solution to areas in
-shadow.
+See :numref:`sfs_albedo` for modeling of albedo. Shadow thresholds may
+be needed to avoid artifacts in shadow. See
+:numref:`sfs_crater_bottoms` for a potential solution to flat crater
+bottoms in areas in shadow.
 
 In the next sections, where SfS will be done with multiple images,
 more parameters which can control the quality of the result will be
@@ -1031,6 +1032,9 @@ angle is printed when running ``sfs`` with the ``--query`` option on the
 mapprojected onto the reference DEM at 1 m/pixel using the South Pole
 stereographic projection specified in this DEM.
 
+It is best to avoid images with very low illumination angles as those
+can result in artifacts in the produced SfS terrain.
+
 Consider using here CSM models instead of ISIS models, as mentioned in
 :numref:`sfs_isis_vs_csm`.
 
@@ -1482,8 +1486,8 @@ can be estimated as::
    parallel_sfs --estimate-height-errors -i sfs_dem.tif \
     -o sfs_error/run <other options as above>
 
-See the :ref:`sfs manual page <sfs>` describing how the estimation is
-implemented.
+See the :numref:`sfs` describing how the estimation is
+implemented. 
 
 .. _sfsinsights:
 
