@@ -1077,7 +1077,7 @@ namespace vw { namespace camera {
 
     virtual Vector3 camera_center(Vector2 const& pix) const{
       // It is tricky to approximate the camera center
-      // TODO(oalexan1): Must apply the adjustment here?!!!
+      // TODO(oalexan1): Must apply the adjustment here?
       vw::Mutex::Lock lock(m_camera_mutex);
       g_num_locks++;
       // TODO(oalexan1): Put here the exact adjusted camera!
@@ -3412,10 +3412,6 @@ struct SmoothnessError {
 
 // We will use finite differences to compute these. See
 // SmoothnessError() for more details.
-
-// TODO(oalexan1): This does not work when the smoothness weight (2nd
-// derivatives constraint) is 0. Need to understand why. The implementation
-// here seems correct.
 struct GradientError {
   GradientError(double gradient_weight, double gridx, double gridy):
     m_gradient_weight(gradient_weight), m_gridx(gridx), m_gridy(gridy) {}
