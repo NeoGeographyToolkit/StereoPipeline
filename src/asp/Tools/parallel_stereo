@@ -942,7 +942,7 @@ if __name__ == '__main__':
 
         skip_refine_step = (int(settings['subpixel_mode'][0]) > 6)
 
-        # Blending (only for SGM/MGM and external tile-based algorithms)
+        # Blending (when using local_epipolar alignment, or SGM/MGM, or external algorithms)
         if using_padded_tiles:
             step = Step.blend
             if (opt.entry_point <= step):
@@ -959,7 +959,7 @@ if __name__ == '__main__':
                     create_subproject_dirs(settings) # symlink B.tif
 
         # Make a vrt from the per-tile lr-disp differences. Do this at the blendng step.
-        if settings['save_lr_disp_diff'] != '0':
+        if settings['save_lr_disp_diff'][0] != '0':
             step = Step.blend
             if (opt.entry_point <= step):
                 if (opt.stop_point <= step):
