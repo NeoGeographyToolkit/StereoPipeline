@@ -502,10 +502,10 @@ def tile_run(prog, args, settings, tile, **kw):
         #   there will be no other change.
 
         alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
-        using_tiles = (alg > VW_CORRELATION_BM or \
+        using_padded_tiles = (alg > VW_CORRELATION_BM or \
                        settings['alignment_method'][0] == 'local_epipolar')
 
-        if using_tiles and prog == 'stereo_corr':
+        if using_padded_tiles and prog == 'stereo_corr':
             collar_size = int(settings['collar_size'][0])
             tile.add_collar(collar_size)
 
@@ -752,7 +752,7 @@ if __name__ == '__main__':
     # Check if we are doing SGM instead of block match processing
     alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
     
-    using_tiles = (alg > VW_CORRELATION_BM or \
+    using_padded_tiles = (alg > VW_CORRELATION_BM or \
                    settings['alignment_method'][0] == 'local_epipolar')
 
     # By default use 8 threads for SGM/MGM
@@ -771,7 +771,7 @@ if __name__ == '__main__':
 
     # Set the job size by default when using SGM
     corr_tile_size = int(settings['corr_tile_size'][0])
-    if using_tiles:
+    if using_padded_tiles:
         if ('--job-size-w' not in sys.argv[1:]) and ('--job-size-h' not in sys.argv[1:]):
             # If the user did not manually specify the job size, set it equal
             #  to the correlation tile size. 
@@ -909,8 +909,8 @@ if __name__ == '__main__':
             create_subproject_dirs(settings) # symlink L.tif, etc
             # Now the left is defined. Regather the settings
             # and properly create the project dirs.
-            settings=run_and_parse_output("stereo_parse", args, sep,
-                                           opt.verbose)
+            settings = run_and_parse_output("stereo_parse", args, sep,
+                                            opt.verbose)
 
         # Correlation.
         step = Step.corr
@@ -937,13 +937,13 @@ if __name__ == '__main__':
             # that vrt from all tile directories.
             rename_files(settings, "-D.tif", "-Dnosym.tif")
             build_vrt(settings, georef, "-D.tif", "-Dnosym.tif", 
-                      contract_tiles = using_tiles)
+                      contract_tiles = using_padded_tiles)
             create_subproject_dirs(settings) # symlink D.tif
 
         skip_refine_step = (int(settings['subpixel_mode'][0]) > 6)
 
         # Blending (only for SGM/MGM and external tile-based algorithms)
-        if using_tiles:
+        if using_padded_tiles:
             step = Step.blend
             if (opt.entry_point <= step):
                 if (opt.stop_point <= step):
@@ -958,6 +958,17 @@ if __name__ == '__main__':
                               contract_tiles = False)
                     create_subproject_dirs(settings) # symlink B.tif
 
+        # Make a vrt from the per-tile lr-disp differences. Do this at the blendng step.
+        if settings['save_lr_disp_diff'] != '0':
+            step = Step.blend
+            if (opt.entry_point <= step):
+                if (opt.stop_point <= step):
+                    sys.exit()
+            if using_padded_tiles:
+                build_vrt(settings, georef, "-L-R-disp-diff.tif", "-L-R-disp-diff-blend.tif")
+            else:
+                build_vrt(settings, georef, "-L-R-disp-diff.tif", "-L-R-disp-diff.tif")
+
         # Refinement
         step = Step.rfne
         if (opt.entry_point <= step):
@@ -965,7 +976,7 @@ if __name__ == '__main__':
                 sys.exit()
             # If we used SGM/MGM or some other method making use of
             # tiles, need to read from the blend file.
-            if using_tiles:
+            if using_padded_tiles:
                 self_args.extend(['--subpix-from-blend'])
             if not skip_refine_step:
                 create_subproject_dirs(settings)

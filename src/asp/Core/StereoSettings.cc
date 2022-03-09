@@ -212,10 +212,13 @@ namespace asp {
                      "Percent fudge factor for disparity seed's search range.")
       ("cost-mode",              po::value(&global.cost_mode)->default_value(2),
                      "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation, 3 Census Transform (SGM only), 4 Ternary Census Transform (SGM only)]")
-      ("xcorr-threshold",        po::value(&global.xcorr_threshold)->default_value(2),
+      ("xcorr-threshold",        po::value(&global.xcorr_threshold)->default_value(2.0),
                      "L-R vs R-L agreement threshold in pixels.")
       ("min-xcorr-level",        po::value(&global.min_xcorr_level)->default_value(0),
                      "Minimum level to run xcorr check on (SGM only).")
+      ("save-left-right-disparity-difference",   po::bool_switch(&global.save_lr_disp_diff)->default_value(false)->implicit_value(true),
+       "Save the discrepancy between left-to-right and right-to-left disparities. See the doc for more info.")
+      
       ("corr-kernel",            po::value(&global.corr_kernel)->default_value(Vector2i(21,21),"21 21"),
                     "Kernel size used for integer correlator.")
       ("corr-search",            po::value(&global.search_range)->default_value(BBox2(0,0,0,0), "auto"),

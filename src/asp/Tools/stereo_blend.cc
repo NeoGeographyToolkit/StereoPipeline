@@ -35,6 +35,8 @@
 // blend the results.
 
 #include <vw/Image/ImageMath.h>
+#include <vw/FileIO/DiskImageUtils.h>
+
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Tools/stereo.h>
 #include <boost/filesystem.hpp>
@@ -44,9 +46,8 @@ using namespace vw::stereo;
 using namespace asp;
 using namespace std;
 
-typedef DiskImageView<PixelMask<Vector2f> > DiskImageType;
-typedef ImageView    <PixelMask<Vector2f> > DispImageType;
-typedef ImageView    <double              > WeightsType;
+typedef ImageView<double> WeightsType;
+typedef PixelMask<Vector2f> MaskedPixType;
 
 // Every tile has 8 neighbors
 const int NUM_NEIGHBORS = 8;
@@ -60,10 +61,10 @@ enum TilePosition {TILE_M = -1,
                    TILE_BL = 5, TILE_B = 6, TILE_BR = 7};
 
 /// Given "out-2048_0_1487_2048" return "2048_0_1487_2048"
-std::string extract_process_folder_bbox_string(std::string s) {
+std::string extract_process_folder_bbox_string(std::string s, std::string const& in_file) {
 
   // If the filename was included, throw it out first.
-  if (s.find("-Dnosym.tif") != std::string::npos) {
+  if (s.find("-" + in_file) != std::string::npos) {
     size_t pt = s.rfind("/");
     s = s.substr(0, pt);
   }
@@ -75,8 +76,8 @@ std::string extract_process_folder_bbox_string(std::string s) {
 }
   
 /// Constructs a BBox2i from a parallel_stereo formatted folder.
-BBox2i bbox_from_folder(std::string const& s) {
-  std::string cropped = extract_process_folder_bbox_string(s);
+BBox2i bbox_from_folder(std::string const& s, std::string const& in_file) {
+  std::string cropped = extract_process_folder_bbox_string(s, in_file);
 
   int x, y, width, height;
   sscanf(cropped.c_str(), "%d_%d_%d_%d", &x, &y, &width, &height);
@@ -85,7 +86,14 @@ BBox2i bbox_from_folder(std::string const& s) {
 
 // Load an image and form its weights
 bool load_image_and_weights(std::string const& file_path,
-                            DispImageType & image, WeightsType & weights) {
+                            ImageView<MaskedPixType> & image, WeightsType & weights,
+                            int & num_channels, bool & has_nodata, float& nodata_value) {
+
+  // Initialize the outputs to something
+  num_channels = 1;
+  has_nodata = false;
+  nodata_value = -32768.0;
+  
   // Verify image exists
   if (file_path == "")
     return false;
@@ -101,9 +109,45 @@ bool load_image_and_weights(std::string const& file_path,
   ChannelTypeEnum disp_data_type = rsrc->channel_type();
   if (disp_data_type != VW_CHANNEL_FLOAT32)
     vw_throw(ArgumentErr() << "Error: stereo_blend should only be called with float images.");
+
+  num_channels = vw::get_num_channels(file_path);
+
+  if (rsrc->has_nodata_read()) {
+    has_nodata = true;
+    nodata_value = rsrc->nodata_read();
+  } else {
+    has_nodata = false;
+    if (num_channels == 1) {
+      vw_throw(ArgumentErr() << "stereo_blend: For a single-channel image "
+               << "expecting to have a no-data value in order to keep track of invalid pixels.");
+    }
+  }
   
   // Load the image from disk
-  image = DiskImageType(file_path);
+  if (num_channels == 3) {
+    // Load a disparity
+    image = DiskImageView<MaskedPixType>(file_path);
+  } else if (num_channels == 1) {
+    // Load a float image with a nodata value, and create a disparity. It is simpler
+    // to do it this way than to write some template-based logic.
+    ImageView<float> curr_image = DiskImageView<float>(file_path);
+    image.set_size(curr_image.cols(), curr_image.rows());
+    for (int col = 0; col < curr_image.cols(); col++) {
+      for (int row = 0; row < curr_image.rows(); row++) {
+        float val = curr_image(col, row);
+        if (val != nodata_value) {
+          image(col, row) = MaskedPixType(vw::Vector2f(val, val)); 
+          image(col, row).validate();
+        } else{
+          image(col, row) = MaskedPixType(vw::Vector2f(0, 0)); 
+          image(col, row).invalidate();
+        }
+      } 
+    }
+  } else {
+    vw_throw(ArgumentErr() << "stereo_blend: Expecting an image with 1 or 3 bands, but "
+             << "image " << file_path << " has " << num_channels << " channels.\n");
+  }
   
   // Compute the desired weights. Strictly speaking we need to compute the weights
   // only on the portion of the image that we will use for blending, but weights
@@ -149,14 +193,15 @@ void check_size(BBox2i const& bbox, std::string const& image_file) {
              << " is expected to fit in box: " << bbox);
 }
 
-void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_opt) {
+void fill_blend_options(ASPGlobalOptions const& opt, std::string const& in_file,
+                        BlendOptions & blend_opt) {
 
   std::string left_image = opt.out_prefix + "-L.tif";
   Vector2i full_image_size = file_image_size(left_image);
   blend_opt.full_box = BBox2i(0, 0, full_image_size.x(), full_image_size.y());
   blend_opt.pad_size = stereo_settings().sgm_collar_size;
   
-  blend_opt.main_path = opt.out_prefix + "-Dnosym.tif";
+  blend_opt.main_path = opt.out_prefix + "-" + in_file;
 
   // Get the top level output folder for parallel_stereo
   boost::filesystem::path parallel_stereo_folder(opt.out_prefix);
@@ -183,22 +228,22 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_opt) {
   boost::filesystem::path mpath(blend_opt.main_path);
   std::string mbb = mpath.parent_path().filename().string();
 
-  blend_opt.main_roi    = bbox_from_folder(mbb);
+  blend_opt.main_roi    = bbox_from_folder(mbb, in_file);
   blend_opt.padded_main = blend_opt.add_padding(blend_opt.main_roi);
   check_size(blend_opt.padded_main, blend_opt.main_path);
   
   BBox2i main_bbox = blend_opt.main_roi;
 
   // Figure out where each folder goes
-  for (size_t i = 0; i < folder_list.size(); ++i) {
-    BBox2i bbox = bbox_from_folder(folder_list[i]);
+  for (size_t i = 0; i < folder_list.size(); i++) {
+    BBox2i bbox = bbox_from_folder(folder_list[i], in_file);
 
-    std::string bbox_string = extract_process_folder_bbox_string(folder_list[i]);
+    std::string bbox_string = extract_process_folder_bbox_string(folder_list[i], in_file);
     
     // Note that folder_list[i] already has the output prefix relative to the
     // directory parallel_stereo runs in.
     const std::string abs_path =
-      folder_list[i] + "/" + bbox_string + "-Dnosym.tif";
+      folder_list[i] + "/" + bbox_string + "-" + in_file;
 
     if (bbox.max().x() == main_bbox.min().x()) { // Tiles one column to left
       if (bbox.max().y() == main_bbox.min().y()) { // Top left
@@ -263,7 +308,7 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_opt) {
 }
 
 // See if a given image has only invalid pixels
-bool invalid_image(DispImageType const& image) {
+bool invalid_image(ImageView<MaskedPixType> const& image) {
   for (int col = 0; col < image.cols(); col++) {
     for (int row = 0; row < image.rows(); row++) {
       if (is_valid(image(col, row))) {
@@ -278,20 +323,25 @@ bool invalid_image(DispImageType const& image) {
 
 /// Blend the borders of the main tile using the neighboring
 /// tiles.
-DispImageType tile_blend(ASPGlobalOptions const& opt,
-                         BlendOptions & blend_opt) {
+/// While all the main tile and neighbor tiles have padding, we will save
+/// the blended main tile without padding.
 
-  const bool debug = true;
+ImageView<MaskedPixType> tile_blend(ASPGlobalOptions const& opt,
+                                    BlendOptions & blend_opt,
+                                    // These will change
+                                    int & num_channels, bool & has_nodata, float & nodata_value) {
 
-  // While all the main tile and neighbor tiles have padding, we will save
-  // the blended main tile without padding.
+  // Initialize the outputs to something
+  num_channels = 1;
+  has_nodata = false;
+  nodata_value = -32768.0;
 
   // Start the output image as invalid and zero. It will be used to
   // accumulate the weighted disparities.
-  DispImageType output_image(blend_opt.main_roi.width(), blend_opt.main_roi.height()); 
+  ImageView<MaskedPixType> output_image(blend_opt.main_roi.width(), blend_opt.main_roi.height()); 
   for (int col = 0; col < output_image.cols(); col++) {
     for (int row = 0; row < output_image.rows(); row++) {
-      output_image(col, row) = PixelMask<Vector2f>(); 
+      output_image(col, row) = MaskedPixType(); 
       output_image(col, row).invalidate();
     }
   }
@@ -308,16 +358,25 @@ DispImageType tile_blend(ASPGlobalOptions const& opt,
   // that i = -1 corresponds to the main tile.
   for (int i = -1; i < NUM_NEIGHBORS; i++) {
 
-    DispImageType image;
+    ImageView<MaskedPixType> image;
     WeightsType weights;
     BBox2i padded_box;
     
     if (i == -1) {
       // Main tile
       // The main tile better exist
-      bool ans = load_image_and_weights(blend_opt.main_path, image, weights);
+      int curr_num_channels = 1;
+      bool curr_has_nodata = false;
+      float curr_nodata_value = -32768.0;
+      bool ans = load_image_and_weights(blend_opt.main_path, image, weights,
+                                        curr_num_channels, curr_has_nodata, curr_nodata_value);
       if (!ans) 
         vw_throw(ArgumentErr() << "stereo_blend: main tile is missing.");
+
+      // Since the image was loaded successfully, copy its other info
+      num_channels = curr_num_channels;
+      has_nodata   = curr_has_nodata;
+      nodata_value = curr_nodata_value;
 
       padded_box = blend_opt.padded_main;
       
@@ -328,9 +387,19 @@ DispImageType tile_blend(ASPGlobalOptions const& opt,
       
     } else {
       // A neighboring tile
-      bool ans = load_image_and_weights(blend_opt.neib_path[i], image, weights);
+      int curr_num_channels = 1;
+      bool curr_has_nodata = false;
+      float curr_nodata_value = -32768.0;
+      bool ans = load_image_and_weights(blend_opt.neib_path[i], image, weights,
+                                        curr_num_channels, curr_has_nodata, curr_nodata_value);
       if (!ans)
         continue; // Nothing to blend
+
+      // Since the image was loaded successfully, copy its other info. Note we assume
+      // all inputs are consistent.
+      num_channels = curr_num_channels;
+      has_nodata   = curr_has_nodata;
+      nodata_value = curr_nodata_value;
 
       padded_box = blend_opt.padded_neib[i];
     }
@@ -379,13 +448,11 @@ DispImageType tile_blend(ASPGlobalOptions const& opt,
   return output_image;
 }
 
-void stereo_blending(ASPGlobalOptions const& opt) {
+void stereo_blending(ASPGlobalOptions const& opt, std::string const& in_file,
+                     std::string const& out_file) {
 
   BlendOptions blend_opt;
-  fill_blend_options(opt, blend_opt);
-
-  // This tool is only intended to run as part of parallel_stereo, which
-  //  renames the normal -D.tif file to -Dnosym.tif.
+  fill_blend_options(opt, in_file, blend_opt);
 
   // Since this tool is only for follow-up processing of SGM results
   // in parallel_stereo, it can be safely assumed that the input
@@ -393,29 +460,52 @@ void stereo_blending(ASPGlobalOptions const& opt) {
 
   cartography::GeoReference left_georef;
   std::string left_image = opt.out_prefix + "-L.tif";
-  bool   has_left_georef = read_georeference(left_georef,  left_image);
-  bool   has_nodata      = false;
-  double nodata          = -32768.0;
+  bool   has_left_georef = read_georeference(left_georef, left_image);
+  int num_channels       = 1;
+  bool has_nodata        = false;
+  float nodata           = -32768.0;
 
-  DispImageType blended_disp = tile_blend(opt, blend_opt);
+  ImageView<MaskedPixType> blended_disp = tile_blend(opt, blend_opt,
+                                                     // These will change
+                                                     num_channels, has_nodata, nodata);
 
-  string out_file = opt.out_prefix + "-B.tif";
-  if (stereo_settings().subpixel_mode > 6){
-    // No further subpixel refinement, skip to the -RD output.
-    out_file = opt.out_prefix + "-RD.tif";
+  // Sanity check
+  if (num_channels == 1 && !has_nodata) {
+    vw_throw(ArgumentErr() << "stereo_blend: For a single-channel image "
+             << "expecting to have a no-data value in order to keep track of invalid pixels.");
   }
-  vw_out() << "Writing: " << out_file << "\n";
-  vw::cartography::block_write_gdal_image(out_file, blended_disp,
-                                          has_left_georef, left_georef,
-                                          has_nodata, nodata, opt,
-                                          TerminalProgressCallback("asp", "\t--> Blending :"));
+
+  std::string full_out_file = opt.out_prefix + "-" + out_file;
+  vw_out() << "Writing: " << full_out_file << "\n";
+  if (num_channels == 3) {
+    // Write the blended disparity
+    vw::cartography::block_write_gdal_image(full_out_file, blended_disp,
+                                            has_left_georef, left_georef,
+                                            has_nodata, nodata, opt,
+                                            TerminalProgressCallback("asp", "\t--> Blending :"));
+  } else if (num_channels == 1) {
+    // Write a single-channel image with no-data
+    ImageView<float> image(blended_disp.cols(), blended_disp.rows());
+    for (int col = 0; col < image.cols(); col++) {
+      for (int row = 0; row < image.rows(); row++) {
+        if (is_valid(blended_disp(col, row))) 
+          image(col, row) = blended_disp(col, row).child()[0];
+        else
+          image(col, row) = nodata;
+      }
+    }
+    vw::cartography::block_write_gdal_image(full_out_file, image,
+                                            has_left_georef, left_georef,
+                                            has_nodata, nodata, opt,
+                                            TerminalProgressCallback("asp", "\t--> Blending:"));
+  }
 }
 
 int main(int argc, char* argv[]) {
 
   try {
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> BLENDING \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> BLENDING\n";
 
     stereo_register_sessions();
 
@@ -431,11 +521,25 @@ int main(int argc, char* argv[]) {
     int ts = ASPGlobalOptions::rfne_tile_size();
     opt.raster_tile_size = Vector2i(ts, ts);
 
-    // Internal processes
-    //---------------------------------------------------------
-    stereo_blending(opt);
+    // This tool is only intended to run as part of parallel_stereo, which
+    //  renames the normal -D.tif file to -Dnosym.tif.
+    std::string in_file =  "Dnosym.tif";
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : BLENDING FINISHED \n";
+    string out_file = "B.tif";
+    if (stereo_settings().subpixel_mode > 6){
+      // No further subpixel refinement, skip to the -RD output.
+      out_file = "RD.tif";
+    }
+    stereo_blending(opt, in_file, out_file);
+
+    // See if to also blend L-R disp differences
+    if (stereo_settings().save_lr_disp_diff) {
+      in_file  = "L-R-disp-diff.tif";
+      out_file = "L-R-disp-diff-blend.tif";
+      stereo_blending(opt, in_file, out_file);
+    }
+    
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : BLENDING FINISHED\n";
 
   } ASP_STANDARD_CATCHES;
 

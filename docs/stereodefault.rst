@@ -389,13 +389,14 @@ corr-max-levels (*integer*) (default = 5)
     when performing integer correlation. Setting this value to zero
     just performs correlation at the native resolution.
 
-xcorr-threshold (*integer*) (default = 2)
+xcorr-threshold (*float*) (default = 2.0)
     Integer correlation to a limited sense performs a correlation
     forward and backwards to double check its result. This is one of
     the first filtering steps to insure that we have indeed converged
     to a global minimum for an individual pixel. The
     ``xcorr-threshold`` parameter defines an agreement threshold in
-    pixels between the forward and backward result.
+    pixels between the forward and backward result. See also 
+    ``--save-left-right-disparity-difference``.
 
     Optionally, this parameter can be set to a negative number. This will
     signal the correlator to only use the forward correlation result.
@@ -412,6 +413,14 @@ min-xcorr-level (*integer*) (default = 0)
     Currently this feature is not enabled when using the default
     block-matching correlation method. In that case cross correlation is
     only ever performed on the last resolution level.
+
+save-left-right-disparity-difference
+    Save the discrepancy between left-to-right and right-to-left
+    disparities, defined as ``max(abs(left_disp_x - right_disp_x),
+    abs(left_disp_y - right_disp_y))``. Assumes a non-negative value of
+    ``--xcorr-threshold`` and stereo algorithms ``asp_bm``, ``asp_sgm``, ``asp_mgm``, 
+    or ``asp_final_mgm``. Missing values are set to no-data. This is saved
+    to ``<output prefix>-L-R-disp-diff.tif``.
 
 remove-outliers-by-disparity-params (*double double*) (default = 100 3)
     Outlier removal based on the disparity of interest points

@@ -140,6 +140,8 @@ int main( int argc, char* argv[] ) {
     
     vw_out() << "corr_memory_limit_mb," << stereo_settings().corr_memory_limit_mb << endl;
 
+    vw_out() << "save_lr_disp_diff," << stereo_settings().save_lr_disp_diff << std::endl;
+    
     // This block of code should be in its own executable but I am
     // reluctant to create one just for it. This functionality will be
     // invoked after low-res disparity is computed, whether done in

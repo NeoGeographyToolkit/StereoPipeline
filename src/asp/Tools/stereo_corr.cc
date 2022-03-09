@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file stereo_corr.cc
 ///
 
@@ -163,6 +162,9 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
     SemiGlobalMatcher::SgmSubpixelMode sgm_subpixel_mode = get_sgm_subpixel_mode();
     Vector2i sgm_search_buffer = stereo_settings().sgm_search_buffer;;
+    
+    ImageView<PixelMask<float>> * lr_disp_diff = NULL;
+    Vector2i region_ul = Vector2i(0, 0);
 
     if (stereo_settings().rm_quantile_multiple <= 0.0) {
       // If we can process the entire image in one tile, don't use a collar.
@@ -170,7 +172,10 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       if ((opt.raster_tile_size[0] > left_sub.cols()) &&
           (opt.raster_tile_size[1] > left_sub.rows())  )
         collar_size = 0;
-    
+
+      // TODO(oalexan1): Tighten the duplicate code below. Create D_sub just once,
+      // not twice, with different parameters, if necessary. Need test cases
+      // for both scenarios.
       // TODO: Why the extra filtering step here? 
       // PyramidCorrelationView already performs 1-3 iterations of
       // outlier removal.
@@ -191,10 +196,10 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
            stereo_settings().min_xcorr_level,
            rm_half_kernel,
            stereo_settings().corr_max_levels,
-           stereo_alg,
-           collar_size, sgm_subpixel_mode, sgm_search_buffer,
+           stereo_alg, collar_size, sgm_subpixel_mode, sgm_search_buffer,
            stereo_settings().corr_memory_limit_mb,
            stereo_settings().corr_blob_filter_area*mean_scale,
+           lr_disp_diff, region_ul,
            stereo_settings().stereo_debug),
           // To do: all these hard-coded values must be replaced with
           // appropriate params from user's stereo.default, for
@@ -253,8 +258,8 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
          0, // No collar here, the entire image is written at once.
          sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
          0, // Don't combine blob filtering with quantile filtering
-         stereo_settings().stereo_debug
-         );
+         lr_disp_diff, region_ul,
+         stereo_settings().stereo_debug);
       
       vw_out() << "Writing: " << d_sub_file << std::endl;
       vw::cartography::write_gdal_image
@@ -802,13 +807,14 @@ void lowres_correlation(ASPGlobalOptions & opt) {
 
 /// This correlator takes a low resolution disparity image as an input
 /// so that it may narrow its search range for each tile that is processed.
-class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView> {
+class SeededCorrelatorView: public ImageViewBase<SeededCorrelatorView> {
   ImageViewRef<PixelGray<float> >   m_left_image;
   ImageViewRef<PixelGray<float> >   m_right_image;
   ImageViewRef<vw::uint8> m_left_mask;
   ImageViewRef<vw::uint8> m_right_mask;
   ImageViewRef<PixelMask<Vector2f> > m_sub_disp;
   ImageViewRef<PixelMask<Vector2i> > m_sub_disp_spread;
+  ImageView<PixelMask<float>> * m_lr_disp_diff;
 
   // Settings
   Vector2  m_upscale_factor;
@@ -817,14 +823,14 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView> {
   stereo::CostFunctionType m_cost_mode;
   int      m_corr_timeout;
   double   m_seconds_per_op;
-
+  Vector2  m_region_ul; // the upper-left corner of the region containing all pixels to process
 public:
 
   // Set these input types here instead of making them template arguments
-  typedef ImageViewRef<PixelGray<float> >   ImageType;
+  typedef ImageViewRef<PixelGray<float>>    ImageType;
   typedef ImageViewRef<vw::uint8>           MaskType;
-  typedef ImageViewRef<PixelMask<Vector2f> > DispSeedImageType;
-  typedef ImageViewRef<PixelMask<Vector2i> > SpreadImageType;
+  typedef ImageViewRef<PixelMask<Vector2f>> DispSeedImageType;
+  typedef ImageViewRef<PixelMask<Vector2i>> SpreadImageType;
   typedef ImageType::pixel_type InputPixelType;
 
   SeededCorrelatorView(ImageType             const& left_image,
@@ -835,12 +841,15 @@ public:
                        SpreadImageType       const& sub_disp_spread,
                        Vector2i const& kernel_size,
                        stereo::CostFunctionType cost_mode,
-                       int corr_timeout, double seconds_per_op):
+                       int corr_timeout, double seconds_per_op,
+                       Vector2i const& region_ul,
+                       ImageView<PixelMask<float>> * lr_disp_diff):
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_left_mask (left_mask.impl ()), m_right_mask (right_mask.impl ()),
     m_sub_disp(sub_disp.impl()), m_sub_disp_spread(sub_disp_spread.impl()),
     m_kernel_size(kernel_size),  m_cost_mode(cost_mode),
-    m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op){
+    m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op),
+    m_region_ul(region_ul), m_lr_disp_diff(lr_disp_diff) {
     m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disp.cols();
     m_upscale_factor[1] = double(m_left_image.rows()) / m_sub_disp.rows();
     m_seed_bbox = bounding_box(m_sub_disp);
@@ -948,15 +957,20 @@ public:
                                   stereo_settings().min_xcorr_level,
                                   rm_half_kernel,
                                   stereo_settings().corr_max_levels,
-                                  stereo_alg, 
+                                  stereo_alg,
                                   stereo_settings().sgm_collar_size,
                                   sgm_subpixel_mode, sgm_search_buffer,
                                   stereo_settings().corr_memory_limit_mb,
                                   stereo_settings().corr_blob_filter_area,
+                                  m_lr_disp_diff, m_region_ul, 
                                   stereo_settings().stereo_debug);
 
-    // Run the correlation in given box only
-    return CropView<ImageView<result_type>>(crop(disparity_map, bbox),
+    // Crop the disparity to given box, bringing all the computation in the box
+    // in memory. 
+    ImageView<pixel_type> cropped_disp = crop(disparity_map, bbox);
+
+    // Place the result in the appropriate place in the virtual image
+    return CropView<ImageView<result_type>>(cropped_disp,
                                             -bbox.min().x(), -bbox.min().y(),
                                             cols(), rows());
   } // End function prerasterize_helper
@@ -1019,8 +1033,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
     right_rsrc(vw::DiskImageResourcePtr(right_image_file));
 
   // Load the normalized images.
-  DiskImageView<PixelGray<float> > left_disk_image (left_rsrc ),
-                                   right_disk_image(right_rsrc);
+  DiskImageView<PixelGray<float>> left_disk_image(left_rsrc), right_disk_image(right_rsrc);
   
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
@@ -1056,12 +1069,31 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   if (corr_timeout > 0)
     seconds_per_op = calc_seconds_per_op(cost_mode, kernel_size);
 
+  // Prepare for saving the LR to RL disparity difference.
+  ImageView<PixelMask<float>> * lr_disp_diff_ptr = NULL;
+  ImageView<PixelMask<float>> lr_disp_diff;
+  Vector2i region_ul = left_trans_crop_win.min();
+  if (stereo_settings().save_lr_disp_diff) {
+    // This image is allocated fully in memory. There is a sanity check in
+    // stereo.cc which will throw an error when this gets too big. Normally,
+    // if parallel_stereo is used, this will be just a tile.
+    lr_disp_diff.set_size(left_trans_crop_win.width(), left_trans_crop_win.height());
+    for (int col = 0; col < lr_disp_diff.cols(); col++) {
+      for (int row = 0; row < lr_disp_diff.rows(); row++) {
+        lr_disp_diff(col, row) = 0;
+        lr_disp_diff(col, row).invalidate();
+      }
+    }
+    lr_disp_diff_ptr = &lr_disp_diff;
+  }
+
   // Set up the reference to the stereo disparity code
   // - Processing is limited to left_trans_crop_win for use with parallel_stereo.
   ImageViewRef<PixelMask<Vector2f>> fullres_disparity =
     crop(SeededCorrelatorView(left_disk_image, right_disk_image, Lmask, Rmask,
                               sub_disp, sub_disp_spread, kernel_size, 
-                              cost_mode, corr_timeout, seconds_per_op), 
+                              cost_mode, corr_timeout, seconds_per_op,
+                              region_ul, lr_disp_diff_ptr), 
          left_trans_crop_win);
 
   // With SGM, we must do the entire image chunk as one
@@ -1132,6 +1164,22 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
                                             TerminalProgressCallback("asp", "\t--> Correlation :"));
   }
 
+  if (stereo_settings().save_lr_disp_diff) {
+    bool has_lr_disp_nodata = true;
+    float lr_disp_nodata = -32768.0;
+    std::string lr_disp_diff_file = opt.out_prefix + "-L-R-disp-diff.tif";
+    vw_out() << "Writing: " << lr_disp_diff_file << "\n";
+    opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(), // small block size
+                                    ASPGlobalOptions::rfne_tile_size());
+    vw::cartography::block_write_gdal_image(lr_disp_diff_file,
+                                            apply_mask(lr_disp_diff, lr_disp_nodata),
+                                            has_left_georef, left_georef,
+                                            has_lr_disp_nodata, lr_disp_nodata, opt,
+                                            TerminalProgressCallback("asp",
+                                                                     "\t--> L-R-disp-diff :"));
+  }
+
+  return;
 } // End function stereo_correlation_2D
 
 // A small function we will invoke repeatedly to save the disparity
@@ -1274,9 +1322,15 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     if (corr_timeout > 0)
       seconds_per_op = calc_seconds_per_op(cost_mode, kernel_size);
 
-    // Start with no seed
+    // Start with no seed. The current tile is rather small, which, when coupled
+    // with pyramid levels is enough to get away without a seed. And the external
+    // methods can't use a seed anyway.
     ImageView<PixelMask<Vector2f>> sub_disp;
     ImageView<PixelMask<Vector2i>> sub_disp_spread;
+
+    // Computing lr_disp_diff does not work yet with 1D correlation 
+    ImageView<PixelMask<float>> * lr_disp_diff = NULL;
+    Vector2i region_ul(0, 0);
 
     // Find the disparity
     ImageView<PixelMask<Vector2f> > aligned_disp_2d =
@@ -1284,7 +1338,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                                 apply_mask(right_image, nan),   // right image
                                 left_mask, right_mask,
                                 sub_disp, sub_disp_spread, kernel_size, 
-                                cost_mode, corr_timeout, seconds_per_op), 
+                                cost_mode, corr_timeout, seconds_per_op,
+                                region_ul, lr_disp_diff), 
            bounding_box(left_image));
 
 #if 0

@@ -491,6 +491,14 @@ namespace asp {
       vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n" << usage << general_options);
     }
 
+    if (stereo_settings().save_lr_disp_diff) {
+      if (stereo_settings().trans_crop_win.width() > 20000 ||
+          stereo_settings().trans_crop_win.height() > 20000)
+        vw_throw(ArgumentErr() << "Detected an unreasonably large image. Please use "
+                 << "parallel_stereo (with reasonably-sized tiles) if desired to invoke "
+                 << "--save-left-right-disparity-difference.\n\n" << usage << general_options);
+    }
+    
     // Ensure good order
     if ( stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
       if ( stereo_settings().lon_lat_limit.min().y() > stereo_settings().lon_lat_limit.max().y() ) 
@@ -804,12 +812,25 @@ namespace asp {
       vw_throw(ArgumentErr() << "The --outlier-removal-params percentage must be more than 50.\n");
     if (stereo_settings().outlier_removal_params[1] <= 0.0)
       vw_throw(ArgumentErr() << "The --outlier-removal-params factor must be positive.\n");
+
+    if (stereo_settings().save_lr_disp_diff) {
+      
+      if (stereo_settings().xcorr_threshold < 0.0) 
+        vw_throw(ArgumentErr() << "Must have a non-negative value of --xcorr-threshold "
+                 << "to be able to use --save-left-right-disparity-difference.\n");
+
+      if (stereo_alg >= vw::stereo::VW_CORRELATION_OTHER) 
+        vw_throw(ArgumentErr() << "Can use --save-left-right-disparity-difference "
+                 << "only with stereo algorithms asp_bm, asp_sgm, asp_mgm, and asp_final_mgm.\n");
+    }
     
     // Camera checks
     bool force_throw = false;
     try {
-      // TODO: Remove this extra camera load!
-      //       - Some camera models take a long time to load and this causes us to load them twice!
+      // TODO(oalexan1): Remove this extra camera load. Some camera
+      // models take a long time to load and this causes us to load
+      // them twice! Just move this to the other place where the
+      // cameras are loaded.
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
 
       opt.session->camera_models(camera_model1, camera_model2);
@@ -885,7 +906,6 @@ namespace asp {
             stereo_settings().piecewise_adjustment_interp_type != 2)
           vw_throw(ArgumentErr() << "Interpolation type for piecewise "
                    << "adjustment can be only 1 or 2.\n");
-
       }
 
     } catch (const exception& e) {

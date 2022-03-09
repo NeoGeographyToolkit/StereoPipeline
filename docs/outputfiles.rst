@@ -84,6 +84,10 @@ line argument to ``parallel_stereo``. Run ``stereo --help`` for details.
     floating point images. (Channel 0 = horizontal disparity, Channel 1 =
     vertical disparity, and Channel 2 = good pixel mask.)
 
+\*-L-R-disp-diff.tif - the discrepancy between left-to-right and right-to-left
+    disparities. See option ``--save-left-right-disparity-difference``
+    in :numref:`stereodefault` for more details.
+
 \*sub\*.tif - low-resolution version of input images, masks, and disparity.
 
 \*-cropped\*.tif - cropped versions of the inputs, when

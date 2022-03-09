@@ -22,7 +22,7 @@ parallel_stereo:
     homography).
   * Added option --save-left-right-disparity-difference to save the
     discrepancy between left-to-right and right-to-left
-    disparities, which may help with filtering offline unreliable
+    disparities, which may help with filtering unreliable
     disparities.
   * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
     and SPOT5 was not enabled correctly.
