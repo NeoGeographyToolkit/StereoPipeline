@@ -844,6 +844,41 @@ namespace asp {
     
   }
   
+  // Given an image in one-to-one correspondence with an aligned left image,
+  // find its corresponding version for the unaligned left image.
+  // disparity by undoing the transforms that applied this alignment.
+  void unalign_masked_image(// Inputs
+                            vw::ImageView<vw::PixelMask<float>> const& aligned_image,
+                            vw::BBox2i const& left_crop_win, 
+                            vw::math::Matrix<double> const& left_align_mat,
+                            // Output
+                            vw::ImageView<vw::PixelMask<float>> & unaligned_image) {
+    
+    vw::HomographyTransform left_align_trans(left_align_mat);
+
+    PixelMask<float> nodata_pix;
+    nodata_pix.invalidate();
+    
+    // TODO(oalexan1): Here bilinear interpolation is used. This will
+    // make the holes a little bigger where there is no data. Need
+    // to figure out if it is desired to fill holes.
+    ImageViewRef<vw::PixelMask<float>> interp_aligned_image
+      = interpolate(aligned_image, BilinearInterpolation(),
+                    ValueEdgeExtension<PixelMask<float>>(nodata_pix));
+    
+    unaligned_image.set_size(left_crop_win.width(), left_crop_win.height());
+    for (int col = 0; col < unaligned_image.cols(); col++) {
+      for (int row = 0; row < unaligned_image.rows(); row++) {
+        Vector2 left_pix(col, row);
+        Vector2 left_trans_pix = left_align_trans.forward(left_pix);
+        PixelMask<float> interp_val
+          = interp_aligned_image(left_trans_pix.x(), left_trans_pix.y());
+        
+        unaligned_image(col, row) = interp_val;
+      }
+    }
+  }
+  
   // Read the list of external stereo programs (plugins) and extract
   // the path to each such plugin and its library dependencies.
   void parse_plugins_list(std::map<std::string, std::string> & plugins,

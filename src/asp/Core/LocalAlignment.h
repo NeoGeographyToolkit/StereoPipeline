@@ -93,6 +93,16 @@ namespace asp {
                             // Output
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> & unaligned_disp_2d);
 
+  // Given an image in one-to-one correspondence with an aligned left image,
+  // find its corresponding version for the unaligned left image.
+  // disparity by undoing the transforms that applied this alignment.
+  void unalign_masked_image(// Inputs
+                            vw::ImageView<vw::PixelMask<float>> const& aligned_image,
+                            vw::BBox2i const& left_crop_win, 
+                            vw::math::Matrix<double> const& left_align_mat,
+                            // Output
+                            vw::ImageView<vw::PixelMask<float>> & unaligned_image);
+  
   vw::BBox2i grow_box_to_square(vw::BBox2i const& box, int max_size);
   
   // Read the list of external stereo programs (plugins) and extract

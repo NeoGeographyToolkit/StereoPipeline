@@ -1074,9 +1074,12 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   ImageView<PixelMask<float>> lr_disp_diff;
   Vector2i region_ul = left_trans_crop_win.min();
   if (stereo_settings().save_lr_disp_diff) {
-    // This image is allocated fully in memory. There is a sanity check in
-    // stereo.cc which will throw an error when this gets too big. Normally,
-    // if parallel_stereo is used, this will be just a tile.
+    // This image is allocated fully in memory, so need to check if it fits.
+    if (left_trans_crop_win.width() > 20000 || left_trans_crop_win.height() > 20000)
+      vw_throw(ArgumentErr() << "Detected an unreasonably large image. Please use "
+               << "parallel_stereo (with reasonably-sized tiles) if desired to invoke "
+               << "--save-left-right-disparity-difference.\n");
+    
     lr_disp_diff.set_size(left_trans_crop_win.width(), left_trans_crop_win.height());
     for (int col = 0; col < lr_disp_diff.cols(); col++) {
       for (int row = 0; row < lr_disp_diff.rows(); row++) {
@@ -1328,10 +1331,21 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     ImageView<PixelMask<Vector2f>> sub_disp;
     ImageView<PixelMask<Vector2i>> sub_disp_spread;
 
-    // Computing lr_disp_diff does not work yet with 1D correlation 
-    ImageView<PixelMask<float>> * lr_disp_diff = NULL;
-    Vector2i region_ul(0, 0);
-
+    // Prepare for saving the LR to RL disparity difference.
+    ImageView<PixelMask<float>> * lr_disp_diff_ptr = NULL;
+    ImageView<PixelMask<float>> lr_disp_diff;
+    Vector2i region_ul(0, 0); // We compute the disparity on the full tile below, not a crop
+    if (stereo_settings().save_lr_disp_diff) {
+      lr_disp_diff.set_size(left_image.cols(), left_image.rows());
+      for (int col = 0; col < lr_disp_diff.cols(); col++) {
+        for (int row = 0; row < lr_disp_diff.rows(); row++) {
+          lr_disp_diff(col, row) = 0;
+          lr_disp_diff(col, row).invalidate();
+        }
+      }
+      lr_disp_diff_ptr = &lr_disp_diff;
+    }
+    
     // Find the disparity
     ImageView<PixelMask<Vector2f> > aligned_disp_2d =
       crop(SeededCorrelatorView(apply_mask(left_image, nan),    // left image
@@ -1339,7 +1353,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                                 left_mask, right_mask,
                                 sub_disp, sub_disp_spread, kernel_size, 
                                 cost_mode, corr_timeout, seconds_per_op,
-                                region_ul, lr_disp_diff), 
+                                region_ul, lr_disp_diff_ptr), 
            bounding_box(left_image));
 
 #if 0
@@ -1365,7 +1379,33 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                               left_local_mat, right_local_mat,  
                               // Output
                               unaligned_disp_2d);
+
+    if (stereo_settings().save_lr_disp_diff) {
+      // Undo the alignment
+      vw::ImageView<vw::PixelMask<float>> unaligned_lr_disp_diff;
+      asp::unalign_masked_image(// Inputs
+                                lr_disp_diff, left_trans_crop_win, left_local_mat,
+                                // Output
+                                unaligned_lr_disp_diff);
+      
+      vw::cartography::GeoReference georef;
+      bool  has_georef  = false;
+      bool  has_lr_disp_nodata = true;
+      float lr_disp_nodata = -32768.0;
+      std::string lr_disp_diff_file = opt.out_prefix + "-L-R-disp-diff.tif";
+      vw_out() << "Writing: " << lr_disp_diff_file << "\n";
+      opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(), // small block size
+                                      ASPGlobalOptions::rfne_tile_size());
+      opt.gdal_options["TILED"] = "YES";
+      vw::cartography::block_write_gdal_image(lr_disp_diff_file,
+                                              apply_mask(unaligned_lr_disp_diff, lr_disp_nodata),
+                                              has_georef, georef,
+                                              has_lr_disp_nodata, lr_disp_nodata, opt,
+                                              TerminalProgressCallback("asp",
+                                                                       "\t--> L-R-disp-diff :"));
+    }
     
+  
   } else if (stereo_alg == vw::stereo::VW_CORRELATION_OTHER) {
 
     // External algorithms using 1D disparity
@@ -1682,7 +1722,7 @@ int main(int argc, char* argv[]) {
     // Integer correlator requires large tiles
     //---------------------------------------------------------
     int ts = stereo_settings().corr_tile_size_ovr;
-    
+
     // GDAL block write sizes must be a multiple to 16 so if the input value is
     //  not a multiple of 16 increase it until it is.
     const int TILE_MULTIPLE = 16;

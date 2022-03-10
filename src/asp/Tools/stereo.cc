@@ -491,14 +491,6 @@ namespace asp {
       vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n" << usage << general_options);
     }
 
-    if (stereo_settings().save_lr_disp_diff) {
-      if (stereo_settings().trans_crop_win.width() > 20000 ||
-          stereo_settings().trans_crop_win.height() > 20000)
-        vw_throw(ArgumentErr() << "Detected an unreasonably large image. Please use "
-                 << "parallel_stereo (with reasonably-sized tiles) if desired to invoke "
-                 << "--save-left-right-disparity-difference.\n\n" << usage << general_options);
-    }
-    
     // Ensure good order
     if ( stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
       if ( stereo_settings().lon_lat_limit.min().y() > stereo_settings().lon_lat_limit.max().y() ) 
@@ -513,8 +505,10 @@ namespace asp {
     if ( (left_resource->channels() > 1) || (right_resource->channels() > 1) )
       vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n" << usage << general_options);
 
-    if ((stereo_settings().bundle_adjust_prefix != "") && (stereo_settings().alignment_method == "epipolar"))
-      vw_throw(ArgumentErr() << "Error: Epipolar alignment does not support bundle adjust prefixes.\n\n" << usage << general_options);
+    if ((stereo_settings().bundle_adjust_prefix != "") &&
+        (stereo_settings().alignment_method == "epipolar"))
+      vw_throw(ArgumentErr() << "Error: Epipolar alignment does not support using a "
+               << "bundle adjust prefix.\n\n" << usage << general_options);
     
     // Replace normal default values with these when SGM is enabled.
     // - TODO: Move these somewhere easier to find!
