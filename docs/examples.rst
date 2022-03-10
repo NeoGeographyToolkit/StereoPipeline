@@ -3128,14 +3128,19 @@ can be accomplished, for example, as:
 It is believed that the first two numbers passed in to ``-srcwin``
 must always be 50 and 0, hence there should be a crop at the left
 margin and no crop on top. Some digital Globe images may be
-wider/narrrower and/or taller/shorter than the mask obtained as above,
+wider/narrower and/or taller/shorter than the mask obtained as above,
 but what is important is that where the 4x mask and the PAN image
 overlap, they must agree perfectly, with no offsets. To verify that,
 render them on top of each other in ``stereo_gui``, with the
 ``View->Single window`` mode.
 
-Then, if desired to make these agree in extent, either the 4x mask or
-the PAN image can be cropped on the right or the bottom.
+Then, the mask must be made to agree with the PAN image in extent, by 
+finding their dimensions with ``gdalinfo`` as above, and invoking
+``gdal_translate`` again, this time keeping the first two values
+passed in to ``-srcwin`` at ``0 0`` and adjusting the width and height.
+
+These two operations can be realized with a single crop operation
+if computing in advance the bounds to pass in to ``gdal_translate``.
 
 .. _bathy_non_dg:
 
