@@ -247,10 +247,10 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
         raise Exception('No tiles were generated')
 
     # Do gdalinfo on the good tile to get metadata
-    args=[goodFilename]
+    args = [goodFilename]
     sep = "="
-    gdal_settings=run_and_parse_output("gdalinfo", args, sep, opt.verbose)
-
+    gdal_settings = run_and_parse_output("gdalinfo", args, sep, opt.verbose)
+    
     # Extract the data type (e.g., Float32 or Float64)
     data_type = "Float32"
     for s in gdal_settings:
@@ -271,7 +271,15 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
                 BlockXSize = m.group(1)
                 BlockYSize = m.group(2)
                 break
-        
+
+    # Extract no-data value, if present
+    has_nodata = False
+    key = 'NoData Value'
+    nodata_value = 0
+    if key in gdal_settings:
+        has_nodata = True
+        nodata_value = gdal_settings[key][0]
+
     # Find how many bands are in the file
     num_bands = 0
     for s in gdal_settings:
@@ -305,7 +313,7 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
             f.write("       <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % relative)
             f.write("       <SourceBand>%i</SourceBand>\n" % b)
 
-            # Bugfix for the "too many open files" problem
+            # Bugfix for the "too many open files" problem.
             # Per https://lists.osgeo.org/pipermail/gdal-dev/2017-October/047370.html
             f.write('       <SourceProperties RasterXSize="%i" RasterYSize="%i" DataType="%s" BlockXSize="%s" BlockYSize="%s"/>\n' % (tile.width, tile.height, data_type, BlockXSize, BlockYSize))
 
@@ -330,6 +338,10 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
                     (tile.x, tile.y, tile.width, tile.height))
             f.write("    </SimpleSource>\n")
         # End tile loop
+
+        if has_nodata:
+            f.write("  <NoDataValue>" + nodata_value + "</NoDataValue>\n")
+        
         f.write("  </VRTRasterBand>\n")
     # End band loop
     f.write("</VRTDataset>\n")
