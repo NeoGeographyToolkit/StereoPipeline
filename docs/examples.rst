@@ -3116,8 +3116,8 @@ the PAN image, do:
 
   gdalinfo image.tif | grep Size
 
-Then, one has to crop 50 columns from the left and right sides of an
-image, which can be accomplished, for example, as:
+Then, one has to crop 50 columns from the left side of the mask, which
+can be accomplished, for example, as:
 
 ::
 
@@ -3125,21 +3125,17 @@ image, which can be accomplished, for example, as:
     -co BLOCKXSIZE=256 -co BLOCKYSIZE=256                           \
     -srcwin 50 0 35180 29072 mask_4x.tif mask_4x_crop.tif
 
-Some calculation is needed to get the above four numbers passed to
-``-srcwin``.  They represent the starting column and row of the crop,
-and its width and height. The PAN image and the
-magnified mask hopefully have the same heights, though for a different
-image collection that height may not be 29072, so that will need to be
-adjusted for any specific dataset. The width of the magnified mask
-image should be 35280, and above we used 100 less than this value.
+It is believed that the first two numbers passed in to ``-srcwin``
+must always be 50 and 0, hence there should be a crop at the left
+margin and no crop on top. Some digital Globe images may be
+wider/narrrower and/or taller/shorter than the mask obtained as above,
+but what is important is that where the 4x mask and the PAN image
+overlap, they must agree perfectly, with no offsets. To verify that,
+render them on top of each other in ``stereo_gui``, with the
+``View->Single window`` mode.
 
-This workflow was tested for WV-2, and for other sensors adjustments
-may be needed.
-
-The result of this command must be a mask image which has precisely
-the same dimensions as the PAN image, and the two must agree perfectly 
-(with no offsets) if they are drawn on top of each other in
-``stereo_gui`` in the ``View->Single window`` mode.
+Then, if desired to make these agree in extent, either the 4x mask or
+the PAN image can be cropped on the right or the bottom.
 
 .. _bathy_non_dg:
 
