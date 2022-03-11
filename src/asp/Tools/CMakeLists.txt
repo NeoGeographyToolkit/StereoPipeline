@@ -217,3 +217,7 @@ install(TARGETS ccd_solve DESTINATION bin)
 add_executable(otsu_threshold otsu_threshold.cc) 
 target_link_libraries(otsu_threshold AspCore)
 install(TARGETS otsu_threshold DESTINATION bin)
+
+add_executable(corr_eval corr_eval.cc) 
+target_link_libraries(corr_eval AspCore)
+install(TARGETS corr_eval DESTINATION bin)
