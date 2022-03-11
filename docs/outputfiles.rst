@@ -84,6 +84,10 @@ line argument to ``parallel_stereo``. Run ``stereo --help`` for details.
     floating point images. (Channel 0 = horizontal disparity, Channel 1 =
     vertical disparity, and Channel 2 = good pixel mask.)
 
+\*-B.tif - disparity map blending the D.tif results from all tiles. Will be 
+    produced unless using the ``asp_bm`` stereo algorithm without local 
+    epipolar alignment.
+
 \*-L-R-disp-diff.tif - the discrepancy between left-to-right and right-to-left
     disparities. See option ``--save-left-right-disparity-difference``
     in :numref:`stereodefault` for more details.

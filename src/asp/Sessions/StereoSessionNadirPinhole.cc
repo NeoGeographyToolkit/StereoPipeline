@@ -64,9 +64,9 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                        right_disk_image(right_cropped_file);
 
   // Set up image masks
-  ImageViewRef< PixelMask<float> > left_masked_image
+  ImageViewRef<PixelMask<float>> left_masked_image
     = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
-  ImageViewRef< PixelMask<float> > right_masked_image
+  ImageViewRef<PixelMask<float>> right_masked_image
     = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
   // Compute input image statistics
@@ -75,7 +75,8 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   Vector6f right_stats = gather_stats(right_masked_image, "right",
                                       this->m_out_prefix, right_cropped_file);
 
-  ImageViewRef< PixelMask<float> > left_bathy_mask, right_bathy_mask;
+  // TODO(oalexan1): Should the masks be uint8 instead of float?
+  ImageViewRef<PixelMask<float>> left_bathy_mask, right_bathy_mask;
   bool do_bathy = StereoSession::do_bathymetry();
   float left_bathy_nodata = -std::numeric_limits<float>::max();
   float right_bathy_nodata = -std::numeric_limits<float>::max();
@@ -84,15 +85,15 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                                     left_bathy_nodata, right_bathy_nodata,
                                     left_bathy_mask, right_bathy_mask);
   
-  ImageViewRef< PixelMask<float> > Limg, Rimg;
-  ImageViewRef< PixelMask<float> > left_aligned_bathy_mask, right_aligned_bathy_mask;
+  ImageViewRef<PixelMask<float>> Limg, Rimg;
+  ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
 
   // Use no-data in interpolation and edge extension.
-  PixelMask<float> nodata_pix(0); nodata_pix.invalidate();
-  PixelMask<float> bathy_nodata_pix(0); bathy_nodata_pix.invalidate();
+  PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
+  PixelMask<float>bathy_nodata_pix(0); bathy_nodata_pix.invalidate();
   
-  ValueEdgeExtension< PixelMask<float> > ext_nodata(nodata_pix); 
-  ValueEdgeExtension< PixelMask<float> > bathy_ext_nodata(bathy_nodata_pix); 
+  ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix); 
+  ValueEdgeExtension<PixelMask<float>> bathy_ext_nodata(bathy_nodata_pix); 
   
   if ( stereo_settings().alignment_method == "epipolar" ) {
 

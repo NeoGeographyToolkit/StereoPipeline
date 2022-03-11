@@ -533,7 +533,12 @@ asp::check_command_line(int argc, char *argv[], vw::cartography::GdalWriteOption
   // Finish filling in the usage_comment.
   std::ostringstream ostr;
   ostr << "Usage: " << argv[0] << " " << usage_comment << "\n\n";
-  ostr << "  [ASP " << ASP_VERSION << "]\n\n";
+  ostr << "  [ASP " << ASP_VERSION << "]\n";
+#if defined(ASP_BUILD_DATE)
+  ostr << "  Build date: " << ASP_BUILD_DATE << "\n";
+#endif
+  ostr << "\n";
+  
   usage_comment = ostr.str();
 
   set_asp_env_vars();

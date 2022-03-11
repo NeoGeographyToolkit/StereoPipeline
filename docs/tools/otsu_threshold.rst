@@ -1,7 +1,7 @@
 .. _otsu_threshold:
 
 otsu_threshold
--------------------
+--------------
 
 The ``otsu_threshold`` program takes as input a single-channel image
 and computes the optimal `Otsu threshold

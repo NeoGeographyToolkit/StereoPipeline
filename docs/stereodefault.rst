@@ -35,7 +35,7 @@ ip-per-tile
 
 ip-per-image
     How many interest points to detect in each image (default: automatic 
-    determination, usually 5000). It is overridden by --ip-per-tile if
+    determination, usually 5000). It is overridden by ``--ip-per-tile`` if
     provided.
 
 ip-detect-method
@@ -224,11 +224,11 @@ right-image-crop-win xoff yoff xsize ysize
     restrict the computation to the specified region.
 
 left-image-clip: (*string*) (default = "")
-    If --left-image-crop-win is used, replaced the left image
+    If ``--left-image-crop-win`` is used, replaced the left image
     cropped to that window with this clip.
 
 right-image-clip: (*string*) (default = "")
-    If --right-image-crop-win is used, replaced the right image
+    If ``--right-image-crop-win`` is used, replaced the right image
     cropped to that window with this clip.
 
 .. _corr_section:
@@ -247,7 +247,7 @@ stereo-algorithm (*string*) (default = "asp_bm")
 prefilter-mode (= 0,1,2) (default = 2)
     This selects the pre-processing filter to be used to prepare
     images before they are fed to the initialization stage of the
-    pipeline.
+    pipeline. Used only with the ``asp_bm`` algorithm.
 
     0 - None
 
@@ -273,7 +273,9 @@ prefilter-mode (= 0,1,2) (default = 2)
 prefilter-kernel-width (*float*) (default = 1.4)
     This defines the diameter of the Gaussian convolution kernel used
     for the preprocessing modes 1 and 2 above. A value of 1.4 works
-    well for LoG and 25-30 works well for Subtracted Mean.
+    well for LoG and 25-30 works well for Subtracted Mean. Used
+    only with the ``asp_bm`` algorithm, with ``--prefilter-mode`` 1
+    and 2.
 
 corr-seed-mode (=0,1,2,3)
     (default = 1)
@@ -346,7 +348,7 @@ cost-mode (= 0,1,2,3,4)
     | 3 - census transform
     | 4 - ternary census transform
 
-corr-kernel (*integer integer*) (default = 25 25)
+corr-kernel (*integer integer*) (default = 21 21)
     These option determine the size (in pixels) of the correlation
     kernel used in the initialization step. A different size can be set
     in the horizontal and vertical directions, but square correlation

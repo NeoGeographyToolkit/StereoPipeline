@@ -201,9 +201,9 @@ namespace asp {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("prefilter-kernel-width", po::value(&global.slogW)->default_value(1.5),
-                     "Sigma value for Gaussian kernel used in prefilter for correlator.")
+                     "Sigma value for Gaussian kernel used in prefilter for correlator. Used only with the asp_bm algorithm, with --prefilter-mode 1 and 2.")
       ("prefilter-mode",         po::value(&global.pre_filter_mode)->default_value(2),
-                     "Preprocessing filter mode. [0 None, 1 Gaussian, 2 LoG]")
+                     "Preprocessing filter mode. Used only with the asp_bm algorithm. Options: [0 None, 1 Gaussian, 2 LoG].")
       ("corr-seed-mode",         po::value(&global.seed_mode)->default_value(1),
                      "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
       ("min-num-ip",             po::value(&global.min_num_ip)->default_value(30),

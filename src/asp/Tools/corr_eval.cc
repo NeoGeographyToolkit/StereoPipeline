@@ -15,15 +15,14 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file corr_eval.cc
 
-// Evaluate the quality of produced correlation with several metrics.
+// Evaluate the quality of produced correlation using several metrics.
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
-//#include <vw/Stereo/NCC.h>
+#include <vw/Stereo/CorrEval.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -38,7 +37,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("kernel-size", po::value(&opt.kernel_size)->default_value(vw::Vector2i(21,21),"21 21"),
-     "Kernel size used for normalized cross-correlation.");
+     "The dimensions of image patches. These must be positive odd numbers.");
 
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
@@ -63,10 +62,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
-  if (!vm.count("left-image")  ||
-      !vm.count("right-image") ||
-      !vm.count("disparity")   ||
-      !vm.count("output-image"))
+  if (!vm.count("left-image")  || !vm.count("right-image") ||
+      !vm.count("disparity")   || !vm.count("output-image"))
     vw::vw_throw(vw::ArgumentErr() << "Not all required arguments were specified.\n\n"
                  << usage << general_options);
   
@@ -87,31 +84,30 @@ int main(int argc, char *argv[]) {
 
     float left_nodata = -32768.0;
     if (!vw::read_nodata_val(opt.left_image, left_nodata))
-      vw::vw_throw(vw::ArgumentErr() << "The left image lacks a nodata values.\n");
+      vw::vw_throw(vw::ArgumentErr() << "The left aligned image lacks a nodata value.\n");
     
     float right_nodata = -32768.0;
     if (!vw::read_nodata_val(opt.right_image, right_nodata))
-      vw::vw_throw(vw::ArgumentErr() << "The right image lacks a nodata values.\n");
+      vw::vw_throw(vw::ArgumentErr() << "The right aligned image lacks a nodata value.\n");
 
-    // Use bigger tiles on output, should be faster that way given that
-    // we have to grab a big chunk of the right image for each tile anyway.
+    // Use bigger tiles on output, should be faster that way given
+    // that we have to grab a big chunk of the right image for each
+    // tile.
     opt.raster_tile_size = Vector2i(asp::ASPGlobalOptions::corr_tile_size(),
                                     asp::ASPGlobalOptions::corr_tile_size());
 
-#if 0
     vw::cartography::GeoReference left_georef;
     bool has_left_georef = read_georeference(left_georef,  opt.left_image);
     bool has_nodata      = true;
-    vw_out() << "Writing: " << opt.output_image << ".\n";
+    vw_out() << "Writing: " << opt.output_image << "\n";
     vw::cartography::block_write_gdal_image
       (opt.output_image,
-       apply_mask(vw::stereo::ncc(create_mask(left, left_nodata),
-                                  create_mask(right, right_nodata),
-                                  disp, opt.kernel_size), left_nodata),
+       apply_mask(vw::stereo::corr_eval(create_mask(left, left_nodata),
+                                        create_mask(right, right_nodata),
+                                        disp, opt.kernel_size), left_nodata),
        has_left_georef, left_georef,
        has_nodata, left_nodata, opt,
        TerminalProgressCallback("asp", "\t--> Correlation quality:"));
-#endif
     
   } ASP_STANDARD_CATCHES;
   
