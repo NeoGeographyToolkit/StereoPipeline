@@ -74,6 +74,12 @@ class QPolygon;
 
 namespace vw { namespace gui {
 
+  // The kinds of images we support
+  enum ImgType {UNINIT, CH1_DOUBLE, CH2_UINT8, CH3_UINT8, CH4_UINT8};
+
+  enum DisplayType {REGULAR_VIEW, HILLSHADED_VIEW, COLORMAP_VIEW, HILLSHADE_COLORMAP_VIEW, THRESHOLDED_VIEW};
+  
+  // TODO(oalexan1): Remove this def out of this header file
   namespace fs = boost::filesystem;
 
   bool isPolyZeroDim(const QPolygon & pa);
@@ -97,9 +103,6 @@ namespace vw { namespace gui {
 
   /// Pop-up a window to have the user select a file
   std::string fileDialog(std::string title, std::string start_folder="");
-
-  // The kinds of images we support
-  enum ImgType {UNINIT, CH1_DOUBLE, CH2_UINT8, CH3_UINT8, CH4_UINT8};
 
   // Flip a point and a box in y
   inline Vector2 flip_in_y(Vector2 const& P){

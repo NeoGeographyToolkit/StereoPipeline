@@ -193,7 +193,8 @@ namespace vw { namespace gui {
                          MatchList & matches,
                          int &editMatchPointVecIndex,
                          chooseFilesDlg * chooseFiles,
-                         bool use_georef, std::vector<bool> const& hillshade, bool view_matches,
+                         bool use_georef, std::vector<DisplayType> const& hillshade,
+                         bool view_matches,
                          bool zoom_all_to_same_region, bool & allowMultipleSelections)
     : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
       m_image_id(image_id), m_output_prefix(output_prefix),
@@ -347,7 +348,7 @@ namespace vw { namespace gui {
     m_moveMatchPoint     = m_ContextMenu->addAction("Move match point");
     m_moveMatchPoint->setCheckable(true);
     m_moveMatchPoint->setChecked(false);
-    m_toggleHillshade    = m_ContextMenu->addAction("Toggle hillshaded display");
+    m_toggleHillshadeImageRightClick  = m_ContextMenu->addAction("Toggle hillshaded display");
     m_setHillshadeParams = m_ContextMenu->addAction("View/set hillshade azimuth and elevation");
     m_saveScreenshot     = m_ContextMenu->addAction("Save screenshot");
     m_setThreshold       = m_ContextMenu->addAction("View/set threshold");
@@ -359,7 +360,8 @@ namespace vw { namespace gui {
 
     connect(m_addMatchPoint,         SIGNAL(triggered()), this, SLOT(addMatchPoint()));
     connect(m_deleteMatchPoint,      SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
-    connect(m_toggleHillshade,       SIGNAL(triggered()), this, SLOT(toggleHillshade()));
+    connect(m_toggleHillshadeImageRightClick, SIGNAL(triggered()), this,
+            SLOT(toggleHillshadeImageRightClick()));
     connect(m_setHillshadeParams,    SIGNAL(triggered()), this, SLOT(setHillshadeParams()));
     connect(m_setThreshold,          SIGNAL(triggered()), this, SLOT(setThreshold()));
     connect(m_saveScreenshot,        SIGNAL(triggered()), this, SLOT(saveScreenshot()));
@@ -405,8 +407,9 @@ namespace vw { namespace gui {
     
     QMenu *menu=new QMenu(this);
 
-    m_toggleHillshadeFromTable = menu->addAction("Toggle hillshade display");
-    connect(m_toggleHillshadeFromTable, SIGNAL(triggered()), this, SLOT(refreshHillshade()));
+    m_toggleHillshadeFromImageList = menu->addAction("Toggle hillshade display");
+    connect(m_toggleHillshadeFromImageList, SIGNAL(triggered()), this,
+            SLOT(toggleHillshadeFromImageList()));
     
     m_bringImageOnTopFromTable = menu->addAction("Bring image on top");
     connect(m_bringImageOnTopFromTable, SIGNAL(triggered()), this, SLOT(bringImageOnTopSlot()));
@@ -759,11 +762,11 @@ namespace vw { namespace gui {
     // it each time as perhaps the hillshade parameters changed.
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
-      if (!m_hillshade_mode[image_iter]) continue;
+      if (m_hillshade_mode[image_iter] != HILLSHADED_VIEW) continue;
 
       if (!m_images[image_iter].has_georef) {
         popUp("Hill-shading requires georeferenced images.");
-        m_hillshade_mode[image_iter] = false;
+        m_hillshade_mode[image_iter] = REGULAR_VIEW;
         return;
       }
 
@@ -779,7 +782,7 @@ namespace vw { namespace gui {
         for (int iter2 = 0; iter2 < num_images; iter2++) {
           int num_channels2 = m_images[iter2].img.planes();
           if (num_channels2 != 1) {
-            m_hillshade_mode[iter2] = false;
+            m_hillshade_mode[iter2] = REGULAR_VIEW;
           }
         }
         
@@ -794,7 +797,7 @@ namespace vw { namespace gui {
                                      m_hillshade_elevation,
                                      input_file, hillshaded_file);
       if (!success) {
-        m_hillshade_mode[image_iter] = false;
+        m_hillshade_mode[image_iter] = REGULAR_VIEW;
         return;
       }
 
@@ -850,22 +853,42 @@ namespace vw { namespace gui {
     }
   }
 
-  void MainWidget::refreshHillshade(){
-
+  // This is reached with right-click from the list of images on the left
+  void MainWidget::toggleHillshadeFromImageList() {
     for (std::set<int>::iterator it = m_indicesWithAction.begin();
 	 it != m_indicesWithAction.end(); it++) {
-      m_hillshade_mode[*it] = !m_hillshade_mode[*it];
-
+      if (m_hillshade_mode[*it] == HILLSHADED_VIEW)
+        m_hillshade_mode[*it] = REGULAR_VIEW;
+      else if (m_hillshade_mode[*it] != HILLSHADED_VIEW)
+        m_hillshade_mode[*it] = HILLSHADED_VIEW;
+      
       // We will assume if the user wants to see the hillshade
       // status of this image change, he'll also want it on top.
       bringImageOnTop(*it); 
     }
+    m_indicesWithAction.clear();
 
+    refreshHillshade();
+  }
+    
+  // This is reached with right-click from the image itself
+  void MainWidget::toggleHillshadeImageRightClick(){
+    m_hillshade_mode.resize(m_images.size());
+    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) {
+      if (m_hillshade_mode[image_iter] == HILLSHADED_VIEW)
+        m_hillshade_mode[image_iter] = REGULAR_VIEW;
+      else if (m_hillshade_mode[image_iter] != HILLSHADED_VIEW)
+        m_hillshade_mode[image_iter] = HILLSHADED_VIEW;
+    }
+    
+    refreshHillshade();
+  }
+
+  void MainWidget::refreshHillshade(){
     m_thresh_calc_mode = false;
     m_thresh_view_mode = false;
     MainWidget::maybeGenHillshade();
 
-    m_indicesWithAction.clear();
     refreshPixmap();
   }
 
@@ -919,21 +942,13 @@ namespace vw { namespace gui {
     refreshHillshade();
   }
 
-  void MainWidget::toggleHillshade(){
-    m_hillshade_mode.resize(m_images.size());
-    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
-      m_hillshade_mode[image_iter] = !m_hillshade_mode[image_iter];
-
-    refreshHillshade();
-  }
-
   bool MainWidget::hillshadeMode() const {
     if (m_hillshade_mode.empty()) return false;
 
     // If we have to return just one value, one image not being
     // hillshaded will imply that the value is false
     for (size_t it = 0; it < m_hillshade_mode.size(); it++) {
-      if (!m_hillshade_mode[it]) return false;
+      if (m_hillshade_mode[it] != HILLSHADED_VIEW) return false;
     }
     return true;
   }
@@ -941,10 +956,15 @@ namespace vw { namespace gui {
   // Each image can be hillshaded independently of the others
   void MainWidget::setHillshadeMode(bool hillshade_mode){
     m_hillshade_mode.resize(m_images.size());
-    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
-      m_hillshade_mode[image_iter] = hillshade_mode;
+    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) {
+      if (hillshade_mode) 
+        m_hillshade_mode[image_iter] = HILLSHADED_VIEW;
+      else
+        m_hillshade_mode[image_iter] = REGULAR_VIEW;
+    }
+     
   }
-
+  
   // Ensure the current image is displayed. Note that this on its own
   // does not refresh the view as refreshPixmap() is not called.
   void MainWidget::showImage(std::string const& image_name){
@@ -1130,7 +1150,7 @@ namespace vw { namespace gui {
         m_thresh_images[i].img.get_image_clip(scale, image_box,
                                               highlight_nodata,
                                               qimg, scale_out, region_out);
-      }else if (m_hillshade_mode[i]){
+      }else if (m_hillshade_mode[i] == HILLSHADED_VIEW){
         m_hillshaded_images[i].img.get_image_clip(scale, image_box,
                                                   highlight_nodata,
                                                   qimg, scale_out, region_out);
@@ -2690,10 +2710,10 @@ namespace vw { namespace gui {
     // then we schedule the repaint event on the new rubberband.
     // Continued below.
     updateRubberBand(m_rubberBand);
-    m_rubberBand = QRect( std::min(m_mousePrsX, mouseMoveX),
-                          std::min(m_mousePrsY, mouseMoveY),
-                          std::abs(mouseMoveX - m_mousePrsX),
-                          std::abs(mouseMoveY - m_mousePrsY) );
+    m_rubberBand = QRect(std::min(m_mousePrsX, mouseMoveX),
+                         std::min(m_mousePrsY, mouseMoveY),
+                         std::abs(mouseMoveX - m_mousePrsX),
+                         std::abs(mouseMoveY - m_mousePrsY));
     updateRubberBand(m_rubberBand);
     // Only now, a single call to MainWidget::PaintEvent() happens,
     // even though it appears from above that two calls could happen
@@ -3143,7 +3163,7 @@ namespace vw { namespace gui {
     m_addMatchPoint->setVisible(!m_polyEditMode); 
     m_deleteMatchPoint->setVisible(!m_polyEditMode); 
     m_moveMatchPoint->setVisible(!m_polyEditMode);
-    m_toggleHillshade->setVisible(!m_polyEditMode); 
+    m_toggleHillshadeImageRightClick->setVisible(!m_polyEditMode); 
     m_setHillshadeParams->setVisible(!m_polyEditMode); 
     m_setThreshold->setVisible(!m_polyEditMode); 
     m_allowMultipleSelections_action->setVisible(!m_polyEditMode); 

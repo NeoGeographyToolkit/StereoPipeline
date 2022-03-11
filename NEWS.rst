@@ -10,6 +10,15 @@ New camera additions:
   * Added support for the PeruSat-1 linescan camera model (so far just
     the RPC model was supported for this satellite).
 
+New tool additions:
+  * Added the program ``corr_eval``, for evaluating the quality of
+    produced correlation with several metrics. See also the new option
+    ``--save-left-right-disparity-difference`` in ``parallel_stereo``.
+  * Added the program ``otsu_threshold`` for computing an image
+    threshold. It can be used for separating land from water (in
+    WorldView multispectral NIR bands), and shadowed from lit areas
+    (in Lunar images).
+
 parallel_stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
   * Added the option --resume-at-corr. Start at the correlation stage
@@ -91,10 +100,6 @@ mapproject:
 bathymetry:
   * Can have different water surfaces in left and right images, so the
     triangulating rays bend at different heights.
-  * Added the program ``otsu_threshold`` for computing an image
-    threshold. It can be used for separating land from water (in
-    WorldView multispectral NIR bands), and shadowed from lit areas
-    (in Lunar images).
   * bathy_plane_calc can use a mask of points above water to find the
     water-land interface, and also a set of actual lon,lat,height
     measurements.

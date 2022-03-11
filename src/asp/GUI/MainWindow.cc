@@ -100,7 +100,10 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
   m_grid_cols(grid_cols),
-  m_use_georef(use_georef), m_hillshade(hillshade), m_view_matches(view_matches),
+  m_use_georef(use_georef),
+  m_display_type(hillshade ? HILLSHADED_VIEW : REGULAR_VIEW),
+  m_view_thresholded(false),
+  m_view_matches(view_matches),
   m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
   m_allowMultipleSelections(false), m_matches_exist(false),
   m_argc(argc), m_argv(argv), m_cursor_count(0) {
@@ -212,17 +215,17 @@ void MainWindow::createLayout() {
     }
   }else if (m_widgets.size() == m_image_files.size()) {
     m_hillshade_vec.clear();
-    for (size_t wit = 0; wit < m_widgets.size(); wit++) {
-      if (m_widgets[wit] == NULL) 
-        m_hillshade_vec.push_back(false);
+    for (size_t wid_it = 0; wid_it < m_widgets.size(); wid_it++) {
+      if (m_widgets[wid_it] == NULL || !m_widgets[wid_it]->hillshadeMode())
+        m_hillshade_vec.push_back(REGULAR_VIEW);
       else
-        m_hillshade_vec.push_back(m_widgets[wit]->hillshadeMode());
+        m_hillshade_vec.push_back(HILLSHADED_VIEW);
     }
   }else{
     // No widgets yet
     m_hillshade_vec.resize(m_image_files.size());
-    for (size_t wit = 0; wit < m_image_files.size(); wit++)
-      m_hillshade_vec[wit] = m_hillshade;
+    for (size_t wid_it = 0; wid_it < m_image_files.size(); wid_it++) 
+      m_hillshade_vec[wid_it] = m_display_type;
   }
 
   if (m_image_files.size() <= BASE_IMAGE_INDEX) {
@@ -248,7 +251,7 @@ void MainWindow::createLayout() {
   // fetch that. 
   if (!m_hillshade_vec.empty() && m_hillshade_vec.size() == m_image_files.size() &&
       m_image_files.size() == 1) 
-    m_hillshade = m_hillshade_vec[0];
+    m_display_type = m_hillshade_vec[0];
   
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
 
@@ -295,11 +298,11 @@ void MainWindow::createLayout() {
       m_chooseFiles = NULL;
 
       // Recall the previous hillshade choice if possible
-      std::vector<bool> local_hillshade;
+      std::vector<DisplayType> local_hillshade;
       if (m_hillshade_vec.size() == m_image_files.size())
         local_hillshade.push_back(m_hillshade_vec[i]);
       else
-        local_hillshade.push_back(m_hillshade);
+        local_hillshade.push_back(m_display_type);
       
       const int image_id = i;
       MainWidget * widget = new MainWidget(centralWidget,
@@ -366,7 +369,7 @@ void MainWindow::createLayout() {
   m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
   m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
   m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
-  m_viewHillshadedImages_action->setChecked(m_hillshade);
+  m_viewHillshadedImages_action->setChecked(m_display_type == HILLSHADED_VIEW);
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
   m_overlayGeoreferencedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
 
@@ -453,7 +456,7 @@ void MainWindow::createMenus() {
   m_viewHillshadedImages_action = new QAction(tr("Hillshaded images"), this);
   m_viewHillshadedImages_action->setStatusTip(tr("View hillshaded images"));
   m_viewHillshadedImages_action->setCheckable(true);
-  m_viewHillshadedImages_action->setChecked(m_hillshade);
+  m_viewHillshadedImages_action->setChecked(m_display_type == HILLSHADED_VIEW);
   m_viewHillshadedImages_action->setShortcut(tr("H"));
   connect(m_viewHillshadedImages_action, SIGNAL(triggered()),
           this, SLOT(viewHillshadedImages()));
@@ -531,12 +534,9 @@ void MainWindow::createMenus() {
   // Thresholded image visualization
   m_viewThreshImages_action = new QAction(tr("View thresholded images"), this);
   m_viewThreshImages_action->setStatusTip(tr("View thresholded images"));
+  m_viewThreshImages_action->setCheckable(true);
+  m_viewThreshImages_action->setChecked(m_view_thresholded);
   connect(m_viewThreshImages_action, SIGNAL(triggered()), this, SLOT(viewThreshImages()));
-
-  // Image threshold visualization
-  m_viewUnthreshImages_action = new QAction(tr("View un-thresholded images"), this);
-  m_viewUnthreshImages_action->setStatusTip(tr("View un-thresholded images"));
-  connect(m_viewUnthreshImages_action, SIGNAL(triggered()), this, SLOT(viewUnthreshImages()));
 
   // View/set image threshold
   m_thresholdGetSet_action = new QAction(tr("View/set thresholds"), this);
@@ -618,7 +618,6 @@ void MainWindow::createMenus() {
   m_threshold_menu = menu->addMenu(tr("&Threshold"));
   m_threshold_menu->addAction(m_thresholdCalc_action);
   m_threshold_menu->addAction(m_viewThreshImages_action);
-  m_threshold_menu->addAction(m_viewUnthreshImages_action);
   m_threshold_menu->addAction(m_thresholdGetSet_action);
 
   // Profile menu
@@ -1203,18 +1202,15 @@ void MainWindow::thresholdCalc() {
 }
 
 void MainWindow::viewThreshImages() {
+  m_view_thresholded = m_viewThreshImages_action->isChecked();
+
   for (size_t i = 0; i < m_widgets.size(); i++) {
     bool refresh_pixmap = true;
     if (m_widgets[i]) {
-      m_widgets[i]->viewThreshImages(refresh_pixmap);
-    }
-  }
-}
-
-void MainWindow::viewUnthreshImages() {
-  for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) {
-      m_widgets[i]->viewUnthreshImages();
+      if (m_view_thresholded) 
+        m_widgets[i]->viewThreshImages(refresh_pixmap);
+      else
+        m_widgets[i]->viewUnthreshImages();
     }
   }
 }
@@ -1346,10 +1342,10 @@ void MainWindow::setPolyColor() {
 }
 
 void MainWindow::viewHillshadedImages() {
-  m_hillshade = m_viewHillshadedImages_action->isChecked();
+  m_display_type = m_viewHillshadedImages_action->isChecked() ? HILLSHADED_VIEW : REGULAR_VIEW;
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
-      m_widgets[i]->viewHillshadedImages(m_hillshade);
+      m_widgets[i]->viewHillshadedImages(m_display_type == HILLSHADED_VIEW);
     }
   }
 }

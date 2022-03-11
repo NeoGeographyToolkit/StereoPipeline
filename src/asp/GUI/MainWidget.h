@@ -95,7 +95,8 @@ namespace vw { namespace gui {
                MatchList & matches,
                int &editMatchPointVecIndex,
                chooseFilesDlg * chooseFiles, bool use_georef,
-               std::vector<bool> const& hillshade, bool view_matches, bool zoom_all_to_same_region,
+               std::vector<DisplayType> const& hillshade, bool view_matches,
+               bool zoom_all_to_same_region,
                bool & allowMultipleSelections // alias
               );
     virtual ~MainWidget();
@@ -147,7 +148,7 @@ namespace vw { namespace gui {
     vw::BBox2 current_view();
     void  zoomToRegion (vw::BBox2 const& region);
     bool  hillshadeMode() const;
-    std::vector<bool> hillshadeModeVec() const {return m_hillshade_mode;}
+    std::vector<DisplayType> hillshadeModeVec() const {return m_hillshade_mode;}
     void  setHillshadeMode(bool hillshade_mode);
     BBox2 firstImagePixelBox() const;
     BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
@@ -182,7 +183,8 @@ public slots:
     void deleteMatchPoint       (); ///< Delete an interest point (from right click menu)
     void setThreshold           (); ///< Set change image threshold (from right click menu)
     void setHillshadeParams     (); ///< Set the azimuth and elevation for hillshaded images.
-    void toggleHillshade        (); ///< Turn on/off hillshading per image (from right click menu)
+    void toggleHillshadeImageRightClick(); ///< Turn on/off hillshading on right-click on image
+    void toggleHillshadeFromImageList(); ///< Toggle hillshade by right-click on image list
     void refreshHillshade       (); ///< We modified m_hillshade_mode. Update the display.
     void bringImageOnTopSlot    (); ///< Show this image on top of other images.
     void pushImageToBottomSlot  (); ///< Show all other images on top of this
@@ -251,7 +253,7 @@ public slots:
     const int m_image_id; ///< An ID number assigned to this widget when it is created
     std::string & m_output_prefix; // alias
     std::vector<std::string> m_image_files;
-    std::vector<bool> m_hillshade_mode;
+    std::vector<DisplayType> m_hillshade_mode;
     double m_hillshade_azimuth, m_hillshade_elevation;
 
     /// Structure to keep track of all interest point matches.
@@ -334,11 +336,11 @@ public slots:
     QAction* m_addMatchPoint;
     QAction* m_deleteMatchPoint;
     QAction* m_moveMatchPoint;
-    QAction* m_toggleHillshade;
+    QAction* m_toggleHillshadeImageRightClick;
     QAction* m_setThreshold;
     QAction* m_setHillshadeParams;
     QAction* m_saveScreenshot;
-    QAction* m_toggleHillshadeFromTable;
+    QAction* m_toggleHillshadeFromImageList;
     QAction* m_zoomToImageFromTable;
     QAction* m_bringImageOnTopFromTable;
     QAction* m_pushImageToBottomFromTable;

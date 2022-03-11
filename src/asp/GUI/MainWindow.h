@@ -86,7 +86,6 @@ namespace vw { namespace gui {
     void setPolyColor               ();
     void setLineWidth               ();
     void viewThreshImages           ();
-    void viewUnthreshImages         ();
     void contourImages              ();
     void saveVectorLayer            ();
     void viewHillshadedImages       ();
@@ -154,7 +153,6 @@ namespace vw { namespace gui {
     QAction *m_viewThreshImages_action;
     QAction *m_contourImages_action;
     QAction *m_saveVectorLayer_action;
-    QAction *m_viewUnthreshImages_action;
     QAction *m_zoomAllToSameRegion_action;
     QAction *m_viewNextImage_action;
     QAction *m_viewPrevImage_action;
@@ -174,12 +172,14 @@ namespace vw { namespace gui {
     ViewType m_view_type,
              m_view_type_old;
     int      m_grid_cols, m_grid_cols_old;
-    bool     m_use_georef, m_hillshade, m_view_matches, m_delete_temporary_files_on_exit;
+    bool     m_use_georef, m_view_thresholded,
+      m_view_matches, m_delete_temporary_files_on_exit;
     bool     m_allowMultipleSelections;
     int      m_argc;
     char **  m_argv;
     bool     m_matches_exist;
-    std::vector<bool> m_hillshade_vec;
+    DisplayType m_display_type;
+    std::vector<DisplayType> m_hillshade_vec;
     
     // Any vector of size equal to number of images must be adjusted when the function
     // deleteImageFromWidget() is invoked. That includes m_image_files and m_matches.
