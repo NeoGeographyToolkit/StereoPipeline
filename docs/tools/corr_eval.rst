@@ -17,11 +17,12 @@ desired metric.
 
 Several quality metrics are supported.
 
-- Normalized cross-correlation (NCC). For each left image pixel find the
-  normalized cross-correlation between the patch of dimensions given by
-  the kernel size around that pixel and corresponding patch in the
-  right image as determined by the disparity at that pixel. A higher
-  value means a more reliable disparity. 
+- Normalized cross-correlation (NCC). For each left aligned image
+  pixel find the normalized cross-correlation between the patch of
+  dimensions given by the kernel size around that pixel and
+  corresponding patch in the right aligned image, as determined by the
+  disparity at that pixel. A higher value means a more reliable
+  disparity.
 
   Since the disparity is floating-point, bilinear interpolation is
   used in the right image. Pixels with nodata values and out-of-range
@@ -50,17 +51,17 @@ Command-line options for corr_eval:
 
 --metric <(*string*) (default: ncc)>
     The metric to use to evaluate the quality of correlation. Options:
-    ncc, stddev.
+    ``ncc``, ``stddev``.
 
 --prefilter-mode arg <(*integer*) (default: 0)>
-    Pre-filter mode. This is the same logic as used in stereo preprocessing
-    (:numref:`stereodefault`) with the ``asp_bm`` method. Options:
-    0 (none), 1 (subtracted mean), 2 (LoG).
+    Pre-filter mode. This is the same prefilter as used in stereo
+    preprocessing (:numref:`stereodefault`) with the ``asp_bm``
+    method. Options: 0 (none), 1 (subtracted mean), 2 (LoG).
 
 --prefilter-kernel-width arg (*float*) (default = 1.5)
     This defines the diameter of the Gaussian convolution kernel used
     for the pre-filtering modes 1 and 2 above. A value of 1.5 works
-    well for LoG and 25-30 works well for the subtracted mean.
+    well for LoG and 25 - 30 works well for the subtracted mean.
 
 -h, --help
     Display the help message.

@@ -245,20 +245,20 @@ stereo-algorithm (*string*) (default = "asp_bm")
     description.
 
 prefilter-mode (= 0,1,2) (default = 2)
-    This selects the pre-processing filter to be used to prepare
-    images before they are fed to the initialization stage of the
-    pipeline. Used only with the ``asp_bm`` algorithm.
+    Filter used to prepare images before they are passed to the
+    initialization stage of the pipeline. Used only with the
+    ``asp_bm`` algorithm.
 
     0 - None
 
     1 - Subtracted mean
-       This takes a preferably large Gaussian kernel and subtracts its
+       Takes a preferably large Gaussian kernel and subtracts its
        value from the input image. This effectively reduces low frequency
        content in the image. The result is correlation that is immune to
        translations in image intensity.
 
     2 - LoG filter
-       Takes the Laplacian of Gaussian of the image, This provides some
+       Takes the Laplacian of Gaussian of the image. This provides some
        immunity to differences in lighting conditions between a pair of
        images by isolating and matching on blob features in the image.
 
@@ -270,9 +270,9 @@ prefilter-mode (= 0,1,2) (default = 2)
    preprocessing provides good immunity to variations in lighting
    conditions and is usually the recommended choice.
 
-prefilter-kernel-width (*float*) (default = 1.4)
-    This defines the diameter of the Gaussian convolution kernel used
-    for the preprocessing modes 1 and 2 above. A value of 1.4 works
+prefilter-kernel-width (*float*) (default = 1.5)
+    The diameter of the Gaussian convolution kernel used
+    for the preprocessing modes 1 and 2 above. A value of 1.5 works
     well for LoG and 25-30 works well for Subtracted Mean. Used
     only with the ``asp_bm`` algorithm, with ``--prefilter-mode`` 1
     and 2.

@@ -29,6 +29,10 @@ parallel_stereo:
   * Print in stereo_pprc the estimated convergence angle between rays
     (for alignment methods affineepipolar, local_epipolar, and
     homography).
+  * Added the option --prev-run-prefix which makes parallel_stereo
+    start at the triangulation stage while using previous stages
+    from this run. The new run can have different cameras, bundle
+    adjustment prefix, or bathy planes (if applicable).
   * Added option --save-left-right-disparity-difference to save the
     discrepancy between left-to-right and right-to-left
     disparities, which may help with filtering unreliable
