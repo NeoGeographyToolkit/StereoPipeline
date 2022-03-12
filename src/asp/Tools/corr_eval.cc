@@ -19,25 +19,37 @@
 
 // Evaluate the quality of produced correlation using several metrics.
 
+#include <vw/Stereo/PreFilter.h>
+#include <vw/Stereo/CorrEval.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
-#include <vw/Stereo/CorrEval.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 struct Options : vw::cartography::GdalWriteOptions {
-  std::string left_image, right_image, disparity, output_image;
+  std::string left_image, right_image, disparity, output_prefix, metric;
   vw::Vector2i kernel_size;
+  int prefilter_mode;
+  float prefilter_kernel_width;
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
   
   po::options_description general_options("");
   general_options.add_options()
-    ("kernel-size", po::value(&opt.kernel_size)->default_value(vw::Vector2i(21,21),"21 21"),
-     "The dimensions of image patches. These must be positive odd numbers.");
+    ("kernel-size", po::value(&opt.kernel_size)->default_value(vw::Vector2i(21, 21),"21 21"),
+     "The dimensions of image patches. These must be positive odd numbers.")
+    ("metric", po::value(&opt.metric)->default_value("ncc"),
+     "The metric to use to evaluate the quality of correlation. Options: ncc, stddev.")
+    ("prefilter-mode", po::value(&opt.prefilter_mode)->default_value(0),
+     "Pre-filter mode. This is the same logic as used in stereo preprocessing with "
+     "the asp_bm method. Options: [0 (none), 1 (subtracted mean), 2 (LoG).")
+    ("prefilter-kernel-width", po::value(&opt.prefilter_kernel_width)->default_value(1.5),
+     "This defines the diameter of the Gaussian convolution kernel used "
+     "for the pre-filtering modes 1 and 2 above. A value of 1.5 works "
+     "well for LoG and 25-30 works well for the subtracted mean.");    
 
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
@@ -46,13 +58,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("left-image", po::value(&opt.left_image))
     ("right-image", po::value(&opt.right_image))
     ("disparity", po::value(&opt.disparity))
-    ("output-image", po::value(&opt.output_image));
-  
+    ("output-prefix", po::value(&opt.output_prefix));
+
   po::positional_options_description positional_desc;
   positional_desc.add("left-image", 1);
   positional_desc.add("right-image", 1);
   positional_desc.add("disparity", 1);
-  positional_desc.add("output-image", 1);
+  positional_desc.add("output-prefix", 1);
   
   std::string usage("[options] <L.tif> <R.tif> <Disp.tif> <output.tif>");
   bool allow_unregistered = false;
@@ -63,11 +75,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                              allow_unregistered, unregistered);
 
   if (!vm.count("left-image")  || !vm.count("right-image") ||
-      !vm.count("disparity")   || !vm.count("output-image"))
+      !vm.count("disparity")   || !vm.count("output-prefix"))
     vw::vw_throw(vw::ArgumentErr() << "Not all required arguments were specified.\n\n"
                  << usage << general_options);
+
+  if (opt.metric != "ncc" && opt.metric != "stddev") 
+    vw::vw_throw(vw::ArgumentErr() << "Invalid value provided for --metric.\n\n"
+                 << usage << general_options);
   
-  vw::create_out_dir(opt.output_image);
+  vw::create_out_dir(opt.output_prefix);
 }
 
 int main(int argc, char *argv[]) {
@@ -96,15 +112,28 @@ int main(int argc, char *argv[]) {
     opt.raster_tile_size = Vector2i(asp::ASPGlobalOptions::corr_tile_size(),
                                     asp::ASPGlobalOptions::corr_tile_size());
 
+    ImageViewRef<PixelMask<float>> masked_left  = create_mask(left, left_nodata);
+    ImageViewRef<PixelMask<float>> masked_right = create_mask(right, right_nodata);
+    
+    if (opt.prefilter_mode > 0) {
+      masked_left = vw::stereo::prefilter_image(masked_left,
+                                                vw::stereo::PrefilterModeType(opt.prefilter_mode),
+                                                opt.prefilter_kernel_width);
+      masked_right = vw::stereo::prefilter_image(masked_right,
+                                                vw::stereo::PrefilterModeType(opt.prefilter_mode),
+                                                opt.prefilter_kernel_width);
+    }
+    
     vw::cartography::GeoReference left_georef;
-    bool has_left_georef = read_georeference(left_georef,  opt.left_image);
+    bool has_left_georef = read_georeference(left_georef, opt.left_image);
     bool has_nodata      = true;
-    vw_out() << "Writing: " << opt.output_image << "\n";
+    std::string output_image = opt.output_prefix + "-" + opt.metric + ".tif";
+    vw_out() << "Writing: " << output_image << "\n";
     vw::cartography::block_write_gdal_image
-      (opt.output_image,
-       apply_mask(vw::stereo::corr_eval(create_mask(left, left_nodata),
-                                        create_mask(right, right_nodata),
-                                        disp, opt.kernel_size), left_nodata),
+      (output_image,
+       apply_mask(vw::stereo::corr_eval(masked_left, masked_right,
+                                        disp, opt.kernel_size, opt.metric),
+                  left_nodata),
        has_left_georef, left_georef,
        has_nodata, left_nodata, opt,
        TerminalProgressCallback("asp", "\t--> Correlation quality:"));
