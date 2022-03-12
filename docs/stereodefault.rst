@@ -245,9 +245,8 @@ stereo-algorithm (*string*) (default = "asp_bm")
     description.
 
 prefilter-mode (= 0,1,2) (default = 2)
-    Filter used to prepare images before they are passed to the
-    initialization stage of the pipeline. Used only with the
-    ``asp_bm`` algorithm.
+    Filter used to prepare images before performing correlation. Used
+    only with the ``asp_bm`` algorithm. Options:
 
     0 - None
 
@@ -272,10 +271,8 @@ prefilter-mode (= 0,1,2) (default = 2)
 
 prefilter-kernel-width (*float*) (default = 1.5)
     The diameter of the Gaussian convolution kernel used
-    for the preprocessing modes 1 and 2 above. A value of 1.5 works
-    well for LoG and 25-30 works well for Subtracted Mean. Used
-    only with the ``asp_bm`` algorithm, with ``--prefilter-mode`` 1
-    and 2.
+    for the prefilter modes 1 and 2 above. A value of 1.5 works
+    well for ``LoG`` and 25 - 30 works well for ``subtracted mean``.
 
 corr-seed-mode (=0,1,2,3)
     (default = 1)
