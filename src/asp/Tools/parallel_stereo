@@ -787,7 +787,7 @@ if __name__ == '__main__':
     settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
 
     # See if to resume at triangulation
-    if opt.tile_id is None and opt.prev_run_prefix !="":
+    if opt.tile_id is None and opt.prev_run_prefix is not None:
         print("Starting at the triangulation stage while reusing a previous run.")
         opt.entry_point = Step.tri
         if opt.stop_point <= Step.tri:
