@@ -186,7 +186,8 @@ Command-line options
     Start at the triangulation stage while reusing the data from this 
     prefix. The new run can use different cameras, bundle adjustment
     prefix, or bathy planes (if applicable). Do not change crop
-    windows as that would invalidate the run.
+    windows as that would invalidate the run. See
+    :numref:`bathy_reuse_run` for an example.
 
 --verbose
     Display the commands being executed.
