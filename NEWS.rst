@@ -40,7 +40,6 @@ parallel_stereo:
   * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
     and SPOT5 was not enabled correctly.
   * Bugfix for ASTER cameras; this was fully broken.
-    --alignment-method local_epipolar, which blends the local results.
   * ASP's SGM and MGM algorithms will always use the cross-check for
     disparity by default, to improve the quality, even if that takes
     more time. It can be turned off with --xcorr-threshold -1.
@@ -48,6 +47,7 @@ parallel_stereo:
     turned off by setting the percentage in --outlier-removal-params
     to 100.
   * Removed the --local-homography option, as it is superseded by 
+    --alignment-method local_epipolar, which blends the local results.
   * The stereo tool is deprecated, and can be used only with the
     ASP_BM classical block-matching algorithm when invoked without
     local epipolar alignment. Use parallel_stereo instead. 

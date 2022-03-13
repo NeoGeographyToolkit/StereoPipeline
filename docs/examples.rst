@@ -2966,82 +2966,47 @@ How to reuse most of a run
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Stereo can take a long time, and the results can have a large size on
-disk. It is possible to reuse most of such a run if camera adjustments
-(``--bundle-adjust-prefix``) get added, removed, or change, or if the
+disk. It is possible to reuse most of such a run, using the option
+``--prev-run-prefix``, if cameras or camera adjustments (option
+``--bundle-adjust-prefix``) get added, removed, or change, or if the
 water surface (``--bathy-plane``) or index of refraction
-change. However, reuse is not possible if desired to add or change
-the water-land masks (``--left-bathy-mask`` and
-``--right-bathy-mask``), but it is possible to stop using these (so if
-no longer doing bathymetry).
-
-One must not use ``--left-image-crop-win`` and
-``--right-image-crop-win``, as that may invalidate the intermediate
-files we want to reuse. The approach outlined below will not work with
-pinhole cameras and epipolar alignment, or with mapprojected
-images. (Note that with Digital Globe non-mapprojected images the
-alignment method is ``affineepipolar``, ``homography``, or
-``local_epipolar``, so the case of epipolar alignment does not occur.)
+change. However, reuse is not possible if it is desired to add or change the
+water-land masks (``--left-bathy-mask`` and ``--right-bathy-mask``),
+but it is possible to stop using these (so if no longer doing
+bathymetry). One must not change ``--left-image-crop-win`` and
+``--right-image-crop-win`` in the meantime, if used, as that may
+invalidate the intermediate files we want to reuse.
 
 As an example, consider the run as earlier in this document,
 using land-water masks::
 
-    parallel_stereo -t dg left.tif right.tif left.xml right.xml       \
-    --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
-    --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
-    run_bathy/run 
+    parallel_stereo -t dg left.tif right.tif left.xml right.xml         \
+      --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
+      --refraction-index 1.34 --bathy-plane bathy_plane.txt             \
+      run_bathy/run 
  
-If a second run is desired, with the same land-water masks (or no
-masks), one can get away by simply re-running the triangulation
-component of ``parallel_stereo`` (:numref:`entrypoints`), while
-cloning some results of previous steps via symbolic links. That goes
-as follows::
+A second run, with output prefix ``run_bathy_v2/run`` can be started
+directly at the triangulation stage while reusing the earlier stages
+from the other run as::
 
-    currDir=run_bathy 
-    newDir=run_v2
-    mkdir -p $newDir
-    for f in $newDir/*; do
-      rm -fv $f # ensure the directory is empty
-    done
-    for f in L.tif R.tif F.tif .exr .match stats.tif \
-      Mask.tif bathy_mask.tif; do 
-      for g in $(ls $currDir/*$f); do
-        ln -s $(pwd)/$g $newDir
-      done
-    done
-    touch $currDir/* $newDir/*
-
-Note that above we do not make symbolic links to all files, in
-particular, we exclude any PC and DEM files that we want to
-recreate. This can be a fragile operation, and some examination
-of what is produced in the new directory is necessary. One may also
-cross-check with :numref:`outputfiles` for what files stereo needs.
-Normally at the triangulation stage only ``F.tif`` is needed and some
-results from preprocessing.
-
-Since the new files are symbolic links, the data in the existing run
-should not be removed.
-
-The ``touch`` command was used to update the modification times of all
-the files, so that the tools assume them to be "fresh" enough to not need
-recreating.
-
-Then, a new run can go as::
-
-    parallel_stereo -t dg left.tif right.tif left.xml right.xml       \
-    --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
-    --refraction-index 1.34 --bathy-plane bathy_plane_v2.txt          \
-    --bundle-adjust-prefix ba_v2/run                                  \
-    $newDir/run --entry-point 5
-
-Then, just triangulation gets redone, which is ``--entry-point 5``.
+    parallel_stereo -t dg left.tif right.tif left.xml right.xml         \
+      --left-bathy-mask left_mask.tif --right-bathy-mask right_mask.tif \
+      --refraction-index 1.34 --bathy-plane bathy_plane_v2.txt          \
+      --bundle-adjust-prefix ba_v2/run run_bathy_v2/run                 \
+      --prev-run-prefix run_bathy/run
 
 The explanation behind the shortcut employed above is that the precise
 cameras and the bathy info are fully used only at the triangulation
-stage. The preprocessing step (step 0), mostly does alignment, for
-which some general knowledge of the cameras and bathy information is
-sufficient. But the alignment of land-water masks happens at the
-preprocessing stage, and that is why one cannot change these at the
-triangulation step.
+stage. That because the preprocessing step (step 0), mostly does
+alignment, for which some general knowledge of the cameras and bathy
+information is sufficient, and other steps, before triangulation, work
+primarily on images. This option works by making symbolic links 
+to files created at previous stages of stereo which are needed at 
+triangulation.
+
+Run reuse is not possible if bathy masks are added or changed, because
+the alignment of land-water masks happens at the preprocessing stage,
+and that is why one cannot change these at the triangulation step.
 
 .. _bathy_map:
 

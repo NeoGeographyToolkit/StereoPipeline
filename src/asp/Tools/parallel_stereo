@@ -111,6 +111,30 @@ def produce_tiles(settings, tile_w, tile_h):
 
     return tiles
 
+def sym_link_prev_run(prev_run_prefix, out_prefix):
+    '''Sym link files from a previous run up to triangulation to the
+    output directory of this run. We must not symlink directories from
+    the previous run as then the new results will be written there.
+    Do not sym link the previous point cloud, DEM, etc., also not
+    VRT files as those will not be valid.
+    '''
+    
+    curr_dir = os.path.dirname(out_prefix)
+    mkdir_p(curr_dir)
+    
+    for ext in ['L.tif', 'R.tif', 'L-cropped.tif', 'R-cropped.tif',
+                'L_sub.tif', 'R_sub.tif', 'Mask_sub.tif',
+                '.vwip', '.exr', '.match', 'GoodPixelMap.tif',
+                'F.tif', 'stats.tif', 'Mask.tif', 'bathy_mask.tif']:
+        files = glob.glob(prev_run_prefix + '*' + ext)
+        for f in files:
+            if os.path.isdir(f): continue # Skip folders
+            dst_f = f[len(prev_run_prefix):] # strip the prefix
+            dst_f = out_prefix + dst_f
+            rel_src = os.path.relpath(f, curr_dir)
+            # TODO(oalexan1): Should exiting files be wiped? Or an error thrown?
+            if os.path.lexists(dst_f): continue
+            os.symlink(rel_src, dst_f)
 
 def create_subproject_dirs(settings, **kw):
 
@@ -132,7 +156,7 @@ def create_subproject_dirs(settings, **kw):
     
     print ("Writing: " + dirList)
     fout = open(dirList, 'w')
-    
+
     for tile in produce_tiles(settings, opt.job_size_w, opt.job_size_h):
         subproject_dir = tile_dir(out_prefix, tile)
         tile_prefix    = subproject_dir + "/" + tile.name_str()
@@ -157,7 +181,7 @@ def create_subproject_dirs(settings, **kw):
                 os.symlink(rel_src, dst_f)
 
     fout.close()
-    
+
 def rename_files(settings, postfix_in, postfix_out, **kw):
 
     # Rename tile_dir/file_in.tif to tile_dir/file_out.tif
@@ -669,6 +693,8 @@ if __name__ == '__main__':
                    help='Start at the correlation stage and skip recomputing the valid low ' + \
                    'and full-res disparities for that stage. Do not change ' + \
                    '--left-image-crop-win, etc, when running this.')
+    p.add_argument('--prev-run-prefix',           dest='prev_run_prefix', default=None,
+                   help='Start at the triangulation stage while reusing the data from this prefix. The new run can use different cameras, bundle adjustment prefix, or bathy planes (if applicable). Do not change crop windows as that would invalidate the run.')
     p.add_argument('-v', '--version',        dest='version', default=False,
                    action='store_true', help='Display the version of software.')
     p.add_argument('-s', '--stereo-file',    dest='stereo_file', default='./stereo.default',
@@ -714,7 +740,7 @@ if __name__ == '__main__':
         if opt.stop_point <= Step.corr:
             raise Exception('Cannot resume at correlation if --stop-point ' + \
                             'is set to stop before that.')
-        
+
     if opt.threads_single is None:
         opt.threads_single = get_num_cpus()
 
@@ -736,7 +762,7 @@ if __name__ == '__main__':
         # 1. Set the work directory
         opt.work_dir = os.getcwd()
         # 2. Set the ISIS settings if any
-        if 'ISISROOT'  in os.environ: opt.isisroot  = os.environ['ISISROOT']
+        if 'ISISROOT' in os.environ: opt.isisroot = os.environ['ISISROOT']
         if 'ISISDATA' in os.environ: opt.isisdata = os.environ['ISISDATA']
         # 3. Fix for Pleiades, copy the nodes_list to current directory
         if opt.nodes_list is not None:
@@ -755,12 +781,27 @@ if __name__ == '__main__':
         if opt.isisroot  is not None: os.environ['ISISROOT' ] = opt.isisroot
         if opt.isisdata is not None: os.environ['ISISDATA'] = opt.isisdata
 
-
     # This command needs to be run after we switch to the work directory,
     # hence no earlier than this point.
     sep = ","
     settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
+
+    # See if to resume at triangulation
+    if opt.tile_id is None and opt.prev_run_prefix !="":
+        print("Starting at the triangulation stage while reusing a previous run.")
+        opt.entry_point = Step.tri
+        if opt.stop_point <= Step.tri:
+            raise Exception('Cannot resume at triangulatoin if --stop-point ' + \
+                            'is set to stop before that.')
+        out_prefix = settings['out_prefix'][0]
+        sym_link_prev_run(opt.prev_run_prefix, out_prefix)
+
+        # Now that we have data, update the settings value
+        settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
     
+        # Create the directory tree for this run
+        create_subproject_dirs(settings)
+        
     # Check if we are doing SGM instead of block match processing
     alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
     
@@ -911,7 +952,7 @@ if __name__ == '__main__':
                 create_symlinks_for_multiview(settings, opt)
 
         # Parent script logic for each step
-        
+
         # Preprocessing
         step = Step.pprc
         if (opt.entry_point <= step):
@@ -924,7 +965,7 @@ if __name__ == '__main__':
             settings = run_and_parse_output("stereo_parse", args, sep,
                                             opt.verbose)
 
-        # Correlation.
+        # Correlation
         step = Step.corr
         if (opt.entry_point <= step):
             if (opt.stop_point <= step):
@@ -976,10 +1017,10 @@ if __name__ == '__main__':
             if (opt.entry_point <= step):
                 if (opt.stop_point <= step):
                     sys.exit()
-            if using_padded_tiles:
-                build_vrt(settings, georef, "-L-R-disp-diff.tif", "-L-R-disp-diff-blend.tif")
-            else:
-                build_vrt(settings, georef, "-L-R-disp-diff.tif", "-L-R-disp-diff.tif")
+                if using_padded_tiles:
+                    build_vrt(settings, georef, "-L-R-disp-diff.tif", "-L-R-disp-diff-blend.tif")
+                else:
+                    build_vrt(settings, georef, "-L-R-disp-diff.tif", "-L-R-disp-diff.tif")
 
         # Refinement
         step = Step.rfne

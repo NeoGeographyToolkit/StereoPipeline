@@ -103,8 +103,9 @@ Step 5 (Triangulation)
 
 It is important to note that since ``parallel_stereo`` can use a lot
 of computational and storage resources, all the intermediate data up
-to but not including triangulation can often be reused, if only the camera
-adjustments change (:numref:`ba_pc_align`). Such reuse is discussed in
+to but not including triangulation can often be reused, if only the
+cameras or camera adjustments change (for example, if the cameras got
+moved, per :numref:`ba_pc_align`). Such reuse is discussed in
 :numref:`bathy_reuse_run` (in the context of stereo with shallow
 water).
 
@@ -180,6 +181,12 @@ Command-line options
    Start at the correlation stage and skip recomputing the valid low
    and full-res disparities for that stage. Do not change
    ``--left-image-crop-win``, etc, when running this.
+
+--prev-run-prefix
+    Start at the triangulation stage while reusing the data from this 
+    prefix. The new run can use different cameras, bundle adjustment
+    prefix, or bathy planes (if applicable). Do not change crop
+    windows as that would invalidate the run.
 
 --verbose
     Display the commands being executed.
