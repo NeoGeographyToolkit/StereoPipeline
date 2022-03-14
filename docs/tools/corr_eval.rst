@@ -45,23 +45,23 @@ This will create ``run/run-ncc.tif``.
 
 Command-line options for corr_eval:
 
---kernel-size <(*integer integer*) (default: 21 21)>
+--kernel-size <integer integer (default: 21 21)>
     The dimensions of image patches. These must be positive odd
     numbers.
 
---metric <(*string*) (default: ncc)>
+--metric <string (default: ncc)>
     The metric to use to evaluate the quality of correlation. Options:
     ``ncc``, ``stddev``.
 
---prefilter-mode arg <(*integer*) (default: 0)>
-    Pre-filter mode. This is the same prefilter as used in stereo
-    preprocessing (:numref:`stereodefault`) with the ``asp_bm``
+--prefilter-mode <integer (default: 0)>
+    Prefilter mode. This is the same prefilter as in stereo
+    correlation (:numref:`stereodefault`) with the ``asp_bm``
     method. Options: 0 (none), 1 (subtracted mean), 2 (LoG).
 
---prefilter-kernel-width arg (*float*) (default = 1.5)
-    This defines the diameter of the Gaussian convolution kernel used
-    for the pre-filtering modes 1 and 2 above. A value of 1.5 works
-    well for LoG and 25 - 30 works well for the subtracted mean.
+--prefilter-kernel-width <float (default: 1.5)>
+    The diameter of the Gaussian convolution kernel for prefilter
+    modes 1 and 2. A value of 1.5 works well for ``LoG``, and 25 - 30 is 
+    suggested for ``subtracted mean``.
 
 -h, --help
     Display the help message.

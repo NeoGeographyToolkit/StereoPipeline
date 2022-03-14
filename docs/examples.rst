@@ -3004,6 +3004,11 @@ primarily on images. This option works by making symbolic links
 to files created at previous stages of stereo which are needed at 
 triangulation.
 
+Note that if the cameras changed, the bathy planes will need to be
+recomputed first, using the updated cameras. The ``bathy_plane_calc``
+tool which is used for that can take into account the updated cameras
+via the ``--bundle-adjust-prefix`` option passed to it. 
+
 Run reuse is not possible if bathy masks are added or changed, because
 the alignment of land-water masks happens at the preprocessing stage,
 and that is why one cannot change these at the triangulation step.

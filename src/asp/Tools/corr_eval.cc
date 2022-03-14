@@ -44,12 +44,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("metric", po::value(&opt.metric)->default_value("ncc"),
      "The metric to use to evaluate the quality of correlation. Options: ncc, stddev.")
     ("prefilter-mode", po::value(&opt.prefilter_mode)->default_value(0),
-     "Pre-filter mode. This is the same prefilter as used in stereo preprocessing with "
-     "the asp_bm method. Options: [0 (none), 1 (subtracted mean), 2 (LoG).")
+     "Prefilter mode. This is the same prefilter as in stereo correlation with "
+     "the asp_bm method. Options: 0 (none), 1 (subtracted mean), 2 (LoG).")
     ("prefilter-kernel-width", po::value(&opt.prefilter_kernel_width)->default_value(1.5),
-     "This defines the diameter of the Gaussian convolution kernel used "
-     "for the pre-filtering modes 1 and 2 above. A value of 1.5 works "
-     "well for LoG and 25-30 works well for the subtracted mean.");    
+     "The diameter of the Gaussian convolution kernel "
+     "for prefilter modes 1 and 2. A value of 1.5 works "
+     "well for LoG and 25-30 is suggested for the subtracted mean.");    
 
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
