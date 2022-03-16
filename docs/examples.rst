@@ -1214,15 +1214,23 @@ ASTER
 -----
 
 In this example we will describe how to process ASTER Level 1A VNIR
-images. The data can be obtained for free from
-https://search.earthdata.nasa.gov/search.
+images. A ready-made ASTER example having the input images and
+cameras, ASP outputs, and instructions for how to run it, is available
+at:
 
-Select a region on the map, search for AST_L1A, and choose ``ASTER L1A
-Reconstructed Unprocessed Instrument Data V003``. (The same interface
-can be used to obtain pre-existing ASTER DEMs.) If too many results
-are shown, narrow down the choices by using a range in time or
-deselecting unwanted items manually. Examining the data thumbnails is
-helpful, to exclude those with clouds, etc. Then click to download.
+    https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases
+
+ASTER satellite images are freely available from: 
+
+  https://search.earthdata.nasa.gov/search.
+
+When visiting that page, select a region on the map, search for
+AST_L1A, and choose ``ASTER L1A Reconstructed Unprocessed Instrument
+Data V003``. (The same interface can be used to obtain pre-existing
+ASTER DEMs.) If too many results are shown, narrow down the choices by
+using a range in time or deselecting unwanted items
+manually. Examining the data thumbnails is helpful, to exclude those
+with clouds, etc. Then click to download.
 
 There are two important things to keep in mind. First, at the very
 last step, when finalizing the order options, choose GeoTIFF as the
@@ -1426,33 +1434,24 @@ length is given as 3.6 m and the pixel pitch is
 
 .. math:: 3.6/6.5 \times 10^{-6} = 553846.153846.
 
-We will fetch an SRTM DEM of the area, which will be used as a reference
-for registration, from location:
+Next, a reference DEM needs to be found. Recently we recommend getting
+a Copernicus 30 m DEM from:
 
-::
+    https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3            
 
-     https://e4ftl01.cr.usgs.gov/provisional/MEaSUREs/NASADEM/NorthAmerica/hgt_merge/n39w107.hgt.zip
+In this example we will however fetch an SRTM DEM of the area, which
+will be used as a reference for registration, from:
 
-After unzipping it, we clip it to the area of interest:
+     https://portal.opentopography.org/raster?opentopoID=OTSRTM.082016.4326.1
 
-::
+It is good to be a bit generous when selecting the extent of the reference DEM.
+We will rename the downloaded DEM to ``ref_dem.tif``. 
 
-     gdal_translate -projwin -106.16791 39.51208 -106.00347 39.38958 \
-       n39w107.hgt ref_dem_clipped.tif
-
-It is good to be a bit generous with clipping, so that the output DEM
-goes a few km or more beyond the region of interest. If the region of
-interest is not fully covered by an SRTM tile, a neighboring one can be
-downloaded as well. They can be merged with ``dem_mosaic`` and then
-cropped as before.
-
-It appears that SRTM stores heights above the geoid, rather than above
-the datum. Hence it needs to be adjusted, as follows::
-
-     dem_geoid --reverse-adjustment ref_dem_clipped.tif -o run/run 
-     mv run/run-adj.tif ref_dem.tif
-
-This may apply up to 100 meters of vertical adjustment.
+It is important to note that SRTM DEMs can be relative to the WGS84
+ellipsoidal vertical datum, or relative to the EGM96 geoid. In
+the latter case, ``dem_geoid`` (:numref:`dem_geoid`) needs to be used
+to first convert it to be relative to WGS84. This may apply up to 100
+meters of vertical adjustment.
 
 Using the ``cam_gen`` tool (:numref:`cam_gen`) bundled with ASP, we
 create an initial camera model and a GCP file (:numref:`bagcp`) for
