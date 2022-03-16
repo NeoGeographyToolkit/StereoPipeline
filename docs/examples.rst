@@ -1215,14 +1215,18 @@ ASTER
 
 In this example we will describe how to process ASTER Level 1A VNIR
 images. A ready-made ASTER example having the input images and
-cameras, ASP outputs, and instructions for how to run it, is available
+cameras, ASP outputs, and instructions for how to run it, can be found
 at:
 
     https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases
 
+A different worked-out example with illustrations:
+
+    https://github.com/uw-cryo/asp-binder-demo/blob/master/example-aster_on_pangeo_binder_draft.ipynb
+ 
 ASTER satellite images are freely available from: 
 
-  https://search.earthdata.nasa.gov/search.
+  https://search.earthdata.nasa.gov/search
 
 When visiting that page, select a region on the map, search for
 AST_L1A, and choose ``ASTER L1A Reconstructed Unprocessed Instrument
