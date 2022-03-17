@@ -160,7 +160,7 @@ def writeSingleTile(options):
     if options.noGeoHeaderInfo:
         cmd += ['--no-geoheader-info']
     cmd = cmd + extraArgs # Append other options
-    asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput, realTimeOut = True)
+    asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput, realTimeOutput = True)
 
     if options.convertTiles: # Make uint8 version of the tile for debugging
         tilePathU8 = os.path.splitext(tilePath)[0] + 'U8.tif'
