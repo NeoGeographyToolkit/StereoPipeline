@@ -42,8 +42,8 @@ parallel_stereo:
     clouds.
   * Added ready-made ASTER and LRO NAC examples with sample images,
   * commands, and outputs, all available for download. Contributions
-    of more examples is welcome. See
-    https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples
+    of more examples are welcome. See
+    https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples.
   * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
     and SPOT5 was not enabled correctly.
   * Bugfix for ASTER cameras; this was fully broken.
