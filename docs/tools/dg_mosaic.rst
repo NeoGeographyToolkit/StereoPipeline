@@ -4,19 +4,20 @@ dg_mosaic
 ---------
 
 This tool can be used when processing Digital Globe images
-(:numref:`dg_tutorial`). A Digital Globe satellite may
-take a picture, and then split it into several images and corresponding
-camera XML files. ``dg_mosaic`` will mosaic these images into a single
-file, and create the appropriate combined camera XML file.
+(:numref:`dg_tutorial`). Such an image product may be packaged
+as several sub-images and corresponding camera XML
+files. ``dg_mosaic`` will mosaic these sub-images into a single file, and
+create the appropriate combined camera XML file.
+
+The tool needs to be applied to the sub-images which form the left
+image, and then in the same way to obtain the right image. These can 
+then be passed to ``parallel_stereo`` (:numref:`parallel_stereo`).
 
 Digital Globe camera files contain, in addition to the original camera
 models, their RPC approximations (:numref:`rpc`).
 ``dg_mosaic`` outputs both types of combined models. The combined RPC
-model can be used to map-project the mosaicked images with the goal of
+model can be used to mapproject the mosaicked images with the goal of
 computing stereo from them (:numref:`mapproj-example`).
-
-The tool needs to be applied twice, for both the left and right image
-sets.
 
 ``dg_mosaic`` can also reduce the image resolution while creating the
 mosaics (with the camera files modified accordingly).
@@ -25,6 +26,22 @@ Some older (2009 or earlier) Digital Globe images may exhibit seams upon
 mosaicking due to inconsistent image and camera information. The
 ``--fix-seams`` switch can be used to rectify this problem. Its effect
 should be minimal if such inconsistencies are not present.
+
+Digital Globe images can be used as they are as well, but in that case
+each left sub-image needs to be paired up with one more more right
+sub-images, create individual DEMs, and then mosaic those into a
+single output DEM. Hence this program simplifies the data processing.
+
+Example::
+
+    dg_mosaic WV03_20160925183217*P1BS_R*C1-012844055010_01_P001.tif
+
+This will create ``012844055010_01_P001.r100.tif`` and
+``012844055010_01_P001.r100.xml``, where ``r.100`` stands for the full
+100% resolution.
+
+Care should be taken to not mosaic together PAN and multispectral
+images, which have ``P1BS`` and ``M1BS`` as part of their names.
 
 Command-line options for dg_mosaic:
 
@@ -41,6 +58,9 @@ Command-line options for dg_mosaic:
 
 --skip-rpc-gen
     Skip RPC model generation.
+
+--skip-tif-gen
+    Skip TIF file generation.
 
 --rpc-penalty-weight <float (default: 0.1)>
     The weight to use to penalize higher order RPC coefficients

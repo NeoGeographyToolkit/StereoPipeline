@@ -31,6 +31,8 @@ location on your filesystem::
 
     export PATH=${PATH}:/path/to/StereoPipeline/bin
 
+.. _planetary_images:
+
 Planetary images
 ~~~~~~~~~~~~~~~~
 
@@ -101,8 +103,9 @@ Using the packaged ASP tarball
    - bash: ``export PATH="</path/to/StereoPipeline>/bin:${PATH}"``
    - csh: ``setenv PATH "</path/to/StereoPipeline>/bin:${PATH}"``
 
-#. Try It Out: See :numref:`moc_tutorial` for an example.
-
+#. Try it out. See :numref:`lronac_csm` for a quick Lunar example
+   which does not require installing ISIS or it supporting data as above,
+   and :numref:`moc_tutorial` for an example using Mars images.
 
 Installing ASP and ISIS in the same conda environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

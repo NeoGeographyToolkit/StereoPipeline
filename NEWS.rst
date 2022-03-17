@@ -37,6 +37,13 @@ parallel_stereo:
     discrepancy between left-to-right and right-to-left
     disparities, which may help with filtering unreliable
     disparities.
+  * Interest point matching with mapprojected images now happens
+    at full resolution, which results in better results when there are
+    clouds.
+  * Added ready-made ASTER and LRO NAC examples with sample images,
+  * commands, and outputs, all available for download. Contributions
+    of more examples is welcome. See
+    https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples
   * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
     and SPOT5 was not enabled correctly.
   * Bugfix for ASTER cameras; this was fully broken.
@@ -46,6 +53,8 @@ parallel_stereo:
   * Filter outliers in low-resolution disparity D_sub.tif. Can be
     turned off by setting the percentage in --outlier-removal-params
     to 100.
+  * For Linux, in each tile's directory write the elapsed runtime and
+    memory usage to <tile prefix>-<prog name>-resource-usage.txt.
   * Removed the --local-homography option, as it is superseded by 
     --alignment-method local_epipolar, which blends the local results.
   * The stereo tool is deprecated, and can be used only with the
@@ -117,7 +126,7 @@ pc_align:
   * Bugfix with alignment methods point-to-point and
     similarity-point-to-point.
   *  Use RANSAC with --initial-transform-from-hillshading, for increased
-     robustnes to outliers. Replaced
+     robustness to outliers. Replaced
      --initial-transform-outlier-removal-params (based on percentiles)
      with --initial-transform-ransac-params.
 

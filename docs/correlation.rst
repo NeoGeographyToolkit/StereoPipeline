@@ -323,6 +323,11 @@ Also, if you are using an alignment option, you'll instead want to make
 those disparity measurements against the written L.tif and R.tif files
 (see :numref:`outputfiles`) instead of the original input files.
 
+If the search range produced automatically from the low-resolution
+disparity is too big, perhaps due to outliers, it can be tightened
+with the option ``corr-search-limit`` before continuing with
+full-resolution correlation (:numref:`stereodefault`).
+
 .. _subpixel:
 
 Sub-pixel refinement
@@ -515,9 +520,9 @@ of error came from camera model inadequacies.
 Corrections for certain sensors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-That satellites travel rather fast can result in inacuracies in
+That satellites travel rather fast can result in inaccuracies in
 estimation of the direction of propagation of rays traced from the
-cameras. Another source of inacuracies is the atmosphere (for Earth)
+cameras. Another source of inaccuracies is the atmosphere (for Earth)
 as it causes the rays to bend (:cite:`nugent1966velocity`).
 
 ASP corrects these for some linescan cameras, such as Digital Globe,
@@ -526,3 +531,145 @@ specifying ``--disable-correct-velocity-aberration`` and
 ``--disable-correct-atmospheric-refraction``, respectively, when
 invoking the stereo programs or bundle adjustment.
 
+
+.. _mapproj_with_cam2map:
+
+Stereo with images mapprojected using ISIS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is a continuation of the discussion at :numref:`moc_tutorial`. It
+describes how to mapproject the input images using the ISIS tool
+``cam2map`` and how to run stereo with the obtained
+images. Alternatively, the images can be mapprojected using ASP
+itself, per :numref:`mapproj-example`.
+
+Mapprojection can result in improved results for steep slopes, when
+the images are taken from very different perspectives, or if the
+curvature of the planet/body being imaged is non-negligible.
+
+We will now describe how this works, but we also provide the
+``cam2map4stereo.py`` program (:numref:`cam2map4stereo.py`) which does
+this automatically.
+
+The ISIS ``cam2map`` program will map-project these images::
+
+    ISIS> cam2map from=M0100115.cub to=M0100115.map.cub
+    ISIS> cam2map from=E0201461.cub to=E0201461.map.cub \
+            map=M0100115.map.cub matchmap=true
+
+At this stage we can run the stereo program with map-projected images:
+
+::
+
+     ISIS> parallel_stereo E0201461.map.cub M0100115.map.cub   \
+             --alignment-method none -s stereo.default.example \
+             results/output
+
+Here we have used ``alignment-method none`` since ``cam2map4stereo.py``
+brought the two images into the same perspective and using the same
+resolution. If you invoke ``cam2map`` independently on the two images,
+without ``matchmap=true``, their resolutions may differ, and using an
+alignment method rather than ``none`` to correct for that is still
+necessary.
+
+Now you may skip to chapter :numref:`nextsteps` which will discuss the
+``parallel_stereo`` program in more detail and the other tools in ASP.
+Or, you can continue reading below for more details on mapprojection.
+
+Advanced discussion of mapprojection
+------------------------------------
+
+Notice the order in which the images were run through ``cam2map``. The
+first projection with ``M0100115.cub`` produced a map-projected image
+centered on the center of that image. The projection of ``E0201461.cub``
+used the ``map=`` parameter to indicate that ``cam2map`` should use the
+same map projection parameters as those of ``M0100115.map.cub``
+(including center of projection, map extents, map scale, etc.) in
+creating the projected image. By map-projecting the image with the worse
+resolution first, and then matching to that, we ensure two things: (1)
+that the second image is summed or scaled down instead of being
+magnified up, and (2) that we are minimizing the file sizes to make
+processing in the Stereo Pipeline more efficient.
+
+Technically, the same end result could be achieved by using the
+``mocproc`` program alone, and using its ``map= M0100115.map.cub``
+option for the run of ``mocproc`` on ``E0201461.cub`` (it behaves
+identically to ``cam2map``). However, this would not allow for
+determining which of the two images had the worse resolution and
+extracting their minimum intersecting bounding box (see below).
+Furthermore, if you choose to conduct bundle adjustment (see
+:numref:`bundle_adjustment`) as a pre-processing step, you would
+do so between ``mocproc`` (as run above) and ``cam2map``.
+
+The above procedure is in the case of two images which cover similar
+real estate on the ground. If you have a pair of images where one image
+has a footprint on the ground that is much larger than the other, only
+the area that is common to both (the intersection of their areas) should
+be kept to perform correlation (since non-overlapping regions don't
+contribute to the stereo solution). 
+
+ASP normally has no problem identifying the shared area and it still
+run well. Below we describe, for the adventurous user, some
+fine-tuning of this procedure.
+
+If the image with the larger footprint size also happens to be the
+image with the better resolution (i.e. the image run through
+``cam2map`` second with the ``map=`` parameter), then the above
+``cam2map`` procedure with ``matchmap=true`` will take care of it just
+fine. Otherwise you'll need to figure out the latitude and longitude
+boundaries of the intersection boundary (with the ISIS ``camrange``
+program). Then use that smaller boundary as the arguments to the
+``MINLAT``, ``MAXLAT``, ``MINLON``, and ``MAXLON`` parameters of the
+first run of ``cam2map``. So in the above example, after ``mocproc``
+with ``Mapping= NO`` you'd do this:
+
+::
+
+     ISIS> camrange from=M0100115.cub
+              ... lots of camrange output omitted ...
+     Group = UniversalGroundRange
+       LatitudeType       = Planetocentric
+       LongitudeDirection = PositiveEast
+       LongitudeDomain    = 360
+       MinimumLatitude    = 34.079818835324
+       MaximumLatitude    = 34.436797628116
+       MinimumLongitude   = 141.50666207418
+       MaximumLongitude   = 141.62534719278
+     End_Group
+              ... more output of camrange omitted ...
+
+::
+
+     ISIS> camrange from=E0201461.cub
+              ... lots of camrange output omitted ...
+     Group = UniversalGroundRange
+       LatitudeType       = Planetocentric
+       LongitudeDirection = PositiveEast
+       LongitudeDomain    = 360
+       MinimumLatitude    = 34.103893080982
+       MaximumLatitude    = 34.547719435156
+       MinimumLongitude   = 141.48853937384
+       MaximumLongitude   = 141.62919740048
+     End_Group
+              ... more output of camrange omitted ...
+
+Now compare the boundaries of the two above and determine the
+intersection to use as the boundaries for ``cam2map``:
+
+::
+
+     ISIS> cam2map from=M0100115.cub to=M0100115.map.cub   \
+             DEFAULTRANGE=CAMERA MINLAT=34.10 MAXLAT=34.44 \
+             MINLON=141.50 MAXLON=141.63
+     ISIS> cam2map from=E0201461.cub to=E0201461.map.cub \
+             map=M0100115.map.cub matchmap=true
+
+You only have to do the boundaries explicitly for the first run of
+``cam2map``, because the second one uses the ``map=`` parameter to mimic
+the map-projection of the first. These two images are not radically
+different in spatial coverage, so this is not really necessary for these
+images, it is just an example.
+
+Again, unless you are doing something complicated, using the
+``cam2map4stereo.py`` (:numref:`cam2map4stereo.py`) will take care of
+all these steps for you.

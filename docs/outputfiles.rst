@@ -161,5 +161,13 @@ line argument to ``parallel_stereo``. Run ``stereo --help`` for details.
     It is stored alongside the output products as a record of the
     settings that were used for this particular stereo processing task.
 
+\*-log* - Each program writes in the output prefix location (or tile
+    location for ``parallel_stereo``) a log file containing the
+    command name, build information, and various messages output by
+    that program.
+
+\*-<program name>-resource-usage.txt - For Linux, write such a file for each
+    ``parallel_stereo`` tile, containing the elapsed time and memory
+    usage, as output by ``/usr/bin/time``.
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

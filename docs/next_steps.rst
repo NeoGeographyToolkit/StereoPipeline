@@ -83,17 +83,17 @@ Setting options in the ``stereo.default`` file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``parallel_stereo`` program can use a ``stereo.default`` file that
-contains settings that affect the stereo reconstruction process.
-Its contents can be altered for your needs; details are found in
+contains settings that affect the stereo reconstruction process.  Its
+contents can be altered for your needs; details are found in
 :numref:`stereodefault`. You may find it useful to save multiple
 versions of the ``stereo.default`` file for various processing
-needs. If you do this, be sure to specify the desired settings file
-by invoking ``parallel_stereo`` with the ``-s`` option. If this option is
-not given, the ``parallel_stereo`` program will search for a file named
-``stereo.default`` in the current working directory. If ``parallel_stereo``
-does not find ``stereo.default`` in the current working directory
-and no file was given with the ``-s`` option, ``parallel_stereo`` will assume
-default settings and continue.
+needs. If you do this, be sure to specify the desired settings file by
+invoking ``parallel_stereo`` with the ``-s`` option. If this option is
+not given, the ``parallel_stereo`` program will search for a file
+named ``stereo.default`` in the current working directory. If
+``parallel_stereo`` does not find ``stereo.default`` in the current
+working directory and no file was given with the ``-s`` option,
+``parallel_stereo`` will assume default settings and continue.
 
 An example ``stereo.default`` file is available in the top-level
 directory of ASP. The actual file has a lot of comments to show you
@@ -108,6 +108,10 @@ important values in that file.
     corr-kernel 21 21
     subpixel-mode 1
     subpixel-kernel 21 21
+
+Note that the ``corr-kernel`` option does not apply to the external
+algorithms.  Instead, each algorithm has its own options that need to
+be set (:numref:`stereo_algos`).
 
 All these options can be overridden from the command line, as described
 in :numref:`cmdline`.
@@ -192,11 +196,11 @@ opencv_bm
 Correlation parameters
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The second and third lines in ``stereo.default`` define what correlation
-metric *(normalized cross correlation)* we'll be using and how big the
-template or kernel size should be *(21 pixels square)*. A pixel in the
-left image will be matched to a pixel in the right image by comparing
-the windows of this size centered at them.
+The option ``corr-kernel`` in ``stereo.default`` define what
+correlation metric *(normalized cross correlation)* we'll be using and
+how big the template or kernel size should be *(21 pixels square)*. A
+pixel in the left image will be matched to a pixel in the right image
+by comparing the windows of this size centered at them.
 
 Making the kernel sizes smaller, such as 15 |times| 15, or even
 11 |times| 11, may improve results on more complex features, such as steep
@@ -212,18 +216,18 @@ algorithms, any options to them can be passed as part of the
 Subpixel refinement parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A highly critical parameter in ASP is the value of ``subpixel-mode``,
-on the fourth line. When set to 1, ``parallel_stereo`` performs parabola
-subpixel refinement, which is very fast but not very accurate. When
-set to 2, it produces very accurate results, but it is about an order
-of magnitude slower. When set to 3, the accuracy and speed will be
-somewhere in between the other methods. 
+A highly critical parameter in ASP is the value of
+``subpixel-mode``. When set to 1, ``parallel_stereo`` performs
+parabola subpixel refinement, which is very fast but not very
+accurate. When set to 2, it produces very accurate results, but it is
+about an order of magnitude slower. When set to 3, the accuracy and
+speed will be somewhere in between the other methods.
 
 For the algorithms not implemented in ASP itself, not specifying this
-field will use each algorithm's own subpixel mode.
+field will result in each algorithm using its own subpixel mode.
 
-The fifth line sets the kernel size to use during subpixel refinement
-*(also 21 pixels square)*.
+The option ``subpixel-kernel`` sets the kernel size to use during
+subpixel refinement *(also 21 pixels square)*.
 
 .. _search_range2:
 
@@ -237,7 +241,12 @@ option::
 
     corr-search -80 -2 20 2
 
-It is suggested that this setting be used rarely. For more details see
+The search range determined automatically can then be tightened using
+the option ``corr-search-limit`` (:numref:`stereodefault`) before
+full-image resolution happens.
+
+It is suggested that these settings be used only if the run-time is
+high or the inputs are difficult. For more details see
 :numref:`search_range`. The inner working of stereo correlation can be
 found in :numref:`correlation`.
 
@@ -274,16 +283,18 @@ For DigitalGlobe/Maxar images the cameras need to be specified separately:
     parallel_stereo left.tif right.tif left.xml right.xml \
       -s stereo.default results/output
 
-As stated in :numref:`moc_tutorial`, the string
-``results/output`` is arbitrary, and in this case we will simply make
-all outputs go to the ``results`` directory.
+The string ``results/output`` is arbitrary, and in this case we will
+simply make all outputs go to the ``results`` directory.
 
 When ``parallel_stereo`` finishes, it will have produced a point cloud image.
 :numref:`visualising` describes how to convert it to a digital
 elevation model (DEM) or other formats.
 
-The ``parallel_stereo`` command can also take multiple input images, performing
-multi-view stereo (:numref:`multiview`).
+The ``parallel_stereo`` command can also take multiple input images,
+performing multi-view stereo (:numref:`multiview`), though this
+approach is rather discouraged as better results can be obtained with
+bundle adjustment followed by pairwise stereo and merging of DEMs with
+``dem_mosaic``.
 
 Running the GUI frontend
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -389,8 +400,11 @@ Example for ISIS images
    areas close to the boundary. Things can be further improved with
    the ``asp_mgm`` algorithm (:numref:`running-stereo`).
 
-This example illustrates how to run stereo with mapprojected
-images for ISIS data. We start with LRO NAC Lunar images M1121224102LE
+This example illustrates how to run stereo with mapprojected images
+for ISIS data. For an alternative approach using ``cam2map``, see
+:numref:`mapproj_with_cam2map`.
+
+We start with LRO NAC Lunar images M1121224102LE
 and M1121209902LE from ASU's LRO NAC web site (https://wms.lroc.asu.edu/lroc/search), fetching them as::
 
     wget http://pds.lroc.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0015/DATA/ESM/2013111/NAC/M1121224102LE.IMG
@@ -486,11 +500,11 @@ In :numref:`mapproj-example` we show the effect of using
 mapprojected images on accuracy of the final DEM.
 
 It is important to note that we could have mapprojected the images
-using the ISIS tool ``cam2map``, as described in :numref:`aligning-images`.
-The current approach could be
-preferable since it allows us to choose the DEM to mapproject onto, and
-it is much faster, since ASP's ``mapproject`` uses multiple processes,
-while ``cam2map`` is restricted to one process and one thread.
+using the ISIS tool ``cam2map``, as described in
+:numref:`mapproj_with_cam2map`.  The current approach could be preferable
+since it allows us to choose the DEM to mapproject onto, and it is
+much faster, since ASP's ``mapproject`` uses multiple processes, while
+``cam2map`` is restricted to one process and one thread.
 
 .. _dg-mapproj:
 
@@ -767,7 +781,17 @@ search range can also be specified (:numref:`search_range2`).
 
 If a run failed partially during correlation, it can be resumed with
 the ``parallel_stereo`` option ``--resume-at-corr``
-(:numref:`parallel_stereo`).
+(:numref:`parallel_stereo`). A ran can be started at the triangulation
+stage after making changes to the cameras while reusing a previous run
+with the option ``--prev-run-prefix``.
+
+On Linux, the ``parallel_stereo`` program writes in each output tile
+location a file of the form::
+
+    <tile prefix>-<program name>-resource-usage.txt
+
+having the elapsed time and memory usage, as output by ``/usr/bin/time``.
+This can guide tuning of parameters to reduce resource usage.
 
 .. _visualising:
 

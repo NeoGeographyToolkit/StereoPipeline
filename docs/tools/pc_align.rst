@@ -5,13 +5,13 @@ pc_align
 
 This tool can be used to align two point clouds. The algorithms employed
 are one of the several flavors of Iterative Closest Point (ICP), based
-on the ``libpointmatcher`` library :cite:`Pomerleau12comp`
+on the ``libpointmatcher`` library :cite:`Pomerleau12comp`:
 
-https://github.com/ethz-asl/libpointmatcher
+    https://github.com/ethz-asl/libpointmatcher
 
-It also implements the Fast Global Registration algorithm
+It also implements the Fast Global Registration algorithm from:
 
-https://github.com/IntelVCL/FastGlobalRegistration
+    https://github.com/IntelVCL/FastGlobalRegistration
 
 In addition, it supports feature-based alignment (terrains are
 hillshaded and interest point matches are found among them), and

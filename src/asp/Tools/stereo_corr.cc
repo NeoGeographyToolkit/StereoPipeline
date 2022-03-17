@@ -631,8 +631,9 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt,
   double min_dx = BIG_NUM, max_dx = SMALL_NUM,
     min_dy = BIG_NUM, max_dy = SMALL_NUM;
   for (size_t i = 0; i < num_ip; i++) {
+    
     double diffX = i_scale * (matched_ip2[i].x - matched_ip1[i].x);
-    double diffY = i_scale * (matched_ip2[i].y - matched_ip1[i].y);      
+    double diffY = i_scale * (matched_ip2[i].y - matched_ip1[i].y);
     dx.push_back(diffX);
     dy.push_back(diffY);
     if (diffX < min_dx) min_dx = diffX;
@@ -752,7 +753,7 @@ void lowres_correlation(ASPGlobalOptions & opt) {
 
   // If the user specified a search range limit, apply it here.
   if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
-      (stereo_settings().search_range_limit.max() != Vector2i())  ) {     
+      (stereo_settings().search_range_limit.max() != Vector2i())) {     
     stereo_settings().search_range.crop(stereo_settings().search_range_limit);
     vw_out() << "\t--> Detected search range constrained to: "
              << stereo_settings().search_range << "\n";
@@ -923,9 +924,10 @@ public:
 
       // If the user specified a search range limit, apply it here.
       if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
-          (stereo_settings().search_range_limit.max() != Vector2i())  ) {     
+          (stereo_settings().search_range_limit.max() != Vector2i())) {     
         local_search_range.crop(stereo_settings().search_range_limit);
-        vw_out() << "\t--> Local search range constrained to: " << local_search_range << "\n";
+        vw_out() << "\t--> Local search range constrained to: "
+                 << local_search_range << "\n";
       }
 
       VW_OUT(DebugMessage, "stereo") << "SeededCorrelatorView("
@@ -1004,24 +1006,11 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
 
   // If the user specified a search range limit, apply it here.
   if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
-      (stereo_settings().search_range_limit.max() != Vector2i())  ) {     
+      (stereo_settings().search_range_limit.max() != Vector2i())) {     
     stereo_settings().search_range.crop(stereo_settings().search_range_limit);
     vw_out() << "\t--> Detected search range constrained to: "
              << stereo_settings().search_range << "\n";
   }
-
-  // Provide the user with some feedback of what we are actually going to use.
-  vw_out()   << "\t--------------------------------------------------\n";
-  vw_out()   << "\t   Kernel size:    " << stereo_settings().corr_kernel << std::endl;
-  if (stereo_settings().seed_mode > 0)
-    vw_out() << "\t   Refined search: " << stereo_settings().search_range << std::endl;
-  else
-    vw_out() << "\t   Search range:   " << stereo_settings().search_range << std::endl;
-  vw_out()   << "\t   Cost mode:      " << stereo_settings().cost_mode << std::endl;
-  vw_out(DebugMessage) << "\t   XCorr threshold: " << stereo_settings().xcorr_threshold << std::endl;
-  vw_out(DebugMessage) << "\t   Prefilter:       " << stereo_settings().pre_filter_mode << std::endl;
-  vw_out(DebugMessage) << "\t   Prefilter size:  " << stereo_settings().slogW << std::endl;
-  vw_out() << "\t--------------------------------------------------\n";
 
   // Load up for the actual native resolution processing
 
@@ -1120,19 +1109,6 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
                << "use parallel_stereo. Not that making --corr-tile-size "
                << "larger than 9000 or so may "
                << "cause GDAL to crash.\n\n");
-  }
-  
-  switch(stereo_settings().pre_filter_mode){
-  case 2:
-    vw_out() << "\t--> Using LOG pre-processing filter with "
-             << stereo_settings().slogW << " sigma blur.\n"; 
-    break;
-  case 1:
-    vw_out() << "\t--> Using subtracted mean pre-processing filter with "
-	     << stereo_settings().slogW << " sigma blur.\n";
-    break;
-  default:
-    vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
   }
 
   cartography::GeoReference left_georef;
@@ -1289,7 +1265,18 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     return;
   }
   
-  vw_out() << "Min and max disparities: " << min_disp << ' ' << max_disp << ".\n";
+  vw_out() << "Min and max disparities: " << min_disp << ", " << max_disp << ".\n";
+
+  // If the user specified a search range limit, apply it here.
+  if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
+      (stereo_settings().search_range_limit.max() != Vector2i())) {     
+    int min_limit = stereo_settings().search_range_limit.min().x();
+    int max_limit = stereo_settings().search_range_limit.max().x();
+    min_disp = std::max(min_disp, min_limit);
+    max_disp = std::min(max_disp, max_limit);
+    vw_out() << "Min and max_disparities constrained, based on "
+             << "--corr-search-limit, to: " << min_disp << ", " << max_disp << ".\n";
+  }
   
   vw::ImageView<PixelMask<Vector2f>> unaligned_disp_2d;
   vw::stereo::CorrelationAlgorithm stereo_alg
@@ -1719,6 +1706,46 @@ int main(int argc, char* argv[]) {
     if (using_sgm)
       opt.num_threads = 1;
 
+    if (stereo_alg != vw::stereo::VW_CORRELATION_BM) {
+      // SGM/MGM works best with no prefilter. That one is also turned
+      // off in CorrelationView.h.
+      vw_out() << "\t--> Using no pre-processing filter with stereo algorithm: "
+               << stereo_settings().stereo_algorithm << std::endl;
+      stereo_settings().pre_filter_mode = 0;
+    } else {
+      switch (stereo_settings().pre_filter_mode){
+      case 2:
+        vw_out() << "\t--> Using LOG pre-processing filter with "
+                 << stereo_settings().slogW << " sigma blur.\n"; 
+      break;
+      case 1:
+        vw_out() << "\t--> Using subtracted mean pre-processing filter with "
+                 << stereo_settings().slogW << " sigma blur.\n";
+        break;
+      default:
+        vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
+      }
+    }
+
+    // Provide the user with some feedback of what we are actually going to use.
+    // This does not make sense for local_epipolar alignment.
+    if (stereo_settings().alignment_method != "local_epipolar") {
+      vw_out()   << "\t--------------------------------------------------\n";
+      vw_out()   << "\t   Kernel size:    " << stereo_settings().corr_kernel << "\n";
+      if (stereo_settings().seed_mode > 0)
+        vw_out() << "\t   Refined search: " << stereo_settings().search_range << "\n";
+      else
+        vw_out() << "\t   Search range:   " << stereo_settings().search_range << "\n";
+      vw_out()   << "\t   Cost mode:      " << stereo_settings().cost_mode << "\n";
+      vw_out(DebugMessage) << "\t   XCorr threshold: "
+                           << stereo_settings().xcorr_threshold << "\n";
+      vw_out(DebugMessage) << "\t   Prefilter:       "
+                           << stereo_settings().pre_filter_mode << "\n";
+      vw_out(DebugMessage) << "\t   Prefilter size:  "
+                           << stereo_settings().slogW << "\n";
+      vw_out() << "\t--------------------------------------------------\n";
+    }
+    
     // Integer correlator requires large tiles
     //---------------------------------------------------------
     int ts = stereo_settings().corr_tile_size_ovr;

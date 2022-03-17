@@ -257,7 +257,6 @@ namespace asp {
     
   }
   
-  
   // Algorithm to perform local alignment. Approach:
   //  - Given the global interest points and the left crop window, find
   //    the right crop window.
@@ -373,6 +372,7 @@ namespace asp {
 
 #if DEBUG_ALIGNMENT 
     {
+      // These clips have global but not local alignment
       vw::cartography::GeoReference georef;
       bool has_georef = false, has_nodata = true;
       float nan_nodata = std::numeric_limits<float>::quiet_NaN();
@@ -475,6 +475,20 @@ namespace asp {
                   ValueEdgeExtension<PixelMask<float>>(nodata_mask),
                   BilinearInterpolation());
 
+    // This is a bugfix. Things can go out-of-whack when there are clouds.
+    double det_left = vw::math::det(combined_left_mat);
+    double det_right = vw::math::det(combined_right_mat);
+
+    if (det_left < 0.15 || det_right < 0.15) 
+      vw_throw(vw::ArgumentErr() << "Expecting the determinants of local alignment "
+               << "transforms to not be too different from 1. Got the values: "
+               << det_left << ", " << det_right << ".\n");
+    
+    if (det_left < 0.25 || det_right < 0.25)
+      vw_out() << "Warning: the determinants of the local alignment transforms "
+               << "are too different from 1. Got the  "
+               << det_left << ' ' << det_right << ".\n";
+    
     // Normalize the locally aligned images
     bool use_percentile_stretch = false;
     bool do_not_exceed_min_max = (session_name == "isis" ||

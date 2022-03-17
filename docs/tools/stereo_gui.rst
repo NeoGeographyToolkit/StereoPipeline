@@ -45,8 +45,7 @@ and output prefix) and with values for ``--left-image-crop-win`` and
 ``--right-image-crop-win``, it will draw the corresponding regions on
 startup.
 
-See also our tutorials in :numref:`moc_tutorial` and
-:numref:`dg_tutorial`.
+See also our tutorials in :numref:`tutorial`.
 
 Use as an image viewer
 ~~~~~~~~~~~~~~~~~~~~~~

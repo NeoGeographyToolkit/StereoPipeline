@@ -528,8 +528,14 @@ def tile_run(prog, args, settings, tile, **kw):
     # Will do only the tiles intersecting user's crop window.
     w = settings['transformed_window']
     user_crop_win = BBox(int(w[0]), int(w[1]), int(w[2]), int(w[3]))
-    try:
 
+    # Measure the memory usage on Linux and elapsed time
+    timeCmd = []
+    if 'linux' in sys.platform:
+        timeCmd = ['/usr/bin/time', '-f', prog + \
+                   ': elapsed=%E ([hours:]minutes:seconds), memory=%M (kb)']
+    
+    try:
         # Get tile folder
         tile_dir_string = tile_dir(settings['out_prefix'][0], tile) + "/" + tile.name_str()
 
@@ -563,7 +569,7 @@ def tile_run(prog, args, settings, tile, **kw):
           return # Don't need to process this
         crop_str = crop_box.crop_str() # Get the --trans-crop-win string
 
-        cmd = call+crop_str
+        cmd = call + crop_str
         cmd[cmd.index(settings['out_prefix'][0])] = tile_dir_string
 
         if opt.dryrun:
@@ -599,9 +605,18 @@ def tile_run(prog, args, settings, tile, **kw):
                 os.remove(D)
             if os.path.exists(Dnosym):
                 os.remove(Dnosym)
-            
-        code = subprocess.call(cmd)
-        if code != 0:
+
+        cmd = timeCmd + cmd
+
+        (out, err, status) = asp_system_utils.executeCommand(cmd, realTimeOutput = True)
+
+        if len(timeCmd) > 0:
+            print(err)
+            usage_file = tile_dir_string + "-" + prog + "-resource-usage.txt"  
+            with open(usage_file, 'w') as f:
+                f.write(err)
+
+        if status != 0:
             raise Exception('Stereo step ' + kw['msg'] + ' failed')
 
     except OSError as e:
@@ -858,6 +873,21 @@ if __name__ == '__main__':
            ' x ' + str(opt.job_size_h) + ' pixels.')
     print('Using a collar (padding) for each tile of ' + settings['collar_size'][0] + ' pixels.')
     
+    # parallel_args is what we will pass to spawned copies of parallel_stereo,
+    # while 'args' is what we pass to plain stereo.
+    parallel_args = sys.argv # shallow copy
+    
+    # These can be stray options if pasting the stereo command
+    # from a log file where these particular operations
+    # happened, and they will result in the overall stereo
+    # command misbehaving. They are needed only at a certain stage.
+    wipe_option(args, '--compute-low-res-disparity-only', 0)
+    wipe_option(args, '--compute-point-cloud-center-only', 0)
+    wipe_option(args, '--compute-piecewise-adjustments-only', 0)
+    wipe_option(parallel_args, '--compute-low-res-disparity-only', 0)
+    wipe_option(parallel_args, '--compute-point-cloud-center-only', 0)
+    wipe_option(parallel_args, '--compute-piecewise-adjustments-only', 0)
+
     # TODO(oalexan1): The giant block below needs to be broken up into
     # several functions named parent_run(), child_run(), and
     # multiview_run(). Careful testing will be needed.
@@ -869,28 +899,19 @@ if __name__ == '__main__':
         # actual work when we hit a non-multiprocess step like PPRC or FLTR.
 
         # Wipe options which we will override.
-        self_args = sys.argv # shallow copy
-        wipe_option(self_args, '-e', 1)
-        wipe_option(self_args, '--entry-point', 1)
-        wipe_option(self_args, '--stop-point', 1)
+        wipe_option(parallel_args, '-e', 1)
+        wipe_option(parallel_args, '--entry-point', 1)
+        wipe_option(parallel_args, '--stop-point', 1)
         
-        # These can be stray options if pasting the stereo command
-        # from a log file where these particular operations
-        # happened, and they will result in the overall stereo
-        # command misbehaving. They are needed only at a certain stage.
-        wipe_option(args, '--compute-low-res-disparity-only', 0)
-        wipe_option(args, '--compute-point-cloud-center-only', 0)
-        wipe_option(args, '--compute-piecewise-adjustments-only', 0)
-
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1:
 
             # Run multivew logic.
             
             # Bugfix: avoid confusing the logic below
-            wipe_option(self_args, '-s', 1)
+            wipe_option(parallel_args, '-s', 1)
             if os.path.exists(opt.stereo_file):
-                self_args.extend(['--stereo-file', opt.stereo_file])
+                parallel_args.extend(['--stereo-file', opt.stereo_file])
 
             # Map from option, say --job-size-w, to the variable name, say, job_size_w.
             opt2var = {}
@@ -904,7 +925,7 @@ if __name__ == '__main__':
             extra_args = []
             option_dict = vars(opt) # Each option understood by python, and its parsed value
 
-            for arg in self_args[1:]:
+            for arg in parallel_args[1:]:
 
                 if arg in args:
                     # This is an option passed to stereo
@@ -979,9 +1000,9 @@ if __name__ == '__main__':
 
             # Run full-res stereo using multiple processes.
             check_system_memory(opt, args, settings)
-            self_args.extend(['--skip-low-res-disparity-comp'])
-            spawn_to_nodes(step, settings, self_args)
-            wipe_option(self_args, '--skip-low-res-disparity-comp', 0) # no longer needed
+            parallel_args.extend(['--skip-low-res-disparity-comp'])
+            spawn_to_nodes(step, settings, parallel_args)
+            wipe_option(parallel_args, '--skip-low-res-disparity-comp', 0) # no longer needed
             
             # Bugfix: When doing refinement for a given tile, we must see
             # the result of correlation for all tiles. To achieve that,
@@ -1002,7 +1023,7 @@ if __name__ == '__main__':
                 if (opt.stop_point <= step):
                     sys.exit()
                 create_subproject_dirs(settings)
-                spawn_to_nodes(step, settings, self_args)
+                spawn_to_nodes(step, settings, parallel_args)
 
                 if not skip_refine_step:
                     # Do the same trick as after stereo_corr
@@ -1030,10 +1051,10 @@ if __name__ == '__main__':
             # If we used SGM/MGM or some other method making use of
             # tiles, need to read from the blend file.
             if using_padded_tiles:
-                self_args.extend(['--subpix-from-blend'])
+                parallel_args.extend(['--subpix-from-blend'])
             if not skip_refine_step:
                 create_subproject_dirs(settings)
-                spawn_to_nodes(step, settings, self_args)
+                spawn_to_nodes(step, settings, parallel_args)
 
         # Filtering
         step = Step.fltr
@@ -1058,26 +1079,26 @@ if __name__ == '__main__':
                 normal_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
                 # And don't do it again
                 args.extend(['--skip-computing-piecewise-adjustments'])
-                self_args.extend(['--skip-computing-piecewise-adjustments'])
+                parallel_args.extend(['--skip-computing-piecewise-adjustments'])
 
             # Then compute the cloud center. Done once per run.
             tmp_args = args[:] # deep copy
             tmp_args.append('--compute-point-cloud-center-only')
             normal_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
             # Point cloud center computation was done
-            self_args.extend(['--skip-point-cloud-center-comp'])
+            parallel_args.extend(['--skip-point-cloud-center-comp'])
 
             # Wipe options that should have been done when the
             # the center of point cloud was computed
-            wipe_option(self_args, '--unalign-disparity', 0)
-            wipe_option(self_args, '--num-matches-from-disparity', 1)
-            wipe_option(self_args, '--num-matches-from-disp-triplets', 1)
+            wipe_option(parallel_args, '--unalign-disparity', 0)
+            wipe_option(parallel_args, '--num-matches-from-disparity', 1)
+            wipe_option(parallel_args, '--num-matches-from-disp-triplets', 1)
             
             # symlink the files just created
             create_subproject_dirs(settings)
 
             # Run triangulation on multiple machines
-            spawn_to_nodes(step, settings, self_args)
+            spawn_to_nodes(step, settings, parallel_args)
             build_vrt(settings, georef, "-PC.tif", "-PC.tif") # mosaic
 
             # End main process case

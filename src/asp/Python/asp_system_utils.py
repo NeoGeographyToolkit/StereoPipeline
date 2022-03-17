@@ -331,11 +331,11 @@ def executeCommand(cmd,
                    noThrow=False,        # If true, don't throw if output is missing
                    numAttempts = 1,      # How many attempts to use
                    sleepTime = 60,       # How much to sleep between attempts
-                   timeout   = -1        # After how long to timeout in seconds
+                   timeout   = -1,       # After how long to timeout in seconds
+                   realTimeOutput = False # If to print what the command is doing in real time
                    ):
     '''Executes a command with multiple options'''
 
-    
     # Initialize outputs
     out    = ""
     status = 0
@@ -364,8 +364,25 @@ def executeCommand(cmd,
             try:
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                      universal_newlines=True)
-                out, err = p.communicate()
-                status = p.returncode
+                
+                if realTimeOutput and (not suppressOutput):
+                    # Print in real time what is going on, and return nothing in out and err
+                    while True:
+                        curr_out = p.stdout.readline()
+                        curr_err = p.stderr.readline()
+                        out += curr_out
+                        err += curr_err
+                        if curr_out == '' and p.poll() is not None:
+                            break
+                        if curr_out:
+                            print(curr_out.strip())
+                            
+                    status = p.poll()
+                else:
+                    # Collect the output and error
+                    out, err = p.communicate()
+                    status = p.returncode
+                    
                 if timeout > 0:
                     signal.alarm(0)  # reset the alarm
             except Exception as e:
@@ -395,7 +412,7 @@ def executeCommand(cmd,
             if out is None: out = ""
             if err is None: err = ""
 
-            if not suppressOutput:
+            if (not suppressOutput) and (not realTimeOutput):
                 print (out + '\n' + err)
 
             if status == 0:

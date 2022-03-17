@@ -1,17 +1,15 @@
-.. _moc_tutorial:
+.. _tutorial:
 
-Tutorial: Processing Mars Orbiter Camera images
-===============================================
+How ASP works
+=============
 
-Quick start
------------
-
-The Stereo Pipeline package contains command-line and GUI programs that
-convert a stereo pair in the ISIS ``.cub`` format into a 3D "point
-cloud" image (its format is described in :numref:`outputfiles`). This is an
-intermediate format that can be passed along to one of several programs
-that convert a point cloud into a mesh for 3D viewing, a gridded digital
-terrain model (DTM) for GIS purposes, or a LAS/LAZ point cloud.
+The Stereo Pipeline package contains command-line and GUI programs
+that convert a stereo pair consisting of images and cameras into a
+3D "point cloud" image (its format is described in
+:numref:`outputfiles`). This is an intermediate format that can be
+passed along to one of several programs that convert a point cloud
+into a mesh for 3D viewing, a gridded digital terrain model (DTM) for
+GIS purposes, or a LAS/LAZ point cloud.
 
 There are a number of ways to fine-tune parameters and analyze the
 results, but ultimately this software suite takes images and builds
@@ -22,8 +20,10 @@ simply pass two image files to the ``parallel_stereo`` command::
       left_image.cub right_image.cub results/run
 
 Here it is assumed that the ``PATH`` and ``ISISDATA`` environmental
-variables have been set, as shown in :numref:`installation`. How to 
-prepare the .cub files is discussed further down.
+variables have been set, as shown in :numref:`installation`. 
+
+The ``.cub`` file format is used for non-Earth images. For Earth,
+the images are usually in the ``.tif`` format (:numref:`dg_tutorial`). 
 
 Higher quality results, at the expense of more computation, can be
 achieved by running::
@@ -32,7 +32,10 @@ achieved by running::
       --stereo-algorithm asp_mgm --subpixel-mode 3            \
       left_image.cub right_image.cub results/run
 
-This will decompose the images in tiles to run in parallel,
+The best quality will likely be obtained with ``--subpixel-mode 2``,
+but this is even more computationally expensive.
+
+Thees commands will decompose the images in tiles to run in parallel,
 potentially on multiple machines. For more details, see
 :numref:`nextsteps`.
 
@@ -53,11 +56,74 @@ are created by the ``parallel_stereo`` program above)::
 
 Visualization is further discussed in :numref:`visualising`.
 
-What follows is an example using Mars ``MOC`` data. More examples
-can be found in :numref:`examples`.
+What follows are two examples of processing non-Earth data. An example
+using Earth data is in :numref:`dg_tutorial`. More examples can be
+found in :numref:`examples`.
 
-Preparing the data
-------------------
+.. _nonearth_tutorial:
+
+Tutorial: Processing planetary data (non-Earth)
+===============================================
+
+.. _lronac_csm:
+
+Lightning-fast example using Lunar images
+-----------------------------------------
+
+This example is designed to have the user create useful results with
+ASP using Lunar data 10 minutes or less. It does not require a
+download of ISIS or ISIS data (which can be a couple of hundreds of
+GB) because it uses the CSM camera model (:numref:`csm`). The steps to
+process it are as follows:
+
+ - Get ASP per the installation page (:numref:`installation`).
+ 
+ - Fetch and extract the example dataset as::
+  
+    wget https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/download/LRONAC/LRONAC_example.tar
+    tar xfv LRONAC_example.tar
+    cd LRONAC_example
+
+- Start ``stereo_gui`` (:numref:`stereo_gui`) with a selection of
+  clips::
+
+   stereo_gui M181058717LE_crop.cub M181073012LE_crop.cub \
+     M181058717LE.json M181073012LE.json                  \
+     --alignment-method local_epipolar                    \
+     --left-image-crop-win 2259 1196 900 973              \
+     --right-image-crop-win 2432 1423 1173 1218           \
+     --stereo-algorithm asp_mgm                           \
+     run/run
+
+The crop windows from above will show up as red rectangles.
+
+Choose from the menu ``Run -> Run parallel_stereo``. When finished,
+quit the GUI and run from the command line::
+
+    point2dem --errorimage run/run-PC.tif --orthoimage run/run-L.tif
+
+Open the computed DEM and orthoimage as::
+
+   stereo_gui run/run-DEM.tif run/run-DRG.tif
+
+Right-click on the DEM on the left and choose to toggle hillshading to
+show the DEM hillshaded. See the figure below for the output.
+
+Higher quality results can be obtained by adding to ``parallel_stereo``
+the option ``--subpixel-mode 2``, but that will be quite a bit slower.
+
+.. figure:: images/lronac_csm_example.png
+   :name: lronac_csm_example
+
+   Example of produced DEM and orthoimage using LRO NAC stereo pair
+   ``M181058717LE`` and ``M181073012LE`` and CSM cameras. How to
+   obtain and prepare the inputs is discussed in
+   :numref:`lronac-example`.
+
+.. _moc_tutorial:
+
+Example using Mars MOC images
+-----------------------------
 
 The data set that is used in the tutorial and examples below is a pair
 of Mars Orbital Camera (MOC)
@@ -65,9 +131,6 @@ of Mars Orbital Camera (MOC)
 whose PDS Product IDs are M01/00115 and E02/01461. This data can be
 downloaded from the PDS directly, or they can be found in the
 ``examples/MOC`` directory of your Stereo Pipeline distribution.
-
-Loading and calibrating images using ISIS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These raw PDS images (``M0100115.imq`` and ``E0201461.imq``) need to be
 imported into the ISIS environment and radiometrically calibrated. You
@@ -103,147 +166,20 @@ the ISIS Session Log, usually written out to a file named ``print.prt``).
 Datasets for other type of cameras or other planets can be pre-processed
 similarly, using the ISIS tools specific to them.
 
-.. _aligning-images:
-
-Aligning images
-~~~~~~~~~~~~~~~
-
-Once the ``.cub`` files are obtained, it is possible to run parallel_stereo right
-away::
+Once the ``.cub`` files are obtained, it is possible to run
+``parallel_stereo`` right away::
 
      ISIS> parallel_stereo E0201461.cub M0100115.cub    \
              --alignment-method affineepipolar          \
              -s stereo.default.example results/output
 
-In this case, the first thing ``parallel_stereo`` does is to internally align (or
-rectify) the images, which helps with finding stereo matches. Here we
-have used ``affineepipolar`` alignment. Another option is to use
-``homography`` alignment, as described in :numref:`settingoptionsinstereodefault`.
+In this case, the first thing ``parallel_stereo`` does is to
+internally align (or rectify) the images, which helps with finding
+stereo matches. Here we have used ``affineepipolar`` alignment. Other
+alignment methods are described in :numref:`settingoptionsinstereodefault`.
 
-Alternatively, the images can be aligned externally, by map-projecting
-them in ISIS. External alignment can sometimes give better results than
-the simple internal alignment described earlier, especially if the
-images are taken from very different perspectives, or if the curvature
-of the planet/body being imaged is non-negligible.
-
-We will now describe how to do this alignment, but we also provide the
-``cam2map4stereo.py`` program which performs this work
-automatically for you. (Also note that ASP has its own internal way of
-map-projecting images, which we believe is preferable. That approach is
-described in :numref:`mapproj-example`.)
-
-The ISIS ``cam2map`` program will map-project these images::
-
-    ISIS> cam2map from=M0100115.cub to=M0100115.map.cub
-    ISIS> cam2map from=E0201461.cub to=E0201461.map.cub \
-            map=M0100115.map.cub matchmap=true
-
-Notice the order in which the images were run through ``cam2map``. The
-first projection with ``M0100115.cub`` produced a map-projected image
-centered on the center of that image. The projection of ``E0201461.cub``
-used the ``map=`` parameter to indicate that ``cam2map`` should use the
-same map projection parameters as those of ``M0100115.map.cub``
-(including center of projection, map extents, map scale, etc.) in
-creating the projected image. By map-projecting the image with the worse
-resolution first, and then matching to that, we ensure two things: (1)
-that the second image is summed or scaled down instead of being
-magnified up, and (2) that we are minimizing the file sizes to make
-processing in the Stereo Pipeline more efficient.
-
-Technically, the same end result could be achieved by using the
-``mocproc`` program alone, and using its ``map= M0100115.map.cub``
-option for the run of ``mocproc`` on ``E0201461.cub`` (it behaves
-identically to ``cam2map``). However, this would not allow for
-determining which of the two images had the worse resolution and
-extracting their minimum intersecting bounding box (see below).
-Furthermore, if you choose to conduct bundle adjustment (see
-:numref:`bundle_adjustment`) as a pre-processing step, you would
-do so between ``mocproc`` (as run above) and ``cam2map``.
-
-The above procedure is in the case of two images which cover similar
-real estate on the ground. If you have a pair of images where one image
-has a footprint on the ground that is much larger than the other, only
-the area that is common to both (the intersection of their areas) should
-be kept to perform correlation (since non-overlapping regions don't
-contribute to the stereo solution). If the image with the larger
-footprint size also happens to be the image with the better resolution
-(i.e. the image run through ``cam2map`` second with the ``map=``
-parameter), then the above ``cam2map`` procedure with ``matchmap=true``
-will take care of it just fine. Otherwise you'll need to figure out the
-latitude and longitude boundaries of the intersection boundary (with the
-ISIS ``camrange`` program). Then use that smaller boundary as the
-arguments to the ``MINLAT``, ``MAXLAT``, ``MINLON``, and ``MAXLON``
-parameters of the first run of ``cam2map``. So in the above example,
-after ``mocproc`` with ``Mapping= NO`` you'd do this:
-
-::
-
-     ISIS> camrange from=M0100115.cub
-              ... lots of camrange output omitted ...
-     Group = UniversalGroundRange
-       LatitudeType       = Planetocentric
-       LongitudeDirection = PositiveEast
-       LongitudeDomain    = 360
-       MinimumLatitude    = 34.079818835324
-       MaximumLatitude    = 34.436797628116
-       MinimumLongitude   = 141.50666207418
-       MaximumLongitude   = 141.62534719278
-     End_Group
-              ... more output of camrange omitted ...
-
-::
-
-     ISIS> camrange from=E0201461.cub
-              ... lots of camrange output omitted ...
-     Group = UniversalGroundRange
-       LatitudeType       = Planetocentric
-       LongitudeDirection = PositiveEast
-       LongitudeDomain    = 360
-       MinimumLatitude    = 34.103893080982
-       MaximumLatitude    = 34.547719435156
-       MinimumLongitude   = 141.48853937384
-       MaximumLongitude   = 141.62919740048
-     End_Group
-              ... more output of camrange omitted ...
-
-Now compare the boundaries of the two above and determine the
-intersection to use as the boundaries for ``cam2map``:
-
-::
-
-     ISIS> cam2map from=M0100115.cub to=M0100115.map.cub   \
-             DEFAULTRANGE=CAMERA MINLAT=34.10 MAXLAT=34.44 \
-             MINLON=141.50 MAXLON=141.63
-     ISIS> cam2map from=E0201461.cub to=E0201461.map.cub \
-             map=M0100115.map.cub matchmap=true
-
-You only have to do the boundaries explicitly for the first run of
-``cam2map``, because the second one uses the ``map=`` parameter to mimic
-the map-projection of the first. These two images are not radically
-different in spatial coverage, so this is not really necessary for these
-images, it is just an example.
-
-Again, unless you are doing something complicated, using the
-``cam2map4stereo.py`` program (page ) will take care of all these steps
-for you.
-
-At this stage we can run the stereo program with map-projected images:
-
-::
-
-     ISIS> parallel_stereo E0201461.map.cub M0100115.map.cub   \
-             --alignment-method none -s stereo.default.example \
-             results/output
-
-Here we have used ``alignment-method none`` since ``cam2map4stereo.py``
-brought the two images into the same perspective and using the same
-resolution. If you invoke ``cam2map`` independently on the two images,
-without ``matchmap=true``, their resolutions may differ, and using an
-alignment method rather than ``none`` to correct for that is still
-necessary.
-
-Now you may skip to chapter :numref:`nextsteps` which will discuss the
-``parallel_stereo`` program in more detail and the other tools in ASP.
+If your data has steep slopes, mapprojection can improve the results.
+See :numref:`mapproj-example` and :numref:`mapproj_with_cam2map`. 
 
 .. _dg_tutorial:
 
@@ -263,7 +199,8 @@ still be insightful even if your data is not from DigitalGlobe/Maxar.
 
 If this is your first time running ASP, it may be easier to start with
 ASTER data (:numref:`aster`), as its images are free and much smaller
-than DigitalGlobe's.
+than DigitalGlobe's. A ready-made example having all inputs, outputs,
+and commands, is provided there.
 
 DigitalGlobe/Maxar provides images from QuickBird and the three WorldView
 satellites. These are the hardest images to process with Ames Stereo
@@ -347,7 +284,7 @@ you use affine epipolar alignment to reduce the search range. The
       12FEB16101327.r50.tif 12FEB16101426.r50.tif         \
       12FEB16101327.r50.xml 12FEB16101426.r50.xml dg/out
 
-As in :numref:`moc_tutorial`, one can experiment with various
+As discussed in :numref:`tutorial`, one can experiment with various
 tradeoffs of quality versus run time by using various stereo
 algorithms, and use stereo in parallel or from a GUI. For more
 details, see :numref:`nextsteps`.
@@ -368,6 +305,8 @@ somewhat less accurate, so the results will not be the same, in our
 experiments we've seen differences in the 3D terrains using the two
 approaches of 5 meters or more.
 
+Many more stereo processing examples can be found in :numref:`examples`.
+
 .. _mapproj:
 
 Processing map-projected images
@@ -376,6 +315,25 @@ Processing map-projected images
 ASP computes the highest quality 3D terrain if used with images
 map-projected onto a low-resolution DEM that is used as an initial
 guess. This process is described in :numref:`mapproj-example`.
+
+.. _handling_clouds:
+
+Dealing with clouds
+-------------------
+
+Clouds can result in unreasonably large search ranges and a long
+run-time.  A solution can be to mapproject the images
+(:numref:`mapproj-example`), and tighten the computed search range via
+``--corr-search-limit`` (:numref:`stereodefault`), which, for
+mapprojected images could be set to something like ``-50 -50 50
+50``. This would enforce that left and right mapprojected images
+have their matching pixels at a distance of at most 50 from each
+other, horizontally and vertically.
+
+The ``local_epipolar`` alignment can handle clouds reasonably well.
+This mode will print the min and max disparities to be searched
+in the terminal (and to log files). If desired to tighten those,
+use, as earlier, the option ``--corr-search-limit``.
 
 .. _wvcorrect-example:
 
@@ -427,11 +385,23 @@ for snowy landscapes, whose only features may be small-scale grooves or
 ridges sculpted by wind (so-called *zastrugi*) that disappear at low
 resolution.
 
-Stereo Pipeline handles such terrains by using a tool named
-``sparse_disp`` to create ``output_prefix-D_sub.tif`` at full
-resolution, yet only at a sparse set of pixels for reasons of speed.
-This low-resolution disparity is then refined as earlier using a pyramid
-approach.
+A first attempt at solving this is to run ``parallel_stereo`` with::
+
+     --corr-seed-mode 0 --corr-max-levels 2
+
+This will prevent creating a low-resolution disparity which may be
+inaccurate in this case. (Note that interest points which are computed
+before this are found at full resolution, so they should turn out
+well.) Here, ASP will run correlation with two levels, so the lower
+initial resolution is a factor of 4 coarser than the original, which
+will hopefully prevent small features from being lost.
+
+If that is not sufficient or perhaps not fast enough, Stereo Pipeline
+provides a tool named ``sparse_disp`` to create the low-resolution
+initial disparity ``output_prefix-D_sub.tif`` based on full-resolution
+images, yet only at a sparse set of pixels for reasons, of speed.
+This low-resolution disparity is then refined as earlier using a
+pyramid approach, but again with fewer levels.
 
 .. figure:: images/examples/sparse_disp.png
    :name: fig:sparse-disp-example

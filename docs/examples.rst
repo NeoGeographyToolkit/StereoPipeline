@@ -392,14 +392,19 @@ only the creation of a point cloud is supported.
 Lunar Reconnaissance Orbiter (LRO) NAC
 --------------------------------------
 
+This section will describe in detail how to process an LRO NAC dataset.
+(See also :numref:`lronac_csm` for a ready-made example using a different
+dataset for which all inputs have already been prepared.)
+
 The site
 ~~~~~~~~
 
-This stereo pair covers the Taurus-Littrow valley on the Moon where, on
-December 11, 1972, the astronauts of Apollo 17 landed. However, this
-stereo pair does not contain the landing site. It is slightly west;
-focusing on the Lee-Lincoln scarp that is on North Massif. The scarp is
-an 80 m high feature that is the only visible sign of a deep fault.
+In this example we will consider a stereo pair that covers the
+Taurus-Littrow valley on the Moon where, on December 11, 1972, the
+astronauts of Apollo 17 landed. However, this stereo pair does not
+contain the landing site. It is slightly west; focusing on the
+Lee-Lincoln scarp that is on North Massif. The scarp is an 80 m high
+feature that is the only visible sign of a deep fault.
 
 .. figure:: images/examples/lrocna/lroc-na-example2_combined.png
 
@@ -455,6 +460,9 @@ correction. Here are the steps, illustrated on one image::
     lronaccal   from = ${f}.cub     to = ${f}.cal.cub
     lronacecho  from = ${f}.cal.cub to = ${f}.cal.echo.cub
 
+
+Note that for these commands to succeed ISIS and its supporting data
+must be downloaded, per :numref:`planetary_images`.
 
 Stitching the LE and RE observations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

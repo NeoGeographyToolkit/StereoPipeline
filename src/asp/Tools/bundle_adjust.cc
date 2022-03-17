@@ -2459,6 +2459,8 @@ int main(int argc, char* argv[]) {
         = create_mask_less_or_equal(image_view,  nodata);
 
       // Use caching function call to compute the image statistics.
+      // TODO(oalexan1): Test if this is necessary with --mapprojected-data.
+      // That one should gather stats in mapprojected images instead.
       asp::StereoSession::gather_stats(masked_image, image_path,
                                        opt.out_prefix, image_path);
     }

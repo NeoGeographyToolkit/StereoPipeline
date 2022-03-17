@@ -363,20 +363,23 @@ corr-search (*integer integer integer integer*)
     the number of erroneous matches, so it can be advantageous to tune
     the search range for a particular data set.
 
-    If this option is not provided, ``parallel_stereo`` will make an attempt to
-    guess its search range using interest points.
+    If this option is not provided, ``parallel_stereo`` will make an
+    attempt to guess its search range using interest points.
 
     These four integers define the minimum horizontal and vertical
     disparity and then the maximum horizontal and vertical disparity.
 
 corr-search-limit (*integer integer integer integer*)
-    Set these parameters to constrain the search range that ``parallel_stereo``
-    automatically computes when ``corr-search`` is not set. This
-    setting is useful when you have a good idea of the alignment
-    quality in the vertical direction but not in the horizontal
-    direction. For example, when using pinhole frame cameras with
-    epipolar alignment the actual vertical search range may be much
-    smaller than the automatically computed search range.
+    Set these parameters to constrain the search range that
+    ``parallel_stereo`` automatically computes when ``corr-search`` is
+    not set. This setting is useful when you have a good idea of the
+    alignment quality in the vertical direction but not in the
+    horizontal direction. For example, when using pinhole frame
+    cameras with epipolar alignment the actual vertical search range
+    may be much smaller than the automatically computed search range.
+
+    The interpretation of these four integers is as for
+    ``corr-search``.
 
 elevation-limit (*float float*)
     Notify ASP that all elevations are expected to fall in this range

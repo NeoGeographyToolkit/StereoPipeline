@@ -24,7 +24,8 @@ Example (for Digital Globe Earth images)::
 
      stereo file1.tif file2.tif file1.xml file2.xml results/run
 
-See :numref:`moc_tutorial` and :numref:`dg_tutorial` for more details.
+See :numref:`tutorial` for more details, and :numref:`examples` for
+many usage examples.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~

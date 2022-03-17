@@ -19,8 +19,8 @@ Usage::
 
     parallel_stereo [options] <images> [<cameras>] <output_file_prefix>
 
-See :numref:`moc_tutorial` and :numref:`dg_tutorial` for more details.
-Many examples of this program are in :numref:`examples`.
+See :numref:`tutorial` for more details. Many examples of this
+program are in :numref:`examples`.
 
 This tool will create a set of output files (:numref:`outputfiles`).
 Internally some of them will be GDAL VRT files, that is, plain text

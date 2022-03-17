@@ -149,7 +149,7 @@ Several of the tools in Stereo Pipeline, including ``parallel_stereo``,
 automatically append the information displayed in the console to a log
 file in the current output directory. These logs contain in addition
 some data about your system and settings, which may be helpful in
-resolving problems with the tools.
+resolving problems with the tools (:numref:`outputfiles`).
 
 It is also possible to specify a global log file to which all tools will
 append to, as illustrated in ``.vwrc``.
