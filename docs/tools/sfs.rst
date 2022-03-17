@@ -329,7 +329,9 @@ Command-line options for sfs
     The weight given to the cost function term which consists of sums
     of squares of first-order derivatives. A larger value will result
     in a smoother solution. This can be used in conjunction with 
-    ``--smoothness-weight``.
+    ``--smoothness-weight``. It is suggested to experiment with this
+    with a value of 0.0001 - 0.01, while reducing the
+    smoothness weight to a very small value.
 
 --save-sparingly
     Avoid saving any results except the adjustments and the DEM, as
