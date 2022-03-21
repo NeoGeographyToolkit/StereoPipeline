@@ -29,20 +29,30 @@ parallel_stereo:
   * Print in stereo_pprc the estimated convergence angle between rays
     (for alignment methods affineepipolar, local_epipolar, and
     homography).
-  * Added the option --prev-run-prefix which makes parallel_stereo
+  * Added the option --prev-run-prefix, which makes parallel_stereo
     start at the triangulation stage while using previous stages
-    from this run. The new run can have different cameras, bundle
-    adjustment prefix, or bathy planes (if applicable).
+    from this run. The new run can have different cameras, different
+    session (rpc vs dg, isis vs csm), different bundle
+    adjustment prefix, and different bathy planes (if applicable).
   * Added option --save-left-right-disparity-difference to save the
     discrepancy between left-to-right and right-to-left
     disparities, which may help with filtering unreliable
     disparities.
+  * Added the option --correlator-mode. Function as an image
+    correlator only (including with subpixel refinement). Assumes
+    aligned input images and no cameras.
   * Interest point matching with mapprojected images now happens
-    at full resolution, which results in better results when there are
-    clouds.
+    at full resolution, which results in in a more reliable process
+    when there are clouds.
+  * Expanded the doc to address a big gotcha: if left and right
+    mapprojected images have somewhat different resolutions then an
+    immense disparity search range can result.
+  * Added the option --max-disp-spread to limit the spread of the
+    disparity to this value (useful with clouds in images).
+  * Added a doc section on handling of images with clouds.
   * Added ready-made ASTER and LRO NAC examples with sample images,
-  * commands, and outputs, all available for download. Contributions
-    of more examples are welcome. See
+    cameras, commands, and outputs, all available for
+    download. Contributions of more examples are welcome. See
     https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples.
   * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
     and SPOT5 was not enabled correctly.
@@ -50,9 +60,13 @@ parallel_stereo:
   * ASP's SGM and MGM algorithms will always use the cross-check for
     disparity by default, to improve the quality, even if that takes
     more time. It can be turned off with --xcorr-threshold -1.
-  * Filter outliers in low-resolution disparity D_sub.tif. Can be
-    turned off by setting the percentage in --outlier-removal-params
-    to 100.
+  * Filter outliers in low-resolution disparity D_sub.tif (when not
+    using mapprojected images). Can be turned off by setting the
+    percentage in --outlier-removal-params to 100. 
+  * Filtering of interest points based on percentiles (using also
+    --outlier-removal-params, only for local_epipolar alignment for
+    now).
+  * Bugfix in search range handling when it is large. 
   * For Linux, in each tile's directory write the elapsed runtime and
     memory usage to <tile prefix>-<prog name>-resource-usage.txt.
   * Removed the --local-homography option, as it is superseded by 
@@ -80,13 +94,18 @@ bundle_adjust:
     final_residuals_no_loss_function_raw_pixels.txt to 
     final_residuals_raw_pixels.txt, etc.
   * Document the useful initial and final residuals_stats.txt files. 
+  * Add new options for reusing a previous run:
+    ``--match-files-prefix`` and ``--clean-match-files-prefix``.
 
 csm:
   * Save the camera state on multiple lines. On reading both the
     single-line and multiple-line formats are accepted.
   * Bundle adjustment, mapproject, and SfS with the CSM model can be
     7-15 times faster than done with the corresponding ISIS model.
+    It is strongly suggested to use CSM for large-scale processsing.
   * Bugfix in CSM linescan implementation for some LRO NAC sensors.
+    Also replaced the fixed-point method with the secant method in the 
+    ground-to-image logic for linescan cameras, which is faster. 
 
 sfs:
   * SfS was made to work with any camera model supported by ASP,
@@ -100,7 +119,7 @@ sfs:
     --smoothness-weight parameter which constrains the second-order
     derivatives. The goal is to avoid a noisy solution without losing
     detail.
-  * Much work done on expanding the documentation.
+  * Much work on expanding the documentation.
 
 mapproject:
   * If the input image file has an embedded RPC camera model, append
@@ -113,7 +132,7 @@ mapproject:
 bathymetry:
   * Can have different water surfaces in left and right images, so the
     triangulating rays bend at different heights.
-  * bathy_plane_calc can use a mask of points above water to find the
+  * bathy_plane_calc can use a mask of pixels above water to find the
     water-land interface, and also a set of actual lon,lat,height
     measurements.
   * Added documentation for how to find water level heights at given 
@@ -125,10 +144,10 @@ pc_align:
     than similarity-point-to-point to find a scale between the clouds.
   * Bugfix with alignment methods point-to-point and
     similarity-point-to-point.
-  *  Use RANSAC with --initial-transform-from-hillshading, for increased
-     robustness to outliers. Replaced
-     --initial-transform-outlier-removal-params (based on percentiles)
-     with --initial-transform-ransac-params.
+  * Use RANSAC with --initial-transform-from-hillshading, for increased
+    robustness to outliers. Replaced
+    --initial-transform-outlier-removal-params (based on percentiles)
+    with --initial-transform-ransac-params.
 
 dem_mosaic:
   * Add the option ``--tap``, to have the output grid be at integer
@@ -149,7 +168,7 @@ stereo_gui:
   * Can cycle through given images from the View menu, or with the 'n'
     and 'p' keys, when all are in the same window.
   * Can save a shapefile having points, segments, or polygons. (These
-    are distinct classes for a shapefile. The shapefile format
+    are distinct classes for a shapefile; the shapefile format
     requires that these not be mixed in the same file.)
   * Bugfix when overlaying shapefiles with different georeferences.
   * Polygon layers can be set to desired colors from the left pane,
@@ -189,7 +208,7 @@ Misc:
   * Bugfix for the "too many open files" error for large images.
   * Add the build date to the ``--version`` option in the ASP tools
     and to the log files.
-  * Bugfix in the original author's mgm implementation, accepted by
+  * Bugfix in the original author's MGM implementation, accepted by
     the author.
 
 RELEASE 3.0.0, July 27, 2021

@@ -242,7 +242,7 @@ option::
     corr-search -80 -2 20 2
 
 The search range determined automatically can then be tightened using
-the option ``corr-search-limit`` (:numref:`stereodefault`) before
+the option ``--max-disp-spread`` (:numref:`stereodefault`) before
 full-image resolution happens.
 
 It is suggested that these settings be used only if the run-time is
@@ -356,10 +356,16 @@ In this mode, ASP does not create a terrain model from scratch, but
 rather uses an existing terrain model as an initial guess, and improves
 on it.
 
-For Earth, an existing terrain model can be, for example, NASA SRTM,
-GMTED2010, USGS's NED data, or NGA's DTED data. There exist
-pre-made terrain models for other planets as well, for example the
-Moon LRO LOLA global DEM and the Mars MGS MOLA DEM.
+For Earth, an existing terrain model can be, for example, the Copernicus 30 m DEM
+from::
+
+    https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3
+
+or the NASA SRTM DEM (available on the same web site as above, choose
+the product relative to WGS84), GMTED2010, USGS's NED data, or NGA's
+DTED data. There exist pre-made terrain models for other planets as
+well, for example the Moon LRO LOLA global DEM and the Mars MGS MOLA
+DEM.
 
 Alternatively, a low-resolution smooth DEM can be obtained by running
 ASP itself as described in previous sections. In such a run, subpixel
@@ -372,19 +378,27 @@ factor, use hole-filling, invoke more aggressive outlier removal, and
 erode pixels at the boundary (those tend to be less reliable).
 Alternatively, holes can be filled with ``dem_mosaic``.
 
-The tool used for mapprojecting the images is called ``mapproject``
-(:numref:`mapproject`). It is very important to specify correctly
-the output resolution (the ``--tr`` option for ``mapproject``) when
-creating mapprojected images. For example, if the input images are
-about 1 meter/pixel, the same number should be used in ``mapproject``
-(if the desired projection is in degrees, this value should be
-converted to degrees). If the output resolution is not correct,
-there will be artifacts in the stereo results.
+.. _mapproj-res:
 
-Some experimentation on a small area may be necessary to obtain the best
-results. Once images are mapprojected, they can be cropped to a small
-shared region using ``gdal_translate -projwin`` and then stereo with
-these clips can be invoked.
+Resolution of mapprojection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It is very important to specify the same resolution (ground sample
+distance) when mapprojecting the images (option ``--tr`` for
+``mapproject``, :numref:`mapproject`), in order for the images to have
+the same scale and avoid big search range issues later in correlation.
+
+Normally, ``mapproject`` is rather good at auto-guessing the resolution,
+so this tool can be invoked with no specification of the resolution 
+for the left image, then then ``gdalinfo`` can be used to find
+the obtained pixel size, and that value can be used with the right image.
+
+If these two images have rather different auto-determined resolutions,
+it is suggested that the smaller one be used for both.
+
+Using a ground sample distance which is too different than what is
+appropriate can result in aliasing in mapprojected images and
+artifacts in stereo.
 
 Example for ISIS images
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -439,9 +453,9 @@ invoked here is ``longlat``).
 
      point2dem --search-radius-factor 5 --tr 0.0013 run_nomap/run-PC.tif 
 
-As mentioned earlier, some tweaks to the parameters used by
-``point2dem`` may be necessary for this low-resolution DEM to be smooth
-enough and with no holes.
+As mentioned earlier, some experimentation with the parameters used by
+``point2dem`` may be necessary for this low-resolution DEM to be
+smooth enough and with no holes.
 
 Note that we used ``--search-radius-factor 5`` to expand the DEM a
 bit, to counteract future erosion at image boundary in stereo due to
@@ -461,7 +475,8 @@ resolution switched to meters from degrees (see :numref:`dg-mapproj`
 for more details).
 
 Next, we mapproject the images onto this DEM, using the original
-resolution of :math:`3.3 \times 10^{-5}` degrees::
+resolution of :math:`3.3 \times 10^{-5}` degrees, using
+the ``mapproject`` program (:numref:`mapproject`):: 
 
      mapproject --tr 0.000033 run_nomap/run-DEM.tif           \
        left.cub left_proj.tif                                 \
@@ -470,8 +485,9 @@ resolution of :math:`3.3 \times 10^{-5}` degrees::
        right.cub right_proj.tif                               \
        --t_projwin 3.6175120 25.5669989 3.6653695 25.4952127
 
-Notice that we restricted the area of computation using ``--t_projwin``
-to again make the process faster.
+Notice that we used the same resolution for both images
+(:numref:`mapproj-res`), and that we restricted the area of
+computation using ``--t_projwin`` to again make the process faster.
 
 Next, we do stereo with these mapprojected images::
 
@@ -496,8 +512,13 @@ DEM, such as 4 meters/pixel, since we won't see detail at the level of 1
 meter in this DEM, as the stereo process is lossy. This is explained in
 more detail in :numref:`post-spacing`.
 
-In :numref:`mapproj-example` we show the effect of using
+In :numref:`mapproj-example-fig` we show the effect of using
 mapprojected images on accuracy of the final DEM.
+
+Some experimentation on a small area may be necessary to obtain the best
+results. Once images are mapprojected, they can be cropped to a small
+shared region using ``gdal_translate -projwin`` and then stereo with
+these clips can be invoked.
 
 It is important to note that we could have mapprojected the images
 using the ISIS tool ``cam2map``, as described in
@@ -522,12 +543,12 @@ Unlike the previous section, here we will use an external DEM to
 mapproject onto, rather than creating our own. We will use a variant of
 NASA SRTM data with no holes. Other choices have been mentioned earlier.
 
-It is important to note that ASP expects the input low-resolution DEM to
-be in reference to a datum ellipsoid, such as WGS84 or NAD83. If the DEM
-is in respect to either the EGM96 or NAVD88 geoids, the ASP tool
-``dem_geoid`` can be used to convert the DEM to WGS84 or NAD83 (:numref:`dem_geoid`).
-(The same tool can be used to convert back
-the final output ASP DEM to be in reference to a geoid, if desired.)
+It is important to note that ASP expects the input low-resolution DEM
+to be in reference to a datum ellipsoid, such as WGS84 or NAD83. If
+the DEM is in respect to either the EGM96 or NAVD88 geoids, the ASP
+tool ``dem_geoid`` can be used to convert the DEM to WGS84 or NAD83
+(:numref:`dem_geoid`).  (The same tool can be used to convert back the
+final output ASP DEM to be in reference to a geoid, if desired.)
 
 Not applying this conversion might not properly negate the parallax seen
 between the two images, though it will not corrupt the triangulation
@@ -548,10 +569,6 @@ through stereo. You can use any projection you like as long as it
 preserves detail in the images. Note that the last parameter in the
 stereo call is the input low-resolution DEM. The dataset is the same as
 the one used in :numref:`rawdg`.
-
-For best quality results, the resolution used for mapprojection should
-be very similar to the documented ground sample distance (GSD) for your
-camera.
 
 .. figure:: images/examples/dg/Mapped.png
    :name: fig:dg-map-example
@@ -580,6 +597,14 @@ Commands
               12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
               12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
               dg/dg srtm_53_07.tif
+
+It is very important to specify the argument ``-t rpc`` to
+``mapproject``, as otherwise the exact DG model will be used, which is
+slower and not what ``parallel_stereo`` expects later.
+
+The same appropriately chosen resolution setting (option ``--tr``)
+must be used for both images to avoid long run-times and artifacts
+(:numref:`mapproj-res`).
 
 If the ``--t_srs`` option is not specified, it will be read from the
 low-resolution input DEM.
@@ -784,6 +809,10 @@ the ``parallel_stereo`` option ``--resume-at-corr``
 (:numref:`parallel_stereo`). A ran can be started at the triangulation
 stage after making changes to the cameras while reusing a previous run
 with the option ``--prev-run-prefix``.
+
+See also :numref:`handling_clouds` with considers the situation
+that clouds are present in the input images. The suggestions there
+may apply in other contexts as well.
 
 On Linux, the ``parallel_stereo`` program writes in each output tile
 location a file of the form::

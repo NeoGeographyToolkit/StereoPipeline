@@ -56,6 +56,11 @@ are created by the ``parallel_stereo`` program above)::
 
 Visualization is further discussed in :numref:`visualising`.
 
+A produced DEM may need to be aligned to some pre-existing reference
+(:numref:`pc_align`). If the positions and orientations of the cameras
+are not known well then bundle adjustment may be necessary
+(:numref:`bundle_adjustment`).
+
 What follows are two examples of processing non-Earth data. An example
 using Earth data is in :numref:`dg_tutorial`. More examples can be
 found in :numref:`examples`.
@@ -321,19 +326,31 @@ guess. This process is described in :numref:`mapproj-example`.
 Dealing with clouds
 -------------------
 
-Clouds can result in unreasonably large search ranges and a long
-run-time.  A solution can be to mapproject the images
+Clouds can result in unreasonably large disparity search ranges and a
+long run-time.  A solution can be to mapproject the images
 (:numref:`mapproj-example`), and tighten the computed search range via
-``--corr-search-limit`` (:numref:`stereodefault`), which, for
-mapprojected images could be set to something like ``-50 -50 50
-50``. This would enforce that left and right mapprojected images
-have their matching pixels at a distance of at most 50 from each
-other, horizontally and vertically.
+``--max-disp-spread`` (:numref:`stereodefault`).
+
+If a run failed because of a large disparity search range, the low-resolution
+disparity ``D_sub.tif`` (:numref:`outputfiles`) should be deleted,
+parameters adjusted, and ``parallel_stereo`` should be re-run with the
+option ``--resume-at-corr``.
+
+Running just ``stereo_corr`` with the same arguments as
+``parallel_stereo`` (except those specific to this tool, used for
+tiling and number of processes, etc.), while adding the option
+``--compute-low-res-disparity-only``, can be used to examine how
+``D_sub.tif`` is created and what the various search ranges are
+(before and after filtering, etc.), which will later affect the
+runtime of correlation.
 
 The ``local_epipolar`` alignment can handle clouds reasonably well.
 This mode will print the min and max disparities to be searched
 in the terminal (and to log files). If desired to tighten those,
-use, as earlier, the option ``--corr-search-limit``.
+use, as earlier, the option ``--max-disp-spread``.
+
+See also :numref:`longrun` which offers further suggestions for
+how to deal with long run-times.
 
 .. _wvcorrect-example:
 

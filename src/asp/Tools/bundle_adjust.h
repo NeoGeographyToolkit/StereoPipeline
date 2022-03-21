@@ -59,7 +59,8 @@ enum BACameraType {BaCameraType_Pinhole    = 0,
 struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, input_prefix, stereo_session,
-    cost_function, mapprojected_data, gcp_from_mapprojected;
+    cost_function, match_files_prefix, clean_match_files_prefix,
+    mapprojected_data, gcp_from_mapprojected;
   int ip_per_tile, ip_per_image, ip_edge_buffer_percent;
   double min_triangulation_angle, forced_triangulation_distance,
     lambda, camera_weight, rotation_weight, 
@@ -511,7 +512,8 @@ void auto_build_overlap_list(Options &opt, double lonlat_buffer) {
     // Try to get the lonlat bounds for this image
     std::vector<vw::Vector2> pixel_corners_i, lonlat_corners_i;
     try {
-      read_success = asp::read_WV_XML_corners(opt.camera_files[i], pixel_corners_i, lonlat_corners_i);
+      read_success = asp::read_WV_XML_corners(opt.camera_files[i], pixel_corners_i,
+                                              lonlat_corners_i);
     } catch(...) {
       read_success = false;
     }
@@ -529,7 +531,8 @@ void auto_build_overlap_list(Options &opt, double lonlat_buffer) {
 
       std::vector<vw::Vector2> pixel_corners_j, lonlat_corners_j;
       try {
-        read_success = asp::read_WV_XML_corners(opt.camera_files[j], pixel_corners_j, lonlat_corners_j);
+        read_success = asp::read_WV_XML_corners(opt.camera_files[j], pixel_corners_j,
+                                                lonlat_corners_j);
       } catch(...) {
         read_success = false;
       }

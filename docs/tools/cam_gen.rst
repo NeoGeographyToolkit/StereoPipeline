@@ -43,7 +43,7 @@ Some other pixels can be used instead of corners, if using the
 
 Note that for Optical Bar cameras the camera parameters must be passed
 in using the ``--sample-file`` option instead of specifying them all
-manually.
+manually. (See :numref:`kh9` for a longer discussion.)
 
 It is strongly suggested to mapproject the image onto the obtained
 camera to verify if it projects where expected::
@@ -134,7 +134,9 @@ Command-line options for cam_gen:
 
 --sample-file <filename>
     Instead of manually specifying all of the camera parameters,
-    specify a sample camera model file on disk to read them from.
+    specify a sample camera model file on disk to read them from
+    (see :numref:`kh9`, :numref:`file_format`, and
+    :numref:`panoramic`).
 
 --focal-length <float (default: 0)>
     The camera focal length.

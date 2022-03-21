@@ -435,8 +435,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     // images are small.  Using an ImageViewRef would make the
     // subsampling operations happen twice, once for L_sub.tif and
     // second time for lMask_sub.tif.
-    ImageView< PixelMask < PixelGray<float> > > left_sub_image, right_sub_image;
-    if ( sub_scale > 0.5 ) {
+    ImageView<PixelMask<PixelGray<float>>> left_sub_image, right_sub_image;
+    if (sub_scale > 0.5) {
       // When we are near the pixel input to output ratio, standard
       // interpolation gives the best possible results.
       left_sub_image  = block_rasterize(resample(copy_mask(left_image,  create_mask(left_mask)),

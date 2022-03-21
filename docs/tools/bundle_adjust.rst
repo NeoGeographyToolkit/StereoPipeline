@@ -161,7 +161,12 @@ and
      {output-prefix}-final_residuals_pointmap.csv
 
 Such files can be inspected to see at which pixels the residual error
-is large. One can also invoke ``point2dem`` with the ``--csv-format``
+is large. 
+
+Residuals corresponding to GCP will be printed at the end
+of these files and flagged with the string ``# GCP``. 
+
+One can also invoke ``point2dem`` with the ``--csv-format``
 option to grid these files for visualization in the GUI. Here is a
 sample file::
 
@@ -269,9 +274,12 @@ Command-line options for bundle_adjust
     separated by a space, which are expected to overlap. Matches
     are then computed only among the images in each pair.
 
---auto-overlap-buffer <double>
-    Try to automatically determine which images overlap. Only
-    supports Worldview style XML camera files.
+--auto-overlap-buffer <double (default: not set)>
+    Try to automatically determine which images overlap. Used only if
+    this option is explicitly set. Only supports Worldview style XML
+    camera files. The lon-lat footprints of the cameras are expanded
+    outwards on all sides by this value (in degrees), before checking
+    if they intersect.
 
 --match-first-to-last
     Match the first several images to several last images by extending
@@ -527,7 +535,7 @@ Command-line options for bundle_adjust
     in the input image files to match locations to cameras.
 
 --disable-pinhole-gcp-init
-    Don’t try to initialize pinhole camera coordinates using provided
+    Do not try to initialize pinhole camera coordinates using provided
     GCP coordinates. Set this if you only have one image per GCP
     or if the pinhole initialization process is not producing good
     results.
@@ -551,7 +559,16 @@ Command-line options for bundle_adjust
     cameras.
 
 --skip-matching
-    Only use image matches which can be loaded from disk.
+    Only use image matches which can be loaded from disk. This implies
+    ``--force-reuse-match-files``.
+
+--match-files-prefix <string (default: "")>
+    Use the match files from this prefix instead of the current
+    output prefix. This implies ``--skip-matching``.
+
+--clean-match-files-prefix <string (default: "")>
+    Use as input match files the \*-clean.match files from this prefix.
+    This implies ``--skip-matching``.
 
 --enable-rough-homography
     Enable the step of performing datum-based rough homography for

@@ -41,19 +41,19 @@ The ``parallel_stereo`` program computes and prints the convergence
 angle for a given stereo pair at the stereo preprocessing stage
 (:numref:`entrypoints`).
 
-Although images do not need to be map-projected before running the
+Although images do not need to be mapprojected before running the
 ``parallel_stereo`` program, we recommend that you do run ``cam2map`` (or
 ``cam2map4stereo.py``) beforehand, especially for image pairs that
 contain large topographic variation (and therefore large disparity
-differences across the scene, e.g., Valles Marineris). Map-projection is
+differences across the scene, e.g., Valles Marineris). mapprojection is
 especially necessary when processing HiRISE images. This removes the
 large disparity differences between HiRISE images and leaves only the
 small detail for the Stereo Pipeline to compute. Remember that ISIS can
-work backwards through a map-projection when applying the camera model,
+work backwards through a mapprojection when applying the camera model,
 so the geometric integrity of your images will not be sacrificed if you
-map-project first.
+mapproject first.
 
-An alternative way of map-projection, that applies to non-ISIS images
+An alternative way of mapprojection, that applies to non-ISIS images
 as well, is with the ``mapproject`` tool (:numref:`mapproj-example`).
 
 Excessively noisy images will not correlate well, so images should be
@@ -200,13 +200,12 @@ computation and a reasonable processing time.
 North Terra Meridiani
 ~~~~~~~~~~~~~~~~~~~~~
 
-In this example, we use map-projected images. Map-projecting the images
-is the most reliable way to align the images for correlation. However
-when possible, use non-map-projected images with the
-``alignment-method affineepipolar`` option. This greatly reduces the
-time spent in triangulation. For all cases using linescan cameras,
-triangulation of map-projected images is 10x slower than
-non-map-projected images.
+In this example, we use mapprojected images, which is the most
+reliable way to align the images for correlation. However when
+possible, use non-mapprojected images with the ``alignment-method
+affineepipolar`` option. This greatly reduces the time spent in
+triangulation. For all cases using linescan cameras, triangulation of
+mapprojected images is 10x slower than non-mapprojected images.
 
 This example is distributed in the ``examples/CTX`` directory (type
 'make' there to run it).
@@ -476,7 +475,7 @@ In this case all ISIS preprocessing of the EDRs is performed via the
 This runs ``lronac2isis``, ``lronaccal``, ``lronacecho``,
 ``spiceinit``, ``noproj``, and ``handmos`` to create a stitched
 unprojected image for each observation. In this example we don't
-map-project the images as ASP can usually get good results. More
+mapproject the images as ASP can usually get good results. More
 aggressive terrain might require an additional ``cam2map4stereo.py``
 step.
 
@@ -641,7 +640,7 @@ in the 3D data while the new crater and ejecta become only noise.
 
    Example output of what is possible with Cassini's ISS NAC.  Upper left:
    original left image.  Upper right: original right image.  Lower left: 
-   map-projected left image.  Lower right: 3D Rendering of the point cloud.
+   mapprojected left image.  Lower right: 3D Rendering of the point cloud.
 
 .. _commands-7:
 
@@ -770,10 +769,16 @@ low-resolution smooth DEM from the previous cloud::
 
 followed by mapprojecting onto it and redoing stereo::
 
-     mapproject run/run-smooth-DEM.tif left.cub left.json left.map.tif
-     mapproject run/run-smooth-DEM.tif right.cub right.json right.map.tif
+     mapproject --tr 6 run/run-smooth-DEM.tif left.cub left.json     \
+       left.map.tif
+     mapproject --tr 6 run/run-smooth-DEM.tif right.cub right.json   \
+       right.map.tif
      parallel_stereo left.map.tif right.map.tif left.json right.json \
        run_map/run run/run-smooth-DEM.tif
+
+Notice how we used the same resolution for both images when
+mapprojecting. That helps making the resulting images more similar and
+reduces the processing time (:numref:`mapproj-res`).
 
 .. _csm_minirf:
 
@@ -995,7 +1000,7 @@ command is::
       left.tif right.tif left.xml right.xml results/run
 
 For terrains having steep slopes, we recommend that images be
-map-projected onto an existing DEM before running stereo. This is
+mapprojected onto an existing DEM before running stereo. This is
 described in :numref:`mapproj-example`.
 
 If the RPC coefficients are stored in the input images, ``mapproject``
@@ -1104,15 +1109,19 @@ running parallel_stereo on the map projected images.
 
 ::
 
-       > add_spot_rpc front/SEGMT01/METADATA.DIM -o front/SEGMT01/METADATA.DIM
-       > add_spot_rpc back/SEGMT01/METADATA.DIM  -o back/SEGMT01/METADATA.DIM
-       > mapproject sample_dem.tif front/SEGMT01/IMAGERY.BIL front/SEGMT01/METADATA.DIM 
-         front_map_proj.tif -t rpc
-       > mapproject sample_dem.tif back/SEGMT01/IMAGERY.BIL back/SEGMT01/METADATA.DIM 
-         back_map_proj.tif -t rpc
-       > parallel_stereo -t spot5maprpc front_map_proj.tif back_map_proj.tif  \ 
-         front/SEGMT01/METADATA.DIM back/SEGMT01/METADATA.DIM \ 
-         st_run/out sample_dem.tif
+    add_spot_rpc front/SEGMT01/METADATA.DIM -o front/SEGMT01/METADATA.DIM
+    add_spot_rpc back/SEGMT01/METADATA.DIM  -o back/SEGMT01/METADATA.DIM
+    mapproject --tr gridSize sample_dem.tif front/SEGMT01/IMAGERY.BIL   \
+      front/SEGMT01/METADATA.DIM front_map_proj.tif -t rpc
+    mapproject --tr gridSize sample_dem.tif back/SEGMT01/IMAGERY.BIL    \
+      back/SEGMT01/METADATA.DIM back_map_proj.tif -t rpc
+    parallel_stereo -t spot5maprpc front_map_proj.tif back_map_proj.tif \ 
+      front/SEGMT01/METADATA.DIM back/SEGMT01/METADATA.DIM              \ 
+      st_run/out sample_dem.tif
+
+Notice how we used the same resolution (option ``--tr``) for both
+images when mapprojecting. That helps making the resulting images more
+similar and reduces the processing time (:numref:`mapproj-res`).
 
 .. figure:: images/examples/spot5_figure.png
    :name: spot5_output
@@ -1315,9 +1324,9 @@ Visualize the DEM with::
     stereo_gui --hillshade out_stereo/run-DEM.tif
 
 To improve the results for steep terrain, one may consider doing
-stereo as before, followed by map-projection onto a coarser and
+stereo as before, followed by mapprojection onto a coarser and
 smoother version of the obtained DEM, and then redoing stereo with
-map-projected images (per the suggestions in :numref:`mapproj-example`). Using
+mapprojected images (per the suggestions in :numref:`mapproj-example`). Using
 ``--subpixel-mode 2``, while much slower, yields the best results. The
 flow is as follows::
 
@@ -1330,13 +1339,13 @@ flow is as follows::
      point2dem -r earth --tr 0.002695                \
        out_stereo/run-PC.tif -o out_stereo/run-300m
 
-     # Map-project onto this DEM at 10 meters/pixel
+     # Mapproject onto this DEM at 10 meters/pixel
      mapproject --tr 0.0000898 out_stereo/run-300m-DEM.tif \
        out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif
      mapproject --tr 0.0000898 out_stereo/run-300m-DEM.tif \
        out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif
      
-     # Run parallel_stereo with the map-projected images
+     # Run parallel_stereo with the mapprojected images
      # and subpixel-mode 2
      parallel_stereo -t aster --subpixel-mode 2          \
        out-Band3N_proj.tif out-Band3B_proj.tif           \
@@ -1348,12 +1357,16 @@ flow is as follows::
 
 Also consider using ``--stereo-algorithm asp_mgm`` as mentioned earlier.
 
-Here we could have again used ``-t rpc`` instead of ``-t aster``. The
-map-projection was done using ``--tr 0.0000898`` which is about
-10 meters/pixel.
+Here we could have again used ``-t rpc`` instead of ``-t aster``. 
+
+It is very important to use the same resolution (option ``--tr``) for
+both images when mapprojecting. That helps making the resulting images
+more similar and reduces the processing time
+(:numref:`mapproj-res`). The mapprojection resolution was 0.0000898,
+which is about 10 meters/pixel.
 
 It is possible to increase the resolution of the final DEM slightly by
-instead map-projecting at 7 meters/pixel, hence using::
+instead mapprojecting at 7 meters/pixel, hence using::
 
      --tr .00006288
 
@@ -1509,7 +1522,7 @@ The output KML file can then be opened in Google Earth. We very strongly
 recommend this step, since it may catch inaccurate cameras which will
 cause problems later.
 
-Another important check is to map-project these images using the cameras
+Another important check is to mapproject these images using the cameras
 and overlay them in ``stereo_gui`` on top of the reference DEM. Here is
 an example for the first image::
 
@@ -1699,13 +1712,18 @@ Mapprojection
 ~~~~~~~~~~~~~
 
 If the steep topography prevents good DEMs from being created, one can
-map-project the images first onto the reference DEM::
+mapproject the images first onto the reference DEM::
 
      for i in 1 2 3 4; do 
-       mapproject ref_dem.tif v${i}.tif ba/run-run-run-v${i}.tsai v${i}_map.tif  
+       mapproject --tr gridSize ref_dem.tif v${i}.tif \
+         ba/run-run-run-v${i}.tsai v${i}_map.tif  
      done
 
-and then run ``parallel_stereo`` with the mapprojected images, such as::
+It is very important to use the same resolution (option ``--tr``) for
+both images when mapprojecting. That helps making the resulting images
+more similar and reduces the processing time (:numref:`mapproj-res`). 
+
+Then run ``parallel_stereo`` with the mapprojected images, such as::
 
      i=1
      ((j=i+1))
@@ -2828,7 +2846,7 @@ correction or not, or if to change the value of
 ``--output-cloud-type``.
 
 As in usual invocations of stereo, the input images may be
-map-projected, and then a DEM is expected, stereo may happen only in
+mapprojected, and then a DEM is expected, stereo may happen only in
 certain regions as chosen in the GUI, bundle adjustment may be used,
 the output point cloud may be converted to LAS, etc. 
 
@@ -3029,17 +3047,28 @@ and that is why one cannot change these at the triangulation step.
 Bathymetry correction with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Mapprojecting the input images can improve the results on steep slopes
+(:numref:`mapproj-example`). While that may not be a big concern in
+bathymetry applications, this section nevertheless illustrates how
+stereo with shallow water can be done with mapprojection.
+
 Given an external DEM, the left and right images can be mapprojected
 onto this DEM, for example as:
 
 ::
 
-  mapproject external_dem.tif left.tif left.xml left_map.tif
+  mapproject external_dem.tif --tr gridSize \
+    left.tif left.xml left_map.tif
 
-and the same for the right image. One should mapproject the same way
-the left and right band 7 Digital Globe multispectral images (if
-applicable), obtaining two images, ``left_map_b7.tif`` and
-``right_map_b7.tif``. These two can be used to find the masks, as earlier:
+and the same for the right image. The same ground sample distance
+(resolution) must be used for left and right images, which should be
+appropriately chosen depending on the data (:numref:`mapproj-res`).
+
+
+One should mapproject the same way the left and right band 7 Digital
+Globe multispectral images (if applicable), obtaining two images,
+``left_map_b7.tif`` and ``right_map_b7.tif``. These two can be used to
+find the masks, as earlier:
 
 ::
 

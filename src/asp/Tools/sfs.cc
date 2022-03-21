@@ -3878,7 +3878,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("gradient-weight", po::value(&opt.gradient_weight)->default_value(0.0),
-     "The weight given to the cost function term which consists of sums of squares of first-order derivatives. This can be used in conjunction with --smoothness-weight.")
+     "The weight given to the cost function term which consists of sums "
+     "of squares of first-order derivatives. A larger value will result "
+     "in a smoother solution. This can be used in conjunction with "
+     "--smoothness-weight. It is suggested to experiment with this "
+     "with a value of 0.0001 - 0.01, while reducing the "
+     "smoothness weight to a very small value.")
     ("save-sparingly",   po::bool_switch(&opt.save_sparingly)->default_value(false)->implicit_value(true),
      "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
     ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),

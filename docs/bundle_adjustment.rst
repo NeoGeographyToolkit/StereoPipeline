@@ -65,9 +65,14 @@ into the stereo work flow not only results in DEMs that are more
 internally consistent, it is also the correct way to co-register your
 DEMs with other existing data sets and geodetic control networks.
 
-At the moment however, Bundle Adjustment does not automatically work
-against outside DEMs from sources such as laser altimeters. Hand-picked
-GCPs are the only way for ASP to register to those types of sources.
+A DEM obtained after bundle adjustment and stereo may need to be aligned
+to a known reference coordinate system. For that, use the ``pc_align``
+tool (:numref:`pc_align`).
+
+See the options ``--heights-from-dem`` and ``--reference-terrain``
+further down for how to incorporate an external DEM in bundle
+adjustment.  Note that this can only locally refine camera parameters,
+an initial alignment with ``pc_align`` is still necessary.
 
 .. _baasp:
 
@@ -75,7 +80,7 @@ Bundle adjustment using ASP
 ---------------------------
 
 Stereo Pipeline provides its own bundle adjustment tool, named
-:ref:`bundle_adjust`. Its usage is described in :numref:`bundle_adjust`.
+``bundle_adjust``. Its usage is described in :numref:`bundle_adjust`.
 
 Here is an example of using this tool on a couple of Apollo 15 images,
 and its effect on decreasing the stereo triangulation error.
@@ -103,8 +108,17 @@ Running ``parallel_stereo`` while using the bundle-adjusted camera models::
 A comparison of the two ways of doing stereo is shown in
 :numref:`asp-ba-example`.
 
+Bundle adjustment aims to make the cameras more self-consistent but
+offers no guarantees about their absolute positions (unless GCP are
+used), in fact, the cameras can move away a lot sometimes. The options
+``--rotation-weight``, ``--translation-weight``, and
+``--camera-weight`` can be used to constrain how much the cameras can
+move during bundle adjustment. Note that large values for these may
+impact the ability to make the cameras self-consistent.
+
 ASP also offers the tool ``parallel_bundle_adjust`` which can be much
-faster bundle adjusting many images at once.
+faster bundle adjusting many images at once
+(:numref:`parallel_bundle_adjust`).
 
 .. _floatingintrinsics:
 
@@ -659,7 +673,7 @@ The search chip defines the search range for which ``pointreg`` will
 look for matching images. The pattern chip is simply the kernel size of
 the matching template. The search range is specific for this image pair.
 The control network result after ``autoseed`` had a large vertical
-offset in the ball park of 500 px. The large misalignment dictated the
+offset in the ball park of 500 pixels. The large misalignment dictated the
 need for the large search in the lines direction. Use ``qnet`` to get an
 idea for what the pixel shifts look like in your stereo pair to help you
 decide on a search range. In this example, only one measurement failed
@@ -712,7 +726,7 @@ The above command will spew out a bunch of diagnostic information from
 every iteration of the optimization algorithm. The most important
 feature to look at is the *sigma0* value. It represents the mean of
 pixel errors in the control network. In our run, the initial error was
-1065 px and the final solution had an error of 1.1 px.
+1065 pixels and the final solution had an error of 1.1 pixels.
 
 Producing a DEM using the newly created camera corrections is the same
 as covered in the Tutorial. When using ``jigsaw``, it modifies

@@ -101,7 +101,7 @@ namespace asp {
 
   // Define our options that are available
   // ----------------------------------------------------------
-  PreProcessingDescription::PreProcessingDescription() : po::options_description("Preprocessing Options") {
+  PreProcessingDescription::PreProcessingDescription() : po::options_description("Preprocessing options") {
 
     StereoSettings& global = stereo_settings();
     double nan = std::numeric_limits<double>::quiet_NaN();
@@ -197,7 +197,7 @@ namespace asp {
        "When bathymetry correction is used, return only the triangulated cloud of points where the bathymetry correction was applied (option: 'bathy'), where it was not applied (option: 'topo'), or the full cloud (option: 'all'). The default is 'all'.");
   }
 
-  CorrelationDescription::CorrelationDescription() : po::options_description("Correlation Options") {
+  CorrelationDescription::CorrelationDescription() : po::options_description("Correlation options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("prefilter-mode",         po::value(&global.pre_filter_mode)->default_value(2),
@@ -210,7 +210,7 @@ namespace asp {
       ("min-num-ip",             po::value(&global.min_num_ip)->default_value(30),
                      "The minimum number of interest points which must be found to estimate the search range.")
       ("corr-sub-seed-percent",  po::value(&global.seed_percent_pad)->default_value(0.25),
-                     "Percent fudge factor for disparity seed's search range.")
+                     "Expand the search range by this factor when computing the low-resolution disparity.")
       ("cost-mode",              po::value(&global.cost_mode)->default_value(2),
                      "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation, 3 Census Transform (SGM only), 4 Ternary Census Transform (SGM only)]")
       ("xcorr-threshold",        po::value(&global.xcorr_threshold)->default_value(2.0),
@@ -223,9 +223,12 @@ namespace asp {
       ("corr-kernel",            po::value(&global.corr_kernel)->default_value(Vector2i(21,21),"21 21"),
                     "Kernel size used for integer correlator.")
       ("corr-search",            po::value(&global.search_range)->default_value(BBox2(0,0,0,0), "auto"),
-                     "Disparity search range. Specify in format: hmin vmin hmax vmax.")
-      ("corr-search-limit",      po::value(&global.search_range_limit)->default_value(BBox2(0,0,0,0), "auto"),
-                     "Limit on automatically computed disparity search range: hmin vmin hmax vmax.")
+       "Disparity search range. Specify in format: hmin vmin hmax vmax.")
+      ("max-disp-spread",      po::value(&global.max_disp_spread)->default_value(-1),
+       "If positive, limit the spread of the disparity to this value (horizontally and vertically, centered at the median value). Do not specify together with --corr-search-limit.")
+
+      ("corr-search-limit",      po::value(&global.corr_search_limit)->default_value(BBox2(0,0,0,0), "auto"),
+                     "Limit the automatically computed disparity search range to these bounds, specified as: hmin vmin hmax vmax. See also --max-disp-spread.")
       ("elevation-limit",        po::value(&global.elevation_limit)->default_value(Vector2(0,0), "auto"),
        "Limit on expected elevation range: Specify as two values: min max.")
       // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
@@ -265,7 +268,10 @@ namespace asp {
       ("sgm-search-buffer",        po::value(&global.sgm_search_buffer)->default_value(Vector2i(4,4),"4 4"),
                      "Search range expansion for SGM down stereo pyramid levels.  Smaller values are faster, but greater change of blunders.")
       ("corr-memory-limit-mb",     po::value(&global.corr_memory_limit_mb)->default_value(4*1024),
-                     "Keep correlation memory usage (per tile) close to this limit.  Important for SGM/MGM.")
+       "Keep correlation memory usage (per tile) close to this limit.  Important for SGM/MGM.")
+      ("correlator-mode", po::bool_switch(&global.correlator_mode)->default_value(false)->implicit_value(true),
+       "Function as an image correlator only (including with subpixel refinement). Assume no cameras, aligned input images, and stop before triangulation, so at filtered disparity.")
+
       ("stereo-debug",   po::bool_switch(&global.stereo_debug)->default_value(false)->implicit_value(true),
                      "Write stereo debug images and output.");
 
@@ -282,7 +288,7 @@ namespace asp {
     (*this).add( backwards_compat_options );
   }
 
-  SubpixelDescription::SubpixelDescription() : po::options_description("Subpixel Options") {
+  SubpixelDescription::SubpixelDescription() : po::options_description("Subpixel options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("subpixel-mode",       po::value(&global.subpixel_mode)->default_value(1),
@@ -300,7 +306,7 @@ namespace asp {
       ("phase-subpixel-accuracy", po::value(&global.phase_subpixel_accuracy)->default_value(20),
                               "Accuracy to use for mode 4 phase subpixel.  Resolution is 1/this.  Larger values take more time.");
 
-    po::options_description experimental_subpixel_options("Experimental Subpixel Options");
+    po::options_description experimental_subpixel_options("Experimental subpixel options");
     experimental_subpixel_options.add_options()
       ("subpixel-em-iter",        po::value(&global.subpixel_em_iter)->default_value(15),
                                   "Maximum number of EM iterations for EMSubpixelCorrelator.")
@@ -317,7 +323,7 @@ namespace asp {
     (*this).add( backwards_compat_options );
   }
 
-  FilteringDescription::FilteringDescription() : po::options_description("Filtering Options") {
+  FilteringDescription::FilteringDescription() : po::options_description("Filtering options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("filter-mode",         po::value(&global.filter_mode)->default_value(1),
@@ -364,7 +370,7 @@ namespace asp {
     (*this).add( backwards_compat_options );
   }
 
-  TriangulationDescription::TriangulationDescription() : po::options_description("Triangulation Options") {
+  TriangulationDescription::TriangulationDescription() : po::options_description("Triangulation options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("universe-center",                   po::value(&global.universe_center)->default_value("None"),
@@ -405,7 +411,7 @@ namespace asp {
       ;
   }
 
-  GUIDescription::GUIDescription() : po::options_description("GUI Options") {
+  GUIDescription::GUIDescription() : po::options_description("GUI options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("grid-cols",         po::value(&global.grid_cols)->default_value(std::numeric_limits<int>::max()),
@@ -440,7 +446,7 @@ namespace asp {
       ;
   }
 
-  UndocOptsDescription::UndocOptsDescription() : po::options_description("Undocumented Options") {
+  UndocOptsDescription::UndocOptsDescription() : po::options_description("Undocumented options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("trans-crop-win", po::value(&global.trans_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Left image crop window in respect to L.tif. This is an internal option. [default: use the entire image].")

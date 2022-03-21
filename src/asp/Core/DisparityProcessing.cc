@@ -169,7 +169,7 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   // Find the outlier brackets. Since the triangulation errors, unlike
   // the heights, are usually rather uniform, adjust pct from 95 to
   // 90.
-  double pct2 = (90.0/95.0) * outlier_removal_params[0];
+  double pct2 = std::max((90.0/95.0) * outlier_removal_params[0], 0.5);
   double pct_fraction2 = 1.0 - pct2/100.0;
   // Show some lenience below as due to jitter some errors could be somewhat bigger
   double factor2 = 2.0 * factor;

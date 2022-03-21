@@ -590,8 +590,32 @@ namespace asp {
     double disp_extra = disp_width * stereo_settings().disparity_range_expansion_percent / 100.0;
     
     min_disp = floor(disp_range.min().x() - disp_extra/2.0);
-    max_disp = ceil(disp_range.max().x() + disp_extra/2.0);
+    max_disp = ceil(disp_range.max().x()  + disp_extra/2.0);
 
+    // TODO(oalexan1): Make this into a function.
+    if (stereo_settings().max_disp_spread > 0) {
+      
+      vw_out() << "Min and max disparities before invoking the --max-disp-spread option: "
+               << min_disp << ' ' << max_disp << ".\n";
+      
+      std::vector<double> diff;
+      for (size_t it = 0; it < left_trans_local_ip.size(); it++) 
+        diff.push_back(right_trans_local_ip[it].x - left_trans_local_ip[it].x);
+      
+      if (diff.empty()) 
+        vw_throw(ArgumentErr() << "No interest points left.");
+      
+      std::sort(diff.begin(), diff.end());
+      double mid_x = diff[diff.size()/2]; // median
+      
+      double len = stereo_settings().max_disp_spread;
+      double half = len / 2.0;
+      min_disp = std::max(min_disp, (int)floor(mid_x - half));
+      max_disp = std::min(max_disp, (int)ceil (mid_x + half));
+
+      // The resulting range of disparities will be printed later.
+    }
+    
     return;
   }
 

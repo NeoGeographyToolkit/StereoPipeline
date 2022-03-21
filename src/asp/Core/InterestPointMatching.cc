@@ -794,7 +794,10 @@ namespace asp {
     return ip1_out.size();
   } // End filter_ip_by_elevation
   
-  // Filter ip by triangulation error, reprojection error, and height range
+  // Filter ip by triangulation error, reprojection error, and height range.
+  // This assumes the interest points are for the original images, without alignment
+  // or mapprojection.
+  // TODO(oalexan1): Add here the ability to reverse the alignment
   void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
                                std::vector<vw::ip::InterestPoint> & ip2,
                                vw::camera::CameraModel const * cam1,

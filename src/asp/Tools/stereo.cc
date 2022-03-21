@@ -283,7 +283,6 @@ namespace asp {
       ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"),
        "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
 
-
     // We distinguish between all_general_options, which is all the
     // options we must parse, even if we don't need some of them, and
     // general_options, which are the options specifically used by the
@@ -354,6 +353,11 @@ namespace asp {
 
     asp::stereo_settings().validate();
 
+    if (stereo_settings().correlator_mode) {
+      stereo_settings().alignment_method = "none"; // images are assumed aligned
+      opt.stereo_session = "rpc";                  // since inputs are images this seems simpler
+    }
+    
     // Make sure that algorithm 0 is same as asp_bm, etc.
     boost::to_lower(stereo_settings().stereo_algorithm);
     if (stereo_settings().stereo_algorithm == "0") 
@@ -500,7 +504,11 @@ namespace asp {
 	std::swap( stereo_settings().lon_lat_limit.min().x(),
 		   stereo_settings().lon_lat_limit.max().x() );
     }
-    
+
+    if (!stereo_settings().corr_search_limit.empty() && stereo_settings().max_disp_spread > 0)
+      vw_throw(ArgumentErr() << "Cannot specify both --corr-search-limit and --max-disp-spread.\n\n" << usage << general_options);
+      
+      
     // Verify that there is only one channel per input image
     if ( (left_resource->channels() > 1) || (right_resource->channels() > 1) )
       vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n" << usage << general_options);
@@ -529,6 +537,10 @@ namespace asp {
       vw_out() << "For the original mgm algorithm increasing the --corr-timeout to: " <<
         stereo_settings().corr_timeout << ".\n";
     }
+
+    if (stereo_settings().correlator_mode && !opt.input_dem.empty())
+      vw_throw(ArgumentErr() << "Error: With --correlator-mode, use only two "
+               << "input images and no reference DEM.\n");
       
     // TODO: Modify SGM tile sizes?
     
@@ -537,7 +549,6 @@ namespace asp {
     
     bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
                         stereo_settings().alignment_method == "local_epipolar");
-    
     if (using_tiles) {
       // If these parameters were not specified by the user, override
       // the normal default values.  Note that by setting

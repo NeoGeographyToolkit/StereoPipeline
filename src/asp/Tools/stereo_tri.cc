@@ -676,9 +676,9 @@ void stereo_triangulation(std::string const& output_prefix,
         return;
       }
     }
-    
+
     if (is_map_projected)
-      vw_out() << "\t--> Inputs are map projected" << std::endl;
+      vw_out() << "\t--> Inputs are map projected." << std::endl;
 
     // Strip the smart pointers and form the stereo model
     std::vector<const vw::camera::CameraModel *> camera_ptrs;
@@ -803,6 +803,11 @@ void stereo_triangulation(std::string const& output_prefix,
 
 int main(int argc, char* argv[]) {
 
+  if (asp::stereo_settings().correlator_mode) {
+    vw_out() << "The triangulation step is skipped with --correlator-mode.\n";
+    return 0;
+  }
+  
   try {
     xercesc::XMLPlatformUtils::Initialize();
 

@@ -235,6 +235,8 @@ namespace vw { namespace gui {
     // of the first image.
     // Also set up the image GeoReference transforms for each image
     // in both directions.
+    // TODO(oalexan1): There is no need to re-read images when the layout changes.
+    // Images better be read before the layout is created and just passed in.
     int num_images = image_files.size();
     m_images.resize(num_images);
     m_filesOrder.resize(num_images);
@@ -247,18 +249,27 @@ namespace vw { namespace gui {
         popUp("No georeference present in: " + m_images[i].name + ".");
         vw_throw(ArgumentErr() << "Missing georeference.\n");
       }
-          
-      // Read the base image, if different from the current image.
-      // When using georeferenced images, the base image projection
-      // (flipped in y) becomes the world coordinates.
-      if (i == 0){
-        if (image_files[i] == base_image_file) {
-          m_base_image = m_images[i];
-        }else{
-          m_base_image.read(base_image_file, m_opt);
-        }
+    }
+    
+    // Read the base image. When using georeferenced images, the base
+    // image projection (flipped in y) becomes the world coordinates.
+    bool read_base_image = false;
+    for (int i = 0; i < num_images; i++) {
+      if (image_files[i] == base_image_file) {
+        // This will be a shallow copy of image data
+        m_base_image = m_images[i];
+        read_base_image = true;
+        break;
       }
-      
+    }
+    if (!read_base_image) {
+      // The base image is different than any input images, and has to
+      // be read separately.
+      m_base_image.read(base_image_file, m_opt);
+    }
+
+    // Set geotransforms and other data
+    for (int i = 0; i < num_images; i++) {
       // Make sure we set these up before the image2world call below!
       m_world2image_geotransforms[i] = GeoTransform(m_base_image.georef, m_images[i].georef);
       m_image2world_geotransforms[i] = GeoTransform(m_images[i].georef, m_base_image.georef);

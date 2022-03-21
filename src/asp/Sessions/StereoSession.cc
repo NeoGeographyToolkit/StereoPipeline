@@ -335,10 +335,12 @@ namespace asp {
 
       georef.set_geographic();
 
-      boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
-                                                                          m_left_camera_file);
-      bool use_sphere_for_datum = true;       // Spherical datum for non-Earth, as done usually
-      georef.set_datum(this->get_datum(cam.get(), use_sphere_for_datum));
+      if (!stereo_settings().correlator_mode) {
+        boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
+                                                                            m_left_camera_file);
+        bool use_sphere_for_datum = true;       // Spherical datum for non-Earth, as done usually
+        georef.set_datum(this->get_datum(cam.get(), use_sphere_for_datum));
+      }
     }
 
     return georef;
@@ -355,6 +357,20 @@ boost::shared_ptr<vw::camera::CameraModel>
 StereoSession::camera_model(std::string const& image_file, std::string const& camera_file,
                             bool quiet) {
 
+  if (stereo_settings().correlator_mode) {
+    // No cameras exist, so make some dummy cameras. Recall that we
+    // set the session to rpc in this mode so that it is assumed that
+    // the cameras may hiding in the images rather than kept
+    // separately. In this mode the cameras should not actually get
+    // used.
+    vw::Vector<double, 20> v; v[0] = 1.0; // to a void a zero denominator
+    vw::Vector2 v2(1.0, 1.0); // to avoid division by 0
+    vw::Vector3 v3(1.0, 1.0, 1.0);
+    boost::shared_ptr<vw::camera::CameraModel>
+      cam(new RPCModel(vw::cartography::Datum("WGS84"), v, v, v, v, v2, v2, v3, v3));
+    return cam;
+  }
+  
   // If the desired camera is already loaded, do not load it again.
   std::pair<std::string, std::string> image_cam_pair = std::make_pair(image_file, camera_file);
   

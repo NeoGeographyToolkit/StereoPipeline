@@ -160,11 +160,12 @@ namespace asp {
     bool         save_lr_disp_diff;   // Save the L-R and R-L disparity difference 
     vw::Vector2i corr_kernel;         // Correlation kernel
     vw::BBox2    search_range;        // Correlation search range
-    vw::BBox2    search_range_limit;  // Correlation search range limit
+    vw::BBox2    corr_search_limit;  // Correlation search range limit
     vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
     vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
 
-    vw::uint16   corr_max_levels;     // Max pyramid levels to process. 0 hits only once.
+    int corr_max_levels;     // Max pyramid levels to process. 0 hits only once.
+    int  max_disp_spread;    // Max disparity spread
     bool compute_low_res_disparity_only;      // Skip the full-resolution disparity computation
     bool skip_low_res_disparity_comp;
     std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity
@@ -178,7 +179,7 @@ namespace asp {
     vw::Vector2i sgm_search_buffer;   // Search padding in SGM around previous pyramid level disparity value.
     size_t corr_memory_limit_mb;      // Correlation memory limit, only important for SGM/MGM.
     bool   stereo_debug;              // Write stereo debug images and messages
-
+    bool   correlator_mode;           // Use the correlation logic only (including subpixel rfne). 
     // Subpixel Options
     bool subpix_from_blend;           // Read from -B.tif instead of -D.tif
     vw::uint16 subpixel_mode;         // 0 = none

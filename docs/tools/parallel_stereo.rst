@@ -146,11 +146,12 @@ Command-line options
     Stereo Pipeline entry point. Start at this stage. See
     :numref:`entrypoints`.
 
---stop-point <integer (from 1 to 6)>  Stereo Pipeline stop point (stop at
-                                      the stage *right before* this).
+--stop-point <integer (from 1 to 6)> 
+    Stereo Pipeline stop point (stop at the stage *right before*
+    this).
 
---corr-seed-mode <integer (from 0 to 3)>  Correlation seed strategy
-                                          (:numref:`corr_section`).
+--corr-seed-mode <integer (from 0 to 3)>
+    Correlation seed strategy (:numref:`corr_section`).
 
 --sparse-disp-options <string (default: "")>
     Options to pass directly to sparse_disp

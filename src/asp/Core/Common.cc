@@ -169,8 +169,8 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
     
     std::string ext = get_extension(inputs2[i]);
     
-    if (ext == ".cub")                      has_cub    = true;
-    if (ext != ".cub")                      has_nocub  = true;
+    if (ext == ".cub")                      has_cub   = true;
+    if (ext != ".cub")                      has_nocub = true;
     if (asp::has_cam_extension(inputs2[i])) has_cam   = true;
   }
   
@@ -218,7 +218,7 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   
 }
 
-/// Parse the list of files specified as positional arguments on the command lin
+/// Parse the list of files specified as positional arguments on the command line
 bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
                                     std::vector<std::string>       &image_paths,
                                     std::vector<std::string>       &camera_paths,
@@ -265,7 +265,7 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
 
   // Now there are N images and possibly N camera paths
   bool ensure_equal_sizes = false;
-  asp::separate_images_from_cameras(files, image_paths, camera_paths,  ensure_equal_sizes);
+  asp::separate_images_from_cameras(files, image_paths, camera_paths, ensure_equal_sizes);
 
   // Verifications
   

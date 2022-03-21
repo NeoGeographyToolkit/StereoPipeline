@@ -813,11 +813,13 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
     }
     
     // Filter by disparity
+    // TODO(oalexan1): Remove this param. Use instead --outlier-removal-params.
+    // Not sure this code should be here to start with.
     asp::filter_ip_by_disparity(opt.remove_outliers_by_disp_params[0],
                                 opt.remove_outliers_by_disp_params[1],
                                 left_ip, right_ip);
       
-    if ( param_storage.num_cameras() == 2 ){
+    if (param_storage.num_cameras() == 2){
       // Compute the coverage fraction
       Vector2i right_image_size = file_image_size(opt.image_files[1]);
       int right_ip_width = right_image_size[0]*
@@ -829,13 +831,12 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
     }
 
     // Make a clean copy of the file
-    match_file = fs::path(match_file).replace_extension("").string();
-    match_file += "-clean.match";
+    std::string clean_match_file = ip::clean_match_filename(match_file);
     
     vw_out() << "Saving " << left_ip.size() << " filtered interest points.\n";
 
-    vw_out() << "Writing: " << match_file << std::endl;
-    ip::write_binary_match_file(match_file, left_ip, right_ip);
+    vw_out() << "Writing: " << clean_match_file << std::endl;
+    ip::write_binary_match_file(clean_match_file, left_ip, right_ip);
   } // End loop through the match files
 }
 
@@ -1614,7 +1615,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str,
     intrinsics_limit_str;
-  float auto_overlap_buffer;
+  double auto_overlap_buffer;
   bool  inline_adjustments;
   int   max_iterations_tmp;
   po::options_description general_options("");
@@ -1640,7 +1641,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("camera-positions",    po::value(&opt.camera_position_file)->default_value(""),
      "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the inline-adjustments option.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
-     "Don't try to initialize the positions of pinhole cameras based on input GCPs.")
+     "Do not try to initialize the positions of pinhole cameras based on input GCPs.")
     ("transform-cameras-using-gcp",  po::bool_switch(&opt.transform_cameras_using_gcp)->default_value(false)->implicit_value(true),
      "Use GCP, even those that show up in just an image, to transform cameras to ground coordinates. Need at least two images to have at least 3 GCP each. If at least three GCP each show up in at least two images, the transform will happen even without this option using a more robust algorithm.")
     ("input-adjustments-prefix",  po::value(&opt.input_prefix),
@@ -1712,8 +1713,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
     ("overlap-list",         po::value(&opt.overlap_list_file)->default_value(""),
      "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
-    ("auto-overlap-buffer",  po::value(&auto_overlap_buffer)->default_value(-1),
-     "Try to automatically guess which images overlap with the provided buffer in lonlat degrees.")
+    ("auto-overlap-buffer",  po::value(&auto_overlap_buffer)->default_value(-1.0),
+     "Try to automatically determine which images overlap. Used only if "
+     "this option is explicitly set. Only supports Worldview style XML "
+     "camera files. The lon-lat footprints of the cameras are expanded "
+     "outwards on all sides by this value (in degrees), before checking "
+     "if they intersect.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
      "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("match-first-to-last", po::value(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
@@ -1746,6 +1751,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
     ("lon-lat-limit",          po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min_lon min_lat max_lon max_lat.")
+    ("match-files-prefix",  po::value(&opt.match_files_prefix)->default_value(""),
+     "Use the match files from this prefix instead of the current output prefix. This implies --skip-matching.")
+    ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
+     "Use as input match files the *-clean.match files from this prefix. This implies --skip-matching.")
     ("enable-rough-homography",
      po::bool_switch(&opt.enable_rough_homography)->default_value(false)->implicit_value(true),
      "Enable the step of performing datum-based rough homography for interest point matching. This is best used with reasonably reliable input cameras and a wide footprint on the ground.")
@@ -1774,8 +1783,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("use-lon-lat-height-gcp-error",
      po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
      "When having GCP, interpret the three standard deviations in the GCP file as applying not to x, y, and z, but rather to latitude, longitude, and height.")
-    ("force-reuse-match-files", po::bool_switch(&opt.force_reuse_match_files)->default_value(false)->implicit_value(true),
-     "Force reusing the match files even if older than the images or cameras.")
     ("disable-correct-velocity-aberration", po::bool_switch(&opt.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
      "Turn off velocity aberration correction for non-ISIS linescan cameras.")
     ("disable-correct-atmospheric-refraction", po::bool_switch(&opt.disable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
@@ -1801,8 +1808,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Quit after computing image statistics.")
     ("stop-after-matching",    po::bool_switch(&opt.stop_after_matching)->default_value(false)->implicit_value(true),
      "Quit after writing all match files.")
+    ("force-reuse-match-files", po::bool_switch(&opt.force_reuse_match_files)->default_value(false)->implicit_value(true),
+     "Force reusing the match files even if older than the images or cameras.")
     ("skip-matching",    po::bool_switch(&opt.skip_matching)->default_value(false)->implicit_value(true),
-     "Only use image matches which can be loaded from disk.")
+     "Only use image matches which can be loaded from disk. This implies --force-reuse-match-files.")
     ("ip-debug-images",        po::value(&opt.ip_debug_images)->default_value(false)->implicit_value(true),
      "Write debug images to disk when detecting and matching interest points.")
     
@@ -1860,6 +1869,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // TODO(oalexan1): This duplicates logic from StereoSessionFactory.cc.
   // But need to ensure nothing breaks below.
+
+  // Reusing match files implies that we skip matching
+  if (opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
+    opt.skip_matching = true;
+  
+  //  When skipping matching, we are already forced to reuse match
+  //  files based on the logic in the code, // but here enforce it
+  //  explicitly anyway.
+  if (opt.skip_matching) 
+    opt.force_reuse_match_files = true;
   
   // Work out the camera model type to use
   boost::to_lower(opt.stereo_session);
@@ -2155,7 +2174,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     if (opt.reference_terrain_weight < 0) 
       vw_throw( ArgumentErr() << "The value of --reference-terrain-weight must be non-negative.\n");
   }
-  
+
+  if (opt.match_files_prefix != "" && opt.clean_match_files_prefix != "") 
+    vw_throw( ArgumentErr()
+              << "Cannot specify both --match-files-prefix and --clean-match-files-prefix.\n");
+
+  return;
 }
 
 // A wrapper around ip matching. Can also work with NULL cameras.
@@ -2443,6 +2467,9 @@ int main(int argc, char* argv[]) {
       if (opt.apply_initial_transform_only)
         continue; // no stats need to happen
 
+      if (opt.skip_matching || opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
+        continue;
+      
       size_t index = image_stats_indices[i];
       
       std::string image_path  = opt.image_files [index];
@@ -2461,9 +2488,9 @@ int main(int argc, char* argv[]) {
       // Use caching function call to compute the image statistics.
       // TODO(oalexan1): Test if this is necessary with --mapprojected-data.
       // That one should gather stats in mapprojected images instead.
-      asp::StereoSession::gather_stats(masked_image, image_path,
-                                       opt.out_prefix, image_path);
+      asp::StereoSession::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
     }
+    
     if (opt.stop_after_stats){
       vw_out() << "Quitting after statistics computation.\n";
       return 0;
@@ -2524,7 +2551,6 @@ int main(int argc, char* argv[]) {
       (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
 
     // Find interest points between all of the image pairs.
-    int num_pairs_matched = 0;
 
     // Make a list of all of the image pairs to find matches for.
     std::vector<std::pair<int,int> > all_pairs;
@@ -2647,9 +2673,20 @@ int main(int argc, char* argv[]) {
       // - The points are written to a file on disk.
       std::string camera1_path   = opt.camera_files[i];
       std::string camera2_path   = opt.camera_files[j];
-      std::string match_filename = ip::match_filename(opt.out_prefix, image1_path,
-                                                      image2_path);
-      opt.match_files[ std::pair<int, int>(i, j) ] = match_filename;
+      std::string match_filename;
+
+      // See if perhaps to load match files from a different source
+      if (opt.clean_match_files_prefix != "") 
+        match_filename = ip::clean_match_filename(opt.clean_match_files_prefix, image1_path,
+                                                  image2_path);
+      else if (opt.match_files_prefix != "")
+        match_filename = ip::match_filename(opt.match_files_prefix, image1_path,
+                                            image2_path);
+      else
+        match_filename = ip::match_filename(opt.out_prefix, image1_path,
+                                            image2_path);
+      
+      opt.match_files[std::pair<int, int>(i, j)] = match_filename;
       
       // TODO: Need to make sure this works with the parallel script!
       bool inputs_changed = (!asp::is_latest_timestamp(match_filename,
@@ -2663,7 +2700,6 @@ int main(int argc, char* argv[]) {
 
       if (!inputs_changed) {
         vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
-        ++num_pairs_matched;
         continue;
       }
       if (opt.skip_matching)
@@ -2705,7 +2741,6 @@ int main(int argc, char* argv[]) {
         double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);
         vw_out() << "IP coverage fraction = " << ip_coverage << std::endl;
         vw_out() << "Number of matches in " << match_filename << " " << ip1.size() << "\n";
-        ++num_pairs_matched;
       } catch (const std::exception& e){
         vw_out() << "Could not find interest points between images "
                   << opt.image_files[i] << " and " << opt.image_files[j] << std::endl;

@@ -279,6 +279,7 @@ def calc_lowres_disp(args, opt, sep, resume = False):
 
     if will_run:
         if (opt.seed_mode == 3):
+            # This uses the python sparse_disp tool
             run_sparse_disp(args, opt)
         else:
             local_args = args[:] # deep copy to use locally

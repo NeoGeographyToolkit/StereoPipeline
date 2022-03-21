@@ -122,6 +122,11 @@ if __name__ == '__main__':
     sep = ","
     settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
 
+    if int(settings['correlator_mode'][0]) != 0:
+        print("Skipping triangulation with --correlator-mode.")
+        if (opt.stop_point >= Step.tri):
+            opt.stop_point = Step.tri
+
     alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
     using_tiles = (alg > VW_CORRELATION_BM or \
                    settings['alignment_method'][0] == 'local_epipolar')

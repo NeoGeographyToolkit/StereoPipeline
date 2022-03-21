@@ -290,7 +290,7 @@ and they disappear during the resampling that is necessary to obtain
 ``D_sub.tif``. In this case, it is possible to set ``corr-seed-mode`` to
 0, and manually set a search range to use for full-resolution
 correlation via the parameter ``corr-search``. In ``stereo.default``
-this parameter's entry will look like::
+(:numref:`stereodefault`) this parameter's entry will look like::
 
            corr-search -80 -2 20 2
 
@@ -325,8 +325,8 @@ those disparity measurements against the written L.tif and R.tif files
 
 If the search range produced automatically from the low-resolution
 disparity is too big, perhaps due to outliers, it can be tightened
-with the option ``corr-search-limit`` before continuing with
-full-resolution correlation (:numref:`stereodefault`).
+with either ``--max-disp-spread`` or ``--corr-search-limit``, before
+continuing with full-resolution correlation (:numref:`stereodefault`).
 
 .. _subpixel:
 
@@ -504,15 +504,15 @@ point cloud file, ``output-prefix-PC.tif``. This information can be
 brought to the same perspective as the output DEM by using the *--error*
 argument on the ``point2dem`` command.
 
-This error in the triangulation, the distance between two rays, *is
-not the true accuracy of the DEM*. It is only another indirect
-measure of quality. A DEM with high triangulation error is always
-bad and should have its images bundle-adjusted. A DEM with low
-triangulation error is at least self consistent but could still be
-bad. A map of the triangulation error should only be interpreted
-as a relative measurement. Where small areas are found with high
-triangulation error came from correlation mistakes and large areas
-of error came from camera model inadequacies.
+This error in the triangulation, the shortest distance between two
+rays, *is not the true accuracy of the DEM*. It is only another
+indirect measure of quality. A DEM with high triangulation error is
+always bad and should have its images bundle-adjusted. A DEM with low
+triangulation error is at least self-consistent but could still be
+bad. A map of the triangulation error should only be interpreted as a
+relative measurement. Where small areas are found with high
+triangulation error came from correlation mistakes and large areas of
+error came from camera model inadequacies.
 
 
 .. _sensor_corrections:

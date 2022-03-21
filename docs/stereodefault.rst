@@ -369,6 +369,11 @@ corr-search (*integer integer integer integer*)
     These four integers define the minimum horizontal and vertical
     disparity and then the maximum horizontal and vertical disparity.
 
+max-disp-spread (*integer*) (default = -1)
+    If positive, limit the spread of the disparity to this value
+    (horizontally and vertically, centered at the median
+    value). Do not specify together with ``corr-search-limit``.
+
 corr-search-limit (*integer integer integer integer*)
     Set these parameters to constrain the search range that
     ``parallel_stereo`` automatically computes when ``corr-search`` is
@@ -377,6 +382,7 @@ corr-search-limit (*integer integer integer integer*)
     horizontal direction. For example, when using pinhole frame
     cameras with epipolar alignment the actual vertical search range
     may be much smaller than the automatically computed search range.
+    See also ``--max-disp-spread``.
 
     The interpretation of these four integers is as for
     ``corr-search``.
@@ -489,6 +495,11 @@ corr-memory-limit-mb (*integer*) (default = 6144)
     pixels in order to reduce memory usage. If the required memory is
     still over this limit then the program will error out. The unit is
     in megabytes.
+
+correlator-mode
+    Function as an image correlator only (including with subpixel
+    refinement). Assume no cameras, aligned input images, and stop
+    before triangulation, so at filtered disparity.
 
 Subpixel refinement
 -------------------
