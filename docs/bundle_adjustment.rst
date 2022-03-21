@@ -71,7 +71,7 @@ tool (:numref:`pc_align`).
 
 See the options ``--heights-from-dem`` and ``--reference-terrain``
 further down for how to incorporate an external DEM in bundle
-adjustment.  Note that this can only locally refine camera parameters,
+adjustment.  Note that these can only locally refine camera parameters,
 an initial alignment with ``pc_align`` is still necessary.
 
 .. _baasp:
@@ -116,8 +116,8 @@ used), in fact, the cameras can move away a lot sometimes. The options
 move during bundle adjustment. Note that large values for these may
 impact the ability to make the cameras self-consistent.
 
-ASP also offers the tool ``parallel_bundle_adjust`` which can be much
-faster bundle adjusting many images at once
+ASP also offers the tool ``parallel_bundle_adjust`` which can create
+match files using multiple processes spread over multiple machines
 (:numref:`parallel_bundle_adjust`).
 
 .. _floatingintrinsics:

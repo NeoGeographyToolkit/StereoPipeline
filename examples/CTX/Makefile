@@ -24,7 +24,7 @@ mapprojected: nonmapprojected
 	if [ ! -e P02_001981_1823_XI_02N356W.map.cub ] && [ ! -e P03_002258_1817_XI_01N356W.map.cub ]; then cam2map4stereo.py P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub; fi
 
 map/map-PC.tif: mapprojected
-	if [ ! -e map/map-PC.tif ]; then stereo P02_001981_1823_XI_02N356W.map.cub P03_002258_1817_XI_01N356W.map.cub map/map -s stereo.map; fi
+	if [ ! -e map/map-PC.tif ]; then parallel_stereo P02_001981_1823_XI_02N356W.map.cub P03_002258_1817_XI_01N356W.map.cub map/map -s stereo.map; fi
 
 map/map-DEM.tif: map/map-PC.tif
 	cd map; \
@@ -37,7 +37,7 @@ map/map-DEM_CMAP.tif: map/map-DEM.tif
 	colormap map-IntersectionErr.tif --colormap-style ../../TriangulationError.lut
 
 nonmap/nonmap-PC.tif: nonmapprojected
-	if [ ! -e nonmap/nonmap-PC.tif ]; then stereo P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.nonmap; fi
+	if [ ! -e nonmap/nonmap-PC.tif ]; then parallel_stereo P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.nonmap; fi
 
 nonmap/nonmap-DEM.tif: nonmap/nonmap-PC.tif
 	cd nonmap; \

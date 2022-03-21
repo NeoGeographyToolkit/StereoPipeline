@@ -201,11 +201,10 @@ North Terra Meridiani
 ~~~~~~~~~~~~~~~~~~~~~
 
 In this example, we use mapprojected images, which is the most
-reliable way to align the images for correlation. However when
-possible, use non-mapprojected images with the ``alignment-method
-affineepipolar`` option. This greatly reduces the time spent in
-triangulation. For all cases using linescan cameras, triangulation of
-mapprojected images is 10x slower than non-mapprojected images.
+reliable way to align the images for correlation. (Mapprojection can
+slow down the triangulation, yet given that ``parallel_stereo``
+performs the triangulation using multiple processes, that is not a
+concern.)
 
 This example is distributed in the ``examples/CTX`` directory (type
 'make' there to run it).

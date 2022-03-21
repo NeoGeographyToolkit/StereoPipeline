@@ -38,11 +38,12 @@ parallel_stereo:
     discrepancy between left-to-right and right-to-left
     disparities, which may help with filtering unreliable
     disparities.
-  * Added the option --correlator-mode. Function as an image
-    correlator only (including with subpixel refinement). Assumes
-    aligned input images and no cameras.
+  * Added the option ``--correlator-mode``. Then ``parallel_stereo``
+    functions as an image correlator only and no point cloud gets
+    generated. Subpixel refinement and filtering neverthless
+    happen. Assumes aligned input images and no cameras.
   * Interest point matching with mapprojected images now happens
-    at full resolution, which results in in a more reliable process
+    at full resolution, which results in a more reliable process
     when there are clouds.
   * Expanded the doc to address a big gotcha: if left and right
     mapprojected images have somewhat different resolutions then an

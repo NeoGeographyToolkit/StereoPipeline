@@ -506,12 +506,14 @@ namespace asp {
     }
 
     if (!stereo_settings().corr_search_limit.empty() && stereo_settings().max_disp_spread > 0)
-      vw_throw(ArgumentErr() << "Cannot specify both --corr-search-limit and --max-disp-spread.\n\n" << usage << general_options);
+      vw_throw(ArgumentErr() << "Cannot specify both --corr-search-limit and "
+               << "--max-disp-spread.\n\n" << usage << general_options);
       
       
     // Verify that there is only one channel per input image
     if ( (left_resource->channels() > 1) || (right_resource->channels() > 1) )
-      vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n" << usage << general_options);
+      vw_throw(ArgumentErr() << "Error: Input images can only have a single channel.\n\n"
+               << usage << general_options);
 
     if ((stereo_settings().bundle_adjust_prefix != "") &&
         (stereo_settings().alignment_method == "epipolar"))
