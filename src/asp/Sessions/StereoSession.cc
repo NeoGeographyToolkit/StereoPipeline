@@ -34,6 +34,7 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/AdjustedLinescanDGModel.h>
+#include <asp/Camera/RPCModel.h>
 
 #include <boost/filesystem/operations.hpp>
 
@@ -990,7 +991,8 @@ StereoSession::load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> ca
       // the pixel offset passed in by the caller is not valid. Instead of
       // sorting things out simply refuse to allow this scenario.
       if (pixel_offset != Vector2()) {
-	      vw_throw(InputErr() << "Cannot use crop-win functionality with custom scale and pixel offset in .adjust files.\n");
+        vw_throw(InputErr() << "Cannot use crop win functionality with custom "
+                 << "scale and pixel offset in .adjust files.\n");
       }
     }else{
       // In this case we have local_pixel_offset == (0, 0) local_scale == 1.0.

@@ -24,14 +24,14 @@
 #ifndef __STEREO_CAMERA_LINESCAN_DG_MODEL_H__
 #define __STEREO_CAMERA_LINESCAN_DG_MODEL_H__
 
+#include <asp/Camera/TimeProcessing.h>
+#include <vw/Camera/CameraSolve.h>
 #include <vw/Camera/LinescanModel.h>
-#include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/Extrinsics.h>
-
-#include <asp/Core/StereoSettings.h>  // TESTING
+#include <vw/Camera/PinholeModel.h>
+#include <vw/Math/EulerAngles.h>
 
 namespace asp {
-
 
   // The intrinisic model expects +Z to be point out the camera. +X is
   // the column direction of the image and is perpendicular to
@@ -39,35 +39,29 @@ namespace asp {
   // the image); it is also the flight direction. This is different
   // from Digital Globe model, but you can rotate pose beforehand.
 
-  // The standard class variant is:
-  //      typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation,
-  //                      			  vw::camera::SLERPPoseInterpolation> DGCameraModel;
-
-  // The useful load_dg_camera_model() function is at the end of the file.
-
   /// Specialization of the generic LinescanModel for Digital Globe satellites.
-  /// - Two template types are left floating so that AdjustedLinescanDGModel can modify them.
-  template <class PositionFuncT, class PoseFuncT>
+  /// Class AdjustedLinescanDGModel inherits from this.
+  template <class PositionFuncT, class VelocityFuncT, class PoseFuncT>
   class LinescanDGModel : public vw::camera::LinescanModel {
   public:
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
     LinescanDGModel(PositionFuncT const& position,
-                    vw::camera::LinearPiecewisePositionInterpolation const& velocity,
+                    VelocityFuncT const& velocity,
                     PoseFuncT     const& pose,
-                    vw::camera::TLCTimeInterpolation                 const& time,
-                    vw::Vector2i  const& image_size,
+                    vw::camera::TLCTimeInterpolation const& time,
+                    vw::Vector2i  const& image_size, 
                     vw::Vector2   const& detector_origin,
                     double        const  focal_length,
                     double        const  mean_ground_elevation=0,
                     bool                 correct_velocity=true,
-                    bool                 correct_atmosphere=true
-		    ) : vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
-		        m_position_func(position), m_velocity_func(velocity),
-                        m_pose_func(pose),         m_time_func(time),
-                        m_detector_origin(detector_origin),
-                        m_focal_length(focal_length) {
+                    bool                 correct_atmosphere=true):
+      vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
+      m_position_func(position), m_velocity_func(velocity),
+      m_pose_func(pose), m_time_func(time),
+      m_detector_origin(detector_origin),
+      m_focal_length(focal_length) {
       m_mean_surface_elevation = mean_ground_elevation; // Set base class value
     } 
     virtual ~LinescanDGModel() {}
@@ -76,48 +70,118 @@ namespace asp {
     // -- This set of functions implements virtual functions from LinescanModel.h --
     
     // Implement the functions from the LinescanModel class using functors
-    virtual vw::Vector3 get_camera_center_at_time  (double time) const { return m_position_func(time); }
-    virtual vw::Vector3 get_camera_velocity_at_time(double time) const { return m_velocity_func(time); }
-    virtual vw::Quat    get_camera_pose_at_time    (double time) const { return m_pose_func    (time); }
-    virtual double      get_time_at_line           (double line) const { return m_time_func    (line); }
+    virtual vw::Vector3 get_camera_center_at_time(double time) const {
+      return m_position_func(time);
+    }
+    virtual vw::Vector3 get_camera_velocity_at_time(double time) const {
+      return m_velocity_func(time);
+    }
+    virtual vw::Quat get_camera_pose_at_time(double time) const {
+      return m_pose_func(time);
+    }
+    virtual double get_time_at_line(double line) const {
+      return m_time_func(line);
+    }
     
     /// As pixel_to_vector, but in the local camera frame.
-    virtual vw::Vector3 get_local_pixel_vector(vw::Vector2 const& pix) const;
+    virtual vw::Vector3 get_local_pixel_vector(vw::Vector2 const& pix) const {
+      vw::Vector3 local_vec(pix[0]+m_detector_origin[0], m_detector_origin[1], m_focal_length);
+      return normalize(local_vec);
+    }
     
-    // Override this implementation with a faster, more specialized implemenation.
-    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const;
+    // Override this implementation with a faster, more specialized implementation.
+    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const {
 
-    // -- These are new functions --
+      // Use the uncorrected function to get a fast but good starting seed.
+      vw::camera::CameraGenericLMA model(this, point);
+      int status;
+      vw::Vector2 start = point_to_pixel_uncorrected(point, starty);
+      
+      // Run the solver
+      vw::Vector3 objective(0, 0, 0);
+      const double ABS_TOL = 1e-16;
+      const double REL_TOL = 1e-16;
+      const int    MAX_ITERATIONS = 1e+5;
+      vw::Vector2 solution = vw::math::levenberg_marquardtFixed<vw::camera::CameraGenericLMA, 2,3>
+        (model, start, objective, status,
+         ABS_TOL, REL_TOL, MAX_ITERATIONS);
+      VW_ASSERT(status > 0,
+                vw::camera::PointToPixelErr() << "Unable to project point into LinescanDG model.");
+      return solution;
+    }
     
-    double       get_focal_length   () const {return m_focal_length;   } ///< Returns the focal length in pixels
-    vw::Vector2  get_detector_origin() const {return m_detector_origin;} ///< Returns the detector origin in pixels    
+    // -- These are new functions --
+
+    ///< Returns the focal length in pixels
+    double       get_focal_length   () const {return m_focal_length;   }
+    ///< Returns the detector origin in pixels
+    vw::Vector2  get_detector_origin() const {return m_detector_origin;} 
     
     /// Create a fake pinhole model. It will return the same results
     /// as the linescan camera at current line y, but we will use it
     /// by extension at neighboring lines as well.
-    vw::camera::PinholeModel linescan_to_pinhole(double y) const;
+    vw::camera::PinholeModel linescan_to_pinhole(double y) const {
+      double t = this->m_time_func(y);
+      return vw::camera::PinholeModel(this->m_position_func(t),
+                                      this->m_pose_func(t).rotation_matrix(),
+                                      this->m_focal_length, -this->m_focal_length,
+                                      -this->m_detector_origin[0],
+                                      y - this->m_detector_origin[1]);
+    }
+    
+    ///< Access the position function
+    PositionFuncT const& get_position_func() const {return m_position_func;}
+    
+    ///< Access the velocity function
+    VelocityFuncT
+    const& get_velocity_func() const {return m_velocity_func;}
 
+    ///< Access the pose function
+     PoseFuncT const& get_pose_func() const {return m_pose_func;}
 
-    PositionFuncT const& get_position_func() const {return m_position_func;} ///< Access the position function
-    vw::camera::LinearPiecewisePositionInterpolation
-                  const& get_velocity_func() const {return m_velocity_func;} ///< Access the velocity function
-    PoseFuncT     const& get_pose_func    () const {return m_pose_func;    } ///< Access the pose     function
+    ///< Access the time function
     vw::camera::TLCTimeInterpolation
-                  const& get_time_func    () const {return m_time_func;    } ///< Access the time     function
-
+    const& get_time_func() const {return m_time_func;} 
 
   protected: // Functions
   
     /// Low accuracy function used by point_to_pixel to get a good solver starting seed.
-    vw::Vector2 point_to_pixel_uncorrected(vw::Vector3 const& point, double starty) const;
+    vw::Vector2 point_to_pixel_uncorrected(vw::Vector3 const& point, double starty) const {
+      // Solve for the correct line number to use
+      LinescanLMA model(this, point);
+      int status;
+      vw::Vector<double> objective(1), start(1);
+      start[0] = m_image_size.y()/2; 
+      // Use a refined guess, if available, otherwise the center line.
+      if (starty >= 0)
+        start[0] = starty;
+
+      // Run the solver
+      const double ABS_TOL = 1e-16;
+      const double REL_TOL = 1e-16;
+      const int    MAX_ITERATIONS = 1e+5;
+      vw::Vector<double> solution = vw::math::levenberg_marquardt(model, start, objective, status,
+                                                                  ABS_TOL, REL_TOL, MAX_ITERATIONS);
+
+      VW_ASSERT(status > 0, vw::camera::PointToPixelErr()
+                << "Unable to project point into LinescanDG model.");
+
+      // Solve for sample location now that we know the correct line
+      double t = m_time_func(solution[0]);
+      // TODO(oalexan1): Replace inverse with transpose if it is a rotation matrix?
+      vw::Vector3 pt = inverse(m_pose_func(t)).rotate(point - m_position_func(t));
+      pt *= m_focal_length / pt.z();
+
+      return vw::Vector2(pt.x() - m_detector_origin[0], solution[0]);
+    }
 
   protected: // Variables
-  
+    
     // Extrinsics
-    PositionFuncT                                    m_position_func; ///< Yields position at time T
-    vw::camera::LinearPiecewisePositionInterpolation m_velocity_func; ///< Yields velocity at time T
-    PoseFuncT                                        m_pose_func;     ///< Yields pose     at time T
-    vw::camera::TLCTimeInterpolation                 m_time_func;     ///< Yields time at a given line.
+    PositionFuncT m_position_func; ///< Position at given time
+    VelocityFuncT m_velocity_func; ///< Velocity at given time
+    PoseFuncT     m_pose_func;     ///< Pose     at given time
+    vw::camera::TLCTimeInterpolation m_time_func;     ///< Time at a given line
 
     // Intrinsics
     
@@ -143,27 +207,39 @@ namespace asp {
       typedef result_type        domain_type;   // 1D linescan number
       typedef vw::Matrix<double> jacobian_type;
 
-      LinescanLMA( const LinescanDGModel* model, const vw::Vector3& pt ) :
+      LinescanLMA(const LinescanDGModel* model, const vw::Vector3& pt):
         m_model(model), m_point(pt) {}
 
-      inline result_type operator()( domain_type const& y ) const;
+        inline result_type operator()(domain_type const& y) const {
+          double       t        = m_model->get_time_at_line(y[0]);
+          vw::Quat     pose     = m_model->get_camera_pose_at_time(t);
+          vw::Vector3  position = m_model->m_position_func(t);
+          
+          // Get point in camera's frame and rescale to pixel units
+          vw::Vector3 pt = vw::camera::point_to_camera_coord(position, pose, m_point);
+          pt *= m_model->m_focal_length / pt.z();
+          result_type result(1);
+
+          // Error against the location of the detector
+          result[0] = pt.y() - m_model->m_detector_origin[1]; 
+          return result;
+        }
     };
 
   }; // End class LinescanDGModel
 
-
-  /// This is the standard DG implementation
+  // This is the standard DG implementation. In Extrinsics.cc there are
+  // other ways of performing position and pose interpolation as well.
   typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation,
-                  			  vw::camera::SLERPPoseInterpolation> DGCameraModel;
+                          vw::camera::LinearPiecewisePositionInterpolation,
+                          vw::camera::SLERPPoseInterpolation> DGCameraModel;
 
-  /// Load a DG camera model from an XML file.
-  /// - This function does not take care of Xerces XML init/de-init, the caller must
-  ///   make sure this is done before/after this function is called!
-  inline boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const& path);
+  /// Load a DG camera model from an XML file. This function does not
+  /// take care of Xerces XML init/de-init, the caller must make sure
+  /// this is done before/after this function is called.
+  boost::shared_ptr<vw::camera::CameraModel>
+  load_dg_camera_model_from_xml(std::string const& path);
 
-}      // namespace asp
-
-#include <asp/Camera/LinescanDGModel.tcc>
-
+} //end  namespace asp
 
 #endif//__STEREO_CAMERA_LINESCAN_DG_MODEL_H__

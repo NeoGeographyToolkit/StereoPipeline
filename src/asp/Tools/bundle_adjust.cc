@@ -832,6 +832,16 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
 
     // Make a clean copy of the file
     std::string clean_match_file = ip::clean_match_filename(match_file);
+    if (opt.clean_match_files_prefix != "") {
+      // Avoid saving clean-clean.match.
+      clean_match_file = match_file;
+      // Write the clean match file in the current dir, not where it was read from
+      clean_match_file.replace(0, opt.clean_match_files_prefix.size(), opt.out_prefix);
+    }
+    else if (opt.match_files_prefix != "") {
+      // Write the clean match file in the current dir, not where it was read from
+      clean_match_file.replace(0, opt.match_files_prefix.size(), opt.out_prefix);
+    }
     
     vw_out() << "Saving " << left_ip.size() << " filtered interest points.\n";
 

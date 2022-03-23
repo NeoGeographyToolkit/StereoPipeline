@@ -19,7 +19,7 @@
 /// \file LinescanPeruSatModel.h
 ///
 /// Linescan camera model for PeruSat. Implemented based on
-/// Modelo%20Orbital%20PeruSAT-1.pdf as provided by Peru's space agency.
+/// Modelo%20Orbital%20PeruSAT-1.pdf, as provided by Peru's space agency.
 ///
 ///
 #ifndef __STEREO_CAMERA_LINESCAN_PERUSAT_MODEL_H__

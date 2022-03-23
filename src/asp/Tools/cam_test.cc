@@ -48,6 +48,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   std::string image_file, cam1_file, cam2_file, session1, session2;
   int sample_rate; // use one out of these many pixels
   double subpixel_offset;
+  bool disable_correct_velocity_aberration, disable_correct_atmospheric_refraction;
   Options() {}
 };
 
@@ -65,7 +66,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("sample-rate",   po::value(&opt.sample_rate)->default_value(100),
      "Use one out of these many pixels when sampling the image.")
     ("subpixel-offset",   po::value(&opt.subpixel_offset)->default_value(0.0),
-     "Add to each integer pixel this offset (in x and y) when sampling the image.");
+     "Add to each integer pixel this offset (in x and y) when sampling the image.")
+    ("disable-correct-velocity-aberration", po::bool_switch(&opt.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
+     "Turn off velocity aberration correction for Optical Bar and non-ISIS linescan cameras.")
+    ("disable-correct-atmospheric-refraction", po::bool_switch(&opt.disable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
+     "Turn off atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras.");
   
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
   
@@ -87,6 +92,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.sample_rate <= 0)
     vw_throw(ArgumentErr() << "The sample rate must be positive.\n" << usage << general_options);
+
+  asp::stereo_settings().disable_correct_velocity_aberration
+    = opt.disable_correct_velocity_aberration;
+  asp::stereo_settings().disable_correct_atmospheric_refraction
+    = opt.disable_correct_atmospheric_refraction;
 }
 
 // Sort the diffs and print some stats

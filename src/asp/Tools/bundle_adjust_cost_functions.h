@@ -144,7 +144,7 @@ public:
 					correction.pose());
     try {
       return cam.point_to_pixel(point);
-    } catch(...){
+    } catch(std::exception const& e){
     }
 
     // We must not allow one bad point to ruin the optimization
@@ -320,7 +320,7 @@ public:
     // Project the point into the camera.
     try {
       return cam.point_to_pixel(point);
-    } catch(...){
+    } catch(std::exception const& e){
     }
     
     // We must not allow one bad point to ruin the optimization

@@ -28,14 +28,18 @@ stereo algorithm to use. By default, ASP runs as if invoked with::
      <other options>
     
 This invokes block-matching stereo with parabola subpixel mode, which
-can be fast but not of high quality. The best results are likely
+can be fast but not of high quality. Much better results are likely
 produced with::
 
    parallel_stereo --alignment-method affineepipolar \
      --stereo-algorithm asp_mgm --subpixel-mode 3    \
      <other options>
 
-which uses ASP's implementation of MGM (:numref:`asp_sgm`). 
+which uses ASP's implementation of MGM (:numref:`asp_sgm`). For best
+results one can use ``--subpixel-mode 2``, but that is very slow.
+
+For steep terrains it is suggested to mappoject the images
+(:numref:`mapproj-example`).
 
 ASP also implements local alignment, when the input images are split
 into tiles (with overlap) and locally aligned. This makes it possible
@@ -861,15 +865,15 @@ above::
 Building a digital elevation model and ortho image
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``point2dem`` program (page ) creates a Digital Elevation Model
-(DEM) from the point cloud file.
+The ``point2dem`` program (:numref:`point2dem`) creates a Digital
+Elevation Model (DEM) from the point cloud file.
 
 ::
 
      point2dem results/output-PC.tif
 
 The resulting TIFF file is mapprojected and will contain georeference
-information stored as GeoTIFF tags.
+information stored as a GeoTIFF header.
 
 The tool will infer the datum and projection from the input images, if
 present. You can explicitly specify a coordinate system (e.g., mercator,
@@ -884,8 +888,9 @@ PROJ.4 string can be passed in.
 The output DEM will be named ``results/output-DEM.tif``. It can be
 imported into a variety of GIS platforms. The DEM can be transformed
 into a hill-shaded image for visualization (:numref:`genhillshade`).
-Both the DEM itself and its hill-shaded version can be examined in
-``stereo_gui``.
+The DEM can be examined in ``stereo_gui``, as::
+
+    stereo_gui --hillshade results/output-DEM.tif
 
 The ``point2dem`` program can also be used to orthoproject raw satellite
 images onto the DEM. To do this, invoke ``point2dem`` just as before,
@@ -894,9 +899,12 @@ image file as the texture file to use for the projection::
 
      point2dem results/output-PC.tif --orthoimage results/output-L.tif
 
-The texture file must always be specified after the point cloud file in
-this command. See :numref:`p19-norm_ortho` on the
-right for the output image.
+The texture file ``L.tif`` must always be specified after the point
+cloud file ``PC.tif`` in this command.
+
+This produces ``results/output-DRG.tif``, which can be visualized in
+``stereo_gui``.  See :numref:`p19-norm_ortho` on the right for the
+output image.
 
 To fill in any holes in the obtained orthoimage, one can invoke it with
 a larger value of the grid size (the ``--tr`` option) and/or with a

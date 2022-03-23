@@ -93,7 +93,7 @@ namespace asp {
     void setDesiredPrecision(double desired_precision) {
       m_desired_precision = desired_precision;
     }
-    
+
   private:
 
     // Read the ellipsoid (datum) axes from the isd json file

@@ -28,8 +28,8 @@ the images are usually in the ``.tif`` format (:numref:`dg_tutorial`).
 Higher quality results, at the expense of more computation, can be
 achieved by running::
 
-    ISIS> parallel_stereo --alignment-method local_epipolar   \
-      --stereo-algorithm asp_mgm --subpixel-mode 3            \
+    ISIS> parallel_stereo --alignment-method affineepipolar \
+      --stereo-algorithm asp_mgm --subpixel-mode 3          \
       left_image.cub right_image.cub results/run
 
 The best quality will likely be obtained with ``--subpixel-mode 2``,
@@ -44,15 +44,16 @@ as described in :numref:`stereo_gui`.  This tool makes it possible to
 manually select smaller clips on which to run ``parallel_stereo``.
 
 The string ``results/run`` is an arbitrary output prefix. All
-``parallel_stereo`` output files will be in the ``results`` directory and start
-with ``output``. See :numref:`outputfiles` for the list of output files.
+``parallel_stereo`` output files will be in the ``results`` directory
+and start with ``output``. See :numref:`outputfiles` for the list of
+output files.
 
 You can then make a visualizable mesh or a DTM file with the following
 commands (the ``results/run-PC.tif`` and ``results/run-L.tif`` files
 are created by the ``parallel_stereo`` program above)::
 
      ISIS> point2mesh results/run-PC.tif results/run-L.tif
-     ISIS> point2dem  results/run-PC.tif
+     ISIS> point2dem results/run-PC.tif
 
 Visualization is further discussed in :numref:`visualising`.
 
@@ -78,8 +79,8 @@ Lightning-fast example using Lunar images
 This example is designed to have the user create useful results with
 ASP using Lunar data 10 minutes or less. It does not require a
 download of ISIS or ISIS data (which can be a couple of hundreds of
-GB) because it uses the CSM camera model (:numref:`csm`). The steps to
-process it are as follows:
+GB) because it uses the CSM camera model (:numref:`csm`)). The steps
+to process it are as follows:
 
  - Get ASP per the installation page (:numref:`installation`).
  

@@ -49,7 +49,8 @@ struct Options : vw::cartography::GdalWriteOptions {
     bundle_adjust_prefix;
   bool isQuery, noGeoHeaderInfo, nearest_neighbor;
   bool multithreaded_model; // This is set based on the session type.
-
+  bool disable_correct_velocity_aberration, disable_correct_atmospheric_refraction;
+  
   // Keep a copy of the model here to not have to pass it around separately
   boost::shared_ptr<vw::camera::CameraModel> camera_model;
   
@@ -87,13 +88,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
     ("ot",  po::value(&opt.output_type)->default_value("Float32"), "Output data type, when the input is single channel. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If the output type is a kind of integer, values are rounded and then clamped to the limits of that type. This option will be ignored for multi-channel images, when the output type is set to be the same as the input type.")
     ("nearest-neighbor", po::bool_switch(&opt.nearest_neighbor)->default_value(false),
-      "Use nearest neighbor interpolation.  Useful for classification images.")
+     "Use nearest neighbor interpolation.  Useful for classification images.")
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
-     "Do not write metadata information in the geoheader. See the doc for more info.");
+     "Do not write metadata information in the geoheader. See the doc for more info.")
+    ("disable-correct-velocity-aberration", po::bool_switch(&opt.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
+     "Turn off velocity aberration correction for Optical Bar and non-ISIS linescan cameras.")
+    ("disable-correct-atmospheric-refraction", po::bool_switch(&opt.disable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
+     "Turn off atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
-
+  
   po::options_description positional("");
   positional.add_options()
     ("dem",          po::value(&opt.dem_file))
@@ -129,6 +134,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
+  asp::stereo_settings().disable_correct_velocity_aberration
+    = opt.disable_correct_velocity_aberration;
+  asp::stereo_settings().disable_correct_atmospheric_refraction
+    = opt.disable_correct_atmospheric_refraction;
+  
   if (fs::path(opt.dem_file).extension() != "") {
     // A path to a real DEM file was provided, load it!
     GeoReference dem_georef;

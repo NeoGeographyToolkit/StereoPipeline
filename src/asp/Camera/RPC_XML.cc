@@ -771,10 +771,6 @@ vw::BBox3 asp::RPCXML::get_lon_lat_height_box() const {
   return m_lat_lon_height_box;
 }
 
-
-
-
-
 bool asp::read_WV_XML_corners(std::string const& xml_path,
                               std::vector<vw::Vector2> &pixel_corners,
                               std::vector<vw::Vector2> &lonlat_corners) {

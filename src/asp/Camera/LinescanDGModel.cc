@@ -15,16 +15,21 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+#include <asp/Camera/RPC_XML.h>
+#include <asp/Camera/LinescanDGModel.h>
+#include <asp/Core/StereoSettings.h>
 
 namespace asp {
 
 // -----------------------------------------------------------------
 // LinescanDGModel supporting functions
 
-inline boost::posix_time::ptime parse_time(std::string str) {
+boost::posix_time::ptime parse_dg_time(std::string str) {
   try{
     return boost::posix_time::time_from_string(str);
   }catch(...){
+    // This is a useful error, it tells the user an XML camera file is
+    // trying to be interpreted as a DG camera file.
     vw::vw_throw(vw::ArgumentErr() << "Failed to parse time from string: " << str << ". "
                  << "If you are not using Digital Globe images, you may need to "
                  << "specify the session type, such as -t rpc, -t rpcmaprpc, -t aster, etc.\n");
@@ -70,7 +75,7 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
 
   // Convert UTC time measurements to line measurements. Ephemeris
   // start time will be our reference frame to calculate seconds against.
-  SecondsFromRef convert(parse_time(eph.start_time));
+  SecondsFromRef convert(parse_dg_time(eph.start_time));
 
   // I'm going make the assumption that EPH and ATT are sampled at the same rate and time.
   VW_ASSERT(eph.position_vec.size() == att.quat_vec.size(),
@@ -89,9 +94,6 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
     att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
   }
 
-  //vw::vw_out() << "DG model load - sensor_coordinate = " << sensor_coordinate << std::endl;
-  //geo.printDebugInfo(); // DEBUG INFO
-
   // Load up the time interpolation class. If the TLCList only has
   // one entry ... then we have to manually drop in the slope and offset.
   if (img.tlc_vec.size() == 1) {
@@ -106,9 +108,9 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
   // Build the TLCTimeInterpolation object and do a quick sanity check.
   vw::camera::TLCTimeInterpolation
     tlc_time_interpolation(img.tlc_vec,
-                           convert(parse_time(img.tlc_start_time)));
+                           convert(parse_dg_time(img.tlc_start_time)));
   
-  VW_ASSERT(fabs(convert(parse_time(img.first_line_start_time)) -
+  VW_ASSERT(fabs(convert(parse_dg_time(img.first_line_start_time)) -
   tlc_time_interpolation(0)) < fabs(1.0 / (10.0 * img.avg_line_rate)),
 	     vw::MathErr()
 	     << "First Line Time and output from TLC lookup table "
@@ -116,7 +118,7 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
 	     << "If your XML camera files are not from the WorldView satellites, "
 	     << "you may try the switch -t rpc to use the RPC camera model.\n"
 	     << "The first image line ephemeris time is: "
-  	     << convert(parse_time(img.first_line_start_time)) << ".\n"
+  	     << convert(parse_dg_time(img.first_line_start_time)) << ".\n"
 	     << "The TLC look up table time is: " << tlc_time_interpolation(0) << ".\n"
 	     << "Maximum allowed difference is 1/10 of avg line rate, which is: "
 	     << fabs(1.0 / (10.0 * img.avg_line_rate))
@@ -127,8 +129,8 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
 							      geo.detector_origin[1],
 							      0)), 0, 2);
 
-  double et0 = convert(parse_time(eph.start_time));
-  double at0 = convert(parse_time(att.start_time));
+  double et0 = convert(parse_dg_time(eph.start_time));
+  double at0 = convert(parse_dg_time(att.start_time));
   double edt = eph.time_interval;
   double adt = att.time_interval;
 

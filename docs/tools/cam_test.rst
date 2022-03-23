@@ -74,6 +74,14 @@ Command-line options for cam_test:
     the image. Sampling at non-integer location may make testing
     more thorough.
 
+--disable-correct-velocity-aberration
+    Turn off velocity aberration correction for Optical Bar and
+    non-ISIS linescan cameras (:numref:`sensor_corrections`).
+
+--disable-correct-atmospheric-refraction
+    Turn off atmospheric refraction correction for Optical Bar and
+    non-ISIS linescan cameras.
+
 -h, --help
     Display the help message.
 

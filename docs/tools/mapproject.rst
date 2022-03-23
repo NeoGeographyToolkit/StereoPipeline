@@ -145,6 +145,14 @@ Command-line options for mapproject:
     the rotation and translation from the .adjust file, the DEM it
     mapprojected onto, and the value of the ``--mo`` option.
 
+--disable-correct-velocity-aberration
+    Turn off velocity aberration correction for Optical Bar and
+    non-ISIS linescan cameras (:numref:`sensor_corrections`).
+
+--disable-correct-atmospheric-refraction
+    Turn off atmospheric refraction correction for Optical Bar and
+    non-ISIS linescan cameras.
+
 --suppress-output
     Suppress output from sub-processes.
 

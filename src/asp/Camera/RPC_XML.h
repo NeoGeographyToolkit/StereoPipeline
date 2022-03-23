@@ -47,9 +47,9 @@ XERCES_CPP_NAMESPACE_END
 
 namespace asp {
 
-  // Forward declare so that we can cut down on the headers.
+  // Forward declaration so we don't need to include this class's header
   class RPCModel;
-
+  
   /// Objects that represent read data from XML. These also provide a
   /// storage structure for modification later on.
   class ImageXML : public BitChecker {
@@ -138,11 +138,9 @@ namespace asp {
     std::vector<vw::Vector<double,10> > covariance_vec;
   };
 
-
-
   /// Reads from Digital Globe XML format
   class RPCXML : public BitChecker {
-    boost::scoped_ptr<RPCModel> m_rpc;
+    boost::shared_ptr<RPCModel> m_rpc;
     vw::BBox3 m_lat_lon_height_box;
 
     void parse_vector( xercesc::DOMElement* node,

@@ -562,8 +562,4 @@ std::string PeruSatXML::fix_millisecond(std::string const& in_str) {
 
   return out_str;
 }
-  
-  
 } // end namespace asp
-
-

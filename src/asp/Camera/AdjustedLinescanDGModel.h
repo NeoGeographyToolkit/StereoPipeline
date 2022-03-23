@@ -438,9 +438,7 @@ namespace asp {
   // This is a version of PiecewiseAdjustedLinescanModel tuned for DG.
   // TODO: Study whether this new class or the original perform better for DG
   // (a lot of work).
-  class AdjustedLinescanDGModel:
-    public LinescanDGModel<AdjustableDGPosition, AdjustableDGPose>
-  {      
+  class AdjustedLinescanDGModel: public LinescanDGModel<AdjustableDGPosition, vw::camera::LinearPiecewisePositionInterpolation, AdjustableDGPose> {
     
   public:
     //------------------------------------------------------------------
@@ -453,7 +451,7 @@ namespace asp {
                             std::vector<vw::Quat>    const& pose_adjustments,
 			    vw::Vector2i              const& image_size):
       // Initialize the base
-      LinescanDGModel<AdjustableDGPosition, AdjustableDGPose>
+      LinescanDGModel<AdjustableDGPosition, vw::camera::LinearPiecewisePositionInterpolation, AdjustableDGPose>
     (AdjustableDGPosition(get_dg_ptr(cam), interp_type, adjustment_bounds,
 			  position_adjustments, g_num_wts, g_sigma),
      get_dg_ptr(cam)->get_velocity_func(),
@@ -465,13 +463,11 @@ namespace asp {
      get_dg_ptr(cam)->get_focal_length()),
       // The line below is very important. We must make sure to keep track of
       // the smart pointer to the original camera, so it does not go out of scope.
-      m_cam(cam), m_image_size(image_size)
-    {
-
+      m_cam(cam), m_image_size(image_size) {
+      
       VW_ASSERT( position_adjustments.size() == pose_adjustments.size(),
                  vw::ArgumentErr()
                  << "Expecting the number of position and pose adjustments to agree.\n" );
-
     }
 
     virtual ~AdjustedLinescanDGModel() {}
