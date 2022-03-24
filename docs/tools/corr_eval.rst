@@ -43,6 +43,10 @@ Example::
 
 This will create ``run/run-ncc.tif``.
 
+Note that ASP provides a way to compute the correlation of images
+without the assumption that they are produced by a camera
+(:numref:`correlator-mode`).
+
 Command-line options for corr_eval:
 
 --kernel-size <integer integer (default: 21 21)>

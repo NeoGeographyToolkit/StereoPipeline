@@ -145,6 +145,8 @@ public:
     try {
       return cam.point_to_pixel(point);
     } catch(std::exception const& e){
+      // This can be useful for debugging
+      // std::cout << "Exception is " << e.what() << std::endl;
     }
 
     // We must not allow one bad point to ruin the optimization

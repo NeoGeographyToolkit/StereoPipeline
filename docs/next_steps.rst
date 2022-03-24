@@ -38,7 +38,7 @@ produced with::
 which uses ASP's implementation of MGM (:numref:`asp_sgm`). For best
 results one can use ``--subpixel-mode 2``, but that is very slow.
 
-For steep terrains it is suggested to mappoject the images
+For steep terrains it is suggested to mapproject the images
 (:numref:`mapproj-example`).
 
 ASP also implements local alignment, when the input images are split
@@ -294,6 +294,13 @@ When ``parallel_stereo`` finishes, it will have produced a point cloud image.
 :numref:`visualising` describes how to convert it to a digital
 elevation model (DEM) or other formats.
 
+The ``parallel_stereo`` program can be used purely for computing the
+correlation (disparity) of two images, without cameras
+(:numref:`correlator-mode`). 
+
+The quality of correlation can be evaluated with the ``corr_eval``
+program (:numref:`corr_eval`).
+
 The ``parallel_stereo`` command can also take multiple input images,
 performing multi-view stereo (:numref:`multiview`), though this
 approach is rather discouraged as better results can be obtained with
@@ -360,8 +367,13 @@ In this mode, ASP does not create a terrain model from scratch, but
 rather uses an existing terrain model as an initial guess, and improves
 on it.
 
-For Earth, an existing terrain model can be, for example, the Copernicus 30 m DEM
-from::
+.. _initial_terrain:
+
+Choice of initial guess terrain model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For Earth, an existing terrain model can be, for example, the
+Copernicus 30 m DEM from::
 
     https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3
 
@@ -369,7 +381,8 @@ or the NASA SRTM DEM (available on the same web site as above, choose
 the product relative to WGS84), GMTED2010, USGS's NED data, or NGA's
 DTED data. There exist pre-made terrain models for other planets as
 well, for example the Moon LRO LOLA global DEM and the Mars MGS MOLA
-DEM.
+DEM (ensure that a Mars DEM is relative to the datum ellipsoid, not to
+the areoid).
 
 Alternatively, a low-resolution smooth DEM can be obtained by running
 ASP itself as described in previous sections. In such a run, subpixel
@@ -537,15 +550,13 @@ Example for DigitalGlobe/Maxar images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In this section we will describe how to run stereo with mapprojected
-images for DigitalGlobe/Maxar cameras for Earth. The same process can be used
-with very minor modifications for any satellite images that use the
-the RPC camera model. All that is needed is to replace the stereo
-session when invoking ``parallel_stereo`` below with ``rpcmaprpc`` from
-``dgmaprpc``.
+images for DigitalGlobe/Maxar cameras for Earth. The same process can
+be used for any satellite images from any vendor.
 
 Unlike the previous section, here we will use an external DEM to
 mapproject onto, rather than creating our own. We will use a variant of
-NASA SRTM data with no holes. Other choices have been mentioned earlier.
+NASA SRTM data with no holes. See :numref:`initial_terrain` for how
+to fetch such a terrain. We will name this DEM ``ref.tif``. 
 
 It is important to note that ASP expects the input low-resolution DEM
 to be in reference to a datum ellipsoid, such as WGS84 or NAD83. If
@@ -561,12 +572,6 @@ vertical datums on the input but we do not recommend doing that. Also,
 you should note that the geoheader attached to those types of files
 usually does not describe the vertical datum they used. That can only be
 understood by careful reading of your provider's documents.
-
-In this example we use as an input low-resolution DEM the file
-``srtm_53_07.tif``, a 90 meter resolution tile from the CGIAR-CSI
-modification of the original NASA SRTM product
-:cite:`cgiar:srtm90m`. The NASA SRTM square for this example
-spot in India is N26E080.
 
 Below are the commands for mapprojecting the input and then running
 through stereo. You can use any projection you like as long as it
@@ -585,22 +590,22 @@ Commands
 
 ::
 
-       mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
-         --tr 0.5 srtm_53_07.tif                            \
-         12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF   \
-         12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML   \
-         left_mapped.tif
-       mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
-         --tr 0.5 srtm_53_07.tif                            \
-         12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF   \
-         12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML   \
-         right_mapped.tif
-       parallel_stereo -t dgmaprpc --subpixel-mode 1           \
-              --alignment-method none                          \
-              left_mapped.tif right_mapped.tif                 \
-              12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
-              12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
-              dg/dg srtm_53_07.tif
+    mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
+      --tr 0.5 ref.tif                                          \
+      12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF          \
+      12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
+      left_mapped.tif
+    mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
+      --tr 0.5 ref.tif                                          \
+      12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF          \
+      12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML          \
+      right_mapped.tif
+    parallel_stereo --subpixel-mode 1                           \
+      --alignment-method none                                   \
+      left_mapped.tif right_mapped.tif                          \
+      12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
+     12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML           \
+     dg/dg ref.tif
 
 It is very important to specify the argument ``-t rpc`` to
 ``mapproject``, as otherwise the exact DG model will be used, which is
@@ -623,28 +628,34 @@ same terrain with the same resolution, thus no additional alignment is
 necessary. More details about how to set these and other ``parallel_stereo``
 parameters can be found in :numref:`settingoptionsinstereodefault`.
 
-It is important to note here that any DigitalGlobe/Maxar camera file has two
-models in it, the exact linescan model (which we name ``DG``), and its
-``RPC`` approximation. Above, we have used the approximate RPC model for
+Note here that any DigitalGlobe/Maxar camera file has two models in
+it, the exact linescan model (which we name ``DG``), and its ``RPC``
+approximation. Above, we have used the approximate ``RPC`` model for
 mapprojection, since mapprojection is just a pre-processing step to
 make the images more similar to each other, this step will be undone
-during stereo triangulation, and hence using the RPC model is good
-enough, while being much faster than the exact ``DG`` model. At the
-stereo stage, we see above that we invoked the ``dgmaprpc`` session,
-which suggests that we have used the RPC model during mapprojection,
-but we would like to use the accurate DG model when performing actual
-triangulation from the cameras to the ground.
+during stereo triangulation, and hence using the ``RPC`` model is good
+enough, while being much faster than the exact ``DG`` model.
 
-RPC and Pinhole camera models
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+When ``parallel_stereo`` runs with mapprojected images above,
+it will run as if invoked with the``-t dgmaprpc`` stereo session, 
+signaling that the images were mapprojected with ``RPC`` cameras
+but the triangulation happens with the exact ``DG`` cameras.
 
-mapprojected images can also be used with RPC and Pinhole camera
-models. The ``mapproject`` command needs to be invoked with ``-t rpc``
-and ``-t pinhole`` respectively. As earlier, when invoking ``parallel_stereo``
-the the first two arguments should be the mapprojected images, followed
-by the camera models, output prefix, and the name of the DEM used for
-mapprojection. The session name passed to ``parallel_stereo`` should be
-``rpcmaprpc`` and ``pinholemappinhole`` respectively.
+Mapprojection with RPC and Pinhole camera models
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Stereo with mapprojected images can also be used with RPC
+(:numref:`rpc`) and Pinhole camera models. The ``mapproject`` command
+needs to be invoked with ``-t rpc`` and ``-t pinhole`` respectively.
+
+As earlier, when invoking ``parallel_stereo`` the the first two
+arguments should be the mapprojected images, followed by the camera
+models, output prefix, and the name of the DEM used for
+mapprojection.
+
+The session name (``-t``) passed to ``parallel_stereo`` should be
+``rpcmaprpc`` and ``pinholemappinhole`` respectively. Normally this is
+detected and set automatically.
 
 .. _multiview:
 

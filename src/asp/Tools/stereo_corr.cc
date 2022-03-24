@@ -633,14 +633,12 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, double ip_scale,
   adjust_ip_for_epipolar_transform(opt, match_filename, in_left_ip, in_right_ip);
 
   // Filter out IPs which fall outside the specified elevation range
+  // TODO(oalexan1): Test this with --left-image-crop-win. It should work as the cameras
+  // know about the crop adjustment.
   if (!stereo_settings().correlator_mode) {
     boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
     opt.session->camera_models(left_camera_model, right_camera_model);
     cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
-
-    // Filter out IPs which fall outside the specified elevation and lonlat range
-    // TODO(oalexan1): Test this with --left-image-crop-win. It should work as the cameras
-    // know about the crop adjustment.
     asp::filter_ip_by_lonlat_and_elevation(left_camera_model.get(),
                                            right_camera_model.get(),
                                            datum, in_left_ip, in_right_ip, ip_scale,

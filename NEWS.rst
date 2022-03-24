@@ -18,7 +18,10 @@ New tool additions:
     threshold. It can be used for separating land from water (in
     WorldView multispectral NIR bands), and shadowed from lit areas
     (in Lunar images).
-
+  * The program ``parallel_stereo`` can function as purely an image
+    correlation tool, without assuming any camera information, via
+    the option ``--correlator-mode``.
+ 
 parallel_stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
   * Added the option --resume-at-corr. Start at the correlation stage
@@ -38,10 +41,6 @@ parallel_stereo:
     discrepancy between left-to-right and right-to-left
     disparities, which may help with filtering unreliable
     disparities.
-  * Added the option ``--correlator-mode``. Then ``parallel_stereo``
-    functions as an image correlator only and no point cloud gets
-    generated. Subpixel refinement and filtering neverthless
-    happen. Assumes aligned input images and no cameras.
   * Interest point matching with mapprojected images now happens
     at full resolution, which results in a more reliable process
     when there are clouds.
