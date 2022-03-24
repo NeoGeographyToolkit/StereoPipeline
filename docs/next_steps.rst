@@ -551,7 +551,8 @@ Example for DigitalGlobe/Maxar images
 
 In this section we will describe how to run stereo with mapprojected
 images for DigitalGlobe/Maxar cameras for Earth. The same process can
-be used for any satellite images from any vendor.
+be used for any satellite images from any vendor
+(:numref:`other-mapproj`).
 
 Unlike the previous section, here we will use an external DEM to
 mapproject onto, rather than creating our own. We will use a variant of
@@ -641,20 +642,25 @@ it will run as if invoked with the``-t dgmaprpc`` stereo session,
 signaling that the images were mapprojected with ``RPC`` cameras
 but the triangulation happens with the exact ``DG`` cameras.
 
-Mapprojection with RPC and Pinhole camera models
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _other-mapproj:
 
-Stereo with mapprojected images can also be used with RPC
-(:numref:`rpc`) and Pinhole camera models. The ``mapproject`` command
-needs to be invoked with ``-t rpc`` and ``-t pinhole`` respectively.
+Mapprojection with other camera models
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As earlier, when invoking ``parallel_stereo`` the the first two
+Stereo with mapprojected images can be used with any camera model
+supported by ASP, including RPC (:numref:`rpc`), Pinhole
+(:numref:`sfmgeneric`), CSM (:numref:`csm`), OpticalBar (:numref:`kh4`), etc.
+The ``mapproject`` command needs to be invoked with ``-t rpc``, ``-t
+pinhole``, etc., and normally it auto-detects this option (except when
+a camera file has both ``DG`` and ``RPC`` cameras).
+
+As earlier, when invoking ``parallel_stereo``, the first two
 arguments should be the mapprojected images, followed by the camera
 models, output prefix, and the name of the DEM used for
 mapprojection.
 
 The session name (``-t``) passed to ``parallel_stereo`` should be
-``rpcmaprpc`` and ``pinholemappinhole`` respectively. Normally this is
+``rpcmaprpc``, ``pinholemappinhole``, etc. Normally this is
 detected and set automatically.
 
 .. _multiview:
