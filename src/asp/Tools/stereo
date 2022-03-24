@@ -122,11 +122,6 @@ if __name__ == '__main__':
     sep = ","
     settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
 
-    if int(settings['correlator_mode'][0]) != 0:
-        print("Skipping triangulation with --correlator-mode.")
-        if (opt.stop_point >= Step.tri):
-            opt.stop_point = Step.tri
-
     alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
     using_tiles = (alg > VW_CORRELATION_BM or \
                    settings['alignment_method'][0] == 'local_epipolar')
@@ -155,14 +150,14 @@ if __name__ == '__main__':
 
         # Pre-processing
         step = Step.pprc
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ): sys.exit()
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step): sys.exit()
             stereo_run('stereo_pprc', args, opt, msg='%d: Preprocessing' % step)
 
         # Correlation
         step = Step.corr
         if (opt.entry_point <= step):
-            if ( opt.stop_point <= step ): sys.exit()
+            if (opt.stop_point <= step): sys.exit()
 
             if (opt.seed_mode == 0):
                 # No low resolution seed, go straight to full resolution correlation
@@ -182,20 +177,27 @@ if __name__ == '__main__':
         
         # Refinement
         step = Step.rfne
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ): sys.exit()
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step): sys.exit()
             stereo_run('stereo_rfne', args, opt, msg='%d: Refinement' % step)
 
         # Filtering
         step = Step.fltr
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ): sys.exit()
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step): sys.exit()
             stereo_run('stereo_fltr', args, opt, msg='%d: Filtering' % step)
 
         # Triangulation
         step = Step.tri
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ): sys.exit()
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step):
+                sys.exit()
+
+            if int(settings['correlator_mode'][0]) != 0:
+                print("Skipping triangulation with --correlator-mode.")
+                sys.exit()
+                
             stereo_run('stereo_tri',  args, opt, msg='%d: Triangulation' % step)
+            
     except Exception as e:
             die(e)

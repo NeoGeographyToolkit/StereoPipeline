@@ -830,101 +830,88 @@ namespace asp {
         vw_throw(ArgumentErr() << "Can use --save-left-right-disparity-difference "
                  << "only with stereo algorithms asp_bm, asp_sgm, asp_mgm, and asp_final_mgm.\n");
     }
-    
-    // Camera checks
-    bool force_throw = false;
-    try {
-      // TODO(oalexan1): Remove this extra camera load. Some camera
-      // models take a long time to load and this causes us to load
-      // them twice! Just move this to the other place where the
-      // cameras are loaded.
-      boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
 
-      opt.session->camera_models(camera_model1, camera_model2);
-
-      Vector3 cam1_ctr = camera_model1->camera_center(Vector2());
-      Vector3 cam2_ctr = camera_model2->camera_center(Vector2());
-      Vector3 cam1_vec = camera_model1->pixel_to_vector(Vector2());
-      Vector3 cam2_vec = camera_model2->pixel_to_vector(Vector2());
-      // Do the cameras appear to be in the same location?
-      if (norm_2(cam1_ctr - cam2_ctr) < 1e-3)
-        vw_out(WarningMessage)
-          << "Your cameras appear to be in the same location!\n"
-          << "\tYou should double check your given camera\n"
-          << "\tmodels as most likely stereo won't be able\n"
-          << "\tto triangulate or perform epipolar rectification.\n";
-
-      // Developer friendly help
-      VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << cam1_ctr << "\n"
-                                 << "   in estimated Lon Lat Rad: "
-                                 << cartography::xyz_to_lon_lat_radius_estimate(cam1_ctr) << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << cam2_ctr << "\n"
-             << "   in estimated Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius_estimate(cam2_ctr) << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << cam1_vec << "\n"
-                                 << "      dot against pos: " << dot_prod(cam1_vec, cam1_ctr)
-                                 << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << cam2_vec << "\n"
-                                 << "      dot against pos: " << dot_prod(cam2_vec, cam2_ctr)
-                                 << "\n";
-      vw_out() << "Distance between camera centers in meters: "
-	       << norm_2(cam1_ctr - cam2_ctr) << ".\n";
-
-      // Cannot use cropped images with epipolar alignment, as need to
-      // align the full images. Images for which epipolar alignment is
-      // enough are small anyway so this is not a big loss. Much
-      // testing is needed if this mode is enabled.
-      if (stereo_settings().alignment_method == "epipolar" &&
-          (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0) ||
-           stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0)))
-        vw_throw(ArgumentErr() << "Cropping of input images is not supported with "
-                 << "epipolar alignment.\n");
-        
-      // Can cameras triangulate to point at something in front of them?
-      stereo::StereoModel model(camera_model1.get(), camera_model2.get());
-      double error;
-      Vector3 point = model(Vector2(), Vector2(), error);
-      if (point != Vector3() // triangulation succeeded
-          && ((dot_prod(cam1_vec, point - cam1_ctr) < 0) ||
-              (dot_prod(cam2_vec, point - cam2_ctr) < 0)   )
-          ){
-        vw_out(WarningMessage)
-          << "Your cameras appear not to be pointing at the same location!\n"
-          << "\tA test vector triangulated backwards through\n"
-          << "\tthe camera models. You should double check\n"
-          << "\tyour input models as most likely stereo won't\n"
-          << "\tbe able to triangulate.\n";
-      }
-
-      // If later we perform piecewise adjustments, the cameras loaded
-      // so far must not be adjusted. And we also can't just perform
-      // stereo on cropped images, as we need the full disparity.
-      if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
-
-        force_throw = true;
-
-        // This check must come first as it implies adjusted cameras
-        if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-             ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) )
-          vw_throw(ArgumentErr() << "Since we perform piecewise adjustments we "
-                   << "need the full disparities, so --left-image-crop-win and  "
-                   << "--right-image-crop-win cannot be used.\n");
-
-        if (stereo_settings().piecewise_adjustment_interp_type != 1 &&
-            stereo_settings().piecewise_adjustment_interp_type != 2)
-          vw_throw(ArgumentErr() << "Interpolation type for piecewise "
-                   << "adjustment can be only 1 or 2.\n");
-      }
-
-    } catch (const exception& e) {
-      // Don't throw an error here. There are legitimate reasons as to
-      // why the first checks may fail. For example, the top left pixel
-      // might not be valid on a map projected image. But notify the
-      // user anyway. Make an exception for the piecewise adjustment checks.
-      if (!force_throw)
-        vw_out(DebugMessage,"asp") << e.what() << endl;
-      else
-        vw_throw(ArgumentErr() << e.what() );
+    // If later we perform piecewise adjustments, the cameras loaded
+    // so far must not be adjusted. And we also can't just perform
+    // stereo on cropped images, as we need the full disparity.
+    if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
+      // This check must come first as it implies adjusted cameras
+      if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+           ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) )
+        vw_throw(ArgumentErr() << "Since we perform piecewise adjustments we "
+                 << "need the full disparities, so --left-image-crop-win and  "
+                 << "--right-image-crop-win cannot be used.\n");
+      
+      if (stereo_settings().piecewise_adjustment_interp_type != 1 &&
+          stereo_settings().piecewise_adjustment_interp_type != 2)
+        vw_throw(ArgumentErr() << "Interpolation type for piecewise "
+                 << "adjustment can be only 1 or 2.\n");
     }
+
+    // Camera checks
+    if (!stereo_settings().correlator_mode) {
+      try {
+        // TODO(oalexan1): Remove this extra camera load. Some camera
+        // models take a long time to load and this causes us to load
+        // them twice! Just move this to the other place where the
+        // cameras are loaded.
+        boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+        
+        opt.session->camera_models(camera_model1, camera_model2);
+        
+        Vector3 cam1_ctr = camera_model1->camera_center(Vector2());
+        Vector3 cam2_ctr = camera_model2->camera_center(Vector2());
+        Vector3 cam1_vec = camera_model1->pixel_to_vector(Vector2());
+        Vector3 cam2_vec = camera_model2->pixel_to_vector(Vector2());
+        // Do the cameras appear to be in the same location?
+        if (norm_2(cam1_ctr - cam2_ctr) < 1e-3)
+          vw_out(WarningMessage)
+            << "Your cameras appear to be in the same location!\n"
+            << "\tYou should double check your given camera\n"
+            << "\tmodels as most likely stereo won't be able\n"
+            << "\tto triangulate or perform epipolar rectification.\n";
+        
+        // Developer friendly help
+        VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << cam1_ctr << "\n"
+                                   << "   in estimated Lon Lat Rad: "
+                                   << cartography::xyz_to_lon_lat_radius_estimate(cam1_ctr) << "\n";
+        VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << cam2_ctr << "\n"
+                                   << "   in estimated Lon Lat Rad: "
+                                   << cartography::xyz_to_lon_lat_radius_estimate(cam2_ctr) << "\n";
+        VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << cam1_vec << "\n"
+                                   << "      dot against pos: " << dot_prod(cam1_vec, cam1_ctr)
+                                   << "\n";
+        VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << cam2_vec << "\n"
+                                   << "      dot against pos: " << dot_prod(cam2_vec, cam2_ctr)
+                                   << "\n";
+        vw_out() << "Distance between camera centers in meters: "
+                 << norm_2(cam1_ctr - cam2_ctr) << ".\n";
+        
+        // Can cameras triangulate to point at something in front of them?
+        stereo::StereoModel model(camera_model1.get(), camera_model2.get());
+        double error;
+        Vector3 point = model(Vector2(), Vector2(), error);
+        if (point != Vector3() // triangulation succeeded
+            && ((dot_prod(cam1_vec, point - cam1_ctr) < 0) ||
+                (dot_prod(cam2_vec, point - cam2_ctr) < 0)   )
+            ){
+          vw_out(WarningMessage)
+            << "Your cameras appear not to be pointing at the same location!\n"
+            << "\tA test vector triangulated backwards through\n"
+            << "\tthe camera models. You should double check\n"
+            << "\tyour input models as most likely stereo won't\n"
+            << "\tbe able to triangulate.\n";
+        }
+        
+      } catch (const exception& e) {
+        // Don't throw an error here. There are legitimate reasons as to
+        // why the first checks may fail. For example, the top left pixel
+        // might not be valid on a map projected image. But notify the
+        // user anyway. Make an exception for the piecewise adjustment checks.
+        vw_out(DebugMessage,"asp") << e.what() << endl;
+      }
+    }
+    
   } // End user_safety_checks
 
   // See if user's request to skip image normalization can be

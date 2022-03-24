@@ -817,11 +817,6 @@ if __name__ == '__main__':
         # Create the directory tree for this run
         create_subproject_dirs(settings)
 
-    if int(settings['correlator_mode'][0]) != 0:
-        print("Skipping triangulation with --correlator-mode.")
-        if (opt.stop_point >= Step.tri):
-            opt.stop_point = Step.tri
-    
     # Check if we are doing SGM instead of block match processing
     alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
     
@@ -1075,6 +1070,10 @@ if __name__ == '__main__':
         step = Step.tri
         if (opt.entry_point <= step):
             if (opt.stop_point <= step):
+                sys.exit()
+                
+            if int(settings['correlator_mode'][0]) != 0:
+                print("Skipping triangulation with --correlator-mode.")
                 sys.exit()
 
             # First compute jitter correction (optional). Done just once per run.

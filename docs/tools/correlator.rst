@@ -28,4 +28,12 @@ Example::
       run_corr/run
 
 All the usual options of ``parallel_stereo`` apply
-(:numref:`stereodefault`).
+(:numref:`nextsteps`, :numref:`parallel_stereo`, and
+:numref:`stereodefault`). Since the images are assumed to be aligned,
+the program will set alignment method to ``none``. 
+
+If desired to not use an initial low-resolution correlation, set
+``--corr-seed-mode 0``. To skip preprocessing (if invoked previously)
+or to avoid subpixel refinment or filtering use the optins
+``--entry-point`` and ``--stop-point``.
+
