@@ -728,7 +728,6 @@ namespace asp {
    vw::cartography::Datum        const& datum,
    std::vector<vw::ip::InterestPoint> const& ip1_in,
    std::vector<vw::ip::InterestPoint> const& ip2_in,
-   double ip_scale,
    vw::Vector2 const & elevation_limit,
    vw::BBox2   const & lon_lat_limit,
    std::vector<vw::ip::InterestPoint> & ip1_out,
@@ -771,7 +770,7 @@ namespace asp {
       // as these are meant to do the same thing in different circumstances.
       Vector2 p1 = Vector2(ip1_in[i].x, ip1_in[i].y);
       Vector2 p2 = Vector2(ip2_in[i].x, ip2_in[i].y);
-      Vector3 pt  = model(p1/ip_scale, p2/ip_scale, error);
+      Vector3 pt  = model(p1, p2, error);
 
       Vector3 llh = datum.cartesian_to_geodetic(pt);
       if ( (elevation_limit[0] < elevation_limit[1]) && 

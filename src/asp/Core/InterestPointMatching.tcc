@@ -410,9 +410,8 @@ bool epipolar_ip_matching(bool single_threaded_camera,
       !stereo_settings().lon_lat_limit.empty()) {
 
     std::vector<ip::InterestPoint> matched_ip1_out, matched_ip2_out;
-    double ip_scale = 1.0; // left_tx and right_tx already have any scale info
     filter_ip_by_lonlat_and_elevation(cam1, cam2,
-                                      datum,  matched_ip1, matched_ip2, ip_scale,  
+                                      datum,  matched_ip1, matched_ip2,
                                       stereo_settings().elevation_limit,  
                                       stereo_settings().lon_lat_limit,  
                                       matched_ip1_out, matched_ip2_out);

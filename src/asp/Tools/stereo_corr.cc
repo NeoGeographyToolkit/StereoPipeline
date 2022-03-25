@@ -115,8 +115,8 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
   double mean_scale = (downsample_scale[0] + downsample_scale[1]) / 2.0;
 
   // Compute the initial search range in the subsampled image
-  BBox2 search_range(floor(elem_prod(downsample_scale,stereo_settings().search_range.min())),
-                      ceil (elem_prod(downsample_scale,stereo_settings().search_range.max())));
+  BBox2 search_range(floor(elem_prod(downsample_scale, stereo_settings().search_range.min())),
+                      ceil (elem_prod(downsample_scale, stereo_settings().search_range.max())));
 
   vw::stereo::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
@@ -254,16 +254,15 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 } // End produce_lowres_disparity
 
 /// Adjust IP lists if alignment matrices are present.
-double adjust_ip_for_align_matrix(std::string               const& out_prefix,
-                                  std::vector<ip::InterestPoint>      & ip_left,
-                                  std::vector<ip::InterestPoint>      & ip_right,
-                                  double                    const  ip_scale) {
+void adjust_ip_for_align_matrix(std::string const& out_prefix,
+                                std::vector<ip::InterestPoint> & ip_left,
+                                std::vector<ip::InterestPoint> & ip_right) {
 
   // Check for alignment files
   bool left_align  = fs::exists(out_prefix+"-align-L.exr");
   bool right_align = fs::exists(out_prefix+"-align-R.exr");
   if (!left_align && !right_align)
-    return ip_scale; // No alignment files -> Nothing to do.
+    return; // No alignment files -> Nothing to do.
 
   // Load alignment matrices
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
@@ -295,8 +294,8 @@ double adjust_ip_for_align_matrix(std::string               const& out_prefix,
     ip_right[i].ix = r[0];
     ip_right[i].iy = r[1];
   }
-  return 1.0; // If alignment files are present they take care of the scaling.
-              
+
+  return;
 } // End adjust_ip_for_align_matrix
 
 
@@ -365,11 +364,9 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
 /// TODO(oalexan1): Move ip matching with aligned or mapprojected
 /// images from here to to stereo_pprc or StereoSession, for
 /// consistency with the logic used ip matching with original images.
-double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
+void compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
   vw_out() << "\t    * Loading images for IP detection.\n";
-
-  double ip_scale = 1.0;
 
   const std::string left_aligned_image_file  = opt.out_prefix + "-L.tif";
   const std::string right_aligned_image_file = opt.out_prefix + "-R.tif";
@@ -399,7 +396,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   if (fs::exists(unaligned_match_file) && is_latest_timestamp(unaligned_match_file, ref_list)) {
     vw_out() << "Cached IP match file found: " << unaligned_match_file << std::endl;
     match_filename = unaligned_match_file;
-    return ip_scale;
+    return;
   }
 
   // Then tried the aligned match file.
@@ -408,7 +405,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   if (fs::exists(aligned_match_file) && is_latest_timestamp(aligned_match_file, ref_list)) {
     vw_out() << "Cached IP match file found: " << aligned_match_file << std::endl;
     match_filename = aligned_match_file;
-    return ip_scale;
+    return;
   }
 
   // Now try the aligned match file
@@ -457,7 +454,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   if (!success)
     vw_throw(ArgumentErr() << "Could not find interest points.\n");
 
-  return ip_scale;
+  return;
 }
 
 BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
@@ -495,30 +492,14 @@ BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
 
   Vector2 search_minI(floor(search_min[0]), floor(search_min[1])); // Round outwards
   Vector2 search_maxI(ceil (search_max[0]), ceil (search_max[1]));
-  /*
-  // Debug code to print all the points
-  for (size_t i = 0; i < matched_ip1.size(); i++) {
-  Vector2f diff(i_scale * (matched_right_ip[i].x - matched_ip1[i].x), 
-  i_scale * (matched_right_ip[i].y - matched_ip1[i].y));
-  //Vector2f diff(matched_right_ip[i].x - matched_ip1[i].x, 
-  //              matched_right_ip[i].y - matched_ip1[i].y);
-  vw_out(InfoMessage,"asp") << matched_ip1[i].x <<", "<<matched_ip1[i].y 
-  << " <> " 
-  << matched_right_ip[i].x <<", "<<matched_right_ip[i].y 
-  << " DIFF " << diff << std::endl;
-  }
-  */
-  
-  //vw_out(InfoMessage,"asp") << "i_scale is : "       << i_scale << std::endl;
-  
+
   return BBox2(search_minI, search_maxI);
 }
   
 /// Use existing interest points to compute a search range
 /// - This function could use improvement!
 /// - Should it be used in all cases?
-BBox2 approximate_search_range(ASPGlobalOptions & opt, double ip_scale,
-                               std::string const& match_filename) {
+BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_filename) {
 
   vw_out() << "\t--> Using interest points to determine search window.\n";
   std::vector<ip::InterestPoint> in_left_ip, in_right_ip, matched_left_ip, matched_right_ip;
@@ -578,14 +559,9 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, double ip_scale,
   // answer.
   
   // Handle alignment matrices if they are present
-  // - Scale is reset to 1.0 if alignment matrices are present.
-  // TODO(oalexan1): Wipe ip_scale as it is always 1. We no longer do ip matching
-  // at low res.
-  ip_scale = adjust_ip_for_align_matrix(opt.out_prefix, in_left_ip, in_right_ip, ip_scale);
-  vw_out() << "\t    * IP computed at scale: " << ip_scale << ".\n";
-
-  // TODO(oalexan1): Remove the scale from everywhere, as it is always 1.
-  float i_scale = 1.0/ip_scale;
+  // TODO(oalexan1): This is fragile. We do know when alignment was applied,
+  // so use that rather than checking if alignment transforms exist on disk.
+  adjust_ip_for_align_matrix(opt.out_prefix, in_left_ip, in_right_ip);
 
   // Adjust the IP if they came from input images and these images are epipolar aligned
   // This can be very useful if the ip come from outside, such as bundle adjustment.
@@ -601,7 +577,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, double ip_scale,
     cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
     asp::filter_ip_by_lonlat_and_elevation(left_camera_model.get(),
                                            right_camera_model.get(),
-                                           datum, in_left_ip, in_right_ip, ip_scale,
+                                           datum, in_left_ip, in_right_ip,
                                            stereo_settings().elevation_limit,
                                            stereo_settings().lon_lat_limit,
                                            matched_left_ip, matched_right_ip);
@@ -644,8 +620,8 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, double ip_scale,
     min_dy = BIG_NUM, max_dy = SMALL_NUM;
   for (size_t i = 0; i < num_ip; i++) {
     
-    double diffX = i_scale * (matched_right_ip[i].x - matched_left_ip[i].x);
-    double diffY = i_scale * (matched_right_ip[i].y - matched_left_ip[i].y);
+    double diffX = matched_right_ip[i].x - matched_left_ip[i].x;
+    double diffY = matched_right_ip[i].y - matched_left_ip[i].y;
     dx.push_back(diffX);
     dy.push_back(diffY);
     if (diffX < min_dx) min_dx = diffX;
@@ -722,7 +698,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, double ip_scale,
       break; // Happy with search range, exit the loop.
     else
       vw_out() << "Search width of " << search_width << " is greater than desired limit of "
-               << MAX_SEARCH_WIDTH << ", retrying with more aggressive IP filter\n";
+               << MAX_SEARCH_WIDTH << ", retrying with more aggressive IP filter.\n";
   } // End search range determination loop
 
   // TODO(oalexan1): Make this into a function.
@@ -730,8 +706,8 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, double ip_scale,
     dx.clear();
     dy.clear();
     for (size_t i = 0; i < matched_left_ip.size(); i++) {
-      double diffX = i_scale * (matched_right_ip[i].x - matched_left_ip[i].x);
-      double diffY = i_scale * (matched_right_ip[i].y - matched_left_ip[i].y);
+      double diffX = matched_right_ip[i].x - matched_left_ip[i].x;
+      double diffY = matched_right_ip[i].y - matched_left_ip[i].y;
       dx.push_back(diffX);
       dy.push_back(diffY);
     }
@@ -791,11 +767,10 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     
     // Load IP from disk if they exist, or else compute them. 
     std::string match_filename;
-    double ip_scale;
-    ip_scale = compute_ip(opt, match_filename);
+    compute_ip(opt, match_filename);
 
     // This function applies filtering to find good points
-    stereo_settings().search_range = approximate_search_range(opt, ip_scale, match_filename);
+    stereo_settings().search_range = approximate_search_range(opt, match_filename);
 
   } // End of case where we had to calculate the search range
 
