@@ -264,8 +264,8 @@ namespace asp {
     std::vector<std::string> vwip_files;
     
     // Sensor options
-    bool disable_correct_velocity_aberration;
-    bool disable_correct_atmospheric_refraction;
+    bool enable_correct_velocity_aberration;
+    bool enable_correct_atmospheric_refraction;
 
     // Undocumented options. We don't want these exposed to the user.
     vw::BBox2i trans_crop_win;        // Left image crop window in respect to L.tif.

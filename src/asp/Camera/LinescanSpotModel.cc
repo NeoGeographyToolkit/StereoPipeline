@@ -102,7 +102,8 @@ Vector3 SPOTCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
   
   // Check bounds
   if ((col < 0) || (col > static_cast<double>(m_look_angles.size())-1.0))
-    vw::vw_throw(vw::ArgumentErr() << "SPOTCameraModel:::get_local_pixel_vector: Requested pixel " << col << " is out of bounds!\n");
+    vw::vw_throw(vw::ArgumentErr() << "SPOTCameraModel:::get_local_pixel_vector: Requested pixel "
+                 << col << " is out of bounds!\n");
   
   double psi_x = (m_look_angles[max_index].second[0]*max_weight + 
                   m_look_angles[min_index].second[0]*min_weight  );
@@ -251,14 +252,15 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
   // This is where we could set the Earth radius and mean surface elevation if we have that info.
 
   // Feed everything into a new camera model.
-  return boost::shared_ptr<SPOTCameraModel>(new SPOTCameraModel(position_func, velocity_func, 
-                                                                pose_func, time_func, 
-                                                                xml_reader.look_angles,
-                                                                xml_reader.image_size,
-                                                                min_time, max_time,
-                                        !stereo_settings().disable_correct_velocity_aberration,
-                                        !stereo_settings().disable_correct_atmospheric_refraction));
-
+  return boost::shared_ptr<SPOTCameraModel>
+    (new SPOTCameraModel(position_func, velocity_func, 
+                         pose_func, time_func, 
+                         xml_reader.look_angles,
+                         xml_reader.image_size,
+                         min_time, max_time,
+                         stereo_settings().enable_correct_velocity_aberration,
+                         stereo_settings().enable_correct_atmospheric_refraction));
+  
 } // End function load_spot_camera_model()
 
 

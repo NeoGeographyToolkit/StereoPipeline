@@ -50,12 +50,15 @@ parallel_stereo:
   * Added the option --max-disp-spread to limit the spread of the
     disparity to this value (useful with clouds in images).
   * Added a doc section on handling of images with clouds.
+  * Disable by default velocity aberration and atmospheric refraction
+    corrections. These are not accurate enough and cause issues with
+    convergence of bundle adjustment. Can be enabled with
+    --enable-correct-velocity-aberration and
+    --enable-correct-atmospheric-refraction.
   * Added ready-made ASTER and LRO NAC examples with sample images,
     cameras, commands, and outputs, all available for
     download. Contributions of more examples are welcome. See
     https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples.
-  * Bugfix: the atmospheric correction for Digital Globe, Optical Bar,
-    and SPOT5 was not enabled correctly.
   * Bugfix for ASTER cameras; this was fully broken.
   * ASP's SGM and MGM algorithms will always use the cross-check for
     disparity by default, to improve the quality, even if that takes
@@ -603,8 +606,8 @@ New tools
 
 New camera models
     * Added simple atmospheric refraction correction to the
-      DG and SPOT5 camera models. This can be manually disabled
-      using the "--disable-correct-atmospheric-refraction" option.
+      DG and SPOT5 camera models. This can be enabled
+      using the "--enable-correct-atmospheric-refraction" option.
     * Added support for pinhole camera models where the lens
       distortion is given by an RPC model (rational polynomial
       coefficients), of degrees 4, 5, and 6. Such a model may be more

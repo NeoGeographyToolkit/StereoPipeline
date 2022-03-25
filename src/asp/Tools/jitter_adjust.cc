@@ -129,7 +129,7 @@ private:
 };
   
   
-void populate_adjustements(std::vector<double> const& cameras_vec,
+void populate_adjustments(std::vector<double> const& cameras_vec,
 			   int start_index, int end_index,
 			   std::vector<vw::Vector3> & position_adjustments,
 			   std::vector<vw::Quat>    & pose_adjustments){
@@ -235,7 +235,7 @@ struct PiecewiseReprojectionError {
       // Extract the adjustments specific to the current camera
       std::vector<vw::Vector3> position_adjustments;
       std::vector<vw::Quat>   pose_adjustments;
-      populate_adjustements(local_cameras_vec,
+      populate_adjustments(local_cameras_vec,
 			    m_start_index, m_end_index,
 			    position_adjustments, pose_adjustments);
 
@@ -808,7 +808,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
 
     std::vector<vw::Vector3> position_adjustments;
     std::vector<vw::Quat>    pose_adjustments;
-    populate_adjustements(cameras_vec,
+    populate_adjustments(cameras_vec,
 			  start_index, end_index,
 			  position_adjustments,
 			  pose_adjustments);

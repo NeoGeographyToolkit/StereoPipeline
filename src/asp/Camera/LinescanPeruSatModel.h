@@ -48,8 +48,7 @@ namespace asp {
                        vw::Quaternion<double>              const& instrument_biases,
                        vw::Vector2i                        const& image_size,
                        double min_time, double max_time,
-                       bool   correct_velocity = true,
-                       bool   correct_atmosphere = true):
+                       bool   correct_velocity, bool   correct_atmosphere):
       vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
       m_position_func(position), m_velocity_func(velocity),
       m_pose_func(pose), m_time_func(time),

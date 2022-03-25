@@ -526,11 +526,17 @@ cameras. Another source of inaccuracies is the atmosphere (for Earth)
 as it causes the rays to bend (:cite:`nugent1966velocity`).
 
 ASP corrects these for some linescan cameras, such as Digital Globe,
-SPOT 5, and Optical Bar. The corrections can be turned off by
-specifying ``--disable-correct-velocity-aberration`` and
-``--disable-correct-atmospheric-refraction``, respectively, when
-invoking the stereo programs or bundle adjustment.
+SPOT 5, and Optical Bar. The corrections can be turned on by
+specifying ``--enable-correct-velocity-aberration`` and
+``--enable-correct-atmospheric-refraction``, respectively, when
+invoking mapprojection, stereo, and bundle adjustment.
 
+These corrections may be an improvement, but they are not very
+accurate. In particular, they assume that all ground points are at
+constant elevation, and they impair the convergence of bundle
+adjustment. It is suggested to not use these options, and then invoke
+``pc_align`` (:numref:`pc_align`) to align the obtained stereo DEMs to
+a trusted source.
 
 .. _mapproj_with_cam2map:
 

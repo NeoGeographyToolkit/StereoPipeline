@@ -143,12 +143,10 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model_from_xml(std::st
       vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec,
                                                        et0, edt),
       vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
-      tlc_time_interpolation, img.image_size,
-      final_detector_origin,
-      geo.principal_distance,
-      mean_ground_elevation,
-      !stereo_settings().disable_correct_velocity_aberration,
-      !stereo_settings().disable_correct_atmospheric_refraction));
+      tlc_time_interpolation, img.image_size, final_detector_origin,
+      geo.principal_distance, mean_ground_elevation,
+      stereo_settings().enable_correct_velocity_aberration,
+      stereo_settings().enable_correct_atmospheric_refraction));
 } // End function load_dg_camera_model()
   
 } // end namespace asp

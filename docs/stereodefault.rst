@@ -202,13 +202,15 @@ skip-rough-homography
     Skip the step of performing datum-based rough homography if it
     fails.
 
-disable-correct-velocity-aberration
-    Turn off velocity aberration correction for Optical Bar and
+enable-correct-velocity-aberration
+    Enable velocity aberration correction for Optical Bar and
     non-ISIS linescan cameras (:numref:`sensor_corrections`).
+    This option impairs the convergence of bundle adjustment.
 
-disable-correct-atmospheric-refraction
-    Turn off atmospheric refraction correction for Optical Bar and
-    non-ISIS linescan cameras.
+enable-correct-atmospheric-refraction
+    Enable atmospheric refraction correction for Optical Bar and
+    non-ISIS linescan cameras. This option impairs the convergence of
+    bundle adjustment.
 
 left-image-crop-win xoff yoff xsize ysize
     Do stereo in a sub-region of the left image [default: use the

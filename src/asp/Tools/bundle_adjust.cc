@@ -1797,11 +1797,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("use-lon-lat-height-gcp-error",
      po::bool_switch(&opt.use_llh_error)->default_value(false)->implicit_value(true),
      "When having GCP, interpret the three standard deviations in the GCP file as applying not to x, y, and z, but rather to latitude, longitude, and height.")
-    ("disable-correct-velocity-aberration", po::bool_switch(&opt.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
-     "Turn off velocity aberration correction for non-ISIS linescan cameras.")
-    ("disable-correct-atmospheric-refraction", po::bool_switch(&opt.disable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-     "Turn off atmospheric refraction correction for non-ISIS linescan cameras.")
-    
+    ("enable-correct-velocity-aberration", po::bool_switch(&opt.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
+     "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
+    ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
+     "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
      "Given map-projected versions of the input images and the DEM they "
      "were mapprojected onto, create interest point matches among the  "

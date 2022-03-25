@@ -60,9 +60,9 @@ namespace asp {
                     vw::Vector2i  const& image_size, 
                     vw::Vector2   const& detector_origin,
                     double        const  focal_length,
-                    double        const  mean_ground_elevation=0,
-                    bool                 correct_velocity=true,
-                    bool                 correct_atmosphere=true):
+                    double        const  mean_ground_elevation,
+                    bool                 correct_velocity,
+                    bool                 correct_atmosphere):
       vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
       m_position_func(position), m_velocity_func(velocity),
       m_pose_func(pose), m_time_func(time),

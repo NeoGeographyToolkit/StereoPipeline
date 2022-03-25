@@ -457,10 +457,11 @@ namespace asp {
      get_dg_ptr(cam)->get_velocity_func(),
      AdjustableDGPose(get_dg_ptr(cam), interp_type, adjustment_bounds,
 		      pose_adjustments, g_num_wts, g_sigma),
-     get_dg_ptr(cam)->get_time_func(),
-     get_dg_ptr(cam)->get_image_size(),
-     get_dg_ptr(cam)->get_detector_origin(),
-     get_dg_ptr(cam)->get_focal_length()),
+     get_dg_ptr(cam)->get_time_func(), get_dg_ptr(cam)->get_image_size(),
+     get_dg_ptr(cam)->get_detector_origin(), get_dg_ptr(cam)->get_focal_length(),
+     0.0, // Mean ground elevation
+     // Not using corrections for velocity aberration or atmospheric refraction
+     false, false),
       // The line below is very important. We must make sure to keep track of
       // the smart pointer to the original camera, so it does not go out of scope.
       m_cam(cam), m_image_size(image_size) {

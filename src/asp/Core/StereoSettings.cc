@@ -90,8 +90,8 @@ namespace asp {
 
     // Must initialize this variable as it is used in mapproject
     // to get a camera pointer, and there we don't parse stereo.default
-    disable_correct_velocity_aberration    = false;
-    disable_correct_atmospheric_refraction = false;
+    enable_correct_velocity_aberration    = false;
+    enable_correct_atmospheric_refraction = false;
     
     default_corr_timeout = 900; // in seconds
     
@@ -180,10 +180,10 @@ namespace asp {
        "If --left-image-crop-win is used, replaced the left image cropped to that window with this clip.")
       ("right-image-clip", po::value(&global.right_image_clip)->default_value(""),
        "If --right-image-crop-win is used, replaced the right image cropped to that window with this clip.")
-      ("disable-correct-velocity-aberration", po::bool_switch(&global.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
-       "Turn off velocity aberration correction for Optical Bar and non-ISIS linescan cameras.")
-      ("disable-correct-atmospheric-refraction", po::bool_switch(&global.disable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-       "Turn off atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras.")
+      ("enable-correct-velocity-aberration", po::bool_switch(&global.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
+       "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
+      ("enable-correct-atmospheric-refraction", po::bool_switch(&global.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
+       "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
       // For bathymetry correction
       ("left-bathy-mask", po::value(&global.left_bathy_mask),
        "Mask to use for the left image when doing bathymetry.")

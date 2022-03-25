@@ -92,7 +92,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     auto_overlap_buffer;
   bool   skip_rough_homography, enable_rough_homography, disable_tri_filtering, enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
     force_reuse_match_files, save_cnet_as_csv,
-    disable_correct_velocity_aberration, disable_correct_atmospheric_refraction;
+    enable_correct_velocity_aberration, enable_correct_atmospheric_refraction;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
   vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   std::string           overlap_list_file, auto_overlap_params;
@@ -128,10 +128,10 @@ struct Options : public vw::cartography::GdalWriteOptions {
     asp::stereo_settings().ip_uniqueness_thresh       = ip_uniqueness_thresh;
     asp::stereo_settings().num_scales                 = num_scales;
     asp::stereo_settings().nodata_value               = nodata_value;
-    asp::stereo_settings().disable_correct_atmospheric_refraction
-      = disable_correct_atmospheric_refraction;
-    asp::stereo_settings().disable_correct_velocity_aberration
-      = disable_correct_velocity_aberration;
+    asp::stereo_settings().enable_correct_atmospheric_refraction
+      = enable_correct_atmospheric_refraction;
+    asp::stereo_settings().enable_correct_velocity_aberration
+      = enable_correct_velocity_aberration;
     asp::stereo_settings().ip_per_image = ip_per_image;
 
     // Note that by default rough homography and tri filtering are disabled

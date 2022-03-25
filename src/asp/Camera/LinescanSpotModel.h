@@ -99,19 +99,18 @@ namespace asp {
     // Constructors / Destructors
     //------------------------------------------------------------------
     SPOTCameraModel(vw::camera::LagrangianInterpolation       const& position,
-  		              vw::camera::LagrangianInterpolation       const& velocity,
-		                vw::camera::SLERPPoseInterpolation        const& pose,
-		                vw::camera::LinearTimeInterpolation       const& time,
+                    vw::camera::LagrangianInterpolation       const& velocity,
+                    vw::camera::SLERPPoseInterpolation        const& pose,
+                    vw::camera::LinearTimeInterpolation       const& time,
                     std::vector<std::pair<int, vw::Vector2> > const& look_angles,
-		                vw::Vector2i  const& image_size,
-		                double min_time, double max_time,
-	                  bool   correct_velocity=true,
-	                  bool   correct_atmosphere=true
-		    ) : vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
-  		      m_position_func(position), m_velocity_func(velocity),
-            m_pose_func(pose),         m_time_func(time),
-            m_look_angles(look_angles),
-            m_min_time(min_time), m_max_time(max_time) {}
+                    vw::Vector2i  const& image_size,
+                    double min_time, double max_time,
+                    bool correct_velocity, bool correct_atmosphere):
+      vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
+      m_position_func(position), m_velocity_func(velocity),
+      m_pose_func(pose),         m_time_func(time),
+      m_look_angles(look_angles),
+      m_min_time(min_time), m_max_time(max_time) {}
 		    
     virtual ~SPOTCameraModel() {}
     virtual std::string type() const { return "LinescanSPOT"; }

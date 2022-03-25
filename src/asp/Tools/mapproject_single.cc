@@ -49,7 +49,7 @@ struct Options : vw::cartography::GdalWriteOptions {
     bundle_adjust_prefix;
   bool isQuery, noGeoHeaderInfo, nearest_neighbor;
   bool multithreaded_model; // This is set based on the session type.
-  bool disable_correct_velocity_aberration, disable_correct_atmospheric_refraction;
+  bool enable_correct_velocity_aberration, enable_correct_atmospheric_refraction;
   
   // Keep a copy of the model here to not have to pass it around separately
   boost::shared_ptr<vw::camera::CameraModel> camera_model;
@@ -92,10 +92,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
      "Do not write metadata information in the geoheader. See the doc for more info.")
-    ("disable-correct-velocity-aberration", po::bool_switch(&opt.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
-     "Turn off velocity aberration correction for Optical Bar and non-ISIS linescan cameras.")
-    ("disable-correct-atmospheric-refraction", po::bool_switch(&opt.disable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
-     "Turn off atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras.");
+    ("enable-correct-velocity-aberration", po::bool_switch(&opt.enable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
+     "Turn on velocity aberration correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.")
+    ("enable-correct-atmospheric-refraction", po::bool_switch(&opt.enable_correct_atmospheric_refraction)->default_value(false)->implicit_value(true),
+     "Turn on atmospheric refraction correction for Optical Bar and non-ISIS linescan cameras. This option impairs the convergence of bundle adjustment.");
   
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   
@@ -134,10 +134,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
-  asp::stereo_settings().disable_correct_velocity_aberration
-    = opt.disable_correct_velocity_aberration;
-  asp::stereo_settings().disable_correct_atmospheric_refraction
-    = opt.disable_correct_atmospheric_refraction;
+  asp::stereo_settings().enable_correct_velocity_aberration
+    = opt.enable_correct_velocity_aberration;
+  asp::stereo_settings().enable_correct_atmospheric_refraction
+    = opt.enable_correct_atmospheric_refraction;
   
   if (fs::path(opt.dem_file).extension() != "") {
     // A path to a real DEM file was provided, load it!
@@ -155,7 +155,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       vw_throw( ArgumentErr() << "Too many channels in: " << opt.dem_file << ".\n" );
 
     // Store the datum from the DEM
-    // TODO (oalexan1): Fix here
+    // TODO (oalexan1): Storing the datum name is fragile.
     asp::stereo_settings().datum = dem_georef.datum().name(); 
   }
   
