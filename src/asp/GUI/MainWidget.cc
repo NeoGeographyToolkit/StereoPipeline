@@ -34,6 +34,9 @@
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Image/Manipulation.h>
+#include <vw/Image/Statistics.h>
+#include <vw/Image/AntiAliasing.h>
 
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
@@ -188,8 +191,8 @@ namespace vw { namespace gui {
                          vw::cartography::GdalWriteOptions const& opt,
                          int image_id,
                          std::string & output_prefix,
-                         std::vector<std::string> const& image_files,
-                         std::string const& base_image_file,
+                         std::vector<imageData> const& images,
+                         imageData const& base_image,
                          MatchList & matches,
                          int &editMatchPointVecIndex,
                          chooseFilesDlg * chooseFiles,
@@ -198,8 +201,8 @@ namespace vw { namespace gui {
                          bool zoom_all_to_same_region, bool & allowMultipleSelections)
     : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
       m_image_id(image_id), m_output_prefix(output_prefix),
-      m_image_files(image_files), 
-      m_matchlist(matches),  m_editMatchPointVecIndex(editMatchPointVecIndex),
+      m_images(images), m_base_image(base_image), m_matchlist(matches),
+      m_editMatchPointVecIndex(editMatchPointVecIndex),
       m_use_georef(use_georef),
       m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region),
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
@@ -237,37 +240,17 @@ namespace vw { namespace gui {
     // in both directions.
     // TODO(oalexan1): There is no need to re-read images when the layout changes.
     // Images better be read before the layout is created and just passed in.
-    int num_images = image_files.size();
-    m_images.resize(num_images);
+    int num_images = m_images.size();
     m_filesOrder.resize(num_images);
     m_world2image_geotransforms.resize(num_images);
     m_image2world_geotransforms.resize(num_images);
     for (int i = 0; i < num_images; i++) {
-      m_images[i].read(image_files[i], m_opt);
-
       if (m_use_georef && !m_images[i].has_georef){
         popUp("No georeference present in: " + m_images[i].name + ".");
         vw_throw(ArgumentErr() << "Missing georeference.\n");
       }
     }
     
-    // Read the base image. When using georeferenced images, the base
-    // image projection (flipped in y) becomes the world coordinates.
-    bool read_base_image = false;
-    for (int i = 0; i < num_images; i++) {
-      if (image_files[i] == base_image_file) {
-        // This will be a shallow copy of image data
-        m_base_image = m_images[i];
-        read_base_image = true;
-        break;
-      }
-    }
-    if (!read_base_image) {
-      // The base image is different than any input images, and has to
-      // be read separately.
-      m_base_image.read(base_image_file, m_opt);
-    }
-
     // Set geotransforms and other data
     for (int i = 0; i < num_images; i++) {
       // Make sure we set these up before the image2world call below!
@@ -430,9 +413,6 @@ namespace vw { namespace gui {
 
     m_zoomToImageFromTable = menu->addAction("Zoom to image");
     connect(m_zoomToImageFromTable, SIGNAL(triggered()), this, SLOT(zoomToImage()));
-
-    m_deleteImage = menu->addAction("Delete image");
-    connect(m_deleteImage, SIGNAL(triggered()), this, SLOT(deleteImage()));
 
     // If having shapefiles, make it possible to change their colors
     bool has_shp = false;
@@ -816,11 +796,6 @@ namespace vw { namespace gui {
       m_hillshaded_images[image_iter].read(hillshaded_file, m_opt);
       temporary_files().files.insert(hillshaded_file);
     }
-  }
-
-  // Delete an image from the list
-  void MainWidget::deleteImage(){
-    emit removeImageAndRefreshSignal();
   }
 
   // Change the color of given layer of polygons
@@ -2283,7 +2258,6 @@ namespace vw { namespace gui {
   // Save the currently created vector layer
   void MainWidget::saveVectorLayer(){
     
-    // TODO: What if some images got deleted?
     if (m_polyLayerIndex >= int(m_images.size())){
       popUp("Images are inconsistent. Cannot save vector layer.");
       return;

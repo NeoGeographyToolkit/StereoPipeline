@@ -30,6 +30,7 @@
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/mpl/or.hpp>
 
 // Qt
@@ -48,9 +49,6 @@
 #include <vw/Image/ImageResource.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/ImageView.h>
-#include <vw/Image/Manipulation.h>
-#include <vw/Image/Statistics.h>
-#include <vw/Image/AntiAliasing.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageUtils.h>
@@ -90,10 +88,10 @@ namespace vw { namespace gui {
                vw::cartography::GdalWriteOptions const& opt,
                int image_id,
                std::string& output_prefix,
-               std::vector<std::string> const& image_files,
-               std::string const& base_image_file,
+               std::vector<imageData> const& images,
+               imageData const& base_image,
                MatchList & matches,
-               int &editMatchPointVecIndex,
+               int & editMatchPointVecIndex,
                chooseFilesDlg * chooseFiles, bool use_georef,
                std::vector<DisplayType> const& hillshade, bool view_matches,
                bool zoom_all_to_same_region,
@@ -162,7 +160,6 @@ namespace vw { namespace gui {
 signals:
     void turnOnViewMatchesSignal    ();
     void turnOffViewMatchesSignal   ();
-    void removeImageAndRefreshSignal();
     void uncheckProfileModeCheckbox ();
     void uncheckPolyEditModeCheckbox();
     void zoomAllToSameRegionSignal  (int);
@@ -189,12 +186,11 @@ public slots:
     void bringImageOnTopSlot    (); ///< Show this image on top of other images.
     void pushImageToBottomSlot  (); ///< Show all other images on top of this
     void zoomToImage            (); ///< Zoom to have this image in full view.
-    void deleteImage            (); ///< Delete an image from the gui and refresh
     void changePolyColor        (); ///< Change the color of given set of polygons
     void allowMultipleSelections(); ///< Allow the user to select multiple regions
     void deleteSelection        (); ///< Delete an area selected with the mouse at current point
     void hideImagesNotInRegion  (); ///< Hide images not intersecting a given region 
-    void saveVectorLayer        (); ///< Delete current vector layer
+    void saveVectorLayer        (); ///< Save polygons in current layer as shapefile
     bool contourImage           (); ///< Contour an image at a specified threshold
     void setProfileMode (bool profile_mode); ///< Turn on and off the 1D profile tool
     void setPolyEditMode(bool polyEditMode, bool refresh); ///< Turn on and off the vector layer drawing
@@ -252,7 +248,6 @@ public slots:
 
     const int m_image_id; ///< An ID number assigned to this widget when it is created
     std::string & m_output_prefix; // alias
-    std::vector<std::string> m_image_files;
     std::vector<DisplayType> m_hillshade_mode;
     double m_hillshade_azimuth, m_hillshade_elevation;
 
@@ -344,7 +339,6 @@ public slots:
     QAction* m_zoomToImageFromTable;
     QAction* m_bringImageOnTopFromTable;
     QAction* m_pushImageToBottomFromTable;
-    QAction* m_deleteImage;
     QAction* m_changePolyColor;
     QAction* m_allowMultipleSelections_action;
     QAction* m_deleteSelection;

@@ -169,10 +169,12 @@ dem_mosaic:
 
 stereo_gui: 
   * Can cycle through given images from the View menu, or with the 'n'
-    and 'p' keys, when all are in the same window.
+    and 'p' keys, when all images are in the same window.
   * Can save a shapefile having points, segments, or polygons. (These
     are distinct classes for a shapefile; the shapefile format
     requires that these not be mixed in the same file.)
+  * Noticeable speedup when changing display mode (e.g., from
+    side-by-side to overlayed).
   * Bugfix when overlaying shapefiles with different georeferences.
   * Polygon layers can be set to desired colors from the left pane,
     when overlaid.

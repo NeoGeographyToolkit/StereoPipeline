@@ -18,7 +18,7 @@
 
 /// \file GuiUtilities.h
 ///
-/// A widget showing an image.
+/// Low-level GUI logic
 ///
 #ifndef __STEREO_GUI_GUI_UTILITIES_H__
 #define __STEREO_GUI_GUI_UTILITIES_H__
@@ -42,12 +42,8 @@
 // Vision Workbench
 #include <vw/Core/Thread.h>
 #include <vw/Core/Log.h>
-#include <vw/Image/ImageResource.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/ImageView.h>
-#include <vw/Image/Manipulation.h>
-#include <vw/Image/Statistics.h>
-#include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/BBox.h>
@@ -57,10 +53,10 @@
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/Mosaic/DiskImagePyramid.h>
 #include <vw/Geometry/dPoly.h>
+#include <vw/Image/AntiAliasing.h>
 
 // ASP
 #include <asp/Core/Common.h>
-#include <vw/Image/AntiAliasing.h>
 
 class QMouseEvent;
 class QWheelEvent;
@@ -148,10 +144,10 @@ namespace vw { namespace gui {
   // TODO: Add the case when multi-channel images also have float or double pixels
   struct DiskImagePyramidMultiChannel{
     vw::cartography::GdalWriteOptions m_opt;
-    vw::mosaic::DiskImagePyramid< double               > m_img_ch1_double;
-    vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 2> > m_img_ch2_uint8;
-    vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 3> > m_img_ch3_uint8;
-    vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 4> > m_img_ch4_uint8;
+    vw::mosaic::DiskImagePyramid<double>               m_img_ch1_double;
+    vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>> m_img_ch2_uint8;
+    vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>> m_img_ch3_uint8;
+    vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 4>> m_img_ch4_uint8;
     int m_num_channels;
     int m_rows, m_cols;
     ImgType m_type; // keeps track of which of the above images we use

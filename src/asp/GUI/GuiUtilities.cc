@@ -486,11 +486,9 @@ void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {
 
 DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& base_file,
                              vw::cartography::GdalWriteOptions const& opt,
-                             int top_image_max_pix,
-                             int subsample):m_opt(opt),
-                                                m_num_channels(0),
-                                                m_rows(0), m_cols(0),
-                                                m_type(UNINIT){
+                             int top_image_max_pix, int subsample):
+  m_opt(opt), m_num_channels(0), m_rows(0), m_cols(0), m_type(UNINIT) {
+  
   if (base_file == "") return;
 
   // Instantiate the correct DiskImagePyramid then record information including
@@ -507,7 +505,7 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& ba
                                      m_img_ch1_double.get_temporary_files().end());
     }else if (m_num_channels == 2){
       // uint8 image with an alpha channel.
-      m_img_ch2_uint8 = vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 2> >(base_file, m_opt);
+      m_img_ch2_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>>(base_file, m_opt);
       m_num_channels = 2; // we read only 1 channel
       m_rows = m_img_ch2_uint8.rows();
       m_cols = m_img_ch2_uint8.cols();
@@ -516,7 +514,7 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& ba
                                      m_img_ch2_uint8.get_temporary_files().end());
     } else if (m_num_channels == 3){
       // RGB image with three uint8 channels.
-      m_img_ch3_uint8 = vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 3> >(base_file, m_opt);
+      m_img_ch3_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>>(base_file, m_opt);
       m_num_channels = 3;
       m_rows = m_img_ch3_uint8.rows();
       m_cols = m_img_ch3_uint8.cols();
@@ -525,7 +523,7 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& ba
                                      m_img_ch3_uint8.get_temporary_files().end());
     } else if (m_num_channels == 4){
       // RGB image with three uint8 channels and an alpha channel
-      m_img_ch4_uint8 = vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 4> >(base_file, m_opt);
+      m_img_ch4_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 4>>(base_file, m_opt);
       m_num_channels = 4;
       m_rows = m_img_ch4_uint8.rows();
       m_cols = m_img_ch4_uint8.cols();
@@ -680,7 +678,7 @@ void PointList::push_back(std::list<vw::Vector2> pts) {
 }
 
 
-//===========================================================================================================
+//========================
 // Functions for MatchList
 
 void MatchList::throwIfNoPoint(size_t image, size_t point) const {

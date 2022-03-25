@@ -70,7 +70,6 @@ namespace vw { namespace gui {
     void viewAsTiles                ();
     void turnOnViewMatches          ();
     void turnOffViewMatches         ();
-    void deleteImageFromWidget      ();
     void zoomAllToSameRegionAction(int widget_id);
     void viewMatches                ();
     void addDelMatches              ();
@@ -181,11 +180,10 @@ namespace vw { namespace gui {
     DisplayType m_display_type;
     std::vector<DisplayType> m_hillshade_vec;
     
-    // Any vector of size equal to number of images must be adjusted when the function
-    // deleteImageFromWidget() is invoked. That includes m_image_files and m_matches.
-    
-    std::vector<std::string>  m_image_files; ///< Loaded image files
-    
+    std::vector<std::string>  m_image_files; // Loaded image files
+    std::vector<imageData>    m_images;      // Handles to loaded images
+    imageData m_base_image;                  // Handle to base image (to overlay the rest against)
+
     /// Structure to keep track of all interest point matches.
     MatchList m_matchlist;
     int       m_editMatchPointVecIndex; ///< Point being edited

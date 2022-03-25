@@ -137,10 +137,19 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
     return;
   }
 
+  int num_images = m_image_files.size();
+  m_images.resize(num_images);
+  for (int i = 0; i < num_images; i++) 
+    m_images[i].read(m_image_files[i], m_opt);
+
+  // When using georef, use this as reference
+  if (BASE_IMAGE_INDEX < m_image_files.size())
+    m_base_image.read(m_image_files[BASE_IMAGE_INDEX], m_opt);
+  
   if (stereo_settings().match_file != "" &&
       stereo_settings().gcp_file   != "" &&
       !stereo_settings().vwip_files.empty()){
-    popUp("Cannot do more than one of: specify --match-file or --gcp-file, or pass in .vwip files.");
+    popUp("Cannot load at the same time more than one of: matches, GCP, or .vwip files.");
     m_view_matches = false;
     stereo_settings().match_file = "";
     stereo_settings().gcp_file   = "";
@@ -233,9 +242,7 @@ void MainWindow::createLayout() {
     popUp("No images to show.");
     return;
   }
-  // When using georef, use this as reference
-  std::string base_image_file = m_image_files[BASE_IMAGE_INDEX];
-  
+
   QWidget * centralWidget = new QWidget(this);
   setCentralWidget(centralWidget);
 
@@ -276,7 +283,7 @@ void MainWindow::createLayout() {
     MainWidget * widget = new MainWidget(centralWidget,
                                          m_opt,
                                          image_id, m_output_prefix,
-                                         m_image_files, base_image_file,
+                                         m_images, m_base_image,
                                          m_matchlist, m_editMatchPointVecIndex,
                                          m_chooseFiles,
                                          m_use_georef, m_hillshade_vec, m_view_matches,
@@ -292,9 +299,9 @@ void MainWindow::createLayout() {
   } else{
 
     // Each MainWidget object gets passed a single image
-    for (size_t i = 0; i < m_image_files.size(); i++) {
-      std::vector<std::string> local_images;
-      local_images.push_back(m_image_files[i]);
+    for (size_t i = 0; i < m_images.size(); i++) {
+      std::vector<imageData> local_images;
+      local_images.push_back(m_images[i]);
       m_chooseFiles = NULL;
 
       // Recall the previous hillshade choice if possible
@@ -308,7 +315,7 @@ void MainWindow::createLayout() {
       MainWidget * widget = new MainWidget(centralWidget,
                                            m_opt,
                                            image_id, m_output_prefix,
-                                           local_images, base_image_file,
+                                           local_images, m_base_image,
                                            m_matchlist, m_editMatchPointVecIndex,
                                            m_chooseFiles,
                                            m_use_georef, local_hillshade, m_view_matches,
@@ -337,7 +344,6 @@ void MainWindow::createLayout() {
     // the widgets, not just this one's.
     connect(m_widgets[i], SIGNAL(turnOnViewMatchesSignal    ()),  this, SLOT(turnOnViewMatches          ()));
     connect(m_widgets[i], SIGNAL(turnOffViewMatchesSignal   ()),  this, SLOT(turnOffViewMatches         ()));
-    connect(m_widgets[i], SIGNAL(removeImageAndRefreshSignal()),  this, SLOT(deleteImageFromWidget      ()));
     connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox ()),  this, SLOT(uncheckProfileModeCheckbox ()));
     connect(m_widgets[i], SIGNAL(uncheckPolyEditModeCheckbox()),  this, SLOT(uncheckPolyEditModeCheckbox()));
     connect(m_widgets[i], SIGNAL(zoomAllToSameRegionSignal(int)), this, SLOT(zoomAllToSameRegionAction(int)));
@@ -787,34 +793,6 @@ void MainWindow::turnOffViewMatches(){
   // This must come at the end, after we turned off viewing matches in all
   // widgets, otherwise each widget will send us back here.
   popUp("Must have just one image in each window to deal with IP matches.");
-}
-
-// Delete an image from the widget based on the index we query from the widget
-void MainWindow::deleteImageFromWidget(){
-  for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (!m_widgets[i])
-      continue;
-    std::set<int> & indicesWithAction = m_widgets[i]->indicesWithAction(); // alias
-    if (indicesWithAction.empty())
-      continue;
-    int index = *indicesWithAction.begin();
-
-    if (index >= 0 && index < (int)m_image_files.size() ) 
-      m_image_files.erase(m_image_files.begin() + index);
-
-    m_matchlist.deletePointsForImage(index);
-
-    if (m_hillshade_vec.size() == m_widgets.size() &&
-        index >= 0 && index < (int)m_hillshade_vec.size() ) 
-      m_hillshade_vec.erase(m_hillshade_vec.begin() + index);
-    
-    // Mark the action as done. Not strictly necessary, since
-    // all widgets will be wiped and recreated anyway.
-    indicesWithAction.clear();
-  }
-
-  // Must re-create everything
-  createLayout();
 }
 
 // Show or hide matches depending on the value of m_viewMatches.  We

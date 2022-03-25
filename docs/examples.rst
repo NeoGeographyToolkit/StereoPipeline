@@ -1576,7 +1576,8 @@ all these options and understand what they do. We also used
 That is necessary since the initial cameras could be pretty inaccurate.
 
 The option ``--overlap-limit`` controls how many subsequent images
-should be matched to a given one. See also ``--auto-overlap-params``.
+should be matched to a given one. See also ``--auto-overlap-params``
+for determining this automatically based on an input DEM.
 
 It is very important to examine the residual file named::
 
