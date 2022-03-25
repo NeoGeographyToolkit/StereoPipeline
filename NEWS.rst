@@ -54,7 +54,9 @@ parallel_stereo:
     corrections. These are not accurate enough and cause issues with
     convergence of bundle adjustment. Can be enabled with
     --enable-correct-velocity-aberration and
-    --enable-correct-atmospheric-refraction.
+    --enable-correct-atmospheric-refraction. (Note that these are
+    still hard-coded as enabled for optical bar camera models. This
+    would require some study.)
   * Added ready-made ASTER and LRO NAC examples with sample images,
     cameras, commands, and outputs, all available for
     download. Contributions of more examples are welcome. See

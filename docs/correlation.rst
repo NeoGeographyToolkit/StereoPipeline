@@ -538,6 +538,9 @@ adjustment. It is suggested to not use these options, and then invoke
 ``pc_align`` (:numref:`pc_align`) to align the obtained stereo DEMs to
 a trusted source.
 
+Note that these are still hard-coded as enabled for optical bar camera
+models. This would require some study.
+
 .. _mapproj_with_cam2map:
 
 Stereo with images mapprojected using ISIS
