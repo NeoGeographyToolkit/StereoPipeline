@@ -143,8 +143,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       stereo_settings().xcorr_threshold = 2;
     
     // Use low-res correlation to get the low-res disparity
-    Vector2 expansion(search_range.width(),
-                       search_range.height());
+    Vector2 expansion(search_range.width(), search_range.height());
     expansion *= stereo_settings().seed_percent_pad / 2.0f;
     // Expand by the user selected amount. Default is 25%.
     search_range.min() -= expansion;
@@ -166,116 +165,71 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     ImageView<PixelMask<float>> * lr_disp_diff = NULL;
     Vector2i region_ul = Vector2i(0, 0);
 
-    if (stereo_settings().rm_quantile_multiple <= 0.0) {
-      // If we can process the entire image in one tile, don't use a collar.
-      int collar_size = stereo_settings().sgm_collar_size;
-      if ((opt.raster_tile_size[0] > left_sub.cols()) &&
-          (opt.raster_tile_size[1] > left_sub.rows())  )
-        collar_size = 0;
+    int blob_filter_area = stereo_settings().corr_blob_filter_area * mean_scale;
+    if (stereo_settings().rm_quantile_multiple > 0.0) {
+      // Don't combine blob filtering with quantile filtering
+      blob_filter_area = 0;
+    }
 
-      // TODO(oalexan1): Tighten the duplicate code below.
-      // Create D_sub just once,
-      // not twice, with different parameters, if necessary. Need test cases
-      // for both scenarios.
-      // TODO: Why the extra filtering step here? 
-      // PyramidCorrelationView already performs 1-3 iterations of
-      // outlier removal.
-      vw_out() << "Writing: " << d_sub_file << std::endl;
-      vw::cartography::block_write_gdal_image
-        (// Write to disk
-         d_sub_file,
-         rm_outliers_using_thresh
-         (// Throw out individual pixels that are far from any neighbors
-          vw::stereo::pyramid_correlate
-          (// Compute image correlation using the PyramidCorrelationView class
-           left_sub, right_sub,
-           left_mask_sub, right_mask_sub,
-           vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
-           search_range, kernel_size, cost_mode,
-           corr_timeout, seconds_per_op,
-           stereo_settings().xcorr_threshold, 
-           stereo_settings().min_xcorr_level,
-           rm_half_kernel,
-           stereo_settings().corr_max_levels,
-           stereo_alg, collar_size, sgm_subpixel_mode, sgm_search_buffer,
-           stereo_settings().corr_memory_limit_mb,
-           stereo_settings().corr_blob_filter_area*mean_scale,
-           lr_disp_diff, region_ul,
-           stereo_settings().stereo_debug),
-          // To do: all these hard-coded values must be replaced with
-          // appropriate params from user's stereo.default, for
-          // consistency with how disparity is filtered in stereo_fltr,
-          // when invoking disparity_cleanup_using_thresh.
-          1, 1, // in stereo.default we have 5 5
-          // Changing below the hard-coded value from 2.0 to using a
+    // Process the entire D_sub in memory as it is small enough
+    int collar_size = 0; // Since there won't be tiles as the all the processing is done at once
+    ImageView<PixelMask<Vector2f>> d_sub =
+      vw::stereo::pyramid_correlate
+      (// Compute image correlation using the PyramidCorrelationView class
+       left_sub, right_sub, left_mask_sub, right_mask_sub,
+       vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
+       search_range, kernel_size, cost_mode, corr_timeout, seconds_per_op, 
+       stereo_settings().xcorr_threshold, stereo_settings().min_xcorr_level,
+       rm_half_kernel, stereo_settings().corr_max_levels, stereo_alg, 
+       collar_size, sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
+       blob_filter_area, lr_disp_diff, region_ul, stereo_settings().stereo_debug);
+
+    if (stereo_settings().rm_quantile_multiple <= 0.0) {
+      // Filter D_sub using thresholds (the default)
+      d_sub = rm_outliers_using_thresh
+        (d_sub,
+         // To do: all these hard-coded values must be replaced with
+         // appropriate params from user's stereo.default, for
+         // consistency with how disparity is filtered in stereo_fltr,
+         // when invoking disparity_cleanup_using_thresh.
+         1, 1, // in stereo.default we have 5 5
+         // Changing below the hard-coded value from 2.0 to using a
           // param.  The default value will still be 2.0 but is now
           // modifiable. Need to get rid of the 2.0/3.0 factor and
           // study how it affects the result.
-          stereo_settings().rm_threshold*2.0/3.0,
-          // Another change of hard-coded value to param. Get rid of 0.5/0.6
+         stereo_settings().rm_threshold*2.0/3.0,
+         // Another change of hard-coded value to param. Get rid of 0.5/0.6
           // and study the effect.
-          (stereo_settings().rm_min_matches/100.0)*0.5/0.6
-          ), // End outlier removal arguments
-         opt,
-         TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
-         );
-      // End of giant function call block
-
-      // Restore the user xcorr_threshold
-      stereo_settings().xcorr_threshold = orig_xcorr_threshold;
-
-      // Filter D_sub.
-      // TODO(oalexan1): Move this down so it can used even with quantile filtering
-      if (stereo_settings().outlier_removal_params[0] < 100.0 &&
-          opt.stereo_session != "pinhole"              && // this one has no datum 
-          (stereo_settings().alignment_method == "homography" ||
-           stereo_settings().alignment_method == "affineepipolar" ||
-           stereo_settings().alignment_method == "local_epipolar")) {
-        
-        boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
-        opt.session->camera_models(left_camera_model, right_camera_model);
-        const bool use_sphere_for_datum = false;
-        vw::cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
-                                                              use_sphere_for_datum);
-        asp::filter_D_sub(opt, left_camera_model, right_camera_model, datum, d_sub_file,
-                          stereo_settings().outlier_removal_params);
-      }
-      
+         (stereo_settings().rm_min_matches/100.0)*0.5/0.6);
     } else {
-      // Use quantile based filtering. This filter needs to be profiled to improve its speed.
-      // TODO(oalexan1): Test this code. Then streamline this logic by using a single
-      // call to pyramid_correlate while ensuring nothing changed!
+      // Filter D_sub using quantiles
+      d_sub = rm_outliers_using_quantiles
+        (d_sub, stereo_settings().rm_quantile_percentile, stereo_settings().rm_quantile_multiple);
+    }
+
+    vw_out() << "Writing: " << d_sub_file << std::endl;
+    vw::cartography::block_write_gdal_image
+      (// Write to disk
+       d_sub_file, d_sub, opt,
+       TerminalProgressCallback("asp", "\t--> Low-resolution disparity:"));
+    
+    // Restore the user xcorr_threshold
+    stereo_settings().xcorr_threshold = orig_xcorr_threshold;
+    
+    // Read D_sub back from disk, filter it, and write it back
+    if (stereo_settings().outlier_removal_params[0] < 100.0 &&
+        opt.stereo_session != "pinhole"              && // this one has no datum 
+        (stereo_settings().alignment_method == "homography"     ||
+         stereo_settings().alignment_method == "affineepipolar" ||
+         stereo_settings().alignment_method == "local_epipolar")) {
       
-      // Compute image correlation using the PyramidCorrelationView class
-      ImageView<PixelMask<Vector2f>> disp_image
-        = vw::stereo::pyramid_correlate
-        (left_sub, right_sub,
-         left_mask_sub, right_mask_sub,
-         vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
-         search_range, kernel_size, cost_mode,
-         corr_timeout, seconds_per_op,
-         stereo_settings().xcorr_threshold, 
-         stereo_settings().min_xcorr_level,
-         rm_half_kernel,
-         stereo_settings().corr_max_levels,
-         stereo_alg, 
-         0, // No collar here, the entire image is written at once.
-         sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
-         0, // Don't combine blob filtering with quantile filtering
-         lr_disp_diff, region_ul,
-         stereo_settings().stereo_debug);
-      
-      vw_out() << "Writing: " << d_sub_file << std::endl;
-      vw::cartography::write_gdal_image
-        (// Write to disk while removing outliers
-         d_sub_file,
-         rm_outliers_using_quantiles
-         (// Throw out individual pixels that are far from any neighbors
-          disp_image,
-          stereo_settings().rm_quantile_percentile, stereo_settings().rm_quantile_multiple
-          ), opt,
-         TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
-         );
+      boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+      opt.session->camera_models(left_camera_model, right_camera_model);
+      const bool use_sphere_for_datum = false;
+      vw::cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
+                                                            use_sphere_for_datum);
+      asp::filter_D_sub(opt, left_camera_model, right_camera_model, datum, d_sub_file,
+                        stereo_settings().outlier_removal_params);
     }
     
   } else if (stereo_settings().seed_mode == 2) {
