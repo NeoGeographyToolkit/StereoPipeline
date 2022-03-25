@@ -762,8 +762,8 @@ void remove_outliers(ControlNetwork const& cnet, BAParamStorage &param_storage,
     ip::read_binary_match_file(match_file, orig_left_ip, orig_right_ip);
     std::map< std::pair<double, double>, std::pair<double, double> > lookup;
     for (size_t ip_iter = 0; ip_iter < orig_left_ip.size(); ip_iter++) {
-      lookup [ std::pair<double, double>(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y) ]
-        =  std::pair<double, double>(orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y);
+      lookup [ std::make_pair(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y) ]
+        =  std::make_pair(orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y);
     }
 
     // TODO: ???
@@ -1625,7 +1625,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str,
     intrinsics_limit_str;
-  double auto_overlap_buffer;
   bool  inline_adjustments;
   int   max_iterations_tmp;
   po::options_description general_options("");
@@ -1723,7 +1722,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
     ("overlap-list",         po::value(&opt.overlap_list_file)->default_value(""),
      "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
-    ("auto-overlap-buffer",  po::value(&auto_overlap_buffer)->default_value(-1.0),
+    ("auto-overlap-params",  po::value(&opt.auto_overlap_params)->default_value(""),
+     "Determine which camera images overlap by finding the lon-lat bounding boxes "
+     "of their footprints given the specified DEM, expanding them by a given percentage, "
+     "and see if those intersect. A higher percentage should be used when there is more "
+     "uncertainty about the input camera poses. Example: 'dem.tif 15'.")
+    ("auto-overlap-buffer",  po::value(&opt.auto_overlap_buffer)->default_value(-1.0),
      "Try to automatically determine which images overlap. Used only if "
      "this option is explicitly set. Only supports Worldview style XML "
      "camera files. The lon-lat footprints of the cameras are expanded "
@@ -1873,7 +1877,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   // TODO: Check for duplicates in opt.image_files!
 
-  if ( opt.image_files.empty() )
+  if (opt.image_files.empty())
     vw_throw( ArgumentErr() << "Missing input image files.\n"
                             << usage << general_options );
 
@@ -1919,7 +1923,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   } // End resolving the model type
   
-  
   if (opt.transform_cameras_using_gcp &&
       (!inline_adjustments) &&
       (opt.camera_type != BaCameraType_Pinhole)) {
@@ -1939,10 +1942,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if ( opt.overlap_limit < 0 )
     vw_throw( ArgumentErr() << "Must allow search for matches between "
               << "at least each image and its subsequent one.\n" << usage << general_options );
+  
   // By default, try to match all of the images!
   if ( opt.overlap_limit == 0 )
     opt.overlap_limit = opt.image_files.size();
 
+  if (int(opt.overlap_list_file != "") + int(!vm["auto-overlap-buffer"].defaulted()) +
+      int(opt.auto_overlap_params != "") > 1)
+    vw_throw( ArgumentErr() << "Cannot specify more than one of --overlap-list, "
+              << "--auto-overlap-params, and --auto-overlap-buffer.\n"
+              << usage << general_options);
+  
   if (opt.overlap_list_file != "") {
     if (!fs::exists(opt.overlap_list_file))
       vw_throw( ArgumentErr() << "The overlap list does not exist.\n" << usage
@@ -1951,16 +1961,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     std::string image1, image2;
     std::ifstream ifs(opt.overlap_list_file.c_str());
     while (ifs >> image1 >> image2){
-      opt.overlap_list.insert(std::pair<std::string, std::string>(image1, image2));
-      opt.overlap_list.insert(std::pair<std::string, std::string>(image2, image1));
+      opt.overlap_list.insert(std::make_pair(image1, image2));
+      opt.overlap_list.insert(std::make_pair(image2, image1));
     }
     ifs.close();
   } else {
     if (!vm["auto-overlap-buffer"].defaulted())
-      auto_build_overlap_list(opt, auto_overlap_buffer);
+      auto_build_overlap_list(opt, opt.auto_overlap_buffer);
   }
+  // The third alternative, --auto-overlap-params will be handled when we have cameras
   
-  if ( opt.camera_weight < 0.0 )
+  if (opt.camera_weight < 0.0)
     vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage
                             << general_options );
 
@@ -1982,8 +1993,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   //if (opt.create_pinhole && !asp::has_pinhole_extension(opt.camera_files[0]))
   //  vw_throw( ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
 
-  if ((opt.camera_type==BaCameraType_Other) && opt.solve_intrinsics)
-    vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole and optical bar cameras.\n");
+  if ((opt.camera_type == BaCameraType_Other) && opt.solve_intrinsics)
+    vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with "
+              << "pinhole and optical bar cameras.\n");
 
   if ((opt.camera_type!=BaCameraType_Pinhole) && opt.approximate_pinhole_intrinsics)
     vw_throw( ArgumentErr() << "Cannot approximate intrinsics unless using pinhole cameras.\n");
@@ -1995,7 +2007,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw( ArgumentErr() << "Can only use initial adjustments with camera type 'other'.\n");
 
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
-  opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4> >(opt.remove_outliers_params_str);
+  opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4>>(opt.remove_outliers_params_str);
   
   // Ensure good order
   if ( opt.lon_lat_limit != BBox2(0,0,0,0) ) {
@@ -2136,7 +2148,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   opt.parse_intrinsics_limits(intrinsics_limit_str);
 
-  boost::to_lower( opt.cost_function );
+  boost::to_lower(opt.cost_function);
 
   if (opt.apply_initial_transform_only && opt.initial_transform_file == "")
     vw_throw(vw::IOErr() << "Cannot use --apply-initial-transform-only "
@@ -2465,48 +2477,6 @@ int main(int argc, char* argv[]) {
 
     const int num_images = opt.image_files.size();
 
-    // Assign the images which this instance should compute statistics for.
-    std::vector<size_t> image_stats_indices;
-    for (size_t i = opt.instance_index; i < num_images; i += opt.instance_count)
-      image_stats_indices.push_back(i);
-    
-    // Compute statistics for the designated images
-    opt.single_threaded_cameras = false;
-    for (size_t i = 0; i < image_stats_indices.size(); ++i) {
-
-      if (opt.apply_initial_transform_only)
-        continue; // no stats need to happen
-
-      if (opt.skip_matching || opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
-        continue;
-      
-      size_t index = image_stats_indices[i];
-      
-      std::string image_path  = opt.image_files [index];
-      std::string camera_path = opt.camera_files[index];
-
-      // Call a bunch of stuff to get the nodata value
-      boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
-      float nodata, dummy;
-      asp::get_nodata_values(rsrc, rsrc, nodata, dummy);
-
-      // Set up the image view
-      DiskImageView<float> image_view(rsrc);
-      ImageViewRef< PixelMask<float> > masked_image
-        = create_mask_less_or_equal(image_view,  nodata);
-
-      // Use caching function call to compute the image statistics.
-      // TODO(oalexan1): Test if this is necessary with --mapprojected-data.
-      // That one should gather stats in mapprojected images instead.
-      asp::StereoSession::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
-    }
-    
-    if (opt.stop_after_stats){
-      vw_out() << "Quitting after statistics computation.\n";
-      return 0;
-    }
-    // Done computing image statistics.
-      
     // Create the stereo session. This will attempt to identify the session type.
     // Read in the camera model and image info for the input images.
     for (int i = 0; i < num_images; i++){
@@ -2535,24 +2505,85 @@ int main(int argc, char* argv[]) {
           (*(pinhole_ptr.get()), file_image_size(opt.image_files[i]));
       }
 
-    } // End loop through images loading all the camera models
-
-    // Since CERES does numerical differences, it needs high precision in the inputs.
-    // Inform about that the CSM cameras, which normally settle for less.
-    // TODO(oalexan1): Need to examine other cameras too.
-    if (opt.stereo_session == "csm") {
-      for (size_t icam = 0; icam < opt.camera_models.size(); icam++) {
-        CameraModel * base_cam = vw::camera::unadjusted_model(opt.camera_models[icam]).get();
+      // Since CERES does numerical differences, it needs high precision in the inputs.
+      // Inform about that the CSM cameras, which normally settle for less.
+      // TODO(oalexan1): Need to examine other cameras too.
+      if (opt.stereo_session == "csm") {
+        CameraModel * base_cam = vw::camera::unadjusted_model(opt.camera_models[i]).get();
         asp::CsmModel * csm_cam = dynamic_cast<asp::CsmModel*>(base_cam);
         if (csm_cam == NULL) 
           vw::vw_throw(vw::ArgumentErr() << "Expected a CSM camera model.");
         // When asked to get a 1.0e-12 precision, at most it delivers 1.0e-11.
         csm_cam->setDesiredPrecision(1.0e-12); 
       }
+    } // End loop through images loading all the camera models
+
+    // Prepare for computing footprints of images
+    std::string dem_file_for_overlap;
+    double pct_for_overlap = -1.0;
+    if (opt.auto_overlap_params != "") {
+      std::istringstream is(opt.auto_overlap_params);
+      if (!(is >> dem_file_for_overlap >> pct_for_overlap)) 
+        vw_throw(ArgumentErr() << "Could not parse correctly option --auto-overlap-params.\n");
+    }
+    
+    // Assign the images which this instance should compute statistics for.
+    std::vector<size_t> image_stats_indices;
+    for (size_t i = opt.instance_index; i < num_images; i += opt.instance_count)
+      image_stats_indices.push_back(i);
+
+    // Compute statistics for the designated images and perhaps the footprints
+    opt.single_threaded_cameras = false;
+    for (size_t i = 0; i < image_stats_indices.size(); ++i) {
+
+      if (opt.apply_initial_transform_only)
+        continue; // no stats need to happen
+
+      if (opt.skip_matching || opt.clean_match_files_prefix != "" || opt.match_files_prefix != "")
+        continue;
+      
+      size_t index = image_stats_indices[i];
+      
+      std::string image_path  = opt.image_files [index];
+      std::string camera_path = opt.camera_files[index];
+
+      // Call a bunch of stuff to get the nodata value
+      boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(image_path));
+      float nodata, dummy;
+      asp::get_nodata_values(rsrc, rsrc, nodata, dummy);
+
+      // Set up the image view
+      DiskImageView<float> image_view(rsrc);
+      ImageViewRef< PixelMask<float> > masked_image
+        = create_mask_less_or_equal(image_view,  nodata);
+
+      // Use caching function call to compute the image statistics.
+      // TODO(oalexan1): Test if this is necessary with --mapprojected-data.
+      // That one should gather stats in mapprojected images instead.
+      asp::StereoSession::gather_stats(masked_image, image_path, opt.out_prefix, image_path);
+
+      // Compute and cache the camera footprint bbox
+      if (opt.auto_overlap_params != "")
+        asp::camera_bbox_with_cache(dem_file_for_overlap, image_path, opt.camera_models[index],  
+                                    opt.out_prefix);
+    }
+    
+    // Done computing image statistics.
+
+    if (opt.stop_after_stats){
+      vw_out() << "Quitting after statistics computation.\n";
+      return 0;
     }
 
-    // Create the match points.
-    // Iterate through each pair of input images
+    // Calculate which images overlap
+    if (opt.auto_overlap_params != "")
+      asp::build_overlap_list_based_on_dem(opt.out_prefix,  
+                                           dem_file_for_overlap, pct_for_overlap,
+                                           opt.image_files, opt.camera_models,
+                                           // output
+                                           opt.overlap_list);
+
+    // Create the match points. Iterate through each pair of input images.
 
     // Load estimated camera positions if they were provided.
     std::vector<Vector3> estimated_camera_gcc;
@@ -2575,10 +2606,10 @@ int main(int argc, char* argv[]) {
 
       for (int j = start; j <= std::min(num_images-1, i + opt.overlap_limit); j++){
 
-        // Apply the overlap list if manually specified.
+        // Apply the overlap list if manually specified. Otherwise every
+        // image pair i, j as above will be matched.
         if (!opt.overlap_list.empty()) {
-          std::pair<std::string, std::string> pair(opt.image_files[i],
-                                                   opt.image_files[j]);
+          auto pair = std::make_pair(opt.image_files[i], opt.image_files[j]);
           if (opt.overlap_list.find(pair) == opt.overlap_list.end())
             continue;
         }
@@ -2619,7 +2650,7 @@ int main(int argc, char* argv[]) {
           }
         }
         
-        all_pairs.push_back(std::pair<int,int>(i,j));
+        all_pairs.push_back(std::make_pair(i,j));
       }
     }
 
@@ -2652,6 +2683,7 @@ int main(int argc, char* argv[]) {
     
     // TODO: Make this a function
     // Assign the matches which this instance should compute.
+    // This is for when called from parallel_bundle_adjust.
     size_t per_instance = all_pairs.size()/opt.instance_count; // Round down
     size_t remainder    = all_pairs.size()%opt.instance_count;
     size_t start_index  = 0, this_count = 0;
@@ -2663,7 +2695,7 @@ int main(int argc, char* argv[]) {
     }
     start_index -= this_count;
 
-    std::vector<std::pair<int,int> > this_instance_pairs;
+    std::vector<std::pair<int,int>> this_instance_pairs;
     for (size_t i=0; i<this_count; ++i)
       this_instance_pairs.push_back(all_pairs[i+start_index]);
 
@@ -2696,7 +2728,7 @@ int main(int argc, char* argv[]) {
         match_filename = ip::match_filename(opt.out_prefix, image1_path,
                                             image2_path);
       
-      opt.match_files[std::pair<int, int>(i, j)] = match_filename;
+      opt.match_files[std::make_pair(i, j)] = match_filename;
       
       // TODO: Need to make sure this works with the parallel script!
       bool inputs_changed = (!asp::is_latest_timestamp(match_filename,
@@ -2745,7 +2777,7 @@ int main(int argc, char* argv[]) {
         // Compute the coverage fraction
         std::vector<ip::InterestPoint> ip1, ip2;
         ip::read_binary_match_file(match_filename, ip1, ip2);
-        int right_ip_width = rsrc1->cols()*
+        int right_ip_width = rsrc1->cols() *
                               static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
         Vector2i ip_size(right_ip_width, rsrc1->rows());
         double ip_coverage = asp::calc_ip_coverage_fraction(ip2, ip_size);

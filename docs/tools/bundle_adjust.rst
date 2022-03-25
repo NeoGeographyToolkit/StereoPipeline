@@ -267,12 +267,19 @@ Command-line options for bundle_adjust
 --overlap-limit <integer (default: 0)>
     Limit the number of subsequent images to search for matches to
     the current image to this value.  By default try to match all
-    images.
+    images. See also ``--auto-overlap-params``.
 
 --overlap-list <string>
     A file containing a list of image pairs, one pair per line,
     separated by a space, which are expected to overlap. Matches
     are then computed only among the images in each pair.
+
+--auto-overlap-params <string (default: "")>
+    Determine which camera images overlap by finding the lon-lat
+    bounding boxes of their footprints given the specified DEM, expanding
+    them by a given percentage, and see if those intersect. A higher
+    percentage should be used when there is more uncertainty about the
+    input camera poses. Example: 'dem.tif 15'.
 
 --auto-overlap-buffer <double (default: not set)>
     Try to automatically determine which images overlap. Used only if

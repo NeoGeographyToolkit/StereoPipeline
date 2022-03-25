@@ -223,7 +223,7 @@ def run_job(prog, args, instance_index, **kw):
         raise Exception('Bundle adjust step ' + kw['msg'] + ' failed')
 
 def distribute_files(output_prefix, ext, num_instances):
-    '''.stats files get distributed to all folders.
+    '''.stats (and camera footprint bbox files) files get distributed to all folders.
        .match files get symlinked to the main folder.'''
 
     output_folder = os.path.dirname(output_prefix)
@@ -388,7 +388,9 @@ if __name__ == '__main__':
             spawn_to_nodes(step, self_args)
 
             # Copy all statistics files to each working folder
+            # Same for camera footprint bbox files if present.
             distribute_files(output_prefix, '-stats.tif', num_instances)
+            distribute_files(output_prefix, '-bbox.txt', num_instances)
 
         # Matching.
         step = Step.matching

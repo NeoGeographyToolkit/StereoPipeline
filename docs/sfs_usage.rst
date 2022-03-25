@@ -1057,14 +1057,15 @@ ordered by Sun azimuth angle.
 
 For bundle adjustment we in fact used even more images that overlap
 with this area, but likely this set is sufficient, and it is this set
-that was used later for shape-from-shading. Here more bundle
-adjustment iterations are desirable, but this step takes too long. And
-a large ``--ip-per-tile`` can make a difference in images with rather
-different different illumination conditions but it can also slow down
-the process a lot. Note that the value of 
-``--max-pairwise-matches`` was set to 1000. That should hopefully create
-enough matches among any two images. A higher value here will make bundle
-adjustment run slower.
+that was used later for shape-from-shading (see also the
+``--auto-overlap-limit`` option, which can be used to determine which
+images overlap). Here more bundle adjustment iterations are desirable,
+but this step takes too long. And a large ``--ip-per-tile`` can make a
+difference in images with rather different different illumination
+conditions but it can also slow down the process a lot. Note that the
+value of ``--max-pairwise-matches`` was set to 1000. That should
+hopefully create enough matches among any two images. A higher value
+here will make bundle adjustment run slower.
 
 It is very important to have a lot of images during bundle adjustment,
 and that they are sorted by illumination (Sun azimuth) to ensure that
@@ -1083,9 +1084,7 @@ Note that this invocation may run for more than a day, or even
 more. And it may be necessary to get good convergence. If the process
 gets interrupted, or the user gives up on waiting, the adjustments
 obtained so far can still be usable, if invoking bundle adjustment,
-as above, with ``--save-intermediate-cameras``. One may also
-consider reducing ``--overlap-limit`` to perhaps 20 though
-there is some risk in doing that if images fail to overlap enough.
+as above, with ``--save-intermediate-cameras``.
 
 Alignment to ground
 ^^^^^^^^^^^^^^^^^^^

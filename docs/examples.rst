@@ -1575,6 +1575,9 @@ all these options and understand what they do. We also used
 ``--robust-threshold 10`` to force the solver to work the bigger errors.
 That is necessary since the initial cameras could be pretty inaccurate.
 
+The option ``--overlap-limit`` controls how many subsequent images
+should be matched to a given one. See also ``--auto-overlap-params``.
+
 It is very important to examine the residual file named::
 
      ba/run-final_residuals_pointmap.csv

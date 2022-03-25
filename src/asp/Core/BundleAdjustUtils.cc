@@ -19,12 +19,15 @@
 /// \file BundleAdjustUtils.cc
 ///
 
-#include <asp/Core/BundleAdjustUtils.h>
-
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Stereo/StereoModel.h>
+#include <vw/Cartography/GeoReference.h>
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/Cartography/CameraBBox.h>
+
+#include <asp/Core/BundleAdjustUtils.h>
 
 #include <string>
 
@@ -139,8 +142,8 @@ void asp::write_adjustments(std::string const& filename,
   ostr.close();
 }
 
-void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > const& camera_models,
-                              ControlNetwork const& cnet) {
+void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel>> const& camera_models,
+                                   ControlNetwork const& cnet) {
 
   // Compute pre-adjustment residuals and convert to bundles
   int n = 0;
@@ -164,6 +167,120 @@ void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > 
       max_error = std::max(max_error, error);
     }
   }
-  vw_out() << "\nStereo Intersection Residuals -- Min: " << min_error
-           << "  Max: " << max_error << "  Average: " << (error_sum/n) << "\n";
+  vw_out() << "\nStereo intersection residuals -- min: " << min_error
+           << "  max: " << max_error << "  average: " << (error_sum/n) << "\n";
+}
+
+// See the .h file for documentation
+vw::BBox2 asp::camera_bbox_with_cache(std::string const& dem_file,
+                                      std::string const& image_file,
+                                      boost::shared_ptr<vw::camera::CameraModel> const&
+                                      camera_model,
+                                      std::string const& out_prefix) {
+  
+  namespace fs = boost::filesystem;
+
+  vw_out() << "Computing ground footprint bounding box of: " + image_file << std::endl;
+
+  vw::BBox2 box;
+  
+  std::string box_path = out_prefix + '-' + fs::path(image_file).stem().string() + "-bbox.txt";
+  if (fs::exists(box_path)) {
+    double min_x, min_y, max_x, max_y;
+    std::ifstream ifs(box_path);
+    if (ifs >> min_x >> min_y >> max_x >> max_y) {
+      box.min() = vw::Vector2(min_x, min_y);
+      box.max() = vw::Vector2(max_x, max_y);
+      vw_out() << "Read cached footprint bbox from: " << box_path << ":\n" << box << "\n";
+      return box;
+    }
+  }
+
+  // Read the DEM and supporting data
+  vw::cartography::GeoReference dem_georef;
+  DiskImageView<float> dem_disk_image(dem_file);
+  ImageViewRef<PixelMask<float>> dem;
+  boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResourcePtr(dem_file));
+  if (dem_rsrc->has_nodata_read())
+    dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
+  else
+    dem = pixel_cast<PixelMask<float>>(dem_disk_image); // all pixels are valid
+  
+  bool has_georef = vw::cartography::read_georeference(dem_georef, dem_file);
+  if (!has_georef)
+    vw_throw( ArgumentErr() << "There is no georeference information in: "
+              << dem_file << ".\n" );
+
+  try {
+    DiskImageView<float> img(image_file);
+    float auto_res = -1.0;  // Will be updated
+    bool quick = false;     // Do a thorough job
+    box = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
+                                       camera_model, img.cols(), img.rows(),
+                                       auto_res, quick);
+  } catch (std::exception const& e) {
+    vw_throw( ArgumentErr() << e.what() << "\n"
+              << "Failed to compute the footprint of camera image: " << image_file
+              << " onto DEM: " << dem_file << ".\n");
+  }
+
+  vw_out() << "Writing: " << box_path << "\n";
+  std::ofstream ofs(box_path.c_str());
+  ofs.precision(17);
+  ofs << box.min().x() << " " <<  box.min().y() << " "
+      << box.max().x() << " " <<  box.max().y() << "\n";
+  ofs.close();
+  
+  return box;
+}
+
+// See the .h file for the documentation.
+void asp::build_overlap_list_based_on_dem
+/*        */ (std::string const& out_prefix, std::string const& dem_file, double pct_for_overlap,
+              std::vector<std::string> const& image_files,
+              std::vector<boost::shared_ptr<vw::camera::CameraModel>> const& camera_models,
+              std::set<std::pair<std::string, std::string>> & overlap_list) {
+
+  // Wipe the output
+  overlap_list.clear();
+  
+  // Sanity check
+  if (image_files.size() != camera_models.size())
+    vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n");
+  
+  int num_images = image_files.size();
+  std::vector<vw::BBox2> boxes(num_images);
+  for (int it = 0; it < num_images; it++) {
+    boxes[it] = asp::camera_bbox_with_cache(dem_file, image_files[it], camera_models[it],  
+                                            out_prefix);
+
+    // Expand the box by the given factor
+    double factor = pct_for_overlap / 100.0;
+
+    // The expansion factor can be negative, but not if it results in an empty box
+    if (factor <= -1.0) 
+      vw_throw(ArgumentErr() << "Invalid percentage when computing the footprint of camera image: "
+               << pct_for_overlap  << ".\n");
+      
+    double half_extra_x = 0.5 * boxes[it].width()  * factor;
+    double half_extra_y = 0.5 * boxes[it].height() * factor;
+    boxes[it].min() -= Vector2(half_extra_x, half_extra_y);
+    boxes[it].max() += Vector2(half_extra_x, half_extra_y);
+  }
+
+  // See which boxes overlap. While this is an O(N^2) computation,
+  // likely N is at most a thousand or two, which should be
+  // manageable. A 2D tree of box corners could be used, and two boxes
+  // would then overlap if corners from one box are contained in a
+  // second box. That would be a O(N * log(N)) lookup.
+  for (int it1 = 0; it1 < num_images; it1++) {
+    for (int it2 = it1 + 1; it2 < num_images; it2++) {
+      BBox2 box = boxes[it1]; // deep copy
+      box.crop(boxes[it2]);
+      if (!box.empty())
+        overlap_list.insert(std::make_pair(image_files[it1], image_files[it2]));
+    }
+  }
+
+  return;
 }

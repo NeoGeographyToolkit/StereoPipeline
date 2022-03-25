@@ -83,18 +83,20 @@ struct Options : public vw::cartography::GdalWriteOptions {
   vw::Vector<double, 4> remove_outliers_params;
   vw::Vector2 remove_outliers_by_disp_params;
   boost::shared_ptr<vw::ba::ControlNetwork> cnet;
-  std::vector<boost::shared_ptr<vw::camera::CameraModel> > camera_models;
+  std::vector<boost::shared_ptr<vw::camera::CameraModel>> camera_models;
   vw::cartography::Datum datum;
   int    ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, max_disp_error,
-    reference_terrain_weight, heights_from_dem_weight, heights_from_dem_robust_threshold;
+    reference_terrain_weight, heights_from_dem_weight, heights_from_dem_robust_threshold,
+    auto_overlap_buffer;
   bool   skip_rough_homography, enable_rough_homography, disable_tri_filtering, enable_tri_filtering, no_datum, individually_normalize, use_llh_error,
-    force_reuse_match_files, save_cnet_as_csv, disable_correct_velocity_aberration, disable_correct_atmospheric_refraction;
+    force_reuse_match_files, save_cnet_as_csv,
+    disable_correct_velocity_aberration, disable_correct_atmospheric_refraction;
   vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
   vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
-  std::string           overlap_list_file;
-  std::set< std::pair<std::string, std::string> > overlap_list;
+  std::string           overlap_list_file, auto_overlap_params;
+  std::set<std::pair<std::string, std::string>> overlap_list;
   vw::Matrix4x4 initial_transform;
   std::string   fixed_cameras_indices_str;
   std::set<int> fixed_cameras_indices;

@@ -81,6 +81,9 @@ bundle_adjust:
   * Add the option --apply-initial-transform-only to apply an initial
     transform to cameras while skipping image matching and other
     steps, making the process much faster.
+  * Added the option --auto-overlap-params to automatically compute
+    which camera images overlap, if a DEM and camera footprint
+    expansion percentage are given. 
   * Add the option --max-pairwise-matches to put an upper limit on
     the number of matches, as a large number can slow down bundle
     adjustment. The default is 10000, likely a large overestimate (but
@@ -102,7 +105,7 @@ csm:
     single-line and multiple-line formats are accepted.
   * Bundle adjustment, mapproject, and SfS with the CSM model can be
     7-15 times faster than done with the corresponding ISIS model.
-    It is strongly suggested to use CSM for large-scale processsing.
+    It is strongly suggested to use CSM for large-scale processing.
   * Bugfix in CSM linescan implementation for some LRO NAC sensors.
     Also replaced the fixed-point method with the secant method in the 
     ground-to-image logic for linescan cameras, which is faster. 
