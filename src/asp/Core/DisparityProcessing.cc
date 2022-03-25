@@ -37,6 +37,7 @@ namespace asp {
 // TODO(oalexan1): Also do filtering by the range of disparity values, like
 // asp::filter_ip_by_disparity().
 void filter_D_sub(ASPGlobalOptions const& opt,
+                  vw::TransformPtr tx_left, vw::TransformPtr tx_right,
                   boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
                   boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
                   vw::cartography::Datum const& datum,
@@ -61,13 +62,6 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   // Use ImageView to read D_sub fully in memory so it can be modified
   vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp = sub_disp_ref;
     
-  Matrix<double> left_global_mat  = math::identity_matrix<3>();
-  Matrix<double> right_global_mat = math::identity_matrix<3>();
-  read_matrix(left_global_mat, opt.out_prefix + "-align-L.exr");
-  read_matrix(right_global_mat, opt.out_prefix + "-align-R.exr");
-  vw::HomographyTransform left_trans(left_global_mat);
-  vw::HomographyTransform right_trans(right_global_mat);
-
   // Set up the stereo model for doing triangulation
   double angle_tol = vw::stereo::StereoModel
     ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
@@ -96,8 +90,8 @@ void filter_D_sub(ASPGlobalOptions const& opt,
       right_pix = elem_prod(right_pix, upsample_scale);
 
       // Undo the alignment transform
-      left_pix = left_trans.reverse(left_pix);
-      right_pix = right_trans.reverse(right_pix);
+      left_pix = tx_left->reverse(left_pix);
+      right_pix = tx_right->reverse(right_pix);
 
       double err;
       Vector3 xyz;

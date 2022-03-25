@@ -36,6 +36,7 @@ namespace asp {
   // and local_epipolar. For now this is not in use as a dataset where this would help
   // was not found. It was tested though.
   void filter_D_sub(ASPGlobalOptions const& opt,
+                    vw::TransformPtr tx_left, vw::TransformPtr tx_right,
                     boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
                     boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
                     vw::cartography::Datum const& datum,

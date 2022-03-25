@@ -328,27 +328,28 @@ Dealing with clouds
 -------------------
 
 Clouds can result in unreasonably large disparity search ranges and a
-long run-time.  A solution can be to mapproject the images
-(:numref:`mapproj-example`), and tighten the computed search range via
-``--max-disp-spread`` (:numref:`stereodefault`).
+long run-time. A solution can be to mapproject the images
+(:numref:`mapproj-example`).
 
-If a run failed because of a large disparity search range, the low-resolution
-disparity ``D_sub.tif`` (:numref:`outputfiles`) should be deleted,
-parameters adjusted, and ``parallel_stereo`` should be re-run with the
-option ``--resume-at-corr``.
+With our without mapprojection, one can reduce the computed search
+range via ``--max-disp-spread`` (:numref:`stereodefault`).
 
-Running just ``stereo_corr`` with the same arguments as
-``parallel_stereo`` (except those specific to this tool, used for
-tiling and number of processes, etc.), while adding the option
-``--compute-low-res-disparity-only``, can be used to examine how
-``D_sub.tif`` is created and what the various search ranges are
-(before and after filtering, etc.), which will later affect the
-runtime of correlation.
+Another option (which can be used in conjunction with the earlier
+suggestions) is to tighten the outlier filtering in the low-resolution
+disparity ``D_sub.tif`` (:numref:`outputfiles`), for example, by
+setting ``--outlier-removal-params 65 2`` from the default ``95 3``
+(:numref:`stereodefault`).
 
-The ``local_epipolar`` alignment can handle clouds reasonably well.
-This mode will print the min and max disparities to be searched
-in the terminal (and to log files). If desired to tighten those,
-use, as earlier, the option ``--max-disp-spread``.
+If a run failed because of a large disparity search range,
+``D_sub.tif`` should be deleted, parameters adjusted as above, and one
+should run ``stereo_corr`` with the same arguments that
+``parallel_stereo`` was run before (except those used for tiling and
+number of processes, etc.), while adding the option
+``--compute-low-res-disparity-only``. Then examine the re-created
+``D_sub.tif`` and the various search ranges printed on screen.
+
+When ``D_sub.tif`` is found to be reasonable, ``parallel_stereo``
+should be re-run with the option ``--resume-at-corr``.
 
 See also :numref:`longrun` which offers further suggestions for
 how to deal with long run-times.

@@ -60,9 +60,9 @@ parallel_stereo:
   * ASP's SGM and MGM algorithms will always use the cross-check for
     disparity by default, to improve the quality, even if that takes
     more time. It can be turned off with --xcorr-threshold -1.
-  * Filter outliers in low-resolution disparity D_sub.tif (when not
-    using mapprojected images). Can be turned off by setting the
-    percentage in --outlier-removal-params to 100. 
+  * Filter outliers in low-resolution disparity D_sub.tif. Can be
+    turned off by setting the percentage in --outlier-removal-params
+    to 100.
   * Filtering of interest points based on percentiles (using also
     --outlier-removal-params, only for local_epipolar alignment for
     now).
