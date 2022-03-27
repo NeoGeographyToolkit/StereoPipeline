@@ -44,7 +44,6 @@
 using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
-using namespace std;
 namespace fs = boost::filesystem;
 
 namespace asp{
@@ -54,7 +53,7 @@ namespace asp{
   // that the tool was being invoked with the stereo interface. Hence
   // we'll fallback to this when the tool is used as an image viewer.
   void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
-			std::vector<string> & input_files){
+			std::vector<std::string> & input_files){
 
     // Options for which we will print the help message
     po::options_description general_options("");
@@ -87,26 +86,35 @@ namespace asp{
     if (vm.count("input-files") == 0)
       vw_throw(ArgumentErr() << "Missing input arguments.\n" << usage );
     input_files = vm["input-files"].as< std::vector<std::string> >();
+
+    // Interpret the the last two coordinates of the crop win boxes as
+    // width and height rather than max_x and max_y. 
+    BBox2i bl = stereo_settings().left_image_crop_win;
+    BBox2i br = stereo_settings().right_image_crop_win;
+    stereo_settings().left_image_crop_win
+      = BBox2i(bl.min().x(), bl.min().y(), bl.max().x(), bl.max().y());
+    stereo_settings().right_image_crop_win
+      = BBox2i(br.min().x(), br.min().y(), br.max().x(), br.max().y());
   }
 
-}
-
-// Inherit from QApplication to be able to over-ride the notify() method
-// that throws exceptions.
-class StereoApplication: public QApplication {
-public:
-  StereoApplication(int& argc, char** argv): QApplication(argc, argv) {}
-  virtual bool notify(QObject *receiver, QEvent *e) {
-
-    try {
-      return QApplication::notify(receiver, e);
-    } catch ( std::exception& ex ) {
+  // Inherit from QApplication to be able to over-ride the notify() method
+  // that throws exceptions.
+  class StereoApplication: public QApplication {
+  public:
+    StereoApplication(int& argc, char** argv): QApplication(argc, argv) {}
+    virtual bool notify(QObject *receiver, QEvent *e) {
+      
+      try {
+        return QApplication::notify(receiver, e);
+      } catch (std::exception& ex) {
       vw::gui::popUp(ex.what());
       return false;
+      }
+      
     }
- 
-  }
-};
+  };
+
+} // end namespace asp
 
 int main(int argc, char** argv) {
 
@@ -115,8 +123,8 @@ int main(int argc, char** argv) {
     stereo_register_sessions();
 
     bool verbose = false;
-    vector<ASPGlobalOptions> opt_vec;
-    string output_prefix;
+    std::vector<ASPGlobalOptions> opt_vec;
+    std::string output_prefix;
     std::vector<std::string> images;
 
     // First try to parse a regular stereo command
@@ -216,7 +224,7 @@ int main(int argc, char** argv) {
 
     // Create the application. Must be done before trying to read
     // images as that call uses pop-ups.
-    StereoApplication app(argc, argv);
+    asp::StereoApplication app(argc, argv);
 
 #if !__APPLE__
     // TODO(oalexan1): Figure out why clang cannot find OpenMP.
