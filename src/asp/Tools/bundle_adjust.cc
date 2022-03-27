@@ -27,9 +27,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h>
-#include <asp/Core/EigenUtils.h>
 #include <asp/Camera/CsmModel.h>
-
 #include <asp/Tools/bundle_adjust.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
@@ -282,6 +280,7 @@ void compute_residuals(bool apply_loss_function,
     eval_options.num_threads = 1; // ISIS must be single threaded!
   else
     eval_options.num_threads = opt.num_threads;
+
   problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
   const size_t num_residuals = residuals.size();
   
@@ -307,8 +306,7 @@ void compute_mean_residuals_at_xyz(CRNJ & crn,
                                   BAParamStorage const& param_storage,
                                   // outputs
                                   std::vector<double> & mean_residuals,
-                                  std::vector<int>  & num_point_observations
-                                  ) {
+                                  std::vector<int>  & num_point_observations) {
 
   mean_residuals.resize(param_storage.num_points());
   num_point_observations.resize(param_storage.num_points());
@@ -356,7 +354,7 @@ void compute_mean_residuals_at_xyz(CRNJ & crn,
 /// Write out a .csv file recording the residual error at each location on the ground
 void write_residual_map(std::string const& output_prefix,
                         std::vector<double> const& mean_residuals, // Mean residual of each point
-                        std::vector<int   > const& num_point_observations, // Num non-outlier pixels per point
+                        std::vector<int>    const& num_point_observations, // Num non-outlier pixels per point
                         BAParamStorage const& param_storage,
                         ControlNetwork const& cnet,
                         Options const& opt) {
@@ -420,9 +418,9 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   
   std::vector<double> residuals;
   compute_residuals(apply_loss_function, opt, param_storage,
-                    cam_residual_counts,  num_gcp_residuals, reference_vec, problem,  
-                    residuals // output
-                    );
+                    cam_residual_counts,  num_gcp_residuals, reference_vec, problem,
+                    // Output
+                    residuals);
     
   const size_t num_residuals = residuals.size();
 
@@ -1200,7 +1198,6 @@ int do_ba_ceres_one_pass(Options             & opt,
     kmlPointSkip = num_points / MIN_KML_POINTS;
   if (kmlPointSkip < 1)
     kmlPointSkip = 1;
-
     
   if (first_pass) {
 
@@ -1251,7 +1248,8 @@ int do_ba_ceres_one_pass(Options             & opt,
   if (num_cameras < 100)
     options.linear_solver_type = ceres::DENSE_SCHUR;
   if (num_cameras > 3500) {
-    options.use_explicit_schur_complement = true; // This is supposed to help with speed in a certain size range
+    // This is supposed to help with speed in a certain size range
+    options.use_explicit_schur_complement = true; 
     options.linear_solver_type  = ceres::ITERATIVE_SCHUR;
     options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
@@ -2493,9 +2491,10 @@ int main(int argc, char* argv[]) {
       opt.camera_models.push_back(session->camera_model(opt.image_files [i],
                                                         opt.camera_files[i]));
 
+      // This is necessary to avoid a crash with ISIS cameras which is single-threaded
       if (!session->supports_multi_threading())
         opt.single_threaded_cameras = true;
-      
+
       if (opt.approximate_pinhole_intrinsics) {
         boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr = 
                 boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_models.back());
@@ -2532,7 +2531,7 @@ int main(int argc, char* argv[]) {
       image_stats_indices.push_back(i);
 
     // Compute statistics for the designated images and perhaps the footprints
-    opt.single_threaded_cameras = false;
+    
     for (size_t i = 0; i < image_stats_indices.size(); ++i) {
 
       if (opt.apply_initial_transform_only)
