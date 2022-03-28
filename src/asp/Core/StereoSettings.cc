@@ -229,6 +229,8 @@ namespace asp {
 
       ("corr-search-limit",      po::value(&global.corr_search_limit)->default_value(BBox2(0,0,0,0), "auto"),
                      "Limit the automatically computed disparity search range to these bounds, specified as: hmin vmin hmax vmax. See also --max-disp-spread.")
+      ("ip-filter-using-dem",        po::value(&global.ip_filter_using_dem)->default_value(""),
+       "Filter as outliers interest point matches whose triangulated height differs by more than given value from the height at the same location for the given DEM. All heights are in meters.  Specify as: '<dem file> <height diff>. Example: 'dem.tif 50.0'.")
       ("elevation-limit",        po::value(&global.elevation_limit)->default_value(Vector2(0,0), "auto"),
        "Limit on expected elevation range: Specify as two values: min max.")
       // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).

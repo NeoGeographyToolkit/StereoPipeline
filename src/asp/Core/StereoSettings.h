@@ -160,7 +160,8 @@ namespace asp {
     bool         save_lr_disp_diff;   // Save the L-R and R-L disparity difference 
     vw::Vector2i corr_kernel;         // Correlation kernel
     vw::BBox2    search_range;        // Correlation search range
-    vw::BBox2    corr_search_limit;  // Correlation search range limit
+    vw::BBox2    corr_search_limit;   // Correlation search range limit
+    std::string  ip_filter_using_dem; // Filter using given DEM and height difference
     vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
     vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
 

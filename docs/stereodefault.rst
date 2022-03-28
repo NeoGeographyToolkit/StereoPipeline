@@ -122,9 +122,9 @@ alignment-method (= affineepipolar, local_epipolar, homography, epipolar, none)
     reduces the area required for searching.
 
     *Epipolar alignment is only available when calculating the stereo
-    matches using the pinhole stereo session (i.e. when using
-    ``stereo -t pinhole``), and cannot be used when processing other
-    camera types.*
+    matches using the ``pinhole`` or ``nadirpinhole`` stereo sessions
+    (i.e. when using ``stereo -t pinhole``), and cannot be used when
+    processing other camera types.*
 
 global-alignment-threshold (*float*) (default = 10)
     Maximum distance from inlier interest point matches to the
@@ -388,6 +388,13 @@ corr-search-limit (*integer integer integer integer*)
 
     The interpretation of these four integers is as for
     ``corr-search``.
+
+filter-ip-using-dem (*string*) (default = "")
+    Filter as outliers interest point matches whose triangulated
+    height differs by more than given value from the height at the
+    same location for the given DEM. All heights are in
+    meters. Specify as: '<dem file> <height diff>. Example: 
+    'dem.tif 50.0'.
 
 elevation-limit (*float float*)
     Notify ASP that all elevations are expected to fall in this range

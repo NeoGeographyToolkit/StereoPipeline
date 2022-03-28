@@ -198,7 +198,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
                                       Limg, Rimg, ext_nodata);
     }
 
-  } else if ( stereo_settings().alignment_method == "homography" ) {
+  } else if (stereo_settings().alignment_method == "homography") {
 
     vw_out() << "\t--> Performing homography alignment\n";
 

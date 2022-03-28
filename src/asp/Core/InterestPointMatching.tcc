@@ -21,7 +21,7 @@
 
 /// Remove points in/out of a bounding box depending on "remove_outside".
 /// - Returns the number of points removed.
-/// TODO: MOVE THIS FUNCTION!
+// TODO(oalexan1): Move to InterestPointMatching.cc.
 inline size_t remove_ip_bbox(vw::BBox2i const& roi, vw::ip::InterestPointList & ip_list,
 			     bool remove_outside){
   // Loop through all the points
@@ -38,8 +38,7 @@ inline size_t remove_ip_bbox(vw::BBox2i const& roi, vw::ip::InterestPointList & 
   return num_removed;
 } // End function remove_ip_bbox
 
-
-
+// TODO(oalexan1): Detempletize
 template <class Image1T>
 void detect_ip(vw::ip::InterestPointList& ip,
 	       vw::ImageViewBase<Image1T> const& image,
@@ -205,6 +204,7 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
   return ((ip1.size() > 0) && (ip2.size() > 0));
 }
 
+// TODO(oalexan1): Detempletize
 template <class Image1T, class Image2T>
 bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
 			    vw::camera::CameraModel* cam2,
@@ -284,8 +284,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   return true;
 } // End function detect_ip_aligned_pair
 
-
-
+// TODO(oalexan1): Detempletize
 template <class Image1T, class Image2T>
 bool epipolar_ip_matching(bool single_threaded_camera,
 			  vw::ip::InterestPointList const& ip1,
@@ -383,7 +382,7 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   vw_out() << "\t    Reduced matches to " << good_indices.size() << "\n";
   std::vector<ip::InterestPoint> buffer(good_indices.size());
 
-  // Subselect, Transform, Copy, Matched Ip1
+  // Subselect and copy ip1
   size_t w_index = 0;
   BOOST_FOREACH(size_t index, good_indices) {
     Vector2 l(matched_ip1[index].x, matched_ip1[index].y);
@@ -394,7 +393,7 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   }
   matched_ip1 = buffer;
 
-  // Subselect, Transform, Copy, Matched ip2
+  // Subselect and copy ip2
   w_index = 0;
   BOOST_FOREACH(size_t index, good_indices) {
     Vector2 r(matched_ip2[index].x, matched_ip2[index].y);
@@ -405,12 +404,17 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   }
   matched_ip2 = buffer;
 
+  // The interest points are not aligned here, so there's no need to align them
+  vw::TransformPtr tx1(NULL);
+  vw::TransformPtr tx2(NULL);
+    
   // If options are set, filter by elevation.
   if (stereo_settings().elevation_limit[0] < stereo_settings().elevation_limit[1] ||
       !stereo_settings().lon_lat_limit.empty()) {
 
     std::vector<ip::InterestPoint> matched_ip1_out, matched_ip2_out;
-    filter_ip_by_lonlat_and_elevation(cam1, cam2,
+    filter_ip_by_lonlat_and_elevation(tx1, tx2,
+                                      cam1, cam2,
                                       datum,  matched_ip1, matched_ip2,
                                       stereo_settings().elevation_limit,  
                                       stereo_settings().lon_lat_limit,  
@@ -428,6 +432,7 @@ bool epipolar_ip_matching(bool single_threaded_camera,
   return true;
 } // End function epipolar_ip_matching
 
+// TODO(oalexan1): Detempletize
 template <class Image1T, class Image2T>
 void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 		     std::vector<vw::ip::InterestPoint>& matched_ip2,
@@ -538,8 +543,7 @@ bool homography_ip_matching(vw::ImageViewBase<Image1T> const& image1,
   return true;
 }
 
-
-
+// TODO(oalexan1): Detempletize
 template <class Image1T, class Image2T>
 bool ip_matching_no_align(bool single_threaded_camera,
 			  vw::camera::CameraModel* cam1,
@@ -578,7 +582,7 @@ bool ip_matching_no_align(bool single_threaded_camera,
   return true;
 }
 
-
+// TODO(oalexan1): Detempletize
 template <class Image1T, class Image2T>
 bool ip_matching_w_alignment(bool single_threaded_camera,
 			     vw::camera::CameraModel* cam1,

@@ -147,20 +147,20 @@ namespace asp {
 
   // Unalign the ip, filter them using the cameras, align them back,
   // and return the inlier ip.
-  void filter_ip_using_cameras(ASPGlobalOptions             const & opt,
-                               Vector2                      const & outlier_removal_params,
-                               vw::HomographyTransform      const & left_global_trans,
-                               vw::HomographyTransform      const & right_global_trans,
-                               BBox2i                       const & left_trans_crop_win, 
-                               BBox2i                       const & right_trans_crop_win,
-                               vw::camera::CameraModel      const * left_camera_model,
-                               vw::camera::CameraModel      const * right_camera_model,
-                               vw::cartography::Datum       const & datum,
-                               // These get modified
-                               std::vector<vw::ip::InterestPoint> & left_local_ip,
-                               std::vector<vw::ip::InterestPoint> & right_local_ip,
-                               std::vector<size_t>                & ip_inlier_indices) {
-
+  void filter_local_ip_using_cameras(ASPGlobalOptions             const & opt,
+                                     Vector2                      const & outlier_removal_params,
+                                     vw::HomographyTransform      const & left_global_trans,
+                                     vw::HomographyTransform      const & right_global_trans,
+                                     BBox2i                       const & left_trans_crop_win, 
+                                     BBox2i                       const & right_trans_crop_win,
+                                     vw::camera::CameraModel      const * left_camera_model,
+                                     vw::camera::CameraModel      const * right_camera_model,
+                                     vw::cartography::Datum       const & datum,
+                                     // These get modified
+                                     std::vector<vw::ip::InterestPoint> & left_local_ip,
+                                     std::vector<vw::ip::InterestPoint> & right_local_ip,
+                                     std::vector<size_t>                & ip_inlier_indices) {
+    
     // Convert ip to original unaligned and uncropped coordinates
     std::vector<vw::ip::InterestPoint> left_global_ip;
     std::vector<vw::ip::InterestPoint> right_global_ip;
@@ -548,12 +548,12 @@ namespace asp {
     // Filter outliers using cameras among the ip in the tile which have the global alignment
     // applied to them. 
     if (outlier_removal_params[0] < 100.0)
-      filter_ip_using_cameras(opt, outlier_removal_params,  
-                              left_global_trans, right_global_trans,  
-                              left_trans_crop_win, right_trans_crop_win,  
-                              left_camera_model, right_camera_model, datum,
-                              // These get modified
-                              left_local_ip, right_local_ip, ip_inlier_indices);
+      filter_local_ip_using_cameras(opt, outlier_removal_params,  
+                                    left_global_trans, right_global_trans,  
+                                    left_trans_crop_win, right_trans_crop_win,  
+                                    left_camera_model, right_camera_model, datum,
+                                    // These get modified
+                                    left_local_ip, right_local_ip, ip_inlier_indices);
 
     // Apply the local alignment transform to ip in the tile
     std::vector<vw::ip::InterestPoint> left_trans_local_ip;

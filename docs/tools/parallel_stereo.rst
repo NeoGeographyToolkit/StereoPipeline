@@ -121,18 +121,25 @@ Command-line options
 -t, --session-type <string>
     Select the stereo session type to use for processing. Usually the
     program can select this automatically by the file extension except
-    for xml cameras. Options:
+    for xml cameras. Options and when to use:
     
-    - nadirpinhole
-    - pinhole
-    - isis
-    - dg
-    - rpc
-    - spot5
-    - aster
-    - perusat
-    - opticalbar
-    - csm
+    - nadirpinhole -- for satellites/aircraft with pinhole cameras
+      (:numref:`skysat`, :numref:`sfmicebridge`)
+    - pinhole      -- ground-level cameras, not assuming a datum (:numref:`mer-example`)
+    - isis         -- with planetary images stored in .cub files (:numref:`moc_tutorial`)
+    - dg           -- with Digital Globe exact linescan cameras (:numref:`dg_tutorial`)
+    - rpc          -- with any RPC cameras (:numref:`rpc`)
+    - spot5        -- SPOT 5 exact linescan camera (:numref:`spot5`)
+    - aster        -- exact ASTER camera model (:numref:`aster`)
+    - perusat      -- exact PeruSat-1 camera model (:numref:`perusat1`)
+    - opticalbar   -- Optical Bar cameras (:numref:`kh4`)
+    - csm          -- Community Sensor Model (:numref:`csm`)
+
+    The next sessions are for mapprojected images
+    (:numref:`mapproj-example`). If ``-t`` is specified
+    as earlier, the sessions will be converted to the entities below
+    automatically.
+
     - pinholemappinhole
     - isismapisis
     - dgmaprpc

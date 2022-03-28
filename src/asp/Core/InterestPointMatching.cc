@@ -722,16 +722,17 @@ namespace asp {
     return valid_indices.size();
   }
 
-  size_t filter_ip_by_lonlat_and_elevation
-  (vw::camera::CameraModel* left_camera_model,
-   vw::camera::CameraModel* right_camera_model,
-   vw::cartography::Datum        const& datum,
-   std::vector<vw::ip::InterestPoint> const& ip1_in,
-   std::vector<vw::ip::InterestPoint> const& ip2_in,
-   vw::Vector2 const & elevation_limit,
-   vw::BBox2   const & lon_lat_limit,
-   std::vector<vw::ip::InterestPoint> & ip1_out,
-   std::vector<vw::ip::InterestPoint> & ip2_out){
+  size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
+                                           vw::TransformPtr         tx_right,
+                                           vw::camera::CameraModel* left_camera_model,
+                                           vw::camera::CameraModel* right_camera_model,
+                                           vw::cartography::Datum        const& datum,
+                                           std::vector<vw::ip::InterestPoint> const& ip1_in,
+                                           std::vector<vw::ip::InterestPoint> const& ip2_in,
+                                           vw::Vector2 const & elevation_limit,
+                                           vw::BBox2   const & lon_lat_limit,
+                                           std::vector<vw::ip::InterestPoint> & ip1_out,
+                                           std::vector<vw::ip::InterestPoint> & ip2_out){
 
     // Handle case where the elevation or lonlat range are not set
     const size_t num_ip = ip1_in.size();                              
@@ -742,7 +743,7 @@ namespace asp {
     }
 
     if (elevation_limit[0] < elevation_limit[1]) 
-      vw_out() << "\t    * Applying elevation restriction: " << elevation_limit[0]
+      vw_out() << "\t    * Applying elevation restriction. Height range: " << elevation_limit[0]
                << " to " << elevation_limit[1] << ".\n";
 
     if (!lon_lat_limit.empty()) 
@@ -761,21 +762,42 @@ namespace asp {
     vw::stereo::StereoModel model(left_camera_model, right_camera_model, 
                                   stereo_settings().use_least_squares, angle_tolerance );
     
+    // This function can be called with both unaligned and aligned interest points
+    bool aligned_ip = (tx_left.get() != NULL && tx_right != NULL);
+
     // For each interest point, compute the height and only keep it if the height falls within
     // the specified range.
     for (size_t i = 0; i < num_ip; ++i) {
-      double error;
 
       // We must not both apply a transform and a scale at the same time
       // as these are meant to do the same thing in different circumstances.
       Vector2 p1 = Vector2(ip1_in[i].x, ip1_in[i].y);
       Vector2 p2 = Vector2(ip2_in[i].x, ip2_in[i].y);
-      Vector3 pt  = model(p1, p2, error);
 
-      Vector3 llh = datum.cartesian_to_geodetic(pt);
+      if (aligned_ip) {
+        // Unalign
+        p1 = tx_left->reverse (p1);
+        p2 = tx_right->reverse(p2);
+      }
+      
+      // Triangulate
+      double err = -1.0;
+      Vector3 xyz(0.0, 0.0, 0.0);
+      try {
+        xyz = model(p1, p2, err);
+      } catch(...) {
+        xyz = Vector3();
+      }
+
+      if (err <= 0.0 || xyz == Vector3()) {
+        // Triangulation failed
+        continue;
+      }
+      
+      Vector3 llh = datum.cartesian_to_geodetic(xyz);
       if ( (elevation_limit[0] < elevation_limit[1]) && 
            ( (llh[2] < elevation_limit[0]) || (llh[2] > elevation_limit[1]) ) ) {
-        //vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
+        // vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
         continue;
       }
       
@@ -784,11 +806,12 @@ namespace asp {
         continue; 
       }
       
-      //vw_out() << "Keeping IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
+      // vw_out() << "Keeping IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
       ip1_out.push_back(ip1_in[i]);
       ip2_out.push_back(ip2_in[i]);
     }
-    vw_out() << "\t    * Removed " << ip1_in.size() - ip1_out.size() << " ip using elevation/lonlat filtering.\n";
+    vw_out() << "\t    * Removed " << ip1_in.size() - ip1_out.size()
+             << " ip using elevation/lonlat filtering.\n";
     
     return ip1_out.size();
   } // End filter_ip_by_elevation
@@ -988,6 +1011,117 @@ namespace asp {
     }
 
     return num_left;
+  }
+
+
+  // Filter IP using a given DEM and max height difference.  Assume that
+  // the interest points have alignment applied to them (either via a
+  // transform or from mapprojection).
+  void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
+                           vw::TransformPtr                 tx_left,
+                           vw::TransformPtr                 tx_right,
+                           boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
+                           boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
+                           std::vector<vw::ip::InterestPoint> & left_aligned_ip,
+                           std::vector<vw::ip::InterestPoint> & right_aligned_ip) {
+
+    vw_out() << "Filtering interest point matches with --ip-filter-using-dem.\n";
+  
+    std::string dem_file;
+    double max_height_diff = -1.0;
+    std::istringstream is(ip_filter_using_dem);
+    if (!(is >> dem_file >> max_height_diff)) 
+      vw_throw(ArgumentErr() << "Could not parse correctly option --ip-filter-using-dem.\n");
+
+    if (max_height_diff <= 0.0) 
+      vw_throw(ArgumentErr() << "Positive height diff value expected in --ip-filter-using-dem.\n");
+
+    // Read the DEM and supporting data
+    vw::cartography::GeoReference dem_georef;
+    DiskImageView<float> dem_disk_image(dem_file);
+    ImageViewRef<PixelMask<float>> dem;
+    boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResourcePtr(dem_file));
+    if (dem_rsrc->has_nodata_read())
+      dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
+    else
+      dem = pixel_cast<PixelMask<float>>(dem_disk_image); // all pixels are valid
+
+    bool has_georef = vw::cartography::read_georeference(dem_georef, dem_file);
+    if (!has_georef)
+      vw_throw(ArgumentErr() << "There is no georeference information in: "
+               << dem_file << ".\n" );
+  
+    // An invalid pixel value used for edge extension
+    PixelMask<float> nodata_pix(0); nodata_pix.invalidate();
+    ValueEdgeExtension<PixelMask<float>> nodata_ext(nodata_pix); 
+  
+    // Set up for interpolation. Out-of-range pixels are declared to be invalid.
+    ImageViewRef<PixelMask<float>> interp_dem
+      = interpolate(dem, BilinearInterpolation(), nodata_ext);
+
+    // Set up the stereo model for doing triangulation
+    double angle_tol = vw::stereo::StereoModel
+      ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
+    stereo::StereoModel model(left_camera_model.get(), right_camera_model.get(),
+                              stereo_settings().use_least_squares, angle_tol);
+
+    std::set<int> invalid_indices;
+    for (size_t it = 0; it < left_aligned_ip.size(); it++) {
+
+      // Undo the alignment or mapprojection
+      Vector2 left_pix  = tx_left->reverse (Vector2(left_aligned_ip[it].x,  left_aligned_ip[it].y));
+      Vector2 right_pix = tx_right->reverse(Vector2(right_aligned_ip[it].x, right_aligned_ip[it].y));
+
+      // Triangulate
+      double err = -1.0;
+      Vector3 xyz(0.0, 0.0, 0.0);
+      try {
+        xyz = model(left_pix, right_pix, err);
+      } catch(...) {
+        xyz = Vector3();
+      }
+
+      if (err <= 0.0 || xyz == Vector3()) {
+        invalid_indices.insert(it);
+        continue;
+      }
+
+      Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
+
+      // This was tested to give correct results with the DEM
+      // having its longitude in both [-180, 0] and [180, 360].
+      Vector2 pix = dem_georef.lonlat_to_pixel(Vector2(llh[0], llh[1]));
+
+      PixelMask<float> dem_val = interp_dem(pix.x(), pix.y());
+
+      if (!is_valid(dem_val) || std::abs(dem_val.child() - llh[2]) > max_height_diff)
+        invalid_indices.insert(it);
+    }
+
+    int num_total   = left_aligned_ip.size();
+    int num_invalid = invalid_indices.size();
+    int num_valid   = num_total - num_invalid;
+    vw_out() << "Removed " << num_invalid << " interest points out of " << num_total << " ("
+             << 100.0 * double(num_invalid) / num_total << " pct).\n";
+
+    // Copy back only the valid pixels in-place
+    int good_it = 0;
+    for (int it = 0; it < num_total; it++) {
+      if (invalid_indices.find(it) != invalid_indices.end())
+        continue;
+      
+      left_aligned_ip[good_it]  = left_aligned_ip[it];
+      right_aligned_ip[good_it] = right_aligned_ip[it];
+      good_it++;
+    }
+
+    if (good_it != num_valid)
+      vw_throw(ArgumentErr() << "Book-keeping failure in ip filtering using DEM.\n");
+    
+    left_aligned_ip.resize(num_valid);
+    right_aligned_ip.resize(num_valid);
+
+    return;
   }
 
   // Create interest points from valid D_sub values and make them full scale

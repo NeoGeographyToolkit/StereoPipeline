@@ -40,6 +40,8 @@ namespace asp {
 
     virtual std::string name() const { return "pinhole"; }
 
+    // The pinhole session is used with rovers and other non-satellite cameras,
+    // so there is no datum.
     virtual bool have_datum() const {return false;}
 
     // Stage 1: Preprocessing

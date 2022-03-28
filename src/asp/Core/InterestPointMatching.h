@@ -176,12 +176,11 @@ bool ip_matching_w_alignment(bool single_threaded_camera,
   ///
   /// Input and output is the valid indices. Valid indices must have
   /// something to start with.
-  bool
-  tri_ip_filtering(std::vector<vw::ip::InterestPoint> const& ip1,
-		   std::vector<vw::ip::InterestPoint> const& ip2,
-		   vw::camera::CameraModel* cam1,
-		   vw::camera::CameraModel* cam2,
-		   std::list<size_t>& valid_indices);
+  bool tri_ip_filtering(std::vector<vw::ip::InterestPoint> const& ip1,
+                        std::vector<vw::ip::InterestPoint> const& ip2,
+                        vw::camera::CameraModel* cam1,
+                        vw::camera::CameraModel* cam2,
+                        std::list<size_t>& valid_indices);
 
   /// 4 stddev filtering. Deletes any disparity measurement that is 4
   /// stddev away from the measurements of it's local neighbors. We
@@ -192,16 +191,17 @@ bool ip_matching_w_alignment(bool single_threaded_camera,
 
 
   // Filter IP by ensuring that the triangulated IP are in the given lon-lat-height box
-  size_t filter_ip_by_lonlat_and_elevation
-  (vw::camera::CameraModel* left_camera_model,
-   vw::camera::CameraModel* right_camera_model,
-   vw::cartography::Datum const& datum,
-   std::vector<vw::ip::InterestPoint> const& ip1_in,
-   std::vector<vw::ip::InterestPoint> const& ip2_in,
-   vw::Vector2 const & elevation_limit,
-   vw::BBox2   const & lon_lat_limit,
-   std::vector<vw::ip::InterestPoint> & ip1_out,
-   std::vector<vw::ip::InterestPoint> & ip2_out);
+  size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
+                                           vw::TransformPtr         tx_right,
+                                           vw::camera::CameraModel* left_camera_model,
+                                           vw::camera::CameraModel* right_camera_model,
+                                           vw::cartography::Datum const& datum,
+                                           std::vector<vw::ip::InterestPoint> const& ip1_in,
+                                           std::vector<vw::ip::InterestPoint> const& ip2_in,
+                                           vw::Vector2 const & elevation_limit,
+                                           vw::BBox2   const & lon_lat_limit,
+                                           std::vector<vw::ip::InterestPoint> & ip1_out,
+                                           std::vector<vw::ip::InterestPoint> & ip2_out);
 
   // Filter ip by triangulation error, reprojection error, and height range
   void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
@@ -227,6 +227,17 @@ bool ip_matching_w_alignment(bool single_threaded_camera,
                          std::vector<vw::ip::InterestPoint>      & ip1_out,
                          std::vector<vw::ip::InterestPoint>      & ip2_out,
                          int inlier_threshold = 1);
+
+  // Filter IP using a given DEM and max height difference.  Assume that
+  // the interest points have alignment applied to them (either via a
+  // transform or from mapprojection).
+  void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
+                           vw::TransformPtr                 tx_left,
+                           vw::TransformPtr                 tx_right,
+                           boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
+                           boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
+                           std::vector<vw::ip::InterestPoint> & left_aligned_ip,
+                           std::vector<vw::ip::InterestPoint> & right_aligned_ip);
 
   //-------------------------------------------------------------------------------------------
   // Miscellaneous IP functions

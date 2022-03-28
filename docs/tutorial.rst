@@ -334,6 +334,13 @@ long run-time. A solution can be to mapproject the images
 With our without mapprojection, one can reduce the computed search
 range via ``--max-disp-spread`` (:numref:`stereodefault`).
 
+If a reasonable DEM of the area of interest exists, the option
+``--filter-ip-using-dem`` can be used to filter out interest points
+whose heights differ by more than a given value than what is provided
+by that DEM. This should reduce the search range. Without a DEM,
+the option ``--elevation-limit`` can be used and should have a similar
+effect.
+
 Another option (which can be used in conjunction with the earlier
 suggestions) is to tighten the outlier filtering in the low-resolution
 disparity ``D_sub.tif`` (:numref:`outputfiles`), for example, by

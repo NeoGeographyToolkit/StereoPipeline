@@ -421,13 +421,16 @@ namespace asp {
     // from parallel_stereo.
 
     // Interpret the the last two coordinates of the crop win boxes as
-    // width and height rather than max_x and max_y.
+    // width and height rather than max_x and max_y. 
     BBox2i bl = stereo_settings().left_image_crop_win;
     BBox2i br = stereo_settings().right_image_crop_win;
     BBox2i bt = stereo_settings().trans_crop_win;
-    stereo_settings().left_image_crop_win  = BBox2i(bl.min().x(), bl.min().y(), bl.max().x(), bl.max().y());
-    stereo_settings().right_image_crop_win = BBox2i(br.min().x(), br.min().y(), br.max().x(), br.max().y());
-    stereo_settings().trans_crop_win       = BBox2i(bt.min().x(), bt.min().y(), bt.max().x(), bt.max().y());
+    stereo_settings().left_image_crop_win
+      = BBox2i(bl.min().x(), bl.min().y(), bl.max().x(), bl.max().y());
+    stereo_settings().right_image_crop_win
+      = BBox2i(br.min().x(), br.min().y(), br.max().x(), br.max().y());
+    stereo_settings().trans_crop_win
+      = BBox2i(bt.min().x(), bt.min().y(), bt.max().x(), bt.max().y());
 
     // Ensure the crop windows are always contained in the images.
     boost::shared_ptr<vw::DiskImageResource> left_resource, right_resource;
@@ -836,8 +839,8 @@ namespace asp {
     // stereo on cropped images, as we need the full disparity.
     if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
       // This check must come first as it implies adjusted cameras
-      if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-           ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) )
+      if ((stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+          (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0)))
         vw_throw(ArgumentErr() << "Since we perform piecewise adjustments we "
                  << "need the full disparities, so --left-image-crop-win and  "
                  << "--right-image-crop-win cannot be used.\n");

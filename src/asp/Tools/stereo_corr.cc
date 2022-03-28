@@ -220,7 +220,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     // Avoid the pinhole session as that one has no datum which we need.
     // Avoid the correlator mode as then there are no cameras.
     if (stereo_settings().outlier_removal_params[0] < 100.0 &&
-        opt.stereo_session != "pinhole"                     &&
+        opt.session->have_datum()                           &&
         !stereo_settings().correlator_mode) {
       
       vw::TransformPtr tx_left = opt.session->tx_left();
@@ -253,18 +253,24 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
 } // End produce_lowres_disparity
 
+// TODO(oalexan1): move this to InterestPointMatching.cc
+
 /// Adjust IP lists if alignment matrices are present.
-void adjust_ip_for_align_matrix(std::string const& out_prefix,
+void align_ip_with_align_matrix(std::string const& out_prefix,
                                 std::vector<ip::InterestPoint> & ip_left,
                                 std::vector<ip::InterestPoint> & ip_right) {
 
   // Check for alignment files
   bool left_align  = fs::exists(out_prefix+"-align-L.exr");
   bool right_align = fs::exists(out_prefix+"-align-R.exr");
+
+  // TODO(oalexan1): May need to throw an error here as this function is called
+  // when alignment was applied, so th .exr files must exist.
   if (!left_align && !right_align)
     return; // No alignment files -> Nothing to do.
 
-  // Load alignment matrices
+  // Load alignment matrices. R.exr should always exist, and L.exr
+  // should exist for non-homography alignment.
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
   Matrix<double> align_right_matrix = math::identity_matrix<3>();
   if (left_align)
@@ -296,35 +302,29 @@ void adjust_ip_for_align_matrix(std::string const& out_prefix,
   }
 
   return;
-} // End adjust_ip_for_align_matrix
+} // End align_ip_with_align_matrix
 
+// TODO(oalexan1): move this to InterestPointMatching.cc
 
 /// Adjust IP lists if epipolar alignment was applied after the IP were created.
 /// - Currently this condition can only happen if an IP file is inserted into the run
-///   folder from another source such as bundle adjust!
+///   folder from another source such as bundle adjust.
 /// - Returns true if any change was made to the interest points.
-bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
+bool align_ip_with_epipolar_transform(ASPGlobalOptions          const& opt,
                                       std::string               const& match_file,
                                       std::vector<ip::InterestPoint>      & ip_left,
                                       std::vector<ip::InterestPoint>      & ip_right) {
 
-  bool usePinholeEpipolar = ((stereo_settings().alignment_method == "epipolar") &&
-                             (opt.session->name() == "pinhole" ||
-                              opt.session->name() == "nadirpinhole"));
-  
-  if (!usePinholeEpipolar) 
-    return false;
-  
+  if (stereo_settings().alignment_method != "epipolar")
+    vw_throw(ArgumentErr() << "Expecting epipolar alignment.\n");
+    
   // This function does nothing if we are not using epipolar alignment,
   //  or if the IP were found using one of the aligned images.
-  const std::string sub_match_file
-    = vw::ip::match_filename(opt.out_prefix, "L_sub.tif", "R_sub.tif");
   const std::string aligned_match_file
     = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
 
-  if ((stereo_settings().alignment_method != "epipolar") ||
-      (match_file == sub_match_file) || (match_file == aligned_match_file)) 
-    return false;
+  if (match_file == aligned_match_file) 
+    return false; // file already aligned
 
   vw_out() << "Applying epipolar adjustment to input IP match file...\n";
 
@@ -352,7 +352,9 @@ bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
   }
 
   return true;
-} // End adjust_ip_for_epipolar_transform
+} // End align_ip_with_epipolar_transform
+
+// TODO(oalexan1): move this to InterestPointMatching.cc
 
 /// Detect IP in the sub images or the original images if they are not too large.
 /// - Usually an IP file is written in stereo_pprc, but for some input scenarios
@@ -370,8 +372,6 @@ void compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
   const std::string left_aligned_image_file  = opt.out_prefix + "-L.tif";
   const std::string right_aligned_image_file = opt.out_prefix + "-R.tif";
-  const std::string left_image_path_sub      = opt.out_prefix + "-L_sub.tif";
-  const std::string right_image_path_sub     = opt.out_prefix + "-R_sub.tif";
 
   const std::string unaligned_match_file
     = vw::ip::match_filename(opt.out_prefix,
@@ -380,8 +380,6 @@ void compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
   const std::string aligned_match_file     
     = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
-  const std::string sub_match_file
-    = vw::ip::match_filename(opt.out_prefix, "L_sub.tif", "R_sub.tif");
 
   // Make sure the match file is newer than these files
   std::vector<std::string> ref_list;
@@ -457,6 +455,7 @@ void compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   return;
 }
 
+// TODO(oalexan1): move this to InterestPointMatching.cc
 BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
                                      vw::math::Histogram const& hist_y,
                                      double edge_discard_percentile,
@@ -480,7 +479,7 @@ BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
   Vector2 min_expand = d_min*search_scale;
   Vector2 max_expand = d_max*search_scale;
 
-  for (int i=0; i<2; ++i) {
+  for (int i = 0; i < 2; ++i) {
     if (min_expand[i] > -1*FORCED_EXPANSION[i])
       min_expand[i] = -1*FORCED_EXPANSION[i];
     if (max_expand[i] < FORCED_EXPANSION[i])
@@ -511,71 +510,31 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
   ip::read_binary_match_file(match_filename, in_left_ip, in_right_ip);
 
-#if 0
-  if (!opt.input_dem.empty()) {
-    // TODO(oalexan1): This needs to be tested, put in the right place, and
-    // enabled for all alignment methods.
-    vw::TransformPtr tx_left = opt.session->tx_left();
-    vw::TransformPtr tx_right = opt.session->tx_right();
-
-    boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
-    opt.session->camera_models(left_camera_model, right_camera_model);
-
-    // Set up the stereo model for doing triangulation
-    double angle_tol = vw::stereo::StereoModel
-      ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
-    stereo::StereoModel model(left_camera_model.get(), right_camera_model.get(),
-                              stereo_settings().use_least_squares, angle_tol);
-
-    bool use_sphere_for_datum = false;
-    vw::cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
-                                                          use_sphere_for_datum);
-
-    std::vector<vw::ip::InterestPoint> unalined_left_ip(in_left_ip.size()),
-      unalined_right_ip(in_left_ip.size());
-    
-    for (size_t it = 0; it < in_left_ip.size(); it++) {
-      Vector2 left_pix  = tx_left->reverse (Vector2(in_left_ip[it].x,  in_left_ip[it].y));
-      Vector2 right_pix = tx_right->reverse(Vector2(in_right_ip[it].x, in_right_ip[it].y));
-
-      unalined_left_ip[it].x  = left_pix.x();  unalined_left_ip[it].y  = left_pix.y();
-      unalined_right_ip[it].x = right_pix.x(); unalined_right_ip[it].y = right_pix.y();
-    }
-    
-     // This won't work for correlator mode.
-     filter_ip_using_cameras(unalined_left_ip, unalined_right_ip,
-                             left_camera_model.get(), right_camera_model.get(),
-                             datum,
-                             outlier_removal_params[0], outlier_removal_params[1]);
-  }
-#endif
-  
   // TODO(oalexan1): Consolidate IP matching. Move to stereo_pprc.
   
-  // TODO(oalexan1): This logic is messed up. We __know__ from
-  // stereo_settings() what alignment method is being used and what
-  // scale we are at, there is no need to try to read various and
-  // likely old files from disk to infer that. You can get the wrong
-  // answer.
-  
-  // Handle alignment matrices if they are present
-  // TODO(oalexan1): This is fragile. We do know when alignment was applied,
-  // so use that rather than checking if alignment transforms exist on disk.
-  adjust_ip_for_align_matrix(opt.out_prefix, in_left_ip, in_right_ip);
+  // Apply alignment transform to IP, if needed. Nothing happens for map-projected
+  // images.
+  bool usePinholeEpipolar = ((stereo_settings().alignment_method == "epipolar") &&
+                             (opt.session->name() == "pinhole" ||
+                              opt.session->name() == "nadirpinhole"));
+  if (usePinholeEpipolar)
+    align_ip_with_epipolar_transform(opt, match_filename, in_left_ip, in_right_ip);
+  else if (stereo_settings().alignment_method != "none")
+    align_ip_with_align_matrix(opt.out_prefix, in_left_ip, in_right_ip);
 
-  // Adjust the IP if they came from input images and these images are epipolar aligned
-  // This can be very useful if the ip come from outside, such as bundle adjustment.
-  // TODO(oalexan1): This should be exclusive with adjust_ip_for_align_matrix.
-  adjust_ip_for_epipolar_transform(opt, match_filename, in_left_ip, in_right_ip);
+  // The alignment transforms
+  vw::TransformPtr tx_left = opt.session->tx_left();
+  vw::TransformPtr tx_right = opt.session->tx_right();
+
+  // Camera models
+  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+  opt.session->camera_models(left_camera_model, right_camera_model);
 
   // Filter out IPs which fall outside the specified elevation range
-  // TODO(oalexan1): Test this with --left-image-crop-win. It should work as the cameras
-  // know about the crop adjustment.
-  if (!stereo_settings().correlator_mode) {
-    boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
-    opt.session->camera_models(left_camera_model, right_camera_model);
+  if (!stereo_settings().correlator_mode && opt.session->have_datum()) {
     cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
-    asp::filter_ip_by_lonlat_and_elevation(left_camera_model.get(),
+    asp::filter_ip_by_lonlat_and_elevation(tx_left, tx_right,
+                                           left_camera_model.get(),
                                            right_camera_model.get(),
                                            datum, in_left_ip, in_right_ip,
                                            stereo_settings().elevation_limit,
@@ -586,16 +545,27 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
     matched_left_ip = in_left_ip;
     matched_right_ip = in_right_ip;
   }
+
+  // TODO(oalexan1): Consider adding filter_ip_using_cameras().
   
   // If the user set this, filter by disparity of ip.
   // TODO: This kind of logic is present below one more time, at
   // get_search_range_from_ip_hists() where a factor of 2 is used!
   // This logic better be integrated together!
-  // TODO(oalexan1): Integrate this with existing logic.
-  // Wipe this from here, integrate with the other code. Wipe this param.
+  // Also wipe this param and use instead outlier_removal_params.
   Vector2 disp_params = stereo_settings().remove_outliers_by_disp_params;
   if (disp_params[0] < 100.0) // not enabled by default
     asp::filter_ip_by_disparity(disp_params[0], disp_params[1], matched_left_ip, matched_right_ip); 
+
+  // Filter ip using DEM
+  if (stereo_settings().ip_filter_using_dem != "" &&
+      !stereo_settings().correlator_mode          &&
+      opt.session->have_datum()) {
+    ip_filter_using_dem(stereo_settings().ip_filter_using_dem,  
+                        tx_left, tx_right,  
+                        left_camera_model, right_camera_model,  
+                        matched_left_ip,  matched_right_ip);
+  }
   
   // Quit if we don't have the requested number of IP.
   if (static_cast<int>(matched_left_ip.size()) < stereo_settings().min_num_ip)
@@ -659,7 +629,8 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
 
   //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
   //for (int i=0; i<NUM_BINS; ++i) {
-  //  printf("%d => X: %lf: %lf,   Y:  %lf: %lf\n", i, centers_x[i], hist_x[i], centers_y[i], hist_y[i]);
+  //  printf("%d => X: %lf: %lf,   Y:  %lf: %lf\n", i,
+  //    centers_x[i], hist_x[i], centers_y[i], hist_y[i]);
   //}
 
   // Gradually increase the filtering
@@ -711,7 +682,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
       dx.push_back(diffX);
       dy.push_back(diffY);
     }
-    if (dx.empty()) 
+    if (dx.empty())
       vw_throw(ArgumentErr() << "No interest points left.");
 
     std::sort(dx.begin(), dx.end());
@@ -768,7 +739,7 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     // Load IP from disk if they exist, or else compute them. 
     std::string match_filename;
     compute_ip(opt, match_filename);
-
+    
     // This function applies filtering to find good points
     stereo_settings().search_range = approximate_search_range(opt, match_filename);
 

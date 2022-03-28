@@ -71,7 +71,9 @@ namespace asp {
     virtual bool uses_rpc_map_projection  () const {return isMapProjected();} // Set to false if using another type
     virtual bool requires_input_dem       () const {return isMapProjected();}
     virtual bool supports_image_alignment () const {return !isMapProjected(); }
-    virtual bool have_datum               () const {return !asp::stereo_settings().no_datum; }
+    virtual bool have_datum               () const {
+      return !asp::stereo_settings().no_datum && !stereo_settings().correlator_mode;
+    }
     virtual bool supports_multi_threading () const {
       return true;
     }

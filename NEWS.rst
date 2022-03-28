@@ -49,6 +49,10 @@ parallel_stereo:
     immense disparity search range can result.
   * Added the option --max-disp-spread to limit the spread of the
     disparity to this value (useful with clouds in images).
+  * Added the option --ip-filter-using-dem to filter as outliers
+    interest point matches whose triangulated height differs by more
+    than given value from the height at the same location for the
+    given DEM.
   * Added a doc section on handling of images with clouds.
   * Disable by default velocity aberration and atmospheric refraction
     corrections. These are not accurate enough and cause issues with

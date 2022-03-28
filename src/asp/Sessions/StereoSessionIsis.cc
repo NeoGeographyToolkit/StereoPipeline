@@ -500,7 +500,7 @@ void StereoSessionIsis::pre_preprocessing_hook(bool adjust_left_image_size,
                                  has_right_georef, right_georef);
 }
 
-  bool StereoSessionIsis::supports_multi_threading () const {
+bool StereoSessionIsis::supports_multi_threading () const {
   return false;
 }
   
