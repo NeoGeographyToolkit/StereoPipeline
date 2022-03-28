@@ -144,7 +144,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
 
   // When using georef, use this as reference
   if (BASE_IMAGE_INDEX < m_image_files.size())
-    m_base_image.read(m_image_files[BASE_IMAGE_INDEX], m_opt);
+    m_base_image = m_images[BASE_IMAGE_INDEX];
   
   if (stereo_settings().match_file != "" &&
       stereo_settings().gcp_file   != "" &&
@@ -377,7 +377,8 @@ void MainWindow::createLayout() {
   m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
   m_viewHillshadedImages_action->setChecked(m_display_type == HILLSHADED_VIEW);
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
-  m_overlayGeoreferencedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
+  m_overlayGeoreferencedImages_action->setChecked(m_use_georef &&
+                                                  (m_view_type == VIEW_IN_SINGLE_WINDOW));
 
   if (m_widgets.size() == 2                             &&
       m_image_files.size() == 2                         &&
